@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-frame-animation"
+version = "0.1.0"
+description = "Agent-driven transparent 2D character frame animation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "AI Generation Orchestrators contributors"}]
+dependencies = [
+  "Pillow>=10,<13",
+  "jsonschema>=4.18,<5",
+  "numpy>=1.26,<3",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Multimedia :: Graphics",
+]
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "pip-audit>=2.7"]
+
+[project.scripts]
+ai-frame-animation = "ai_frame_animation.cli:main"
+
+[project.entry-points."ai_frame_animation.providers"]
+minimax_h3 = "ai_frame_animation.providers.minimax_h3:MiniMaxH3Provider"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ai_frame_animation = ["schemas/*.json"]

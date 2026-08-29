@@ -1,0 +1,17 @@
+{
+  "base_url": "http://127.0.0.1:8188",
+  "workflow_path": "replace-with-local-workflow.json",
+  "bindings": {
+    "reference_image": {
+      "node": "replace-reference-node-id",
+      "input": "image"
+    },
+    "positive_prompt": {
+      "node": "replace-prompt-node-id",
+      "input": "text"
+    }
+  },
+  "request_timeout_seconds": 30,
+  "poll_interval_seconds": 2,
+  "timeout_seconds": 1800
+}
