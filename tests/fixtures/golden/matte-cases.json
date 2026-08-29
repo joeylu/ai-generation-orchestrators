@@ -1,0 +1,68 @@
+{
+  "schema_version": "ai_frame_animation_golden_matte_cases_v1",
+  "provenance": "synthetic_reproduction",
+  "cases": [
+    {
+      "id": "enclosed-key-hole",
+      "problem": "A key-colour canvas hole enclosed by a wide foreground loop was retained by edge-connected-only matte logic.",
+      "declared_key": "#00FF00",
+      "width": 7,
+      "height": 7,
+      "rows": [
+        ["00FF00", "00FF00", "00FF00", "00FF00", "00FF00", "00FF00", "00FF00"],
+        ["00FF00", "D02020", "D02020", "D02020", "D02020", "D02020", "00FF00"],
+        ["00FF00", "D02020", "00FF00", "00FF00", "00FF00", "D02020", "00FF00"],
+        ["00FF00", "D02020", "00FF00", "00FF00", "00FF00", "D02020", "00FF00"],
+        ["00FF00", "D02020", "00FF00", "00FF00", "00FF00", "D02020", "00FF00"],
+        ["00FF00", "D02020", "D02020", "D02020", "D02020", "D02020", "00FF00"],
+        ["00FF00", "00FF00", "00FF00", "00FF00", "00FF00", "00FF00", "00FF00"]
+      ],
+      "expect_transparent": [[0, 0], [3, 3]],
+      "expect_opaque": [[1, 1], [5, 5]]
+    },
+    {
+      "id": "dynamic-background-a",
+      "problem": "The flat key background changes between source frames.",
+      "declared_key": "#00FF00",
+      "width": 4,
+      "height": 4,
+      "rows": [
+        ["20D040", "20D040", "20D040", "20D040"],
+        ["20D040", "D02020", "D02020", "20D040"],
+        ["20D040", "D02020", "D02020", "20D040"],
+        ["20D040", "20D040", "20D040", "20D040"]
+      ],
+      "expect_transparent": [[0, 0]],
+      "expect_opaque": [[1, 1]]
+    },
+    {
+      "id": "dynamic-background-b",
+      "problem": "The flat key background changes between source frames.",
+      "declared_key": "#00FF00",
+      "width": 4,
+      "height": 4,
+      "rows": [
+        ["60C080", "60C080", "60C080", "60C080"],
+        ["60C080", "D02020", "D02020", "60C080"],
+        ["60C080", "D02020", "D02020", "60C080"],
+        ["60C080", "60C080", "60C080", "60C080"]
+      ],
+      "expect_transparent": [[0, 0]],
+      "expect_opaque": [[1, 1]]
+    },
+    {
+      "id": "wide-colour-blend",
+      "problem": "A wide codec/antialias blend around the subject edge became opaque or retained green spill.",
+      "declared_key": "#00FF00",
+      "width": 6,
+      "height": 3,
+      "rows": [
+        ["00FF00", "00FF00", "00FF00", "00FF00", "00FF00", "00FF00"],
+        ["00FF00", "20DC20", "50AA40", "D02020", "D02020", "00FF00"],
+        ["00FF00", "00FF00", "00FF00", "00FF00", "00FF00", "00FF00"]
+      ],
+      "expect_soft_alpha": [[1, 1], [2, 1]],
+      "expect_opaque": [[3, 1]]
+    }
+  ]
+}
