@@ -10,15 +10,20 @@ transparent 2D sequence-frame animation.
 
 ## Agent workflow
 
-1. Translate the request into a job JSON without inventing character, action,
+1. On first use, run `ai-frame-animation self-test`. If the user asks for a new
+   workspace, call `init` with their motion request; never overwrite an existing
+   workspace. Run `tools check` for that workspace. Call `tools install` only
+   after the user has explicitly asked for or approved dependency setup.
+2. Translate the request into a job JSON without inventing character, action,
    camera, continuity, size, or frame-count decisions that materially change it.
-2. Run `ai-frame-animation doctor` and `ai-frame-animation plan`. Neither command
+3. Run `ai-frame-animation doctor` and `ai-frame-animation plan`. Neither command
    may submit provider work.
-3. Show the immutable plan digest and request one explicit compute confirmation.
-4. Create a single-use authorization and call `ai-frame-animation run` once.
-5. If raw video exists, call `process`, `inspect`, and `validate`. Deterministic
+4. Show the immutable plan digest and request one explicit compute confirmation.
+5. Create a unique attempt ID and revision paths, then call `ai-frame-animation
+   run` once. Do not ask the user to manage IDs or internal paths.
+6. If raw video exists, call `process`, `inspect`, and `validate`. Deterministic
    processing may be repeated from the same raw-video digest.
-6. Report the requested artifacts, quality policy, warnings, and manifest path.
+7. Report the requested artifacts, quality policy, warnings, and manifest path.
 
 The Agent does not generate frames itself, edit attempt state, assemble manifests,
 or waive quality failures. The installed CLI owns those operations.
@@ -36,6 +41,9 @@ or waive quality failures. The installed CLI owns those operations.
   Opaque media can never pass as transparent delivery.
 - Never expose credentials, private endpoints, workflow/model paths, Docker or
   worker state, or internal handoff material.
+- Never choose a random FFmpeg download. `tools install` must use the packaged
+  platform lock, verify its digest, stay inside the ignored workspace, and leave
+  system `PATH` unchanged.
 
 Read [references/video-state-machine.md](references/video-state-machine.md) when
 handling authorization, attempts, or retries. Read

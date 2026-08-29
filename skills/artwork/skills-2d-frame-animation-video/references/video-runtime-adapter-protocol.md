@@ -12,6 +12,8 @@ The core passes a submission token that is unique to the consumed attempt.
 ## Required operations
 
 - `doctor(config)`: read-only availability/capability report with redacted output.
+  It returns top-level `status` as `ready` or `action_required`; provider-specific
+  diagnostic fields remain inside that report.
 - `submit_once(plan, config, submission_token)`: perform at most one provider job
   submission and return an opaque provider request identifier.
 - `await_result(request_id, config)`: poll only the previously submitted request
