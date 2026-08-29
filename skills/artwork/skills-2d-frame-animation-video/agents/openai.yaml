@@ -1,0 +1,6 @@
+interface:
+  display_name: "Transparent 2D Frame Animation"
+  short_description: "Plan and deliver transparent 2D character animation"
+  default_prompt: "Use $skills-2d-frame-animation-video to turn my character reference and motion request into a validated transparent frame sequence."
+policy:
+  allow_implicit_invocation: true
