@@ -19,4 +19,7 @@ security fixes.
 - Paths are resolved under caller-selected roots before file mutation.
 - Diagnostic output redacts secrets, URLs with query strings, and private paths.
 - Release consumers verify immutable artifact SHA-256 values.
+- Project-local FFmpeg installation uses a packaged platform lock, verifies the
+  asset byte count and SHA-256, rejects unsafe archive paths, and records local
+  provenance without modifying system `PATH`.
 - Tests do not access private services or real provider compute.

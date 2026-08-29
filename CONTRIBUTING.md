@@ -13,6 +13,11 @@ Tests must be offline and deterministic. Use fixtures and test doubles; never
 start or connect to ComfyUI, submit `/prompt`, consume GPU, or call a private
 service from the test suite.
 
+FFmpeg tool-lock changes must use a dated retained asset rather than a rolling
+alias, update the pinned asset metadata and license, keep archive/path checks
+intact, and use a synthetic local ZIP test double. CI must not download the real
+FFmpeg archive.
+
 ## Golden regression policy
 
 A change to matte, spill cleanup, alpha, GIF, sampling, timeline, alignment, or

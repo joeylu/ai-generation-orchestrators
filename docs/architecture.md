@@ -9,6 +9,11 @@ User request + character references
                v
         Agent skill / job JSON
                |
+       init + self-test (no compute)
+               |
+       tools check (offline)
+       tools install (explicit setup only)
+               |
        doctor + plan (no compute)
                |
         one user confirmation

@@ -26,8 +26,12 @@ silently bypass a failed quality gate.
 
 ## Compute and retry safety
 
-- `doctor`, `plan`, `inspect`, and `validate` must not generate media or submit a
-  provider job.
+- `init`, `self-test`, `tools check`, `doctor`, `plan`, `inspect`, and `validate` must not
+  generate media or submit a provider job.
+- `tools install` may access the public locked download only after explicit user
+  setup authorization. It must verify byte count and SHA-256, write only below
+  the workspace's ignored `.ai-frame-animation/tools/`, and never change system
+  `PATH`.
 - A generation attempt requires one fresh, single-use authorization bound to an
   immutable plan digest.
 - Once a provider request may have been accepted, never automatically resubmit it.
