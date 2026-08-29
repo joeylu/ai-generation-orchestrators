@@ -119,6 +119,8 @@ Skill flows. The complete manual CLI flow is in
   been accepted.
 - Deterministic processing can be repeated from the same raw-video digest.
 - A 16/32/64-frame family is derived from one raw video and one decoded timeline.
+- A deterministic runtime adapter can supply a digest-bound `decoded-handoff` so
+  an existing verified probe/decode is reused without invoking FFmpeg again.
 - `strict` delivery is the default. Explicit `best_effort` never accepts opaque
   output as transparent success.
 - Tests use fixtures and test doubles only.
@@ -132,7 +134,7 @@ Skill flows. The complete manual CLI flow is in
 - `doctor` — report redacted, actionable dependency and plugin diagnostics.
 - `plan` — compile a structured job into an immutable, digest-bound plan.
 - `run` — consume one authorization and perform at most one provider submission.
-- `process` — derive one or more delivery variants from one raw video.
+- `process` — derive one delivery family from a raw video or verified predecoded handoff.
 - `inspect` — report attempt, raw-source, timeline, and artifact metadata.
 - `validate` — enforce `strict` or explicit `best_effort` delivery policy.
 

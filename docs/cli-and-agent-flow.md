@@ -83,9 +83,29 @@ The command fingerprints and probes the raw video, decodes once, and derives all
 requested 16/32/64 variants from the shared decoded timeline. A new output
 directory creates a deterministic revision without replaying generation.
 
+When a deterministic runtime adapter has already probed and losslessly decoded
+the same raw source, it may invoke:
+
+```powershell
+ai-frame-animation process `
+  --root my-animation `
+  --plan work/plan.json `
+  --raw-video work/raw/source.mp4 `
+  --decoded-handoff work/source/decoded-handoff.json `
+  --out-dir work/revisions/r001
+```
+
+The handoff binds the raw source, probe JSON, exact decoded directory inventory,
+every PNG byte count and SHA-256, and the probe/decode tool evidence. The core
+rejects symlinks, missing or extra frames, modified artifacts, path escapes, and
+non-contiguous frame indices before processing. This path performs no FFmpeg or
+ffprobe lookup or invocation.
+
 `--decoded-dir` plus `--probe-json` is reserved for regression fixtures and is
 accepted only when `AI_FRAME_ANIMATION_OFFLINE_TESTS=1`. Normal runs always probe
-and decode the supplied raw video themselves.
+and decode the supplied raw video themselves unless a verified handoff is given.
+An Agent must never hand-edit a handoff or use the fixture-only flags as a runtime
+adapter contract.
 
 ## 5. Inspect and validate
 

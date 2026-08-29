@@ -30,3 +30,16 @@ paths, workflow paths, node graphs, or host orchestration state into public logs
 
 MiniMax H3 is an optional plugin that supplies this interface from consumer-owned
 configuration. The core contains no bundled private workflow or model binding.
+
+## Predecoded processing handoff
+
+A deterministic adapter that already owns media probing and decoding may write
+`ai_frame_animation_decoded_handoff_v1` and pass it to `process
+--decoded-handoff`. It must bind the same raw source, one probe JSON artifact,
+one exact lossless-PNG directory inventory, every artifact fingerprint, and the
+probe/decode tool evidence. It must not include provider requests, attempts,
+authorization, endpoints, credentials, host paths, or transport state.
+
+The adapter creates the handoff mechanically. An Agent must never assemble it by
+hand. Processing rejects the entire handoff before output creation if any path,
+inventory entry, digest, or raw-source binding is invalid.

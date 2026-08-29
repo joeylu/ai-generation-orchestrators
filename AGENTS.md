@@ -39,6 +39,9 @@ silently bypass a failed quality gate.
 - Deterministic post-processing may be rerun from the same raw-video SHA-256.
 - A 16/32/64-frame delivery family must share one raw source, one probe, and one
   decode operation.
+- A runtime adapter may provide a canonical `decoded-handoff` document so the
+  core can reuse an already verified probe/decode. The Agent must not author or
+  repair that document; the deterministic producer owns its fingerprints.
 
 ## Media invariants
 
@@ -74,6 +77,9 @@ alpha correctness, checksum correctness, or path safety.
   internal handoff prompts.
 - Do not copy a production directory wholesale. Port only allowlisted behavior
   that is covered by public contract and regression tests.
+- A decoded handoff is public only when it contains provider-neutral artifact and
+  tool evidence. Private attempt, authorization, host, or transport fields are
+  forbidden.
 - Tests must use fixtures or test doubles. They must not start or connect to
   ComfyUI, submit `/prompt`, consume GPU, generate media, or access private
   services.

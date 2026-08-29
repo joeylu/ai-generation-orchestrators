@@ -12,6 +12,8 @@ Every requested frame-count variant and required artifact must exist and pass:
 
 Missing alpha, opaque fallback, a mismatched raw source, or a generation-attempt
 integrity failure is always fatal.
+For predecoded input, a handoff digest mismatch, path escape, symlink, missing or
+extra frame, or artifact fingerprint mismatch is also fatal under both policies.
 
 ## Best effort (explicit)
 

@@ -26,6 +26,8 @@ User request + character references
        |
        v
  fingerprint -> probe -> decode once -> shared source timeline
+       |             ^
+       +-> verified decoded-handoff from a deterministic adapter
                                   |
                          +--------+--------+
                          |        |        |
@@ -44,3 +46,6 @@ submission and polling of that submission only.
 
 Docker, web/database services, worker leasing, supervisor processes, login flows,
 and production handoff protocols are not architectural layers of this project.
+The public decoded-handoff is not a production protocol: it contains only a raw
+fingerprint, one probe artifact, one exact decoded PNG inventory, tool evidence,
+and a canonical digest.

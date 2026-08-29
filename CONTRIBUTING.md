@@ -31,6 +31,9 @@ Record fixture provenance as one of:
 Generated production candidates are not accepted goldens until their expected
 foreground/background and continuity behavior has been manually labelled. Never
 commit private source artwork, raw production video, host paths, or credentials.
+Historical code or a deleted synthetic test proves that a regression existed but
+does not by itself establish the correct pixel classification for a new matte
+policy.
 
 ## Change shape
 

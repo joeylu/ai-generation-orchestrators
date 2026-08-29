@@ -22,7 +22,9 @@ transparent 2D sequence-frame animation.
 5. Create a unique attempt ID and revision paths, then call `ai-frame-animation
    run` once. Do not ask the user to manage IDs or internal paths.
 6. If raw video exists, call `process`, `inspect`, and `validate`. Deterministic
-   processing may be repeated from the same raw-video digest.
+   processing may be repeated from the same raw-video digest. If a deterministic
+   runtime adapter supplies a verified `decoded-handoff`, pass it to `process`;
+   do not inspect, invent, or edit its hashes.
 7. Report the requested artifacts, quality policy, warnings, and manifest path.
 
 The Agent does not generate frames itself, edit attempt state, assemble manifests,
@@ -40,7 +42,8 @@ or waive quality failures. The installed CLI owns those operations.
 - Default to `strict`; use `best_effort` only when the user explicitly chooses it.
   Opaque media can never pass as transparent delivery.
 - Never expose credentials, private endpoints, workflow/model paths, Docker or
-  worker state, or internal handoff material.
+  worker state, or private handoff material. The public decoded-handoff may
+  contain only provider-neutral fingerprints and tool evidence.
 - Never choose a random FFmpeg download. `tools install` must use the packaged
   platform lock, verify its digest, stay inside the ignored workspace, and leave
   system `PATH` unchanged.

@@ -15,3 +15,9 @@ a copied source directory.
 Do not copy `tools/` into a production runtime package or patch the installed
 package in place. A production-only fix is temporary evidence for an upstream
 issue, never a second authoritative source.
+
+A consumer that performs its own bounded probe/decode should call the installed
+release with `process --decoded-handoff`. Its lock should also record the required
+handoff schema version. Private orchestration remains in the consumer; the public
+handoff contains no attempt, authorization, transport, endpoint, or host-path
+fields.

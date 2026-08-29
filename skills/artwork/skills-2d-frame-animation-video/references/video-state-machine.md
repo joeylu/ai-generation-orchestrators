@@ -27,6 +27,9 @@ DRAFT -> PLANNED -> AWAITING_CONFIRMATION -> AUTHORIZED
   not mutate or replay the generation attempt.
 - All requested frame-count variants share the raw identity, probe, decoded frame
   set, and source timeline.
+- A verified decoded handoff is processing evidence, not a generation state. It
+  permits deterministic reprocessing of the same raw digest and never permits a
+  provider resubmission.
 
 ## Terminal quality
 
