@@ -1,0 +1,34 @@
+# Contributing
+
+Read [AGENTS.md](AGENTS.md) before changing code or documentation.
+
+## Development checks
+
+```powershell
+python -m pip install -e ".[dev]"
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+Tests must be offline and deterministic. Use fixtures and test doubles; never
+start or connect to ComfyUI, submit `/prompt`, consume GPU, or call a private
+service from the test suite.
+
+## Golden regression policy
+
+A change to matte, spill cleanup, alpha, GIF, sampling, timeline, alignment, or
+packaging needs a fixture that reproduces the corresponding observed failure.
+Record fixture provenance as one of:
+
+- `synthetic_reproduction` — a minimal public reconstruction of the failure;
+- `sanitized_real_crop` — a reviewed, redistributable crop from a real sample;
+- `accepted_real_sample` — a redistributable real input with explicit approval.
+
+Generated production candidates are not accepted goldens until their expected
+foreground/background and continuity behavior has been manually labelled. Never
+commit private source artwork, raw production video, host paths, or credentials.
+
+## Change shape
+
+Keep provider-neutral contracts, deterministic media changes, provider plugins,
+goldens, and release/governance changes reviewable as separate commits. Do not
+copy a production directory wholesale.

@@ -1,0 +1,23 @@
+.DS_Store
+Thumbs.db
+.env
+.env.*
+node_modules/
+build/
+dist/
+coverage/
+.venv/
+.ai-frame-animation/
+.tmp-validation/
+.tmp-dag-validation/
+.tmp-opencode-imagegen/
+.tmp/
+.superpowers/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+# User references, raw videos, decoded frames, and deliveries stay local.
+work/
+# Preserved pre-migration local WIP; never include in the public release.
+artwork/sequence/references/
