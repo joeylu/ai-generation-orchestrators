@@ -58,6 +58,9 @@ class OnboardingTests(unittest.TestCase):
                 initialize_workspace(empty, motion="wave", reference="../private.png")
             self.assertFalse(empty.exists())
             with self.assertRaisesRegex(ValueError, "init_reference_must_be_safe_relative_path"):
+                initialize_workspace(empty, motion="wave", reference="..\\private.png")
+            self.assertFalse(empty.exists())
+            with self.assertRaisesRegex(ValueError, "init_reference_must_be_safe_relative_path"):
                 initialize_workspace(empty, motion="wave", reference=".git/config")
             self.assertFalse(empty.exists())
             with self.assertRaisesRegex(ValueError, "init_reference_must_be_safe_relative_path"):

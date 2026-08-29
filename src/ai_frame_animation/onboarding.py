@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from importlib import resources
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Sequence
 
 import jsonschema
@@ -25,8 +25,15 @@ SAFE_JOB_ID_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
 def _safe_relative_path(value: str, field: str) -> str:
-    candidate = Path(value)
-    if candidate.drive or candidate.is_absolute() or not candidate.parts or ".." in candidate.parts:
+    windows_candidate = PureWindowsPath(value)
+    candidate = PurePosixPath(value.replace("\\", "/"))
+    if (
+        windows_candidate.drive
+        or windows_candidate.is_absolute()
+        or candidate.is_absolute()
+        or not candidate.parts
+        or ".." in candidate.parts
+    ):
         raise ValueError(f"{field}_must_be_safe_relative_path")
     lowered = tuple(part.lower() for part in candidate.parts)
     if lowered[0] in {".git", ".ai-frame-animation", "work"} or lowered in {(".gitignore",), ("job.json",)}:
