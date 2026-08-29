@@ -4,16 +4,28 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import re
 import sys
-import tomllib
 from pathlib import Path
 
 
 ROOT = Path(__file__).parents[1]
+PROJECT_SECTION_RE = re.compile(r"(?ms)^\[project\][ \t]*\r?$\n(?P<body>.*?)(?=^\[|\Z)")
+PROJECT_VERSION_RE = re.compile(r'(?m)^version[ \t]*=[ \t]*"(?P<version>[^"\r\n]+)"[ \t]*(?:#.*)?$')
+
+
+def project_version_from_text(value: str) -> str:
+    section = PROJECT_SECTION_RE.search(value)
+    if section is None:
+        raise ValueError("project_section_missing")
+    matches = list(PROJECT_VERSION_RE.finditer(section.group("body")))
+    if len(matches) != 1:
+        raise ValueError("project_version_missing_or_ambiguous")
+    return matches[0].group("version")
 
 
 def project_version() -> str:
-    return str(tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
+    return project_version_from_text((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 
 def verify_tag(tag: str) -> None:
