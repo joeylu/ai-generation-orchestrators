@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-frame-animation/delivery-manifest.schema.json",
+  "title": "AI frame animation delivery manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool_version", "plan_sha256", "quality_policy", "raw_source", "source_timeline", "decode", "requested_frame_counts", "gif_requested", "variants", "failures", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "ai_frame_animation_delivery_manifest_v1"},
+    "tool_version": {"type": "string", "minLength": 1},
+    "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "quality_policy": {"enum": ["strict", "best_effort"]},
+    "raw_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256", "media_type"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "media_type": {"const": "video"}
+      }
+    },
+    "source_timeline": {
+      "type": "object",
+      "required": ["schema_version", "decoded_frame_count", "raw_fps", "raw_duration_seconds", "semantic_duration_seconds", "frame_timestamps_seconds", "timestamps_source", "terminal_policy"]
+    },
+    "decode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_count", "decoded_frame_count"],
+      "properties": {"operation_count": {"const": 1}, "decoded_frame_count": {"type": "integer", "minimum": 1}}
+    },
+    "requested_frame_counts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": [16, 32, 64]}},
+    "gif_requested": {"type": "boolean"},
+    "variants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["frame_count", "status", "warnings", "manifest"],
+        "properties": {
+          "frame_count": {"enum": [16, 32, 64]},
+          "status": {"const": "completed"},
+          "warnings": {"type": "array", "items": {"type": "string"}},
+          "manifest": {"type": "object"}
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["frame_count", "status", "code"],
+        "properties": {
+          "frame_count": {"enum": [16, 32, 64]},
+          "status": {"const": "failed"},
+          "code": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

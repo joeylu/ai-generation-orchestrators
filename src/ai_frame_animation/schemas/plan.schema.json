@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-frame-animation/plan.schema.json",
+  "title": "Immutable AI frame animation plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "job_id", "character", "motion", "delivery", "generation", "provider", "plan_sha256"],
+  "properties": {
+    "schema_version": {"const": "ai_frame_animation_plan_v1"},
+    "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "job_id": {"type": "string", "minLength": 1},
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "reference_fingerprint", "description"],
+      "properties": {
+        "reference": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "reference_fingerprint": {"$ref": "#/$defs/imageFingerprint"}
+      }
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request", "continuity"],
+      "properties": {
+        "request": {"type": "string", "minLength": 1},
+        "continuity": {"enum": ["loop", "one_shot"]}
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_counts", "size", "quality", "gif", "key_color"],
+      "properties": {
+        "frame_counts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": [16, 32, 64]}
+        },
+        "size": {"enum": [128, 256, 512]},
+        "quality": {"enum": ["strict", "best_effort"]},
+        "gif": {"type": "boolean"},
+        "key_color": {
+          "enum": ["#FF0000", "#FF8000", "#FFFF00", "#80FF00", "#00FF00", "#00FF80", "#00FFFF", "#0080FF", "#0000FF", "#8000FF", "#FF00FF", "#FF0080"]
+        }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt", "key_analysis"],
+      "properties": {
+        "prompt": {"type": "string", "minLength": 1},
+        "key_analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "requested", "selected", "selected_safe", "safe_candidate_count", "reference_mode", "visible_pixel_count", "candidates", "warning_codes"],
+          "properties": {
+            "schema_version": {"const": "video_key_color_analysis_v1"},
+            "requested": {"type": "string"},
+            "selected": {"type": "string"},
+            "selected_safe": {"const": true},
+            "safe_candidate_count": {"type": "integer", "minimum": 1},
+            "reference_mode": {"enum": ["alpha_foreground", "opaque_full_image_conservative"]},
+            "visible_pixel_count": {"type": "integer", "minimum": 1},
+            "candidates": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+            "warning_codes": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plugin"],
+      "properties": {"plugin": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"}}
+    }
+  },
+  "$defs": {
+    "imageFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bytes", "sha256", "media_type"],
+      "properties": {
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "media_type": {"const": "image"}
+      }
+    }
+  }
+}

@@ -1,0 +1,209 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any, Mapping
+
+from PIL import Image
+
+from .canonical import SHA256_RE, fingerprint, relative_posix, rooted_path, stamp_document
+from .media.key_analysis import CANDIDATE_KEYS, analyze_key_color
+
+
+SUPPORTED_FRAME_COUNTS = (16, 32, 64)
+SUPPORTED_SIZES = (128, 256, 512)
+SUPPORTED_CONTINUITY = ("loop", "one_shot")
+SUPPORTED_QUALITY = ("strict", "best_effort")
+PLUGIN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
+
+
+def _mapping(value: object, field: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field}_must_be_object")
+    return value
+
+
+def _text(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field}_must_be_nonempty_string")
+    return value.strip()
+
+
+def _reject_unknown(value: Mapping[str, Any], allowed: set[str], field: str) -> None:
+    unknown = sorted(set(value) - allowed)
+    if unknown:
+        raise ValueError(f"{field}_unknown_fields:{','.join(unknown)}")
+
+
+def validate_plan_contract(plan: Mapping[str, Any]) -> None:
+    _reject_unknown(
+        plan,
+        {"schema_version", "job_id", "character", "motion", "delivery", "generation", "provider", "plan_sha256"},
+        "plan",
+    )
+    if plan.get("schema_version") != "ai_frame_animation_plan_v1":
+        raise ValueError("plan_schema_version_unsupported")
+    _text(plan.get("job_id"), "plan.job_id")
+    character = _mapping(plan.get("character"), "plan.character")
+    motion = _mapping(plan.get("motion"), "plan.motion")
+    delivery = _mapping(plan.get("delivery"), "plan.delivery")
+    generation = _mapping(plan.get("generation"), "plan.generation")
+    provider = _mapping(plan.get("provider"), "plan.provider")
+    _reject_unknown(character, {"reference", "reference_fingerprint", "description"}, "plan.character")
+    _reject_unknown(motion, {"request", "continuity"}, "plan.motion")
+    _reject_unknown(delivery, {"frame_counts", "size", "quality", "gif", "key_color"}, "plan.delivery")
+    _reject_unknown(generation, {"prompt", "key_analysis"}, "plan.generation")
+    _reject_unknown(provider, {"plugin"}, "plan.provider")
+    _text(character.get("reference"), "plan.character.reference")
+    if not isinstance(character.get("description"), str):
+        raise ValueError("plan_character_description_invalid")
+    reference_fingerprint = _mapping(character.get("reference_fingerprint"), "plan.reference_fingerprint")
+    _reject_unknown(reference_fingerprint, {"bytes", "sha256", "media_type"}, "plan.reference_fingerprint")
+    if (
+        isinstance(reference_fingerprint.get("bytes"), bool)
+        or not isinstance(reference_fingerprint.get("bytes"), int)
+        or int(reference_fingerprint["bytes"]) < 0
+        or not isinstance(reference_fingerprint.get("sha256"), str)
+        or not SHA256_RE.fullmatch(str(reference_fingerprint["sha256"]))
+        or reference_fingerprint.get("media_type") != "image"
+    ):
+        raise ValueError("plan_reference_fingerprint_invalid")
+    _text(motion.get("request"), "plan.motion.request")
+    if motion.get("continuity") not in SUPPORTED_CONTINUITY:
+        raise ValueError("plan_motion_continuity_invalid")
+    counts = delivery.get("frame_counts")
+    if (
+        not isinstance(counts, list)
+        or not counts
+        or any(isinstance(item, bool) or item not in SUPPORTED_FRAME_COUNTS for item in counts)
+        or counts != sorted(set(counts))
+        or delivery.get("size") not in SUPPORTED_SIZES
+        or delivery.get("quality") not in SUPPORTED_QUALITY
+        or not isinstance(delivery.get("gif"), bool)
+        or delivery.get("key_color") not in CANDIDATE_KEYS
+    ):
+        raise ValueError("plan_delivery_invalid")
+    _text(generation.get("prompt"), "plan.generation.prompt")
+    analysis = _mapping(generation.get("key_analysis"), "plan.generation.key_analysis")
+    _reject_unknown(
+        analysis,
+        {
+            "schema_version",
+            "requested",
+            "selected",
+            "selected_safe",
+            "safe_candidate_count",
+            "reference_mode",
+            "visible_pixel_count",
+            "candidates",
+            "warning_codes",
+        },
+        "plan.generation.key_analysis",
+    )
+    if (
+        analysis.get("schema_version") != "video_key_color_analysis_v1"
+        or analysis.get("selected") != delivery.get("key_color")
+        or analysis.get("selected_safe") is not True
+        or not isinstance(analysis.get("candidates"), list)
+        or not isinstance(analysis.get("warning_codes"), list)
+    ):
+        raise ValueError("plan_key_analysis_invalid")
+    plugin = _text(provider.get("plugin"), "plan.provider.plugin")
+    if not PLUGIN_ID_RE.fullmatch(plugin):
+        raise ValueError("plan_provider_plugin_invalid")
+    if not isinstance(plan.get("plan_sha256"), str) or not SHA256_RE.fullmatch(str(plan["plan_sha256"])):
+        raise ValueError("plan_digest_invalid")
+
+
+def compile_plan(job: Mapping[str, Any], root: Path) -> dict[str, Any]:
+    allowed = {"schema_version", "job_id", "character", "motion", "delivery", "provider"}
+    unknown = sorted(set(job) - allowed)
+    if unknown:
+        raise ValueError(f"job_unknown_fields:{','.join(unknown)}")
+    if job.get("schema_version") != "1.0":
+        raise ValueError("job_schema_version_unsupported")
+
+    character = _mapping(job.get("character"), "character")
+    motion = _mapping(job.get("motion"), "motion")
+    delivery = _mapping(job.get("delivery"), "delivery")
+    provider = _mapping(job.get("provider"), "provider")
+    _reject_unknown(character, {"reference", "description"}, "character")
+    _reject_unknown(motion, {"request", "continuity"}, "motion")
+    _reject_unknown(delivery, {"frame_counts", "size", "quality", "gif", "key_color"}, "delivery")
+    _reject_unknown(provider, {"plugin"}, "provider")
+    reference = rooted_path(root, _text(character.get("reference"), "character.reference"), must_exist=True)
+    if reference.is_symlink() or not reference.is_file():
+        raise ValueError("character_reference_invalid")
+
+    continuity = _text(motion.get("continuity"), "motion.continuity")
+    if continuity not in SUPPORTED_CONTINUITY:
+        raise ValueError("motion_continuity_invalid")
+    request = _text(motion.get("request"), "motion.request")
+
+    raw_counts = delivery.get("frame_counts")
+    if (
+        not isinstance(raw_counts, list)
+        or not raw_counts
+        or any(isinstance(item, bool) or not isinstance(item, int) or item not in SUPPORTED_FRAME_COUNTS for item in raw_counts)
+    ):
+        raise ValueError("delivery_frame_counts_invalid")
+    frame_counts = sorted(set(raw_counts))
+    size = delivery.get("size")
+    if size not in SUPPORTED_SIZES:
+        raise ValueError("delivery_size_invalid")
+    quality = delivery.get("quality", "strict")
+    if quality not in SUPPORTED_QUALITY:
+        raise ValueError("delivery_quality_invalid")
+    gif = delivery.get("gif", True)
+    if not isinstance(gif, bool):
+        raise ValueError("delivery_gif_invalid")
+    requested_key = delivery.get("key_color", "auto")
+    if not isinstance(requested_key, str):
+        raise ValueError("delivery_key_color_invalid")
+    with Image.open(reference) as source:
+        key_analysis = analyze_key_color(source, requested=requested_key, max_pixels=262_144)
+    if not key_analysis["selected_safe"] or not key_analysis["selected"]:
+        raise ValueError("no_safe_key_color_for_reference")
+    key_color = str(key_analysis["selected"])
+    raw_description = character.get("description", "")
+    if not isinstance(raw_description, str):
+        raise ValueError("character_description_invalid")
+    description = raw_description.strip()
+    plugin = _text(provider.get("plugin"), "provider.plugin")
+    if not PLUGIN_ID_RE.fullmatch(plugin):
+        raise ValueError("provider_plugin_invalid")
+    generation_prompt = " ".join(
+        item
+        for item in (
+            description,
+            request,
+            f"Stable camera. Full character silhouette visible. Solid flat {key_color} background with no shadows, gradients, text, border, or extra objects.",
+        )
+        if item
+    )
+
+    plan = {
+        "schema_version": "ai_frame_animation_plan_v1",
+        "job_id": _text(job.get("job_id"), "job_id"),
+        "character": {
+            "reference": relative_posix(root, reference),
+            "reference_fingerprint": fingerprint(reference, media_type="image"),
+            "description": description,
+        },
+        "motion": {
+            "request": request,
+            "continuity": continuity,
+        },
+        "delivery": {
+            "frame_counts": frame_counts,
+            "size": size,
+            "quality": quality,
+            "gif": gif,
+            "key_color": key_color,
+        },
+        "generation": {"prompt": generation_prompt, "key_analysis": key_analysis},
+        "provider": {"plugin": plugin},
+    }
+    stamped = stamp_document(plan, "plan_sha256")
+    validate_plan_contract(stamped)
+    return stamped

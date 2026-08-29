@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-frame-animation/job.schema.json",
+  "title": "AI frame animation job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "job_id", "character", "motion", "delivery", "provider"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "job_id": {"type": "string", "minLength": 1},
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference"],
+      "properties": {
+        "reference": {"type": "string", "minLength": 1},
+        "description": {"type": "string"}
+      }
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request", "continuity"],
+      "properties": {
+        "request": {"type": "string", "minLength": 1},
+        "continuity": {"enum": ["loop", "one_shot"]}
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_counts", "size"],
+      "properties": {
+        "frame_counts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": [16, 32, 64]}
+        },
+        "size": {"enum": [128, 256, 512]},
+        "quality": {"enum": ["strict", "best_effort"], "default": "strict"},
+        "gif": {"type": "boolean", "default": true},
+        "key_color": {
+          "enum": ["auto", "#FF0000", "#FF8000", "#FFFF00", "#80FF00", "#00FF00", "#00FF80", "#00FFFF", "#0080FF", "#0000FF", "#8000FF", "#FF00FF", "#FF0080"],
+          "default": "auto"
+        }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plugin"],
+      "properties": {"plugin": {"type": "string", "minLength": 1}}
+    }
+  }
+}
