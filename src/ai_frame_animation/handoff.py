@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -47,18 +48,24 @@ def _lexical_absolute(path: Path) -> Path:
 
 def _reject_symlink_components(root: Path, candidate: Path, code: str) -> None:
     lexical = _lexical_absolute(candidate)
-    try:
-        relative = lexical.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(code) from exc
-    current = root
-    for part in relative.parts:
-        current = current / part
+    current = lexical
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    while True:
         try:
-            if current.is_symlink():
+            details = current.lstat()
+            if stat.S_ISLNK(details.st_mode) or bool(getattr(details, "st_file_attributes", 0) & reparse_flag):
                 raise ValueError(code)
         except OSError as exc:
             raise ValueError(code) from exc
+        try:
+            if current.samefile(root):
+                return
+        except OSError as exc:
+            raise ValueError(code) from exc
+        parent = current.parent
+        if parent == current:
+            raise ValueError(code)
+        current = parent
 
 
 def _external_path(root: Path, value: str | Path, code: str) -> Path:
