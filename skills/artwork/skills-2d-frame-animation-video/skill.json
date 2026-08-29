@@ -1,6 +1,6 @@
 {
   "name": "skills-2d-frame-animation-video",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Agent entry point for transparent 2D character sequence-frame animation.",
   "entry": "SKILL.md",
   "cli": "ai-frame-animation",
