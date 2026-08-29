@@ -338,6 +338,9 @@ def _write_install_record(source: Path, platform_key: str, entry: Mapping[str, A
         or license_file.is_symlink()
     ):
         raise ValueError("ffmpeg_tool_required_file_missing")
+    if os.name != "nt":
+        for executable in (ffmpeg, ffprobe):
+            executable.chmod(executable.stat().st_mode | stat.S_IXUSR)
     versions = {"ffmpeg": _version_line(ffmpeg), "ffprobe": _version_line(ffprobe)}
     if any(not value or str(entry["version"]) not in value for value in versions.values()):
         raise ValueError("ffmpeg_tool_version_mismatch")

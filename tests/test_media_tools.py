@@ -81,6 +81,10 @@ class MediaToolTests(unittest.TestCase):
             self.assertEqual(report["network_probe"], "performed")
             self.assertEqual(checked["status"], "ready")
             self.assertEqual(checked["integrity"], "verified")
+            if os.name != "nt":
+                tool_root = root / ".ai-frame-animation" / "tools" / "ffmpeg" / "bin"
+                self.assertTrue(os.access(tool_root / "ffmpeg", os.X_OK))
+                self.assertTrue(os.access(tool_root / "ffprobe", os.X_OK))
             record = json.loads(
                 (root / ".ai-frame-animation" / "tools" / "ffmpeg" / "INSTALL.json").read_text(encoding="utf-8")
             )
