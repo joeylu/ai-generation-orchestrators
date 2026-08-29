@@ -1,0 +1,30 @@
+{
+  "schema_version": "ffmpeg_tool_lock_v1",
+  "platforms": {
+    "windows-x86_64": {
+      "version": "n8.1.2-34-g9b6c8969e0-20260731",
+      "distribution": "BtbN/FFmpeg-Builds",
+      "source_page": "https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-07-31-14-10",
+      "release_tag": "autobuild-2026-07-31-14-10",
+      "retention": "month_end_two_year",
+      "download_url": "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/496767217",
+      "headers": {
+        "Accept": "application/octet-stream",
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
+      "github_asset_id": 496767217,
+      "asset_name": "ffmpeg-n8.1.2-34-g9b6c8969e0-win64-gpl-shared-8.1.zip",
+      "asset_bytes": 79691570,
+      "sha256": "16a289099a2c0ae4862b4f42e101c058e2227ee5f2e2afb1660b560bb229b477",
+      "archive_entries": 237,
+      "expanded_bytes": 209640402,
+      "archive_root": "ffmpeg-n8.1.2-34-g9b6c8969e0-win64-gpl-shared-8.1",
+      "required_files": {
+        "ffmpeg": "bin/ffmpeg.exe",
+        "ffprobe": "bin/ffprobe.exe",
+        "license": "LICENSE.txt"
+      },
+      "license": "GPL-3.0-or-later"
+    }
+  }
+}

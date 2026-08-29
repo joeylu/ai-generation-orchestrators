@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
-from ..canonical import load_json, redact, rooted_path
+from ..canonical import load_json, redact, rooted_path, safe_error_code
 from .base import GenerationFailed, GenerationIndeterminate, GenerationNotSubmitted
 
 
@@ -57,12 +57,27 @@ class MiniMaxH3Provider:
 
     def doctor(self) -> Mapping[str, Any]:
         workflow = self._workflow_path()
+        workflow_valid = False
+        diagnostic_code = "workflow_missing"
+        if workflow.is_file():
+            try:
+                value = load_json(workflow)
+                candidate = copy.deepcopy(value)
+                self._bind(candidate, "reference_image", "doctor-reference.png")
+                self._bind(candidate, "positive_prompt", "doctor prompt")
+                workflow_valid = True
+                diagnostic_code = "ready"
+            except Exception as exc:
+                diagnostic_code = safe_error_code(exc)
         return redact(
             {
                 "plugin": "minimax_h3",
+                "status": "ready" if workflow_valid else "action_required",
                 "configuration": "valid",
                 "workflow_path": str(workflow),
                 "workflow_exists": workflow.is_file(),
+                "workflow_valid": workflow_valid,
+                "diagnostic_code": diagnostic_code,
                 "base_url": self.config["base_url"],
                 "network_probe": "not_performed",
             }
@@ -123,6 +138,8 @@ class MiniMaxH3Provider:
         node = workflow.get(binding["node"])
         if not isinstance(node, dict) or not isinstance(node.get("inputs"), dict):
             raise ValueError(f"minimax_h3_workflow_node_missing:{name}")
+        if binding["input"] not in node["inputs"]:
+            raise ValueError(f"minimax_h3_workflow_input_missing:{name}")
         node["inputs"][binding["input"]] = value
 
     def _upload_reference(self, path: Path, token: str) -> Mapping[str, str]:

@@ -20,10 +20,13 @@ from ai_frame_animation.state import AttemptStore
 
 
 class CoreContractTests(unittest.TestCase):
-    def test_cli_exposes_six_public_commands(self) -> None:
+    def test_cli_exposes_public_workflow_and_onboarding_commands(self) -> None:
         parser = build_parser()
         subparsers_action = next(action for action in parser._actions if getattr(action, "choices", None))
-        self.assertEqual(set(subparsers_action.choices), {"doctor", "plan", "run", "process", "inspect", "validate"})
+        self.assertEqual(
+            set(subparsers_action.choices),
+            {"init", "self-test", "tools", "doctor", "plan", "run", "process", "inspect", "validate"},
+        )
 
     def test_plan_is_digest_bound_and_provider_config_free(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

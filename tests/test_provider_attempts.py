@@ -127,6 +127,32 @@ class ProviderAttemptTests(unittest.TestCase):
             doctor = provider.doctor()
             self.assertEqual(doctor["network_probe"], "not_performed")
             self.assertEqual(doctor["workflow_path"], "<redacted>")
+            self.assertEqual(doctor["status"], "ready")
+            self.assertTrue(doctor["workflow_valid"])
+            self.assertEqual(doctor["diagnostic_code"], "ready")
+
+    def test_minimax_doctor_rejects_invalid_binding_without_network(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            workflow = {"1": {"inputs": {"different": ""}, "class_type": "LoadImage"}}
+            (root / "workflow.json").write_text(json.dumps(workflow), encoding="utf-8")
+            config = {
+                "base_url": "http://127.0.0.1:8188",
+                "workflow_path": "workflow.json",
+                "bindings": {
+                    "reference_image": {"node": "1", "input": "image"},
+                    "positive_prompt": {"node": "2", "input": "text"},
+                },
+            }
+            config_path = root / "config.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            provider = MiniMaxH3Provider(config_path=config_path, root=root)
+            with patch("ai_frame_animation.providers.minimax_h3.urlopen") as urlopen:
+                report = provider.doctor()
+            urlopen.assert_not_called()
+            self.assertEqual(report["status"], "action_required")
+            self.assertFalse(report["workflow_valid"])
+            self.assertEqual(report["diagnostic_code"], "minimax_h3_workflow_input_missing:reference_image")
 
     def test_minimax_adapter_rejects_lookalike_loopback_host(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -5,7 +5,6 @@ import importlib.metadata
 import json
 import os
 import platform
-import shutil
 import sys
 import uuid
 from pathlib import Path
@@ -13,6 +12,8 @@ from typing import Any, Mapping, Sequence
 
 from . import __version__
 from .canonical import fingerprint, load_json, redact, rooted_path, safe_error_code, verify_document, write_json_atomic
+from .media_tools import check_ffmpeg_tools, install_ffmpeg, resolve_media_tool
+from .onboarding import initialize_workspace, run_self_test
 from .planning import compile_plan, validate_plan_contract
 from .processing import process_video
 from .providers.base import GenerationFailed, GenerationIndeterminate, GenerationNotSubmitted
@@ -48,29 +49,97 @@ def _check_reference(root: Path, plan: Mapping[str, Any]) -> None:
 def command_doctor(args: argparse.Namespace) -> int:
     if bool(args.provider) != bool(args.provider_config):
         raise ValueError("doctor_provider_and_config_must_be_supplied_together")
+    root = args.root.resolve(strict=True)
     packages: dict[str, str] = {}
     for distribution in ("Pillow", "jsonschema", "numpy"):
         try:
             packages[distribution] = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
             packages[distribution] = "missing"
+    missing_packages = sorted(name for name, version in packages.items() if version == "missing")
+    resolved_ffmpeg = resolve_media_tool(root, args.ffmpeg, "ffmpeg")
+    resolved_ffprobe = resolve_media_tool(root, args.ffprobe, "ffprobe")
+    executables = {
+        "ffmpeg": "available" if resolved_ffmpeg else "missing",
+        "ffprobe": "available" if resolved_ffprobe else "missing",
+    }
+    missing_executables = sorted(name for name, status in executables.items() if status == "missing")
+    actions: list[str] = []
+    if missing_packages:
+        actions.append("Reinstall the immutable release wheel in the active Python environment.")
+    if missing_executables:
+        actions.append(
+            "Run `ai-frame-animation tools install --root <root>` on supported platforms, "
+            "install FFmpeg on PATH, or pass explicit paths."
+        )
+    provider_report: Mapping[str, Any] | None = None
+    provider_ready: bool | None = None
+    if args.provider and args.provider_config:
+        provider = load_provider(args.provider, config_path=args.provider_config.resolve(strict=True), root=root)
+        provider_report = provider.doctor()
+        provider_ready = provider_report.get("status") == "ready"
+        if not provider_ready:
+            actions.append("Correct the provider's static configuration diagnostics before requesting compute.")
+
+    planning_ready = not missing_packages
+    processing_ready = planning_ready and not missing_executables
+    requested_ready = processing_ready and provider_ready is not False
     report: dict[str, Any] = {
         "schema_version": "ai_frame_animation_doctor_v1",
+        "status": "ready" if requested_ready else "action_required",
         "version": __version__,
         "python": platform.python_version(),
         "packages": packages,
-        "executables": {
-            "ffmpeg": "available" if shutil.which(args.ffmpeg) else "missing",
-            "ffprobe": "available" if shutil.which(args.ffprobe) else "missing",
+        "executables": executables,
+        "capabilities": {
+            "planning": "ready" if planning_ready else "action_required",
+            "processing": "ready" if processing_ready else "action_required",
+            "generation": "not_checked" if provider_ready is None else ("statically_ready" if provider_ready else "action_required"),
         },
+        "actions": actions,
         "network_probe": "not_performed",
         "provider_compute": "not_performed",
     }
-    if args.provider and args.provider_config:
-        provider = load_provider(args.provider, config_path=args.provider_config.resolve(strict=True), root=args.root.resolve(strict=True))
-        report["provider"] = provider.doctor()
+    if provider_report is not None:
+        report["provider"] = provider_report
     _print(redact(report))
+    return 1 if args.require_ready and not requested_ready else 0
+
+
+def command_init(args: argparse.Namespace) -> int:
+    _print(
+        initialize_workspace(
+            args.root,
+            motion=args.motion,
+            reference=args.reference,
+            description=args.description,
+            job_id=args.job_id,
+            continuity=args.continuity,
+            frame_counts=args.frames,
+            size=args.size,
+            quality=args.quality,
+            gif=args.gif,
+            provider=args.provider,
+        )
+    )
     return 0
+
+
+def command_self_test(args: argparse.Namespace) -> int:
+    del args
+    _print(run_self_test())
+    return 0
+
+
+def command_tools_install(args: argparse.Namespace) -> int:
+    _print(install_ffmpeg(args.root))
+    return 0
+
+
+def command_tools_check(args: argparse.Namespace) -> int:
+    report = check_ffmpeg_tools(args.root)
+    _print(redact(report))
+    return 1 if args.require_ready and report["status"] != "ready" else 0
 
 
 def command_plan(args: argparse.Namespace) -> int:
@@ -141,14 +210,20 @@ def command_process(args: argparse.Namespace) -> int:
         raise ValueError("offline_decoded_fixture_requires_test_mode")
     decoded = rooted_path(root, args.decoded_dir, must_exist=True) if args.decoded_dir else None
     probe_payload = load_json(rooted_path(root, args.probe_json, must_exist=True)) if args.probe_json else None
+    ffmpeg = resolve_media_tool(root, args.ffmpeg, "ffmpeg")
+    ffprobe = resolve_media_tool(root, args.ffprobe, "ffprobe")
+    if decoded is None and ffmpeg is None:
+        raise ValueError("ffmpeg_not_found")
+    if probe_payload is None and ffprobe is None:
+        raise ValueError("ffprobe_not_found")
     delivery = process_video(
         root=root,
         plan=plan,
         raw_video=raw,
         out_dir=out,
         key_color=str(plan["delivery"]["key_color"]),
-        ffprobe=args.ffprobe,
-        ffmpeg=args.ffmpeg,
+        ffprobe=ffprobe or "ffprobe",
+        ffmpeg=ffmpeg or "ffmpeg",
         decoded_dir=decoded,
         probe_payload=probe_payload,
     )
@@ -174,12 +249,40 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    init = subparsers.add_parser("init", help="create a private-by-default starter workspace")
+    init.add_argument("--root", required=True, type=Path)
+    init.add_argument("--motion", required=True)
+    init.add_argument("--reference", default="reference.png")
+    init.add_argument("--description", default="")
+    init.add_argument("--job-id")
+    init.add_argument("--continuity", choices=("loop", "one_shot"), default="loop")
+    init.add_argument("--frames", nargs="+", type=int, choices=(16, 32, 64), default=[16, 32, 64])
+    init.add_argument("--size", type=int, choices=(128, 256, 512), default=256)
+    init.add_argument("--quality", choices=("strict", "best_effort"), default="strict")
+    init.add_argument("--gif", action=argparse.BooleanOptionalAction, default=True)
+    init.add_argument("--provider", choices=("minimax_h3",), default="minimax_h3")
+    init.set_defaults(handler=command_init)
+
+    self_test = subparsers.add_parser("self-test", help="run an offline, no-media installation check")
+    self_test.set_defaults(handler=command_self_test)
+
+    tools = subparsers.add_parser("tools", help="manage deterministic project-local media tools")
+    tool_commands = tools.add_subparsers(dest="tool_command", required=True)
+    tools_install = tool_commands.add_parser("install", help="download and verify a locked project-local FFmpeg build")
+    tools_install.add_argument("--root", type=Path, default=Path.cwd())
+    tools_install.set_defaults(handler=command_tools_install)
+    tools_check = tool_commands.add_parser("check", help="verify FFmpeg and ffprobe without media or network")
+    tools_check.add_argument("--root", type=Path, default=Path.cwd())
+    tools_check.add_argument("--require-ready", action="store_true")
+    tools_check.set_defaults(handler=command_tools_check)
+
     doctor = subparsers.add_parser("doctor", help="offline, redacted dependency diagnostics")
     doctor.add_argument("--root", type=Path, default=Path.cwd())
-    doctor.add_argument("--ffmpeg", default="ffmpeg")
-    doctor.add_argument("--ffprobe", default="ffprobe")
+    doctor.add_argument("--ffmpeg", help="explicit executable path or command name")
+    doctor.add_argument("--ffprobe", help="explicit executable path or command name")
     doctor.add_argument("--provider")
     doctor.add_argument("--provider-config", type=Path)
+    doctor.add_argument("--require-ready", action="store_true", help="return nonzero when requested capabilities are not ready")
     doctor.set_defaults(handler=command_doctor)
 
     plan = subparsers.add_parser("plan", help="compile an immutable plan without compute")
@@ -203,8 +306,8 @@ def build_parser() -> argparse.ArgumentParser:
     process.add_argument("--plan", required=True, type=Path)
     process.add_argument("--raw-video", required=True, type=Path)
     process.add_argument("--out-dir", required=True, type=Path)
-    process.add_argument("--ffmpeg", default="ffmpeg")
-    process.add_argument("--ffprobe", default="ffprobe")
+    process.add_argument("--ffmpeg", help="explicit executable path or command name")
+    process.add_argument("--ffprobe", help="explicit executable path or command name")
     process.add_argument("--decoded-dir", type=Path, help="offline/predecoded frame directory")
     process.add_argument("--probe-json", type=Path, help="offline ffprobe-compatible fixture")
     process.set_defaults(handler=command_process)

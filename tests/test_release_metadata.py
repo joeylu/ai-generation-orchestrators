@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_frame_animation import __version__
 from scripts.build_release_metadata import build_metadata, project_version, project_version_from_text, verify_tag
 
 
@@ -15,6 +16,7 @@ class ReleaseMetadataTests(unittest.TestCase):
     def test_versions_agree(self) -> None:
         skill = json.loads((ROOT / "skills" / "artwork" / "skills-2d-frame-animation-video" / "skill.json").read_text(encoding="utf-8"))
         self.assertEqual(project_version(), skill["version"])
+        self.assertEqual(project_version(), __version__)
         verify_tag(f"v{project_version()}")
 
     def test_version_parser_is_scoped_to_project_section(self) -> None:
