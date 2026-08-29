@@ -13,6 +13,7 @@ from PIL import Image
 
 from . import __version__
 from .canonical import fingerprint, relative_posix, rooted_path, safe_error_code, stamp_document, write_json_atomic
+from .handoff import DecodedHandoff
 from .media.align import align_rgba_frames
 from .media.gif import export_preview_gif
 from .media.matte import calibrate_key_color, color_key_to_rgba, parse_hex_color
@@ -214,6 +215,7 @@ def _process_from_decoded_into(
     probe_payload: Mapping[str, Any],
     out_dir: Path,
     key_color: str,
+    decoded_handoff_sha256: str | None,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=False)
     raw = fingerprint(raw_video, media_type="video")
@@ -251,6 +253,14 @@ def _process_from_decoded_into(
             failures.append({"frame_count": int(frame_count), "status": "failed", "code": safe_error_code(exc)})
             if quality == "strict":
                 raise
+    decode_evidence: dict[str, Any] = {
+        "probe_operation_count": 1,
+        "operation_count": 1,
+        "decoded_frame_count": len(source_images),
+        "input_mode": "verified_decoded_handoff" if decoded_handoff_sha256 else "internal_decode",
+    }
+    if decoded_handoff_sha256:
+        decode_evidence["handoff_sha256"] = decoded_handoff_sha256
     family = stamp_document({
         "schema_version": "ai_frame_animation_delivery_manifest_v1",
         "tool_version": __version__,
@@ -258,7 +268,7 @@ def _process_from_decoded_into(
         "quality_policy": quality,
         "raw_source": {"path": relative_posix(root, raw_video), **raw},
         "source_timeline": source_timeline,
-        "decode": {"operation_count": 1, "decoded_frame_count": len(source_images)},
+        "decode": decode_evidence,
         "requested_frame_counts": list(delivery["frame_counts"]),
         "gif_requested": bool(delivery["gif"]),
         "variants": variants,
@@ -279,6 +289,7 @@ def process_from_decoded(
     probe_payload: Mapping[str, Any],
     out_dir: Path,
     key_color: str,
+    decoded_handoff_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Build a complete delivery in a sibling staging directory, then publish it."""
 
@@ -296,6 +307,7 @@ def process_from_decoded(
             probe_payload=probe_payload,
             out_dir=staged,
             key_color=key_color,
+            decoded_handoff_sha256=decoded_handoff_sha256,
         )
         staged.replace(out_dir)
         return family
@@ -303,6 +315,28 @@ def process_from_decoded(
         if staged.exists():
             shutil.rmtree(staged)
         raise
+
+
+def process_decoded_handoff(
+    *,
+    root: Path,
+    plan: Mapping[str, Any],
+    handoff: DecodedHandoff,
+    out_dir: Path,
+    key_color: str,
+) -> dict[str, Any]:
+    """Process a verified external probe/decode exactly once for the whole requested family."""
+
+    return process_from_decoded(
+        root=root,
+        plan=plan,
+        raw_video=handoff.raw_video,
+        decoded_paths=handoff.decoded_paths,
+        probe_payload=handoff.probe_payload,
+        out_dir=out_dir,
+        key_color=key_color,
+        decoded_handoff_sha256=handoff.sha256,
+    )
 
 
 def process_video(

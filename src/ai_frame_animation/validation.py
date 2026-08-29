@@ -294,10 +294,20 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
         or source_frame_count < 1
         or terminal_policy not in {"half_open_exclude_terminal", "closed_include_terminal"}
         or not isinstance(decode, Mapping)
+        or decode.get("probe_operation_count") != 1
         or decode.get("operation_count") != 1
         or decode.get("decoded_frame_count") != source_frame_count
     ):
         raise ValueError("source_timeline_invalid")
+    input_mode = decode.get("input_mode")
+    handoff_sha256 = decode.get("handoff_sha256")
+    if input_mode not in {"internal_decode", "verified_decoded_handoff"}:
+        raise ValueError("decode_input_mode_invalid")
+    if input_mode == "verified_decoded_handoff":
+        if not isinstance(handoff_sha256, str) or not SHA256_RE.fullmatch(handoff_sha256):
+            raise ValueError("decoded_handoff_binding_invalid")
+    elif handoff_sha256 is not None:
+        raise ValueError("decoded_handoff_binding_invalid")
     timestamp_records = source_timeline.get("frame_timestamps_seconds")
     if not isinstance(timestamp_records, list) or len(timestamp_records) != source_frame_count:
         raise ValueError("source_timeline_invalid")
@@ -342,11 +352,15 @@ def inspect_artifact(path: Path) -> dict[str, Any]:
     if path.is_dir() and (path / "delivery-manifest.json").is_file():
         manifest = load_json(path / "delivery-manifest.json")
         verify_document(manifest, "manifest_sha256")
+        decode = manifest.get("decode")
+        decode_record = decode if isinstance(decode, Mapping) else {}
         return {
             "kind": "delivery",
             "plan_sha256": manifest.get("plan_sha256"),
             "quality_policy": manifest.get("quality_policy"),
             "raw_sha256": (manifest.get("raw_source") or {}).get("sha256") if isinstance(manifest.get("raw_source"), Mapping) else None,
+            "decode_input_mode": decode_record.get("input_mode"),
+            "decoded_handoff_sha256": decode_record.get("handoff_sha256"),
             "requested_frame_counts": manifest.get("requested_frame_counts"),
             "completed_frame_counts": [item.get("frame_count") for item in manifest.get("variants", []) if isinstance(item, Mapping)],
             "failures": manifest.get("failures", []),

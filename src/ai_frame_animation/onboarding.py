@@ -17,6 +17,7 @@ from .media.timeline import choose_uniform_indices
 REQUIRED_SCHEMAS = (
     "job.schema.json",
     "plan.schema.json",
+    "decoded-handoff.schema.json",
     "delivery-manifest.schema.json",
 )
 SUPPORTED_FRAME_COUNTS = (16, 32, 64)

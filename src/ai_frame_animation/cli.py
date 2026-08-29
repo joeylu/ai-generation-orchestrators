@@ -12,10 +12,11 @@ from typing import Any, Mapping, Sequence
 
 from . import __version__
 from .canonical import fingerprint, load_json, redact, rooted_path, safe_error_code, verify_document, write_json_atomic
+from .handoff import load_decoded_handoff
 from .media_tools import check_ffmpeg_tools, install_ffmpeg, resolve_media_tool
 from .onboarding import initialize_workspace, run_self_test
 from .planning import compile_plan, validate_plan_contract
-from .processing import process_video
+from .processing import process_decoded_handoff, process_video
 from .providers.base import GenerationFailed, GenerationIndeterminate, GenerationNotSubmitted
 from .providers.discovery import load_provider
 from .state import AttemptStore
@@ -204,10 +205,25 @@ def command_process(args: argparse.Namespace) -> int:
     plan = _verified_plan(rooted_path(root, args.plan, must_exist=True))
     raw = rooted_path(root, args.raw_video, must_exist=True)
     out = rooted_path(root, args.out_dir, must_exist=False)
+    decoded_handoff_path = getattr(args, "decoded_handoff", None)
+    if decoded_handoff_path and (args.decoded_dir or args.probe_json):
+        raise ValueError("decoded_handoff_conflicts_with_fixture_inputs")
     if bool(args.decoded_dir) != bool(args.probe_json):
         raise ValueError("offline_decoded_fixture_requires_both_inputs")
     if args.decoded_dir and os.environ.get("AI_FRAME_ANIMATION_OFFLINE_TESTS") != "1":
         raise ValueError("offline_decoded_fixture_requires_test_mode")
+    if decoded_handoff_path:
+        handoff = load_decoded_handoff(root, decoded_handoff_path, raw_video=args.raw_video)
+        delivery = process_decoded_handoff(
+            root=root,
+            plan=plan,
+            handoff=handoff,
+            out_dir=out,
+            key_color=str(plan["delivery"]["key_color"]),
+        )
+        validation = validate_delivery(out, policy=str(plan["delivery"]["quality"]), workspace_root=root)
+        _print({"status": validation["status"], "delivery": str(out.relative_to(root)), "manifest": delivery, "validation": validation})
+        return 0
     decoded = rooted_path(root, args.decoded_dir, must_exist=True) if args.decoded_dir else None
     probe_payload = load_json(rooted_path(root, args.probe_json, must_exist=True)) if args.probe_json else None
     ffmpeg = resolve_media_tool(root, args.ffmpeg, "ffmpeg")
@@ -308,6 +324,7 @@ def build_parser() -> argparse.ArgumentParser:
     process.add_argument("--out-dir", required=True, type=Path)
     process.add_argument("--ffmpeg", help="explicit executable path or command name")
     process.add_argument("--ffprobe", help="explicit executable path or command name")
+    process.add_argument("--decoded-handoff", type=Path, help="verified provider-neutral predecoded source contract")
     process.add_argument("--decoded-dir", type=Path, help="offline/predecoded frame directory")
     process.add_argument("--probe-json", type=Path, help="offline ffprobe-compatible fixture")
     process.set_defaults(handler=command_process)
