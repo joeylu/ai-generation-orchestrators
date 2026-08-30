@@ -20,6 +20,9 @@ DRAFT -> PLANNED -> AWAITING_CONFIRMATION -> AUTHORIZED
 
 ## Processing revision
 
+- A user-supplied video may enter here after planning without a generation
+  attempt or generation authorization. Do not fabricate a `RAW_READY` attempt
+  record for an imported video; the processing manifest owns its fingerprint.
 - Processing starts only from a fingerprinted raw video.
 - Each revision records the raw SHA-256, tool version, parameters, selected source
   timestamps, artifact SHA-256 values, and quality result.

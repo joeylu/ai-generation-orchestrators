@@ -95,6 +95,11 @@ Do not copy an unverified binary from another host into a release or repository.
 
 ## 4. Install or expose the Agent Skill
 
+See [Agent setup](agent-setup.md#installed-skill-use) to get the complete,
+version-matched Skill ZIP from a release, or use the exact tag's source archive
+when that older release has no Skill ZIP. Installing the wheel alone does not
+register the Skill with an Agent.
+
 The canonical Skill package is:
 
 ```text
@@ -107,6 +112,10 @@ do not copy only `SKILL.md`, because its references and Agent metadata are part
 of the contract.
 
 ## 5. Configure an optional provider
+
+Skip this section when processing an existing raw video. Leave the generated
+provider template unused and run `doctor --root <workspace> --require-ready`
+without provider options. See [CLI and Agent flow](cli-and-agent-flow.md).
 
 The core planning and processing commands are provider-neutral. Local MiniMax H3
 generation uses the private configuration created by `init`:

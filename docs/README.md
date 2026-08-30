@@ -5,6 +5,8 @@ validated transparent 2D sequence-frame delivery.
 
 ## Start here
 
+中文用户可先看[中文快速入门](../README.zh-CN.md)，选择已有视频后处理或本地生成。
+
 1. Follow the root [Quick Start](../README.md#first-successful-path).
 2. Read [Installation](installation.md) for the wheel, FFmpeg, Skill, and provider
    layers.

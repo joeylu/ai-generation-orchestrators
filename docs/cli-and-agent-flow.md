@@ -3,6 +3,24 @@
 The human-facing path is documented in the root README. This page exposes the
 individual deterministic stages for Agents and diagnosis.
 
+## Choose the source first
+
+- **Existing video:** initialize a workspace, copy the reference and raw video
+  into it, then follow stages 1, 2, 4, and 5. Skip provider setup, generation
+  authorization, and `run` entirely. No generation attempt is needed or invented.
+- **New video:** configure the optional local provider, then follow every stage,
+  including exactly one explicit generation-compute confirmation.
+
+In both cases the example raw path is `my-animation/work/raw/source.mp4`.
+For an existing video, keep the original and place a copy there. The unused
+provider template created by `init` does not need to be filled in.
+
+All commands below run from the directory containing `my-animation`, not from
+inside it. `--job`, `--plan`, `--raw-video`, `--out-dir`, and `--delivery` are
+workspace-relative. `--root`, `--provider-config`, and the `inspect` target are
+resolved from the shell's current directory. Use the same Python environment
+throughout; `python -m ai_frame_animation` is equivalent to the installed CLI.
+
 ## 0. Initialize and self-test without compute
 
 ```powershell
@@ -20,6 +38,14 @@ private-by-default workspace and refuses to overwrite a non-empty directory.
 it is never an implicit side effect of `doctor`, `plan`, or `process`.
 
 ## 1. Diagnose without compute
+
+For an existing video, check processing dependencies only:
+
+```powershell
+ai-frame-animation doctor --root my-animation --require-ready
+```
+
+Only for new generation, also check your provider configuration:
 
 ```powershell
 ai-frame-animation doctor `
@@ -50,6 +76,8 @@ reference sampling, fixes continuity/delivery variants, and emits a canonical
 paths are not part of the plan.
 
 ## 3. Ask once, then run once
+
+This stage is only for new generation. An existing video goes directly to stage 4.
 
 After the user explicitly confirms the displayed plan digest, the Agent creates
 a unique attempt ID and invokes:

@@ -1,20 +1,26 @@
 # AI Frame Animation
 
+[中文快速入门](README.zh-CN.md)
+
 An Agent-driven, provider-neutral toolkit that turns a character reference image
 and a motion request into validated transparent 2D frame animation.
 
 ```text
 reference image + motion request
   -> immutable plan
-  -> one compute confirmation
-  -> one raw-video generation attempt
+  -> existing raw video OR one confirmed generation attempt
   -> deterministic RGBA processing
   -> PNG frames + spritesheet/atlas + optional GIF + manifest
 ```
 
-The human describes the animation and confirms compute once. The Agent prepares
-the plan and invokes the tools. The installed program owns attempt state, media
-processing, validation, checksums, and packaging.
+The human describes the animation and confirms compute once when a new video is
+needed. The Agent prepares the plan and invokes the tools. The installed program
+owns attempt state, media processing, validation, checksums, and packaging.
+
+Already have a character video? Use the existing-video path below. It needs no
+ComfyUI, model, provider configuration, or generation attempt. Local processing
+does not change the action in that video. Key-based transparency expects a
+separable, near-solid background; this is not an arbitrary video-background remover.
 
 ## First successful path
 
@@ -60,10 +66,8 @@ my-animation/
     provider.minimax-h3.json
 ```
 
-Copy the character image to `my-animation/reference.png`. Export the local
-ComfyUI workflow in API format to
-`my-animation/.ai-frame-animation/workflow.json`, then replace the two binding
-node IDs in `provider.minimax-h3.json`.
+Copy the character image to `my-animation/reference.png`. Provider setup is only
+needed for new generation, not for processing an existing video.
 
 Check FFmpeg without network access. On Windows x64, the locked installer can
 place a verified build inside this ignored workspace without changing system
@@ -79,6 +83,40 @@ Other platforms can use trusted system packages or explicit executable paths.
 See [Installation](docs/installation.md) for the supported-platform table,
 verification contract, license, and manual alternatives.
 
+### 4. Choose your input and ask an Agent
+
+Make the complete Skill available to your Agent as described in
+[Agent setup](docs/agent-setup.md), or open this repository and point the Agent to
+[`skills/artwork/skills-2d-frame-animation-video/SKILL.md`](skills/artwork/skills-2d-frame-animation-video/SKILL.md).
+Installing the Python wheel alone does not register the Skill with an Agent.
+
+#### A. Process an existing video
+
+Keep a copy of the video at `my-animation/work/raw/source.mp4` and leave the
+generated provider template unused. Check only local processing dependencies:
+
+```powershell
+ai-frame-animation doctor --root my-animation --require-ready
+```
+
+Example request:
+
+> Use the transparent 2D frame-animation Skill with my-animation/reference.png
+> and my-animation/work/raw/source.mp4. Only post-process this existing video
+> into 32 frames at 256 px, loop, strict quality. Do not configure or contact a
+> generation provider. Return the validated artifacts and any warnings.
+
+The Agent uses `plan -> process -> inspect -> validate`, without `run` or a
+generation-compute confirmation. Processing uses local CPU, memory, and disk.
+See the [manual CLI flow](docs/cli-and-agent-flow.md) for the same route.
+
+#### B. Generate a new video locally
+
+This optional path requires your own working local ComfyUI MiniMax H3 setup;
+the project does not install models or start ComfyUI. Export your workflow in API
+format to `my-animation/.ai-frame-animation/workflow.json`, then replace the two
+binding node IDs in `provider.minimax-h3.json` and adjust input names if needed.
+
 Check the provider configuration statically before any compute request:
 
 ```powershell
@@ -92,13 +130,7 @@ ai-frame-animation doctor `
 This validates the local configuration, workflow file, nodes, and input names. It
 does not connect to ComfyUI.
 
-### 4. Ask an Agent
-
-Make the canonical Skill directory available through the installation mechanism
-supported by your Agent, or open this repository and explicitly point the Agent
-to [`skills/artwork/skills-2d-frame-animation-video/SKILL.md`](skills/artwork/skills-2d-frame-animation-video/SKILL.md).
-
-Example request:
+Example generation request:
 
 > Use the transparent 2D frame-animation Skill. Take `my-animation/reference.png`
 > and make a 32-frame side-view running loop at 256 px under strict quality. Show
