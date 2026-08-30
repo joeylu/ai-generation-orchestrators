@@ -1,0 +1,12 @@
+include AGENTS.md CONTRIBUTING.md SECURITY.md README.zh-CN.md
+include scripts/build_release_metadata.py
+recursive-include docs *.md
+include examples/README.md examples/job.example.json examples/minimax-h3.config.example.json
+include skills/README.md
+include skills/artwork/skills-2d-frame-animation-video/SKILL.md
+include skills/artwork/skills-2d-frame-animation-video/skill.json
+include skills/artwork/skills-2d-frame-animation-video/agents/openai.yaml
+include skills/artwork/skills-2d-frame-animation-video/references/video-state-machine.md
+include skills/artwork/skills-2d-frame-animation-video/references/video-runtime-adapter-protocol.md
+recursive-include tests *.py
+include tests/fixtures/golden/README.md tests/fixtures/golden/matte-cases.json
