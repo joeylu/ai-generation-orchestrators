@@ -164,8 +164,9 @@ The Agent manages coordinates and digests; the program performs the edit.
 On a compatible CLI, `correct preview` shows the proposed change; only after you
 approve that exact preview may `correct apply` create a new preparation. Plan
 from that new report. This visual-edit approval is separate from the one video
-compute confirmation. Check `ai-frame-animation correct --help` first: this is
-unreleased checkout functionality, not a capability of the published v0.3.2.
+compute confirmation. Check `ai-frame-animation correct --help` first: this
+requires v0.4.0 or later and is not available in v0.3.2. Use matching CLI and
+Skill versions from the same release.
 See [local correction](docs/reference-correction.md) for commands and limits, and
 [reference acceptance](docs/reference-acceptance.md) for the fixed seen-regression
 set and known failures. Structural checks alone do not certify a clean matte.

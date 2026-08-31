@@ -153,8 +153,9 @@ Agent 调用 `correct preview` 展示前后图，你明确批准这一份预览�
 像素修改和可校验证据由程序负责；原图和旧结果保留。这次是**视觉编辑确认**，
 不抵扣或代替后续的视频计算确认。
 
-先用 `ai-frame-animation correct --help` 检查命令是否存在：目前这是未发布的
-源码能力，不是已发布 v0.3.2 自带的功能。不要拿新版 Skill 混用旧程序。
+先用 `ai-frame-animation correct --help` 检查命令是否存在：此功能需要
+v0.4.0 或更高版本，v0.3.2 不包含此功能。CLI 和 Skill 应取自同一版本的 Release，
+不要拿新版 Skill 混用旧程序。
 它不能补回已经丢失的发丝、衣料或薄纱，也不能自动判断同色区域是不是背景。
 详见[局部修正说明](docs/reference-correction.md)和[固定样本验收矩阵](docs/reference-acceptance.md)。
 
