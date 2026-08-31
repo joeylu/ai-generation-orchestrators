@@ -89,10 +89,12 @@ def infer_isnet_mask(image, model, digest):
     mask = Image.fromarray((np.clip(coverage,0,1)*255).astype(np.uint8)).resize(image.size,Image.Resampling.LANCZOS)
     return mask,{'backend':ISNET,'model_sha256':digest,'execution':'local_cpu','runtime_version':str(ort.__version__)}
 
-def infer_dual_masks(image,path):
+def infer_dual_masks(image,path,*,primary_image=None):
     primary,auxiliary = dual_config(path);_runtime()
     from .segmentation import infer_birefnet_mask
-    base,base_evidence = infer_birefnet_mask(image,*primary)
+    if primary_image is None:primary_image=image
+    if primary_image.size != image.size:raise ValueError('reference_segmentation_input_view_invalid')
+    base,base_evidence = infer_birefnet_mask(primary_image,*primary)
     other,other_evidence = infer_isnet_mask(image,*auxiliary)
     for mask in (base,other):
         if mask.mode != 'L' or mask.size != image.size:raise ValueError('reference_segmentation_mask_invalid')

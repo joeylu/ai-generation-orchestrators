@@ -80,7 +80,8 @@ failure. The Agent reviews output before requesting the one video confirmation.
   colour estimation, but still receives the same canvas fit.
 - `review/`: full-resolution black, white, green, purple (`#8A40D0`), checker
   and alpha views. Diagnostic composites are not generation inputs.
-- `preparation.json`: version `ai_frame_animation_reference_preparation_v4`,
+- `preparation.json`: v4 for unchanged single-model/existing-alpha routes,
+  v6 for unchanged dual-model input, or v7 for the JPEG primary-input view below,
   binding original, cutout and fitted foreground fingerprints; model digest,
   runtime versions, method, alpha policy, changed-RGB count, fit and warnings.
   It contains no private model path.
@@ -107,7 +108,8 @@ arguments are rejected instead of silently ignored.
 Existing v1/v2/v3 preparation reports are read-only compatible: their hashes,
 old evidence fields and artifacts are checked without executing the old
 algorithm, reinterpreting evidence as the new backend, or rewriting the report.
-Single-model or existing-alpha `prepare` writes v4. The separate `correct apply` writes v5,
+Single-model without the JPEG view or existing-alpha `prepare` writes v4.
+JPEG primary-input preprocessing writes v7. The separate `correct apply` writes v5,
 preserving the original source and binding its parent and confirmed preview;
 it does not revive the retired `prepare --background-point` option.
 No automatic fallback to U²-Net remains.
@@ -119,6 +121,42 @@ mask-preservation/estimator/compatibility contracts, not used to require the old
 heuristic to keep running.
 
 ## Quality limits
+
+### Automatic JPEG primary-input view
+
+For an image actually decoded as **JPEG**, with fully opaque source alpha,
+`prepare` gives BiRefNet a separate RGB copy processed by Pillow `MedianFilter(3)`
+at the original EXIF-oriented size. This happens before the existing 1024 model
+normalization. The image filename is not the format check. There is no new CLI
+flag, per-character model choice, extra inference, or automatic retry.
+
+The original bytes/pixels are preserved. IS-Net, when configured, receives the
+original image; foreground-colour estimation also uses the original RGB and the
+selected mask. The JPEG view is not the generation reference. PNG, WebP, unknown
+formats and supplied continuous alpha do not take this preprocessing path.
+Existing meaningful transparency still bypasses segmentation entirely.
+
+This is a quality tradeoff, not a universal improvement: a seen JPEG white-boot
+omission improved, while a few fine whiskers in another seen image became faint
+or disappeared. Prioritizing a complete shoe can be reasonable for that use case,
+but it does not approve unrelated equipment loss, certify every JPEG, or establish
+an unseen pass rate. The report and static `doctor` expose
+`jpeg_primary_view_may_reduce_fine_detail`; inspect the result before video compute.
+The synthetic one-pixel-line fixture records information loss, not a quality pass.
+
+The v7 report adds `primary-input.png`, a fixed profile/digest, the Pillow version,
+and a fingerprinted `input_view` artifact. A single-model v7 result also saves its
+`primary-mask.png`; dual-model v7 retains all three masks and fusion evidence.
+The reader verifies the saved view against the decoded, EXIF-oriented source by
+repeating only the deterministic filter, then checks mask/alpha/fit relationships.
+It never starts a model, re-estimates RGB, needs model files, or modifies outputs.
+Fingerprints prove consistency, not that a model's semantic judgement is correct.
+
+Older reports remain read-only compatible and are not relabeled as v7. Older
+installed versions that lack the v7 reader cannot consume these new reports;
+upgrade consumers before passing them new results. The optional correction flow
+accepts v7 parents but still requires a separate exact-preview confirmation.
+Neither `strict` nor `best_effort` silently approves visual omissions.
 
 Four real character originals were compared using one model and one colour
 estimator setting. This supports the selected route, not universal segmentation
@@ -256,7 +294,7 @@ expected failing quality test, not a passing segmentation result. User preview
 review is still required. Keep the original single-model config available;
 existing installations are not silently migrated to fusion.
 
-Fusion writes `ai_frame_animation_reference_preparation_v6`, adding
+Fusion without a JPEG input view writes `ai_frame_animation_reference_preparation_v6`, adding
 `primary-mask.png`, `auxiliary-mask.png`, `fused-mask.png`, two model identities,
 the fixed fusion profile/digest and component decisions. Matting records
 `preserve_source_times_fused_mask`: it estimates RGB but does not revise that
@@ -266,7 +304,7 @@ the fusion geometry (included in the segmentation extra), but does not require
 the original configuration or model files. Fingerprints detect changed bytes;
 they are integrity checks, not cryptographic provenance signatures.
 
-The optional `correct` workflow also accepts v6 parents. It remains a separately
+The optional `correct` workflow also accepts v6/v7 parents. It remains a separately
 previewed, digest-confirmed operation; normal `prepare` never applies it.
 Older v1–v5 reports remain readable. The test-only extra installs SciPy, not
 ONNX Runtime or model weights; CI uses synthetic arrays and runtime doubles.

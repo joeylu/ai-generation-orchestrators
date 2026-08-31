@@ -1,0 +1,15 @@
+{
+  "schema_version": "reference_jpeg_input_view_contract_v1",
+  "role": "synthetic_preprocessing_and_report_contract_not_model_accuracy",
+  "size": [128, 128],
+  "body": [20, 20, 107, 107],
+  "hole": [50, 50, 61, 61],
+  "white_field": [64, 72, 94, 110],
+  "isolated_dark_pixel": [80, 90],
+  "single_pixel_line": [15, 30, 15, 95],
+  "accepted_mask_value": 254,
+  "known_limit": "Median(3) can remove one-pixel line information from the primary RGB view; this is not a segmentation quality pass.",
+  "real_case_motivation": ["JPEG white boot omission", "thin whisker reduction under global JPEG median preprocessing"],
+  "real_artwork_distributed": false,
+  "real_inference_in_ci": false
+}

@@ -165,7 +165,7 @@ def _review_images(source, before, images, parameters) -> dict[str, Image.Image]
 
 def _parent(root, path, seen=()):
     report = load_preparation(root, path, _seen=seen)
-    if report["schema_version"] not in {"ai_frame_animation_reference_preparation_v4", "ai_frame_animation_reference_preparation_v6", PREPARATION_VERSION}:
+    if report["schema_version"] not in {"ai_frame_animation_reference_preparation_v4", "ai_frame_animation_reference_preparation_v6", "ai_frame_animation_reference_preparation_v7", PREPARATION_VERSION}:
         raise ValueError("reference_correction_requires_current_cutout")
     return report
 

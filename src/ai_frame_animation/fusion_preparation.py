@@ -1,4 +1,4 @@
-"""Provider-neutral v6 reader; verifies saved mask/alpha/fit derivations offline."""
+"""Provider-neutral v6/v7 reader; verifies saved derivations offline."""
 from pathlib import PurePosixPath,PureWindowsPath
 import numpy as np
 from PIL import Image
@@ -27,11 +27,18 @@ def _model(value,backend):
 
 def load_fused_preparation(root,report):
     verify_document(report,'preparation_sha256')
-    if set(report) != {'schema_version','source','cutout','foreground','method','tool_version','segmentation','quality','matting','masks','fusion','preparation_sha256'} or report['schema_version'] != 'ai_frame_animation_reference_preparation_v6' or report['method'] != 'local_segmentation_fusion':
+    viewed = report.get('schema_version') == 'ai_frame_animation_reference_preparation_v7'
+    fields = {'schema_version','source','cutout','foreground','method','tool_version','segmentation','quality','matting','masks','fusion','preparation_sha256'}
+    if viewed:fields.add('input_view')
+    if set(report) != fields or report['schema_version'] not in {'ai_frame_animation_reference_preparation_v6','ai_frame_animation_reference_preparation_v7'} or report['method'] != 'local_segmentation_fusion':
         raise ValueError('reference_preparation_contract_invalid')
     if not isinstance(report['tool_version'],str) or not report['tool_version']:
         raise ValueError('reference_preparation_contract_invalid')
-    source = _source_image(_artifact(root,report['source']))
+    source_path = _artifact(root,report['source'])
+    source = _source_image(source_path)
+    if viewed:
+        from .input_view_preparation import validate_input_view
+        validate_input_view(root,source_path,source,report['input_view'])
     cutout = _source_image(_artifact(root,report['cutout']))
     fg_path = _artifact(root,report['foreground'])
     segmentation = report['segmentation']
@@ -56,6 +63,9 @@ def load_fused_preparation(root,report):
     if cutout.size != source.size or not np.array_equal(rgba[:,:,3],expected_alpha) or np.any(rgba[rgba[:,:,3]==0,:3]):
         raise ValueError('reference_preparation_alpha_mismatch')
     fitted,quality = _fit_foreground(cutout)
+    if viewed:
+        from .media.reference_input_view import WARNING
+        quality['warnings'] = sorted(set(quality['warnings']+[WARNING]))
     with Image.open(fg_path) as im:
         if im.mode != 'RGBA' or getattr(im,'n_frames',1) != 1 or not np.array_equal(np.asarray(im),np.asarray(fitted)):
             raise ValueError('reference_preparation_fit_mismatch')

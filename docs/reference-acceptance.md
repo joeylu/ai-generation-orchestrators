@@ -91,6 +91,24 @@ baseline。详见 [局部修正流程](reference-correction.md)。后续视频�
 
 ## 指纹与复现边界
 
+### 后续 JPEG 输入视图的范围与取舍
+
+历史表格保留当时的基线结论，不用后续候选覆盖旧失败。另一次固定8份已见JPEG
+对照中，主模型输入的MedianFilter(3)副本改善了白衣右脚；同时雪貂几根胡须
+明显变淡或缺失。其余观察为5份未见明显变化、1份枪刃小孔材质仍需复核。
+其中6份对照原图双模型链，另2份仅对照历史单模型去噪结果，分母不能混为泛化成绩。
+
+用户明确表示这次白鞋完整更重要，雪貂所示胡须损失可以接受；这个取舍仅适用于
+已展示的变化，不代表用户确认了全8份，也不代表其他细线装备、材质或主体误删
+都可以放行。没有alpha真值，不报告像素准确率。主模型视图中的一像素细线可能
+丢失，新增公开fixture会如实验证这项信息损失，不把它算成“质量改善”。
+
+[JPEG输入契约测试](../tests/test_reference_input_view.py)与
+[合成fixture](../tests/fixtures/golden/reference-jpeg-input-view-cases.json)覆盖格式识别、
+EXIF方向、原图保留、主/辅/RGB分路、alpha和报告完整性。只使用test double，
+不在CI执行真实分割。JPEG v7行为和兼容性详见[prepare说明](reference-preparation.md)。
+如果某个需求要求完整保留胡须、细线或其他配件，仍应单独看图判断，不沿用本例接受意见。
+
 [reference-acceptance-v1.json](reference-acceptance-v1.json) 只发布允许公开的 SHA-256、
 字节数、样本 ID、观察分类和合成测试路径，不含原画、模型文件、主机/服务路径或私有配置。
 `report_file.sha256` 是报告文件字节摘要，`preparation_sha256` 是程序的规范化文档摘要，

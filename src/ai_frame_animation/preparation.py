@@ -39,12 +39,16 @@ def _file(root: Path, value: str | Path) -> Path:
 
 
 def _source_image(path: Path) -> Image.Image:
+    return _source_image_and_format(path)[0]
+
+
+def _source_image_and_format(path: Path) -> tuple[Image.Image, str | None]:
     with Image.open(path) as image:
         if getattr(image, "n_frames", 1) != 1:
             raise ValueError("reference_requires_one_still_image")
         if min(image.size) < 16:
             raise ValueError("reference_resolution_too_small")
-        return ImageOps.exif_transpose(image).convert("RGBA")
+        return ImageOps.exif_transpose(image).convert("RGBA"), image.format
 
 
 def _has_foreground_alpha(image: Image.Image) -> bool:
@@ -92,7 +96,7 @@ def inspect_preparation(root: Path, reference: str | Path, config_path: Path | N
     """Static routing only: opaque input is accepted, inference is not preflight."""
     accepted = False
     try:
-        image = _source_image(_file(root.resolve(strict=True), reference))
+        image, source_format = _source_image_and_format(_file(root.resolve(strict=True), reference))
         if not np.any(np.asarray(image.getchannel("A")) > 8):
             raise ValueError("reference_has_no_visible_subject")
         accepted = True
@@ -100,6 +104,9 @@ def inspect_preparation(root: Path, reference: str | Path, config_path: Path | N
         evidence = {} if method == "existing_alpha" else dict(inspect_segmenter(config_path))
         if evidence.get("backend") == "onnx_birefnet_isnet_enclosed":
             method = "local_segmentation_fusion"
+        from .media.reference_input_view import PROFILE, WARNING, jpeg_view_applies
+        if method != "existing_alpha" and jpeg_view_applies(image, source_format):
+            evidence.update(primary_input_view=PROFILE["id"], input_view_warning=WARNING)
         return {"status": "ready", "diagnostic_code": "ready", "method": method,
                 "source_accepted": True, "prepared_quality": "not_checked", **evidence}
     except (OSError, ValueError) as exc:
@@ -193,28 +200,34 @@ def prepare_reference(*, root: Path, reference: str | Path, out_dir: str | Path,
     if out.exists():
         raise ValueError("reference_preparation_output_exists")
     original = fingerprint(source, media_type="image")
-    image = _source_image(source)
+    image, source_format = _source_image_and_format(source)
     if not np.any(np.asarray(image.getchannel("A")) > 8):
         raise ValueError("reference_has_no_visible_subject")
     matting = {"method": "existing_alpha", "runtime_version": None,
                "alpha_policy": "preserve_source", "decontaminated_pixels": 0}
     matte_warnings = []
-    fusion_masks = fusion_evidence = None
+    fusion_masks = fusion_evidence = input_view = None
     if _has_source_foreground_alpha(image):
         method, evidence = "existing_alpha", {}
     else:
         method = "local_segmentation"
         # Missing dependencies are setup issues, checked before CPU inference.
         inspect_matting_runtime()
+        from .media.reference_input_view import primary_input_view, WARNING
+        primary_image = primary_input_view(image, source_format)
+        if primary_image is not image:
+            input_view = primary_image
+            matte_warnings.append(WARNING)
         from .media.dual_segmentation import is_dual_config, infer_dual_masks
         if is_dual_config(config_path):
             method = "local_segmentation_fusion"
-            mask, evidence, fusion_masks, fusion_evidence = infer_dual_masks(image, config_path)
+            mask, evidence, fusion_masks, fusion_evidence = infer_dual_masks(image, config_path, primary_image=primary_image)
         else:
-            mask, evidence = infer_foreground_mask(image, config_path)
+            mask, evidence = infer_foreground_mask(primary_image, config_path)
         if mask.mode != "L" or mask.size != image.size:
             raise ValueError("reference_segmentation_mask_invalid")
-        image, matting, matte_warnings = refine_reference_matte(image, mask)
+        image, matting, rgb_warnings = refine_reference_matte(image, mask)
+        matte_warnings.extend(rgb_warnings)
         if fusion_masks is not None:
             matting["alpha_policy"] = "preserve_source_times_fused_mask"
     zero_transparent_rgb(image)
@@ -238,8 +251,23 @@ def prepare_reference(*, root: Path, reference: str | Path, out_dir: str | Path,
                 mask.save(staged / filename)
                 artifacts[name] = {"path": relative_posix(root, out / filename), **fingerprint(staged / filename, media_type="image")}
             extra = {"masks": artifacts, "fusion": fusion_evidence}
+        version = "ai_frame_animation_reference_preparation_v6" if fusion_masks is not None else "ai_frame_animation_reference_preparation_v4"
+        if input_view is not None:
+            from PIL import __version__ as pillow_version
+            from .canonical import canonical_sha256
+            from .media.reference_input_view import PROFILE
+            input_view.save(staged / "primary-input.png")
+            extra["input_view"] = {
+                "profile": dict(PROFILE), "profile_sha256": canonical_sha256(PROFILE),
+                "pillow_version": pillow_version,
+                "artifact": {"path": relative_posix(root, out / "primary-input.png"), **fingerprint(staged / "primary-input.png", media_type="image")},
+            }
+            if fusion_masks is None:
+                mask.save(staged / "primary-mask.png")
+                extra["mask"] = {"path": relative_posix(root, out / "primary-mask.png"), **fingerprint(staged / "primary-mask.png", media_type="image")}
+            version = "ai_frame_animation_reference_preparation_v7"
         report = stamp_document({
-            "schema_version": "ai_frame_animation_reference_preparation_v6" if fusion_masks is not None else "ai_frame_animation_reference_preparation_v4",
+            "schema_version": version,
             "source": {"path": relative_posix(root, source), **original},
             "cutout": {"path": relative_posix(root, out / "cutout.png"), **fingerprint(staged / "cutout.png", media_type="image")},
             "foreground": {"path": relative_posix(root, out / "foreground.png"), **fingerprint(staged / "foreground.png", media_type="image")},
@@ -270,6 +298,9 @@ def load_preparation(root: Path, path: str | Path, *, _seen: tuple[Path, ...] = 
     report = load_json(path)
     verify_document(report, "preparation_sha256")
     version = report.get("schema_version")
+    if version == "ai_frame_animation_reference_preparation_v7":
+        from .input_view_preparation import load_view_preparation
+        return load_view_preparation(root, report)
     if version == "ai_frame_animation_reference_preparation_v6":
         from .fusion_preparation import load_fused_preparation
         return load_fused_preparation(root, report)

@@ -26,6 +26,7 @@ SKILL_FILES = (
 SDIST_SUPPORT_FILES = (
     "examples/segmentation-fusion.config.example.json",
     "tests/fixtures/golden/reference-fusion-cases.json",
+    "tests/fixtures/golden/reference-jpeg-input-view-cases.json", "tests/test_reference_input_view.py",
     "tests/test_dual_segmentation.py", "tests/test_reference_fusion.py", "tests/test_fusion_preparation.py",
     "MANIFEST.in", "README.md", "README.zh-CN.md", "AGENTS.md",
     "CONTRIBUTING.md", "SECURITY.md", "LICENSE", "pyproject.toml",

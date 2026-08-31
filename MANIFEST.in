@@ -6,6 +6,7 @@ include examples/README.md examples/job.example.json examples/minimax-h3.config.
 include examples/segmentation.config.example.json
 include examples/segmentation-fusion.config.example.json
 include tests/fixtures/golden/reference-fusion-cases.json
+include tests/fixtures/golden/reference-jpeg-input-view-cases.json
 include skills/README.md
 include skills/artwork/skills-2d-frame-animation-video/SKILL.md
 include skills/artwork/skills-2d-frame-animation-video/skill.json
