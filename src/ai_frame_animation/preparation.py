@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import shutil
 import stat
 import time
@@ -25,11 +26,19 @@ from .media.spill import zero_transparent_rgb
 def _file(root: Path, value: str | Path) -> Path:
     candidate = Path(value) if Path(value).is_absolute() else root / value
     resolved = rooted_path(root, value, must_exist=True)
-    current = candidate
-    while current != root:
+    # Keep the caller's lexical path for component checks, but compare file
+    # identities. Windows may spell one directory as RUNNER~1 and runneradmin;
+    # string equality would reject a safe path or miss the intended boundary.
+    current = Path(os.path.abspath(candidate))
+    while True:
         details = current.lstat()
         if stat.S_ISLNK(details.st_mode) or getattr(details, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0):
             raise ValueError("reference_preparation_path_unsafe")
+        try:
+            if current.samefile(root):
+                break
+        except OSError as exc:
+            raise ValueError("reference_preparation_path_unsafe") from exc
         if current.parent == current:
             raise ValueError("reference_preparation_path_unsafe")
         current = current.parent
@@ -293,6 +302,7 @@ def prepare_reference(*, root: Path, reference: str | Path, out_dir: str | Path,
 def load_preparation(root: Path, path: str | Path, *, _seen: tuple[Path, ...] = ()) -> dict[str, Any]:
     root = root.resolve(strict=True)
     path = _file(root, path)
+    _seen = tuple(Path(item).resolve(strict=False) for item in _seen)
     if path in _seen or len(_seen) >= 16:
         raise ValueError("reference_preparation_cycle_or_depth_limit")
     report = load_json(path)

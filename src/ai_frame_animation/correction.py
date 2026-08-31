@@ -6,6 +6,7 @@ The ordinary semantic mask remains unchanged unless this separate tool is used.
 from __future__ import annotations
 
 import math
+import os
 import shutil
 import stat
 import uuid
@@ -48,10 +49,10 @@ def _bound_file(root: Path, value: Any) -> Path:
 def _output(root: Path, value: str | Path) -> Path:
     lexical = Path(value) if Path(value).is_absolute() else root / value
     out = rooted_path(root, lexical)
-    if out == root or ".." in lexical.parts or lexical.absolute() != out:
+    if out == root or ".." in lexical.parts:
         raise ValueError("reference_correction_path_unsafe")
-    current = lexical
-    while current != root:
+    current = Path(os.path.abspath(lexical))
+    while True:
         try:
             details = current.lstat()
         except FileNotFoundError:
@@ -61,6 +62,13 @@ def _output(root: Path, value: str | Path) -> Path:
                 raise ValueError("reference_correction_path_unsafe")
             if current == lexical:
                 raise ValueError("reference_correction_output_exists")
+            try:
+                if current.samefile(root):
+                    break
+            except OSError as exc:
+                raise ValueError("reference_correction_path_unsafe") from exc
+        if current.parent == current:
+            raise ValueError("reference_correction_path_unsafe")
         current = current.parent
     return out
 

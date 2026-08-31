@@ -150,9 +150,10 @@ class ReferenceCorrectionTests(unittest.TestCase):
     def test_windows_reparse_output_parent_is_rejected_with_test_double(self):
         target = self.root / "reparse-parent"
         target.mkdir()
+        canonical_target = target.resolve()
         original = Path.lstat
         def details(path, *args, **kwargs):
-            if path == target:
+            if path == canonical_target:
                 return SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0x400)
             return original(path, *args, **kwargs)
         with patch.object(Path, "lstat", details), self.assertRaisesRegex(ValueError, "path_unsafe"):
@@ -166,7 +167,7 @@ class ReferenceCorrectionTests(unittest.TestCase):
                 confirm_correction_sha256=result["correction_sha256"], out_dir="corrected")
         self.assertTrue(loader.call_args_list)
         for call in loader.call_args_list:
-            self.assertEqual(call.kwargs["_seen"], (self.root / "corrected/preparation.json",))
+            self.assertEqual(call.kwargs["_seen"], (self.root.resolve() / "corrected/preparation.json",))
         with self.assertRaisesRegex(ValueError, "cycle_or_depth_limit"):
             load_preparation(self.root, "base/preparation.json", _seen=tuple(self.root / str(n) for n in range(16)))
 
@@ -263,7 +264,8 @@ class ReferenceCorrectionTests(unittest.TestCase):
         self.assertEqual(applied["source"], self.base["source"])
         self.assertEqual(load_preparation(self.root, "base/preparation.json"), self.base)
         with self.assertRaisesRegex(ValueError, "cycle_or_depth"):
-            load_preparation(self.root, "corrected2/preparation.json", _seen=(self.root / "corrected2/preparation.json",))
+            load_preparation(self.root, "corrected2/preparation.json",
+                _seen=(self.root.resolve() / "corrected2/preparation.json",))
 
     def test_source_alpha_and_continuous_corrected_alpha_never_increase(self):
         with Image.open(self.root / "source.png") as image:
