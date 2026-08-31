@@ -144,7 +144,7 @@ class VideoHoleIntegrationTests(unittest.TestCase):
         probe_call.assert_called_once()
         decode_call.assert_called_once()
         self.assertEqual(probe_call.call_args.args[0], root.resolve() / "source.mp4")
-        self.assertEqual(decode_call.call_args.args[0], root / "source.mp4")
+        self.assertEqual(decode_call.call_args.args[0], root.resolve() / "source.mp4")
         self.assertEqual(report["status"], "passed")
         return load_json(root / output / "delivery-manifest.json")
 
