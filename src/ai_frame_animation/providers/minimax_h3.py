@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import copy
+import io
 import json
-import mimetypes
 import time
 import uuid
 from pathlib import Path
@@ -11,7 +11,10 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
+from PIL import Image
+
 from ..canonical import load_json, redact, rooted_path, safe_error_code
+from ..media.reference import inspect_generation_reference, prepare_generation_reference
 from .base import GenerationFailed, GenerationIndeterminate, GenerationNotSubmitted
 
 
@@ -83,13 +86,48 @@ class MiniMaxH3Provider:
             }
         )  # type: ignore[return-value]
 
+    def preflight(self, plan: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Plan-aware input checks only; never create images or make requests."""
+        try:
+            reference = rooted_path(self.root, str(plan["character"]["reference"]), must_exist=True)
+            with Image.open(reference) as source:
+                report = inspect_generation_reference(source, str(plan["delivery"]["key_color"]))
+            self._check_reference_resize(load_json(self._workflow_path()), str(plan["delivery"]["key_color"]))
+            return report
+        except (OSError, ValueError, KeyError) as exc:
+            return {"status": "action_required", "diagnostic_code": safe_error_code(exc)}
+
+    def _check_reference_resize(self, workflow: Mapping[str, Any], key_color: str) -> None:
+        # Validate the common direct KJ resize without guessing arbitrary graphs.
+        # Consumer-owned transforms beyond this still need runtime/visual review.
+        reference_node = self.config["bindings"]["reference_image"]["node"]
+        expected_key = ",".join(str(int(key_color[index:index + 2], 16)) for index in (1, 3, 5))
+        for node in workflow.values():
+            if not isinstance(node, Mapping) or node.get("class_type") != "ImageResizeKJv2":
+                continue
+            inputs = node.get("inputs", {})
+            if not isinstance(inputs, Mapping) or inputs.get("image") != [reference_node, 0]:
+                continue
+            if inputs.get("keep_proportion") != "pad":
+                raise ValueError("reference_resize_requires_aspect_preserving_pad")
+            if str(inputs.get("pad_color", "")).replace(" ", "") != expected_key:
+                raise ValueError("reference_padding_key_mismatch")
+
     def submit_once(self, plan: Mapping[str, Any], submission_token: str) -> str:
         if self._submitted:
             raise GenerationIndeterminate("provider_instance_already_submitted")
         reference = rooted_path(self.root, str(plan["character"]["reference"]), must_exist=True)  # type: ignore[index]
         try:
-            upload = self._upload_reference(reference, submission_token)
             workflow = load_json(self._workflow_path())
+            self._check_reference_resize(workflow, str(plan["delivery"]["key_color"]))
+            with Image.open(reference) as source:
+                prepared = prepare_generation_reference(source, str(plan["delivery"]["key_color"]))
+            image_buffer = io.BytesIO()
+            prepared.save(image_buffer, format="PNG")
+        except (OSError, ValueError, KeyError) as exc:
+            raise GenerationNotSubmitted(safe_error_code(exc)) from exc
+        try:
+            upload = self._upload_reference(reference, submission_token, image_buffer.getvalue())
             workflow = copy.deepcopy(workflow)
             self._bind(workflow, "reference_image", upload["name"])
             self._bind(workflow, "positive_prompt", str(plan["generation"]["prompt"]))  # type: ignore[index]
@@ -142,14 +180,15 @@ class MiniMaxH3Provider:
             raise ValueError(f"minimax_h3_workflow_input_missing:{name}")
         node["inputs"][binding["input"]] = value
 
-    def _upload_reference(self, path: Path, token: str) -> Mapping[str, str]:
+    def _upload_reference(self, path: Path, token: str, prepared_png: bytes) -> Mapping[str, str]:
         boundary = f"----ai-frame-animation-{uuid.uuid4().hex}"
         if any(character in path.name for character in ('"', "\r", "\n")):
             raise ValueError("minimax_h3_reference_filename_invalid")
-        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        content_type = "image/png"
+        filename = f"reference-{uuid.uuid4().hex}.png"
         prefix = (
             f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="image"; filename="{path.name}"\r\n'
+            f'Content-Disposition: form-data; name="image"; filename="{filename}"\r\n'
             f"Content-Type: {content_type}\r\n\r\n"
         ).encode("utf-8")
         suffix = (
@@ -158,7 +197,7 @@ class MiniMaxH3Provider:
         ).encode("utf-8")
         request = Request(
             self._url("upload/image"),
-            data=prefix + path.read_bytes() + suffix,
+            data=prefix + prepared_png + suffix,
             headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "X-Submission-Token": token},
             method="POST",
         )

@@ -108,13 +108,28 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
 2. 编辑 `my-animation/.ai-frame-animation/provider.minimax-h3.json`，
    将参考图节点、正向提示词节点的占位 ID 换成工作流中的实际 ID；如输入名称
    或本地地址不同，也要按实际配置。真实配置只留在私有工作区。
-3. 静态检查配置：
+3. 直接提供普通参考图，白底、截图、复杂背景都不要求你先抠成透明 PNG。
+   Agent 调用 `prepare` 自动分离前景、等比整理画布，再根据前景选键色。
+   已有透明图无需模型；普通背景使用本地 CPU BiRefNet＋边缘去混色，不套旧补洞规则或 alpha matting。
+   缺少工具会提示安装，
+   不会把“没装工具”误报成“源图不合格”。[准备步骤与安装说明](docs/reference-preparation.md)。
+4. 程序保留原图，产出前景图和可校验处理报告。Agent 复核后生成计划：
 
 ```powershell
-& $AnimationPython -m ai_frame_animation doctor --root my-animation --provider minimax_h3 --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json --require-ready
+& $AnimationPython -m ai_frame_animation prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+& $AnimationPython -m ai_frame_animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/preparation.json --out work/plan.json
 ```
 
-`doctor` 就是“环境体检”：检查依赖、文件和节点绑定，不连接 ComfyUI。
+`prepare` 可能执行本地 CPU 分割，但不下载模型、不联网、不调用 ComfyUI 或 GPU。
+无法辨认主体、遮挡严重或分割结果不可靠时才需要复核/补充素材，不能一概要求透明图。
+最后检查这份计划对应的输入：
+
+```powershell
+& $AnimationPython -m ai_frame_animation doctor --root my-animation --provider minimax_h3 --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json --plan work/plan.json --require-ready
+```
+
+`doctor` 就是“环境体检”：检查依赖、文件、节点绑定和计划参考图，不连接 ComfyUI，
+也不生成图片。生成路线缺少 `--plan` 时，输入检查不算完成。
 `statically_ready` 不代表模型已加载或实际生成一定成功。
 
 让 Agent 读取同一 [Skill](skills/artwork/skills-2d-frame-animation-video/SKILL.md)，再说：
@@ -123,9 +138,25 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
 > 先检查本地配置并展示计划，获得我一次明确计算确认后才能生成。
 > 不得自动重试视频生成；如果已有原视频，只重跑确定性后处理。
 
-Agent 负责 `plan → 一次确认 → run → process → inspect → validate`。
+Agent 负责 `prepare → 前景复核 → plan → doctor --plan → 一次确认 → run → process → inspect → validate`。
 你不用手工复制摘要、管理 attempt ID 或填写交付清单。
 生成请求可能已被接受但结果不明时，程序会停止，不会偷偷再提交一次。
+
+### 可选：局部残底先预览，再确认
+
+正常结果不需要额外修正。若主体已经可用，但某处孔洞还留有背景，可以直接说：
+
+> 这处孔洞还有残底，先给我局部修正预览，等我确认后再应用。不要生成视频。
+
+Agent 调用 `correct preview` 展示前后图，你明确批准这一份预览后，才调用
+`correct apply` 写到新目录，再用新报告生成计划。坐标与摘要由 Agent 管理，
+像素修改和可校验证据由程序负责；原图和旧结果保留。这次是**视觉编辑确认**，
+不抵扣或代替后续的视频计算确认。
+
+先用 `ai-frame-animation correct --help` 检查命令是否存在：目前这是未发布的
+源码能力，不是已发布 v0.3.2 自带的功能。不要拿新版 Skill 混用旧程序。
+它不能补回已经丢失的发丝、衣料或薄纱，也不能自动判断同色区域是不是背景。
+详见[局部修正说明](docs/reference-correction.md)和[固定样本验收矩阵](docs/reference-acceptance.md)。
 
 ## 3. 获取和安装完整 Skill
 

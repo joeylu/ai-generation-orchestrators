@@ -8,6 +8,7 @@ from PIL import Image
 
 from .canonical import SHA256_RE, fingerprint, relative_posix, rooted_path, stamp_document
 from .media.key_analysis import CANDIDATE_KEYS, analyze_key_color
+from .preparation import load_preparation
 
 
 SUPPORTED_FRAME_COUNTS = (16, 32, 64)
@@ -49,7 +50,13 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
     delivery = _mapping(plan.get("delivery"), "plan.delivery")
     generation = _mapping(plan.get("generation"), "plan.generation")
     provider = _mapping(plan.get("provider"), "plan.provider")
-    _reject_unknown(character, {"reference", "reference_fingerprint", "description"}, "plan.character")
+    _reject_unknown(character, {"reference", "reference_fingerprint", "description", "reference_preparation"}, "plan.character")
+    if "reference_preparation" in character:
+        preparation = _mapping(character["reference_preparation"], "plan.reference_preparation")
+        _reject_unknown(preparation, {"path", "sha256"}, "plan.reference_preparation")
+        _text(preparation.get("path"), "plan.reference_preparation.path")
+        if not isinstance(preparation.get("sha256"), str) or not SHA256_RE.fullmatch(preparation["sha256"]):
+            raise ValueError("plan_reference_preparation_digest_invalid")
     _reject_unknown(motion, {"request", "continuity"}, "plan.motion")
     _reject_unknown(delivery, {"frame_counts", "size", "quality", "gif", "key_color"}, "plan.delivery")
     _reject_unknown(generation, {"prompt", "key_analysis"}, "plan.generation")
@@ -115,7 +122,7 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
         raise ValueError("plan_digest_invalid")
 
 
-def compile_plan(job: Mapping[str, Any], root: Path) -> dict[str, Any]:
+def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str | Path | None = None) -> dict[str, Any]:
     allowed = {"schema_version", "job_id", "character", "motion", "delivery", "provider"}
     unknown = sorted(set(job) - allowed)
     if unknown:
@@ -134,6 +141,14 @@ def compile_plan(job: Mapping[str, Any], root: Path) -> dict[str, Any]:
     reference = rooted_path(root, _text(character.get("reference"), "character.reference"), must_exist=True)
     if reference.is_symlink() or not reference.is_file():
         raise ValueError("character_reference_invalid")
+    preparation_binding = None
+    if prepared_reference is not None:
+        report = load_preparation(root, prepared_reference)
+        if report["source"] != {"path": relative_posix(root, reference), **fingerprint(reference, media_type="image")}:
+            raise ValueError("reference_preparation_source_mismatch")
+        reference = rooted_path(root, report["foreground"]["path"], must_exist=True)
+        preparation_binding = {"path": relative_posix(root, rooted_path(root, prepared_reference, must_exist=True)),
+                               "sha256": report["preparation_sha256"]}
 
     continuity = _text(motion.get("continuity"), "motion.continuity")
     if continuity not in SUPPORTED_CONTINUITY:
@@ -204,6 +219,8 @@ def compile_plan(job: Mapping[str, Any], root: Path) -> dict[str, Any]:
         "generation": {"prompt": generation_prompt, "key_analysis": key_analysis},
         "provider": {"plugin": plugin},
     }
+    if preparation_binding is not None:
+        plan["character"]["reference_preparation"] = preparation_binding
     stamped = stamp_document(plan, "plan_sha256")
     validate_plan_contract(stamped)
     return stamped

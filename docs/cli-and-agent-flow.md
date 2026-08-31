@@ -45,14 +45,14 @@ For an existing video, check processing dependencies only:
 ai-frame-animation doctor --root my-animation --require-ready
 ```
 
-Only for new generation, also check your provider configuration:
+Only for new generation, also check your provider configuration. This first check
+can report `plan_required_for_input_preflight` until stage 2 is complete:
 
 ```powershell
 ai-frame-animation doctor `
   --root my-animation `
   --provider minimax_h3 `
-  --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json `
-  --require-ready
+  --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json
 ```
 
 The command checks installed Python packages, `ffmpeg`/`ffprobe`, local provider
@@ -61,7 +61,20 @@ provider. Host, workflow, and secret values are redacted. With no explicit tool
 overrides, both `doctor` and `process` first check
 `<root>/.ai-frame-animation/tools/ffmpeg/bin/`, then the system `PATH`.
 
-## 2. Plan without compute
+## 2. Prepare ordinary artwork, then plan without compute
+
+For new generation, accept the original image regardless of its background;
+use program-owned preparation, not a demand for a transparent user upload:
+
+```powershell
+ai-frame-animation doctor --root my-animation --reference reference.png --preparation-config my-animation/.ai-frame-animation/segmentation.json
+ai-frame-animation prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+```
+
+`doctor` only checks setup; `prepare` may run local CPU foreground segmentation.
+Neither contacts a provider or downloads a model. Omit segmentation config when
+the original already has usable alpha. Review `foreground.png` and warnings,
+then add `--prepared-reference work/reference/r001/preparation.json` to `plan`:
 
 ```powershell
 ai-frame-animation plan `
@@ -70,10 +83,40 @@ ai-frame-animation plan `
   --out work/plan.json
 ```
 
+If a specific residual background hole needs correction, the optional
+[`correct preview` -> explicit preview approval -> `correct apply`](reference-correction.md)
+flow publishes a new preparation. It is not an automatic step, cannot repair
+missing foreground, and does not consume or replace the one video-compute
+confirmation. The Agent must not approve its own proposed correction or hand-edit
+masks/reports. Use only the resulting `preparation.json`, never the unconfirmed
+preview, in a new plan. Existing plans are left intact.
+
 The plan fingerprints the reference, selects a safe key colour from bounded
-reference sampling, fixes continuity/delivery variants, and emits a canonical
+foreground sampling when prepared, fixes continuity/delivery variants, and emits a canonical
 `plan_sha256`. Provider config, endpoints, secrets, workflow paths, and model
 paths are not part of the plan.
+
+For **new generation only**, now check that exact plan and reference without
+compute, before asking for confirmation:
+
+```powershell
+ai-frame-animation doctor `
+  --root my-animation `
+  --provider minimax_h3 `
+  --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json `
+  --plan work/plan.json `
+  --require-ready
+```
+
+During `run`, the program composites the prepared foreground onto the plan's key,
+preserving white details and soft alpha. `reference_preparation_required` means
+the preparation step was skipped, not that ordinary source images are forbidden.
+Original, foreground and preparation-report fingerprints are rechecked before
+authorization is consumed. The original job continues to name the original image.
+See [reference preparation](reference-preparation.md) for CPU model setup and the
+distinction between missing setup, an unusable source and an unreliable mask.
+Known direct KJ resize nodes must preserve aspect ratio and use the same key for
+padding. Static preflight does not certify every possible workflow transform.
 
 ## 3. Ask once, then run once
 

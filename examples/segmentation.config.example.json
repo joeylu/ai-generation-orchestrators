@@ -1,0 +1,5 @@
+{
+  "backend": "onnx_birefnet",
+  "model_path": "models/foreground.onnx",
+  "model_sha256": "REPLACE_WITH_TRUSTED_PUBLISHER_SHA256"
+}

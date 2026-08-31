@@ -18,8 +18,10 @@ from ai_frame_animation.cli import build_parser, main
 ROOT = Path(__file__).parents[1]
 
 
-def quickstart_commands() -> list[list[str]]:
+def quickstart_commands(*, existing_video_only: bool = False) -> list[list[str]]:
     text = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    if existing_video_only:
+        text = text.split("## B：", 1)[0]
     return [
         shlex.split(value)
         for value in re.findall(r"(?m)^& \$AnimationPython -m ai_frame_animation (.+)$", text)
@@ -55,7 +57,7 @@ class QuickstartTests(unittest.TestCase):
 
     def test_documented_existing_video_route_never_loads_a_provider(self) -> None:
         parser = build_parser()
-        commands = [argv for argv in quickstart_commands() if argv[0] in {"init", "doctor", "plan", "process", "inspect", "validate"}]
+        commands = [argv for argv in quickstart_commands(existing_video_only=True) if argv[0] in {"init", "doctor", "plan", "process", "inspect", "validate"}]
         commands = [argv for argv in commands if not getattr(parser.parse_args(argv), "provider_config", None)]
         self.assertEqual([argv[0] for argv in commands], ["init", "doctor", "plan", "process", "inspect", "validate"])
         with tempfile.TemporaryDirectory() as temporary:

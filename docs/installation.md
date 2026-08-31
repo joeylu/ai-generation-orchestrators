@@ -1,7 +1,8 @@
 # Installation
 
 The project has four separate installation layers: the immutable Python wheel,
-FFmpeg/ffprobe, the Agent Skill, and an optional local generation provider. None
+FFmpeg/ffprobe, the Agent Skill, and an optional local generation provider. A
+separate optional CPU segmenter prepares non-transparent reference artwork. None
 of these layers bundles model weights, credentials, private workflows, or media.
 
 ## 1. Install the immutable Python release
@@ -126,13 +127,19 @@ my-animation/.ai-frame-animation/workflow.json
 ```
 
 Export the ComfyUI workflow in API format and replace the two placeholder node
-bindings. Then run the static check:
+bindings. Use [reference preparation](reference-preparation.md) on ordinary artwork;
+users need not supply transparent PNGs. Opaque-input preparation uses the optional
+`segmentation` extra (ONNX Runtime CPU + PyMatting) and a separately verified
+BiRefNet General ONNX model. It never downloads a model during preparation and
+does not require rembg, Web packages or GPU. Compile the prepared job to
+`work/plan.json`, then run the plan-aware static check:
 
 ```powershell
 ai-frame-animation doctor `
   --root my-animation `
   --provider minimax_h3 `
   --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json `
+  --plan work/plan.json `
   --require-ready
 ```
 

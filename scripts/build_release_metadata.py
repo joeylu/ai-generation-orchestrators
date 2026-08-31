@@ -24,6 +24,9 @@ SKILL_FILES = (
     "skill.json",
 )
 SDIST_SUPPORT_FILES = (
+    "examples/segmentation-fusion.config.example.json",
+    "tests/fixtures/golden/reference-fusion-cases.json",
+    "tests/test_dual_segmentation.py", "tests/test_reference_fusion.py", "tests/test_fusion_preparation.py",
     "MANIFEST.in", "README.md", "README.zh-CN.md", "AGENTS.md",
     "CONTRIBUTING.md", "SECURITY.md", "LICENSE", "pyproject.toml",
     "scripts/build_release_metadata.py",
@@ -35,6 +38,19 @@ SDIST_SUPPORT_FILES = (
     *(f"skills/artwork/{SKILL_NAME}/{name}" for name in SKILL_FILES),
     "tests/__init__.py", "tests/test_quickstart.py", "tests/test_golden_matte.py",
     "tests/fixtures/golden/README.md", "tests/fixtures/golden/matte-cases.json",
+    "tests/test_input_delivery_regressions.py", "tests/test_process_delivery.py",
+    "tests/fixtures/golden/input-delivery-cases.json",
+    "docs/reference-preparation.md", "examples/segmentation.config.example.json",
+    "tests/test_reference_preparation.py",
+    "tests/test_reference_matte.py", "tests/fixtures/golden/reference-matte-cases.json",
+    "tests/test_reference_material.py", "tests/fixtures/golden/reference-material-cases.json",
+    "tests/test_reference_review.py",
+    "tests/test_reference_translucency.py", "tests/fixtures/golden/reference-translucency-cases.json",
+    "tests/test_preparation_boundaries.py", "tests/fixtures/golden/reference-alpha-boundary-cases.json",
+    "docs/reference-correction.md", "tests/test_reference_correction.py",
+    "tests/fixtures/golden/reference-local-correction-cases.json",
+    "docs/reference-acceptance.md", "docs/reference-acceptance-v1.json",
+    "tests/test_reference_discovery.py",
 )
 
 

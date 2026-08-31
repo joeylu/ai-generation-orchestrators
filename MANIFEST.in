@@ -1,7 +1,11 @@
 include AGENTS.md CONTRIBUTING.md SECURITY.md README.zh-CN.md
 include scripts/build_release_metadata.py
 recursive-include docs *.md
+include docs/reference-acceptance-v1.json
 include examples/README.md examples/job.example.json examples/minimax-h3.config.example.json
+include examples/segmentation.config.example.json
+include examples/segmentation-fusion.config.example.json
+include tests/fixtures/golden/reference-fusion-cases.json
 include skills/README.md
 include skills/artwork/skills-2d-frame-animation-video/SKILL.md
 include skills/artwork/skills-2d-frame-animation-video/skill.json
@@ -10,3 +14,9 @@ include skills/artwork/skills-2d-frame-animation-video/references/video-state-ma
 include skills/artwork/skills-2d-frame-animation-video/references/video-runtime-adapter-protocol.md
 recursive-include tests *.py
 include tests/fixtures/golden/README.md tests/fixtures/golden/matte-cases.json
+include tests/fixtures/golden/input-delivery-cases.json
+include tests/fixtures/golden/reference-matte-cases.json
+include tests/fixtures/golden/reference-material-cases.json
+include tests/fixtures/golden/reference-translucency-cases.json
+include tests/fixtures/golden/reference-alpha-boundary-cases.json
+include tests/fixtures/golden/reference-local-correction-cases.json

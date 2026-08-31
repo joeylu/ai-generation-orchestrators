@@ -1,0 +1,9 @@
+{
+  "kind": "synthetic_input_alpha_routing_not_model_quality",
+  "size": [160, 96],
+  "edge_subject": [0, 12, 110, 83],
+  "foreground_rgba": [245, 245, 245, 255],
+  "soft_rgba": [40, 80, 140, 128],
+  "transparent_hidden_rgb": [120, 30, 90, 0],
+  "required_behavior": "Preserve supplied visible RGBA and all alpha, fit without inventing missing content, warn on edge contact. Do not treat a tiny alpha hole or isolated interior transparency as a prepared canvas."
+}

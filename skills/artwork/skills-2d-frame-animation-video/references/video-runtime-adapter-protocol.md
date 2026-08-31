@@ -22,6 +22,17 @@ The core passes a submission token that is unique to the consumed attempt.
 The adapter must never call `submit_once` from polling, recovery, timeout handling,
 or error reconciliation.
 
+An adapter may additionally expose `preflight(plan)` for offline, plan-aware input
+checks. `doctor --plan` requires this operation and verifies the plan/reference
+binding before invoking it. No images are written and no network is contacted.
+MiniMax H3 checks the prepared foreground/key compatibility and directly attached
+KJ resize padding. It does not certify arbitrary consumer-owned graph transforms.
+An unprepared opaque source routes to `prepare`; it is not an unsupported user
+image. The provider repeats its internal ready-input check before upload, then
+composites foreground alpha onto the key. It never owns segmentation or rewrites
+the user's original. Local CPU reference preparation is a separate core stage
+before planning; its report and image fingerprints are bound into the plan.
+
 ## Result contract
 
 On success return the raw-video path, byte size, SHA-256, and provider-neutral

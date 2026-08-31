@@ -1,5 +1,23 @@
 # Delivery quality policies
 
+## Reference preparation is not an upload-format restriction
+
+Ordinary artwork may be opaque or have a complex background. `prepare` separates
+foreground locally before planning. Source unreadability/insufficient detail,
+missing segmentation setup and an unreliable output mask are different issues.
+Neither policy requires a transparent source PNG or deletes all white pixels.
+An empty/unseparated prepared foreground is blocked; edge contact, low resolution
+and uncertain soft coverage are reported for review. A passed structural check
+does not establish semantic segmentation quality or identify the intended person
+in a multi-subject image. See [reference preparation](reference-preparation.md).
+
+Optional [local correction](reference-correction.md) requires preview approval
+and produces a new preparation; neither that approval nor a valid report makes
+the entire matte acceptable. It does not weaken either delivery policy or repair
+omitted material. The [reference acceptance matrix](reference-acceptance.md)
+separates synthetic contract tests, observed real-image limitations, and the
+explicitly corrected revision from its unchanged default baseline.
+
 ## Strict (default)
 
 Every requested frame-count variant and required artifact must exist and pass:

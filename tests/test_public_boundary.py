@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).parents[1]
@@ -25,6 +27,11 @@ TEXT_SUFFIXES = {".md", ".py", ".json", ".toml", ".yaml", ".yml", ".txt"}
 
 
 def prospective_public_files() -> list[Path]:
+    # A verified extracted sdist has package metadata but no Git checkout.
+    # Scan its actual contents, not a containing repository's ignored work tree.
+    # Do not use a blanket exception fallback: checkout Git failures must surface.
+    if not (ROOT / ".git").exists() and (ROOT / "PKG-INFO").is_file():
+        return sorted(path for path in ROOT.rglob("*") if path.is_file())
     result = subprocess.run(
         [
             "git",
@@ -44,6 +51,26 @@ def prospective_public_files() -> list[Path]:
 
 
 class PublicBoundaryTests(unittest.TestCase):
+    def test_extracted_source_archive_is_scanned_without_git(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "PKG-INFO").write_text("fixture package metadata", encoding="utf-8")
+            (root / "README.md").write_text("fixture", encoding="utf-8")
+            (root / "handoff").mkdir()
+            (root / "handoff/fixture.zip").write_bytes(b"fixture")
+            with patch(__name__ + ".ROOT", root), patch(__name__ + ".subprocess.run", side_effect=AssertionError("no Git in sdist")):
+                paths = {path.relative_to(root).as_posix() for path in prospective_public_files()}
+            self.assertEqual(paths, {"PKG-INFO", "README.md", "handoff/fixture.zip"})
+
+    def test_checkout_git_failure_is_not_silently_treated_as_an_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".git").mkdir()
+            (root / "PKG-INFO").write_text("fixture", encoding="utf-8")
+            with patch(__name__ + ".ROOT", root), patch(__name__ + ".subprocess.run", side_effect=subprocess.CalledProcessError(128, "git")):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    prospective_public_files()
+
     def test_forbidden_trees_and_binary_handoffs_are_absent(self) -> None:
         relative = [path.relative_to(ROOT).as_posix() for path in prospective_public_files()]
         for value in relative:

@@ -7,6 +7,7 @@ and a motion request into validated transparent 2D frame animation.
 
 ```text
 reference image + motion request
+  -> local reference preparation (for new generation)
   -> immutable plan
   -> existing raw video OR one confirmed generation attempt
   -> deterministic RGBA processing
@@ -117,18 +118,32 @@ the project does not install models or start ComfyUI. Export your workflow in AP
 format to `my-animation/.ai-frame-animation/workflow.json`, then replace the two
 binding node IDs in `provider.minimax-h3.json` and adjust input names if needed.
 
-Check the provider configuration statically before any compute request:
+Use ordinary artwork: white backgrounds, screenshots and complex backgrounds do
+not require a user-supplied transparent PNG. The Agent calls `prepare` to separate
+the foreground and fit the canvas before key selection. Existing alpha needs no
+model; opaque artwork uses explicitly configured BiRefNet CPU segmentation and
+foreground-colour estimation, without alpha-matting erosion or old colour repair. Setup
+is separate from source quality, and no model is downloaded automatically. See
+[reference preparation](docs/reference-preparation.md) for setup and limitations.
+
+Compile the job, then check that exact input statically before any compute request:
 
 ```powershell
+ai-frame-animation prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+# Inspect work/reference/r001/foreground.png before confirming video compute.
+ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/preparation.json --out work/plan.json
 ai-frame-animation doctor `
   --root my-animation `
   --provider minimax_h3 `
   --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json `
+  --plan work/plan.json `
   --require-ready
 ```
 
-This validates the local configuration, workflow file, nodes, and input names. It
-does not connect to ComfyUI.
+This validates local configuration, bindings, and the digest-bound reference's
+prepared-input compatibility. Omitting `--plan` leaves input preflight incomplete.
+It does not connect to ComfyUI or create media; arbitrary graph transforms and
+the eventual animation's visual quality still require review.
 
 Example generation request:
 
@@ -138,6 +153,22 @@ Example generation request:
 
 The Agent should manage the job JSON, attempt ID, internal paths, processing, and
 validation. The user should see one plan and make one compute decision.
+
+#### Optional: review a local preparation defect
+
+If an otherwise useful foreground has an identified patch of leftover background,
+ask the Agent to preview a local correction and wait for your approval. This is
+not a required step for every reference and cannot restore missing hair or gauze.
+The Agent manages coordinates and digests; the program performs the edit.
+
+On a compatible CLI, `correct preview` shows the proposed change; only after you
+approve that exact preview may `correct apply` create a new preparation. Plan
+from that new report. This visual-edit approval is separate from the one video
+compute confirmation. Check `ai-frame-animation correct --help` first: this is
+unreleased checkout functionality, not a capability of the published v0.3.2.
+See [local correction](docs/reference-correction.md) for commands and limits, and
+[reference acceptance](docs/reference-acceptance.md) for the fixed seen-regression
+set and known failures. Structural checks alone do not certify a clean matte.
 
 See [Agent setup](docs/agent-setup.md) for the repository-local and installed
 Skill flows. The complete manual CLI flow is in
@@ -164,6 +195,11 @@ Skill flows. The complete manual CLI flow is in
 - `tools check` — verify FFmpeg/ffprobe and local provenance without network.
 - `tools install` — explicitly install a hash-locked local build on supported platforms.
 - `doctor` — report redacted, actionable dependency and plugin diagnostics.
+- `prepare` — preserve original artwork, separate foreground locally and fit it
+  for generation; may run configured CPU inference, never a provider submission.
+- `correct preview/apply` — optionally preview a bounded residual-background edit,
+  then publish the explicitly approved result as a new preparation; no model or
+  video compute (requires a compatible CLI).
 - `plan` — compile a structured job into an immutable, digest-bound plan.
 - `run` — consume one authorization and perform at most one provider submission.
 - `process` — derive one delivery family from a raw video or verified predecoded handoff.

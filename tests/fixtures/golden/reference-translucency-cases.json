@@ -1,0 +1,31 @@
+{
+  "provenance": "synthetic_reproduction_no_external_artwork_or_models",
+  "failure": "Transparent cloth can be omitted by a segmentation mask; opaque white cloth and real translucent artwork must not be repaired by global alpha thresholds.",
+  "size": [128, 112],
+  "background_a": [190, 106, 68],
+  "background_b": [94, 125, 145],
+  "cloth_rgb": [185, 148, 216],
+  "cloth_rectangles_xyxy_half_open": [
+    {"rect": [18, 30, 36, 86], "alpha": 64},
+    {"rect": [36, 30, 54, 86], "alpha": 128},
+    {"rect": [74, 30, 92, 86], "alpha": 192},
+    {"rect": [92, 30, 110, 86], "alpha": 247}
+  ],
+  "opaque_body_rect": [54, 16, 74, 100],
+  "opaque_body_rgb": [38, 89, 92],
+  "white_cloth_rect": [58, 38, 70, 58],
+  "white_cloth_rgb": [255, 255, 255],
+  "white_cloth_prediction_values": [247, 250, 252, 254, 255],
+  "enclosed_hole_rect": [60, 24, 68, 32],
+  "hair_rect": [28, 12, 50, 13],
+  "hair_rgb": [103, 48, 23],
+  "hair_alpha": 180,
+  "required_contracts": [
+    "existing_alpha_route_does_not_invoke_segmentation_or_matte_estimator",
+    "cutout_preserves_existing_continuous_alpha_and_visible_rgb",
+    "foreground_estimation_does_not_turn_soft_alpha_into_binary_alpha",
+    "white_foreground_is_not_deleted_by_rgb",
+    "enclosed_background_holes_remain_transparent",
+    "a_model_mask_that_omits_cloth_is_not_proof_of_visual_quality"
+  ]
+}

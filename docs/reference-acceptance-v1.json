@@ -1,0 +1,405 @@
+{
+  "schema_version": "reference_acceptance_registry_v1",
+  "role": "seen_regression_set_not_unseen_holdout",
+  "source_artwork_distributed": false,
+  "alpha_ground_truth_available": false,
+  "ci_runs_real_segmentation": false,
+  "style_success_rate_established": false,
+  "runtime_basis": {
+    "styles": {
+      "kind": "frozen_uncommitted_source_not_published_release",
+      "runtime_file_count": 35,
+      "runtime_manifest_sha256": "91812ab891dabf6817c93028448f1698abc7452db457179d3d6218d7a4d71470",
+      "manifest_encoding": "canonical_json_bytes_of_relative_runtime_paths_to_bytes_and_sha256"
+    },
+    "historical": {
+      "kind": "local_wip_wheel_not_published_release",
+      "wheel_sha256": "e13ee0e93a601b6cb56745d636bc6b0fc8a8e86077cb81414022e54edfa19f35"
+    },
+    "segmentation_model_sha256": "58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c",
+    "execution": "local_cpu",
+    "onnxruntime_version": "1.29.0",
+    "pymatting_version": "1.1.15",
+    "baseline_alpha_policy": "preserve_mask"
+  },
+  "style_cases": [
+    {
+      "id": "01-flat-cartoon-cat-courier",
+      "baseline": {
+        "report_file": {
+          "bytes": 1504,
+          "sha256": "15a345aded07df4a8c84bcbf0f556b89915775172c4ffb01b7057723eba7d554"
+        },
+        "preparation_sha256": "f7bbc45b4972e4caa2934683ebcc04423a66855f3171d19f8dbc72a768140de3",
+        "source": {
+          "bytes": 1314112,
+          "sha256": "1684ead9cf7cace840c734c51158bd2fdd437f805df805944faa0a9e1e78258f"
+        },
+        "cutout": {
+          "bytes": 768064,
+          "sha256": "5ce070226a1cc2f4c776f1aa28cad399131719d64d87065eb77fa6f5567d5c5f"
+        },
+        "foreground": {
+          "bytes": 693462,
+          "sha256": "5200f2390230ecdf0ae29d511456933e781e4e1ad46c60a11b790f06289b96b8"
+        }
+      },
+      "visual_assessment": "local_detail_needs_work",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth",
+      "followups": []
+    },
+    {
+      "id": "02-anime-white-coat-courier",
+      "baseline": {
+        "report_file": {
+          "bytes": 1502,
+          "sha256": "d32df2115496e51459b6871e4f097ad74ba84b3a45ce3f2b9e76eef86aa28e80"
+        },
+        "preparation_sha256": "4e719dea862ace45cafe2b5d97c5e11d814e8b6de533587512f6c4b0c335d4ed",
+        "source": {
+          "bytes": 1185848,
+          "sha256": "1035b1b7172364fd33a0208583353204c41ab3a28030f05660eef89c0a26e989"
+        },
+        "cutout": {
+          "bytes": 638637,
+          "sha256": "8c0837abda7c789fa78611e391fdd1a4abf4b89f9e04a18ae3330b54e947cf53"
+        },
+        "foreground": {
+          "bytes": 525621,
+          "sha256": "afa3e58b464281584b707eb1fae52efcf3b32712c1944d3f34ad0215ed5f9834"
+        }
+      },
+      "visual_assessment": "usable_in_this_sample_with_detail_review",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth",
+      "followups": []
+    },
+    {
+      "id": "03-western-comic-dark-mechanic",
+      "baseline": {
+        "report_file": {
+          "bytes": 1512,
+          "sha256": "46a99a7f43dfcae394849532d6ec2f21ac4529bb9b8228da2d7d77f0d642a20b"
+        },
+        "preparation_sha256": "d9970e9c7fa50ff8a53b6b16650d65ad366a84083723b13aa837362e5af0496a",
+        "source": {
+          "bytes": 1827750,
+          "sha256": "f11d56e3fc475dfbd99eb68d0533ea44cb9361ef42f78b9c1fa2cc59ebb46299"
+        },
+        "cutout": {
+          "bytes": 781845,
+          "sha256": "eeaa899dd7937168a57dc60f759baecf5afc0e66d89b4798299d8594ae0531cf"
+        },
+        "foreground": {
+          "bytes": 597125,
+          "sha256": "eecd012921191787ab0f98a85da14ac74d26c7037592a2e435888a3f1189b416"
+        }
+      },
+      "visual_assessment": "usable_in_this_sample",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth",
+      "followups": []
+    },
+    {
+      "id": "04-watercolor-hedgehog-herbalist",
+      "baseline": {
+        "report_file": {
+          "bytes": 1506,
+          "sha256": "fc6acbc5bb548c51aa549b7d5e3a45425d5636fcae39bfc66cead9a2487d7217"
+        },
+        "preparation_sha256": "4fded338c744a6406c51038e8c12dd5d3aa61c20ee4c245ceb137f2b265a5cd7",
+        "source": {
+          "bytes": 2589194,
+          "sha256": "91f9c6464db3cf8ef3af858d3246c153ebe6abe323e6feb2a303b6e9d9ce4309"
+        },
+        "cutout": {
+          "bytes": 1111484,
+          "sha256": "32ff7c986156dea852906972baf4a6607aee88b3db926ebbbc210c3388825114"
+        },
+        "foreground": {
+          "bytes": 1111415,
+          "sha256": "ef9e7ac4605d87e9862efe3b127cd9a21ad3160b305b7750e9e4d4aaf00e0e6c"
+        }
+      },
+      "visual_assessment": "local_detail_needs_work",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth",
+      "followups": []
+    },
+    {
+      "id": "05-painterly-wuxia-traveller",
+      "baseline": {
+        "report_file": {
+          "bytes": 1506,
+          "sha256": "7a34f2c24be13a376bf18775f05fd3d4466edfdc3ae5b0cf9166a18153789219"
+        },
+        "preparation_sha256": "a891fb2a9ef7d36711a18643374913067c47ed986f0ee9d1689d5760e17574d3",
+        "source": {
+          "bytes": 2529016,
+          "sha256": "88569e515f751b65063b5338121caf8a2d92091f757911a29303ae76aa959fb1"
+        },
+        "cutout": {
+          "bytes": 871694,
+          "sha256": "71aea1ec9da3c059d619f47b426597d96ff788a0f27bd6240b3bb6fc5bfb275a"
+        },
+        "foreground": {
+          "bytes": 741004,
+          "sha256": "ea67c9cd5d0d1adfb67eb36a5fdd1384475a80f6ac1518e33640c4cbb34fa76e"
+        }
+      },
+      "visual_assessment": "local_detail_needs_work",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth",
+      "followups": []
+    },
+    {
+      "id": "06-pixel-clockwork-automaton",
+      "baseline": {
+        "report_file": {
+          "bytes": 1506,
+          "sha256": "22461f333a9b1f454f73fb1fd89a3f376f28e0ec69c1f643c98982ba3af40233"
+        },
+        "preparation_sha256": "7fda9cc1a1cbf1b7c714fec7715026d6ee82e37a3a19a894a6a0a081811efccb",
+        "source": {
+          "bytes": 1272352,
+          "sha256": "71a5f159d1ef66e3287582eb557f9f67c7f4cf4b4f703625603b07000f1917d4"
+        },
+        "cutout": {
+          "bytes": 717996,
+          "sha256": "4458233aaa5c6eabdfd1527fc6403bb424eaa6b7e58ef4590c69c862de2d9cc3"
+        },
+        "foreground": {
+          "bytes": 661478,
+          "sha256": "61f1eb4dfee22f134cd11024c713cc050414eef2d4da75bffa7021683de465c0"
+        }
+      },
+      "visual_assessment": "background_hole_failure",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth",
+      "followups": [
+        {
+          "id": "user-confirmed-local-correction-r001",
+          "kind": "user_confirmed_local_correction_not_default_prepare",
+          "default_behavior_changed": false,
+          "approved_preview_sha256": "1ea6521090e24914170f85a6be9601fa832bcb7e70190721b74dec96245a0279",
+          "preview_file": {
+            "bytes": 3332,
+            "sha256": "a73c9a54490df3586efcabd5f2a2ffd13ea3f8edfaa52a075cbbcf92cd9a4ca5"
+          },
+          "result": {
+            "report_file": {
+              "bytes": 1820,
+              "sha256": "5e0a791dd79fd53e6dc76224cbce3c77d6a8b76020b4e2778a636ee9ba468e0a"
+            },
+            "preparation_sha256": "63f96ff6843cbcc7d409f20b05948f341143ef5d4fb4b5d39684742d6d9e8ff9",
+            "source": {
+              "bytes": 1272352,
+              "sha256": "71a5f159d1ef66e3287582eb557f9f67c7f4cf4b4f703625603b07000f1917d4"
+            },
+            "cutout": {
+              "bytes": 717899,
+              "sha256": "eedec6fab94256426b9733d2b8984c9776449c9b00f2644799039644f7fad4c9"
+            },
+            "foreground": {
+              "bytes": 661601,
+              "sha256": "48a24b62ec6e4c4c658a6ae5f310fede5e09282c80b462eca68b0080762cffbf"
+            }
+          },
+          "changed_pixels": 294,
+          "outside_region_rgba_identical": true,
+          "fit_unchanged": true,
+          "certifies_complete_matte": false
+        }
+      ]
+    },
+    {
+      "id": "07-clay-mushroom-golem",
+      "baseline": {
+        "report_file": {
+          "bytes": 1475,
+          "sha256": "daefee54011f6cfd6f05aed5e6b5da8241c17c516a224c19a84bcc7a11e78977"
+        },
+        "preparation_sha256": "f4e976a3fc5fe6bed7b11ce1666f48ed3a3df8c1bea808d36ed665fa22c7e249",
+        "source": {
+          "bytes": 1770314,
+          "sha256": "ec8e7695de297f179b0d23c53214375e13966d5a8872b688e473e7d5d2e40a06"
+        },
+        "cutout": {
+          "bytes": 1119705,
+          "sha256": "3a88d2b99ac057401cf98a67b01653bfdb70cb373e155cac5b5315b0ee565a9b"
+        },
+        "foreground": {
+          "bytes": 1119705,
+          "sha256": "3a88d2b99ac057401cf98a67b01653bfdb70cb373e155cac5b5315b0ee565a9b"
+        }
+      },
+      "visual_assessment": "usable_in_this_sample",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth",
+      "followups": []
+    },
+    {
+      "id": "08-realistic-mountain-explorer",
+      "baseline": {
+        "report_file": {
+          "bytes": 1511,
+          "sha256": "89ad4bca437e4ed36157c629d33f70f4f52b7e14beb4ba57815723408a921b61"
+        },
+        "preparation_sha256": "ed41c12bf027eda59bdec090ef4873908c13375db435428cc517fa1cf5b373bf",
+        "source": {
+          "bytes": 2615416,
+          "sha256": "75216ff3faf70f8fbd1c28afab41b7b91358fd0b197aa2f4c3acff066111ea11"
+        },
+        "cutout": {
+          "bytes": 796107,
+          "sha256": "2bf28884c9887496543d617751525cab4db2a256b28066bdb0c6958f0006bbb9"
+        },
+        "foreground": {
+          "bytes": 705677,
+          "sha256": "439d20e9d58f9a5d6c7fa270931736864173fa85a90dcf396c36261dd62f66ea"
+        }
+      },
+      "visual_assessment": "local_detail_needs_work",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth",
+      "followups": []
+    }
+  ],
+  "historical_controls": [
+    {
+      "id": "old-03-white-outfit-holes",
+      "baseline": {
+        "report_file": {
+          "bytes": 1497,
+          "sha256": "c6549357107623e877772047e42f73385a244909eef4ece0a5d362f9d86efc1b"
+        },
+        "preparation_sha256": "d95e5d3f53da5880f14adced43fca38fa75e5fcc11580352e5c4575d5b09d6da",
+        "source": {
+          "bytes": 1101583,
+          "sha256": "3d95478202becd0496d72dcd4bba9262155109fb87b9036f6a9d27dff0ce3ba0"
+        },
+        "cutout": {
+          "bytes": 581093,
+          "sha256": "27c4b17e90b1d36f310aa3016d77353cb39a802cc0a85a424ccac8cd387ef4a1"
+        },
+        "foreground": {
+          "bytes": 508540,
+          "sha256": "a23691f1dcc8d72d3692256588c1d66ddf83010a77cd5b156f47a9ff25bd437d"
+        }
+      },
+      "visual_assessment": "usable_in_observed_regions_not_alpha_ground_truth",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth"
+    },
+    {
+      "id": "old-02-long-hair-tail",
+      "baseline": {
+        "report_file": {
+          "bytes": 1483,
+          "sha256": "6aebc8d4e8d0daa56376a7e33795a7596b190e15eccc4eb0b03aefd38b933323"
+        },
+        "preparation_sha256": "6af0ff120d7dc4ddf08c062b5af571a3707d879180218d9ac7eb3f16272952df",
+        "source": {
+          "bytes": 1453105,
+          "sha256": "64b7cd7f15196129d7e4ea8dcc69b35d06038f552488676a88f945776731aff9"
+        },
+        "cutout": {
+          "bytes": 866950,
+          "sha256": "3c365e369e7725e6ec510a24b5300257b6d0b262b07fa141f348a245a57292fe"
+        },
+        "foreground": {
+          "bytes": 687396,
+          "sha256": "75c9f8e2d55a0bceb43107f42623a2ecfd3ecb076f163873e68e48b297dc5b3d"
+        }
+      },
+      "visual_assessment": "usable_in_observed_regions_with_low_alpha_residue",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth"
+    },
+    {
+      "id": "white-jpeg-75",
+      "baseline": {
+        "report_file": {
+          "bytes": 1457,
+          "sha256": "c03374dda0751fb50bff2429e8eeaeaf2ac0badd41cd6775b61334f03accd424"
+        },
+        "preparation_sha256": "e806abf7412214ba5ed21df388dc9e78530de9a7f9795b2af98728393db2fdb5",
+        "source": {
+          "bytes": 84361,
+          "sha256": "aab3d93cad1958f49399c01416c849948f9522b195fd1dd3ecc3754552d9f491"
+        },
+        "cutout": {
+          "bytes": 483495,
+          "sha256": "4ae4a60a19b509ae6a7198690927e4c512288453a67d3c03295fefe615e6a5de"
+        },
+        "foreground": {
+          "bytes": 450156,
+          "sha256": "88924a433b3cb234d8a10d9bf7e1e18a9b0c17bc52cc72818d3d64b52958c1cb"
+        }
+      },
+      "visual_assessment": "opaque_shoe_material_loss",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth"
+    },
+    {
+      "id": "new-03-feathers-flyaways-openwork",
+      "baseline": {
+        "report_file": {
+          "bytes": 1521,
+          "sha256": "beec5efb8139a52cb153ba5ad16cb26c24b34535d723388dae24a2621d231582"
+        },
+        "preparation_sha256": "b91a25f20e518dbd8f97b86f3f649fabf91b64325c0345663c8b51a5380c40d1",
+        "source": {
+          "bytes": 2137810,
+          "sha256": "d34a1439c4f13a8803c8640bb0da08f27f32fa626ec8e126920772e9c46fca90"
+        },
+        "cutout": {
+          "bytes": 1099869,
+          "sha256": "ca0a7270341a53e806962f703f5aec8ca9e4b67ade9d60dfd52f1c8a783fab49"
+        },
+        "foreground": {
+          "bytes": 956943,
+          "sha256": "f03afb87fc0feae54c2814f2364b042facb7bebbe8c5d57524c74207451803b4"
+        }
+      },
+      "visual_assessment": "bright_fine_detail_fringe",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth"
+    },
+    {
+      "id": "new-06-translucent-gauze",
+      "baseline": {
+        "report_file": {
+          "bytes": 1495,
+          "sha256": "dc53fa150cd5efb3aafded8c6c32eee00836112ce12aa965fb970c405d217d86"
+        },
+        "preparation_sha256": "bf1b9e97a19d943fbd02a5159ec1a994ad054416e7f5325b36cf45cea8e25833",
+        "source": {
+          "bytes": 2149844,
+          "sha256": "a6d0955595ceb9ec1abe6079e691891398019abd7259a3bb710ef0fbc63b4b0e"
+        },
+        "cutout": {
+          "bytes": 584223,
+          "sha256": "88648c868e7d1019132d38158c29ac154d51bb2f52589f9e765f848b47b0a018"
+        },
+        "foreground": {
+          "bytes": 503463,
+          "sha256": "cb675c11d2020d0dce31e176696881416dd74d13781a01206a361449f5241736"
+        }
+      },
+      "visual_assessment": "omitted_translucent_material",
+      "review_origin": "agent_visual_observation_not_alpha_ground_truth"
+    }
+  ],
+  "contract_controls": [
+    {
+      "id": "alpha-input-and-publication",
+      "test": "tests/test_preparation_boundaries.py",
+      "fixture": "tests/fixtures/golden/reference-alpha-boundary-cases.json"
+    },
+    {
+      "id": "reference-mask-and-colour",
+      "test": "tests/test_reference_matte.py",
+      "fixture": "tests/fixtures/golden/reference-matte-cases.json"
+    },
+    {
+      "id": "soft-and-omitted-material",
+      "test": "tests/test_reference_translucency.py",
+      "fixture": "tests/fixtures/golden/reference-translucency-cases.json"
+    },
+    {
+      "id": "local-correction-containment-and-integrity",
+      "test": "tests/test_reference_correction.py",
+      "fixture": "tests/fixtures/golden/reference-local-correction-cases.json"
+    }
+  ]
+}

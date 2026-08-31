@@ -99,7 +99,9 @@ class ProviderAttemptTests(unittest.TestCase):
     def test_minimax_adapter_calls_prompt_exactly_once(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            Image.new("RGB", (4, 4), (255, 0, 0)).save(root / "reference.png")
+            reference = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+            reference.putpixel((1, 1), (255, 0, 0, 255))
+            reference.save(root / "reference.png")
             workflow = {
                 "1": {"inputs": {"image": ""}, "class_type": "LoadImage"},
                 "2": {"inputs": {"text": ""}, "class_type": "Text"},
@@ -117,9 +119,9 @@ class ProviderAttemptTests(unittest.TestCase):
             config_path.write_text(json.dumps(config), encoding="utf-8")
             provider = MiniMaxH3Provider(config_path=config_path, root=root)
             calls = []
-            provider._upload_reference = lambda path, token: {"name": "uploaded.png"}  # type: ignore[method-assign]
+            provider._upload_reference = lambda path, token, payload: {"name": "uploaded.png"}  # type: ignore[method-assign]
             provider._post_json = lambda relative, payload: calls.append((relative, payload)) or {"prompt_id": "p1"}  # type: ignore[method-assign]
-            plan = {"character": {"reference": "reference.png"}, "generation": {"prompt": "wave on a solid key background"}}
+            plan = {"character": {"reference": "reference.png"}, "delivery": {"key_color": "#00FF00"}, "generation": {"prompt": "wave on a solid key background"}}
             self.assertEqual(provider.submit_once(plan, "token"), "p1")
             with self.assertRaises(GenerationIndeterminate):
                 provider.submit_once(plan, "token-2")

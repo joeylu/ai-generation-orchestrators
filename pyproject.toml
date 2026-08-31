@@ -25,6 +25,8 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = ["build>=1.2", "pip-audit>=2.7"]
+segmentation = ["onnxruntime>=1.20,<2", "PyMatting==1.1.15", "scipy>=1.11,<2"]
+test = ["scipy>=1.11,<2"]
 
 [project.scripts]
 ai-frame-animation = "ai_frame_animation.cli:main"

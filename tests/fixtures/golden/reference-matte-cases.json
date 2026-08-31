@@ -1,0 +1,19 @@
+{
+  "provenance": "synthetic_reproduction",
+  "failure": "Opaque reference on a light canvas: saliency retains a light halo and makes connected grey armour translucent.",
+  "size": [80, 72],
+  "background": [255, 255, 255],
+  "body": [22, 12, 53, 59],
+  "body_rgb": [32, 40, 56],
+  "white_detail": [30, 20, 43, 30],
+  "weak_armour": [47, 32, 61, 46],
+  "armour_rgb": [157, 160, 169],
+  "armour_prediction": 33,
+  "weak_knee": [42, 49, 50, 56],
+  "knee_prediction": 231,
+  "enclosed_hole": [29, 39, 36, 46],
+  "misclassified_hole_prediction": 255,
+  "confirmed_background_point": [32, 42],
+  "edge_alpha": [64, 128, 192],
+  "unrelated_object": [7, 28, 10, 34]
+}

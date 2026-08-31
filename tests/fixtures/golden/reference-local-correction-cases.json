@@ -1,0 +1,15 @@
+{
+  "provenance": "synthetic_reproduction",
+  "failure": "A key hole is predicted opaque; automatic canvas-colour deletion also removes nose and eye highlights. Local correction must not touch the identical-colour material outside the selected region.",
+  "size": [256, 256],
+  "background": [148, 58, 117],
+  "body": [64, 40, 196, 220],
+  "body_rgb": [192, 132, 48],
+  "hole": [92, 66, 108, 82],
+  "same_colour_insert": [162, 66, 178, 82],
+  "white_cloth": [124, 120, 154, 170],
+  "region": [88, 62, 112, 86],
+  "background_point": [100, 74],
+  "protected_points": [[170, 74], [138, 145]],
+  "soft_alpha_values": [1, 6, 64, 128, 192, 247, 254]
+}

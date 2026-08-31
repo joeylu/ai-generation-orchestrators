@@ -45,6 +45,23 @@ silently bypass a failed quality gate.
 
 ## Media invariants
 
+- User reference artwork need not be transparent. Before new generation, use
+  program-owned `prepare` to separate the foreground and fit the canvas; bind
+  its original/foreground fingerprints into the plan. Missing segmentation
+  setup is not bad source quality. Never erase all white pixels or ask for a
+  transparent PNG solely because the source is opaque.
+- `prepare` may run explicitly configured local CPU segmentation, but never
+  downloads models, calls a service, or uses GPU. Inspect its foreground before
+  requesting the one video-generation confirmation; do not silently regenerate
+  or invent missing character details.
+- `correct` is optional for a specifically identified residual-background patch,
+  not an automatic step after `prepare`. Check command availability, use original
+  EXIF-oriented cutout coordinates, and show the program's preview and digest.
+  Call `correct apply` only after explicit user approval of that exact preview;
+  never approve it on the user's behalf or hand-edit masks/reports. Keep the
+  original, parent and preview, publish to a fresh directory, and replan from the
+  new preparation. This visual-edit approval does not authorize video compute.
+  Correction cannot restore omitted hair, clothing or translucent material.
 - Transparent PNG frames are authoritative. GIF and spritesheets are derived
   delivery artifacts.
 - Global key removal includes enclosed canvas holes. Do not switch to an

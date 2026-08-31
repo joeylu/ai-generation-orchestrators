@@ -1,0 +1,16 @@
+{
+  "schema_version": "reference_fusion_fixture_v1",
+  "size": [128, 128],
+  "body": [20, 20, 108, 108],
+  "hole_or_badge": [50, 50, 62, 62],
+  "auxiliary_alpha": 24,
+  "source_alpha": 255,
+  "cases": [
+    {"id": "enclosed_background_hole", "expected": "reduce_only_inside_hole"},
+    {"id": "opaque_badge_auxiliary_false_negative", "expected": "preserve_opaque_subject", "known_unresolved": true},
+    {"id": "existing_continuous_alpha", "expected": "bypass_fusion"},
+    {"id": "external_connected_background_and_fine_hair", "expected": "keep_primary_outside_enclosed_holes"},
+    {"id": "same_colour_foreground_and_white_cloth", "expected": "no_colour_based_removal"}
+  ],
+  "note": "Synthetic masks only. These do not establish real-model semantic accuracy or user acceptance."
+}

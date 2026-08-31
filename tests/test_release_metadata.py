@@ -207,6 +207,12 @@ version = \"9.9.9\"
             build_metadata(dist)
             self.assertIn(source.name, (dist / "SHA256SUMS.txt").read_text(encoding="ascii"))
 
+    def test_all_public_golden_data_are_required_source_archive_members(self) -> None:
+        fixtures = {path.relative_to(ROOT).as_posix() for path in (ROOT / "tests/fixtures/golden").glob("*.json")}
+        self.assertTrue(fixtures)
+        self.assertTrue(fixtures <= set(SDIST_SUPPORT_FILES), fixtures - set(SDIST_SUPPORT_FILES))
+
+
     def test_source_archive_rejects_unsafe_or_duplicate_members(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "source.tar.gz"

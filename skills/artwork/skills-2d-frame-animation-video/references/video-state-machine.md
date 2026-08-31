@@ -1,6 +1,10 @@
 # Generation and processing state
 
 Generation attempts and deterministic processing revisions are separate.
+Reference preparation is also separate: `prepare` produces a foreground and a
+digest-bound report before planning. It creates no generation attempt or video
+authorization. Re-preparation changes the plan digest and needs a fresh video
+confirmation; neither preparation nor a successful mask permits resubmission.
 
 ```text
 DRAFT -> PLANNED -> AWAITING_CONFIRMATION -> AUTHORIZED

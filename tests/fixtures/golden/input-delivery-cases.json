@@ -1,0 +1,23 @@
+{
+  "schema_version": "ai_frame_animation_input_delivery_cases_v1",
+  "provenance": "synthetic_reproduction",
+  "cases": {
+    "white_canvas_green_padding": {
+      "problem": "A white reference canvas was padded with green rather than replaced; the generated transition left an opaque panel after key removal.",
+      "size": [96, 56],
+      "panel": [20, 0, 75, 55],
+      "key": "#00FF00",
+      "expected": "reject_without_erasing_white_foreground"
+    },
+    "non_square_canvas": {
+      "problem": "Direct square resize changed the character's aspect ratio.",
+      "sizes": [[120, 72], [72, 120]],
+      "output_size": 128,
+      "expected": "preserve_circle_and_add_transparent_padding"
+    },
+    "clipping_warning": {
+      "problem": "Strict validation accepted a delivery whose alignment evidence reported clipping.",
+      "expected": "strict_rejects_unresolved_clipping"
+    }
+  }
+}
