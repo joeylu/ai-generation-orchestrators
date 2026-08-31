@@ -9,6 +9,7 @@ from ai_frame_animation.planning import compile_plan
 from ai_frame_animation.cli import main,_check_reference
 from ai_frame_animation.media.dual_segmentation import BACKEND,ISNET
 from tests.test_reference_fusion import fixture
+from tests.reference_doubles import foreground_double
 
 class FusionPreparationTests(unittest.TestCase):
     def setUp(self):
@@ -27,7 +28,9 @@ class FusionPreparationTests(unittest.TestCase):
         self.first=patched('ai_frame_animation.media.segmentation.infer_birefnet_mask',return_value=(Image.fromarray(a),self.evidence['primary']))
         self.second=patched('ai_frame_animation.media.dual_segmentation.infer_isnet_mask',return_value=(Image.fromarray(b),self.evidence['auxiliary']))
         self.runtime=patched('ai_frame_animation.media.dual_segmentation._runtime')
-        self.matte=patched('ai_frame_animation.media.reference_matte.load_foreground_estimator',return_value=(lambda rgb,alpha:rgb,'fixture'))
+        foreground=foreground_double(lambda rgb,alpha:rgb)
+        self.matte=foreground.__enter__()
+        self.addCleanup(foreground.__exit__,None,None,None)
         self.report=self.prepare('out')
     def prepare(self,out,reference='source.png'):return prepare_reference(root=self.root,reference=reference,out_dir=out,config_path=self.config)
     def job(self,reference='source.png'):return {'schema_version':'1.0','job_id':'fusion','character':{'reference':reference,'description':'fixture'},'motion':{'request':'idle','continuity':'loop'},'delivery':{'frame_counts':[16,32,64],'size':512,'quality':'strict','gif':True,'key_color':'auto'},'provider':{'plugin':'fixture'}}
