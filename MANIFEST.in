@@ -16,6 +16,8 @@ recursive-include tests *.py
 include tests/fixtures/golden/README.md tests/fixtures/golden/matte-cases.json
 include tests/fixtures/golden/input-delivery-cases.json
 include tests/fixtures/golden/reference-matte-cases.json
+include tests/fixtures/golden/moving-hole-cases.json
+include tests/fixtures/golden/subject-fit-cases.json
 include tests/fixtures/golden/reference-material-cases.json
 include tests/fixtures/golden/reference-translucency-cases.json
 include tests/fixtures/golden/reference-alpha-boundary-cases.json

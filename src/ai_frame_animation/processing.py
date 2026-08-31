@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import uuid
 import zipfile
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -14,9 +15,10 @@ from PIL import Image
 from . import __version__
 from .canonical import fingerprint, relative_posix, rooted_path, safe_error_code, stamp_document, write_json_atomic
 from .handoff import DecodedHandoff
-from .media.align import align_rgba_frames
+from .media.fit import fit_subject_sequence
 from .media.gif import export_preview_gif
 from .media.matte import calibrate_key_color, color_key_to_rgba, parse_hex_color
+from .media.quality import check_subject_canvas
 from .media.spill import cleanup_key_spill, zero_transparent_rgb
 from .media.spritesheet import pack_video_spritesheet
 from .media.timeline import build_source_timeline, build_variant_timeline, choose_uniform_indices
@@ -99,14 +101,23 @@ def _rgba_frame(source: Image.Image, declared_key: tuple[int, int, int]) -> tupl
         )
         matte_evidence = {"calibration": calibration, **matte_detail}
     cleaned, spill = cleanup_key_spill(rgba, key_color=observed_key)
+    # Check before square padding/alignment can disguise a retained canvas.
+    check_subject_canvas(cleaned)
     return cleaned, {"matte": matte_evidence, "spill": spill}
 
 
 def _resize_rgba(image: Image.Image, size: int) -> Image.Image:
+    """Low-level canvas fit; delivery uses the shared subject envelope instead."""
     if image.size == (size, size):
         result = image.copy()
     else:
-        result = image.resize((size, size), Image.Resampling.LANCZOS)
+        scale = size / max(image.size)
+        width = max(1, min(size, round(image.width * scale)))
+        height = max(1, min(size, round(image.height * scale)))
+        resized = image.resize((width, height), Image.Resampling.LANCZOS)
+        result = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        # Paste without a mask: multiplying alpha again would erode soft edges.
+        result.paste(resized, ((size - width) // 2, (size - height) // 2))
     zero_transparent_rgb(result)
     return result
 
@@ -115,26 +126,30 @@ def _write_variant(
     *,
     variant_root: Path,
     source_images: Sequence[Image.Image],
+    source_evidence: Sequence[Mapping[str, Any]],
+    source_alignment: Mapping[str, Any],
+    subject_fit: Mapping[str, Any],
     selected_indices: Sequence[int],
     frame_count: int,
     size: int,
-    key_color: str,
     timeline: Mapping[str, Any],
     raw_sha256: str,
     include_gif: bool,
     allow_gif_failure: bool,
+    strict: bool = True,
 ) -> dict[str, Any]:
     variant_root.mkdir(parents=True, exist_ok=False)
     frames_root = variant_root / "frames"
     frames_root.mkdir()
-    declared_key = parse_hex_color(key_color)
-    processed: list[Image.Image] = []
-    evidence: list[dict[str, Any]] = []
-    for output_index, source_index in enumerate(selected_indices, start=1):
-        rgba, detail = _rgba_frame(source_images[source_index], declared_key)
-        processed.append(_resize_rgba(rgba, size))
-        evidence.append({"output_index": output_index, "source_index": source_index, **detail})
-    aligned, alignment = align_rgba_frames(processed, anchor_kind="contact_baseline")
+    aligned = [source_images[index] for index in selected_indices]
+    evidence = [{"output_index": output_index, "source_index": index, **source_evidence[index]}
+                for output_index, index in enumerate(selected_indices, start=1)]
+    alignment = {**source_alignment, "records": [
+        {**source_alignment["records"][index], "index": output_index}
+        for output_index, index in enumerate(selected_indices, start=1)
+    ]}
+    if strict and any(record["clip_warning"] for record in alignment["records"]):
+        raise ValueError("strict_subject_clipping")
     warnings = list(alignment.get("warning_codes", []))
     frame_paths: list[Path] = []
     for index, image in enumerate(aligned, start=1):
@@ -158,7 +173,8 @@ def _write_variant(
         gif_path = variant_root / "preview.gif"
         fps_record = timeline["playback_fps"]
         try:
-            export_preview_gif(images=aligned, out_gif=gif_path, fps=float(fps_record["decimal"]))
+            export_preview_gif(images=aligned, out_gif=gif_path,
+                               fps=Fraction(fps_record["numerator"], fps_record["denominator"]))
             artifacts["gif"] = _artifact(variant_root, gif_path, "image/gif")
         except Exception:
             gif_path.unlink(missing_ok=True)
@@ -180,6 +196,7 @@ def _write_variant(
         },
         "processing": {
             "background_policy": "per_frame_calibrated_global_key_or_native_alpha",
+            "subject_fit": dict(subject_fit),
             "alignment": alignment,
             "frames": evidence,
         },
@@ -224,6 +241,16 @@ def _process_from_decoded_into(
     continuity = str(plan["motion"]["continuity"])
     source_timeline = build_source_timeline(probe_payload, decoded_frame_count=len(source_images), continuity=continuity)
     quality = str(delivery["quality"])
+    # A family has one geometry, independent of requested variant counts. Do
+    # not let sparse sampling miss an extended pose or rescale common frames.
+    # Loop's excluded terminal pose does not belong to its fitting interval.
+    eligible_count = len(source_images) - (1 if continuity == "loop" else 0)
+    declared_key = parse_hex_color(key_color)
+    prepared = [_rgba_frame(image, declared_key) for image in source_images[:eligible_count]]
+    fitted_sources, subject_fit, source_alignment = fit_subject_sequence(
+        [item[0] for item in prepared], size=int(delivery["size"]),
+    )
+    source_evidence = [item[1] for item in prepared]
     variants: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     for frame_count in delivery["frame_counts"]:
@@ -234,15 +261,18 @@ def _process_from_decoded_into(
             timeline = build_variant_timeline(source_timeline, indices, int(frame_count))
             entry = _write_variant(
                 variant_root=staged_variant_root,
-                source_images=source_images,
+                source_images=fitted_sources,
+                source_evidence=source_evidence,
+                source_alignment=source_alignment,
+                subject_fit=subject_fit,
                 selected_indices=indices,
                 frame_count=int(frame_count),
                 size=int(delivery["size"]),
-                key_color=key_color,
                 timeline=timeline,
                 raw_sha256=str(raw["sha256"]),
                 include_gif=bool(delivery["gif"]),
                 allow_gif_failure=quality == "best_effort",
+                strict=quality == "strict",
             )
             staged_variant_root.replace(final_variant_root)
             entry["manifest"]["path"] = f"{final_variant_root.name}/manifest.json"
@@ -309,6 +339,10 @@ def process_from_decoded(
             key_color=key_color,
             decoded_handoff_sha256=decoded_handoff_sha256,
         )
+        # Do not publish a directory/ZIP until the selected policy has passed.
+        from .validation import validate_delivery
+
+        validate_delivery(staged, policy=str(plan["delivery"]["quality"]), workspace_root=root)
         staged.replace(out_dir)
         return family
     except Exception:

@@ -1,0 +1,20 @@
+{
+  "schema_version": "ai_frame_animation_subject_fit_cases_v1",
+  "provenance": "synthetic_reproduction",
+  "problem": "Fitting a 608x352 video canvas into a 256x256 delivery reduced a roughly 270-pixel character to 114 pixels while retaining background padding.",
+  "source_size": [608, 352],
+  "delivery_size": 256,
+  "source_frames": 65,
+  "body_rect": [222, 40, 385, 309],
+  "body_rgb": [60, 60, 120],
+  "white_rect": [270, 70, 310, 105],
+  "hole_rect": [245, 160, 270, 195],
+  "wide_pose_source_index": 1,
+  "wide_cape_rect": [155, 140, 222, 230],
+  "expected_old_height_range": [112, 116],
+  "expected_new_height_range": [198, 210],
+  "limits": [
+    "No actual artwork, raw video, model or private configuration is included.",
+    "This measures geometry and alpha preservation, not semantic segmentation, edge cleanliness or natural looping."
+  ]
+}

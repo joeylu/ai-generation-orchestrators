@@ -212,6 +212,14 @@ version = \"9.9.9\"
         self.assertTrue(fixtures)
         self.assertTrue(fixtures <= set(SDIST_SUPPORT_FILES), fixtures - set(SDIST_SUPPORT_FILES))
 
+    def test_source_archive_rejects_missing_material_or_subject_fit_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source.tar.gz"
+            for missing in ("tests/fixtures/golden/subject-fit-cases.json", "tests/fixtures/golden/reference-material-cases.json"):
+                with self.subTest(missing=missing):
+                    self._source_archive(source, tuple(name for name in SDIST_SUPPORT_FILES if name != missing))
+                    with self.assertRaisesRegex(ValueError, "source_distribution_support_files_missing"):
+                        validate_source_archive(source)
 
     def test_source_archive_rejects_unsafe_or_duplicate_members(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

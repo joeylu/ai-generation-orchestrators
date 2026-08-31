@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import zipfile
 from fractions import Fraction
 from pathlib import Path
@@ -10,6 +11,7 @@ from PIL import Image, ImageSequence
 
 from .canonical import SHA256_RE, load_json, rooted_path, sha256_file, verify_document
 from .media.spritesheet import GRID_BY_FRAME_COUNT
+from .media.quality import check_subject_canvas
 from .state import AttemptStore
 
 
@@ -30,7 +32,7 @@ def _verify_artifact(root: Path, artifact: Mapping[str, Any]) -> Path:
     return path
 
 
-def _validate_rgba(path: Path, expected_size: int) -> None:
+def _validate_rgba(path: Path, expected_size: int, *, margin: int = 0) -> None:
     with Image.open(path) as image:
         if image.mode != "RGBA" or image.size != (expected_size, expected_size):
             raise ValueError("frame_mode_or_size_invalid")
@@ -38,6 +40,11 @@ def _validate_rgba(path: Path, expected_size: int) -> None:
         alpha_values = [pixel[3] for pixel in pixels]
         if min(alpha_values) == 255:
             raise ValueError("frame_is_opaque")
+        check_subject_canvas(image)
+        if margin:
+            bbox = image.getchannel("A").getbbox()
+            if bbox is None or bbox[0] < margin or bbox[1] < margin or bbox[2] > expected_size - margin or bbox[3] > expected_size - margin:
+                raise ValueError("subject_fit_margin_not_preserved")
         if any(alpha == 0 and (red or green or blue) for red, green, blue, alpha in pixels):
             raise ValueError("transparent_pixel_has_hidden_rgb")
 
@@ -55,8 +62,10 @@ def _validate_gif(path: Path, expected_frames: int, playback_fps: Fraction) -> N
         raise ValueError("gif_frame_inventory_invalid")
     if any(frame.getchannel("A").getextrema()[0] != 0 for frame in frames):
         raise ValueError("gif_transparency_missing")
-    frame_duration = max(1, round(1000 / float(playback_fps)))
-    if abs(sum(durations) - frame_duration * expected_frames) > frame_duration:
+    # Compare to the rational timeline, not a per-frame rounded duration.
+    # One centisecond is the format's timing resolution; coalescing is allowed.
+    expected_duration = Fraction(expected_frames * 1000, 1) / playback_fps
+    if any(duration <= 0 for duration in durations) or abs(sum(durations) - expected_duration) > 10:
         raise ValueError("gif_duration_invalid")
 
 
@@ -82,6 +91,50 @@ def _signed_fraction(value: object, field: str) -> Fraction:
     return result
 
 
+def _validate_subject_fit(fit: object, alignment: Mapping[str, Any], *, size: int,
+                          source_count: int, frame_count: int) -> int:
+    if not isinstance(alignment, Mapping):
+        raise ValueError("variant_alignment_invalid")
+    if fit is None:
+        # Historical deliveries have no subject fit; never mistake a new
+        # source-space alignment for that old output-pixel convention.
+        if alignment.get("schema_version") == "video_rgba_alignment_report_v2":
+            raise ValueError("subject_fit_missing")
+        return 0
+    if not isinstance(fit, Mapping) or fit.get("schema_version") != "video_subject_fit_v1":
+        raise ValueError("subject_fit_invalid")
+    vectors = {"source_canvas_size": 2, "aligned_union_bbox": 4, "source_crop_box": 4,
+               "resize_size": 2, "offset_px": 2}
+    for name, length in vectors.items():
+        value = fit.get(name)
+        if not isinstance(value, list) or len(value) != length or any(type(v) is not int for v in value):
+            raise ValueError("subject_fit_invalid")
+    crop, union, resized, offset = (fit[name] for name in ("source_crop_box", "aligned_union_bbox", "resize_size", "offset_px"))
+    margin, scale = fit.get("margin_px"), fit.get("scale")
+    if (type(margin) is not int or not 0 < margin < (size - 8) / 2
+        or not isinstance(scale, (float, int)) or isinstance(scale, bool) or not math.isfinite(scale) or scale <= 0
+        or type(fit.get("size")) is not int or fit["size"] != size
+        or type(fit.get("source_frame_count")) is not int or fit["source_frame_count"] != source_count
+        or min(fit["source_canvas_size"]) < 1 or fit.get("bounds_alpha_threshold") != 0
+        or fit.get("filter_guard_px") != 4
+        or not crop[0] < union[0] < union[2] < crop[2]
+        or not crop[1] < union[1] < union[3] < crop[3]):
+        raise ValueError("subject_fit_invalid")
+    width, height = crop[2] - crop[0], crop[3] - crop[1]
+    expected_scale = (size - 2 * margin) / max(width, height)
+    if (not math.isclose(scale, expected_scale, rel_tol=1e-12)
+        or resized != [max(1, round(width * expected_scale)), max(1, round(height * expected_scale))]
+        or offset != [(size - resized[0]) // 2, (size - resized[1]) // 2]):
+        raise ValueError("subject_fit_invalid")
+    records = alignment.get("records")
+    if (alignment.get("schema_version") != "video_rgba_alignment_report_v2"
+        or alignment.get("coordinate_space") != "source_pixels_before_shared_fit"
+        or not isinstance(records, list) or len(records) != frame_count
+        or any(not isinstance(record, Mapping) or record.get("clip_warning") is not False for record in records)):
+        raise ValueError("subject_fit_alignment_invalid")
+    return margin
+
+
 def _validate_variant(
     delivery_root: Path,
     entry: Mapping[str, Any],
@@ -93,6 +146,8 @@ def _validate_variant(
     source_duration: Fraction,
     terminal_policy: str,
     gif_requested: bool,
+    expected_subject_fit: object = None,
+    strict: bool = True,
 ) -> dict[str, Any]:
     if entry.get("status") != "completed":
         raise ValueError("variant_entry_status_invalid")
@@ -100,10 +155,33 @@ def _validate_variant(
     variant_root = manifest_path.parent
     manifest = load_json(manifest_path)
     verify_document(manifest, "manifest_sha256")
+    warning_evidence = manifest.get("warnings", [])
+    if not isinstance(warning_evidence, list) or any(not isinstance(item, str) for item in warning_evidence):
+        raise ValueError("variant_warnings_invalid")
+    processing = manifest.get("processing", {})
+    alignment = processing.get("alignment", {}) if isinstance(processing, Mapping) else {}
+    records = alignment.get("records", []) if isinstance(alignment, Mapping) else []
+    if not isinstance(records, list):
+        raise ValueError("variant_alignment_invalid")
+    if strict and (
+        "translated_subject_may_clip" in warning_evidence
+        or any(isinstance(record, Mapping) and record.get("clip_warning") for record in records)
+    ):
+        raise ValueError("strict_subject_clipping")
     frame_count = manifest.get("frame_count")
     size = manifest.get("size")
     if not isinstance(frame_count, int) or not isinstance(size, int):
         raise ValueError("variant_dimensions_invalid")
+    subject_fit = processing.get("subject_fit") if isinstance(processing, Mapping) else None
+    if subject_fit != expected_subject_fit:
+        raise ValueError("family_subject_fit_mismatch")
+    margin = _validate_subject_fit(subject_fit, alignment, size=size, frame_count=frame_count,
+                                   source_count=source_frame_count - (terminal_policy == "half_open_exclude_terminal"))
+    if strict and (
+        len(records) != frame_count
+        or any(not isinstance(record, Mapping) or not isinstance(record.get("clip_warning"), bool) for record in records)
+    ):
+        raise ValueError("variant_alignment_invalid")
     if frame_count not in GRID_BY_FRAME_COUNT or entry.get("frame_count") != frame_count:
         raise ValueError("variant_entry_frame_count_mismatch")
     if manifest.get("raw_sha256") != raw_sha256:
@@ -119,7 +197,7 @@ def _validate_variant(
         if not isinstance(artifact, Mapping):
             raise ValueError("frame_artifact_invalid")
         frame_path = _verify_artifact(variant_root, artifact)
-        _validate_rgba(frame_path, size)
+        _validate_rgba(frame_path, size, margin=margin)
         frame_paths.append(frame_path)
     spritesheet_artifact = artifacts.get("spritesheet")
     atlas_artifact = artifacts.get("atlas")
@@ -322,6 +400,9 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
             raise ValueError("source_loop_duration_mismatch")
     elif source_duration != raw_duration:
         raise ValueError("source_one_shot_duration_mismatch")
+    first_manifest = load_json(_verify_artifact(delivery_root, variants[0]["manifest"]))
+    first_processing = first_manifest.get("processing", {})
+    expected_subject_fit = first_processing.get("subject_fit") if isinstance(first_processing, Mapping) else None
     results = [
         _validate_variant(
             delivery_root,
@@ -333,6 +414,8 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
             source_duration=source_duration,
             terminal_policy=terminal_policy,
             gif_requested=gif_requested,
+            expected_subject_fit=expected_subject_fit,
+            strict=policy == "strict",
         )
         for entry in variants
     ]

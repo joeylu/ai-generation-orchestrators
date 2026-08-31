@@ -153,6 +153,9 @@ ai-frame-animation process `
 The command fingerprints and probes the raw video, decodes once, and derives all
 requested 16/32/64 variants from the shared decoded timeline. A new output
 directory creates a deterministic revision without replaying generation.
+Source aspect ratio is preserved with transparent padding. Retained canvas bands
+and empty frames are blocked before alignment; unresolved clipping fails strict
+validation. A delivery is published only after the selected policy passes.
 
 When a deterministic runtime adapter has already probed and losslessly decoded
 the same raw source, it may invoke:

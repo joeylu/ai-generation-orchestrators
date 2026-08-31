@@ -52,11 +52,56 @@ class InputDeliveryRegressionTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.cases = json.loads(FIXTURE.read_text(encoding="utf-8"))["cases"]
 
+    def test_landscape_and_portrait_keep_subject_proportions(self) -> None:
+        case = self.cases["non_square_canvas"]
+        for width, height in case["sizes"]:
+            with self.subTest(size=(width, height)):
+                image = Image.new("RGBA", (width, height))
+                x, y = width // 2, height // 2
+                ImageDraw.Draw(image).ellipse((x - 12, y - 12, x + 11, y + 11), fill="white")
+                output = _resize_rgba(image, case["output_size"])
+                bbox = output.getchannel("A").point(lambda value: 255 if value >= 128 else 0).getbbox()
+                self.assertIsNotNone(bbox)
+                self.assertLessEqual(abs((bbox[2] - bbox[0]) - (bbox[3] - bbox[1])), 1)
+                self.assertEqual(output.getpixel((0, 0)), (0, 0, 0, 0))
 
+    def test_white_panel_is_rejected_before_alignment_and_square_padding(self) -> None:
+        case = self.cases["white_canvas_green_padding"]
+        image = Image.new("RGB", tuple(case["size"]), case["key"])
+        ImageDraw.Draw(image).rectangle(tuple(case["panel"]), fill="white")
+        ImageDraw.Draw(image).rectangle((40, 12, 55, 44), fill=(180, 180, 180))
+        with self.assertRaisesRegex(ValueError, "frame_background_not_removed"):
+            _rgba_frame(image.convert("RGBA"), (0, 255, 0))
 
+    def test_white_foreground_and_enclosed_key_holes_survive_guard(self) -> None:
+        image = Image.new("RGB", (32, 32), (0, 255, 0))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((8, 6, 23, 27), fill="white")
+        draw.rectangle((12, 10, 19, 17), fill=(0, 255, 0))
+        output, _ = _rgba_frame(image.convert("RGBA"), (0, 255, 0))
+        self.assertEqual(output.getpixel((9, 8)), (255, 255, 255, 255))
+        self.assertEqual(output.getpixel((15, 13)), (0, 0, 0, 0))
 
+    def test_empty_transparent_frame_is_not_a_success(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "empty.png"
+            Image.new("RGBA", (128, 128)).save(path)
+            with self.assertRaisesRegex(ValueError, "frame_has_no_visible_subject"):
+                _validate_rgba(path, 128)
 
+    def test_square_padding_does_not_multiply_soft_alpha(self) -> None:
+        source = Image.new("RGBA", (40, 20), (180, 180, 180, 128))
+        output = _resize_rgba(source, 40)
+        self.assertEqual(output.getpixel((20, 20)), (180, 180, 180, 128))
+        self.assertEqual(output.getpixel((20, 0)), (0, 0, 0, 0))
 
+    def test_lanczos_ringing_is_not_an_opaque_background_band(self) -> None:
+        image = Image.new("RGBA", (8, 8))
+        ImageDraw.Draw(image).rectangle((2, 2, 5, 7), fill=(208, 32, 32, 255))
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "frame.png"
+            _resize_rgba(image, 128).save(path)
+            _validate_rgba(path, 128)
 
     def test_reference_preparation_preserves_white_and_continuous_alpha(self) -> None:
         from ai_frame_animation.media.reference import prepare_generation_reference
@@ -202,7 +247,52 @@ class InputDeliveryRegressionTests(unittest.TestCase):
                 self.assertEqual(json.loads(output.getvalue())["input_preflight"]["status"], "ready")
             self.assertEqual({p.name: p.read_bytes() for p in root.iterdir()}, before)
 
+    def test_late_validation_failure_publishes_no_directory_or_package(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw, frame, out = root / "raw.mp4", root / "frame.png", root / "delivery"
+            raw.write_bytes(b"fixture-not-real-media")
+            reference().save(frame)
+            probe = {"streams": [{"codec_type": "video", "avg_frame_rate": "1/1", "duration_ts": "2", "time_base": "1/1"}],
+                     "frames": [{"best_effort_timestamp_time": "0"}, {"best_effort_timestamp_time": "1"}]}
+            with patch("ai_frame_animation.validation.validate_delivery", side_effect=ValueError("fixture_late_validation_failure")) as validate:
+                with self.assertRaisesRegex(ValueError, "fixture_late_validation_failure"):
+                    process_from_decoded(root=root, plan=make_plan(frame_counts=[16], include_gif=False), raw_video=raw,
+                                         decoded_paths=[frame, frame], probe_payload=probe, out_dir=out, key_color="#00FF00")
+            validate.assert_called_once()
+            self.assertFalse(out.exists())
+            self.assertEqual(list(root.glob(".delivery.*.processing")), [])
+            self.assertEqual(raw.read_bytes(), b"fixture-not-real-media")
 
+    def test_strict_rejects_clipping_evidence_on_independent_validation(self) -> None:
+        # Build a small deterministic fixture delivery; no raw decode or model.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw = root / "raw.mp4"
+            raw.write_bytes(b"fixture")
+            path = root / "frame.png"
+            reference().save(path)
+            probe = {"streams": [{"codec_type": "video", "avg_frame_rate": "1/1", "duration_ts": "2", "time_base": "1/1"}],
+                     "frames": [{"best_effort_timestamp_time": "0"}, {"best_effort_timestamp_time": "1"}]}
+            out = root / "delivery"
+            process_from_decoded(root=root, plan=make_plan(frame_counts=[16], include_gif=False), raw_video=raw,
+                                 decoded_paths=[path, path], probe_payload=probe, out_dir=out, key_color="#00FF00")
+            # Rebuild checksums mechanically, as a historical producer could;
+            # integrity alone must not waive unsafe alignment evidence.
+            from ai_frame_animation.canonical import fingerprint, load_json, stamp_document
+            from ai_frame_animation.processing import _write_deterministic_zip
+            variant_path = out / "frames-16/manifest.json"
+            variant = load_json(variant_path)
+            variant["warnings"] = ["translated_subject_may_clip"]
+            variant["processing"]["alignment"]["records"][0]["clip_warning"] = True
+            write_json_atomic(variant_path, stamp_document(variant, "manifest_sha256"))
+            family = load_json(out / "delivery-manifest.json")
+            family["variants"][0]["warnings"] = variant["warnings"]
+            family["variants"][0]["manifest"].update(fingerprint(variant_path, media_type="application/json"))
+            write_json_atomic(out / "delivery-manifest.json", stamp_document(family, "manifest_sha256"))
+            _write_deterministic_zip(out, out / "delivery.zip")
+            with self.assertRaisesRegex(ValueError, "strict_subject_clipping"):
+                validate_delivery(out, policy="strict", workspace_root=root)
 
 
 if __name__ == "__main__":

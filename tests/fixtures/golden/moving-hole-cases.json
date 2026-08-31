@@ -1,0 +1,23 @@
+{
+  "schema_version": "ai_frame_animation_moving_hole_cases_v1",
+  "provenance": "synthetic_reproduction",
+  "problem": "A model-missed white arm/body gap must be corrected before generation; video key holes then move independently of the reference coordinates.",
+  "size": 128,
+  "body_rect": [28, 20, 99, 107],
+  "body_rgb": [80, 80, 80],
+  "white_detail_rect": [80, 30, 91, 43],
+  "white_detail_point": [85, 36],
+  "hole_anchors": [[44, 62], [70, 62], [70, 84], [44, 84]],
+  "phase_length": 8,
+  "hole_half_size": [6, 7],
+  "inner_edge_alpha": 128,
+  "declared_key": "#00FF00",
+  "observed_backgrounds": ["#00FF00", "#20D040", "#60C080"],
+  "source_frames": 65,
+  "raw_fps": "30000/1001",
+  "limits": [
+    "No video provider or actual segmentation model is exercised.",
+    "Per-frame backgrounds are spatially uniform, not arbitrary moving scenery.",
+    "A white non-key video island is semantically ambiguous and must not be globally erased."
+  ]
+}

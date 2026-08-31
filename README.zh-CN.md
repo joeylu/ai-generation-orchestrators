@@ -183,6 +183,8 @@ spritesheet、atlas 和可选 GIF。以 `validate` 通过为准，不是“有 Z
 - PNG 的连续 alpha 是正式透明度来源，GIF 只支持二值透明预览。
 - `strict` 默认要求完整交付通过校验；失败应保留诊断，不自动改成 `best_effort`。
 - `best_effort` 也不能把不透明结果算成透明成功。
+- 非方形画布保持等比并补透明边；明显跨边背景残留、空帧会阻断，未解决的裁切在
+  `strict` 下不再仅作为警告放行。验证通过前不会发布本次交付目录或 ZIP。
 - 结构校验不等于动作或美术质量验收，仍需查看实际画面。
 
 更多说明：[CLI 和路径规则](docs/cli-and-agent-flow.md)、

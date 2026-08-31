@@ -13,6 +13,14 @@ and v08 one-shot samples located during the audit remain candidate evidence only
 they are not redistributable accepted goldens until foreground/background and
 continuity labels are explicitly approved.
 
+`input-delivery-cases.json` reconstructs a local character-run acceptance failure
+without distributing the original artwork or video. It covers a retained white
+canvas with green padding, non-square-to-square aspect distortion, and clipping
+warnings incorrectly accepted by strict validation. Tests also protect white
+foreground details, enclosed key holes, continuous reference alpha, and empty
+frame rejection. The border-band check is conservative, not a general foreground
+segmentation model or a guarantee of semantic loop quality.
+
 `tests/test_reference_preparation.py` adds generated white/multicolour artwork,
 white foreground detail, soft mask coverage, JPEG orientation, invalid masks,
 and a local ONNX runtime double. These verify ordinary-input routing, preserved
@@ -56,6 +64,38 @@ still requires visual review and cannot claim that missing material is recovered
 Actual matting candidates must separately preserve this fixture's isolated soft
 hair, which has no opaque foreground seed, at multiple resolutions. Passing the
 adapter tests alone does not admit a candidate algorithm as the default.
+
+`moving-hole-cases.json` and `tests/test_video_hole_integration.py` connect a
+model-double-selected reference gap to the real input compositor and delivery CLI.
+An independent synthetic sequence moves the enclosed hole relative to the body
+while its spatially uniform background changes colour each frame. Offline model,
+probe and decode doubles replace all inference/video I/O; provider, subprocess
+and network calls are forbidden. Assertions cover white armour, soft inner edges,
+zero hidden RGB, no fixed-coordinate cutouts, identical atlas cells, binary GIF
+alpha, shared 16/32/64 raw identity, loop/one-shot sampling, package validation
+and byte-identical deterministic reprocessing. Both quality policies are covered.
+
+The 30000/1001-FPS fixture also reproduced cumulative GIF timing truncation:
+rounding each frame to milliseconds and then encoding centiseconds shortened
+the preview enough to fail delivery validation. Tests check cumulative rational
+boundaries, coalesced identical-frame timing and rejection of the old truncated
+result. These are not actual provider frames or proof of arbitrary-background
+segmentation. A non-key white island remains opaque just like white armour;
+the negative case prevents dangerous global white deletion, not semantic
+acceptance of that island as the intended foreground.
+
+`subject-fit-cases.json` and `tests/test_subject_fit.py` reconstruct the observed
+608x352-to-256x256 tiny-character failure: the old full-canvas fit makes a
+270-pixel-tall subject about 114 pixels tall. Tests require fitting the shared
+action envelope instead, without per-pose scale changes, losing soft details or
+clipping during source-space alignment. They cover landscape/portrait/square
+inputs, an extended pose missed by sparse sampling, common-frame byte identity
+across 16/32/64 and standalone requests, loop/one-shot fitting bounds, one
+probe/decode, unsafe shared frames, metadata consistency and actual output
+margins. The moving-hole integration now maps its independent source annotations
+through the recorded crop/scale; its hole, white-detail, soft-alpha, GIF and
+timeline assertions remain active. No real source art/video is distributed and
+no provider, GPU or external service runs in these tests.
 
 `reference-fusion-cases.json` constructs an enclosed hole and an identical
 auxiliary-mask false negative over an opaque badge. The hole should be reduced;

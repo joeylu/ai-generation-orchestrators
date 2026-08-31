@@ -43,6 +43,8 @@ SDIST_SUPPORT_FILES = (
     "docs/reference-preparation.md", "examples/segmentation.config.example.json",
     "tests/test_reference_preparation.py",
     "tests/test_reference_matte.py", "tests/fixtures/golden/reference-matte-cases.json",
+    "tests/test_video_hole_integration.py", "tests/fixtures/golden/moving-hole-cases.json",
+    "tests/test_subject_fit.py", "tests/fixtures/golden/subject-fit-cases.json",
     "tests/test_reference_material.py", "tests/fixtures/golden/reference-material-cases.json",
     "tests/test_reference_review.py",
     "tests/test_reference_translucency.py", "tests/fixtures/golden/reference-translucency-cases.json",
