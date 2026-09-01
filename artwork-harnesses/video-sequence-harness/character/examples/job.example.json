@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "job_id": "character-run-loop",
   "character": {
     "reference": "examples/replace-with-character.png",
@@ -10,7 +10,7 @@
     "continuity": "loop"
   },
   "delivery": {
-    "frame_counts": [16, 32, 64],
+    "atlas_profiles": ["4x4", "8x4", "8x8"],
     "size": 256,
     "quality": "strict",
     "gif": true

@@ -282,7 +282,7 @@ class InputDeliveryRegressionTests(unittest.TestCase):
             # integrity alone must not waive unsafe alignment evidence.
             from ai_frame_animation.canonical import fingerprint, load_json, stamp_document
             from ai_frame_animation.processing import _write_deterministic_zip
-            variant_path = out / "frames-16/manifest.json"
+            variant_path = out / "atlas-4x4/manifest.json"
             variant = load_json(variant_path)
             variant["warnings"] = ["translated_subject_may_clip"]
             variant["processing"]["alignment"]["records"][0]["clip_warning"] = True

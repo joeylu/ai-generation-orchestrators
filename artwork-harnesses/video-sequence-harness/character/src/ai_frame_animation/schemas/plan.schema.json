@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "job_id", "character", "motion", "delivery", "generation", "provider", "plan_sha256"],
   "properties": {
-    "schema_version": {"const": "ai_frame_animation_plan_v1"},
+    "schema_version": {"const": "ai_frame_animation_plan_v2"},
     "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "job_id": {"type": "string", "minLength": 1},
     "character": {
@@ -39,13 +39,13 @@
     "delivery": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["frame_counts", "size", "quality", "gif", "key_color"],
+      "required": ["atlas_profiles", "size", "quality", "gif", "key_color"],
       "properties": {
-        "frame_counts": {
+        "atlas_profiles": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": {"enum": [16, 32, 64]}
+          "items": {"enum": ["4x4", "8x4", "8x8"]}
         },
         "size": {"enum": [128, 256, 512]},
         "quality": {"enum": ["strict", "best_effort"]},

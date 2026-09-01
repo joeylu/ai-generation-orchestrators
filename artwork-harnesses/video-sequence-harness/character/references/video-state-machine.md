@@ -32,8 +32,9 @@ DRAFT -> PLANNED -> AWAITING_CONFIRMATION -> AUTHORIZED
   timestamps, artifact SHA-256 values, and quality result.
 - Reprocessing the same raw source is allowed and creates a new revision; it does
   not mutate or replay the generation attempt.
-- All requested frame-count variants share the raw identity, probe, decoded frame
-  set, and source timeline.
+- All requested atlas profiles share the raw identity, probe, decoded frame set,
+  source timeline, and deterministic semantic interval. Atlas capacity never
+  authorizes frame duplication or interpolation.
 - A verified decoded handoff is processing evidence, not a generation state. It
   permits deterministic reprocessing of the same raw digest and never permits a
   provider resubmission.

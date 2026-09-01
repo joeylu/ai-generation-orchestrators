@@ -18,7 +18,7 @@ arbitrary-background video removal and general video editing are not in scope.
    workspace. Run `tools check` for that workspace. Call `tools install` only
    after the user has explicitly asked for or approved dependency setup.
 2. Translate the request into a job JSON without inventing character, action,
-   camera, continuity, size, or frame-count decisions that materially change it.
+   camera, continuity, size, or atlas-profile decisions that materially change it.
    For structured Agent interpretation, write only a semantic draft, then use
    `intent build`, `intent validate`, and `compile`; the deterministic CLI binds
    request/reference digests and compilation evidence. These commands never call
@@ -79,7 +79,9 @@ handoff validation. Visual approval of a cutout never authorizes video compute.
 ## Required boundaries
 
 - Do not automatically retry generation after submission may have occurred.
-- Derive 16/32/64 variants from one raw video, one probe, and one decode.
+- Derive requested 4x4/8x4/8x8 atlas profiles from one raw video, one probe, one
+  decode, and one deterministic semantic interval. Preserve every native frame
+  that fits; leave unused cells transparent and downsample only above capacity.
 - Remove the selected key globally, including enclosed background holes; preserve
   soft alpha and decontaminate key-coloured edge spill.
 - Treat PNG alpha as authoritative. GIF is a binary-transparency preview.

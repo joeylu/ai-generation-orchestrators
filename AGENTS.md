@@ -43,8 +43,9 @@ silently bypass a failed quality gate.
 - Once a provider request may have been accepted, never automatically resubmit it.
   An indeterminate generation attempt is terminal and needs a new user decision.
 - Deterministic post-processing may be rerun from the same raw-video SHA-256.
-- A 16/32/64-frame delivery family must share one raw source, one probe, and one
-  decode operation.
+- A 4x4/8x4/8x8 atlas family must share one raw source, one probe, one decode,
+  and one deterministic semantic-interval decision. Atlas dimensions are
+  capacities, not instructions to duplicate or interpolate frames.
 - A runtime adapter may provide a canonical `decoded-handoff` document so the
   core can reuse an already verified probe/decode. The Agent must not author or
   repair that document; the deterministic producer owns its fingerprints.

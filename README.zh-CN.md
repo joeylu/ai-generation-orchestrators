@@ -71,15 +71,17 @@ $BackgroundPython = $AnimationPython
 
 ## 2. 建立私有工作区，检查媒体工具
 
-下面创建32帧、256像素、循环动作、strict 质量的工作区；把动作描述换成你的需求：
+下面创建8x4图集、256像素、循环动作、strict 质量的工作区；把动作描述换成你的需求：
 
 ```powershell
-& $AnimationPython -m ai_frame_animation init --root my-animation --motion "侧视角色跑步循环，镜头固定" --frames 32 --size 256
+& $AnimationPython -m ai_frame_animation init --root my-animation --motion "侧视角色跑步循环，镜头固定" --atlas 8x4 --size 256
 & $AnimationPython -m ai_frame_animation tools check --root my-animation
 ```
 
-`init` 拒绝覆盖非空目录。需要16/32/64帧一起交付时，用 `--frames 16 32 64`；
-三个版本共享同一原视频。非循环动作用 `--continuity one_shot`。
+`init` 拒绝覆盖非空目录。需要4x4、8x4、8x8图集一起交付时，用
+`--atlas 4x4 8x4 8x8`；三个版本共享同一原视频、解码和自然动作区间。
+图集规格是容量，不是固定帧数：自然帧能放下时全部保留、剩余格透明；超过容量才均匀降采样。
+非循环动作用 `--continuity one_shot`。
 
 如果检查提示缺少 FFmpeg/ffprobe，Windows x64 用户可明确选择下载项目锁定的工具：
 
@@ -210,7 +212,7 @@ handoff，Agent 不得自己拼写、修复或重新签名 handoff。
 ## 怎样判断交付成功
 
 示例的输出在 `my-animation/work/revisions/r001/`：根目录有
-`delivery-manifest.json` 和 `delivery.zip`，`frames-32/` 下有透明 PNG 帧、
+`delivery-manifest.json` 和 `delivery.zip`，`atlas-8x4/` 下有透明 PNG 帧、
 spritesheet、atlas 和可选 GIF。以 `validate` 通过为准，不是“有 ZIP 就成功”。
 
 - PNG 的连续 alpha 是正式透明度来源，GIF 只支持二值透明预览。

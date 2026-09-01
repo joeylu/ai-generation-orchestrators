@@ -18,7 +18,7 @@ def fit_subject_sequence(
     """Align at source resolution, then crop/resize every frame identically.
 
     Call with ALL source frames in the semantic interval, before selecting any
-    16/32/64 variant. Integer translations remove drift without changing pose
+    atlas-profile variant. Integer translations remove drift without changing pose
     scale. Bounds include every nonzero-alpha pixel (also disconnected/soft
     details); the alpha>8 threshold is used only for finding the contact anchor.
     Cropping can extend beyond the source canvas and is transparently padded.

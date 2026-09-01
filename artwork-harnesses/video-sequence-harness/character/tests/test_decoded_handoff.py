@@ -117,7 +117,8 @@ class DecodedHandoffTests(unittest.TestCase):
                 "input_mode": "verified_decoded_handoff",
                 "handoff_sha256": fixture["handoff"]["handoff_sha256"],
             })
-            self.assertEqual([item["frame_count"] for item in manifest["variants"]], [16, 32, 64])
+            self.assertEqual([item["atlas_profile"] for item in manifest["variants"]], ["4x4", "8x4", "8x8"])
+            self.assertTrue(all(item["frame_count"] <= item["capacity"] for item in manifest["variants"]))
             self.assertEqual(validate_delivery(out, policy="strict", workspace_root=root)["status"], "passed")
             inspection = inspect_artifact(out)
             self.assertEqual(inspection["decode_input_mode"], "verified_decoded_handoff")

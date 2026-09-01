@@ -37,6 +37,11 @@ private-by-default workspace and refuses to overwrite a non-empty directory.
 `tools install --root my-animation` downloads and verifies the packaged lock;
 it is never an implicit side effect of `doctor`, `plan`, or `process`.
 
+New workspaces use job schema `1.1` and `delivery.atlas_profiles`. During the
+transition, a `1.0` job containing legacy `frame_counts` is mapped once to the
+equivalent profiles (16 -> 4x4, 32 -> 8x4, 64 -> 8x8). The resulting immutable
+plan is always v2 and no longer treats those capacities as exact frame counts.
+
 ## 1. Diagnose without compute
 
 For an existing video, check processing dependencies only:
@@ -187,9 +192,17 @@ ai-frame-animation process `
   --out-dir work/revisions/r001
 ```
 
-The command fingerprints and probes the raw video, decodes once, and derives all
-requested 16/32/64 variants from the shared decoded timeline. A new output
-directory creates a deterministic revision without replaying generation.
+The command fingerprints and probes the raw video, decodes once, selects one
+shared semantic interval, and derives the requested 4x4/8x4/8x8 atlas profiles.
+These profiles are capacities: native frames are retained when they fit, unused
+cells stay transparent, and only an over-capacity interval is downsampled. A new
+output directory creates a deterministic revision without replaying generation.
+For loop requests, the program ranks candidate half-open intervals from
+background-suppressed colour, silhouette, centroid, and boundary-velocity
+differences and records the selected interval plus alternatives in the delivery
+manifest. This is deterministic CPU analysis and does not call an LLM. One-shot
+requests retain the full terminal-inclusive timeline. Structural selection still
+requires visual review because similarity scores cannot prove action semantics.
 Source aspect ratio is preserved with transparent padding. Retained canvas bands
 and empty frames are blocked before alignment; unresolved clipping fails strict
 validation. A delivery is published only after the selected policy passes.

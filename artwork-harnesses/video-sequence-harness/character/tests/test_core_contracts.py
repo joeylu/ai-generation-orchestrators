@@ -8,13 +8,15 @@ from fractions import Fraction
 from pathlib import Path
 from unittest.mock import patch
 
-from PIL import Image, ImageSequence
+from PIL import Image, ImageDraw, ImageSequence
 
 from ai_frame_animation.canonical import redact, stamp_document, verify_document, write_json_atomic
 from ai_frame_animation.cli import build_parser, command_process
 from ai_frame_animation.media.gif import export_preview_gif
+from ai_frame_animation.media.cycle import select_semantic_interval
 from ai_frame_animation.media.key_analysis import _visible_pixels, analyze_key_color
-from ai_frame_animation.media.timeline import build_source_timeline, build_variant_timeline, choose_uniform_indices
+from ai_frame_animation.media.spritesheet import pack_video_spritesheet
+from ai_frame_animation.media.timeline import build_source_timeline, build_variant_timeline, choose_atlas_indices, choose_uniform_indices
 from ai_frame_animation.planning import compile_plan, validate_plan_contract
 from ai_frame_animation.state import AttemptStore
 
@@ -43,7 +45,7 @@ class CoreContractTests(unittest.TestCase):
             }
             plan = compile_plan(job, root)
             self.assertEqual(verify_document(plan, "plan_sha256"), plan["plan_sha256"])
-            self.assertEqual(plan["delivery"]["frame_counts"], [16, 32, 64])
+            self.assertEqual(plan["delivery"]["atlas_profiles"], ["4x4", "8x4", "8x8"])
             encoded = json.dumps(plan)
             self.assertNotIn("workflow", encoded)
             self.assertNotIn("base_url", encoded)
@@ -101,6 +103,44 @@ class CoreContractTests(unittest.TestCase):
         self.assertEqual(one_shot_indices[-1], 72)
         one_shot_variant = build_variant_timeline(one_shot, one_shot_indices, 64)
         self.assertEqual((one_shot_variant["playback_fps"]["numerator"], one_shot_variant["playback_fps"]["denominator"]), (1536, 73))
+
+    def test_twenty_one_native_frames_use_atlas_capacity_without_padding_frames(self) -> None:
+        fixture = json.loads((Path(__file__).parent / "fixtures/golden/timeline-atlas-cases.json").read_text(encoding="utf-8"))
+        case = fixture["cases"][0]
+        start, end = case["interval"]["start"], case["interval"]["end_exclusive"]
+        compact = choose_atlas_indices(start, end, case["profiles"]["4x4"]["capacity"], continuity="loop")
+        medium = choose_atlas_indices(start, end, case["profiles"]["8x4"]["capacity"], continuity="loop")
+        large = choose_atlas_indices(start, end, case["profiles"]["8x8"]["capacity"], continuity="loop")
+        self.assertEqual(len(compact), case["profiles"]["4x4"]["expected_frame_count"])
+        self.assertEqual(medium, list(range(start, end)))
+        self.assertEqual(large, medium)
+        self.assertEqual(len(set(compact)), 16)
+
+        frames = [Image.new("RGBA", (2, 2), (index, 0, 0, 255)) for index in range(21)]
+        sheet, atlas = pack_video_spritesheet(frames, profile="8x4")
+        self.assertEqual(atlas["layout"]["frame_count"], case["profiles"]["8x4"]["expected_frame_count"])
+        self.assertEqual(atlas["layout"]["unused_cells"], case["profiles"]["8x4"]["unused_cells"])
+        self.assertEqual(sheet.crop((10, 4, 12, 6)).getbbox(), None)
+
+    def test_cycle_selector_finds_repeated_native_period_without_llm(self) -> None:
+        images = []
+        for index in range(40):
+            phase = (index - 4) % 12
+            image = Image.new("RGB", (64, 48), (0, 255, 0))
+            draw = ImageDraw.Draw(image)
+            x = 18 + (phase if phase <= 6 else 12 - phase)
+            y = 14 + abs(phase - 6) // 3
+            draw.rectangle((x, y, x + 15, y + 25), fill=(80, 40 + phase * 8, 180))
+            draw.rectangle((x - 3, y + 20, x + 2, y + 28), fill=(220, 180, 80))
+            images.append(image)
+        probe = {
+            "streams": [{"codec_type": "video", "avg_frame_rate": "24/1", "duration_ts": "40", "time_base": "1/24"}],
+            "frames": [{"best_effort_timestamp_time": str(Fraction(index, 24))} for index in range(40)],
+        }
+        timeline = build_source_timeline(probe, decoded_frame_count=40, continuity="loop")
+        selected = select_semantic_interval(images, timeline, continuity="loop")
+        self.assertEqual(selected["policy"], "deterministic_pose_cycle_v1")
+        self.assertEqual(selected["native_frame_count"], 12)
 
     def test_gif_maps_all_nonopaque_pixels_to_transparency(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

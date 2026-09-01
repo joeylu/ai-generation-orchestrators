@@ -40,7 +40,7 @@ class OnboardingTests(unittest.TestCase):
                 (SCHEMAS / "job.schema.json").read_text(encoding="utf-8")
             )
             jsonschema.validate(job, schema)
-            self.assertEqual(job["delivery"]["frame_counts"], [16, 32])
+            self.assertEqual(job["delivery"]["atlas_profiles"], ["4x4", "8x4"])
             self.assertIn("/.ai-frame-animation/", (workspace / ".gitignore").read_text(encoding="utf-8"))
             self.assertTrue((workspace / ".ai-frame-animation" / "provider.minimax-h3.json").is_file())
 

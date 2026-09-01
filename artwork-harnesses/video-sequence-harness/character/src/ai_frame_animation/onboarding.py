@@ -11,7 +11,7 @@ import jsonschema
 from . import __version__
 from .canonical import redact, stamp_document, verify_document
 from .media_tools import load_ffmpeg_lock
-from .media.timeline import choose_uniform_indices
+from .media.timeline import choose_atlas_indices
 
 
 REQUIRED_SCHEMAS = (
@@ -21,7 +21,8 @@ REQUIRED_SCHEMAS = (
     "decoded-handoff.schema.json",
     "delivery-manifest.schema.json",
 )
-SUPPORTED_FRAME_COUNTS = (16, 32, 64)
+SUPPORTED_ATLAS_PROFILES = ("4x4", "8x4", "8x8")
+LEGACY_FRAME_PROFILE = {16: "4x4", 32: "8x4", 64: "8x8"}
 SUPPORTED_SIZES = (128, 256, 512)
 SAFE_JOB_ID_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
@@ -57,7 +58,8 @@ def initialize_workspace(
     description: str = "",
     job_id: str | None = None,
     continuity: str = "loop",
-    frame_counts: Sequence[int] = SUPPORTED_FRAME_COUNTS,
+    atlas_profiles: Sequence[str] = SUPPORTED_ATLAS_PROFILES,
+    frame_counts: Sequence[int] | None = None,
     size: int = 256,
     quality: str = "strict",
     gif: bool = True,
@@ -79,9 +81,13 @@ def initialize_workspace(
     description_value = description.strip()
     if continuity not in {"loop", "one_shot"}:
         raise ValueError("init_continuity_invalid")
-    normalized_counts = sorted(set(frame_counts))
-    if not normalized_counts or any(value not in SUPPORTED_FRAME_COUNTS for value in normalized_counts):
-        raise ValueError("init_frame_counts_invalid")
+    if frame_counts is not None:
+        if not frame_counts or any(value not in LEGACY_FRAME_PROFILE for value in frame_counts):
+            raise ValueError("init_frame_counts_invalid")
+        atlas_profiles = [LEGACY_FRAME_PROFILE[value] for value in frame_counts]
+    normalized_profiles = sorted(set(atlas_profiles), key=SUPPORTED_ATLAS_PROFILES.index)
+    if not normalized_profiles or any(value not in SUPPORTED_ATLAS_PROFILES for value in normalized_profiles):
+        raise ValueError("init_atlas_profiles_invalid")
     if size not in SUPPORTED_SIZES:
         raise ValueError("init_size_invalid")
     if quality not in {"strict", "best_effort"}:
@@ -97,7 +103,7 @@ def initialize_workspace(
         raise ValueError("init_job_id_must_be_nonempty")
 
     job = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "job_id": selected_job_id,
         "character": {
             "reference": reference_value,
@@ -108,7 +114,7 @@ def initialize_workspace(
             "continuity": continuity,
         },
         "delivery": {
-            "frame_counts": normalized_counts,
+            "atlas_profiles": normalized_profiles,
             "size": size,
             "quality": quality,
             "gif": gif,
@@ -184,8 +190,8 @@ def run_self_test() -> dict[str, Any]:
 
     stamped = stamp_document({"schema_version": "self_test_v1", "value": 1}, "sha256")
     verify_document(stamped, "sha256")
-    loop_indices = choose_uniform_indices(73, 64, continuity="loop")
-    one_shot_indices = choose_uniform_indices(73, 64, continuity="one_shot")
+    loop_indices = choose_atlas_indices(0, 72, 64, continuity="loop")
+    one_shot_indices = choose_atlas_indices(0, 73, 64, continuity="one_shot")
     if 72 in loop_indices or one_shot_indices[-1] != 72:
         raise ValueError("self_test_timeline_contract_failed")
 

@@ -49,6 +49,7 @@ VIDEO_SDIST_SUPPORT_FILES = (
     *(f"tests/fixtures/golden/{name}" for name in (
         "README.md", "input-delivery-cases.json", "matte-cases.json",
         "moving-hole-cases.json", "sequence-matte-cases.json", "subject-fit-cases.json",
+        "timeline-atlas-cases.json",
     )),
 )
 BACKGROUND_SDIST_SUPPORT_FILES = (

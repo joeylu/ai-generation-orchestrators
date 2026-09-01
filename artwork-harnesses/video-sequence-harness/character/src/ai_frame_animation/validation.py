@@ -10,7 +10,7 @@ from typing import Any, Mapping
 from PIL import Image, ImageSequence
 
 from .canonical import SHA256_RE, load_json, rooted_path, sha256_file, verify_document
-from .media.spritesheet import GRID_BY_FRAME_COUNT
+from .media.spritesheet import GRID_BY_PROFILE
 from .media.quality import check_subject_canvas
 from .state import AttemptStore
 
@@ -144,6 +144,8 @@ def _validate_variant(
     source_frame_count: int,
     source_timestamps: list[Fraction],
     source_duration: Fraction,
+    interval_start: int,
+    interval_end: int,
     terminal_policy: str,
     gif_requested: bool,
     expected_subject_fit: object = None,
@@ -155,6 +157,8 @@ def _validate_variant(
     variant_root = manifest_path.parent
     manifest = load_json(manifest_path)
     verify_document(manifest, "manifest_sha256")
+    if manifest.get("schema_version") != "ai_frame_animation_variant_manifest_v2":
+        raise ValueError("variant_manifest_schema_invalid")
     warning_evidence = manifest.get("warnings", [])
     if not isinstance(warning_evidence, list) or any(not isinstance(item, str) for item in warning_evidence):
         raise ValueError("variant_warnings_invalid")
@@ -169,6 +173,13 @@ def _validate_variant(
     ):
         raise ValueError("strict_subject_clipping")
     frame_count = manifest.get("frame_count")
+    atlas_profile = manifest.get("atlas_profile")
+    if atlas_profile not in GRID_BY_PROFILE or entry.get("atlas_profile") != atlas_profile:
+        raise ValueError("variant_entry_atlas_profile_mismatch")
+    columns, rows = GRID_BY_PROFILE[atlas_profile]
+    capacity = columns * rows
+    if manifest.get("capacity") != capacity or entry.get("capacity") != capacity:
+        raise ValueError("variant_entry_capacity_mismatch")
     size = manifest.get("size")
     if not isinstance(frame_count, int) or not isinstance(size, int):
         raise ValueError("variant_dimensions_invalid")
@@ -176,13 +187,13 @@ def _validate_variant(
     if subject_fit != expected_subject_fit:
         raise ValueError("family_subject_fit_mismatch")
     margin = _validate_subject_fit(subject_fit, alignment, size=size, frame_count=frame_count,
-                                   source_count=source_frame_count - (terminal_policy == "half_open_exclude_terminal"))
+                                   source_count=interval_end - interval_start)
     if strict and (
         len(records) != frame_count
         or any(not isinstance(record, Mapping) or not isinstance(record.get("clip_warning"), bool) for record in records)
     ):
         raise ValueError("variant_alignment_invalid")
-    if frame_count not in GRID_BY_FRAME_COUNT or entry.get("frame_count") != frame_count:
+    if frame_count < 1 or frame_count > capacity or entry.get("frame_count") != frame_count:
         raise ValueError("variant_entry_frame_count_mismatch")
     if manifest.get("raw_sha256") != raw_sha256:
         raise ValueError("variant_raw_source_mismatch")
@@ -206,12 +217,14 @@ def _validate_variant(
     spritesheet_path = _verify_artifact(variant_root, spritesheet_artifact)
     atlas_path = _verify_artifact(variant_root, atlas_artifact)
     atlas = load_json(atlas_path)
-    columns, rows = GRID_BY_FRAME_COUNT[frame_count]
+    if atlas.get("schema_version") != "video_sequence_atlas_v2":
+        raise ValueError("atlas_schema_invalid")
     layout = atlas.get("layout")
-    if not isinstance(layout, Mapping) or [layout.get("columns"), layout.get("rows"), layout.get("frame_count")] != [columns, rows, frame_count]:
+    if not isinstance(layout, Mapping) or [layout.get("columns"), layout.get("rows"), layout.get("capacity"), layout.get("frame_count"), layout.get("unused_cells")] != [columns, rows, capacity, frame_count, capacity - frame_count]:
         raise ValueError("atlas_layout_invalid")
     if (
         atlas.get("format") != "RGBA8888"
+        or atlas.get("profile") != atlas_profile
         or atlas.get("image") != spritesheet_path.name
         or atlas.get("image_size") != {"w": columns * size, "h": rows * size}
         or not isinstance(atlas.get("frames"), list)
@@ -238,6 +251,12 @@ def _validate_variant(
         y = (index // columns) * size
         if sheet.crop((x, y, x + size, y + size)).tobytes() != frame.tobytes():
             raise ValueError("spritesheet_cell_mismatch")
+    transparent_cell = bytes(size * size * 4)
+    for index in range(frame_count, capacity):
+        x = (index % columns) * size
+        y = (index // columns) * size
+        if sheet.crop((x, y, x + size, y + size)).tobytes() != transparent_cell:
+            raise ValueError("spritesheet_unused_cell_not_transparent")
     gif = artifacts.get("gif")
     if require_gif and not isinstance(gif, Mapping):
         raise ValueError("variant_gif_missing")
@@ -251,11 +270,13 @@ def _validate_variant(
         raise ValueError("variant_timeline_invalid")
     if any(not isinstance(index, int) or isinstance(index, bool) or index < 0 or index >= source_frame_count for index in indices):
         raise ValueError("variant_source_index_invalid")
+    if any(index < interval_start or index >= interval_end for index in indices):
+        raise ValueError("variant_source_index_outside_semantic_interval")
     if any(right < left for left, right in zip(indices, indices[1:])):
         raise ValueError("variant_source_indices_not_monotonic")
-    if terminal_policy == "half_open_exclude_terminal" and source_frame_count > 1 and source_frame_count - 1 in indices:
+    if terminal_policy == "half_open_exclude_terminal" and interval_end in indices:
         raise ValueError("loop_terminal_was_sampled")
-    if terminal_policy == "closed_include_terminal" and indices[-1] != source_frame_count - 1:
+    if terminal_policy == "closed_include_terminal" and indices[-1] != interval_end - 1:
         raise ValueError("one_shot_terminal_missing")
     duration = _fraction(timeline.get("semantic_duration_seconds"), "semantic_duration")
     if duration != source_duration:
@@ -282,7 +303,7 @@ def _validate_variant(
         raise ValueError("strict_gif_failure_warning_invalid")
     if gif_requested and not isinstance(gif, Mapping) and "gif_export_failed" not in warnings:
         raise ValueError("gif_omission_warning_missing")
-    return {"frame_count": frame_count, "status": "valid", "warnings": warnings}
+    return {"atlas_profile": atlas_profile, "capacity": capacity, "frame_count": frame_count, "status": "valid", "warnings": warnings}
 
 
 def _validate_package(delivery_root: Path) -> None:
@@ -315,6 +336,8 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
     delivery_root = delivery_root.resolve(strict=True)
     manifest = load_json(delivery_root / "delivery-manifest.json")
     verify_document(manifest, "manifest_sha256")
+    if manifest.get("schema_version") != "ai_frame_animation_delivery_manifest_v2":
+        raise ValueError("delivery_manifest_schema_invalid")
     if manifest.get("quality_policy") != policy:
         raise ValueError("quality_policy_mismatch")
     if not isinstance(manifest.get("plan_sha256"), str) or not SHA256_RE.fullmatch(str(manifest["plan_sha256"])):
@@ -327,14 +350,14 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
     raw_path = _resolve_under(workspace_root.resolve(strict=True), raw.get("path"))
     if raw.get("bytes") != raw_path.stat().st_size or raw.get("sha256") != sha256_file(raw_path):
         raise ValueError("raw_source_fingerprint_mismatch")
-    requested = manifest.get("requested_frame_counts")
+    requested = manifest.get("requested_atlas_profiles")
     variants = manifest.get("variants")
     failures = manifest.get("failures")
     gif_requested = manifest.get("gif_requested")
     if (
         not isinstance(requested, list)
         or not requested
-        or any(isinstance(item, bool) or item not in GRID_BY_FRAME_COUNT for item in requested)
+        or any(not isinstance(item, str) or item not in GRID_BY_PROFILE for item in requested)
         or len(set(requested)) != len(requested)
         or not isinstance(variants, list)
         or any(not isinstance(entry, Mapping) for entry in variants)
@@ -343,10 +366,10 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
         or not isinstance(gif_requested, bool)
     ):
         raise ValueError("delivery_variant_inventory_invalid")
-    completed_list = [entry.get("frame_count") for entry in variants]
-    failed_list = [entry.get("frame_count") for entry in failures]
+    completed_list = [entry.get("atlas_profile") for entry in variants]
+    failed_list = [entry.get("atlas_profile") for entry in failures]
     if (
-        any(isinstance(item, bool) or item not in requested for item in completed_list + failed_list)
+        any(not isinstance(item, str) or item not in requested for item in completed_list + failed_list)
         or len(set(completed_list)) != len(completed_list)
         or len(set(failed_list)) != len(failed_list)
         or set(completed_list) & set(failed_list)
@@ -400,6 +423,24 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
             raise ValueError("source_loop_duration_mismatch")
     elif source_duration != raw_duration:
         raise ValueError("source_one_shot_duration_mismatch")
+    semantic_interval = manifest.get("semantic_interval")
+    if not isinstance(semantic_interval, Mapping) or semantic_interval.get("schema_version") != "video_semantic_interval_v1":
+        raise ValueError("semantic_interval_invalid")
+    interval_start = semantic_interval.get("start_frame_zero_based")
+    interval_end = semantic_interval.get("end_frame_exclusive_zero_based")
+    native_count = semantic_interval.get("native_frame_count")
+    if (
+        not isinstance(interval_start, int) or isinstance(interval_start, bool)
+        or not isinstance(interval_end, int) or isinstance(interval_end, bool)
+        or not 0 <= interval_start < interval_end <= source_frame_count
+        or native_count != interval_end - interval_start
+        or semantic_interval.get("continuity") != ("loop" if terminal_policy == "half_open_exclude_terminal" else "one_shot")
+    ):
+        raise ValueError("semantic_interval_invalid")
+    selected_duration = _fraction(semantic_interval.get("duration_seconds"), "semantic_interval_duration")
+    expected_end = source_timestamps[interval_end] if interval_end < source_frame_count else raw_duration
+    if selected_duration != expected_end - source_timestamps[interval_start]:
+        raise ValueError("semantic_interval_duration_mismatch")
     first_manifest = load_json(_verify_artifact(delivery_root, variants[0]["manifest"]))
     first_processing = first_manifest.get("processing", {})
     expected_subject_fit = first_processing.get("subject_fit") if isinstance(first_processing, Mapping) else None
@@ -411,7 +452,9 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
             require_gif,
             source_frame_count=source_frame_count,
             source_timestamps=source_timestamps,
-            source_duration=source_duration,
+            source_duration=selected_duration,
+            interval_start=interval_start,
+            interval_end=interval_end,
             terminal_policy=terminal_policy,
             gif_requested=gif_requested,
             expected_subject_fit=expected_subject_fit,
@@ -437,6 +480,8 @@ def inspect_artifact(path: Path) -> dict[str, Any]:
         verify_document(manifest, "manifest_sha256")
         decode = manifest.get("decode")
         decode_record = decode if isinstance(decode, Mapping) else {}
+        interval = manifest.get("semantic_interval")
+        interval_record = interval if isinstance(interval, Mapping) else {}
         return {
             "kind": "delivery",
             "plan_sha256": manifest.get("plan_sha256"),
@@ -444,8 +489,14 @@ def inspect_artifact(path: Path) -> dict[str, Any]:
             "raw_sha256": (manifest.get("raw_source") or {}).get("sha256") if isinstance(manifest.get("raw_source"), Mapping) else None,
             "decode_input_mode": decode_record.get("input_mode"),
             "decoded_handoff_sha256": decode_record.get("handoff_sha256"),
-            "requested_frame_counts": manifest.get("requested_frame_counts"),
-            "completed_frame_counts": [item.get("frame_count") for item in manifest.get("variants", []) if isinstance(item, Mapping)],
+            "semantic_interval": {
+                "policy": interval_record.get("policy"),
+                "start_frame_zero_based": interval_record.get("start_frame_zero_based"),
+                "end_frame_exclusive_zero_based": interval_record.get("end_frame_exclusive_zero_based"),
+                "native_frame_count": interval_record.get("native_frame_count"),
+            },
+            "requested_atlas_profiles": manifest.get("requested_atlas_profiles"),
+            "completed_atlas_profiles": [item.get("atlas_profile") for item in manifest.get("variants", []) if isinstance(item, Mapping)],
             "failures": manifest.get("failures", []),
         }
     if path.is_file() and path.name == "events.jsonl":

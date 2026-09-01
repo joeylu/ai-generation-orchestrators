@@ -20,11 +20,12 @@ explicitly corrected revision from its unchanged default baseline.
 
 ## Strict (default)
 
-Every requested frame-count variant and required artifact must exist and pass:
+Every requested atlas-profile variant and required artifact must exist and pass:
 
 - raw-source identity and checksum binding;
 - rational timeline and continuity validation;
-- requested dimensions, frame count, and row-major atlas layout;
+- requested dimensions, natural frame inventory, capacity, transparent unused
+  cells, and row-major atlas layout;
 - meaningful PNG transparency, zero hidden RGB, and matte/spill limits;
 - manifest, artifact checksum, and package-structure validation.
 
@@ -36,11 +37,14 @@ margin (rounded up) plus transparent resampling support. Bounds retain every
 nonzero-alpha pixel, including soft or disconnected details; this step does not
 remove edge noise or invent detail when enlargement is needed.
 
-16/32/64 variants sample the same fitted source frames: scale and placement do
-not depend on which variant counts were requested. Loop fitting excludes the
-terminal source pose; one-shot fitting includes it. No individual pose is resized
-independently. A shared empty/unseparated source frame blocks the common envelope
-under both policies, even if a sparse variant would not select that frame.
+4x4/8x4/8x8 variants share one deterministic semantic interval and fitted source
+frames: scale and placement do not depend on which profiles were requested. An
+interval that fits is not padded with duplicate frames; unused atlas cells remain
+transparent. An over-capacity interval is uniformly downsampled. Loop selection
+uses a half-open boundary; one-shot selection includes the terminal pose. No
+individual pose is resized independently. A shared empty/unseparated source frame
+blocks the common envelope under both policies, even if a sparse variant would
+not select that frame.
 Independent export/GIF failures still use the selected quality policy.
 
 Variant `processing.subject_fit` records source dimensions/count, aligned union,

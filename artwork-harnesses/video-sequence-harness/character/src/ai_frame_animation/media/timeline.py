@@ -4,7 +4,7 @@ from fractions import Fraction
 from typing import Any, Mapping, Sequence
 
 
-SUPPORTED_FRAME_COUNTS = (16, 32, 64)
+ATLAS_CAPACITIES = {"4x4": 16, "8x4": 32, "8x8": 64}
 
 
 def as_fraction(value: object, field: str) -> Fraction:
@@ -28,7 +28,8 @@ def fraction_record(value: Fraction) -> dict[str, int | str]:
 
 
 def choose_uniform_indices(source_count: int, frame_count: int, *, continuity: str) -> list[int]:
-    if frame_count not in SUPPORTED_FRAME_COUNTS:
+    """Legacy exact-count sampler retained for old decoded-handoff consumers."""
+    if frame_count not in ATLAS_CAPACITIES.values():
         raise ValueError("frame_count_must_be_16_32_or_64")
     if source_count < 1:
         raise ValueError("no_source_frames")
@@ -39,6 +40,25 @@ def choose_uniform_indices(source_count: int, frame_count: int, *, continuity: s
         if frame_count == 1:
             return [0]
         return [round(index * (source_count - 1) / (frame_count - 1)) for index in range(frame_count)]
+    raise ValueError("continuity_must_be_loop_or_one_shot")
+
+
+def choose_atlas_indices(start: int, end_exclusive: int, capacity: int, *, continuity: str) -> list[int]:
+    """Keep every native frame when it fits; otherwise sample without duplication."""
+
+    if start < 0 or end_exclusive <= start:
+        raise ValueError("semantic_interval_invalid")
+    if capacity not in ATLAS_CAPACITIES.values():
+        raise ValueError("atlas_capacity_invalid")
+    native_count = end_exclusive - start
+    if native_count <= capacity:
+        return list(range(start, end_exclusive))
+    if continuity == "loop":
+        return [start + (index * native_count) // capacity for index in range(capacity)]
+    if continuity == "one_shot":
+        if capacity == 1:
+            return [start]
+        return [start + round(index * (native_count - 1) / (capacity - 1)) for index in range(capacity)]
     raise ValueError("continuity_must_be_loop_or_one_shot")
 
 
@@ -137,10 +157,13 @@ def build_source_timeline(payload: Mapping[str, Any], *, decoded_frame_count: in
     }
 
 
-def build_variant_timeline(source_timeline: Mapping[str, Any], selected_indices: Sequence[int], frame_count: int) -> dict[str, Any]:
+def build_variant_timeline(
+    source_timeline: Mapping[str, Any], selected_indices: Sequence[int], frame_count: int,
+    *, semantic_duration: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     if len(selected_indices) != frame_count:
         raise ValueError("selected_frame_count_mismatch")
-    duration_record = source_timeline.get("semantic_duration_seconds")
+    duration_record = semantic_duration or source_timeline.get("semantic_duration_seconds")
     if not isinstance(duration_record, Mapping):
         raise ValueError("semantic_duration_missing")
     duration = Fraction(int(duration_record["numerator"]), int(duration_record["denominator"]))

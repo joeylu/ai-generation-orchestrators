@@ -16,6 +16,7 @@ from . import __version__
 from .canonical import fingerprint, relative_posix, rooted_path, safe_error_code, stamp_document, write_json_atomic
 from .handoff import DecodedHandoff
 from .media.fit import fit_subject_sequence
+from .media.cycle import select_semantic_interval
 from .media.gif import export_preview_gif
 from .media.matte import (
     aggressive_color_key_cleanup,
@@ -27,8 +28,29 @@ from .media.matte import (
 )
 from .media.quality import check_subject_canvas
 from .media.spill import cleanup_key_spill, zero_transparent_rgb
-from .media.spritesheet import pack_video_spritesheet
-from .media.timeline import build_source_timeline, build_variant_timeline, choose_uniform_indices
+from .media.spritesheet import GRID_BY_PROFILE, pack_video_spritesheet
+from .media.timeline import build_source_timeline, build_variant_timeline, choose_atlas_indices
+
+
+_LEGACY_FRAME_PROFILE = {16: "4x4", 32: "8x4", 64: "8x8"}
+
+
+def _atlas_profiles(delivery: Mapping[str, Any]) -> list[str]:
+    profiles = delivery.get("atlas_profiles")
+    if isinstance(profiles, list) and profiles:
+        if any(not isinstance(item, str) or item not in GRID_BY_PROFILE for item in profiles) or len(set(profiles)) != len(profiles):
+            raise ValueError("delivery_atlas_profiles_invalid")
+        return list(profiles)
+    counts = delivery.get("frame_counts")
+    if isinstance(counts, list) and counts:
+        try:
+            mapped = [_LEGACY_FRAME_PROFILE[int(item)] for item in counts]
+            if len(set(mapped)) != len(mapped):
+                raise ValueError("delivery_atlas_profiles_invalid")
+            return mapped
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("delivery_atlas_profiles_invalid") from exc
+    raise ValueError("delivery_atlas_profiles_invalid")
 
 
 def probe_video(raw_video: Path, ffprobe: str = "ffprobe") -> dict[str, Any]:
@@ -193,6 +215,9 @@ def _write_variant(
     source_alignment: Mapping[str, Any],
     subject_fit: Mapping[str, Any],
     selected_indices: Sequence[int],
+    source_index_map: Sequence[int],
+    atlas_profile: str,
+    capacity: int,
     frame_count: int,
     size: int,
     timeline: Mapping[str, Any],
@@ -206,8 +231,10 @@ def _write_variant(
     frames_root = variant_root / "frames"
     frames_root.mkdir()
     aligned = [source_images[index] for index in selected_indices]
-    evidence = [{"output_index": output_index, "source_index": index, **source_evidence[index]}
-                for output_index, index in enumerate(selected_indices, start=1)]
+    if len(selected_indices) != len(source_index_map):
+        raise ValueError("variant_source_index_map_mismatch")
+    evidence = [{"output_index": output_index, "source_index": source_index, **source_evidence[index]}
+                for output_index, (index, source_index) in enumerate(zip(selected_indices, source_index_map), start=1)]
     alignment = {**source_alignment, "records": [
         {**source_alignment["records"][index], "index": output_index}
         for output_index, index in enumerate(selected_indices, start=1)
@@ -226,7 +253,7 @@ def _write_variant(
         image.save(path, format="PNG")
         frame_paths.append(path)
 
-    sheet, atlas = pack_video_spritesheet(aligned, frame_count=frame_count)
+    sheet, atlas = pack_video_spritesheet(aligned, profile=atlas_profile)
     spritesheet_path = variant_root / "spritesheet.png"
     atlas_path = variant_root / "atlas.json"
     sheet.save(spritesheet_path, format="PNG")
@@ -253,8 +280,10 @@ def _write_variant(
 
     alpha_ranges = [image.getchannel("A").getextrema() for image in aligned]
     manifest = stamp_document({
-        "schema_version": "ai_frame_animation_variant_manifest_v1",
+        "schema_version": "ai_frame_animation_variant_manifest_v2",
         "tool_version": __version__,
+        "atlas_profile": atlas_profile,
+        "capacity": capacity,
         "frame_count": frame_count,
         "size": size,
         "raw_sha256": raw_sha256,
@@ -277,6 +306,8 @@ def _write_variant(
     manifest_path = variant_root / "manifest.json"
     write_json_atomic(manifest_path, manifest)
     return {
+        "atlas_profile": atlas_profile,
+        "capacity": capacity,
         "frame_count": frame_count,
         "status": "completed",
         "warnings": warnings,
@@ -311,13 +342,14 @@ def _process_from_decoded_into(
     delivery = plan["delivery"]
     continuity = str(plan["motion"]["continuity"])
     source_timeline = build_source_timeline(probe_payload, decoded_frame_count=len(source_images), continuity=continuity)
+    semantic_interval = select_semantic_interval(source_images, source_timeline, continuity=continuity)
     quality = str(delivery["quality"])
-    # A family has one geometry, independent of requested variant counts. Do
-    # not let sparse sampling miss an extended pose or rescale common frames.
-    # Loop's excluded terminal pose does not belong to its fitting interval.
-    eligible_count = len(source_images) - (1 if continuity == "loop" else 0)
+    # A family has one geometry based on every frame in the selected semantic
+    # interval, independent of requested atlas capacities.
+    interval_start = int(semantic_interval["start_frame_zero_based"])
+    interval_end = int(semantic_interval["end_frame_exclusive_zero_based"])
     declared_key = parse_hex_color(key_color)
-    eligible_sources = source_images[:eligible_count]
+    eligible_sources = source_images[interval_start:interval_end]
     opaque_sources = [image for image in eligible_sources if image.getchannel("A").getextrema()[0] == 255]
     background_analysis = (
         analyze_sequence_background(opaque_sources)
@@ -354,20 +386,30 @@ def _process_from_decoded_into(
     source_evidence = [item[1] for item in prepared]
     variants: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
-    for frame_count in delivery["frame_counts"]:
-        final_variant_root = out_dir / f"frames-{frame_count}"
-        staged_variant_root = out_dir / f".frames-{frame_count}.processing"
+    for atlas_profile in _atlas_profiles(delivery):
+        columns, rows = GRID_BY_PROFILE[atlas_profile]
+        capacity = columns * rows
+        final_variant_root = out_dir / f"atlas-{atlas_profile}"
+        staged_variant_root = out_dir / f".atlas-{atlas_profile}.processing"
         try:
-            indices = choose_uniform_indices(len(source_images), int(frame_count), continuity=continuity)
-            timeline = build_variant_timeline(source_timeline, indices, int(frame_count))
+            indices = choose_atlas_indices(interval_start, interval_end, capacity, continuity=continuity)
+            local_indices = [index - interval_start for index in indices]
+            frame_count = len(indices)
+            timeline = build_variant_timeline(
+                source_timeline, indices, frame_count,
+                semantic_duration=semantic_interval["duration_seconds"],
+            )
             entry = _write_variant(
                 variant_root=staged_variant_root,
                 source_images=fitted_sources,
                 source_evidence=source_evidence,
                 source_alignment=source_alignment,
                 subject_fit=subject_fit,
-                selected_indices=indices,
-                frame_count=int(frame_count),
+                selected_indices=local_indices,
+                source_index_map=indices,
+                atlas_profile=atlas_profile,
+                capacity=capacity,
+                frame_count=frame_count,
                 size=int(delivery["size"]),
                 timeline=timeline,
                 raw_sha256=str(raw["sha256"]),
@@ -382,7 +424,7 @@ def _process_from_decoded_into(
         except Exception as exc:
             if staged_variant_root.exists():
                 shutil.rmtree(staged_variant_root)
-            failures.append({"frame_count": int(frame_count), "status": "failed", "code": safe_error_code(exc)})
+            failures.append({"atlas_profile": atlas_profile, "status": "failed", "code": safe_error_code(exc)})
             if quality == "strict":
                 raise
     decode_evidence: dict[str, Any] = {
@@ -394,14 +436,15 @@ def _process_from_decoded_into(
     if decoded_handoff_sha256:
         decode_evidence["handoff_sha256"] = decoded_handoff_sha256
     family = stamp_document({
-        "schema_version": "ai_frame_animation_delivery_manifest_v1",
+        "schema_version": "ai_frame_animation_delivery_manifest_v2",
         "tool_version": __version__,
         "plan_sha256": plan["plan_sha256"],
         "quality_policy": quality,
         "raw_source": {"path": relative_posix(root, raw_video), **raw},
         "source_timeline": source_timeline,
+        "semantic_interval": semantic_interval,
         "decode": decode_evidence,
-        "requested_frame_counts": list(delivery["frame_counts"]),
+        "requested_atlas_profiles": _atlas_profiles(delivery),
         "gif_requested": bool(delivery["gif"]),
         "variants": variants,
         "failures": failures,

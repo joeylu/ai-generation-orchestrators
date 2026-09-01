@@ -12,7 +12,8 @@ from .media.key_analysis import CANDIDATE_KEYS, analyze_key_color
 from .reference_preparation import load_reference_preparation
 
 
-SUPPORTED_FRAME_COUNTS = (16, 32, 64)
+SUPPORTED_ATLAS_PROFILES = ("4x4", "8x4", "8x8")
+LEGACY_FRAME_PROFILE = {16: "4x4", 32: "8x4", 64: "8x8"}
 SUPPORTED_SIZES = (128, 256, 512)
 SUPPORTED_CONTINUITY = ("loop", "one_shot")
 SUPPORTED_QUALITY = ("strict", "best_effort")
@@ -71,7 +72,7 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
         {"schema_version", "job_id", "character", "motion", "delivery", "generation", "provider", "plan_sha256"},
         "plan",
     )
-    if plan.get("schema_version") != "ai_frame_animation_plan_v1":
+    if plan.get("schema_version") != "ai_frame_animation_plan_v2":
         raise ValueError("plan_schema_version_unsupported")
     _text(plan.get("job_id"), "plan.job_id")
     character = _mapping(plan.get("character"), "plan.character")
@@ -87,7 +88,7 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
         if not isinstance(preparation.get("sha256"), str) or not SHA256_RE.fullmatch(preparation["sha256"]):
             raise ValueError("plan_reference_preparation_digest_invalid")
     _reject_unknown(motion, {"request", "continuity"}, "plan.motion")
-    _reject_unknown(delivery, {"frame_counts", "size", "quality", "gif", "key_color"}, "plan.delivery")
+    _reject_unknown(delivery, {"atlas_profiles", "size", "quality", "gif", "key_color"}, "plan.delivery")
     _reject_unknown(generation, {"prompt", "key_analysis", "intent_compilation"}, "plan.generation")
     _reject_unknown(provider, {"plugin"}, "plan.provider")
     _text(character.get("reference"), "plan.character.reference")
@@ -107,12 +108,12 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
     _text(motion.get("request"), "plan.motion.request")
     if motion.get("continuity") not in SUPPORTED_CONTINUITY:
         raise ValueError("plan_motion_continuity_invalid")
-    counts = delivery.get("frame_counts")
+    profiles = delivery.get("atlas_profiles")
     if (
-        not isinstance(counts, list)
-        or not counts
-        or any(isinstance(item, bool) or item not in SUPPORTED_FRAME_COUNTS for item in counts)
-        or counts != sorted(set(counts))
+        not isinstance(profiles, list)
+        or not profiles
+        or any(not isinstance(item, str) or item not in SUPPORTED_ATLAS_PROFILES for item in profiles)
+        or profiles != sorted(set(profiles), key=SUPPORTED_ATLAS_PROFILES.index)
         or delivery.get("size") not in SUPPORTED_SIZES
         or delivery.get("quality") not in SUPPORTED_QUALITY
         or not isinstance(delivery.get("gif"), bool)
@@ -164,7 +165,7 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
     unknown = sorted(set(job) - allowed)
     if unknown:
         raise ValueError(f"job_unknown_fields:{','.join(unknown)}")
-    if job.get("schema_version") != "1.0":
+    if job.get("schema_version") not in {"1.0", "1.1"}:
         raise ValueError("job_schema_version_unsupported")
 
     character = _mapping(job.get("character"), "character")
@@ -173,7 +174,7 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
     provider = _mapping(job.get("provider"), "provider")
     _reject_unknown(character, {"reference", "description"}, "character")
     _reject_unknown(motion, {"request", "continuity"}, "motion")
-    _reject_unknown(delivery, {"frame_counts", "size", "quality", "gif", "key_color"}, "delivery")
+    _reject_unknown(delivery, {"atlas_profiles", "frame_counts", "size", "quality", "gif", "key_color"}, "delivery")
     _reject_unknown(provider, {"plugin"}, "provider")
     reference = rooted_path(root, _text(character.get("reference"), "character.reference"), must_exist=True)
     if reference.is_symlink() or not reference.is_file():
@@ -196,14 +197,32 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
     if "intent_compilation" in job:
         intent_compilation = _validate_intent_compilation(job["intent_compilation"], request)
 
+    raw_profiles = delivery.get("atlas_profiles")
     raw_counts = delivery.get("frame_counts")
-    if (
-        not isinstance(raw_counts, list)
-        or not raw_counts
-        or any(isinstance(item, bool) or not isinstance(item, int) or item not in SUPPORTED_FRAME_COUNTS for item in raw_counts)
-    ):
-        raise ValueError("delivery_frame_counts_invalid")
-    frame_counts = sorted(set(raw_counts))
+    if job.get("schema_version") == "1.1" and raw_counts is not None:
+        raise ValueError("delivery_frame_counts_legacy_only")
+    if job.get("schema_version") == "1.0" and raw_profiles is not None:
+        raise ValueError("delivery_atlas_profiles_require_job_1_1")
+    if raw_profiles is not None and raw_counts is not None:
+        raise ValueError("delivery_atlas_profiles_conflict")
+    if raw_profiles is not None:
+        if (
+            not isinstance(raw_profiles, list)
+            or not raw_profiles
+            or any(not isinstance(item, str) or item not in SUPPORTED_ATLAS_PROFILES for item in raw_profiles)
+        ):
+            raise ValueError("delivery_atlas_profiles_invalid")
+        atlas_profiles = sorted(set(raw_profiles), key=SUPPORTED_ATLAS_PROFILES.index)
+    elif raw_counts is not None:
+        if (
+            not isinstance(raw_counts, list)
+            or not raw_counts
+            or any(isinstance(item, bool) or not isinstance(item, int) or item not in LEGACY_FRAME_PROFILE for item in raw_counts)
+        ):
+            raise ValueError("delivery_frame_counts_invalid")
+        atlas_profiles = sorted({LEGACY_FRAME_PROFILE[item] for item in raw_counts}, key=SUPPORTED_ATLAS_PROFILES.index)
+    else:
+        raise ValueError("delivery_atlas_profiles_invalid")
     size = delivery.get("size")
     if size not in SUPPORTED_SIZES:
         raise ValueError("delivery_size_invalid")
@@ -239,7 +258,7 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
     )
 
     plan = {
-        "schema_version": "ai_frame_animation_plan_v1",
+        "schema_version": "ai_frame_animation_plan_v2",
         "job_id": _text(job.get("job_id"), "job_id"),
         "character": {
             "reference": relative_posix(root, reference),
@@ -251,7 +270,7 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
             "continuity": continuity,
         },
         "delivery": {
-            "frame_counts": frame_counts,
+            "atlas_profiles": atlas_profiles,
             "size": size,
             "quality": quality,
             "gif": gif,

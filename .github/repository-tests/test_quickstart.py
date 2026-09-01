@@ -76,7 +76,7 @@ class QuickstartTests(unittest.TestCase):
                 def fixture_process(**kwargs):
                     self.assertEqual(kwargs["root"], workspace)
                     self.assertEqual(kwargs["raw_video"].read_bytes(), b"raw-video-test-double")
-                    self.assertEqual(kwargs["plan"]["delivery"]["frame_counts"], [32])
+                    self.assertEqual(kwargs["plan"]["delivery"]["atlas_profiles"], ["8x4"])
                     self.assertEqual(kwargs["plan"]["delivery"]["size"], 256)
                     kwargs["out_dir"].mkdir(parents=True)
                     return {"fixture": "process-result"}

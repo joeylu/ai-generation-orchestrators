@@ -98,6 +98,10 @@ my-animation/
 
 Copy the character image to `my-animation/reference.png`. Provider setup is only
 needed for new generation, not for processing an existing video.
+The default job requests `4x4`, `8x4`, and `8x8` atlas profiles. Override that
+with `--atlas 8x4`, for example. A profile is capacity rather than an exact frame
+count: native action frames are retained when they fit and unused cells stay
+transparent.
 
 Check FFmpeg without network access. On Windows x64, the locked installer can
 place a verified build inside this ignored workspace without changing system
@@ -220,7 +224,9 @@ Skill flows. The complete manual CLI flow is in
 - Generation is never retried automatically after a provider request may have
   been accepted.
 - Deterministic processing can be repeated from the same raw-video digest.
-- A 16/32/64-frame family is derived from one raw video and one decoded timeline.
+- A 4x4/8x4/8x8 atlas family is derived from one raw video, one decode, and one
+  deterministic semantic interval. Grid size is capacity; it does not force
+  duplicated or interpolated frames.
 - A deterministic runtime adapter can supply a digest-bound `decoded-handoff` so
   an existing verified probe/decode is reused without invoking FFmpeg again.
 - `strict` delivery is the default. Explicit `best_effort` never accepts opaque

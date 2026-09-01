@@ -57,7 +57,7 @@ class ProcessDeliveryTests(unittest.TestCase):
             original = processing._write_variant
 
             def fail_middle(**kwargs):
-                if kwargs["frame_count"] == 32:
+                if kwargs["atlas_profile"] == "8x4":
                     raise ValueError("fixture_variant_failure")
                 return original(**kwargs)
 
@@ -72,7 +72,7 @@ class ProcessDeliveryTests(unittest.TestCase):
                     out_dir=out,
                     key_color="#00FF00",
                 )
-            self.assertEqual([item["frame_count"] for item in manifest["variants"]], [16, 64])
+            self.assertEqual([item["atlas_profile"] for item in manifest["variants"]], ["4x4", "8x8"])
             self.assertEqual(validate_delivery(out, policy="best_effort", workspace_root=root)["status"], "passed_with_warnings")
             with self.assertRaisesRegex(ValueError, "quality_policy_mismatch"):
                 validate_delivery(out, policy="strict", workspace_root=root)
@@ -100,7 +100,7 @@ class ProcessDeliveryTests(unittest.TestCase):
             original = processing._write_variant
 
             def fail_middle(**kwargs):
-                if kwargs["frame_count"] == 32:
+                if kwargs["atlas_profile"] == "8x4":
                     raise ValueError("fixture_variant_failure")
                 return original(**kwargs)
 
@@ -149,7 +149,7 @@ class ProcessDeliveryTests(unittest.TestCase):
                     key_color="#00FF00",
                 )
             self.assertEqual(manifest["variants"][0]["warnings"], ["gif_export_failed"])
-            self.assertFalse((out / "frames-16" / "preview.gif").exists())
+            self.assertFalse((out / "atlas-4x4" / "preview.gif").exists())
             self.assertEqual(validate_delivery(out, policy="best_effort", workspace_root=root)["status"], "passed_with_warnings")
 
     def test_package_members_must_match_delivery_files(self) -> None:
@@ -198,7 +198,7 @@ class ProcessDeliveryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "frame_is_opaque"):
                 _validate_rgba(path, 128)
 
-    def test_16_32_64_share_one_raw_probe_decode_and_validate(self) -> None:
+    def test_atlas_profiles_share_one_raw_probe_decode_and_validate(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             raw = root / "raw.mp4"
@@ -234,15 +234,16 @@ class ProcessDeliveryTests(unittest.TestCase):
                 (SCHEMAS / "delivery-manifest.schema.json").read_text(encoding="utf-8")
             )
             jsonschema.validate(manifest, schema)
-            self.assertEqual([item["frame_count"] for item in manifest["variants"]], [16, 32, 64])
+            self.assertEqual([item["atlas_profile"] for item in manifest["variants"]], ["4x4", "8x4", "8x8"])
+            self.assertTrue(all(item["frame_count"] <= item["capacity"] for item in manifest["variants"]))
             raw_hashes = {
-                __import__("json").loads((out / f"frames-{count}" / "manifest.json").read_text(encoding="utf-8"))["raw_sha256"]
-                for count in (16, 32, 64)
+                __import__("json").loads((out / f"atlas-{profile}" / "manifest.json").read_text(encoding="utf-8"))["raw_sha256"]
+                for profile in ("4x4", "8x4", "8x8")
             }
             self.assertEqual(raw_hashes, {manifest["raw_source"]["sha256"]})
             report = validate_delivery(out, policy="strict", workspace_root=root)
             self.assertEqual(report["status"], "passed")
-            loop_map = __import__("json").loads((out / "frames-64" / "manifest.json").read_text(encoding="utf-8"))["timeline"]["source_frame_index_map"]
+            loop_map = __import__("json").loads((out / "atlas-8x8" / "manifest.json").read_text(encoding="utf-8"))["timeline"]["source_frame_index_map"]
             self.assertNotIn(72, loop_map)
 
 

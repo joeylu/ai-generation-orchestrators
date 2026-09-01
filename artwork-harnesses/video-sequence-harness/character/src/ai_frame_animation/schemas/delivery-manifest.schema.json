@@ -4,9 +4,9 @@
   "title": "AI frame animation delivery manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "tool_version", "plan_sha256", "quality_policy", "raw_source", "source_timeline", "decode", "requested_frame_counts", "gif_requested", "variants", "failures", "manifest_sha256"],
+  "required": ["schema_version", "tool_version", "plan_sha256", "quality_policy", "raw_source", "source_timeline", "semantic_interval", "decode", "requested_atlas_profiles", "gif_requested", "variants", "failures", "manifest_sha256"],
   "properties": {
-    "schema_version": {"const": "ai_frame_animation_delivery_manifest_v1"},
+    "schema_version": {"const": "ai_frame_animation_delivery_manifest_v2"},
     "tool_version": {"type": "string", "minLength": 1},
     "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -45,16 +45,19 @@
         }
       ]
     },
-    "requested_frame_counts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": [16, 32, 64]}},
+    "semantic_interval": {"type": "object", "required": ["schema_version", "continuity", "policy", "start_frame_zero_based", "end_frame_exclusive_zero_based", "native_frame_count", "duration_seconds", "candidates"]},
+    "requested_atlas_profiles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["4x4", "8x4", "8x8"]}},
     "gif_requested": {"type": "boolean"},
     "variants": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["frame_count", "status", "warnings", "manifest"],
+        "required": ["atlas_profile", "capacity", "frame_count", "status", "warnings", "manifest"],
         "properties": {
-          "frame_count": {"enum": [16, 32, 64]},
+          "atlas_profile": {"enum": ["4x4", "8x4", "8x8"]},
+          "capacity": {"enum": [16, 32, 64]},
+          "frame_count": {"type": "integer", "minimum": 1, "maximum": 64},
           "status": {"const": "completed"},
           "warnings": {"type": "array", "items": {"type": "string"}},
           "manifest": {"type": "object"}
@@ -66,9 +69,9 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["frame_count", "status", "code"],
+        "required": ["atlas_profile", "status", "code"],
         "properties": {
-          "frame_count": {"enum": [16, 32, 64]},
+          "atlas_profile": {"enum": ["4x4", "8x4", "8x8"]},
           "status": {"const": "failed"},
           "code": {"type": "string", "minLength": 1}
         }

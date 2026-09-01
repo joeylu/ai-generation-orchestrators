@@ -1,5 +1,9 @@
 # Character video-sequence golden fixtures
 
+`timeline-atlas-cases.json` locks the regression where a 21-frame natural loop
+must not be expanded to 32 or 64 frames merely to fill an atlas. It also records
+the required transparent unused-cell counts.
+
 These fixtures are deterministic public reconstructions, not private production
 media or alpha ground truth.
 

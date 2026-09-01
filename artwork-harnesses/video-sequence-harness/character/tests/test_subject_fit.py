@@ -140,16 +140,19 @@ class SubjectFitTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             raw, paths, probe = self.fixture(root)
-            self.deliver(root, raw, paths, probe, "family")
-            self.deliver(root, raw, paths, probe, "single", counts=[16])
+            family_delivery = self.deliver(root, raw, paths, probe, "family")
+            single_delivery = self.deliver(root, raw, paths, probe, "single", counts=[16])
+            self.assertEqual(family_delivery["semantic_interval"], single_delivery["semantic_interval"])
+            native_count = family_delivery["semantic_interval"]["native_frame_count"]
             fits, common = [], {}
             for output, counts in (("family", (16, 32, 64)), ("single", (16,))):
                 for count in counts:
-                    directory = root / output / f"frames-{count}"
+                    profile = {16: "4x4", 32: "8x4", 64: "8x8"}[count]
+                    directory = root / output / f"atlas-{profile}"
                     manifest = load_json(directory / "manifest.json")
                     fit = manifest["processing"]["subject_fit"]
                     fits.append(fit)
-                    self.assertEqual(fit["source_frame_count"], 64)
+                    self.assertEqual(fit["source_frame_count"], native_count)
                     for index, artifact in zip(manifest["timeline"]["source_frame_index_map"], manifest["artifacts"]["frames"]):
                         data = (directory / artifact["path"]).read_bytes()
                         self.assertEqual(data, common.setdefault(index, data))
@@ -161,15 +164,16 @@ class SubjectFitTests(unittest.TestCase):
             root = Path(temporary)
             raw, paths, probe = self.fixture(root)
             self.deliver(root, raw, paths, probe, "one-shot", counts=[16], continuity="one_shot")
-            fit = load_json(root / "one-shot/frames-16/manifest.json")["processing"]["subject_fit"]
+            fit = load_json(root / "one-shot/atlas-4x4/manifest.json")["processing"]["subject_fit"]
             self.assertEqual(fit["source_frame_count"], 65)
             self.assertGreaterEqual(fit["aligned_union_bbox"][2] - fit["aligned_union_bbox"][0], 608)
 
-    def test_invalid_shared_envelope_is_not_hidden_by_sparse_sampling_or_best_effort(self) -> None:
+    def test_invalid_selected_interval_is_not_hidden_by_atlas_sampling_or_best_effort(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             raw, paths, probe = self.fixture(root)
-            Image.new("RGBA", (608, 352)).save(paths[1])  # not selected by 16-frame loop
+            for path in paths[:-1]:
+                Image.new("RGBA", (608, 352)).save(path)
             for policy in ("strict", "best_effort"):
                 with self.subTest(policy=policy), self.assertRaisesRegex(ValueError, "frame_has_no_visible_subject"):
                     self.deliver(root, raw, paths, probe, policy, counts=[16], quality=policy)
@@ -181,7 +185,7 @@ class SubjectFitTests(unittest.TestCase):
             raw, paths, probe = self.fixture(root)
             self.deliver(root, raw, paths, probe, "delivery", counts=[16, 32])
             delivery = root / "delivery"
-            variant_path = delivery / "frames-32/manifest.json"
+            variant_path = delivery / "atlas-8x4/manifest.json"
             original = load_json(variant_path)
             for missing in (False, True):
                 altered = copy.deepcopy(original)

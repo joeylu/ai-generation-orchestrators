@@ -1,0 +1,14 @@
+{
+  "schema_version": "ai_frame_animation_golden_timeline_atlas_v1",
+  "cases": [
+    {
+      "id": "twenty-one-frame-natural-loop",
+      "interval": {"start": 41, "end_exclusive": 62},
+      "profiles": {
+        "4x4": {"capacity": 16, "expected_frame_count": 16, "unused_cells": 0},
+        "8x4": {"capacity": 32, "expected_frame_count": 21, "unused_cells": 11},
+        "8x8": {"capacity": 64, "expected_frame_count": 21, "unused_cells": 43}
+      }
+    }
+  ]
+}

@@ -167,7 +167,7 @@ def command_init(args: argparse.Namespace) -> int:
             description=args.description,
             job_id=args.job_id,
             continuity=args.continuity,
-            frame_counts=args.frames,
+            atlas_profiles=args.atlas,
             size=args.size,
             quality=args.quality,
             gif=args.gif,
@@ -386,7 +386,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--description", default="")
     init.add_argument("--job-id")
     init.add_argument("--continuity", choices=("loop", "one_shot"), default="loop")
-    init.add_argument("--frames", nargs="+", type=int, choices=(16, 32, 64), default=[16, 32, 64])
+    init.add_argument("--atlas", nargs="+", choices=("4x4", "8x4", "8x8"), default=["4x4", "8x4", "8x8"])
     init.add_argument("--size", type=int, choices=(128, 256, 512), default=256)
     init.add_argument("--quality", choices=("strict", "best_effort"), default="strict")
     init.add_argument("--gif", action=argparse.BooleanOptionalAction, default=True)
