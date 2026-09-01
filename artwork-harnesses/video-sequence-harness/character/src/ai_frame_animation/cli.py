@@ -12,7 +12,9 @@ from typing import Any, Mapping, Sequence
 
 from . import __version__
 from .canonical import fingerprint, load_json, redact, rooted_path, safe_error_code, verify_document, write_json_atomic
+from .compiler import compile_intent_to_job, reference_binding_for_job
 from .handoff import load_decoded_handoff
+from .intent import build_character_motion_intent, validate_character_motion_intent
 from .media_tools import check_ffmpeg_tools, install_ffmpeg, resolve_media_tool
 from .onboarding import initialize_workspace, run_self_test
 from .planning import compile_plan, validate_plan_contract
@@ -26,6 +28,11 @@ from .validation import inspect_artifact, validate_delivery
 
 def _print(value: object) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2))
+
+
+def _reject_output_alias(output: Path, inputs: Sequence[Path]) -> None:
+    if any(output == input_path for input_path in inputs):
+        raise ValueError("output_must_not_overwrite_input")
 
 
 def _verified_plan(path: Path) -> dict[str, Any]:
@@ -187,6 +194,69 @@ def command_tools_check(args: argparse.Namespace) -> int:
     return 1 if args.require_ready and report["status"] != "ready" else 0
 
 
+def command_intent_validate(args: argparse.Namespace) -> int:
+    intent = validate_character_motion_intent(load_json(args.input.resolve(strict=True)))
+    _print({
+        "status": "valid",
+        "schema_version": intent["schema_version"],
+        "intent_sha256": intent["intent_sha256"],
+        "network_probe": "not_performed",
+        "provider_compute": "not_performed",
+    })
+    return 0
+
+
+def command_intent_build(args: argparse.Namespace) -> int:
+    root = args.root.resolve(strict=True)
+    draft_path = rooted_path(root, args.draft, must_exist=True)
+    job_path = rooted_path(root, args.job, must_exist=True)
+    out = rooted_path(root, args.out, must_exist=False)
+    input_paths = [draft_path, job_path]
+    if args.prepared_reference is not None:
+        input_paths.append(rooted_path(root, args.prepared_reference, must_exist=True))
+    _reject_output_alias(out, input_paths)
+    job = load_json(job_path)
+    reference = reference_binding_for_job(root, job, getattr(args, "prepared_reference", None))
+    intent = build_character_motion_intent(load_json(draft_path), raw_request=args.request, reference=reference)
+    write_json_atomic(out, intent)
+    _print({
+        "status": "built",
+        "intent": str(out.relative_to(root)),
+        "intent_sha256": intent["intent_sha256"],
+        "network_probe": "not_performed",
+        "provider_compute": "not_performed",
+    })
+    return 0
+
+
+def command_compile(args: argparse.Namespace) -> int:
+    root = args.root.resolve(strict=True)
+    intent_path = rooted_path(root, args.intent, must_exist=True)
+    job_path = rooted_path(root, args.job, must_exist=True)
+    out = rooted_path(root, args.out, must_exist=False)
+    input_paths = [intent_path, job_path]
+    if args.prepared_reference is not None:
+        input_paths.append(rooted_path(root, args.prepared_reference, must_exist=True))
+    _reject_output_alias(out, input_paths)
+    compiled = compile_intent_to_job(
+        load_json(intent_path),
+        load_json(job_path),
+        root,
+        prepared_reference=getattr(args, "prepared_reference", None),
+    )
+    write_json_atomic(out, compiled)
+    report = compiled["intent_compilation"]
+    _print({
+        "status": "compiled",
+        "job": str(out.relative_to(root)),
+        "intent_sha256": report["intent_sha256"],
+        "compilation_sha256": report["compilation_sha256"],
+        "network_probe": "not_performed",
+        "provider_compute": "not_performed",
+    })
+    return 0
+
+
 def command_plan(args: argparse.Namespace) -> int:
     root = args.root.resolve(strict=True)
     job_path = rooted_path(root, args.job, must_exist=True)
@@ -335,6 +405,36 @@ def build_parser() -> argparse.ArgumentParser:
     tools_check.add_argument("--root", type=Path, default=Path.cwd())
     tools_check.add_argument("--require-ready", action="store_true")
     tools_check.set_defaults(handler=command_tools_check)
+
+    intent = subparsers.add_parser("intent", help="validate provider-neutral Agent motion intent")
+    intent_commands = intent.add_subparsers(dest="intent_command", required=True)
+    intent_build = intent_commands.add_parser("build", help="bind an Agent semantic draft to request/reference evidence")
+    intent_build.add_argument("--root", required=True, type=Path)
+    intent_build.add_argument("--request", required=True)
+    intent_build.add_argument("--draft", required=True, type=Path)
+    intent_build.add_argument("--job", required=True, type=Path)
+    intent_build.add_argument("--out", required=True, type=Path)
+    intent_build.add_argument(
+        "--prepared-reference",
+        type=Path,
+        help="reviewed neutral handoff.json used to bind source, foreground, and preparation digests",
+    )
+    intent_build.set_defaults(handler=command_intent_build)
+    intent_validate = intent_commands.add_parser("validate", help="validate one digest-bound motion intent without compute")
+    intent_validate.add_argument("--input", required=True, type=Path)
+    intent_validate.set_defaults(handler=command_intent_validate)
+
+    compile_command = subparsers.add_parser("compile", help="deterministically compile motion intent into job.json")
+    compile_command.add_argument("--root", required=True, type=Path)
+    compile_command.add_argument("--intent", required=True, type=Path)
+    compile_command.add_argument("--job", required=True, type=Path, help="existing job template; it is never overwritten")
+    compile_command.add_argument("--out", required=True, type=Path)
+    compile_command.add_argument(
+        "--prepared-reference",
+        type=Path,
+        help="reviewed neutral handoff.json used to verify the intent reference binding",
+    )
+    compile_command.set_defaults(handler=command_compile)
 
     doctor = subparsers.add_parser("doctor", help="offline, redacted dependency diagnostics")
     doctor.add_argument("--root", type=Path, default=Path.cwd())

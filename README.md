@@ -27,6 +27,7 @@ contract documented below.
 reference image + motion request
   -> optional local CLI or MCP background-removal producer
   -> reviewed ai_reference_preparation_handoff_v1
+  -> optional Agent semantic intent -> deterministic compile
   -> immutable plan
   -> existing raw video OR one confirmed generation attempt
   -> deterministic RGBA processing
@@ -36,6 +37,9 @@ reference image + motion request
 The human describes the animation and confirms compute once when a new video is
 needed. The Agent prepares the plan and invokes the tools. The installed program
 owns attempt state, media processing, validation, checksums, and packaging.
+An optional structured Intent layer lets an Agent propose motion semantics while
+the CLI owns reference binding, conflict checks, prompt compilation, and hashes;
+direct `job.json -> plan` use remains supported.
 
 Already have a character video? Use the existing-video path below. It needs no
 ComfyUI, model, provider configuration, or generation attempt. Local processing

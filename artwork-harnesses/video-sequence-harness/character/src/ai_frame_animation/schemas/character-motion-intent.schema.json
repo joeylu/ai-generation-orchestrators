@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-frame-animation/character-motion-intent.schema.json",
+  "title": "Provider-neutral character motion intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "raw_request", "reference", "subject_preserve", "action_type", "motion_goal", "motion_contract", "spatial_contract", "intent_sha256"],
+  "properties": {
+    "schema_version": {"const": "ai_frame_animation_character_motion_intent_v1"},
+    "raw_request": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_sha256", "foreground_sha256", "preparation_sha256"],
+      "properties": {
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "foreground_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "preparation_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "subject_preserve": {"$ref": "#/$defs/requiredStringListDecision"},
+    "action_type": {
+      "allOf": [
+        {"$ref": "#/$defs/decision"},
+        {"properties": {"value": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}}}
+      ]
+    },
+    "motion_goal": {"$ref": "#/$defs/textDecision"},
+    "motion_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["must_move", "may_move", "must_lock", "amplitude", "continuity", "key_poses"],
+      "properties": {
+        "must_move": {"$ref": "#/$defs/stringListDecision"},
+        "may_move": {"$ref": "#/$defs/stringListDecision"},
+        "must_lock": {"$ref": "#/$defs/stringListDecision"},
+        "amplitude": {
+          "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {"enum": ["subtle", "low", "medium", "high", "exaggerated", "custom"]}}}]
+        },
+        "continuity": {
+          "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {"enum": ["seamless_loop", "loop_return", "continuous_cycle", "one_shot_settle", "terminal_hold"]}}}]
+        },
+        "key_poses": {
+          "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {
+            "type": "array", "maxItems": 16,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["role", "description", "required"],
+              "properties": {
+                "role": {"enum": ["start", "anticipation", "contact", "extreme", "recovery", "loop_return", "terminal"]},
+                "description": {"type": "string", "minLength": 1, "maxLength": 500},
+                "required": {"type": "boolean"}
+              }
+            }
+          }}}]
+        }
+      }
+    },
+    "spatial_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_translation", "subject_turn", "camera_motion"],
+      "properties": {
+        "subject_translation": {
+          "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {"enum": ["stationary", "allowed", "required"]}}}]
+        },
+        "subject_turn": {
+          "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {"enum": ["locked", "allowed", "turnaround_required"]}}}]
+        },
+        "camera_motion": {
+          "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {"enum": ["locked", "allowed", "required"]}}}]
+        }
+      }
+    },
+    "intent_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source", "rationale"],
+      "properties": {
+        "value": {},
+        "source": {"enum": ["explicit_override", "explicit_natural_language", "automatic_policy"]},
+        "rationale": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    },
+    "textDecision": {
+      "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {"type": "string", "minLength": 1, "maxLength": 2000}}}]
+    },
+    "stringListDecision": {
+      "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 300}}}}]
+    },
+    "requiredStringListDecision": {
+      "allOf": [{"$ref": "#/$defs/decision"}, {"properties": {"value": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 300}}}}]
+    }
+  }
+}

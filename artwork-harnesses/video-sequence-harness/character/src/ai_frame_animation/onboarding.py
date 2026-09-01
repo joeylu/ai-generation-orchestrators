@@ -15,6 +15,7 @@ from .media.timeline import choose_uniform_indices
 
 
 REQUIRED_SCHEMAS = (
+    "character-motion-intent.schema.json",
     "job.schema.json",
     "plan.schema.json",
     "decoded-handoff.schema.json",

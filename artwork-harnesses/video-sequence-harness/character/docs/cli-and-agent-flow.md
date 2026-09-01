@@ -123,6 +123,38 @@ distinction between missing setup, an unusable source and an unreliable mask.
 Known direct KJ resize nodes must preserve aspect ratio and use the same key for
 padding. Static preflight does not certify every possible workflow transform.
 
+### Optional structured Agent intent
+
+The original `job.json -> plan` route remains valid. When an Agent or external
+LLM should express detailed motion semantics, it writes an untrusted draft and
+the deterministic CLI performs the binding and compilation:
+
+```powershell
+ai-frame-animation intent build `
+  --root my-animation `
+  --request "A side-view running loop" `
+  --draft work/motion-draft.json `
+  --job job.json `
+  --prepared-reference work/reference/r001/handoff.json `
+  --out work/motion-intent.json
+ai-frame-animation intent validate --input my-animation/work/motion-intent.json
+ai-frame-animation compile `
+  --root my-animation `
+  --intent work/motion-intent.json `
+  --job job.json `
+  --prepared-reference work/reference/r001/handoff.json `
+  --out work/compiled-job.json
+ai-frame-animation plan `
+  --root my-animation `
+  --job work/compiled-job.json `
+  --prepared-reference work/reference/r001/handoff.json `
+  --out work/plan.json
+```
+
+For a meaningful transparent reference, omit both `--prepared-reference`
+arguments. These commands make no model or provider call. The LLM adapter, if
+used, remains outside this package; see [Intent and Compiler](intent-and-compiler.md).
+
 ## 3. Ask once, then run once
 
 This stage is only for new generation. An existing video goes directly to stage 4.

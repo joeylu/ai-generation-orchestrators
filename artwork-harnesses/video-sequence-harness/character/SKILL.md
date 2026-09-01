@@ -19,6 +19,10 @@ arbitrary-background video removal and general video editing are not in scope.
    after the user has explicitly asked for or approved dependency setup.
 2. Translate the request into a job JSON without inventing character, action,
    camera, continuity, size, or frame-count decisions that materially change it.
+   For structured Agent interpretation, write only a semantic draft, then use
+   `intent build`, `intent validate`, and `compile`; the deterministic CLI binds
+   request/reference digests and compilation evidence. These commands never call
+   an LLM or provider. Existing callers may continue directly with `job.json`.
 3. Choose the input route before provider setup:
    - **Existing video:** keep a copy inside the workspace's ignored `work/` tree,
      run `doctor --root <workspace> --require-ready` without provider options,

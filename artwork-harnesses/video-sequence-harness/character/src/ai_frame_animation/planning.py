@@ -6,7 +6,8 @@ from typing import Any, Mapping
 
 from PIL import Image
 
-from .canonical import SHA256_RE, fingerprint, relative_posix, rooted_path, stamp_document
+from .canonical import SHA256_RE, canonical_sha256, fingerprint, relative_posix, rooted_path, stamp_document, verify_document
+from .compiler import COMPILATION_SCHEMA, COMPILER_VERSION
 from .media.key_analysis import CANDIDATE_KEYS, analyze_key_color
 from .reference_preparation import load_reference_preparation
 
@@ -16,6 +17,34 @@ SUPPORTED_SIZES = (128, 256, 512)
 SUPPORTED_CONTINUITY = ("loop", "one_shot")
 SUPPORTED_QUALITY = ("strict", "best_effort")
 PLUGIN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
+
+
+def _validate_intent_compilation(value: object, request: str) -> dict[str, Any]:
+    compilation = _mapping(value, "intent_compilation")
+    _reject_unknown(compilation, {
+        "schema_version", "compiler_version", "intent_sha256", "prompt_sha256",
+        "reference", "checks", "compilation_sha256",
+    }, "intent_compilation")
+    if compilation.get("schema_version") != COMPILATION_SCHEMA or compilation.get("compiler_version") != COMPILER_VERSION:
+        raise ValueError("intent_compilation_version_invalid")
+    for field in ("intent_sha256", "prompt_sha256", "compilation_sha256"):
+        if not isinstance(compilation.get(field), str) or not SHA256_RE.fullmatch(compilation[field]):
+            raise ValueError("intent_compilation_digest_invalid")
+    reference = _mapping(compilation.get("reference"), "intent_compilation.reference")
+    _reject_unknown(reference, {"source_sha256", "foreground_sha256", "preparation_sha256"}, "intent_compilation.reference")
+    for field in ("source_sha256", "foreground_sha256"):
+        if not isinstance(reference.get(field), str) or not SHA256_RE.fullmatch(reference[field]):
+            raise ValueError("intent_compilation_reference_invalid")
+    preparation = reference.get("preparation_sha256")
+    if preparation is not None and (not isinstance(preparation, str) or not SHA256_RE.fullmatch(preparation)):
+        raise ValueError("intent_compilation_reference_invalid")
+    checks = compilation.get("checks")
+    if not isinstance(checks, list) or not checks or any(not isinstance(item, str) or not item for item in checks):
+        raise ValueError("intent_compilation_checks_invalid")
+    if compilation["prompt_sha256"] != canonical_sha256(request):
+        raise ValueError("intent_compilation_prompt_mismatch")
+    verify_document(compilation, "compilation_sha256")
+    return dict(compilation)
 
 
 def _mapping(value: object, field: str) -> Mapping[str, Any]:
@@ -59,7 +88,7 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
             raise ValueError("plan_reference_preparation_digest_invalid")
     _reject_unknown(motion, {"request", "continuity"}, "plan.motion")
     _reject_unknown(delivery, {"frame_counts", "size", "quality", "gif", "key_color"}, "plan.delivery")
-    _reject_unknown(generation, {"prompt", "key_analysis"}, "plan.generation")
+    _reject_unknown(generation, {"prompt", "key_analysis", "intent_compilation"}, "plan.generation")
     _reject_unknown(provider, {"plugin"}, "plan.provider")
     _text(character.get("reference"), "plan.character.reference")
     if not isinstance(character.get("description"), str):
@@ -91,6 +120,14 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
     ):
         raise ValueError("plan_delivery_invalid")
     _text(generation.get("prompt"), "plan.generation.prompt")
+    if "intent_compilation" in generation:
+        compilation = _validate_intent_compilation(generation["intent_compilation"], motion["request"])
+        if compilation["reference"]["foreground_sha256"] != character["reference_fingerprint"]["sha256"]:
+            raise ValueError("intent_compilation_reference_mismatch")
+        preparation = character.get("reference_preparation")
+        expected_preparation = preparation.get("sha256") if isinstance(preparation, Mapping) else None
+        if compilation["reference"]["preparation_sha256"] != expected_preparation:
+            raise ValueError("intent_compilation_reference_mismatch")
     analysis = _mapping(generation.get("key_analysis"), "plan.generation.key_analysis")
     _reject_unknown(
         analysis,
@@ -123,7 +160,7 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
 
 
 def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str | Path | None = None) -> dict[str, Any]:
-    allowed = {"schema_version", "job_id", "character", "motion", "delivery", "provider"}
+    allowed = {"schema_version", "job_id", "character", "motion", "delivery", "provider", "intent_compilation"}
     unknown = sorted(set(job) - allowed)
     if unknown:
         raise ValueError(f"job_unknown_fields:{','.join(unknown)}")
@@ -155,6 +192,9 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
     if continuity not in SUPPORTED_CONTINUITY:
         raise ValueError("motion_continuity_invalid")
     request = _text(motion.get("request"), "motion.request")
+    intent_compilation = None
+    if "intent_compilation" in job:
+        intent_compilation = _validate_intent_compilation(job["intent_compilation"], request)
 
     raw_counts = delivery.get("frame_counts")
     if (
@@ -222,6 +262,13 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
     }
     if preparation_binding is not None:
         plan["character"]["reference_preparation"] = preparation_binding
+    if intent_compilation is not None:
+        if intent_compilation["reference"]["foreground_sha256"] != plan["character"]["reference_fingerprint"]["sha256"]:
+            raise ValueError("intent_compilation_reference_mismatch")
+        expected_preparation = preparation_binding["sha256"] if preparation_binding is not None else None
+        if intent_compilation["reference"]["preparation_sha256"] != expected_preparation:
+            raise ValueError("intent_compilation_reference_mismatch")
+        plan["generation"]["intent_compilation"] = intent_compilation
     stamped = stamp_document(plan, "plan_sha256")
     validate_plan_contract(stamped)
     return stamped

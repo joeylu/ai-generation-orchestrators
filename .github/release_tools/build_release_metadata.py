@@ -36,12 +36,12 @@ VIDEO_SDIST_SUPPORT_FILES = (
     "references/video-runtime-adapter-protocol.md", "references/video-state-machine.md",
     *(f"docs/{name}" for name in (
         "README.md", "installation.md", "agent-setup.md", "cli-and-agent-flow.md",
-        "release-consumption.md", "architecture.md", "quality-policies.md",
+        "release-consumption.md", "architecture.md", "intent-and-compiler.md", "quality-policies.md",
     )),
     *(f"examples/{name}" for name in ("README.md", "job.example.json", "minimax-h3.config.example.json")),
     *(f"tests/{name}" for name in (
         "__init__.py", "test_core_contracts.py", "test_decoded_handoff.py",
-        "test_golden_matte.py", "test_handoff_path_safety.py",
+        "test_golden_matte.py", "test_handoff_path_safety.py", "test_intent_compiler.py",
         "test_input_delivery_regressions.py", "test_media_tools.py", "test_onboarding.py",
         "test_process_delivery.py", "test_provider_attempts.py", "test_schemas.py",
         "test_reference_preparation_handoff.py", "test_subject_fit.py", "test_video_hole_integration.py",

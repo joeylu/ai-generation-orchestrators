@@ -9,6 +9,8 @@ User request + character references
                v
         Agent skill / job JSON
                |
+ optional semantic draft -> intent build/validate -> deterministic compile
+               |                (no LLM/provider call inside the CLI)
        init + self-test (no compute)
                |
        tools check (offline)
@@ -48,9 +50,11 @@ User request + character references
                          strict / best_effort
 ```
 
-The Agent owns interpretation and invocation. The core owns state, deterministic
-processing, validation, and packaging. Plugins own one external generation
-submission and polling of that submission only.
+The Agent owns interpretation and invocation. When structured interpretation is
+used, the Agent proposes semantics while the core binds request/reference
+evidence, validates conflicts, compiles the prompt, and fingerprints the result.
+The core also owns state, deterministic processing, validation, and packaging.
+Plugins own one external generation submission and polling of that submission only.
 Reference preparation, when needed, runs before generation planning so background
 colours do not dictate the foreground key. It is not part of the video package.
 The video runtime verifies `ai_reference_preparation_handoff_v1` without importing

@@ -76,7 +76,8 @@
             "candidates": {"type": "array", "minItems": 1, "items": {"type": "object"}},
             "warning_codes": {"type": "array", "items": {"type": "string"}}
           }
-        }
+        },
+        "intent_compilation": {"$ref": "#/$defs/intentCompilation"}
       }
     },
     "provider": {
@@ -95,6 +96,28 @@
         "bytes": {"type": "integer", "minimum": 0},
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "media_type": {"const": "image"}
+      }
+    },
+    "intentCompilation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "compiler_version", "intent_sha256", "prompt_sha256", "reference", "checks", "compilation_sha256"],
+      "properties": {
+        "schema_version": {"const": "ai_frame_animation_intent_compilation_v1"},
+        "compiler_version": {"const": "ai_frame_animation_intent_compiler_v1"},
+        "intent_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "compilation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "reference": {
+          "type": "object", "additionalProperties": false,
+          "required": ["source_sha256", "foreground_sha256", "preparation_sha256"],
+          "properties": {
+            "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "foreground_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "preparation_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        "checks": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
       }
     }
   }

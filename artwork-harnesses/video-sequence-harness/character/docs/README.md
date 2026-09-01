@@ -14,15 +14,18 @@ validated transparent 2D sequence-frame delivery.
    usage.
 4. Use the [CLI and Agent flow](cli-and-agent-flow.md) when diagnosing individual
    stages.
-5. Read [Quality policies](quality-policies.md) before choosing `best_effort`.
-6. Read the [neutral preparation handoff](../references/reference-preparation-handoff.md)
+5. Read [Agent intent and deterministic compiler](intent-and-compiler.md) when an
+   Agent or external LLM should produce structured motion semantics.
+6. Read [Quality policies](quality-policies.md) before choosing `best_effort`.
+7. Read the [neutral preparation handoff](../references/reference-preparation-handoff.md)
    before connecting a local CLI or MCP producer.
-7. In a repository checkout, the separate [background-removal Harness](../../../image-background-removal-harness/)
+8. In a repository checkout, the separate [background-removal Harness](../../../image-background-removal-harness/)
    documents its CPU segmentation, correction, and visual acceptance workflow.
 
 ## Maintainers
 
 - [Architecture](architecture.md)
+- [Agent intent and deterministic compiler](intent-and-compiler.md)
 - [Immutable release consumption](release-consumption.md)
 - [Security policy](../../../../.github/SECURITY.md)
 - [Contributing and golden fixtures](../../../../.github/CONTRIBUTING.md)

@@ -75,6 +75,7 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(report["network_probe"], "not_performed")
         self.assertEqual(report["provider_compute"], "not_performed")
         self.assertEqual(report["gpu_compute"], "not_performed")
+        self.assertIn("character-motion-intent.schema.json", report["checks"]["packaged_schemas"])
 
     def test_doctor_reports_actionable_capabilities_without_probe(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
