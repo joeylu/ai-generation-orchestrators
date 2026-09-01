@@ -137,6 +137,14 @@ class MiniMaxH3Provider:
         self._submitted = True
         try:
             response = self._post_json("prompt", {"prompt": workflow, "client_id": submission_token})
+        except HTTPError as exc:
+            # ComfyUI returns HTTP 400 only after synchronously validating and
+            # rejecting the prompt; it has not queued a request in that case.
+            # Do not expose its body (node names, paths or workflow details),
+            # and do not mislabel this definitive rejection as indeterminate.
+            if exc.code == 400:
+                raise GenerationNotSubmitted("minimax_h3_prompt_rejected") from exc
+            raise GenerationIndeterminate("minimax_h3_submission_result_unknown:HTTPError") from exc
         except (OSError, ValueError, HTTPError, URLError) as exc:
             raise GenerationIndeterminate(f"minimax_h3_submission_result_unknown:{type(exc).__name__}") from exc
         request_id = response.get("prompt_id")
