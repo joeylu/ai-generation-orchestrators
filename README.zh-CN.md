@@ -1,6 +1,17 @@
-# AI Frame Animation：中文快速入门
+# AI Generation Orchestrators：中文快速入门
 
-[English](README.md) · [安装详情](docs/installation.md) · [Agent 配置](docs/agent-setup.md)
+[English](README.md) · [安装详情](artwork-harnesses/video-sequence-harness/character/docs/installation.md) · [Agent 配置](artwork-harnesses/video-sequence-harness/character/docs/agent-setup.md)
+
+这是一个由 AI Agent 驱动的游戏资产 Harness 集合，公开目录分为
+[美术](artwork-harnesses/)、[音乐音效](audio-harnesses/)、
+[游戏 UI](game-ui-harnesses/)和[游戏场景](game-scene-harnesses/)四大类。
+未实现能力只提供明确标记为 `planned` 的文档，不伪装成可调用 Skill。
+
+当前可安装的 `ai-frame-animation` 兼容程序对应美术类中已经实现的图片背景移除
+与角色视频序列链路。下面的快速入门仍只描述这条已实现路径。
+
+只需要抠图而不制作动画时，使用独立的
+[Image Background Removal Skill](artwork-harnesses/image-background-removal-harness/SKILL.md)。
 
 给 AI Agent 一张角色参考图和动作需求，在个人电脑上得到经过校验的透明
 2D 序列帧。你描述需求，Agent 调用工具，程序负责处理、校验和打包。
@@ -64,7 +75,7 @@ $AnimationPython = (Resolve-Path .venv/Scripts/python.exe).Path
 
 安装会联网下载并校验工具，只写入工作区的忽略目录，不改系统 PATH；
 Agent 必须先取得你的安装授权。其他平台使用可信系统安装或显式工具路径，见
-[安装说明](docs/installation.md#other-platforms-or-externally-managed-ffmpeg)。
+[安装说明](artwork-harnesses/video-sequence-harness/character/docs/installation.md#other-platforms-or-externally-managed-ffmpeg)。
 
 把角色参考图的副本放到 `my-animation/reference.png`。工作区中的 `work/`、
 参考图和 `.ai-frame-animation/` 默认不进入 Git；保留原始素材，不要把密钥或模型
@@ -76,7 +87,7 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
 不需要工作流、模型或 provider 配置。`init` 生成的 provider 模板可以不填；
 它存在不代表会自动调用生成服务。
 
-让 Agent 读取本项目的 [Skill](skills/artwork/skills-2d-frame-animation-video/SKILL.md)，
+让 Agent 读取本项目的 [Skill](artwork-harnesses/video-sequence-harness/character/SKILL.md)，
 然后可以直接说：
 
 > 使用透明2D序列帧 Skill。我已有 my-animation/reference.png 和
@@ -112,7 +123,7 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
    Agent 调用 `prepare` 自动分离前景、等比整理画布，再根据前景选键色。
    已有透明图无需模型；普通背景使用本地 CPU BiRefNet＋边缘去混色，不套旧补洞规则或 alpha matting。
    缺少工具会提示安装，
-   不会把“没装工具”误报成“源图不合格”。[准备步骤与安装说明](docs/reference-preparation.md)。
+   不会把“没装工具”误报成“源图不合格”。[准备步骤与安装说明](artwork-harnesses/image-background-removal-harness/docs/reference-preparation.md)。
 4. 程序保留原图，产出前景图和可校验处理报告。Agent 复核后生成计划：
 
 ```powershell
@@ -132,7 +143,7 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
 也不生成图片。生成路线缺少 `--plan` 时，输入检查不算完成。
 `statically_ready` 不代表模型已加载或实际生成一定成功。
 
-让 Agent 读取同一 [Skill](skills/artwork/skills-2d-frame-animation-video/SKILL.md)，再说：
+让 Agent 读取同一 [Skill](artwork-harnesses/video-sequence-harness/character/SKILL.md)，再说：
 
 > 根据 my-animation/reference.png 生成侧视跑步循环，交付32帧、256px、strict。
 > 先检查本地配置并展示计划，获得我一次明确计算确认后才能生成。
@@ -157,19 +168,19 @@ Agent 调用 `correct preview` 展示前后图，你明确批准这一份预览�
 v0.4.0 或更高版本，v0.3.2 不包含此功能。CLI 和 Skill 应取自同一版本的 Release，
 不要拿新版 Skill 混用旧程序。
 它不能补回已经丢失的发丝、衣料或薄纱，也不能自动判断同色区域是不是背景。
-详见[局部修正说明](docs/reference-correction.md)和[固定样本验收矩阵](docs/reference-acceptance.md)。
+详见[局部修正说明](artwork-harnesses/image-background-removal-harness/docs/reference-correction.md)和[固定样本验收矩阵](artwork-harnesses/image-background-removal-harness/docs/reference-acceptance.md)。
 
 ## 3. 获取和安装完整 Skill
 
 - **打开源码仓库使用：**让 Agent 读取
-  `skills/artwork/skills-2d-frame-animation-video/SKILL.md`。
+  `artwork-harnesses/video-sequence-harness/character/SKILL.md`。
 - **只安装发布版：**如果所选 Release 附有
   `skills-2d-frame-animation-video-<version>.zip`，按同一 Release 的
   `SHA256SUMS.txt` 校验后解压，再通过 Agent 支持的机制导入完整 Skill 文件夹。
   wheel 和 Skill 选择同一版本。
 - **旧 Release 没有 Skill ZIP：**下载该固定 tag 的 GitHub `Source code (zip)`
   （不是 Python 源码分发包），取出其中完整的
-  `skills/artwork/skills-2d-frame-animation-video/`，不要从浮动分支混取。
+  `artwork-harnesses/video-sequence-harness/character/`，不要从浮动分支混取。
 
 仅安装 wheel 不会自动给 Agent 注册 Skill；仅安装 Skill 也不会安装 Python 程序。
 不要只复制 `SKILL.md`，其 `references/` 和 `agents/` 也需要保留。
@@ -188,5 +199,5 @@ spritesheet、atlas 和可选 GIF。以 `validate` 通过为准，不是“有 Z
   `strict` 下不再仅作为警告放行。验证通过前不会发布本次交付目录或 ZIP。
 - 结构校验不等于动作或美术质量验收，仍需查看实际画面。
 
-更多说明：[CLI 和路径规则](docs/cli-and-agent-flow.md)、
-[质量策略](docs/quality-policies.md)、[开发与回归测试](CONTRIBUTING.md)。
+更多说明：[CLI 和路径规则](artwork-harnesses/video-sequence-harness/character/docs/cli-and-agent-flow.md)、
+[质量策略](artwork-harnesses/video-sequence-harness/character/docs/quality-policies.md)、[开发与回归测试](.github/CONTRIBUTING.md)。

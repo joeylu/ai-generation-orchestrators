@@ -1,9 +1,25 @@
-# AI Frame Animation
+# AI Generation Orchestrators
 
 [中文快速入门](README.zh-CN.md)
 
-An Agent-driven, provider-neutral toolkit that turns a character reference image
-and a motion request into validated transparent 2D frame animation.
+An Agent-driven game-asset Harness collection. The public catalog is organized
+into [artwork](artwork-harnesses/), [audio](audio-harnesses/),
+[game UI](game-ui-harnesses/), and [game scene](game-scene-harnesses/) categories.
+Every unavailable Harness is explicitly marked planned; documentation is not an
+implementation claim.
+
+## Harness catalog
+
+| Category | Current public status |
+| --- | --- |
+| [Artwork](artwork-harnesses/) | Image background removal and character video sequences implemented; image generation, direct image sequences, and prop video sequences planned. |
+| [Audio](audio-harnesses/) | Planned. |
+| [Game UI](game-ui-harnesses/) | UI-decomposition research in progress; no published Skill yet. |
+| [Game scene](game-scene-harnesses/) | Planned. |
+
+The currently installable `ai-frame-animation` compatibility runtime turns a
+character reference image and motion request into validated transparent 2D frame
+animation. The rest of this README documents that implemented path.
 
 ```text
 reference image + motion request
@@ -81,15 +97,18 @@ ai-frame-animation tools check --root my-animation --require-ready
 ```
 
 Other platforms can use trusted system packages or explicit executable paths.
-See [Installation](docs/installation.md) for the supported-platform table,
+See [Installation](artwork-harnesses/video-sequence-harness/character/docs/installation.md) for the supported-platform table,
 verification contract, license, and manual alternatives.
 
 ### 4. Choose your input and ask an Agent
 
 Make the complete Skill available to your Agent as described in
-[Agent setup](docs/agent-setup.md), or open this repository and point the Agent to
-[`skills/artwork/skills-2d-frame-animation-video/SKILL.md`](skills/artwork/skills-2d-frame-animation-video/SKILL.md).
+[Agent setup](artwork-harnesses/video-sequence-harness/character/docs/agent-setup.md), or open this repository and point the Agent to
+[`artwork-harnesses/video-sequence-harness/character/SKILL.md`](artwork-harnesses/video-sequence-harness/character/SKILL.md).
 Installing the Python wheel alone does not register the Skill with an Agent.
+
+For background removal without animation, use the separate
+[`image-background-removal` Skill](artwork-harnesses/image-background-removal-harness/SKILL.md).
 
 #### A. Process an existing video
 
@@ -109,7 +128,7 @@ Example request:
 
 The Agent uses `plan -> process -> inspect -> validate`, without `run` or a
 generation-compute confirmation. Processing uses local CPU, memory, and disk.
-See the [manual CLI flow](docs/cli-and-agent-flow.md) for the same route.
+See the [manual CLI flow](artwork-harnesses/video-sequence-harness/character/docs/cli-and-agent-flow.md) for the same route.
 
 #### B. Generate a new video locally
 
@@ -124,7 +143,7 @@ the foreground and fit the canvas before key selection. Existing alpha needs no
 model; opaque artwork uses explicitly configured BiRefNet CPU segmentation and
 foreground-colour estimation, without alpha-matting erosion or old colour repair. Setup
 is separate from source quality, and no model is downloaded automatically. See
-[reference preparation](docs/reference-preparation.md) for setup and limitations.
+[reference preparation](artwork-harnesses/image-background-removal-harness/docs/reference-preparation.md) for setup and limitations.
 
 Compile the job, then check that exact input statically before any compute request:
 
@@ -167,13 +186,13 @@ from that new report. This visual-edit approval is separate from the one video
 compute confirmation. Check `ai-frame-animation correct --help` first: this
 requires v0.4.0 or later and is not available in v0.3.2. Use matching CLI and
 Skill versions from the same release.
-See [local correction](docs/reference-correction.md) for commands and limits, and
-[reference acceptance](docs/reference-acceptance.md) for the fixed seen-regression
+See [local correction](artwork-harnesses/image-background-removal-harness/docs/reference-correction.md) for commands and limits, and
+[reference acceptance](artwork-harnesses/image-background-removal-harness/docs/reference-acceptance.md) for the fixed seen-regression
 set and known failures. Structural checks alone do not certify a clean matte.
 
-See [Agent setup](docs/agent-setup.md) for the repository-local and installed
+See [Agent setup](artwork-harnesses/video-sequence-harness/character/docs/agent-setup.md) for the repository-local and installed
 Skill flows. The complete manual CLI flow is in
-[CLI and Agent flow](docs/cli-and-agent-flow.md).
+[CLI and Agent flow](artwork-harnesses/video-sequence-harness/character/docs/cli-and-agent-flow.md).
 
 ## Safety model
 
@@ -215,11 +234,16 @@ support is an optional local ComfyUI plugin configured by the consumer.
 
 ```powershell
 python -m pip install -e .
-python -m unittest discover -s tests -p "test_*.py"
+python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py"
+python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py"
+python -m unittest discover -s .github/repository-tests -p "test_*.py"
 python <skill-creator>/scripts/quick_validate.py `
-  skills\artwork\skills-2d-frame-animation-video
+  artwork-harnesses\video-sequence-harness\character
+python <skill-creator>/scripts/quick_validate.py `
+  artwork-harnesses\image-background-removal-harness
 ```
 
-Human documentation starts at [docs/README.md](docs/README.md). Repository-wide
-Agent rules live in [AGENTS.md](AGENTS.md). See [CONTRIBUTING.md](CONTRIBUTING.md)
+Human documentation starts at the character Harness
+[documentation index](artwork-harnesses/video-sequence-harness/character/docs/README.md). Repository-wide
+Agent rules live in [AGENTS.md](AGENTS.md). See [CONTRIBUTING.md](.github/CONTRIBUTING.md)
 for the golden-fixture policy.

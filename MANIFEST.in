@@ -1,25 +1,10 @@
-include AGENTS.md CONTRIBUTING.md SECURITY.md README.zh-CN.md
-include scripts/build_release_metadata.py
-recursive-include docs *.md
-include docs/reference-acceptance-v1.json
-include examples/README.md examples/job.example.json examples/minimax-h3.config.example.json
-include examples/segmentation.config.example.json
-include examples/segmentation-fusion.config.example.json
-include tests/fixtures/golden/reference-fusion-cases.json
-include tests/fixtures/golden/reference-jpeg-input-view-cases.json
-include skills/README.md
-include skills/artwork/skills-2d-frame-animation-video/SKILL.md
-include skills/artwork/skills-2d-frame-animation-video/skill.json
-include skills/artwork/skills-2d-frame-animation-video/agents/openai.yaml
-include skills/artwork/skills-2d-frame-animation-video/references/video-state-machine.md
-include skills/artwork/skills-2d-frame-animation-video/references/video-runtime-adapter-protocol.md
-recursive-include tests *.py
-include tests/fixtures/golden/README.md tests/fixtures/golden/matte-cases.json
-include tests/fixtures/golden/input-delivery-cases.json
-include tests/fixtures/golden/reference-matte-cases.json
-include tests/fixtures/golden/moving-hole-cases.json
-include tests/fixtures/golden/subject-fit-cases.json
-include tests/fixtures/golden/reference-material-cases.json
-include tests/fixtures/golden/reference-translucency-cases.json
-include tests/fixtures/golden/reference-alpha-boundary-cases.json
-include tests/fixtures/golden/reference-local-correction-cases.json
+include AGENTS.md README.zh-CN.md LICENSE
+include .github/CONTRIBUTING.md .github/SECURITY.md
+include .github/release_tools/__init__.py .github/release_tools/build_release_metadata.py
+include .github/repository-tests/test_public_boundary.py
+include .github/repository-tests/test_quickstart.py
+include .github/repository-tests/test_release_metadata.py
+recursive-include artwork-harnesses *.md *.json *.yaml *.py
+recursive-include audio-harnesses *.md
+recursive-include game-ui-harnesses *.md
+recursive-include game-scene-harnesses *.md

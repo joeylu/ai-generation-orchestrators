@@ -26,7 +26,10 @@ jobs:
       - name: Install package
         run: python -m pip install ".[test]"
       - name: Run offline fixtures and test doubles
-        run: python -m unittest discover -s tests -p "test_*.py" -v
+        run: |
+          python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
+          python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
+          python -m unittest discover -s .github/repository-tests -p "test_*.py" -v
       - name: Check installed offline contract
         run: ai-frame-animation self-test
       - name: Check redacted doctor
@@ -42,7 +45,7 @@ jobs:
           python-version: "3.14"
       - run: python -m pip install build
       - run: python -m build
-      - run: python scripts/build_release_metadata.py --dist dist
+      - run: python .github/release_tools/build_release_metadata.py --dist dist
       - uses: actions/upload-artifact@v7
         with:
           name: ai-frame-animation-dist

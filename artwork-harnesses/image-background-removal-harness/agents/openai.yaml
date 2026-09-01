@@ -1,0 +1,6 @@
+interface:
+  display_name: "Image Background Removal"
+  short_description: "Prepare reviewed transparent character or prop artwork"
+  default_prompt: "Use $image-background-removal to prepare my still image as a reviewed transparent cutout and fitted foreground."
+policy:
+  allow_implicit_invocation: true

@@ -2,8 +2,14 @@
 
 ## Product scope
 
-This repository has one purpose: use AI Agent tools to turn character reference
-images and motion requirements into transparent 2D character frame animation.
+This repository is a catalog of AI Agent-driven game-asset Harnesses organized
+under artwork, audio, game-UI, and game-scene categories. A planned Harness is
+documentation only and must never be presented as implemented or callable.
+
+The currently implemented public runtime turns character reference images and
+motion requirements into transparent 2D character frame animation. The detailed
+generation, preparation, media, and retry rules below govern that runtime until
+its behavior is migrated into the corresponding nested Harness contracts.
 
 Keep the public core provider-neutral. Provider integrations are optional plugins;
 they must not leak host-specific paths, endpoints, workflow files, credentials, or

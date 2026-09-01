@@ -35,7 +35,7 @@ ai-frame-animation = "ai_frame_animation.cli:main"
 minimax_h3 = "ai_frame_animation.providers.minimax_h3:MiniMaxH3Provider"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["artwork-harnesses/video-sequence-harness/character/src"]
 
 [tool.setuptools.package-data]
 ai_frame_animation = ["schemas/*.json", "tooling/*.json"]
