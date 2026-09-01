@@ -114,7 +114,7 @@ class ReferenceMatteTests(unittest.TestCase):
     def test_readiness_is_static_and_missing_runtime_is_setup_issue(self):
         with patch("ai_image_background_removal.media.reference_matte.importlib.util.find_spec",return_value=None), self.assertRaisesRegex(ValueError,"runtime_missing"):
             inspect_matting_runtime()
-        with patch("ai_image_background_removal.media.reference_matte.importlib.util.find_spec",return_value=object()), patch("ai_image_background_removal.media.reference_matte.load_foreground_estimator") as loader:
+        with patch("ai_image_background_removal.media.reference_matte.importlib.util.find_spec",return_value=object()), patch("ai_image_background_removal.media.reference_matte.require_segmentation_runtime"), patch("ai_image_background_removal.media.reference_matte.load_foreground_estimator") as loader:
             inspect_matting_runtime()
             loader.assert_not_called()
 

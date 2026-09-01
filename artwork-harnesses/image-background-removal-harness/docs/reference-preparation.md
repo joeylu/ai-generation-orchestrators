@@ -25,6 +25,15 @@ Core Python support remains >=3.10; optional availability depends on compatible
 ONNX Runtime/Numba/SciPy wheels for the selected Python and platform.
 The dependency extra contains no weights and never downloads a model on import.
 
+Use an isolated virtual environment for this extra; do not run it through an
+unrelated system Python. Python 3.14 installs are locked to the real-CPU-tested
+`cpu-segmentation-py314-r1` package tuple. `doctor` compares that tuple without
+importing PyMatting or constructing a model session, and opaque-image `prepare`
+repeats the same gate before inference. A mismatch returns
+`reference_segmentation_runtime_profile_mismatch` instead of entering a
+potentially multi-minute or stalled estimator initialization. Existing-alpha
+inputs still use the core route and do not require the segmentation profile.
+
 Provision the **BiRefNet General 1024 ONNX** graph separately from a trusted
 source, check its license, and verify its SHA-256 against a trusted provisioning
 record. The accepted full graph is roughly 973 MB; allow additional CPU RAM for
@@ -61,7 +70,8 @@ ai-image-background-removal prepare --root my-animation --reference reference.pn
 ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/handoff.json --out work/plan.json
 ```
 
-`doctor` checks files and optional packages statically; it does not import the
+`doctor` checks files, optional packages and the applicable runtime profile
+statically; it does not import the
 estimator, construct a model session, contact a provider or create media.
 Ready means configured, not that unseen segmentation will be visually correct.
 Missing model/ONNX/PyMatting is a setup issue, not bad source quality.

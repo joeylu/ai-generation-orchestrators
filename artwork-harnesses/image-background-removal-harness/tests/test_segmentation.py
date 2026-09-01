@@ -123,7 +123,7 @@ class SegmentationTests(unittest.TestCase):
         runtime.InferenceSession.assert_not_called()
 
     def test_inspection_checks_optional_packages_without_import_or_inference(self):
-        with patch("importlib.util.find_spec",return_value=object()), patch("ai_image_background_removal.media.segmentation.infer_foreground_mask") as infer:
+        with patch("importlib.util.find_spec",return_value=object()), patch("ai_image_background_removal.media.reference_matte.require_segmentation_runtime"), patch("ai_image_background_removal.media.segmentation.infer_foreground_mask") as infer:
             report = inspect_segmenter(self.config)
         infer.assert_not_called()
         self.assertEqual(report["backend"],"onnx_birefnet")

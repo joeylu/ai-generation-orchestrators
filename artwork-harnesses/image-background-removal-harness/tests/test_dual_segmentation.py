@@ -52,7 +52,7 @@ class DualSegmentationTests(unittest.TestCase):
         s.run.assert_called_once()
     def test_static_inspection_no_session_or_paths(self):
         r,s=runtime_double()
-        with patch('importlib.util.find_spec',return_value=object()),patch.dict('sys.modules',{'onnxruntime':r}):result=inspect_dual_segmenter(self.config)
+        with patch('importlib.util.find_spec',return_value=object()),patch('ai_image_background_removal.media.reference_matte.require_segmentation_runtime'),patch.dict('sys.modules',{'onnxruntime':r}):result=inspect_dual_segmenter(self.config)
         r.InferenceSession.assert_not_called();self.assertNotIn(str(self.root),str(result));self.assertNotIn('model_path',str(result))
     def test_missing_aux_stops_before_primary_inference(self):
         self.aux.unlink()

@@ -12,11 +12,14 @@ import importlib.util
 import numpy as np
 from PIL import Image
 
+from ..runtime_profile import require_segmentation_runtime
+
 
 def inspect_matting_runtime() -> None:
     # Readiness is static; importing PyMatting can initialize JIT compilation.
     if importlib.util.find_spec("pymatting") is None:
         raise ValueError("reference_matting_runtime_missing")
+    require_segmentation_runtime()
 
 
 def load_foreground_estimator():

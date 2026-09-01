@@ -237,6 +237,25 @@ class ReferencePreparationTests(unittest.TestCase):
             self.assertEqual(json.loads(output.getvalue())["reference_preparation"]["prepared_quality"], "not_checked")
             self.assertEqual({p.name: p.read_bytes() for p in root.iterdir()}, before)
 
+    def test_runtime_profile_mismatch_blocks_doctor_and_prepare_before_inference(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_fixture(root)
+            before = {p.name: p.read_bytes() for p in root.iterdir()}
+            mismatch = ValueError("reference_segmentation_runtime_profile_mismatch")
+            with patch("ai_image_background_removal.preparation.inspect_segmenter", side_effect=mismatch), contextlib.redirect_stdout(io.StringIO()) as output:
+                result = main(["doctor", "--root", str(root), "--reference", "source.png", "--require-ready"])
+            doctor = json.loads(output.getvalue())
+            self.assertEqual(result, 1)
+            self.assertEqual(doctor["reference_preparation"]["diagnostic_code"], "reference_segmentation_runtime_profile_mismatch")
+            self.assertTrue(any("isolated virtual environment" in action for action in doctor["actions"]))
+            with patch("ai_image_background_removal.preparation.inspect_matting_runtime", side_effect=mismatch), patch("ai_image_background_removal.preparation.infer_foreground_mask") as infer:
+                with self.assertRaisesRegex(ValueError, "runtime_profile_mismatch"):
+                    prepare_reference(root=root, reference="source.png", out_dir="prepared")
+            infer.assert_not_called()
+            self.assertFalse((root / "prepared").exists())
+            self.assertEqual({p.name: p.read_bytes() for p in root.iterdir()}, before)
+
     def test_jpeg_source_and_exif_orientation_are_supported(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

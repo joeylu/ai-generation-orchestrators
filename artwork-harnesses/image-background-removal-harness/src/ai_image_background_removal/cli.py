@@ -13,6 +13,7 @@ from .canonical import load_json, redact, rooted_path, safe_error_code
 from .correction import apply_correction, preview_correction
 from .handoff import load_preparation_handoff
 from .preparation import inspect_preparation, load_preparation, prepare_reference
+from .runtime_profile import segmentation_runtime_report
 
 
 def _print(value: object) -> None:
@@ -44,17 +45,22 @@ def command_doctor(args: argparse.Namespace) -> int:
     actions: list[str] = []
     ready = all(version != "missing" for version in packages.values())
     preparation = None
+    optional_runtime = segmentation_runtime_report()
     if args.reference is not None:
         preparation = inspect_preparation(root, args.reference, args.config)
         if preparation["status"] != "ready":
             ready = False
-            actions.append("Configure the explicitly supplied local CPU segmentation model or resolve the source diagnostic.")
+            if preparation["diagnostic_code"] == "reference_segmentation_runtime_profile_mismatch":
+                actions.append("Install this release's segmentation extra in an isolated virtual environment; do not reuse the incompatible system Python runtime.")
+            else:
+                actions.append("Configure the explicitly supplied local CPU segmentation model or resolve the source diagnostic.")
     report: dict[str, object] = {
         "schema_version": "ai_image_background_removal_doctor_v1",
         "status": "ready" if ready else "action_required",
         "version": __version__,
         "python": platform.python_version(),
         "packages": packages,
+        "optional_segmentation_runtime": optional_runtime,
         "capabilities": {"preparation": "ready" if ready else "action_required"},
         "actions": actions,
         "network_probe": "not_performed",

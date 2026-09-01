@@ -17,7 +17,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-segmentation = ["onnxruntime>=1.20,<2", "PyMatting==1.1.15", "scipy>=1.11,<2"]
+segmentation = [
+  "onnxruntime==1.29.0; python_version == '3.14'",
+  "numpy==2.5.2; python_version == '3.14'",
+  "scipy==1.18.1; python_version == '3.14'",
+  "numba==0.67.0; python_version == '3.14'",
+  "llvmlite==0.49.0; python_version == '3.14'",
+  "onnxruntime>=1.20,<2; python_version < '3.14'",
+  "scipy>=1.11,<2; python_version < '3.14'",
+  "PyMatting==1.1.15",
+]
 test = ["scipy>=1.11,<2"]
 
 [project.scripts]
