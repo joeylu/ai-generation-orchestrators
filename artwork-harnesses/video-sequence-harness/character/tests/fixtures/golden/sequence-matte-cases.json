@@ -11,6 +11,17 @@
     "expect_prop_preserved": [15, 63],
     "expect_subject_preserved": [50, 50]
   },
+  "partner_hue_spill": {
+    "problem": "Green-screen spill mixed with blue armour becomes cyan and survives a strict single-channel dominance cleanup.",
+    "size": 32,
+    "primary_key": [1, 235, 4],
+    "body_rect": [8, 6, 25, 27],
+    "body_rgb": [25, 45, 185],
+    "spill_rect": [14, 12, 18, 18],
+    "spill_rgb": [20, 180, 190],
+    "expect_spill_neutralized": [17, 15],
+    "expect_body_preserved": [22, 15]
+  },
   "cases": [
     {
       "id": "ribbon-cross-frame-enclosed-secondary-key",
@@ -53,6 +64,23 @@
       "same_family_detail_rgb": [70, 190, 105],
       "expect_transparent": [40, 40],
       "expect_opaque_preserved": [19, 41]
+    },
+    {
+      "id": "running-knight-small-compressed-arm-hole",
+      "problem": "A small closed green-screen gap between a moving arm and torso remained visible because codec variation exceeded the aggressive enclosed-hole flatness guard.",
+      "size": 96,
+      "aggressive": true,
+      "primary_key": [1, 235, 4],
+      "body_rect": [10, 10, 85, 85],
+      "body_rgb": [155, 65, 45],
+      "hole_rect": [40, 38, 55, 51],
+      "hole_rgb": [1, 245, 4],
+      "hole_accent_rect": [40, 38, 47, 51],
+      "hole_accent_rgb": [70, 150, 80],
+      "same_family_detail_rect": [20, 40, 23, 43],
+      "same_family_detail_rgb": [45, 185, 65],
+      "expect_transparent": [48, 44],
+      "expect_opaque_preserved": [21, 41]
     }
   ]
 }

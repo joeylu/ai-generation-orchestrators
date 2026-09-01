@@ -83,7 +83,10 @@ handoff validation. Visual approval of a cutout never authorizes video compute.
   decode, and one deterministic semantic interval. Preserve every native frame
   that fits; leave unused cells transparent and downsample only above capacity.
 - Remove the selected key globally, including enclosed background holes; preserve
-  soft alpha and decontaminate key-coloured edge spill.
+  soft alpha and decontaminate key-coloured edge spill. If the immutable plan
+  proves the selected key family absent from the reference, deterministic RGB
+  decontamination may also clean codec spill embedded inside the subject; it
+  must not delete alpha or run for an unverified key.
 - Treat PNG alpha as authoritative. GIF is a binary-transparency preview.
 - Use half-open loop sampling and terminal-inclusive one-shot sampling while
   preserving the original rational timeline.

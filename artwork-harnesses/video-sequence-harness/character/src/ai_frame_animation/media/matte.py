@@ -599,6 +599,7 @@ def aggressive_color_key_cleanup(
     key_color: tuple[int, int, int],
     key_palette: Iterable[tuple[int, int, int]],
     alpha_threshold: int = 8,
+    key_family_safe: bool = False,
 ) -> tuple[Image.Image, dict]:
     """Remove strong cross-frame key remnants under a visible-area damage budget."""
 
@@ -610,6 +611,9 @@ def aggressive_color_key_cleanup(
         "policy": "guarded_clip_palette_hard_key_v2",
         "removed_pixels": 0,
         "spill_pixels_neutralized": 0,
+        "partner_hue_spill_pixels_neutralized": 0,
+        "global_safe_spill_pixels_neutralized": 0,
+        "key_family_safe": key_family_safe,
         "palette_size": len(saturated_palette),
         "palette_damage_fallback": False,
         "current_key_damage_fallback": False,
@@ -677,7 +681,11 @@ def aggressive_color_key_cleanup(
             rgb_bytes,
             source_image.width,
             source_image.height,
-            maximum_enclosed_stddev=36.0,
+            # Moving arm/body gaps remain semantically flat green-screen holes,
+            # but codec ringing can raise their per-channel deviation above the
+            # conservative first-pass limit. Component area still protects tiny
+            # same-family character details from this relaxed sequence pass.
+            maximum_enclosed_stddev=60.0,
         )
         palette_region = np.frombuffer(selected, dtype=np.uint8).reshape(alpha.shape).astype(bool)
         # The component is the semantic evidence. Grow only through this one
@@ -708,15 +716,47 @@ def aggressive_color_key_cleanup(
     low_channels = np.flatnonzero(key <= int(key.min()) + 32)
     dominance = np.min(rgb[..., high_channels], axis=2) - np.max(rgb[..., low_channels], axis=2)
     next_transparent = (next_alpha <= alpha_threshold).astype(np.uint8)
+    spill_contour_radius = 8
     contour = np.array(
-        Image.fromarray(next_transparent * 255, "L").filter(ImageFilter.MaxFilter(5)),
+        Image.fromarray(next_transparent * 255, "L").filter(
+            ImageFilter.MaxFilter(spill_contour_radius * 2 + 1)
+        ),
         dtype=np.uint8,
     ).astype(bool)
-    spill = contour & (next_alpha > alpha_threshold) & (dominance >= 10)
+    visible_contour = contour & (next_alpha > alpha_threshold)
+    cleanup_scope = (next_alpha > alpha_threshold) if key_family_safe else visible_contour
+    spill = cleanup_scope & (dominance >= 10)
     low_cap = np.max(rgb[..., low_channels], axis=2)
     output_rgb = rgba[..., :3].astype(np.int16)
     for channel in high_channels:
         output_rgb[..., channel][spill] = np.minimum(output_rgb[..., channel][spill], low_cap[spill])
+    # Chroma subsampling can mix a single-high-channel key with a foreground
+    # low channel, turning green-on-blue into cyan or green-on-red into yellow.
+    # In that topology, capping against the partner would preserve the spill;
+    # cap the key channel against the remaining low channel instead.
+    partner_hue_spill = np.zeros(alpha.shape, dtype=bool)
+    if len(high_channels) == 1 and len(low_channels) >= 2:
+        dominant = int(high_channels[0])
+        for partner_value in low_channels:
+            partner = int(partner_value)
+            other_lows = [int(channel) for channel in low_channels if int(channel) != partner]
+            if not other_lows:
+                continue
+            partner_mask = (
+                cleanup_scope
+                & (
+                    np.minimum(rgb[..., dominant], rgb[..., partner])
+                    - np.max(rgb[..., other_lows], axis=2)
+                    >= 28
+                )
+            )
+            partner_cap = np.max(output_rgb[..., other_lows], axis=2)
+            output_rgb[..., dominant][partner_mask] = np.minimum(
+                output_rgb[..., dominant][partner_mask], partner_cap[partner_mask]
+            )
+            partner_hue_spill |= partner_mask
+    spill |= partner_hue_spill
+    global_safe_spill = spill & ~visible_contour if key_family_safe else np.zeros(alpha.shape, dtype=bool)
     output = rgba.copy()
     output[..., :3] = np.clip(output_rgb, 0, 255).astype(np.uint8)
     output[..., 3] = next_alpha
@@ -729,11 +769,14 @@ def aggressive_color_key_cleanup(
         "enclosed_palette_pixels_removed": int(np.count_nonzero(removal & enclosed_palette)),
         "feather_pixels_hardened": int(np.count_nonzero(feather)),
         "spill_pixels_neutralized": int(np.count_nonzero(spill)),
+        "partner_hue_spill_pixels_neutralized": int(np.count_nonzero(partner_hue_spill)),
+        "global_safe_spill_pixels_neutralized": int(np.count_nonzero(global_safe_spill)),
         "palette_attempted_removed_pixels": palette_attempted_removed,
         "current_key_attempted_removed_pixels": palette_attempted_removed,
         "visible_damage_ratio": round(int(np.count_nonzero(removal)) / max(1, visible_pixels), 6),
         "distance_threshold": 85,
         "near_transparent_radius": 4,
+        "spill_contour_radius": spill_contour_radius,
     }
 
 

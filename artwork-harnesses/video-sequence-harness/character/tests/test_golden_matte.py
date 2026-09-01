@@ -116,6 +116,31 @@ class GoldenMatteTests(unittest.TestCase):
         self.assertEqual(output.getpixel(tuple(fixture["expect_subject_preserved"]))[3], 255)
         self.assertEqual(report["removed_components"], 1)
 
+    def test_partner_hue_key_spill_is_neutralized(self) -> None:
+        case = json.loads(SEQUENCE_FIXTURE.read_text(encoding="utf-8"))["partner_hue_spill"]
+        source = Image.new("RGBA", (case["size"], case["size"]), (*case["primary_key"], 255))
+        draw = ImageDraw.Draw(source)
+        draw.rectangle(case["body_rect"], fill=(*case["body_rgb"], 255))
+        draw.rectangle(case["spill_rect"], fill=(*case["spill_rgb"], 255))
+        conservative, _detail = color_key_to_rgba(
+            source,
+            key_color=tuple(case["primary_key"]),
+            tolerance=24,
+            softness=18,
+        )
+        output, report = aggressive_color_key_cleanup(
+            conservative,
+            source_image=source,
+            key_color=tuple(case["primary_key"]),
+            key_palette=[tuple(case["primary_key"])],
+            key_family_safe=True,
+        )
+        spill = output.getpixel(tuple(case["expect_spill_neutralized"]))
+        self.assertLessEqual(spill[1], spill[0])
+        self.assertEqual(output.getpixel(tuple(case["expect_body_preserved"])), (*case["body_rgb"], 255))
+        self.assertGreater(report["partner_hue_spill_pixels_neutralized"], 0)
+        self.assertGreater(report["global_safe_spill_pixels_neutralized"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

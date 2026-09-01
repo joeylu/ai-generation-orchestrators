@@ -119,6 +119,7 @@ def _rgba_frame(
     *,
     calibration: tuple[tuple[int, int, int], dict[str, Any]] | None = None,
     key_palette: Sequence[tuple[int, int, int]] = (),
+    key_family_safe: bool = False,
 ) -> tuple[Image.Image, dict[str, Any]]:
     alpha_min, alpha_max = source.getchannel("A").getextrema()
     if alpha_min < 255:
@@ -151,6 +152,7 @@ def _rgba_frame(
             source_image=source,
             key_color=observed_key,
             key_palette=key_palette,
+            key_family_safe=key_family_safe,
         )
         if max(observed_key) - min(observed_key) <= 24:
             cleaned, detached_noise = remove_tiny_detached_alpha_components(cleaned)
@@ -376,8 +378,20 @@ def _process_from_decoded_into(
         calibrations.append(calibration)
         observed_keys.append(calibration[0])
     key_palette = _compact_key_palette(observed_keys)
+    key_analysis = plan.get("generation", {}).get("key_analysis", {})
+    key_family_safe = bool(
+        isinstance(key_analysis, Mapping)
+        and key_analysis.get("selected_safe") is True
+        and str(key_analysis.get("selected", "")).upper() == key_color.upper()
+    )
     prepared = [
-        _rgba_frame(image, declared_key, calibration=calibration, key_palette=key_palette)
+        _rgba_frame(
+            image,
+            declared_key,
+            calibration=calibration,
+            key_palette=key_palette,
+            key_family_safe=key_family_safe,
+        )
         for image, calibration in zip(eligible_sources, calibrations)
     ]
     fitted_sources, subject_fit, source_alignment = fit_subject_sequence(

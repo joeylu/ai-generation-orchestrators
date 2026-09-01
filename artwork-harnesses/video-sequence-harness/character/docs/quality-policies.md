@@ -29,6 +29,12 @@ Every requested atlas-profile variant and required artifact must exist and pass:
 - meaningful PNG transparency, zero hidden RGB, and matte/spill limits;
 - manifest, artifact checksum, and package-structure validation.
 
+Saturated-key cleanup remains conservative for an unverified key. When the
+immutable plan records that the selected key family is safe for the reference,
+the processor may neutralize same-family RGB contamination embedded by video
+chroma subsampling, including cyan/yellow partner hues. This does not lower or
+erase subject alpha; enclosed-background removal remains a separate matte step.
+
 After keying at source resolution, all source frames in the semantic interval
 share one contact-anchor alignment and subject-union fit. Empty background
 padding is cropped before resizing, so a wide video canvas cannot silently
