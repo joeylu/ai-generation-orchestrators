@@ -4,13 +4,20 @@ import json
 import unittest
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from ai_frame_animation.media.matte import calibrate_key_color, color_key_to_rgba, parse_hex_color
+from ai_frame_animation.media.matte import (
+    aggressive_color_key_cleanup,
+    calibrate_key_color,
+    color_key_to_rgba,
+    parse_hex_color,
+    remove_tiny_detached_alpha_components,
+)
 from ai_frame_animation.media.spill import cleanup_key_spill
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "golden" / "matte-cases.json"
+SEQUENCE_FIXTURE = Path(__file__).parent / "fixtures" / "golden" / "sequence-matte-cases.json"
 
 
 def image_from_case(case: dict) -> Image.Image:
@@ -24,7 +31,7 @@ def process_case(case: dict) -> Image.Image:
     observed, _calibration = calibrate_key_color([source], case["declared_key"], allow_topology_drift=True)
     rgba, evidence = color_key_to_rgba(source, key_color=observed, tolerance=24, softness=18)
     cleaned, spill = cleanup_key_spill(rgba, key_color=observed)
-    assert evidence["background_policy"] == "global_safe_key"
+    assert evidence["background_policy"] == "edge_connected_key_v3"
     assert spill["transparent_nonzero_rgb_pixels"] == 0
     return cleaned
 
@@ -59,6 +66,55 @@ class GoldenMatteTests(unittest.TestCase):
         outputs = [process_case(case) for case in cases]
         self.assertTrue(all(output.getpixel((0, 0))[3] == 0 for output in outputs))
         self.assertTrue(all(output.getpixel((1, 1))[3] == 255 for output in outputs))
+
+    def test_real_failure_reproductions(self) -> None:
+        fixture = json.loads(SEQUENCE_FIXTURE.read_text(encoding="utf-8"))
+        for case in fixture["cases"]:
+            with self.subTest(case=case["id"]):
+                source = Image.new("RGBA", (case["size"], case["size"]), (*case["primary_key"], 255))
+                draw = ImageDraw.Draw(source)
+                draw.rectangle(case["body_rect"], fill=(*case["body_rgb"], 255))
+                if "hole_rect" in case:
+                    draw.rectangle(case["hole_rect"], fill=(*case["hole_rgb"], 255))
+                    if "hole_accent_rect" in case:
+                        draw.rectangle(case["hole_accent_rect"], fill=(*case["hole_accent_rgb"], 255))
+                    draw.rectangle(case["same_family_detail_rect"], fill=(*case["same_family_detail_rgb"], 255))
+                conservative, _detail = color_key_to_rgba(
+                    source,
+                    key_color=tuple(case["primary_key"]),
+                    tolerance=24,
+                    softness=18,
+                )
+                if "secondary_key" in case or case.get("aggressive"):
+                    output, report = aggressive_color_key_cleanup(
+                        conservative,
+                        source_image=source,
+                        key_color=tuple(case["primary_key"]),
+                        key_palette=[
+                            tuple(case["primary_key"]),
+                            *([tuple(case["secondary_key"])] if "secondary_key" in case else []),
+                        ],
+                    )
+                    self.assertGreater(report["enclosed_palette_pixels_removed"], 0)
+                else:
+                    output = conservative
+                self.assertEqual(output.getpixel(tuple(case["expect_transparent"])), (0, 0, 0, 0))
+                preserved = output.getpixel(tuple(case["expect_opaque_preserved"]))
+                expected_rgb = tuple(case.get("same_family_detail_rgb", case["body_rgb"]))
+                self.assertEqual(preserved, (*expected_rgb, 255))
+
+    def test_low_chroma_detached_noise_fixture(self) -> None:
+        fixture = json.loads(SEQUENCE_FIXTURE.read_text(encoding="utf-8"))["detached_noise"]
+        image = Image.new("RGBA", (fixture["size"], fixture["size"]), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle(fixture["subject_rect"], fill=(20, 80, 190, 255))
+        draw.rectangle(fixture["tiny_noise_rect"], fill=(245, 245, 245, 255))
+        draw.rectangle(fixture["detached_prop_rect"], fill=(40, 220, 240, 255))
+        output, report = remove_tiny_detached_alpha_components(image)
+        self.assertEqual(output.getpixel(tuple(fixture["expect_noise_transparent"])), (0, 0, 0, 0))
+        self.assertEqual(output.getpixel(tuple(fixture["expect_prop_preserved"]))[3], 255)
+        self.assertEqual(output.getpixel(tuple(fixture["expect_subject_preserved"]))[3], 255)
+        self.assertEqual(report["removed_components"], 1)
 
 
 if __name__ == "__main__":

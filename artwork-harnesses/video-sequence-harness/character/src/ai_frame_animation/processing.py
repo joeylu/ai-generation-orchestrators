@@ -17,7 +17,14 @@ from .canonical import fingerprint, relative_posix, rooted_path, safe_error_code
 from .handoff import DecodedHandoff
 from .media.fit import fit_subject_sequence
 from .media.gif import export_preview_gif
-from .media.matte import calibrate_key_color, color_key_to_rgba, parse_hex_color
+from .media.matte import (
+    aggressive_color_key_cleanup,
+    analyze_sequence_background,
+    calibrate_key_color,
+    color_key_to_rgba,
+    parse_hex_color,
+    remove_tiny_detached_alpha_components,
+)
 from .media.quality import check_subject_canvas
 from .media.spill import cleanup_key_spill, zero_transparent_rgb
 from .media.spritesheet import pack_video_spritesheet
@@ -84,14 +91,29 @@ def _open_sources(paths: Sequence[Path]) -> list[Image.Image]:
     return images
 
 
-def _rgba_frame(source: Image.Image, declared_key: tuple[int, int, int]) -> tuple[Image.Image, dict[str, Any]]:
+def _rgba_frame(
+    source: Image.Image,
+    declared_key: tuple[int, int, int],
+    *,
+    calibration: tuple[tuple[int, int, int], dict[str, Any]] | None = None,
+    key_palette: Sequence[tuple[int, int, int]] = (),
+) -> tuple[Image.Image, dict[str, Any]]:
     alpha_min, alpha_max = source.getchannel("A").getextrema()
     if alpha_min < 255:
         rgba = source.copy()
         matte_evidence: dict[str, Any] = {"background_policy": "native_alpha", "alpha_range": [alpha_min, alpha_max]}
         observed_key = declared_key
+        aggressive: dict[str, Any] = {
+            "policy": "guarded_clip_palette_hard_key_v2",
+            "skipped": True,
+            "reason": "native_alpha",
+        }
     else:
-        observed_key, calibration = calibrate_key_color([source], "#" + "".join(f"{channel:02X}" for channel in declared_key), allow_topology_drift=True)
+        observed_key, calibration_detail = calibration or calibrate_key_color(
+            [source],
+            "#" + "".join(f"{channel:02X}" for channel in declared_key),
+            allow_topology_drift=True,
+        )
         rgba, matte_detail = color_key_to_rgba(
             source,
             key_color=observed_key,
@@ -99,11 +121,52 @@ def _rgba_frame(source: Image.Image, declared_key: tuple[int, int, int]) -> tupl
             softness=18.0,
             color_space="rgb",
         )
-        matte_evidence = {"calibration": calibration, **matte_detail}
+        matte_evidence = {"calibration": calibration_detail, **matte_detail}
     cleaned, spill = cleanup_key_spill(rgba, key_color=observed_key)
+    if alpha_min == 255:
+        cleaned, aggressive = aggressive_color_key_cleanup(
+            cleaned,
+            source_image=source,
+            key_color=observed_key,
+            key_palette=key_palette,
+        )
+        if max(observed_key) - min(observed_key) <= 24:
+            cleaned, detached_noise = remove_tiny_detached_alpha_components(cleaned)
+        else:
+            detached_noise = {
+                "policy": "low_chroma_tiny_detached_alpha_v1",
+                "skipped": True,
+                "reason": "saturated_key",
+                "removed_components": 0,
+                "removed_pixels": 0,
+            }
+    else:
+        detached_noise = {
+            "policy": "low_chroma_tiny_detached_alpha_v1",
+            "skipped": True,
+            "reason": "native_alpha",
+            "removed_components": 0,
+            "removed_pixels": 0,
+        }
     # Check before square padding/alignment can disguise a retained canvas.
     check_subject_canvas(cleaned)
-    return cleaned, {"matte": matte_evidence, "spill": spill}
+    return cleaned, {
+        "matte": matte_evidence,
+        "spill": spill,
+        "aggressive": aggressive,
+        "detached_noise": detached_noise,
+    }
+
+
+def _compact_key_palette(keys: Sequence[tuple[int, int, int]], minimum_distance: float = 40.0) -> list[tuple[int, int, int]]:
+    """Bound clip-palette work while retaining materially different background colours."""
+
+    selected: list[tuple[int, int, int]] = []
+    threshold_squared = minimum_distance * minimum_distance
+    for key in keys:
+        if all(sum((left - right) ** 2 for left, right in zip(key, other)) >= threshold_squared for other in selected):
+            selected.append(key)
+    return selected
 
 
 def _resize_rgba(image: Image.Image, size: int) -> Image.Image:
@@ -137,6 +200,7 @@ def _write_variant(
     include_gif: bool,
     allow_gif_failure: bool,
     strict: bool = True,
+    background_analysis: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     variant_root.mkdir(parents=True, exist_ok=False)
     frames_root = variant_root / "frames"
@@ -151,6 +215,11 @@ def _write_variant(
     if strict and any(record["clip_warning"] for record in alignment["records"]):
         raise ValueError("strict_subject_clipping")
     warnings = list(alignment.get("warning_codes", []))
+    aggressive_fallbacks = sum(
+        bool(item.get("aggressive", {}).get("conservative_damage_fallback")) for item in evidence
+    )
+    if aggressive_fallbacks:
+        warnings.append("aggressive_conservative_damage_fallback")
     frame_paths: list[Path] = []
     for index, image in enumerate(aligned, start=1):
         path = frames_root / f"frame_{index:03d}.png"
@@ -195,9 +264,11 @@ def _write_variant(
             "meaningful_transparency": all(item[0] < 255 for item in alpha_ranges),
         },
         "processing": {
-            "background_policy": "per_frame_calibrated_global_key_or_native_alpha",
+            "background_policy": "cpu_guarded_clip_palette_hard_key_v2_or_native_alpha",
+            "background_analysis": dict(background_analysis or {}),
             "subject_fit": dict(subject_fit),
             "alignment": alignment,
+            "quality": {"aggressive_conservative_damage_fallback_frames": aggressive_fallbacks},
             "frames": evidence,
         },
         "warnings": warnings,
@@ -246,7 +317,37 @@ def _process_from_decoded_into(
     # Loop's excluded terminal pose does not belong to its fitting interval.
     eligible_count = len(source_images) - (1 if continuity == "loop" else 0)
     declared_key = parse_hex_color(key_color)
-    prepared = [_rgba_frame(image, declared_key) for image in source_images[:eligible_count]]
+    eligible_sources = source_images[:eligible_count]
+    opaque_sources = [image for image in eligible_sources if image.getchannel("A").getextrema()[0] == 255]
+    background_analysis = (
+        analyze_sequence_background(opaque_sources)
+        if opaque_sources
+        else {"policy": "native_alpha", "route": "native_alpha", "frame_count": len(eligible_sources)}
+    )
+    if (
+        background_analysis["route"] == "background_unkeyable"
+        and eligible_sources
+        and min(eligible_sources[0].size) >= 64
+    ):
+        raise ValueError("background_unkeyable")
+    calibrations: list[tuple[tuple[int, int, int], dict[str, Any]] | None] = []
+    observed_keys: list[tuple[int, int, int]] = []
+    for image in eligible_sources:
+        if image.getchannel("A").getextrema()[0] < 255:
+            calibrations.append(None)
+            continue
+        calibration = calibrate_key_color(
+            [image],
+            key_color,
+            allow_topology_drift=True,
+        )
+        calibrations.append(calibration)
+        observed_keys.append(calibration[0])
+    key_palette = _compact_key_palette(observed_keys)
+    prepared = [
+        _rgba_frame(image, declared_key, calibration=calibration, key_palette=key_palette)
+        for image, calibration in zip(eligible_sources, calibrations)
+    ]
     fitted_sources, subject_fit, source_alignment = fit_subject_sequence(
         [item[0] for item in prepared], size=int(delivery["size"]),
     )
@@ -273,6 +374,7 @@ def _process_from_decoded_into(
                 include_gif=bool(delivery["gif"]),
                 allow_gif_failure=quality == "best_effort",
                 strict=quality == "strict",
+                background_analysis=background_analysis,
             )
             staged_variant_root.replace(final_variant_root)
             entry["manifest"]["path"] = f"{final_variant_root.name}/manifest.json"

@@ -1,0 +1,58 @@
+{
+  "schema_version": "ai_frame_animation_sequence_matte_cases_v1",
+  "provenance": "synthetic_reproduction_from_2026-09-01_existing_video_failures",
+  "detached_noise": {
+    "problem": "Low-chroma background compression leaves tiny isolated opaque specks outside the subject.",
+    "size": 96,
+    "subject_rect": [30, 20, 70, 85],
+    "tiny_noise_rect": [5, 5, 6, 6],
+    "detached_prop_rect": [12, 60, 19, 67],
+    "expect_noise_transparent": [5, 5],
+    "expect_prop_preserved": [15, 63],
+    "expect_subject_preserved": [50, 50]
+  },
+  "cases": [
+    {
+      "id": "ribbon-cross-frame-enclosed-secondary-key",
+      "problem": "The outer canvas is blue while a large closed ribbon hole contains green used as the border key in later frames.",
+      "size": 96,
+      "primary_key": [1, 0, 246],
+      "secondary_key": [85, 231, 127],
+      "body_rect": [10, 10, 85, 85],
+      "body_rgb": [190, 55, 35],
+      "hole_rect": [30, 25, 65, 70],
+      "hole_rgb": [0, 255, 0],
+      "same_family_detail_rect": [20, 40, 23, 43],
+      "same_family_detail_rgb": [20, 220, 45],
+      "expect_transparent": [40, 40],
+      "expect_opaque_preserved": [21, 41]
+    },
+    {
+      "id": "taoist-drifting-dual-high-key-preserves-brown-subject",
+      "problem": "A drifting yellow-green key with two high channels must not globally lower alpha or neutralize a brown character.",
+      "size": 64,
+      "primary_key": [163, 243, 82],
+      "body_rect": [14, 10, 50, 58],
+      "body_rgb": [92, 55, 31],
+      "expect_transparent": [0, 0],
+      "expect_opaque_preserved": [31, 32]
+    },
+    {
+      "id": "ribbon-current-key-textured-enclosed-hole",
+      "problem": "The current green key remains inside an arm/torso hole because codec variation exceeds the conservative flat-hole threshold.",
+      "size": 96,
+      "aggressive": true,
+      "primary_key": [85, 230, 131],
+      "body_rect": [10, 10, 85, 85],
+      "body_rgb": [190, 55, 35],
+      "hole_rect": [30, 25, 65, 70],
+      "hole_rgb": [85, 230, 131],
+      "hole_accent_rect": [30, 25, 47, 70],
+      "hole_accent_rgb": [55, 180, 90],
+      "same_family_detail_rect": [18, 40, 21, 43],
+      "same_family_detail_rgb": [70, 190, 105],
+      "expect_transparent": [40, 40],
+      "expect_opaque_preserved": [19, 41]
+    }
+  ]
+}

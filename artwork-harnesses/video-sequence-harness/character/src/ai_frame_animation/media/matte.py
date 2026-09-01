@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import json
 import math
 import shutil
@@ -11,7 +12,7 @@ import statistics
 from pathlib import Path
 from typing import Iterable
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 try:  # Optional acceleration; the Pillow-only path remains the portable baseline.
     import numpy as np
@@ -58,6 +59,154 @@ def _key_dominance(key: tuple[int, int, int]) -> tuple[tuple[int, ...], tuple[in
     high, low = groups
     key_delta = min(key[index] for index in high) - max(key[index] for index in low)
     return (high, low, key_delta) if key_delta > 18 else None
+
+
+def _recover_foreground_color(
+    rgb: tuple[int, int, int],
+    key: tuple[int, int, int],
+    source_alpha: int,
+    matte_alpha: int,
+) -> tuple[int, int, int]:
+    """Undo key-colour mixing for a straight-alpha foreground edge."""
+
+    if matte_alpha <= 0 or source_alpha <= 0 or matte_alpha >= source_alpha:
+        return rgb
+    opacity = matte_alpha / source_alpha
+    if opacity < 1 / 32:
+        return (0, 0, 0)
+    recovered = tuple(
+        max(0, min(255, round((channel - (1.0 - opacity) * key_channel) / opacity)))
+        for channel, key_channel in zip(rgb, key)
+    )
+    return _neutralize_key_channel(recovered, key)  # type: ignore[arg-type]
+
+
+def _edge_connected_components(
+    hard_mask: bytes,
+    rgb_bytes: bytes,
+    width: int,
+    height: int,
+    *,
+    maximum_enclosed_stddev: float = 9.0,
+) -> tuple[bytes, int, int]:
+    """Select edge-connected key pixels and flat enclosed background holes."""
+
+    total = width * height
+    if len(hard_mask) != total or len(rgb_bytes) != total * 3:
+        raise ValueError("matte_component_input_invalid")
+    hard = bytearray(hard_mask)
+    connected = bytearray(total)
+    pending: deque[int] = deque()
+
+    def seed(index: int) -> None:
+        if hard[index] and not connected[index]:
+            connected[index] = 1
+            pending.append(index)
+
+    for x in range(width):
+        seed(x)
+        seed((height - 1) * width + x)
+    for y in range(1, height - 1):
+        seed(y * width)
+        seed(y * width + width - 1)
+    while pending:
+        index = pending.popleft()
+        x = index % width
+        for neighbour in (index - width, index + width, index - 1, index + 1):
+            if neighbour < 0 or neighbour >= total:
+                continue
+            if (neighbour == index - 1 and x == 0) or (neighbour == index + 1 and x == width - 1):
+                continue
+            if hard[neighbour] and not connected[neighbour]:
+                connected[neighbour] = 1
+                pending.append(neighbour)
+
+    edge_count = int(sum(connected))
+    visited = bytearray(connected)
+    enclosed_count = 0
+    minimum_hole = max(48, total // 4096)
+    rgb = memoryview(rgb_bytes)
+    for start in range(total):
+        if not hard[start] or visited[start]:
+            continue
+        component: list[int] = []
+        pending.append(start)
+        visited[start] = 1
+        sums = [0, 0, 0]
+        squares = [0, 0, 0]
+        while pending:
+            index = pending.popleft()
+            component.append(index)
+            base = index * 3
+            for channel in range(3):
+                value = int(rgb[base + channel])
+                sums[channel] += value
+                squares[channel] += value * value
+            x = index % width
+            for neighbour in (index - width, index + width, index - 1, index + 1):
+                if neighbour < 0 or neighbour >= total:
+                    continue
+                if (neighbour == index - 1 and x == 0) or (neighbour == index + 1 and x == width - 1):
+                    continue
+                if hard[neighbour] and not visited[neighbour]:
+                    visited[neighbour] = 1
+                    pending.append(neighbour)
+        count = len(component)
+        if count < minimum_hole:
+            continue
+        maximum_stddev = max(
+            math.sqrt(max(0.0, squares[channel] / count - (sums[channel] / count) ** 2))
+            for channel in range(3)
+        )
+        if maximum_stddev > maximum_enclosed_stddev:
+            continue
+        for index in component:
+            connected[index] = 1
+        enclosed_count += count
+    return bytes(connected), edge_count, enclosed_count
+
+
+def _dilate_mask(mask: bytes, width: int, height: int, radius: int = 2) -> bytes:
+    image = Image.frombytes("L", (width, height), bytes(255 if value else 0 for value in mask))
+    return bytes(1 if value else 0 for value in image.filter(ImageFilter.MaxFilter(radius * 2 + 1)).tobytes())
+
+
+def _large_compact_regions(mask: bytes, width: int, height: int) -> bytes:
+    """Find smooth key-colour islands without selecting small detailed effects."""
+
+    total = width * height
+    source = bytearray(mask)
+    visited = bytearray(total)
+    selected = bytearray(total)
+    pending: deque[int] = deque()
+    minimum_size = max(256, total // 2048)
+    for start in range(total):
+        if not source[start] or visited[start]:
+            continue
+        component: list[int] = []
+        pending.append(start)
+        visited[start] = 1
+        min_x = max_x = start % width
+        min_y = max_y = start // width
+        while pending:
+            index = pending.popleft()
+            component.append(index)
+            x, y = index % width, index // width
+            min_x, max_x = min(min_x, x), max(max_x, x)
+            min_y, max_y = min(min_y, y), max(max_y, y)
+            for neighbour in (index - width, index + width, index - 1, index + 1):
+                if neighbour < 0 or neighbour >= total:
+                    continue
+                if (neighbour == index - 1 and x == 0) or (neighbour == index + 1 and x == width - 1):
+                    continue
+                if source[neighbour] and not visited[neighbour]:
+                    visited[neighbour] = 1
+                    pending.append(neighbour)
+        box_area = (max_x - min_x + 1) * (max_y - min_y + 1)
+        if len(component) >= minimum_size and len(component) / box_area >= 0.35:
+            for index in component:
+                selected[index] = 1
+    return bytes(selected)
 
 
 def _dominance_alpha(
@@ -111,6 +260,57 @@ def border_pixels(image: Image.Image, width: int = 2) -> list[tuple[int, int, in
     return values
 
 
+def analyze_sequence_background(images: Iterable[Image.Image]) -> dict:
+    """Classify an opaque sequence without assuming one colour for all frames."""
+
+    frames = list(images)
+    if not frames:
+        raise ValueError("background_sequence_empty")
+    records = []
+    for image in frames:
+        pixels = border_pixels(image, width=4)
+        if not pixels:
+            raise ValueError("background_border_empty")
+        observed = tuple(round(statistics.median(pixel[channel] for pixel in pixels)) for channel in range(3))
+        distances = sorted(colour_distance(pixel, observed, "rgb") for pixel in pixels)
+        p95 = distances[min(len(distances) - 1, math.ceil(len(distances) * 0.95) - 1)]
+        p99 = distances[min(len(distances) - 1, math.ceil(len(distances) * 0.99) - 1)]
+        records.append({"observed_key_rgb": list(observed), "border_p95": round(p95, 4), "border_p99": round(p99, 4)})
+    clip_key = tuple(round(statistics.median(record["observed_key_rgb"][channel] for record in records)) for channel in range(3))
+    maximum_drift = max(colour_distance(tuple(record["observed_key_rgb"]), clip_key, "rgb") for record in records)
+    spatially_complex = sum(record["border_p95"] > 28.0 or record["border_p99"] > 42.0 for record in records)
+    if spatially_complex > max(1, len(records) // 8):
+        route = "background_unkeyable"
+    elif maximum_drift > 48.0:
+        route = "per_frame_flat_color_drift"
+    else:
+        route = "clip_stable_flat_color"
+    return {
+        "policy": "cpu_border_sequence_v1",
+        "route": route,
+        "frame_count": len(records),
+        "clip_median_rgb": list(clip_key),
+        "maximum_frame_key_drift": round(maximum_drift, 4),
+        "spatially_complex_frames": spatially_complex,
+        "maximum_border_p95": max(record["border_p95"] for record in records),
+        "maximum_border_p99": max(record["border_p99"] for record in records),
+        "frames": records,
+    }
+
+
+def _effective_thresholds(
+    image: Image.Image,
+    key_color: tuple[int, int, int],
+    tolerance: float,
+    softness: float,
+) -> tuple[float, float]:
+    if max(key_color) - min(key_color) > 24:
+        return tolerance, softness
+    distances = sorted(colour_distance(pixel, key_color, "rgb") for pixel in border_pixels(image))
+    percentile = distances[min(len(distances) - 1, math.ceil(len(distances) * 0.95) - 1)] if distances else 0.0
+    return min(tolerance, max(6.0, percentile + 4.0)), min(softness, 10.0)
+
+
 def calibrate_key_color(
     images: Iterable[Image.Image],
     declared_key: str,
@@ -155,10 +355,12 @@ def _color_key_to_rgba_numpy(
     softness: float,
     color_space: str,
 ) -> tuple[Image.Image, dict]:
-    """Apply the scalar matte policy in bulk without changing its semantics."""
+    """Build a conservative spatial matte without globally erasing subject colours."""
 
     assert np is not None
-    source = np.array(image.convert("RGBA"), dtype=np.uint8)
+    source_image = image.convert("RGBA")
+    tolerance, softness = _effective_thresholds(source_image, key_color, tolerance, softness)
+    source = np.array(source_image, dtype=np.uint8)
     rgb = source[..., :3].astype(np.float64)
     alpha = source[..., 3].astype(np.float64)
     key = np.asarray(key_color, dtype=np.float64)
@@ -170,44 +372,76 @@ def _color_key_to_rgba_numpy(
         cr = 128 + 0.5 * red - 0.418688 * green - 0.081312 * blue
         _key_y, key_cb, key_cr = rgb_to_ycbcr(key_color)
         distance = np.sqrt(np.square(cb - key_cb) + np.square(cr - key_cr))
-    distance_alpha = np.where(
-        distance <= tolerance,
-        0.0,
-        np.where(
-            distance <= tolerance + softness,
-            np.rint(alpha * (distance - tolerance) / max(softness, 1e-9)),
-            alpha,
-        ),
-    )
-    dominance_alpha = alpha
+    distance_alpha = np.where(distance <= tolerance, 0.0, np.where(
+        distance <= tolerance + softness,
+        np.rint(alpha * (distance - tolerance) / max(softness, 1e-9)),
+        alpha,
+    ))
+    dominance_alpha = alpha.copy()
     policy = _key_dominance(key_color)
     if policy is not None:
         high, low, key_delta = policy
         pixel_delta = np.min(rgb[..., list(high)], axis=2) - np.max(rgb[..., list(low)], axis=2)
         key_fraction = np.minimum(1.0, np.maximum(0.0, (pixel_delta - 8) / (key_delta - 8)))
         dominance_alpha = np.where(pixel_delta <= 8, alpha, np.rint(alpha * (1.0 - key_fraction)))
-    next_alpha = np.minimum(distance_alpha, dominance_alpha)
+    soft_candidate = (distance_alpha < alpha) | ((dominance_alpha < alpha) & (distance <= max(144.0, tolerance + softness)))
+    hard_candidate = (distance <= tolerance) | ((dominance_alpha <= 16) & (distance <= max(72.0, tolerance + softness)))
+    rgb_u8 = source[..., :3]
+    background_bytes, edge_count, enclosed_count = _edge_connected_components(
+        hard_candidate.astype(np.uint8).tobytes(), rgb_u8.tobytes(), source.shape[1], source.shape[0]
+    )
+    background = np.frombuffer(background_bytes, dtype=np.uint8).reshape(alpha.shape).astype(bool)
+    edge_radius = 3 if policy is not None else 2
+    dilated_bytes = _dilate_mask(background_bytes, source.shape[1], source.shape[0], radius=edge_radius)
+    dilated = np.frombuffer(dilated_bytes, dtype=np.uint8).reshape(alpha.shape).astype(bool)
+    edge = dilated & ~background & soft_candidate
+    protected_candidate = soft_candidate & ~background & ~edge
+    ambiguous = np.zeros(alpha.shape, dtype=bool)
+    if max(key_color) - min(key_color) > 24:
+        ambiguous_bytes = _large_compact_regions(
+            protected_candidate.astype(np.uint8).tobytes(), source.shape[1], source.shape[0]
+        )
+        ambiguous = np.frombuffer(ambiguous_bytes, dtype=np.uint8).reshape(alpha.shape).astype(bool)
+    next_alpha = alpha.copy()
+    next_alpha[background] = 0
+    edge_alpha = distance_alpha
+    if policy is not None:
+        edge_alpha = np.minimum(distance_alpha, dominance_alpha)
+    next_alpha[edge] = np.minimum(edge_alpha[edge], alpha[edge])
+    ambiguous_alpha = np.minimum(np.minimum(distance_alpha[ambiguous], dominance_alpha[ambiguous]), alpha[ambiguous])
+    next_alpha[ambiguous] = np.rint(np.square(ambiguous_alpha) / np.maximum(alpha[ambiguous], 1.0))
     changed = next_alpha < alpha
-    removed = int(np.count_nonzero(changed & (next_alpha == 0)))
-    softened = int(np.count_nonzero(changed & (next_alpha != 0)))
+    removed = int(np.count_nonzero(background))
+    softened = int(np.count_nonzero(edge & (next_alpha > 0) & changed))
+    protected = int(np.count_nonzero(protected_candidate & ~ambiguous))
+    ambiguous_softened = int(np.count_nonzero(ambiguous & (next_alpha < alpha)))
+    if policy is not None:
+        next_alpha[(edge | ambiguous) & (next_alpha <= 8)] = 0
     output = source.copy()
-    foreground = changed & (next_alpha != 0)
+    foreground = (edge | ambiguous) & changed & (next_alpha != 0)
     if policy is not None and np.any(foreground):
+        opacity = next_alpha / np.maximum(alpha, 1.0)
+        recovered = np.rint((rgb - (1.0 - opacity[..., None]) * key) / np.maximum(opacity[..., None], 1 / 32))
+        recovered_u8 = np.clip(recovered, 0, 255).astype(np.uint8)
         high, low, _key_delta = policy
-        cap = np.max(output[..., list(low)], axis=2)
+        cap = np.max(recovered_u8[..., list(low)], axis=2)
         for channel in high:
-            output[..., channel] = np.where(
-                foreground,
-                np.minimum(output[..., channel], cap),
-                output[..., channel],
-            )
+            recovered_u8[..., channel] = np.minimum(recovered_u8[..., channel], cap)
+        output[..., :3] = np.where(foreground[..., None], recovered_u8, output[..., :3])
     output[..., 3] = np.rint(next_alpha).astype(np.uint8)
     output[next_alpha == 0, :3] = 0
     return Image.fromarray(output, "RGBA"), {
-        "background_policy": "global_safe_key",
-        "candidate_pixels": removed + softened,
+        "background_policy": "edge_connected_key_v3",
+        "candidate_pixels": int(np.count_nonzero(soft_candidate)),
         "removed_pixels": removed,
         "softened_pixels": softened,
+        "edge_connected_pixels": edge_count,
+        "enclosed_background_pixels": enclosed_count,
+        "protected_candidate_pixels": protected,
+        "ambiguous_compact_pixels_softened": ambiguous_softened,
+        "edge_radius": edge_radius,
+        "effective_tolerance": round(tolerance, 4),
+        "effective_softness": round(softness, 4),
     }
 
 
@@ -223,35 +457,283 @@ def color_key_to_rgba(image: Image.Image, *, key_color: tuple[int, int, int], to
             color_space=color_space,
         )
     rgba = image.convert("RGBA")
+    tolerance, softness = _effective_thresholds(rgba, key_color, tolerance, softness)
     pixels = rgba.load()
     width, height = rgba.size
-    removed = softened = candidates = 0
+    source_pixels = list(rgba.get_flattened_data())
+    hard = bytearray(width * height)
+    soft = bytearray(width * height)
+    distance_alphas = [255] * (width * height)
+    dominance_alphas = [255] * (width * height)
+    for index, (red, green, blue, alpha) in enumerate(source_pixels):
+        rgb = (red, green, blue)
+        distance = colour_distance(rgb, key_color, color_space)
+        distance_alpha = alpha
+        if distance <= tolerance:
+            distance_alpha = 0
+        elif distance <= tolerance + softness:
+            distance_alpha = round(alpha * (distance - tolerance) / max(softness, 1e-9))
+        dominance_alpha = _dominance_alpha(rgb, key_color, alpha)
+        soft[index] = int(distance_alpha < alpha or (dominance_alpha < alpha and distance <= max(144.0, tolerance + softness)))
+        hard[index] = int(distance <= tolerance or (dominance_alpha <= 16 and distance <= max(72.0, tolerance + softness)))
+        distance_alphas[index] = distance_alpha
+        dominance_alphas[index] = dominance_alpha
+    rgb_bytes = bytes(channel for pixel in source_pixels for channel in pixel[:3])
+    background, edge_count, enclosed_count = _edge_connected_components(bytes(hard), rgb_bytes, width, height)
+    policy = _key_dominance(key_color)
+    edge_radius = 3 if policy is not None else 2
+    dilated = _dilate_mask(background, width, height, radius=edge_radius)
+    protected_mask = bytes(int(bool(soft[index]) and not background[index] and not dilated[index]) for index in range(width * height))
+    ambiguous = _large_compact_regions(protected_mask, width, height) if max(key_color) - min(key_color) > 24 else bytes(width * height)
+    removed = softened = protected = ambiguous_softened = 0
     for y in range(height):
         for x in range(width):
+            index = y * width + x
             red, green, blue, alpha = pixels[x, y]
             rgb = (red, green, blue)
-            distance = colour_distance(rgb, key_color, color_space)
-            distance_alpha = alpha
-            if distance <= tolerance:
-                distance_alpha = 0
-            elif distance <= tolerance + softness:
-                distance_alpha = round(alpha * (distance - tolerance) / max(softness, 1e-9))
-            dominance_alpha = _dominance_alpha(rgb, key_color, alpha)
-            next_alpha = min(distance_alpha, dominance_alpha)
+            if background[index]:
+                next_alpha = 0
+                removed += 1
+            elif (dilated[index] and soft[index]) or ambiguous[index]:
+                use_dominance = policy is not None and (bool(dilated[index]) or bool(ambiguous[index]))
+                next_alpha = min(alpha, distance_alphas[index], dominance_alphas[index] if use_dominance else alpha)
+                if ambiguous[index] and alpha:
+                    next_alpha = round(next_alpha * next_alpha / alpha)
+                if policy is not None and next_alpha <= 8:
+                    next_alpha = 0
+                softened += int(next_alpha < alpha and next_alpha > 0)
+                ambiguous_softened += int(bool(ambiguous[index]) and next_alpha < alpha)
+            else:
+                next_alpha = alpha
+                protected += int(bool(soft[index]))
             if next_alpha >= alpha:
                 continue
-            candidates += 1
-            if next_alpha == 0:
-                removed += 1
-            else:
-                softened += 1
-            foreground = (0, 0, 0) if next_alpha == 0 else _neutralize_key_channel(rgb, key_color)
+            foreground = (0, 0, 0) if next_alpha == 0 else (
+                _recover_foreground_color(rgb, key_color, alpha, next_alpha)
+                if policy is not None
+                else _neutralize_key_channel(rgb, key_color)
+            )
             pixels[x, y] = (*foreground, next_alpha)
     return rgba, {
-        "background_policy": "global_safe_key",
-        "candidate_pixels": candidates,
+        "background_policy": "edge_connected_key_v3",
+        "candidate_pixels": int(sum(soft)),
         "removed_pixels": removed,
         "softened_pixels": softened,
+        "edge_connected_pixels": edge_count,
+        "enclosed_background_pixels": enclosed_count,
+        "protected_candidate_pixels": protected,
+        "ambiguous_compact_pixels_softened": ambiguous_softened,
+        "edge_radius": edge_radius,
+        "effective_tolerance": round(tolerance, 4),
+        "effective_softness": round(softness, 4),
+    }
+
+
+def remove_tiny_detached_alpha_components(
+    image: Image.Image,
+    *,
+    alpha_threshold: int = 8,
+    maximum_area: int | None = None,
+) -> tuple[Image.Image, dict]:
+    """Drop tiny isolated low-chroma matte islands without removing real props."""
+
+    rgba = image.convert("RGBA")
+    width, height = rgba.size
+    limit = maximum_area if maximum_area is not None else max(4, round(width * height * 0.0001))
+    alpha = bytearray(rgba.getchannel("A").tobytes())
+    seen = bytearray(width * height)
+    removable: list[list[int]] = []
+    component_sizes: list[int] = []
+    for start, value in enumerate(alpha):
+        if value <= alpha_threshold or seen[start]:
+            continue
+        queue = deque([start])
+        seen[start] = 1
+        component: list[int] = []
+        while queue:
+            index = queue.popleft()
+            component.append(index)
+            x = index % width
+            if x and alpha[index - 1] > alpha_threshold and not seen[index - 1]:
+                seen[index - 1] = 1
+                queue.append(index - 1)
+            if x + 1 < width and alpha[index + 1] > alpha_threshold and not seen[index + 1]:
+                seen[index + 1] = 1
+                queue.append(index + 1)
+            if index >= width and alpha[index - width] > alpha_threshold and not seen[index - width]:
+                seen[index - width] = 1
+                queue.append(index - width)
+            if index + width < width * height and alpha[index + width] > alpha_threshold and not seen[index + width]:
+                seen[index + width] = 1
+                queue.append(index + width)
+        component_sizes.append(len(component))
+        if len(component) <= limit:
+            removable.append(component)
+    # An all-particle image has no trustworthy primary component; leave it alone.
+    if component_sizes and max(component_sizes) <= limit:
+        removable = []
+    if not removable:
+        return rgba, {
+            "policy": "low_chroma_tiny_detached_alpha_v1",
+            "maximum_area": limit,
+            "removed_components": 0,
+            "removed_pixels": 0,
+        }
+    pixels = bytearray(rgba.tobytes())
+    for component in removable:
+        for index in component:
+            offset = index * 4
+            pixels[offset : offset + 4] = b"\x00\x00\x00\x00"
+    return Image.frombytes("RGBA", rgba.size, bytes(pixels)), {
+        "policy": "low_chroma_tiny_detached_alpha_v1",
+        "maximum_area": limit,
+        "removed_components": len(removable),
+        "removed_pixels": sum(len(component) for component in removable),
+    }
+
+
+def aggressive_color_key_cleanup(
+    image: Image.Image,
+    *,
+    source_image: Image.Image,
+    key_color: tuple[int, int, int],
+    key_palette: Iterable[tuple[int, int, int]],
+    alpha_threshold: int = 8,
+) -> tuple[Image.Image, dict]:
+    """Remove strong cross-frame key remnants under a visible-area damage budget."""
+
+    if image.size != source_image.size:
+        raise ValueError("aggressive_key_source_dimensions_differ")
+    palette = list(dict.fromkeys(tuple(color) for color in key_palette))
+    saturated_palette = [color for color in palette if max(color) - min(color) > 24]
+    default_report = {
+        "policy": "guarded_clip_palette_hard_key_v2",
+        "removed_pixels": 0,
+        "spill_pixels_neutralized": 0,
+        "palette_size": len(saturated_palette),
+        "palette_damage_fallback": False,
+        "current_key_damage_fallback": False,
+        "conservative_damage_fallback": False,
+    }
+    if np is None:
+        return image.convert("RGBA"), {**default_report, "skipped": True, "reason": "numpy_unavailable"}
+    if not saturated_palette or max(key_color) - min(key_color) <= 24:
+        return image.convert("RGBA"), {**default_report, "skipped": True, "reason": "low_chroma_key"}
+
+    rgba = np.array(image.convert("RGBA"), dtype=np.uint8)
+    evidence = np.array(source_image.convert("RGB"), dtype=np.uint8)
+    rgb = evidence.astype(np.int16)
+    alpha = rgba[..., 3]
+    transparent = (alpha <= alpha_threshold).astype(np.uint8)
+    near_transparent = np.array(
+        Image.fromarray(transparent * 255, "L").filter(ImageFilter.MaxFilter(9)),
+        dtype=np.uint8,
+    ).astype(bool)
+
+    def key_masks(colors: list[tuple[int, int, int]]) -> tuple[object, object]:
+        broad = np.zeros(alpha.shape, dtype=bool)
+        strong = np.zeros(alpha.shape, dtype=bool)
+        for palette_color in colors:
+            palette_key = np.asarray(palette_color, dtype=np.int16)
+            palette_highs = np.flatnonzero(palette_key >= int(palette_key.max()) - 32)
+            palette_lows = np.flatnonzero(palette_key <= int(palette_key.min()) + 32)
+            palette_dominance = np.min(rgb[..., palette_highs], axis=2) - np.max(rgb[..., palette_lows], axis=2)
+            palette_distance = np.sqrt(np.square(rgb.astype(np.float32) - palette_key.astype(np.float32)).sum(axis=2))
+            broad |= (palette_distance <= 85.0) | ((palette_dominance >= 12) & (palette_distance <= 185.0))
+            strong |= (palette_distance <= 56.0) | ((palette_dominance >= 28) & (palette_distance <= 170.0))
+        return broad, strong
+
+    broad_key_family, global_strong_key = key_masks(saturated_palette)
+    visible = alpha > alpha_threshold
+    visible_pixels = int(np.count_nonzero(visible))
+    damage_limit = max(2048, round(visible_pixels * 0.30))
+    unsafe_attempt = broad_key_family & (near_transparent | global_strong_key) & visible
+    palette_attempted_removed = int(np.count_nonzero(unsafe_attempt))
+    palette_damage_fallback = len(saturated_palette) > 8 and palette_attempted_removed > damage_limit
+    if palette_damage_fallback:
+        return image.convert("RGBA"), {
+            **default_report,
+            "skipped": True,
+            "reason": "palette_damage_budget_exceeded",
+            "palette_damage_fallback": True,
+            "conservative_damage_fallback": True,
+            "palette_attempted_removed_pixels": palette_attempted_removed,
+            "current_key_attempted_removed_pixels": 0,
+            "attempted_visible_damage_ratio": round(palette_attempted_removed / max(1, visible_pixels), 6),
+            "visible_damage_ratio": 0.0,
+            "distance_threshold": 85,
+            "near_transparent_radius": 4,
+        }
+    # Cross-frame colours are allowed to clear only ordinary boundary spill or
+    # a large, flat connected region. This removes a background visible through
+    # a closed ribbon/limb hole without treating a detailed same-colour effect
+    # as background merely because another frame used that hue on its border.
+    enclosed_palette = np.zeros(alpha.shape, dtype=bool)
+    rgb_bytes = evidence.tobytes()
+    for palette_color in saturated_palette:
+        palette_broad, strong = key_masks([palette_color])
+        selected, _edge_count, _enclosed_count = _edge_connected_components(
+            strong.astype(np.uint8).tobytes(),
+            rgb_bytes,
+            source_image.width,
+            source_image.height,
+            maximum_enclosed_stddev=36.0,
+        )
+        palette_region = np.frombuffer(selected, dtype=np.uint8).reshape(alpha.shape).astype(bool)
+        # The component is the semantic evidence. Grow only through this one
+        # palette family, never through a union that could bridge foreground.
+        for _iteration in range(8):
+            grown = np.array(
+                Image.fromarray(palette_region.astype(np.uint8) * 255, "L").filter(ImageFilter.MaxFilter(3)),
+                dtype=np.uint8,
+            ).astype(bool) & palette_broad
+            if np.array_equal(grown, palette_region):
+                break
+            palette_region = grown
+        enclosed_palette |= palette_region
+    removal = broad_key_family & (near_transparent | enclosed_palette) & visible
+
+    removal_u8 = removal.astype(np.uint8)
+    feather = np.array(
+        Image.fromarray(removal_u8 * 255, "L").filter(ImageFilter.MaxFilter(3)),
+        dtype=np.uint8,
+    ).astype(bool) & ~removal
+    feather &= broad_key_family & visible
+    next_alpha = alpha.copy()
+    next_alpha[removal] = 0
+    next_alpha[feather] = np.minimum(next_alpha[feather], 96)
+
+    key = np.asarray(key_color, dtype=np.int16)
+    high_channels = np.flatnonzero(key >= int(key.max()) - 32)
+    low_channels = np.flatnonzero(key <= int(key.min()) + 32)
+    dominance = np.min(rgb[..., high_channels], axis=2) - np.max(rgb[..., low_channels], axis=2)
+    next_transparent = (next_alpha <= alpha_threshold).astype(np.uint8)
+    contour = np.array(
+        Image.fromarray(next_transparent * 255, "L").filter(ImageFilter.MaxFilter(5)),
+        dtype=np.uint8,
+    ).astype(bool)
+    spill = contour & (next_alpha > alpha_threshold) & (dominance >= 10)
+    low_cap = np.max(rgb[..., low_channels], axis=2)
+    output_rgb = rgba[..., :3].astype(np.int16)
+    for channel in high_channels:
+        output_rgb[..., channel][spill] = np.minimum(output_rgb[..., channel][spill], low_cap[spill])
+    output = rgba.copy()
+    output[..., :3] = np.clip(output_rgb, 0, 255).astype(np.uint8)
+    output[..., 3] = next_alpha
+    output[next_alpha == 0, :3] = 0
+    return Image.fromarray(output, "RGBA"), {
+        **default_report,
+        "skipped": False,
+        "removed_pixels": int(np.count_nonzero(removal)),
+        "global_strong_pixels_removed": int(np.count_nonzero(removal & global_strong_key)),
+        "enclosed_palette_pixels_removed": int(np.count_nonzero(removal & enclosed_palette)),
+        "feather_pixels_hardened": int(np.count_nonzero(feather)),
+        "spill_pixels_neutralized": int(np.count_nonzero(spill)),
+        "palette_attempted_removed_pixels": palette_attempted_removed,
+        "current_key_attempted_removed_pixels": palette_attempted_removed,
+        "visible_damage_ratio": round(int(np.count_nonzero(removal)) / max(1, visible_pixels), 6),
+        "distance_threshold": 85,
+        "near_transparent_radius": 4,
     }
 
 
