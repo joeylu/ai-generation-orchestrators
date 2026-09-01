@@ -6,7 +6,6 @@ import importlib.metadata
 import io
 import json
 import re
-import sys
 import tarfile
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -15,80 +14,68 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).parents[2]
 PROJECT_SECTION_RE = re.compile(r"(?ms)^\[project\][ \t]*\r?$\n(?P<body>.*?)(?=^\[|\Z)")
 PROJECT_VERSION_RE = re.compile(r'(?m)^version[ \t]*=[ \t]*"(?P<version>[^"\r\n]+)"[ \t]*(?:#.*)?$')
+
 SKILL_NAME = "skills-2d-frame-animation-video"
 SKILL_ROOT = Path("artwork-harnesses/video-sequence-harness/character")
 SKILL_FILES = (
     "SKILL.md",
     "agents/openai.yaml",
+    "references/reference-preparation-handoff.md",
     "references/video-runtime-adapter-protocol.md",
     "references/video-state-machine.md",
     "skill.json",
 )
 BACKGROUND_SKILL_NAME = "image-background-removal"
 BACKGROUND_SKILL_ROOT = Path("artwork-harnesses/image-background-removal-harness")
-BACKGROUND_SKILL_FILES = (
-    "SKILL.md",
+BACKGROUND_SKILL_FILES = ("SKILL.md", "agents/openai.yaml", "skill.json")
+
+VIDEO_SDIST_SUPPORT_FILES = (
+    "LICENSE", "MANIFEST.in", "README.md", "SKILL.md", "pyproject.toml", "skill.json",
     "agents/openai.yaml",
-    "skill.json",
-)
-SDIST_SUPPORT_FILES = (
-    "MANIFEST.in", "README.md", "README.zh-CN.md", "AGENTS.md",
-    ".github/CONTRIBUTING.md", ".github/SECURITY.md", "LICENSE", "pyproject.toml",
-    ".github/release_tools/__init__.py", ".github/release_tools/build_release_metadata.py",
-    "artwork-harnesses/README.md", "artwork-harnesses/AGENTS.md",
-    *(f"{SKILL_ROOT.as_posix()}/{name}" for name in SKILL_FILES),
-    *(f"{BACKGROUND_SKILL_ROOT.as_posix()}/{name}" for name in BACKGROUND_SKILL_FILES),
-    "artwork-harnesses/image-background-removal-harness/README.md",
-    "artwork-harnesses/image-background-removal-harness/AGENTS.md",
-    "artwork-harnesses/image-generation-harness/README.md",
-    "artwork-harnesses/image-sequence-harness/README.md",
-    "artwork-harnesses/video-sequence-harness/README.md",
-    "audio-harnesses/README.md", "game-ui-harnesses/README.md",
-    "game-scene-harnesses/README.md",
-    *(f"{SKILL_ROOT.as_posix()}/docs/{name}" for name in (
+    "references/reference-preparation-handoff.md",
+    "references/video-runtime-adapter-protocol.md", "references/video-state-machine.md",
+    *(f"docs/{name}" for name in (
         "README.md", "installation.md", "agent-setup.md", "cli-and-agent-flow.md",
         "release-consumption.md", "architecture.md", "quality-policies.md",
     )),
-    *(f"{SKILL_ROOT.as_posix()}/examples/{name}" for name in (
-        "README.md", "job.example.json", "minimax-h3.config.example.json",
+    *(f"examples/{name}" for name in ("README.md", "job.example.json", "minimax-h3.config.example.json")),
+    *(f"tests/{name}" for name in (
+        "__init__.py", "test_core_contracts.py", "test_decoded_handoff.py",
+        "test_golden_matte.py", "test_handoff_path_safety.py",
+        "test_input_delivery_regressions.py", "test_media_tools.py", "test_onboarding.py",
+        "test_process_delivery.py", "test_provider_attempts.py", "test_schemas.py",
+        "test_reference_preparation_handoff.py", "test_subject_fit.py", "test_video_hole_integration.py",
     )),
-    *(f"{BACKGROUND_SKILL_ROOT.as_posix()}/docs/{name}" for name in (
+    *(f"tests/fixtures/golden/{name}" for name in (
+        "README.md", "input-delivery-cases.json", "matte-cases.json",
+        "moving-hole-cases.json", "subject-fit-cases.json",
+    )),
+)
+BACKGROUND_SDIST_SUPPORT_FILES = (
+    "AGENTS.md", "LICENSE", "MANIFEST.in", "README.md", "SKILL.md", "pyproject.toml", "skill.json",
+    "agents/openai.yaml",
+    *(f"docs/{name}" for name in (
         "reference-preparation.md", "reference-correction.md", "reference-acceptance.md",
         "reference-acceptance-v1.json",
     )),
-    *(f"{BACKGROUND_SKILL_ROOT.as_posix()}/examples/{name}" for name in (
+    *(f"examples/{name}" for name in (
         "README.md", "segmentation.config.example.json", "segmentation-fusion.config.example.json",
     )),
-    *(f"{BACKGROUND_SKILL_ROOT.as_posix()}/tests/{name}" for name in (
-        "__init__.py", "reference_doubles.py", "test_dual_segmentation.py",
-        "test_fusion_preparation.py", "test_preparation_boundaries.py",
-        "test_reference_correction.py", "test_reference_discovery.py",
-        "test_reference_fusion.py", "test_reference_input_view.py",
-        "test_reference_material.py", "test_reference_matte.py",
-        "test_reference_preparation.py", "test_reference_review.py",
-        "test_reference_translucency.py", "test_segmentation.py",
+    *(f"tests/{name}" for name in (
+        "__init__.py", "reference_doubles.py", "test_dual_segmentation.py", "test_fusion_preparation.py",
+        "test_handoff.py", "test_preparation_boundaries.py", "test_reference_correction.py",
+        "test_reference_discovery.py", "test_reference_fusion.py", "test_reference_input_view.py",
+        "test_reference_material.py", "test_reference_matte.py", "test_reference_preparation.py",
+        "test_reference_review.py", "test_reference_translucency.py", "test_segmentation.py",
     )),
-    *(f"{BACKGROUND_SKILL_ROOT.as_posix()}/tests/fixtures/golden/{name}" for name in (
+    *(f"tests/fixtures/golden/{name}" for name in (
         "README.md", "reference-alpha-boundary-cases.json", "reference-fusion-cases.json",
         "reference-jpeg-input-view-cases.json", "reference-local-correction-cases.json",
         "reference-material-cases.json", "reference-matte-cases.json",
         "reference-translucency-cases.json",
     )),
-    *(f"{SKILL_ROOT.as_posix()}/tests/{name}" for name in (
-        "__init__.py", "reference_doubles.py", "test_core_contracts.py",
-        "test_decoded_handoff.py", "test_golden_matte.py", "test_handoff_path_safety.py",
-        "test_input_delivery_regressions.py", "test_media_tools.py", "test_onboarding.py",
-        "test_process_delivery.py", "test_provider_attempts.py", "test_schemas.py",
-        "test_subject_fit.py", "test_video_hole_integration.py",
-    )),
-    *(f"{SKILL_ROOT.as_posix()}/tests/fixtures/golden/{name}" for name in (
-        "README.md", "input-delivery-cases.json", "matte-cases.json",
-        "moving-hole-cases.json", "subject-fit-cases.json",
-    )),
-    ".github/repository-tests/test_public_boundary.py",
-    ".github/repository-tests/test_quickstart.py",
-    ".github/repository-tests/test_release_metadata.py",
 )
+SDIST_SUPPORT_FILES = VIDEO_SDIST_SUPPORT_FILES
 
 
 def project_version_from_text(value: str) -> str:
@@ -101,14 +88,22 @@ def project_version_from_text(value: str) -> str:
     return matches[0].group("version")
 
 
-def project_version() -> str:
-    return project_version_from_text((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+def project_version(component: str = "video") -> str:
+    roots = {"video": SKILL_ROOT, "background": BACKGROUND_SKILL_ROOT}
+    if component not in roots:
+        raise ValueError("release_component_invalid")
+    return project_version_from_text((ROOT / roots[component] / "pyproject.toml").read_text(encoding="utf-8"))
 
 
-def verify_tag(tag: str) -> None:
-    expected = f"v{project_version()}"
-    if tag != expected:
-        raise SystemExit(f"tag_version_mismatch: expected {expected}, got {tag}")
+def verify_tag(tag: str) -> str:
+    expected = {
+        f"v{project_version('video')}": "video",
+        f"video-v{project_version('video')}": "video",
+        f"background-v{project_version('background')}": "background",
+    }
+    if tag not in expected:
+        raise SystemExit("tag_version_mismatch: expected one of " + ", ".join(sorted(expected)) + f", got {tag}")
+    return expected[tag]
 
 
 def sha256(path: Path) -> str:
@@ -120,23 +115,16 @@ def sha256(path: Path) -> str:
 
 
 def _release_text(path: Path) -> bytes:
-    # Explicit members only. Never follow a linked file/directory into private
-    # material, and normalize checkout line endings for reproducible archives.
     relative = path.relative_to(ROOT)
     for length in range(len(relative.parts) + 1):
-        candidate = ROOT.joinpath(*relative.parts[:length])
-        if candidate.is_symlink():
+        if ROOT.joinpath(*relative.parts[:length]).is_symlink():
             raise ValueError("skill_archive_symlink_forbidden")
-    # Comparing the complete resolved member also rejects Windows junctions,
-    # including links whose targets happen to remain inside the repository.
     if not path.is_file() or path.resolve(strict=True) != ROOT.resolve(strict=True) / relative:
         raise ValueError("skill_archive_member_missing_or_unsafe")
     return path.read_text(encoding="utf-8").encode("utf-8")
 
 
-def _build_skill_archive(dist: Path, *, name: str, root: Path, files: tuple[str, ...]) -> Path:
-    """Bundle one thin Agent entrypoint, not media code or private configuration."""
-    version = project_version()
+def _build_skill_archive(dist: Path, *, name: str, root: Path, files: tuple[str, ...], version: str) -> Path:
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[a-zA-Z0-9.+-]*)", version):
         raise ValueError("skill_archive_version_invalid")
     skill_root = ROOT / root
@@ -144,7 +132,7 @@ def _build_skill_archive(dist: Path, *, name: str, root: Path, files: tuple[str,
     metadata = json.loads(members["skill.json"])
     if metadata.get("name") != name or metadata.get("version") != version or metadata.get("entry") != "SKILL.md":
         raise ValueError("skill_archive_metadata_mismatch")
-    members["LICENSE"] = _release_text(ROOT / "LICENSE")
+    members["LICENSE"] = _release_text(skill_root / "LICENSE")
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_STORED) as archive:
         for member_name, content in sorted(members.items()):
@@ -166,30 +154,33 @@ def _build_skill_archive(dist: Path, *, name: str, root: Path, files: tuple[str,
 
 
 def build_skill_archive(dist: Path) -> Path:
-    """Compatibility entrypoint for the implemented character-video Skill."""
-    return _build_skill_archive(dist, name=SKILL_NAME, root=SKILL_ROOT, files=SKILL_FILES)
+    return _build_skill_archive(
+        dist, name=SKILL_NAME, root=SKILL_ROOT, files=SKILL_FILES, version=project_version("video")
+    )
 
 
 def build_background_skill_archive(dist: Path) -> Path:
     return _build_skill_archive(
-        dist,
-        name=BACKGROUND_SKILL_NAME,
-        root=BACKGROUND_SKILL_ROOT,
-        files=BACKGROUND_SKILL_FILES,
+        dist, name=BACKGROUND_SKILL_NAME, root=BACKGROUND_SKILL_ROOT,
+        files=BACKGROUND_SKILL_FILES, version=project_version("background")
     )
 
 
-def validate_source_archive(path: Path) -> None:
-    """Check support files in the actual sdist, not just in the source checkout."""
-    prefix = f"ai_frame_animation-{project_version()}"
+def validate_source_archive(path: Path, component: str = "video") -> None:
+    settings = {
+        "video": (f"ai_frame_animation-{project_version('video')}", VIDEO_SDIST_SUPPORT_FILES),
+        "background": (f"ai_image_background_removal-{project_version('background')}", BACKGROUND_SDIST_SUPPORT_FILES),
+    }
+    if component not in settings:
+        raise ValueError("release_component_invalid")
+    prefix, required = settings[component]
     files: set[str] = set()
     with tarfile.open(path, "r:gz") as archive:
         for member in archive:
             parts = PurePosixPath(member.name).parts
             if (
-                "\\" in member.name or not parts or parts[0] != prefix
-                or ".." in parts or not (member.isfile() or member.isdir())
-                or (member.isfile() and len(parts) < 2)
+                "\\" in member.name or not parts or parts[0] != prefix or ".." in parts
+                or not (member.isfile() or member.isdir()) or (member.isfile() and len(parts) < 2)
             ):
                 raise ValueError("source_distribution_member_unsafe")
             if member.isfile():
@@ -197,51 +188,61 @@ def validate_source_archive(path: Path) -> None:
                 if relative in files:
                     raise ValueError("source_distribution_member_duplicate")
                 files.add(relative)
-    missing = sorted(set(SDIST_SUPPORT_FILES) - files)
+    missing = sorted(set(required) - files)
     if missing:
         raise ValueError("source_distribution_support_files_missing:" + ",".join(missing))
 
 
-def build_metadata(dist: Path) -> None:
-    artifacts = sorted(path for path in dist.iterdir() if path.is_file() and path.name not in {"SHA256SUMS.txt", "sbom.spdx.json"})
+def build_metadata(dist: Path, component: str = "all") -> None:
+    if component not in {"video", "background", "all"}:
+        raise ValueError("release_component_invalid")
+    artifacts = sorted(
+        path for path in dist.iterdir()
+        if path.is_file() and path.name not in {"SHA256SUMS.txt", "sbom.spdx.json"}
+    )
     if not artifacts:
         raise SystemExit("release_artifacts_missing")
-    source_archive = dist / f"ai_frame_animation-{project_version()}.tar.gz"
-    if source_archive.exists():
-        validate_source_archive(source_archive)
-    skill_archives = {build_skill_archive(dist), build_background_skill_archive(dist)}
-    artifacts = sorted(set(artifacts) | skill_archives)
-    sums = [f"{sha256(path)}  {path.name}" for path in artifacts]
-    (dist / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="ascii")
-    packages = [
-        {
-            "SPDXID": "SPDXRef-Package-ai-frame-animation",
-            "name": "ai-frame-animation",
-            "versionInfo": project_version(),
-            "downloadLocation": "NOASSERTION",
-            "filesAnalyzed": False,
-        }
-    ]
-    for name in ("Pillow", "jsonschema", "numpy"):
+    selected = ("video", "background") if component == "all" else (component,)
+    source_names = {
+        "video": f"ai_frame_animation-{project_version('video')}.tar.gz",
+        "background": f"ai_image_background_removal-{project_version('background')}.tar.gz",
+    }
+    for item in selected:
+        source = dist / source_names[item]
+        if source.exists():
+            validate_source_archive(source, item)
+    skills = []
+    if "video" in selected:
+        skills.append(build_skill_archive(dist))
+    if "background" in selected:
+        skills.append(build_background_skill_archive(dist))
+    artifacts = sorted(set(artifacts) | set(skills))
+    (dist / "SHA256SUMS.txt").write_text(
+        "\n".join(f"{sha256(path)}  {path.name}" for path in artifacts) + "\n", encoding="ascii"
+    )
+    packages = []
+    for item, name in (("video", "ai-frame-animation"), ("background", "ai-image-background-removal")):
+        if item in selected:
+            packages.append({
+                "SPDXID": f"SPDXRef-Package-{name}", "name": name,
+                "versionInfo": project_version(item), "downloadLocation": "NOASSERTION", "filesAnalyzed": False,
+            })
+    dependencies = ["Pillow", "numpy"]
+    if "video" in selected:
+        dependencies.append("jsonschema")
+    for name in dependencies:
         try:
             version = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
             version = "not-installed-in-build-environment"
-        packages.append(
-            {
-                "SPDXID": f"SPDXRef-Package-{name.lower()}",
-                "name": name,
-                "versionInfo": version,
-                "downloadLocation": "NOASSERTION",
-                "filesAnalyzed": False,
-            }
-        )
+        packages.append({
+            "SPDXID": f"SPDXRef-Package-{name.lower()}", "name": name,
+            "versionInfo": version, "downloadLocation": "NOASSERTION", "filesAnalyzed": False,
+        })
     sbom = {
-        "spdxVersion": "SPDX-2.3",
-        "dataLicense": "CC0-1.0",
-        "SPDXID": "SPDXRef-DOCUMENT",
-        "name": f"ai-frame-animation-{project_version()}",
-        "documentNamespace": f"https://example.invalid/ai-frame-animation/{project_version()}/sbom",
+        "spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",
+        "name": f"ai-generation-orchestrators-{component}",
+        "documentNamespace": f"https://example.invalid/ai-generation-orchestrators/{component}/sbom",
         "creationInfo": {"creators": ["Tool: .github/release_tools/build_release_metadata.py"], "created": "1970-01-01T00:00:00Z"},
         "packages": packages,
     }
@@ -252,11 +253,14 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--verify-tag")
+    parser.add_argument("--component", choices=("video", "background", "all"), default="all")
     args = parser.parse_args()
     if args.verify_tag:
-        verify_tag(args.verify_tag)
+        detected = verify_tag(args.verify_tag)
+        if args.component != "all" and args.component != detected:
+            raise SystemExit(f"tag_component_mismatch: expected {detected}, got {args.component}")
     if args.dist:
-        build_metadata(args.dist)
+        build_metadata(args.dist, args.component)
     if not args.verify_tag and not args.dist:
         parser.error("one of --dist or --verify-tag is required")
     return 0

@@ -18,19 +18,24 @@ sys.path.insert(0, str(ROOT / ".github"))
 
 from ai_frame_animation import __version__
 from release_tools.build_release_metadata import (
-    BACKGROUND_SKILL_NAME, BACKGROUND_SKILL_ROOT, SDIST_SUPPORT_FILES, SKILL_FILES,
+    BACKGROUND_SDIST_SUPPORT_FILES, BACKGROUND_SKILL_NAME, BACKGROUND_SKILL_ROOT,
+    SDIST_SUPPORT_FILES, SKILL_FILES,
     SKILL_NAME, SKILL_ROOT, build_metadata, build_skill_archive,
-    project_version, project_version_from_text, sha256, validate_source_archive, verify_tag,
+    project_version, project_version_from_text, sha256, validate_source_archive,
+    verify_tag, VIDEO_SDIST_SUPPORT_FILES,
 )
 
 
 class ReleaseMetadataTests(unittest.TestCase):
     def test_versions_agree(self) -> None:
-        for path in (ROOT / SKILL_ROOT / "skill.json", ROOT / BACKGROUND_SKILL_ROOT / "skill.json"):
-            skill = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(project_version(), skill["version"])
-        self.assertEqual(project_version(), __version__)
-        verify_tag(f"v{project_version()}")
+        video_skill = json.loads((ROOT / SKILL_ROOT / "skill.json").read_text(encoding="utf-8"))
+        background_skill = json.loads((ROOT / BACKGROUND_SKILL_ROOT / "skill.json").read_text(encoding="utf-8"))
+        self.assertEqual(project_version("video"), video_skill["version"])
+        self.assertEqual(project_version("background"), background_skill["version"])
+        self.assertEqual(project_version("video"), __version__)
+        self.assertEqual(verify_tag(f"v{project_version('video')}"), "video")
+        self.assertEqual(verify_tag(f"video-v{project_version('video')}"), "video")
+        self.assertEqual(verify_tag(f"background-v{project_version('background')}"), "background")
 
     def test_release_consumption_names_both_skill_archives(self) -> None:
         text = (ROOT / SKILL_ROOT / "docs" / "release-consumption.md").read_text(encoding="utf-8")
@@ -89,9 +94,9 @@ version = \"9.9.9\"
 
     def _copy_skill_source(self, root: Path) -> Path:
         skill = root / SKILL_ROOT
-        root.mkdir()
-        shutil.copyfile(ROOT / "pyproject.toml", root / "pyproject.toml")
-        shutil.copyfile(ROOT / "LICENSE", root / "LICENSE")
+        skill.mkdir(parents=True)
+        shutil.copyfile(ROOT / SKILL_ROOT / "pyproject.toml", skill / "pyproject.toml")
+        shutil.copyfile(ROOT / SKILL_ROOT / "LICENSE", skill / "LICENSE")
         for name in SKILL_FILES:
             target = skill / name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -190,13 +195,17 @@ version = \"9.9.9\"
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(wheel.read_bytes(), b"wheel-test-double")
             self.assertTrue((dist / f"{SKILL_NAME}-{project_version()}.zip").is_file())
-            self.assertTrue((dist / f"{BACKGROUND_SKILL_NAME}-{project_version()}.zip").is_file())
+            self.assertTrue((dist / f"{BACKGROUND_SKILL_NAME}-{project_version('background')}.zip").is_file())
             self.assertTrue((dist / "SHA256SUMS.txt").is_file())
 
-    def _source_archive(self, destination: Path, names: tuple[str, ...]) -> None:
+    def _source_archive(self, destination: Path, names: tuple[str, ...], component: str = "video") -> None:
+        prefix = {
+            "video": f"ai_frame_animation-{project_version('video')}",
+            "background": f"ai_image_background_removal-{project_version('background')}",
+        }[component]
         with tarfile.open(destination, "w:gz") as archive:
             for name in names:
-                member = tarfile.TarInfo(name if name.startswith("/") else f"ai_frame_animation-{project_version()}/{name}")
+                member = tarfile.TarInfo(name if name.startswith("/") else f"{prefix}/{name}")
                 member.size = len(b"fixture")
                 archive.addfile(member, io.BytesIO(b"fixture"))
 
@@ -206,45 +215,48 @@ version = \"9.9.9\"
             source = dist / f"ai_frame_animation-{project_version()}.tar.gz"
             # Reproduce setuptools' previous default: tests shipped without
             # their golden data, release script, or documentation dependencies.
-            self._source_archive(source, ("README.md", "pyproject.toml", f"{SKILL_ROOT.as_posix()}/tests/test_golden_matte.py"))
+            self._source_archive(source, ("README.md", "pyproject.toml", "tests/test_golden_matte.py"))
             with self.assertRaisesRegex(ValueError, "source_distribution_support_files_missing"):
                 build_metadata(dist)
             self.assertFalse((dist / "SHA256SUMS.txt").exists())
             self.assertFalse((dist / f"{SKILL_NAME}-{project_version()}.zip").exists())
-            self._source_archive(source, SDIST_SUPPORT_FILES)
+            self._source_archive(source, VIDEO_SDIST_SUPPORT_FILES)
             build_metadata(dist)
             self.assertIn(source.name, (dist / "SHA256SUMS.txt").read_text(encoding="ascii"))
 
     def test_all_public_golden_data_are_required_source_archive_members(self) -> None:
-        fixture_roots = (
-            ROOT / BACKGROUND_SKILL_ROOT / "tests" / "fixtures" / "golden",
-            ROOT / SKILL_ROOT / "tests" / "fixtures" / "golden",
-        )
-        fixtures = {path.relative_to(ROOT).as_posix() for fixture_root in fixture_roots for path in fixture_root.glob("*.json")}
-        self.assertTrue(fixtures)
-        self.assertTrue(fixtures <= set(SDIST_SUPPORT_FILES), fixtures - set(SDIST_SUPPORT_FILES))
+        for root, required in (
+            (ROOT / SKILL_ROOT, VIDEO_SDIST_SUPPORT_FILES),
+            (ROOT / BACKGROUND_SKILL_ROOT, BACKGROUND_SDIST_SUPPORT_FILES),
+        ):
+            fixtures = {
+                path.relative_to(root).as_posix()
+                for path in (root / "tests/fixtures/golden").glob("*.json")
+            }
+            self.assertTrue(fixtures)
+            self.assertTrue(fixtures <= set(required), fixtures - set(required))
 
     def test_source_archive_rejects_missing_material_or_subject_fit_data(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "source.tar.gz"
-            for missing in (
-                f"{SKILL_ROOT.as_posix()}/tests/fixtures/golden/subject-fit-cases.json",
-                f"{BACKGROUND_SKILL_ROOT.as_posix()}/tests/fixtures/golden/reference-material-cases.json",
+            for component, support, missing in (
+                ("video", VIDEO_SDIST_SUPPORT_FILES, "tests/fixtures/golden/subject-fit-cases.json"),
+                ("background", BACKGROUND_SDIST_SUPPORT_FILES, "tests/fixtures/golden/reference-material-cases.json"),
             ):
                 with self.subTest(missing=missing):
-                    self._source_archive(source, tuple(name for name in SDIST_SUPPORT_FILES if name != missing))
+                    self._source_archive(source, tuple(name for name in support if name != missing), component)
                     with self.assertRaisesRegex(ValueError, "source_distribution_support_files_missing"):
-                        validate_source_archive(source)
+                        validate_source_archive(source, component)
 
     def test_source_archive_rejects_unsafe_or_duplicate_members(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "source.tar.gz"
             for bad_name in ("../escape", "/absolute", "nested\\..\\escape"):
                 with self.subTest(member=bad_name):
-                    self._source_archive(source, (*SDIST_SUPPORT_FILES, bad_name))
+                    self._source_archive(source, (*VIDEO_SDIST_SUPPORT_FILES, bad_name))
                     with self.assertRaisesRegex(ValueError, "source_distribution_member_unsafe"):
                         validate_source_archive(source)
-            self._source_archive(source, (*SDIST_SUPPORT_FILES, "README.md"))
+            self._source_archive(source, (*VIDEO_SDIST_SUPPORT_FILES, "README.md"))
             with self.assertRaisesRegex(ValueError, "source_distribution_member_duplicate"):
                 validate_source_archive(source)
 

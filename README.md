@@ -17,13 +17,16 @@ implementation claim.
 | [Game UI](game-ui-harnesses/) | UI-decomposition research in progress; no published Skill yet. |
 | [Game scene](game-scene-harnesses/) | Planned. |
 
-The currently installable `ai-frame-animation` compatibility runtime turns a
-character reference image and motion request into validated transparent 2D frame
-animation. The rest of this README documents that implemented path.
+Two independently installable runtimes implement the current public path:
+`ai-image-background-removal` prepares still artwork, while
+`ai-frame-animation` plans and delivers video-derived transparent frame
+animation. Install either one alone, or connect them through the neutral handoff
+contract documented below.
 
 ```text
 reference image + motion request
-  -> local reference preparation (for new generation)
+  -> optional local CLI or MCP background-removal producer
+  -> reviewed ai_reference_preparation_handoff_v1
   -> immutable plan
   -> existing raw video OR one confirmed generation attempt
   -> deterministic RGBA processing
@@ -52,8 +55,14 @@ Get-FileHash .\ai_frame_animation-<version>-py3-none-any.whl -Algorithm SHA256
 python -m pip install .\ai_frame_animation-<version>-py3-none-any.whl
 ```
 
-For a source checkout under development, use `python -m pip install .`. Editable
-installation is intended for contributors, not production consumers.
+For a source checkout under development, install the package you need from its
+Harness directory. Editable installation is intended for contributors, not
+production consumers:
+
+```powershell
+python -m pip install -e ./artwork-harnesses/video-sequence-harness/character
+python -m pip install -e ./artwork-harnesses/image-background-removal-harness
+```
 
 ### 2. Verify the Python installation without compute
 
@@ -138,19 +147,20 @@ format to `my-animation/.ai-frame-animation/workflow.json`, then replace the two
 binding node IDs in `provider.minimax-h3.json` and adjust input names if needed.
 
 Use ordinary artwork: white backgrounds, screenshots and complex backgrounds do
-not require a user-supplied transparent PNG. The Agent calls `prepare` to separate
-the foreground and fit the canvas before key selection. Existing alpha needs no
-model; opaque artwork uses explicitly configured BiRefNet CPU segmentation and
-foreground-colour estimation, without alpha-matting erosion or old colour repair. Setup
-is separate from source quality, and no model is downloaded automatically. See
+not require a user-supplied transparent PNG. Background removal is an optional,
+independent producer: use the local `ai-image-background-removal` CLI shown below,
+or an MCP service that materializes the same reviewed handoff bundle. Existing
+alpha needs no model; the local opaque-artwork route uses explicitly configured
+CPU segmentation. Setup is separate from source quality, and no model is
+downloaded automatically. See
 [reference preparation](artwork-harnesses/image-background-removal-harness/docs/reference-preparation.md) for setup and limitations.
 
 Compile the job, then check that exact input statically before any compute request:
 
 ```powershell
-ai-frame-animation prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+ai-image-background-removal prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
 # Inspect work/reference/r001/foreground.png before confirming video compute.
-ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/preparation.json --out work/plan.json
+ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/handoff.json --out work/plan.json
 ai-frame-animation doctor `
   --root my-animation `
   --provider minimax_h3 `
@@ -180,12 +190,11 @@ ask the Agent to preview a local correction and wait for your approval. This is
 not a required step for every reference and cannot restore missing hair or gauze.
 The Agent manages coordinates and digests; the program performs the edit.
 
-On a compatible CLI, `correct preview` shows the proposed change; only after you
-approve that exact preview may `correct apply` create a new preparation. Plan
-from that new report. This visual-edit approval is separate from the one video
-compute confirmation. Check `ai-frame-animation correct --help` first: this
-requires v0.4.0 or later and is not available in v0.3.2. Use matching CLI and
-Skill versions from the same release.
+On the background-removal CLI, `correct preview` shows the proposed change; only
+after you approve that exact preview may `correct apply` create a new preparation
+and handoff. Plan from that new `handoff.json`. This visual-edit approval is
+separate from the one video compute confirmation. The video CLI intentionally
+has no `prepare` or `correct` commands.
 See [local correction](artwork-harnesses/image-background-removal-harness/docs/reference-correction.md) for commands and limits, and
 [reference acceptance](artwork-harnesses/image-background-removal-harness/docs/reference-acceptance.md) for the fixed seen-regression
 set and known failures. Structural checks alone do not certify a clean matte.
@@ -215,11 +224,6 @@ Skill flows. The complete manual CLI flow is in
 - `tools check` — verify FFmpeg/ffprobe and local provenance without network.
 - `tools install` — explicitly install a hash-locked local build on supported platforms.
 - `doctor` — report redacted, actionable dependency and plugin diagnostics.
-- `prepare` — preserve original artwork, separate foreground locally and fit it
-  for generation; may run configured CPU inference, never a provider submission.
-- `correct preview/apply` — optionally preview a bounded residual-background edit,
-  then publish the explicitly approved result as a new preparation; no model or
-  video compute (requires a compatible CLI).
 - `plan` — compile a structured job into an immutable, digest-bound plan.
 - `run` — consume one authorization and perform at most one provider submission.
 - `process` — derive one delivery family from a raw video or verified predecoded handoff.
@@ -230,10 +234,16 @@ The core does not bundle model weights, credentials, private workflows, host
 paths, Docker services, web/database components, or worker protocols. MiniMax H3
 support is an optional local ComfyUI plugin configured by the consumer.
 
+The separate `ai-image-background-removal` CLI exposes `doctor`, `prepare`,
+`correct preview/apply`, `inspect`, and `validate`. Its local output and a future
+MCP adapter use the same `ai_reference_preparation_handoff_v1`; the video runtime
+does not import the background-removal package or require its producer name.
+
 ## Development
 
 ```powershell
-python -m pip install -e .
+python -m pip install -e ./artwork-harnesses/video-sequence-harness/character
+python -m pip install -e ./artwork-harnesses/image-background-removal-harness
 python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py"
 python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py"
 python -m unittest discover -s .github/repository-tests -p "test_*.py"

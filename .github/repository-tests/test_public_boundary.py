@@ -80,9 +80,13 @@ class PublicBoundaryTests(unittest.TestCase):
     def test_video_skill_is_a_thin_discoverable_entrypoint(self) -> None:
         skill_root = ROOT / "artwork-harnesses" / "video-sequence-harness" / "character"
         expected = {
+            "LICENSE",
+            "MANIFEST.in",
             "README.md",
             "SKILL.md",
             "agents/openai.yaml",
+            "pyproject.toml",
+            "references/reference-preparation-handoff.md",
             "references/video-runtime-adapter-protocol.md",
             "references/video-state-machine.md",
             "skill.json",
@@ -96,12 +100,27 @@ class PublicBoundaryTests(unittest.TestCase):
         self.assertEqual(entrypoint_files, expected)
         package = skill_root / "src" / "ai_frame_animation"
         self.assertTrue((package / "cli.py").is_file())
-        self.assertTrue((package / "preparation.py").is_file())
+        self.assertFalse((package / "preparation.py").exists())
+        self.assertTrue((package / "reference_preparation.py").is_file())
         self.assertTrue((package / "processing.py").is_file())
-        pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertIn('where = ["artwork-harnesses/video-sequence-harness/character/src"]', pyproject)
+        pyproject = (skill_root / "pyproject.toml").read_text(encoding="utf-8")
+        self.assertIn('where = ["src"]', pyproject)
         self.assertIn("artwork-harnesses/video-sequence-harness/character", (ROOT / "README.md").read_text(encoding="utf-8"))
         self.assertIn("Character animation", (ROOT / "artwork-harnesses" / "video-sequence-harness" / "README.md").read_text(encoding="utf-8"))
+
+    def test_background_and_video_packages_are_physically_independent(self) -> None:
+        background = ROOT / "artwork-harnesses" / "image-background-removal-harness"
+        video = ROOT / "artwork-harnesses" / "video-sequence-harness" / "character"
+        self.assertTrue((background / "src/ai_image_background_removal/preparation.py").is_file())
+        self.assertTrue((video / "src/ai_frame_animation/reference_preparation.py").is_file())
+        self.assertFalse((ROOT / "pyproject.toml").exists())
+        self.assertFalse((ROOT / "MANIFEST.in").exists())
+        background_text = "\n".join(path.read_text(encoding="utf-8") for path in (background / "src").rglob("*.py"))
+        video_text = "\n".join(path.read_text(encoding="utf-8") for path in (video / "src").rglob("*.py"))
+        self.assertNotRegex(background_text, r"(?m)^\s*(?:from|import)\s+ai_frame_animation\b")
+        self.assertNotRegex(video_text, r"(?m)^\s*(?:from|import)\s+ai_image_background_removal\b")
+        self.assertIn('name = "ai-image-background-removal"', (background / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertIn('name = "ai-frame-animation"', (video / "pyproject.toml").read_text(encoding="utf-8"))
 
     def test_harness_catalog_separates_implemented_and_planned_entries(self) -> None:
         background = ROOT / "artwork-harnesses" / "image-background-removal-harness"

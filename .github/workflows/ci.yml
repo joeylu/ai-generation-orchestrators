@@ -23,17 +23,24 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-      - name: Install package
-        run: python -m pip install ".[test]"
+      - name: Install independent Harness packages
+        run: >-
+          python -m pip install
+          "./artwork-harnesses/image-background-removal-harness[test]"
+          "./artwork-harnesses/video-sequence-harness/character[test]"
       - name: Run offline fixtures and test doubles
         run: |
           python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
           python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
           python -m unittest discover -s .github/repository-tests -p "test_*.py" -v
       - name: Check installed offline contract
-        run: ai-frame-animation self-test
+        run: |
+          ai-image-background-removal self-test
+          ai-frame-animation self-test
       - name: Check redacted doctor
-        run: ai-frame-animation doctor
+        run: |
+          ai-image-background-removal doctor
+          ai-frame-animation doctor
 
   build:
     runs-on: ubuntu-latest
@@ -44,8 +51,9 @@ jobs:
         with:
           python-version: "3.14"
       - run: python -m pip install build
-      - run: python -m build
-      - run: python .github/release_tools/build_release_metadata.py --dist dist
+      - run: python -m build --outdir dist artwork-harnesses/image-background-removal-harness
+      - run: python -m build --outdir dist artwork-harnesses/video-sequence-harness/character
+      - run: python .github/release_tools/build_release_metadata.py --dist dist --component all
       - uses: actions/upload-artifact@v7
         with:
           name: ai-frame-animation-dist
@@ -60,5 +68,9 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
-      - run: python -m pip install . pip-audit
+      - run: >-
+          python -m pip install
+          ./artwork-harnesses/image-background-removal-harness
+          ./artwork-harnesses/video-sequence-harness/character
+          pip-audit
       - run: pip-audit

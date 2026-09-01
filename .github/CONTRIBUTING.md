@@ -5,7 +5,8 @@ Read [AGENTS.md](../AGENTS.md) before changing code or documentation.
 ## Development checks
 
 ```powershell
-python -m pip install -e ".[dev]"
+python -m pip install -e ".\artwork-harnesses\image-background-removal-harness[test]" `
+  -e ".\artwork-harnesses\video-sequence-harness\character[dev,test]"
 python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py"
 python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py"
 python -m unittest discover -s .github/repository-tests -p "test_*.py"

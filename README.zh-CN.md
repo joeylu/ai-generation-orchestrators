@@ -7,8 +7,9 @@
 [游戏 UI](game-ui-harnesses/)和[游戏场景](game-scene-harnesses/)四大类。
 未实现能力只提供明确标记为 `planned` 的文档，不伪装成可调用 Skill。
 
-当前可安装的 `ai-frame-animation` 兼容程序对应美术类中已经实现的图片背景移除
-与角色视频序列链路。下面的快速入门仍只描述这条已实现路径。
+当前有两个可独立安装的程序：`ai-image-background-removal` 负责单图抠图，
+`ai-frame-animation` 负责视频计划、生成尝试、后处理与透明序列交付。两者可一起
+使用，也可只装其中一个；视频侧只消费中立 handoff，不导入抠图程序。
 
 只需要抠图而不制作动画时，使用独立的
 [Image Background Removal Skill](artwork-harnesses/image-background-removal-harness/SKILL.md)。
@@ -49,6 +50,16 @@ python -m venv .venv
 $AnimationPython = (Resolve-Path .venv/Scripts/python.exe).Path
 & $AnimationPython -m ai_frame_animation --version
 & $AnimationPython -m ai_frame_animation self-test
+```
+
+如果选择本地抠图 CLI，把固定版本的
+`ai_image_background_removal-<version>-py3-none-any.whl`（不透明图还需其
+`segmentation` extra）安装进同一或另一个虚拟环境。下面为简洁起见假设装在
+同一环境：
+
+```powershell
+$BackgroundPython = $AnimationPython
+& $BackgroundPython -m ai_image_background_removal self-test
 ```
 
 `self-test` 应返回 `status: passed`。它不生成媒体、不连接服务，也不使用 GPU。
@@ -119,19 +130,20 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
 2. 编辑 `my-animation/.ai-frame-animation/provider.minimax-h3.json`，
    将参考图节点、正向提示词节点的占位 ID 换成工作流中的实际 ID；如输入名称
    或本地地址不同，也要按实际配置。真实配置只留在私有工作区。
-3. 直接提供普通参考图，白底、截图、复杂背景都不要求你先抠成透明 PNG。
-   Agent 调用 `prepare` 自动分离前景、等比整理画布，再根据前景选键色。
+3. 直接提供普通参考图，白底、截图、复杂背景都不要求你手工先抠成透明 PNG。
+   Agent 可调用独立的本地 `ai-image-background-removal` CLI，也可调用以后配置的
+   抠图 MCP 服务；两种路线都必须把完整本地产物和 `handoff.json` 落到工作区。
    已有透明图无需模型；普通背景使用本地 CPU BiRefNet＋边缘去混色，不套旧补洞规则或 alpha matting。
    缺少工具会提示安装，
    不会把“没装工具”误报成“源图不合格”。[准备步骤与安装说明](artwork-harnesses/image-background-removal-harness/docs/reference-preparation.md)。
 4. 程序保留原图，产出前景图和可校验处理报告。Agent 复核后生成计划：
 
 ```powershell
-& $AnimationPython -m ai_frame_animation prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
-& $AnimationPython -m ai_frame_animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/preparation.json --out work/plan.json
+& $BackgroundPython -m ai_image_background_removal prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+& $AnimationPython -m ai_frame_animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/handoff.json --out work/plan.json
 ```
 
-`prepare` 可能执行本地 CPU 分割，但不下载模型、不联网、不调用 ComfyUI 或 GPU。
+本地 `prepare` 可能执行 CPU 分割，但不下载模型、不联网、不调用 ComfyUI 或 GPU。
 无法辨认主体、遮挡严重或分割结果不可靠时才需要复核/补充素材，不能一概要求透明图。
 最后检查这份计划对应的输入：
 
@@ -149,7 +161,7 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
 > 先检查本地配置并展示计划，获得我一次明确计算确认后才能生成。
 > 不得自动重试视频生成；如果已有原视频，只重跑确定性后处理。
 
-Agent 负责 `prepare → 前景复核 → plan → doctor --plan → 一次确认 → run → process → inspect → validate`。
+Agent 负责 `可选抠图工具/MCP → 前景复核 → handoff → plan → doctor --plan → 一次确认 → run → process → inspect → validate`。
 你不用手工复制摘要、管理 attempt ID 或填写交付清单。
 生成请求可能已被接受但结果不明时，程序会停止，不会偷偷再提交一次。
 
@@ -159,14 +171,14 @@ Agent 负责 `prepare → 前景复核 → plan → doctor --plan → 一次确�
 
 > 这处孔洞还有残底，先给我局部修正预览，等我确认后再应用。不要生成视频。
 
-Agent 调用 `correct preview` 展示前后图，你明确批准这一份预览后，才调用
-`correct apply` 写到新目录，再用新报告生成计划。坐标与摘要由 Agent 管理，
+Agent 调用抠图 CLI 的 `correct preview` 展示前后图，你明确批准这一份预览后，
+才调用 `correct apply` 写到新目录，再用新的 `handoff.json` 生成计划。坐标与摘要由 Agent 管理，
 像素修改和可校验证据由程序负责；原图和旧结果保留。这次是**视觉编辑确认**，
 不抵扣或代替后续的视频计算确认。
 
-先用 `ai-frame-animation correct --help` 检查命令是否存在：此功能需要
-v0.4.0 或更高版本，v0.3.2 不包含此功能。CLI 和 Skill 应取自同一版本的 Release，
-不要拿新版 Skill 混用旧程序。
+视频 CLI 不再提供 `prepare`/`correct`；这些命令只属于独立的
+`ai-image-background-removal`。本地 CLI 与 MCP 适配器必须输出相同版本的中立
+handoff，Agent 不得自己拼写、修复或重新签名 handoff。
 它不能补回已经丢失的发丝、衣料或薄纱，也不能自动判断同色区域是不是背景。
 详见[局部修正说明](artwork-harnesses/image-background-removal-harness/docs/reference-correction.md)和[固定样本验收矩阵](artwork-harnesses/image-background-removal-harness/docs/reference-acceptance.md)。
 

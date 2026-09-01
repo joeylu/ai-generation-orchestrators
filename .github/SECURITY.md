@@ -19,6 +19,9 @@ security fixes.
 - Paths are resolved under caller-selected roots before file mutation.
 - Diagnostic output redacts secrets, URLs with query strings, and private paths.
 - Release consumers verify immutable artifact SHA-256 values.
+- Video planning accepts an optional background-removal producer only through a
+  workspace-relative, digest-bound `ai_reference_preparation_handoff_v1`; it
+  never trusts a bare remote URL or imports the producer implementation.
 - Project-local FFmpeg installation uses a packaged platform lock, verifies the
   asset byte count and SHA-256, rejects unsafe archive paths, and records local
   provenance without modifying system `PATH`.

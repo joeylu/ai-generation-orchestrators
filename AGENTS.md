@@ -51,22 +51,26 @@ silently bypass a failed quality gate.
 
 ## Media invariants
 
-- User reference artwork need not be transparent. Before new generation, use
-  program-owned `prepare` to separate the foreground and fit the canvas; bind
-  its original/foreground fingerprints into the plan. Missing segmentation
-  setup is not bad source quality. Never erase all white pixels or ask for a
-  transparent PNG solely because the source is opaque.
-- `prepare` may run explicitly configured local CPU segmentation, but never
-  downloads models, calls a service, or uses GPU. Inspect its foreground before
-  requesting the one video-generation confirmation; do not silently regenerate
-  or invent missing character details.
-- `correct` is optional for a specifically identified residual-background patch,
+- User reference artwork need not be transparent. Before new generation, obtain
+  a reviewed `ai_reference_preparation_handoff_v1` from an optional deterministic
+  background-removal tool and bind its original/foreground fingerprints into the
+  video plan. A local CLI or an MCP/service adapter may be used, but both must
+  materialize the same verified local artifacts. The video package must not
+  import or require one producer implementation. Missing segmentation setup is
+  not bad source quality. Never erase all white pixels or ask for a transparent
+  PNG solely because the source is opaque.
+- A local `prepare` implementation may run explicitly configured CPU
+  segmentation, but never downloads models, calls a service, or uses GPU. An
+  external MCP adapter follows its own explicit network policy. In both cases,
+  inspect the materialized foreground before requesting the one video-generation
+  confirmation; do not silently regenerate or invent missing character details.
+- Background-removal `correct` is optional for a specifically identified residual-background patch,
   not an automatic step after `prepare`. Check command availability, use original
   EXIF-oriented cutout coordinates, and show the program's preview and digest.
   Call `correct apply` only after explicit user approval of that exact preview;
   never approve it on the user's behalf or hand-edit masks/reports. Keep the
   original, parent and preview, publish to a fresh directory, and replan from the
-  new preparation. This visual-edit approval does not authorize video compute.
+  new preparation and handoff. This visual-edit approval does not authorize video compute.
   Correction cannot restore omitted hair, clothing or translucent material.
 - Transparent PNG frames are authoritative. GIF and spritesheets are derived
   delivery artifacts.

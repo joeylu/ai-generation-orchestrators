@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*", "video-v*", "background-v*"]
 
 permissions:
   contents: write
@@ -17,16 +17,29 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
+      - name: Select independently versioned package
+        shell: bash
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            background-v*)
+              echo "RELEASE_COMPONENT=background" >> "${GITHUB_ENV}"
+              echo "RELEASE_PACKAGE=artwork-harnesses/image-background-removal-harness" >> "${GITHUB_ENV}"
+              ;;
+            video-v*|v*)
+              echo "RELEASE_COMPONENT=video" >> "${GITHUB_ENV}"
+              echo "RELEASE_PACKAGE=artwork-harnesses/video-sequence-harness/character" >> "${GITHUB_ENV}"
+              ;;
+          esac
       - name: Verify tag matches package version
-        run: python .github/release_tools/build_release_metadata.py --verify-tag "${GITHUB_REF_NAME}"
+        run: python .github/release_tools/build_release_metadata.py --verify-tag "${GITHUB_REF_NAME}" --component "${RELEASE_COMPONENT}"
       - name: Install, test, and build
         run: |
-          python -m pip install ".[test]" build
+          python -m pip install "./artwork-harnesses/image-background-removal-harness[test]" "./artwork-harnesses/video-sequence-harness/character[test]" build
           python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
           python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
           python -m unittest discover -s .github/repository-tests -p "test_*.py" -v
-          python -m build
-          python .github/release_tools/build_release_metadata.py --dist dist
+          python -m build --outdir dist "${RELEASE_PACKAGE}"
+          python .github/release_tools/build_release_metadata.py --dist dist --component "${RELEASE_COMPONENT}"
       - name: Create immutable GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
