@@ -20,6 +20,17 @@ from .base import GenerationFailed, GenerationIndeterminate, GenerationNotSubmit
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".mkv"}
 
+RUNTIME_MODEL_INPUTS = {
+    "CheckpointLoaderSimple": ("ckpt_name",),
+    "CLIPLoader": ("clip_name",),
+    "DualCLIPLoader": ("clip_name1", "clip_name2"),
+    "TripleCLIPLoader": ("clip_name1", "clip_name2", "clip_name3"),
+    "LoraLoader": ("lora_name",),
+    "LoraLoaderModelOnly": ("lora_name",),
+    "UNETLoader": ("unet_name",),
+    "VAELoader": ("vae_name",),
+}
+
 
 class MiniMaxH3Provider:
     """Optional local ComfyUI MiniMax H3 adapter with exactly one `/prompt` call."""
@@ -126,6 +137,7 @@ class MiniMaxH3Provider:
             prepared.save(image_buffer, format="PNG")
         except (OSError, ValueError, KeyError) as exc:
             raise GenerationNotSubmitted(safe_error_code(exc)) from exc
+        self._check_runtime_compatibility(workflow)
         try:
             upload = self._upload_reference(reference, submission_token, image_buffer.getvalue())
             workflow = copy.deepcopy(workflow)
@@ -151,6 +163,53 @@ class MiniMaxH3Provider:
         if not isinstance(request_id, str) or not request_id:
             raise GenerationIndeterminate("minimax_h3_prompt_id_missing")
         return request_id
+
+    def _check_runtime_compatibility(self, workflow: Mapping[str, Any]) -> None:
+        """Read-only live check before upload or `/prompt` submission."""
+        try:
+            self._get_json("system_stats")
+            object_info = self._get_json("object_info")
+        except (OSError, ValueError, HTTPError, URLError) as exc:
+            raise GenerationNotSubmitted("minimax_h3_runtime_unavailable") from exc
+
+        nodes = [node for node in workflow.values() if isinstance(node, Mapping)]
+        class_types = {node.get("class_type") for node in nodes if isinstance(node.get("class_type"), str)}
+        if any(class_type not in object_info for class_type in class_types):
+            raise GenerationNotSubmitted("minimax_h3_runtime_node_missing")
+
+        for node in nodes:
+            class_type = node.get("class_type")
+            inputs = node.get("inputs")
+            if not isinstance(class_type, str) or not isinstance(inputs, Mapping):
+                continue
+            for input_name in RUNTIME_MODEL_INPUTS.get(class_type, ()):
+                selected = inputs.get(input_name)
+                if not isinstance(selected, str):
+                    continue
+                choices = self._runtime_choices(object_info.get(class_type), input_name)
+                if choices is None:
+                    raise GenerationNotSubmitted("minimax_h3_runtime_model_catalog_unavailable")
+                if selected not in choices:
+                    raise GenerationNotSubmitted("minimax_h3_runtime_model_missing")
+
+    @staticmethod
+    def _runtime_choices(class_info: object, input_name: str) -> set[str] | None:
+        if not isinstance(class_info, Mapping):
+            return None
+        inputs = class_info.get("input")
+        if not isinstance(inputs, Mapping):
+            return None
+        for group_name in ("required", "optional"):
+            group = inputs.get(group_name)
+            if not isinstance(group, Mapping):
+                continue
+            specification = group.get(input_name)
+            if not isinstance(specification, list) or not specification:
+                continue
+            values = specification[0]
+            if isinstance(values, list) and all(isinstance(value, str) for value in values):
+                return set(values)
+        return None
 
     def await_result(self, request_id: str, destination: Path) -> Path:
         deadline = time.monotonic() + float(self.config.get("timeout_seconds", 1800))

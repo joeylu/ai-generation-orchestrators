@@ -12,6 +12,11 @@ workflow in API format, then bind:
 - `reference_image` to the image-loader node and its image input;
 - `positive_prompt` to the prompt node and its text input.
 
+`local-provider-notes.example.md` is an operator-only inventory template for the
+chosen ComfyUI installation, launch command, custom nodes, and model digests.
+Copy it into the workspace as `.ai-frame-animation/local-provider-notes.md`; the
+ignored private copy is not CLI input and must not be committed.
+
 The easier path is to let the CLI create the same private-by-default structure:
 
 ```powershell

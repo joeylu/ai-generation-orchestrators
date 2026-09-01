@@ -126,6 +126,11 @@ my-animation/.ai-frame-animation/provider.minimax-h3.json
 my-animation/.ai-frame-animation/workflow.json
 ```
 
+The CLI never starts ComfyUI. Keep the chosen installation directory and launch
+command in the ignored private inventory described by the
+[local MiniMax H3 provider guide](local-minimax-h3-provider.md), so another
+installation cannot be selected by guesswork.
+
 Export the ComfyUI workflow in API format and replace the two placeholder node
 bindings. Use [reference preparation](../../../image-background-removal-harness/docs/reference-preparation.md) on ordinary artwork;
 users need not supply transparent PNGs. Opaque-input preparation uses the optional
@@ -143,7 +148,9 @@ ai-frame-animation doctor `
   --require-ready
 ```
 
-`doctor` does not connect to ComfyUI or submit `/prompt`.
+`doctor` does not connect to ComfyUI or submit `/prompt`. After explicit compute
+confirmation, `run` checks the live runtime's node and model inventory with
+read-only endpoints before uploading the reference or submitting `/prompt`.
 
 ## Maintainer rule for updating the tool lock
 

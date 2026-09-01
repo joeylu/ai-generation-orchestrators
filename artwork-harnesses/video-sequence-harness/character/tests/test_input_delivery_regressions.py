@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
-from ai_frame_animation.canonical import write_json_atomic
+from ai_frame_animation.canonical import load_json, write_json_atomic
 from ai_frame_animation.cli import main
 from ai_frame_animation.planning import compile_plan
 from ai_frame_animation.processing import _rgba_frame, _resize_rgba, process_from_decoded
@@ -171,7 +171,8 @@ class InputDeliveryRegressionTests(unittest.TestCase):
 
             plan = {"character": {"reference": "reference.png"}, "delivery": {"key_color": "#00FF00"},
                     "generation": {"prompt": "run in place"}}
-            with patch.object(provider, "_open_json", side_effect=capture), patch.object(provider, "_post_json", return_value={"prompt_id": "one"}) as submit:
+            runtime = {node["class_type"]: {} for node in load_json(root / "workflow.json").values()}
+            with patch.object(provider, "_get_json", side_effect=lambda relative: ({"devices": []} if relative == "system_stats" else runtime)), patch.object(provider, "_open_json", side_effect=capture), patch.object(provider, "_post_json", return_value={"prompt_id": "one"}) as submit:
                 self.assertEqual(provider.submit_once(plan, "fixture-token"), "one")
             payload = requests[0].data.split(b"\r\n\r\n", 1)[1].split(b"\r\n--", 1)[0]
             with Image.open(io.BytesIO(payload)) as uploaded:

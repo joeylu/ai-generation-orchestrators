@@ -128,6 +128,9 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
 
 当前内置的可选生成插件是本地 ComfyUI MiniMax H3。你需要自行准备兼容的
 本地 ComfyUI、模型和可用工作流；项目不会下载模型、启动 ComfyUI 或代配所有节点。
+请先按[本地 MiniMax H3 安装记录与运行时检查](artwork-harnesses/video-sequence-harness/character/docs/local-minimax-h3-provider.md)
+把实际安装目录、启动命令、模型来源与摘要记在工作区忽略文件中，避免误启另一套
+ComfyUI。CLI 本身始终不会自动启动或停止 ComfyUI。
 
 1. 把 ComfyUI 工作流导出为 **API 格式**，保存到
    `my-animation/.ai-frame-animation/workflow.json`。
@@ -158,6 +161,8 @@ Agent 必须先取得你的安装授权。其他平台使用可信系统安装�
 `doctor` 就是“环境体检”：检查依赖、文件、节点绑定和计划参考图，不连接 ComfyUI，
 也不生成图片。生成路线缺少 `--plan` 时，输入检查不算完成。
 `statically_ready` 不代表模型已加载或实际生成一定成功。
+用户确认计算后，`run` 会先只读查询运行时的节点与模型清单；不匹配时会在上传
+参考图和提交 `/prompt` 之前停止，并记录为未提交。
 
 让 Agent 读取同一 [Skill](artwork-harnesses/video-sequence-harness/character/SKILL.md)，再说：
 

@@ -149,6 +149,9 @@ This optional path requires your own working local ComfyUI MiniMax H3 setup;
 the project does not install models or start ComfyUI. Export your workflow in API
 format to `my-animation/.ai-frame-animation/workflow.json`, then replace the two
 binding node IDs in `provider.minimax-h3.json` and adjust input names if needed.
+Record the selected installation, launch command, custom nodes, and model digests
+in the ignored private inventory described by the
+[local provider guide](artwork-harnesses/video-sequence-harness/character/docs/local-minimax-h3-provider.md).
 
 Use ordinary artwork: white backgrounds, screenshots and complex backgrounds do
 not require a user-supplied transparent PNG. Background removal is an optional,
@@ -177,6 +180,9 @@ This validates local configuration, bindings, and the digest-bound reference's
 prepared-input compatibility. Omitting `--plan` leaves input preflight incomplete.
 It does not connect to ComfyUI or create media; arbitrary graph transforms and
 the eventual animation's visual quality still require review.
+After explicit compute confirmation, `run` uses read-only runtime endpoints to
+verify workflow node classes and known model selections before any reference
+upload or `/prompt` submission.
 
 Example generation request:
 

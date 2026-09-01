@@ -10,16 +10,18 @@ validated transparent 2D sequence-frame delivery.
 1. Follow the root [Quick Start](../../../../README.md#first-successful-path).
 2. Read [Installation](installation.md) for the wheel, FFmpeg, Skill, and provider
    layers.
-3. Read [Agent setup](agent-setup.md) for repository-local and installed Skill
+3. For local generation, record and verify the user-managed runtime with the
+   [MiniMax H3 provider guide](local-minimax-h3-provider.md).
+4. Read [Agent setup](agent-setup.md) for repository-local and installed Skill
    usage.
-4. Use the [CLI and Agent flow](cli-and-agent-flow.md) when diagnosing individual
+5. Use the [CLI and Agent flow](cli-and-agent-flow.md) when diagnosing individual
    stages.
-5. Read [Agent intent and deterministic compiler](intent-and-compiler.md) when an
+6. Read [Agent intent and deterministic compiler](intent-and-compiler.md) when an
    Agent or external LLM should produce structured motion semantics.
-6. Read [Quality policies](quality-policies.md) before choosing `best_effort`.
-7. Read the [neutral preparation handoff](../references/reference-preparation-handoff.md)
+7. Read [Quality policies](quality-policies.md) before choosing `best_effort`.
+8. Read the [neutral preparation handoff](../references/reference-preparation-handoff.md)
    before connecting a local CLI or MCP producer.
-8. In a repository checkout, the separate [background-removal Harness](../../../image-background-removal-harness/)
+9. In a repository checkout, the separate [background-removal Harness](../../../image-background-removal-harness/)
    documents its CPU segmentation, correction, and visual acceptance workflow.
 
 ## Maintainers
