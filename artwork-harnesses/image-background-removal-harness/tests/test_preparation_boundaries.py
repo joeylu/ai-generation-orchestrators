@@ -12,8 +12,8 @@ from unittest.mock import call, patch
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ai_frame_animation.cli import main
-from ai_frame_animation.preparation import (
+from ai_image_background_removal.cli import main
+from ai_image_background_removal.preparation import (
     _has_foreground_alpha, _has_source_foreground_alpha, inspect_preparation,
     load_preparation, prepare_reference,
 )
@@ -47,7 +47,7 @@ class AlphaBoundaryTests(unittest.TestCase):
                 source = root / "透明 输入.png"
                 image.save(source)
                 before = source.read_bytes()
-                with patch("ai_frame_animation.preparation.infer_foreground_mask", side_effect=AssertionError("no inference")), patch("ai_frame_animation.preparation.inspect_matting_runtime", side_effect=AssertionError("no matting")):
+                with patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=AssertionError("no inference")), patch("ai_image_background_removal.preparation.inspect_matting_runtime", side_effect=AssertionError("no matting")):
                     ready = inspect_preparation(root, source)
                     self.assertEqual(ready["method"], "existing_alpha")
                     self.assertEqual(ready["prepared_quality"], "not_checked")
@@ -118,7 +118,7 @@ class PublicationBoundaryTests(unittest.TestCase):
                     if len(attempts) < 4:
                         raise windows_error(code)
                     return native_rename(source, destination)
-                with foreground_double(), patch("ai_frame_animation.preparation.infer_foreground_mask", return_value=(mask_fixture(), EVIDENCE)) as infer, patch.object(Path, "rename", flaky), patch("ai_frame_animation.preparation.time.sleep") as sleep:
+                with foreground_double(), patch("ai_image_background_removal.preparation.infer_foreground_mask", return_value=(mask_fixture(), EVIDENCE)) as infer, patch.object(Path, "rename", flaky), patch("ai_image_background_removal.preparation.time.sleep") as sleep:
                     report = self.prepare(root)
                 self.assertEqual(len(set(attempts)), 1)
                 self.assertEqual(len(attempts), 4)
@@ -131,7 +131,7 @@ class PublicationBoundaryTests(unittest.TestCase):
             root = Path(directory)
             source_fixture(root, alpha=True)
             original = (root / "source.png").read_bytes()
-            with patch.object(Path, "rename", side_effect=windows_error()) as rename, patch("ai_frame_animation.preparation.time.sleep") as sleep:
+            with patch.object(Path, "rename", side_effect=windows_error()) as rename, patch("ai_image_background_removal.preparation.time.sleep") as sleep:
                 with self.assertRaisesRegex(ValueError, "^reference_preparation_publish_busy$"):
                     self.prepare(root)
             self.assertEqual(rename.call_count, 4)
@@ -145,7 +145,7 @@ class PublicationBoundaryTests(unittest.TestCase):
             with self.subTest(error=type(error).__name__), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 source_fixture(root, alpha=True)
-                with patch.object(Path, "rename", side_effect=error) as rename, patch("ai_frame_animation.preparation.time.sleep") as sleep:
+                with patch.object(Path, "rename", side_effect=error) as rename, patch("ai_image_background_removal.preparation.time.sleep") as sleep:
                     with self.assertRaisesRegex(ValueError, "^reference_preparation_publish_failed$"):
                         self.prepare(root)
                 rename.assert_called_once()
@@ -158,7 +158,7 @@ class PublicationBoundaryTests(unittest.TestCase):
             def concurrent_publish(_delay):
                 (root / "prepared").mkdir()
                 (root / "prepared/other-owner.txt").write_text("keep", encoding="utf-8")
-            with patch.object(Path, "rename", side_effect=windows_error()) as rename, patch("ai_frame_animation.preparation.time.sleep", side_effect=concurrent_publish):
+            with patch.object(Path, "rename", side_effect=windows_error()) as rename, patch("ai_image_background_removal.preparation.time.sleep", side_effect=concurrent_publish):
                 with self.assertRaisesRegex(ValueError, "^reference_preparation_output_exists$"):
                     self.prepare(root)
             rename.assert_called_once()
@@ -172,7 +172,7 @@ class PublicationBoundaryTests(unittest.TestCase):
             def mutate(_delay):
                 staged = next(root.glob(".*.preparing"))
                 (staged / "cutout.png").write_bytes(b"changed fixture")
-            with patch.object(Path, "rename", side_effect=windows_error()) as rename, patch("ai_frame_animation.preparation.time.sleep", side_effect=mutate):
+            with patch.object(Path, "rename", side_effect=windows_error()) as rename, patch("ai_image_background_removal.preparation.time.sleep", side_effect=mutate):
                 with self.assertRaisesRegex(ValueError, "^reference_preparation_staging_changed$"):
                     self.prepare(root)
             rename.assert_called_once()
@@ -188,7 +188,7 @@ class PublicationBoundaryTests(unittest.TestCase):
                 native_rename(staged, root / "retained-original-stage")
                 staged.mkdir()
                 (staged / "other-owner.txt").write_text("keep", encoding="utf-8")
-            with patch.object(Path, "rename", side_effect=windows_error()), patch("ai_frame_animation.preparation.time.sleep", side_effect=replace):
+            with patch.object(Path, "rename", side_effect=windows_error()), patch("ai_image_background_removal.preparation.time.sleep", side_effect=replace):
                 with self.assertRaisesRegex(ValueError, "reference_preparation_staging_changed:staging_cleanup_failed"):
                     self.prepare(root)
             self.assertEqual(next(root.glob(".*.preparing/other-owner.txt")).read_text(), "keep")
@@ -200,7 +200,7 @@ class PublicationBoundaryTests(unittest.TestCase):
             source_fixture(root, alpha=True)
             output = io.StringIO()
             error = io.StringIO()
-            with patch.object(Path, "rename", side_effect=windows_error()), patch("ai_frame_animation.preparation.time.sleep"), patch("ai_frame_animation.preparation.shutil.rmtree", side_effect=PermissionError("fixture")), contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
+            with patch.object(Path, "rename", side_effect=windows_error()), patch("ai_image_background_removal.preparation.time.sleep"), patch("ai_image_background_removal.preparation.shutil.rmtree", side_effect=PermissionError("fixture")), contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
                 code = main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared"])
             self.assertEqual(code, 2)
             self.assertEqual(output.getvalue(), "")

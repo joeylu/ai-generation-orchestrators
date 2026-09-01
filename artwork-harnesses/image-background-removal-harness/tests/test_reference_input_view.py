@@ -4,16 +4,15 @@ from pathlib import Path
 from unittest.mock import Mock,patch
 import numpy as np
 from PIL import Image,ImageDraw,ImageOps
-from ai_frame_animation.canonical import fingerprint,stamp_document,write_json_atomic
-from ai_frame_animation.preparation import prepare_reference,load_preparation,inspect_preparation
-from ai_frame_animation.media.reference_input_view import PROFILE,WARNING,primary_input_view
-from ai_frame_animation.media.dual_segmentation import BACKEND,ISNET
-from ai_frame_animation.cli import main,_check_reference
-from ai_frame_animation.planning import compile_plan
+from ai_image_background_removal.canonical import fingerprint,stamp_document,write_json_atomic
+from ai_image_background_removal.preparation import prepare_reference,load_preparation,inspect_preparation
+from ai_image_background_removal.media.reference_input_view import PROFILE,WARNING,primary_input_view
+from ai_image_background_removal.media.dual_segmentation import BACKEND,ISNET
+from ai_image_background_removal.cli import main
 from reference_doubles import foreground_double
 ROOT=Path(__file__).parents[3]
 sys.path.insert(0,str(ROOT/'.github'))
-from release_tools.build_release_metadata import BACKGROUND_SKILL_ROOT,SDIST_SUPPORT_FILES
+from release_tools.build_release_metadata import BACKGROUND_SKILL_ROOT,BACKGROUND_SDIST_SUPPORT_FILES
 
 CASE=json.loads((Path(__file__).parent/'fixtures/golden/reference-jpeg-input-view-cases.json').read_text(encoding='utf-8'))
 VERSION='ai_frame_animation_reference_preparation_v7'
@@ -28,11 +27,11 @@ def artwork():
 
 class InputViewBehaviorTests(unittest.TestCase):
     def test_new_fixture_and_test_are_in_source_distribution_contract(self):
-        fixture=f'{BACKGROUND_SKILL_ROOT.as_posix()}/tests/fixtures/golden/reference-jpeg-input-view-cases.json'
-        test=f'{BACKGROUND_SKILL_ROOT.as_posix()}/tests/test_reference_input_view.py'
-        self.assertIn(fixture,SDIST_SUPPORT_FILES);self.assertIn(test,SDIST_SUPPORT_FILES)
-        manifest=(ROOT/'MANIFEST.in').read_text(encoding='utf-8')
-        self.assertIn('recursive-include artwork-harnesses *.md *.json *.yaml *.py',manifest)
+        fixture='tests/fixtures/golden/reference-jpeg-input-view-cases.json'
+        test='tests/test_reference_input_view.py'
+        self.assertIn(fixture,BACKGROUND_SDIST_SUPPORT_FILES);self.assertIn(test,BACKGROUND_SDIST_SUPPORT_FILES)
+        manifest=(ROOT/BACKGROUND_SKILL_ROOT/'MANIFEST.in').read_text(encoding='utf-8')
+        self.assertIn('recursive-include tests *.py *.json *.md',manifest)
     def test_fixed_view_speckle_changes_only_copy(self):
         source=artwork().convert('RGBA');before=source.tobytes();out=primary_input_view(source,'JPEG')
         self.assertEqual(source.tobytes(),before);self.assertEqual(out.size,source.size);self.assertEqual(out.mode,'RGB')
@@ -67,10 +66,10 @@ class InputViewPreparationTests(unittest.TestCase):
             return mask,self.evidence[key]
         def start(name,**kwargs):
             p=patch(name,**kwargs);m=p.start();self.addCleanup(p.stop);return m
-        self.first=start('ai_frame_animation.media.segmentation.infer_birefnet_mask',side_effect=lambda im,*args:fake(im,'primary'))
-        self.single=start('ai_frame_animation.preparation.infer_foreground_mask',side_effect=lambda im,*args:fake(im,'primary'))
-        self.second=start('ai_frame_animation.media.dual_segmentation.infer_isnet_mask',side_effect=lambda im,*args:fake(im,'auxiliary'))
-        start('ai_frame_animation.media.dual_segmentation._runtime')
+        self.first=start('ai_image_background_removal.media.segmentation.infer_birefnet_mask',side_effect=lambda im,*args:fake(im,'primary'))
+        self.single=start('ai_image_background_removal.preparation.infer_foreground_mask',side_effect=lambda im,*args:fake(im,'primary'))
+        self.second=start('ai_image_background_removal.media.dual_segmentation.infer_isnet_mask',side_effect=lambda im,*args:fake(im,'auxiliary'))
+        start('ai_image_background_removal.media.dual_segmentation._runtime')
         self.rgb=Mock(side_effect=lambda rgb,alpha:rgb.copy())
         ctx=foreground_double(self.rgb);ctx.__enter__();self.addCleanup(ctx.__exit__,None,None,None)
     def source(self,name='source.jpg'):
@@ -116,9 +115,9 @@ class InputViewPreparationTests(unittest.TestCase):
         self.first.reset_mock();self.second.reset_mock();self.rgb.reset_mock();r=self.prepare('alpha',reference='transparent.jpg')
         self.assertEqual(r['method'],'existing_alpha');self.assertNotIn('input_view',r)
         self.first.assert_not_called();self.second.assert_not_called();self.rgb.assert_not_called()
-    def test_plan_binds_v7_digest_without_compute(self):
-        r=self.prepare();plan=compile_plan(self.job(),self.root,prepared_reference='out/preparation.json');_check_reference(self.root,plan)
-        self.assertEqual(plan['character']['reference_preparation']['sha256'],r['preparation_sha256'])
+    def test_v7_roundtrip_binds_foreground(self):
+        r=self.prepare();self.assertEqual(load_preparation(self.root,'out/preparation.json'),r)
+        self.assertEqual(r['foreground']['path'],'out/foreground.png')
         self.assertFalse((self.root/'.ai-frame-animation/attempts').exists())
     def test_doctor_static_redacted_and_exposes_tradeoff(self):
         result=inspect_preparation(self.root,'source.jpg',self.config)
@@ -165,7 +164,7 @@ class InputViewPreparationTests(unittest.TestCase):
         r['cutout'].update(fingerprint(p));self.save(r)
         with self.assertRaisesRegex(ValueError,'alpha_mismatch'):load_preparation(self.root,'out/preparation.json')
     def test_v7_correction_parent_preview_gate_remains_required(self):
-        from ai_frame_animation.correction import preview_correction,apply_correction
+        from ai_image_background_removal.correction import preview_correction,apply_correction
         self.prepare(dual=False)
         preview=preview_correction(root=self.root,prepared_reference='out/preparation.json',region=[48,48,64,64],background_point=[55,55],out_dir='preview')
         with self.assertRaisesRegex(ValueError,'confirmation_mismatch'):apply_correction(root=self.root,preview_path='preview/correction.json',confirm_correction_sha256='0'*64,out_dir='refused')

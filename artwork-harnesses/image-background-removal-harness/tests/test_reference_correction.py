@@ -14,13 +14,12 @@ from unittest.mock import patch
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ai_frame_animation.canonical import fingerprint, load_json, stamp_document, write_json_atomic
-from ai_frame_animation.cli import _check_reference, main
-from ai_frame_animation.correction import _calculate, _parameters, apply_correction, load_correction_preview, preview_correction
-from ai_frame_animation.planning import compile_plan
-from ai_frame_animation.preparation import load_preparation, prepare_reference
+from ai_image_background_removal.canonical import fingerprint, load_json, stamp_document, write_json_atomic
+from ai_image_background_removal.cli import main
+from ai_image_background_removal.correction import _calculate, _parameters, apply_correction, load_correction_preview, preview_correction
+from ai_image_background_removal.preparation import load_preparation, prepare_reference
 from reference_doubles import foreground_double
-from test_reference_preparation import EVIDENCE, job_fixture
+from test_reference_preparation import EVIDENCE
 
 CASE = json.loads((Path(__file__).parent / "fixtures/golden/reference-local-correction-cases.json").read_text(encoding="utf-8"))
 
@@ -37,7 +36,7 @@ def fixture(root):
     ImageDraw.Draw(mask).rectangle(CASE["body"], fill=254)
     for index, alpha in enumerate(CASE["soft_alpha_values"]):
         mask.putpixel((64, 95+index), alpha)
-    with patch("ai_frame_animation.preparation.infer_foreground_mask", return_value=(mask, EVIDENCE)), foreground_double():
+    with patch("ai_image_background_removal.preparation.infer_foreground_mask", return_value=(mask, EVIDENCE)), foreground_double():
         return prepare_reference(root=root, reference="source.png", out_dir="base")
 
 
@@ -53,10 +52,10 @@ class ReferenceCorrectionTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.base = fixture(self.root)
-        self.guard = patch("ai_frame_animation.preparation.infer_foreground_mask", side_effect=AssertionError("correction must never infer"))
+        self.guard = patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=AssertionError("correction must never infer"))
         self.guard.start()
         self.addCleanup(self.guard.stop)
-        self.matte = patch("ai_frame_animation.preparation.refine_reference_matte", side_effect=AssertionError("correction must never call model matting"))
+        self.matte = patch("ai_image_background_removal.preparation.refine_reference_matte", side_effect=AssertionError("correction must never call model matting"))
         self.matte.start()
         self.addCleanup(self.matte.stop)
 
@@ -80,7 +79,7 @@ class ReferenceCorrectionTests(unittest.TestCase):
         self.assertEqual(original, {p: fingerprint(self.root / p) for p in original})
         self.assertFalse((self.root / "preview/preparation.json").exists())
         with self.assertRaises(ValueError):
-            compile_plan(job_fixture(), self.root, prepared_reference="preview/correction.json")
+            load_preparation(self.root, "preview/correction.json")
 
     def test_confirmed_apply_creates_v5_binds_original_and_is_plan_compatible(self):
         result = preview(self.root)
@@ -91,9 +90,6 @@ class ReferenceCorrectionTests(unittest.TestCase):
         self.assertEqual(applied["schema_version"], "ai_frame_animation_reference_preparation_v5")
         self.assertEqual(applied["matting"]["alpha_policy"], "confirmed_region_only")
         self.assertEqual((self.root / "preview/cutout.png").read_bytes(), (self.root / "corrected/cutout.png").read_bytes())
-        plan = compile_plan(job_fixture(), self.root, prepared_reference="corrected/preparation.json")
-        _check_reference(self.root, plan)
-        self.assertEqual(plan["character"]["reference_preparation"]["sha256"], applied["preparation_sha256"])
         self.assertEqual(load_preparation(self.root, "base/preparation.json"), self.base)
 
     def test_missing_or_wrong_confirmation_never_publishes(self):
@@ -137,12 +133,12 @@ class ReferenceCorrectionTests(unittest.TestCase):
                 confirm_correction_sha256=result["correction_sha256"], out_dir="blocked")
 
     def test_parent_changes_during_preview_are_detected_before_publish(self):
-        from ai_frame_animation.correction import _review_images
+        from ai_image_background_removal.correction import _review_images
         def changed(*args):
             images = _review_images(*args)
             (self.root / "source.png").write_bytes(b"changed-by-test-double")
             return images
-        with patch("ai_frame_animation.correction._review_images", side_effect=changed):
+        with patch("ai_image_background_removal.correction._review_images", side_effect=changed):
             with self.assertRaises(ValueError):
                 preview(self.root)
         self.assertFalse((self.root / "preview").exists())
@@ -162,7 +158,7 @@ class ReferenceCorrectionTests(unittest.TestCase):
 
     def test_apply_reserves_new_report_in_chain_budget_before_publication(self):
         result = preview(self.root)
-        with patch("ai_frame_animation.correction.load_correction_preview", wraps=load_correction_preview) as loader:
+        with patch("ai_image_background_removal.correction.load_correction_preview", wraps=load_correction_preview) as loader:
             apply_correction(root=self.root, preview_path="preview/correction.json",
                 confirm_correction_sha256=result["correction_sha256"], out_dir="corrected")
         self.assertTrue(loader.call_args_list)
@@ -296,7 +292,7 @@ class ReferenceCorrectionTests(unittest.TestCase):
         self.assertEqual(json.loads(stream.getvalue())["status"], "prepared_requires_visual_review")
 
     def test_publish_failure_does_not_change_parent_or_create_success(self):
-        with patch("ai_frame_animation.correction._publish_preparation", side_effect=ValueError("fixture_publish_failed")):
+        with patch("ai_image_background_removal.correction._publish_preparation", side_effect=ValueError("fixture_publish_failed")):
             with self.assertRaisesRegex(ValueError, "fixture_publish_failed"):
                 preview(self.root)
         self.assertFalse((self.root / "preview").exists())

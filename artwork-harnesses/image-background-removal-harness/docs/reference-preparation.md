@@ -7,7 +7,7 @@ The program preserves the original and does not redraw missing character parts.
 ```text
 original -> existing alpha OR BiRefNet General CPU -> foreground-colour estimation
          -> cutout.png -> proportional canvas fit -> foreground.png + review
-         -> plan -> one video-compute confirmation -> run -> process -> validate
+         -> handoff.json -> optional consumer plan / MCP return
 ```
 
 ## Explicit local setup
@@ -17,7 +17,7 @@ the optional `segmentation` extra: ONNX Runtime CPU and PyMatting 1.1.15.
 Install it from the exact verified release wheel only after setup authorization:
 
 ```powershell
-python -m pip install ".\ai_frame_animation-<version>-py3-none-any.whl[segmentation]"
+python -m pip install ".\ai_image_background_removal-<version>-py3-none-any.whl[segmentation]"
 ```
 
 The core does not depend on rembg, its CLI, Web packages or GPU extras.
@@ -55,10 +55,10 @@ and requires its digest confirmation before producing a new preparation.
 ## Invocation
 
 ```powershell
-ai-frame-animation doctor --root my-animation --reference reference.png --preparation-config my-animation/.ai-frame-animation/segmentation.json
-ai-frame-animation prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+ai-image-background-removal doctor --root my-animation --reference reference.png --config my-animation/.ai-frame-animation/segmentation.json
+ai-image-background-removal prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
 # Inspect cutout.png, foreground.png, review/ and warnings before video compute.
-ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/preparation.json --out work/plan.json
+ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/handoff.json --out work/plan.json
 ```
 
 `doctor` checks files and optional packages statically; it does not import the
@@ -86,6 +86,9 @@ failure. The Agent reviews output before requesting the one video confirmation.
   binding original, cutout and fitted foreground fingerprints; model digest,
   runtime versions, method, alpha policy, changed-RGB count, fit and warnings.
   It contains no private model path.
+- `handoff.json`: producer-neutral, digest-bound transfer contract for another
+  Harness. A local CLI or MCP adapter must materialize this file together with
+  every referenced artifact; the Agent must not construct or repair it.
 - Original artwork: unchanged; the job continues to name it.
 
 For model preparation, matting evidence is `foreground_ml_v1` with
@@ -93,10 +96,10 @@ For model preparation, matting evidence is `foreground_ml_v1` with
 `preserve_source`. Zero-alpha RGB is zeroed. Supplied source transparency is
 not increased if a partially transparent image still needs segmentation.
 
-Plans bind the report digest. Loading preparation and checking the plan verifies
-its source, cutout and foreground artifacts. Changing one requires a new
-preparation/plan and fresh video confirmation. Existing output directories are
-never overwritten.
+Video plans bind the neutral handoff digest. Loading it verifies the source,
+foreground and producer report artifacts without importing this package.
+Changing one requires a new preparation/handoff/plan and fresh video confirmation.
+Existing output directories are never overwritten.
 
 ## Migrating the old reference processor
 

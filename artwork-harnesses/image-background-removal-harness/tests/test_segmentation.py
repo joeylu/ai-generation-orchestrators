@@ -9,8 +9,8 @@ from unittest.mock import Mock, patch
 import numpy as np
 from PIL import Image
 
-from ai_frame_animation.canonical import fingerprint, write_json_atomic
-from ai_frame_animation.media.segmentation import infer_foreground_mask, inspect_segmenter
+from ai_image_background_removal.canonical import fingerprint, write_json_atomic
+from ai_image_background_removal.media.segmentation import infer_foreground_mask, inspect_segmenter
 
 
 def runtime_double(prediction=None):
@@ -116,14 +116,14 @@ class SegmentationTests(unittest.TestCase):
 
     def test_changed_bytes_between_checks_and_session_are_rejected(self):
         runtime,_ = runtime_double()
-        with patch("ai_frame_animation.media.segmentation.sha256_file",return_value=self.settings["model_sha256"]), patch.dict("sys.modules",{"onnxruntime":runtime}):
+        with patch("ai_image_background_removal.media.segmentation.sha256_file",return_value=self.settings["model_sha256"]), patch.dict("sys.modules",{"onnxruntime":runtime}):
             self.model.write_bytes(b"changed-after-check")
             with self.assertRaisesRegex(ValueError,"model_digest_mismatch"):
                 infer_foreground_mask(Image.new("RGB",(64,64)),self.config)
         runtime.InferenceSession.assert_not_called()
 
     def test_inspection_checks_optional_packages_without_import_or_inference(self):
-        with patch("importlib.util.find_spec",return_value=object()), patch("ai_frame_animation.media.segmentation.infer_foreground_mask") as infer:
+        with patch("importlib.util.find_spec",return_value=object()), patch("ai_image_background_removal.media.segmentation.infer_foreground_mask") as infer:
             report = inspect_segmenter(self.config)
         infer.assert_not_called()
         self.assertEqual(report["backend"],"onnx_birefnet")

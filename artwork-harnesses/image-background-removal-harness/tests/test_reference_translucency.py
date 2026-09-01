@@ -10,8 +10,8 @@ from unittest.mock import Mock, patch
 import numpy as np
 from PIL import Image
 
-from ai_frame_animation.media.reference_matte import refine_reference_matte
-from ai_frame_animation.preparation import load_preparation, prepare_reference
+from ai_image_background_removal.media.reference_matte import refine_reference_matte
+from ai_image_background_removal.preparation import load_preparation, prepare_reference
 from reference_doubles import foreground_double
 
 
@@ -48,9 +48,9 @@ class ReferenceTranslucencyTests(unittest.TestCase):
             source = root / "reference.png"
             truth.save(source)
             original = source.read_bytes()
-            with patch("ai_frame_animation.preparation.infer_foreground_mask", side_effect=AssertionError("segmentation forbidden")) as segmenter, patch(
-                "ai_frame_animation.preparation.refine_reference_matte", side_effect=AssertionError("matting forbidden")
-            ) as matte, patch("ai_frame_animation.preparation.inspect_matting_runtime", side_effect=AssertionError("optional runtime forbidden")):
+            with patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=AssertionError("segmentation forbidden")) as segmenter, patch(
+                "ai_image_background_removal.preparation.refine_reference_matte", side_effect=AssertionError("matting forbidden")
+            ) as matte, patch("ai_image_background_removal.preparation.inspect_matting_runtime", side_effect=AssertionError("optional runtime forbidden")):
                 report = prepare_reference(root=root, reference="reference.png", out_dir="prepared")
             segmenter.assert_not_called()
             matte.assert_not_called()
@@ -98,7 +98,7 @@ class ReferenceTranslucencyTests(unittest.TestCase):
             root = Path(temporary)
             source.save(root / "reference.png")
             model_evidence = {"backend":"onnx_birefnet","model_sha256":"a"*64,"execution":"local_cpu","runtime_version":"fixture"}
-            with patch("ai_frame_animation.preparation.infer_foreground_mask",return_value=(Image.fromarray(erased),model_evidence)), foreground_double(Mock(return_value=np.asarray(truth)[...,:3]/255.0)):
+            with patch("ai_image_background_removal.preparation.infer_foreground_mask",return_value=(Image.fromarray(erased),model_evidence)), foreground_double(Mock(return_value=np.asarray(truth)[...,:3]/255.0)):
                 report = prepare_reference(root=root,reference="reference.png",out_dir="prepared")
             self.assertTrue(report["quality"]["visual_review_required"])
             with Image.open(root / "prepared/cutout.png") as cutout:

@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ai_frame_animation.media.reference_matte import inspect_matting_runtime, refine_reference_matte
+from ai_image_background_removal.media.reference_matte import inspect_matting_runtime, refine_reference_matte
 from reference_doubles import foreground_double
 
 
@@ -112,9 +112,9 @@ class ReferenceMatteTests(unittest.TestCase):
         estimator.assert_called_once()
 
     def test_readiness_is_static_and_missing_runtime_is_setup_issue(self):
-        with patch("ai_frame_animation.media.reference_matte.importlib.util.find_spec",return_value=None), self.assertRaisesRegex(ValueError,"runtime_missing"):
+        with patch("ai_image_background_removal.media.reference_matte.importlib.util.find_spec",return_value=None), self.assertRaisesRegex(ValueError,"runtime_missing"):
             inspect_matting_runtime()
-        with patch("ai_frame_animation.media.reference_matte.importlib.util.find_spec",return_value=object()), patch("ai_frame_animation.media.reference_matte.load_foreground_estimator") as loader:
+        with patch("ai_image_background_removal.media.reference_matte.importlib.util.find_spec",return_value=object()), patch("ai_image_background_removal.media.reference_matte.load_foreground_estimator") as loader:
             inspect_matting_runtime()
             loader.assert_not_called()
 

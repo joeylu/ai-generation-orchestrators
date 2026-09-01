@@ -2,7 +2,7 @@ import unittest,json
 from pathlib import Path
 import numpy as np
 from scipy import ndimage  # Preload before sys.modules runtime doubles restore their snapshot.
-from ai_frame_animation.media.reference_fusion import fuse_masks
+from ai_image_background_removal.media.reference_fusion import fuse_masks
 
 CASE=json.loads((Path(__file__).parent/'fixtures/golden/reference-fusion-cases.json').read_text(encoding='utf-8'))
 

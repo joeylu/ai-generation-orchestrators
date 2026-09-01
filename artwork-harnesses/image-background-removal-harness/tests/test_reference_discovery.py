@@ -7,20 +7,15 @@ import io
 import json
 from pathlib import Path
 import shlex
-import sys
 import unittest
 
-ROOT = Path(__file__).parents[3]
 HARNESS = Path(__file__).parents[1]
-sys.path.insert(0, str(ROOT / ".github"))
 
-from ai_frame_animation.cli import (
-    build_parser, command_correct_apply, command_correct_preview, command_plan,
+from ai_image_background_removal.cli import (
+    build_parser, command_correct_apply, command_correct_preview,
 )
-from release_tools.build_release_metadata import BACKGROUND_SKILL_ROOT, SDIST_SUPPORT_FILES
 
-
-SKILL = ROOT / "artwork-harnesses/video-sequence-harness/character"
+SKILL = HARNESS
 REGISTRY = HARNESS / "docs/reference-acceptance-v1.json"
 
 
@@ -37,21 +32,20 @@ class ReferenceDiscoveryTests(unittest.TestCase):
     def test_documented_correction_commands_parse_to_separate_handlers(self):
         # Exercise the actual examples, without calling handlers, reading images,
         # creating attempts or requiring a model in an installed environment.
-        for document in (HARNESS / "docs/reference-correction.md", SKILL / "SKILL.md"):
-            with self.subTest(document=document.name):
-                examples = [shlex.split(line) for line in document.read_text(encoding="utf-8").splitlines()
-                    if line.startswith("ai-frame-animation ")]
-                parsed = [build_parser().parse_args(command[1:]) for command in examples]
-                self.assertEqual([item.handler for item in parsed],
-                    [command_correct_preview, command_correct_apply, command_plan])
-                preview, apply, plan = parsed
-                self.assertEqual((preview.region, preview.background_point), ([88, 62, 112, 86], [100, 74]))
-                self.assertEqual(Path(apply.preview), Path(preview.out_dir) / "correction.json")
-                self.assertEqual(Path(plan.prepared_reference), Path(apply.out_dir) / "preparation.json")
-                self.assertNotEqual(preview.prepared_reference, plan.prepared_reference)
-                self.assertEqual(apply.confirm_correction_sha256, "<approved-correction-sha256>")
-                self.assertEqual(preview.root, apply.root)
-                self.assertEqual(apply.root, plan.root)
+        document = HARNESS / "docs/reference-correction.md"
+        examples = [shlex.split(line) for line in document.read_text(encoding="utf-8").splitlines()
+            if line.startswith("ai-image-background-removal ")]
+        parsed = [build_parser().parse_args(command[1:]) for command in examples]
+        self.assertEqual([item.handler for item in parsed],
+            [command_correct_preview, command_correct_apply])
+        preview, apply = parsed
+        self.assertEqual((preview.region, preview.background_point), ([88, 62, 112, 86], [100, 74]))
+        self.assertEqual(Path(apply.preview), Path(preview.out_dir) / "correction.json")
+        self.assertEqual(apply.confirm_correction_sha256, "<approved-correction-sha256>")
+        self.assertEqual(preview.root, apply.root)
+        skill_text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("correct preview", skill_text)
+        self.assertIn("correct apply", skill_text)
 
     def test_apply_discovery_does_not_make_confirmation_optional(self):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
@@ -167,16 +161,14 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                 self.assertNotIn("..", Path(value).parts)
                 self.assertNotIn("\\", value)
                 self.assertTrue((HARNESS / value).is_file())
-                public_value = f"{BACKGROUND_SKILL_ROOT.as_posix()}/{value}"
-                self.assertIn(public_value, SDIST_SUPPORT_FILES)
+                self.assertTrue((HARNESS / value).is_file())
 
     def test_acceptance_docs_and_registry_are_source_distribution_support_files(self):
         for name in ("docs/reference-acceptance.md", "docs/reference-acceptance-v1.json", "tests/test_reference_discovery.py"):
-            public_name = f"{BACKGROUND_SKILL_ROOT.as_posix()}/{name}"
-            self.assertIn(public_name, SDIST_SUPPORT_FILES)
             self.assertTrue((HARNESS / name).is_file())
-        directives = [shlex.split(line) for line in (ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()]
-        self.assertIn(["recursive-include", "artwork-harnesses", "*.md", "*.json", "*.yaml", "*.py"], directives)
+        directives = [shlex.split(line) for line in (HARNESS / "MANIFEST.in").read_text(encoding="utf-8").splitlines()]
+        self.assertIn(["recursive-include", "docs", "*.md", "*.json"], directives)
+        self.assertIn(["recursive-include", "tests", "*.py", "*.json", "*.md"], directives)
 
 
 if __name__ == "__main__":

@@ -3,8 +3,8 @@ from pathlib import Path
 from unittest.mock import patch
 import numpy as np
 from PIL import Image
-from ai_frame_animation.canonical import fingerprint,write_json_atomic
-from ai_frame_animation.media.dual_segmentation import BACKEND,ISNET,inspect_dual_segmenter,infer_isnet_mask,infer_dual_masks
+from ai_image_background_removal.canonical import fingerprint,write_json_atomic
+from ai_image_background_removal.media.dual_segmentation import BACKEND,ISNET,inspect_dual_segmenter,infer_isnet_mask,infer_dual_masks
 from test_segmentation import runtime_double
 
 class DualSegmentationTests(unittest.TestCase):
@@ -56,17 +56,17 @@ class DualSegmentationTests(unittest.TestCase):
         r.InferenceSession.assert_not_called();self.assertNotIn(str(self.root),str(result));self.assertNotIn('model_path',str(result))
     def test_missing_aux_stops_before_primary_inference(self):
         self.aux.unlink()
-        with patch('ai_frame_animation.media.segmentation.infer_birefnet_mask') as first,self.assertRaisesRegex(ValueError,'model_missing'):infer_dual_masks(self.source,self.config)
+        with patch('ai_image_background_removal.media.segmentation.infer_birefnet_mask') as first,self.assertRaisesRegex(ValueError,'model_missing'):infer_dual_masks(self.source,self.config)
         first.assert_not_called()
     def test_two_serial_sessions_one_call_each(self):
         r,first=runtime_double();_,second=runtime_double();r.InferenceSession.side_effect=[first,second]
-        with patch('ai_frame_animation.media.dual_segmentation._runtime'),patch.dict('sys.modules',{'onnxruntime':r}):mask,e,m,f=infer_dual_masks(self.source,self.config)
+        with patch('ai_image_background_removal.media.dual_segmentation._runtime'),patch.dict('sys.modules',{'onnxruntime':r}):mask,e,m,f=infer_dual_masks(self.source,self.config)
         self.assertEqual(r.InferenceSession.call_count,2);first.run.assert_called_once();second.run.assert_called_once()
         self.assertEqual(mask.size,self.source.size);self.assertEqual(set(m),{'primary','auxiliary','fused'})
         self.assertEqual(e['primary']['backend'],'onnx_birefnet');self.assertEqual(e['auxiliary']['backend'],ISNET)
     def test_aux_failure_no_primary_fallback(self):
         r,first=runtime_double();_,second=runtime_double();second.run.side_effect=RuntimeError('failed');r.InferenceSession.side_effect=[first,second]
-        with patch('ai_frame_animation.media.dual_segmentation._runtime'),patch.dict('sys.modules',{'onnxruntime':r}),self.assertRaisesRegex(ValueError,'isnet_inference_failed'):infer_dual_masks(self.source,self.config)
+        with patch('ai_image_background_removal.media.dual_segmentation._runtime'),patch.dict('sys.modules',{'onnxruntime':r}),self.assertRaisesRegex(ValueError,'isnet_inference_failed'):infer_dual_masks(self.source,self.config)
         first.run.assert_called_once();second.run.assert_called_once();self.assertEqual(r.InferenceSession.call_count,2)
     def test_bad_nested_config_and_same_model_rejected(self):
         for changed in [{**self.settings,'extra':'no'},{**self.settings,'auxiliary':{**self.settings['primary'],'backend':ISNET}},{**self.settings,'auxiliary':{**self.settings['auxiliary'],'backend':'onnx_birefnet'}}]:

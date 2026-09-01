@@ -23,7 +23,7 @@ point must be inside it and identify residual background with visible alpha.
 For a hypothetical patch at these coordinates:
 
 ```powershell
-ai-frame-animation correct preview --root my-animation --prepared-reference work/reference/r001/preparation.json --region 88 62 112 86 --background-point 100 74 --out-dir work/correction/c001
+ai-image-background-removal correct preview --root my-animation --prepared-reference work/reference/r001/preparation.json --region 88 62 112 86 --background-point 100 74 --out-dir work/correction/c001
 ```
 
 This writes a new directory and returns `correction_requires_confirmation`,
@@ -41,12 +41,13 @@ paint mask. The changed region may contain valid foreground: decline a bad previ
 After the user explicitly approves that exact preview digest:
 
 ```powershell
-ai-frame-animation correct apply --root my-animation --preview work/correction/c001/correction.json --confirm-correction-sha256 <approved-correction-sha256> --out-dir work/reference/r002
-ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r002/preparation.json --out work/plan-r002.json
+ai-image-background-removal correct apply --root my-animation --preview work/correction/c001/correction.json --confirm-correction-sha256 <approved-correction-sha256> --out-dir work/reference/r002
+ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r002/handoff.json --out work/plan-r002.json
 ```
 
-`apply` writes `cutout.png`, `foreground.png`, and a v5 `preparation.json` in the new
-directory. Reviews remain in the fingerprint-bound preview directory. Keep the
+`apply` writes `cutout.png`, `foreground.png`, a v5 `preparation.json`, and a
+neutral `handoff.json` in the new directory. Reviews remain in the
+fingerprint-bound preview directory. Keep the
 preview, all parents and the original artwork available; validation follows this
 provenance chain. It is bounded to sixteen preparation documents and refuses
 cycles/deeper chains. Another explicit correction can use the new preparation.

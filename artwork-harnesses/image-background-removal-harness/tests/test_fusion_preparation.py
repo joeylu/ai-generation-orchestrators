@@ -3,11 +3,10 @@ from pathlib import Path
 from unittest.mock import patch
 import numpy as np
 from PIL import Image,ImageDraw
-from ai_frame_animation.canonical import fingerprint,write_json_atomic,stamp_document
-from ai_frame_animation.preparation import prepare_reference,load_preparation,inspect_preparation
-from ai_frame_animation.planning import compile_plan
-from ai_frame_animation.cli import main,_check_reference
-from ai_frame_animation.media.dual_segmentation import BACKEND,ISNET
+from ai_image_background_removal.canonical import fingerprint,write_json_atomic,stamp_document
+from ai_image_background_removal.preparation import prepare_reference,load_preparation,inspect_preparation
+from ai_image_background_removal.cli import main
+from ai_image_background_removal.media.dual_segmentation import BACKEND,ISNET
 from test_reference_fusion import fixture
 from reference_doubles import foreground_double
 
@@ -25,9 +24,9 @@ class FusionPreparationTests(unittest.TestCase):
         a,b,_=fixture()
         def patched(name,**kwargs):
             p=patch(name,**kwargs);m=p.start();self.addCleanup(p.stop);return m
-        self.first=patched('ai_frame_animation.media.segmentation.infer_birefnet_mask',return_value=(Image.fromarray(a),self.evidence['primary']))
-        self.second=patched('ai_frame_animation.media.dual_segmentation.infer_isnet_mask',return_value=(Image.fromarray(b),self.evidence['auxiliary']))
-        self.runtime=patched('ai_frame_animation.media.dual_segmentation._runtime')
+        self.first=patched('ai_image_background_removal.media.segmentation.infer_birefnet_mask',return_value=(Image.fromarray(a),self.evidence['primary']))
+        self.second=patched('ai_image_background_removal.media.dual_segmentation.infer_isnet_mask',return_value=(Image.fromarray(b),self.evidence['auxiliary']))
+        self.runtime=patched('ai_image_background_removal.media.dual_segmentation._runtime')
         foreground=foreground_double(lambda rgb,alpha:rgb)
         self.matte=foreground.__enter__()
         self.addCleanup(foreground.__exit__,None,None,None)
@@ -35,10 +34,10 @@ class FusionPreparationTests(unittest.TestCase):
     def prepare(self,out,reference='source.png'):return prepare_reference(root=self.root,reference=reference,out_dir=out,config_path=self.config)
     def job(self,reference='source.png'):return {'schema_version':'1.0','job_id':'fusion','character':{'reference':reference,'description':'fixture'},'motion':{'request':'idle','continuity':'loop'},'delivery':{'frame_counts':[16,32,64],'size':512,'quality':'strict','gif':True,'key_color':'auto'},'provider':{'plugin':'fixture'}}
     def save(self,report):write_json_atomic(self.root/'out/preparation.json',stamp_document(report,'preparation_sha256'))
-    def test_v6_roundtrip_plan_and_preflight(self):
+    def test_v6_roundtrip_and_artifact_validation(self):
         self.assertEqual(load_preparation(self.root,'out/preparation.json'),self.report)
-        plan=compile_plan(self.job(),self.root,prepared_reference='out/preparation.json');_check_reference(self.root,plan)
-        self.assertEqual(plan['character']['reference_preparation']['sha256'],self.report['preparation_sha256'])
+        self.assertEqual(self.report['source']['path'],'source.png')
+        self.assertEqual(self.report['foreground']['path'],'out/foreground.png')
         self.first.assert_called_once();self.second.assert_called_once();self.matte.assert_called_once()
     def test_final_alpha_and_zero_rgb(self):
         rgba=np.array(Image.open(self.root/'out/cutout.png'));mask=np.array(Image.open(self.root/'out/fused-mask.png'))
@@ -72,9 +71,6 @@ class FusionPreparationTests(unittest.TestCase):
         result=inspect_preparation(self.root,'source.png',self.config)
         self.assertEqual(result['method'],'local_segmentation_fusion')
         self.assertEqual(result['status'],'ready');self.first.assert_called_once();self.second.assert_called_once();self.assertNotIn(str(self.root),str(result));self.assertNotIn('model_path',str(result))
-    def test_wrong_source_plan_rejected(self):
-        Image.new('RGBA',(128,128),'red').save(self.root/'other.png')
-        with self.assertRaisesRegex(ValueError,'source_mismatch'):compile_plan(self.job('other.png'),self.root,prepared_reference='out/preparation.json')
     def test_original_replacement_invalidates_report(self):
         (self.root/'source.png').write_bytes(b'changed')
         with self.assertRaisesRegex(ValueError,'artifact_changed'):load_preparation(self.root,'out/preparation.json')
@@ -103,7 +99,7 @@ class FusionPreparationTests(unittest.TestCase):
         r=copy.deepcopy(self.report);r['segmentation']['auxiliary']['execution']='gpu';self.save(r)
         with self.assertRaisesRegex(ValueError,'segmentation_invalid'):load_preparation(self.root,'out/preparation.json')
     def test_correction_still_requires_exact_preview_confirmation(self):
-        from ai_frame_animation.correction import preview_correction,apply_correction
+        from ai_image_background_removal.correction import preview_correction,apply_correction
         preview=preview_correction(root=self.root,prepared_reference='out/preparation.json',region=[48,48,64,64],background_point=[55,55],out_dir='preview')
         with self.assertRaisesRegex(ValueError,'confirmation_mismatch'):apply_correction(root=self.root,preview_path='preview/correction.json',confirm_correction_sha256='0'*64,out_dir='wrong')
         report=apply_correction(root=self.root,preview_path='preview/correction.json',confirm_correction_sha256=preview['correction_sha256'],out_dir='corrected')

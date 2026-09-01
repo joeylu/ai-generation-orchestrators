@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ai_frame_animation.media.reference_matte import refine_reference_matte
+from ai_image_background_removal.media.reference_matte import refine_reference_matte
 from reference_doubles import foreground_double
 
 

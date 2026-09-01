@@ -1,26 +1,21 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-import jsonschema
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ai_frame_animation.canonical import fingerprint, load_json, stamp_document, write_json_atomic
-from ai_frame_animation.cli import _check_reference, main
-from ai_frame_animation.media.reference import inspect_generation_reference
-from ai_frame_animation.media.segmentation import infer_foreground_mask
-from ai_frame_animation.planning import compile_plan
-from ai_frame_animation.preparation import inspect_preparation, load_preparation, prepare_reference
-from reference_doubles import foreground_double, provider_fixture
+from ai_image_background_removal.canonical import fingerprint, load_json, stamp_document, write_json_atomic
+from ai_image_background_removal.cli import main
+from ai_image_background_removal.media.segmentation import infer_foreground_mask
+from ai_image_background_removal.preparation import inspect_preparation, load_preparation, prepare_reference
+from reference_doubles import foreground_double
 
 
 EVIDENCE = {"backend": "onnx_birefnet", "model_sha256": "a" * 64, "execution": "local_cpu", "runtime_version": "fixture"}
@@ -50,13 +45,6 @@ def mask_fixture() -> Image.Image:
     return image
 
 
-def job_fixture() -> dict:
-    return {"schema_version": "1.0", "job_id": "fixture", "character": {"reference": "source.png"},
-            "motion": {"request": "run", "continuity": "loop"},
-            "delivery": {"frame_counts": [16], "size": 128, "quality": "strict", "gif": False},
-            "provider": {"plugin": "minimax_h3"}}
-
-
 class ReferencePreparationTests(unittest.TestCase):
     def setUp(self) -> None:
         context = foreground_double()
@@ -64,7 +52,7 @@ class ReferencePreparationTests(unittest.TestCase):
         self.addCleanup(context.__exit__, None, None, None)
 
     def prepare(self, root: Path) -> dict:
-        with patch("ai_frame_animation.preparation.infer_foreground_mask", return_value=(mask_fixture(), EVIDENCE)) as infer:
+        with patch("ai_image_background_removal.preparation.infer_foreground_mask", return_value=(mask_fixture(), EVIDENCE)) as infer:
             report = prepare_reference(root=root, reference="source.png", out_dir="work/prepared")
         infer.assert_called_once()
         return report
@@ -81,7 +69,6 @@ class ReferencePreparationTests(unittest.TestCase):
                     self.assertIn((255, 255, 255, 255), pixels)
                     self.assertTrue(any(0 < pixel[3] < 255 for pixel in pixels))
                     self.assertTrue(all(pixel[:3] == (0, 0, 0) for pixel in pixels if pixel[3] == 0))
-                    self.assertEqual(inspect_generation_reference(image, "#00FF00")["status"], "ready")
                 self.assertEqual(source.read_bytes(), original)
                 self.assertEqual(load_preparation(root, "work/prepared/preparation.json"), report)
                 self.assertFalse((root / ".ai-frame-animation/attempts").exists())
@@ -90,7 +77,7 @@ class ReferencePreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source_fixture(root, alpha=True)
-            with patch("ai_frame_animation.preparation.infer_foreground_mask", side_effect=AssertionError("no model")):
+            with patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=AssertionError("no model")):
                 report = prepare_reference(root=root, reference="source.png", out_dir="prepared")
             self.assertEqual(report["method"], "existing_alpha")
             self.assertEqual(report["quality"]["contain_scale"], 1)
@@ -100,18 +87,14 @@ class ReferencePreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source_fixture(root)
-            with patch("ai_frame_animation.preparation.infer_foreground_mask", return_value=(mask_fixture(), EVIDENCE)), contextlib.redirect_stdout(io.StringIO()):
+            with patch("ai_image_background_removal.preparation.infer_foreground_mask", return_value=(mask_fixture(), EVIDENCE)), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared"]), 0)
             report = load_preparation(root, "prepared/preparation.json")
             self.assertEqual(report["schema_version"], "ai_frame_animation_reference_preparation_v4")
             self.assertEqual(report["matting"]["method"], "foreground_ml_v1")
             with Image.open(root / report["cutout"]["path"]) as image:
                 np.testing.assert_array_equal(np.asarray(image)[...,3], np.asarray(mask_fixture()))
-            plan = compile_plan(job_fixture(), root, prepared_reference="prepared/preparation.json")
-            report["matting"]["runtime_version"] = "changed-fixture"
-            write_json_atomic(root / "prepared/preparation.json", stamp_document(report, "preparation_sha256"))
-            with self.assertRaisesRegex(ValueError, "plan_reference_preparation_changed"):
-                _check_reference(root, plan)
+            self.assertEqual(load_preparation(root, "prepared/preparation.json"), report)
 
     def test_legacy_v1_v2_v3_remain_readable_without_running_old_algorithm(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -131,7 +114,7 @@ class ReferencePreparationTests(unittest.TestCase):
                     legacy["matting"].update(method="uniform_background_seeded_v1", background_points=[[32,42]], confirmed_background_pixels=1)
                     legacy["quality"] = {**original["quality"], "warnings":["background_hint_requires_review"]}
                 write_json_atomic(path, stamp_document(legacy, "preparation_sha256"))
-                with patch("ai_frame_animation.preparation.infer_foreground_mask",side_effect=AssertionError("no old inference")):
+                with patch("ai_image_background_removal.preparation.infer_foreground_mask",side_effect=AssertionError("no old inference")):
                     self.assertEqual(load_preparation(root,path)["schema_version"],legacy["schema_version"])
             for field,value in (("background_points",[]),("background_points",[[-1,42]]),
                                 ("background_points",[[32,42],[32,42]]),("background_points",[[32,True]]),
@@ -167,7 +150,7 @@ class ReferencePreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source_fixture(root)
-            with patch("ai_frame_animation.preparation.infer_foreground_mask") as infer, contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+            with patch("ai_image_background_removal.preparation.infer_foreground_mask") as infer, contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
                 main(["prepare","--root",str(root),"--reference","source.png","--out-dir","prepared","--background-point","32","42"])
             self.assertEqual(error.exception.code,2)
             infer.assert_not_called()
@@ -194,7 +177,7 @@ class ReferencePreparationTests(unittest.TestCase):
                 root = Path(temporary)
                 source = source_fixture(root)
                 before = source.read_bytes()
-                with patch("ai_frame_animation.preparation.infer_foreground_mask", return_value=(mask, {})):
+                with patch("ai_image_background_removal.preparation.infer_foreground_mask", return_value=(mask, {})):
                     with self.assertRaisesRegex(ValueError, code):
                         prepare_reference(root=root, reference="source.png", out_dir="prepared")
                 self.assertFalse((root / "prepared").exists())
@@ -210,35 +193,23 @@ class ReferencePreparationTests(unittest.TestCase):
             (root / "source.png").write_bytes(b"not an image")
             self.assertEqual(inspect_preparation(root, "source.png")["status"], "action_required")
 
-    def test_prepared_plan_binds_original_foreground_report_and_actual_foreground_palette(self) -> None:
-        from importlib import resources
-
+    def test_prepared_report_binds_original_and_foreground(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source_fixture(root, multicolour=True)
             report = self.prepare(root)
-            plan = compile_plan(job_fixture(), root, prepared_reference="work/prepared/preparation.json")
-            self.assertEqual(plan["character"]["reference"], report["foreground"]["path"])
-            self.assertEqual(plan["generation"]["key_analysis"]["reference_mode"], "alpha_foreground")
-            self.assertEqual(plan["character"]["reference_preparation"]["sha256"], report["preparation_sha256"])
-            schema = json.loads(resources.files("ai_frame_animation").joinpath("schemas/plan.schema.json").read_text(encoding="utf-8"))
-            jsonschema.validate(plan, schema)
-            _check_reference(root, plan)
-            # An altered source invalidates preparation even if foreground stays.
+            self.assertEqual(report["source"], {"path": "source.png", **fingerprint(root / "source.png", media_type="image")})
+            self.assertEqual(report["foreground"], {"path": "work/prepared/foreground.png", **fingerprint(root / "work/prepared/foreground.png", media_type="image")})
+            self.assertEqual(load_preparation(root, "work/prepared/preparation.json"), report)
             (root / "source.png").write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "reference_preparation_artifact_changed"):
-                _check_reference(root, plan)
+                load_preparation(root, "work/prepared/preparation.json")
 
     def test_preparation_cannot_be_rebound_to_another_original_or_changed_foreground(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source_fixture(root)
             self.prepare(root)
-            Image.new("RGB", (32, 32), "blue").save(root / "other.png")
-            job = job_fixture()
-            job["character"]["reference"] = "other.png"
-            with self.assertRaisesRegex(ValueError, "reference_preparation_source_mismatch"):
-                compile_plan(job, root, prepared_reference="work/prepared/preparation.json")
             (root / "work/prepared/foreground.png").write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "reference_preparation_artifact_changed"):
                 load_preparation(root, "work/prepared/preparation.json")
@@ -260,38 +231,11 @@ class ReferencePreparationTests(unittest.TestCase):
             root = Path(temporary)
             source_fixture(root)
             before = {p.name: p.read_bytes() for p in root.iterdir()}
-            with patch("ai_frame_animation.preparation.inspect_segmenter", return_value={"backend": "fixture"}), patch("ai_frame_animation.preparation.infer_foreground_mask", side_effect=AssertionError("no inference")), patch("ai_frame_animation.cli.resolve_media_tool", return_value="fixture-tool"), contextlib.redirect_stdout(io.StringIO()) as output:
+            with patch("ai_image_background_removal.preparation.inspect_segmenter", return_value={"backend": "fixture"}), patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=AssertionError("no inference")), contextlib.redirect_stdout(io.StringIO()) as output:
                 result = main(["doctor", "--root", str(root), "--reference", "source.png", "--require-ready"])
             self.assertEqual(result, 0)
             self.assertEqual(json.loads(output.getvalue())["reference_preparation"]["prepared_quality"], "not_checked")
             self.assertEqual({p.name: p.read_bytes() for p in root.iterdir()}, before)
-
-    def test_cli_prepare_then_plan_then_provider_has_one_submission(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source_fixture(root)
-            write_json_atomic(root / "job.json", job_fixture())
-            with patch("ai_frame_animation.preparation.infer_foreground_mask", return_value=(mask_fixture(), EVIDENCE)), contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared"]), 0)
-                self.assertEqual(main(["plan", "--root", str(root), "--job", "job.json", "--prepared-reference", "prepared/preparation.json", "--out", "plan.json"]), 0)
-            plan = load_json(root / "plan.json")
-            provider = provider_fixture(root)
-            self.assertEqual(provider.preflight(plan)["status"], "ready")
-            self.assertFalse((root / ".ai-frame-animation/attempts").exists())
-            def raw_result(_request, destination):
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(b"fixture-not-real-video")
-                return destination
-            command = ["run", "--root", str(root), "--plan", "plan.json", "--provider-config", str(root / "config.json"),
-                       "--confirm-plan-sha256", plan["plan_sha256"], "--attempt-id", "fixture-one", "--raw-out", "work/raw/source.mp4"]
-            with patch("ai_frame_animation.cli.load_provider", return_value=provider), patch.object(provider, "_upload_reference", return_value={"name": "prepared.png"}) as upload, patch.object(provider, "_post_json", return_value={"prompt_id": "fixture"}) as submit, patch.object(provider, "await_result", side_effect=raw_result), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                self.assertEqual(main(command), 0)
-                self.assertEqual(main(command), 2)  # cannot reuse authorization
-            upload.assert_called_once()
-            submit.assert_called_once()
-            from ai_frame_animation.state import AttemptStore
-            self.assertEqual([event["state"] for event in AttemptStore(root / ".ai-frame-animation/attempts", "fixture-one").read()],
-                             ["AUTHORIZED", "GENERATING", "SUBMITTED", "RAW_READY"])
 
     def test_jpeg_source_and_exif_orientation_are_supported(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -304,7 +248,7 @@ class ReferencePreparationTests(unittest.TestCase):
             def segment(image, _config):
                 self.assertEqual(image.size, (64, 96))
                 return mask_fixture().transpose(Image.Transpose.ROTATE_270), EVIDENCE
-            with patch("ai_frame_animation.preparation.infer_foreground_mask", side_effect=segment):
+            with patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=segment):
                 result = prepare_reference(root=root, reference="source.jpg", out_dir="prepared")
             self.assertEqual(result["source"]["path"], "source.jpg")
             with Image.open(root / result["foreground"]["path"]) as image:
@@ -317,12 +261,11 @@ class ReferencePreparationTests(unittest.TestCase):
             self.prepare(root)
             path = root / "work/prepared/preparation.json"
             original = load_json(path)
-            plan = compile_plan(job_fixture(), root, prepared_reference="work/prepared/preparation.json")
             report = load_json(path)
-            report["quality"]["warnings"] = []
+            report["quality"]["warnings"] = ["not_a_public_warning"]
             write_json_atomic(path, stamp_document(report, "preparation_sha256"))
-            with self.assertRaisesRegex(ValueError, "plan_reference_preparation_changed"):
-                _check_reference(root, plan)
+            with self.assertRaisesRegex(ValueError, "reference_preparation_quality_invalid"):
+                load_preparation(root, path)
             original["source"]["path"] = "../outside.png"
             write_json_atomic(path, stamp_document(original, "preparation_sha256"))
             with self.assertRaisesRegex(ValueError, "reference_preparation_path_unsafe"):
@@ -333,7 +276,7 @@ class ReferencePreparationTests(unittest.TestCase):
             root = Path(temporary)
             source_fixture(root, alpha=True)
             before = (root / "source.png").read_bytes()
-            with patch("ai_frame_animation.preparation.write_json_atomic", side_effect=OSError("fixture")):
+            with patch("ai_image_background_removal.preparation.write_json_atomic", side_effect=OSError("fixture")):
                 with self.assertRaises(OSError):
                     prepare_reference(root=root, reference="source.png", out_dir="prepared")
             self.assertEqual((root / "source.png").read_bytes(), before)
