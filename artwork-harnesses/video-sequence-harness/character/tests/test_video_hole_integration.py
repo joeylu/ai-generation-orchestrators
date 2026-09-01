@@ -13,22 +13,16 @@ from unittest.mock import patch
 import numpy as np
 from PIL import Image, ImageDraw, ImageSequence
 
-from ai_frame_animation.canonical import fingerprint, load_json, write_json_atomic
+from ai_frame_animation.canonical import fingerprint, load_json, stamp_document, write_json_atomic
 from ai_frame_animation.cli import main
 from ai_frame_animation.media.matte import parse_hex_color
 from ai_frame_animation.media.gif import PreviewGifError, export_preview_gif
 from ai_frame_animation.media.reference import prepare_generation_reference
-from ai_frame_animation.preparation import load_preparation
 from ai_frame_animation.processing import _rgba_frame
 from ai_frame_animation.validation import _validate_gif
-from reference_doubles import foreground_double
 
 
 CASE = load_json(Path(__file__).parent / "fixtures/golden/moving-hole-cases.json")
-EVIDENCE = {"backend": "onnx_birefnet", "model_sha256": "a" * 64,
-            "execution": "local_cpu", "runtime_version": "fixture"}
-
-
 def moving_subject(index: int) -> tuple[Image.Image, dict]:
     """Independent labelled geometry, never inferred from a processed output."""
     phase = index if index < CASE["source_frames"] - 1 else 0
@@ -79,18 +73,40 @@ class VideoHoleIntegrationTests(unittest.TestCase):
         source = root / "reference.png"
         composite(subject, "white").save(source)
         original = source.read_bytes()
-        # Model double selects the gap; downstream processing must not refill it.
-        # Wrong confident masks are negative controls in reference-matte tests.
-        mask = subject.getchannel("A")
-        self.assertEqual(mask.getpixel(labels["hole"]), 0)
-        with patch("ai_frame_animation.preparation.infer_foreground_mask",
-                   return_value=(mask, EVIDENCE)) as infer, foreground_double(lambda rgb, alpha: np.asarray(subject)[...,:3] / 255.0):
-            self.cli("prepare", "--root", str(root), "--reference", "reference.png",
-                     "--out-dir", "prepared")
-        infer.assert_called_once()
-        report = load_preparation(root, "prepared/preparation.json")
-        self.assertEqual(report["quality"]["contain_scale"], 1)
-        self.assertEqual(report["matting"]["alpha_policy"], "preserve_mask")
+        # Materialize the public contract directly. This producer deliberately
+        # has no dependency on the optional local background-removal package.
+        prepared = root / "prepared"
+        prepared.mkdir()
+        foreground_path = prepared / "foreground.png"
+        subject.save(foreground_path)
+        report = stamp_document(
+            {
+                "schema_version": "fixture_reference_preparation_v1",
+                "source": {"path": "reference.png", **fingerprint(source, media_type="image")},
+                "foreground": {
+                    "path": "prepared/foreground.png",
+                    **fingerprint(foreground_path, media_type="image"),
+                },
+            },
+            "result_sha256",
+        )
+        write_json_atomic(prepared / "preparation.json", report)
+        handoff = stamp_document(
+            {
+                "schema_version": "ai_reference_preparation_handoff_v1",
+                "producer": {"name": "fixture-background-mcp", "version": "1.0"},
+                "source": report["source"],
+                "foreground": report["foreground"],
+                "preparation_report": {
+                    "path": "prepared/preparation.json",
+                    **fingerprint(prepared / "preparation.json", media_type="application/json"),
+                },
+                "producer_result_sha256": report["result_sha256"],
+                "visual_review_required": True,
+            },
+            "handoff_sha256",
+        )
+        write_json_atomic(prepared / "handoff.json", handoff)
         self.assertEqual(source.read_bytes(), original)
         job = {"schema_version": "1.0", "job_id": "moving-hole-fixture",
                "character": {"reference": "reference.png"},
@@ -100,15 +116,13 @@ class VideoHoleIntegrationTests(unittest.TestCase):
                "provider": {"plugin": "fixture"}}
         write_json_atomic(root / "job.json", job)
         self.cli("plan", "--root", str(root), "--job", "job.json", "--out", "plan.json",
-                 "--prepared-reference", "prepared/preparation.json")
+                 "--prepared-reference", "prepared/handoff.json")
         plan = load_json(root / "plan.json")
-        self.assertEqual(plan["character"]["reference_preparation"]["sha256"], report["preparation_sha256"])
-        with Image.open(root / report["foreground"]["path"]) as foreground:
-            bbox = foreground.getchannel("A").getbbox()
-            dx = bbox[0] - report["quality"]["source_bbox"][0]
-            dy = bbox[1] - report["quality"]["source_bbox"][1]
-            hole = (labels["hole"][0] + dx, labels["hole"][1] + dy)
-            white = (labels["white"][0] + dx, labels["white"][1] + dy)
+        self.assertEqual(plan["character"]["reference_preparation"]["sha256"], handoff["handoff_sha256"])
+        self.assertEqual(plan["character"]["reference_preparation"]["path"], "prepared/handoff.json")
+        with Image.open(root / handoff["foreground"]["path"]) as foreground:
+            hole = labels["hole"]
+            white = labels["white"]
             self.assertEqual(foreground.getpixel(hole), (0, 0, 0, 0))
             self.assertEqual(foreground.getpixel(white), (255, 255, 255, 255))
             # Exercise the real run-stage compositor, not the provider or run.

@@ -15,12 +15,10 @@ validated transparent 2D sequence-frame delivery.
 4. Use the [CLI and Agent flow](cli-and-agent-flow.md) when diagnosing individual
    stages.
 5. Read [Quality policies](quality-policies.md) before choosing `best_effort`.
-6. Read [Reference preparation](../../../image-background-removal-harness/docs/reference-preparation.md)
-   for ordinary artwork, optional CPU segmentation and source-versus-mask quality diagnostics.
-7. Use [Local reference correction](../../../image-background-removal-harness/docs/reference-correction.md) only for an identified
-   residual-background patch: preview first, apply after explicit approval.
-8. Read [Reference acceptance](../../../image-background-removal-harness/docs/reference-acceptance.md) for the fixed seen-regression
-   matrix, historical failures and the limits of structural validation.
+6. Read the [neutral preparation handoff](../references/reference-preparation-handoff.md)
+   before connecting a local CLI or MCP producer.
+7. In a repository checkout, the separate [background-removal Harness](../../../image-background-removal-harness/)
+   documents its CPU segmentation, correction, and visual acceptance workflow.
 
 ## Maintainers
 

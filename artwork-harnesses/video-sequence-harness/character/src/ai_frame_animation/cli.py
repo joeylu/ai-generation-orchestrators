@@ -16,10 +16,10 @@ from .handoff import load_decoded_handoff
 from .media_tools import check_ffmpeg_tools, install_ffmpeg, resolve_media_tool
 from .onboarding import initialize_workspace, run_self_test
 from .planning import compile_plan, validate_plan_contract
-from .preparation import inspect_preparation, load_preparation, prepare_reference
 from .processing import process_decoded_handoff, process_video
 from .providers.base import GenerationFailed, GenerationIndeterminate, GenerationNotSubmitted
 from .providers.discovery import load_provider
+from .reference_preparation import load_reference_preparation
 from .state import AttemptStore
 from .validation import inspect_artifact, validate_delivery
 
@@ -48,8 +48,8 @@ def _check_reference(root: Path, plan: Mapping[str, Any]) -> None:
         raise ValueError("plan_reference_changed")
     if "reference_preparation" in character:
         binding = character["reference_preparation"]
-        report = load_preparation(root, binding["path"])
-        if report["preparation_sha256"] != binding["sha256"] or report["foreground"] != {"path": character["reference"], **actual}:
+        report = load_reference_preparation(root, binding["path"])
+        if report["binding_sha256"] != binding["sha256"] or report["foreground"] != {"path": character["reference"], **actual}:
             raise ValueError("plan_reference_preparation_changed")
 
 
@@ -58,10 +58,6 @@ def command_doctor(args: argparse.Namespace) -> int:
         raise ValueError("doctor_provider_and_config_must_be_supplied_together")
     if getattr(args, "plan", None) and not args.provider:
         raise ValueError("doctor_plan_requires_provider")
-    if getattr(args, "reference", None) and getattr(args, "plan", None):
-        raise ValueError("doctor_reference_and_plan_are_separate_stages")
-    if getattr(args, "preparation_config", None) and not getattr(args, "reference", None):
-        raise ValueError("doctor_preparation_config_requires_reference")
     root = args.root.resolve(strict=True)
     packages: dict[str, str] = {}
     for distribution in ("Pillow", "jsonschema", "numpy"):
@@ -109,17 +105,25 @@ def command_doctor(args: argparse.Namespace) -> int:
             }
             if input_report.get("status") != "ready":
                 provider_ready = False
-                actions.append("Run `prepare` on the original artwork, inspect its foreground, then re-plan with --prepared-reference. Resolve workflow diagnostics before compute; users need not supply transparent PNGs.")
+                actions.append(
+                    "Materialize a reviewed preparation handoff from an optional local CLI or MCP service, "
+                    "then re-plan with --prepared-reference. Resolve workflow diagnostics before compute."
+                )
 
-    preparation_report = None
-    if getattr(args, "reference", None):
-        preparation_report = inspect_preparation(root, args.reference, getattr(args, "preparation_config", None))
-        if preparation_report["status"] != "ready":
-            actions.append("Configure the local CPU foreground segmenter for `prepare`, or resolve the source diagnostic. Missing setup does not mean the artwork must be transparent.")
+    preparation_handoff = None
+    if getattr(args, "prepared_reference", None):
+        prepared = load_reference_preparation(root, args.prepared_reference)
+        preparation_handoff = {
+            "status": "ready_for_visual_review",
+            "contract_schema": prepared["contract_schema"],
+            "producer": prepared["producer"],
+            "binding_sha256": prepared["binding_sha256"],
+            "foreground": prepared["foreground"],
+        }
 
     planning_ready = not missing_packages
     processing_ready = planning_ready and not missing_executables
-    requested_ready = processing_ready and provider_ready is not False and (preparation_report is None or preparation_report["status"] == "ready")
+    requested_ready = processing_ready and provider_ready is not False
     report: dict[str, Any] = {
         "schema_version": "ai_frame_animation_doctor_v1",
         "status": "ready" if requested_ready else "action_required",
@@ -135,13 +139,14 @@ def command_doctor(args: argparse.Namespace) -> int:
         "actions": actions,
         "network_probe": "not_performed",
         "provider_compute": "not_performed",
+        "gpu_compute": "not_performed",
     }
     if provider_report is not None:
         report["provider"] = provider_report
     if input_report is not None:
         report["input_preflight"] = input_report
-    if preparation_report is not None:
-        report["reference_preparation"] = preparation_report
+    if preparation_handoff is not None:
+        report["reference_preparation"] = preparation_handoff
     _print(redact(report))
     return 1 if args.require_ready and not requested_ready else 0
 
@@ -189,39 +194,6 @@ def command_plan(args: argparse.Namespace) -> int:
     plan = compile_plan(load_json(job_path), root, prepared_reference=getattr(args, "prepared_reference", None))
     write_json_atomic(out, plan)
     _print({"status": "planned", "plan_sha256": plan["plan_sha256"], "plan": str(out.relative_to(root))})
-    return 0
-
-
-def command_prepare(args: argparse.Namespace) -> int:
-    report = prepare_reference(root=args.root, reference=args.reference, out_dir=args.out_dir, config_path=args.config)
-    _print({"status": "prepared_requires_visual_review", "preparation_sha256": report["preparation_sha256"],
-            "report": str((rooted_path(args.root, args.out_dir) / "preparation.json").relative_to(args.root.resolve(strict=True))).replace("\\", "/"),
-            "foreground": report["foreground"]["path"], "method": report["method"], "quality": report["quality"],
-            "review_dir": str((Path(report["foreground"]["path"]).parent / "review").as_posix()),
-            "provider_compute": "not_performed", "gpu_compute": "not_performed"})
-    return 0
-
-
-def command_correct_preview(args: argparse.Namespace) -> int:
-    from .correction import preview_correction
-    report = preview_correction(root=args.root, prepared_reference=args.prepared_reference,
-        region=args.region, background_point=args.background_point, out_dir=args.out_dir,
-        tolerance=args.tolerance, softness=args.softness)
-    _print({"status": "correction_requires_confirmation", "correction_sha256": report["correction_sha256"],
-        "preview": str((rooted_path(args.root, args.out_dir) / "correction.json").relative_to(args.root.resolve(strict=True))).replace("\\", "/"),
-        "result": report["result"], "review": {name: item["path"] for name, item in report["artifacts"].items() if name.endswith("512.png")},
-        "provider_compute": "not_performed", "gpu_compute": "not_performed"})
-    return 0
-
-
-def command_correct_apply(args: argparse.Namespace) -> int:
-    from .correction import apply_correction
-    report = apply_correction(root=args.root, preview_path=args.preview,
-        confirm_correction_sha256=args.confirm_correction_sha256, out_dir=args.out_dir)
-    _print({"status": "prepared_requires_visual_review", "preparation_sha256": report["preparation_sha256"],
-        "report": str((rooted_path(args.root, args.out_dir) / "preparation.json").relative_to(args.root.resolve(strict=True))).replace("\\", "/"),
-        "foreground": report["foreground"]["path"], "method": report["method"], "quality": report["quality"],
-        "provider_compute": "not_performed", "gpu_compute": "not_performed"})
     return 0
 
 
@@ -371,41 +343,23 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--provider")
     doctor.add_argument("--provider-config", type=Path)
     doctor.add_argument("--plan", type=Path, help="workspace-relative plan for offline generation-input preflight")
-    doctor.add_argument("--reference", type=Path, help="original artwork for offline preparation routing")
-    doctor.add_argument("--preparation-config", type=Path, help="local CPU segmentation configuration; no inference")
+    doctor.add_argument(
+        "--prepared-reference",
+        type=Path,
+        help="workspace-relative neutral handoff.json (legacy preparation.json is temporarily accepted)",
+    )
     doctor.add_argument("--require-ready", action="store_true", help="return nonzero when requested capabilities are not ready")
     doctor.set_defaults(handler=command_doctor)
-
-    prepare = subparsers.add_parser("prepare", help="prepare ordinary artwork locally before video planning; may run CPU segmentation")
-    prepare.add_argument("--root", required=True, type=Path)
-    prepare.add_argument("--reference", required=True, type=Path)
-    prepare.add_argument("--out-dir", required=True, type=Path)
-    prepare.add_argument("--config", type=Path, help="local ONNX segmenter config; not needed for existing foreground alpha")
-    prepare.set_defaults(handler=command_prepare)
-
-    correct = subparsers.add_parser("correct", help="explicit local reference correction: preview first, then digest-confirmed apply")
-    corrections = correct.add_subparsers(dest="correction_command", required=True)
-    preview = corrections.add_parser("preview", help="preview colour-key removal inside one explicit small rectangle; no model or video")
-    preview.add_argument("--root", required=True, type=Path)
-    preview.add_argument("--prepared-reference", required=True, type=Path)
-    preview.add_argument("--region", required=True, nargs=4, type=int, metavar=("X0", "Y0", "X1", "Y1"))
-    preview.add_argument("--background-point", required=True, nargs=2, type=int, metavar=("X", "Y"))
-    preview.add_argument("--tolerance", type=float, default=16.0)
-    preview.add_argument("--softness", type=float, default=16.0)
-    preview.add_argument("--out-dir", required=True, type=Path)
-    preview.set_defaults(handler=command_correct_preview)
-    apply = corrections.add_parser("apply", help="publish exactly the digest-confirmed preview as a new preparation; never overwrites")
-    apply.add_argument("--root", required=True, type=Path)
-    apply.add_argument("--preview", required=True, type=Path)
-    apply.add_argument("--confirm-correction-sha256", required=True)
-    apply.add_argument("--out-dir", required=True, type=Path)
-    apply.set_defaults(handler=command_correct_apply)
 
     plan = subparsers.add_parser("plan", help="compile an immutable plan without compute")
     plan.add_argument("--root", required=True, type=Path)
     plan.add_argument("--job", required=True, type=Path)
     plan.add_argument("--out", required=True, type=Path)
-    plan.add_argument("--prepared-reference", type=Path, help="program-produced preparation.json; binds original and foreground fingerprints")
+    plan.add_argument(
+        "--prepared-reference",
+        type=Path,
+        help="reviewed neutral handoff.json; legacy preparation.json is temporarily accepted",
+    )
     plan.set_defaults(handler=command_plan)
 
     run = subparsers.add_parser("run", help="consume one confirmation and submit at most once")

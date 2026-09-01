@@ -32,11 +32,10 @@ task-specific workflow and references.
 
 ## Installed Skill use
 
-Releases built with the current packaging workflow include
-`skills-2d-frame-animation-video-<version>.zip` and
-`image-background-removal-<version>.zip` in addition to the Python wheel.
-Download the ZIP and wheel from the same fixed release, verify each against that
-release's `SHA256SUMS.txt`, and extract the ZIP into a new directory. Import the
+Each independently versioned Harness release includes its matching Skill ZIP in
+addition to its Python wheel. Download the video ZIP and wheel from the same
+fixed video release, verify each against that release's `SHA256SUMS.txt`, and
+extract the ZIP into a new directory. Import the
 extracted `skills-2d-frame-animation-video/` folder into your Agent; it contains
 the entrypoint, references, metadata, and license, but no duplicate runtime code.
 
@@ -68,6 +67,12 @@ wheel installed. The Skill deliberately contains no executable duplicate of the
 CLI. Follow [Installation](installation.md) to check or explicitly install
 FFmpeg/ffprobe for each workspace.
 
+For local still-image preparation, independently install a locked
+`ai-image-background-removal` release and its Skill. If a configured MCP tool
+materializes a valid handoff instead, the video machine does not need that wheel.
+Do not require the two package versions to match; require the handoff schema and
+artifact checks to pass.
+
 ## Expected interaction
 
 The user supplies natural language and assets. The Agent:
@@ -76,8 +81,9 @@ The user supplies natural language and assets. The Agent:
    on first use, then `tools check` and `doctor` before planning;
    it may call `tools install` only when the user has explicitly asked for or
    approved dependency setup;
-2. writes or updates the job request;
-3. calls `plan` without compute;
+2. for opaque new-generation artwork, invokes an optional background-removal
+   Skill/MCP, shows its foreground, and passes its materialized `handoff.json`;
+3. writes or updates the job request and calls `plan` without compute;
 4. for new generation only, presents the immutable digest and asks once for
    compute confirmation, creates a unique attempt ID, and calls `run` once;
 5. for an existing raw video, skips provider configuration and `run` without

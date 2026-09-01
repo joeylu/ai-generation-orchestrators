@@ -8,7 +8,7 @@ from PIL import Image
 
 from .canonical import SHA256_RE, fingerprint, relative_posix, rooted_path, stamp_document
 from .media.key_analysis import CANDIDATE_KEYS, analyze_key_color
-from .preparation import load_preparation
+from .reference_preparation import load_reference_preparation
 
 
 SUPPORTED_FRAME_COUNTS = (16, 32, 64)
@@ -143,12 +143,13 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
         raise ValueError("character_reference_invalid")
     preparation_binding = None
     if prepared_reference is not None:
-        report = load_preparation(root, prepared_reference)
-        if report["source"] != {"path": relative_posix(root, reference), **fingerprint(reference, media_type="image")}:
+        report = load_reference_preparation(root, prepared_reference)
+        source_fingerprint = fingerprint(reference, media_type="image")
+        if {key: report["source"][key] for key in source_fingerprint} != source_fingerprint:
             raise ValueError("reference_preparation_source_mismatch")
         reference = rooted_path(root, report["foreground"]["path"], must_exist=True)
         preparation_binding = {"path": relative_posix(root, rooted_path(root, prepared_reference, must_exist=True)),
-                               "sha256": report["preparation_sha256"]}
+                               "sha256": report["binding_sha256"]}
 
     continuity = _text(motion.get("continuity"), "motion.continuity")
     if continuity not in SUPPORTED_CONTINUITY:

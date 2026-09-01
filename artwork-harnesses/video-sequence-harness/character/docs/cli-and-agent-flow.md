@@ -61,25 +61,28 @@ provider. Host, workflow, and secret values are redacted. With no explicit tool
 overrides, both `doctor` and `process` first check
 `<root>/.ai-frame-animation/tools/ffmpeg/bin/`, then the system `PATH`.
 
-## 2. Prepare ordinary artwork, then plan without compute
+## 2. Obtain an optional preparation handoff, then plan without compute
 
-For new generation, accept the original image regardless of its background;
-use program-owned preparation, not a demand for a transparent user upload:
+For new generation, accept the original image regardless of its background. A
+meaningful transparent image can be planned directly. Otherwise use an
+independently installed local CLI, or an MCP adapter that materializes the same
+neutral handoff bundle:
 
 ```powershell
-ai-frame-animation doctor --root my-animation --reference reference.png --preparation-config my-animation/.ai-frame-animation/segmentation.json
-ai-frame-animation prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+ai-image-background-removal doctor --root my-animation --reference reference.png --config my-animation/.ai-frame-animation/segmentation.json
+ai-image-background-removal prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
 ```
 
 `doctor` only checks setup; `prepare` may run local CPU foreground segmentation.
 Neither contacts a provider or downloads a model. Omit segmentation config when
 the original already has usable alpha. Review `foreground.png` and warnings,
-then add `--prepared-reference work/reference/r001/preparation.json` to `plan`:
+then add `--prepared-reference work/reference/r001/handoff.json` to `plan`:
 
 ```powershell
 ai-frame-animation plan `
   --root my-animation `
   --job job.json `
+  --prepared-reference work/reference/r001/handoff.json `
   --out work/plan.json
 ```
 
@@ -88,8 +91,10 @@ If a specific residual background hole needs correction, the optional
 flow publishes a new preparation. It is not an automatic step, cannot repair
 missing foreground, and does not consume or replace the one video-compute
 confirmation. The Agent must not approve its own proposed correction or hand-edit
-masks/reports. Use only the resulting `preparation.json`, never the unconfirmed
-preview, in a new plan. Existing plans are left intact.
+masks/reports. Use only the resulting `handoff.json`, never the unconfirmed
+preview, in a new plan. Existing plans are left intact. The video package never
+imports the local background-removal package and does not require a particular
+MCP or producer name.
 
 The plan fingerprints the reference, selects a safe key colour from bounded
 foreground sampling when prepared, fixes continuity/delivery variants, and emits a canonical
