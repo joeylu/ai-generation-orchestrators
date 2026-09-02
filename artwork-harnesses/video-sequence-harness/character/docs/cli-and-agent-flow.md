@@ -40,7 +40,11 @@ it is never an implicit side effect of `doctor`, `plan`, or `process`.
 New workspaces use job schema `1.1` and `delivery.atlas_profiles`. During the
 transition, a `1.0` job containing legacy `frame_counts` is mapped once to the
 equivalent profiles (16 -> 4x4, 32 -> 8x4, 64 -> 8x8). The resulting immutable
-plan is always v2 and no longer treats those capacities as exact frame counts.
+plan no longer treats those capacities as exact frame counts. Without provider
+binding it is v2. Supplying `--provider-config` for a new MiniMax generation
+produces v3 and binds the provider workflow plus square canvas. Omitting it
+leaves a provider-neutral process-only v2 plan; `run` rejects that unbound plan
+before creating or consuming an attempt.
 
 ## 1. Diagnose without compute
 
@@ -104,9 +108,11 @@ MCP or producer name.
 
 The plan fingerprints the reference, selects a safe key colour from bounded
 foreground sampling when prepared, fixes continuity/delivery variants, and emits a canonical
-`plan_sha256`. For MiniMax H3, it also binds the square generation canvas and
-SHA-256 values of the workflow and semantic binding map. Endpoints, secrets,
-workflow paths, and model paths are not part of the plan.
+`plan_sha256`. For new MiniMax H3 generation, `--provider-config` also binds the
+square generation canvas and SHA-256 values of the workflow and semantic binding
+map. Endpoints, secrets, workflow paths, and model paths are not part of the
+plan. Existing-video processing deliberately omits the provider configuration;
+its unbound v2 plan cannot be passed to `run`.
 
 For **new generation only**, now check that exact plan and reference without
 compute, before asking for confirmation:

@@ -269,8 +269,6 @@ def command_plan(args: argparse.Namespace) -> int:
     if provider_config is not None:
         provider = load_provider(str(plugin), config_path=provider_config.resolve(strict=True), root=root)
         provider_binding = provider.plan_binding()
-    elif plugin == "minimax_h3":
-        raise ValueError("provider_config_required_for_immutable_plan")
     plan = compile_plan(
         job,
         root,
@@ -475,7 +473,7 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument(
         "--provider-config",
         type=Path,
-        help="local provider configuration used to bind workflow and square generation canvas",
+        help="bind workflow and square canvas for new generation; omit for a process-only plan",
     )
     plan.add_argument(
         "--prepared-reference",

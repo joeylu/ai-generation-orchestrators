@@ -90,8 +90,10 @@ ai-frame-animation plan `
 The Compiler is provider-neutral. It does not emit endpoints, model IDs,
 resolution profiles, watermark flags, workflow paths, or provider credentials.
 The existing `plan` stage independently selects a safe key colour from the
-verified foreground, binds the compilation report, and locks the local
-provider's square canvas plus workflow/binding digests into the plan digest.
+verified foreground and binds the compilation report. For new generation, its
+explicit provider configuration additionally locks the local provider's square
+canvas plus workflow/binding digests into the plan digest. Omitting provider
+configuration produces a process-only plan that `run` refuses.
 
 ## Clarification and repair policy
 

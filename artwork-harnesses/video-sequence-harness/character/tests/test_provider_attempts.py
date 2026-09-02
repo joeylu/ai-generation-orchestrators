@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from PIL import Image
 
 from ai_frame_animation.canonical import write_json_atomic
-from ai_frame_animation.cli import command_run
+from ai_frame_animation.cli import command_run, main
 from ai_frame_animation.planning import compile_plan
 from ai_frame_animation.providers.base import GenerationIndeterminate, GenerationNotSubmitted
 from ai_frame_animation.providers.minimax_h3 import MiniMaxH3Provider
@@ -163,6 +163,37 @@ class ProviderAttemptTests(unittest.TestCase):
                     command_run(args)
             self.assertFalse((root / "state" / "attempt-legacy").exists())
             self.assertEqual(provider.submit_count, 0)
+
+    def test_minimax_plan_without_config_is_process_only_and_never_loads_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            Image.new("RGBA", (4, 4), (255, 255, 255, 255)).save(root / "reference.png")
+            job = {
+                "schema_version": "1.0",
+                "job_id": "existing-video-process-only",
+                "character": {"reference": "reference.png"},
+                "motion": {"request": "preserve existing idle", "continuity": "loop"},
+                "delivery": {"frame_counts": [16], "size": 128},
+                "provider": {"plugin": "minimax_h3"},
+            }
+            write_json_atomic(root / "job.json", job)
+            with patch(
+                "ai_frame_animation.cli.load_provider",
+                side_effect=AssertionError("provider must not load"),
+            ) as provider:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(
+                        main(["plan", "--root", str(root), "--job", "job.json", "--out", "plan.json"]),
+                        0,
+                    )
+            provider.assert_not_called()
+            plan = json.loads((root / "plan.json").read_text(encoding="utf-8"))
+            self.assertEqual(plan["schema_version"], "ai_frame_animation_plan_v2")
+            self.assertNotIn("binding", plan["provider"])
+            args = self._args(root, root / "plan.json", plan["plan_sha256"], "attempt-process-only")
+            with self.assertRaisesRegex(ValueError, "provider_binding_required_for_generation"):
+                command_run(args)
+            self.assertFalse((root / "state" / "attempt-process-only").exists())
 
     def test_minimax_adapter_calls_prompt_exactly_once(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
