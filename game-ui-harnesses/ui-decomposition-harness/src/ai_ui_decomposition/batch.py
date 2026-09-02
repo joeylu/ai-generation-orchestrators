@@ -79,7 +79,8 @@ def freeze(plan_path: Path, workspace: Path, run_id: str) -> dict:
                        "inputs": ["input/reference.png",
                                   crop.relative_to(run).as_posix()],
                        "input_sha256": [source_sha, sha256(crop)],
-                       "planned_calls": 1, "automatic_retries": 0}
+                       "planned_calls": 0 if "cached_result" in asset else 1,
+                       "automatic_retries": 0}
             request["digest"] = digest(request)
             request_path = directory / "request.json"
             write_json(request_path, request)
@@ -93,7 +94,7 @@ def freeze(plan_path: Path, workspace: Path, run_id: str) -> dict:
     batch = {"kind": "ai_ui_decomposition_batch_v1", "run_id": run_id,
              "plan_digest": digest(plan), "source_sha256": source_sha,
              "dispatch_order": order, "requests": requests,
-             "maximum_calls": len(order), "automatic_retries": 0,
+             "maximum_calls": summary["generated_requests"], "automatic_retries": 0,
              "provider": None, "provider_invocation_included": False,
              "plan_summary": summary}
     batch["digest"] = digest(batch)
@@ -115,6 +116,11 @@ def _prompt(asset: dict) -> str:
 
 def state(run: Path, entry: dict) -> str:
     directory = run / "requests" / entry["id"]
+    require(sum((directory / name).is_file() for name in
+                ("received.json", "reused.json", "indeterminate.json")) <= 1,
+            "CONFLICTING_RESULT_STATE")
+    if (directory / "reused.json").is_file():
+        return "reused"
     if (directory / "received.json").is_file():
         return "received"
     if (directory / "indeterminate.json").is_file():
@@ -125,12 +131,14 @@ def state(run: Path, entry: dict) -> str:
 
 
 def reserve(run: Path, asset: str) -> dict:
-    batch, _ = load(run)
+    batch, plan = load(run)
     asset = identifier(asset)
     require(asset in batch["requests"], "UNKNOWN_REQUEST")
+    require("cached_result" not in next(item for item in plan["assets"] if item["id"] == asset),
+            "CACHED_RESULT_NO_GENERATION")
     index = batch["dispatch_order"].index(asset)
     for prior in batch["dispatch_order"][:index]:
-        require(state(run, batch["requests"][prior]) in {"received", "indeterminate"},
+        require(state(run, batch["requests"][prior]) in {"received", "reused", "indeterminate"},
                 "PRIOR_REQUEST_NOT_TERMINAL")
     entry = batch["requests"][asset]
     require(state(run, entry) == "prepared", "REQUEST_ALREADY_STARTED")
@@ -192,7 +200,7 @@ def status(run: Path) -> dict:
              "state": state(run, batch["requests"][asset])}
             for asset in batch["dispatch_order"]]
     counts = {name: sum(row["state"] == name for row in rows)
-              for name in ("prepared", "reserved", "received", "indeterminate")}
+              for name in ("prepared", "reserved", "received", "reused", "indeterminate")}
     return {"kind": "ai_ui_decomposition_batch_status_v1",
             "batch_digest": batch["digest"], "rows": rows, **counts,
             "maximum_calls": batch["maximum_calls"], "automatic_retries": 0}

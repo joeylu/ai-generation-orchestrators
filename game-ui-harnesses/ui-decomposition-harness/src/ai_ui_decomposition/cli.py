@@ -57,6 +57,13 @@ def parser() -> argparse.ArgumentParser:
     adapter_import = commands.add_parser("adapter-import")
     adapter_import.add_argument("--run-dir", required=True, type=Path)
     adapter_import.add_argument("--bundle", required=True, type=Path)
+    for name in ("result-binding", "reuse-result"):
+        command = commands.add_parser(name)
+        command.add_argument("--run-dir", required=True, type=Path)
+        command.add_argument("--asset", required=True)
+        if name == "reuse-result":
+            command.add_argument("--source-run", required=True, type=Path)
+            command.add_argument("--source-asset", required=True)
     return root
 
 
@@ -76,6 +83,11 @@ def execute(args) -> dict:
         run = run.resolve()
     if args.command == "reserve":
         return batch.reserve(run, args.asset)
+    if args.command in {"result-binding", "reuse-result"}:
+        from .cached import result_binding, reuse_result
+        if args.command == "result-binding":
+            return result_binding(run, args.asset)
+        return reuse_result(run, args.asset, args.source_run.resolve(), args.source_asset)
     if args.command == "receive":
         return batch.receive(run, args.asset, args.source)
     if args.command == "indeterminate":

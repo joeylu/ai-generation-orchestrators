@@ -62,11 +62,18 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
         required = {"id", "role", "route", "source_region", "output_size",
                     "output_mode", "prompt", "source_asset"}
         require(isinstance(asset, dict) and required <= set(asset)
-                and set(asset) <= required | {"resize"}, "ASSET_FIELDS")
+                and set(asset) <= required | {"resize", "cached_result"}, "ASSET_FIELDS")
         key = identifier(asset.get("id"))
         require(key not in index, "DUPLICATE_ASSET")
         route = asset.get("route")
         require(route in ROUTES, "ASSET_ROUTE")
+        if "cached_result" in asset:
+            cached = asset["cached_result"]
+            _fields(cached, {"source_batch_digest", "source_request_digest", "raw_sha256"},
+                    "CACHED_RESULT_FIELDS")
+            require(route.startswith("generated_"), "CACHED_RESULT_ROUTE")
+            require(all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value)
+                        for value in cached.values()), "CACHED_RESULT_DIGEST")
         require(asset.get("role") in {"background", "important_component"}, "ASSET_ROLE")
         _box(asset.get("source_region"), canvas, "ASSET_REGION")
         size = _size(asset.get("output_size"), "ASSET_SIZE")
@@ -154,7 +161,8 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
             "DOCUMENT")
     identifier(document.get("name"))
     require(document.get("format") in {"auto", "psd", "psb"}, "DOCUMENT_FORMAT")
-    generated = sum(asset["route"].startswith("generated_") for asset in assets)
+    generated = sum(asset["route"].startswith("generated_") and "cached_result" not in asset
+                    for asset in assets)
     reused_instances = len(nodes) - len({node["asset"] for node in nodes})
     return {"status": "plan_valid_no_generation", "plan_digest": digest(plan),
             "assets": len(assets), "pixel_layers": len(nodes), "groups": len(groups),

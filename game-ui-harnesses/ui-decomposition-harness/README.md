@@ -19,7 +19,7 @@ Install the immutable UI release directly from its repository subdirectory:
 
 ```text
 python -m venv .venv
-.venv/bin/python -m pip install "ai-ui-decomposition[psd] @ git+https://github.com/joeylu/ai-generation-orchestrators.git@ui-v0.1.1#subdirectory=game-ui-harnesses/ui-decomposition-harness"
+.venv/bin/python -m pip install "ai-ui-decomposition[psd] @ git+https://github.com/joeylu/ai-generation-orchestrators.git@ui-v0.1.2#subdirectory=game-ui-harnesses/ui-decomposition-harness"
 .venv/bin/ai-ui-decomposition doctor
 .venv/bin/ai-ui-decomposition self-test
 ```

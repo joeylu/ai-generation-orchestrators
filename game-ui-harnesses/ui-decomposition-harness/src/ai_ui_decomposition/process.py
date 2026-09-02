@@ -12,8 +12,11 @@ from .media import contain, matte_key, normalize, opaque_exact, resize_material
 def process(run: Path) -> dict:
     frozen, plan = batch.load(run)
     state = batch.status(run)
-    require(state["received"] == state["maximum_calls"]
+    require(state["received"] + state["reused"] == len(frozen["requests"])
             and state["indeterminate"] == 0, "BATCH_INCOMPLETE")
+    from .cached import verified_result
+    for asset in frozen["requests"]:
+        verified_result(run, asset)
     output = run / "materials"
     require(not output.exists(), "MATERIALS_EXIST")
     output.mkdir()

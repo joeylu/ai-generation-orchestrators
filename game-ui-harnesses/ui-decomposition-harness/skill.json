@@ -1,6 +1,6 @@
 {
   "name": "ui-decomposition",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Agent entry point for reviewed important-component UI decomposition and layered PSD delivery.",
   "entry": "SKILL.md",
   "cli": "ai-ui-decomposition",
@@ -13,6 +13,8 @@
     "adapter-export",
     "adapter-seal",
     "adapter-import",
+    "result-binding",
+    "reuse-result",
     "status",
     "process",
     "review-template",

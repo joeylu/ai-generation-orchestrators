@@ -75,6 +75,13 @@ prompt. `source_asset` is present only for `reuse_scaled`.
 The plan cannot prove that text is absent or that the chosen layer granularity is
 useful. Those properties are checked on the digest-bound contact sheet.
 
+Generated assets may optionally include `cached_result` (0.1.2+), an exact object
+containing `source_batch_digest`, `source_request_digest`, and `raw_sha256` from
+the read-only `result-binding` command. Every value is a lowercase SHA-256 digest.
+This makes the asset a zero-generation reuse request. See
+[the reuse protocol](provider-adapter.md#reuse-a-completed-raw-result-012).
+Omitting this field retains the original generation behavior.
+
 ## Optional empty-base nine-slice resizing (0.1.1+)
 
 An important component with `keyed_component` or `rgba` output may explicitly add:

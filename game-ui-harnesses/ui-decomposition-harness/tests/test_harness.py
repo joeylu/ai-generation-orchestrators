@@ -19,6 +19,7 @@ from ai_ui_decomposition.common import ContractError, sha256
 from ai_ui_decomposition.contract import validate
 from ai_ui_decomposition.media import contain, matte_key, nine_slice
 from ai_ui_decomposition.process import process, review_template
+from ai_ui_decomposition.cached import result_binding, reuse_result
 
 
 class HarnessTests(unittest.TestCase):
@@ -225,6 +226,98 @@ class HarnessTests(unittest.TestCase):
             nine_slice(Image.new("RGBA", (4, 4), "gold"), [20, 20], [2, 2, 2, 2])
         with self.assertRaisesRegex(ContractError, "RESIZE_TARGET_TOO_SMALL"):
             nine_slice(Image.new("RGBA", (20, 20), "gold"), [4, 4], [2, 2, 2, 2])
+
+    def cached_plan(self, change=None):
+        self.complete_materials()
+        plan = json.loads(json.dumps(self.plan))
+        plan["id"] = "cached-r001"
+        plan["assets"][1]["cached_result"] = result_binding(self.run, "button")
+        plan["assets"][1]["resize"] = {"mode": "nine_slice", "insets": [2, 2, 2, 2]}
+        if change:
+            change(plan)
+        path = self.root / "cached-plan.json"
+        path.write_text(json.dumps(plan), encoding="utf-8")
+        batch.freeze(path, self.workspace, "cached-r001")
+        return self.workspace / "runs" / "cached-r001"
+
+    def test_cached_result_reprocesses_with_zero_calls_and_pending_review(self):
+        target = self.cached_plan()
+        old_raw = self.run / "requests/fixture-r001-button-r001/raw.png"
+        old_hash = sha256(old_raw)
+        record = reuse_result(target, "button", self.run, "button")
+        self.assertEqual(record["generation_calls"], 0)
+        state = batch.status(target)
+        self.assertEqual((state["received"], state["reused"], state["maximum_calls"]), (0, 1, 0))
+        self.assertFalse((target / "requests/cached-r001-button-r001/reserved.json").exists())
+        self.assertEqual(record["raw_sha256"], old_hash)
+        self.assertEqual(sha256(old_raw), old_hash)
+        result = process(target)
+        self.assertEqual(result["count"], 3)
+        self.assertEqual(review_template(target)["decision"], "pending")
+        with self.assertRaisesRegex(ContractError, "EXPLICIT_VISUAL_REVIEW_REQUIRED"):
+            finalize(target, self.root / "unreviewed")
+
+    def test_cached_result_forbids_generation_and_double_import(self):
+        target = self.cached_plan()
+        with self.assertRaisesRegex(ContractError, "CACHED_RESULT_NO_GENERATION"):
+            batch.reserve(target, "button")
+        reuse_result(target, "button", self.run, "button")
+        with self.assertRaisesRegex(ContractError, "REQUEST_ALREADY_STARTED"):
+            reuse_result(target, "button", self.run, "button")
+        with self.assertRaisesRegex(ContractError, "ORIGINAL_RESULT_REQUIRED"):
+            result_binding(target, "button")
+
+    def test_cached_result_rejects_changed_prompt_before_copy(self):
+        def change(plan):
+            plan["assets"][1]["prompt"] = "A different component"
+        target = self.cached_plan(change)
+        with self.assertRaisesRegex(ContractError, "CACHED_GENERATION_MISMATCH"):
+            reuse_result(target, "button", self.run, "button")
+        self.assertFalse((target / "requests/cached-r001-button-r001/raw.png").exists())
+
+    def test_cached_result_rejects_wrong_source_binding(self):
+        def change(plan):
+            plan["assets"][1]["cached_result"]["source_batch_digest"] = "0" * 64
+        target = self.cached_plan(change)
+        with self.assertRaisesRegex(ContractError, "CACHED_SOURCE_MISMATCH"):
+            reuse_result(target, "button", self.run, "button")
+
+    def test_cached_result_rejects_changed_reference(self):
+        def change(plan):
+            Image.new("RGB", (64, 48), "red").save(self.reference)
+            plan["source"]["sha256"] = sha256(self.reference)
+        target = self.cached_plan(change)
+        with self.assertRaisesRegex(ContractError, "CACHED_REFERENCE_MISMATCH"):
+            reuse_result(target, "button", self.run, "button")
+
+    def test_cached_result_checks_raw_before_reuse_and_before_process(self):
+        target = self.cached_plan()
+        reuse_result(target, "button", self.run, "button")
+        copied = target / "requests/cached-r001-button-r001/raw.png"
+        Image.new("RGB", (40, 30), "red").save(copied)
+        with self.assertRaisesRegex(ContractError, "RAW_RESULT_CHANGED"):
+            process(target)
+        self.assertFalse((target / "materials").exists())
+        original = self.run / "requests/fixture-r001-button-r001/raw.png"
+        Image.new("RGB", (40, 30), "red").save(original)
+        with self.assertRaisesRegex(ContractError, "RAW_RESULT_CHANGED"):
+            result_binding(self.run, "button")
+
+    def test_failed_result_cannot_supply_cache_binding(self):
+        batch.reserve(self.run, "button")
+        batch.indeterminate(self.run, "button", "no valid result")
+        with self.assertRaisesRegex(ContractError, "COMPLETED_RESULT_REQUIRED"):
+            result_binding(self.run, "button")
+
+    def test_cached_schema_rejects_paths_and_non_generated_routes(self):
+        self.plan["assets"][1]["cached_result"] = {"path": "../raw.png"}
+        with self.assertRaisesRegex(ContractError, "CACHED_RESULT_FIELDS"):
+            validate(self.plan, source_base=self.root)
+        del self.plan["assets"][1]["cached_result"]
+        self.plan["assets"][0]["cached_result"] = dict(source_batch_digest="0"*64,
+            source_request_digest="1"*64, raw_sha256="2"*64)
+        with self.assertRaisesRegex(ContractError, "CACHED_RESULT_ROUTE"):
+            validate(self.plan, source_base=self.root)
 
 
 if __name__ == "__main__":

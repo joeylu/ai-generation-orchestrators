@@ -22,7 +22,11 @@ for pixel-perfect manual Photoshop reconstruction.
 2. Apply the fixed text policy: remove ordinary raster text and pseudo-text while
    preserving deliberate pictograms and graphic symbols. Do not request fonts or
    reconstruct copy as image layers.
-3. Run `ai-ui-decomposition check`, then `freeze`. Freeze creates provider-neutral
+3. When continuing from completed raw results, use `result-binding` and the
+   `cached_result` plan field described in [references/provider-adapter.md](references/provider-adapter.md).
+   Freeze a new plan and use `reuse-result`; never edit old attempts or import old
+   pixels as a new generation. Cache reuse does not carry visual acceptance.
+   Run `ai-ui-decomposition check`, then `freeze`. Freeze creates provider-neutral
    single-use request records; it does not call a provider. Before each external
    image call, use `adapter-export` to create one portable request bundle. Read
    [references/provider-adapter.md](references/provider-adapter.md) when wiring a
@@ -31,8 +35,9 @@ for pixel-perfect manual Photoshop reconstruction.
    unknown, run `indeterminate` and stop; never resubmit automatically.
 4. Run `process`. Inspect `materials/contact-sheet.png` and the individual RGBA
    files. The keyed matte removes magenta globally, including enclosed holes.
-   Reused components are scaled uniformly and centered, so their height is not
-   compressed independently from width.
+   Reused components are scaled uniformly and centered by default. Explicit
+   nine-slice resizing is available for stretchable empty bases; choose fitted
+   foreground insets in the plan rather than stretching pictograms or products.
 5. Run `review-template`. Show the contact sheet to the user. Only after the user
    accepts that exact sheet, change `decision` to `accept` and fill
    `reviewed_asset_ids` with every planned asset. Do not approve the review on the

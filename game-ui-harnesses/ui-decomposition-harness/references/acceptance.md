@@ -14,7 +14,7 @@ Those runs established the coarse control-list flow, global key removal,
 important-component grouping, repeated-family reuse, and layered PSD output. They
 did not establish general visual understanding.
 
-The public runtime is covered by twenty offline tests. They exercise strict
+The public runtime is covered by twenty-eight offline tests. They exercise strict
 provider-neutral plans, single-use request state, terminal indeterminate results,
 global key removal including enclosed holes, uniform reuse scaling, digest-bound
 visual review, background role independence from asset names, rejection of
@@ -25,6 +25,10 @@ layer/composite roundtrip. Explicit nine-slice coverage includes unchanged legac
 processing, generated/reused component integration, strict inset validation,
 horizontal and vertical resizing, unchanged corner pixels and partial alpha,
 identity resizing, and rejection of missing or insufficient foreground.
+Result-reuse regressions verify zero-call accounting, unchanged originals, fresh
+review requirements, no provider reservation or duplicate import for cached
+assets, strict source/prompt/reference binding, raw-image tamper rejection before
+processing, failed-source rejection, and provider-neutral cache fields.
 The five related
 predecessor suites also pass 170 tests unchanged.
 
