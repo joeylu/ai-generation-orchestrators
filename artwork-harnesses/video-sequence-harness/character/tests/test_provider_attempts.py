@@ -42,6 +42,33 @@ class FakeProvider:
 
 class ProviderAttemptTests(unittest.TestCase):
     @staticmethod
+    def _bound_provider(root: Path, *, width: int = 512, height: int = 512) -> tuple[MiniMaxH3Provider, dict]:
+        workflow = {
+            "1": {"inputs": {"image": ""}, "class_type": "LoadImage"},
+            "2": {"inputs": {"text": ""}, "class_type": "Text"},
+            "3": {"inputs": {"image": ["1", 0], "width": 608, "height": 352,
+                              "keep_proportion": "pad", "pad_color": "0,255,0"},
+                  "class_type": "ImageResizeKJv2"},
+            "4": {"inputs": {"width": 608, "height": 352}, "class_type": "MiniMaxH3ImageToVideo"},
+        }
+        (root / "workflow.json").write_text(json.dumps(workflow), encoding="utf-8")
+        config = {
+            "base_url": "http://127.0.0.1:8188",
+            "workflow_path": "workflow.json",
+            "canvas": {"width": width, "height": height},
+            "bindings": {
+                "reference_image": {"node": "1", "input": "image"},
+                "positive_prompt": {"node": "2", "input": "text"},
+                "generation_width": {"node": "4", "input": "width"},
+                "generation_height": {"node": "4", "input": "height"},
+                "reference_width": {"node": "3", "input": "width"},
+                "reference_height": {"node": "3", "input": "height"},
+            },
+        }
+        (root / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        return MiniMaxH3Provider(config_path=root / "config.json", root=root), workflow
+
+    @staticmethod
     def _runtime_responses(workflow):
         object_info = {}
         for node in workflow.values():
@@ -115,6 +142,28 @@ class ProviderAttemptTests(unittest.TestCase):
             self.assertEqual(states[-1], "GENERATION_INDETERMINATE")
             self.assertEqual(provider.submit_count, 1)
 
+    def test_legacy_minimax_plan_cannot_consume_new_generation_authorization(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            Image.new("RGBA", (4, 4), (255, 255, 255, 255)).save(root / "reference.png")
+            plan = compile_plan({
+                "schema_version": "1.0",
+                "job_id": "legacy-provider-plan",
+                "character": {"reference": "reference.png"},
+                "motion": {"request": "idle", "continuity": "loop"},
+                "delivery": {"frame_counts": [16], "size": 128},
+                "provider": {"plugin": "minimax_h3"},
+            }, root)
+            plan_path = root / "plan.json"
+            write_json_atomic(plan_path, plan)
+            args = self._args(root, plan_path, plan["plan_sha256"], "attempt-legacy")
+            provider = FakeProvider()
+            with patch("ai_frame_animation.cli.load_provider", return_value=provider):
+                with self.assertRaisesRegex(ValueError, "provider_binding_required_for_generation"):
+                    command_run(args)
+            self.assertFalse((root / "state" / "attempt-legacy").exists())
+            self.assertEqual(provider.submit_count, 0)
+
     def test_minimax_adapter_calls_prompt_exactly_once(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -153,6 +202,60 @@ class ProviderAttemptTests(unittest.TestCase):
             self.assertEqual(doctor["status"], "ready")
             self.assertTrue(doctor["workflow_valid"])
             self.assertEqual(doctor["diagnostic_code"], "ready")
+
+    def test_minimax_bound_plan_overrides_both_workflow_canvases_to_square(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reference = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+            reference.putpixel((1, 1), (255, 255, 255, 255))
+            reference.save(root / "reference.png")
+            provider, workflow = self._bound_provider(root)
+            binding = provider.plan_binding()
+            plan = compile_plan({
+                "schema_version": "1.0",
+                "job_id": "square-provider",
+                "character": {"reference": "reference.png"},
+                "motion": {"request": "idle", "continuity": "loop"},
+                "delivery": {"frame_counts": [16], "size": 128, "key_color": "#00FF00"},
+                "provider": {"plugin": "minimax_h3"},
+            }, root, provider_binding=binding)
+            submitted = {}
+            provider._get_json = self._runtime_responses(workflow)  # type: ignore[method-assign]
+            provider._upload_reference = lambda path, token, payload: {"name": "prepared.png"}  # type: ignore[method-assign]
+            provider._post_json = lambda relative, payload: submitted.update(payload) or {"prompt_id": "p-square"}  # type: ignore[method-assign]
+            self.assertEqual(provider.submit_once(plan, "token"), "p-square")
+            self.assertEqual(plan["schema_version"], "ai_frame_animation_plan_v3")
+            self.assertEqual(plan["provider"]["binding"]["canvas"], {"width": 512, "height": 512})
+            self.assertEqual(submitted["prompt"]["3"]["inputs"]["width"], 512)
+            self.assertEqual(submitted["prompt"]["3"]["inputs"]["height"], 512)
+            self.assertEqual(submitted["prompt"]["4"]["inputs"]["width"], 512)
+            self.assertEqual(submitted["prompt"]["4"]["inputs"]["height"], 512)
+
+    def test_minimax_bound_plan_rejects_workflow_drift_before_upload(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            Image.new("RGBA", (4, 4), (255, 255, 255, 255)).save(root / "reference.png")
+            provider, _ = self._bound_provider(root)
+            binding = provider.plan_binding()
+            plan = {"schema_version": "ai_frame_animation_plan_v3",
+                    "provider": {"plugin": "minimax_h3", "binding": binding},
+                    "character": {"reference": "reference.png"},
+                    "delivery": {"key_color": "#00FF00"}, "generation": {"prompt": "idle"}}
+            workflow = json.loads((root / "workflow.json").read_text(encoding="utf-8"))
+            workflow["4"]["inputs"]["width"] = 640
+            (root / "workflow.json").write_text(json.dumps(workflow), encoding="utf-8")
+            with patch.object(provider, "_upload_reference") as upload, patch.object(provider, "_post_json") as submit:
+                with self.assertRaisesRegex(GenerationNotSubmitted, "provider_binding_mismatch"):
+                    provider.submit_once(plan, "token")
+            upload.assert_not_called()
+            submit.assert_not_called()
+
+    def test_minimax_plan_binding_rejects_non_square_canvas(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            provider, _ = self._bound_provider(root, width=608, height=352)
+            with self.assertRaisesRegex(ValueError, "canvas_must_be_square"):
+                provider.plan_binding()
 
     def test_minimax_doctor_rejects_invalid_binding_without_network(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

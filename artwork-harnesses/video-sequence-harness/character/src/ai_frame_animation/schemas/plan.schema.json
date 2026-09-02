@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "job_id", "character", "motion", "delivery", "generation", "provider", "plan_sha256"],
   "properties": {
-    "schema_version": {"const": "ai_frame_animation_plan_v2"},
+    "schema_version": {"enum": ["ai_frame_animation_plan_v2", "ai_frame_animation_plan_v3"]},
     "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "job_id": {"type": "string", "minLength": 1},
     "character": {
@@ -84,10 +84,32 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["plugin"],
-      "properties": {"plugin": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"}}
+      "properties": {
+        "plugin": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"},
+        "binding": {"$ref": "#/$defs/providerBinding"}
+      }
     }
   },
   "$defs": {
+    "providerBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "workflow_sha256", "bindings_sha256", "canvas"],
+      "properties": {
+        "schema_version": {"const": "ai_frame_animation_provider_binding_v1"},
+        "workflow_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "bindings_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "canvas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height"],
+          "properties": {
+            "width": {"type": "integer", "minimum": 32, "multipleOf": 32},
+            "height": {"type": "integer", "minimum": 32, "multipleOf": 32}
+          }
+        }
+      }
+    },
     "imageFingerprint": {
       "type": "object",
       "additionalProperties": false,
@@ -120,5 +142,12 @@
         "checks": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "ai_frame_animation_plan_v3"}}},
+      "then": {"properties": {"provider": {"required": ["plugin", "binding"]}}},
+      "else": {"properties": {"provider": {"not": {"required": ["binding"]}}}}
+    }
+  ]
 }

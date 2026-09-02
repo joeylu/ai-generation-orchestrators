@@ -36,11 +36,17 @@ host paths out of public examples, plans, logs, and issue reports.
 1. Use the launch command recorded in the private note.
 2. Confirm that it listens on the loopback URL in the provider configuration.
 3. Export the intended graph in ComfyUI API format to the private workflow file.
-4. Bind the reference-image and positive-prompt inputs.
+4. Bind the reference-image, positive-prompt, generation width/height, and
+   reference-resize width/height inputs. Configure one square canvas (512x512
+   is the public default example); both nodes are overwritten from that single
+   value before submission.
 5. Run static `doctor --plan ... --require-ready` before asking for compute
    confirmation. `doctor` deliberately performs no network request.
 
-After the user gives a fresh plan-digest confirmation, `run` performs a read-only
+`plan --provider-config ...` records the square canvas plus SHA-256 values for
+the workflow and semantic binding map. It does not record the endpoint or local
+workflow path. After the user gives a fresh plan-digest confirmation, `run`
+rejects any workflow, binding, or canvas drift before upload, then performs a read-only
 live compatibility gate before sending any image or `/prompt`: it requests
 `/system_stats` and `/object_info`, checks that every workflow node class exists,
 and checks known loader selections against the runtime's advertised model lists.

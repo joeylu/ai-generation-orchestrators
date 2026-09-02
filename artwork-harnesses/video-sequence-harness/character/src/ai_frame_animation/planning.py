@@ -18,6 +18,7 @@ SUPPORTED_SIZES = (128, 256, 512)
 SUPPORTED_CONTINUITY = ("loop", "one_shot")
 SUPPORTED_QUALITY = ("strict", "best_effort")
 PLUGIN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
+PROVIDER_BINDING_SCHEMA = "ai_frame_animation_provider_binding_v1"
 
 
 def _validate_intent_compilation(value: object, request: str) -> dict[str, Any]:
@@ -72,7 +73,8 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
         {"schema_version", "job_id", "character", "motion", "delivery", "generation", "provider", "plan_sha256"},
         "plan",
     )
-    if plan.get("schema_version") != "ai_frame_animation_plan_v2":
+    schema_version = plan.get("schema_version")
+    if schema_version not in {"ai_frame_animation_plan_v2", "ai_frame_animation_plan_v3"}:
         raise ValueError("plan_schema_version_unsupported")
     _text(plan.get("job_id"), "plan.job_id")
     character = _mapping(plan.get("character"), "plan.character")
@@ -90,7 +92,7 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
     _reject_unknown(motion, {"request", "continuity"}, "plan.motion")
     _reject_unknown(delivery, {"atlas_profiles", "size", "quality", "gif", "key_color"}, "plan.delivery")
     _reject_unknown(generation, {"prompt", "key_analysis", "intent_compilation"}, "plan.generation")
-    _reject_unknown(provider, {"plugin"}, "plan.provider")
+    _reject_unknown(provider, {"plugin", "binding"}, "plan.provider")
     _text(character.get("reference"), "plan.character.reference")
     if not isinstance(character.get("description"), str):
         raise ValueError("plan_character_description_invalid")
@@ -156,11 +158,48 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
     plugin = _text(provider.get("plugin"), "plan.provider.plugin")
     if not PLUGIN_ID_RE.fullmatch(plugin):
         raise ValueError("plan_provider_plugin_invalid")
+    binding_value = provider.get("binding")
+    if schema_version == "ai_frame_animation_plan_v2":
+        if binding_value is not None:
+            raise ValueError("plan_v2_provider_binding_forbidden")
+    else:
+        binding = _mapping(binding_value, "plan.provider.binding")
+        _reject_unknown(
+            binding,
+            {"schema_version", "workflow_sha256", "bindings_sha256", "canvas"},
+            "plan.provider.binding",
+        )
+        canvas = _mapping(binding.get("canvas"), "plan.provider.binding.canvas")
+        _reject_unknown(canvas, {"width", "height"}, "plan.provider.binding.canvas")
+        width, height = canvas.get("width"), canvas.get("height")
+        if (
+            binding.get("schema_version") != PROVIDER_BINDING_SCHEMA
+            or not isinstance(binding.get("workflow_sha256"), str)
+            or not SHA256_RE.fullmatch(str(binding["workflow_sha256"]))
+            or not isinstance(binding.get("bindings_sha256"), str)
+            or not SHA256_RE.fullmatch(str(binding["bindings_sha256"]))
+            or isinstance(width, bool)
+            or not isinstance(width, int)
+            or isinstance(height, bool)
+            or not isinstance(height, int)
+            or width < 32
+            or height < 32
+            or width % 32
+            or height % 32
+            or width != height
+        ):
+            raise ValueError("plan_provider_binding_invalid")
     if not isinstance(plan.get("plan_sha256"), str) or not SHA256_RE.fullmatch(str(plan["plan_sha256"])):
         raise ValueError("plan_digest_invalid")
 
 
-def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str | Path | None = None) -> dict[str, Any]:
+def compile_plan(
+    job: Mapping[str, Any],
+    root: Path,
+    *,
+    prepared_reference: str | Path | None = None,
+    provider_binding: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     allowed = {"schema_version", "job_id", "character", "motion", "delivery", "provider", "intent_compilation"}
     unknown = sorted(set(job) - allowed)
     if unknown:
@@ -258,7 +297,7 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
     )
 
     plan = {
-        "schema_version": "ai_frame_animation_plan_v2",
+        "schema_version": "ai_frame_animation_plan_v3" if provider_binding is not None else "ai_frame_animation_plan_v2",
         "job_id": _text(job.get("job_id"), "job_id"),
         "character": {
             "reference": relative_posix(root, reference),
@@ -279,6 +318,8 @@ def compile_plan(job: Mapping[str, Any], root: Path, *, prepared_reference: str 
         "generation": {"prompt": generation_prompt, "key_analysis": key_analysis},
         "provider": {"plugin": plugin},
     }
+    if provider_binding is not None:
+        plan["provider"]["binding"] = dict(provider_binding)
     if preparation_binding is not None:
         plan["character"]["reference_preparation"] = preparation_binding
     if intent_compilation is not None:

@@ -131,8 +131,10 @@ command in the ignored private inventory described by the
 [local MiniMax H3 provider guide](local-minimax-h3-provider.md), so another
 installation cannot be selected by guesswork.
 
-Export the ComfyUI workflow in API format and replace the two placeholder node
-bindings. Use [reference preparation](../../../image-background-removal-harness/docs/reference-preparation.md) on ordinary artwork;
+Export the ComfyUI workflow in API format and replace all placeholder bindings:
+reference image, positive prompt, generation width/height, and reference-resize
+width/height. Keep the configured generation canvas square; the public example
+uses 512x512. Use [reference preparation](../../../image-background-removal-harness/docs/reference-preparation.md) on ordinary artwork;
 users need not supply transparent PNGs. Opaque-input preparation uses the optional
 `segmentation` extra (ONNX Runtime CPU + PyMatting) and a separately verified
 BiRefNet General ONNX model. It never downloads a model during preparation and

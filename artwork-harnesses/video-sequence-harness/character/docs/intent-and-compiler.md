@@ -83,13 +83,15 @@ ai-frame-animation plan `
   --root my-animation `
   --job work/compiled-job.json `
   --prepared-reference work/reference/r001/handoff.json `
+  --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json `
   --out work/plan.json
 ```
 
 The Compiler is provider-neutral. It does not emit endpoints, model IDs,
 resolution profiles, watermark flags, workflow paths, or provider credentials.
 The existing `plan` stage independently selects a safe key colour from the
-verified foreground and binds the compilation report into the plan digest.
+verified foreground, binds the compilation report, and locks the local
+provider's square canvas plus workflow/binding digests into the plan digest.
 
 ## Clarification and repair policy
 

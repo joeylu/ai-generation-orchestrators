@@ -42,7 +42,15 @@ class OnboardingTests(unittest.TestCase):
             jsonschema.validate(job, schema)
             self.assertEqual(job["delivery"]["atlas_profiles"], ["4x4", "8x4"])
             self.assertIn("/.ai-frame-animation/", (workspace / ".gitignore").read_text(encoding="utf-8"))
-            self.assertTrue((workspace / ".ai-frame-animation" / "provider.minimax-h3.json").is_file())
+            provider_config = json.loads(
+                (workspace / ".ai-frame-animation" / "provider.minimax-h3.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(provider_config["canvas"], {"width": 512, "height": 512})
+            self.assertEqual(
+                set(provider_config["bindings"]),
+                {"reference_image", "positive_prompt", "generation_width", "generation_height",
+                 "reference_width", "reference_height"},
+            )
 
     def test_init_refuses_nonempty_root_and_escaping_reference(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

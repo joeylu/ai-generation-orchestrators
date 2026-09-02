@@ -41,8 +41,10 @@ arbitrary-background video removal and general video editing are not in scope.
      author, repair, or re-sign that handoff. Inspect `foreground.png` and the
      producer's warnings; if ambiguous, request a subject choice or better source,
      not transparency merely as a format requirement. Call
-     `plan --prepared-reference <handoff.json>`, then `doctor --plan <plan>` with
-     provider options. The video package imports no background-removal package;
+     `plan --prepared-reference <handoff.json> --provider-config <config>`, then
+     `doctor --plan <plan>` with provider options. The plan must bind a square
+     generation canvas plus workflow and semantic-binding SHA-256 values before
+     compute confirmation. The video package imports no background-removal package;
      it binds the original, foreground, producer evidence, and handoff digest.
      Legacy `preparation.json` is accepted only as a transition path.
      The program composites this foreground onto the selected key during `run`.

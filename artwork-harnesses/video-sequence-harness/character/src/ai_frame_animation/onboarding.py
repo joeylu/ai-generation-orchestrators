@@ -124,9 +124,14 @@ def initialize_workspace(
     provider_config = {
         "base_url": "http://127.0.0.1:8188",
         "workflow_path": "workflow.json",
+        "canvas": {"width": 512, "height": 512},
         "bindings": {
             "reference_image": {"node": "replace-reference-node-id", "input": "image"},
             "positive_prompt": {"node": "replace-prompt-node-id", "input": "text"},
+            "generation_width": {"node": "replace-generation-node-id", "input": "width"},
+            "generation_height": {"node": "replace-generation-node-id", "input": "height"},
+            "reference_width": {"node": "replace-reference-resize-node-id", "input": "width"},
+            "reference_height": {"node": "replace-reference-resize-node-id", "input": "height"},
         },
         "request_timeout_seconds": 30,
         "poll_interval_seconds": 2,
@@ -167,7 +172,7 @@ def initialize_workspace(
             f"Copy the character reference to {reference_value}.",
             "Run tools check; on a supported platform, run tools install if FFmpeg is missing.",
             "Export the ComfyUI API workflow to .ai-frame-animation/workflow.json.",
-            "Replace both binding node IDs in .ai-frame-animation/provider.minimax-h3.json.",
+            "Replace all six binding node IDs in .ai-frame-animation/provider.minimax-h3.json.",
             "Run doctor with the provider configuration before requesting compute.",
             "Run plan, review its digest, and ask for one explicit compute confirmation.",
         ],

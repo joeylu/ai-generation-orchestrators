@@ -88,6 +88,7 @@ ai-frame-animation plan `
   --root my-animation `
   --job job.json `
   --prepared-reference work/reference/r001/handoff.json `
+  --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json `
   --out work/plan.json
 ```
 
@@ -103,8 +104,9 @@ MCP or producer name.
 
 The plan fingerprints the reference, selects a safe key colour from bounded
 foreground sampling when prepared, fixes continuity/delivery variants, and emits a canonical
-`plan_sha256`. Provider config, endpoints, secrets, workflow paths, and model
-paths are not part of the plan.
+`plan_sha256`. For MiniMax H3, it also binds the square generation canvas and
+SHA-256 values of the workflow and semantic binding map. Endpoints, secrets,
+workflow paths, and model paths are not part of the plan.
 
 For **new generation only**, now check that exact plan and reference without
 compute, before asking for confirmation:
@@ -153,6 +155,7 @@ ai-frame-animation plan `
   --root my-animation `
   --job work/compiled-job.json `
   --prepared-reference work/reference/r001/handoff.json `
+  --provider-config my-animation/.ai-frame-animation/provider.minimax-h3.json `
   --out work/plan.json
 ```
 

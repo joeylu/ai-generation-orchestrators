@@ -6,7 +6,9 @@ processing, validation, packaging, or the public attempt log.
 ## Inputs
 
 The core passes a digest-verified plan containing public semantic inputs and a
-plugin configuration reference. Secrets and host paths remain outside the plan.
+provider binding. For new MiniMax H3 generation, that binding records a square
+canvas plus workflow and semantic-binding SHA-256 values. Secrets, endpoints,
+workflow paths, and host paths remain outside the plan.
 The core passes a submission token that is unique to the consumed attempt.
 
 ## Required operations
@@ -14,8 +16,12 @@ The core passes a submission token that is unique to the consumed attempt.
 - `doctor(config)`: read-only availability/capability report with redacted output.
   It returns top-level `status` as `ready` or `action_required`; provider-specific
   diagnostic fields remain inside that report.
+- `plan_binding(config)`: return the host-neutral workflow/binding digests and
+  square generation canvas that planning places inside the immutable plan.
 - `submit_once(plan, config, submission_token)`: perform at most one provider job
-  submission and return an opaque provider request identifier.
+  submission and return an opaque provider request identifier. Before upload it
+  must compare the current binding to the plan and inject the bound dimensions
+  into both the generation and reference-resize nodes.
 - `await_result(request_id, config)`: poll only the previously submitted request
   and return a fingerprinted local raw-video path or a typed terminal failure.
 

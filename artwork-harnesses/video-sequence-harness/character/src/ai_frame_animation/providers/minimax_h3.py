@@ -13,12 +13,14 @@ from urllib.request import Request, urlopen
 
 from PIL import Image
 
-from ..canonical import load_json, redact, rooted_path, safe_error_code
+from ..canonical import canonical_sha256, fingerprint, load_json, redact, rooted_path, safe_error_code
 from ..media.reference import inspect_generation_reference, prepare_generation_reference
 from .base import GenerationFailed, GenerationIndeterminate, GenerationNotSubmitted
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".mkv"}
+CANVAS_BINDINGS = ("generation_width", "generation_height", "reference_width", "reference_height")
+PROVIDER_BINDING_SCHEMA = "ai_frame_animation_provider_binding_v1"
 
 RUNTIME_MODEL_INPUTS = {
     "CheckpointLoaderSimple": ("ckpt_name",),
@@ -69,9 +71,48 @@ class MiniMaxH3Provider:
                 raise ValueError(f"minimax_h3_binding_invalid:{name}")
         return dict(value)
 
+    def plan_binding(self) -> Mapping[str, Any]:
+        """Describe the immutable, host-neutral workflow inputs bound to a plan."""
+        canvas = self.config.get("canvas")
+        if not isinstance(canvas, Mapping) or set(canvas) != {"width", "height"}:
+            raise ValueError("minimax_h3_canvas_invalid")
+        width, height = canvas.get("width"), canvas.get("height")
+        if (
+            isinstance(width, bool)
+            or not isinstance(width, int)
+            or isinstance(height, bool)
+            or not isinstance(height, int)
+            or width < 32
+            or height < 32
+            or width > 16384
+            or height > 16384
+            or width % 32
+            or height % 32
+            or width != height
+        ):
+            raise ValueError("minimax_h3_canvas_must_be_square_multiple_of_32")
+        bindings = self.config["bindings"]
+        for name in CANVAS_BINDINGS:
+            binding = bindings.get(name)
+            if not isinstance(binding, Mapping) or not isinstance(binding.get("node"), str) or not isinstance(binding.get("input"), str):
+                raise ValueError(f"minimax_h3_binding_invalid:{name}")
+        workflow_path = self._workflow_path().resolve(strict=True)
+        workflow = load_json(workflow_path)
+        self._apply_canvas(workflow, canvas)
+        return {
+            "schema_version": PROVIDER_BINDING_SCHEMA,
+            "workflow_sha256": fingerprint(workflow_path)["sha256"],
+            "bindings_sha256": canonical_sha256(bindings),
+            "canvas": {
+                "width": width,
+                "height": height,
+            },
+        }
+
     def doctor(self) -> Mapping[str, Any]:
         workflow = self._workflow_path()
         workflow_valid = False
+        binding: Mapping[str, Any] | None = None
         diagnostic_code = "workflow_missing"
         if workflow.is_file():
             try:
@@ -79,6 +120,7 @@ class MiniMaxH3Provider:
                 candidate = copy.deepcopy(value)
                 self._bind(candidate, "reference_image", "doctor-reference.png")
                 self._bind(candidate, "positive_prompt", "doctor prompt")
+                binding = self.plan_binding() if "canvas" in self.config else None
                 workflow_valid = True
                 diagnostic_code = "ready"
             except Exception as exc:
@@ -93,6 +135,7 @@ class MiniMaxH3Provider:
                 "workflow_valid": workflow_valid,
                 "diagnostic_code": diagnostic_code,
                 "base_url": self.config["base_url"],
+                "canvas": binding["canvas"] if binding is not None else None,
                 "network_probe": "not_performed",
             }
         )  # type: ignore[return-value]
@@ -101,9 +144,12 @@ class MiniMaxH3Provider:
         """Plan-aware input checks only; never create images or make requests."""
         try:
             reference = rooted_path(self.root, str(plan["character"]["reference"]), must_exist=True)
+            workflow = load_json(self._workflow_path())
+            if self._verify_plan_binding(plan):
+                self._apply_canvas(workflow, self.config["canvas"])
             with Image.open(reference) as source:
                 report = inspect_generation_reference(source, str(plan["delivery"]["key_color"]))
-            self._check_reference_resize(load_json(self._workflow_path()), str(plan["delivery"]["key_color"]))
+            self._check_reference_resize(workflow, str(plan["delivery"]["key_color"]))
             return report
         except (OSError, ValueError, KeyError) as exc:
             return {"status": "action_required", "diagnostic_code": safe_error_code(exc)}
@@ -130,6 +176,8 @@ class MiniMaxH3Provider:
         reference = rooted_path(self.root, str(plan["character"]["reference"]), must_exist=True)  # type: ignore[index]
         try:
             workflow = load_json(self._workflow_path())
+            if self._verify_plan_binding(plan):
+                self._apply_canvas(workflow, self.config["canvas"])
             self._check_reference_resize(workflow, str(plan["delivery"]["key_color"]))
             with Image.open(reference) as source:
                 prepared = prepare_generation_reference(source, str(plan["delivery"]["key_color"]))
@@ -238,7 +286,22 @@ class MiniMaxH3Provider:
         value = Path(str(self.config["workflow_path"]))
         return value.resolve(strict=False) if value.is_absolute() else (self.config_path.parent / value).resolve(strict=False)
 
-    def _bind(self, workflow: dict[str, Any], name: str, value: str) -> None:
+    def _verify_plan_binding(self, plan: Mapping[str, Any]) -> bool:
+        provider = plan.get("provider")
+        binding = provider.get("binding") if isinstance(provider, Mapping) else None
+        if binding is None:
+            return False
+        if not isinstance(binding, Mapping) or dict(binding) != dict(self.plan_binding()):
+            raise ValueError("minimax_h3_provider_binding_mismatch")
+        return True
+
+    def _apply_canvas(self, workflow: dict[str, Any], canvas: Mapping[str, Any]) -> None:
+        self._bind(workflow, "generation_width", int(canvas["width"]))
+        self._bind(workflow, "generation_height", int(canvas["height"]))
+        self._bind(workflow, "reference_width", int(canvas["width"]))
+        self._bind(workflow, "reference_height", int(canvas["height"]))
+
+    def _bind(self, workflow: dict[str, Any], name: str, value: object) -> None:
         binding = self.config["bindings"][name]
         node = workflow.get(binding["node"])
         if not isinstance(node, dict) or not isinstance(node.get("inputs"), dict):

@@ -261,7 +261,22 @@ def command_plan(args: argparse.Namespace) -> int:
     root = args.root.resolve(strict=True)
     job_path = rooted_path(root, args.job, must_exist=True)
     out = rooted_path(root, args.out, must_exist=False)
-    plan = compile_plan(load_json(job_path), root, prepared_reference=getattr(args, "prepared_reference", None))
+    job = load_json(job_path)
+    provider_value = job.get("provider")
+    plugin = provider_value.get("plugin") if isinstance(provider_value, Mapping) else None
+    provider_binding = None
+    provider_config = getattr(args, "provider_config", None)
+    if provider_config is not None:
+        provider = load_provider(str(plugin), config_path=provider_config.resolve(strict=True), root=root)
+        provider_binding = provider.plan_binding()
+    elif plugin == "minimax_h3":
+        raise ValueError("provider_config_required_for_immutable_plan")
+    plan = compile_plan(
+        job,
+        root,
+        prepared_reference=getattr(args, "prepared_reference", None),
+        provider_binding=provider_binding,
+    )
     write_json_atomic(out, plan)
     _print({"status": "planned", "plan_sha256": plan["plan_sha256"], "plan": str(out.relative_to(root))})
     return 0
@@ -272,6 +287,8 @@ def command_run(args: argparse.Namespace) -> int:
     plan_path = rooted_path(root, args.plan, must_exist=True)
     plan = _verified_plan(plan_path)
     _check_reference(root, plan)
+    if plan["provider"]["plugin"] == "minimax_h3" and not isinstance(plan["provider"].get("binding"), Mapping):
+        raise ValueError("provider_binding_required_for_generation")
     state_root = rooted_path(root, args.state_dir, must_exist=False)
     raw_out = rooted_path(root, args.raw_out, must_exist=False)
     store = AttemptStore(state_root=state_root, attempt_id=args.attempt_id)
@@ -455,6 +472,11 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--root", required=True, type=Path)
     plan.add_argument("--job", required=True, type=Path)
     plan.add_argument("--out", required=True, type=Path)
+    plan.add_argument(
+        "--provider-config",
+        type=Path,
+        help="local provider configuration used to bind workflow and square generation canvas",
+    )
     plan.add_argument(
         "--prepared-reference",
         type=Path,
