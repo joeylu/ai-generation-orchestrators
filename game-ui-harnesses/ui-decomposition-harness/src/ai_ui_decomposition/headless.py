@@ -12,6 +12,7 @@ from .assembly import finalize, inspect_delivery
 from .common import (ContractError, digest, load_verified_image, read_json, require,
                      safe_relative, sha256, write_json)
 from .process import process
+from .visual_qa import instruction as visual_qa_instruction, write_receipt as write_visual_qa_receipt
 
 
 class Provider(Protocol):
@@ -20,6 +21,9 @@ class Provider(Protocol):
     def plan(self, reference: Path, instruction: str, *, state_dir: Path, timeout: float) -> str: ...
 
     def generate(self, bundle: Path, *, state_dir: Path, timeout: float) -> Path: ...
+
+    def visual_qa(self, reference: Path, preview: Path, contact_sheet: Path, instruction: str,
+                  *, state_dir: Path, timeout: float) -> str: ...
 
 
 def load_provider(config: dict) -> Provider:
@@ -36,7 +40,8 @@ def load_provider(config: dict) -> Provider:
     except Exception as exc:
         raise ContractError("PROVIDER_SETUP_FAILED") from exc
     require(callable(getattr(provider, "plan", None))
-            and callable(getattr(provider, "generate", None)), "PROVIDER_INTERFACE")
+            and callable(getattr(provider, "generate", None))
+            and callable(getattr(provider, "visual_qa", None)), "PROVIDER_INTERFACE")
     return provider
 
 
@@ -67,7 +72,10 @@ def job_status(job: Path) -> dict:
         terminal = _verified(job / "result.json")
         require(terminal["job_digest"] == request["digest"], "JOB_RESULT_BINDING")
         result.update(terminal)
-        if terminal["status"] == "completed_unreviewed_draft":
+        if "visual_qa_digest" in terminal:
+            visual_qa = _verified(job / "visual-qa.json")
+            require(visual_qa["digest"] == terminal["visual_qa_digest"], "JOB_VISUAL_QA_CHANGED")
+        if terminal["status"] == "completed_visual_qa_draft":
             receipt = inspect_delivery(job / "delivery")
             require(receipt["digest"] == terminal["delivery_digest"], "JOB_DELIVERY_CHANGED")
             for key, row in terminal["artifacts"].items():
@@ -78,7 +86,7 @@ def job_status(job: Path) -> dict:
 
 def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: int,
              timeout_seconds: int, authorized: bool, provider_binding: str = "injected") -> dict:
-    """Caller explicitly delegates at most one vision call and a bounded frozen plan.
+    """Caller explicitly delegates two vision calls and a bounded frozen plan.
 
     A repeated successful job verifies and returns existing files. Every other
     repeated job stops; recovery uses existing verified-result reuse contracts.
@@ -89,8 +97,11 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
     picture, evidence = load_verified_image(reference.resolve())
     require(max(picture.size) <= 30000 and picture.width * picture.height <= 16_777_216,
             "JOB_CANVAS_LIMIT")
+    require(callable(getattr(provider, "plan", None))
+            and callable(getattr(provider, "generate", None))
+            and callable(getattr(provider, "visual_qa", None)), "PROVIDER_INTERFACE")
     body = {"kind": "ai_ui_decomposition_job_v1", "source_sha256": evidence["sha256"],
-            "canvas": list(picture.size), "maximum_vision_calls": 1,
+            "canvas": list(picture.size), "maximum_vision_calls": 2,
             "maximum_generation_calls": maximum_calls, "timeout_seconds": timeout_seconds,
             "provider_binding": provider_binding, "delivery_policy": "unreviewed_draft",
             "automatic_retries": 0}
@@ -99,7 +110,7 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
         request = _verified(job / "job.json")
         require(request["digest"] == digest(body), "JOB_INPUT_CHANGED")
         status = job_status(job)
-        require(status["status"] == "completed_unreviewed_draft", "JOB_ALREADY_STARTED_NO_RESUBMIT")
+        require(status["status"] == "completed_visual_qa_draft", "JOB_ALREADY_STARTED_NO_RESUBMIT")
         return status
     # Fail on missing optional dependencies BEFORE either provider can consume compute.
     try:
@@ -158,21 +169,55 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
         stage = "processing"
         process(run)
         remaining()
+        stage = "visual_quality"
+        candidate = job / "private" / "visual-qa-candidate"
+        candidate_receipt = finalize(run, candidate, draft=True)
+        contact_sheet = run / "materials" / "contact-sheet.png"
+        asset_ids = {asset["id"] for asset in plan["assets"]}
+        qa_instruction = visual_qa_instruction(list(picture.size), asset_ids)
+        _record(job / "visual-qa-started.json", {"job_digest": request["digest"],
+            "plan_digest": digest(plan), "materials_digest": candidate_receipt["materials_digest"],
+            "instruction_digest": digest(qa_instruction), "single_use": True, "maximum_calls": 1})
+        try:
+            assessment = provider.visual_qa(project / "reference.png", candidate / "preview.png",
+                                            contact_sheet, qa_instruction,
+                                            state_dir=job / "private" / "visual-qa-provider",
+                                            timeout=remaining())
+        except Exception as exc:
+            raise ContractError("VISUAL_QA_PROVIDER_FAILED") from exc
+        remaining()
+        visual_qa = write_visual_qa_receipt(job / "visual-qa.json", assessment,
+            asset_ids=asset_ids, plan_digest=digest(plan),
+            materials_digest=candidate_receipt["materials_digest"], reference=project / "reference.png",
+            preview=candidate / "preview.png", contact_sheet=contact_sheet)
+        if not visual_qa["assessment"]["passed"]:
+            _record(job / "result.json", {"kind": "ai_ui_decomposition_job_result_v1",
+                "job_digest": request["digest"], "status": "failed_visual_qa", "stage": stage,
+                "reason": "AUTOMATED_VISUAL_QA_REJECTED", "asset": None,
+                "visual_review": "not_performed", "automated_visual_qa": "rejected",
+                "visual_qa_digest": visual_qa["digest"], "automatic_visual_acceptance": False,
+                "automatic_resubmit": False, "vision_calls": 2,
+                "generation_calls": frozen["maximum_calls"]})
+            return job_status(job)
         stage = "draft_export"
         receipt = finalize(run, job / "delivery", draft=True)
         from .psd_export import export_psd
         exported = export_psd(job / "delivery")
+        import shutil
+        shutil.copyfile(job / "visual-qa.json", job / "delivery" / "automated-visual-qa.json")
         artifacts = {}
         for name, relative in {"psd": "delivery/" + exported["file"], "preview": "delivery/preview.png",
                                "scene": "delivery/scene.json", "delivery": "delivery/delivery.json",
-                               "export": "delivery/psd-export.json", "plan": "project/plan.json"}.items():
+                               "export": "delivery/psd-export.json", "plan": "project/plan.json",
+                               "automated_visual_qa": "delivery/automated-visual-qa.json"}.items():
             artifacts[name] = {"path": relative, "sha256": sha256(safe_relative(job, relative))}
         _record(job / "result.json", {"kind": "ai_ui_decomposition_job_result_v1",
-            "job_digest": request["digest"], "status": "completed_unreviewed_draft",
+            "job_digest": request["digest"], "status": "completed_visual_qa_draft",
             "delivery_digest": receipt["digest"], "artifacts": artifacts,
-            "visual_review": "not_performed", "automatic_visual_acceptance": False,
+            "visual_review": "not_performed", "automated_visual_qa": "passed",
+            "visual_qa_digest": visual_qa["digest"], "automatic_visual_acceptance": False,
             "application_check": "not_run", "automatic_resubmit": False,
-            "vision_calls": 1, "generation_calls": frozen["maximum_calls"],
+            "vision_calls": 2, "generation_calls": frozen["maximum_calls"],
             "elapsed_seconds": round(timeout_seconds - (deadline - time.monotonic()), 3)})
     except Exception as exc:
         if active_asset is not None:

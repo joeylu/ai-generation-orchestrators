@@ -146,7 +146,7 @@ def main(argv=None) -> int:
     try:
         result = execute(args)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 2 if result.get("status") == "failed_no_resubmit" else 0
+        return 2 if result.get("status") in {"failed_no_resubmit", "failed_visual_qa"} else 0
     except ContractError as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc)}, ensure_ascii=False, sort_keys=True))

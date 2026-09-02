@@ -213,6 +213,21 @@ class AsyncMcpProvider:
         require(isinstance(result.get("description"), str), "MCP_VISION_DESCRIPTION")
         return result["description"]
 
+    def visual_qa(self, reference: Path, preview: Path, contact_sheet: Path, instruction: str,
+                  *, state_dir: Path, timeout: float) -> str:
+        """Run one post-generation vision assessment; no imagegen call occurs here."""
+        require(isinstance(instruction, str) and 1 <= len(instruction) <= 4096,
+                "MCP_VISION_INSTRUCTION_LIMIT")
+        require(instruction == instruction.strip(), "MCP_VISION_INSTRUCTION_WHITESPACE")
+        require(self.vision_url is not None, "MCP_VISION_ENDPOINT_UNCONFIGURED")
+        deadline = time.monotonic() + timeout
+        images = [load_verified_image(path)[0] for path in (reference, preview, contact_sheet)]
+        self._tools(self.vision_url, "vision", deadline)
+        result = self._task(self.vision_url, "vision", {"images": [_jpeg(image) for image in images],
+            "instruction": instruction}, state_dir, deadline)
+        require(isinstance(result.get("description"), str), "MCP_VISION_DESCRIPTION")
+        return result["description"]
+
     def generate(self, bundle: Path, *, state_dir: Path, timeout: float) -> Path:
         _verified_handoff(bundle)
         deadline = time.monotonic() + timeout

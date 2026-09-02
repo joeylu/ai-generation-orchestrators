@@ -13,8 +13,10 @@ for pixel-perfect manual Photoshop reconstruction.
 
 For an explicitly authorized unattended draft, use `auto-run` and the configured
 optional provider as described in [docs/headless.md](docs/headless.md). It consumes
-one vision call and a bounded number of image calls, then exports an unreviewed
-draft. Do not substitute this for a requested reviewed delivery. Never invent an
+two vision calls and a bounded number of image calls: planning first, then a mandatory
+post-generation visual-quality gate over the reference, assembled preview and contact
+sheet. It exports an unreviewed draft only after that gate passes. Do not substitute
+this for a requested reviewed delivery. Never invent an
 accepted `review.json`; retain the original reviewed workflow below.
 
 1. Run `doctor` and `self-test`, then use `init` to copy an oriented reference and
@@ -57,8 +59,8 @@ user-managed container, read
 
 ## Boundaries
 
-- Semantic component importance and visual acceptance remain review decisions;
-  program success does not establish either one.
+- The model quality gate can withhold an unattended draft, but it is not human
+  visual acceptance and does not establish perfect semantic importance or fidelity.
 - Keep this Harness isolated. Do not alter another Harness, its environment, or
   its runtime configuration to make this route work.
 - Only explicitly authorized `auto-run` invokes a configured optional provider.

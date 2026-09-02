@@ -43,7 +43,7 @@ recipient to copy these algorithms or use a logged-in desktop assistant.
 
 ## Released behavior
 
-The published 0.1.2 and 0.2.0 releases have different capabilities:
+The published 0.1.2, 0.2.0 and 0.2.1 releases have different capabilities:
 
 | Capability | Status |
 | --- | --- |
@@ -54,12 +54,14 @@ The published 0.1.2 and 0.2.0 releases have different capabilities:
 | Processing and reviewed PSD output | Implemented by `process`, `review-template`, `finalize`, `export`, `inspect` |
 | Image-only automatic planning | Implemented: configured vision provider produces a strictly validated proposal |
 | Single unattended execution entry | Implemented: `auto-run`, with `job-status`, explicit budget and no automatic resubmission |
-| Automatic unreviewed draft PSD output | Implemented: frozen draft policy and `finalize --draft`; human-reviewed default unchanged |
+| Automated visual-quality gate | Implemented in 0.2.1: a configured vision provider assesses reference, candidate preview and contact sheet before delivery |
+| Automatic unreviewed draft PSD output | Implemented in 0.2.1 only after the quality gate passes; human-reviewed default unchanged |
 
 No image-to-PSD HTTP endpoint is implemented. The runner is usable as a per-job
-CLI/library function. Its complete offline path and one bounded live end-to-end
-execution are verified; general visual accuracy is not established. Do not describe
-the draft output as a visually validated reconstruction.
+CLI/library function. Its complete offline quality-gated path is verified with
+provider doubles. The earlier bounded live end-to-end execution predates this gate,
+so live provider accuracy is not established. Do not describe the draft output as a
+human-validated reconstruction.
 
 The automatic entry is deliberately limited to:
 
@@ -72,10 +74,11 @@ The automatic entry is deliberately limited to:
    artifacts for repeated completed jobs and reports completion or failure. Partial
    job recovery remains explicit through the existing result-reuse commands. The recipient's queue
    schedules jobs; the Harness does not become a web server or queue platform.
-3. An explicit draft-export policy for the unattended use case. This must record
-   that no human visual acceptance occurred, preserve structural and integrity
-   checks, and leave reviewed export unchanged. Never simulate an accepted human
-   review by editing `review.json` automatically.
+3. An explicit draft-export policy for the unattended use case. It performs one
+   bounded automated visual-quality assessment after processing and withholds the
+   delivery on rejection. It records that no human visual acceptance occurred,
+   preserves structural and integrity checks, and leaves reviewed export unchanged.
+   Never simulate an accepted human review by editing `review.json` automatically.
 
 Further visual-quality tuning is deferred from this handoff scope. Successful
 file generation must not be advertised as guaranteed visual reconstruction.
@@ -98,9 +101,10 @@ and known limitations:
   the applicable provider policy and authorization, not an implicit retry loop.
 - The receiving application gets task status, progress, structured failures and
   artifact locations. Its HTTP routes and storage implementation remain its own.
-- A completed draft includes the PSD, layer assets, preview and provenance/quality
-  report with an explicit unreviewed status. Missing required assets, invalid
-  fingerprints or failed PSD validation produce failure, not a successful download.
+- A completed draft includes the PSD, layer assets, preview and automated quality
+  receipt with an explicit unreviewed status. Missing required assets, an invalid
+  quality assessment, a quality rejection, invalid fingerprints or failed PSD
+  validation produce failure, not a successful download.
 - Integration examples and verification cover the public runtime and fixtures;
   they do not depend on private operational scripts or a particular provider.
 

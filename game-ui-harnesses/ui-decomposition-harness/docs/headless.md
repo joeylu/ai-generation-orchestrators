@@ -1,17 +1,17 @@
 # Headless image-to-draft-PSD integration
 
-Available in the published 0.2.0 release. The entry is an opt-in per-job
+Available in the published 0.2.1 release. The entry is an opt-in per-job
 CLI/library function, not a web service.
 Offline tests exercise the complete runner with provider doubles and real PSD
-encoding. A separately authorized live end-to-end check has also produced a
-structurally verified draft PSD; it does not establish general provider
-reliability, visual accuracy or automatic visual acceptance.
+encoding. A separately authorized 0.2.0 live end-to-end check produced a
+structurally verified draft PSD before this quality gate existed; it does not
+establish general provider reliability or live visual-gate accuracy.
 
 ## Configuration and invocation
 
 Install a built `ai-ui-decomposition[psd]` package in the recipient's environment.
-For production, install the immutable 0.2.0 release and pin/verify its digest.
-Do not reuse the 0.1.2 release for these commands.
+For production, install the immutable 0.2.1 release and pin/verify its digest.
+Do not reuse the 0.1.2 or 0.2.0 releases for these commands.
 Run `doctor` and `self-test`; both remain offline and consume no provider compute.
 
 The deployment owns a trusted config file, outside the public artifact directory:
@@ -46,11 +46,12 @@ ai-ui-decomposition auto-run --reference uploads/reference.png --job-dir jobs/re
 ai-ui-decomposition job-status --job-dir jobs/request-001
 ```
 
-The explicit flag delegates **one vision call and at most the stated generation
-budget**, and accepts an unreviewed PSD. Do not add it unless the caller has
-authorized both external processing of the image and the compute budget. The
-recipient's end user can supply only an image once that service has established
-the deployment defaults and consent. The Harness does not implement that service.
+The explicit flag delegates **two vision calls and at most the stated generation
+budget**: one call makes the plan and the second scores the completed candidate.
+Do not add it unless the caller has authorized external processing of the image and
+the compute budget. The recipient's end user can supply only an image once that
+service has established the deployment defaults and consent. The Harness does not
+implement that service.
 
 ## Execution contract
 
@@ -65,8 +66,17 @@ the deployment defaults and consent. The Harness does not implement that service
    nodes. Default granularity is important components with same-size module reuse.
 4. Reserve and dispatch each component once in order, seal the result and import
    it through the existing file protocol. Stop on the first error.
-5. Process all materials, assemble and export `ui.draft.psd`, then reopen it to
-   verify pixels, positions, group structure and the composite. No review is forged.
+5. Process all materials and assemble a private candidate preview. Submit the
+   original reference, candidate preview and material contact sheet to the vision
+   provider for one strict JSON assessment. It evaluates layout fidelity, component
+   coverage, text-policy compliance and cutout cleanliness. An `accept` must score
+   at least 80 overall, at least 70 for every criterion and contain no blocker issue.
+   The safe receipt has no free-form provider prose, task ID or endpoint details.
+6. If the assessment rejects, write `failed_visual_qa`, retain the private
+   candidate for diagnosis and stop. Do not create `delivery/`, replan, regenerate
+   or retry. If the assessment passes, assemble and export `ui.draft.psd`, then
+   reopen it to verify pixels, positions, group structure and the composite. The
+   public delivery includes `automated-visual-qa.json`. No human review is forged.
 
 No automatic repair or generation retry occurs. A possibly accepted request remains
 reserved/indeterminate after a crash. Known provider failures are also terminal for
@@ -91,7 +101,8 @@ the JSON `status` to determine job outcome. Possible states:
 
 | Status | Meaning and action |
 | --- | --- |
-| `completed_unreviewed_draft` | Required PSD and artifact hashes verified; serve the draft with its warning |
+| `completed_visual_qa_draft` | The automated visual-quality gate, PSD and artifact hashes passed; serve the unreviewed draft with its limits |
+| `failed_visual_qa` | The model rejected the candidate; retain its safe receipt and private evidence, do not serve a PSD or retry |
 | `failed_no_resubmit` | Recorded stage/reason; no automatic retries; retain evidence for a new decision |
 | `started_outcome_unknown` | No terminal receipt, potentially still running or crashed; do not resubmit |
 
@@ -101,8 +112,9 @@ component progress. A job not yet readable can be temporarily initializing; the
 recipient should poll read-only, never infer permission to create a replacement.
 
 Persist the entire job directory. Publish only the allowlisted `delivery/` files
-and safe result metadata: PSD, preview, layer PNGs, scene, delivery and export
-receipts. The terminal JSON records relative artifact locations and hashes. Keep
+and safe result metadata: PSD, preview, layer PNGs, scene, delivery, export and
+automated visual-QA receipts. The terminal JSON records relative artifact locations
+and hashes. Keep
 `private/`, source images, proposals, request bundles and deployment configuration
 out of public downloads. Private provider state contains submission IDs, task IDs,
 input image bytes and raw MCP replies (which can include temporary signed URLs or
@@ -111,12 +123,13 @@ provider error details); protect it as source data. Raw replies are limited to
 Use one fresh, application-assigned directory per logical request and prevent
 parallel invocations for that request. Preserve evidence after restart.
 
-`completed_unreviewed_draft` means files passed structural checks. It does **not**
-mean the model selected every important component, removed all text, preserved all
-purple pixels through keying, or reconstructed hidden artwork correctly. Semantic
-granularity and visual accuracy still need evaluation. Automatic plans do not guess
-nine-slice insets. PSD opening in the Photoshop application is not validated; PSB
-writing remains unavailable. The reviewed `finalize` route retains its human gate.
+`completed_visual_qa_draft` means the fixed model gate and structural checks passed.
+It does **not** mean the model selected every important component, removed all text,
+preserved all purple pixels through keying, or reconstructed hidden artwork correctly.
+The gate is a delivery filter, not human visual acceptance or a fidelity guarantee.
+Automatic plans do not guess nine-slice insets. PSD opening in the Photoshop
+application is not validated; PSB writing remains unavailable. The reviewed
+`finalize` route retains its human gate.
 
 ## Optional stateless MCP adapter
 
@@ -129,11 +142,12 @@ SDK login session or assistant process is required.
 
 Vision input is `images` plus `instruction` (1–4096 characters with no leading or
 trailing whitespace; checked locally before any request); completed
-output is a `description` string containing the exact planning JSON. Imagegen takes
-`prompt` and one `referenceImage`; completed output includes `downloadUrl`, PNG
-MIME type, width, height and byte count. Inputs are JPEG encoded below 2 MiB. For
-generation, the full reference and exact crop are arranged on one evidence board.
-No image is sent to an endpoint not explicitly configured by the deployment.
+output is a `description` string containing either the exact planning JSON or the
+fixed visual-QA JSON. Imagegen takes `prompt` and one `referenceImage`; completed
+output includes `downloadUrl`, PNG MIME type, width, height and byte count. Inputs
+are JPEG encoded below 2 MiB. For generation, the full reference and exact crop are
+arranged on one evidence board. No image is sent to an endpoint not explicitly
+configured by the deployment.
 
 Before a business call, the adapter persists a UUID `submissionId` and full
 arguments. It stores the returned `taskId`, polls within the deadline, verifies
@@ -148,7 +162,7 @@ Provider-specific endpoint URLs, credentials and task identities never enter the
 public plan or delivery receipt.
 
 An adapter instance used solely to materialize a **previously frozen** plan may
-omit its vision endpoint, because that path never calls `plan`. `auto-run` always
-plans first and therefore still requires both configured capabilities. Treat a
-missing vision endpoint during planning as a local configuration error, never as
-permission to infer or reuse a plan.
+omit its vision endpoint, because that path never calls `plan` or the quality gate.
+`auto-run` always plans first and then performs visual QA, so it requires both
+configured capabilities. Treat a missing vision endpoint as a local configuration
+error, never as permission to infer, reuse or visually waive a plan.

@@ -22,6 +22,7 @@ from ai_ui_decomposition.common import ContractError, digest, read_json, write_j
 from ai_ui_decomposition.headless import auto_run, job_status
 from ai_ui_decomposition.mcp_provider import AsyncMcpProvider, _NoRedirect
 from ai_ui_decomposition.process import process
+from ai_ui_decomposition import visual_qa
 
 
 def proposal():
@@ -37,13 +38,23 @@ def proposal():
                    {"id": "controls", "children": ["button_one", "button_two"]}]}
 
 
+def visual_qa_response(*, decision="accept", overall=88, layout=90, coverage=88,
+                       text=95, cleanliness=82, issues=None):
+    return json.dumps({"decision": decision, "overall_score": overall,
+                       "checks": {"layout_fidelity": layout, "component_coverage": coverage,
+                                  "text_policy": text, "cutout_cleanliness": cleanliness},
+                       "issues": [] if issues is None else issues})
+
+
 class FakeProvider:
     def __init__(self):
         self.proposal = json.dumps(proposal())
         self.vision_calls = 0
         self.image_calls = 0
+        self.quality_calls = 0
         self.fail = False
         self.wrong_ratio = False
+        self.quality = visual_qa_response()
 
     def plan(self, reference, instruction, *, state_dir, timeout):
         self.vision_calls += 1
@@ -64,6 +75,13 @@ class FakeProvider:
         picture.save(result)
         return result
 
+    def visual_qa(self, reference, preview, contact_sheet, instruction, *, state_dir, timeout):
+        self.quality_calls += 1
+        assert reference.is_file() and preview.is_file() and contact_sheet.is_file()
+        assert instruction == instruction.strip() and len(instruction) <= 4096 and timeout > 0
+        state_dir.mkdir(parents=True)
+        return self.quality
+
 
 class HeadlessTests(unittest.TestCase):
     def setUp(self):
@@ -83,16 +101,21 @@ class HeadlessTests(unittest.TestCase):
 
     def test_real_draft_psd_roundtrip_and_completed_job_reuse(self):
         result = self.run_job()
-        self.assertEqual(result["status"], "completed_unreviewed_draft")
+        self.assertEqual(result["status"], "completed_visual_qa_draft")
         self.assertEqual(result["artifacts"]["psd"]["path"], "delivery/ui.draft.psd")
         self.assertEqual(result["visual_review"], "not_performed")
         self.assertFalse(result["automatic_visual_acceptance"])
+        self.assertEqual(result["automated_visual_qa"], "passed")
         self.assertFalse((self.job / "workspace/runs/automatic/review.json").exists())
         export = read_json(self.job / "delivery/psd-export.json")
         self.assertEqual(export["pixel_layers"], 3)
         self.assertEqual(export["rgba_max_error"], 0)
+        quality = read_json(self.job / "delivery/automated-visual-qa.json")
+        self.assertTrue(quality["assessment"]["passed"])
+        self.assertFalse(quality["human_visual_acceptance"])
         self.assertEqual(self.run_job()["digest"], result["digest"])
-        self.assertEqual((self.provider.vision_calls, self.provider.image_calls), (1, 2))
+        self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
+                          self.provider.image_calls), (1, 1, 2))
 
     def test_repeated_completed_job_still_checks_psd_hash(self):
         self.run_job()
@@ -162,6 +185,38 @@ class HeadlessTests(unittest.TestCase):
         self.assertFalse((self.job / "delivery").exists())
         self.assertEqual(self.provider.image_calls, 1)
 
+    def test_automatic_visual_rejection_withholds_delivery_and_never_retries(self):
+        self.provider.quality = visual_qa_response(decision="reject", overall=62, layout=65,
+            coverage=58, text=95, cleanliness=71, issues=[{"criterion": "component_coverage",
+            "severity": "major", "asset": "button"}])
+        result = self.run_job()
+        self.assertEqual(result["status"], "failed_visual_qa")
+        self.assertEqual(result["reason"], "AUTOMATED_VISUAL_QA_REJECTED")
+        self.assertFalse((self.job / "delivery").exists())
+        self.assertTrue((self.job / "private/visual-qa-candidate/preview.png").is_file())
+        receipt = read_json(self.job / "visual-qa.json")
+        self.assertFalse(receipt["assessment"]["passed"])
+        with self.assertRaisesRegex(ContractError, "JOB_ALREADY_STARTED_NO_RESUBMIT"):
+            self.run_job()
+        self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
+                          self.provider.image_calls), (1, 1, 2))
+
+    def test_invalid_automatic_visual_response_is_terminal_without_draft(self):
+        self.provider.quality = '{"decision":"accept"}'
+        result = self.run_job()
+        self.assertEqual(result["status"], "failed_no_resubmit")
+        self.assertEqual(result["stage"], "visual_quality")
+        self.assertEqual(result["reason"], "AUTOMATED_VISUAL_QA_FIELDS")
+        self.assertFalse((self.job / "delivery").exists())
+        with self.assertRaisesRegex(ContractError, "JOB_ALREADY_STARTED_NO_RESUBMIT"):
+            self.run_job()
+
+    def test_missing_visual_qa_capability_stops_before_job_or_compute(self):
+        with self.assertRaisesRegex(ContractError, "PROVIDER_INTERFACE"):
+            auto_run(self.reference, self.job, object(), maximum_calls=4, timeout_seconds=60,
+                     authorized=True)
+        self.assertFalse(self.job.exists())
+
     def test_crash_after_reservation_does_not_restart_vision_or_generation(self):
         with patch.object(self.provider, "generate", side_effect=KeyboardInterrupt):
             with self.assertRaises(KeyboardInterrupt):
@@ -220,6 +275,11 @@ class HeadlessTests(unittest.TestCase):
             self.assertEqual(self.run_job(timeout=1)["reason"], "JOB_DEADLINE_EXCEEDED")
         self.assertEqual(self.provider.image_calls, 0)
 
+    def test_automatic_visual_qa_contract_rejects_false_acceptance(self):
+        with self.assertRaisesRegex(ContractError, "AUTOMATED_VISUAL_QA_ACCEPT_POLICY"):
+            visual_qa.assess(visual_qa_response(overall=79, layout=90, coverage=88,
+                             text=95, cleanliness=82), {"scene", "button"})
+
 
 class McpAdapterTests(unittest.TestCase):
     def setUp(self):
@@ -256,6 +316,32 @@ class McpAdapterTests(unittest.TestCase):
         self.assertEqual(json.loads(value), proposal())
         self.assertEqual(seen, ["vision", "get_task"])
 
+    def test_visual_qa_sends_original_preview_and_contact_sheet_to_vision_only(self):
+        images = []
+        for name, color in (("reference.png", "blue"), ("preview.png", "green"),
+                            ("contact.png", "red")):
+            path = self.root / name
+            Image.new("RGB", (64, 48), color).save(path)
+            images.append(path)
+        state = self.root / "quality"
+        response = visual_qa_response()
+        calls = []
+        def task(endpoint, name, arguments, task_state, deadline):
+            calls.append((endpoint, name, arguments))
+            self.assertEqual(task_state, state)
+            self.assertEqual(len(arguments["images"]), 3)
+            self.assertEqual(arguments["instruction"], arguments["instruction"].strip())
+            self.assertIn("button, scene", arguments["instruction"])
+            task_state.mkdir()
+            return {"description": response}
+        with patch.object(self.provider, "_tools") as tools, \
+             patch.object(self.provider, "_task", side_effect=task):
+            result = self.provider.visual_qa(*images, visual_qa.instruction([64, 48], {"button", "scene"}),
+                                              state_dir=state, timeout=60)
+        self.assertEqual(result, response)
+        tools.assert_called_once()
+        self.assertEqual(calls[0][1], "vision")
+
     def test_vision_instruction_whitespace_is_rejected_before_any_network(self):
         for text in (" instructions", "instructions\n", "\tinstructions\r\n"):
             with self.subTest(text=text), patch.object(self.provider, "_rpc") as rpc:
@@ -276,6 +362,24 @@ class McpAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractError, "MCP_VISION_ENDPOINT_UNCONFIGURED"):
                 provider.plan(self.root / "not-needed.png", "valid instruction",
                               state_dir=self.root / "never-created", timeout=60)
+        tools.assert_not_called()
+        self.assertFalse((self.root / "never-created").exists())
+
+    def test_visual_qa_without_vision_endpoint_is_rejected_before_any_network(self):
+        options = {"vision_url_env": None, "imagegen_url_env": "TEST_UI_IMAGE",
+                   "api_key_env": "TEST_UI_KEY", "download_hosts": ["media.example.invalid"]}
+        with patch.dict(os.environ, {"TEST_UI_IMAGE": "https://image.example.invalid/mcp",
+                                    "TEST_UI_KEY": "test-only-secret"}):
+            provider = AsyncMcpProvider(options)
+        paths = []
+        for name in ("original.png", "preview.png", "contact.png"):
+            path = self.root / name
+            Image.new("RGB", (64, 48), "blue").save(path)
+            paths.append(path)
+        with patch.object(provider, "_tools") as tools:
+            with self.assertRaisesRegex(ContractError, "MCP_VISION_ENDPOINT_UNCONFIGURED"):
+                provider.visual_qa(*paths, "valid instruction", state_dir=self.root / "never-created",
+                                   timeout=60)
         tools.assert_not_called()
         self.assertFalse((self.root / "never-created").exists())
 
