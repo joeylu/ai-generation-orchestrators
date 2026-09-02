@@ -28,10 +28,12 @@ jobs:
           python -m pip install
           "./artwork-harnesses/image-background-removal-harness[test]"
           "./artwork-harnesses/video-sequence-harness/character[test]"
+          "./game-ui-harnesses/ui-decomposition-harness[test,psd]"
       - name: Run offline fixtures and test doubles
         run: |
           python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
           python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
+          python -m unittest discover -s game-ui-harnesses/ui-decomposition-harness/tests -p "test_*.py" -v
           python -m unittest discover -s .github/repository-tests -p "test_*.py" -v
       - name: Check installed offline contract
         run: |
@@ -72,5 +74,6 @@ jobs:
           python -m pip install
           ./artwork-harnesses/image-background-removal-harness
           ./artwork-harnesses/video-sequence-harness/character
+          ./game-ui-harnesses/ui-decomposition-harness
           pip-audit
       - run: pip-audit
