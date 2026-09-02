@@ -34,9 +34,11 @@ def contain(image: Image.Image, size: list[int]) -> Image.Image:
 
 
 def matte_key(image: Image.Image, size: list[int]) -> Image.Image:
-    rgb = np.asarray(image.convert("RGB"), dtype=np.float32)
+    source = np.asarray(image.convert("RGBA"))
+    rgb = source[:, :, :3].astype(np.float32)
+    source_alpha = source[:, :, 3]
     distance = np.sqrt(np.sum((rgb - KEY_RGB) ** 2, axis=2))
-    alpha = np.where(distance < 145, 0, 255).astype(np.uint8)
+    alpha = np.minimum(np.where(distance < 145, 0, 255).astype(np.uint8), source_alpha)
     # Remove key-colored pixels globally, including enclosed holes. Softening only
     # shapes alpha; it does not restore pixels or infer a semantic mask.
     alpha_image = Image.fromarray(alpha, "L").filter(ImageFilter.GaussianBlur(0.65))

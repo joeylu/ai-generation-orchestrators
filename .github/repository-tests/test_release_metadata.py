@@ -22,7 +22,8 @@ from release_tools.build_release_metadata import (
     SDIST_SUPPORT_FILES, SKILL_FILES,
     SKILL_NAME, SKILL_ROOT, build_metadata, build_skill_archive,
     project_version, project_version_from_text, sha256, validate_source_archive,
-    verify_tag, VIDEO_SDIST_SUPPORT_FILES,
+    verify_tag, VIDEO_SDIST_SUPPORT_FILES, UI_SDIST_SUPPORT_FILES, UI_SKILL_FILES,
+    UI_SKILL_NAME, UI_SKILL_ROOT,
 )
 
 
@@ -30,12 +31,15 @@ class ReleaseMetadataTests(unittest.TestCase):
     def test_versions_agree(self) -> None:
         video_skill = json.loads((ROOT / SKILL_ROOT / "skill.json").read_text(encoding="utf-8"))
         background_skill = json.loads((ROOT / BACKGROUND_SKILL_ROOT / "skill.json").read_text(encoding="utf-8"))
+        ui_skill = json.loads((ROOT / UI_SKILL_ROOT / "skill.json").read_text(encoding="utf-8"))
         self.assertEqual(project_version("video"), video_skill["version"])
         self.assertEqual(project_version("background"), background_skill["version"])
+        self.assertEqual(project_version("ui"), ui_skill["version"])
         self.assertEqual(project_version("video"), __version__)
         self.assertEqual(verify_tag(f"v{project_version('video')}"), "video")
         self.assertEqual(verify_tag(f"video-v{project_version('video')}"), "video")
         self.assertEqual(verify_tag(f"background-v{project_version('background')}"), "background")
+        self.assertEqual(verify_tag(f"ui-v{project_version('ui')}"), "ui")
 
     def test_release_consumption_names_both_skill_archives(self) -> None:
         text = (ROOT / SKILL_ROOT / "docs" / "release-consumption.md").read_text(encoding="utf-8")
@@ -91,6 +95,31 @@ version = \"9.9.9\"
                 metadata = json.loads(archive.read(f"{SKILL_NAME}/skill.json"))
                 self.assertEqual(metadata["version"], project_version())
                 self.assertEqual(metadata["cli"], "ai-frame-animation")
+
+    def test_ui_skill_archive_is_complete_and_versioned(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            dist = Path(temporary)
+            (dist / "package.whl").write_bytes(b"wheel")
+            build_metadata(dist, "ui")
+            archive_path = dist / f"{UI_SKILL_NAME}-{project_version('ui')}.zip"
+            with zipfile.ZipFile(archive_path) as archive:
+                expected = {f"{UI_SKILL_NAME}/{name}" for name in (*UI_SKILL_FILES, "LICENSE")}
+                self.assertEqual(set(archive.namelist()), expected)
+                metadata = json.loads(archive.read(f"{UI_SKILL_NAME}/skill.json"))
+                self.assertEqual(metadata["version"], project_version("ui"))
+                self.assertEqual(metadata["cli"], "ai-ui-decomposition")
+
+    def test_ui_source_archive_requires_runtime_support_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source.tar.gz"
+            missing = "references/provider-adapter.md"
+            self._source_archive(
+                source, tuple(name for name in UI_SDIST_SUPPORT_FILES if name != missing), "ui"
+            )
+            with self.assertRaisesRegex(ValueError, "source_distribution_support_files_missing"):
+                validate_source_archive(source, "ui")
+            self._source_archive(source, UI_SDIST_SUPPORT_FILES, "ui")
+            validate_source_archive(source, "ui")
 
     def _copy_skill_source(self, root: Path) -> Path:
         skill = root / SKILL_ROOT
@@ -196,12 +225,14 @@ version = \"9.9.9\"
             self.assertEqual(wheel.read_bytes(), b"wheel-test-double")
             self.assertTrue((dist / f"{SKILL_NAME}-{project_version()}.zip").is_file())
             self.assertTrue((dist / f"{BACKGROUND_SKILL_NAME}-{project_version('background')}.zip").is_file())
+            self.assertTrue((dist / f"{UI_SKILL_NAME}-{project_version('ui')}.zip").is_file())
             self.assertTrue((dist / "SHA256SUMS.txt").is_file())
 
     def _source_archive(self, destination: Path, names: tuple[str, ...], component: str = "video") -> None:
         prefix = {
             "video": f"ai_frame_animation-{project_version('video')}",
             "background": f"ai_image_background_removal-{project_version('background')}",
+            "ui": f"ai_ui_decomposition-{project_version('ui')}",
         }[component]
         with tarfile.open(destination, "w:gz") as archive:
             for name in names:
@@ -242,6 +273,7 @@ version = \"9.9.9\"
             for component, support, missing in (
                 ("video", VIDEO_SDIST_SUPPORT_FILES, "tests/fixtures/golden/subject-fit-cases.json"),
                 ("background", BACKGROUND_SDIST_SUPPORT_FILES, "tests/fixtures/golden/reference-material-cases.json"),
+                ("ui", UI_SDIST_SUPPORT_FILES, "references/provider-adapter.md"),
             ):
                 with self.subTest(missing=missing):
                     self._source_archive(source, tuple(name for name in support if name != missing), component)

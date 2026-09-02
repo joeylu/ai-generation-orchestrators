@@ -1,0 +1,6 @@
+interface:
+  display_name: "UI Decomposition"
+  short_description: "Turn a UI reference into reviewed reusable PSD layers"
+  default_prompt: "Use $ui-decomposition to split my UI reference into important reusable components and assemble a reviewed layered PSD."
+policy:
+  allow_implicit_invocation: true

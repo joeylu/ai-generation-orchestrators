@@ -5,7 +5,8 @@ import shutil
 
 from PIL import Image
 
-from .common import digest, identifier, read_json, require, safe_relative, sha256, write_json
+from .common import (digest, identifier, load_verified_image, read_json, require,
+                     safe_relative, sha256, write_json)
 from .contract import validate
 
 
@@ -51,8 +52,9 @@ def freeze(plan_path: Path, workspace: Path, run_id: str) -> dict:
     write_json(run / "plan.json", plan)
     source_path = safe_relative(plan_base, plan["source"]["path"])
     reference = run / "input" / "reference.png"
-    with Image.open(source_path) as image:
-        image.convert("RGBA").save(reference)
+    image, _source_evidence = load_verified_image(source_path, plan["canvas"])
+    require(_source_evidence["sha256"] == plan["source"]["sha256"], "SOURCE_CHANGED")
+    image.save(reference)
     source_sha = sha256(reference)
     requests = {}
     order = []
@@ -141,7 +143,7 @@ def reserve(run: Path, asset: str) -> dict:
 
 
 def receive(run: Path, asset: str, source: Path) -> dict:
-    batch, _ = load(run)
+    batch, plan = load(run)
     asset = identifier(asset)
     require(asset in batch["requests"], "UNKNOWN_REQUEST")
     entry = batch["requests"][asset]
@@ -151,12 +153,20 @@ def receive(run: Path, asset: str, source: Path) -> dict:
     raw = run / "requests" / entry["id"] / "raw.png"
     require(not raw.exists(), "RAW_ALREADY_MATERIALIZED")
     shutil.copyfile(source, raw)
-    with Image.open(raw) as image:
-        size, mode = list(image.size), image.mode
+    _image, evidence = load_verified_image(raw)
+    asset_record = next(item for item in plan["assets"] if item["id"] == asset)
+    if asset_record["output_mode"] == "opaque_canvas":
+        require(evidence["alpha_extrema"] == [255, 255], "OPAQUE_RESULT_REQUIRED")
+        target_width, target_height = asset_record["output_size"]
+        raw_width, raw_height = evidence["size"]
+        ratio_error = abs((raw_width / raw_height) / (target_width / target_height) - 1.0)
+        require(ratio_error <= 0.05, "OPAQUE_RESULT_ASPECT_MISMATCH")
     record = {"kind": "ai_ui_decomposition_request_received_v1",
               "batch_digest": batch["digest"], "asset": asset,
               "request_id": entry["id"], "raw_sha256": sha256(raw),
-              "size": size, "mode": mode, "generation_calls": 1,
+              "size": evidence["size"], "mode": evidence["mode"],
+              "alpha_extrema": evidence["alpha_extrema"],
+              "bytes": evidence["bytes"], "generation_calls": 1,
               "automatic_retries": 0}
     write_json(raw.parent / "received.json", record)
     return record

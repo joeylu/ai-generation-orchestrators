@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from .common import digest, identifier, require, safe_relative, sha256
+from .common import digest, identifier, load_verified_image, require, safe_relative, sha256
 
 KIND = "ai_ui_decomposition_plan_v1"
 TEXT_POLICY = "remove_ordinary_text_preserve_graphic_symbols"
@@ -52,6 +52,8 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
     if verify_source:
         require(source_path.is_file() and sha256(source_path) == source["sha256"],
                 "SOURCE_CHANGED")
+        _picture, evidence = load_verified_image(source_path, canvas)
+        require(evidence["sha256"] == source["sha256"], "SOURCE_CHANGED")
 
     assets = plan.get("assets")
     require(isinstance(assets, list) and 1 <= len(assets) <= 128, "ASSETS")

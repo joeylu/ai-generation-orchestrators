@@ -11,7 +11,9 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
-1. Create an `ai_ui_decomposition_plan_v1` from the reference. Read
+1. Run `doctor` and `self-test`, then use `init` to copy an oriented reference and
+   create a digest-bound starter plan. Create an `ai_ui_decomposition_plan_v1`
+   from that starter. Read
    [references/contract.md](references/contract.md) when authoring or reviewing a
    plan. Prefer a small useful layer set: background and major panel surfaces,
    reusable card or button bases, distinct product or icon content, and controls
@@ -22,9 +24,11 @@ for pixel-perfect manual Photoshop reconstruction.
    reconstruct copy as image layers.
 3. Run `ai-ui-decomposition check`, then `freeze`. Freeze creates provider-neutral
    single-use request records; it does not call a provider. Before each external
-   image call, run `reserve`. Record its one returned file with `receive`. If the
-   call may have been accepted but its outcome is unknown, run `indeterminate`
-   and stop; never resubmit automatically.
+   image call, use `adapter-export` to create one portable request bundle. Read
+   [references/provider-adapter.md](references/provider-adapter.md) when wiring a
+   local process, mounted container, MCP bridge, or service. Seal and import its
+   one returned image. If the call may have been accepted but its outcome is
+   unknown, run `indeterminate` and stop; never resubmit automatically.
 4. Run `process`. Inspect `materials/contact-sheet.png` and the individual RGBA
    files. The keyed matte removes magenta globally, including enclosed holes.
    Reused components are scaled uniformly and centered, so their height is not
@@ -35,6 +39,10 @@ for pixel-perfect manual Photoshop reconstruction.
    user's behalf or change any digest field.
 6. Run `finalize` into a fresh output directory, then `export`. Report the PSD
    file-roundtrip result separately from application validation.
+
+For copyable commands, read [docs/quickstart.md](docs/quickstart.md). For a
+user-managed container, read
+[docs/container-integration.md](docs/container-integration.md).
 
 ## Boundaries
 

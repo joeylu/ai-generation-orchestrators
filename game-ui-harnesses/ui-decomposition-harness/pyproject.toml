@@ -15,10 +15,17 @@ dependencies = ["Pillow>=10,<13", "numpy>=1.26,<3", "scipy>=1.11,<2"]
 
 [project.optional-dependencies]
 psd = ["psd-tools==1.18.0", "attrs==26.1.0"]
-test = ["pytest>=8,<10"]
+test = []
 
 [project.scripts]
 ai-ui-decomposition = "ai_ui_decomposition.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.data-files]
+"share/ai-ui-decomposition" = ["SKILL.md", "skill.json"]
+"share/ai-ui-decomposition/agents" = ["agents/openai.yaml"]
+"share/ai-ui-decomposition/references" = ["references/*.md"]
+"share/ai-ui-decomposition/docs" = ["docs/*.md"]
+"share/ai-ui-decomposition/examples" = ["examples/*.md"]

@@ -39,10 +39,12 @@ jobs:
         run: |
           ai-image-background-removal self-test
           ai-frame-animation self-test
+          ai-ui-decomposition self-test
       - name: Check redacted doctor
         run: |
           ai-image-background-removal doctor
           ai-frame-animation doctor
+          ai-ui-decomposition doctor
 
   build:
     runs-on: ubuntu-latest
@@ -55,10 +57,11 @@ jobs:
       - run: python -m pip install build
       - run: python -m build --outdir dist artwork-harnesses/image-background-removal-harness
       - run: python -m build --outdir dist artwork-harnesses/video-sequence-harness/character
+      - run: python -m build --outdir dist game-ui-harnesses/ui-decomposition-harness
       - run: python .github/release_tools/build_release_metadata.py --dist dist --component all
       - uses: actions/upload-artifact@v7
         with:
-          name: ai-frame-animation-dist
+          name: ai-generation-orchestrators-dist
           path: dist/
           if-no-files-found: error
 

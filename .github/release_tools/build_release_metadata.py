@@ -28,6 +28,13 @@ SKILL_FILES = (
 BACKGROUND_SKILL_NAME = "image-background-removal"
 BACKGROUND_SKILL_ROOT = Path("artwork-harnesses/image-background-removal-harness")
 BACKGROUND_SKILL_FILES = ("SKILL.md", "agents/openai.yaml", "skill.json")
+UI_SKILL_NAME = "ui-decomposition"
+UI_SKILL_ROOT = Path("game-ui-harnesses/ui-decomposition-harness")
+UI_SKILL_FILES = (
+    "SKILL.md", "agents/openai.yaml", "references/acceptance.md",
+    "references/contract.md", "references/provider-adapter.md", "skill.json",
+    "docs/quickstart.md", "docs/container-integration.md",
+)
 
 VIDEO_SDIST_SUPPORT_FILES = (
     "LICENSE", "MANIFEST.in", "README.md", "SKILL.md", "pyproject.toml", "skill.json",
@@ -76,6 +83,14 @@ BACKGROUND_SDIST_SUPPORT_FILES = (
         "reference-translucency-cases.json",
     )),
 )
+UI_SDIST_SUPPORT_FILES = (
+    "LICENSE", "MANIFEST.in", "README.md", "SKILL.md", "pyproject.toml", "skill.json",
+    "agents/openai.yaml",
+    "docs/quickstart.md", "docs/container-integration.md",
+    "examples/README.md",
+    "references/acceptance.md", "references/contract.md", "references/provider-adapter.md",
+    "tests/test_harness.py", "tests/test_public_runtime.py",
+)
 SDIST_SUPPORT_FILES = VIDEO_SDIST_SUPPORT_FILES
 
 
@@ -90,7 +105,7 @@ def project_version_from_text(value: str) -> str:
 
 
 def project_version(component: str = "video") -> str:
-    roots = {"video": SKILL_ROOT, "background": BACKGROUND_SKILL_ROOT}
+    roots = {"video": SKILL_ROOT, "background": BACKGROUND_SKILL_ROOT, "ui": UI_SKILL_ROOT}
     if component not in roots:
         raise ValueError("release_component_invalid")
     return project_version_from_text((ROOT / roots[component] / "pyproject.toml").read_text(encoding="utf-8"))
@@ -101,6 +116,7 @@ def verify_tag(tag: str) -> str:
         f"v{project_version('video')}": "video",
         f"video-v{project_version('video')}": "video",
         f"background-v{project_version('background')}": "background",
+        f"ui-v{project_version('ui')}": "ui",
     }
     if tag not in expected:
         raise SystemExit("tag_version_mismatch: expected one of " + ", ".join(sorted(expected)) + f", got {tag}")
@@ -167,10 +183,18 @@ def build_background_skill_archive(dist: Path) -> Path:
     )
 
 
+def build_ui_skill_archive(dist: Path) -> Path:
+    return _build_skill_archive(
+        dist, name=UI_SKILL_NAME, root=UI_SKILL_ROOT,
+        files=UI_SKILL_FILES, version=project_version("ui")
+    )
+
+
 def validate_source_archive(path: Path, component: str = "video") -> None:
     settings = {
         "video": (f"ai_frame_animation-{project_version('video')}", VIDEO_SDIST_SUPPORT_FILES),
         "background": (f"ai_image_background_removal-{project_version('background')}", BACKGROUND_SDIST_SUPPORT_FILES),
+        "ui": (f"ai_ui_decomposition-{project_version('ui')}", UI_SDIST_SUPPORT_FILES),
     }
     if component not in settings:
         raise ValueError("release_component_invalid")
@@ -195,7 +219,7 @@ def validate_source_archive(path: Path, component: str = "video") -> None:
 
 
 def build_metadata(dist: Path, component: str = "all") -> None:
-    if component not in {"video", "background", "all"}:
+    if component not in {"video", "background", "ui", "all"}:
         raise ValueError("release_component_invalid")
     artifacts = sorted(
         path for path in dist.iterdir()
@@ -203,10 +227,11 @@ def build_metadata(dist: Path, component: str = "all") -> None:
     )
     if not artifacts:
         raise SystemExit("release_artifacts_missing")
-    selected = ("video", "background") if component == "all" else (component,)
+    selected = ("video", "background", "ui") if component == "all" else (component,)
     source_names = {
         "video": f"ai_frame_animation-{project_version('video')}.tar.gz",
         "background": f"ai_image_background_removal-{project_version('background')}.tar.gz",
+        "ui": f"ai_ui_decomposition-{project_version('ui')}.tar.gz",
     }
     for item in selected:
         source = dist / source_names[item]
@@ -217,12 +242,16 @@ def build_metadata(dist: Path, component: str = "all") -> None:
         skills.append(build_skill_archive(dist))
     if "background" in selected:
         skills.append(build_background_skill_archive(dist))
+    if "ui" in selected:
+        skills.append(build_ui_skill_archive(dist))
     artifacts = sorted(set(artifacts) | set(skills))
     (dist / "SHA256SUMS.txt").write_text(
         "\n".join(f"{sha256(path)}  {path.name}" for path in artifacts) + "\n", encoding="ascii"
     )
     packages = []
-    for item, name in (("video", "ai-frame-animation"), ("background", "ai-image-background-removal")):
+    for item, name in (("video", "ai-frame-animation"),
+                       ("background", "ai-image-background-removal"),
+                       ("ui", "ai-ui-decomposition")):
         if item in selected:
             packages.append({
                 "SPDXID": f"SPDXRef-Package-{name}", "name": name,
@@ -231,6 +260,8 @@ def build_metadata(dist: Path, component: str = "all") -> None:
     dependencies = ["Pillow", "numpy"]
     if "video" in selected:
         dependencies.append("jsonschema")
+    if "ui" in selected:
+        dependencies.extend(("scipy", "psd-tools", "attrs"))
     for name in dependencies:
         try:
             version = importlib.metadata.version(name)
@@ -254,7 +285,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--verify-tag")
-    parser.add_argument("--component", choices=("video", "background", "all"), default="all")
+    parser.add_argument("--component", choices=("video", "background", "ui", "all"), default="all")
     args = parser.parse_args()
     if args.verify_tag:
         detected = verify_tag(args.verify_tag)

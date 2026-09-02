@@ -2,8 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
 import hashlib
+import io
 import json
 import re
+
+from PIL import Image, ImageOps, UnidentifiedImageError
+
+
+MAX_IMAGE_PIXELS = 67_108_864
+MAX_IMAGE_BYTES = 268_435_456
 
 
 class ContractError(ValueError):
@@ -38,6 +45,32 @@ def safe_relative(base: Path, value: object) -> Path:
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_verified_image(path: Path, expected_size: list[int] | None = None) -> tuple[Image.Image, dict]:
+    require(path.is_file() and not path.is_symlink(), "IMAGE_FILE_REQUIRED")
+    size_bytes = path.stat().st_size
+    require(0 < size_bytes <= MAX_IMAGE_BYTES, "IMAGE_BYTE_LIMIT")
+    payload = path.read_bytes()
+    require(len(payload) == size_bytes, "IMAGE_CHANGED_DURING_READ")
+    try:
+        with Image.open(io.BytesIO(payload)) as source:
+            width, height = source.size
+            require(width > 0 and height > 0 and width * height <= MAX_IMAGE_PIXELS,
+                    "IMAGE_PIXEL_LIMIT")
+            original_mode = source.mode
+            oriented = ImageOps.exif_transpose(source)
+            oriented.load()
+            picture = oriented.convert("RGBA")
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError) as exc:
+        raise ContractError("IMAGE_DECODE_FAILED") from exc
+    actual = list(picture.size)
+    if expected_size is not None:
+        require(actual == expected_size, "IMAGE_DIMENSION_MISMATCH")
+    alpha_extrema = list(picture.getchannel("A").getextrema())
+    return picture, {"size": actual, "mode": original_mode,
+                     "alpha_extrema": alpha_extrema, "bytes": size_bytes,
+                     "sha256": hashlib.sha256(payload).hexdigest()}
 
 
 def digest(value: object) -> str:

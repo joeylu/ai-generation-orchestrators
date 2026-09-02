@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*", "video-v*", "background-v*"]
+    tags: ["v*", "video-v*", "background-v*", "ui-v*"]
 
 permissions:
   contents: write
@@ -25,6 +25,10 @@ jobs:
               echo "RELEASE_COMPONENT=background" >> "${GITHUB_ENV}"
               echo "RELEASE_PACKAGE=artwork-harnesses/image-background-removal-harness" >> "${GITHUB_ENV}"
               ;;
+            ui-v*)
+              echo "RELEASE_COMPONENT=ui" >> "${GITHUB_ENV}"
+              echo "RELEASE_PACKAGE=game-ui-harnesses/ui-decomposition-harness" >> "${GITHUB_ENV}"
+              ;;
             video-v*|v*)
               echo "RELEASE_COMPONENT=video" >> "${GITHUB_ENV}"
               echo "RELEASE_PACKAGE=artwork-harnesses/video-sequence-harness/character" >> "${GITHUB_ENV}"
@@ -32,12 +36,22 @@ jobs:
           esac
       - name: Verify tag matches package version
         run: python .github/release_tools/build_release_metadata.py --verify-tag "${GITHUB_REF_NAME}" --component "${RELEASE_COMPONENT}"
-      - name: Install, test, and build
+      - name: Install, test, and build existing artwork release
+        if: env.RELEASE_COMPONENT != 'ui'
         run: |
           python -m pip install "./artwork-harnesses/image-background-removal-harness[test]" "./artwork-harnesses/video-sequence-harness/character[test]" build
           python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
           python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
           python -m unittest discover -s .github/repository-tests -p "test_*.py" -v
+          python -m build --outdir dist "${RELEASE_PACKAGE}"
+          python .github/release_tools/build_release_metadata.py --dist dist --component "${RELEASE_COMPONENT}"
+      - name: Install, test, and build UI release
+        if: env.RELEASE_COMPONENT == 'ui'
+        run: |
+          python -m pip install "./game-ui-harnesses/ui-decomposition-harness[test,psd]" build
+          python -m unittest discover -s game-ui-harnesses/ui-decomposition-harness/tests -p "test_*.py" -v
+          ai-ui-decomposition self-test
+          ai-ui-decomposition doctor
           python -m build --outdir dist "${RELEASE_PACKAGE}"
           python .github/release_tools/build_release_metadata.py --dist dist --component "${RELEASE_COMPONENT}"
       - name: Create immutable GitHub Release

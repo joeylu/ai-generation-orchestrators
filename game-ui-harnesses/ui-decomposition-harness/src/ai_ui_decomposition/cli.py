@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from . import __version__
 from . import batch
 from .assembly import finalize, inspect_delivery
 from .common import ContractError, read_json
@@ -13,7 +14,15 @@ from .process import process, review_template
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description="Opt-in deterministic UI decomposition Harness")
+    root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True)
+    init = commands.add_parser("init")
+    init.add_argument("--reference", required=True, type=Path)
+    init.add_argument("--plan", required=True, type=Path)
+    init.add_argument("--id", required=True)
+    init.add_argument("--document", required=True)
+    commands.add_parser("self-test")
+    commands.add_parser("doctor")
     check = commands.add_parser("check")
     check.add_argument("--plan", required=True, type=Path)
     freeze = commands.add_parser("freeze")
@@ -38,10 +47,25 @@ def parser() -> argparse.ArgumentParser:
     inspect.add_argument("--delivery", required=True, type=Path)
     export = commands.add_parser("export")
     export.add_argument("--delivery", required=True, type=Path)
+    adapter_export = commands.add_parser("adapter-export")
+    adapter_export.add_argument("--run-dir", required=True, type=Path)
+    adapter_export.add_argument("--asset", required=True)
+    adapter_export.add_argument("--bundle", required=True, type=Path)
+    adapter_seal = commands.add_parser("adapter-seal")
+    adapter_seal.add_argument("--bundle", required=True, type=Path)
+    adapter_seal.add_argument("--source", required=True, type=Path)
+    adapter_import = commands.add_parser("adapter-import")
+    adapter_import.add_argument("--run-dir", required=True, type=Path)
+    adapter_import.add_argument("--bundle", required=True, type=Path)
     return root
 
 
 def execute(args) -> dict:
+    if args.command in {"init", "self-test", "doctor"}:
+        from .runtime import doctor, init_plan, self_test
+        if args.command == "init":
+            return init_plan(args.reference, args.plan, args.id, args.document)
+        return self_test() if args.command == "self-test" else doctor()
     if args.command == "check":
         plan_path = args.plan.resolve()
         return validate(read_json(plan_path), source_base=plan_path.parent)
@@ -66,8 +90,15 @@ def execute(args) -> dict:
         return finalize(run, args.output)
     if args.command == "inspect":
         return inspect_delivery(args.delivery)
-    from .psd_export import export_psd
-    return export_psd(args.delivery.resolve())
+    if args.command == "export":
+        from .psd_export import export_psd
+        return export_psd(args.delivery.resolve())
+    from .adapter import export_request, import_result, seal_result
+    if args.command == "adapter-export":
+        return export_request(args.run_dir.resolve(), args.asset, args.bundle)
+    if args.command == "adapter-seal":
+        return seal_result(args.bundle, args.source)
+    return import_result(args.run_dir.resolve(), args.bundle)
 
 
 def main(argv=None) -> int:
@@ -76,9 +107,14 @@ def main(argv=None) -> int:
         result = execute(args)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
-    except (ContractError, RuntimeError) as exc:
+    except ContractError as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc)}, ensure_ascii=False, sort_keys=True))
+        return 2
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(json.dumps({"status": "rejected", "error": type(exc).__name__,
+                          "reason": "LOCAL_INPUT_OR_IO_ERROR"}, ensure_ascii=False,
+                         sort_keys=True))
         return 2
 
 

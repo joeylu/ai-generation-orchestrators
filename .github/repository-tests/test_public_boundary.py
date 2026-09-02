@@ -151,9 +151,14 @@ class PublicBoundaryTests(unittest.TestCase):
 
     def test_ui_package_is_exercised_by_ci_without_becoming_a_core_dependency(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
         package = "./game-ui-harnesses/ui-decomposition-harness"
         self.assertGreaterEqual(workflow.count(package), 2)
         self.assertIn("game-ui-harnesses/ui-decomposition-harness/tests", workflow)
+        self.assertIn("ai-ui-decomposition self-test", workflow)
+        self.assertIn('tags: ["v*", "video-v*", "background-v*", "ui-v*"]', release)
+        self.assertIn("if: env.RELEASE_COMPONENT == 'ui'", release)
+        self.assertIn('RELEASE_PACKAGE=game-ui-harnesses/ui-decomposition-harness', release)
         for pyproject in (
             ROOT / "artwork-harnesses/image-background-removal-harness/pyproject.toml",
             ROOT / "artwork-harnesses/video-sequence-harness/character/pyproject.toml",
