@@ -14,7 +14,8 @@ Those runs established the coarse control-list flow, global key removal,
 important-component grouping, repeated-family reuse, and layered PSD output. They
 did not establish general visual understanding.
 
-The 0.2.2 runtime is covered by sixty-two offline tests. They exercise strict
+The 0.2.3 release candidate retains the 0.2.2 runtime behavior covered by
+sixty-two offline tests. They exercise strict
 provider-neutral plans, single-use request state, terminal indeterminate results,
 global key removal including enclosed holes, uniform reuse scaling, digest-bound
 visual review, background role independence from asset names, rejection of

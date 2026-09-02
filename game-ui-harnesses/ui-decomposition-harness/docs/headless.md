@@ -1,6 +1,6 @@
 # Headless image-to-draft-PSD integration
 
-Available in the published 0.2.2 release. The entry is an opt-in per-job
+Available in the `0.2.3` release candidate. The entry is an opt-in per-job
 CLI/library function, not a web service.
 Offline tests exercise the complete runner with provider doubles and real PSD
 encoding. A separately authorized 0.2.0 live end-to-end check produced a
@@ -9,8 +9,11 @@ establish general provider reliability or live visual-gate accuracy.
 
 ## Configuration and invocation
 
-Install a built `ai-ui-decomposition[psd]` package in the recipient's environment.
-For production, install the immutable 0.2.2 release and pin/verify its digest.
+Ensure the built `ai-ui-decomposition` wheel and its deployment-locked PSD
+dependencies are installed in the recipient's environment.
+For production, install the immutable `ui-v0.2.3` Release wheel only after the
+[README's byte-count and SHA-256 verification](../README.md#production-consumption-verified-release-wheel),
+with a deployment-maintained hash lock for its PSD dependencies.
 Do not reuse the 0.1.2, 0.2.0 or 0.2.1 releases for these commands.
 Run `doctor` and `self-test`; both remain offline and consume no provider compute.
 

@@ -6,7 +6,9 @@ met:
 
 - Debian/Ubuntu-compatible userspace with Python 3.10 or 3.14. Alpine is not a
   tested target because NumPy and SciPy wheel availability differs.
-- Install the package with the `psd` extra when PSD output is required.
+- Install the verified `ui-v0.2.3` Release wheel after the README's byte-count
+  and SHA-256 checks. The deployment maintains a separate hash lock for the
+  base and PSD dependencies before installing the wheel with `--no-deps`.
 - Run as a non-root user.
 - Mount references and provider results read-only. Mount the Harness workspace,
   request outbox, and delivery directory as separate writable volumes.
@@ -28,8 +30,9 @@ GPU according to its policy. The adapter uses the file bundle described in
 The intended consumer experience is to upload one UI reference and receive a
 layered PSD. The recipient implements the web application and deployment; this
 repository supplies the reusable Harness contracts and processing behavior.
-Do not copy the Harness implementation into the service. Install an immutable
-release and verify its published digest.
+Do not copy the Harness implementation into the service. Install the immutable
+`ui-v0.2.3` Release wheel through the README's byte-count and published-digest
+verification; a source checkout or Git ref is only for development.
 
 | Responsibility | Harness scope | Recipient scope |
 | --- | --- | --- |
@@ -45,7 +48,8 @@ recipient to copy these algorithms or use a logged-in desktop assistant.
 
 ## Released behavior
 
-The published 0.1.2, 0.2.0, 0.2.1 and 0.2.2 releases have different capabilities:
+The published 0.1.2, 0.2.0, 0.2.1 and 0.2.2 releases, and the `0.2.3` release
+candidate, have different capabilities:
 
 | Capability | Status |
 | --- | --- |
@@ -56,7 +60,7 @@ The published 0.1.2, 0.2.0, 0.2.1 and 0.2.2 releases have different capabilities
 | Processing and reviewed PSD output | Implemented by `process`, `review-template`, `finalize`, `export`, `inspect` |
 | Image-only automatic planning | Implemented: configured vision provider produces a strictly validated proposal |
 | Single unattended execution entry | Implemented: `auto-run`, with `job-status`, explicit budget and no automatic resubmission |
-| Automated visual-quality gate | Implemented in 0.2.1; 0.2.2 adds explicit `strict` and `advisory` delivery policies plus a durable restart boundary |
+| Automated visual-quality gate | Implemented in 0.2.1; 0.2.2 adds explicit `strict` and `advisory` delivery policies plus a durable restart boundary; 0.2.3 changes only release-consumption documentation |
 | Automatic unreviewed draft PSD output | `strict` delivers only after QA passes; an explicitly selected `advisory` policy can deliver a QA-warning PSD; human-reviewed default unchanged |
 
 No image-to-PSD HTTP endpoint is implemented. The runner is usable as a per-job

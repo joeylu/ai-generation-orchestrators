@@ -1,4 +1,8 @@
-# Local quickstart
+# Local source-checkout quickstart (developers and contributors only)
+
+This page assumes a source checkout and is only for development or contribution
+work. Its source install must not be used for production consumption and cannot
+replace the verified Release wheel flow in the [README](../README.md).
 
 Use Python 3.10 or 3.14. Run these commands from the Harness directory after
 cloning the repository:
