@@ -7,9 +7,10 @@
 [游戏 UI](game-ui-harnesses/)和[游戏场景](game-scene-harnesses/)四大类。
 未实现能力只提供明确标记为 `planned` 的文档，不伪装成可调用 Skill。
 
-当前有两个可独立安装的程序：`ai-image-background-removal` 负责单图抠图，
-`ai-frame-animation` 负责视频计划、生成尝试、后处理与透明序列交付。两者可一起
-使用，也可只装其中一个；视频侧只消费中立 handoff，不导入抠图程序。
+当前有三个可独立安装的程序：`ai-image-background-removal` 负责单图抠图，
+`ai-frame-animation` 负责视频计划、生成尝试、后处理与透明序列交付；默认关闭的
+实验性 `ai-ui-decomposition` 负责把经过审查的重要 UI 组件组装为分层 PSD。各程序
+可单独安装；视频侧只消费中立 handoff，不导入抠图程序。
 
 只需要抠图而不制作动画时，使用独立的
 [Image Background Removal Skill](artwork-harnesses/image-background-removal-harness/SKILL.md)。

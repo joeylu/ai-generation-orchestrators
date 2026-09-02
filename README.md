@@ -14,14 +14,15 @@ implementation claim.
 | --- | --- |
 | [Artwork](artwork-harnesses/) | Image background removal and character video sequences implemented; image generation, direct image sequences, and prop video sequences planned. |
 | [Audio](audio-harnesses/) | Planned. |
-| [Game UI](game-ui-harnesses/) | UI-decomposition research in progress; no published Skill yet. |
+| [Game UI](game-ui-harnesses/) | Opt-in experimental UI decomposition and layered PSD export implemented. |
 | [Game scene](game-scene-harnesses/) | Planned. |
 
-Two independently installable runtimes implement the current public path:
+Three independently installable runtimes implement the current public paths:
 `ai-image-background-removal` prepares still artwork, while
 `ai-frame-animation` plans and delivers video-derived transparent frame
-animation. Install either one alone, or connect them through the neutral handoff
-contract documented below.
+animation. The isolated `ai-ui-decomposition` package assembles reviewed coarse
+UI components into a layered PSD. Install any one alone; the character tools can
+also connect through the neutral handoff contract documented below.
 
 ```text
 reference image + motion request
