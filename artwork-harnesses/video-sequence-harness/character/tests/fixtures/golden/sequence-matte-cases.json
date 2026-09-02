@@ -22,6 +22,31 @@
     "expect_spill_neutralized": [17, 15],
     "expect_body_preserved": [22, 15]
   },
+  "key_family_luminance_drift": {
+    "problem": "A generated red screen changes luminance across the canvas while a small blue-white spell effect touches the border.",
+    "size": 64,
+    "frame_count": 16,
+    "declared_key": [255, 0, 0],
+    "background_red_range": [88, 208],
+    "subject_rect": [20, 12, 43, 58],
+    "subject_rgb": [48, 30, 122],
+    "edge_effect_rect": [28, 0, 33, 3],
+    "edge_effect_rgb": [80, 180, 255],
+    "minimum_key_family_ratio": 0.95,
+    "expect_background_transparent": [2, 30],
+    "expect_subject_preserved": [30, 30],
+    "expect_edge_effect_preserved": [30, 1]
+  },
+  "key_family_unsafe_complex": {
+    "problem": "A genuinely mixed border must not bypass the unkeyable-background guard merely because red is the most common border family.",
+    "size": 64,
+    "frame_count": 16,
+    "declared_key": [255, 0, 0],
+    "background_red_range": [88, 208],
+    "foreign_border_rect": [0, 0, 63, 3],
+    "foreign_border_rgb": [45, 105, 185],
+    "maximum_key_family_ratio": 0.94
+  },
   "cases": [
     {
       "id": "ribbon-cross-frame-enclosed-secondary-key",

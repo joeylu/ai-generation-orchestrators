@@ -41,7 +41,7 @@ User request + character references
                                   |
                          +--------+--------+
                          |        |        |
-                       16f      32f      64f
+                    4x4 cap   8x4 cap   8x8 cap
                          |        |        |
                          +--- RGBA / align
                                   |

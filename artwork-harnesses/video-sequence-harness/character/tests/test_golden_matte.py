@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw
 
 from ai_frame_animation.media.matte import (
     aggressive_color_key_cleanup,
+    analyze_sequence_background,
     calibrate_key_color,
     color_key_to_rgba,
     parse_hex_color,
@@ -34,6 +35,28 @@ def process_case(case: dict) -> Image.Image:
     assert evidence["background_policy"] == "edge_connected_key_v3"
     assert spill["transparent_nonzero_rgb_pixels"] == 0
     return cleaned
+
+
+def key_family_sequence(case: dict, *, foreign_border: bool = False) -> list[Image.Image]:
+    frames = []
+    size = int(case["size"])
+    low, high = case["background_red_range"]
+    for frame_index in range(int(case["frame_count"])):
+        image = Image.new("RGB", (size, size))
+        pixels = image.load()
+        phase = frame_index / max(1, int(case["frame_count"]) - 1)
+        for y in range(size):
+            for x in range(size):
+                red = round(low + (high - low) * ((x / max(1, size - 1) + phase) % 1.0))
+                pixels[x, y] = (red, frame_index % 5, (x + y) % 7)
+        draw = ImageDraw.Draw(image)
+        if foreign_border:
+            draw.rectangle(case["foreign_border_rect"], fill=tuple(case["foreign_border_rgb"]))
+        else:
+            draw.rectangle(case["subject_rect"], fill=tuple(case["subject_rgb"]))
+            draw.rectangle(case["edge_effect_rect"], fill=tuple(case["edge_effect_rgb"]))
+        frames.append(image)
+    return frames
 
 
 class GoldenMatteTests(unittest.TestCase):
@@ -140,6 +163,40 @@ class GoldenMatteTests(unittest.TestCase):
         self.assertEqual(output.getpixel(tuple(case["expect_body_preserved"])), (*case["body_rgb"], 255))
         self.assertGreater(report["partner_hue_spill_pixels_neutralized"], 0)
         self.assertGreater(report["global_safe_spill_pixels_neutralized"], 0)
+
+    def test_declared_key_family_accepts_luminance_drift_and_preserves_edge_effect(self) -> None:
+        case = json.loads(SEQUENCE_FIXTURE.read_text(encoding="utf-8"))["key_family_luminance_drift"]
+        frames = key_family_sequence(case)
+        without_contract = analyze_sequence_background(frames)
+        self.assertEqual(without_contract["route"], "background_unkeyable")
+
+        declared_key = tuple(case["declared_key"])
+        analysis = analyze_sequence_background(frames, declared_key=declared_key)
+        self.assertEqual(analysis["route"], "per_frame_key_family_drift")
+        self.assertGreaterEqual(
+            analysis["minimum_border_key_family_ratio"],
+            case["minimum_key_family_ratio"],
+        )
+
+        observed, _calibration = calibrate_key_color(
+            [frames[8]],
+            "#FF0000",
+            allow_topology_drift=True,
+        )
+        output, _evidence = color_key_to_rgba(frames[8], key_color=observed, tolerance=24, softness=18)
+        self.assertEqual(output.getpixel(tuple(case["expect_background_transparent"]))[3], 0)
+        self.assertEqual(output.getpixel(tuple(case["expect_subject_preserved"]))[3], 255)
+        self.assertEqual(output.getpixel(tuple(case["expect_edge_effect_preserved"]))[3], 255)
+
+    def test_declared_key_family_rejects_a_genuinely_mixed_border(self) -> None:
+        case = json.loads(SEQUENCE_FIXTURE.read_text(encoding="utf-8"))["key_family_unsafe_complex"]
+        frames = key_family_sequence(case, foreign_border=True)
+        analysis = analyze_sequence_background(frames, declared_key=tuple(case["declared_key"]))
+        self.assertEqual(analysis["route"], "background_unkeyable")
+        self.assertLessEqual(
+            analysis["minimum_border_key_family_ratio"],
+            case["maximum_key_family_ratio"],
+        )
 
 
 if __name__ == "__main__":

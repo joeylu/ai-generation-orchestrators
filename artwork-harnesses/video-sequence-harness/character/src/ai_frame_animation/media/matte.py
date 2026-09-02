@@ -260,13 +260,18 @@ def border_pixels(image: Image.Image, width: int = 2) -> list[tuple[int, int, in
     return values
 
 
-def analyze_sequence_background(images: Iterable[Image.Image]) -> dict:
+def analyze_sequence_background(
+    images: Iterable[Image.Image],
+    *,
+    declared_key: tuple[int, int, int] | None = None,
+) -> dict:
     """Classify an opaque sequence without assuming one colour for all frames."""
 
     frames = list(images)
     if not frames:
         raise ValueError("background_sequence_empty")
     records = []
+    dominance = _key_dominance(declared_key) if declared_key is not None else None
     for image in frames:
         pixels = border_pixels(image, width=4)
         if not pixels:
@@ -275,12 +280,29 @@ def analyze_sequence_background(images: Iterable[Image.Image]) -> dict:
         distances = sorted(colour_distance(pixel, observed, "rgb") for pixel in pixels)
         p95 = distances[min(len(distances) - 1, math.ceil(len(distances) * 0.95) - 1)]
         p99 = distances[min(len(distances) - 1, math.ceil(len(distances) * 0.99) - 1)]
-        records.append({"observed_key_rgb": list(observed), "border_p95": round(p95, 4), "border_p99": round(p99, 4)})
+        record = {"observed_key_rgb": list(observed), "border_p95": round(p95, 4), "border_p99": round(p99, 4)}
+        if dominance is not None:
+            high, low, _key_delta = dominance
+            family_count = sum(
+                min(pixel[index] for index in high) - max(pixel[index] for index in low) > 8
+                for pixel in pixels
+            )
+            record["key_family_ratio"] = round(family_count / len(pixels), 6)
+        records.append(record)
     clip_key = tuple(round(statistics.median(record["observed_key_rgb"][channel] for record in records)) for channel in range(3))
     maximum_drift = max(colour_distance(tuple(record["observed_key_rgb"]), clip_key, "rgb") for record in records)
     spatially_complex = sum(record["border_p95"] > 28.0 or record["border_p99"] > 42.0 for record in records)
+    minimum_key_family_ratio = (
+        min(float(record["key_family_ratio"]) for record in records)
+        if dominance is not None
+        else None
+    )
     if spatially_complex > max(1, len(records) // 8):
-        route = "background_unkeyable"
+        route = (
+            "per_frame_key_family_drift"
+            if minimum_key_family_ratio is not None and minimum_key_family_ratio >= 0.95
+            else "background_unkeyable"
+        )
     elif maximum_drift > 48.0:
         route = "per_frame_flat_color_drift"
     else:
@@ -294,6 +316,7 @@ def analyze_sequence_background(images: Iterable[Image.Image]) -> dict:
         "spatially_complex_frames": spatially_complex,
         "maximum_border_p95": max(record["border_p95"] for record in records),
         "maximum_border_p99": max(record["border_p99"] for record in records),
+        "minimum_border_key_family_ratio": minimum_key_family_ratio,
         "frames": records,
     }
 

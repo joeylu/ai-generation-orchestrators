@@ -35,6 +35,17 @@ the processor may neutralize same-family RGB contamination embedded by video
 chroma subsampling, including cyan/yellow partner hues. This does not lower or
 erase subject alpha; enclosed-background removal remains a separate matte step.
 
+A provider may preserve the declared key's channel family while changing its
+brightness across frames or across the canvas. A spatially complex border is
+eligible for per-frame key-family recovery only when every selected opaque frame
+keeps at least 95% of its four-pixel border in the declared dominant-channel
+family. The report records the minimum ratio and the explicit
+`per_frame_key_family_drift` route. Falling below that threshold remains
+`background_unkeyable`; strict and best-effort do not turn an arbitrary scene
+into a keyed background. Small foreground effects touching the border may be
+preserved within the remaining allowance. This rule is covered by both a
+positive luminance-drift fixture and a genuinely mixed-border negative fixture.
+
 After keying at source resolution, all source frames in the semantic interval
 share one contact-anchor alignment and subject-union fit. Empty background
 padding is cropped before resizing, so a wide video canvas cannot silently

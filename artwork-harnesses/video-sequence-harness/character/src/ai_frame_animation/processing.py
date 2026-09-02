@@ -354,7 +354,7 @@ def _process_from_decoded_into(
     eligible_sources = source_images[interval_start:interval_end]
     opaque_sources = [image for image in eligible_sources if image.getchannel("A").getextrema()[0] == 255]
     background_analysis = (
-        analyze_sequence_background(opaque_sources)
+        analyze_sequence_background(opaque_sources, declared_key=declared_key)
         if opaque_sources
         else {"policy": "native_alpha", "route": "native_alpha", "frame_count": len(eligible_sources)}
     )

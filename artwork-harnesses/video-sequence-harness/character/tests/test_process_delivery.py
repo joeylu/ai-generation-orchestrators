@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 import zipfile
@@ -17,6 +18,7 @@ from ai_frame_animation.validation import _validate_rgba, validate_delivery
 
 ROOT = Path(__file__).parents[1]
 SCHEMAS = ROOT / "src" / "ai_frame_animation" / "schemas"
+SEQUENCE_FIXTURE = ROOT / "tests" / "fixtures" / "golden" / "sequence-matte-cases.json"
 
 
 def make_plan(*, quality: str = "strict", include_gif: bool = True, frame_counts: list[int] | None = None) -> dict:
@@ -34,6 +36,51 @@ def make_plan(*, quality: str = "strict", include_gif: bool = True, frame_counts
 
 
 class ProcessDeliveryTests(unittest.TestCase):
+    def test_strict_process_accepts_declared_key_family_luminance_drift(self) -> None:
+        case = json.loads(SEQUENCE_FIXTURE.read_text(encoding="utf-8"))["key_family_luminance_drift"]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw = root / "raw.mp4"
+            raw.write_bytes(b"key-family-luminance-drift-fixture")
+            decoded = root / "decoded"
+            decoded.mkdir()
+            paths = []
+            size = int(case["size"])
+            low, high = case["background_red_range"]
+            for index in range(17):
+                phase = 0 if index == 16 else index / 15
+                image = Image.new("RGB", (size, size))
+                pixels = image.load()
+                for y in range(size):
+                    for x in range(size):
+                        red = round(low + (high - low) * ((x / (size - 1) + phase) % 1.0))
+                        pixels[x, y] = (red, index % 5, (x + y) % 7)
+                draw = ImageDraw.Draw(image)
+                draw.rectangle(case["subject_rect"], fill=tuple(case["subject_rgb"]))
+                draw.rectangle(case["edge_effect_rect"], fill=tuple(case["edge_effect_rgb"]))
+                path = decoded / f"source_{index + 1:06d}.png"
+                image.save(path)
+                paths.append(path)
+            probe = {
+                "streams": [{"codec_type": "video", "avg_frame_rate": "8/1", "duration_ts": "17", "time_base": "1/8"}],
+                "frames": [{"best_effort_timestamp_time": str(Fraction(index, 8))} for index in range(17)],
+            }
+            out = root / "delivery"
+            manifest = process_from_decoded(
+                root=root,
+                plan=make_plan(include_gif=False, frame_counts=[16]),
+                raw_video=raw,
+                decoded_paths=paths,
+                probe_payload=probe,
+                out_dir=out,
+                key_color="#FF0000",
+            )
+            self.assertEqual(validate_delivery(out, policy="strict", workspace_root=root)["status"], "passed")
+            variant = json.loads((out / manifest["variants"][0]["manifest"]["path"]).read_text(encoding="utf-8"))
+            analysis = variant["processing"]["background_analysis"]
+            self.assertEqual(analysis["route"], "per_frame_key_family_drift")
+            self.assertGreaterEqual(analysis["minimum_border_key_family_ratio"], 0.95)
+
     def test_best_effort_can_omit_one_variant_but_strict_cannot(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
