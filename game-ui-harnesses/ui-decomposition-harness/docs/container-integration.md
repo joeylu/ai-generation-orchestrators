@@ -12,8 +12,10 @@ met:
   request outbox, and delivery directory as separate writable volumes.
 - Do not bake provider credentials into the image, plan, request bundle, logs, or
   output layers. A provider adapter owns its credentials outside the core run.
-- Persist the entire workspace and request bundles. An indeterminate provider
-  request must remain terminal after container restart.
+- Persist the entire job directory, including `private/`, workspace and request
+  bundles, on a durable volume. An indeterminate provider request, including the
+  post-generation visual-quality request, must remain terminal after container
+  restart.
 - Run `ai-ui-decomposition doctor` and `self-test` in the built image before use.
 
 Deterministic processing needs no GPU or network access. The explicitly selected
@@ -43,7 +45,7 @@ recipient to copy these algorithms or use a logged-in desktop assistant.
 
 ## Released behavior
 
-The published 0.1.2, 0.2.0 and 0.2.1 releases have different capabilities:
+The published 0.1.2, 0.2.0, 0.2.1 and 0.2.2 releases have different capabilities:
 
 | Capability | Status |
 | --- | --- |
@@ -54,8 +56,8 @@ The published 0.1.2, 0.2.0 and 0.2.1 releases have different capabilities:
 | Processing and reviewed PSD output | Implemented by `process`, `review-template`, `finalize`, `export`, `inspect` |
 | Image-only automatic planning | Implemented: configured vision provider produces a strictly validated proposal |
 | Single unattended execution entry | Implemented: `auto-run`, with `job-status`, explicit budget and no automatic resubmission |
-| Automated visual-quality gate | Implemented in 0.2.1: a configured vision provider assesses reference, candidate preview and contact sheet before delivery |
-| Automatic unreviewed draft PSD output | Implemented in 0.2.1 only after the quality gate passes; human-reviewed default unchanged |
+| Automated visual-quality gate | Implemented in 0.2.1; 0.2.2 adds explicit `strict` and `advisory` delivery policies plus a durable restart boundary |
+| Automatic unreviewed draft PSD output | `strict` delivers only after QA passes; an explicitly selected `advisory` policy can deliver a QA-warning PSD; human-reviewed default unchanged |
 
 No image-to-PSD HTTP endpoint is implemented. The runner is usable as a per-job
 CLI/library function. Its complete offline quality-gated path is verified with
@@ -79,6 +81,13 @@ The automatic entry is deliberately limited to:
    delivery on rejection. It records that no human visual acceptance occurred,
    preserves structural and integrity checks, and leaves reviewed export unchanged.
    Never simulate an accepted human review by editing `review.json` automatically.
+4. A delivery-policy boundary for the quality gate. `strict` exposes a download
+   only after `completed_visual_qa_draft`; an explicit `advisory` policy may also
+   expose `completed_visual_qa_warning`, together with its visible QA receipt. A
+   candidate preview, complete material batch or started QA request is never a
+   delivery. After a restart, a `started_outcome_unknown` QA state is terminal and
+   requires a new human decision; the service must not requeue, bypass or replace it
+   automatically.
 
 Further visual-quality tuning is deferred from this handoff scope. Successful
 file generation must not be advertised as guaranteed visual reconstruction.
@@ -99,6 +108,12 @@ and known limitations:
   frozen plan. Restarting a job does not resubmit a possibly accepted request.
   A terminal or indeterminate provider failure is reported; recovery must follow
   the applicable provider policy and authorization, not an implicit retry loop.
+- The service persists job state before each provider call. In `strict` mode it
+  serves only `completed_visual_qa_draft`; in explicitly selected `advisory` mode it
+  may serve `completed_visual_qa_warning` with a visible receipt outcome. It keeps
+  `private/` inaccessible from downloads and treats
+  `automated_visual_qa: started_outcome_unknown` as a terminal diagnostic state,
+  even if all image-generation results exist.
 - The receiving application gets task status, progress, structured failures and
   artifact locations. Its HTTP routes and storage implementation remain its own.
 - A completed draft includes the PSD, layer assets, preview and automated quality

@@ -14,7 +14,7 @@ Those runs established the coarse control-list flow, global key removal,
 important-component grouping, repeated-family reuse, and layered PSD output. They
 did not establish general visual understanding.
 
-The 0.2.1 runtime is covered by fifty-nine offline tests. They exercise strict
+The 0.2.2 runtime is covered by sixty-two offline tests. They exercise strict
 provider-neutral plans, single-use request state, terminal indeterminate results,
 global key removal including enclosed holes, uniform reuse scaling, digest-bound
 visual review, background role independence from asset names, rejection of
@@ -55,6 +55,19 @@ during that assessment, absent vision configuration rejected before network acce
 safe receipt materialization, failed policy claims, terminal rejection with no
 `delivery/`, and no repeat-run retry. The quality gate is not a human review and
 does not create or alter `review.json`.
+
+The 0.2.2 restart regression interrupts execution after the private candidate and
+quality-gate reservation exist, before the provider can return a receipt. It verifies
+that no `delivery/` is created, `job-status` explicitly reports
+`automated_visual_qa: started_outcome_unknown`, and a repeated invocation cannot
+resubmit the assessment or expose the candidate.
+
+The same release adds a deployment-selected visual-QA policy. Strict is the default:
+rejection, a malformed assessment or an unavailable provider withholds delivery.
+Explicit advisory mode still makes one assessment request and never retries it, but
+it exports a structurally verified warning draft when that assessment rejects or is
+unavailable. Regressions cover rejected and unavailable advisory deliveries, their
+safe no-prose receipts, stable warning status and zero-call repeat behavior.
 
 One separately authorized live vision-only check on a 1536 x 1024 shop reference
 returned a valid JSON proposal without manual response editing: 12 unique assets,

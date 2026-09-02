@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-ui-decomposition"
-version = "0.2.1"
+version = "0.2.2"
 description = "Opt-in deterministic UI component assembly and layered PSD export"
 readme = "README.md"
 requires-python = ">=3.10"

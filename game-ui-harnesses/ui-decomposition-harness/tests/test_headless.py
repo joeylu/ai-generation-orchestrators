@@ -97,7 +97,8 @@ class HeadlessTests(unittest.TestCase):
 
     def run_job(self, **kwargs):
         return auto_run(self.reference, self.job, self.provider, maximum_calls=kwargs.get("budget", 4),
-                        timeout_seconds=kwargs.get("timeout", 60), authorized=kwargs.get("authorized", True))
+                        timeout_seconds=kwargs.get("timeout", 60), authorized=kwargs.get("authorized", True),
+                        visual_qa_policy=kwargs.get("visual_qa_policy", "strict"))
 
     def test_real_draft_psd_roundtrip_and_completed_job_reuse(self):
         result = self.run_job()
@@ -112,6 +113,7 @@ class HeadlessTests(unittest.TestCase):
         self.assertEqual(export["rgba_max_error"], 0)
         quality = read_json(self.job / "delivery/automated-visual-qa.json")
         self.assertTrue(quality["assessment"]["passed"])
+        self.assertEqual(quality["outcome"], "passed")
         self.assertFalse(quality["human_visual_acceptance"])
         self.assertEqual(self.run_job()["digest"], result["digest"])
         self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
@@ -201,6 +203,32 @@ class HeadlessTests(unittest.TestCase):
         self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
                           self.provider.image_calls), (1, 1, 2))
 
+    def test_advisory_visual_rejection_delivers_a_marked_warning_without_replay(self):
+        self.provider.quality = visual_qa_response(decision="reject", overall=62, layout=65,
+            coverage=58, text=95, cleanliness=71, issues=[{"criterion": "component_coverage",
+            "severity": "major", "asset": "button"}])
+        result = self.run_job(visual_qa_policy="advisory")
+        self.assertEqual(result["status"], "completed_visual_qa_warning")
+        self.assertEqual(result["automated_visual_qa"], "rejected")
+        self.assertEqual(result["visual_qa_policy"], "advisory")
+        self.assertTrue((self.job / "delivery/ui.draft.psd").is_file())
+        receipt = read_json(self.job / "delivery/automated-visual-qa.json")
+        self.assertEqual(receipt["outcome"], "rejected")
+        self.assertEqual(self.run_job(visual_qa_policy="advisory")["digest"], result["digest"])
+        self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
+                          self.provider.image_calls), (1, 1, 2))
+
+    def test_advisory_visual_provider_failure_delivers_an_explicit_unavailable_warning(self):
+        with patch.object(self.provider, "visual_qa", side_effect=RuntimeError("private provider detail")):
+            result = self.run_job(visual_qa_policy="advisory")
+        self.assertEqual(result["status"], "completed_visual_qa_warning")
+        self.assertEqual(result["automated_visual_qa"], "unavailable")
+        self.assertTrue((self.job / "delivery/ui.draft.psd").is_file())
+        receipt = read_json(self.job / "delivery/automated-visual-qa.json")
+        self.assertEqual(receipt["outcome"], "unavailable")
+        self.assertEqual(receipt["reason"], "VISUAL_QA_PROVIDER_FAILED")
+        self.assertNotIn("private provider detail", json.dumps(result))
+
     def test_invalid_automatic_visual_response_is_terminal_without_draft(self):
         self.provider.quality = '{"decision":"accept"}'
         result = self.run_job()
@@ -226,6 +254,21 @@ class HeadlessTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "JOB_ALREADY_STARTED_NO_RESUBMIT"):
             self.run_job()
         self.assertEqual(self.provider.vision_calls, 1)
+
+    def test_crash_during_visual_qa_never_exposes_candidate_or_resubmits(self):
+        with patch.object(self.provider, "visual_qa", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                self.run_job()
+        status = job_status(self.job)
+        self.assertEqual(status["status"], "started_outcome_unknown")
+        self.assertEqual(status["automated_visual_qa"], "started_outcome_unknown")
+        self.assertEqual(status["visual_qa_policy"], "strict")
+        self.assertFalse((self.job / "delivery").exists())
+        self.assertTrue((self.job / "private/visual-qa-candidate/preview.png").is_file())
+        with self.assertRaisesRegex(ContractError, "JOB_ALREADY_STARTED_NO_RESUBMIT"):
+            self.run_job()
+        self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
+                          self.provider.image_calls), (1, 0, 2))
 
     def test_changed_input_cannot_use_existing_job(self):
         self.run_job()

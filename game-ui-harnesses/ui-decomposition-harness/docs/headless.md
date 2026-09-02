@@ -1,6 +1,6 @@
 # Headless image-to-draft-PSD integration
 
-Available in the published 0.2.1 release. The entry is an opt-in per-job
+Available in the published 0.2.2 release. The entry is an opt-in per-job
 CLI/library function, not a web service.
 Offline tests exercise the complete runner with provider doubles and real PSD
 encoding. A separately authorized 0.2.0 live end-to-end check produced a
@@ -10,8 +10,8 @@ establish general provider reliability or live visual-gate accuracy.
 ## Configuration and invocation
 
 Install a built `ai-ui-decomposition[psd]` package in the recipient's environment.
-For production, install the immutable 0.2.1 release and pin/verify its digest.
-Do not reuse the 0.1.2 or 0.2.0 releases for these commands.
+For production, install the immutable 0.2.2 release and pin/verify its digest.
+Do not reuse the 0.1.2, 0.2.0 or 0.2.1 releases for these commands.
 Run `doctor` and `self-test`; both remain offline and consume no provider compute.
 
 The deployment owns a trusted config file, outside the public artifact directory:
@@ -53,6 +53,14 @@ the compute budget. The recipient's end user can supply only an image once that
 service has established the deployment defaults and consent. The Harness does not
 implement that service.
 
+`--visual-qa-policy strict` is the default. It withholds a PSD when the assessment
+rejects, is malformed or cannot be obtained. A service operator may explicitly pass
+`--visual-qa-policy advisory` to keep automatic delivery available during visual-QA
+provider failures or rejections. Advisory mode still invokes the assessment exactly
+once, never retries it and records its outcome; it returns
+`completed_visual_qa_warning`, never a false pass. This choice is part of the
+immutable job input, so it cannot be changed by re-running an existing job.
+
 ## Execution contract
 
 1. Validate input bytes, EXIF-oriented size and PSD dependencies; create a fresh
@@ -72,11 +80,12 @@ implement that service.
    coverage, text-policy compliance and cutout cleanliness. An `accept` must score
    at least 80 overall, at least 70 for every criterion and contain no blocker issue.
    The safe receipt has no free-form provider prose, task ID or endpoint details.
-6. If the assessment rejects, write `failed_visual_qa`, retain the private
-   candidate for diagnosis and stop. Do not create `delivery/`, replan, regenerate
-   or retry. If the assessment passes, assemble and export `ui.draft.psd`, then
-   reopen it to verify pixels, positions, group structure and the composite. The
-   public delivery includes `automated-visual-qa.json`. No human review is forged.
+6. Under `strict`, a rejected, malformed or unavailable assessment stops with no
+   delivery. Under `advisory`, the same outcome becomes a visible warning and the
+   runner exports `ui.draft.psd`; it still reopens the PSD to verify pixels,
+   positions, group structure and the composite. Both modes publish a safe
+   `automated-visual-qa.json` outcome. Neither replans, regenerates or retries, and
+   neither forges human review.
 
 No automatic repair or generation retry occurs. A possibly accepted request remains
 reserved/indeterminate after a crash. Known provider failures are also terminal for
@@ -86,6 +95,27 @@ raw results remain available for an explicitly planned new run through
 [result-binding and reuse-result](../references/provider-adapter.md#reuse-a-completed-raw-result-012).
 This release does not automatically resume partial jobs or replan using cached
 assets. Never delete a failed job to make its original request run again.
+
+### Durable quality-gate handoff
+
+A receiving web service must treat the quality gate as part of the same durable
+job, not as an optional post-processing task. Persist the complete job directory on
+a durable volume before dispatching either vision call. In `strict` mode, serve a
+download only when `job-status` reports `completed_visual_qa_draft`. In explicitly
+configured `advisory` mode, `completed_visual_qa_warning` is also deliverable but
+must visibly carry the receipt outcome. Do not infer success from a candidate
+preview, a material contact sheet, a PSD-like file, or all generation rows being
+received. The candidate lives under `private/` precisely so it cannot be served
+before the policy decision is recorded.
+
+If a process dies after `visual-qa-started.json` is written but before a terminal
+receipt, `job-status` reports both `started_outcome_unknown` and
+`automated_visual_qa: started_outcome_unknown`. The vision request may already have
+been accepted. Do not resume `auto-run`, submit a replacement assessment, skip the
+gate, move the private candidate into `delivery/`, or silently convert that job to a
+manual approval. Retain the directory for diagnosis and begin a separately
+authorized logical request only after a human decision. The Harness deliberately
+does not offer a service-side worker recovery shortcut.
 
 `timeout-seconds` bounds provider waiting and is checked between processing stages;
 it is not a hard process kill during local image/PSD work. Optional providers must
@@ -102,9 +132,10 @@ the JSON `status` to determine job outcome. Possible states:
 | Status | Meaning and action |
 | --- | --- |
 | `completed_visual_qa_draft` | The automated visual-quality gate, PSD and artifact hashes passed; serve the unreviewed draft with its limits |
+| `completed_visual_qa_warning` | Explicit `advisory` policy delivered a structurally verified PSD after a rejected or unavailable visual assessment; show its receipt outcome |
 | `failed_visual_qa` | The model rejected the candidate; retain its safe receipt and private evidence, do not serve a PSD or retry |
 | `failed_no_resubmit` | Recorded stage/reason; no automatic retries; retain evidence for a new decision |
-| `started_outcome_unknown` | No terminal receipt, potentially still running or crashed; do not resubmit |
+| `started_outcome_unknown` | No terminal receipt, potentially still running or crashed; do not resubmit, including an assessment that may already have reached the vision provider |
 
 There is no liveness inference, worker lease, HTTP route or queue implementation.
 During execution, `batch.rows` exposes prepared/reserved/received/indeterminate

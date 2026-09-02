@@ -14,9 +14,11 @@ for pixel-perfect manual Photoshop reconstruction.
 For an explicitly authorized unattended draft, use `auto-run` and the configured
 optional provider as described in [docs/headless.md](docs/headless.md). It consumes
 two vision calls and a bounded number of image calls: planning first, then a mandatory
-post-generation visual-quality gate over the reference, assembled preview and contact
-sheet. It exports an unreviewed draft only after that gate passes. Do not substitute
-this for a requested reviewed delivery. Never invent an
+post-generation visual-quality assessment over the reference, assembled preview and
+contact sheet. The default strict policy exports only after that assessment passes;
+an explicitly deployment-selected advisory policy can export a warning-marked draft
+when it rejects or is unavailable. Do not substitute either route for a requested
+reviewed delivery. Never invent an
 accepted `review.json`; retain the original reviewed workflow below.
 
 1. Run `doctor` and `self-test`, then use `init` to copy an oriented reference and

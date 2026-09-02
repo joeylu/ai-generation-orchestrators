@@ -54,6 +54,7 @@ def parser() -> argparse.ArgumentParser:
     automatic.add_argument("--provider-config", required=True, type=Path)
     automatic.add_argument("--max-generation-calls", required=True, type=int)
     automatic.add_argument("--timeout-seconds", type=int, default=3600)
+    automatic.add_argument("--visual-qa-policy", choices=("strict", "advisory"), default="strict")
     automatic.add_argument("--allow-provider-calls-and-unreviewed-draft", action="store_true")
     job_status = commands.add_parser("job-status")
     job_status.add_argument("--job-dir", required=True, type=Path)
@@ -93,7 +94,8 @@ def execute(args) -> dict:
         config = read_json(args.provider_config)
         return auto_run(args.reference, args.job_dir, load_provider(config),
                         maximum_calls=args.max_generation_calls, timeout_seconds=args.timeout_seconds,
-                        authorized=True, provider_binding=digest(config))
+                        authorized=True, provider_binding=digest(config),
+                        visual_qa_policy=args.visual_qa_policy)
     if args.command in {"init", "self-test", "doctor"}:
         from .runtime import doctor, init_plan, self_test
         if args.command == "init":

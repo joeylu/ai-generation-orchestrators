@@ -9,9 +9,10 @@ images into a layered PSD. The development headless entry can also obtain a plan
 and images through a configured optional provider. It keeps only important editable or reusable
 components, removes ordinary raster text by policy, reuses repeated component
 families, preserves aspect ratio during reuse by default, and requires a
-digest-bound visual review for reviewed delivery. The unattended route requires a
+digest-bound visual review for reviewed delivery. The unattended route runs a
 bounded model-based visual-quality gate before it can export an unreviewed draft;
-it never claims human acceptance. Empty stretchable bases can explicitly
+its deployment-selected strict or advisory result never claims human acceptance.
+Empty stretchable bases can explicitly
 opt into nine-slice resizing with selected corner insets; see the plan contract.
 
 Deterministic processing commands remain offline. Only explicit `auto-run` may
@@ -19,7 +20,7 @@ invoke the configured provider; it never retries generation, controls Photoshop,
 or modifies another Harness. `auto` currently selects PSD; explicit PSB requests are
 rejected because PSB has not been validated.
 
-The published `0.2.1` release includes the headless entry and its mandatory
+The published `0.2.2` release includes the headless entry and its mandatory
 automated visual-quality gate alongside the reviewed flow. It remains opt-in because
 the gate does not imply human acceptance or perfect visual reconstruction.
 See [headless integration](docs/headless.md) for its contract and verification limits.
@@ -28,7 +29,7 @@ Install the immutable published UI release directly from its repository subdirec
 
 ```text
 python -m venv .venv
-.venv/bin/python -m pip install "ai-ui-decomposition[psd] @ git+https://github.com/joeylu/ai-generation-orchestrators.git@ui-v0.2.1#subdirectory=game-ui-harnesses/ui-decomposition-harness"
+.venv/bin/python -m pip install "ai-ui-decomposition[psd] @ git+https://github.com/joeylu/ai-generation-orchestrators.git@ui-v0.2.2#subdirectory=game-ui-harnesses/ui-decomposition-harness"
 .venv/bin/ai-ui-decomposition doctor
 .venv/bin/ai-ui-decomposition self-test
 ```

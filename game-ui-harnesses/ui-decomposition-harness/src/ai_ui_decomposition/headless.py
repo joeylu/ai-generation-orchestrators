@@ -12,7 +12,8 @@ from .assembly import finalize, inspect_delivery
 from .common import (ContractError, digest, load_verified_image, read_json, require,
                      safe_relative, sha256, write_json)
 from .process import process
-from .visual_qa import instruction as visual_qa_instruction, write_receipt as write_visual_qa_receipt
+from .visual_qa import (instruction as visual_qa_instruction, write_receipt as write_visual_qa_receipt,
+                        write_unavailable_receipt)
 
 
 class Provider(Protocol):
@@ -64,10 +65,15 @@ def job_status(job: Path) -> dict:
     request = _verified(job / "job.json")
     result = {"kind": "ai_ui_decomposition_job_status_v1", "job_digest": request["digest"],
               "status": "started_outcome_unknown", "automatic_resubmit": False,
-              "visual_review": "not_performed"}
+              "visual_review": "not_performed",
+              "visual_qa_policy": request.get("visual_qa_policy", "strict")}
     run = job / "workspace" / "runs" / "automatic"
     if (run / "batch.json").is_file():
         result["batch"] = batch.status(run)
+    if (job / "visual-qa-started.json").is_file():
+        visual_qa_started = _verified(job / "visual-qa-started.json")
+        require(visual_qa_started["job_digest"] == request["digest"], "JOB_VISUAL_QA_BINDING")
+        result["automated_visual_qa"] = "started_outcome_unknown"
     if (job / "result.json").exists():
         terminal = _verified(job / "result.json")
         require(terminal["job_digest"] == request["digest"], "JOB_RESULT_BINDING")
@@ -75,7 +81,7 @@ def job_status(job: Path) -> dict:
         if "visual_qa_digest" in terminal:
             visual_qa = _verified(job / "visual-qa.json")
             require(visual_qa["digest"] == terminal["visual_qa_digest"], "JOB_VISUAL_QA_CHANGED")
-        if terminal["status"] == "completed_visual_qa_draft":
+        if terminal["status"] in {"completed_visual_qa_draft", "completed_visual_qa_warning"}:
             receipt = inspect_delivery(job / "delivery")
             require(receipt["digest"] == terminal["delivery_digest"], "JOB_DELIVERY_CHANGED")
             for key, row in terminal["artifacts"].items():
@@ -85,7 +91,8 @@ def job_status(job: Path) -> dict:
 
 
 def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: int,
-             timeout_seconds: int, authorized: bool, provider_binding: str = "injected") -> dict:
+             timeout_seconds: int, authorized: bool, provider_binding: str = "injected",
+             visual_qa_policy: str = "strict") -> dict:
     """Caller explicitly delegates two vision calls and a bounded frozen plan.
 
     A repeated successful job verifies and returns existing files. Every other
@@ -94,6 +101,7 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
     require(authorized is True, "EXPLICIT_PROVIDER_AND_DRAFT_AUTHORIZATION_REQUIRED")
     require(type(maximum_calls) is int and 1 <= maximum_calls <= 32, "JOB_BUDGET")
     require(type(timeout_seconds) is int and 1 <= timeout_seconds <= 86400, "JOB_TIMEOUT")
+    require(visual_qa_policy in {"strict", "advisory"}, "VISUAL_QA_POLICY")
     picture, evidence = load_verified_image(reference.resolve())
     require(max(picture.size) <= 30000 and picture.width * picture.height <= 16_777_216,
             "JOB_CANVAS_LIMIT")
@@ -104,13 +112,14 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
             "canvas": list(picture.size), "maximum_vision_calls": 2,
             "maximum_generation_calls": maximum_calls, "timeout_seconds": timeout_seconds,
             "provider_binding": provider_binding, "delivery_policy": "unreviewed_draft",
-            "automatic_retries": 0}
+            "visual_qa_policy": visual_qa_policy, "automatic_retries": 0}
     job = job.resolve()
     if job.exists():
         request = _verified(job / "job.json")
         require(request["digest"] == digest(body), "JOB_INPUT_CHANGED")
         status = job_status(job)
-        require(status["status"] == "completed_visual_qa_draft", "JOB_ALREADY_STARTED_NO_RESUBMIT")
+        require(status["status"] in {"completed_visual_qa_draft", "completed_visual_qa_warning"},
+                "JOB_ALREADY_STARTED_NO_RESUBMIT")
         return status
     # Fail on missing optional dependencies BEFORE either provider can consume compute.
     try:
@@ -151,7 +160,8 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
         _record(job / "authorization.json", {"job_digest": request["digest"],
             "plan_digest": digest(plan), "batch_digest": frozen["digest"],
             "maximum_calls": frozen["maximum_calls"], "single_use_requests": True,
-            "delivery_policy": "unreviewed_draft", "automatic_retries": 0})
+            "delivery_policy": "unreviewed_draft", "visual_qa_policy": visual_qa_policy,
+            "automatic_retries": 0})
         stage = "generation"
         for asset in frozen["dispatch_order"]:
             remaining()
@@ -184,18 +194,34 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
                                             state_dir=job / "private" / "visual-qa-provider",
                                             timeout=remaining())
         except Exception as exc:
-            raise ContractError("VISUAL_QA_PROVIDER_FAILED") from exc
-        remaining()
-        visual_qa = write_visual_qa_receipt(job / "visual-qa.json", assessment,
-            asset_ids=asset_ids, plan_digest=digest(plan),
-            materials_digest=candidate_receipt["materials_digest"], reference=project / "reference.png",
-            preview=candidate / "preview.png", contact_sheet=contact_sheet)
-        if not visual_qa["assessment"]["passed"]:
+            if visual_qa_policy == "strict":
+                raise ContractError("VISUAL_QA_PROVIDER_FAILED") from exc
+            visual_qa = write_unavailable_receipt(job / "visual-qa.json", "VISUAL_QA_PROVIDER_FAILED",
+                plan_digest=digest(plan), materials_digest=candidate_receipt["materials_digest"],
+                reference=project / "reference.png", preview=candidate / "preview.png",
+                contact_sheet=contact_sheet)
+        else:
+            try:
+                remaining()
+                visual_qa = write_visual_qa_receipt(job / "visual-qa.json", assessment,
+                    asset_ids=asset_ids, plan_digest=digest(plan),
+                    materials_digest=candidate_receipt["materials_digest"], reference=project / "reference.png",
+                    preview=candidate / "preview.png", contact_sheet=contact_sheet)
+            except ContractError as exc:
+                if visual_qa_policy == "strict":
+                    raise
+                reason = str(exc) if str(exc).isascii() and str(exc).replace("_", "").isupper() else "JOB_STAGE_FAILED"
+                visual_qa = write_unavailable_receipt(job / "visual-qa.json", reason,
+                    plan_digest=digest(plan), materials_digest=candidate_receipt["materials_digest"],
+                    reference=project / "reference.png", preview=candidate / "preview.png",
+                    contact_sheet=contact_sheet)
+        if visual_qa["outcome"] == "rejected" and visual_qa_policy == "strict":
             _record(job / "result.json", {"kind": "ai_ui_decomposition_job_result_v1",
                 "job_digest": request["digest"], "status": "failed_visual_qa", "stage": stage,
                 "reason": "AUTOMATED_VISUAL_QA_REJECTED", "asset": None,
                 "visual_review": "not_performed", "automated_visual_qa": "rejected",
                 "visual_qa_digest": visual_qa["digest"], "automatic_visual_acceptance": False,
+                "visual_qa_policy": visual_qa_policy,
                 "automatic_resubmit": False, "vision_calls": 2,
                 "generation_calls": frozen["maximum_calls"]})
             return job_status(job)
@@ -212,10 +238,13 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
                                "automated_visual_qa": "delivery/automated-visual-qa.json"}.items():
             artifacts[name] = {"path": relative, "sha256": sha256(safe_relative(job, relative))}
         _record(job / "result.json", {"kind": "ai_ui_decomposition_job_result_v1",
-            "job_digest": request["digest"], "status": "completed_visual_qa_draft",
+            "job_digest": request["digest"],
+            "status": "completed_visual_qa_draft" if visual_qa["outcome"] == "passed"
+                      else "completed_visual_qa_warning",
             "delivery_digest": receipt["digest"], "artifacts": artifacts,
-            "visual_review": "not_performed", "automated_visual_qa": "passed",
+            "visual_review": "not_performed", "automated_visual_qa": visual_qa["outcome"],
             "visual_qa_digest": visual_qa["digest"], "automatic_visual_acceptance": False,
+            "visual_qa_policy": visual_qa_policy,
             "application_check": "not_run", "automatic_resubmit": False,
             "vision_calls": 2, "generation_calls": frozen["maximum_calls"],
             "elapsed_seconds": round(timeout_seconds - (deadline - time.monotonic()), 3)})

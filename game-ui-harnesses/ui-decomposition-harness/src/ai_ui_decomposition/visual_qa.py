@@ -105,8 +105,22 @@ def receipt(description: str, *, asset_ids: set[str], plan_digest: str, material
     body = {"kind": KIND, "plan_digest": plan_digest, "materials_digest": materials_digest,
             "reference_sha256": sha256(reference), "preview_sha256": sha256(preview),
             "contact_sheet_sha256": sha256(contact_sheet), "policy": POLICY,
-            "assessment": assessment, "automatic_retries": 0,
+            "outcome": "passed" if assessment["passed"] else "rejected",
+            "assessment": assessment, "reason": None, "automatic_retries": 0,
             "human_visual_acceptance": False}
+    return {**body, "digest": digest(body)}
+
+
+def unavailable_receipt(reason: str, *, plan_digest: str, materials_digest: str,
+                        reference: Path, preview: Path, contact_sheet: Path) -> dict:
+    """Record a safe, explicit missing assessment without exposing provider details."""
+    require(isinstance(reason, str) and reason.isascii() and reason.replace("_", "").isupper()
+            and len(reason) <= 80, "AUTOMATED_VISUAL_QA_UNAVAILABLE_REASON")
+    body = {"kind": KIND, "plan_digest": plan_digest, "materials_digest": materials_digest,
+            "reference_sha256": sha256(reference), "preview_sha256": sha256(preview),
+            "contact_sheet_sha256": sha256(contact_sheet), "policy": POLICY,
+            "outcome": "unavailable", "assessment": None, "reason": reason,
+            "automatic_retries": 0, "human_visual_acceptance": False}
     return {**body, "digest": digest(body)}
 
 
@@ -115,5 +129,13 @@ def write_receipt(path: Path, description: str, *, asset_ids: set[str], plan_dig
     result = receipt(description, asset_ids=asset_ids, plan_digest=plan_digest,
                      materials_digest=materials_digest, reference=reference, preview=preview,
                      contact_sheet=contact_sheet)
+    write_json(path, result)
+    return result
+
+
+def write_unavailable_receipt(path: Path, reason: str, *, plan_digest: str, materials_digest: str,
+                              reference: Path, preview: Path, contact_sheet: Path) -> dict:
+    result = unavailable_receipt(reason, plan_digest=plan_digest, materials_digest=materials_digest,
+                                 reference=reference, preview=preview, contact_sheet=contact_sheet)
     write_json(path, result)
     return result
