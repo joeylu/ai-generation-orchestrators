@@ -17,6 +17,7 @@ from ai_ui_decomposition import batch
 from ai_ui_decomposition.assembly import finalize, inspect_delivery
 from ai_ui_decomposition.common import ContractError, sha256
 from ai_ui_decomposition.contract import validate
+from ai_ui_decomposition.media import contain, matte_key, nine_slice
 from ai_ui_decomposition.process import process, review_template
 
 
@@ -153,6 +154,77 @@ class HarnessTests(unittest.TestCase):
         changed["provider_endpoint"] = "https://private.invalid"
         with self.assertRaisesRegex(ContractError, "PLAN_FIELDS"):
             validate(changed, source_base=self.root)
+
+    def test_legacy_processing_pixels_remain_unchanged(self):
+        materials = self.complete_materials()
+        with Image.open(self.root / "raw.png") as raw:
+            expected = matte_key(raw, [20, 12])
+        for row in materials["assets"]:
+            if row["asset"] == "scene":
+                continue
+            baseline = expected if row["asset"] == "button" else contain(expected, [12, 12])
+            with Image.open(self.run / row["path"]) as actual:
+                self.assertEqual(actual.tobytes(), baseline.tobytes())
+
+    def test_explicit_resize_processes_generated_and_reused_components(self):
+        old_digest = validate(self.plan, source_base=self.root)["plan_digest"]
+        for asset in self.plan["assets"][1:]:
+            asset["resize"] = {"mode": "nine_slice", "insets": [2, 2, 2, 2]}
+        self.assertNotEqual(old_digest, validate(self.plan, source_base=self.root)["plan_digest"])
+        self.plan_path.write_text(json.dumps(self.plan), encoding="utf-8")
+        batch.freeze(self.plan_path, self.workspace, "resize-r001")
+        self.run = self.workspace / "runs" / "resize-r001"
+        materials = self.complete_materials()
+        for row in materials["assets"][1:]:
+            with Image.open(self.run / row["path"]) as actual:
+                self.assertEqual(actual.size, tuple(row["size"]))
+                self.assertEqual(actual.getchannel("A").getbbox(), (0, 0, *actual.size))
+
+    def test_resize_schema_rejects_bad_insets_and_opaque_backgrounds(self):
+        cases = [(None, "RESIZE_FIELDS"),
+                 ({"mode": "stretch", "insets": [2, 2, 2, 2]}, "RESIZE_MODE"),
+                 ({"mode": "nine_slice", "insets": [True, 2, 2, 2]}, "RESIZE_INSETS"),
+                 ({"mode": "nine_slice", "insets": [0, 2, 2, 2]}, "RESIZE_INSETS"),
+                 ({"mode": "nine_slice", "insets": [10, 2, 10, 2]}, "RESIZE_TARGET_TOO_SMALL"),
+                 ({"mode": "nine_slice", "insets": [2, 2, 2, 2], "extra": 1}, "RESIZE_FIELDS")]
+        for resize, error in cases:
+            with self.subTest(resize=resize):
+                self.plan["assets"][1]["resize"] = resize
+                with self.assertRaisesRegex(ContractError, error):
+                    validate(self.plan, source_base=self.root)
+        del self.plan["assets"][1]["resize"]
+        self.plan["assets"][0]["resize"] = {"mode": "nine_slice", "insets": [2, 2, 2, 2]}
+        with self.assertRaisesRegex(ContractError, "RESIZE_COMPONENT_ONLY"):
+            validate(self.plan, source_base=self.root)
+
+    def test_nine_slice_preserves_corners_alpha_and_identity_in_both_axes(self):
+        values = np.zeros((17, 23, 4), dtype=np.uint8)
+        values[:, :, :3] = [63, 129, 207]
+        values[:, :, 3] = 255
+        values[0, 0] = [0, 0, 0, 0]
+        values[1, 1, 3] = 103
+        source = Image.fromarray(values, "RGBA")
+        insets = [3, 4, 5, 2]
+        self.assertEqual(nine_slice(source, [23, 17], insets).tobytes(), source.tobytes())
+        for width, height in [(41, 17), (23, 31), (41, 31), (12, 10)]:
+            with self.subTest(size=(width, height)):
+                actual = nine_slice(source, [width, height], insets)
+                for old, new in [((0, 0, 3, 4), (0, 0, 3, 4)),
+                                 ((18, 0, 23, 4), (width - 5, 0, width, 4)),
+                                 ((0, 15, 3, 17), (0, height - 2, 3, height)),
+                                 ((18, 15, 23, 17), (width - 5, height - 2, width, height))]:
+                    self.assertEqual(source.crop(old).tobytes(), actual.crop(new).tobytes())
+                pixels = np.asarray(actual)
+                self.assertTrue(np.all(pixels[pixels[:, :, 3] == 0, :3] == 0))
+                self.assertTrue(np.all(pixels[4:height - 2, 3:width - 5, 3] == 255))
+
+    def test_nine_slice_rejects_missing_support_and_impossible_caps(self):
+        with self.assertRaisesRegex(ContractError, "EMPTY_MATERIAL"):
+            nine_slice(Image.new("RGBA", (20, 20)), [20, 20], [2, 2, 2, 2])
+        with self.assertRaisesRegex(ContractError, "RESIZE_SUPPORT_TOO_SMALL"):
+            nine_slice(Image.new("RGBA", (4, 4), "gold"), [20, 20], [2, 2, 2, 2])
+        with self.assertRaisesRegex(ContractError, "RESIZE_TARGET_TOO_SMALL"):
+            nine_slice(Image.new("RGBA", (20, 20), "gold"), [4, 4], [2, 2, 2, 2])
 
 
 if __name__ == "__main__":

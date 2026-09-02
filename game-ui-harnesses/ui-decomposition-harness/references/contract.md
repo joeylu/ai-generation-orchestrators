@@ -66,7 +66,7 @@ Routes:
 - `generated_completion`: one opaque, UI-free completion request.
 - `generated_isolation`: one component on the fixed magenta key background.
 - `source_crop`: deterministic crop for an already acceptable text-free region.
-- `reuse_scaled`: reuse one accepted important component with uniform scaling;
+- `reuse_scaled`: reuse one accepted important component with uniform scaling by default;
   it creates no provider request and cannot chain through another reuse asset.
 
 `source_crop` and `reuse_scaled` have `prompt: null`. Generated routes require a
@@ -74,3 +74,35 @@ prompt. `source_asset` is present only for `reuse_scaled`.
 
 The plan cannot prove that text is absent or that the chosen layer granularity is
 useful. Those properties are checked on the digest-bound contact sheet.
+
+## Optional empty-base nine-slice resizing (0.1.1+)
+
+An important component with `keyed_component` or `rgba` output may explicitly add:
+
+```json
+"resize": {"mode": "nine_slice", "insets": [48, 48, 48, 48]}
+```
+
+Omitting `resize` preserves the existing contain behavior and pixels. It is never
+enabled automatically or inherited by a `reuse_scaled` asset. The optional policy
+is bound into the immutable plan digest before processing.
+
+Processing first performs the existing matte/contain step at `output_size`, then
+crops its alpha bounding box. Insets are positive integer pixels measured inward
+from this **fitted foreground**, ordered left, top, right, bottom. They are not
+raw-provider-image coordinates. Choose caps for the fitted output, not for a
+provider's canvas resolution. Four corners are copied unchanged from that fitted
+foreground; edges stretch along one axis and the center along both, using Lanczos.
+RGBA is copied without applying alpha a second time. The resulting canvas has the
+exact requested size; rounded corners can remain transparent.
+
+Both foreground and target dimensions must exceed opposing inset sums. Invalid
+target caps fail plan validation; insufficient actual foreground fails processing
+with `RESIZE_SUPPORT_TOO_SMALL`, without fallback or provider retries.
+
+Use only for empty, stretchable bases and plain frames. Do not apply to products,
+characters, text, pictograms, or ornate centers: the program cannot recognize or
+protect their semantics. Insets require explicit selection and visual review.
+Corner preservation is relative to the fitted generated material, not a promise
+of recovering the original reference's pixels. Old runtimes reject this new field;
+plans without it remain compatible.

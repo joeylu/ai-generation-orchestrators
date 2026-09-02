@@ -33,6 +33,46 @@ def contain(image: Image.Image, size: list[int]) -> Image.Image:
     return Image.fromarray(values, "RGBA")
 
 
+def nine_slice(image: Image.Image, size: list[int], insets: list[int]) -> Image.Image:
+    """Expand fitted foreground; insets are left/top/right/bottom support pixels."""
+    require(isinstance(insets, list) and len(insets) == 4
+            and all(type(value) is int and value > 0 for value in insets),
+            "RESIZE_INSETS")
+    require(isinstance(size, list) and len(size) == 2
+            and all(type(value) is int and value > 0 for value in size)
+            and size[0] * size[1] <= 67_108_864, "ASSET_SIZE")
+    support = normalize(image)
+    box = support.getchannel("A").getbbox()
+    require(box is not None, "EMPTY_MATERIAL")
+    support = support.crop(box)
+    width, height = support.size
+    target_width, target_height = size
+    left, top, right, bottom = insets
+    require(width > left + right and height > top + bottom,
+            "RESIZE_SUPPORT_TOO_SMALL")
+    require(target_width > left + right and target_height > top + bottom,
+            "RESIZE_TARGET_TOO_SMALL")
+    xs, ys = [0, left, width - right, width], [0, top, height - bottom, height]
+    xt = [0, left, target_width - right, target_width]
+    yt = [0, top, target_height - bottom, target_height]
+    result = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
+    for row in range(3):
+        for column in range(3):
+            tile = support.crop((xs[column], ys[row], xs[column + 1], ys[row + 1]))
+            target = (xt[column + 1] - xt[column], yt[row + 1] - yt[row])
+            if tile.size != target:
+                tile = tile.resize(target, Image.Resampling.LANCZOS)
+            # Copy RGBA directly: using the tile as a mask would square its alpha.
+            result.paste(tile, (xt[column], yt[row]))
+    return normalize(result)
+
+
+def resize_material(material: Image.Image, asset: dict) -> Image.Image:
+    if "resize" not in asset:
+        return material
+    return nine_slice(material, asset["output_size"], asset["resize"]["insets"])
+
+
 def matte_key(image: Image.Image, size: list[int]) -> Image.Image:
     source = np.asarray(image.convert("RGBA"))
     rgb = source[:, :, :3].astype(np.float32)

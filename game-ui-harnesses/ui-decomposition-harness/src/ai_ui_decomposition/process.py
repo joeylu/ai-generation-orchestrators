@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw
 
 from . import batch
 from .common import digest, require, sha256, write_json
-from .media import contain, matte_key, normalize, opaque_exact
+from .media import contain, matte_key, normalize, opaque_exact, resize_material
 
 
 def process(run: Path) -> dict:
@@ -38,10 +38,10 @@ def process(run: Path) -> dict:
                 material = opaque_exact(source, size)
             else:
                 material = contain(source, size)
-            pictures[key] = normalize(material)
+            pictures[key] = normalize(resize_material(material, asset))
         for asset in (item for item in plan["assets"] if item["route"] == "reuse_scaled"):
-            pictures[asset["id"]] = contain(pictures[asset["source_asset"]],
-                                             asset["output_size"])
+            material = contain(pictures[asset["source_asset"]], asset["output_size"])
+            pictures[asset["id"]] = resize_material(material, asset)
         for asset in plan["assets"]:
             key = asset["id"]
             size = asset["output_size"]

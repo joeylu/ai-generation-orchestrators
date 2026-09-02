@@ -6,8 +6,9 @@ route and is not an automatic semantic or visual judge.**
 This package turns one reviewed UI decomposition plan plus locally materialized
 component images into a layered PSD. It keeps only important editable or reusable
 components, removes ordinary raster text by policy, reuses repeated component
-families, preserves aspect ratio during reuse, and requires a digest-bound visual
-review before assembly.
+families, preserves aspect ratio during reuse by default, and requires a
+digest-bound visual review before assembly. Empty stretchable bases can explicitly
+opt into nine-slice resizing with selected corner insets; see the plan contract.
 
 The deterministic CLI does not call an image provider, retry generation, control
 Photoshop, or modify another Harness. An optional provider adapter may fulfill the
@@ -18,7 +19,7 @@ Install the immutable UI release directly from its repository subdirectory:
 
 ```text
 python -m venv .venv
-.venv/bin/python -m pip install "ai-ui-decomposition[psd] @ git+https://github.com/joeylu/ai-generation-orchestrators.git@ui-v0.1.0#subdirectory=game-ui-harnesses/ui-decomposition-harness"
+.venv/bin/python -m pip install "ai-ui-decomposition[psd] @ git+https://github.com/joeylu/ai-generation-orchestrators.git@ui-v0.1.1#subdirectory=game-ui-harnesses/ui-decomposition-harness"
 .venv/bin/ai-ui-decomposition doctor
 .venv/bin/ai-ui-decomposition self-test
 ```

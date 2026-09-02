@@ -14,14 +14,18 @@ Those runs established the coarse control-list flow, global key removal,
 important-component grouping, repeated-family reuse, and layered PSD output. They
 did not establish general visual understanding.
 
-The public runtime is covered by fifteen offline tests. They exercise strict
+The public runtime is covered by twenty offline tests. They exercise strict
 provider-neutral plans, single-use request state, terminal indeterminate results,
 global key removal including enclosed holes, uniform reuse scaling, digest-bound
 visual review, background role independence from asset names, rejection of
 provider-specific extension fields, actual image dimensions and resource limits,
 transparent provider results, portable file-adapter handoff without premature
 single-use consumption, offline doctor and self-test, assembly, and real PSD
-layer/composite roundtrip. The five related
+layer/composite roundtrip. Explicit nine-slice coverage includes unchanged legacy
+processing, generated/reused component integration, strict inset validation,
+horizontal and vertical resizing, unchanged corner pixels and partial alpha,
+identity resizing, and rejection of missing or insufficient foreground.
+The five related
 predecessor suites also pass 170 tests unchanged.
 
 Photoshop application opening was not run during the public migration. Automatic

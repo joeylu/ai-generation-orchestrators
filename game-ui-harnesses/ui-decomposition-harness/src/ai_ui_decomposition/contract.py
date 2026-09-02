@@ -59,8 +59,10 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
     require(isinstance(assets, list) and 1 <= len(assets) <= 128, "ASSETS")
     index: dict[str, dict] = {}
     for asset in assets:
-        _fields(asset, {"id", "role", "route", "source_region", "output_size",
-                        "output_mode", "prompt", "source_asset"}, "ASSET_FIELDS")
+        required = {"id", "role", "route", "source_region", "output_size",
+                    "output_mode", "prompt", "source_asset"}
+        require(isinstance(asset, dict) and required <= set(asset)
+                and set(asset) <= required | {"resize"}, "ASSET_FIELDS")
         key = identifier(asset.get("id"))
         require(key not in index, "DUPLICATE_ASSET")
         route = asset.get("route")
@@ -70,6 +72,16 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
         size = _size(asset.get("output_size"), "ASSET_SIZE")
         mode = asset.get("output_mode")
         require(mode in {"opaque_canvas", "keyed_component", "rgba"}, "OUTPUT_MODE")
+        if "resize" in asset:
+            resize = asset["resize"]
+            _fields(resize, {"mode", "insets"}, "RESIZE_FIELDS")
+            require(resize["mode"] == "nine_slice", "RESIZE_MODE")
+            require(asset["role"] == "important_component"
+                    and mode in {"keyed_component", "rgba"}, "RESIZE_COMPONENT_ONLY")
+            left, top, right, bottom = _vector(resize["insets"], 4, "RESIZE_INSETS")
+            require(min(left, top, right, bottom) > 0, "RESIZE_INSETS")
+            require(size[0] > left + right and size[1] > top + bottom,
+                    "RESIZE_TARGET_TOO_SMALL")
         if asset["role"] == "background":
             require(mode == "opaque_canvas" and size == canvas, "BACKGROUND_ASSET")
             require(route in {"generated_completion", "source_crop"}, "BACKGROUND_ROUTE")
