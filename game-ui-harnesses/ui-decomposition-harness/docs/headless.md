@@ -1,0 +1,154 @@
+# Headless image-to-draft-PSD integration
+
+Available in the published 0.2.0 release. The entry is an opt-in per-job
+CLI/library function, not a web service.
+Offline tests exercise the complete runner with provider doubles and real PSD
+encoding. A separately authorized live end-to-end check has also produced a
+structurally verified draft PSD; it does not establish general provider
+reliability, visual accuracy or automatic visual acceptance.
+
+## Configuration and invocation
+
+Install a built `ai-ui-decomposition[psd]` package in the recipient's environment.
+For production, install the immutable 0.2.0 release and pin/verify its digest.
+Do not reuse the 0.1.2 release for these commands.
+Run `doctor` and `self-test`; both remain offline and consume no provider compute.
+
+The deployment owns a trusted config file, outside the public artifact directory:
+
+```json
+{
+  "kind": "ai_ui_decomposition_provider_config_v1",
+  "factory": "ai_ui_decomposition.mcp_provider:create_provider",
+  "options": {
+    "vision_url_env": "UI_VISION_URL",
+    "imagegen_url_env": "UI_IMAGEGEN_URL",
+    "api_key_env": "MCP_API_KEY",
+    "download_hosts": ["media.example.invalid"]
+  }
+}
+```
+
+Set `UI_VISION_URL` and `UI_IMAGEGEN_URL` to the deployment's HTTPS MCP endpoints
+and `MCP_API_KEY` to its credential. These are environment variable **names**, not
+literal credentials in JSON. Replace the example download host with the exact
+host(s) used by that provider's image download URLs. No wildcards or redirects are
+accepted. The credential needs both vision and image generation permissions.
+Tool discovery alone does not prove either permission or sufficient quota.
+
+Only administrators supply `factory`, options and environment. A factory imports
+trusted Python code; never accept it, credentials or output paths from an upload
+form. Other providers can implement the library's `Provider` interface without
+changing plan, material or PSD contracts.
+
+```text
+ai-ui-decomposition auto-run --reference uploads/reference.png --job-dir jobs/request-001 --provider-config provider.json --max-generation-calls 16 --timeout-seconds 3600 --allow-provider-calls-and-unreviewed-draft
+ai-ui-decomposition job-status --job-dir jobs/request-001
+```
+
+The explicit flag delegates **one vision call and at most the stated generation
+budget**, and accepts an unreviewed PSD. Do not add it unless the caller has
+authorized both external processing of the image and the compute budget. The
+recipient's end user can supply only an image once that service has established
+the deployment defaults and consent. The Harness does not implement that service.
+
+## Execution contract
+
+1. Validate input bytes, EXIF-oriented size and PSD dependencies; create a fresh
+   job record. Maximum canvas is 16,777,216 pixels and 30,000 per side.
+2. Persist a planning reservation. Ask the provider for `assets`, `nodes`, `groups`
+   JSON. The program supplies source identity, routes, text policy and draft policy;
+   the model cannot override them or select files/providers. Reject malformed JSON,
+   unknown fields, bad geometry, over-budget plans and incorrect background order.
+3. Freeze the validated plan and persist authorization bound to its digest and
+   batch digest. Generation budget is 1–32 calls; planner output has at most 256
+   nodes. Default granularity is important components with same-size module reuse.
+4. Reserve and dispatch each component once in order, seal the result and import
+   it through the existing file protocol. Stop on the first error.
+5. Process all materials, assemble and export `ui.draft.psd`, then reopen it to
+   verify pixels, positions, group structure and the composite. No review is forged.
+
+No automatic repair or generation retry occurs. A possibly accepted request remains
+reserved/indeterminate after a crash. Known provider failures are also terminal for
+this job. A repeated successful invocation verifies existing artifacts and returns
+them with zero new calls; repeating any other started job is rejected. Successful
+raw results remain available for an explicitly planned new run through
+[result-binding and reuse-result](../references/provider-adapter.md#reuse-a-completed-raw-result-012).
+This release does not automatically resume partial jobs or replan using cached
+assets. Never delete a failed job to make its original request run again.
+
+`timeout-seconds` bounds provider waiting and is checked between processing stages;
+it is not a hard process kill during local image/PSD work. Optional providers must
+honor the supplied remaining timeout and must not retry internally. The recipient
+owns hard process/resource limits and task scheduling. Killing a job is not proof
+that its remote compute was canceled.
+
+## Results and recipient responsibilities
+
+`auto-run` writes JSON to stdout, exits 0 on completed draft and 2 on rejection or
+failure. `job-status` is read-only; its exit code indicates query success, so inspect
+the JSON `status` to determine job outcome. Possible states:
+
+| Status | Meaning and action |
+| --- | --- |
+| `completed_unreviewed_draft` | Required PSD and artifact hashes verified; serve the draft with its warning |
+| `failed_no_resubmit` | Recorded stage/reason; no automatic retries; retain evidence for a new decision |
+| `started_outcome_unknown` | No terminal receipt, potentially still running or crashed; do not resubmit |
+
+There is no liveness inference, worker lease, HTTP route or queue implementation.
+During execution, `batch.rows` exposes prepared/reserved/received/indeterminate
+component progress. A job not yet readable can be temporarily initializing; the
+recipient should poll read-only, never infer permission to create a replacement.
+
+Persist the entire job directory. Publish only the allowlisted `delivery/` files
+and safe result metadata: PSD, preview, layer PNGs, scene, delivery and export
+receipts. The terminal JSON records relative artifact locations and hashes. Keep
+`private/`, source images, proposals, request bundles and deployment configuration
+out of public downloads. Private provider state contains submission IDs, task IDs,
+input image bytes and raw MCP replies (which can include temporary signed URLs or
+provider error details); protect it as source data. Raw replies are limited to
+8 MiB each and retained before parsing. Do not package a whole job folder.
+Use one fresh, application-assigned directory per logical request and prevent
+parallel invocations for that request. Preserve evidence after restart.
+
+`completed_unreviewed_draft` means files passed structural checks. It does **not**
+mean the model selected every important component, removed all text, preserved all
+purple pixels through keying, or reconstructed hidden artwork correctly. Semantic
+granularity and visual accuracy still need evaluation. Automatic plans do not guess
+nine-slice insets. PSD opening in the Photoshop application is not validated; PSB
+writing remains unavailable. The reviewed `finalize` route retains its human gate.
+
+## Optional stateless MCP adapter
+
+The supplied adapter matches a specific documented application-level async shape:
+`tools/list`, `tools/call` of `vision` or `imagegen`, followed by `get_task` polling.
+It is not a universal MCP client and does not implement session-based negotiation,
+stdio transport, streaming partial plans or MCP native Tasks. It uses only the
+Python standard library plus existing image dependencies; no desktop MCP install,
+SDK login session or assistant process is required.
+
+Vision input is `images` plus `instruction` (1–4096 characters with no leading or
+trailing whitespace; checked locally before any request); completed
+output is a `description` string containing the exact planning JSON. Imagegen takes
+`prompt` and one `referenceImage`; completed output includes `downloadUrl`, PNG
+MIME type, width, height and byte count. Inputs are JPEG encoded below 2 MiB. For
+generation, the full reference and exact crop are arranged on one evidence board.
+No image is sent to an endpoint not explicitly configured by the deployment.
+
+Before a business call, the adapter persists a UUID `submissionId` and full
+arguments. It stores the returned `taskId`, polls within the deadline, verifies
+download host/bytes/dimensions, and never follows redirects or sends API credentials
+to a media URL. It accepts JSON or complete SSE JSON-RPC responses. It deliberately
+does not automatically replay even if the server advertises idempotent submission.
+Remote tool errors, JSON-RPC errors, unmatched response IDs and malformed JSON/UTF-8
+have distinct sanitized error codes. They do not authorize a retry. When the first
+RPC call fails, private `outcome.json` records that acceptance is not established;
+the preserved request and raw reply support diagnosis without a second submission.
+Provider-specific endpoint URLs, credentials and task identities never enter the
+public plan or delivery receipt.
+
+An adapter instance used solely to materialize a **previously frozen** plan may
+omit its vision endpoint, because that path never calls `plan`. `auto-run` always
+plans first and therefore still requires both configured capabilities. Treat a
+missing vision endpoint during planning as a local configuration error, never as
+permission to infer or reuse a plan.

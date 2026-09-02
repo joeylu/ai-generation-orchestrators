@@ -12,18 +12,22 @@ def verified_result(run: Path, asset: str) -> tuple[dict, dict, dict, Path]:
     require(asset in frozen["requests"], "UNKNOWN_REQUEST")
     entry = frozen["requests"][asset]
     state = batch.state(run, entry)
-    require(state in {"received", "reused"}, "COMPLETED_RESULT_REQUIRED")
+    require(state in {"received", "recovered", "reused"}, "COMPLETED_RESULT_REQUIRED")
     directory = run / "requests" / entry["id"]
     item = next(row for row in plan["assets"] if row["id"] == asset)
     cached = item.get("cached_result")
     require((state == "reused") == (cached is not None), "RESULT_ROUTE_MISMATCH")
-    record = read_json(directory / ("received.json" if state == "received" else "reused.json"))
-    require(record.get("kind") == ("ai_ui_decomposition_request_received_v1" if state == "received"
-                                    else "ai_ui_decomposition_result_reused_v1")
+    record_name = {"received": "received.json", "recovered": "recovered.json",
+                   "reused": "reused.json"}[state]
+    record = read_json(directory / record_name)
+    kinds = {"received": "ai_ui_decomposition_request_received_v1",
+             "recovered": "ai_ui_decomposition_request_recovered_v1",
+             "reused": "ai_ui_decomposition_result_reused_v1"}
+    require(record.get("kind") == kinds[state]
             and record.get("batch_digest") == frozen["digest"]
             and record.get("asset") == asset and record.get("request_id") == entry["id"],
             "RESULT_BINDING_CHANGED")
-    if state == "received":
+    if state in {"received", "recovered"}:
         reservation = read_json(directory / "reserved.json")
         require(reservation.get("kind") == "ai_ui_decomposition_request_reserved_v1"
                 and reservation.get("batch_digest") == frozen["digest"]
@@ -32,6 +36,13 @@ def verified_result(run: Path, asset: str) -> tuple[dict, dict, dict, Path]:
                 and reservation.get("request_sha256") == entry["request_sha256"]
                 and reservation.get("single_use") is True, "RESERVATION_CHANGED")
         require(record.get("generation_calls") == 1, "RESULT_CALL_COUNT")
+        if state == "recovered":
+            indeterminate = read_json(directory / "indeterminate.json")
+            require(record.get("explicit_operator_recovery") is True
+                    and record.get("automatic_resubmit") is False
+                    and record.get("indeterminate_sha256") == sha256(directory / "indeterminate.json")
+                    and indeterminate.get("kind") == "ai_ui_decomposition_request_indeterminate_v1",
+                    "RECOVERY_BINDING_CHANGED")
     else:
         require(record.get("digest") == digest({k: v for k, v in record.items() if k != "digest"}),
                 "REUSED_RESULT_CHANGED")

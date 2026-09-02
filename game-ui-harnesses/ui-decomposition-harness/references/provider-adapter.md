@@ -1,5 +1,9 @@
 # Provider file-adapter protocol
 
+For the optional autonomous runner and stateless async MCP implementation, see
+[headless integration](../docs/headless.md). The file protocol below remains
+provider-neutral and callable without installing or configuring a provider.
+
 `adapter-export` creates one immutable directory containing:
 
 - `handoff.json`: digest-bound request identity and file inventory;
@@ -19,6 +23,19 @@ result digest before materializing the raw image in the run.
 If submission may have succeeded but the result is unavailable, do not seal a
 placeholder and do not resubmit. Run `indeterminate` against the original run and
 asset. A new attempt requires a new run and user decision.
+
+When an operator later has a **known, completed result for the same persisted
+request**, they may retrieve that result without submitting a new provider job.
+Only after a new explicit user decision, run:
+
+```text
+ai-ui-decomposition recover-receive --run-dir <run> --asset <asset> --source <retrieved-result.png>
+```
+
+This command is local only. It retains `indeterminate.json`, writes a bound
+`recovered.json`, validates the returned image and never changes a provider task.
+It rejects prepared, received, reused and already recovered requests. Recovery is
+not cache acceptance: `result-binding` remains limited to ordinary received results.
 
 The file protocol works across a local process boundary, mounted container
 volume, removable media, or a service bridge. Transport does not change the

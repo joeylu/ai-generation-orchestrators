@@ -67,3 +67,7 @@ ai-ui-decomposition inspect --delivery delivery/inventory-r001
 
 The final report distinguishes PSD file roundtrip from an actual Photoshop
 application-open check.
+
+For the development image-only unattended entry, see [headless integration](headless.md).
+It exports explicitly unreviewed draft PSDs through an optional configured provider;
+the reviewed flow above remains available and unchanged by default.

@@ -35,8 +35,12 @@ def _box(value: object, canvas: list[int], code: str) -> list[int]:
 
 
 def validate(plan: dict, verify_source: bool = True, source_base: Path | None = None) -> dict:
-    _fields(plan, {"kind", "id", "canvas", "source", "text_policy", "granularity",
-                   "assets", "nodes", "groups", "document"}, "PLAN_FIELDS")
+    required = {"kind", "id", "canvas", "source", "text_policy", "granularity",
+                "assets", "nodes", "groups", "document"}
+    require(isinstance(plan, dict) and required <= set(plan)
+            and set(plan) <= required | {"delivery_policy"}, "PLAN_FIELDS")
+    require(plan.get("delivery_policy", "reviewed") in {"reviewed", "unreviewed_draft"},
+            "DELIVERY_POLICY")
     require(plan.get("kind") == KIND, "PLAN_KIND")
     identifier(plan.get("id"))
     canvas = _size(plan.get("canvas"), "CANVAS")

@@ -12,7 +12,7 @@ from .media import contain, matte_key, normalize, opaque_exact, resize_material
 def process(run: Path) -> dict:
     frozen, plan = batch.load(run)
     state = batch.status(run)
-    require(state["received"] + state["reused"] == len(frozen["requests"])
+    require(state["received"] + state["recovered"] + state["reused"] == len(frozen["requests"])
             and state["indeterminate"] == 0, "BATCH_INCOMPLETE")
     from .cached import verified_result
     for asset in frozen["requests"]:

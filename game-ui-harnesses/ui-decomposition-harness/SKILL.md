@@ -11,6 +11,12 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+For an explicitly authorized unattended draft, use `auto-run` and the configured
+optional provider as described in [docs/headless.md](docs/headless.md). It consumes
+one vision call and a bounded number of image calls, then exports an unreviewed
+draft. Do not substitute this for a requested reviewed delivery. Never invent an
+accepted `review.json`; retain the original reviewed workflow below.
+
 1. Run `doctor` and `self-test`, then use `init` to copy an oriented reference and
    create a digest-bound starter plan. Create an `ai_ui_decomposition_plan_v1`
    from that starter. Read
@@ -55,9 +61,9 @@ user-managed container, read
   program success does not establish either one.
 - Keep this Harness isolated. Do not alter another Harness, its environment, or
   its runtime configuration to make this route work.
-- The CLI never invokes ImageGen, downloads models, retries generation, or starts
-  Photoshop. Provider adapters may consume the frozen request contract without
-  becoming a core dependency.
+- Only explicitly authorized `auto-run` invokes a configured optional provider.
+  Other commands remain offline; none retries generation, downloads models or
+  starts Photoshop. `job-status` is read-only and never resumes a job.
 - `auto` selects PSD. Explicit PSB is rejected until a PSB writer and independent
   roundtrip test exist.
 - Keep every attempt, review, and delivery immutable. Create a new run when a

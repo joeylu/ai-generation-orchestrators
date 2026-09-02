@@ -116,9 +116,15 @@ def _prompt(asset: dict) -> str:
 
 def state(run: Path, entry: dict) -> str:
     directory = run / "requests" / entry["id"]
-    require(sum((directory / name).is_file() for name in
-                ("received.json", "reused.json", "indeterminate.json")) <= 1,
+    received = (directory / "received.json").is_file()
+    reused = (directory / "reused.json").is_file()
+    indeterminate = (directory / "indeterminate.json").is_file()
+    recovered = (directory / "recovered.json").is_file()
+    require(sum((received, reused)) <= 1
+            and (not recovered or indeterminate and not received and not reused),
             "CONFLICTING_RESULT_STATE")
+    if recovered:
+        return "recovered"
     if (directory / "reused.json").is_file():
         return "reused"
     if (directory / "received.json").is_file():
@@ -138,7 +144,7 @@ def reserve(run: Path, asset: str) -> dict:
             "CACHED_RESULT_NO_GENERATION")
     index = batch["dispatch_order"].index(asset)
     for prior in batch["dispatch_order"][:index]:
-        require(state(run, batch["requests"][prior]) in {"received", "reused", "indeterminate"},
+        require(state(run, batch["requests"][prior]) in {"received", "reused", "recovered", "indeterminate"},
                 "PRIOR_REQUEST_NOT_TERMINAL")
     entry = batch["requests"][asset]
     require(state(run, entry) == "prepared", "REQUEST_ALREADY_STARTED")
@@ -194,13 +200,54 @@ def indeterminate(run: Path, asset: str, reason: str) -> dict:
     return record
 
 
+def recover_receive(run: Path, asset: str, source: Path) -> dict:
+    """Record an explicitly authorized recovery of one known provider result.
+
+    The indeterminate record is retained. This command never contacts a provider
+    and cannot be used for a prepared or previously received request.
+    """
+    frozen, plan = load(run)
+    asset = identifier(asset)
+    require(asset in frozen["requests"], "UNKNOWN_REQUEST")
+    entry = frozen["requests"][asset]
+    require(state(run, entry) == "indeterminate", "EXPLICIT_RECOVERY_REQUIRED")
+    directory = run / "requests" / entry["id"]
+    prior = read_json(directory / "indeterminate.json")
+    require(prior.get("kind") == "ai_ui_decomposition_request_indeterminate_v1"
+            and prior.get("batch_digest") == frozen["digest"]
+            and prior.get("asset") == asset and prior.get("request_id") == entry["id"]
+            and prior.get("automatic_resubmit") is False, "INDETERMINATE_BINDING_CHANGED")
+    source = source.resolve()
+    require(source.is_file(), "RAW_SOURCE_REQUIRED")
+    raw = directory / "raw.png"
+    require(not raw.exists(), "RAW_ALREADY_MATERIALIZED")
+    shutil.copyfile(source, raw)
+    _image, evidence = load_verified_image(raw)
+    item = next(row for row in plan["assets"] if row["id"] == asset)
+    if item["output_mode"] == "opaque_canvas":
+        require(evidence["alpha_extrema"] == [255, 255], "OPAQUE_RESULT_REQUIRED")
+        target_width, target_height = item["output_size"]
+        raw_width, raw_height = evidence["size"]
+        require(abs((raw_width / raw_height) / (target_width / target_height) - 1.0) <= 0.05,
+                "OPAQUE_RESULT_ASPECT_MISMATCH")
+    record = {"kind": "ai_ui_decomposition_request_recovered_v1",
+              "batch_digest": frozen["digest"], "asset": asset, "request_id": entry["id"],
+              "indeterminate_sha256": sha256(directory / "indeterminate.json"),
+              "raw_sha256": sha256(raw), "size": evidence["size"], "mode": evidence["mode"],
+              "alpha_extrema": evidence["alpha_extrema"], "bytes": evidence["bytes"],
+              "generation_calls": 1, "explicit_operator_recovery": True,
+              "automatic_resubmit": False, "automatic_retries": 0}
+    write_json(directory / "recovered.json", record)
+    return record
+
+
 def status(run: Path) -> dict:
     batch, _ = load(run)
     rows = [{"asset": asset, "request_id": batch["requests"][asset]["id"],
              "state": state(run, batch["requests"][asset])}
             for asset in batch["dispatch_order"]]
     counts = {name: sum(row["state"] == name for row in rows)
-              for name in ("prepared", "reserved", "received", "reused", "indeterminate")}
+              for name in ("prepared", "reserved", "received", "reused", "recovered", "indeterminate")}
     return {"kind": "ai_ui_decomposition_batch_status_v1",
             "batch_digest": batch["digest"], "rows": rows, **counts,
             "maximum_calls": batch["maximum_calls"], "automatic_retries": 0}

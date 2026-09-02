@@ -16,7 +16,94 @@ met:
   request must remain terminal after container restart.
 - Run `ai-ui-decomposition doctor` and `self-test` in the built image before use.
 
-The core CLI needs no GPU and performs no network access. A separate provider
-adapter may require network or GPU according to its own explicit policy. The
-adapter exchanges only the file bundle described in
+Deterministic processing needs no GPU or network access. The explicitly selected
+`auto-run` entry invokes an optional provider adapter, which may require network or
+GPU according to its policy. The adapter uses the file bundle described in
 [provider-adapter.md](../references/provider-adapter.md).
+
+## Integration handoff boundary
+
+The intended consumer experience is to upload one UI reference and receive a
+layered PSD. The recipient implements the web application and deployment; this
+repository supplies the reusable Harness contracts and processing behavior.
+Do not copy the Harness implementation into the service. Install an immutable
+release and verify its published digest.
+
+| Responsibility | Harness scope | Recipient scope |
+| --- | --- | --- |
+| UI decomposition | Important-component policy, model proposal validation, grouping and reuse | Configure the provider and invoke the entry |
+| Generation | Provider-neutral request/result protocol and bounded execution behavior | Configure the chosen providers and credentials |
+| Image processing and PSD | Matte, resize, assembly, fingerprints and file roundtrip | Present artifacts and quality warnings |
+| User experience | Stable machine-readable inputs, outputs and errors | Upload form, progress view and download links |
+| Hosting | Runtime/dependency requirements and integration guidance | Containers, HTTP API, job queue, storage, access control and operations |
+
+Web and container implementation is explicitly out of scope here. The automatic
+planning and execution entry belongs to the Harness; it does not require the
+recipient to copy these algorithms or use a logged-in desktop assistant.
+
+## Released behavior
+
+The published 0.1.2 and 0.2.0 releases have different capabilities:
+
+| Capability | Status |
+| --- | --- |
+| Reference snapshot and starter plan | Implemented by `init`; it does not infer a full decomposition |
+| Plan validation and immutable run | Implemented by `check` and `freeze` |
+| Provider file handoff | Implemented by `adapter-export`, `adapter-seal`, `adapter-import`; no provider invocation is included |
+| Explicit successful-result reuse | Implemented by `result-binding` and `reuse-result` |
+| Processing and reviewed PSD output | Implemented by `process`, `review-template`, `finalize`, `export`, `inspect` |
+| Image-only automatic planning | Implemented: configured vision provider produces a strictly validated proposal |
+| Single unattended execution entry | Implemented: `auto-run`, with `job-status`, explicit budget and no automatic resubmission |
+| Automatic unreviewed draft PSD output | Implemented: frozen draft policy and `finalize --draft`; human-reviewed default unchanged |
+
+No image-to-PSD HTTP endpoint is implemented. The runner is usable as a per-job
+CLI/library function. Its complete offline path and one bounded live end-to-end
+execution are verified; general visual accuracy is not established. Do not describe
+the draft output as a visually validated reconstruction.
+
+The automatic entry is deliberately limited to:
+
+1. An image-understanding planning entry that produces the existing validated
+   plan contract using a configured model. Default to important components,
+   reusable families and removal of ordinary text; it does not reconstruct fonts
+   or automatically guess nine-slice insets.
+2. A headless per-job execution entry that orchestrates the existing commands
+   and optional provider bridge, persists request identities, returns verified
+   artifacts for repeated completed jobs and reports completion or failure. Partial
+   job recovery remains explicit through the existing result-reuse commands. The recipient's queue
+   schedules jobs; the Harness does not become a web server or queue platform.
+3. An explicit draft-export policy for the unattended use case. This must record
+   that no human visual acceptance occurred, preserve structural and integrity
+   checks, and leave reviewed export unchanged. Never simulate an accepted human
+   review by editing `review.json` automatically.
+
+Further visual-quality tuning is deferred from this handoff scope. Successful
+file generation must not be advertised as guaranteed visual reconstruction.
+
+## Recipient acceptance checklist
+
+Validate these conditions in the recipient's environment before promoting the
+release. See [headless integration](headless.md) for exact commands, configuration
+and known limitations:
+
+- A deployment config selects image-understanding and generation providers and
+  supplies secrets outside the plan and artifact tree. A service end user only
+  needs to supply a UI reference under the deployment's documented defaults.
+- Execution works without a logged-in desktop assistant. Provider-specific
+  transport, reference count/size limits, polling and downloads are handled by
+  an adapter with a clear failure contract.
+- Submission authorization and budget limits are explicit and bound to the
+  frozen plan. Restarting a job does not resubmit a possibly accepted request.
+  A terminal or indeterminate provider failure is reported; recovery must follow
+  the applicable provider policy and authorization, not an implicit retry loop.
+- The receiving application gets task status, progress, structured failures and
+  artifact locations. Its HTTP routes and storage implementation remain its own.
+- A completed draft includes the PSD, layer assets, preview and provenance/quality
+  report with an explicit unreviewed status. Missing required assets, invalid
+  fingerprints or failed PSD validation produce failure, not a successful download.
+- Integration examples and verification cover the public runtime and fixtures;
+  they do not depend on private operational scripts or a particular provider.
+
+For the released reviewed flow, follow [the quickstart](quickstart.md) and
+[the plan contract](../references/contract.md). For the automatic flow,
+follow [headless integration](headless.md). Neither flow ships a web server or Docker image.

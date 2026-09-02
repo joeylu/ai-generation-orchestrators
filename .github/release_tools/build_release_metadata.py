@@ -33,7 +33,7 @@ UI_SKILL_ROOT = Path("game-ui-harnesses/ui-decomposition-harness")
 UI_SKILL_FILES = (
     "SKILL.md", "agents/openai.yaml", "references/acceptance.md",
     "references/contract.md", "references/provider-adapter.md", "skill.json",
-    "docs/quickstart.md", "docs/container-integration.md",
+    "docs/quickstart.md", "docs/container-integration.md", "docs/headless.md",
 )
 
 VIDEO_SDIST_SUPPORT_FILES = (
@@ -86,10 +86,10 @@ BACKGROUND_SDIST_SUPPORT_FILES = (
 UI_SDIST_SUPPORT_FILES = (
     "LICENSE", "MANIFEST.in", "README.md", "SKILL.md", "pyproject.toml", "skill.json",
     "agents/openai.yaml",
-    "docs/quickstart.md", "docs/container-integration.md",
+    "docs/quickstart.md", "docs/container-integration.md", "docs/headless.md",
     "examples/README.md",
     "references/acceptance.md", "references/contract.md", "references/provider-adapter.md",
-    "tests/test_harness.py", "tests/test_public_runtime.py",
+    "tests/test_harness.py", "tests/test_public_runtime.py", "tests/test_headless.py",
 )
 SDIST_SUPPORT_FILES = VIDEO_SDIST_SUPPORT_FILES
 

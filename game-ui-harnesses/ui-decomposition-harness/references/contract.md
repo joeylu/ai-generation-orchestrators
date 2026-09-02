@@ -1,6 +1,6 @@
 # Plan contract
 
-`ai_ui_decomposition_plan_v1` describes a reviewed coarse decomposition. The
+`ai_ui_decomposition_plan_v1` describes a coarse decomposition proposal. The
 source path is POSIX-style and relative to the plan file. Frozen public records
 retain only the copied reference and relative run paths.
 
@@ -74,6 +74,16 @@ prompt. `source_asset` is present only for `reuse_scaled`.
 
 The plan cannot prove that text is absent or that the chosen layer granularity is
 useful. Those properties are checked on the digest-bound contact sheet.
+
+The optional top-level `delivery_policy` is `reviewed` (default) or
+`unreviewed_draft`. `finalize --draft` requires the latter in the frozen plan.
+It verifies material coverage, sizes, checksums, nonempty alpha and transparent
+RGB before assembling a separately labeled `ai_ui_decomposition_draft_delivery_v1`.
+Draft receipts have no review digest or human acceptance; the PSD filename ends
+in `.draft.psd`. `finalize` without `--draft` still requires an accepted bound
+human review, including when the plan allows draft export. A draft policy is not
+permission to weaken file validation, infer visual acceptance or change old runs.
+See [headless integration](../docs/headless.md) for model-authored proposals.
 
 Generated assets may optionally include `cached_result` (0.1.2+), an exact object
 containing `source_batch_digest`, `source_request_digest`, and `raw_sha256` from

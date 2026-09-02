@@ -1,0 +1,191 @@
+"""One durable, bounded job. This is not a queue, web service or worker platform."""
+from __future__ import annotations
+
+import importlib
+from pathlib import Path
+import time
+from typing import Protocol
+
+from . import batch, planning
+from .adapter import export_request, import_result, seal_result
+from .assembly import finalize, inspect_delivery
+from .common import (ContractError, digest, load_verified_image, read_json, require,
+                     safe_relative, sha256, write_json)
+from .process import process
+
+
+class Provider(Protocol):
+    """Trusted deployment plugin. Private transport state stays outside delivery."""
+
+    def plan(self, reference: Path, instruction: str, *, state_dir: Path, timeout: float) -> str: ...
+
+    def generate(self, bundle: Path, *, state_dir: Path, timeout: float) -> Path: ...
+
+
+def load_provider(config: dict) -> Provider:
+    require(set(config) == {"kind", "factory", "options"}
+            and config["kind"] == "ai_ui_decomposition_provider_config_v1"
+            and isinstance(config["options"], dict), "PROVIDER_CONFIG")
+    factory = config["factory"]
+    require(isinstance(factory, str) and factory.count(":") == 1, "PROVIDER_FACTORY")
+    module, name = factory.split(":")
+    require(all(part.isidentifier() for part in module.split(".")) and name.isidentifier(),
+            "PROVIDER_FACTORY")
+    try:
+        provider = getattr(importlib.import_module(module), name)(config["options"])
+    except Exception as exc:
+        raise ContractError("PROVIDER_SETUP_FAILED") from exc
+    require(callable(getattr(provider, "plan", None))
+            and callable(getattr(provider, "generate", None)), "PROVIDER_INTERFACE")
+    return provider
+
+
+def _record(path: Path, body: dict) -> dict:
+    result = {**body, "digest": digest(body)}
+    write_json(path, result)
+    return result
+
+
+def _verified(path: Path) -> dict:
+    record = read_json(path)
+    require(record.get("digest") == digest({k: v for k, v in record.items() if k != "digest"}),
+            "JOB_RECORD_CHANGED")
+    return record
+
+
+def job_status(job: Path) -> dict:
+    """Read-only. A started job with no terminal receipt is never resubmitted."""
+    job = job.resolve()
+    request = _verified(job / "job.json")
+    result = {"kind": "ai_ui_decomposition_job_status_v1", "job_digest": request["digest"],
+              "status": "started_outcome_unknown", "automatic_resubmit": False,
+              "visual_review": "not_performed"}
+    run = job / "workspace" / "runs" / "automatic"
+    if (run / "batch.json").is_file():
+        result["batch"] = batch.status(run)
+    if (job / "result.json").exists():
+        terminal = _verified(job / "result.json")
+        require(terminal["job_digest"] == request["digest"], "JOB_RESULT_BINDING")
+        result.update(terminal)
+        if terminal["status"] == "completed_unreviewed_draft":
+            receipt = inspect_delivery(job / "delivery")
+            require(receipt["digest"] == terminal["delivery_digest"], "JOB_DELIVERY_CHANGED")
+            for key, row in terminal["artifacts"].items():
+                require(sha256(safe_relative(job, row["path"])) == row["sha256"],
+                        "JOB_ARTIFACT_CHANGED")
+    return result
+
+
+def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: int,
+             timeout_seconds: int, authorized: bool, provider_binding: str = "injected") -> dict:
+    """Caller explicitly delegates at most one vision call and a bounded frozen plan.
+
+    A repeated successful job verifies and returns existing files. Every other
+    repeated job stops; recovery uses existing verified-result reuse contracts.
+    """
+    require(authorized is True, "EXPLICIT_PROVIDER_AND_DRAFT_AUTHORIZATION_REQUIRED")
+    require(type(maximum_calls) is int and 1 <= maximum_calls <= 32, "JOB_BUDGET")
+    require(type(timeout_seconds) is int and 1 <= timeout_seconds <= 86400, "JOB_TIMEOUT")
+    picture, evidence = load_verified_image(reference.resolve())
+    require(max(picture.size) <= 30000 and picture.width * picture.height <= 16_777_216,
+            "JOB_CANVAS_LIMIT")
+    body = {"kind": "ai_ui_decomposition_job_v1", "source_sha256": evidence["sha256"],
+            "canvas": list(picture.size), "maximum_vision_calls": 1,
+            "maximum_generation_calls": maximum_calls, "timeout_seconds": timeout_seconds,
+            "provider_binding": provider_binding, "delivery_policy": "unreviewed_draft",
+            "automatic_retries": 0}
+    job = job.resolve()
+    if job.exists():
+        request = _verified(job / "job.json")
+        require(request["digest"] == digest(body), "JOB_INPUT_CHANGED")
+        status = job_status(job)
+        require(status["status"] == "completed_unreviewed_draft", "JOB_ALREADY_STARTED_NO_RESUBMIT")
+        return status
+    # Fail on missing optional dependencies BEFORE either provider can consume compute.
+    try:
+        import psd_tools  # noqa: F401
+        from .psd_preview import finalize_preview  # noqa: F401
+    except ImportError as exc:
+        raise ContractError("PSD_OPTIONAL_DEPENDENCY_MISSING") from exc
+    job.mkdir(parents=True, exist_ok=False)
+    request = _record(job / "job.json", body)
+    project = job / "project"
+    project.mkdir()
+    picture.save(project / "reference.png")
+    deadline = time.monotonic() + timeout_seconds
+    stage = "planning"
+    active_asset = None
+    run = job / "workspace" / "runs" / "automatic"
+
+    def remaining() -> float:
+        seconds = deadline - time.monotonic()
+        require(seconds > 0, "JOB_DEADLINE_EXCEEDED")
+        return seconds
+
+    try:
+        prompt = planning.instruction(list(picture.size), maximum_calls)
+        (project / "instruction.txt").write_text(prompt, encoding="utf-8")
+        _record(job / "planning-started.json", {"job_digest": request["digest"],
+            "reference_sha256": sha256(project / "reference.png"), "instruction_digest": digest(prompt),
+            "single_use": True, "maximum_calls": 1})
+        try:
+            description = provider.plan(project / "reference.png", prompt,
+                                        state_dir=job / "private" / "vision", timeout=remaining())
+        except Exception as exc:
+            raise ContractError("PLANNING_PROVIDER_FAILED") from exc
+        remaining()
+        plan = planning.materialize(description, project, list(picture.size), maximum_calls)
+        frozen = batch.freeze(project / "plan.json", job / "workspace", "automatic")
+        require(frozen["maximum_calls"] <= maximum_calls, "JOB_BUDGET_EXCEEDED")
+        _record(job / "authorization.json", {"job_digest": request["digest"],
+            "plan_digest": digest(plan), "batch_digest": frozen["digest"],
+            "maximum_calls": frozen["maximum_calls"], "single_use_requests": True,
+            "delivery_policy": "unreviewed_draft", "automatic_retries": 0})
+        stage = "generation"
+        for asset in frozen["dispatch_order"]:
+            remaining()
+            bundle = job / "bundles" / asset
+            export_request(run, asset, bundle)
+            active_asset = asset
+            try:
+                raw = provider.generate(bundle, state_dir=job / "private" / asset, timeout=remaining())
+            except Exception as exc:
+                raise ContractError("IMAGE_PROVIDER_FAILED") from exc
+            seal_result(bundle, raw)
+            import_result(run, bundle)
+            active_asset = None
+        remaining()
+        stage = "processing"
+        process(run)
+        remaining()
+        stage = "draft_export"
+        receipt = finalize(run, job / "delivery", draft=True)
+        from .psd_export import export_psd
+        exported = export_psd(job / "delivery")
+        artifacts = {}
+        for name, relative in {"psd": "delivery/" + exported["file"], "preview": "delivery/preview.png",
+                               "scene": "delivery/scene.json", "delivery": "delivery/delivery.json",
+                               "export": "delivery/psd-export.json", "plan": "project/plan.json"}.items():
+            artifacts[name] = {"path": relative, "sha256": sha256(safe_relative(job, relative))}
+        _record(job / "result.json", {"kind": "ai_ui_decomposition_job_result_v1",
+            "job_digest": request["digest"], "status": "completed_unreviewed_draft",
+            "delivery_digest": receipt["digest"], "artifacts": artifacts,
+            "visual_review": "not_performed", "automatic_visual_acceptance": False,
+            "application_check": "not_run", "automatic_resubmit": False,
+            "vision_calls": 1, "generation_calls": frozen["maximum_calls"],
+            "elapsed_seconds": round(timeout_seconds - (deadline - time.monotonic()), 3)})
+    except Exception as exc:
+        if active_asset is not None:
+            frozen, _ = batch.load(run)
+            if batch.state(run, frozen["requests"][active_asset]) == "reserved":
+                batch.indeterminate(run, active_asset, "PROVIDER_OR_RESULT_FAILURE_NO_RESUBMIT")
+        # Never expose exception text: a transport exception can contain a token,
+        # signed URL, home directory or an arbitrary model/provider response.
+        reason = "JOB_STAGE_FAILED"
+        if isinstance(exc, ContractError) and str(exc).isascii() and str(exc).replace("_", "").isupper():
+            reason = str(exc) if len(str(exc)) <= 80 else reason
+        _record(job / "result.json", {"kind": "ai_ui_decomposition_job_result_v1",
+            "job_digest": request["digest"], "status": "failed_no_resubmit", "stage": stage,
+            "reason": reason, "asset": active_asset, "automatic_resubmit": False,
+            "visual_review": "not_performed", "automatic_visual_acceptance": False})
+    return job_status(job)

@@ -21,7 +21,8 @@ def export_psd(delivery: Path) -> dict:
         from .psd_preview import finalize_preview
     except ImportError as exc:
         raise RuntimeError("PSD_OPTIONAL_DEPENDENCY_MISSING") from exc
-    output = delivery / (scene["document"]["name"] + ".psd")
+    draft = scene.get("delivery_policy") == "unreviewed_draft"
+    output = delivery / (scene["document"]["name"] + (".draft.psd" if draft else ".psd"))
     require(not output.exists(), "PSD_EXISTS")
     with Image.open(delivery / scene["preview"]) as source_preview:
         expected = source_preview.convert("RGBA")
@@ -54,6 +55,8 @@ def export_psd(delivery: Path) -> dict:
         for actual, expected_layer in zip(actual_group, expected_group["children"]):
             require(actual.name == expected_layer["name"] and actual.kind == "pixel",
                     "PSD_LAYER_CHANGED")
+            require(actual.left == expected_layer["left"] and actual.top == expected_layer["top"],
+                    "PSD_LAYER_POSITION_CHANGED")
             actual_image = actual.topil(apply_icc=False)
             require(actual_image is not None
                     and np.array_equal(np.asarray(actual_image.convert("RGBA")),
@@ -71,5 +74,7 @@ def export_psd(delivery: Path) -> dict:
               "pixel_layers": len(verified), "rgba_max_error": 0,
               "preview_max_error": maximum, "preview_encoding": encoding,
               "application_check": "not_run"}
+    result["delivery_policy"] = "unreviewed_draft" if draft else "reviewed"
+    result["visual_review"] = "not_performed" if draft else "human_accepted"
     write_json(delivery / "psd-export.json", result)
     return result

@@ -126,6 +126,19 @@ class HarnessTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "BATCH_INCOMPLETE"):
             process(self.run)
 
+    def test_explicit_recovery_preserves_indeterminate_evidence_and_can_process(self):
+        batch.reserve(self.run, "button")
+        prior = batch.indeterminate(self.run, "button", "known task polling interrupted")
+        record = batch.recover_receive(self.run, "button", self.raw_component())
+        self.assertTrue(record["explicit_operator_recovery"])
+        self.assertEqual(record["indeterminate_sha256"], sha256(
+            self.run / "requests/fixture-r001-button-r001/indeterminate.json"))
+        self.assertEqual(batch.status(self.run)["recovered"], 1)
+        self.assertEqual(process(self.run)["count"], 3)
+        with self.assertRaisesRegex(ContractError, "EXPLICIT_RECOVERY_REQUIRED"):
+            batch.recover_receive(self.run, "button", self.raw_component())
+        self.assertEqual(prior["automatic_resubmit"], False)
+
     @unittest.skipUnless(importlib.util.find_spec("psd_tools"), "psd option not installed")
     def test_psd_export_roundtrips_layers_and_composite(self):
         from ai_ui_decomposition.psd_export import export_psd

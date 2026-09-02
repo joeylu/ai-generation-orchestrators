@@ -7,7 +7,7 @@ from PIL import Image
 import numpy as np
 
 from . import batch
-from .common import digest, read_json, require, sha256, write_json
+from .common import digest, load_verified_image, read_json, require, safe_relative, sha256, write_json
 from .media import normalize
 from .process import read_materials
 
@@ -19,21 +19,40 @@ def _max_error(left: Image.Image, right: Image.Image) -> int:
     return int(np.abs(a - b).max())
 
 
-def finalize(run: Path, output: Path) -> dict:
+def finalize(run: Path, output: Path, *, draft: bool = False) -> dict:
     frozen, plan = batch.load(run)
     materials = read_materials(run)
-    review = read_json(run / "review.json")
-    require(review.get("kind") == "ai_ui_decomposition_visual_review_v1"
+    require(materials["batch_digest"] == frozen["digest"]
+            and materials["plan_digest"] == digest(plan), "MATERIALS_PLAN_MISMATCH")
+    expected_assets = {asset["id"] for asset in plan["assets"]}
+    require(len(materials["assets"]) == len(expected_assets)
+            and {row["asset"] for row in materials["assets"]} == expected_assets,
+            "MATERIALS_ASSET_COVERAGE")
+    for asset in plan["assets"]:
+        row = next(item for item in materials["assets"] if item["asset"] == asset["id"])
+        picture, evidence = load_verified_image(safe_relative(run, row["path"]), asset["output_size"])
+        require(evidence["sha256"] == row["sha256"], "MATERIAL_CHANGED")
+        values = np.asarray(picture)
+        require(np.all(values[values[:, :, 3] == 0, :3] == 0), "TRANSPARENT_RGB_INVALID")
+        require(picture.getchannel("A").getbbox() is not None, "EMPTY_MATERIAL")
+        if asset["role"] == "background":
+            require(evidence["alpha_extrema"] == [255, 255], "BACKGROUND_NOT_OPAQUE")
+    if draft:
+        require(plan.get("delivery_policy") == "unreviewed_draft", "DRAFT_POLICY_NOT_FROZEN")
+        review_sha = None
+    else:
+        review = read_json(run / "review.json")
+        require(review.get("kind") == "ai_ui_decomposition_visual_review_v1"
             and review.get("decision") == "accept"
             and review.get("automatic_visual_acceptance") is False,
             "EXPLICIT_VISUAL_REVIEW_REQUIRED")
-    require(review.get("plan_digest") == digest(plan)
+        require(review.get("plan_digest") == digest(plan)
             and review.get("materials_digest") == materials["digest"]
             and review.get("contact_sheet_sha256") == materials["contact_sheet_sha256"],
             "REVIEW_BINDING_CHANGED")
-    expected_assets = {asset["id"] for asset in plan["assets"]}
-    require(set(review.get("reviewed_asset_ids", [])) == expected_assets,
+        require(set(review.get("reviewed_asset_ids", [])) == expected_assets,
             "REVIEW_ASSET_COVERAGE")
+        review_sha = sha256(run / "review.json")
     output = output.resolve()
     require(not output.exists(), "DELIVERY_EXISTS")
     (output / "layers").mkdir(parents=True)
@@ -72,10 +91,13 @@ def finalize(run: Path, output: Path) -> dict:
              "tree": tree, "preview": "preview.png",
              "preview_sha256": sha256(preview_path), "document": plan["document"],
              "plan_digest": digest(plan), "materials_digest": materials["digest"],
-             "review_sha256": sha256(run / "review.json")}
+             "review_sha256": review_sha,
+             "delivery_policy": "unreviewed_draft" if draft else "reviewed"}
     write_json(output / "scene.json", scene)
-    receipt = {"kind": "ai_ui_decomposition_delivery_v1",
-               "status": "assembled_visual_review_bound", "plan_digest": digest(plan),
+    receipt = {"kind": "ai_ui_decomposition_draft_delivery_v1" if draft else "ai_ui_decomposition_delivery_v1",
+               "status": "assembled_unreviewed_draft" if draft else "assembled_visual_review_bound",
+               "delivery_policy": scene["delivery_policy"], "human_visual_acceptance": not draft,
+               "scene_sha256": sha256(output / "scene.json"), "plan_digest": digest(plan),
                "batch_digest": frozen["digest"], "materials_digest": materials["digest"],
                "pixel_layers": len(plan["nodes"]), "groups": len(plan["groups"]),
                "preview_sha256": sha256(preview_path), "automatic_retries": 0,
@@ -96,11 +118,24 @@ def inspect_delivery(output: Path) -> dict:
     receipt = read_json(output / "delivery.json")
     body = {key: value for key, value in receipt.items() if key != "digest"}
     require(receipt.get("digest") == digest(body), "DELIVERY_CHANGED")
-    preview = output / scene["preview"]
+    require(receipt.get("kind") in {"ai_ui_decomposition_delivery_v1", "ai_ui_decomposition_draft_delivery_v1"},
+            "DELIVERY_KIND")
+    if "scene_sha256" in receipt:
+        require(receipt["scene_sha256"] == sha256(output / "scene.json"), "SCENE_CHANGED")
+    if receipt["kind"] == "ai_ui_decomposition_draft_delivery_v1":
+        require(scene.get("delivery_policy") == receipt.get("delivery_policy") == "unreviewed_draft"
+                and scene.get("review_sha256") is None
+                and receipt.get("human_visual_acceptance") is False
+                and receipt.get("scene_sha256") == sha256(output / "scene.json"), "DRAFT_MISLABELED")
+    else:
+        require(scene.get("delivery_policy", "reviewed") == "reviewed"
+                and receipt.get("delivery_policy", "reviewed") == "reviewed"
+                and receipt.get("human_visual_acceptance", True) is True, "REVIEWED_MISLABELED")
+    preview = safe_relative(output, scene["preview"])
     require(preview.is_file() and sha256(preview) == scene["preview_sha256"],
             "PREVIEW_CHANGED")
     for group in scene["tree"]:
         for layer in group["children"]:
-            path = output / layer["png"]
+            path = safe_relative(output, layer["png"])
             require(path.is_file() and sha256(path) == layer["sha256"], "LAYER_CHANGED")
     return receipt

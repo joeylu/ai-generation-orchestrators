@@ -37,12 +37,26 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--source", required=True, type=Path)
         if name == "indeterminate":
             command.add_argument("--reason", required=True)
+    recovered = commands.add_parser("recover-receive")
+    recovered.add_argument("--run-dir", required=True, type=Path)
+    recovered.add_argument("--asset", required=True)
+    recovered.add_argument("--source", required=True, type=Path)
     for name in ("status", "process", "review-template"):
         command = commands.add_parser(name)
         command.add_argument("--run-dir", required=True, type=Path)
     final = commands.add_parser("finalize")
     final.add_argument("--run-dir", required=True, type=Path)
     final.add_argument("--output", required=True, type=Path)
+    final.add_argument("--draft", action="store_true", help="Requires unreviewed_draft in frozen plan")
+    automatic = commands.add_parser("auto-run", help="Explicit bounded provider compute and draft PSD")
+    automatic.add_argument("--reference", required=True, type=Path)
+    automatic.add_argument("--job-dir", required=True, type=Path)
+    automatic.add_argument("--provider-config", required=True, type=Path)
+    automatic.add_argument("--max-generation-calls", required=True, type=int)
+    automatic.add_argument("--timeout-seconds", type=int, default=3600)
+    automatic.add_argument("--allow-provider-calls-and-unreviewed-draft", action="store_true")
+    job_status = commands.add_parser("job-status")
+    job_status.add_argument("--job-dir", required=True, type=Path)
     inspect = commands.add_parser("inspect")
     inspect.add_argument("--delivery", required=True, type=Path)
     export = commands.add_parser("export")
@@ -68,6 +82,18 @@ def parser() -> argparse.ArgumentParser:
 
 
 def execute(args) -> dict:
+    if args.command == "job-status":
+        from .headless import job_status
+        return job_status(args.job_dir)
+    if args.command == "auto-run":
+        from .headless import auto_run, load_provider
+        from .common import digest, require
+        require(args.allow_provider_calls_and_unreviewed_draft,
+                "EXPLICIT_PROVIDER_AND_DRAFT_AUTHORIZATION_REQUIRED")
+        config = read_json(args.provider_config)
+        return auto_run(args.reference, args.job_dir, load_provider(config),
+                        maximum_calls=args.max_generation_calls, timeout_seconds=args.timeout_seconds,
+                        authorized=True, provider_binding=digest(config))
     if args.command in {"init", "self-test", "doctor"}:
         from .runtime import doctor, init_plan, self_test
         if args.command == "init":
@@ -90,6 +116,8 @@ def execute(args) -> dict:
         return reuse_result(run, args.asset, args.source_run.resolve(), args.source_asset)
     if args.command == "receive":
         return batch.receive(run, args.asset, args.source)
+    if args.command == "recover-receive":
+        return batch.recover_receive(run, args.asset, args.source)
     if args.command == "indeterminate":
         return batch.indeterminate(run, args.asset, args.reason)
     if args.command == "status":
@@ -99,7 +127,7 @@ def execute(args) -> dict:
     if args.command == "review-template":
         return review_template(run)
     if args.command == "finalize":
-        return finalize(run, args.output)
+        return finalize(run, args.output, draft=args.draft)
     if args.command == "inspect":
         return inspect_delivery(args.delivery)
     if args.command == "export":
@@ -118,7 +146,7 @@ def main(argv=None) -> int:
     try:
         result = execute(args)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 0
+        return 2 if result.get("status") == "failed_no_resubmit" else 0
     except ContractError as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc)}, ensure_ascii=False, sort_keys=True))
