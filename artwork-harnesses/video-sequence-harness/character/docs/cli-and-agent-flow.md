@@ -254,6 +254,26 @@ Validation re-fingerprints the raw source, verifies manifest hash chains and
 artifact checksums, compares every atlas cell with its PNG frame, checks GIF
 binary transparency/duration, and enforces the rational source timeline.
 
+To accept an optimization without guessing about matte or GIF differences, run
+the same strict validation for two completed revisions and then byte-compare
+every delivery artifact:
+
+```powershell
+ai-frame-animation compare `
+  --root my-animation `
+  --baseline work/revisions/baseline `
+  --candidate work/revisions/optimized `
+  --policy strict `
+  --baseline-elapsed-seconds 151.756 `
+  --candidate-elapsed-seconds 47.285
+```
+
+Both deliveries must remain inside `--root`. The report compares raw-video and
+plan SHA-256 identities, every regular delivery file (including PNGs, GIFs,
+manifests, and ZIP), and the optional caller-observed timing pair. It writes
+nothing and returns exit code 1 when either delivery identity or any artifact
+differs; it does not add timing data to either immutable manifest.
+
 The default is `strict`. Explicit `best_effort` may omit an optional GIF or a
 failed independent variant, but cannot waive raw identity, attempt integrity,
 alpha correctness, checksum correctness, or path safety. The requested policy

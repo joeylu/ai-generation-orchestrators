@@ -12,6 +12,7 @@ from typing import Any, Mapping, Sequence
 
 from . import __version__
 from .canonical import fingerprint, load_json, redact, rooted_path, safe_error_code, verify_document, write_json_atomic
+from .comparison import compare_deliveries
 from .compiler import compile_intent_to_job, reference_binding_for_job
 from .handoff import load_decoded_handoff
 from .intent import build_character_motion_intent, validate_character_motion_intent
@@ -389,6 +390,20 @@ def command_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_compare(args: argparse.Namespace) -> int:
+    root = args.root.resolve(strict=True)
+    report = compare_deliveries(
+        root=root,
+        baseline=args.baseline,
+        candidate=args.candidate,
+        policy=args.policy,
+        baseline_elapsed_seconds=args.baseline_elapsed_seconds,
+        candidate_elapsed_seconds=args.candidate_elapsed_seconds,
+    )
+    _print(report)
+    return 0 if report["status"] == "identical" else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ai-frame-animation", description="Transparent 2D character frame-animation pipeline")
     parser.add_argument("--version", action="version", version=__version__)
@@ -513,6 +528,15 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--delivery", required=True, type=Path)
     validate.add_argument("--policy", choices=("strict", "best_effort"), default="strict")
     validate.set_defaults(handler=command_validate)
+
+    compare = subparsers.add_parser("compare", help="validate and byte-compare two deterministic deliveries")
+    compare.add_argument("--root", required=True, type=Path)
+    compare.add_argument("--baseline", required=True, type=Path)
+    compare.add_argument("--candidate", required=True, type=Path)
+    compare.add_argument("--policy", choices=("strict", "best_effort"), default="strict")
+    compare.add_argument("--baseline-elapsed-seconds", type=float, help="optional caller-observed baseline wall-clock duration")
+    compare.add_argument("--candidate-elapsed-seconds", type=float, help="optional caller-observed candidate wall-clock duration")
+    compare.set_defaults(handler=command_compare)
     return parser
 
 

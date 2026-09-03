@@ -52,6 +52,7 @@ VIDEO_SDIST_SUPPORT_FILES = (
         "test_input_delivery_regressions.py", "test_media_tools.py", "test_onboarding.py",
         "test_process_delivery.py", "test_provider_attempts.py", "test_schemas.py",
         "test_reference_preparation_handoff.py", "test_subject_fit.py", "test_video_hole_integration.py",
+        "test_delivery_comparison.py",
     )),
     *(f"tests/fixtures/golden/{name}" for name in (
         "README.md", "input-delivery-cases.json", "matte-cases.json",

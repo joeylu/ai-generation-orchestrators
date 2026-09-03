@@ -27,7 +27,7 @@ class CoreContractTests(unittest.TestCase):
         subparsers_action = next(action for action in parser._actions if getattr(action, "choices", None))
         self.assertEqual(
             set(subparsers_action.choices),
-            {"init", "self-test", "tools", "intent", "compile", "doctor", "plan", "run", "process", "inspect", "validate"},
+            {"init", "self-test", "tools", "intent", "compile", "doctor", "plan", "run", "process", "inspect", "validate", "compare"},
         )
 
     def test_plan_is_digest_bound_and_provider_config_free(self) -> None:

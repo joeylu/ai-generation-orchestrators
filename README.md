@@ -220,7 +220,7 @@ Skill flows. The complete manual CLI flow is in
 
 ## Safety model
 
-- `init`, `self-test`, `doctor`, `plan`, `inspect`, and `validate` never submit a
+- `init`, `self-test`, `doctor`, `plan`, `inspect`, `validate`, and `compare` never submit a
   provider job.
 - Generation is never retried automatically after a provider request may have
   been accepted.
@@ -246,6 +246,7 @@ Skill flows. The complete manual CLI flow is in
 - `process` — derive one delivery family from a raw video or verified predecoded handoff.
 - `inspect` — report attempt, raw-source, timeline, and artifact metadata.
 - `validate` — enforce `strict` or explicit `best_effort` delivery policy.
+- `compare` — revalidate and byte-compare two completed delivery revisions.
 
 The core does not bundle model weights, credentials, private workflows, host
 paths, Docker services, web/database components, or worker protocols. MiniMax H3

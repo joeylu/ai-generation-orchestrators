@@ -58,9 +58,11 @@ arbitrary-background video removal and general video editing are not in scope.
    current directory.
    Manage IDs and internal paths for the user.
 5. Once raw video exists, call `process`, `inspect`, and `validate`. Deterministic
-   processing may be repeated from the same raw-video digest. If a deterministic
-   runtime adapter supplies a verified `decoded-handoff`, pass it to `process`;
-   do not inspect, invent, or edit its hashes.
+   processing may be repeated from the same raw-video digest. Compare two
+   completed revisions with `compare` before accepting a performance change;
+   it revalidates both deliveries and reports identity and artifact differences.
+   If a deterministic runtime adapter supplies a verified `decoded-handoff`, pass
+   it to `process`; do not inspect, invent, or edit its hashes.
 6. Report the requested artifacts, quality policy, warnings, and manifest path.
    Inspect the actual frames as well: structural validation does not establish
    character fidelity or a natural loop. Do not present a visibly failed result

@@ -66,6 +66,30 @@ def _strict_key_family(rgb: tuple[int, int, int], key: tuple[int, int, int], del
     return all(rgb[high] >= rgb[low] + delta for high in highs for low in lows)
 
 
+def _key_family_mask(rgb, key: tuple[int, int, int], delta: int):
+    """Exact batched ``_key_family``, including its partner-hue rule."""
+
+    channels = np.asarray(rgb, dtype=np.int32)
+    groups = _key_channel_groups(key)
+    if groups is None:
+        return np.zeros(channels.shape[:-1], dtype=bool)
+    highs, lows = groups
+    selected = np.ones(channels.shape[:-1], dtype=bool)
+    for high in highs:
+        for low in lows:
+            selected &= channels[..., high] >= channels[..., low] + delta
+    if len(highs) == 1 and len(lows) >= 2:
+        dominant = channels[..., highs[0]]
+        for partner in lows:
+            others = [index for index in lows if index != partner]
+            if others:
+                selected |= (np.abs(dominant - channels[..., partner]) <= delta) & (
+                    np.minimum(dominant, channels[..., partner])
+                    >= np.max(channels[..., others], axis=-1) + delta
+                )
+    return selected
+
+
 def _has_transparent_neighbor(pixels, x: int, y: int, width: int, height: int, threshold: int, radius: int) -> bool:
     for ny in range(max(0, y - radius), min(height, y + radius + 1)):
         for nx in range(max(0, x - radius), min(width, x + radius + 1)):
@@ -74,7 +98,27 @@ def _has_transparent_neighbor(pixels, x: int, y: int, width: int, height: int, t
     return False
 
 
-def _nearby_body_colour(pixels, x: int, y: int, width: int, height: int, key: tuple[int, int, int], threshold: int, radius: int) -> tuple[int, int, int] | None:
+def _nearby_body_colour(
+    pixels,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    key: tuple[int, int, int],
+    threshold: int,
+    radius: int,
+    *,
+    body_mask=None,
+    offsets=(),
+) -> tuple[int, int, int] | None:
+    if body_mask is not None:
+        # Stable Manhattan-distance, then row-major order matches ``min()``
+        # in the portable implementation below.
+        for dx, dy in offsets:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < width and 0 <= ny < height and body_mask[ny, nx]:
+                return pixels[nx, ny][:3]
+        return None
     candidates = []
     for ny in range(max(0, y - radius), min(height, y + radius + 1)):
         for nx in range(max(0, x - radius), min(width, x + radius + 1)):
@@ -168,24 +212,60 @@ def cleanup_key_spill(image: Image.Image, *, key_color: tuple[int, int, int], al
     near_transparent = transparent.filter(ImageFilter.MaxFilter(radius * 2 + 1))
     opaque = alpha.point(lambda value: 255 if value > alpha_threshold else 0)
     candidates = ImageChops.multiply(opaque, near_transparent)
-    candidate_box = candidates.getbbox()
-    candidate_pixels = candidates.load()
-    if candidate_box is None:
-        coordinates = ()
-    else:
-        left, top, right, bottom = candidate_box
-        coordinates = (
-            (x, y)
-            for y in range(top, bottom)
-            for x in range(left, right)
-            if candidate_pixels[x, y]
+    body_mask = None
+    offsets = ()
+    if np is not None:
+        data = np.asarray(rgba)
+        rgb_data = data[..., :3].astype(np.int32)
+        key = np.asarray(key_color, dtype=np.int32)
+        distance_squared = np.square(rgb_data - key).sum(axis=-1)
+        affected = (np.asarray(candidates) != 0) & (
+            (distance_squared <= chroma_distance ** 2)
+            | _key_family_mask(rgb_data, key_color, min_channel_delta)
         )
+        ys, xs = np.nonzero(affected)
+        coordinates = zip(xs.tolist(), ys.tolist())
+        body_mask = (data[..., 3] > alpha_threshold) & ~_key_family_mask(rgb_data, key_color, 8)
+        reach = radius + 2
+        offsets = sorted(
+            (
+                (dx, dy)
+                for dy in range(-reach, reach + 1)
+                for dx in range(-reach, reach + 1)
+                if dx or dy
+            ),
+            key=lambda offset: abs(offset[0]) + abs(offset[1]),
+        )
+    else:
+        candidate_box = candidates.getbbox()
+        candidate_pixels = candidates.load()
+        if candidate_box is None:
+            coordinates = ()
+        else:
+            left, top, right, bottom = candidate_box
+            coordinates = (
+                (x, y)
+                for y in range(top, bottom)
+                for x in range(left, right)
+                if candidate_pixels[x, y]
+            )
     for x, y in coordinates:
             red, green, blue, alpha = pixels[x, y]
             rgb = (red, green, blue)
-            if _distance(rgb, key_color) > chroma_distance and not _key_family(rgb, key_color, min_channel_delta):
+            if body_mask is None and _distance(rgb, key_color) > chroma_distance and not _key_family(rgb, key_color, min_channel_delta):
                 continue
-            replacement = _nearby_body_colour(pixels, x, y, rgba.width, rgba.height, key_color, alpha_threshold, radius + 2)
+            replacement = _nearby_body_colour(
+                pixels,
+                x,
+                y,
+                rgba.width,
+                rgba.height,
+                key_color,
+                alpha_threshold,
+                radius + 2,
+                body_mask=body_mask,
+                offsets=offsets,
+            )
             if replacement is None:
                 channels = list(rgb)
                 groups = _key_channel_groups(key_color)

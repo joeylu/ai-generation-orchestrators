@@ -95,13 +95,28 @@ def _edge_connected_components(
     if len(hard_mask) != total or len(rgb_bytes) != total * 3:
         raise ValueError("matte_component_input_invalid")
     hard = bytearray(hard_mask)
+    # C-level byte searches skip already visited spans instead of invoking the
+    # Python queue once per pixel in broad canvas backgrounds.  The mask is
+    # normalized so this remains equivalent for every non-zero byte value.
+    remaining = hard.translate(bytes([0] + [1] * 255))
     connected = bytearray(total)
     pending: deque[int] = deque()
+    edge_spans: deque[tuple[int, int]] = deque()
 
-    def seed(index: int) -> None:
-        if hard[index] and not connected[index]:
-            connected[index] = 1
-            pending.append(index)
+    def seed(index: int) -> int:
+        if remaining[index]:
+            row_start = index - index % width
+            row_end = row_start + width
+            left = remaining.rfind(b"\x00", row_start, index) + 1
+            if left == 0:
+                left = row_start
+            right = remaining.find(b"\x00", index, row_end)
+            right = (row_end if right == -1 else right) - 1
+            connected[left : right + 1] = b"\x01" * (right - left + 1)
+            remaining[left : right + 1] = b"\x00" * (right - left + 1)
+            edge_spans.append((left, right))
+            return right
+        return index
 
     for x in range(width):
         seed(x)
@@ -109,29 +124,26 @@ def _edge_connected_components(
     for y in range(1, height - 1):
         seed(y * width)
         seed(y * width + width - 1)
-    while pending:
-        index = pending.popleft()
-        x = index % width
-        for neighbour in (index - width, index + width, index - 1, index + 1):
-            if neighbour < 0 or neighbour >= total:
+    while edge_spans:
+        left, right = edge_spans.popleft()
+        for offset in (-width, width):
+            if left + offset < 0 or right + offset >= total:
                 continue
-            if (neighbour == index - 1 and x == 0) or (neighbour == index + 1 and x == width - 1):
-                continue
-            if hard[neighbour] and not connected[neighbour]:
-                connected[neighbour] = 1
-                pending.append(neighbour)
+            index = remaining.find(b"\x01", left + offset, right + offset + 1)
+            while index != -1:
+                index = remaining.find(b"\x01", seed(index) + 1, right + offset + 1)
 
-    edge_count = int(sum(connected))
-    visited = bytearray(connected)
+    edge_count = total - connected.count(0)
+    if edge_count == total - hard.count(0):
+        return bytes(connected), edge_count, 0
     enclosed_count = 0
     minimum_hole = max(48, total // 4096)
     rgb = memoryview(rgb_bytes)
-    for start in range(total):
-        if not hard[start] or visited[start]:
-            continue
+    start = remaining.find(b"\x01")
+    while start != -1:
         component: list[int] = []
         pending.append(start)
-        visited[start] = 1
+        remaining[start] = 0
         sums = [0, 0, 0]
         squares = [0, 0, 0]
         while pending:
@@ -148,10 +160,11 @@ def _edge_connected_components(
                     continue
                 if (neighbour == index - 1 and x == 0) or (neighbour == index + 1 and x == width - 1):
                     continue
-                if hard[neighbour] and not visited[neighbour]:
-                    visited[neighbour] = 1
+                if remaining[neighbour]:
+                    remaining[neighbour] = 0
                     pending.append(neighbour)
         count = len(component)
+        start = remaining.find(b"\x01", start + 1)
         if count < minimum_hole:
             continue
         maximum_stddev = max(
@@ -166,7 +179,28 @@ def _edge_connected_components(
     return bytes(connected), edge_count, enclosed_count
 
 
+def _dilate_binary_mask(mask, radius: int):
+    """Exact square max filter for a binary mask with clipped edge windows."""
+
+    source = np.asarray(mask, dtype=bool)
+    if source.ndim != 2 or not isinstance(radius, int) or radius < 0:
+        raise ValueError("binary_dilation_input_invalid")
+    height, width = source.shape
+    horizontal = source.copy()
+    for shift in range(1, min(radius, width - 1) + 1):
+        horizontal[:, shift:] |= source[:, :-shift]
+        horizontal[:, :-shift] |= source[:, shift:]
+    result = horizontal.copy()
+    for shift in range(1, min(radius, height - 1) + 1):
+        result[shift:, :] |= horizontal[:-shift, :]
+        result[:-shift, :] |= horizontal[shift:, :]
+    return result
+
+
 def _dilate_mask(mask: bytes, width: int, height: int, radius: int = 2) -> bytes:
+    if np is not None:
+        values = np.frombuffer(mask, dtype=np.uint8, count=width * height).reshape(height, width)
+        return _dilate_binary_mask(values, radius).astype(np.uint8).tobytes()
     image = Image.frombytes("L", (width, height), bytes(255 if value else 0 for value in mask))
     return bytes(1 if value else 0 for value in image.filter(ImageFilter.MaxFilter(radius * 2 + 1)).tobytes())
 
@@ -180,7 +214,8 @@ def _large_compact_regions(mask: bytes, width: int, height: int) -> bytes:
     selected = bytearray(total)
     pending: deque[int] = deque()
     minimum_size = max(256, total // 2048)
-    for start in range(total):
+    starts = np.flatnonzero(np.frombuffer(source, dtype=np.uint8)).tolist() if np is not None else range(total)
+    for start in starts:
         if not source[start] or visited[start]:
             continue
         component: list[int] = []
@@ -652,10 +687,7 @@ def aggressive_color_key_cleanup(
     rgb = evidence.astype(np.int16)
     alpha = rgba[..., 3]
     transparent = (alpha <= alpha_threshold).astype(np.uint8)
-    near_transparent = np.array(
-        Image.fromarray(transparent * 255, "L").filter(ImageFilter.MaxFilter(9)),
-        dtype=np.uint8,
-    ).astype(bool)
+    near_transparent = _dilate_binary_mask(transparent, 4)
 
     def key_masks(colors: list[tuple[int, int, int]]) -> tuple[object, object]:
         broad = np.zeros(alpha.shape, dtype=bool)
@@ -714,10 +746,7 @@ def aggressive_color_key_cleanup(
         # The component is the semantic evidence. Grow only through this one
         # palette family, never through a union that could bridge foreground.
         for _iteration in range(8):
-            grown = np.array(
-                Image.fromarray(palette_region.astype(np.uint8) * 255, "L").filter(ImageFilter.MaxFilter(3)),
-                dtype=np.uint8,
-            ).astype(bool) & palette_broad
+            grown = _dilate_binary_mask(palette_region, 1) & palette_broad
             if np.array_equal(grown, palette_region):
                 break
             palette_region = grown
@@ -725,10 +754,7 @@ def aggressive_color_key_cleanup(
     removal = broad_key_family & (near_transparent | enclosed_palette) & visible
 
     removal_u8 = removal.astype(np.uint8)
-    feather = np.array(
-        Image.fromarray(removal_u8 * 255, "L").filter(ImageFilter.MaxFilter(3)),
-        dtype=np.uint8,
-    ).astype(bool) & ~removal
+    feather = _dilate_binary_mask(removal_u8, 1) & ~removal
     feather &= broad_key_family & visible
     next_alpha = alpha.copy()
     next_alpha[removal] = 0
@@ -740,12 +766,7 @@ def aggressive_color_key_cleanup(
     dominance = np.min(rgb[..., high_channels], axis=2) - np.max(rgb[..., low_channels], axis=2)
     next_transparent = (next_alpha <= alpha_threshold).astype(np.uint8)
     spill_contour_radius = 8
-    contour = np.array(
-        Image.fromarray(next_transparent * 255, "L").filter(
-            ImageFilter.MaxFilter(spill_contour_radius * 2 + 1)
-        ),
-        dtype=np.uint8,
-    ).astype(bool)
+    contour = _dilate_binary_mask(next_transparent, spill_contour_radius)
     visible_contour = contour & (next_alpha > alpha_threshold)
     cleanup_scope = (next_alpha > alpha_threshold) if key_family_safe else visible_contour
     spill = cleanup_scope & (dominance >= 10)
