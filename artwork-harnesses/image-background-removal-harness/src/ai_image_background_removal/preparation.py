@@ -22,6 +22,7 @@ from .media.reference_review import save_reference_review
 from .media.segmentation import infer_foreground_mask, inspect_segmenter
 from .media.spill import zero_transparent_rgb
 from .resource_limits import require_decoded_pixel_budget
+from .foreground_provider import ForegroundProvider
 
 
 def _file(root: Path, value: str | Path) -> Path:
@@ -103,7 +104,8 @@ def _has_source_foreground_alpha(image: Image.Image) -> bool:
     return False
 
 
-def inspect_preparation(root: Path, reference: str | Path, config_path: Path | None = None) -> dict:
+def inspect_preparation(root: Path, reference: str | Path, config_path: Path | None = None,
+                        foreground_provider: ForegroundProvider | None = None) -> dict:
     """Static routing only: opaque input is accepted, inference is not preflight."""
     accepted = False
     try:
@@ -111,8 +113,16 @@ def inspect_preparation(root: Path, reference: str | Path, config_path: Path | N
         if not np.any(np.asarray(image.getchannel("A")) > 8):
             raise ValueError("reference_has_no_visible_subject")
         accepted = True
-        method = "existing_alpha" if _has_source_foreground_alpha(image) else "local_segmentation"
-        evidence = {} if method == "existing_alpha" else dict(inspect_segmenter(config_path))
+        method = "existing_alpha" if _has_source_foreground_alpha(image) else (
+            "external_segmentation" if foreground_provider is not None else "local_segmentation"
+        )
+        if method != "existing_alpha" and foreground_provider is None:
+            inspect_matting_runtime()
+        evidence = {} if method == "existing_alpha" else dict(
+            foreground_provider.inspect() if foreground_provider is not None else inspect_segmenter(config_path)
+        )
+        if method == "external_segmentation" and evidence.get("status") != "ready":
+            raise ValueError("reference_provider_setup_required")
         if evidence.get("backend") == "onnx_birefnet_isnet_enclosed":
             method = "local_segmentation_fusion"
         from .media.reference_input_view import PROFILE, WARNING, jpeg_view_applies
@@ -204,7 +214,9 @@ def _publish_preparation(root: Path, staged: Path, out: Path, identity: tuple[in
             time.sleep(delays[attempt])
 
 
-def prepare_reference(*, root: Path, reference: str | Path, out_dir: str | Path, config_path: Path | None = None) -> dict[str, Any]:
+def prepare_reference(*, root: Path, reference: str | Path, out_dir: str | Path,
+                      config_path: Path | None = None,
+                      foreground_provider: ForegroundProvider | None = None) -> dict[str, Any]:
     root = root.resolve(strict=True)
     source = _file(root, reference)
     out = rooted_path(root, out_dir)
@@ -217,30 +229,38 @@ def prepare_reference(*, root: Path, reference: str | Path, out_dir: str | Path,
     matting = {"method": "existing_alpha", "runtime_version": None,
                "alpha_policy": "preserve_source", "decontaminated_pixels": 0}
     matte_warnings = []
-    fusion_masks = fusion_evidence = input_view = None
+    fusion_masks = fusion_evidence = input_view = provider_foreground = None
     if _has_source_foreground_alpha(image):
         method, evidence = "existing_alpha", {}
     else:
-        method = "local_segmentation"
-        # Missing dependencies are setup issues, checked before CPU inference.
-        inspect_matting_runtime()
-        from .media.reference_input_view import primary_input_view, WARNING
-        primary_image = primary_input_view(image, source_format)
-        if primary_image is not image:
-            input_view = primary_image
-            matte_warnings.append(WARNING)
-        from .media.dual_segmentation import is_dual_config, infer_dual_masks
-        if is_dual_config(config_path):
-            method = "local_segmentation_fusion"
-            mask, evidence, fusion_masks, fusion_evidence = infer_dual_masks(image, config_path, primary_image=primary_image)
+        method = "external_segmentation" if foreground_provider is not None else "local_segmentation"
+        if foreground_provider is not None:
+            image, evidence = foreground_provider.infer_foreground(source, image.size)
+            evidence = dict(evidence)
+            provider_foreground = image.copy()
+            matting = {"method": "provider_foreground_v1", "runtime_version": None,
+                       "alpha_policy": "preserve_provider", "decontaminated_pixels": 0}
         else:
-            mask, evidence = infer_foreground_mask(primary_image, config_path)
-        if mask.mode != "L" or mask.size != image.size:
-            raise ValueError("reference_segmentation_mask_invalid")
-        image, matting, rgb_warnings = refine_reference_matte(image, mask)
-        matte_warnings.extend(rgb_warnings)
-        if fusion_masks is not None:
-            matting["alpha_policy"] = "preserve_source_times_fused_mask"
+            # Retained only for reading/testing historical local preparations;
+            # the public CLI always supplies the external foreground provider.
+            inspect_matting_runtime()
+            from .media.reference_input_view import primary_input_view, WARNING
+            primary_image = primary_input_view(image, source_format)
+            if primary_image is not image:
+                input_view = primary_image
+                matte_warnings.append(WARNING)
+            from .media.dual_segmentation import is_dual_config, infer_dual_masks
+            if is_dual_config(config_path):
+                method = "local_segmentation_fusion"
+                mask, evidence, fusion_masks, fusion_evidence = infer_dual_masks(image, config_path, primary_image=primary_image)
+            else:
+                mask, evidence = infer_foreground_mask(primary_image, config_path)
+            if mask.mode != "L" or mask.size != image.size:
+                raise ValueError("reference_segmentation_mask_invalid")
+            image, matting, rgb_warnings = refine_reference_matte(image, mask)
+            matte_warnings.extend(rgb_warnings)
+            if fusion_masks is not None:
+                matting["alpha_policy"] = "preserve_source_times_fused_mask"
     zero_transparent_rgb(image)
     foreground, quality = _fit_foreground(image)
     quality["warnings"] = sorted(set(quality["warnings"] + matte_warnings))
@@ -262,7 +282,9 @@ def prepare_reference(*, root: Path, reference: str | Path, out_dir: str | Path,
                 mask.save(staged / filename)
                 artifacts[name] = {"path": relative_posix(root, out / filename), **fingerprint(staged / filename, media_type="image")}
             extra = {"masks": artifacts, "fusion": fusion_evidence}
-        version = "ai_frame_animation_reference_preparation_v6" if fusion_masks is not None else "ai_frame_animation_reference_preparation_v4"
+        version = ("ai_frame_animation_reference_preparation_v8" if provider_foreground is not None else
+                   ("ai_frame_animation_reference_preparation_v6" if fusion_masks is not None else
+                    "ai_frame_animation_reference_preparation_v4"))
         if input_view is not None:
             from PIL import __version__ as pillow_version
             from .canonical import canonical_sha256
@@ -323,13 +345,18 @@ def load_preparation(root: Path, path: str | Path, *, _seen: tuple[Path, ...] = 
         return load_corrected_preparation(root, path, report, (*_seen, path))
     fields = {"schema_version", "source", "foreground", "method", "tool_version", "segmentation", "quality", "preparation_sha256"}
     current = version == "ai_frame_animation_reference_preparation_v4"
-    if current:
+    external = version == "ai_frame_animation_reference_preparation_v8"
+    if current or external:
         fields.add("cutout")
     if version in ("ai_frame_animation_reference_preparation_v2", "ai_frame_animation_reference_preparation_v3") or current:
         fields.add("matting")
-    if set(report) != fields or version not in ("ai_frame_animation_reference_preparation_v1", "ai_frame_animation_reference_preparation_v2", "ai_frame_animation_reference_preparation_v3", "ai_frame_animation_reference_preparation_v4"):
+    if external:
+        fields.add("matting")
+    if set(report) != fields or version not in ("ai_frame_animation_reference_preparation_v1", "ai_frame_animation_reference_preparation_v2", "ai_frame_animation_reference_preparation_v3", "ai_frame_animation_reference_preparation_v4", "ai_frame_animation_reference_preparation_v8"):
         raise ValueError("reference_preparation_contract_invalid")
-    for name in (("source", "cutout", "foreground") if current else ("source", "foreground")):
+    artifact_names = (("source", "cutout", "foreground") if external else
+                      (("source", "cutout", "foreground") if current else ("source", "foreground")))
+    for name in artifact_names:
         artifact = report[name]
         if not isinstance(artifact, Mapping) or set(artifact) != {"path", "bytes", "sha256", "media_type"}:
             raise ValueError("reference_preparation_artifact_invalid")
@@ -339,11 +366,28 @@ def load_preparation(root: Path, path: str | Path, *, _seen: tuple[Path, ...] = 
         actual = fingerprint(_file(root, value), media_type="image")
         if actual != {key: artifact[key] for key in actual}:
             raise ValueError("reference_preparation_artifact_changed")
-    if report["method"] not in {"existing_alpha", "local_segmentation"}:
+    if report["method"] not in {"existing_alpha", "local_segmentation", "external_segmentation"}:
         raise ValueError("reference_preparation_method_invalid")
     evidence = report["segmentation"]
     if report["method"] == "existing_alpha":
         if evidence != {}:
+            raise ValueError("reference_preparation_segmentation_invalid")
+    elif external:
+        if (
+            report["method"] != "external_segmentation"
+            or not isinstance(evidence, Mapping)
+            or set(evidence) != {"backend", "profile", "execution"}
+            or evidence.get("backend") != "external_foreground_v1"
+            or evidence.get("profile") not in {
+                "general_light_1024_refined_foreground_v1",
+                "general_light_2k_2048_refined_foreground_v1",
+                "general_heavy_2048_refined_foreground_v1",
+                "matting_2048_refined_foreground_v1",
+                "matting_2048_source_rgb_mask_v1",
+                "dynamic_2304_refined_foreground_v1",
+            }
+            or evidence.get("execution") != "remote"
+        ):
             raise ValueError("reference_preparation_segmentation_invalid")
     elif (
         not isinstance(evidence, Mapping)
@@ -368,7 +412,9 @@ def load_preparation(root: Path, path: str | Path, *, _seen: tuple[Path, ...] = 
     image = _source_image(_file(root, report["foreground"]["path"]))
     if not _has_foreground_alpha(image):
         raise ValueError("reference_preparation_foreground_invalid")
-    if current:
+    if external:
+        _validate_current_matting(report["matting"], report["method"], image.size)
+    elif current:
         _validate_current_matting(report["matting"], report["method"], image.size)
     elif version != "ai_frame_animation_reference_preparation_v1":
         _validate_matting(report["matting"], report["method"], image.size, with_hints=version == "ai_frame_animation_reference_preparation_v3")
@@ -381,12 +427,15 @@ def _validate_current_matting(matting: Any, preparation_method: str, size: tuple
     if not isinstance(matting, Mapping) or set(matting) != {"method", "runtime_version", "alpha_policy", "decontaminated_pixels"}:
         raise ValueError("reference_preparation_matting_invalid")
     existing = preparation_method == "existing_alpha"
-    if (matting["method"] != ("existing_alpha" if existing else "foreground_ml_v1")
-            or matting["alpha_policy"] != ("preserve_source" if existing else "preserve_mask")
+    external = preparation_method == "external_segmentation"
+    expected_method = "existing_alpha" if existing else ("provider_foreground_v1" if external else "foreground_ml_v1")
+    expected_alpha = "preserve_source" if existing else ("preserve_provider" if external else "preserve_mask")
+    if (matting["method"] != expected_method
+            or matting["alpha_policy"] != expected_alpha
             or type(matting["decontaminated_pixels"]) is not int
             or not 0 <= matting["decontaminated_pixels"] <= size[0] * size[1]):
         raise ValueError("reference_preparation_matting_invalid")
-    if existing:
+    if existing or external:
         if matting["runtime_version"] is not None or matting["decontaminated_pixels"] != 0:
             raise ValueError("reference_preparation_matting_invalid")
     elif not isinstance(matting["runtime_version"], str) or not matting["runtime_version"]:

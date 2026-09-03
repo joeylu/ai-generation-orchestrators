@@ -135,10 +135,11 @@ Export the ComfyUI workflow in API format and replace all placeholder bindings:
 reference image, positive prompt, generation width/height, and reference-resize
 width/height. Keep the configured generation canvas square; the public example
 uses 512x512. Use [reference preparation](../../../image-background-removal-harness/docs/reference-preparation.md) on ordinary artwork;
-users need not supply transparent PNGs. Opaque-input preparation uses the optional
-`segmentation` extra (ONNX Runtime CPU + PyMatting) and a separately verified
-BiRefNet General ONNX model. It never downloads a model during preparation and
-does not require rembg, Web packages or GPU. Compile the prepared job to
+users need not supply transparent PNGs. Opaque-input preparation uses the
+separately installed background-removal Harness: fal.ai BiRefNet V2 supplies a
+refined transparent foreground, while lightweight deterministic local code
+validates alpha and preserves fitting, review evidence, and the neutral handoff. The video
+package remains provider-neutral. Compile the prepared job to
 `work/plan.json`, then run the plan-aware static check:
 
 ```powershell

@@ -22,7 +22,8 @@ validated transparent 2D sequence-frame delivery.
 8. Read the [neutral preparation handoff](../references/reference-preparation-handoff.md)
    before connecting a local CLI or MCP producer.
 9. In a repository checkout, the separate [background-removal Harness](../../../image-background-removal-harness/)
-   documents its CPU segmentation, correction, and visual acceptance workflow.
+   documents its fal.ai BiRefNet V2 foreground adapter, lightweight local
+   post-processing, correction, and visual acceptance workflow.
 
 ## Maintainers
 

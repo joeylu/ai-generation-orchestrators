@@ -1,4 +1,4 @@
-"""Deterministic resource admission policy for local image preparation.
+"""Deterministic resource admission policy for image preparation.
 
 The policy intentionally describes no host telemetry or queue implementation.
 Those belong to the caller's scheduler, while this package must remain a
@@ -31,10 +31,8 @@ def resource_policy() -> dict[str, int | str]:
     """Public, host-neutral scheduling facts for an upstream orchestrator."""
 
     return {
-        "schema_version": "ai_image_background_removal_resource_policy_v1",
+        "schema_version": "ai_image_background_removal_resource_policy_v2",
         "max_decoded_pixels": MAX_DECODED_PIXELS,
-        "max_model_bytes": MAX_MODEL_BYTES,
-        "opaque_preparation_concurrency": OPAQUE_PREPARATION_CONCURRENCY,
-        "onnx_intra_op_threads": ONNX_INTRA_OP_THREADS,
-        "opaque_scheduling": "external_serial_required",
+        "remote_preparation_concurrency": OPAQUE_PREPARATION_CONCURRENCY,
+        "remote_scheduling": "external_serial_required",
     }

@@ -65,12 +65,10 @@ class ResourceLimitTests(unittest.TestCase):
                 self.assertEqual(main(["doctor", "--root", temporary]), 0)
             policy = json.loads(output.getvalue())["resource_policy"]
         self.assertEqual(policy, {
-            "schema_version": "ai_image_background_removal_resource_policy_v1",
+            "schema_version": "ai_image_background_removal_resource_policy_v2",
             "max_decoded_pixels": 8_388_608,
-            "max_model_bytes": 1_073_741_824,
-            "opaque_preparation_concurrency": 1,
-            "onnx_intra_op_threads": 4,
-            "opaque_scheduling": "external_serial_required",
+            "remote_preparation_concurrency": 1,
+            "remote_scheduling": "external_serial_required",
         })
 
 

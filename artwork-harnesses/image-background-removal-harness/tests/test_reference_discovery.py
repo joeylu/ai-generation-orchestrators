@@ -164,11 +164,26 @@ class ReferenceDiscoveryTests(unittest.TestCase):
                 self.assertTrue((HARNESS / value).is_file())
 
     def test_acceptance_docs_and_registry_are_source_distribution_support_files(self):
-        for name in ("docs/reference-acceptance.md", "docs/reference-acceptance-v1.json", "tests/test_reference_discovery.py"):
+        for name in ("docs/reference-acceptance.md", "docs/reference-acceptance-v1.json",
+                     "docs/runtime-integration.md", "docs/fal-v2-benchmark.md",
+                     "tests/test_reference_discovery.py"):
             self.assertTrue((HARNESS / name).is_file())
         directives = [shlex.split(line) for line in (HARNESS / "MANIFEST.in").read_text(encoding="utf-8").splitlines()]
         self.assertIn(["recursive-include", "docs", "*.md", "*.json"], directives)
         self.assertIn(["recursive-include", "tests", "*.py", "*.json", "*.md"], directives)
+
+    def test_runtime_integration_contract_keeps_service_boundary_explicit(self):
+        integration = (HARNESS / "docs/runtime-integration.md").read_text(encoding="utf-8")
+        for required in ("plan_sha256", ".ai-image-background-removal/attempts/",
+                         "indeterminate", "prepared_requires_visual_review",
+                         "one remote preparation at a time", "FAL_KEY"):
+            self.assertIn(required, integration)
+        self.assertIn("does not define or ship an HTTP", integration)
+
+        benchmark = (HARNESS / "docs/fal-v2-benchmark.md").read_text(encoding="utf-8")
+        self.assertIn("General Light 1024", benchmark)
+        self.assertIn("Case 065", benchmark)
+        self.assertIn("correctness certificate", benchmark)
 
 
 if __name__ == "__main__":

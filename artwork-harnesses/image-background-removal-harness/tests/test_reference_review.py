@@ -13,6 +13,7 @@ from PIL import Image
 from ai_image_background_removal.cli import main
 from ai_image_background_removal.media.reference_review import REVIEW_BACKGROUNDS, save_reference_review
 from ai_image_background_removal.preparation import load_preparation
+from ai_image_background_removal.provider_plan import build_plan
 
 
 class ReferenceReviewTests(unittest.TestCase):
@@ -49,8 +50,9 @@ class ReferenceReviewTests(unittest.TestCase):
             source.paste((255, 255, 255, 255), (24, 16, 40, 48))
             source.save(root / "source.png")
             original = (root / "source.png").read_bytes()
+            plan = build_plan(root=root, reference="source.png", out_dir="prepared")
             with patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=AssertionError("no model")), contextlib.redirect_stdout(io.StringIO()) as output:
-                code = main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared"])
+                code = main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared", "--confirm-plan-sha256", plan["plan_sha256"]])
             self.assertEqual(code, 0)
             status = json.loads(output.getvalue())
             self.assertEqual(status["review_dir"], "prepared/review")

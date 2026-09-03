@@ -1,11 +1,8 @@
-# Background-removal examples
+# Examples
 
-`segmentation.config.example.json` documents the single BiRefNet CPU profile.
-`segmentation-fusion.config.example.json` documents the serial BiRefNet + IS-Net
-enclosed-hole profile. Copy one configuration into the caller's ignored
-workspace and replace its model paths with locally verified files.
+The current fal route has no checked-in provider configuration file. Configure
+`FAL_KEY` only in the server environment, then follow the `doctor`, `plan`, and
+digest-confirmed `prepare` commands in `docs/reference-preparation.md`.
 
-Both examples use the same `prepare --config` entry. Neither downloads weights,
-uses GPU, calls a service, or selects a model per image. See
-[reference preparation](../docs/reference-preparation.md) for verification,
-limitations, and the required visual review.
+No example contains credentials, upload URLs, request IDs, or live provider
+responses.

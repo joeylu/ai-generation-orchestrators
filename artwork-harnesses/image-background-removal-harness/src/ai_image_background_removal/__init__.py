@@ -1,5 +1,5 @@
-"""Deterministic local reference-image background removal."""
+"""Deterministic reference-image preparation around a remote foreground provider."""
 
 __all__ = ["__version__"]
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"

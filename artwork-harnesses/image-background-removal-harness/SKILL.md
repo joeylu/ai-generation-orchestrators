@@ -1,43 +1,69 @@
 ---
 name: image-background-removal
-description: Prepare an ordinary character or prop still image as reviewed transparent artwork using deterministic local CPU tools.
+description: Prepare an ordinary character or prop still image as reviewed transparent artwork using fal BiRefNet V2 masks and deterministic local post-processing.
 ---
 # Image Background Removal
 
-Use this Skill when a user wants an ordinary still image converted into a
-transparent cutout or an animation-ready transparent foreground. This Skill does
-not generate images, videos, or sequence frames.
+Use this Skill when a user wants a still image converted into a transparent
+cutout or animation-ready foreground. This Skill does not generate new artwork,
+video, or sequence frames.
 
 ## Agent workflow
 
-1. Preserve the original inside a private workspace. Run `ai-image-background-removal
-   doctor --root <workspace> --reference <image> --config <config>`.
-   Omit the config for meaningful existing alpha. `doctor` performs no inference.
-2. If setup is ready, call `ai-image-background-removal prepare --root <workspace>
-   --reference <image> --out-dir <fresh-directory> --config <config>`. This is a
-   local CPU operation; it never downloads models or calls a provider.
-3. Inspect `cutout.png`, `foreground.png`, warnings, and the black, white, green,
-   purple, checker, and alpha review images. Describe defects honestly. Program
-   success is not human visual approval.
-4. Return `cutout.png` when original coordinates must be preserved. Return
-   `foreground.png` for direct image use. For another Harness, return the entire
-   materialized bundle and its `handoff.json`; do not return a bare remote URL or
-   let the Agent reconstruct the handoff.
-5. For one identified residual-background patch only, use `correct preview`, show
-   its digest-bound evidence, and stop for explicit approval before running
-   `correct apply`. Correction cannot restore omitted subject material.
+1. Preserve the original in a private workspace. Run `ai-image-background-removal
+   doctor --root <workspace> --reference <image>`. `doctor` does no network or
+   provider compute and never prints credentials.
+2. Run `ai-image-background-removal plan --root <workspace> --reference <image>
+   --out-dir <fresh-directory>`. Show the immutable `plan_sha256` and obtain one
+   explicit compute confirmation for that exact digest.
+3. Run `ai-image-background-removal prepare --root <workspace> --reference <image>
+   --out-dir <same-fresh-directory> --confirm-plan-sha256 <approved-digest>`.
+   Never reuse the digest or automatically resubmit an uncertain attempt.
+   For specifically identified translucent material, add
+   `--profile matting_2048_refined_foreground_v1` to both `plan` and `prepare`.
+   For a specifically reviewed missed subject or prop, the slower official
+   `general_heavy_2048_refined_foreground_v1` profile may be tried with a fresh
+   plan and confirmation; never select it as an automatic retry.
+4. Inspect `cutout.png`, `foreground.png`, warnings, and every review image.
+   Program success is not human visual approval.
+5. Return `cutout.png` when original coordinates matter and `foreground.png` for
+   direct use. For another Harness, return the whole bundle and `handoff.json`,
+   never a remote URL.
+6. For one identified residual-background patch only, use `correct preview`, show
+   its digest-bound evidence, and stop for approval before `correct apply`.
+
+## Experimental deterministic QA
+
+Keep `general_light_1024_refined_foreground_v1` as the default preparation
+profile. When three separately planned, confirmed, and completed preparations
+for the same source already exist, the opt-in command below may reject divergent
+results without network or provider compute:
+
+```text
+ai-image-background-removal qa consensus --root <workspace> \
+  --primary <light-1024-handoff.json> \
+  --light-2k <light-2k-handoff.json> \
+  --matting <matting-handoff.json> \
+  --out <fresh-consensus-report.json>
+```
+
+This experimental policy compares source-coordinate `cutout.png` alpha and
+accepts only the primary Light 1024 foreground when the Light 2K binary-alpha
+IoU is at least 0.95 and the Matting IoU is at least
+0.80. Any divergence rejects the result with a nonzero exit status. It never
+selects another profile, never submits a missing candidate, and does not certify
+semantic correctness. Do not enable it implicitly in the default chain.
 
 ## Boundaries
 
-- Do not require an LLM to segment pixels or edit the program report.
-- Do not use GPU, network services, runtime model downloads, or automatic model
-  fallback.
-- Treat `reference_resolution_too_large` and
-  `reference_segmentation_model_too_large` as terminal setup/input outcomes:
-  do not silently downscale, swap a model, or retry. Schedule at most one
-  opaque-image `prepare` per host; `doctor` exposes the path-free budget.
-- Do not overwrite an existing preparation or original image.
-- Do not describe an Agent visual check as user approval or alpha ground truth.
-- Local CLI and service/MCP adapters must publish the same
-  `ai_reference_preparation_handoff_v1` contract. Consumers depend on that
-  contract, not this package's Python import path or segmentation implementation.
+- fal BiRefNet V2 is the current opaque-image foreground source. Do not run or download
+  local ONNX models and do not silently switch providers or profiles.
+- Keep `FAL_KEY`, upload URLs, result URLs, request identifiers, and transport
+  errors out of public plans, reports, handoffs, and logs.
+- Preserve continuous alpha and source transparency; zero RGB wherever alpha is
+  zero. Never erase all white pixels.
+- Do not overwrite the original or an existing preparation directory.
+- Treat an indeterminate provider attempt as terminal and ask for a new decision.
+- Keep `ai_reference_preparation_handoff_v1` provider-neutral for consumers.
+- Treat an experimental consensus pass as a conservative mask-agreement signal,
+  not a replacement for semantic image understanding.

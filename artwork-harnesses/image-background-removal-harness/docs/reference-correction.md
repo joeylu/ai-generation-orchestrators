@@ -1,7 +1,7 @@
 # Explicit local reference correction
 
-`correct` is optional. Ordinary `prepare` retains the current CPU segmentation
-and foreground-colour estimation unchanged. Do not run correction on every image.
+`correct` is optional. Ordinary `prepare` retains the current provider foreground
+unchanged except for invariant cleanup and fitting. Do not run correction on every image.
 
 This requires a package/checkout that includes `correct`. Older packages without
 that command cannot read the corrected v5 reports; keep the original v4

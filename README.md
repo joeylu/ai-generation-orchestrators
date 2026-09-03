@@ -162,15 +162,18 @@ Use ordinary artwork: white backgrounds, screenshots and complex backgrounds do
 not require a user-supplied transparent PNG. Background removal is an optional,
 independent producer: use the local `ai-image-background-removal` CLI shown below,
 or an MCP service that materializes the same reviewed handoff bundle. Existing
-alpha needs no model; the local opaque-artwork route uses explicitly configured
-CPU segmentation. Setup is separate from source quality, and no model is
-downloaded automatically. See
+alpha needs no model. The opaque-artwork route uses the optional fal.ai BiRefNet
+V2 adapter for a refined transparent foreground, followed by lightweight local
+alpha validation, canvas-fit, review, fingerprint, and handoff processing. Missing provider setup
+is separate from source quality. See
 [reference preparation](artwork-harnesses/image-background-removal-harness/docs/reference-preparation.md) for setup and limitations.
 
 Compile the job, then check that exact input statically before any compute request:
 
 ```powershell
-ai-image-background-removal prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+ai-image-background-removal doctor --root my-animation --reference reference.png --require-ready
+ai-image-background-removal plan --root my-animation --reference reference.png --out-dir work/reference/r001
+ai-image-background-removal prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --confirm-plan-sha256 <plan-sha256>
 # Inspect work/reference/r001/foreground.png before confirming video compute.
 ai-frame-animation plan --root my-animation --job job.json --prepared-reference work/reference/r001/handoff.json --out work/plan.json
 ai-frame-animation doctor `

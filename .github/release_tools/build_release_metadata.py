@@ -65,17 +65,16 @@ BACKGROUND_SDIST_SUPPORT_FILES = (
     "agents/openai.yaml",
     *(f"docs/{name}" for name in (
         "reference-preparation.md", "reference-correction.md", "reference-acceptance.md",
-        "reference-acceptance-v1.json",
+        "reference-acceptance-v1.json", "runtime-integration.md", "fal-v2-benchmark.md",
     )),
-    *(f"examples/{name}" for name in (
-        "README.md", "segmentation.config.example.json", "segmentation-fusion.config.example.json",
-    )),
+    "examples/README.md",
     *(f"tests/{name}" for name in (
         "__init__.py", "reference_doubles.py", "test_dual_segmentation.py", "test_fusion_preparation.py",
         "test_handoff.py", "test_preparation_boundaries.py", "test_reference_correction.py",
         "test_reference_discovery.py", "test_reference_fusion.py", "test_reference_input_view.py",
-        "test_reference_material.py", "test_reference_matte.py", "test_reference_preparation.py",
-        "test_reference_review.py", "test_reference_translucency.py", "test_segmentation.py",
+        "test_experimental_consensus_qa.py", "test_fal_provider.py", "test_reference_material.py",
+        "test_reference_matte.py", "test_reference_preparation.py", "test_reference_review.py",
+        "test_reference_translucency.py", "test_resource_limits.py", "test_segmentation.py",
     )),
     *(f"tests/fixtures/golden/{name}" for name in (
         "README.md", "reference-alpha-boundary-cases.json", "reference-fusion-cases.json",
@@ -259,6 +258,8 @@ def build_metadata(dist: Path, component: str = "all") -> None:
                 "versionInfo": project_version(item), "downloadLocation": "NOASSERTION", "filesAnalyzed": False,
             })
     dependencies = ["Pillow", "numpy"]
+    if "background" in selected:
+        dependencies.append("fal-client")
     if "video" in selected:
         dependencies.append("jsonschema")
     if "ui" in selected:

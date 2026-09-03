@@ -15,6 +15,7 @@ from ai_image_background_removal.canonical import fingerprint, load_json, stamp_
 from ai_image_background_removal.cli import main
 from ai_image_background_removal.media.segmentation import infer_foreground_mask
 from ai_image_background_removal.preparation import inspect_preparation, load_preparation, prepare_reference
+from ai_image_background_removal.provider_plan import build_plan
 from reference_doubles import foreground_double
 
 
@@ -87,11 +88,17 @@ class ReferencePreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source_fixture(root)
-            with patch("ai_image_background_removal.preparation.infer_foreground_mask", return_value=(mask_fixture(), EVIDENCE)), contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared"]), 0)
+            provider = Mock()
+            provider.inspect.return_value = {"status": "ready"}
+            cutout = Image.new("RGBA", (96, 64))
+            cutout.paste(Image.new("RGBA", (96, 64), "#888888"), mask=mask_fixture())
+            provider.infer_foreground.return_value = (cutout, {"backend":"external_foreground_v1", "profile":"general_light_1024_refined_foreground_v1", "execution":"remote"})
+            plan = build_plan(root=root, reference="source.png", out_dir="prepared")
+            with patch("ai_image_background_removal.cli.FalBiRefNetV2ForegroundProvider", return_value=provider), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared", "--confirm-plan-sha256", plan["plan_sha256"]]), 0)
             report = load_preparation(root, "prepared/preparation.json")
-            self.assertEqual(report["schema_version"], "ai_frame_animation_reference_preparation_v4")
-            self.assertEqual(report["matting"]["method"], "foreground_ml_v1")
+            self.assertEqual(report["schema_version"], "ai_frame_animation_reference_preparation_v8")
+            self.assertEqual(report["matting"]["method"], "provider_foreground_v1")
             with Image.open(root / report["cutout"]["path"]) as image:
                 np.testing.assert_array_equal(np.asarray(image)[...,3], np.asarray(mask_fixture()))
             self.assertEqual(load_preparation(root, "prepared/preparation.json"), report)
@@ -231,11 +238,28 @@ class ReferencePreparationTests(unittest.TestCase):
             root = Path(temporary)
             source_fixture(root)
             before = {p.name: p.read_bytes() for p in root.iterdir()}
-            with patch("ai_image_background_removal.preparation.inspect_segmenter", return_value={"backend": "fixture"}), patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=AssertionError("no inference")), contextlib.redirect_stdout(io.StringIO()) as output:
+            provider = Mock(); provider.inspect.return_value = {"status":"ready"}
+            ready = {"status":"ready", "client":"fal-client", "client_version":"fixture", "credential":"configured", "network_probe":"not_performed", "provider_compute":"not_performed"}
+            with patch("ai_image_background_removal.cli.runtime_report", return_value=ready), patch("ai_image_background_removal.cli.FalBiRefNetV2ForegroundProvider", return_value=provider), patch("ai_image_background_removal.preparation.infer_foreground_mask", side_effect=AssertionError("no inference")), contextlib.redirect_stdout(io.StringIO()) as output:
                 result = main(["doctor", "--root", str(root), "--reference", "source.png", "--require-ready"])
             self.assertEqual(result, 0)
             self.assertEqual(json.loads(output.getvalue())["reference_preparation"]["prepared_quality"], "not_checked")
             self.assertEqual({p.name: p.read_bytes() for p in root.iterdir()}, before)
+
+    def test_doctor_allows_existing_alpha_without_provider_setup(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_fixture(root, alpha=True)
+            missing = {"status":"action_required", "client":"fal-client", "client_version":"fixture",
+                       "credential":"missing", "network_probe":"not_performed", "provider_compute":"not_performed"}
+            provider = Mock()
+            with patch("ai_image_background_removal.cli.runtime_report", return_value=missing), \
+                    patch("ai_image_background_removal.cli.FalBiRefNetV2ForegroundProvider", return_value=provider), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                result = main(["doctor", "--root", str(root), "--reference", "source.png", "--require-ready"])
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(output.getvalue())["reference_preparation"]["method"], "existing_alpha")
+            provider.inspect.assert_not_called()
 
     def test_runtime_profile_mismatch_blocks_doctor_and_prepare_before_inference(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -243,12 +267,12 @@ class ReferencePreparationTests(unittest.TestCase):
             source_fixture(root)
             before = {p.name: p.read_bytes() for p in root.iterdir()}
             mismatch = ValueError("reference_segmentation_runtime_profile_mismatch")
-            with patch("ai_image_background_removal.preparation.inspect_segmenter", side_effect=mismatch), contextlib.redirect_stdout(io.StringIO()) as output:
+            provider = Mock(); provider.inspect.return_value = {"status":"action_required"}
+            with patch("ai_image_background_removal.cli.FalBiRefNetV2ForegroundProvider", return_value=provider), contextlib.redirect_stdout(io.StringIO()) as output:
                 result = main(["doctor", "--root", str(root), "--reference", "source.png", "--require-ready"])
             doctor = json.loads(output.getvalue())
             self.assertEqual(result, 1)
-            self.assertEqual(doctor["reference_preparation"]["diagnostic_code"], "reference_segmentation_runtime_profile_mismatch")
-            self.assertTrue(any("isolated virtual environment" in action for action in doctor["actions"]))
+            self.assertEqual(doctor["reference_preparation"]["diagnostic_code"], "reference_provider_setup_required")
             with patch("ai_image_background_removal.preparation.inspect_matting_runtime", side_effect=mismatch), patch("ai_image_background_removal.preparation.infer_foreground_mask") as infer:
                 with self.assertRaisesRegex(ValueError, "runtime_profile_mismatch"):
                     prepare_reference(root=root, reference="source.png", out_dir="prepared")

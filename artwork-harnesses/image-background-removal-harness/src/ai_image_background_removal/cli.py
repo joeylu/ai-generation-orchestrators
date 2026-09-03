@@ -11,10 +11,12 @@ from typing import Sequence
 from . import __version__
 from .canonical import load_json, redact, rooted_path, safe_error_code
 from .correction import apply_correction, preview_correction
+from .experimental_consensus_qa import run_consensus_qa
+from .fal_provider import DEFAULT_PROFILE_ID, PROFILES, FalBiRefNetV2ForegroundProvider, runtime_report
 from .handoff import load_preparation_handoff
 from .preparation import inspect_preparation, load_preparation, prepare_reference
+from .provider_plan import authorize_once, build_plan, mark_attempt
 from .resource_limits import resource_policy
-from .runtime_profile import segmentation_runtime_report
 
 
 def _print(value: object) -> None:
@@ -46,22 +48,24 @@ def command_doctor(args: argparse.Namespace) -> int:
     actions: list[str] = []
     ready = all(version != "missing" for version in packages.values())
     preparation = None
-    optional_runtime = segmentation_runtime_report()
+    provider_runtime = runtime_report()
+    provider_required = args.reference is None
     if args.reference is not None:
-        preparation = inspect_preparation(root, args.reference, args.config)
+        preparation = inspect_preparation(root, args.reference, foreground_provider=FalBiRefNetV2ForegroundProvider())
+        provider_required = preparation.get("method") != "existing_alpha"
         if preparation["status"] != "ready":
             ready = False
-            if preparation["diagnostic_code"] == "reference_segmentation_runtime_profile_mismatch":
-                actions.append("Install this release's segmentation extra in an isolated virtual environment; do not reuse the incompatible system Python runtime.")
-            else:
-                actions.append("Configure the explicitly supplied local CPU segmentation model or resolve the source diagnostic.")
+            actions.append("Resolve the source or remote provider setup diagnostic before creating a compute plan.")
+    if provider_required and provider_runtime["status"] != "ready":
+        ready = False
+        actions.append("Install the fal-client dependency and configure FAL_KEY in the server environment.")
     report: dict[str, object] = {
         "schema_version": "ai_image_background_removal_doctor_v1",
         "status": "ready" if ready else "action_required",
         "version": __version__,
         "python": platform.python_version(),
         "packages": packages,
-        "optional_segmentation_runtime": optional_runtime,
+        "provider_runtime": provider_runtime,
         "resource_policy": resource_policy(),
         "capabilities": {"preparation": "ready" if ready else "action_required"},
         "actions": actions,
@@ -77,8 +81,21 @@ def command_doctor(args: argparse.Namespace) -> int:
 
 def command_prepare(args: argparse.Namespace) -> int:
     root = args.root.resolve(strict=True)
-    report = prepare_reference(root=root, reference=args.reference, out_dir=args.out_dir, config_path=args.config)
+    provider = FalBiRefNetV2ForegroundProvider(profile=args.profile)
+    preflight = inspect_preparation(root, args.reference, foreground_provider=provider)
+    if preflight["status"] != "ready":
+        raise ValueError(str(preflight["diagnostic_code"]))
+    plan = build_plan(root=root, reference=args.reference, out_dir=args.out_dir, profile=args.profile)
+    state = authorize_once(root=root, plan=plan, confirmation=args.confirm_plan_sha256)
+    try:
+        report = prepare_reference(root=root, reference=args.reference, out_dir=args.out_dir,
+                                   foreground_provider=provider)
+    except Exception:
+        mark_attempt(state, status="indeterminate")
+        raise
+    mark_attempt(state, status="succeeded")
     out = rooted_path(root, args.out_dir)
+    used_provider = report["method"] == "external_segmentation"
     _print({
         "status": "prepared_requires_visual_review",
         "preparation_sha256": report["preparation_sha256"],
@@ -88,10 +105,16 @@ def command_prepare(args: argparse.Namespace) -> int:
         "method": report["method"],
         "quality": report["quality"],
         "review_dir": (Path(report["foreground"]["path"]).parent / "review").as_posix(),
-        "network_probe": "not_performed",
-        "provider_compute": "not_performed",
+        "network_probe": "performed" if used_provider else "not_performed",
+        "provider_compute": "performed" if used_provider else "not_performed",
         "gpu_compute": "not_performed",
     })
+    return 0
+
+
+def command_plan(args: argparse.Namespace) -> int:
+    plan = build_plan(root=args.root, reference=args.reference, out_dir=args.out_dir, profile=args.profile)
+    _print({**plan, "network_probe": "not_performed", "provider_compute": "not_performed"})
     return 0
 
 
@@ -178,10 +201,22 @@ def command_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_qa_consensus(args: argparse.Namespace) -> int:
+    report = run_consensus_qa(
+        root=args.root,
+        primary_handoff=args.primary,
+        light_2k_handoff=args.light_2k,
+        matting_handoff=args.matting,
+        out=args.out,
+    )
+    _print(report)
+    return 0 if report["status"] == "passed" else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ai-image-background-removal",
-        description="Local CPU preparation of transparent game-art references",
+        description="fal BiRefNet V2 preparation of transparent game-art references",
     )
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -192,15 +227,22 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = commands.add_parser("doctor", help="inspect local preparation readiness without inference")
     doctor.add_argument("--root", type=Path, default=Path.cwd())
     doctor.add_argument("--reference", type=Path)
-    doctor.add_argument("--config", type=Path)
     doctor.add_argument("--require-ready", action="store_true")
     doctor.set_defaults(handler=command_doctor)
 
-    prepare = commands.add_parser("prepare", help="prepare one ordinary image with existing alpha or configured CPU segmentation")
+    plan = commands.add_parser("plan", help="create a no-network immutable remote-compute plan")
+    plan.add_argument("--root", required=True, type=Path)
+    plan.add_argument("--reference", required=True, type=Path)
+    plan.add_argument("--out-dir", required=True, type=Path)
+    plan.add_argument("--profile", choices=tuple(PROFILES), default=DEFAULT_PROFILE_ID)
+    plan.set_defaults(handler=command_plan)
+
+    prepare = commands.add_parser("prepare", help="execute one confirmed fal BiRefNet V2 foreground request")
     prepare.add_argument("--root", required=True, type=Path)
     prepare.add_argument("--reference", required=True, type=Path)
     prepare.add_argument("--out-dir", required=True, type=Path)
-    prepare.add_argument("--config", type=Path)
+    prepare.add_argument("--profile", choices=tuple(PROFILES), default=DEFAULT_PROFILE_ID)
+    prepare.add_argument("--confirm-plan-sha256", required=True)
     prepare.set_defaults(handler=command_prepare)
 
     correct = commands.add_parser("correct", help="preview or apply one digest-confirmed bounded correction")
@@ -230,6 +272,16 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--root", required=True, type=Path)
     validate.add_argument("--prepared-reference", required=True, type=Path)
     validate.set_defaults(handler=command_validate)
+
+    qa = commands.add_parser("qa", help="run an explicit offline experimental QA policy")
+    qa_commands = qa.add_subparsers(dest="qa_command", required=True)
+    consensus = qa_commands.add_parser("consensus", help="compare existing Light, Light 2K, and Matting foreground masks")
+    consensus.add_argument("--root", required=True, type=Path)
+    consensus.add_argument("--primary", required=True, type=Path)
+    consensus.add_argument("--light-2k", required=True, type=Path)
+    consensus.add_argument("--matting", required=True, type=Path)
+    consensus.add_argument("--out", required=True, type=Path)
+    consensus.set_defaults(handler=command_qa_consensus)
     return parser
 
 

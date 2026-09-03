@@ -78,13 +78,15 @@ independently installed local CLI, or an MCP adapter that materializes the same
 neutral handoff bundle:
 
 ```powershell
-ai-image-background-removal doctor --root my-animation --reference reference.png --config my-animation/.ai-frame-animation/segmentation.json
-ai-image-background-removal prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --config my-animation/.ai-frame-animation/segmentation.json
+ai-image-background-removal doctor --root my-animation --reference reference.png --require-ready
+ai-image-background-removal plan --root my-animation --reference reference.png --out-dir work/reference/r001
+ai-image-background-removal prepare --root my-animation --reference reference.png --out-dir work/reference/r001 --confirm-plan-sha256 <plan-sha256>
 ```
 
-`doctor` only checks setup; `prepare` may run local CPU foreground segmentation.
-Neither contacts a provider or downloads a model. Omit segmentation config when
-the original already has usable alpha. Review `foreground.png` and warnings,
+`doctor` and `plan` are read-only and never contact the provider. For opaque
+artwork, `prepare` consumes the exact plan confirmation and invokes fal.ai
+BiRefNet V2 once for a mask; existing alpha bypasses segmentation. No command
+downloads a model. Review `foreground.png` and warnings,
 then add `--prepared-reference work/reference/r001/handoff.json` to `plan`:
 
 ```powershell
@@ -131,7 +133,7 @@ preserving white details and soft alpha. `reference_preparation_required` means
 the preparation step was skipped, not that ordinary source images are forbidden.
 Original, foreground and preparation-report fingerprints are rechecked before
 authorization is consumed. The original job continues to name the original image.
-See [reference preparation](../../../image-background-removal-harness/docs/reference-preparation.md) for CPU model setup and the
+See [reference preparation](../../../image-background-removal-harness/docs/reference-preparation.md) for provider setup and the
 distinction between missing setup, an unusable source and an unreliable mask.
 Known direct KJ resize nodes must preserve aspect ratio and use the same key for
 padding. Static preflight does not certify every possible workflow transform.

@@ -64,9 +64,9 @@ class FusionPreparationTests(unittest.TestCase):
         self.config.unlink();(self.root/'primary.onnx').unlink();(self.root/'auxiliary.onnx').unlink()
         load_preparation(self.root,'out/preparation.json');self.first.assert_called_once();self.second.assert_called_once()
     def test_cli_same_prepare_entry(self):
-        stream=io.StringIO()
-        with contextlib.redirect_stdout(stream):code=main(['prepare','--root',str(self.root),'--reference','source.png','--out-dir','cli-out','--config',str(self.config)])
-        self.assertEqual(code,0);result=json.loads(stream.getvalue());self.assertEqual(result['status'],'prepared_requires_visual_review');self.assertEqual(result['method'],'local_segmentation_fusion')
+        with self.assertRaises(SystemExit):
+            main(['prepare','--root',str(self.root),'--reference','source.png','--out-dir','cli-out','--config',str(self.config)])
+        self.assertFalse((self.root/'cli-out').exists())
     def test_doctor_static_and_redacted(self):
         result=inspect_preparation(self.root,'source.png',self.config)
         self.assertEqual(result['method'],'local_segmentation_fusion')

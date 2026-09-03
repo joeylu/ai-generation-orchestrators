@@ -125,10 +125,9 @@ class InputViewPreparationTests(unittest.TestCase):
         self.first.assert_not_called();self.second.assert_not_called();self.rgb.assert_not_called()
         self.assertNotIn(str(self.root),str(result));self.assertNotIn('model_path',str(result))
     def test_same_cli_prepare_no_new_flags(self):
-        stream=io.StringIO()
-        with contextlib.redirect_stdout(stream):code=main(['prepare','--root',str(self.root),'--reference','source.jpg','--out-dir','out','--config',str(self.config)])
-        self.assertEqual(code,0);self.assertEqual(json.loads(stream.getvalue())['status'],'prepared_requires_visual_review')
-        self.assertEqual(load_preparation(self.root,'out/preparation.json')['schema_version'],VERSION)
+        with self.assertRaises(SystemExit):
+            main(['prepare','--root',str(self.root),'--reference','source.jpg','--out-dir','out','--config',str(self.config)])
+        self.assertFalse((self.root/'out').exists())
     def test_aux_failure_no_retry_no_output_and_no_rgb(self):
         self.second.side_effect=ValueError('reference_isnet_inference_failed')
         with self.assertRaises(ValueError):self.prepare()

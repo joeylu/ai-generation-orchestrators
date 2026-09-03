@@ -17,6 +17,7 @@ from ai_image_background_removal.preparation import (
     _has_foreground_alpha, _has_source_foreground_alpha, inspect_preparation,
     load_preparation, prepare_reference,
 )
+from ai_image_background_removal.provider_plan import build_plan
 from reference_doubles import foreground_double
 from test_reference_preparation import EVIDENCE, mask_fixture, source_fixture
 
@@ -200,8 +201,9 @@ class PublicationBoundaryTests(unittest.TestCase):
             source_fixture(root, alpha=True)
             output = io.StringIO()
             error = io.StringIO()
+            plan = build_plan(root=root, reference="source.png", out_dir="prepared")
             with patch.object(Path, "rename", side_effect=windows_error()), patch("ai_image_background_removal.preparation.time.sleep"), patch("ai_image_background_removal.preparation.shutil.rmtree", side_effect=PermissionError("fixture")), contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
-                code = main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared"])
+                code = main(["prepare", "--root", str(root), "--reference", "source.png", "--out-dir", "prepared", "--confirm-plan-sha256", plan["plan_sha256"]])
             self.assertEqual(code, 2)
             self.assertEqual(output.getvalue(), "")
             self.assertEqual(json.loads(error.getvalue())["code"], "reference_preparation_publish_busy:staging_cleanup_failed")

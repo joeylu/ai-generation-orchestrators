@@ -8,6 +8,7 @@ dist/
 coverage/
 .venv/
 .ai-frame-animation/
+.ai-image-background-removal/
 .tmp-validation/
 .tmp-dag-validation/
 .tmp-opencode-imagegen/

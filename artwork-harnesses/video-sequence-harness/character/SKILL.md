@@ -75,8 +75,9 @@ or waive quality failures. The installed CLI owns those operations.
 
 When an opaque input needs preparation, invoke a separately installed tool or an
 MCP tool documented by its own Skill. The repository's local implementation is
-`image-background-removal`; it owns CPU model setup, correction previews, visual
-review evidence, and the producer report. An MCP adapter may use a different
+`image-background-removal`; it owns its fal.ai mask-adapter setup, deterministic
+local post-processing, correction previews, visual review evidence, and the
+producer report. An MCP adapter may use a different
 implementation, but the materialized output must pass this video CLI's neutral
 handoff validation. Visual approval of a cutout never authorizes video compute.
 
