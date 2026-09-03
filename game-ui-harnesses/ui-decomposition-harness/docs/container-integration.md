@@ -6,7 +6,7 @@ met:
 
 - Debian/Ubuntu-compatible userspace with Python 3.10 or 3.14. Alpine is not a
   tested target because NumPy and SciPy wheel availability differs.
-- Install the verified `ui-v0.2.3` Release wheel after the README's byte-count
+- Install the verified `ui-v0.3.0` Release wheel after the README's byte-count
   and SHA-256 checks. The deployment maintains a separate hash lock for the
   base and PSD dependencies before installing the wheel with `--no-deps`.
 - Run as a non-root user.
@@ -31,7 +31,7 @@ The intended consumer experience is to upload one UI reference and receive a
 layered PSD. The recipient implements the web application and deployment; this
 repository supplies the reusable Harness contracts and processing behavior.
 Do not copy the Harness implementation into the service. Install the immutable
-`ui-v0.2.3` Release wheel through the README's byte-count and published-digest
+`ui-v0.3.0` Release wheel through the README's byte-count and published-digest
 verification; a source checkout or Git ref is only for development.
 
 | Responsibility | Harness scope | Recipient scope |
@@ -48,8 +48,8 @@ recipient to copy these algorithms or use a logged-in desktop assistant.
 
 ## Released behavior
 
-The published 0.1.2, 0.2.0, 0.2.1 and 0.2.2 releases, and the `0.2.3` release
-candidate, have different capabilities:
+The published 0.1.2 through 0.2.3 releases and the `0.3.0` release have different
+capabilities:
 
 | Capability | Status |
 | --- | --- |
@@ -60,7 +60,7 @@ candidate, have different capabilities:
 | Processing and reviewed PSD output | Implemented by `process`, `review-template`, `finalize`, `export`, `inspect` |
 | Image-only automatic planning | Implemented: configured vision provider produces a strictly validated proposal |
 | Single unattended execution entry | Implemented: `auto-run`, with `job-status`, explicit budget and no automatic resubmission |
-| Automated visual-quality gate | Implemented in 0.2.1; 0.2.2 adds explicit `strict` and `advisory` delivery policies plus a durable restart boundary; 0.2.3 changes only release-consumption documentation |
+| Automated visual-quality gate | Implemented in 0.2.1; 0.2.2 adds explicit `strict` and `advisory` delivery policies plus a durable restart boundary; 0.3.0 adds local resource preflight and streaming raster staging |
 | Automatic unreviewed draft PSD output | `strict` delivers only after QA passes; an explicitly selected `advisory` policy can deliver a QA-warning PSD; human-reviewed default unchanged |
 
 No image-to-PSD HTTP endpoint is implemented. The runner is usable as a per-job

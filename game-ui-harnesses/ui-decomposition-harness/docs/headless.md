@@ -1,6 +1,6 @@
 # Headless image-to-draft-PSD integration
 
-Available in the `0.2.3` release candidate. The entry is an opt-in per-job
+Available in the `0.3.0` release. The entry is an opt-in per-job
 CLI/library function, not a web service.
 Offline tests exercise the complete runner with provider doubles and real PSD
 encoding. A separately authorized 0.2.0 live end-to-end check produced a
@@ -11,10 +11,10 @@ establish general provider reliability or live visual-gate accuracy.
 
 Ensure the built `ai-ui-decomposition` wheel and its deployment-locked PSD
 dependencies are installed in the recipient's environment.
-For production, install the immutable `ui-v0.2.3` Release wheel only after the
+For production, install the immutable `ui-v0.3.0` Release wheel only after the
 [README's byte-count and SHA-256 verification](../README.md#production-consumption-verified-release-wheel),
 with a deployment-maintained hash lock for its PSD dependencies.
-Do not reuse the 0.1.2, 0.2.0 or 0.2.1 releases for these commands.
+Do not reuse releases older than 0.3.0 for these commands.
 Run `doctor` and `self-test`; both remain offline and consume no provider compute.
 
 The deployment owns a trusted config file, outside the public artifact directory:
@@ -66,8 +66,11 @@ immutable job input, so it cannot be changed by re-running an existing job.
 
 ## Execution contract
 
-1. Validate input bytes, EXIF-oriented size and PSD dependencies; create a fresh
-   job record. Maximum canvas is 16,777,216 pixels and 30,000 per side.
+1. Validate input bytes, EXIF-oriented size, local resource budget and PSD
+   dependencies; create a fresh job record. Maximum canvas is 16,777,216 pixels
+   and 30,000 per side. The plan also has fixed limits for keyed input, cumulative
+   material pixels and cumulative placed-layer pixels; see the
+   [plan resource policy](../references/contract.md#local-resource-policy).
 2. Persist a planning reservation. Ask the provider for `assets`, `nodes`, `groups`
    JSON. The program supplies source identity, routes, text policy and draft policy;
    the model cannot override them or select files/providers. Reject malformed JSON,

@@ -4,6 +4,7 @@ import shutil
 
 from . import batch
 from .common import digest, identifier, load_verified_image, read_json, require, sha256, write_json
+from .resources import require_keyed_input_limit
 
 
 def verified_result(run: Path, asset: str) -> tuple[dict, dict, dict, Path]:
@@ -50,6 +51,8 @@ def verified_result(run: Path, asset: str) -> tuple[dict, dict, dict, Path]:
                 and not (directory / "reserved.json").exists(), "REUSED_RESULT_BINDING")
     raw = directory / "raw.png"
     _picture, evidence = load_verified_image(raw)
+    if item["output_mode"] == "keyed_component":
+        require_keyed_input_limit(evidence["size"])
     require(record.get("raw_sha256") == evidence["sha256"], "RAW_RESULT_CHANGED")
     for key in ("size", "mode", "bytes", "alpha_extrema"):
         require(record.get(key) == evidence[key], "RESULT_EVIDENCE_CHANGED")

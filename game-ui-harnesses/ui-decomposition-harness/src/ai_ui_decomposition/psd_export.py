@@ -7,11 +7,13 @@ import numpy as np
 
 from .assembly import inspect_delivery
 from .common import read_json, require, sha256, write_json
+from .resources import delivery_resources
 
 
 def export_psd(delivery: Path) -> dict:
     inspect_delivery(delivery)
     scene = read_json(delivery / "scene.json")
+    delivery_resources(scene)
     require(scene["document"]["format"] in {"auto", "psd"}, "PSB_NOT_IMPLEMENTED")
     require(max(scene["canvas"]) <= 30000, "PSD_SIZE_UNSUPPORTED")
     try:
@@ -28,13 +30,11 @@ def export_psd(delivery: Path) -> dict:
         expected = source_preview.convert("RGBA")
     psd = PSDImage.new("RGBA", tuple(scene["canvas"]), color=(0, 0, 0, 0))
     psd.background_color = None
-    cache = {}
     for group_record in scene["tree"]:
         group = Group.new(parent=psd, name=group_record["name"])
         for layer in group_record["children"]:
             with Image.open(delivery / layer["png"]) as source_layer:
                 picture = source_layer.convert("RGBA")
-            cache[layer["id"]] = picture
             pixel = PixelLayer.frompil(picture, parent=group, name=layer["name"],
                                        left=layer["left"], top=layer["top"])
             pixel.visible = True
@@ -58,10 +58,11 @@ def export_psd(delivery: Path) -> dict:
             require(actual.left == expected_layer["left"] and actual.top == expected_layer["top"],
                     "PSD_LAYER_POSITION_CHANGED")
             actual_image = actual.topil(apply_icc=False)
+            with Image.open(delivery / expected_layer["png"]) as source_layer:
+                expected_layer_image = source_layer.convert("RGBA")
             require(actual_image is not None
                     and np.array_equal(np.asarray(actual_image.convert("RGBA")),
-                                       np.asarray(cache[expected_layer["id"]])),
-                    "PSD_RGBA_CHANGED")
+                                       np.asarray(expected_layer_image)), "PSD_RGBA_CHANGED")
             verified.append(expected_layer["id"])
     composite = reopened.topil(apply_icc=False)
     require(composite is not None, "PSD_PREVIEW_MISSING")

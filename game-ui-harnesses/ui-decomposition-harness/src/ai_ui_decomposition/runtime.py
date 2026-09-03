@@ -9,6 +9,9 @@ from PIL import Image
 from .common import digest, identifier, load_verified_image, require, sha256, write_json
 from .contract import GRANULARITY, KIND, TEXT_POLICY, validate
 from .media import matte_key
+from .resources import (DEFAULT_MEMORY_BUDGET_BYTES, MAX_KEYED_INPUT_PIXELS,
+                        MAX_NODES, MAX_TOTAL_LAYER_PIXELS, MAX_TOTAL_MATERIAL_PIXELS,
+                        memory_budget_bytes)
 
 
 def init_plan(reference: Path, plan_path: Path, plan_id: str, document_name: str) -> dict:
@@ -56,6 +59,12 @@ def doctor() -> dict:
             "core_versions": versions, "psd": {"available": psd_available,
             "version": psd_version, "expected": "1.18.0"},
             "network_probe": "not_performed", "provider_compute": "not_performed",
+            "resource_policy": {"memory_budget_bytes": memory_budget_bytes(),
+                                "memory_budget_fallback_bytes": DEFAULT_MEMORY_BUDGET_BYTES,
+                                "keyed_input_pixels": MAX_KEYED_INPUT_PIXELS,
+                                "material_pixels": MAX_TOTAL_MATERIAL_PIXELS,
+                                "layer_pixels": MAX_TOTAL_LAYER_PIXELS,
+                                "nodes": MAX_NODES},
             "automatic_retries": 0}
 
 

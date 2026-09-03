@@ -6,6 +6,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -20,6 +21,7 @@ from ai_ui_decomposition.contract import validate
 from ai_ui_decomposition.media import contain, matte_key, nine_slice
 from ai_ui_decomposition.process import process, review_template
 from ai_ui_decomposition.cached import result_binding, reuse_result
+from ai_ui_decomposition.resources import MIB
 
 
 class HarnessTests(unittest.TestCase):
@@ -168,6 +170,79 @@ class HarnessTests(unittest.TestCase):
         changed["provider_endpoint"] = "https://private.invalid"
         with self.assertRaisesRegex(ContractError, "PLAN_FIELDS"):
             validate(changed, source_base=self.root)
+
+    def test_resource_policy_limits_materials_nodes_layers_and_keyed_source_crops(self):
+        oversized = json.loads(json.dumps(self.plan))
+        oversized["canvas"] = [4097, 4097]
+        oversized["source"]["size"] = [4097, 4097]
+        oversized["assets"][0]["source_region"] = [0, 0, 4097, 4097]
+        oversized["assets"][0]["output_size"] = [4097, 4097]
+        with self.assertRaisesRegex(ContractError, "TOTAL_MATERIAL_PIXEL_LIMIT"):
+            validate(oversized, verify_source=False)
+
+        too_many_nodes = json.loads(json.dumps(self.plan))
+        button_nodes = [{"id": f"button-node-{index}", "asset": "button", "xy": [8, 24]}
+                        for index in range(256)]
+        too_many_nodes["nodes"] = [too_many_nodes["nodes"][0], *button_nodes,
+                                    {"id": "small-button", "asset": "button_small", "xy": [40, 24]}]
+        too_many_nodes["groups"] = [{"id": "background-group", "children": ["background"]},
+                                     {"id": "buttons-group",
+                                      "children": [row["id"] for row in too_many_nodes["nodes"][1:]]}]
+        with self.assertRaisesRegex(ContractError, "NODE_LIMIT"):
+            validate(too_many_nodes, verify_source=False)
+
+        too_many_layer_pixels = json.loads(json.dumps(self.plan))
+        del too_many_layer_pixels["assets"][2]
+        too_many_layer_pixels["canvas"] = [2048, 2048]
+        too_many_layer_pixels["source"]["size"] = [2048, 2048]
+        for asset in too_many_layer_pixels["assets"][:2]:
+            asset["source_region"] = [0, 0, 2048, 2048]
+            asset["output_size"] = [2048, 2048]
+        button_nodes = [{"id": f"button-layer-{index}", "asset": "button", "xy": [0, 0]}
+                        for index in range(8)]
+        too_many_layer_pixels["nodes"] = [too_many_layer_pixels["nodes"][0], *button_nodes]
+        too_many_layer_pixels["groups"] = [{"id": "background-group", "children": ["background"]},
+                                            {"id": "buttons-group",
+                                             "children": [row["id"] for row in button_nodes]}]
+        with self.assertRaisesRegex(ContractError, "TOTAL_LAYER_PIXEL_LIMIT"):
+            validate(too_many_layer_pixels, verify_source=False)
+
+        keyed_source_crop = json.loads(json.dumps(self.plan))
+        keyed_source_crop["canvas"] = [2049, 2049]
+        keyed_source_crop["source"]["size"] = [2049, 2049]
+        keyed_source_crop["assets"][0]["source_region"] = [0, 0, 2049, 2049]
+        keyed_source_crop["assets"][0]["output_size"] = [2049, 2049]
+        keyed_source_crop["assets"][1].update({"route": "source_crop",
+                                                 "source_region": [0, 0, 2049, 2049],
+                                                 "output_size": [20, 12],
+                                                 "prompt": None})
+        with self.assertRaisesRegex(ContractError, "KEYED_INPUT_PIXEL_LIMIT"):
+            validate(keyed_source_crop, verify_source=False)
+
+    def test_resource_policy_uses_available_memory_and_rejects_oversized_keyed_result(self):
+        constrained = json.loads(json.dumps(self.plan))
+        constrained["canvas"] = [2048, 2048]
+        constrained["source"]["size"] = [2048, 2048]
+        for asset in constrained["assets"][:2]:
+            asset["source_region"] = [0, 0, 2048, 2048]
+            asset["output_size"] = [2048, 2048]
+        constrained["nodes"] = [{"id": "background", "asset": "scene", "xy": [0, 0]},
+                                *[{"id": f"button-memory-{index}", "asset": "button", "xy": [0, 0]}
+                                  for index in range(4)],
+                                {"id": "small-button", "asset": "button_small", "xy": [0, 0]}]
+        constrained["groups"] = [{"id": "background-group", "children": ["background"]},
+                                 {"id": "buttons-group",
+                                  "children": [row["id"] for row in constrained["nodes"][1:]]}]
+        with patch("ai_ui_decomposition.resources.available_memory_bytes", return_value=256 * MIB):
+            with self.assertRaisesRegex(ContractError, "MEMORY_BUDGET_EXCEEDED"):
+                validate(constrained, verify_source=False)
+
+        batch.reserve(self.run, "button")
+        oversized_raw = self.root / "oversized-keyed.png"
+        Image.new("RGB", (2049, 2049), (248, 8, 248)).save(oversized_raw)
+        with self.assertRaisesRegex(ContractError, "KEYED_INPUT_PIXEL_LIMIT"):
+            batch.receive(self.run, "button", oversized_raw)
+        self.assertFalse((self.run / "requests/fixture-r001-button-r001/raw.png").exists())
 
     def test_legacy_processing_pixels_remain_unchanged(self):
         materials = self.complete_materials()

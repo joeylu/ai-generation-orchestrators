@@ -14,8 +14,8 @@ Those runs established the coarse control-list flow, global key removal,
 important-component grouping, repeated-family reuse, and layered PSD output. They
 did not establish general visual understanding.
 
-The 0.2.3 release candidate retains the 0.2.2 runtime behavior covered by
-sixty-two offline tests. They exercise strict
+The 0.3.0 release retains the 0.2.2 runtime behavior and adds local resource
+preflight plus streaming raster staging, covered by sixty-four offline tests. They exercise strict
 provider-neutral plans, single-use request state, terminal indeterminate results,
 global key removal including enclosed holes, uniform reuse scaling, digest-bound
 visual review, background role independence from asset names, rejection of
@@ -29,7 +29,10 @@ identity resizing, and rejection of missing or insufficient foreground.
 Result-reuse regressions verify zero-call accounting, unchanged originals, fresh
 review requirements, no provider reservation or duplicate import for cached
 assets, strict source/prompt/reference binding, raw-image tamper rejection before
-processing, failed-source rejection, and provider-neutral cache fields.
+processing, failed-source rejection, and provider-neutral cache fields. Resource
+regressions reject excess material pixels, excess placed-layer pixels, excess
+nodes, oversized keyed source crops and oversized keyed provider results before
+they can enter a run; they also exercise automatic available-memory rejection.
 The five related
 predecessor suites also pass 170 tests unchanged.
 

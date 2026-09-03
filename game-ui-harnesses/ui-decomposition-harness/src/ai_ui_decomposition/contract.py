@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 
 from .common import digest, identifier, load_verified_image, require, safe_relative, sha256
+from .resources import plan_resources
 
 KIND = "ai_ui_decomposition_plan_v1"
 TEXT_POLICY = "remove_ordinary_text_preserve_graphic_symbols"
@@ -165,12 +166,14 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
             "DOCUMENT")
     identifier(document.get("name"))
     require(document.get("format") in {"auto", "psd", "psb"}, "DOCUMENT_FORMAT")
+    resources = plan_resources(plan)
     generated = sum(asset["route"].startswith("generated_") and "cached_result" not in asset
                     for asset in assets)
     reused_instances = len(nodes) - len({node["asset"] for node in nodes})
     return {"status": "plan_valid_no_generation", "plan_digest": digest(plan),
             "assets": len(assets), "pixel_layers": len(nodes), "groups": len(groups),
             "generated_requests": generated, "reused_instances": reused_instances,
+            "resources": resources,
             "automatic_semantic_inference": False,
             "automatic_visual_acceptance": False,
             "format_available": document["format"] != "psb"}

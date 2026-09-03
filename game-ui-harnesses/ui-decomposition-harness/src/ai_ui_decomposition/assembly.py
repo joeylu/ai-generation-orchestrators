@@ -60,7 +60,6 @@ def finalize(run: Path, output: Path, *, draft: bool = False) -> dict:
     nodes = {node["id"]: node for node in plan["nodes"]}
     assets = {asset["id"]: asset for asset in plan["assets"]}
     layer_records = {}
-    cache = {}
     for node in plan["nodes"]:
         row = material_rows[node["asset"]]
         source = run / row["path"]
@@ -69,7 +68,6 @@ def finalize(run: Path, output: Path, *, draft: bool = False) -> dict:
         with Image.open(destination) as image:
             picture = normalize(image)
         picture.save(destination)
-        cache[node["id"]] = picture
         layer_records[node["id"]] = {"id": node["id"], "name": node["id"],
             "kind": "pixel", "role": assets[node["asset"]]["role"],
             "asset": node["asset"], "png": destination.relative_to(output).as_posix(),
@@ -83,7 +81,8 @@ def finalize(run: Path, output: Path, *, draft: bool = False) -> dict:
     for group in plan["groups"]:
         for node_id in group["children"]:
             node = nodes[node_id]
-            preview.alpha_composite(cache[node_id], tuple(node["xy"]))
+            with Image.open(output / layer_records[node_id]["png"]) as image:
+                preview.alpha_composite(image.convert("RGBA"), tuple(node["xy"]))
     preview = normalize(preview)
     preview_path = output / "preview.png"
     preview.save(preview_path)

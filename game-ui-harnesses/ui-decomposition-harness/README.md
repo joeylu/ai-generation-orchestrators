@@ -20,14 +20,15 @@ invoke the configured provider; it never retries generation, controls Photoshop,
 or modifies another Harness. `auto` currently selects PSD; explicit PSB requests are
 rejected because PSB has not been validated.
 
-The `0.2.3` release candidate includes the headless entry and its mandatory
-automated visual-quality gate alongside the reviewed flow. It remains opt-in because
-the gate does not imply human acceptance or perfect visual reconstruction.
+The `0.3.0` release includes the headless entry and its mandatory automated
+visual-quality gate alongside the reviewed flow. It adds conservative local
+resource preflight and streaming raster staging. It remains opt-in because the
+gate does not imply human acceptance or perfect visual reconstruction.
 See [headless integration](docs/headless.md) for its contract and verification limits.
 
 ## Production consumption: verified Release wheel
 
-Use a fixed GitHub Release tag such as `ui-v0.2.3`; do not install a Git ref or
+Use a fixed GitHub Release tag such as `ui-v0.3.0`; do not install a Git ref or
 a source checkout as a production dependency. From that one Release, obtain its
 wheel and `SHA256SUMS.txt`. The wheel's SHA-256 is only evidence for that wheel:
 the deployment must separately maintain a fully hash-locked dependency set for
@@ -41,8 +42,8 @@ checks with the Release asset `size`, `sha256sum`, and `wc -c`; use an isolated
 virtual environment after both comparisons succeed.
 
 ```powershell
-$ReleaseTag = "ui-v0.2.3"
-$Wheel = "ai_ui_decomposition-0.2.3-py3-none-any.whl"
+$ReleaseTag = "ui-v0.3.0"
+$Wheel = "ai_ui_decomposition-0.3.0-py3-none-any.whl"
 $Release = Invoke-RestMethod "https://api.github.com/repos/joeylu/ai-generation-orchestrators/releases/tags/$ReleaseTag"
 $WheelAsset = @($Release.assets | Where-Object { $_.name -eq $Wheel })
 $SumsAsset = @($Release.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" })

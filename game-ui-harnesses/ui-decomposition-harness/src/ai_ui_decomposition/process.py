@@ -21,8 +21,21 @@ def process(run: Path) -> dict:
     require(not output.exists(), "MATERIALS_EXIST")
     output.mkdir()
     reference = run / "input" / "reference.png"
-    pictures: dict[str, Image.Image] = {}
     rows = []
+    material_paths: dict[str, Path] = {}
+
+    def save_material(asset: dict, material: Image.Image) -> None:
+        key = asset["id"]
+        path = output / key / "material.png"
+        path.parent.mkdir()
+        material.save(path)
+        alpha = material.getchannel("A")
+        rows.append({"asset": key, "path": path.relative_to(run).as_posix(),
+                     "sha256": sha256(path), "size": asset["output_size"],
+                     "route": asset["route"], "source_asset": asset.get("source_asset"),
+                     "alpha_extrema": list(alpha.getextrema())})
+        material_paths[key] = path
+
     with Image.open(reference) as reference_image:
         reference_image = reference_image.convert("RGBA")
         for asset in (item for item in plan["assets"] if item["route"] != "reuse_scaled"):
@@ -41,30 +54,19 @@ def process(run: Path) -> dict:
                 material = opaque_exact(source, size)
             else:
                 material = contain(source, size)
-            pictures[key] = normalize(resize_material(material, asset))
+            save_material(asset, normalize(resize_material(material, asset)))
         for asset in (item for item in plan["assets"] if item["route"] == "reuse_scaled"):
-            material = contain(pictures[asset["source_asset"]], asset["output_size"])
-            pictures[asset["id"]] = resize_material(material, asset)
-        for asset in plan["assets"]:
-            key = asset["id"]
-            size = asset["output_size"]
-            material = pictures[key]
-            directory = output / key
-            directory.mkdir()
-            path = directory / "material.png"
-            material.save(path)
-            alpha = material.getchannel("A")
-            rows.append({"asset": key, "path": path.relative_to(run).as_posix(),
-                         "sha256": sha256(path), "size": size,
-                         "route": asset["route"], "source_asset": asset.get("source_asset"),
-                         "alpha_extrema": list(alpha.getextrema())})
+            with Image.open(material_paths[asset["source_asset"]]) as source:
+                material = contain(source, asset["output_size"])
+            save_material(asset, normalize(resize_material(material, asset)))
 
     columns, cell_width, cell_height = 4, 280, 190
     rows_count = (len(rows) + columns - 1) // columns
     sheet = Image.new("RGB", (columns * cell_width, rows_count * cell_height), "#252932")
     draw = ImageDraw.Draw(sheet)
     for index, row in enumerate(rows):
-        picture = pictures[row["asset"]].copy()
+        with Image.open(run / row["path"]) as source:
+            picture = source.convert("RGBA")
         picture.thumbnail((250, 145), Image.Resampling.LANCZOS)
         tile = Image.new("RGBA", (260, 150), "#dddddd")
         tile.alpha_composite(picture, ((260 - picture.width) // 2,

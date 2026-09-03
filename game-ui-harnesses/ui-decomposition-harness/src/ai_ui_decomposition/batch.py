@@ -8,6 +8,7 @@ from PIL import Image
 from .common import (digest, identifier, load_verified_image, read_json, require,
                      safe_relative, sha256, write_json)
 from .contract import validate
+from .resources import require_keyed_input_limit
 
 
 def run_location(workspace: Path, run_id: str) -> Path:
@@ -164,11 +165,14 @@ def receive(run: Path, asset: str, source: Path) -> dict:
     require(state(run, entry) == "reserved", "RESERVATION_REQUIRED")
     source = source.resolve()
     require(source.is_file(), "RAW_SOURCE_REQUIRED")
+    asset_record = next(item for item in plan["assets"] if item["id"] == asset)
+    if asset_record["output_mode"] == "keyed_component":
+        _picture, source_evidence = load_verified_image(source)
+        require_keyed_input_limit(source_evidence["size"])
     raw = run / "requests" / entry["id"] / "raw.png"
     require(not raw.exists(), "RAW_ALREADY_MATERIALIZED")
     shutil.copyfile(source, raw)
     _image, evidence = load_verified_image(raw)
-    asset_record = next(item for item in plan["assets"] if item["id"] == asset)
     if asset_record["output_mode"] == "opaque_canvas":
         require(evidence["alpha_extrema"] == [255, 255], "OPAQUE_RESULT_REQUIRED")
         target_width, target_height = asset_record["output_size"]
@@ -219,11 +223,14 @@ def recover_receive(run: Path, asset: str, source: Path) -> dict:
             and prior.get("automatic_resubmit") is False, "INDETERMINATE_BINDING_CHANGED")
     source = source.resolve()
     require(source.is_file(), "RAW_SOURCE_REQUIRED")
+    item = next(row for row in plan["assets"] if row["id"] == asset)
+    if item["output_mode"] == "keyed_component":
+        _picture, source_evidence = load_verified_image(source)
+        require_keyed_input_limit(source_evidence["size"])
     raw = directory / "raw.png"
     require(not raw.exists(), "RAW_ALREADY_MATERIALIZED")
     shutil.copyfile(source, raw)
     _image, evidence = load_verified_image(raw)
-    item = next(row for row in plan["assets"] if row["id"] == asset)
     if item["output_mode"] == "opaque_canvas":
         require(evidence["alpha_extrema"] == [255, 255], "OPAQUE_RESULT_REQUIRED")
         target_width, target_height = item["output_size"]

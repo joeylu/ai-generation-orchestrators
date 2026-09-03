@@ -61,6 +61,26 @@ Groups and children are ordered back to front. Every asset must be used, every
 node must appear in exactly one group, and exactly one background node must cover
 the canvas at `[0, 0]`.
 
+## Local resource policy
+
+The public plan is rejected before processing when it would exceed the following
+machine-independent raster limits: at most 256 nodes, 16,777,216 total material
+pixels, and 33,554,432 total placed-layer pixels. These totals include repeated
+node instances, so reuse does not provide an unbounded-memory escape hatch.
+
+A `keyed_component` from `source_crop` may cover at most 4,194,304 source pixels.
+Generated keyed results are checked against the same 4,194,304-pixel limit before
+they are copied into a run. This protects the NumPy/SciPy matte operation, whose
+working set is substantially larger than an RGBA image.
+
+The runtime also estimates the highest local processing, assembly or PSD-export
+peak. Its automatic budget is one quarter of currently available physical memory,
+capped at 2 GiB; if availability cannot be read, it uses a conservative 512 MiB
+fallback. The budget is not a user input and no provider call is made for a plan
+that fails it. `doctor` reports the selected budget and fixed limits. Deployment
+operators needing a larger job must split the UI into smaller independently
+reviewed plans; they must not disable these checks.
+
 Routes:
 
 - `generated_completion`: one opaque, UI-free completion request.
