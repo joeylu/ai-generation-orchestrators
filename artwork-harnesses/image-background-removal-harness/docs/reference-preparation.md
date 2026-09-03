@@ -81,6 +81,30 @@ downloads, calls a service, uses GPU, creates a video attempt or spends a video
 authorization. There is no automatic model switch or alpha-matting fallback on
 failure. The Agent reviews output before requesting the one video confirmation.
 
+## Resource admission and automation
+
+The public default budget accepts at most **8,388,608 decoded pixels (8 MP)**
+per still and at most **1 GiB** for each configured ONNX file. A source above
+the pixel limit fails deterministically with `reference_resolution_too_large`
+before conversion or inference. An oversized model fails with
+`reference_segmentation_model_too_large` before it is hashed, read into memory,
+or used to construct a session. The accepted roughly-973-MB BiRefNet graph
+remains inside that model limit.
+
+These limits apply wherever this Harness decodes a source or cutout, including
+`doctor --reference`, `prepare`, `correct`, `inspect`, and `validate`. The
+program does not silently resize the source, substitute a model, or retry below
+the limit; automation must surface the deterministic error and request a new
+reference when a job is over budget.
+
+One CLI process handles one image synchronously. The process fixes ONNX
+intra-op work to four threads, but cross-process scheduling deliberately stays
+outside this provider-neutral Harness: an upstream scheduler must run no more
+than **one opaque-image preparation per host** at a time. `doctor` publishes a
+path-free `resource_policy` object containing these constants for that purpose.
+Host CPU/RSS measurements also belong to the scheduler or observability layer;
+they are not written into public preparation evidence or handoffs.
+
 ## Artifacts and integrity
 
 - `cutout.png`: separated RGBA at the original EXIF-oriented size and coordinates,

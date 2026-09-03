@@ -32,6 +32,10 @@ not generate images, videos, or sequence frames.
 - Do not require an LLM to segment pixels or edit the program report.
 - Do not use GPU, network services, runtime model downloads, or automatic model
   fallback.
+- Treat `reference_resolution_too_large` and
+  `reference_segmentation_model_too_large` as terminal setup/input outcomes:
+  do not silently downscale, swap a model, or retry. Schedule at most one
+  opaque-image `prepare` per host; `doctor` exposes the path-free budget.
 - Do not overwrite an existing preparation or original image.
 - Do not describe an Agent visual check as user approval or alpha ground truth.
 - Local CLI and service/MCP adapters must publish the same

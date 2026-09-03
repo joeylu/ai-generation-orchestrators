@@ -21,6 +21,7 @@ from .media.reference_matte import inspect_matting_runtime, refine_reference_mat
 from .media.reference_review import save_reference_review
 from .media.segmentation import infer_foreground_mask, inspect_segmenter
 from .media.spill import zero_transparent_rgb
+from .resource_limits import require_decoded_pixel_budget
 
 
 def _file(root: Path, value: str | Path) -> Path:
@@ -57,6 +58,7 @@ def _source_image_and_format(path: Path) -> tuple[Image.Image, str | None]:
             raise ValueError("reference_requires_one_still_image")
         if min(image.size) < 16:
             raise ValueError("reference_resolution_too_small")
+        require_decoded_pixel_budget(image.size)
         return ImageOps.exif_transpose(image).convert("RGBA"), image.format
 
 

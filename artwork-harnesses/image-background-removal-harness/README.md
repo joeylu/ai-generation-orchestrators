@@ -12,6 +12,12 @@ diagnostic evidence.
 The result always requires visual review; a structurally valid report is not an
 automatic human quality approval.
 
+The default resource admission budget is 8 MP per decoded still and 1 GiB per
+configured ONNX model. Oversize inputs are rejected with stable error codes;
+the caller must serialize opaque-image preparation to one job per host. See
+[`docs/reference-preparation.md`](docs/reference-preparation.md) for the exact
+automation contract.
+
 Read [SKILL.md](SKILL.md) for the Agent workflow. Detailed public behavior remains
 documented in [`docs/reference-preparation.md`](docs/reference-preparation.md)
 and [`docs/reference-correction.md`](docs/reference-correction.md). The package

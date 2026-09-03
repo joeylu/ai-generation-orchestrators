@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image
 
 from ..canonical import SHA256_RE, load_json, sha256_file
+from ..resource_limits import ONNX_INTRA_OP_THREADS, require_model_byte_budget
 from .reference_matte import inspect_matting_runtime
 
 
@@ -35,6 +36,7 @@ def segmentation_config(path: Path | None) -> tuple[Path, str]:
     model = model if model.is_absolute() else path.resolve(strict=True).parent / model
     if not model.is_file() or model.is_symlink():
         raise ValueError("reference_segmentation_model_missing")
+    require_model_byte_budget(model.stat().st_size)
     if sha256_file(model) != digest:
         raise ValueError("reference_segmentation_model_digest_mismatch")
     return model, digest
@@ -71,7 +73,7 @@ def infer_birefnet_mask(image: Image.Image, model: Path, digest: str) -> tuple[I
     try:
         options = ort.SessionOptions()
         ort.disable_telemetry_events()
-        options.intra_op_num_threads = 4
+        options.intra_op_num_threads = ONNX_INTRA_OP_THREADS
         options.inter_op_num_threads = 1
         session = ort.InferenceSession(model_bytes, sess_options=options, providers=["CPUExecutionProvider"])
         session.disable_fallback()

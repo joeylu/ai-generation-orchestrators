@@ -13,6 +13,7 @@ from .canonical import load_json, redact, rooted_path, safe_error_code
 from .correction import apply_correction, preview_correction
 from .handoff import load_preparation_handoff
 from .preparation import inspect_preparation, load_preparation, prepare_reference
+from .resource_limits import resource_policy
 from .runtime_profile import segmentation_runtime_report
 
 
@@ -61,6 +62,7 @@ def command_doctor(args: argparse.Namespace) -> int:
         "python": platform.python_version(),
         "packages": packages,
         "optional_segmentation_runtime": optional_runtime,
+        "resource_policy": resource_policy(),
         "capabilities": {"preparation": "ready" if ready else "action_required"},
         "actions": actions,
         "network_probe": "not_performed",

@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from ..canonical import SHA256_RE,load_json,sha256_file
+from ..resource_limits import ONNX_INTRA_OP_THREADS,require_model_byte_budget
 from .reference_matte import inspect_matting_runtime
 from .reference_fusion import fuse_masks,inspect_fusion_runtime
 
@@ -25,6 +26,7 @@ def _model(value, expected, config):
     model = Path(raw)
     if not model.is_absolute():model = config.resolve(strict=True).parent / model
     if not model.is_file() or model.is_symlink():raise ValueError('reference_segmentation_model_missing')
+    require_model_byte_budget(model.stat().st_size)
     if sha256_file(model) != digest:raise ValueError('reference_segmentation_model_digest_mismatch')
     return model,digest
 
@@ -58,7 +60,7 @@ def infer_isnet_mask(image, model, digest):
     if hashlib.sha256(data).hexdigest() != digest:
         raise ValueError('reference_segmentation_model_digest_mismatch')
     try:
-        options = ort.SessionOptions();options.intra_op_num_threads = 4;options.inter_op_num_threads = 1
+        options = ort.SessionOptions();options.intra_op_num_threads = ONNX_INTRA_OP_THREADS;options.inter_op_num_threads = 1
         ort.disable_telemetry_events()
         session = ort.InferenceSession(data,sess_options=options,providers=['CPUExecutionProvider'])
         session.disable_fallback()
