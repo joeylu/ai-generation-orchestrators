@@ -18,3 +18,7 @@ build`, `intent validate`, and `compile`. It binds untrusted semantic decisions
 to verified reference evidence before the existing `plan` stage. Direct
 `job.json -> plan` integrations remain supported. See
 [Agent intent and deterministic compiler](docs/intent-and-compiler.md).
+
+For native Alpha video inputs, verified transparent-video producer handoffs,
+bounded processing and optional offline frame checkpoints, see
+[Offline processing contracts](docs/offline-processing-contracts.md).

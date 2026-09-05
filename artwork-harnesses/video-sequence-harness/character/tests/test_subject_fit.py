@@ -118,7 +118,7 @@ class SubjectFitTests(unittest.TestCase):
             path = root / f"source_{index:03d}.png"
             image.save(path)
             paths.append(path)
-        probe = {"streams": [{"codec_type": "video", "avg_frame_rate": "24/1",
+        probe = {"streams": [{"codec_type": "video", "width": image.width, "height": image.height, "avg_frame_rate": "24/1",
                               "duration_ts": str(len(paths)), "time_base": "1/24"}],
                  "frames": [{"best_effort_timestamp_time": str(Fraction(i, 24))} for i in range(len(paths))]}
         return raw, paths, probe

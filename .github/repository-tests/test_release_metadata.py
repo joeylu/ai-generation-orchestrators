@@ -80,6 +80,7 @@ version = \"9.9.9\"
             )
             with zipfile.ZipFile(archive_path) as archive:
                 expected = {f"{SKILL_NAME}/{name}" for name in (*SKILL_FILES, "LICENSE")}
+                self.assertIn(f"{SKILL_NAME}/docs/offline-processing-contracts.md", archive.namelist())
                 self.assertEqual(set(archive.namelist()), expected)
                 for info in archive.infolist():
                     self.assertEqual(info.date_time, (1980, 1, 1, 0, 0, 0))

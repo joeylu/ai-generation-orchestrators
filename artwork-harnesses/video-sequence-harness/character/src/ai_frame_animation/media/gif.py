@@ -26,21 +26,26 @@ def binary_transparency_frame(source: Image.Image) -> Image.Image:
     return paletted
 
 
-def export_preview_gif(*, images: Sequence[Image.Image], out_gif: Path, fps: float | Fraction) -> None:
+def gif_frame_durations(frame_count: int, fps: float | Fraction) -> list[int]:
     try:
         rate = Fraction(str(fps))
-    except (ValueError, ZeroDivisionError):
+    except (ValueError, ZeroDivisionError, TypeError):
         raise PreviewGifError("preview_inputs_invalid") from None
-    if not images or rate <= 0:
+    if isinstance(frame_count, bool) or not isinstance(frame_count, int) or frame_count < 1 or rate <= 0:
         raise PreviewGifError("preview_inputs_invalid")
-    if len({image.size for image in images}) != 1:
-        raise PreviewGifError("preview_frame_dimensions_invalid")
     # GIF stores centiseconds. Round cumulative boundaries, not each frame's
     # duration, so fractional FPS cannot accumulate a shortened/lengthened loop.
-    boundaries = [round(Fraction(index * 100, 1) / rate) for index in range(len(images) + 1)]
+    boundaries = [round(Fraction(index * 100, 1) / rate) for index in range(frame_count + 1)]
     durations = [(end - start) * 10 for start, end in zip(boundaries, boundaries[1:])]
     if any(duration < 10 or duration > 655350 for duration in durations):
         raise PreviewGifError("preview_timing_not_representable")
+    return durations
+
+
+def export_preview_gif(*, images: Sequence[Image.Image], out_gif: Path, fps: float | Fraction) -> None:
+    durations = gif_frame_durations(len(images), fps)
+    if len({image.size for image in images}) != 1:
+        raise PreviewGifError("preview_frame_dimensions_invalid")
     frames = [binary_transparency_frame(image) for image in images]
     out_gif.parent.mkdir(parents=True, exist_ok=True)
     frames[0].save(

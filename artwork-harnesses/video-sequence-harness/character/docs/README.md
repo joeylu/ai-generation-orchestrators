@@ -28,6 +28,7 @@ validated transparent 2D sequence-frame delivery.
 ## Maintainers
 
 - [Architecture](architecture.md)
+- [Alpha, timelines, offline resume and provider capabilities](offline-processing-contracts.md)
 - [Agent intent and deterministic compiler](intent-and-compiler.md)
 - [Immutable release consumption](release-consumption.md)
 - [Security policy](../../../../.github/SECURITY.md)

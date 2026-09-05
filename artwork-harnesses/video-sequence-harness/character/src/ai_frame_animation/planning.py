@@ -90,9 +90,14 @@ def validate_plan_contract(plan: Mapping[str, Any]) -> None:
         if not isinstance(preparation.get("sha256"), str) or not SHA256_RE.fullmatch(preparation["sha256"]):
             raise ValueError("plan_reference_preparation_digest_invalid")
     _reject_unknown(motion, {"request", "continuity"}, "plan.motion")
-    _reject_unknown(delivery, {"atlas_profiles", "size", "quality", "gif", "key_color"}, "plan.delivery")
+    _reject_unknown(delivery, {"atlas_profiles", "size", "quality", "gif", "key_color", "alpha_mode"}, "plan.delivery")
+    if delivery.get("alpha_mode", "auto") not in {"auto", "native"}:
+        raise ValueError("plan_alpha_mode_invalid")
     _reject_unknown(generation, {"prompt", "key_analysis", "intent_compilation"}, "plan.generation")
-    _reject_unknown(provider, {"plugin", "binding"}, "plan.provider")
+    _reject_unknown(provider, {"plugin", "binding", "capabilities"}, "plan.provider")
+    if "capabilities" in provider:
+        from .providers.capabilities import validate_capabilities_for_plan
+        validate_capabilities_for_plan(provider["capabilities"], plan)
     _text(character.get("reference"), "plan.character.reference")
     if not isinstance(character.get("description"), str):
         raise ValueError("plan_character_description_invalid")
@@ -199,6 +204,7 @@ def compile_plan(
     *,
     prepared_reference: str | Path | None = None,
     provider_binding: Mapping[str, Any] | None = None,
+    provider_capabilities: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     allowed = {"schema_version", "job_id", "character", "motion", "delivery", "provider", "intent_compilation"}
     unknown = sorted(set(job) - allowed)
@@ -213,7 +219,7 @@ def compile_plan(
     provider = _mapping(job.get("provider"), "provider")
     _reject_unknown(character, {"reference", "description"}, "character")
     _reject_unknown(motion, {"request", "continuity"}, "motion")
-    _reject_unknown(delivery, {"atlas_profiles", "frame_counts", "size", "quality", "gif", "key_color"}, "delivery")
+    _reject_unknown(delivery, {"atlas_profiles", "frame_counts", "size", "quality", "gif", "key_color", "alpha_mode"}, "delivery")
     _reject_unknown(provider, {"plugin"}, "provider")
     reference = rooted_path(root, _text(character.get("reference"), "character.reference"), must_exist=True)
     if reference.is_symlink() or not reference.is_file():
@@ -320,6 +326,11 @@ def compile_plan(
     }
     if provider_binding is not None:
         plan["provider"]["binding"] = dict(provider_binding)
+    if provider_capabilities is not None:
+        from copy import deepcopy
+        plan["provider"]["capabilities"] = deepcopy(dict(provider_capabilities))
+    if "alpha_mode" in delivery:
+        plan["delivery"]["alpha_mode"] = delivery["alpha_mode"]
     if preparation_binding is not None:
         plan["character"]["reference_preparation"] = preparation_binding
     if intent_compilation is not None:

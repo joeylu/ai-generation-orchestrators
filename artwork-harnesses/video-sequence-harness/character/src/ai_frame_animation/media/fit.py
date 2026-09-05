@@ -5,16 +5,18 @@ from __future__ import annotations
 import math
 import statistics
 from typing import Sequence
+from pathlib import Path
 
 from PIL import Image
 
 from .align import frame_anchor
 from .spill import zero_transparent_rgb
+from .frames import DiskFrames, check_pixel_budget
 
 
 def fit_subject_sequence(
-    images: Sequence[Image.Image], *, size: int, margin_fraction: float = 0.08,
-) -> tuple[list[Image.Image], dict, dict]:
+    images: Sequence[Image.Image], *, size: int, margin_fraction: float = 0.08, destination: Path | None = None,
+) -> tuple[Sequence[Image.Image], dict, dict]:
     """Align at source resolution, then crop/resize every frame identically.
 
     Call with ALL source frames in the semantic interval, before selecting any
@@ -29,7 +31,10 @@ def fit_subject_sequence(
         raise ValueError("subject_fit_size_invalid")
     if not math.isfinite(margin_fraction) or not 0 < margin_fraction < 0.4:
         raise ValueError("subject_fit_margin_invalid")
-    source = [image.convert("RGBA") for image in images]
+    source = images
+    check_pixel_budget(size, size, len(source))
+    if destination is not None:
+        destination.mkdir(parents=True, exist_ok=False)
     anchors = [frame_anchor(image, anchor_kind="contact_baseline") for image in source]
     target = tuple(statistics.median(anchor[axis] for anchor in anchors) for axis in (0, 1))
     shifts = [(round(target[0] - x), round(target[1] - y)) for x, y in anchors]
@@ -68,7 +73,12 @@ def fit_subject_sequence(
             raise ValueError("subject_fit_empty_output")
         if bbox[0] < margin or bbox[1] < margin or bbox[2] > size - margin or bbox[3] > size - margin:
             raise ValueError("subject_fit_margin_not_preserved")
-        fitted.append(canvas)
+        if destination is None:
+            fitted.append(canvas)
+        else:
+            path = destination / f"{index}.png"
+            canvas.save(path, format="PNG", compress_level=1)
+            fitted.append(path)
         records.append({"index": index, "source_anchor": [round(v, 3) for v in anchor],
                         "target_anchor": [round(v, 3) for v in target],
                         "translate_px": [dx, dy], "clip_warning": False})
@@ -81,4 +91,4 @@ def fit_subject_sequence(
                  "coordinate_space": "source_pixels_before_shared_fit",
                  "anchor_kind": "contact_baseline", "target_anchor": [round(v, 3) for v in target],
                  "records": records, "warning_codes": []}
-    return fitted, fit, alignment
+    return (DiskFrames(fitted) if destination is not None else fitted), fit, alignment

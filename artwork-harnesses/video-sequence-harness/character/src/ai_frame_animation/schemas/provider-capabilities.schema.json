@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Offline provider capabilities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plugin", "adapter_version", "input_modes", "image_roles", "mime_types", "max_images", "cancellation", "resumable", "idempotent_submission"],
+  "properties": {
+    "schema_version": {"const": "ai_frame_animation_provider_capabilities_v1"},
+    "plugin": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"},
+    "adapter_version": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.+-]{0,63}$"},
+    "input_modes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["references", "frames", "text"]}},
+    "image_roles": {"type": "array", "uniqueItems": true, "items": {"enum": ["reference", "first", "last"]}},
+    "mime_types": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["image/png", "image/jpeg", "image/webp"]}},
+    "max_images": {"type": "integer", "minimum": 1, "maximum": 64},
+    "cancellation": {"enum": ["local_only", "remote"]},
+    "resumable": {"type": "boolean"},
+    "idempotent_submission": {"type": "boolean"}
+  }
+}

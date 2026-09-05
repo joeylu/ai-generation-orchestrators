@@ -266,15 +266,19 @@ def command_plan(args: argparse.Namespace) -> int:
     provider_value = job.get("provider")
     plugin = provider_value.get("plugin") if isinstance(provider_value, Mapping) else None
     provider_binding = None
+    provider_capabilities = None
     provider_config = getattr(args, "provider_config", None)
     if provider_config is not None:
         provider = load_provider(str(plugin), config_path=provider_config.resolve(strict=True), root=root)
         provider_binding = provider.plan_binding()
+        describe = getattr(provider, "capabilities", None)
+        provider_capabilities = describe() if callable(describe) else None
     plan = compile_plan(
         job,
         root,
         prepared_reference=getattr(args, "prepared_reference", None),
         provider_binding=provider_binding,
+        provider_capabilities=provider_capabilities,
     )
     write_json_atomic(out, plan)
     _print({"status": "planned", "plan_sha256": plan["plan_sha256"], "plan": str(out.relative_to(root))})
@@ -307,6 +311,11 @@ def command_run(args: argparse.Namespace) -> int:
         store.append("GENERATION_NOT_SUBMITTED", {"code": type(exc).__name__})
         raise
     try:
+        from .providers.capabilities import verify_runtime_capabilities
+        try:
+            verify_runtime_capabilities(provider, plan)
+        except Exception as exc:
+            raise GenerationNotSubmitted("provider_capabilities_changed") from exc
         store.append("GENERATING", {"submission": "pending"})
         request_id = provider.submit_once(plan, submission_token)
         store.append("SUBMITTED", {"request_id_recorded": True})
@@ -336,6 +345,9 @@ def command_process(args: argparse.Namespace) -> int:
     raw = rooted_path(root, args.raw_video, must_exist=True)
     out = rooted_path(root, args.out_dir, must_exist=False)
     decoded_handoff_path = getattr(args, "decoded_handoff", None)
+    checkpoint_root = getattr(args, "checkpoint_dir", None)
+    if checkpoint_root is not None and not decoded_handoff_path:
+        raise ValueError("checkpoint_requires_verified_handoff")
     if decoded_handoff_path and (args.decoded_dir or args.probe_json):
         raise ValueError("decoded_handoff_conflicts_with_fixture_inputs")
     if bool(args.decoded_dir) != bool(args.probe_json):
@@ -350,6 +362,7 @@ def command_process(args: argparse.Namespace) -> int:
             handoff=handoff,
             out_dir=out,
             key_color=str(plan["delivery"]["key_color"]),
+            checkpoint_root=(root / checkpoint_root) if checkpoint_root is not None else None,
         )
         validation = validate_delivery(out, policy=str(plan["delivery"]["quality"]), workspace_root=root)
         _print({"status": validation["status"], "delivery": str(out.relative_to(root)), "manifest": delivery, "validation": validation})
@@ -515,6 +528,7 @@ def build_parser() -> argparse.ArgumentParser:
     process.add_argument("--ffmpeg", help="explicit executable path or command name")
     process.add_argument("--ffprobe", help="explicit executable path or command name")
     process.add_argument("--decoded-handoff", type=Path, help="verified provider-neutral predecoded source contract")
+    process.add_argument("--checkpoint-dir", type=Path, help="workspace-local verified frame cache; requires --decoded-handoff")
     process.add_argument("--decoded-dir", type=Path, help="offline/predecoded frame directory")
     process.add_argument("--probe-json", type=Path, help="offline ffprobe-compatible fixture")
     process.set_defaults(handler=command_process)

@@ -20,6 +20,7 @@ SKILL_ROOT = Path("artwork-harnesses/video-sequence-harness/character")
 SKILL_FILES = (
     "SKILL.md",
     "agents/openai.yaml",
+    "docs/offline-processing-contracts.md",
     "references/reference-preparation-handoff.md",
     "references/video-runtime-adapter-protocol.md",
     "references/video-state-machine.md",
@@ -44,6 +45,7 @@ VIDEO_SDIST_SUPPORT_FILES = (
     *(f"docs/{name}" for name in (
         "README.md", "installation.md", "agent-setup.md", "cli-and-agent-flow.md",
         "release-consumption.md", "architecture.md", "intent-and-compiler.md", "quality-policies.md",
+        "offline-processing-contracts.md",
     )),
     *(f"examples/{name}" for name in ("README.md", "job.example.json", "minimax-h3.config.example.json")),
     *(f"tests/{name}" for name in (
@@ -53,11 +55,13 @@ VIDEO_SDIST_SUPPORT_FILES = (
         "test_process_delivery.py", "test_provider_attempts.py", "test_schemas.py",
         "test_reference_preparation_handoff.py", "test_subject_fit.py", "test_video_hole_integration.py",
         "test_delivery_comparison.py",
+        "test_runtime_feedback.py", "test_offline_resume.py", "test_alpha_source_contract.py", "test_provider_capabilities.py",
     )),
     *(f"tests/fixtures/golden/{name}" for name in (
         "README.md", "input-delivery-cases.json", "matte-cases.json",
         "moving-hole-cases.json", "sequence-matte-cases.json", "subject-fit-cases.json",
         "timeline-atlas-cases.json",
+        "runtime-feedback-cases.json",
     )),
 )
 BACKGROUND_SDIST_SUPPORT_FILES = (

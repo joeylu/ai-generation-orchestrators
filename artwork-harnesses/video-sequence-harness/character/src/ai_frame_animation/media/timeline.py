@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fractions import Fraction
+from bisect import bisect_right
 from typing import Any, Mapping, Sequence
 
 
@@ -43,7 +44,8 @@ def choose_uniform_indices(source_count: int, frame_count: int, *, continuity: s
     raise ValueError("continuity_must_be_loop_or_one_shot")
 
 
-def choose_atlas_indices(start: int, end_exclusive: int, capacity: int, *, continuity: str) -> list[int]:
+def choose_atlas_indices(start: int, end_exclusive: int, capacity: int, *, continuity: str,
+                         timestamps: Sequence[Fraction] | None = None) -> list[int]:
     """Keep every native frame when it fits; otherwise sample without duplication."""
 
     if start < 0 or end_exclusive <= start:
@@ -51,8 +53,32 @@ def choose_atlas_indices(start: int, end_exclusive: int, capacity: int, *, conti
     if capacity not in ATLAS_CAPACITIES.values():
         raise ValueError("atlas_capacity_invalid")
     native_count = end_exclusive - start
+    if continuity not in {"loop", "one_shot"}:
+        raise ValueError("continuity_must_be_loop_or_one_shot")
+    if timestamps is not None:
+        if len(timestamps) < end_exclusive or any(b <= a for a, b in zip(timestamps, timestamps[1:])):
+            raise ValueError("source_timestamps_invalid")
     if native_count <= capacity:
         return list(range(start, end_exclusive))
+    if timestamps is not None:
+        pts = timestamps[start:end_exclusive]
+        span = pts[-1] - pts[0]
+        # Preserve existing CFR rounding, including ffprobe microsecond precision.
+        cfr = all(abs(value - (pts[0] + span * i / (native_count - 1))) <= Fraction(1, 100000)
+                  for i, value in enumerate(pts))
+        if not cfr:
+            end_time = timestamps[end_exclusive] if continuity == "loop" and end_exclusive < len(timestamps) else pts[-1]
+            selected = []
+            for i in range(capacity):
+                target = pts[0] + (end_time - pts[0]) * i / (capacity if continuity == "loop" else capacity - 1)
+                candidate = max(0, bisect_right(pts, target) - 1)
+                if continuity == "one_shot" and candidate + 1 < native_count and pts[candidate + 1] - target < target - pts[candidate]:
+                    candidate += 1
+                # Reserve a distinct native frame for every remaining sample.
+                lower = selected[-1] - start + 1 if selected else 0
+                candidate = min(max(candidate, lower), native_count - (capacity - i))
+                selected.append(start + candidate)
+            return selected
     if continuity == "loop":
         return [start + (index * native_count) // capacity for index in range(capacity)]
     if continuity == "one_shot":
@@ -102,6 +128,31 @@ def _duration(payload: Mapping[str, Any], stream: Mapping[str, Any], frame_count
     return Fraction(frame_count, 1) / fps
 
 
+def frame_time(row: Mapping[str, Any], stream: Mapping[str, Any], fields: Sequence[str]) -> Fraction | None:
+    """Prefer integer ticks; decimal ffprobe fields are only rounded evidence."""
+    exact = []
+    decimal = []
+    for field in fields:
+        value = row.get(field)
+        if value not in (None, "N/A"):
+            if isinstance(value, bool) or not str(value).lstrip("-").isdigit():
+                raise ValueError("probe_frame_ticks_invalid")
+            exact.append(int(value) * as_fraction(stream.get("time_base"), "probe_time_base"))
+        value = row.get(field + "_time")
+        if value not in (None, "N/A"):
+            if isinstance(value, bool):
+                raise ValueError("probe_frame_time_invalid")
+            try:
+                decimal.append(Fraction(str(value)))
+            except (ValueError, ZeroDivisionError) as exc:
+                raise ValueError("probe_frame_time_invalid") from exc
+    if exact:
+        if any(value != exact[0] for value in exact) or any(abs(value - exact[0]) > Fraction(1, 2000000) for value in decimal):
+            raise ValueError("probe_frame_time_evidence_mismatch")
+        return exact[0]
+    return decimal[0] if decimal else None
+
+
 def _pts(payload: Mapping[str, Any]) -> list[Fraction]:
     rows = payload.get("frames")
     if not isinstance(rows, list):
@@ -110,12 +161,11 @@ def _pts(payload: Mapping[str, Any]) -> list[Fraction]:
     for row in rows:
         if not isinstance(row, Mapping):
             return []
-        value = row.get("best_effort_timestamp_time", row.get("pts_time"))
-        if value in (None, "N/A"):
-            return []
         try:
-            current = Fraction(str(value))
-        except (ValueError, ZeroDivisionError):
+            current = frame_time(row, _stream(payload), ("best_effort_timestamp", "pts"))
+        except ValueError as exc:
+            raise ValueError("probe_frame_timestamps_invalid") from exc
+        if current is None:
             return []
         if result and current <= result[-1]:
             return []
@@ -123,18 +173,60 @@ def _pts(payload: Mapping[str, Any]) -> list[Fraction]:
     return result
 
 
+def _observed_duration(payload: Mapping[str, Any], stream: Mapping[str, Any], pts: Sequence[Fraction], fps: Fraction) -> Fraction:
+    durations = []
+    for row in payload["frames"]:
+        try:
+            value = frame_time(row, stream, ("duration", "pkt_duration"))
+        except ValueError as exc:
+            raise ValueError("probe_frame_duration_invalid") from exc
+        if value is not None and value < 0:
+            raise ValueError("probe_frame_duration_invalid")
+        durations.append(value or None)
+    span = pts[-1] - pts[0]
+    if durations[-1] is not None:
+        return span + durations[-1]
+    intervals = sorted(b - a for a, b in zip(pts, pts[1:]))
+    median = intervals[len(intervals) // 2] if intervals else 1 / fps
+    candidates = []
+    if stream.get("duration_ts") not in (None, "N/A") and stream.get("time_base") not in (None, "N/A"):
+        try:
+            candidates.append(Fraction(str(stream["duration_ts"])) * Fraction(str(stream["time_base"])))
+        except (ValueError, ZeroDivisionError):
+            pass
+    candidates.append(stream.get("duration"))
+    if isinstance(payload.get("format"), Mapping):
+        candidates.append(payload["format"].get("duration"))
+    for value in candidates:
+        try:
+            candidate = as_fraction(value, "probe_duration")
+        except ValueError:
+            continue
+        if span < candidate <= span + max(Fraction(1), 4 * median):
+            return candidate
+    return span + median
+
+
 def build_source_timeline(payload: Mapping[str, Any], *, decoded_frame_count: int, continuity: str) -> dict[str, Any]:
     if decoded_frame_count < 1:
         raise ValueError("decoded_frame_count_invalid")
     stream = _stream(payload)
-    fps = _fps(stream)
-    raw_duration = _duration(payload, stream, decoded_frame_count, fps)
     pts = _pts(payload)
+    if "frames" in payload and len(pts) != decoded_frame_count:
+        raise ValueError("probe_frame_timestamps_invalid")
+    try:
+        fps = _fps(stream)
+    except ValueError:
+        if len(pts) < 2:
+            raise
+        fps = Fraction(len(pts) - 1, 1) / (pts[-1] - pts[0])
+    raw_duration = _duration(payload, stream, decoded_frame_count, fps)
     if len(pts) != decoded_frame_count:
         pts = [Fraction(index, 1) / fps for index in range(decoded_frame_count)]
         pts_source = "derived_from_rational_fps"
     else:
         pts_source = "ffprobe_frame_timestamps"
+        raw_duration = _observed_duration(payload, stream, pts, fps)
     if continuity == "loop" and decoded_frame_count > 1:
         semantic_duration = pts[-1] - pts[0]
         terminal_policy = "half_open_exclude_terminal"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import uuid
 import zipfile
@@ -11,9 +12,13 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from PIL import Image
+from PIL import __version__ as PILLOW_VERSION
+from numpy import __version__ as NUMPY_VERSION
 
 from . import __version__
-from .canonical import fingerprint, relative_posix, rooted_path, safe_error_code, stamp_document, write_json_atomic
+from .canonical import canonical_sha256, fingerprint, relative_posix, rooted_path, safe_error_code, stamp_document, write_json_atomic
+from .checkpoints import FrameCheckpoints, reject_links
+from .media.frames import DiskFrames, check_pixel_budget
 from .handoff import DecodedHandoff
 from .media.fit import fit_subject_sequence
 from .media.cycle import select_semantic_interval
@@ -76,16 +81,20 @@ def probe_video(raw_video: Path, ffprobe: str = "ffprobe") -> dict[str, Any]:
     return payload
 
 
-def decode_video_once(raw_video: Path, destination: Path, ffmpeg: str = "ffmpeg") -> list[Path]:
+def decode_video_once(raw_video: Path, destination: Path, ffmpeg: str = "ffmpeg", *, decoder: str | None = None) -> list[Path]:
     destination.mkdir(parents=True, exist_ok=False)
     command = [
         ffmpeg,
+        "-nostdin",
         "-v",
         "error",
+        *(["-c:v", decoder] if decoder else []),
         "-i",
         str(raw_video),
         "-vsync",
         "0",
+        "-pix_fmt",
+        "rgba",
         str(destination / "source_%06d.png"),
     ]
     result = subprocess.run(command, check=False, capture_output=True, text=True)
@@ -101,16 +110,8 @@ def _artifact(root: Path, path: Path, media_type: str) -> dict[str, Any]:
     return {"path": relative_posix(root, path), **fingerprint(path, media_type=media_type)}
 
 
-def _open_sources(paths: Sequence[Path]) -> list[Image.Image]:
-    images: list[Image.Image] = []
-    for path in paths:
-        if path.is_symlink() or not path.is_file():
-            raise ValueError("decoded_frame_invalid")
-        with Image.open(path) as source:
-            images.append(source.convert("RGBA"))
-    if len({image.size for image in images}) != 1:
-        raise ValueError("decoded_frame_dimensions_differ")
-    return images
+def _open_sources(paths: Sequence[Path]) -> DiskFrames:
+    return DiskFrames(paths)
 
 
 def _rgba_frame(
@@ -145,7 +146,12 @@ def _rgba_frame(
             color_space="rgb",
         )
         matte_evidence = {"calibration": calibration_detail, **matte_detail}
-    cleaned, spill = cleanup_key_spill(rgba, key_color=observed_key)
+    if alpha_min < 255:
+        cleaned = rgba
+        zeroed = zero_transparent_rgb(cleaned)
+        spill = {"skipped": True, "reason": "native_alpha", "zeroed_pixels": zeroed}
+    else:
+        cleaned, spill = cleanup_key_spill(rgba, key_color=observed_key)
     if alpha_min == 255:
         cleaned, aggressive = aggressive_color_key_cleanup(
             cleaned,
@@ -337,6 +343,9 @@ def _process_from_decoded_into(
     out_dir: Path,
     key_color: str,
     decoded_handoff_sha256: str | None,
+    scratch: Path,
+    checkpoint_root: Path | None,
+    source_processing: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=False)
     raw = fingerprint(raw_video, media_type="video")
@@ -352,7 +361,18 @@ def _process_from_decoded_into(
     interval_end = int(semantic_interval["end_frame_exclusive_zero_based"])
     declared_key = parse_hex_color(key_color)
     eligible_sources = source_images[interval_start:interval_end]
-    opaque_sources = [image for image in eligible_sources if image.getchannel("A").getextrema()[0] == 255]
+    alpha_mode = delivery.get("alpha_mode", "auto")
+    if alpha_mode not in {"auto", "native"}:
+        raise ValueError("plan_alpha_mode_invalid")
+    if source_processing is not None and alpha_mode != "native":
+        raise ValueError("foreground_source_requires_native_alpha_plan")
+    if alpha_mode == "native":
+        for image in source_images:
+            if image.getchannel("A").getextrema()[0] == 255:
+                raise ValueError("native_alpha_missing")
+    opaque_paths = [path for path, image in zip(eligible_sources.paths, eligible_sources)
+                    if image.getchannel("A").getextrema()[0] == 255]
+    opaque_sources = DiskFrames(opaque_paths) if opaque_paths else []
     background_analysis = (
         analyze_sequence_background(opaque_sources, declared_key=declared_key)
         if opaque_sources
@@ -384,20 +404,32 @@ def _process_from_decoded_into(
         and key_analysis.get("selected_safe") is True
         and str(key_analysis.get("selected", "")).upper() == key_color.upper()
     )
-    prepared = [
-        _rgba_frame(
-            image,
-            declared_key,
-            calibration=calibration,
-            key_palette=key_palette,
-            key_family_safe=key_family_safe,
-        )
-        for image, calibration in zip(eligible_sources, calibrations)
-    ]
+    cache = None
+    if checkpoint_root is not None:
+        package = Path(__file__).parent
+        implementation = {p.relative_to(package).as_posix(): fingerprint(p)["sha256"]
+                          for p in sorted(package.rglob("*.py"))}
+        cache = FrameCheckpoints(checkpoint_root, canonical_sha256({
+            "raw": raw["sha256"], "plan": dict(plan), "handoff": decoded_handoff_sha256,
+            "probe": dict(probe_payload), "version": __version__, "implementation": implementation,
+            "dependencies": {"pillow": PILLOW_VERSION, "numpy": NUMPY_VERSION, "python": list(sys.version_info[:3])},
+            "key": key_color, "frames": [fingerprint(p) for p in decoded_paths],
+        }))
+    prepared_paths, source_evidence = [], []
+    for index, (image, calibration) in enumerate(zip(eligible_sources, calibrations)):
+        result = cache.load(index, image.size) if cache else None
+        if result is None:
+            result = _rgba_frame(image, declared_key, calibration=calibration,
+                                 key_palette=key_palette, key_family_safe=key_family_safe)
+            if cache:
+                cache.save(index, *result)
+        path = scratch / f"prepared-{index}.png"
+        result[0].save(path, format="PNG", compress_level=1)
+        prepared_paths.append(path)
+        source_evidence.append(result[1])
     fitted_sources, subject_fit, source_alignment = fit_subject_sequence(
-        [item[0] for item in prepared], size=int(delivery["size"]),
+        DiskFrames(prepared_paths), size=int(delivery["size"]), destination=scratch / "fitted",
     )
-    source_evidence = [item[1] for item in prepared]
     variants: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     for atlas_profile in _atlas_profiles(delivery):
@@ -406,7 +438,8 @@ def _process_from_decoded_into(
         final_variant_root = out_dir / f"atlas-{atlas_profile}"
         staged_variant_root = out_dir / f".atlas-{atlas_profile}.processing"
         try:
-            indices = choose_atlas_indices(interval_start, interval_end, capacity, continuity=continuity)
+            indices = choose_atlas_indices(interval_start, interval_end, capacity, continuity=continuity,
+                timestamps=[Fraction(item["numerator"], item["denominator"]) for item in source_timeline["frame_timestamps_seconds"]])
             local_indices = [index - interval_start for index in indices]
             frame_count = len(indices)
             timeline = build_variant_timeline(
@@ -462,6 +495,7 @@ def _process_from_decoded_into(
         "gif_requested": bool(delivery["gif"]),
         "variants": variants,
         "failures": failures,
+        **({"source_processing": dict(source_processing)} if source_processing is not None else {}),
     }, "manifest_sha256")
     manifest_path = out_dir / "delivery-manifest.json"
     write_json_atomic(manifest_path, family)
@@ -479,25 +513,32 @@ def process_from_decoded(
     out_dir: Path,
     key_color: str,
     decoded_handoff_sha256: str | None = None,
+    checkpoint_root: Path | None = None,
+    source_processing: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a complete delivery in a sibling staging directory, then publish it."""
 
+    if checkpoint_root is not None:
+        if not decoded_handoff_sha256:
+            raise ValueError("checkpoint_requires_verified_handoff")
+        reject_links(checkpoint_root)
+        checkpoint_root = rooted_path(root, checkpoint_root, must_exist=False)
+        if checkpoint_root == out_dir or checkpoint_root in out_dir.parents or out_dir in checkpoint_root.parents:
+            raise ValueError("checkpoint_overlaps_delivery")
     if out_dir.exists():
         if out_dir.is_symlink() or not out_dir.is_dir() or any(out_dir.iterdir()):
             raise ValueError("output_directory_not_empty")
         out_dir.rmdir()
     staged = out_dir.with_name(f".{out_dir.name}.{uuid.uuid4().hex}.processing")
     try:
-        family = _process_from_decoded_into(
-            root=root,
-            plan=plan,
-            raw_video=raw_video,
-            decoded_paths=decoded_paths,
-            probe_payload=probe_payload,
-            out_dir=staged,
-            key_color=key_color,
-            decoded_handoff_sha256=decoded_handoff_sha256,
-        )
+        with tempfile.TemporaryDirectory(prefix="ai-frame-animation-frames-") as temporary:
+            family = _process_from_decoded_into(
+                root=root, plan=plan, raw_video=raw_video, decoded_paths=decoded_paths,
+                probe_payload=probe_payload, out_dir=staged, key_color=key_color,
+                decoded_handoff_sha256=decoded_handoff_sha256, scratch=Path(temporary),
+                checkpoint_root=checkpoint_root,
+                source_processing=source_processing,
+            )
         # Do not publish a directory/ZIP until the selected policy has passed.
         from .validation import validate_delivery
 
@@ -517,6 +558,7 @@ def process_decoded_handoff(
     handoff: DecodedHandoff,
     out_dir: Path,
     key_color: str,
+    checkpoint_root: Path | None = None,
 ) -> dict[str, Any]:
     """Process a verified external probe/decode exactly once for the whole requested family."""
 
@@ -525,10 +567,12 @@ def process_decoded_handoff(
         plan=plan,
         raw_video=handoff.raw_video,
         decoded_paths=handoff.decoded_paths,
-        probe_payload=handoff.probe_payload,
+        probe_payload=handoff.source_probe_payload if handoff.source_probe_payload is not None else handoff.probe_payload,
         out_dir=out_dir,
         key_color=key_color,
         decoded_handoff_sha256=handoff.sha256,
+        checkpoint_root=checkpoint_root,
+        source_processing=handoff.source_processing,
     )
 
 
@@ -561,8 +605,13 @@ def process_video(
             key_color=key_color,
         )
     payload = probe_video(raw_video, ffprobe=ffprobe)
+    streams = payload.get("streams", [])
+    stream = next((item for item in streams if item.get("codec_type", "video") == "video"), {})
+    check_pixel_budget(stream.get("width"), stream.get("height"), len(payload.get("frames", [])))
+    build_source_timeline(payload, decoded_frame_count=len(payload["frames"]), continuity=str(plan["motion"]["continuity"]))
     with tempfile.TemporaryDirectory(prefix="ai-frame-animation-decode-") as temporary:
-        paths = decode_video_once(raw_video, Path(temporary) / "decoded", ffmpeg=ffmpeg)
+        decode_options = {"decoder": "libvpx-vp9"} if plan["delivery"].get("alpha_mode") == "native" and stream.get("codec_name") == "vp9" else {}
+        paths = decode_video_once(raw_video, Path(temporary) / "decoded", ffmpeg=ffmpeg, **decode_options)
         return process_from_decoded(
             root=root,
             plan=plan,

@@ -109,6 +109,15 @@ class MiniMaxH3Provider:
             },
         }
 
+    def capabilities(self) -> Mapping[str, Any]:
+        return {
+            "schema_version": "ai_frame_animation_provider_capabilities_v1",
+            "plugin": "minimax_h3", "adapter_version": "1",
+            "input_modes": ["references"], "image_roles": ["reference"],
+            "mime_types": ["image/png"], "max_images": 1,
+            "cancellation": "local_only", "resumable": False, "idempotent_submission": False,
+        }
+
     def doctor(self) -> Mapping[str, Any]:
         workflow = self._workflow_path()
         workflow_valid = False

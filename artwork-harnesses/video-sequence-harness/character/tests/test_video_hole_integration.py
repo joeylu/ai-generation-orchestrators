@@ -144,7 +144,7 @@ class VideoHoleIntegrationTests(unittest.TestCase):
             paths.append(path)
             labels.append({**annotation, "observed_key_rgb": list(parse_hex_color(colour))})
         fps = Fraction(CASE["raw_fps"])
-        probe = {"streams": [{"codec_type": "video", "avg_frame_rate": str(fps),
+        probe = {"streams": [{"codec_type": "video", "width": subject.width, "height": subject.height, "avg_frame_rate": str(fps),
                               "duration_ts": str(len(paths)), "time_base": str(1 / fps)}],
                  "frames": [{"best_effort_timestamp_time": str(index / fps)} for index in range(len(paths))]}
         return paths, probe, labels
@@ -292,7 +292,7 @@ class GifTimelineRegressionTests(unittest.TestCase):
                     elapsed += frame.info["duration"]
                     # An independent rational oracle checks every boundary.
                     self.assertLessEqual(abs(elapsed - index * 1000 / rate), 5)
-            _validate_gif(path, len(frames), rate)
+            _validate_gif(path, len(frames), rate, expected_images=frames)
 
     def test_coalesced_identical_frames_keep_total_duration(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -306,7 +306,7 @@ class GifTimelineRegressionTests(unittest.TestCase):
                         self.assertEqual(gif.n_frames, 64 // group_size)
                         elapsed = sum(frame.info["duration"] for frame in ImageSequence.Iterator(gif))
                     self.assertLessEqual(abs(elapsed - 64000 / rate), 5)
-                    _validate_gif(path, len(frames), rate)
+                    _validate_gif(path, len(frames), rate, expected_images=frames)
 
     def test_validator_rejects_accumulated_truncation_and_unrepresentable_export(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -315,7 +315,7 @@ class GifTimelineRegressionTests(unittest.TestCase):
             # Emulate the old 29.97-FPS export's 30-ms encoded frame duration.
             export_preview_gif(images=frames, out_gif=path, fps=Fraction(100, 3))
             with self.assertRaisesRegex(ValueError, "gif_duration_invalid"):
-                _validate_gif(path, len(frames), Fraction(CASE["raw_fps"]))
+                _validate_gif(path, len(frames), Fraction(CASE["raw_fps"]), expected_images=frames)
             impossible = Path(temporary) / "impossible.gif"
             with self.assertRaisesRegex(PreviewGifError, "preview_timing_not_representable"):
                 export_preview_gif(images=frames, out_gif=impossible, fps=120)

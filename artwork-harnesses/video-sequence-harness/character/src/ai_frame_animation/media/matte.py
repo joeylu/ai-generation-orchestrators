@@ -302,12 +302,9 @@ def analyze_sequence_background(
 ) -> dict:
     """Classify an opaque sequence without assuming one colour for all frames."""
 
-    frames = list(images)
-    if not frames:
-        raise ValueError("background_sequence_empty")
     records = []
     dominance = _key_dominance(declared_key) if declared_key is not None else None
-    for image in frames:
+    for image in images:
         pixels = border_pixels(image, width=4)
         if not pixels:
             raise ValueError("background_border_empty")
@@ -324,6 +321,8 @@ def analyze_sequence_background(
             )
             record["key_family_ratio"] = round(family_count / len(pixels), 6)
         records.append(record)
+    if not records:
+        raise ValueError("background_sequence_empty")
     clip_key = tuple(round(statistics.median(record["observed_key_rgb"][channel] for record in records)) for channel in range(3))
     maximum_drift = max(colour_distance(tuple(record["observed_key_rgb"]), clip_key, "rgb") for record in records)
     spatially_complex = sum(record["border_p95"] > 28.0 or record["border_p99"] > 42.0 for record in records)

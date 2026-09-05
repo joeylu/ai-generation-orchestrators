@@ -6,8 +6,29 @@
   "additionalProperties": false,
   "required": ["schema_version", "raw_source", "probe", "decode", "handoff_sha256"],
   "properties": {
-    "schema_version": {"const": "ai_frame_animation_decoded_handoff_v1"},
+    "schema_version": {"enum": ["ai_frame_animation_decoded_handoff_v1", "ai_frame_animation_decoded_handoff_v2"]},
     "handoff_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "foreground_source": {"$ref": "#/$defs/videoArtifact"},
+    "source_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_count",
+        "artifact",
+        "tool"
+      ],
+      "properties": {
+        "operation_count": {
+          "const": 1
+        },
+        "artifact": {
+          "$ref": "#/$defs/jsonArtifact"
+        },
+        "tool": {
+          "$ref": "#/$defs/toolEvidence"
+        }
+      }
+    },
     "raw_source": {"$ref": "#/$defs/videoArtifact"},
     "probe": {
       "type": "object",
@@ -46,6 +67,39 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "ai_frame_animation_decoded_handoff_v2"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "foreground_source",
+          "source_probe"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "foreground_source"
+              ]
+            },
+            {
+              "required": [
+                "source_probe"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
   "$defs": {
     "relativePath": {
       "type": "string",

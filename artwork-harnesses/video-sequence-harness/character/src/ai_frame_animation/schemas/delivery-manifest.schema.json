@@ -22,6 +22,35 @@
         "media_type": {"const": "video"}
       }
     },
+    "source_processing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "foreground_source",
+        "source_probe",
+        "foreground_probe",
+        "handoff_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ai_frame_animation_alpha_source_v1"
+        },
+        "foreground_source": {
+          "$ref": "#/properties/raw_source"
+        },
+        "source_probe": {
+          "type": "object"
+        },
+        "foreground_probe": {
+          "type": "object"
+        },
+        "handoff_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
     "source_timeline": {
       "type": "object",
       "required": ["schema_version", "decoded_frame_count", "raw_fps", "raw_duration_seconds", "semantic_duration_seconds", "frame_timestamps_seconds", "timestamps_source", "terminal_policy"]

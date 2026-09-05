@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import hashlib
 import zipfile
 from fractions import Fraction
 from pathlib import Path
@@ -12,6 +13,7 @@ from PIL import Image, ImageSequence
 from .canonical import SHA256_RE, load_json, rooted_path, sha256_file, verify_document
 from .media.spritesheet import GRID_BY_PROFILE
 from .media.quality import check_subject_canvas
+from .media.gif import binary_transparency_frame, gif_frame_durations
 from .state import AttemptStore
 
 
@@ -49,7 +51,26 @@ def _validate_rgba(path: Path, expected_size: int, *, margin: int = 0) -> None:
             raise ValueError("transparent_pixel_has_hidden_rgb")
 
 
-def _validate_gif(path: Path, expected_frames: int, playback_fps: Fraction) -> None:
+def _visual_signature(image: Image.Image) -> bytes:
+    rgba = image.convert("RGBA")
+    rgba.paste((0, 0, 0, 0), mask=rgba.getchannel("A").point(lambda value: 255 if value == 0 else 0))
+    return hashlib.sha256(str(rgba.size).encode("ascii") + rgba.tobytes()).digest()
+
+
+def _visual_runs(signatures, durations):
+    runs = []
+    boundary = 0
+    for signature, duration in zip(signatures, durations):
+        boundary += duration
+        if runs and runs[-1][0] == signature:
+            runs[-1] = (signature, boundary)
+        else:
+            runs.append((signature, boundary))
+    return runs
+
+
+def _validate_gif(path: Path, expected_frames: int, playback_fps: Fraction,
+                  *, expected_images: list[Path | Image.Image]) -> None:
     with Image.open(path) as gif:
         frames = []
         durations = []
@@ -58,7 +79,7 @@ def _validate_gif(path: Path, expected_frames: int, playback_fps: Fraction) -> N
             durations.append(int(frame.info.get("duration", gif.info.get("duration", 0))))
     # GIF encoders may losslessly coalesce consecutive identical frames and
     # extend their duration. PNGs remain the authoritative frame inventory.
-    if not frames or expected_frames < 1:
+    if not frames or len(frames) > expected_frames or len(expected_images) != expected_frames:
         raise ValueError("gif_frame_inventory_invalid")
     if any(frame.getchannel("A").getextrema()[0] != 0 for frame in frames):
         raise ValueError("gif_transparency_missing")
@@ -67,6 +88,19 @@ def _validate_gif(path: Path, expected_frames: int, playback_fps: Fraction) -> N
     expected_duration = Fraction(expected_frames * 1000, 1) / playback_fps
     if any(duration <= 0 for duration in durations) or abs(sum(durations) - expected_duration) > 10:
         raise ValueError("gif_duration_invalid")
+    expected_signatures = []
+    for source in expected_images:
+        if isinstance(source, Image.Image):
+            expected_signatures.append(_visual_signature(binary_transparency_frame(source)))
+        else:
+            with Image.open(source) as image:
+                expected_signatures.append(_visual_signature(binary_transparency_frame(image)))
+    expected = _visual_runs(expected_signatures, gif_frame_durations(expected_frames, playback_fps))
+    actual = _visual_runs([_visual_signature(frame) for frame in frames], durations)
+    if [item[0] for item in actual] != [item[0] for item in expected]:
+        raise ValueError("gif_frame_inventory_invalid")
+    if any(left[1] != right[1] for left, right in zip(actual, expected)):
+        raise ValueError("gif_visual_timing_invalid")
 
 
 def _fraction(value: object, field: str) -> Fraction:
@@ -272,7 +306,7 @@ def _validate_variant(
         raise ValueError("variant_source_index_invalid")
     if any(index < interval_start or index >= interval_end for index in indices):
         raise ValueError("variant_source_index_outside_semantic_interval")
-    if any(right < left for left, right in zip(indices, indices[1:])):
+    if any(right <= left for left, right in zip(indices, indices[1:])):
         raise ValueError("variant_source_indices_not_monotonic")
     if terminal_policy == "half_open_exclude_terminal" and interval_end in indices:
         raise ValueError("loop_terminal_was_sampled")
@@ -293,7 +327,7 @@ def _validate_variant(
     if playback_fps * duration != frame_count:
         raise ValueError("variant_playback_timeline_mismatch")
     if isinstance(gif, Mapping):
-        _validate_gif(_verify_artifact(variant_root, gif), frame_count, playback_fps)
+        _validate_gif(_verify_artifact(variant_root, gif), frame_count, playback_fps, expected_images=frame_paths)
     warnings = manifest.get("warnings", [])
     if not isinstance(warnings, list) or any(not isinstance(item, str) for item in warnings):
         raise ValueError("variant_warnings_invalid")
@@ -350,6 +384,23 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
     raw_path = _resolve_under(workspace_root.resolve(strict=True), raw.get("path"))
     if raw.get("bytes") != raw_path.stat().st_size or raw.get("sha256") != sha256_file(raw_path):
         raise ValueError("raw_source_fingerprint_mismatch")
+    source_processing = manifest.get("source_processing")
+    if source_processing is not None:
+        from .handoff import verify_video_timeline_identity
+        from .media.timeline import build_source_timeline
+        if (not isinstance(source_processing, Mapping)
+            or set(source_processing) != {"schema_version", "foreground_source", "source_probe", "foreground_probe", "handoff_sha256"}
+            or source_processing["schema_version"] != "ai_frame_animation_alpha_source_v1"
+            or source_processing["handoff_sha256"] != manifest.get("decode", {}).get("handoff_sha256")):
+            raise ValueError("source_processing_invalid")
+        _verify_artifact(workspace_root, source_processing["foreground_source"])
+        original = load_json(_verify_artifact(workspace_root, source_processing["source_probe"]))
+        foreground = load_json(_verify_artifact(workspace_root, source_processing["foreground_probe"]))
+        verify_video_timeline_identity(original, foreground)
+        continuity = "loop" if manifest["source_timeline"]["terminal_policy"] == "half_open_exclude_terminal" else "one_shot"
+        expected_timeline = build_source_timeline(original, decoded_frame_count=len(original["frames"]), continuity=continuity)
+        if expected_timeline != manifest["source_timeline"]:
+            raise ValueError("source_processing_timeline_mismatch")
     requested = manifest.get("requested_atlas_profiles")
     variants = manifest.get("variants")
     failures = manifest.get("failures")
@@ -438,7 +489,7 @@ def validate_delivery(delivery_root: Path, *, policy: str = "strict", workspace_
     ):
         raise ValueError("semantic_interval_invalid")
     selected_duration = _fraction(semantic_interval.get("duration_seconds"), "semantic_interval_duration")
-    expected_end = source_timestamps[interval_end] if interval_end < source_frame_count else raw_duration
+    expected_end = source_timestamps[interval_end] if interval_end < source_frame_count else source_timestamps[0] + raw_duration
     if selected_duration != expected_end - source_timestamps[interval_start]:
         raise ValueError("semantic_interval_duration_mismatch")
     first_manifest = load_json(_verify_artifact(delivery_root, variants[0]["manifest"]))

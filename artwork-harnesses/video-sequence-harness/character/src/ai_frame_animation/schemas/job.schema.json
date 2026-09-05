@@ -44,6 +44,7 @@
           "items": {"enum": [16, 32, 64]}
         },
         "size": {"enum": [128, 256, 512]},
+        "alpha_mode": {"enum": ["auto", "native"]},
         "quality": {"enum": ["strict", "best_effort"], "default": "strict"},
         "gif": {"type": "boolean", "default": true},
         "key_color": {

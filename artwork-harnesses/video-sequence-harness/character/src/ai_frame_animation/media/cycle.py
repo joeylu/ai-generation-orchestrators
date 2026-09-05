@@ -144,7 +144,7 @@ def select_semantic_interval(
     if end < count:
         end_time = _fraction(timestamps[end])
     else:
-        end_time = _fraction(source_timeline["raw_duration_seconds"])
+        end_time = _fraction(timestamps[0]) + _fraction(source_timeline["raw_duration_seconds"])
     duration = end_time - start_time
     if duration <= 0:
         raise ValueError("semantic_interval_duration_invalid")

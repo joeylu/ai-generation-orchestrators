@@ -28,6 +28,15 @@ The core passes a submission token that is unique to the consumed attempt.
 The adapter must never call `submit_once` from polling, recovery, timeout handling,
 or error reconciliation.
 
+An optional offline `capabilities()` operation returns
+`ai_frame_animation_provider_capabilities_v1`: plugin/adapter identity, supported
+input modes, image roles, MIME types, maximum image count and cancellation/resume/
+idempotency declarations. The core binds this snapshot into the plan and compares
+it again before submission. Capability drift requires replanning. Legacy plugins
+without this method remain compatible; declarations do not authorize retries or
+enable unimplemented CLI input modes. The current CLI still takes one prepared
+reference, even when a plugin describes additional first/last-frame roles.
+
 An adapter may additionally expose `preflight(plan)` for offline, plan-aware input
 checks. `doctor --plan` requires this operation and verifies the plan/reference
 binding before invoking it. No images are written and no network is contacted.
@@ -49,6 +58,29 @@ MiniMax H3 is an optional plugin that supplies this interface from consumer-owne
 configuration. The core contains no bundled private workflow or model binding.
 
 ## Predecoded processing handoff
+
+For an externally produced Alpha video, the optional v2 handoff additionally binds
+`foreground_source` and `source_probe`. `raw_source` remains the original video;
+the existing probe/decode describe the transparent video. Both probes must carry
+dimensions and complete rational timestamps. The core checks equal geometry,
+frame count, relative PTS and duration, requires `delivery.alpha_mode=native`,
+and preserves both video fingerprints in the delivery. It does not invoke the
+external producer. Remote background-removal compute is separately authorized
+and must never be disguised as an offline processing retry.
+
+Keep integer frame `pts`/`best_effort_timestamp` and `duration`/`pkt_duration`
+with stream `time_base` in neutral probe artifacts. Integer evidence permits the
+exact nearest-tick correspondence described in
+`../docs/offline-processing-contracts.md`; decimal-only evidence requires exact
+timeline equality. The delivery always uses the original probe's rational
+timeline, even when the foreground container quantizes its timestamps. Do not
+rewrite probe fields to make them match or substitute the foreground as raw.
+
+`process --checkpoint-dir` is optional and requires a verified decoded handoff.
+The cache contains only completed, content-bound pre-fit frames. Corrupt records
+are recomputed, partial deliveries are never published, and the strict output
+validator runs again after every resume. Cache paths are workspace-local and
+must not overlap the delivery directory.
 
 A deterministic adapter that already owns media probing and decoding may write
 `ai_frame_animation_decoded_handoff_v1` and pass it to `process
