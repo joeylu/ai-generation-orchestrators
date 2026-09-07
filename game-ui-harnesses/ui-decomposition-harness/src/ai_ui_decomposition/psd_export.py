@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import gc
 
 from PIL import Image
 import numpy as np
@@ -20,7 +21,7 @@ def export_psd(delivery: Path) -> dict:
         from psd_tools import PSDImage
         from psd_tools.api.layers import Group, PixelLayer
         from psd_tools.constants import BlendMode
-        from .psd_preview import finalize_preview
+        from .psd_preview import write_preview_record
     except ImportError as exc:
         raise RuntimeError("PSD_OPTIONAL_DEPENDENCY_MISSING") from exc
     draft = scene.get("delivery_policy") == "unreviewed_draft"
@@ -40,11 +41,16 @@ def export_psd(delivery: Path) -> dict:
             pixel.visible = True
             pixel.opacity = 255
             pixel.blend_mode = BlendMode.NORMAL
-    intermediate = delivery / ".sdk-intermediate.psd"
-    with intermediate.open("xb") as stream:
-        psd.save(stream)
-    encoding = finalize_preview(intermediate, output, expected)
-    intermediate.unlink()
+            picture.close()
+    # psd-tools is pinned: compile layer records, then supply our already
+    # validated preview. PSDImage.save would recomposite all layers only for
+    # that preview to be overwritten immediately afterwards.
+    psd._update_record()
+    encoding = write_preview_record(psd._record, output, expected)
+    # Parent/child links form cycles; release the writer before the roundtrip
+    # reader allocates another copy of the channel data.
+    del pixel, group, psd
+    gc.collect()
     reopened = PSDImage.open(output)
     verified = []
     require(len(reopened) == len(scene["tree"]), "PSD_GROUP_COUNT_CHANGED")

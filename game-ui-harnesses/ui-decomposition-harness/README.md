@@ -15,6 +15,12 @@ its deployment-selected strict or advisory result never claims human acceptance.
 Empty stretchable bases can explicitly
 opt into nine-slice resizing with selected corner insets; see the plan contract.
 
+Version 0.4.0 also supports named PNG ZIP delivery via
+`auto-run --output-format png_zip`, without the optional PSD dependency or PSD
+export stage. See [PNG ZIP delivery](docs/headless.md#png-zip-delivery-040).
+Existing PSD behavior remains the default; ZIP mode preserves the same visual
+quality policies and exports component PNGs rather than packing a sprite atlas.
+
 Deterministic processing commands remain offline. Only explicit `auto-run` may
 invoke the configured provider; it never retries generation, controls Photoshop,
 or modifies another Harness. `auto` currently selects PSD; explicit PSB requests are

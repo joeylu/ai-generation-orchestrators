@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path, PurePosixPath
 
 from .common import require
 
@@ -19,6 +21,66 @@ MAX_NODES = 256
 
 DEFAULT_MEMORY_BUDGET_BYTES = 512 * MIB
 MAX_MEMORY_BUDGET_BYTES = 2 * GIB
+
+
+def _read(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="ascii")
+    except (OSError, UnicodeError):
+        return None
+
+
+def _linux_memory_bytes() -> int | None:
+    """Host reclaimable memory constrained by visible cgroup ancestors.
+
+    No swap or reclaimable cgroup cache is added to hard-limit headroom.
+    This is admission evidence, not an allocation guarantee or reservation.
+    """
+    candidates = []
+    for line in (_read(Path('/proc/meminfo')) or '').splitlines():
+        fields = line.split()
+        if len(fields) == 3 and fields[0] == 'MemAvailable:' and fields[2] == 'kB':
+            try:
+                candidates.append(max(0, int(fields[1]) * 1024))
+            except ValueError:
+                pass
+    memberships = []
+    for line in (_read(Path('/proc/self/cgroup')) or '').splitlines():
+        parts = line.split(':', 2)
+        if len(parts) == 3:
+            memberships.append(parts)
+    for line in (_read(Path('/proc/self/mountinfo')) or '').splitlines():
+        before, separator, after = line.partition(' - ')
+        fields, fs = before.split(), after.split()
+        if not separator or len(fields) < 5 or len(fs) < 3 or fs[0] not in {'cgroup', 'cgroup2'}:
+            continue
+        v2 = fs[0] == 'cgroup2'
+        if not v2 and 'memory' not in fs[2].split(','):
+            continue
+        mount_root, mount = PurePosixPath(fields[3]), Path(fields[4])
+        for _, controllers, member in memberships:
+            if (v2 and controllers != '') or (not v2 and 'memory' not in controllers.split(',')):
+                continue
+            try:
+                relative = PurePosixPath(member).relative_to(mount_root)
+            except ValueError:
+                continue
+            if '..' in relative.parts:
+                continue
+            current = mount.joinpath(*relative.parts)
+            while True:
+                limit = _read(current / ('memory.max' if v2 else 'memory.limit_in_bytes'))
+                usage = _read(current / ('memory.current' if v2 else 'memory.usage_in_bytes'))
+                try:
+                    ceiling, used = int(limit), int(usage)
+                    if 0 <= ceiling < (1 << 60) and used >= 0:
+                        candidates.append(max(0, ceiling - used))
+                except (ValueError, TypeError):
+                    pass  # 'max', unavailable controllers and v1 unlimited.
+                if current == mount:
+                    break
+                current = current.parent
+    return min(candidates) if candidates else None
 
 
 def available_memory_bytes() -> int | None:
@@ -44,6 +106,10 @@ def available_memory_bytes() -> int | None:
         except (AttributeError, OSError):
             return None
         return None
+    if sys.platform.startswith("linux"):
+        available = _linux_memory_bytes()
+        if available is not None:
+            return available
     try:
         pages = os.sysconf("SC_AVPHYS_PAGES")
         page_size = os.sysconf("SC_PAGE_SIZE")
@@ -93,7 +159,8 @@ def plan_resources(plan: dict) -> dict:
     keyed_working_set = 64 * MAX_KEYED_INPUT_PIXELS if keyed else 0
     process_peak = 128 * MIB + keyed_working_set + 4 * material_pixels
     finalize_peak = 128 * MIB + 4 * canvas_pixels + 4 * layer_pixels
-    export_peak = 256 * MIB + 16 * canvas_pixels + 8 * layer_pixels
+    export_peak = (16 * MIB if plan["document"]["format"] == "png_zip"
+                   else _export_peak(canvas_pixels, layer_pixels))
     estimated_peak = max(process_peak, finalize_peak, export_peak)
     budget = memory_budget_bytes()
     require(estimated_peak <= budget, "MEMORY_BUDGET_EXCEEDED")
@@ -109,8 +176,14 @@ def delivery_resources(scene: dict) -> dict:
     require(len(layers) <= MAX_NODES, "NODE_LIMIT")
     layer_pixels = sum(_pixels(layer["size"]) for layer in layers)
     require(layer_pixels <= MAX_TOTAL_LAYER_PIXELS, "TOTAL_LAYER_PIXEL_LIMIT")
-    export_peak = 256 * MIB + 16 * canvas_pixels + 8 * layer_pixels
+    export_peak = _export_peak(canvas_pixels, layer_pixels)
     budget = memory_budget_bytes()
     require(export_peak <= budget, "MEMORY_BUDGET_EXCEEDED")
     return {"memory_budget_bytes": budget, "estimated_peak_bytes": export_peak,
             "layer_pixels": layer_pixels, "canvas_pixels": canvas_pixels}
+
+
+def _export_peak(canvas_pixels: int, layer_pixels: int) -> int:
+    # Single record writer, no SDK composite, released before roundtrip read.
+    # Include preview conversion/difference arrays and encoded layer storage.
+    return 96 * MIB + 32 * canvas_pixels + 16 * layer_pixels

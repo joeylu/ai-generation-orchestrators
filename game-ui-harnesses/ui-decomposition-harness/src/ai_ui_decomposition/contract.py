@@ -165,7 +165,7 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
     require(isinstance(document, dict) and set(document) == {"name", "format"},
             "DOCUMENT")
     identifier(document.get("name"))
-    require(document.get("format") in {"auto", "psd", "psb"}, "DOCUMENT_FORMAT")
+    require(document.get("format") in {"auto", "psd", "psb", "png_zip"}, "DOCUMENT_FORMAT")
     resources = plan_resources(plan)
     generated = sum(asset["route"].startswith("generated_") and "cached_result" not in asset
                     for asset in assets)

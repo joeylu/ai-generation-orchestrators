@@ -66,6 +66,36 @@ immutable job input, so it cannot be changed by re-running an existing job.
 
 ## Execution contract
 
+### PNG ZIP delivery (0.4.0)
+
+Pass `--output-format png_zip` to `auto-run` to deliver `ui.draft.zip` instead
+of PSD. PSD remains the default. The choice is bound into the job and frozen
+plan; changing it on an existing job fails `JOB_INPUT_CHANGED`.
+
+ZIP mode requires only the base package, not the `psd` extra. It skips PSD
+dependency checks and PSD export memory estimation. Processing, matte, assembly,
+authorization and strict/advisory visual QA retain their existing limits and
+behavior; this is not a blanket memory-gate bypass.
+
+The archive contains `layers/<node-id>.png`, `preview.png`, `scene.json`,
+`delivery.json` and the automated QA receipt when present. PNG bytes, dimensions
+and Alpha are unchanged. The scene records grouping and placement; repeated
+component instances retain their own names. This exports named component images,
+not a newly packed sprite atlas. ZIP I/O and readback use bounded chunks without
+loading all PNGs into RAM. Each archived file is checked against its SHA-256.
+
+The job result exposes `artifacts.png_zip` and `artifacts.export` points to
+`png-zip-export.json`; completion/QA status meanings remain unchanged. Consumers
+can offer the single ZIP download. Successful repeated calls verify the archive
+fingerprint and make zero new provider calls. Failed strict QA produces no ZIP.
+
+For the reviewed/manual route, set `document.format` to `png_zip` before
+`freeze`; after normal processing, review and `finalize`, run
+`ai-ui-decomposition export --delivery <directory>`. The exporter follows the
+frozen scene format. Do not edit an existing frozen plan or signed scene to
+switch formats; create a new plan/run and use the verified reuse protocol where
+appropriate.
+
 1. Validate input bytes, EXIF-oriented size, local resource budget and PSD
    dependencies; create a fresh job record. Maximum canvas is 16,777,216 pixels
    and 30,000 per side. The plan also has fixed limits for keyed input, cumulative
@@ -203,3 +233,16 @@ omit its vision endpoint, because that path never calls `plan` or the quality ga
 `auto-run` always plans first and then performs visual QA, so it requires both
 configured capabilities. Treat a missing vision endpoint as a local configuration
 error, never as permission to infer, reuse or visually waive a plan.
+
+### Additional ZIP from an existing delivery
+
+For a completed assembly whose PSD export failed, run
+`ai-ui-decomposition export --delivery <directory> --format png_zip`.
+This explicitly adds a ZIP export without changing the frozen plan, scene or
+job result. It verifies the existing delivery first, invokes no provider or
+PSD code, and writes `png-zip-export.json`. The archive and its SHA-256 are
+reported in that receipt; an old job result does not acquire a new artifact
+entry or become successful automatically. The consumer must handle this
+additional export separately. Do not export a private pre-QA candidate or
+bypass rejected/indeterminate visual QA. Missing or invalid assembly receipts
+are errors; do not hand-author them.

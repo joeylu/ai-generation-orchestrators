@@ -8,6 +8,11 @@ from psd_tools.psd import PSD
 def finalize_preview(source: Path, destination: Path, rgba: Image.Image) -> dict:
     with source.open("rb") as stream:
         record = PSD.read(stream)
+    return write_preview_record(record, destination, rgba)
+
+
+def write_preview_record(record: PSD, destination: Path, rgba: Image.Image) -> dict:
+    """Write the verified preview without SDK recomposition or a second PSD read."""
     header = record.header
     if (header.version, header.depth, header.channels, header.color_mode) != (1, 8, 4, ColorMode.RGB):
         raise ValueError("PSD_PREVIEW_HEADER_UNSUPPORTED")

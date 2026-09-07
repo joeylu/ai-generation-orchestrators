@@ -55,6 +55,7 @@ def parser() -> argparse.ArgumentParser:
     automatic.add_argument("--max-generation-calls", required=True, type=int)
     automatic.add_argument("--timeout-seconds", type=int, default=3600)
     automatic.add_argument("--visual-qa-policy", choices=("strict", "advisory"), default="strict")
+    automatic.add_argument("--output-format", choices=("psd", "png_zip"), default="psd")
     automatic.add_argument("--allow-provider-calls-and-unreviewed-draft", action="store_true")
     job_status = commands.add_parser("job-status")
     job_status.add_argument("--job-dir", required=True, type=Path)
@@ -62,6 +63,7 @@ def parser() -> argparse.ArgumentParser:
     inspect.add_argument("--delivery", required=True, type=Path)
     export = commands.add_parser("export")
     export.add_argument("--delivery", required=True, type=Path)
+    export.add_argument("--format", choices=("png_zip",), help="Additional ZIP export from an existing verified delivery; does not rewrite its plan")
     adapter_export = commands.add_parser("adapter-export")
     adapter_export.add_argument("--run-dir", required=True, type=Path)
     adapter_export.add_argument("--asset", required=True)
@@ -95,7 +97,7 @@ def execute(args) -> dict:
         return auto_run(args.reference, args.job_dir, load_provider(config),
                         maximum_calls=args.max_generation_calls, timeout_seconds=args.timeout_seconds,
                         authorized=True, provider_binding=digest(config),
-                        visual_qa_policy=args.visual_qa_policy)
+                        visual_qa_policy=args.visual_qa_policy, output_format=args.output_format)
     if args.command in {"init", "self-test", "doctor"}:
         from .runtime import doctor, init_plan, self_test
         if args.command == "init":
@@ -133,6 +135,10 @@ def execute(args) -> dict:
     if args.command == "inspect":
         return inspect_delivery(args.delivery)
     if args.command == "export":
+        scene = read_json(args.delivery.resolve() / "scene.json")
+        if scene["document"]["format"] == "png_zip" or getattr(args, "format", None) == "png_zip":
+            from .png_zip import export_png_zip
+            return export_png_zip(args.delivery.resolve(), additional_export=getattr(args, "format", None) == "png_zip")
         from .psd_export import export_psd
         return export_psd(args.delivery.resolve())
     from .adapter import export_request, import_result, seal_result

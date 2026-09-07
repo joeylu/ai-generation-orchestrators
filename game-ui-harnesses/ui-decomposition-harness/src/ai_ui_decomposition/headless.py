@@ -92,7 +92,7 @@ def job_status(job: Path) -> dict:
 
 def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: int,
              timeout_seconds: int, authorized: bool, provider_binding: str = "injected",
-             visual_qa_policy: str = "strict") -> dict:
+             visual_qa_policy: str = "strict", output_format: str = "psd") -> dict:
     """Caller explicitly delegates two vision calls and a bounded frozen plan.
 
     A repeated successful job verifies and returns existing files. Every other
@@ -102,6 +102,7 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
     require(type(maximum_calls) is int and 1 <= maximum_calls <= 32, "JOB_BUDGET")
     require(type(timeout_seconds) is int and 1 <= timeout_seconds <= 86400, "JOB_TIMEOUT")
     require(visual_qa_policy in {"strict", "advisory"}, "VISUAL_QA_POLICY")
+    require(output_format in {"psd", "png_zip"}, "OUTPUT_FORMAT")
     picture, evidence = load_verified_image(reference.resolve())
     require(max(picture.size) <= 30000 and picture.width * picture.height <= 16_777_216,
             "JOB_CANVAS_LIMIT")
@@ -114,6 +115,8 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
             "provider_binding": provider_binding, "delivery_policy": "unreviewed_draft",
             "visual_qa_policy": visual_qa_policy, "automatic_retries": 0}
     job = job.resolve()
+    if output_format != "psd":
+        body["output_format"] = output_format
     if job.exists():
         request = _verified(job / "job.json")
         require(request["digest"] == digest(body), "JOB_INPUT_CHANGED")
@@ -122,11 +125,12 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
                 "JOB_ALREADY_STARTED_NO_RESUBMIT")
         return status
     # Fail on missing optional dependencies BEFORE either provider can consume compute.
-    try:
-        import psd_tools  # noqa: F401
-        from .psd_preview import finalize_preview  # noqa: F401
-    except ImportError as exc:
-        raise ContractError("PSD_OPTIONAL_DEPENDENCY_MISSING") from exc
+    if output_format == "psd":
+        try:
+            import psd_tools  # noqa: F401
+            from .psd_preview import finalize_preview  # noqa: F401
+        except ImportError as exc:
+            raise ContractError("PSD_OPTIONAL_DEPENDENCY_MISSING") from exc
     job.mkdir(parents=True, exist_ok=False)
     request = _record(job / "job.json", body)
     project = job / "project"
@@ -154,7 +158,8 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
         except Exception as exc:
             raise ContractError("PLANNING_PROVIDER_FAILED") from exc
         remaining()
-        plan = planning.materialize(description, project, list(picture.size), maximum_calls)
+        plan = planning.materialize(description, project, list(picture.size), maximum_calls,
+                                    output_format=output_format)
         frozen = batch.freeze(project / "plan.json", job / "workspace", "automatic")
         require(frozen["maximum_calls"] <= maximum_calls, "JOB_BUDGET_EXCEEDED")
         _record(job / "authorization.json", {"job_digest": request["digest"],
@@ -227,14 +232,18 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
             return job_status(job)
         stage = "draft_export"
         receipt = finalize(run, job / "delivery", draft=True)
-        from .psd_export import export_psd
-        exported = export_psd(job / "delivery")
         import shutil
         shutil.copyfile(job / "visual-qa.json", job / "delivery" / "automated-visual-qa.json")
+        if output_format == "png_zip":
+            from .png_zip import export_png_zip
+            exported = export_png_zip(job / "delivery")
+        else:
+            from .psd_export import export_psd
+            exported = export_psd(job / "delivery")
         artifacts = {}
-        for name, relative in {"psd": "delivery/" + exported["file"], "preview": "delivery/preview.png",
+        for name, relative in {("png_zip" if output_format == "png_zip" else "psd"): "delivery/" + exported["file"], "preview": "delivery/preview.png",
                                "scene": "delivery/scene.json", "delivery": "delivery/delivery.json",
-                               "export": "delivery/psd-export.json", "plan": "project/plan.json",
+                               "export": "delivery/" + ("png-zip-export.json" if output_format == "png_zip" else "psd-export.json"), "plan": "project/plan.json",
                                "automated_visual_qa": "delivery/automated-visual-qa.json"}.items():
             artifacts[name] = {"path": relative, "sha256": sha256(safe_relative(job, relative))}
         _record(job / "result.json", {"kind": "ai_ui_decomposition_job_result_v1",

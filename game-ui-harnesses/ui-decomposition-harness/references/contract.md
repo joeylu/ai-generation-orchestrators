@@ -63,6 +63,11 @@ the canvas at `[0, 0]`.
 
 ## Local resource policy
 
+`document.format` also accepts `png_zip` for named PNG archive delivery. This
+choice is part of the frozen plan. It omits the PSD peak estimate and uses a
+16 MiB incremental streaming-archive allowance; the overall plan still uses the
+maximum of processing, assembly and export estimates. PSD/PSB rules are unchanged.
+
 The public plan is rejected before processing when it would exceed the following
 machine-independent raster limits: at most 256 nodes, 16,777,216 total material
 pixels, and 33,554,432 total placed-layer pixels. These totals include repeated
@@ -74,12 +79,32 @@ they are copied into a run. This protects the NumPy/SciPy matte operation, whose
 working set is substantially larger than an RGBA image.
 
 The runtime also estimates the highest local processing, assembly or PSD-export
-peak. Its automatic budget is one quarter of currently available physical memory,
+peak. On Linux, availability uses `/proc/meminfo` `MemAvailable` (including
+reclaimable host cache), constrained by each discoverable cgroup v1/v2 hard-limit
+headroom along the process's visible ancestry. Cgroup usage is not discounted for
+cache and swap is not added. Other platforms retain their physical-memory query;
+Linux without readable availability evidence falls back to the OS page query.
+Its automatic budget is one quarter of currently available physical memory,
 capped at 2 GiB; if availability cannot be read, it uses a conservative 512 MiB
 fallback. The budget is not a user input and no provider call is made for a plan
 that fails it. `doctor` reports the selected budget and fixed limits. Deployment
 operators needing a larger job must split the UI into smaller independently
-reviewed plans; they must not disable these checks.
+reviewed plans; they must not disable these checks. This is a preflight estimate,
+not a memory reservation or a guarantee against OOM under concurrent load.
+
+PSD export writes the verified delivery preview directly through the pinned
+psd-tools record writer, avoiding redundant SDK compositing and an intermediate
+full-file read. Writer records are released before the independent roundtrip.
+All layer RGBA, positions, group structure and merged-preview checks remain.
+Its estimate is 96 MiB plus 32 bytes per canvas pixel and 16 bytes per placed
+layer pixel. Process/matte and assembly estimates are separate and unchanged;
+the highest stage still governs plan admission. A small PSD passing does not
+imply that a plan with a worst-case generated keyed input will pass.
+
+An older installed wheel reporting `MEMORY_BUDGET_EXCEEDED` has refused the job;
+that message alone is not evidence of a kernel OOM kill. Inspect the installed
+version and stage before diagnosing memory exhaustion. Changes must arrive via
+a verified upstream release, not by patching or bypassing an installed guard.
 
 Routes:
 

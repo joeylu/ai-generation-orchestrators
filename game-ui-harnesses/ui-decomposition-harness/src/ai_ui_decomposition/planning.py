@@ -44,7 +44,8 @@ reuse chains or resize policies. Example of shape (replace numbers and content):
 """.strip()
 
 
-def materialize(description: str, project: Path, canvas: list[int], maximum_calls: int) -> dict:
+def materialize(description: str, project: Path, canvas: list[int], maximum_calls: int,
+                *, output_format: str = "psd") -> dict:
     require(isinstance(description, str) and len(description.encode("utf-8")) <= 2_097_152,
             "PLANNER_RESPONSE_LIMIT")
     # Preserve the exact response for diagnosis, then use the same strict JSON reader
@@ -79,7 +80,7 @@ def materialize(description: str, project: Path, canvas: list[int], maximum_call
             "source": {"path": "reference.png", "sha256": sha256(project / "reference.png"),
                        "size": canvas}, "text_policy": TEXT_POLICY, "granularity": GRANULARITY,
             "assets": assets, "nodes": proposal["nodes"], "groups": proposal["groups"],
-            "document": {"name": "ui", "format": "psd"}, "delivery_policy": "unreviewed_draft"}
+            "document": {"name": "ui", "format": output_format}, "delivery_policy": "unreviewed_draft"}
     try:
         validate(plan, source_base=project)
     except (TypeError, KeyError, AttributeError, ValueError) as exc:

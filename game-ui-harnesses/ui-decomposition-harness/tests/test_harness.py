@@ -153,10 +153,54 @@ class HarnessTests(unittest.TestCase):
         review_path.write_text(json.dumps(review), encoding="utf-8")
         delivery = self.root / "delivery"
         finalize(self.run, delivery)
-        result = export_psd(delivery)
+        from psd_tools import PSDImage
+        with patch.object(PSDImage, "composite", side_effect=AssertionError("redundant SDK composite")):
+            result = export_psd(delivery)
         self.assertEqual(result["pixel_layers"], 3)
         self.assertEqual(result["rgba_max_error"], 0)
         self.assertLessEqual(result["preview_max_error"], 1)
+
+    def test_linux_memory_uses_reclaimable_host_and_cgroup_ancestor_headroom(self):
+        from ai_ui_decomposition.resources import _linux_memory_bytes
+        files = {
+            '/proc/meminfo': 'MemFree: 88000 kB\nMemAvailable: 540000 kB\n',
+            '/proc/self/cgroup': '0::/jobs/task\n',
+            '/proc/self/mountinfo': '1 0 0:1 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n',
+            '/sys/fs/cgroup/memory.max': str(512 * MIB),
+            '/sys/fs/cgroup/memory.current': str(400 * MIB),
+            '/sys/fs/cgroup/jobs/memory.max': 'max',
+            '/sys/fs/cgroup/jobs/task/memory.max': str(256 * MIB),
+            '/sys/fs/cgroup/jobs/task/memory.current': str(32 * MIB),
+        }
+        with patch('ai_ui_decomposition.resources._read', side_effect=lambda p: files.get(p.as_posix())):
+            self.assertEqual(_linux_memory_bytes(), 112 * MIB)
+            files['/sys/fs/cgroup/memory.max'] = 'max'
+            self.assertEqual(_linux_memory_bytes(), 224 * MIB)
+            files['/sys/fs/cgroup/jobs/task/memory.current'] = str(300 * MIB)
+            self.assertEqual(_linux_memory_bytes(), 0)
+            files['/proc/self/cgroup'] = ''
+            self.assertEqual(_linux_memory_bytes(), 540000 * 1024)
+
+    def test_linux_v1_memory_mount_subtree_and_unlimited(self):
+        from ai_ui_decomposition.resources import _linux_memory_bytes
+        files = {'/proc/meminfo': 'MemAvailable: 540000 kB\n',
+            '/proc/self/cgroup': '5:memory:/docker/job\n',
+            '/proc/self/mountinfo': '1 0 0:1 /docker/job /sys/fs/cgroup/memory rw - cgroup cgroup rw,memory\n',
+            '/sys/fs/cgroup/memory/memory.limit_in_bytes': str(256 * MIB),
+            '/sys/fs/cgroup/memory/memory.usage_in_bytes': str(128 * MIB)}
+        with patch('ai_ui_decomposition.resources._read', side_effect=lambda p: files.get(p.as_posix())):
+            self.assertEqual(_linux_memory_bytes(), 128 * MIB)
+            files['/sys/fs/cgroup/memory/memory.limit_in_bytes'] = str(1 << 63)
+            self.assertEqual(_linux_memory_bytes(), 540000 * 1024)
+
+    def test_small_psd_fits_low_budget_without_disabling_gate(self):
+        from ai_ui_decomposition.resources import delivery_resources
+        scene = {'canvas': [400, 300], 'tree': [{'children': [{'size': [400, 300]}]}]}
+        with patch('ai_ui_decomposition.resources.available_memory_bytes', return_value=530 * MIB):
+            self.assertLess(delivery_resources(scene)['estimated_peak_bytes'], 110 * MIB)
+        with patch('ai_ui_decomposition.resources.available_memory_bytes', return_value=100 * MIB):
+            with self.assertRaisesRegex(ContractError, 'MEMORY_BUDGET_EXCEEDED'):
+                delivery_resources(scene)
 
     def test_background_role_does_not_depend_on_asset_id(self):
         self.assertEqual(validate(self.plan, source_base=self.root)["assets"], 3)

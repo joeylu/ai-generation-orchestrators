@@ -9,6 +9,8 @@ import sys
 import tempfile
 import time
 import unittest
+import builtins
+import zipfile
 from unittest.mock import patch
 
 from PIL import Image, ImageDraw
@@ -105,6 +107,7 @@ class HeadlessTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed_visual_qa_draft")
         self.assertEqual(result["artifacts"]["psd"]["path"], "delivery/ui.draft.psd")
         self.assertEqual(result["visual_review"], "not_performed")
+
         self.assertFalse(result["automatic_visual_acceptance"])
         self.assertEqual(result["automated_visual_qa"], "passed")
         self.assertFalse((self.job / "workspace/runs/automatic/review.json").exists())
@@ -118,6 +121,59 @@ class HeadlessTests(unittest.TestCase):
         self.assertEqual(self.run_job()["digest"], result["digest"])
         self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
                           self.provider.image_calls), (1, 1, 2))
+
+    def test_png_zip_without_psd_dependency_and_zero_call_replay(self):
+        original_import = builtins.__import__
+        def without_psd(name, *args, **kwargs):
+            if name.startswith('psd_tools') or name.endswith(('psd_export', 'psd_preview')):
+                raise ImportError('PSD intentionally unavailable')
+            return original_import(name, *args, **kwargs)
+        with patch('builtins.__import__', side_effect=without_psd), patch(
+                'ai_ui_decomposition.resources._export_peak', side_effect=AssertionError('PSD budget invoked')):
+            result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                              timeout_seconds=60, authorized=True, output_format='png_zip')
+            self.assertEqual(result['status'], 'completed_visual_qa_draft')
+            self.assertNotIn('psd', result['artifacts'])
+            path = self.job / result['artifacts']['png_zip']['path']
+            with zipfile.ZipFile(path) as archive:
+                self.assertEqual(set(archive.namelist()), {'scene.json', 'delivery.json', 'preview.png',
+                    'layers/scene.png', 'layers/button_one.png', 'layers/button_two.png', 'automated-visual-qa.json'})
+                for name in archive.namelist():
+                    self.assertEqual(archive.read(name), (self.job / 'delivery' / name).read_bytes())
+            calls = (self.provider.vision_calls, self.provider.image_calls, self.provider.quality_calls)
+            again = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                             timeout_seconds=60, authorized=True, output_format='png_zip')
+            self.assertEqual(again['artifacts'], result['artifacts'])
+            self.assertEqual(calls, (self.provider.vision_calls, self.provider.image_calls, self.provider.quality_calls))
+        with self.assertRaisesRegex(ContractError, 'JOB_INPUT_CHANGED'):
+            self.run_job()
+        path.write_bytes(b'corrupt')
+        with self.assertRaisesRegex(ContractError, 'JOB_ARTIFACT_CHANGED'):
+            job_status(self.job)
+
+    def test_png_zip_does_not_bypass_strict_visual_gate(self):
+        self.provider.quality = visual_qa_response(decision='reject', overall=20)
+        result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                          timeout_seconds=60, authorized=True, output_format='png_zip')
+        self.assertEqual(result['status'], 'failed_visual_qa')
+        self.assertFalse((self.job / 'delivery').exists())
+
+    def test_additional_zip_export_preserves_existing_psd_job(self):
+        from ai_ui_decomposition.cli import parser, execute
+        self.run_job()
+        original = {p: (self.job / p).read_bytes() for p in
+                    ['job.json', 'result.json', 'delivery/scene.json', 'delivery/delivery.json']}
+        with patch('ai_ui_decomposition.psd_export.export_psd', side_effect=AssertionError('PSD called')):
+            result = execute(parser().parse_args(['export', '--delivery', str(self.job / 'delivery'),
+                                                  '--format', 'png_zip']))
+        self.assertTrue(result['additional_export'])
+        self.assertEqual(result['source_document_format'], 'psd')
+        for p, data in original.items():
+            self.assertEqual((self.job / p).read_bytes(), data)
+        with zipfile.ZipFile(self.job / 'delivery' / result['file']) as archive:
+            self.assertIn('layers/button_one.png', archive.namelist())
+            self.assertFalse(any(name.endswith('.psd') for name in archive.namelist()))
+        self.assertEqual(self.provider.image_calls, 2)
 
     def test_repeated_completed_job_still_checks_psd_hash(self):
         self.run_job()
