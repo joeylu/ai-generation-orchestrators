@@ -21,6 +21,11 @@ export stage. See [PNG ZIP delivery](docs/headless.md#png-zip-delivery-040).
 Existing PSD behavior remains the default; ZIP mode preserves the same visual
 quality policies and exports component PNGs rather than packing a sprite atlas.
 
+Version 0.4.1 changes the dynamic memory estimate to an advisory. A task whose
+estimated peak exceeds the diagnostic budget continues, while `check`, frozen
+batch summaries and `doctor` expose the risk. Deterministic pixel, layer and node
+limits remain enforced.
+
 Deterministic processing commands remain offline. Only explicit `auto-run` may
 invoke the configured provider; it never retries generation, controls Photoshop,
 or modifies another Harness. `auto` currently selects PSD; explicit PSB requests are
@@ -34,7 +39,7 @@ See [headless integration](docs/headless.md) for its contract and verification l
 
 ## Production consumption: verified Release wheel
 
-Use a fixed GitHub Release tag such as `ui-v0.3.0`; do not install a Git ref or
+Use a fixed GitHub Release tag such as `ui-v0.4.1`; do not install a Git ref or
 a source checkout as a production dependency. From that one Release, obtain its
 wheel and `SHA256SUMS.txt`. The wheel's SHA-256 is only evidence for that wheel:
 the deployment must separately maintain a fully hash-locked dependency set for
@@ -48,8 +53,8 @@ checks with the Release asset `size`, `sha256sum`, and `wc -c`; use an isolated
 virtual environment after both comparisons succeed.
 
 ```powershell
-$ReleaseTag = "ui-v0.3.0"
-$Wheel = "ai_ui_decomposition-0.3.0-py3-none-any.whl"
+$ReleaseTag = "ui-v0.4.1"
+$Wheel = "ai_ui_decomposition-0.4.1-py3-none-any.whl"
 $Release = Invoke-RestMethod "https://api.github.com/repos/joeylu/ai-generation-orchestrators/releases/tags/$ReleaseTag"
 $WheelAsset = @($Release.assets | Where-Object { $_.name -eq $Wheel })
 $SumsAsset = @($Release.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" })

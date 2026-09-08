@@ -6,7 +6,7 @@ met:
 
 - Debian/Ubuntu-compatible userspace with Python 3.10 or 3.14. Alpine is not a
   tested target because NumPy and SciPy wheel availability differs.
-- Install the verified `ui-v0.3.0` Release wheel after the README's byte-count
+- Install the verified `ui-v0.4.1` Release wheel after the README's byte-count
   and SHA-256 checks. The deployment maintains a separate hash lock for the
   base and PSD dependencies before installing the wheel with `--no-deps`.
 - Run as a non-root user.
@@ -31,7 +31,7 @@ The intended consumer experience is to upload one UI reference and receive a
 layered PSD. The recipient implements the web application and deployment; this
 repository supplies the reusable Harness contracts and processing behavior.
 Do not copy the Harness implementation into the service. Install the immutable
-`ui-v0.3.0` Release wheel through the README's byte-count and published-digest
+`ui-v0.4.1` Release wheel through the README's byte-count and published-digest
 verification; a source checkout or Git ref is only for development.
 
 | Responsibility | Harness scope | Recipient scope |

@@ -151,6 +151,19 @@ class HeadlessTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, 'JOB_ARTIFACT_CHANGED'):
             job_status(self.job)
 
+    def test_low_available_memory_warns_but_full_job_continues(self):
+        with patch('ai_ui_decomposition.resources.available_memory_bytes',
+                   return_value=1024 * 1024):
+            result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                              timeout_seconds=60, authorized=True, output_format='png_zip')
+        self.assertEqual(result['status'], 'completed_visual_qa_draft')
+        summary = read_json(self.job / 'workspace/runs/automatic/batch.json')['plan_summary']
+        resources = summary['resources']
+        self.assertFalse(resources['memory_admission_enforced'])
+        self.assertEqual(resources['memory_advisory'], 'estimated_peak_exceeds_budget')
+        self.assertEqual((self.provider.vision_calls, self.provider.image_calls,
+                          self.provider.quality_calls), (1, 2, 1))
+
     def test_png_zip_does_not_bypass_strict_visual_gate(self):
         self.provider.quality = visual_qa_response(decision='reject', overall=20)
         result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,

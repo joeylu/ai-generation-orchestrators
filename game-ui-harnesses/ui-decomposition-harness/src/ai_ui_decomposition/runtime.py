@@ -11,7 +11,7 @@ from .contract import GRANULARITY, KIND, TEXT_POLICY, validate
 from .media import matte_key
 from .resources import (DEFAULT_MEMORY_BUDGET_BYTES, MAX_KEYED_INPUT_PIXELS,
                         MAX_NODES, MAX_TOTAL_LAYER_PIXELS, MAX_TOTAL_MATERIAL_PIXELS,
-                        memory_budget_bytes)
+                        memory_budget_policy)
 
 
 def init_plan(reference: Path, plan_path: Path, plan_id: str, document_name: str) -> dict:
@@ -55,11 +55,12 @@ def doctor() -> dict:
         versions[name] = importlib.metadata.version(name)
     psd_available = importlib.util.find_spec("psd_tools") is not None
     psd_version = importlib.metadata.version("psd-tools") if psd_available else None
+    memory_policy = memory_budget_policy()
     return {"kind": "ai_ui_decomposition_doctor_v1", "status": "ready",
             "core_versions": versions, "psd": {"available": psd_available,
             "version": psd_version, "expected": "1.18.0"},
             "network_probe": "not_performed", "provider_compute": "not_performed",
-            "resource_policy": {"memory_budget_bytes": memory_budget_bytes(),
+            "resource_policy": {**memory_policy,
                                 "memory_budget_fallback_bytes": DEFAULT_MEMORY_BUDGET_BYTES,
                                 "keyed_input_pixels": MAX_KEYED_INPUT_PIXELS,
                                 "material_pixels": MAX_TOTAL_MATERIAL_PIXELS,

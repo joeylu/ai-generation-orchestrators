@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import gc
+import warnings
 
 from PIL import Image
 import numpy as np
@@ -14,7 +15,10 @@ from .resources import delivery_resources
 def export_psd(delivery: Path) -> dict:
     inspect_delivery(delivery)
     scene = read_json(delivery / "scene.json")
-    delivery_resources(scene)
+    resources = delivery_resources(scene)
+    if resources["memory_advisory"] == "estimated_peak_exceeds_budget":
+        warnings.warn("MEMORY_ADVISORY_ESTIMATED_PEAK_EXCEEDS_BUDGET", RuntimeWarning,
+                      stacklevel=2)
     require(scene["document"]["format"] in {"auto", "psd"}, "PSB_NOT_IMPLEMENTED")
     require(max(scene["canvas"]) <= 30000, "PSD_SIZE_UNSUPPORTED")
     try:

@@ -84,13 +84,13 @@ reclaimable host cache), constrained by each discoverable cgroup v1/v2 hard-limi
 headroom along the process's visible ancestry. Cgroup usage is not discounted for
 cache and swap is not added. Other platforms retain their physical-memory query;
 Linux without readable availability evidence falls back to the OS page query.
-Its automatic budget is one quarter of currently available physical memory,
-capped at 2 GiB; if availability cannot be read, it uses a conservative 512 MiB
-fallback. The budget is not a user input and no provider call is made for a plan
-that fails it. `doctor` reports the selected budget and fixed limits. Deployment
-operators needing a larger job must split the UI into smaller independently
-reviewed plans; they must not disable these checks. This is a preflight estimate,
-not a memory reservation or a guarantee against OOM under concurrent load.
+Its diagnostic budget is 25 percent of currently available physical memory,
+capped at 2 GiB; if availability cannot be read, it uses a 512 MiB fallback.
+Exceeding that budget produces `estimated_peak_exceeds_budget` in resource
+summaries but does not reject or interrupt the task. `doctor` reports the observed
+availability, diagnostic budget, source and `memory_admission_enforced: false`.
+Machine-independent pixel, layer and node limits remain enforced. This estimate
+is not a memory reservation or a guarantee against OOM under concurrent load.
 
 PSD export writes the verified delivery preview directly through the pinned
 psd-tools record writer, avoiding redundant SDK compositing and an intermediate
@@ -98,13 +98,13 @@ full-file read. Writer records are released before the independent roundtrip.
 All layer RGBA, positions, group structure and merged-preview checks remain.
 Its estimate is 96 MiB plus 32 bytes per canvas pixel and 16 bytes per placed
 layer pixel. Process/matte and assembly estimates are separate and unchanged;
-the highest stage still governs plan admission. A small PSD passing does not
-imply that a plan with a worst-case generated keyed input will pass.
+the highest stage supplies the advisory peak. A small observed PSD peak does not
+predict the working set of a plan with a worst-case generated keyed input.
 
 An older installed wheel reporting `MEMORY_BUDGET_EXCEEDED` has refused the job;
-that message alone is not evidence of a kernel OOM kill. Inspect the installed
-version and stage before diagnosing memory exhaustion. Changes must arrive via
-a verified upstream release, not by patching or bypassing an installed guard.
+that message alone is not evidence of a kernel OOM kill. Version 0.4.1 and later
+report the estimate as an advisory. Inspect the installed version and stage before
+diagnosing memory exhaustion. Changes must arrive via a verified upstream release.
 
 Routes:
 

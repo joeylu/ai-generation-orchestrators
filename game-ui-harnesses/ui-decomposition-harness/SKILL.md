@@ -1,11 +1,11 @@
 ---
 name: ui-decomposition
-description: Split a UI reference into a reviewed set of important reusable components and assemble a layered PSD with deterministic local tools.
+description: Split a UI reference into important reusable components and deliver a reviewed layered PSD or named PNG ZIP with deterministic local tools.
 ---
 # UI Decomposition
 
 Use this Skill when a user wants one UI reference image turned into editable
-important components and a layered PSD. This is an opt-in experimental route. It
+important components and a layered PSD or named PNG ZIP. This is an opt-in experimental route. It
 does not apply to character animation, ordinary background removal, or a request
 for pixel-perfect manual Photoshop reconstruction.
 
@@ -53,7 +53,9 @@ accepted `review.json`; retain the original reviewed workflow below.
    `reviewed_asset_ids` with every planned asset. Do not approve the review on the
    user's behalf or change any digest field.
 6. Run `finalize` into a fresh output directory, then `export`. Report the PSD
-   file-roundtrip result separately from application validation.
+   file-roundtrip result separately from application validation. For a PNG-only
+   handoff, select `--output-format png_zip`; memory estimates are advisory and
+   never reject either delivery format.
 
 For copyable commands, read [docs/quickstart.md](docs/quickstart.md). For a
 user-managed container, read

@@ -1,6 +1,6 @@
 # Headless image-to-draft-PSD integration
 
-Available in the `0.3.0` release. The entry is an opt-in per-job
+Available in the `0.4.1` release. The entry is an opt-in per-job
 CLI/library function, not a web service.
 Offline tests exercise the complete runner with provider doubles and real PSD
 encoding. A separately authorized 0.2.0 live end-to-end check produced a
@@ -11,10 +11,10 @@ establish general provider reliability or live visual-gate accuracy.
 
 Ensure the built `ai-ui-decomposition` wheel and its deployment-locked PSD
 dependencies are installed in the recipient's environment.
-For production, install the immutable `ui-v0.3.0` Release wheel only after the
+For production, install the immutable `ui-v0.4.1` Release wheel only after the
 [README's byte-count and SHA-256 verification](../README.md#production-consumption-verified-release-wheel),
 with a deployment-maintained hash lock for its PSD dependencies.
-Do not reuse releases older than 0.3.0 for these commands.
+Do not reuse releases older than 0.4.1 when memory admission must be advisory-only.
 Run `doctor` and `self-test`; both remain offline and consume no provider compute.
 
 The deployment owns a trusted config file, outside the public artifact directory:
@@ -74,8 +74,14 @@ plan; changing it on an existing job fails `JOB_INPUT_CHANGED`.
 
 ZIP mode requires only the base package, not the `psd` extra. It skips PSD
 dependency checks and PSD export memory estimation. Processing, matte, assembly,
-authorization and strict/advisory visual QA retain their existing limits and
-behavior; this is not a blanket memory-gate bypass.
+authorization and strict/advisory visual QA retain their existing behavior. The
+common memory estimate is reported as an advisory and never rejects either format.
+
+The local memory calculation is informational. It compares the estimated peak
+with 25 percent of the smaller visible host or cgroup headroom and reports either
+`within_budget` or `estimated_peak_exceeds_budget`, but it never rejects a task.
+Run `doctor` in the same environment to record the observed memory and advisory
+budget. Deterministic pixel, layer and node caps remain hard failures.
 
 The archive contains `layers/<node-id>.png`, `preview.png`, `scene.json`,
 `delivery.json` and the automated QA receipt when present. PNG bytes, dimensions

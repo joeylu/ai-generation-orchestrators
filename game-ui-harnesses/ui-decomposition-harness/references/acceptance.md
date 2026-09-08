@@ -32,7 +32,7 @@ assets, strict source/prompt/reference binding, raw-image tamper rejection befor
 processing, failed-source rejection, and provider-neutral cache fields. Resource
 regressions reject excess material pixels, excess placed-layer pixels, excess
 nodes, oversized keyed source crops and oversized keyed provider results before
-they can enter a run; they also exercise automatic available-memory rejection.
+they can enter a run; they also exercise the non-blocking available-memory advisory.
 The five related
 predecessor suites also pass 170 tests unchanged.
 

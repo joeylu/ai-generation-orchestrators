@@ -21,6 +21,7 @@ MAX_NODES = 256
 
 DEFAULT_MEMORY_BUDGET_BYTES = 512 * MIB
 MAX_MEMORY_BUDGET_BYTES = 2 * GIB
+MEMORY_ADVISORY_PERCENT = 25
 
 
 def _read(path: Path) -> str | None:
@@ -34,7 +35,7 @@ def _linux_memory_bytes() -> int | None:
     """Host reclaimable memory constrained by visible cgroup ancestors.
 
     No swap or reclaimable cgroup cache is added to hard-limit headroom.
-    This is admission evidence, not an allocation guarantee or reservation.
+    This is diagnostic evidence, not an allocation guarantee or reservation.
     """
     candidates = []
     for line in (_read(Path('/proc/meminfo')) or '').splitlines():
@@ -120,12 +121,32 @@ def available_memory_bytes() -> int | None:
     return None
 
 
-def memory_budget_bytes() -> int:
-    """Use at most one quarter of currently available RAM, capped at 2 GiB."""
+def memory_budget_policy() -> dict:
+    """Return one coherent snapshot of the informational memory calculation."""
     available = available_memory_bytes()
     if available is None:
-        return DEFAULT_MEMORY_BUDGET_BYTES
-    return min(MAX_MEMORY_BUDGET_BYTES, max(0, available // 4))
+        budget = DEFAULT_MEMORY_BUDGET_BYTES
+        source = "fallback"
+    else:
+        budget = min(MAX_MEMORY_BUDGET_BYTES,
+                     max(0, available * MEMORY_ADVISORY_PERCENT // 100))
+        source = "available_memory"
+    return {"memory_available_bytes": available, "memory_budget_bytes": budget,
+            "memory_budget_percent": MEMORY_ADVISORY_PERCENT,
+            "memory_budget_source": source, "memory_admission_enforced": False}
+
+
+def memory_budget_bytes() -> int:
+    """Return the informational budget retained for diagnostics."""
+    return memory_budget_policy()["memory_budget_bytes"]
+
+
+def _with_memory_advisory(estimated_peak: int) -> dict:
+    policy = memory_budget_policy()
+    return {**policy, "estimated_peak_bytes": estimated_peak,
+            "memory_advisory": ("estimated_peak_exceeds_budget"
+                                if estimated_peak > policy["memory_budget_bytes"]
+                                else "within_budget")}
 
 
 def _pixels(size: list[int]) -> int:
@@ -162,9 +183,8 @@ def plan_resources(plan: dict) -> dict:
     export_peak = (16 * MIB if plan["document"]["format"] == "png_zip"
                    else _export_peak(canvas_pixels, layer_pixels))
     estimated_peak = max(process_peak, finalize_peak, export_peak)
-    budget = memory_budget_bytes()
-    require(estimated_peak <= budget, "MEMORY_BUDGET_EXCEEDED")
-    return {"memory_budget_bytes": budget, "estimated_peak_bytes": estimated_peak,
+    advisory = _with_memory_advisory(estimated_peak)
+    return {**advisory,
             "material_pixels": material_pixels, "layer_pixels": layer_pixels,
             "canvas_pixels": canvas_pixels, "keyed_input_pixel_limit": MAX_KEYED_INPUT_PIXELS}
 
@@ -177,9 +197,8 @@ def delivery_resources(scene: dict) -> dict:
     layer_pixels = sum(_pixels(layer["size"]) for layer in layers)
     require(layer_pixels <= MAX_TOTAL_LAYER_PIXELS, "TOTAL_LAYER_PIXEL_LIMIT")
     export_peak = _export_peak(canvas_pixels, layer_pixels)
-    budget = memory_budget_bytes()
-    require(export_peak <= budget, "MEMORY_BUDGET_EXCEEDED")
-    return {"memory_budget_bytes": budget, "estimated_peak_bytes": export_peak,
+    advisory = _with_memory_advisory(export_peak)
+    return {**advisory,
             "layer_pixels": layer_pixels, "canvas_pixels": canvas_pixels}
 
 

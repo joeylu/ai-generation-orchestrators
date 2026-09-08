@@ -193,14 +193,37 @@ class HarnessTests(unittest.TestCase):
             files['/sys/fs/cgroup/memory/memory.limit_in_bytes'] = str(1 << 63)
             self.assertEqual(_linux_memory_bytes(), 540000 * 1024)
 
-    def test_small_psd_fits_low_budget_without_disabling_gate(self):
+    def test_memory_budget_is_advisory_only(self):
+        from ai_ui_decomposition.resources import memory_budget_bytes, plan_resources
+        with patch('ai_ui_decomposition.resources.available_memory_bytes', return_value=800 * MIB):
+            self.assertEqual(memory_budget_bytes(), 200 * MIB)
+
+        screenshot_case = {
+            'canvas': [1920, 1080],
+            'document': {'format': 'png_zip'},
+            'assets': [{'id': 'scene', 'output_size': [1920, 1080],
+                        'output_mode': 'opaque_canvas', 'route': 'generated_completion'}],
+            'nodes': [{'id': f'layer-{index}', 'asset': 'scene'} for index in range(4)],
+        }
+        with patch('ai_ui_decomposition.resources.available_memory_bytes',
+                   return_value=168 * MIB):
+            resources = plan_resources(screenshot_case)
+            self.assertEqual(resources['estimated_peak_bytes'],
+                             128 * MIB + 20 * 1920 * 1080)
+            self.assertEqual(resources['memory_budget_bytes'], 42 * MIB)
+            self.assertFalse(resources['memory_admission_enforced'])
+            self.assertEqual(resources['memory_advisory'],
+                             'estimated_peak_exceeds_budget')
+
+    def test_small_psd_reports_low_memory_advisory_without_rejection(self):
         from ai_ui_decomposition.resources import delivery_resources
         scene = {'canvas': [400, 300], 'tree': [{'children': [{'size': [400, 300]}]}]}
         with patch('ai_ui_decomposition.resources.available_memory_bytes', return_value=530 * MIB):
             self.assertLess(delivery_resources(scene)['estimated_peak_bytes'], 110 * MIB)
         with patch('ai_ui_decomposition.resources.available_memory_bytes', return_value=100 * MIB):
-            with self.assertRaisesRegex(ContractError, 'MEMORY_BUDGET_EXCEEDED'):
-                delivery_resources(scene)
+            resources = delivery_resources(scene)
+            self.assertEqual(resources['memory_advisory'],
+                             'estimated_peak_exceeds_budget')
 
     def test_background_role_does_not_depend_on_asset_id(self):
         self.assertEqual(validate(self.plan, source_base=self.root)["assets"], 3)
@@ -263,7 +286,7 @@ class HarnessTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "KEYED_INPUT_PIXEL_LIMIT"):
             validate(keyed_source_crop, verify_source=False)
 
-    def test_resource_policy_uses_available_memory_and_rejects_oversized_keyed_result(self):
+    def test_resource_policy_advises_on_memory_and_rejects_oversized_keyed_result(self):
         constrained = json.loads(json.dumps(self.plan))
         constrained["canvas"] = [2048, 2048]
         constrained["source"]["size"] = [2048, 2048]
@@ -278,8 +301,9 @@ class HarnessTests(unittest.TestCase):
                                  {"id": "buttons-group",
                                   "children": [row["id"] for row in constrained["nodes"][1:]]}]
         with patch("ai_ui_decomposition.resources.available_memory_bytes", return_value=256 * MIB):
-            with self.assertRaisesRegex(ContractError, "MEMORY_BUDGET_EXCEEDED"):
-                validate(constrained, verify_source=False)
+            resources = validate(constrained, verify_source=False)["resources"]
+            self.assertEqual(resources["memory_advisory"],
+                             "estimated_peak_exceeds_budget")
 
         batch.reserve(self.run, "button")
         oversized_raw = self.root / "oversized-keyed.png"
