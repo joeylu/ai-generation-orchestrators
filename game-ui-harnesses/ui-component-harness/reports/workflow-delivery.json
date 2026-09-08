@@ -1,0 +1,191 @@
+{
+  "status": "PASS",
+  "regression": {
+    "report": "workflow-verification.json",
+    "unitTests": 207,
+    "browserTests": 43,
+    "unchangedImplementationFiles": 78
+  },
+  "skillChecks": [
+    {
+      "entry": "SKILL.md",
+      "status": "PASS",
+      "output": "Skill is valid!"
+    },
+    {
+      "entry": "skills/ui-motion/SKILL.md",
+      "status": "PASS",
+      "output": "Skill is valid!"
+    }
+  ],
+  "reachableDocuments": 10,
+  "documentHashes": {
+    "SKILL.md": "6dfdeb4b04f21648c8a77e7326d7367851928f87c205f7e14ab53877a93969bc",
+    "prompts/button-intent.md": "0e1727e90a955318500e4c2c9fcbf36bfc5f30b1e64793fcba731dde9edeef97",
+    "docs/tree-contract.md": "6bc93767bbd8a99bafcdf2d3481aa4939ab17d995ae1bed1ae71731d5f1c22fc",
+    "docs/workflow.md": "3ffdb010bb4bdaac1cf3117cb104e2fe657e82a3740813f076288d4ac9389afc",
+    "skills/ui-motion/SKILL.md": "dcebbec634b4cb90e99c670349a644e9d2b7fbc05aa136c8d4ad0757715bf417",
+    "skills/ui-motion/references/motion-system.md": "f8d30ab4ebf87aecd1b985055e20830693f9d7f3116e0399a5977a0c2e3e9677",
+    "skills/ui-motion/references/component-coverage.md": "3acf9d6b2f9512df7ca0ba5651618c80e66f9752f56f869a66d513285f60211f",
+    "skills/ui-motion/references/recipes.md": "78c018543abb3efc34120ade26eb935ab5bfd1db50dc7f6d62274a45effb0845",
+    "docs/automation.md": "fdb6bec5b7484ddc446c8fff0f34b4220907a775662b9ce31de8cfe26da39d4c",
+    "skills/ui-motion/references/engine-adapters.md": "c5733b59022664aecadbc205ddf92f19f2ae6bed989b3ed9afb98ebf5eb87ed3"
+  },
+  "forward": {
+    "status": "PASS",
+    "checks": [
+      {
+        "index": 0,
+        "kind": "motion",
+        "targetId": "root",
+        "action": "stagger",
+        "verifyPixels": false,
+        "status": "PASS",
+        "observations": {
+          "started": true,
+          "changed": true,
+          "frames": 57,
+          "settled": true
+        },
+        "pixelsChanged": false,
+        "pixelGate": false
+      },
+      {
+        "index": 1,
+        "kind": "motion",
+        "targetId": "confirm",
+        "action": "press",
+        "verifyPixels": true,
+        "status": "PASS",
+        "observations": {
+          "started": true,
+          "changed": true,
+          "frames": 14,
+          "settled": true
+        },
+        "pixelsChanged": true,
+        "pixelGate": true
+      },
+      {
+        "index": 2,
+        "kind": "timeline",
+        "time": 550,
+        "verifyPixels": true,
+        "status": "PASS",
+        "observations": {
+          "time": 550,
+          "running": false,
+          "destroyed": false
+        },
+        "pixelsChanged": true,
+        "pixelGate": true
+      },
+      {
+        "index": 3,
+        "kind": "click",
+        "targetId": "confirm",
+        "expectActivations": 1,
+        "status": "PASS",
+        "observations": {
+          "activations": 1,
+          "targetActivations": 1
+        },
+        "pixelsChanged": true,
+        "pixelGate": false
+      }
+    ],
+    "stages": [
+      {
+        "name": "component-and-motion-contracts",
+        "status": "PASS"
+      },
+      {
+        "name": "resource-and-bundle-validation",
+        "status": "PASS"
+      },
+      {
+        "name": "browser-adapter-ready",
+        "status": "PASS"
+      },
+      {
+        "name": "pixijs-mount-and-resource-decode",
+        "status": "PASS"
+      },
+      {
+        "name": "declared-browser-checks",
+        "status": "PASS"
+      },
+      {
+        "name": "fresh-page-bundle-restoration",
+        "status": "PASS"
+      },
+      {
+        "name": "runtime-teardown",
+        "status": "PASS"
+      },
+      {
+        "name": "pixijs-browser-acceptance",
+        "status": "PASS"
+      },
+      {
+        "name": "publish",
+        "status": "PASS"
+      }
+    ],
+    "artifacts": {
+      "component.bundle.json": {
+        "sha256": "5e70deaf2671a1b8fb4d4d4c0eccb6267015b0be0fade431f934e836539bd9f9",
+        "bytes": 10869
+      },
+      "initial.png": {
+        "sha256": "13354797f030f529533a3b3c12aa351d0ddf2bd3f392d9005456f0d974ecaa2b",
+        "bytes": 16153
+      },
+      "check-001-before.png": {
+        "sha256": "13354797f030f529533a3b3c12aa351d0ddf2bd3f392d9005456f0d974ecaa2b",
+        "bytes": 16153
+      },
+      "check-001-after.png": {
+        "sha256": "13354797f030f529533a3b3c12aa351d0ddf2bd3f392d9005456f0d974ecaa2b",
+        "bytes": 16153
+      },
+      "check-002-before.png": {
+        "sha256": "3339eaad897ed62301583066cc9ac36f78afb820a9901d80985129ba249ca3a5",
+        "bytes": 2509
+      },
+      "check-002-after.png": {
+        "sha256": "f59e81b2f1661775525dc6e99fcef78fc7c1f9be7f64dced8212aad521119138",
+        "bytes": 3187
+      },
+      "check-003-before.png": {
+        "sha256": "13354797f030f529533a3b3c12aa351d0ddf2bd3f392d9005456f0d974ecaa2b",
+        "bytes": 16153
+      },
+      "check-003-after.png": {
+        "sha256": "8477838921b521fdc1965ea7b68a286f0fb732c66edf26c23da0f2973dcbb0f6",
+        "bytes": 17138
+      },
+      "check-004-before.png": {
+        "sha256": "3339eaad897ed62301583066cc9ac36f78afb820a9901d80985129ba249ca3a5",
+        "bytes": 2509
+      },
+      "check-004-after.png": {
+        "sha256": "20be1ecc180be57e64fdff802345189f57ff267830288528b4e0d5b0c6ca9ced",
+        "bytes": 3161
+      },
+      "restored.png": {
+        "sha256": "13354797f030f529533a3b3c12aa351d0ddf2bd3f392d9005456f0d974ecaa2b",
+        "bytes": 16153
+      }
+    },
+    "humanVisualReview": "NOT_RUN"
+  },
+  "installed": {
+    "report": "workflow-installed-final.json",
+    "matchingFiles": 78,
+    "packageSha256": "10b0d01fbd1e07be8efd8c6d7a20ceda9db0a9748109afbf5926cf44f4c4a9bd",
+    "sourceTreePresent": false,
+    "checks": 2
+  },
+  "providerCalls": 0
+}

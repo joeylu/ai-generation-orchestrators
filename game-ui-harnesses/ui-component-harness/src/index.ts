@@ -1,0 +1,14 @@
+export { HarnessError, validateButton } from './contract.ts';
+export type { ButtonContract } from './contract.ts';
+export { compileButton, validateButtonIntent, validatePreviewPolicy } from './intent-compiler.ts';
+export type { ButtonIntent, ImageFacts, PreviewPolicy } from './intent-compiler.ts';
+export { ButtonStateMachine } from './button-state.ts';
+export * from './tree-contract.ts';
+export * from './tree-compiler.ts';
+export * from './resource-reference.ts';
+export * from './bundle.ts';
+export * from './motion.ts';
+export * from './motion-presets.ts';
+export * from './motion-system.ts';
+export * from './analysis-session.ts';
+export * from './workflow.ts';

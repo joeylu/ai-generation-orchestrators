@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "sourceArchiveTested": "ui-component-harness-v0.2.0-source.zip",
+  "testedArchiveSha256": "0f5bec32d867039a7dfbc6913e34a5842a9f6f53b96a4299e300f4a0cd3313d9",
+  "freshExtract": true,
+  "nodeModulesIncluded": false,
+  "commands": [
+    {
+      "command": "npm ci --ignore-scripts --cache ../../npm-cache",
+      "exitCode": 0,
+      "status": "PASS",
+      "log": "current-source-install-1.log"
+    },
+    {
+      "command": "npm test",
+      "exitCode": 0,
+      "status": "PASS",
+      "log": "current-source-install-2.log"
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0,
+      "status": "PASS",
+      "log": "current-source-install-3.log"
+    },
+    {
+      "command": "npm run self-test",
+      "exitCode": 0,
+      "status": "PASS",
+      "log": "current-source-install-4.log"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "intentVersion": "0.1",
+  "id": "button_confirm_01",
+  "componentType": "Button",
+  "visual": {
+    "source": "./assets/button-confirm.png",
+    "mode": "whole-image"
+  },
+  "text": {
+    "mode": "baked",
+    "value": "确定"
+  }
+}

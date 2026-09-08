@@ -1,0 +1,12 @@
+node_modules/
+dist/
+lib/
+test-results/
+test-results-studio/
+test-results-vision-studio/
+playwright-report/
+public/local/
+analysis/button-confirm.observation.json
+*.tgz
+.tmp/
+.env*.local

@@ -1,0 +1,49 @@
+{
+  "status": "PASS",
+  "archive": "ai-ui-component-harness-0.2.0.tgz",
+  "sha256": "fd939b7e00dfddb136e711b6843fd6c5c48cb6bb1a226d1e99ef76cc1b2e470c",
+  "bytes": 63865,
+  "node": "v25.9.0",
+  "compiledLibraryImport": true,
+  "sourceTreeAbsent": true,
+  "skillLinksResolved": true,
+  "offlineCliCommands": [
+    {
+      "command": "self-test",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": "doctor",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": "compile",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": "validate",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": "inspect",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": "pack",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": "unpack",
+      "status": "PASS",
+      "exitCode": 0
+    }
+  ],
+  "resourceChecksumsVerified": 2,
+  "documentAndMotionRoundTrip": true
+}

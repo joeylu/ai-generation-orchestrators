@@ -8,6 +8,27 @@ permissions:
   contents: read
 
 jobs:
+  ui-components:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: game-ui-harnesses/ui-component-harness
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: game-ui-harnesses/ui-component-harness/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run build
+      - run: npm run self-test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+        env:
+          UI_HARNESS_PREVIEW: "1"
+
   test:
     strategy:
       fail-fast: false

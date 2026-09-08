@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "0.1",
+  "id": "button_fixture_01",
+  "type": "Button",
+  "layout": { "x": 200, "y": 160, "width": 240, "height": 80 },
+  "props": { "enabled": true },
+  "slots": {
+    "visual": {
+      "id": "button_fixture_01_visual",
+      "type": "Image",
+      "props": { "source": "./fixtures/button.svg" }
+    }
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "intentVersion": "0.2",
+  "id": "fixture-composite",
+  "root": {
+    "id": "root",
+    "componentType": "Container",
+    "props": {
+      "style": {
+        "backgroundColor": "#FFFFFF",
+        "borderColor": "#C8D5E5",
+        "borderWidth": 0,
+        "cornerRadius": 8,
+        "textColor": "#223653",
+        "fontFamily": "sans-serif",
+        "fontSize": 16,
+        "fontWeight": "normal",
+        "opacity": 1
+      }
+    },
+    "children": [
+      {
+        "id": "heading",
+        "componentType": "Text",
+        "props": {
+          "text": "A COMPOSABLE COMPONENT",
+          "style": {
+            "backgroundColor": "#FFFFFF",
+            "borderColor": "#C8D5E5",
+            "borderWidth": 0,
+            "cornerRadius": 8,
+            "textColor": "#223653",
+            "fontFamily": "sans-serif",
+            "fontSize": 22,
+            "fontWeight": "bold",
+            "opacity": 1
+          },
+          "wrap": "none",
+          "overflow": "error",
+          "lineHeight": 27.5
+        }
+      },
+      {
+        "id": "balance",
+        "componentType": "Container",
+        "props": {
+          "style": {
+            "backgroundColor": "#FFFFFF",
+            "borderColor": "#C8D5E5",
+            "borderWidth": 0,
+            "cornerRadius": 8,
+            "textColor": "#223653",
+            "fontFamily": "sans-serif",
+            "fontSize": 16,
+            "fontWeight": "normal",
+            "opacity": 1
+          }
+        },
+        "children": [
+          {
+            "id": "balance-plate",
+            "componentType": "Image",
+            "props": {
+              "source": "fixtures/plate.svg",
+              "fit": "stretch",
+              "style": {
+                "backgroundColor": "#FFFFFF",
+                "borderColor": "#C8D5E5",
+                "borderWidth": 0,
+                "cornerRadius": 8,
+                "textColor": "#223653",
+                "fontFamily": "sans-serif",
+                "fontSize": 16,
+                "fontWeight": "normal",
+                "opacity": 1
+              }
+            }
+          },
+          {
+            "id": "balance-gem",
+            "componentType": "Image",
+            "props": {
+              "source": "fixtures/gem.svg",
+              "fit": "contain",
+              "style": {
+                "backgroundColor": "#FFFFFF",
+                "borderColor": "#C8D5E5",
+                "borderWidth": 0,
+                "cornerRadius": 8,
+                "textColor": "#223653",
+                "fontFamily": "sans-serif",
+                "fontSize": 16,
+                "fontWeight": "normal",
+                "opacity": 1
+              }
+            }
+          },
+          {
+            "id": "balance-label",
+            "componentType": "Text",
+            "props": {
+              "text": "1,580",
+              "style": {
+                "backgroundColor": "#172B4D",
+                "borderColor": "#C8D5E5",
+                "borderWidth": 0,
+                "cornerRadius": 8,
+                "textColor": "#FFFFFF",
+                "fontFamily": "sans-serif",
+                "fontSize": 28,
+                "fontWeight": "bold",
+                "opacity": 1
+              },
+              "wrap": "none",
+              "overflow": "error",
+              "lineHeight": 35
+            }
+          }
+        ]
+      },
+      {
+        "id": "confirm",
+        "componentType": "Button",
+        "props": {
+          "label": "",
+          "enabled": true,
+          "style": {
+            "backgroundColor": "#DBF6ED",
+            "borderColor": "#85CCB6",
+            "borderWidth": 1,
+            "cornerRadius": 8,
+            "textColor": "#223653",
+            "fontFamily": "sans-serif",
+            "fontSize": 16,
+            "fontWeight": "normal",
+            "opacity": 1
+          }
+        },
+        "children": [
+          {
+            "id": "confirm-icon",
+            "componentType": "Image",
+            "props": {
+              "source": "fixtures/gem.svg",
+              "fit": "contain",
+              "style": {
+                "backgroundColor": "#FFFFFF",
+                "borderColor": "#C8D5E5",
+                "borderWidth": 0,
+                "cornerRadius": 8,
+                "textColor": "#223653",
+                "fontFamily": "sans-serif",
+                "fontSize": 16,
+                "fontWeight": "normal",
+                "opacity": 1
+              }
+            }
+          },
+          {
+            "id": "confirm-label",
+            "componentType": "Text",
+            "props": {
+              "text": "Confirm",
+              "style": {
+                "backgroundColor": "#DBF6ED",
+                "borderColor": "#C8D5E5",
+                "borderWidth": 0,
+                "cornerRadius": 8,
+                "textColor": "#223653",
+                "fontFamily": "sans-serif",
+                "fontSize": 16,
+                "fontWeight": "bold",
+                "opacity": 1
+              },
+              "wrap": "none",
+              "overflow": "error",
+              "lineHeight": 20
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

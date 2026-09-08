@@ -1,0 +1,222 @@
+{
+  "canvas": {
+    "width": 920,
+    "height": 834
+  },
+  "layout": {
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 920,
+      "height": 834
+    },
+    "heading": {
+      "x": 28,
+      "y": 22,
+      "width": 620,
+      "height": 36
+    },
+    "balance": {
+      "x": 28,
+      "y": 78,
+      "width": 380,
+      "height": 84
+    },
+    "balance-plate": {
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 84
+    },
+    "balance-gem": {
+      "x": 18,
+      "y": 18,
+      "width": 48,
+      "height": 48
+    },
+    "balance-label": {
+      "x": 91,
+      "y": 21,
+      "width": 252,
+      "height": 40
+    },
+    "confirm": {
+      "x": 450,
+      "y": 90,
+      "width": 175,
+      "height": 56
+    },
+    "confirm-icon": {
+      "x": 12,
+      "y": 12,
+      "width": 32,
+      "height": 32
+    },
+    "confirm-label": {
+      "x": 57,
+      "y": 17,
+      "width": 108,
+      "height": 26
+    },
+    "group-toggle": {
+      "x": 28,
+      "y": 188,
+      "width": 470,
+      "height": 28
+    },
+    "sound": {
+      "x": 28,
+      "y": 229,
+      "width": 244,
+      "height": 46
+    },
+    "tips": {
+      "x": 316,
+      "y": 229,
+      "width": 260,
+      "height": 46
+    },
+    "quality": {
+      "x": 610,
+      "y": 207,
+      "width": 270,
+      "height": 124
+    },
+    "group-value": {
+      "x": 28,
+      "y": 314,
+      "width": 470,
+      "height": 28
+    },
+    "progress": {
+      "x": 28,
+      "y": 356,
+      "width": 244,
+      "height": 22
+    },
+    "volume": {
+      "x": 28,
+      "y": 396,
+      "width": 244,
+      "height": 42
+    },
+    "name": {
+      "x": 316,
+      "y": 357,
+      "width": 260,
+      "height": 46
+    },
+    "region": {
+      "x": 610,
+      "y": 357,
+      "width": 270,
+      "height": 46
+    },
+    "group-structure": {
+      "x": 28,
+      "y": 469,
+      "width": 560,
+      "height": 28
+    },
+    "scroll": {
+      "x": 28,
+      "y": 510,
+      "width": 244,
+      "height": 177
+    },
+    "scroll-row-0": {
+      "x": 10,
+      "y": 10,
+      "width": 221,
+      "height": 48
+    },
+    "scroll-row-1": {
+      "x": 10,
+      "y": 69,
+      "width": 221,
+      "height": 48
+    },
+    "scroll-row-2": {
+      "x": 10,
+      "y": 128,
+      "width": 221,
+      "height": 48
+    },
+    "scroll-row-3": {
+      "x": 10,
+      "y": 187,
+      "width": 221,
+      "height": 48
+    },
+    "scroll-row-4": {
+      "x": 10,
+      "y": 246,
+      "width": 221,
+      "height": 48
+    },
+    "scroll-row-5": {
+      "x": 10,
+      "y": 305,
+      "width": 221,
+      "height": 48
+    },
+    "inventory": {
+      "x": 316,
+      "y": 510,
+      "width": 260,
+      "height": 177
+    },
+    "details": {
+      "x": 610,
+      "y": 510,
+      "width": 270,
+      "height": 177
+    },
+    "page-info": {
+      "x": 14,
+      "y": 61,
+      "width": 242,
+      "height": 50
+    },
+    "page-stats": {
+      "x": 14,
+      "y": 61,
+      "width": 242,
+      "height": 50
+    },
+    "footer-panel": {
+      "x": 28,
+      "y": 717,
+      "width": 852,
+      "height": 88
+    },
+    "footer-text": {
+      "x": 16,
+      "y": 41,
+      "width": 810,
+      "height": 27
+    },
+    "dialog": {
+      "x": 260,
+      "y": 230,
+      "width": 390,
+      "height": 235
+    },
+    "dialog-copy": {
+      "x": 24,
+      "y": 65,
+      "width": 345,
+      "height": 36
+    },
+    "dialog-close": {
+      "x": 24,
+      "y": 145,
+      "width": 342,
+      "height": 54
+    }
+  },
+  "layoutSource": {
+    "kind": "explicit",
+    "description": "Programmatic engineering fixture with independent SVG plate/icon and editable text. Not vision analysis."
+  }
+}

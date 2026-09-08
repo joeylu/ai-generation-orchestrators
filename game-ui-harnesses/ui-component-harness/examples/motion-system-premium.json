@@ -1,0 +1,335 @@
+{
+  "motionSystemVersion": "0.1",
+  "id": "gallery-premium",
+  "style": "premium",
+  "bindings": [
+    {
+      "targetId": "root",
+      "componentType": "Container",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "heading",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "balance",
+      "componentType": "Container",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "balance-plate",
+      "componentType": "Image",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "balance-gem",
+      "componentType": "Image",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "balance-label",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "confirm",
+      "componentType": "Button",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis",
+        "press",
+        "hover"
+      ]
+    },
+    {
+      "targetId": "confirm-icon",
+      "componentType": "Image",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "confirm-label",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "group-toggle",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "sound",
+      "componentType": "Switch",
+      "actions": [
+        "enter",
+        "exit",
+        "change",
+        "hover"
+      ]
+    },
+    {
+      "targetId": "tips",
+      "componentType": "CheckBox",
+      "actions": [
+        "enter",
+        "exit",
+        "change",
+        "hover"
+      ]
+    },
+    {
+      "targetId": "quality",
+      "componentType": "RadioGroup",
+      "actions": [
+        "enter",
+        "exit",
+        "change",
+        "hover"
+      ]
+    },
+    {
+      "targetId": "group-value",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "progress",
+      "componentType": "ProgressBar",
+      "actions": [
+        "enter",
+        "exit",
+        "progress"
+      ]
+    },
+    {
+      "targetId": "volume",
+      "componentType": "Slider",
+      "actions": [
+        "enter",
+        "exit",
+        "progress",
+        "hover"
+      ]
+    },
+    {
+      "targetId": "name",
+      "componentType": "Input",
+      "actions": [
+        "enter",
+        "exit",
+        "focus"
+      ]
+    },
+    {
+      "targetId": "region",
+      "componentType": "Select",
+      "actions": [
+        "enter",
+        "exit",
+        "open",
+        "close",
+        "change",
+        "hover"
+      ]
+    },
+    {
+      "targetId": "group-structure",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "scroll",
+      "componentType": "ScrollView",
+      "actions": [
+        "enter",
+        "exit",
+        "scroll"
+      ]
+    },
+    {
+      "targetId": "scroll-row-0",
+      "componentType": "Panel",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "scroll-row-1",
+      "componentType": "Panel",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "scroll-row-2",
+      "componentType": "Panel",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "scroll-row-3",
+      "componentType": "Panel",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "scroll-row-4",
+      "componentType": "Panel",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "scroll-row-5",
+      "componentType": "Panel",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "inventory",
+      "componentType": "List",
+      "actions": [
+        "enter",
+        "exit",
+        "change",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "details",
+      "componentType": "Tabs",
+      "actions": [
+        "enter",
+        "exit",
+        "change"
+      ]
+    },
+    {
+      "targetId": "page-info",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "page-stats",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "footer-panel",
+      "componentType": "Panel",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "targetId": "footer-text",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "dialog",
+      "componentType": "Dialog",
+      "actions": [
+        "enter",
+        "exit",
+        "open",
+        "close"
+      ]
+    },
+    {
+      "targetId": "dialog-copy",
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "targetId": "dialog-close",
+      "componentType": "Button",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis",
+        "press",
+        "hover"
+      ]
+    }
+  ]
+}

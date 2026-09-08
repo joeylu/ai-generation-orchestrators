@@ -103,6 +103,12 @@ alpha correctness, checksum correctness, or path safety.
 - Do not add Docker, web, database, WSS, worker claim/lease/heartbeat, supervisor,
   Owner-wake, login authorization, internal beta state, deployment scripts, or
   internal handoff prompts.
+- Exception approved for `game-ui-harnesses/ui-component-harness/`: local-only
+  Web/PixiJS component acceptance tools, static builds, and browser tests are
+  permitted. This does not permit deployment, authentication services, databases,
+  queues, or changes to other Harness runtimes. Deterministic programmatic UI
+  fixtures and separate component/canvas motion configurations are permitted;
+  tests must not call image/video generation or private model services.
 - Do not copy a production directory wholesale. Port only allowlisted behavior
   that is covered by public contract and regression tests.
 - A decoded handoff is public only when it contains provider-neutral artifact and

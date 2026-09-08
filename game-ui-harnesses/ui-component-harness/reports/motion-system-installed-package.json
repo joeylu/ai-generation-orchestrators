@@ -1,0 +1,38 @@
+{
+  "generatedAt": "2026-09-07T22:53:29.893Z",
+  "status": "PASS",
+  "checks": [
+    "installed neutral library works without src; all 48 style/type pairs and 35 gallery targets round trip with a coexisting timeline and unchanged resources; old bundle remains 0.1",
+    "all eight installed motion CLI commands execute from a fresh consumer working directory",
+    "all seven installed component CLI commands execute; pack and fresh unpack preserve both attachments and both exact resource payloads",
+    "overwrite is rejected and the prior validated system artifact is preserved",
+    "all 11 reachable Skill/reference Markdown documents resolve inside the installed package"
+  ],
+  "package": {
+    "bytes": 88998,
+    "sha256": "45ae5468b604a9aa9b13d13226ba7ffefdf25cbde3a204e42be0cf203e110aa5"
+  },
+  "coverage": {
+    "styles": 3,
+    "componentTypes": 16,
+    "styleTypePairs": 48,
+    "galleryBindings": 35,
+    "motionCommands": 8,
+    "componentCommands": 7,
+    "otherEngineAdapters": 0
+  },
+  "executionReport": "motion-system-verification.json",
+  "browser": {
+    "startTime": "2026-09-07T22:47:39.176Z",
+    "duration": 165334.558,
+    "expected": 39,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "limitations": [
+    "Only PixiJS rendering and interaction adapter implemented",
+    "No provider job or generated media",
+    "Physical touch/pen, native IME panels and user visual signoff not run"
+  ]
+}

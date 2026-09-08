@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f3ee" />
+    <title>UI Studio · 参考图预览</title>
+  </head>
+  <body data-busy="false" data-ready="false">
+    <a class="skip-link" href="#studio-main">跳到预览画布</a>
+
+    <div class="studio-shell">
+      <header class="studio-header">
+        <div class="studio-brand">
+          <span class="studio-mark" aria-hidden="true"></span>
+          <div class="studio-brand-copy">
+            <h1>UI Studio</h1>
+            <p>从参考图开始，找到合适的呈现方式</p>
+          </div>
+        </div>
+
+        <button id="studio-export" class="export-button" type="button" disabled>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M5 20h14" />
+          </svg>
+          <span>导出</span>
+        </button>
+      </header>
+
+      <aside class="studio-sidebar" aria-label="参考图与呈现设置">
+        <section class="sidebar-section">
+          <p class="section-kicker">参考图</p>
+          <h2>添加一张图片</h2>
+          <p class="section-copy">自动理解组件类型与层级，再在画布中比较呈现方案。</p>
+
+          <label id="drop-zone" class="drop-zone" for="reference-file" aria-describedby="drop-zone-hint">
+            <input id="reference-file" type="file" accept="image/png,image/jpeg,image/webp" />
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 16V4" />
+              <path d="m8 8 4-4 4 4" />
+              <path d="M5 20h14" />
+            </svg>
+            <strong>选择参考图</strong>
+            <span id="drop-zone-hint">或拖入 PNG / JPG / WebP · 最大 2 MB</span>
+          </label>
+
+          <div id="reference-preview" class="reference-card" hidden>
+            <div class="reference-visual">
+              <img id="reference-image" alt="已添加的参考图" />
+            </div>
+            <div class="reference-details">
+              <p id="reference-name" class="reference-name"></p>
+              <p id="reference-meta" class="preview-meta"></p>
+              <button id="replace-image" class="replace-button" type="button">替换图片</button>
+            </div>
+          </div>
+
+          <label class="bundle-import" for="open-bundle">
+            <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 20h14" />
+            </svg>
+            <span>打开已保存的方案</span>
+            <input id="open-bundle" type="file" accept="application/json,.json" />
+          </label>
+        </section>
+
+        <section id="analysis-state" class="sidebar-section" aria-live="polite" hidden>
+          <p class="section-kicker">组件识别</p>
+          <h2>理解图片，生成组件</h2>
+          <p id="analysis-summary" class="section-copy"></p>
+        </section>
+
+        <section class="sidebar-section" aria-labelledby="scheme-title">
+          <p class="section-kicker">呈现方案</p>
+          <h2 id="scheme-title">选择一种感觉</h2>
+          <div id="scheme-options" class="scheme-options" role="group" aria-label="选择呈现方案">
+            <button class="scheme-card" type="button" data-scheme="original" aria-pressed="true">
+              <span class="scheme-symbol scheme-symbol--original" aria-hidden="true"></span>
+              <span class="scheme-copy">
+                <strong>原样</strong>
+                <small>保持静态呈现</small>
+              </span>
+            </button>
+            <button class="scheme-card" type="button" data-scheme="playful" aria-pressed="false">
+              <span class="scheme-symbol scheme-symbol--playful" aria-hidden="true"></span>
+              <span class="scheme-copy">
+                <strong>轻快</strong>
+                <small>轻盈而有节奏</small>
+              </span>
+            </button>
+            <button class="scheme-card" type="button" data-scheme="premium" aria-pressed="false">
+              <span class="scheme-symbol scheme-symbol--premium" aria-hidden="true"></span>
+              <span class="scheme-copy">
+                <strong>精致</strong>
+                <small>柔和、克制的变化</small>
+              </span>
+            </button>
+            <button class="scheme-card" type="button" data-scheme="corporate" aria-pressed="false">
+              <span class="scheme-symbol scheme-symbol--corporate" aria-hidden="true"></span>
+              <span class="scheme-copy">
+                <strong>稳重</strong>
+                <small>利落且有秩序</small>
+              </span>
+            </button>
+          </div>
+          <button id="studio-reset" class="clear-button" type="button" disabled>清除</button>
+        </section>
+      </aside>
+
+      <main id="studio-main" class="studio-workspace" tabindex="-1">
+        <div class="workspace-topbar">
+          <div class="toolbar-copy">
+            <p class="section-kicker">预览画布</p>
+            <h2 id="canvas-name">等待一张参考图</h2>
+            <p id="scheme-name" class="scheme-name">添加图片后，可选择呈现方案。</p>
+          </div>
+          <div class="toolbar-actions" aria-label="画布操作">
+            <button id="studio-compare" class="toolbar-button" type="button" disabled aria-pressed="false" aria-controls="comparison-grid">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="7" height="14" rx="1.5" />
+                <rect x="14" y="5" width="7" height="14" rx="1.5" />
+              </svg>
+              <span>对比方案</span>
+            </button>
+            <button id="studio-replay" class="toolbar-button" type="button" disabled aria-controls="main-preview">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 3-6.7" />
+                <path d="M3 4v5h5" />
+              </svg>
+              <span>重播</span>
+            </button>
+          </div>
+        </div>
+
+        <p id="studio-status" class="studio-status" role="status" aria-live="polite" aria-atomic="true">请添加一张参考图。</p>
+
+        <div id="studio-error" class="studio-error" role="alert" hidden>
+          <p id="error-message"></p>
+          <button id="dismiss-error" class="error-dismiss" type="button">知道了</button>
+        </div>
+
+        <div class="studio-stage-wrap">
+          <div id="studio-empty" class="studio-empty">
+            <div class="empty-copy">
+              <span class="empty-art" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3.5" y="4" width="17" height="16" rx="3" />
+                  <circle cx="9" cy="10" r="1.5" />
+                  <path d="m5.5 17 4.5-4 3.2 2.7 2-1.8 3.3 3.1" />
+                </svg>
+              </span>
+              <h2>画布会在这里展开</h2>
+              <p>添加一张参考图，在不改变原图的前提下，比较适合它的呈现方式。</p>
+            </div>
+          </div>
+
+          <div id="studio-stage" class="studio-stage" hidden>
+            <div id="main-preview" class="main-preview" role="region" aria-label="当前预览"></div>
+            <div id="comparison-grid" class="comparison-grid" hidden></div>
+          </div>
+        </div>
+
+        <p id="studio-hint" class="studio-hint">参考图将发送至已配置的识图服务进行组件分析。</p>
+      </main>
+    </div>
+
+    <script type="module" src="/src/studio.ts"></script>
+  </body>
+</html>

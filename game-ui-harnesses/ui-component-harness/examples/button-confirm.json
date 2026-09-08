@@ -1,0 +1,23 @@
+{
+  "id": "button_confirm_01",
+  "layout": {
+    "height": 133,
+    "width": 347,
+    "x": 146.5,
+    "y": 133.5
+  },
+  "props": {
+    "enabled": true
+  },
+  "schemaVersion": "0.1",
+  "slots": {
+    "visual": {
+      "id": "button_confirm_01_visual",
+      "props": {
+        "source": "./assets/button-confirm.png"
+      },
+      "type": "Image"
+    }
+  },
+  "type": "Button"
+}

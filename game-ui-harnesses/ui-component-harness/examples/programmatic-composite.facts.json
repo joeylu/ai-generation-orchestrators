@@ -1,0 +1,10 @@
+{
+  "fixtures/plate.svg": {
+    "width": 380,
+    "height": 84
+  },
+  "fixtures/gem.svg": {
+    "width": 48,
+    "height": 48
+  }
+}

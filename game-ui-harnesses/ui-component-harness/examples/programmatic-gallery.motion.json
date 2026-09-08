@@ -1,0 +1,47 @@
+{
+  "motionVersion": "0.1",
+  "id": "fixture-entrance",
+  "scope": "canvas",
+  "duration": 1100,
+  "trigger": {
+    "type": "manual"
+  },
+  "tracks": [
+    {
+      "targetId": "balance",
+      "property": "x",
+      "start": 0,
+      "duration": 600,
+      "from": -16,
+      "to": 0,
+      "easing": "ease-out"
+    },
+    {
+      "targetId": "balance",
+      "property": "alpha",
+      "start": 0,
+      "duration": 600,
+      "from": 0.2,
+      "to": 1,
+      "easing": "linear"
+    },
+    {
+      "targetId": "confirm",
+      "property": "scaleX",
+      "start": 250,
+      "duration": 600,
+      "from": 0.92,
+      "to": 1,
+      "easing": "ease-out"
+    },
+    {
+      "targetId": "confirm",
+      "property": "scaleY",
+      "start": 250,
+      "duration": 600,
+      "from": 0.92,
+      "to": 1,
+      "easing": "ease-out"
+    }
+  ]
+}

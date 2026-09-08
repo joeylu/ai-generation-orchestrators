@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-09-07T21:25:41.344Z",
+  "status": "PASS",
+  "checks": [
+    "installed neutral library works without a source tree",
+    "compiled preset survives verified resource bundle round trip",
+    "all five installed CLI commands execute from consumer working directory",
+    "installed command refuses overwrite and retains prior artifact",
+    "all 10 linked Skill/reference Markdown files resolve inside installed package"
+  ],
+  "package": {
+    "bytes": 76202,
+    "sha256": "e3ed086513a6f4bd2c410565afbfe30e6bd5d7a5bbf6eb71a81fa497f774f7b9"
+  },
+  "unit": {
+    "passed": 136,
+    "log": "motion-skill-unit.log"
+  },
+  "browser": {
+    "stats": {
+      "startTime": "2026-09-07T21:19:00.091Z",
+      "duration": 34529.565,
+      "expected": 23,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "log": "motion-skill-browser.log",
+    "engine": "PixiJS 8.20.1",
+    "renderer": "Edge / software WebGL"
+  },
+  "coverage": {
+    "componentTypes": 16,
+    "recipeCompilations": 80,
+    "pixiPulseNodeTypes": 16,
+    "otherEngineAdapters": 0
+  },
+  "limitations": [
+    "specialized control parts/state feedback incomplete",
+    "transformed Slider gestures and Select/Dialog overlay behavior not established",
+    "no human visual signoff or other engine acceptance"
+  ],
+  "sources": {
+    "src/analysis-session.ts": "1f52ed62d95d994f6f43212b7779d47801cc8c2f53c940058ad3122484d05d6e",
+    "src/bundle.ts": "675c9e23907c1e8066eb8336cbabc57df5e1234579d3af868f36a8b37ada6251",
+    "src/button-state.ts": "06bc30ef7a854a0514bd47b5f0b0d4ef9f5546f5d8850ed78b6ff27eff0ea73d",
+    "src/contract.ts": "4deb5cbcbc38d68a388ed02317a3f8a2d8f95984130f720faff6cbc5845f9313",
+    "src/fixtures.ts": "8bd8d91c736a7726e8b5d42a7ec91e3840b383b9a62e84a1070744a219776731",
+    "src/index.ts": "4fc95e9e4594cff10db56baf30d49c8f6edf0b5057e93da85cc023055b48e0f8",
+    "src/intent-compiler.ts": "316b2af86a1fcd667acc0de032c19f334eab512b4f08e14ecd531d1f2d7336fc",
+    "src/main.ts": "78e1546a81ec1f82ef0d74b9a4198c9fdf216fdfedc10269544f68a00ace5014",
+    "src/motion-presets.ts": "3f7d4e03eb3a277472d947b04557f3405430c299d6c8ec0df2e66b401089fb54",
+    "src/motion.ts": "ba9ef09c8933caa88939db3ba249cf4e5544acb6964fe0b40737549158b940c3",
+    "src/pixi-adapter.ts": "89e61227388655a9b209d8adf9051c8a26edcbaff5e6f30a3bced9ba8ec38886",
+    "src/probes.ts": "b4dec9acbcf3f70f3d5b8b0cd201a7dc9a61b7c5652f7297877adafac613e4a6",
+    "src/resource-reference.ts": "332091e8fb8cec6ef8520b2835336dd75118019228eb3f87b532edc3e30cc595",
+    "src/resource.ts": "0deee32e5c4a8d250a5e791dab50cf7a22b18144be3de861c048a08bfa389c5d",
+    "src/runtime-state.ts": "0904bbd61c4f4c4071cb96b07d66133a7e06fa998b77a2ef47d328a14d1fb426",
+    "src/style.css": "ff37bd4bae398103967e35a924bdc8f6ee01cf21e73f8070737de27ef94588b3",
+    "src/tree-compiler.ts": "d95c808bc87d2d9d64c78def5f6f83d31299285fe508f0441f41bfc482ef7953",
+    "src/tree-contract.ts": "6b75083bb153500d0168c3e70fa07636949eccc598d1b99caa667b65f27ca58a",
+    "src/tree-runtime.ts": "9deaa8d4d1428e5c5d1929d428f933842d1228c047eb680aed42862f0b1be18b",
+    "src/vite-env.d.ts": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
+    "skills/ui-motion/assets/confirm-pulse.recipe.json": "f603ee9506432d2386896b08c4bd84d7c9ac728f72d732a070566e6d2dcca437",
+    "skills/ui-motion/references/component-coverage.md": "17427668ea613f1ab4ab092d03333b685e9bdc11af53fa81e58cfc70b0181fec",
+    "skills/ui-motion/references/engine-adapters.md": "e90fd474e9d2b0daf4615bc2dcea5f58a1abd46fe1819eb0cad6089186a1d7a1",
+    "skills/ui-motion/references/recipes.md": "fce0f2e669bfcb3099a1e1c56c09b3ff2a92545ee83ff8bca4ae00d8cb65bf41",
+    "skills/ui-motion/references/sources.md": "22b84e5db82249ba90b0752912065f02f3dbd3c87ad0e0bdaec2ab8571132d14",
+    "skills/ui-motion/SKILL.md": "baed6df559ef82c7582ae93cd310d121482144e37624ff2fa3002d4b3576be22",
+    "scripts/motion-cli.mjs": "8632c2fe3fbd2b658fdde26ebe839b3dda1bd037cf4ab1ef1a716716ad946244",
+    "tests/motion-presets.test.ts": "0f0cfa0bb2370bc61d9169e24401fc25d7ad647286920712451af038ffed05c3",
+    "tests/motion-cli.test.ts": "f07313c6c089fe70c6465a149e2b6dd6584dd8d244236d5412c08c5a89ff2291",
+    "tests/browser/motion-presets.spec.ts": "1978ce1fa1e6c107d1e16455f1557045e667f492302e84e5774bc4fc9143adb6",
+    "package.json": "a233590bf349ebb79cad8b6ad7028a80a6b100d19015f5cacb32daf6d5ef3447",
+    "package-lock.json": "4cfea7fcac93cd1f3fbcebbca7f661473c25c6c8b0732779df3db5c87c6c1ddf"
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "motionSystemVersion": "0.1",
+  "profiles": {
+    "playful": {
+      "pressScale": 0.95,
+      "pressMs": 60,
+      "releasePeak": 1.05,
+      "releasePeakMs": 80,
+      "releaseSettleMs": 120,
+      "hoverScale": 1.03,
+      "hoverMs": 120,
+      "enterMs": 260,
+      "exitMs": 160,
+      "enterOffsetY": 16,
+      "enterScale": 0.92,
+      "changeMs": 180,
+      "focusMs": 140,
+      "staggerMs": 55,
+      "scrollMs": 180,
+      "easing": "spring"
+    },
+    "premium": {
+      "pressScale": 0.98,
+      "pressMs": 80,
+      "releasePeak": 1,
+      "releasePeakMs": 150,
+      "releaseSettleMs": 0,
+      "hoverScale": 1.01,
+      "hoverMs": 180,
+      "enterMs": 280,
+      "exitMs": 200,
+      "enterOffsetY": 12,
+      "enterScale": 0.98,
+      "changeMs": 200,
+      "focusMs": 140,
+      "staggerMs": 70,
+      "scrollMs": 220,
+      "easing": "ease-in-out"
+    },
+    "corporate": {
+      "pressScale": 0.97,
+      "pressMs": 60,
+      "releasePeak": 1,
+      "releasePeakMs": 100,
+      "releaseSettleMs": 0,
+      "hoverScale": 1.01,
+      "hoverMs": 100,
+      "enterMs": 180,
+      "exitMs": 140,
+      "enterOffsetY": 8,
+      "enterScale": 0.99,
+      "changeMs": 140,
+      "focusMs": 100,
+      "staggerMs": 45,
+      "scrollMs": 160,
+      "easing": "ease-out"
+    }
+  },
+  "components": [
+    {
+      "componentType": "Image",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "componentType": "Text",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis"
+      ]
+    },
+    {
+      "componentType": "Container",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "componentType": "Button",
+      "actions": [
+        "enter",
+        "exit",
+        "emphasis",
+        "press",
+        "hover"
+      ]
+    },
+    {
+      "componentType": "Switch",
+      "actions": [
+        "enter",
+        "exit",
+        "change",
+        "hover"
+      ]
+    },
+    {
+      "componentType": "CheckBox",
+      "actions": [
+        "enter",
+        "exit",
+        "change",
+        "hover"
+      ]
+    },
+    {
+      "componentType": "RadioGroup",
+      "actions": [
+        "enter",
+        "exit",
+        "change",
+        "hover"
+      ]
+    },
+    {
+      "componentType": "Input",
+      "actions": [
+        "enter",
+        "exit",
+        "focus"
+      ]
+    },
+    {
+      "componentType": "Select",
+      "actions": [
+        "enter",
+        "exit",
+        "open",
+        "close",
+        "change",
+        "hover"
+      ]
+    },
+    {
+      "componentType": "ProgressBar",
+      "actions": [
+        "enter",
+        "exit",
+        "progress"
+      ]
+    },
+    {
+      "componentType": "Slider",
+      "actions": [
+        "enter",
+        "exit",
+        "progress",
+        "hover"
+      ]
+    },
+    {
+      "componentType": "ScrollView",
+      "actions": [
+        "enter",
+        "exit",
+        "scroll"
+      ]
+    },
+    {
+      "componentType": "List",
+      "actions": [
+        "enter",
+        "exit",
+        "change",
+        "stagger"
+      ]
+    },
+    {
+      "componentType": "Panel",
+      "actions": [
+        "enter",
+        "exit",
+        "stagger"
+      ]
+    },
+    {
+      "componentType": "Dialog",
+      "actions": [
+        "enter",
+        "exit",
+        "open",
+        "close"
+      ]
+    },
+    {
+      "componentType": "Tabs",
+      "actions": [
+        "enter",
+        "exit",
+        "change"
+      ]
+    }
+  ]
+}

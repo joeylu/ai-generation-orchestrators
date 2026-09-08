@@ -1,0 +1,134 @@
+{
+  "status": "PASS",
+  "sourceTreePresent": false,
+  "neutralLibraryImport": true,
+  "browserAdapter": "Locally repacked existing locked Playwright 1.63.0 dependencies, installed offline; no browser download",
+  "packageSha256": "1c942bff7aa006b83a95b10aa5b48ca2450cda2852586d420f74f7a8ad2e750f",
+  "uiNodeCount": 2,
+  "resourceSha256": [
+    "88def71ade90063639bf0add5dffa758a6dc0a3ef5146a0e88eee6f08beb7b46"
+  ],
+  "run": {
+    "runVersion": "0.1",
+    "status": "PASS",
+    "stages": [
+      {
+        "name": "component-and-motion-contracts",
+        "status": "PASS"
+      },
+      {
+        "name": "resource-and-bundle-validation",
+        "status": "PASS"
+      },
+      {
+        "name": "browser-adapter-ready",
+        "status": "PASS"
+      },
+      {
+        "name": "pixijs-mount-and-resource-decode",
+        "status": "PASS"
+      },
+      {
+        "name": "declared-browser-checks",
+        "status": "PASS"
+      },
+      {
+        "name": "fresh-page-bundle-restoration",
+        "status": "PASS"
+      },
+      {
+        "name": "runtime-teardown",
+        "status": "PASS"
+      },
+      {
+        "name": "pixijs-browser-acceptance",
+        "status": "PASS"
+      },
+      {
+        "name": "publish",
+        "status": "PASS"
+      }
+    ],
+    "checks": [
+      {
+        "index": 0,
+        "kind": "motion",
+        "targetId": "purchase",
+        "action": "press",
+        "verifyPixels": true,
+        "status": "PASS",
+        "observations": {
+          "started": true,
+          "changed": true,
+          "frames": 24,
+          "settled": true
+        },
+        "pixelsChanged": true,
+        "pixelGate": true
+      },
+      {
+        "index": 1,
+        "kind": "click",
+        "targetId": "purchase",
+        "expectActivations": 1,
+        "status": "PASS",
+        "observations": {
+          "activations": 1,
+          "targetActivations": 1
+        },
+        "pixelsChanged": true,
+        "pixelGate": false
+      }
+    ],
+    "acceptanceScope": "Declared browser checks, resource decoding, exact bundle restoration and teardown",
+    "humanVisualReview": "NOT_RUN",
+    "providerCalls": 0,
+    "artifacts": {
+      "component.bundle.json": {
+        "sha256": "1ac641a751abaf881f2415a564e6f45ee96b8402f5208c0024bfebaf61402d72",
+        "bytes": 75931
+      },
+      "initial.png": {
+        "sha256": "bbb27a8e1ea101f51a6f3afb95adbe1113d1c07138d8dda675d6123691b7078f",
+        "bytes": 43585
+      },
+      "check-001-before.png": {
+        "sha256": "459150a5c8ad5f39e7bb2ae0f5bd8fa8d3fa0479208881d477fab8273b5a9c73",
+        "bytes": 38169
+      },
+      "check-001-after.png": {
+        "sha256": "89bb29bb18ce056f828ce32c1625b87df1e1c999e85797998519affe3f03d3cf",
+        "bytes": 35955
+      },
+      "check-002-before.png": {
+        "sha256": "459150a5c8ad5f39e7bb2ae0f5bd8fa8d3fa0479208881d477fab8273b5a9c73",
+        "bytes": 38169
+      },
+      "check-002-after.png": {
+        "sha256": "3957a268397deadec2dbdd23d915283e554fc7a232abc0b846a708fe6b0bbdae",
+        "bytes": 36850
+      },
+      "restored.png": {
+        "sha256": "bbb27a8e1ea101f51a6f3afb95adbe1113d1c07138d8dda675d6123691b7078f",
+        "bytes": 43585
+      }
+    },
+    "requestSha256": "cad6ccb37a0230d262d74ccab2e66a2893af5e25596ccd4b0bc2eaeb680463fc",
+    "id": "purchase-premium-workflow",
+    "browser": {
+      "channel": "msedge",
+      "browserVersion": "152.0.4191.66",
+      "adapterVersion": "0.1",
+      "engine": "pixi.js",
+      "engineVersion": "8.20.1"
+    },
+    "screenshots": [
+      "initial.png",
+      "check-001-before.png",
+      "check-001-after.png",
+      "check-002-before.png",
+      "check-002-after.png",
+      "restored.png"
+    ]
+  }
+}

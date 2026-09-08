@@ -1,0 +1,6 @@
+interface:
+  display_name: "UI Component Harness"
+  short_description: "Compile strict UI components and offline bundles"
+  default_prompt: "Use $ui-component-harness to compile my explicit UI intent and verify a local resource bundle."
+policy:
+  allow_implicit_invocation: true

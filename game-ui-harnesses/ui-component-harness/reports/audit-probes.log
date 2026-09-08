@@ -1,0 +1,5 @@
+{"check":"source-reference-validation","source":"/assets/button.png","contractResult":"ACCEPTED","intentResult":"ACCEPTED"}
+{"check":"source-reference-validation","source":"//example.invalid/button.png","contractResult":"ACCEPTED","intentResult":"ACCEPTED"}
+{"check":"source-reference-validation","source":"../outside/button.png","contractResult":"ACCEPTED","intentResult":"ACCEPTED"}
+{"check":"source-reference-validation","source":"https://example.invalid/button.png","contractResult":"ACCEPTED","intentResult":"ACCEPTED"}
+{"check":"destroy-subscriber-failure","thrown":"subscriber test-double failure","destroyed":true,"secondDestroyNotification":0,"retainedSubscribers":2}

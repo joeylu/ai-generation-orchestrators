@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "mode": "production-preview",
+  "browser": "Edge / software WebGL",
+  "sourceSha256": "0c6e46fa6a82747d9e32df72f90cc34cdc3cde017c78fdcec954bee58297bfb1",
+  "observedText": "确定",
+  "visualReview": "Conversation inspected provided whole-image Button; text is baked; no layers inferred.",
+  "decodedDimensions": {
+    "width": 347,
+    "height": 133
+  },
+  "trustedMouse": {
+    "singleActivate": true,
+    "outsideReleaseNoActivate": true
+  },
+  "legacyProbes": 14,
+  "disabledStateExport": true,
+  "embeddedBundleFreshPage": true,
+  "originalBytesUnchanged": true,
+  "notRun": [
+    "second real composite image",
+    "online vision API",
+    "physical touch/pen",
+    "user visual signoff"
+  ]
+}

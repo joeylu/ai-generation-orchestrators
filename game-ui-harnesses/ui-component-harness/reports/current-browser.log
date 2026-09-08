@@ -1,0 +1,32 @@
+
+> ai-ui-component-harness@0.2.0 test:browser
+> playwright test
+
+
+Running 21 tests using 1 worker
+
+  ok  1 tests\browser\components.spec.ts:66:1 › gallery mounts a live canvas with every supported component type (1.4s)
+  ok  2 tests\browser\components.spec.ts:77:1 › mouse interaction updates switch, checkbox, and radio-group values (1.3s)
+  ok  3 tests\browser\components.spec.ts:89:1 › slider commits pointer input on release, cancels Escape, and ignores mouse input once disabled (1.5s)
+  ok  4 tests\browser\components.spec.ts:107:1 › native keyboard editing honors the runtime readOnly state (1.6s)
+  ok  5 tests\browser\components.spec.ts:125:1 › select popup chooses a row and scroll/list/tabs respond to canvas input (2.6s)
+  ok  6 tests\browser\components.spec.ts:147:1 › modal dialog blocks background controls and its canvas close button restores interaction (1.5s)
+  ok  7 tests\browser\integration.spec.ts:18:1 › composite follows actual compiler facts and trusted mouse activates composed Button once (1.2s)
+  ok  8 tests\browser\integration.spec.ts:30:1 › invalid contract, missing image, corrupt image and font failure leave no successful tree (1.2s)
+  ok  9 tests\browser\integration.spec.ts:44:1 › shared image survives sibling destruction and final destroy releases resources/listeners (671ms)
+  ok 10 tests\browser\integration.spec.ts:55:1 › uploaded image creates explicit intent; portable bundle restores without fetching source in a fresh page (1.6s)
+  ok 11 tests\browser\integration.spec.ts:73:1 › tampered imported bundle is rejected and clears old result (627ms)
+  ok 12 tests\browser\integration.spec.ts:81:1 › raw contract file import validates the document and reloads declared resources (715ms)
+  ok 13 tests\browser\integration.spec.ts:90:1 › legacy Button 14 probes pass and legacy bundle restores embedded resource (2.3s)
+  ok 14 tests\browser\integration.spec.ts:104:1 › separate motion seeks and restores without changing component contract (2.6s)
+  ok 15 tests\browser\integration.spec.ts:117:1 › concurrent requests discard stale result and repeated reload has stable live counts (1.7s)
+  ok 16 tests\browser\integration.spec.ts:126:1 › unresolved intent and overflowing text expose real errors before success (846ms)
+  ok 17 tests\browser\runtime-edge.spec.ts:47:1 › destroyNode updates exported snapshots and rejects direct Tabs content removal (1.5s)
+  ok 18 tests\browser\runtime-edge.spec.ts:72:1 › programmatic Slider and ScrollView mutations reject invalid values without changing the document (1.2s)
+  ok 19 tests\browser\runtime-edge.spec.ts:97:1 › a valid image region creates a cropped Pixi image and remains exportable (1.2s)
+  ok 20 tests\browser\runtime-edge.spec.ts:126:1 › the hidden native editor accepts composition input and disabling it blurs and blocks later input (1.2s)
+  ok 21 tests\browser\runtime-edge.spec.ts:151:1 › Select rows portal above sibling controls and repeated opening retains the adapter listener count (1.4s)
+
+  21 passed (32.4s)
+(node:43568) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)

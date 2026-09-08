@@ -1,0 +1,56 @@
+{
+  "name": "ai-ui-component-harness",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
+    "build": "tsc --noEmit && vite build && tsc -p tsconfig.lib.json",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "test": "node --test tests/*.test.ts",
+    "test:browser": "playwright test",
+    "self-test": "node scripts/cli.mjs self-test",
+    "doctor": "node scripts/cli.mjs doctor",
+    "verify": "node scripts/verify.mjs",
+    "fixtures": "node scripts/write-fixtures.mjs",
+    "motion:fixtures": "node scripts/write-motion-systems.mjs"
+  },
+  "bin": {
+    "ai-ui-component": "scripts/cli.mjs",
+    "ai-ui-motion": "scripts/motion-cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
+    }
+  },
+  "files": [
+    "lib",
+    "scripts/cli.mjs",
+    "scripts/motion-cli.mjs",
+    "scripts/workflow-run.mjs",
+    "scripts/workflow-browser.mjs",
+    "README.md",
+    "LICENSE",
+    "SKILL.md",
+    "skill.json",
+    "agents",
+    "skills",
+    "docs",
+    "prompts",
+    "examples",
+    "public/fixtures"
+  ],
+  "dependencies": {
+    "pixi.js": "8.20.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  }
+}

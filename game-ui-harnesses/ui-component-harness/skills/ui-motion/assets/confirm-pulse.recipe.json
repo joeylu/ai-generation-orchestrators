@@ -1,0 +1,8 @@
+{
+  "presetVersion": "0.1",
+  "id": "confirm-activation-pulse",
+  "targetId": "confirm",
+  "trigger": { "type": "event", "targetId": "confirm", "event": "activate" },
+  "preset": "pulse",
+  "parameters": { "attackMs": 60, "releaseMs": 120, "scale": 0.97, "easing": "ease-out" }
+}

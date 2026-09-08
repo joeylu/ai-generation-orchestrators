@@ -14,15 +14,20 @@ implementation claim.
 | --- | --- |
 | [Artwork](artwork-harnesses/) | Image background removal and character video sequences implemented; image generation, direct image sequences, and prop video sequences planned. |
 | [Audio](audio-harnesses/) | Planned. |
-| [Game UI](game-ui-harnesses/) | Opt-in experimental UI decomposition and layered PSD export implemented. |
+| [Game UI](game-ui-harnesses/) | Experimental UI decomposition/PSD export, plus local UI component compiler, PixiJS workbench and offline CLI implemented. |
 | [Game scene](game-scene-harnesses/) | Planned. |
 
-Three independently installable runtimes implement the current public paths:
+Independent runtimes implement the current public paths:
 `ai-image-background-removal` prepares still artwork, while
 `ai-frame-animation` plans and delivers video-derived transparent frame
 animation. The isolated `ai-ui-decomposition` package assembles reviewed coarse
 UI components into a layered PSD. Install any one alone; the character tools can
 also connect through the neutral handoff contract documented below.
+
+The separate [UI component Harness](game-ui-harnesses/ui-component-harness/)
+compiles reviewed intents into engine-neutral component trees, renders 16 standard
+types in a local PixiJS workbench, and exports verified portable bundles. It has
+its own Node package and Skill; online vision providers remain unconfigured.
 
 ```text
 reference image + motion request

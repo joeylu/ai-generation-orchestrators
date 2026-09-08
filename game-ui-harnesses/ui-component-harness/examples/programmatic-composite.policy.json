@@ -1,0 +1,66 @@
+{
+  "canvas": {
+    "width": 920,
+    "height": 250
+  },
+  "layout": {
+    "root": {
+      "x": 0,
+      "y": 0,
+      "width": 920,
+      "height": 250
+    },
+    "heading": {
+      "x": 28,
+      "y": 22,
+      "width": 620,
+      "height": 36
+    },
+    "balance": {
+      "x": 28,
+      "y": 78,
+      "width": 380,
+      "height": 84
+    },
+    "balance-plate": {
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 84
+    },
+    "balance-gem": {
+      "x": 18,
+      "y": 18,
+      "width": 48,
+      "height": 48
+    },
+    "balance-label": {
+      "x": 91,
+      "y": 21,
+      "width": 252,
+      "height": 40
+    },
+    "confirm": {
+      "x": 450,
+      "y": 90,
+      "width": 175,
+      "height": 56
+    },
+    "confirm-icon": {
+      "x": 12,
+      "y": 12,
+      "width": 32,
+      "height": 32
+    },
+    "confirm-label": {
+      "x": 57,
+      "y": 17,
+      "width": 108,
+      "height": 26
+    }
+  },
+  "layoutSource": {
+    "kind": "explicit",
+    "description": "Programmatic engineering fixture with independent SVG plate/icon and editable text. Not vision analysis."
+  }
+}

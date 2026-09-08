@@ -1,0 +1,333 @@
+{
+  "generatedAt": "2026-09-07T19:50:55.102Z",
+  "node": "v25.9.0",
+  "platform": "win32",
+  "browserChannel": "msedge",
+  "mode": "production-preview",
+  "graphics": "software WebGL / SwiftShader",
+  "status": "PASS",
+  "commands": [
+    {
+      "name": "unit",
+      "command": "npm test",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 1073,
+      "log": "current-unit.log"
+    },
+    {
+      "name": "build",
+      "command": "npm run build",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 1062,
+      "log": "current-build.log"
+    },
+    {
+      "name": "self-test",
+      "command": "npm run self-test",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 290,
+      "log": "current-self-test.log"
+    },
+    {
+      "name": "doctor",
+      "command": "npm run doctor",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 289,
+      "log": "current-doctor.log"
+    },
+    {
+      "name": "browser",
+      "command": "npm run test:browser",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 32987,
+      "log": "current-browser.log"
+    }
+  ],
+  "browser": {
+    "stats": {
+      "startTime": "2026-09-07T19:50:22.715Z",
+      "duration": 32356.337,
+      "expected": 21,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "gallery mounts a live canvas with every supported component type",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1411
+          }
+        ]
+      },
+      {
+        "title": "mouse interaction updates switch, checkbox, and radio-group values",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1262
+          }
+        ]
+      },
+      {
+        "title": "slider commits pointer input on release, cancels Escape, and ignores mouse input once disabled",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1502
+          }
+        ]
+      },
+      {
+        "title": "native keyboard editing honors the runtime readOnly state",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1602
+          }
+        ]
+      },
+      {
+        "title": "select popup chooses a row and scroll/list/tabs respond to canvas input",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 2561
+          }
+        ]
+      },
+      {
+        "title": "modal dialog blocks background controls and its canvas close button restores interaction",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1518
+          }
+        ]
+      },
+      {
+        "title": "composite follows actual compiler facts and trusted mouse activates composed Button once",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1213
+          }
+        ]
+      },
+      {
+        "title": "invalid contract, missing image, corrupt image and font failure leave no successful tree",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1205
+          }
+        ]
+      },
+      {
+        "title": "shared image survives sibling destruction and final destroy releases resources/listeners",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 671
+          }
+        ]
+      },
+      {
+        "title": "uploaded image creates explicit intent; portable bundle restores without fetching source in a fresh page",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1572
+          }
+        ]
+      },
+      {
+        "title": "tampered imported bundle is rejected and clears old result",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 627
+          }
+        ]
+      },
+      {
+        "title": "raw contract file import validates the document and reloads declared resources",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 715
+          }
+        ]
+      },
+      {
+        "title": "legacy Button 14 probes pass and legacy bundle restores embedded resource",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 2316
+          }
+        ]
+      },
+      {
+        "title": "separate motion seeks and restores without changing component contract",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 2608
+          }
+        ]
+      },
+      {
+        "title": "concurrent requests discard stale result and repeated reload has stable live counts",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1734
+          }
+        ]
+      },
+      {
+        "title": "unresolved intent and overflowing text expose real errors before success",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 846
+          }
+        ]
+      },
+      {
+        "title": "destroyNode updates exported snapshots and rejects direct Tabs content removal",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1536
+          }
+        ]
+      },
+      {
+        "title": "programmatic Slider and ScrollView mutations reject invalid values without changing the document",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1171
+          }
+        ]
+      },
+      {
+        "title": "a valid image region creates a cropped Pixi image and remains exportable",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1185
+          }
+        ]
+      },
+      {
+        "title": "the hidden native editor accepts composition input and disabling it blurs and blocks later input",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1204
+          }
+        ]
+      },
+      {
+        "title": "Select rows portal above sibling controls and repeated opening retains the adapter listener count",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1356
+          }
+        ]
+      }
+    ]
+  },
+  "sources": {
+    "src/analysis-session.ts": "1f52ed62d95d994f6f43212b7779d47801cc8c2f53c940058ad3122484d05d6e",
+    "src/bundle.ts": "675c9e23907c1e8066eb8336cbabc57df5e1234579d3af868f36a8b37ada6251",
+    "src/button-state.ts": "06bc30ef7a854a0514bd47b5f0b0d4ef9f5546f5d8850ed78b6ff27eff0ea73d",
+    "src/contract.ts": "4deb5cbcbc38d68a388ed02317a3f8a2d8f95984130f720faff6cbc5845f9313",
+    "src/fixtures.ts": "8bd8d91c736a7726e8b5d42a7ec91e3840b383b9a62e84a1070744a219776731",
+    "src/index.ts": "c7bd77f076ee3a31a00aa478e8fabf93155f2608e1ae4d988c99e39add2617d1",
+    "src/intent-compiler.ts": "316b2af86a1fcd667acc0de032c19f334eab512b4f08e14ecd531d1f2d7336fc",
+    "src/main.ts": "78e1546a81ec1f82ef0d74b9a4198c9fdf216fdfedc10269544f68a00ace5014",
+    "src/motion.ts": "837405473d2f21c8d92f782d37abb4da6dc5685beca17bc10ec4c8cc1d44bad9",
+    "src/pixi-adapter.ts": "89e61227388655a9b209d8adf9051c8a26edcbaff5e6f30a3bced9ba8ec38886",
+    "src/probes.ts": "b4dec9acbcf3f70f3d5b8b0cd201a7dc9a61b7c5652f7297877adafac613e4a6",
+    "src/resource-reference.ts": "332091e8fb8cec6ef8520b2835336dd75118019228eb3f87b532edc3e30cc595",
+    "src/resource.ts": "0deee32e5c4a8d250a5e791dab50cf7a22b18144be3de861c048a08bfa389c5d",
+    "src/runtime-state.ts": "0904bbd61c4f4c4071cb96b07d66133a7e06fa998b77a2ef47d328a14d1fb426",
+    "src/style.css": "ff37bd4bae398103967e35a924bdc8f6ee01cf21e73f8070737de27ef94588b3",
+    "src/tree-compiler.ts": "d95c808bc87d2d9d64c78def5f6f83d31299285fe508f0441f41bfc482ef7953",
+    "src/tree-contract.ts": "6b75083bb153500d0168c3e70fa07636949eccc598d1b99caa667b65f27ca58a",
+    "src/tree-runtime.ts": "9deaa8d4d1428e5c5d1929d428f933842d1228c047eb680aed42862f0b1be18b",
+    "src/vite-env.d.ts": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
+    "tests/analysis-session.test.ts": "adfd39b859b11ea070fb25bf5a67488d39a1089c1d0258a410f29ac40d125c7c",
+    "tests/browser/components.spec.ts": "4932113d59100ac1c897b1e5f8e98328345e90f2f4fc27d31406ecc9260c11fa",
+    "tests/browser/integration.spec.ts": "cf56536cd3f33c5289f16ea92f41e92cf15d2e8b2800a598be8cd5f5a492ca58",
+    "tests/browser/runtime-edge.spec.ts": "390f5613c6fcc1957419c9efbb63371a5b9eebb9f64469bd8916fb8e44ed512e",
+    "tests/bundle.test.ts": "5bb0fe4f8ed5318b894d052a2b53f0959dfe168f9b221cf85d8d8c6cdc07d4d1",
+    "tests/cli.test.ts": "160eaacb1715385d84a378fed863ae2f8d3b74d8a9aefeeaa97e3dca54862f31",
+    "tests/compiler.test.ts": "b626848412c5f0a86a79b1e6a1939fc29d089be642e340e79605f99c137f46c6",
+    "tests/contract.test.ts": "12de88119aea2d8e65a67cac884635ba31e4bd03091261eebb08772102869779",
+    "tests/motion.test.ts": "24534e81f1372a16dd9c3247a7eefe79f489ba0175851d4474519d86497fcb75",
+    "tests/resource-reference.test.ts": "24d35ef0291ab556ae2ac7ca1a3b8b55a8950ffdcc79a7923527a68fcfe4d26b",
+    "tests/runtime-state.test.ts": "55c91d9f4e275c3aa3516a98946133ff7d9da51c717877eb89b588dd4a79e9bc",
+    "tests/state.test.ts": "4fa676f71b7b3a41ebbfd90e20377811ab1f89139d40a4e0bff16a084d6f684e",
+    "tests/tree-compiler.test.ts": "cb1f98888f341a946d7b4e44ff363d659b166d0f58ea1a9edeae21f06116f9b0",
+    "tests/tree-contract.test.ts": "a041bbd9ed82a72607d2e410a4101155a46e15a86652d63bd0152653e0521f4f",
+    "package.json": "207f63af3e880508f915833c5de26b034030ea4c54ac5265b172ce6e47a02e95",
+    "package-lock.json": "c232b86f3d89bffc9755ae036427d10692463c1d281e1b4d8daa074a37decb3b",
+    "playwright.config.ts": "e26c8292e6d555d99b5ef728a9364df0f8a844fcb0c3ebd82bce0c8f2c953b97",
+    "index.html": "ae76a68f4cf1f9e0f0b2013db34f0caf74b732b1fe17bd75a40753397a94d256"
+  }
+}

@@ -1,0 +1,635 @@
+{
+  "generatedAt": "2026-09-08T05:08:08.143Z",
+  "node": "v25.9.0",
+  "platform": "win32",
+  "browserChannel": "msedge",
+  "mode": "production-preview",
+  "graphics": "software WebGL / SwiftShader",
+  "status": "PASS",
+  "commands": [
+    {
+      "name": "build",
+      "command": "npm run build",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 827,
+      "log": "workflow-build.log"
+    },
+    {
+      "name": "unit",
+      "command": "npm test",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 1680,
+      "log": "workflow-unit.log"
+    },
+    {
+      "name": "self-test",
+      "command": "npm run self-test",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 247,
+      "log": "workflow-self-test.log"
+    },
+    {
+      "name": "doctor",
+      "command": "npm run doctor",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 238,
+      "log": "workflow-doctor.log"
+    },
+    {
+      "name": "browser",
+      "command": "npm run test:browser",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 156891,
+      "log": "workflow-browser.log"
+    }
+  ],
+  "browser": {
+    "stats": {
+      "startTime": "2026-09-08T05:05:31.753Z",
+      "duration": 156343.727,
+      "expected": 43,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "gallery mounts a live canvas with every supported component type",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1271
+          }
+        ]
+      },
+      {
+        "title": "mouse interaction updates switch, checkbox, and radio-group values",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1308
+          }
+        ]
+      },
+      {
+        "title": "slider commits pointer input on release, cancels Escape, and ignores mouse input once disabled",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1321
+          }
+        ]
+      },
+      {
+        "title": "native keyboard editing honors the runtime readOnly state",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1428
+          }
+        ]
+      },
+      {
+        "title": "select popup chooses a row and scroll/list/tabs respond to canvas input",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1479
+          }
+        ]
+      },
+      {
+        "title": "modal dialog blocks background controls and its canvas close button restores interaction",
+        "file": "components.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1369
+          }
+        ]
+      },
+      {
+        "title": "composite follows actual compiler facts and trusted mouse activates composed Button once",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 906
+          }
+        ]
+      },
+      {
+        "title": "invalid contract, missing image, corrupt image and font failure leave no successful tree",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 881
+          }
+        ]
+      },
+      {
+        "title": "shared image survives sibling destruction and final destroy releases resources/listeners",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 627
+          }
+        ]
+      },
+      {
+        "title": "uploaded image creates explicit intent; portable bundle restores without fetching source in a fresh page",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1419
+          }
+        ]
+      },
+      {
+        "title": "tampered imported bundle is rejected and clears old result",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 576
+          }
+        ]
+      },
+      {
+        "title": "raw contract file import validates the document and reloads declared resources",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 701
+          }
+        ]
+      },
+      {
+        "title": "legacy Button 14 probes pass and legacy bundle restores embedded resource",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1856
+          }
+        ]
+      },
+      {
+        "title": "separate motion seeks and restores without changing component contract",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 2568
+          }
+        ]
+      },
+      {
+        "title": "concurrent requests discard stale result and repeated reload has stable live counts",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1630
+          }
+        ]
+      },
+      {
+        "title": "unresolved intent and overflowing text expose real errors before success",
+        "file": "integration.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 765
+          }
+        ]
+      },
+      {
+        "title": "Pixi centered pulse and reset on all 16 node types",
+        "file": "motion-presets.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 3610
+          }
+        ]
+      },
+      {
+        "title": "activation preset follows real Button input, replays and preserves disabled state",
+        "file": "motion-presets.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 2058
+          }
+        ]
+      },
+      {
+        "title": "an unbound real hover preserves a settled subset exit presentation channel",
+        "file": "motion-system-lifecycle.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 3309
+          }
+        ]
+      },
+      {
+        "title": "programmatic Input state rebases the focused native editing session before a real keystroke",
+        "file": "motion-system-lifecycle.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1200
+          }
+        ]
+      },
+      {
+        "title": "programmatic Slider state wins when a captured pointer releases",
+        "file": "motion-system-lifecycle.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1255
+          }
+        ]
+      },
+      {
+        "title": "hidden modal backdrops release input and the visually latest modal owns its close control",
+        "file": "motion-system-lifecycle.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1662
+          }
+        ]
+      },
+      {
+        "title": "a nested modal follows its legacy animated ancestor while portaled",
+        "file": "motion-system-lifecycle.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1660
+          }
+        ]
+      },
+      {
+        "title": "deactivating a Tabs page closes its Select overlay through the public motion inspection",
+        "file": "motion-system-lifecycle.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1483
+          }
+        ]
+      },
+      {
+        "title": "catalog and compiler validate all 48 style/component bindings without mutating input",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 40
+          }
+        ]
+      },
+      {
+        "title": "each profile binds every live gallery type and enter, exit, reapply, and clear have deterministic endpoints",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 25283
+          }
+        ]
+      },
+      {
+        "title": "latest entry channel ownership wins across parent interruption and child stagger",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 5294
+          }
+        ]
+      },
+      {
+        "title": "composite Button image pixels follow the Button presentation scale",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 3979
+          }
+        ]
+      },
+      {
+        "title": "Tabs indicator pixels move after an inspected in-flight tabProgress transition",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 3371
+          }
+        ]
+      },
+      {
+        "title": "trusted Button press, release, cancellation, and disabling produce one activation in every profile",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 9273
+          }
+        ]
+      },
+      {
+        "title": "ancestor hiding, unrelated disabling, dialog teardown, and transformed Slider gestures preserve their own lifecycles",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 11845
+          }
+        ]
+      },
+      {
+        "title": "control-specific presentation follows real gallery input and settles without changing committed values early",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 18474
+          }
+        ]
+      },
+      {
+        "title": "Dialog protects the full canvas through close while Tabs transition header and content",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 11163
+          }
+        ]
+      },
+      {
+        "title": "workbench controls and portable bundles preserve a system alongside an independent timeline",
+        "file": "motion-system.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 10595
+          }
+        ]
+      },
+      {
+        "title": "destroyNode updates exported snapshots and rejects direct Tabs content removal",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1021
+          }
+        ]
+      },
+      {
+        "title": "programmatic Slider and ScrollView mutations reject invalid values without changing the document",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1022
+          }
+        ]
+      },
+      {
+        "title": "a valid image region creates a cropped Pixi image and remains exportable",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1239
+          }
+        ]
+      },
+      {
+        "title": "the hidden native editor accepts composition input and disabling it blurs and blocks later input",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1074
+          }
+        ]
+      },
+      {
+        "title": "Select rows portal above sibling controls and repeated opening retains the adapter listener count",
+        "file": "runtime-edge.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 1215
+          }
+        ]
+      },
+      {
+        "title": "unified run compiles intent and both motions, checks pixels and real click, restores and delivers",
+        "file": "workflow.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 5209
+          }
+        ]
+      },
+      {
+        "title": "failed real interaction leaves failure evidence and no successful bundle",
+        "file": "workflow.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 2867
+          }
+        ]
+      },
+      {
+        "title": "corrupt image that passes resource hashing fails actual browser decode before delivery",
+        "file": "workflow.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 2073
+          }
+        ]
+      },
+      {
+        "title": "clicking an overlapping different Button cannot satisfy the named target activation check",
+        "file": "workflow.spec.ts",
+        "ok": true,
+        "results": [
+          {
+            "status": "passed",
+            "durationMs": 2953
+          }
+        ]
+      }
+    ]
+  },
+  "sources": {
+    "src/analysis-session.ts": "1f52ed62d95d994f6f43212b7779d47801cc8c2f53c940058ad3122484d05d6e",
+    "src/bundle.ts": "190d2eb68bad7928c3101124b544ada65cd543765b4fbc17bfe9d49095d2ae01",
+    "src/button-state.ts": "06bc30ef7a854a0514bd47b5f0b0d4ef9f5546f5d8850ed78b6ff27eff0ea73d",
+    "src/contract.ts": "4deb5cbcbc38d68a388ed02317a3f8a2d8f95984130f720faff6cbc5845f9313",
+    "src/fixtures.ts": "8bd8d91c736a7726e8b5d42a7ec91e3840b383b9a62e84a1070744a219776731",
+    "src/index.ts": "c3cf43a37ece29ae1c22feb324b40217ee4facaa09ad97dc8f1986fcec87c730",
+    "src/intent-compiler.ts": "316b2af86a1fcd667acc0de032c19f334eab512b4f08e14ecd531d1f2d7336fc",
+    "src/main.ts": "93aa920b075734420a39a896bf82df7e7d807812b0b297279117b3e53c157542",
+    "src/motion-presets.ts": "3f7d4e03eb3a277472d947b04557f3405430c299d6c8ec0df2e66b401089fb54",
+    "src/motion-system.ts": "b2f6e71f9eb9c4c25882dfb07ba5fdb16b70a9b8b8d4b7390c0bdac3a08b52b4",
+    "src/motion.ts": "ba9ef09c8933caa88939db3ba249cf4e5544acb6964fe0b40737549158b940c3",
+    "src/pixi-adapter.ts": "89e61227388655a9b209d8adf9051c8a26edcbaff5e6f30a3bced9ba8ec38886",
+    "src/probes.ts": "b4dec9acbcf3f70f3d5b8b0cd201a7dc9a61b7c5652f7297877adafac613e4a6",
+    "src/resource-reference.ts": "332091e8fb8cec6ef8520b2835336dd75118019228eb3f87b532edc3e30cc595",
+    "src/resource.ts": "0deee32e5c4a8d250a5e791dab50cf7a22b18144be3de861c048a08bfa389c5d",
+    "src/runtime-state.ts": "0904bbd61c4f4c4071cb96b07d66133a7e06fa998b77a2ef47d328a14d1fb426",
+    "src/style.css": "472a85a90f4dd4f658c32f9a02fdf0601b290727cbb5baaea3325fe51d802d5d",
+    "src/tree-compiler.ts": "d95c808bc87d2d9d64c78def5f6f83d31299285fe508f0441f41bfc482ef7953",
+    "src/tree-contract.ts": "6b75083bb153500d0168c3e70fa07636949eccc598d1b99caa667b65f27ca58a",
+    "src/tree-runtime.ts": "fc56dcb355b019be164644625e91a2e2fa5af37d69b660bb12b6e4e98913ee6c",
+    "src/vite-env.d.ts": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
+    "src/workflow.ts": "98bc0fbb8717238c080cd406f78d987e23e3e72ced43ec66925296a2a3a3f935",
+    "tests/analysis-session.test.ts": "adfd39b859b11ea070fb25bf5a67488d39a1089c1d0258a410f29ac40d125c7c",
+    "tests/browser/components.spec.ts": "4932113d59100ac1c897b1e5f8e98328345e90f2f4fc27d31406ecc9260c11fa",
+    "tests/browser/integration.spec.ts": "cf56536cd3f33c5289f16ea92f41e92cf15d2e8b2800a598be8cd5f5a492ca58",
+    "tests/browser/motion-presets.spec.ts": "1978ce1fa1e6c107d1e16455f1557045e667f492302e84e5774bc4fc9143adb6",
+    "tests/browser/motion-system-lifecycle.spec.ts": "56aa67546b4e1d0b0def9173c1c0d10e69ae5cd28fccab0c05f1fab4412f5dfb",
+    "tests/browser/motion-system.spec.ts": "ac18c1e0084fa3e1edce7fa219ba4bb90c0ea24ffd41c8696e56f53a25cf0630",
+    "tests/browser/runtime-edge.spec.ts": "390f5613c6fcc1957419c9efbb63371a5b9eebb9f64469bd8916fb8e44ed512e",
+    "tests/browser/workflow.spec.ts": "5a50027adf0199409f09bd0799409e1853cf820b2ac1610cfeb1a3c1145fc396",
+    "tests/bundle.test.ts": "5bb0fe4f8ed5318b894d052a2b53f0959dfe168f9b221cf85d8d8c6cdc07d4d1",
+    "tests/cli.test.ts": "160eaacb1715385d84a378fed863ae2f8d3b74d8a9aefeeaa97e3dca54862f31",
+    "tests/compiler.test.ts": "b626848412c5f0a86a79b1e6a1939fc29d089be642e340e79605f99c137f46c6",
+    "tests/contract.test.ts": "12de88119aea2d8e65a67cac884635ba31e4bd03091261eebb08772102869779",
+    "tests/motion-cli.test.ts": "f07313c6c089fe70c6465a149e2b6dd6584dd8d244236d5412c08c5a89ff2291",
+    "tests/motion-presets.test.ts": "0f0cfa0bb2370bc61d9169e24401fc25d7ad647286920712451af038ffed05c3",
+    "tests/motion-system-io.test.ts": "9d3128762d4771975c17d2a15a985f4df44f06cbcefc430f14c6feeee919e7ff",
+    "tests/motion-system.test.ts": "51c600ce302760b5ba1ff1cc6a70cbf4541e7675f835a3afc28e70239464e15d",
+    "tests/motion.test.ts": "24534e81f1372a16dd9c3247a7eefe79f489ba0175851d4474519d86497fcb75",
+    "tests/resource-reference.test.ts": "24d35ef0291ab556ae2ac7ca1a3b8b55a8950ffdcc79a7923527a68fcfe4d26b",
+    "tests/runtime-state.test.ts": "55c91d9f4e275c3aa3516a98946133ff7d9da51c717877eb89b588dd4a79e9bc",
+    "tests/state.test.ts": "4fa676f71b7b3a41ebbfd90e20377811ab1f89139d40a4e0bff16a084d6f684e",
+    "tests/tree-compiler.test.ts": "cb1f98888f341a946d7b4e44ff363d659b166d0f58ea1a9edeae21f06116f9b0",
+    "tests/tree-contract.test.ts": "a041bbd9ed82a72607d2e410a4101155a46e15a86652d63bd0152653e0521f4f",
+    "tests/workflow-run.test.ts": "8a93388ddaa1472d6fed7bd03c0513229e444e1ae281b31047a6f573526761f2",
+    "tests/workflow.test.ts": "d78436d000d3a8bc7228cdfa0c158213e4bd6e74ca4a816ed7df042c036f2647",
+    "scripts/cli.mjs": "24bc4a2ff26f7417a01c02e41d7ea51fc349965050a8df9a6f1dd9fb25a36832",
+    "scripts/motion-cli.mjs": "8825a0da3c20ec3636216e4441298383f0ccc9079d388c814a324b80a394386e",
+    "scripts/package_source.py": "d92439eac8a2947758c1fecdb1716138a3d9bbf9433060ab0104b3ff61f13206",
+    "scripts/verify.mjs": "04c61c95ce3e8a904e775854288a142512b7f365c19363a7b71a693aeeea50db",
+    "scripts/workflow-browser.mjs": "cbffbae48a7c9193e8a46fbd6a6b1343803afa950596243065511e6f8f7ac639",
+    "scripts/workflow-run.mjs": "6017abc78d6c83b305b06b071b3559533e1b7ae559a151e25281554692af1825",
+    "scripts/write-fixtures.mjs": "a49ce7914250bb3e6173f9ff9aa2ba4dcce2428acf45329f7dec03e544faad66",
+    "scripts/write-motion-systems.mjs": "08924cba91800aa0ca82bc91a877af331ea243922e79e027c36297d9b753d4e9",
+    "skills/ui-motion/assets/confirm-pulse.recipe.json": "f603ee9506432d2386896b08c4bd84d7c9ac728f72d732a070566e6d2dcca437",
+    "skills/ui-motion/references/component-coverage.md": "3acf9d6b2f9512df7ca0ba5651618c80e66f9752f56f869a66d513285f60211f",
+    "skills/ui-motion/references/engine-adapters.md": "c5733b59022664aecadbc205ddf92f19f2ae6bed989b3ed9afb98ebf5eb87ed3",
+    "skills/ui-motion/references/motion-system.md": "f8d30ab4ebf87aecd1b985055e20830693f9d7f3116e0399a5977a0c2e3e9677",
+    "skills/ui-motion/references/recipes.md": "78c018543abb3efc34120ade26eb935ab5bfd1db50dc7f6d62274a45effb0845",
+    "skills/ui-motion/references/sources.md": "50edfb702b2d0715872cc9e262cecabf8a0388af5f0852f342f6d80456b9424b",
+    "skills/ui-motion/SKILL.md": "174a7e4f33532981c57536009f9b88bb041eb2f4515f79485703ff41c65b140c",
+    "examples/button-confirm.json": "fa8ac283e2020b3568144a7f4e1ed8be0170af30ac0e73e41c3f66ae3c92868f",
+    "examples/button.json": "ab93421a564d8568ad8ab2d877d39703ba4c290e5b9aa1ac4ef8dde47f7c41fa",
+    "examples/motion-system-catalog.json": "8707ed4f01ab2d90ba4e740ab74ad6f5c8e023e17e21d997edfe8d30f2bd27ff",
+    "examples/motion-system-corporate.json": "fb1a1f006ecad6976513068185eef395d5a369fb4fca5b525cad5154c6f74f80",
+    "examples/motion-system-corporate.request.json": "d28331b101cf950379eaba00679c76cbc130d03e393bbba73707ea374120e2c9",
+    "examples/motion-system-playful.json": "20a0e6498b6b59394aef92b10879ad56190b5e35593a17ae94642e3dc05f9235",
+    "examples/motion-system-playful.request.json": "77ee3c13ce3947d856d0f944f955cd4e1659e4933deb4450010e05f62f04cb27",
+    "examples/motion-system-premium.json": "008ef2384b3f92657d4ec868c3f8c75fe7ee054eca221e47bc4a78ffadb4a9a1",
+    "examples/motion-system-premium.request.json": "ab97df276157465facd54e1447d527ab09ee01ba13e96e281d286d2eadec7a4a",
+    "examples/preview-policy.json": "404624708733dbe1e1adb6b7ee5af2a00e4460adff7490c9da6d604f6bb206d2",
+    "examples/programmatic-composite.document.json": "0cb7bee05939eeadb16f4d7d693c0070079554396ef51dbf655970ea7c36caa8",
+    "examples/programmatic-composite.facts.json": "e5d68d0bf03bbac18ed7ddd1eaed3873249f74e7c4a36b623104ef911d0dbba1",
+    "examples/programmatic-composite.intent.json": "b3310aff0b5ee0d270af5a19a260f63c937db72600556531d7557a8db31dfe74",
+    "examples/programmatic-composite.motion.json": "f67422c588ac119c48bf3e893be641262ed1ad37ed605c604171c87ab8d1d202",
+    "examples/programmatic-composite.policy.json": "e14bc46c856ed228174a68194e1a70d32ca1d848e975a3a68d30665c0577f349",
+    "examples/programmatic-gallery.document.json": "e46e86a6b6f4123d28747a2770af86d891926df406eb0cc3b6daf5bee2af3354",
+    "examples/programmatic-gallery.facts.json": "e5d68d0bf03bbac18ed7ddd1eaed3873249f74e7c4a36b623104ef911d0dbba1",
+    "examples/programmatic-gallery.intent.json": "96a2afdec8325c7bd1c215189bdee911845453955e8a8833a911e82e37c3af21",
+    "examples/programmatic-gallery.motion.json": "f67422c588ac119c48bf3e893be641262ed1ad37ed605c604171c87ab8d1d202",
+    "examples/programmatic-gallery.policy.json": "66f495ce3d1671a81e8cf359d60fe7facba0f20012bcadfc2fbea3c691384f9d",
+    "docs/analysis-session.md": "20c9112ee221f553975eff8b419884131d2f5bbf41b2d1579981c73fe8fe2490",
+    "docs/architecture.md": "f0c92cf4df053a019ca4613c56f01e25531e5b583aeae7dc51d20c5e47178875",
+    "docs/automation.md": "47ef0f37edf2f0f2c882d799d43bcbc03b2e624600e89b0bef889a58ae893e54",
+    "docs/COMPILER.md": "6559ec933fc8f8bd20975c8ea204c47162ee7c90603c255595dbc943e3450e76",
+    "docs/motion.md": "275893d8ac3f559f7440549a5bbaf68b4e7504c3ff7fd22e085b3a28f47b7674",
+    "docs/runtime.md": "452535a492ab7de0d0f10a7818f3cf0b8ad541567efc30f0bd83eb96ce2fdb1e",
+    "docs/takeover-audit.md": "25cc0ae22e021ff6f3884a9171ba1ed09abb34f843ffe61cd234a48351c03e1e",
+    "docs/tree-contract.md": "6bc93767bbd8a99bafcdf2d3481aa4939ab17d995ae1bed1ae71731d5f1c22fc",
+    "docs/workflow.md": "12c3b026b648baa7a569c74fde5fc3b6e3cca71f8bb1abc031e50d79de97eb39",
+    "agents/openai.yaml": "99163877bb42bed9903133787fed75a6b56c36a09367625e5c92a4b5e736b85c",
+    "package.json": "83b918c0e5876890819e9e31eeb8a76a29265ec4f743f5525e52dcdee9339452",
+    "package-lock.json": "4cfea7fcac93cd1f3fbcebbca7f661473c25c6c8b0732779df3db5c87c6c1ddf",
+    "playwright.config.ts": "e26c8292e6d555d99b5ef728a9364df0f8a844fcb0c3ebd82bce0c8f2c953b97",
+    "index.html": "5c18885bbc0d649fd69dae99fde30a2d0e4eaa298552adb894fa5e95728f6572",
+    "SKILL.md": "9f15a2d0e5898301b459098e20228e923905d20f09216583091885e50bda7dfb",
+    "skill.json": "7d2986c9aef9f7b3a477c27bd40b20b04b9924357869bf1671374c145e6e3aa7"
+  }
+}

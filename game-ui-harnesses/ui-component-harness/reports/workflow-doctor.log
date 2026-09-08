@@ -1,0 +1,19 @@
+
+> ai-ui-component-harness@0.2.0 doctor
+> node scripts/cli.mjs doctor
+
+{
+  "offline": true,
+  "node": "v25.9.0",
+  "commands": [
+    "run",
+    "validate",
+    "inspect",
+    "compile",
+    "pack",
+    "unpack",
+    "self-test",
+    "doctor"
+  ],
+  "providerConfigured": false
+}

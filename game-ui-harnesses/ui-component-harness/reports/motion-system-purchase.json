@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "generatedAt": "2026-09-07T22:52:20.442Z",
+  "engine": "PixiJS 8.20.1 / Edge / software WebGL",
+  "checks": [
+    "35-node Playful gallery and open modal rendered for visual review",
+    {
+      "style": "playful",
+      "pressScale": 0.95,
+      "imageWidthBefore": 280.1600000000001,
+      "imageWidthPressed": 266.15200000000004,
+      "pixelsChanged": true,
+      "oneActivation": true,
+      "sourceBytesPreserved": true
+    },
+    {
+      "style": "premium",
+      "pressScale": 0.98,
+      "imageWidthBefore": 274.72,
+      "imageWidthPressed": 269.2256078230811,
+      "pixelsChanged": true,
+      "oneActivation": true,
+      "sourceBytesPreserved": true
+    },
+    {
+      "style": "corporate",
+      "pressScale": 0.97,
+      "imageWidthBefore": 274.72,
+      "imageWidthPressed": 266.47839999999997,
+      "pixelsChanged": true,
+      "oneActivation": true,
+      "sourceBytesPreserved": true
+    }
+  ]
+}
