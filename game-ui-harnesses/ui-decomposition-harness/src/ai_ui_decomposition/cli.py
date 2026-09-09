@@ -79,6 +79,13 @@ def parser() -> argparse.ArgumentParser:
     split_board.add_argument("--source", required=True, type=Path)
     split_board.add_argument("--output", required=True, type=Path)
     split_board.add_argument("--document", required=True)
+    supplemental = commands.add_parser(
+        "split-supplemental-boards",
+        help="Offline split of native-transparent 4x6 interactive and 4x3 structural role boards")
+    supplemental.add_argument("--interactive", required=True, type=Path)
+    supplemental.add_argument("--structural", required=True, type=Path)
+    supplemental.add_argument("--output", required=True, type=Path)
+    supplemental.add_argument("--document", required=True)
     for name in ("result-binding", "reuse-result"):
         command = commands.add_parser(name)
         command.add_argument("--run-dir", required=True, type=Path)
@@ -90,6 +97,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def execute(args) -> dict:
+    if args.command == "split-supplemental-boards":
+        from .supplemental_boards import split_supplemental_boards
+        return split_supplemental_boards(
+            args.interactive, args.structural, args.output, args.document)
     if args.command == "split-board":
         from .asset_board import split_asset_board
         return split_asset_board(args.source, args.output, args.document)

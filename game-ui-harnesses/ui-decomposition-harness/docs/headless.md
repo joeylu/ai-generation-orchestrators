@@ -231,6 +231,12 @@ board, split and package it without another provider call:
 
 ```text
 ai-ui-decomposition split-board --source component-board.png --output delivery/ui-components --document ui-components
+
+ai-ui-decomposition split-supplemental-boards \
+  --interactive interactive-controls.png \
+  --structural structural-templates.png \
+  --output delivery/ui-appearance-roles \
+  --document ui-appearance-roles
 ```
 
 The cells use this fixed reading order: Image, Text, Container, Button, Switch,
@@ -243,6 +249,12 @@ unreviewed-draft manifest and performs ZIP readback. The archive name ends in
 missing cells and unsafe document names. If a crop contains no exact Alpha 255 but
 does contain near-opaque Alpha 250–254, only those near-opaque pixels are promoted
 to 255 and the count is recorded; continuous edge Alpha is retained.
+
+The supplemental command assigns significant Alpha-connected regions to the
+4x6 and 4x3 cells by their centers, so a complete glow or frame may cross a
+mathematical grid line without being cut. It emits 24 interactive parts and 11
+structural parts in the documented role order. The twelfth structural cell is
+reserved and must contain no Alpha at or above the threshold.
 
 Generated component results must contain real transparent and opaque pixels. The
 runner preserves that Alpha directly and rejects opaque RGB or rendered
