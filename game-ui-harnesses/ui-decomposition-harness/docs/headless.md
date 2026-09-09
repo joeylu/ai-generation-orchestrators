@@ -217,12 +217,32 @@ SDK login session or assistant process is required.
 Vision input is `images` plus `instruction` (1–4096 characters with no leading or
 trailing whitespace; checked locally before any request); completed
 output is a `description` string containing either the exact planning JSON or the
-fixed visual-QA JSON. Imagegen takes `prompt` and one `referenceImage`. For generated
-components it also takes `background: "transparent"` and `outputFormat: "png"`;
-completed output includes `downloadUrl`, PNG MIME type, width, height and byte count. Inputs
+fixed visual-QA JSON. Imagegen takes `prompt` and one `referenceImage`; the prompt
+explicitly requests real transparent PNG output for generated components.
+Completed output includes `downloadUrl`, PNG MIME type, width, height and byte count. Inputs
 are JPEG encoded below 2 MiB. For generation, the full reference and exact crop are
 arranged on one evidence board. No image is sent to an endpoint not explicitly
 configured by the deployment.
+
+### Native transparent asset-board intake
+
+When an operator has reviewed a provider-generated 4x4 transparent component
+board, split and package it without another provider call:
+
+```text
+ai-ui-decomposition split-board --source component-board.png --output delivery/ui-components --document ui-components
+```
+
+The cells use this fixed reading order: Image, Text, Container, Button, Switch,
+CheckBox, RadioGroup, Input, Select, ProgressBar, Slider, ScrollView, List, Panel,
+Dialog and Tabs. Every cell must contain significant Alpha-connected content.
+The command groups disconnected pieces inside the same cell, crops with transparent
+padding without resizing, zeros RGB under Alpha zero, writes a digest-bound
+unreviewed-draft manifest and performs ZIP readback. The archive name ends in
+`.draft.zip` and never claims human visual acceptance. It rejects RGB files, rendered checkerboards,
+missing cells and unsafe document names. If a crop contains no exact Alpha 255 but
+does contain near-opaque Alpha 250–254, only those near-opaque pixels are promoted
+to 255 and the count is recorded; continuous edge Alpha is retained.
 
 Generated component results must contain real transparent and opaque pixels. The
 runner preserves that Alpha directly and rejects opaque RGB or rendered

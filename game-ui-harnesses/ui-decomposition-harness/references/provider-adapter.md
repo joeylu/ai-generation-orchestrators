@@ -15,9 +15,10 @@ provider-neutral and callable without installing or configuring a provider.
 `handoff.json.expected_result.output_mode` declares the required result semantics.
 For `transparent_component`, an adapter must request a transparent PNG and return
 real Alpha; an opaque image or a checkerboard drawn into RGB is rejected. The
-included async MCP adapter sends `background: "transparent"` and
-`outputFormat: "png"`. Legacy `keyed_component` bundles retain their fixed magenta
-prompt and local matte behavior.
+included async MCP adapter expresses that requirement in the immutable prompt
+because the public Imagegen Tool exposes only `prompt` and `referenceImage`.
+Legacy `keyed_component` bundles retain their fixed magenta prompt and local
+matte behavior.
 
 The external adapter may read these files and submit at most one provider call.
 It must not change any bundle file. The core never receives an endpoint, API key,

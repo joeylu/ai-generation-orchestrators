@@ -74,6 +74,11 @@ def parser() -> argparse.ArgumentParser:
     adapter_import = commands.add_parser("adapter-import")
     adapter_import.add_argument("--run-dir", required=True, type=Path)
     adapter_import.add_argument("--bundle", required=True, type=Path)
+    split_board = commands.add_parser(
+        "split-board", help="Offline split of a native-transparent 4x4 component asset board")
+    split_board.add_argument("--source", required=True, type=Path)
+    split_board.add_argument("--output", required=True, type=Path)
+    split_board.add_argument("--document", required=True)
     for name in ("result-binding", "reuse-result"):
         command = commands.add_parser(name)
         command.add_argument("--run-dir", required=True, type=Path)
@@ -85,6 +90,9 @@ def parser() -> argparse.ArgumentParser:
 
 
 def execute(args) -> dict:
+    if args.command == "split-board":
+        from .asset_board import split_asset_board
+        return split_asset_board(args.source, args.output, args.document)
     if args.command == "job-status":
         from .headless import job_status
         return job_status(args.job_dir)

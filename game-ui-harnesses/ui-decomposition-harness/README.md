@@ -32,6 +32,13 @@ magenta pixels and continuous translucent edges. An opaque or checkerboard-rende
 result is rejected as `TRANSPARENT_RESULT_REQUIRED`. Legacy frozen plans that
 explicitly use `keyed_component` retain the fixed magenta matte path.
 
+It also accepts a reviewed, native-transparent 4x4 asset board through the fully
+offline `split-board` command. The board uses the canonical 16 component order,
+is split by Alpha connected regions without resizing, and is delivered as a
+named PNG draft ZIP with a digest-bound manifest. This route does not call a
+provider, perform PSD export, claim human visual acceptance, or claim that one
+visual state covers every runtime state.
+
 Deterministic processing commands remain offline. Only explicit `auto-run` may
 invoke the configured provider; it never retries generation, controls Photoshop,
 or modifies another Harness. `auto` currently selects PSD; explicit PSB requests are

@@ -21,6 +21,13 @@ when it rejects or is unavailable. Do not substitute either route for a requeste
 reviewed delivery. Never invent an
 accepted `review.json`; retain the original reviewed workflow below.
 
+When the user supplies an already generated, visually inspected 4x4 transparent
+asset board in the canonical 16-component order, use the offline `split-board`
+command documented in [docs/headless.md](docs/headless.md). It performs no provider
+call and produces an explicitly unreviewed `.draft.zip`; report that technical
+Alpha, slot and archive validation does not establish full interactive-state
+coverage or human acceptance.
+
 1. Run `doctor` and `self-test`, then use `init` to copy an oriented reference and
    create a digest-bound starter plan. Create an `ai_ui_decomposition_plan_v1`
    from that starter. Read

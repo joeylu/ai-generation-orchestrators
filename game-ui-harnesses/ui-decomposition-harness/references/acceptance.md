@@ -51,7 +51,7 @@ configuration before any network call. No offline test submits a real provider
 task or contacts a network service.
 
 The 0.5.0 development regressions verify native-transparent automatic plans,
-explicit MCP `background: transparent` PNG requests, preservation of legitimate
+prompt-only MCP transparent PNG requests, preservation of legitimate
 magenta component pixels, rejection of opaque or checkerboard-rendered component
 results, and continued compatibility with legacy keyed plans.
 

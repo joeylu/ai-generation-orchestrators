@@ -617,7 +617,7 @@ class McpAdapterTests(unittest.TestCase):
         export_request(run, asset, bundle)
         return bundle
 
-    def test_transparent_component_requests_native_png_output(self):
+    def test_transparent_component_uses_prompt_only_imagegen_contract(self):
         bundle = self.image_bundle("button")
         stream = io.BytesIO()
         Image.new("RGBA", (80, 60), (0, 0, 0, 0)).save(stream, format="PNG")
@@ -633,8 +633,8 @@ class McpAdapterTests(unittest.TestCase):
              patch.object(self.provider, "_task", side_effect=task), \
              patch.object(self.provider, "_read", return_value=payload):
             self.provider.generate(bundle, state_dir=self.root / "private", timeout=60)
-        self.assertEqual(captured["background"], "transparent")
-        self.assertEqual(captured["outputFormat"], "png")
+        self.assertEqual(set(captured), {"prompt", "referenceImage"})
+        self.assertIn("genuinely transparent", captured["prompt"])
 
     def test_image_download_is_allowlisted_and_has_no_api_credentials(self):
         bundle = self.image_bundle()

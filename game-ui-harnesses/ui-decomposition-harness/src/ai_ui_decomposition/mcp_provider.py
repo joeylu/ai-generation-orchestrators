@@ -229,7 +229,7 @@ class AsyncMcpProvider:
         return result["description"]
 
     def generate(self, bundle: Path, *, state_dir: Path, timeout: float) -> Path:
-        handoff = _verified_handoff(bundle)
+        _verified_handoff(bundle)
         deadline = time.monotonic() + timeout
         self._tools(self.imagegen_url, "imagegen", deadline)
         reference, _ = load_verified_image(bundle / "input" / "reference.png")
@@ -247,8 +247,6 @@ class AsyncMcpProvider:
                   "Return only the requested artwork, never the board, labels or grey padding.")
         require(len(prompt) <= 20000, "MCP_IMAGEGEN_PROMPT_LIMIT")
         arguments = {"prompt": prompt, "referenceImage": _jpeg(board)}
-        if handoff["expected_result"].get("output_mode") == "transparent_component":
-            arguments.update({"background": "transparent", "outputFormat": "png"})
         result = self._task(self.imagegen_url, "imagegen", arguments, state_dir, deadline)
         return self._download_completed(result, state_dir, deadline)
 
