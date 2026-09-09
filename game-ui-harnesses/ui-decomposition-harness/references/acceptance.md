@@ -50,6 +50,11 @@ requiring a configured vision endpoint, while a planning request rejects that
 configuration before any network call. No offline test submits a real provider
 task or contacts a network service.
 
+The 0.5.0 development regressions verify native-transparent automatic plans,
+explicit MCP `background: transparent` PNG requests, preservation of legitimate
+magenta component pixels, rejection of opaque or checkerboard-rendered component
+results, and continued compatibility with legacy keyed plans.
+
 The 0.2.1 headless path adds a mandatory second vision call after all materials are
 processed. It submits only the original reference, private assembled candidate
 preview and contact sheet, then validates a strict score-only receipt. A passing

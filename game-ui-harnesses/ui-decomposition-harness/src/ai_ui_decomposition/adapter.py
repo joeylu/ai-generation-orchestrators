@@ -21,7 +21,7 @@ def _verified_handoff(bundle: Path) -> dict:
 
 
 def export_request(run: Path, asset: str, bundle: Path) -> dict:
-    frozen, _plan = batch.load(run)
+    frozen, plan = batch.load(run)
     asset = identifier(asset)
     require(asset in frozen["requests"], "UNKNOWN_REQUEST")
     bundle = bundle.resolve()
@@ -39,12 +39,14 @@ def export_request(run: Path, asset: str, bundle: Path) -> dict:
         rows.append({"path": destination.relative_to(bundle).as_posix(),
                      "sha256": sha256(destination)})
     request = read_json(bundle / "request.json")
+    asset_record = next(row for row in plan["assets"] if row["id"] == asset)
     handoff = {"kind": "ai_ui_decomposition_file_request_v1",
                "batch_digest": frozen["digest"], "asset": asset,
                "request_id": entry["id"], "request_digest": request["digest"],
                "reservation": reservation, "files": rows,
                "expected_result": {"image": "result.png", "manifest": "result.json",
-                                   "kind": "ai_ui_decomposition_file_result_v1"},
+                                   "kind": "ai_ui_decomposition_file_result_v1",
+                                   "output_mode": asset_record["output_mode"]},
                "automatic_retries": 0}
     handoff["digest"] = digest(handoff)
     write_json(bundle / "handoff.json", handoff)

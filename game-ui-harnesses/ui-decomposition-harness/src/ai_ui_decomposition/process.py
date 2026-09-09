@@ -53,6 +53,8 @@ def process(run: Path) -> dict:
             elif asset["output_mode"] == "opaque_canvas":
                 material = opaque_exact(source, size)
             else:
+                # Native transparent provider output bypasses chroma-key removal.
+                # This preserves legitimate magenta pixels and continuous alpha.
                 material = contain(source, size)
             save_material(asset, normalize(resize_material(material, asset)))
         for asset in (item for item in plan["assets"] if item["route"] == "reuse_scaled"):

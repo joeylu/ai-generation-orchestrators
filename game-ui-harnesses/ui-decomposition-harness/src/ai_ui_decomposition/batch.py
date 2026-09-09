@@ -110,9 +110,27 @@ def _prompt(asset: dict) -> str:
               "or watermarks. Preserve intentional pictograms and graphic symbols.")
     if asset["route"] == "generated_completion":
         return asset["prompt"].strip() + common + " Return one complete opaque UI-free scene."
+    if asset["output_mode"] == "transparent_component":
+        return (asset["prompt"].strip() + common
+                + " Return exactly one complete component centered on a genuinely transparent "
+                  "background with an alpha channel. Leave clean transparent margin on every edge, "
+                  "preserve internal holes and soft translucent edges, and do not draw a checkerboard, "
+                  "ground, backdrop or cast shadow outside the component.")
     return (asset["prompt"].strip() + common
             + " Return exactly one complete component centered on a flat uniform vivid magenta "
               "#F808F8 background. Leave clean margin on every edge and preserve internal holes.")
+
+
+def _require_output_evidence(asset: dict, evidence: dict) -> None:
+    if asset["output_mode"] == "transparent_component":
+        require(evidence["alpha_extrema"] == [0, 255],
+                "TRANSPARENT_RESULT_REQUIRED")
+    elif asset["output_mode"] == "opaque_canvas":
+        require(evidence["alpha_extrema"] == [255, 255], "OPAQUE_RESULT_REQUIRED")
+        target_width, target_height = asset["output_size"]
+        raw_width, raw_height = evidence["size"]
+        ratio_error = abs((raw_width / raw_height) / (target_width / target_height) - 1.0)
+        require(ratio_error <= 0.05, "OPAQUE_RESULT_ASPECT_MISMATCH")
 
 
 def state(run: Path, entry: dict) -> str:
@@ -173,12 +191,7 @@ def receive(run: Path, asset: str, source: Path) -> dict:
     require(not raw.exists(), "RAW_ALREADY_MATERIALIZED")
     shutil.copyfile(source, raw)
     _image, evidence = load_verified_image(raw)
-    if asset_record["output_mode"] == "opaque_canvas":
-        require(evidence["alpha_extrema"] == [255, 255], "OPAQUE_RESULT_REQUIRED")
-        target_width, target_height = asset_record["output_size"]
-        raw_width, raw_height = evidence["size"]
-        ratio_error = abs((raw_width / raw_height) / (target_width / target_height) - 1.0)
-        require(ratio_error <= 0.05, "OPAQUE_RESULT_ASPECT_MISMATCH")
+    _require_output_evidence(asset_record, evidence)
     record = {"kind": "ai_ui_decomposition_request_received_v1",
               "batch_digest": batch["digest"], "asset": asset,
               "request_id": entry["id"], "raw_sha256": sha256(raw),
@@ -231,12 +244,7 @@ def recover_receive(run: Path, asset: str, source: Path) -> dict:
     require(not raw.exists(), "RAW_ALREADY_MATERIALIZED")
     shutil.copyfile(source, raw)
     _image, evidence = load_verified_image(raw)
-    if item["output_mode"] == "opaque_canvas":
-        require(evidence["alpha_extrema"] == [255, 255], "OPAQUE_RESULT_REQUIRED")
-        target_width, target_height = item["output_size"]
-        raw_width, raw_height = evidence["size"]
-        require(abs((raw_width / raw_height) / (target_width / target_height) - 1.0) <= 0.05,
-                "OPAQUE_RESULT_ASPECT_MISMATCH")
+    _require_output_evidence(item, evidence)
     record = {"kind": "ai_ui_decomposition_request_recovered_v1",
               "batch_digest": frozen["digest"], "asset": asset, "request_id": entry["id"],
               "indeterminate_sha256": sha256(directory / "indeterminate.json"),

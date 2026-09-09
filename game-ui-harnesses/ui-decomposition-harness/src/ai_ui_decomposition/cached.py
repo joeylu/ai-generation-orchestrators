@@ -53,6 +53,9 @@ def verified_result(run: Path, asset: str) -> tuple[dict, dict, dict, Path]:
     _picture, evidence = load_verified_image(raw)
     if item["output_mode"] == "keyed_component":
         require_keyed_input_limit(evidence["size"])
+    if item["output_mode"] == "transparent_component":
+        require(evidence["alpha_extrema"] == [0, 255],
+                "TRANSPARENT_RESULT_REQUIRED")
     require(record.get("raw_sha256") == evidence["sha256"], "RAW_RESULT_CHANGED")
     for key in ("size", "mode", "bytes", "alpha_extrema"):
         require(record.get(key) == evidence[key], "RESULT_EVIDENCE_CHANGED")

@@ -74,7 +74,7 @@ def materialize(description: str, project: Path, canvas: list[int], maximum_call
         if background:
             require(row["source_region"] == [0, 0, *canvas], "PLANNER_BACKGROUND_REGION")
         assets.append({**row, "route": "generated_completion" if background else "generated_isolation",
-                       "output_mode": "opaque_canvas" if background else "keyed_component",
+                       "output_mode": "opaque_canvas" if background else "transparent_component",
                        "source_asset": None})
     plan = {"kind": KIND, "id": "automatic-ui", "canvas": canvas,
             "source": {"path": "reference.png", "sha256": sha256(project / "reference.png"),

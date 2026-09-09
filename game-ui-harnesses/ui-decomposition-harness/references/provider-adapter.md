@@ -12,6 +12,13 @@ provider-neutral and callable without installing or configuring a provider.
 - `input/reference.png`: the oriented full reference snapshot;
 - `input/crop.png`: the exact source-region crop.
 
+`handoff.json.expected_result.output_mode` declares the required result semantics.
+For `transparent_component`, an adapter must request a transparent PNG and return
+real Alpha; an opaque image or a checkerboard drawn into RGB is rejected. The
+included async MCP adapter sends `background: "transparent"` and
+`outputFormat: "png"`. Legacy `keyed_component` bundles retain their fixed magenta
+prompt and local matte behavior.
+
 The external adapter may read these files and submit at most one provider call.
 It must not change any bundle file. The core never receives an endpoint, API key,
 workflow path, model path, or provider job identifier.

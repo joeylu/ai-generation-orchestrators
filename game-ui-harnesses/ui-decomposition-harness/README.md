@@ -26,6 +26,12 @@ estimated peak exceeds the diagnostic budget continues, while `check`, frozen
 batch summaries and `doctor` expose the risk. Deterministic pixel, layer and node
 limits remain enforced.
 
+The 0.5.0 development head requests native transparent PNG output for generated
+components. Valid Alpha bypasses chroma-key processing, preserving legitimate
+magenta pixels and continuous translucent edges. An opaque or checkerboard-rendered
+result is rejected as `TRANSPARENT_RESULT_REQUIRED`. Legacy frozen plans that
+explicitly use `keyed_component` retain the fixed magenta matte path.
+
 Deterministic processing commands remain offline. Only explicit `auto-run` may
 invoke the configured provider; it never retries generation, controls Photoshop,
 or modifies another Harness. `auto` currently selects PSD; explicit PSB requests are

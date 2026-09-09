@@ -83,13 +83,15 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
         _box(asset.get("source_region"), canvas, "ASSET_REGION")
         size = _size(asset.get("output_size"), "ASSET_SIZE")
         mode = asset.get("output_mode")
-        require(mode in {"opaque_canvas", "keyed_component", "rgba"}, "OUTPUT_MODE")
+        require(mode in {"opaque_canvas", "transparent_component", "keyed_component", "rgba"},
+                "OUTPUT_MODE")
         if "resize" in asset:
             resize = asset["resize"]
             _fields(resize, {"mode", "insets"}, "RESIZE_FIELDS")
             require(resize["mode"] == "nine_slice", "RESIZE_MODE")
             require(asset["role"] == "important_component"
-                    and mode in {"keyed_component", "rgba"}, "RESIZE_COMPONENT_ONLY")
+                    and mode in {"transparent_component", "keyed_component", "rgba"},
+                    "RESIZE_COMPONENT_ONLY")
             left, top, right, bottom = _vector(resize["insets"], 4, "RESIZE_INSETS")
             require(min(left, top, right, bottom) > 0, "RESIZE_INSETS")
             require(size[0] > left + right and size[1] > top + bottom,
@@ -100,7 +102,10 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
         if route == "generated_completion":
             require(mode == "opaque_canvas", "COMPLETION_OUTPUT_MODE")
         if route == "generated_isolation":
-            require(mode == "keyed_component", "ISOLATION_OUTPUT_MODE")
+            require(mode in {"transparent_component", "keyed_component"},
+                    "ISOLATION_OUTPUT_MODE")
+        if mode == "transparent_component":
+            require(route == "generated_isolation", "TRANSPARENT_COMPONENT_ROUTE")
         if route == "reuse_scaled":
             require(mode == "rgba", "REUSE_OUTPUT_MODE")
         if route.startswith("generated_"):

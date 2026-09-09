@@ -44,7 +44,9 @@ accepted `review.json`; retain the original reviewed workflow below.
    one returned image. If the call may have been accepted but its outcome is
    unknown, run `indeterminate` and stop; never resubmit automatically.
 4. Run `process`. Inspect `materials/contact-sheet.png` and the individual RGBA
-   files. The keyed matte removes magenta globally, including enclosed holes.
+   files. New automatic component requests require native transparent PNG output
+   and preserve its Alpha without chroma-key removal. Legacy plans that explicitly
+   use `keyed_component` still remove magenta globally, including enclosed holes.
    Reused components are scaled uniformly and centered by default. Explicit
    nine-slice resizing is available for stretchable empty bases; choose fitted
    foreground insets in the plan rather than stretching pictograms or products.

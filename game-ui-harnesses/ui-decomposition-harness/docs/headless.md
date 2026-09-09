@@ -1,6 +1,7 @@
 # Headless image-to-draft-PSD integration
 
-Available in the `0.4.1` release. The entry is an opt-in per-job
+The 0.5.0 development head extends the entry available in the `0.4.1` release
+with native transparent component generation. The entry remains an opt-in per-job
 CLI/library function, not a web service.
 Offline tests exercise the complete runner with provider doubles and real PSD
 encoding. A separately authorized 0.2.0 live end-to-end check produced a
@@ -216,11 +217,18 @@ SDK login session or assistant process is required.
 Vision input is `images` plus `instruction` (1–4096 characters with no leading or
 trailing whitespace; checked locally before any request); completed
 output is a `description` string containing either the exact planning JSON or the
-fixed visual-QA JSON. Imagegen takes `prompt` and one `referenceImage`; completed
-output includes `downloadUrl`, PNG MIME type, width, height and byte count. Inputs
+fixed visual-QA JSON. Imagegen takes `prompt` and one `referenceImage`. For generated
+components it also takes `background: "transparent"` and `outputFormat: "png"`;
+completed output includes `downloadUrl`, PNG MIME type, width, height and byte count. Inputs
 are JPEG encoded below 2 MiB. For generation, the full reference and exact crop are
 arranged on one evidence board. No image is sent to an endpoint not explicitly
 configured by the deployment.
+
+Generated component results must contain real transparent and opaque pixels. The
+runner preserves that Alpha directly and rejects opaque RGB or rendered
+checkerboards without attempting chroma-key extraction. Background-completion
+requests remain opaque. Existing explicitly keyed plans remain supported through
+the legacy magenta matte path.
 
 Before a business call, the adapter persists a UUID `submissionId` and full
 arguments. It stores the returned `taskId`, polls within the deadline, verifies

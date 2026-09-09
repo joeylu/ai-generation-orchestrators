@@ -71,7 +71,7 @@ class FakeProvider:
         if read_json(bundle / "handoff.json")["asset"] == "scene":
             picture = Image.new("RGB", (48, 48) if self.wrong_ratio else (64, 48), "#17314a")
         else:
-            picture = Image.new("RGB", (80, 60), (248, 8, 248))
+            picture = Image.new("RGBA", (80, 60), (0, 0, 0, 0))
             ImageDraw.Draw(picture).rectangle((10, 12, 69, 47), fill="#db9b31")
         result = state_dir / "raw.png"
         picture.save(result)
@@ -121,6 +121,32 @@ class HeadlessTests(unittest.TestCase):
         self.assertEqual(self.run_job()["digest"], result["digest"])
         self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
                           self.provider.image_calls), (1, 1, 2))
+
+    def test_automatic_component_uses_native_transparency_without_key_removal(self):
+        result = self.run_job()
+        self.assertEqual(result["status"], "completed_visual_qa_draft")
+        plan = read_json(self.job / "project/plan.json")
+        component = next(asset for asset in plan["assets"] if asset["id"] == "button")
+        self.assertEqual(component["output_mode"], "transparent_component")
+        prompt = (self.job / "workspace/runs/automatic/requests/automatic-ui-button-r001/prompt.txt").read_text()
+        self.assertIn("genuinely transparent", prompt)
+        self.assertNotIn("#F808F8", prompt)
+
+    def test_opaque_component_result_is_terminal_instead_of_silently_matted(self):
+        original = self.provider.generate
+        def opaque_component(bundle, *, state_dir, timeout):
+            if read_json(bundle / "handoff.json")["asset"] == "button":
+                self.provider.image_calls += 1
+                state_dir.mkdir(parents=True)
+                path = state_dir / "raw.png"
+                Image.new("RGB", (80, 60), "white").save(path)
+                return path
+            return original(bundle, state_dir=state_dir, timeout=timeout)
+        with patch.object(self.provider, "generate", side_effect=opaque_component):
+            result = self.run_job()
+        self.assertEqual(result["status"], "failed_no_resubmit")
+        self.assertEqual(result["reason"], "TRANSPARENT_RESULT_REQUIRED")
+        self.assertFalse((self.job / "delivery").exists())
 
     def test_png_zip_without_psd_dependency_and_zero_call_replay(self):
         original_import = builtins.__import__
@@ -575,15 +601,40 @@ class McpAdapterTests(unittest.TestCase):
         self.assertFalse(read_json(state / "outcome.json")["automatic_resubmit"])
         self.assertTrue((state / "rpc-0000/response.bin").exists())
 
-    def image_bundle(self):
+    def image_bundle(self, asset="scene"):
         project = self.root / "project"
         project.mkdir()
         Image.new("RGB", (64, 48), "blue").save(project / "reference.png")
         planning.materialize(json.dumps(proposal()), project, [64, 48], 4)
         batch.freeze(project / "plan.json", self.root / "work", "test")
+        run = self.root / "work/runs/test"
+        if asset == "button":
+            background = self.root / "background.png"
+            Image.new("RGB", (64, 48), "blue").save(background)
+            batch.reserve(run, "scene")
+            batch.receive(run, "scene", background)
         bundle = self.root / "bundle"
-        export_request(self.root / "work/runs/test", "scene", bundle)
+        export_request(run, asset, bundle)
         return bundle
+
+    def test_transparent_component_requests_native_png_output(self):
+        bundle = self.image_bundle("button")
+        stream = io.BytesIO()
+        Image.new("RGBA", (80, 60), (0, 0, 0, 0)).save(stream, format="PNG")
+        payload = stream.getvalue()
+        metadata = {"downloadUrl": "https://media.example.invalid/result.png",
+                    "mimeType": "image/png", "width": 80, "height": 60, "bytes": len(payload)}
+        captured = {}
+        def task(_endpoint, _name, arguments, state, _deadline):
+            captured.update(arguments)
+            state.mkdir()
+            return metadata
+        with patch.object(self.provider, "_tools"), \
+             patch.object(self.provider, "_task", side_effect=task), \
+             patch.object(self.provider, "_read", return_value=payload):
+            self.provider.generate(bundle, state_dir=self.root / "private", timeout=60)
+        self.assertEqual(captured["background"], "transparent")
+        self.assertEqual(captured["outputFormat"], "png")
 
     def test_image_download_is_allowlisted_and_has_no_api_credentials(self):
         bundle = self.image_bundle()

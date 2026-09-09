@@ -65,6 +65,13 @@ class PublicRuntimeTests(unittest.TestCase):
         self.assertEqual(result.getpixel((0, 0)), (0, 0, 0, 0))
         self.assertIsNotNone(result.getchannel("A").getbbox())
 
+    def test_native_transparent_mode_preserves_legitimate_magenta_pixels(self):
+        from ai_ui_decomposition.media import contain
+        image = Image.new("RGBA", (30, 20), (0, 0, 0, 0))
+        ImageDraw.Draw(image).rectangle((8, 5, 21, 14), fill=(248, 8, 248, 255))
+        result = contain(image, [20, 12])
+        self.assertEqual(result.getpixel((10, 6)), (248, 8, 248, 255))
+
     def test_file_adapter_roundtrip_is_digest_bound(self):
         plan_path, _ = self._initialized()
         workspace = self.root / "workspace"

@@ -29,7 +29,7 @@ retain only the copied reference and relative run paths.
       "route": "generated_isolation",
       "source_region": [100, 300, 380, 660],
       "output_size": [280, 360],
-      "output_mode": "keyed_component",
+      "output_mode": "transparent_component",
       "prompt": "Isolate the empty card base without text or product",
       "source_asset": null
     },
@@ -114,6 +114,14 @@ Routes:
 - `reuse_scaled`: reuse one accepted important component with uniform scaling by default;
   it creates no provider request and cannot chain through another reuse asset.
 
+Generated isolation accepts `transparent_component` or the legacy
+`keyed_component` output mode. New automatic plans select `transparent_component`.
+Its provider result must contain both fully transparent and fully opaque pixels;
+processing normalizes and fits that Alpha directly and never applies the magenta
+matte. An opaque RGB image or rendered checkerboard is rejected before processing.
+The legacy keyed mode remains available for existing plans and adapters and retains
+its input-pixel cap and global `#F808F8` removal behavior.
+
 `source_crop` and `reuse_scaled` have `prompt: null`. Generated routes require a
 prompt. `source_asset` is present only for `reuse_scaled`.
 
@@ -139,7 +147,8 @@ Omitting this field retains the original generation behavior.
 
 ## Optional empty-base nine-slice resizing (0.1.1+)
 
-An important component with `keyed_component` or `rgba` output may explicitly add:
+An important component with `transparent_component`, `keyed_component` or `rgba`
+output may explicitly add:
 
 ```json
 "resize": {"mode": "nine_slice", "insets": [48, 48, 48, 48]}
