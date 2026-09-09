@@ -217,7 +217,25 @@ async function exportBundle() {
   const timeline = currentMotion, system = tree?.getMotionSystem() ?? undefined;
   const needed = new Set<string>();
   if (contract.schemaVersion === '0.1') needed.add(contract.slots.visual.props.source);
-  else for (const node of walkNodes(contract)) { if (node.type === 'Image') needed.add(node.props.source); if (node.type === 'Text' && node.props.fontSource) needed.add(node.props.fontSource); }
+  else for (const node of walkNodes(contract)) {
+    if (node.type === 'Image') needed.add(node.props.source);
+    if (node.type === 'Button' && node.props.backgroundImage) needed.add(node.props.backgroundImage);
+    if (node.type === 'Button' && node.props.appearance) needed.add(node.props.appearance.backgroundImage);
+    if (node.type === 'Switch' && node.props.appearance) { needed.add(node.props.appearance.trackImage); needed.add(node.props.appearance.thumbImage); }
+    if (node.type === 'Select' && node.props.appearance) { needed.add(node.props.appearance.fieldImage); needed.add(node.props.appearance.arrowImage); needed.add(node.props.appearance.popupImage); }
+    if (node.type === 'CheckBox' && node.props.appearance) { needed.add(node.props.appearance.box.image); needed.add(node.props.appearance.mark.image); }
+    if (node.type === 'RadioGroup' && node.props.appearance) for (const item of node.props.appearance.items) { needed.add(item.option.image); needed.add(item.indicator.image); }
+    if (node.type === 'Input' && node.props.appearance) needed.add(node.props.appearance.backgroundImage);
+    if (node.type === 'ProgressBar' && node.props.appearance) { needed.add(node.props.appearance.track.image); needed.add(node.props.appearance.fill.image); }
+    if (node.type === 'Slider' && node.props.appearance) { needed.add(node.props.appearance.track.image); needed.add(node.props.appearance.fill.image); needed.add(node.props.appearance.thumbImage); }
+    if (node.type === 'Container' && node.props.appearance) needed.add(node.props.appearance.background.image);
+    if (node.type === 'ScrollView' && node.props.appearance) { needed.add(node.props.appearance.viewport.image); needed.add(node.props.appearance.scrollbarTrack.image); needed.add(node.props.appearance.scrollbarThumbImage); }
+    if (node.type === 'List' && node.props.appearance) { needed.add(node.props.appearance.backgroundImage); needed.add(node.props.appearance.rowImage); needed.add(node.props.appearance.selectedRowImage); }
+    if (node.type === 'Panel' && node.props.appearance) { needed.add(node.props.appearance.background.image); needed.add(node.props.appearance.header.image); if (node.props.appearance.body) needed.add(node.props.appearance.body.image); }
+    if (node.type === 'Dialog' && node.props.appearance) { needed.add(node.props.appearance.background.image); needed.add(node.props.appearance.header.image); needed.add(node.props.appearance.body.image); if (node.props.appearance.overlayImage) needed.add(node.props.appearance.overlayImage); }
+    if (node.type === 'Tabs' && node.props.appearance) { needed.add(node.props.appearance.tabImage); needed.add(node.props.appearance.activeTabImage); }
+    if (node.type === 'Text' && node.props.fontSource) needed.add(node.props.fontSource);
+  }
   const signal = controller?.signal ?? new AbortController().signal;
   const data = await Promise.all([...needed].map(source => resource(source, signal)));
   return createBundle(contract, data, provenance, timeline, system);

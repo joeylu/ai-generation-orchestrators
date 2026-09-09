@@ -57,6 +57,63 @@ test('v0.2 validates every renderable node branch, optional image region, font s
   ]);
 });
 
+test('opt-in raster paint fields are portable, preserve absent defaults, and reject invalid resource or paint values', () => {
+  const source = legalDocument();
+  const image = source.root.children[0] as any, button = source.root.children[2] as any, toggle = source.root.children[3] as any, select = source.root.children[7] as any;
+  image.props.drawBackground = false; button.props.backgroundImage = 'assets/button-background.png';
+  toggle.props.appearance = {
+    trackImage: 'assets/switch-track.png', thumbImage: 'assets/switch-thumb.png', sourceCanvas: { width: 241, height: 129 },
+    thumbPositions: { off: { x: 18, y: 18 }, on: { x: 128, y: 18 } },
+  };
+  select.props.appearance = {
+    fieldImage: 'assets/select-field.png', arrowImage: 'assets/select-arrow.png', popupImage: 'assets/select-popup.png',
+    sourceCanvas: { width: 300, height: 100 }, labelLayout: { x: 64, y: 18, width: 150, height: 64 },
+    arrowLayout: { x: 230, y: 40, width: 30, height: 21 }, popupCanvas: { width: 300, height: 225 }, popupGap: 2,
+  };
+  const validated = validateDocument(source);
+  assert.equal((validated.root.children[0] as any).props.drawBackground, false);
+  assert.equal((validated.root.children[2] as any).props.backgroundImage, 'assets/button-background.png');
+  assert.equal((validated.root.children[3] as any).props.appearance.thumbPositions.on.x, 128);
+  assert.equal((validated.root.children[7] as any).props.appearance.popupCanvas.height, 225);
+  assert.equal(Object.hasOwn((legalDocument().root.children[0] as any).props, 'drawBackground'), false);
+  assert.equal(Object.hasOwn((legalDocument().root.children[2] as any).props, 'backgroundImage'), false);
+
+  const invalidBackground = legalDocument() as any; invalidBackground.root.children[0].props.drawBackground = 'false';
+  expectIssue(() => validateDocument(invalidBackground), '$.root.children[0].props.drawBackground', 'BOOLEAN_REQUIRED');
+  const invalidSkin = legalDocument() as any; invalidSkin.root.children[2].props.backgroundImage = '../button.png';
+  expectIssue(() => validateDocument(invalidSkin), '$.root.children[2].props.backgroundImage', 'INVALID_RESOURCE_REFERENCE');
+  const invalidToggle = legalDocument() as any; invalidToggle.root.children[3].props.appearance = {
+    trackImage: 'assets/track.png', thumbImage: '../thumb.png', sourceCanvas: { width: 241, height: 129 },
+    thumbPositions: { off: { x: 18, y: 18 }, on: { x: -1, y: 18 } },
+  };
+  expectIssue(() => validateDocument(invalidToggle), '$.root.children[3].props.appearance.thumbImage', 'INVALID_RESOURCE_REFERENCE');
+  expectIssue(() => validateDocument(invalidToggle), '$.root.children[3].props.appearance.thumbPositions.on.x', 'INVALID_NUMBER');
+  const invalidSelect = legalDocument() as any; invalidSelect.root.children[7].props.appearance = {
+    fieldImage: 'assets/field.png', arrowImage: '../arrow.png', popupImage: 'assets/popup.png', sourceCanvas: { width: 300, height: 100 },
+    labelLayout: { x: 64, y: 18, width: 150, height: 64 }, arrowLayout: { x: 290, y: 40, width: 30, height: 21 }, popupCanvas: { width: 300, height: 225 }, popupGap: 2,
+  };
+  expectIssue(() => validateDocument(invalidSelect), '$.root.children[7].props.appearance.arrowImage', 'INVALID_RESOURCE_REFERENCE');
+  expectIssue(() => validateDocument(invalidSelect), '$.root.children[7].props.appearance.arrowLayout', 'OUT_OF_RANGE');
+});
+
+test('Slider raster appearance requires integer texture canvases and a bounded horizontal left-to-right axis', () => {
+  const source = legalDocument() as any, slider = source.root.children[9];
+  slider.props.appearance = {
+    sourceCanvas: { width: 80, height: 40 },
+    track: { image: 'assets/slider-track.png', canvas: { width: 70, height: 4 }, layout: { x: 5, y: 18, width: 70, height: 4 } },
+    fill: { image: 'assets/slider-fill.png', canvas: { width: 70, height: 4 }, layout: { x: 5, y: 18, width: 70, height: 4 } },
+    fillClip: { x: 5, y: 18, width: 70, height: 4 }, fillDirection: 'left-to-right', fillSource: 'full-range-template',
+    thumbImage: 'assets/slider-thumb.png', thumbCanvas: { width: 10, height: 10 }, thumbPositions: { min: { x: 0, y: 15 }, max: { x: 70, y: 15 } },
+  };
+  assert.equal((validateDocument(source).root.children[9] as any).props.appearance.thumbPositions.max.x, 70);
+  const diagonal = structuredClone(source); diagonal.root.children[9].props.appearance.thumbPositions.max.y = 16;
+  expectIssue(() => validateDocument(diagonal), '$.root.children[9].props.appearance.thumbPositions', 'SLIDER_AXIS_MISMATCH');
+  const overflow = structuredClone(source); overflow.root.children[9].props.appearance.thumbPositions.max.x = 71;
+  expectIssue(() => validateDocument(overflow), '$.root.children[9].props.appearance.thumbPositions.max', 'THUMB_OUT_OF_BOUNDS');
+  const fractional = structuredClone(source); fractional.root.children[9].props.appearance.thumbCanvas.width = 10.5;
+  expectIssue(() => validateDocument(fractional), '$.root.children[9].props.appearance.thumbCanvas.width', 'INVALID_NUMBER');
+});
+
 test('strict document failures report paths without repairing caller data', () => {
   const cases: Array<[string, (document: any) => void, string, string?]> = [
     ['unknown node type', document => document.root.children[0].type = 'Custom', '$.root.children[0].type', 'UNSUPPORTED_TYPE'],

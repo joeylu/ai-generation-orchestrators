@@ -50,6 +50,21 @@ function readyEnvelope() {
   };
 }
 
+function flatReadyEnvelope() {
+  return {
+    version: '0.2', sourceSha256: source().sha256, status: 'Ready', summary: 'Observed a framed action control.', classification: 'composite',
+    observedTypes: ['Container', 'Button'], documentId: 'observed-control', canvas: { width: 320, height: 180 },
+    styles: [{
+      id: 'surface', backgroundColor: '#FFFFFF', borderColor: '#1D3557', borderWidth: 1, cornerRadius: 6,
+      textColor: '#10243E', fontFamily: 'sans-serif', fontSize: 16, fontWeight: 'normal', opacity: 1,
+    }],
+    nodes: [
+      { id: 'root', parentId: null, componentType: 'Container', styleId: 'surface', props: {}, layout: { x: 0, y: 0, width: 320, height: 180 } },
+      { id: 'continue', parentId: 'root', componentType: 'Button', styleId: 'surface', props: { label: 'Continue', enabled: true }, layout: { x: 80, y: 64, width: 160, height: 52 } },
+    ],
+  };
+}
+
 test('short submit/poll keeps one task through a transport retry, running receipt, and normalized Ready result', async () => {
   await configured(async stateDirectory => {
     const calls: Array<{ request: Record<string, unknown>; headers: Headers }> = [];
@@ -145,7 +160,7 @@ test('adapter never resubmits after an indeterminate task poll and writes a priv
   });
 });
 
-test('adapter returns an exact Unresolved envelope instead of inventing a renderable fallback', async () => {
+test('adapter returns an exact v0.2 Unresolved envelope instead of inventing a renderable fallback', async () => {
   await configured(async () => {
     let call = 0;
     globalThis.fetch = async () => {
@@ -156,24 +171,71 @@ test('adapter returns an exact Unresolved envelope instead of inventing a render
       } } });
       return jsonResponse({ jsonrpc: '2.0', id: 3, result: { structuredContent: {
         status: 'completed', taskId: 'task-03', service: 'fixture-vision', result: {
-          description: JSON.stringify({ version: '0.1', sourceSha256: source().sha256, status: 'Unresolved', summary: 'The source does not show every required value.' }),
+          description: JSON.stringify({ version: '0.2', sourceSha256: source().sha256, status: 'Unresolved', summary: 'The source does not show every required value.' }),
           imageCount: 1, targetImageNumber: 1, targetImageFound: true,
         },
       } } });
     };
     const pending = await submit({ version: '0.1', source: source() });
     const result = await poll(pending.analysisId);
-    assert.deepEqual(result, { version: '0.1', sourceSha256: source().sha256, status: 'Unresolved', summary: 'The source does not show every required value.' });
+    assert.deepEqual(result, { version: '0.2', sourceSha256: source().sha256, status: 'Unresolved', summary: 'The source does not show every required value.' });
     assert.equal(Object.hasOwn(result, 'intent'), false);
     assert.equal(Object.hasOwn(result, 'policy'), false);
   });
 });
 
-test('submit restores a byte-for-byte matching completed raw result without a provider read', async () => {
+test('adapter returns a flat v0.2 Ready response without nested intent fields', async () => {
+  await configured(async () => {
+    let call = 0;
+    globalThis.fetch = async () => {
+      call++;
+      if (call === 1) return jsonResponse({ jsonrpc: '2.0', id: 1, result: { tools: [{ name: 'vision' }, { name: 'get_task' }] } });
+      if (call === 2) return jsonResponse({ jsonrpc: '2.0', id: 2, result: { structuredContent: {
+        status: 'queued', taskId: 'task-flat', pollAfterSeconds: 1,
+      } } });
+      return jsonResponse({ jsonrpc: '2.0', id: 3, result: { structuredContent: {
+        status: 'completed', taskId: 'task-flat', result: {
+          description: JSON.stringify(flatReadyEnvelope()), imageCount: 1, targetImageNumber: 1, targetImageFound: true,
+        },
+      } } });
+    };
+    const pending = await submit({ version: '0.1', source: source() });
+    const result = await poll(pending.analysisId);
+    assert.deepEqual(result, flatReadyEnvelope());
+    assert.equal(Object.hasOwn(result, 'intent'), false);
+    assert.equal(Object.hasOwn(result, 'policy'), false);
+    assert.equal(result.nodes.every(node => Object.hasOwn(node.props, 'children') === false && Object.hasOwn(node.props, 'style') === false), true);
+  });
+});
+
+test('adapter rejects malformed flat v0.2 JSON without repairing it', async () => {
+  await configured(async stateDirectory => {
+    let call = 0;
+    globalThis.fetch = async () => {
+      call++;
+      if (call === 1) return jsonResponse({ jsonrpc: '2.0', id: 1, result: { tools: [{ name: 'vision' }, { name: 'get_task' }] } });
+      if (call === 2) return jsonResponse({ jsonrpc: '2.0', id: 2, result: { structuredContent: {
+        status: 'queued', taskId: 'task-invalid-flat', pollAfterSeconds: 1,
+      } } });
+      return jsonResponse({ jsonrpc: '2.0', id: 3, result: { structuredContent: {
+        status: 'completed', taskId: 'task-invalid-flat', result: {
+          description: JSON.stringify(flatReadyEnvelope()).slice(0, -1), imageCount: 1, targetImageNumber: 1, targetImageFound: true,
+        },
+      } } });
+    };
+    const pending = await submit({ version: '0.1', source: source() });
+    await assert.rejects(poll(pending.analysisId), /MCP_TASK_FAILED/);
+    const receiptFile = (await readdir(stateDirectory)).find(file => file.endsWith('.receipt.json'));
+    assert.ok(receiptFile);
+    assert.equal(JSON.parse(await readFile(join(stateDirectory, receiptFile!), 'utf8')).status, 'failed');
+  });
+});
+
+test('poll restores a legacy completed raw result without a provider read', async () => {
   await configured(async stateDirectory => {
     const analysisId = '11111111-1111-4111-8111-111111111111';
     const image = source();
-    const instruction = buildInstruction(image, sourceBytes.length);
+    const instruction = 'legacy-v0.1-instruction';
     await mkdir(stateDirectory, { recursive: true });
     await writeFile(join(stateDirectory, `${analysisId}.submission.json`), JSON.stringify({
       version: '0.1', submissionId: analysisId, status: 'prepared',
@@ -187,10 +249,41 @@ test('submit restores a byte-for-byte matching completed raw result without a pr
       } },
     }));
     globalThis.fetch = async () => { throw new Error('cached submit must not contact the provider'); };
-    assert.deepEqual(await submit({ version: '0.1', source: image }), readyEnvelope());
-    assert.deepEqual(await poll(analysisId), readyEnvelope(), 'a repeated poll recovers the raw completion without a provider read');
+    assert.deepEqual(await poll(analysisId), readyEnvelope(), 'a saved legacy completion remains recoverable by its analysis ID');
   });
   await assert.rejects(poll('../not-an-analysis'), /MCP_ANALYSIS_ID_INVALID/);
+});
+
+test('a revised instruction creates a distinct submission instead of reusing a stale v0.2 result', async () => {
+  await configured(async stateDirectory => {
+    const analysisId = '33333333-3333-4333-8333-333333333333';
+    const image = source();
+    await mkdir(stateDirectory, { recursive: true });
+    await writeFile(join(stateDirectory, `${analysisId}.submission.json`), JSON.stringify({
+      version: '0.1', submissionId: analysisId, status: 'prepared',
+      source: { path: image.path, sha256: image.sha256, width: image.width, height: image.height, mime: image.mime },
+      args: { submissionId: analysisId, images: [{ mimeType: image.mime, data: image.base64 }], instruction: 'old-flat-v0.2-instruction', targetImageNumber: 1 },
+    }));
+    await writeFile(join(stateDirectory, `${analysisId}.raw-result.json`), JSON.stringify({
+      version: '0.1', submissionId: analysisId, sourceSha256: image.sha256, taskId: 'opaque-stale-task', status: 'completed',
+      structuredContent: { status: 'completed', taskId: 'opaque-stale-task', result: {
+        description: JSON.stringify(flatReadyEnvelope()), imageCount: 1, targetImageNumber: 1, targetImageFound: true,
+      } },
+    }));
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_url, init) => {
+      const request = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      calls.push(request);
+      if (request.id === 1) return jsonResponse({ jsonrpc: '2.0', id: 1, result: { tools: [{ name: 'vision' }, { name: 'get_task' }] } });
+      return jsonResponse({ jsonrpc: '2.0', id: 2, result: { structuredContent: { status: 'queued', taskId: 'new-task', pollAfterSeconds: 1 } } });
+    };
+    const pending = await submit({ version: '0.1', source: image });
+    assert.equal(pending.status, 'Pending');
+    assert.notEqual(pending.analysisId, analysisId);
+    assert.equal(calls.length, 2);
+    assert.equal((calls[1].params as { name: string }).name, 'vision');
+    assert.deepEqual(await poll(analysisId), flatReadyEnvelope());
+  });
 });
 
 test('submit resumes a matching pending submission whose persisted image payload exceeds one MiB', async () => {
@@ -226,10 +319,36 @@ test('adapter refuses over-limit images before contact and makes unresolved outp
     await assert.rejects(analyze({ version: '0.1', source: oversized }), /VISION_SOURCE_SIZE_LIMIT/);
     assert.equal(called, false);
     const instruction = buildInstruction(source(), 4);
-    assert.ok(instruction.includes('Switch{label,checked,enabled,style}'));
-    assert.ok(instruction.includes('fontWeight:"normal"|"bold"'));
-    assert.ok(instruction.includes('tabs:[{id,label,contentId}]'));
-    assert.ok(instruction.includes('Do not use Button as a fallback'));
+    assert.ok(instruction.includes('version:"0.2"'));
+    assert.ok(instruction.includes('Complete two-node shape example'));
+    assert.ok(instruction.includes('"componentType":"Button"'));
+    assert.ok(instruction.includes('no children,props.style,intent,policy'));
+    assert.ok(instruction.includes('Visible UI never becomes one Image'));
     assert.ok(instruction.length >= 1 && instruction.length <= 4096);
   });
+});
+
+test('deidentified v0.2 prompt requires observable controls, complete references, and a final self-check', () => {
+  const mockSource = {
+    path: 'assets/64hash.png', sha256: 'a'.repeat(64), width: 320, height: 180, mime: 'image/png',
+  };
+  const instruction = buildInstruction(mockSource, 1024);
+  assert.ok(instruction.includes(mockSource.sha256));
+  assert.ok(instruction.includes('Switch=track+thumb; CheckBox=square/check-mark binary, never Image/Text'));
+  assert.ok(instruction.includes('ProgressBar has no draggable thumb; Slider has one'));
+  assert.ok(instruction.includes('Dialog=modal overlay; Panel=visible titled/framed section'));
+  assert.ok(instruction.includes('Panel=visible titled/framed section; Container=generic grouping only'));
+  assert.ok(instruction.includes('List=repeated selectable/scrollable same-template rows; never Buttons'));
+  assert.ok(instruction.includes('Node/option/item/tab IDs share one namespace'));
+  assert.ok(instruction.includes('Tabs.contentId names a direct child'));
+  assert.ok(instruction.includes('Hidden tab content unknown=>Unresolved; never placeholder'));
+  assert.ok(instruction.includes('every style used'));
+  assert.ok(instruction.includes('Self-check before emit: exact hash/top keys'));
+  assert.ok(instruction.includes('region?:{x,y,width,height} integer crop'));
+  assert.ok(instruction.includes('"fontFamily":"sans-serif"'));
+  assert.ok(instruction.includes('"fontSize":16'));
+  assert.ok(instruction.includes('"width":320,"height":180'));
+  assert.ok(instruction.includes('"width":160,"height":52'));
+  assert.equal(instruction.includes('"componentType":"Image"'), false, 'the compact example must not prime whole-image output');
+  assert.ok(instruction.length > 0 && instruction.length <= 4096);
 });

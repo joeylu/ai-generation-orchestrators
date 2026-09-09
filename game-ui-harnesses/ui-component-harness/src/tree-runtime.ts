@@ -102,6 +102,48 @@ class TreeResources {
     const fontSources = new Map<string, string>();
     for (const node of walkNodes(document)) {
       if (node.type === 'Image') imageSources.add(node.props.source);
+      if (node.type === 'Container' && node.props.appearance) imageSources.add(node.props.appearance.background.image);
+      if (node.type === 'Button' && node.props.backgroundImage) imageSources.add(node.props.backgroundImage);
+      if (node.type === 'Button' && node.props.appearance) imageSources.add(node.props.appearance.backgroundImage);
+      if (node.type === 'Switch' && node.props.appearance) {
+        imageSources.add(node.props.appearance.trackImage);
+        imageSources.add(node.props.appearance.thumbImage);
+      }
+      if (node.type === 'Select' && node.props.appearance) {
+        imageSources.add(node.props.appearance.fieldImage);
+        imageSources.add(node.props.appearance.arrowImage);
+        imageSources.add(node.props.appearance.popupImage);
+      }
+      if (node.type === 'CheckBox' && node.props.appearance) { imageSources.add(node.props.appearance.box.image); imageSources.add(node.props.appearance.mark.image); }
+      if (node.type === 'RadioGroup' && node.props.appearance) for (const item of node.props.appearance.items) { imageSources.add(item.option.image); imageSources.add(item.indicator.image); }
+      if (node.type === 'Input' && node.props.appearance) imageSources.add(node.props.appearance.backgroundImage);
+      if (node.type === 'ProgressBar' && node.props.appearance) { imageSources.add(node.props.appearance.track.image); imageSources.add(node.props.appearance.fill.image); }
+      if (node.type === 'Slider' && node.props.appearance) { imageSources.add(node.props.appearance.track.image); imageSources.add(node.props.appearance.fill.image); imageSources.add(node.props.appearance.thumbImage); }
+      if (node.type === 'ScrollView' && node.props.appearance) {
+        imageSources.add(node.props.appearance.viewport.image);
+        imageSources.add(node.props.appearance.scrollbarTrack.image);
+        imageSources.add(node.props.appearance.scrollbarThumbImage);
+      }
+      if (node.type === 'List' && node.props.appearance) {
+        imageSources.add(node.props.appearance.backgroundImage);
+        imageSources.add(node.props.appearance.rowImage);
+        imageSources.add(node.props.appearance.selectedRowImage);
+      }
+      if (node.type === 'Panel' && node.props.appearance) {
+        imageSources.add(node.props.appearance.background.image);
+        imageSources.add(node.props.appearance.header.image);
+        if (node.props.appearance.body) imageSources.add(node.props.appearance.body.image);
+      }
+      if (node.type === 'Dialog' && node.props.appearance) {
+        imageSources.add(node.props.appearance.background.image);
+        imageSources.add(node.props.appearance.header.image);
+        imageSources.add(node.props.appearance.body.image);
+        if (node.props.appearance.overlayImage) imageSources.add(node.props.appearance.overlayImage);
+      }
+      if (node.type === 'Tabs' && node.props.appearance) {
+        imageSources.add(node.props.appearance.tabImage);
+        imageSources.add(node.props.appearance.activeTabImage);
+      }
       if (node.type === 'Text' && node.props.fontSource) fontSources.set(`${node.props.fontSource}\u0000${node.props.style.fontFamily}`, node.props.fontSource);
     }
     await Promise.all([...imageSources].map(async source => {
@@ -114,11 +156,106 @@ class TreeResources {
     // A compiled document has already checked regions against image facts. Direct runtime
     // callers do not supply those facts, so verify the same safety boundary after decode.
     for (const node of walkNodes(document)) {
-      if (node.type !== 'Image' || !node.props.region) continue;
-      const entry = this.images.get(node.props.source);
-      const region = node.props.region;
-      if (!entry || region.x + region.width > entry.texture.width || region.y + region.height > entry.texture.height) {
-        throw new Error(`IMAGE_REGION_OUT_OF_BOUNDS: ${node.id}`);
+      if (node.type === 'Image' && node.props.region) {
+        const entry = this.images.get(node.props.source);
+        const region = node.props.region;
+        if (!entry || region.x + region.width > entry.texture.width || region.y + region.height > entry.texture.height) {
+          throw new Error(`IMAGE_REGION_OUT_OF_BOUNDS: ${node.id}`);
+        }
+      }
+      if (node.type === 'Button' && node.props.appearance) {
+        const background = this.images.get(node.props.appearance.backgroundImage)?.texture;
+        if (!background || background.width !== node.props.appearance.sourceCanvas.width || background.height !== node.props.appearance.sourceCanvas.height) {
+          throw new Error(`BUTTON_BACKGROUND_CANVAS_MISMATCH: ${node.id}`);
+        }
+      }
+      if (node.type === 'Switch' && node.props.appearance) {
+        const appearance = node.props.appearance;
+        const track = this.images.get(appearance.trackImage)?.texture;
+        const thumb = this.images.get(appearance.thumbImage)?.texture;
+        if (!track || track.width !== appearance.sourceCanvas.width || track.height !== appearance.sourceCanvas.height) {
+          throw new Error(`SWITCH_TRACK_CANVAS_MISMATCH: ${node.id}`);
+        }
+        if (!thumb || [appearance.thumbPositions.off, appearance.thumbPositions.on].some(point =>
+          point.x + thumb.width > appearance.sourceCanvas.width || point.y + thumb.height > appearance.sourceCanvas.height)) {
+          throw new Error(`SWITCH_THUMB_OUT_OF_BOUNDS: ${node.id}`);
+        }
+      }
+      if (node.type === 'Select' && node.props.appearance) {
+        const appearance = node.props.appearance;
+        const field = this.images.get(appearance.fieldImage)?.texture;
+        const arrow = this.images.get(appearance.arrowImage)?.texture;
+        const popup = this.images.get(appearance.popupImage)?.texture;
+        if (!field || field.width !== appearance.sourceCanvas.width || field.height !== appearance.sourceCanvas.height) {
+          throw new Error(`SELECT_FIELD_CANVAS_MISMATCH: ${node.id}`);
+        }
+        if (!popup || popup.width !== appearance.popupCanvas.width || popup.height !== appearance.popupCanvas.height) {
+          throw new Error(`SELECT_POPUP_CANVAS_MISMATCH: ${node.id}`);
+        }
+        if (!arrow) throw new Error(`SELECT_ARROW_DECODE_FAILED: ${node.id}`);
+      }
+      if (node.type === 'CheckBox' && node.props.appearance) {
+        const box = this.images.get(node.props.appearance.box.image)?.texture, mark = this.images.get(node.props.appearance.mark.image)?.texture;
+        if (!box || box.width !== node.props.appearance.box.canvas.width || box.height !== node.props.appearance.box.canvas.height) throw new Error(`CHECKBOX_BOX_CANVAS_MISMATCH: ${node.id}`);
+        if (!mark || mark.width !== node.props.appearance.mark.canvas.width || mark.height !== node.props.appearance.mark.canvas.height) throw new Error(`CHECKBOX_MARK_CANVAS_MISMATCH: ${node.id}`);
+      }
+      if (node.type === 'RadioGroup' && node.props.appearance) {
+        for (const item of node.props.appearance.items) {
+          const option = this.images.get(item.option.image)?.texture, indicator = this.images.get(item.indicator.image)?.texture;
+          if (!option || option.width !== item.option.canvas.width || option.height !== item.option.canvas.height) throw new Error(`RADIO_OPTION_CANVAS_MISMATCH: ${node.id}/${item.optionId}`);
+          if (!indicator || indicator.width !== item.indicator.canvas.width || indicator.height !== item.indicator.canvas.height) throw new Error(`RADIO_INDICATOR_CANVAS_MISMATCH: ${node.id}/${item.optionId}`);
+        }
+      }
+      if (node.type === 'Input' && node.props.appearance) {
+        const background = this.images.get(node.props.appearance.backgroundImage)?.texture;
+        if (!background || background.width !== node.props.appearance.sourceCanvas.width || background.height !== node.props.appearance.sourceCanvas.height) throw new Error(`INPUT_BACKGROUND_CANVAS_MISMATCH: ${node.id}`);
+      }
+      if (node.type === 'ProgressBar' && node.props.appearance) {
+        const track = this.images.get(node.props.appearance.track.image)?.texture, fill = this.images.get(node.props.appearance.fill.image)?.texture;
+        if (!track || track.width !== node.props.appearance.track.canvas.width || track.height !== node.props.appearance.track.canvas.height) throw new Error(`PROGRESS_TRACK_CANVAS_MISMATCH: ${node.id}`);
+        if (!fill || fill.width !== node.props.appearance.fill.canvas.width || fill.height !== node.props.appearance.fill.canvas.height) throw new Error(`PROGRESS_FILL_CANVAS_MISMATCH: ${node.id}`);
+      }
+      if (node.type === 'Slider' && node.props.appearance) {
+        const track = this.images.get(node.props.appearance.track.image)?.texture, fill = this.images.get(node.props.appearance.fill.image)?.texture, thumb = this.images.get(node.props.appearance.thumbImage)?.texture;
+        if (!track || track.width !== node.props.appearance.track.canvas.width || track.height !== node.props.appearance.track.canvas.height) throw new Error(`SLIDER_TRACK_CANVAS_MISMATCH: ${node.id}`);
+        if (!fill || fill.width !== node.props.appearance.fill.canvas.width || fill.height !== node.props.appearance.fill.canvas.height) throw new Error(`SLIDER_FILL_CANVAS_MISMATCH: ${node.id}`);
+        if (!thumb || thumb.width !== node.props.appearance.thumbCanvas.width || thumb.height !== node.props.appearance.thumbCanvas.height) throw new Error(`SLIDER_THUMB_CANVAS_MISMATCH: ${node.id}`);
+      }
+      const part = (source: string, canvas: { width: number; height: number }, code: string): void => {
+        const texture = this.images.get(source)?.texture;
+        if (!texture || texture.width !== canvas.width || texture.height !== canvas.height) throw new Error(`${code}: ${node.id}`);
+      };
+      if (node.type === 'Container' && node.props.appearance) {
+        part(node.props.appearance.background.image, node.props.appearance.background.canvas, 'CONTAINER_BACKGROUND_CANVAS_MISMATCH');
+      }
+      if (node.type === 'ScrollView' && node.props.appearance) {
+        const appearance = node.props.appearance;
+        part(appearance.viewport.image, appearance.viewport.canvas, 'SCROLL_VIEWPORT_CANVAS_MISMATCH');
+        part(appearance.scrollbarTrack.image, appearance.scrollbarTrack.canvas, 'SCROLLBAR_TRACK_CANVAS_MISMATCH');
+        part(appearance.scrollbarThumbImage, appearance.scrollbarThumbCanvas, 'SCROLLBAR_THUMB_CANVAS_MISMATCH');
+      }
+      if (node.type === 'List' && node.props.appearance) {
+        const appearance = node.props.appearance;
+        part(appearance.backgroundImage, appearance.sourceCanvas, 'LIST_BACKGROUND_CANVAS_MISMATCH');
+        part(appearance.rowImage, appearance.rowCanvas, 'LIST_ROW_CANVAS_MISMATCH');
+        part(appearance.selectedRowImage, appearance.selectedRowCanvas, 'LIST_SELECTED_ROW_CANVAS_MISMATCH');
+      }
+      if (node.type === 'Panel' && node.props.appearance) {
+        const appearance = node.props.appearance;
+        part(appearance.background.image, appearance.background.canvas, 'PANEL_BACKGROUND_CANVAS_MISMATCH');
+        part(appearance.header.image, appearance.header.canvas, 'PANEL_HEADER_CANVAS_MISMATCH');
+        if (appearance.body) part(appearance.body.image, appearance.body.canvas, 'PANEL_BODY_CANVAS_MISMATCH');
+      }
+      if (node.type === 'Dialog' && node.props.appearance) {
+        const appearance = node.props.appearance;
+        part(appearance.background.image, appearance.background.canvas, 'DIALOG_BACKGROUND_CANVAS_MISMATCH');
+        part(appearance.header.image, appearance.header.canvas, 'DIALOG_HEADER_CANVAS_MISMATCH');
+        part(appearance.body.image, appearance.body.canvas, 'DIALOG_BODY_CANVAS_MISMATCH');
+        if (appearance.overlayImage && appearance.overlayCanvas) part(appearance.overlayImage, appearance.overlayCanvas, 'DIALOG_OVERLAY_CANVAS_MISMATCH');
+      }
+      if (node.type === 'Tabs' && node.props.appearance) {
+        part(node.props.appearance.tabImage, node.props.appearance.tabCanvas, 'TAB_CANVAS_MISMATCH');
+        part(node.props.appearance.activeTabImage, node.props.appearance.activeTabCanvas, 'ACTIVE_TAB_CANVAS_MISMATCH');
       }
     }
     await Promise.all([...fontSources.entries()].map(async ([key, source]) => {
@@ -167,6 +304,7 @@ class TreeResources {
 
 interface Gesture {
   record: RuntimeRecord;
+  move?(point: { x: number; y: number }): void;
   end(inside: boolean, source: RuntimeInputSource): void;
   cancel(reason: string, source: RuntimeInputSource): void;
 }
@@ -179,6 +317,8 @@ interface RuntimeRecord {
   readonly visual: Container;
   /** Redrawable chrome; clearing it must never destroy child component views. */
   readonly paint: Container;
+  /** Raster header/scrollbar chrome that must remain above semantic child views. */
+  readonly foreground: Container;
   readonly displayParent: Container;
   readonly order: number;
   readonly childIds: string[];
@@ -186,12 +326,27 @@ interface RuntimeRecord {
   readonly modalScope?: string;
   cleanups: Array<() => void>;
   resourceReleases: Array<() => void>;
+  toggleTextures?: { track: Texture; thumb: Texture };
+  checkboxTextures?: { box: Texture; mark: Texture };
+  radioTextures?: Map<string, { option: Texture; indicator: Texture }>;
+  inputTexture?: Texture;
+  progressTextures?: { track: Texture; fill: Texture };
+  sliderTextures?: { track: Texture; fill: Texture; thumb: Texture };
+  containerTexture?: Texture;
+  scrollTextures?: { viewport: Texture; scrollbarTrack: Texture; scrollbarThumb: Texture };
+  listTextures?: { background: Texture; row: Texture; selectedRow: Texture };
+  panelTextures?: { background: Texture; header: Texture; body?: Texture };
+  dialogTextures?: { background: Texture; header: Texture; body: Texture; overlay?: Texture };
+  tabsTextures?: { tab: Texture; activeTab: Texture };
+  buttonTexture?: Texture;
+  selectTextures?: { field: Texture; arrow: Texture; popup: Texture };
   userVisible: boolean;
   tabVisible: boolean;
   destroyed: boolean;
   popup?: Container;
   popupClosing: boolean;
-  dialogBlocker?: Graphics;
+  dialogBlocker?: Container;
+  dialogHasRasterOverlay?: boolean;
   dialogDetached: boolean;
   logicalDialogTransform?: Matrix;
   dialogClosing: boolean;
@@ -396,7 +551,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         const row = record.node.layout.height / record.node.props.options.length;
         const selectedId = record.node.props.selectedId;
         const index = Math.max(0, record.node.props.options.findIndex(option => option.id === selectedId));
-        return { ...common, hoverScale: 1, markerAlpha: selectedId === null ? 0 : 1, markerY: index * row + row / 2 };
+        const item = record.node.props.appearance?.items[index], markerY = item ? (item.indicator.layout.y + item.indicator.layout.height / 2) * record.node.layout.height / record.node.props.appearance!.sourceCanvas.height : index * row + row / 2;
+        return { ...common, hoverScale: 1, markerAlpha: selectedId === null ? 0 : 1, markerY };
       }
       case 'Input': return { ...common, focus: focusedInput === record ? 1 : 0 };
       case 'Select': return { ...common, hoverScale: 1, popupOpen: record.popup ? 1 : 0, selectionFlash: 0 };
@@ -424,6 +580,10 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const values = presentation(record);
     for (const key of keys) if (key in values) record.presentation[key] = values[key];
   }
+  function preparePresentationChange(record: RuntimeRecord, action: MotionAction, keys: readonly string[]): void {
+    if (hasAction(record, action)) pinPresentation(record, keys);
+    else for (const key of keys) delete record.presentation[key];
+  }
   function applyPresentation(record: RuntimeRecord): void {
     const values = presentation(record);
     const centerX = record.node.layout.width / 2, centerY = record.node.layout.height / 2;
@@ -432,7 +592,10 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     record.visual.scale.set(Math.max(0.001, scale));
     record.visual.alpha = Math.max(0, Math.min(1, (values.entryAlpha ?? 1) * (values.dialogAlpha ?? 1)));
     if (record.popup) record.popup.alpha = Math.max(0, Math.min(1, values.popupOpen ?? 1));
-    if (record.dialogBlocker) record.dialogBlocker.alpha = 0.28 * Math.max(0, Math.min(1, values.dialogAlpha ?? 1));
+    if (record.dialogBlocker) {
+      const alpha = Math.max(0, Math.min(1, values.dialogAlpha ?? 1));
+      record.dialogBlocker.alpha = (record.dialogHasRasterOverlay ? 1 : 0.28) * alpha;
+    }
   }
   function refreshPresentation(record: RuntimeRecord): void {
     if (record.destroyed) return;
@@ -571,7 +734,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     // the scope overlay using the actual transformed bottom-left rather than a
     // layout sum, so it remains above sibling controls and receives its own hits.
     const node = record.node;
-    const global = record.view.toGlobal({ x: 0, y: node.layout.height + 2 });
+    const gap = node.type === 'Select' && node.props.appearance ? node.props.appearance.popupGap : 2;
+    const global = record.view.toGlobal({ x: 0, y: node.layout.height + gap });
     const local = record.scope.holder.toLocal(global);
     popup.position.copyFrom(local);
   }
@@ -607,7 +771,10 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const release = (pointerId: number, inside: boolean, source: RuntimeInputSource): void => {
       const gesture = gestures.get(pointerId); if (!gesture || gesture.record !== record) return;
       gestures.delete(pointerId);
-      if (inside && interactive(record)) { runSystemAction(record, 'press', false); emit(record, 'release', source); activate(source); }
+      if (inside && interactive(record)) {
+        if (!runSystemAction(record, 'press', false)) { delete record.presentation.pressScale; refreshPresentation(record); }
+        emit(record, 'release', source); activate(source);
+      }
       else { cancelRecordPresentation(record); emit(record, 'cancel', source); }
       render();
     };
@@ -617,7 +784,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       if (record.popup && event.target !== record.view) return;
       if (openSelect && openSelect !== record) closePopup(openSelect);
       canvas.focus({ preventScroll: true });
-      runSystemAction(record, 'press'); emit(record, 'press', sourceOf(event.pointerType));
+      if (!runSystemAction(record, 'press')) { record.presentation.pressScale = 0.97; refreshPresentation(record); }
+      emit(record, 'press', sourceOf(event.pointerType));
       gestures.set(event.pointerId, {
         record,
         end: (inside, source) => release(event.pointerId, inside, source),
@@ -633,7 +801,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
 
   function renderImage(record: RuntimeRecord): void {
     const node = record.node as ImageNode;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint);
+    if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     const handle = record.scope.resources.acquireImage(node.props.source); record.resourceReleases.push(handle.release);
     let texture = handle.texture;
     if (node.props.region) {
@@ -655,34 +824,93 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     target.addChild(sprite);
   }
 
-  function label(record: RuntimeRecord, value: string, x: number, y: number, width: number, height: number, style = styleOf(record.node)): void {
+  function renderButtonBackgroundImage(record: RuntimeRecord, source: string): void {
+    const handle = record.scope.resources.acquireImage(source); record.resourceReleases.push(handle.release);
+    const sprite = new Sprite(handle.texture);
+    sprite.width = record.node.layout.width; sprite.height = record.node.layout.height;
+    record.paint.addChild(sprite);
+  }
+
+  function rasterScale(record: RuntimeRecord, sourceCanvas: { width: number; height: number }): { x: number; y: number } {
+    return { x: record.node.layout.width / sourceCanvas.width, y: record.node.layout.height / sourceCanvas.height };
+  }
+  function rasterPart(record: RuntimeRecord, texture: Texture, sourceCanvas: { width: number; height: number }, layout: Layout): Sprite {
+    const scale = rasterScale(record, sourceCanvas), sprite = new Sprite(texture);
+    sprite.x = layout.x * scale.x; sprite.y = layout.y * scale.y;
+    sprite.width = layout.width * scale.x; sprite.height = layout.height * scale.y;
+    return sprite;
+  }
+
+  function label(record: RuntimeRecord, value: string, x: number, y: number, width: number, height: number, style = styleOf(record.node), target: Container = record.paint): void {
     const synthetic: TextNode = {
       id: `${record.node.id}.label`, type: 'Text', layout: { x, y, width, height },
       props: { text: value, wrap: 'none', overflow: 'ellipsis', lineHeight: style.fontSize * 1.25, style },
     };
-    const item = makeText(synthetic); item.x = x; item.y = y + Math.max(0, (height - item.height) / 2); record.paint.addChild(item);
+    const item = makeText(synthetic); item.x = x; item.y = y + Math.max(0, (height - item.height) / 2); target.addChild(item);
   }
   function drawButton(record: RuntimeRecord): void {
     const node = record.node;
     if (node.type !== 'Button') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint);
+    if (node.props.appearance && record.buttonTexture) {
+      const background = new Sprite(record.buttonTexture); background.width = node.layout.width; background.height = node.layout.height; record.paint.addChild(background);
+      const scaleX = node.layout.width / node.props.appearance.sourceCanvas.width, scaleY = node.layout.height / node.props.appearance.sourceCanvas.height;
+      const layout = node.props.appearance.labelLayout;
+      label(record, node.props.label, layout.x * scaleX, layout.y * scaleY, layout.width * scaleX, layout.height * scaleY);
+      return;
+    }
+    if (node.props.backgroundImage) {
+      renderButtonBackgroundImage(record, node.props.backgroundImage);
+      // This source may already contain its legacy raster label. `label` stays
+      // semantic data, but is not painted a second time over the source PNG.
+      return;
+    }
+    record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     // Explicit text children are the compositional label. Do not bake a second copy from Button.label.
     if (node.props.label && !node.children.some(child => textNodeTypes.has(child.type))) label(record, node.props.label, 8, 0, node.layout.width - 16, node.layout.height);
   }
   function drawToggle(record: RuntimeRecord): void {
     const node = record.node;
     if (node.type !== 'Switch' && node.type !== 'CheckBox') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint);
     const side = Math.min(node.layout.height - 14, 28);
     const values = presentation(record);
     if (node.type === 'Switch') {
       const checked = Math.max(0, Math.min(1, values.checked ?? (node.props.checked ? 1 : 0)));
+      if (node.props.appearance && record.toggleTextures) {
+        const appearance = node.props.appearance;
+        const scaleX = node.layout.width / appearance.sourceCanvas.width;
+        const scaleY = node.layout.height / appearance.sourceCanvas.height;
+        const track = new Sprite(record.toggleTextures.track);
+        track.width = node.layout.width; track.height = node.layout.height;
+        const thumb = new Sprite(record.toggleTextures.thumb);
+        thumb.width = record.toggleTextures.thumb.width * scaleX;
+        thumb.height = record.toggleTextures.thumb.height * scaleY;
+        thumb.x = (appearance.thumbPositions.off.x + (appearance.thumbPositions.on.x - appearance.thumbPositions.off.x) * checked) * scaleX;
+        thumb.y = (appearance.thumbPositions.off.y + (appearance.thumbPositions.on.y - appearance.thumbPositions.off.y) * checked) * scaleY;
+        record.paint.addChild(track, thumb);
+        if (appearance.labelLayout) {
+          const layout = appearance.labelLayout;
+          label(record, node.props.label, layout.x * scaleX, layout.y * scaleY, layout.width * scaleX, layout.height * scaleY);
+        }
+        return;
+      }
+      record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
       const track = new Graphics().roundRect(8, (node.layout.height - side) / 2, side * 1.7, side, side / 2)
         .fill({ color: checked > 0.5 ? node.props.style.borderColor : '#AAB7C6' });
       const knob = new Graphics().circle(8 + side * (0.45 + checked * 0.8), node.layout.height / 2, side * 0.34).fill({ color: '#FFFFFF' });
       record.paint.addChild(track, knob); label(record, node.props.label, side * 1.9 + 10, 0, node.layout.width - side * 1.9 - 16, node.layout.height);
     } else {
       const checked = Math.max(0, Math.min(1, values.checked ?? (node.props.checked ? 1 : 0)));
+      if (node.props.appearance && record.checkboxTextures) {
+        const appearance = node.props.appearance, scaleX = node.layout.width / appearance.sourceCanvas.width, scaleY = node.layout.height / appearance.sourceCanvas.height;
+        const place = (texture: Texture, part: typeof appearance.box) => { const sprite = new Sprite(texture); sprite.x = part.layout.x * scaleX; sprite.y = part.layout.y * scaleY; sprite.width = part.layout.width * scaleX; sprite.height = part.layout.height * scaleY; return sprite; };
+        record.paint.addChild(place(record.checkboxTextures.box, appearance.box));
+        const mark = place(record.checkboxTextures.mark, appearance.mark), markHolder = new Container(); markHolder.position.set(mark.x + mark.width / 2, mark.y + mark.height / 2); mark.position.set(-mark.width / 2, -mark.height / 2); markHolder.scale.set(Math.max(0.001, values.checkScale ?? 1)); markHolder.alpha = Math.max(0, Math.min(1, values.checkAlpha ?? checked)); markHolder.addChild(mark); record.paint.addChild(markHolder);
+        const layout = appearance.labelLayout; label(record, node.props.label, layout.x * scaleX, layout.y * scaleY, layout.width * scaleX, layout.height * scaleY);
+        return;
+      }
+      record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
       const box = new Graphics().roundRect(9, (node.layout.height - side) / 2, side, side, 3).fill({ color: checked > 0.5 ? node.props.style.borderColor : '#FFFFFF' })
         .stroke({ color: node.props.style.borderColor, width: 1 });
       record.paint.addChild(box);
@@ -696,18 +924,48 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const node = record.node;
     if (kind === 'select') {
       if (node.type !== 'Select') return;
-      clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
-      const options = node.props.options;
-      const selected = options.find(option => option.id === node.props.selectedId);
-      label(record, selected?.label ?? '', 10, 0, node.layout.width - 34, node.layout.height);
-      label(record, '⌄', node.layout.width - 26, 0, 20, node.layout.height);
+      clear(record.paint);
+      if (node.props.appearance && record.selectTextures) {
+        const { appearance } = node.props;
+        const scaleX = node.layout.width / appearance.sourceCanvas.width;
+        const scaleY = node.layout.height / appearance.sourceCanvas.height;
+        const field = new Sprite(record.selectTextures.field); field.width = node.layout.width; field.height = node.layout.height;
+        record.paint.addChild(field);
+        const selected = node.props.options.find(option => option.id === node.props.selectedId);
+        const text = appearance.labelLayout;
+        label(record, selected?.label ?? '', text.x * scaleX, text.y * scaleY, text.width * scaleX, text.height * scaleY);
+        const arrowLayout = appearance.arrowLayout;
+        const arrow = new Sprite(record.selectTextures.arrow);
+        arrow.x = arrowLayout.x * scaleX; arrow.y = arrowLayout.y * scaleY;
+        arrow.width = arrowLayout.width * scaleX; arrow.height = arrowLayout.height * scaleY;
+        record.paint.addChild(arrow);
+      } else {
+        record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+        const options = node.props.options;
+        const selected = options.find(option => option.id === node.props.selectedId);
+        label(record, selected?.label ?? '', 10, 0, node.layout.width - 34, node.layout.height);
+        label(record, '⌄', node.layout.width - 26, 0, 20, node.layout.height);
+      }
       const flash = Math.max(0, Math.min(1, presentation(record).selectionFlash ?? 0));
       if (flash > 0) record.paint.addChild(new Graphics().roundRect(1, 1, node.layout.width - 2, node.layout.height - 2, Math.max(0, node.props.style.cornerRadius - 1)).stroke({ color: node.props.style.borderColor, width: 3, alpha: flash }));
       return;
     }
     if (node.type !== 'RadioGroup') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint);
     const options = node.props.options;
+    if (node.props.appearance && record.radioTextures) {
+      const appearance = node.props.appearance, scaleX = node.layout.width / appearance.sourceCanvas.width, scaleY = node.layout.height / appearance.sourceCanvas.height;
+      const selected = node.props.selectedId;
+      for (const option of options) {
+        const item = appearance.items.find(candidate => candidate.optionId === option.id), textures = record.radioTextures.get(option.id); if (!item || !textures) continue;
+        const place = (texture: Texture, part: typeof item.option) => { const sprite = new Sprite(texture); sprite.x = part.layout.x * scaleX; sprite.y = part.layout.y * scaleY; sprite.width = part.layout.width * scaleX; sprite.height = part.layout.height * scaleY; return sprite; };
+        record.paint.addChild(place(textures.option, item.option));
+        const layout = item.labelLayout; label(record, option.label, layout.x * scaleX, layout.y * scaleY, layout.width * scaleX, layout.height * scaleY);
+        if (selected === option.id) { const indicator = place(textures.indicator, item.indicator), markerY = presentation(record).markerY; if (markerY !== undefined) indicator.y = markerY - indicator.height / 2; indicator.alpha = Math.max(0, Math.min(1, presentation(record).markerAlpha ?? 1)); record.paint.addChild(indicator); }
+      }
+      return;
+    }
+    record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     const row = node.layout.height / Math.max(1, options.length);
     const values = presentation(record);
     options.forEach((option, index) => {
@@ -722,8 +980,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   }
   function drawProgress(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'ProgressBar') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint);
     const amount = Math.max(0, Math.min(1, presentation(record).progress ?? node.props.value / node.props.max));
+    if (node.props.appearance && record.progressTextures) {
+      const appearance = node.props.appearance, scaleX = node.layout.width / appearance.sourceCanvas.width, scaleY = node.layout.height / appearance.sourceCanvas.height;
+      const place = (texture: Texture, part: typeof appearance.track) => { const sprite = new Sprite(texture); sprite.x = part.layout.x * scaleX; sprite.y = part.layout.y * scaleY; sprite.width = part.layout.width * scaleX; sprite.height = part.layout.height * scaleY; return sprite; };
+      record.paint.addChild(place(record.progressTextures.track, appearance.track));
+      const fill = place(record.progressTextures.fill, appearance.fill), clip = new Graphics().rect(appearance.fillClip.x * scaleX, appearance.fillClip.y * scaleY, appearance.fillClip.width * scaleX * amount, appearance.fillClip.height * scaleY).fill({ color: '#FFFFFF' });
+      fill.mask = clip; record.paint.addChild(fill, clip); return;
+    }
+    record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     record.paint.addChild(new Graphics().roundRect(1, 1, Math.max(0, (node.layout.width - 2) * amount), Math.max(0, node.layout.height - 2), Math.min(node.props.style.cornerRadius, node.layout.height / 2)).fill({ color: node.props.style.borderColor }));
   }
   function sliderValue(record: RuntimeRecord): number {
@@ -731,29 +997,66 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   }
   function drawSlider(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'Slider') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint);
     const margin = 14, trackY = node.layout.height / 2, trackWidth = node.layout.width - margin * 2;
     const ratio = (sliderValue(record) - node.props.min) / (node.props.max - node.props.min);
+    if (node.props.appearance && record.sliderTextures) {
+      const appearance = node.props.appearance, scaleX = node.layout.width / appearance.sourceCanvas.width, scaleY = node.layout.height / appearance.sourceCanvas.height;
+      const track = new Sprite(record.sliderTextures.track); track.x = appearance.track.layout.x * scaleX; track.y = appearance.track.layout.y * scaleY; track.width = appearance.track.layout.width * scaleX; track.height = appearance.track.layout.height * scaleY;
+      const fill = new Sprite(record.sliderTextures.fill); fill.x = appearance.fill.layout.x * scaleX; fill.y = appearance.fill.layout.y * scaleY; fill.width = appearance.fill.layout.width * scaleX; fill.height = appearance.fill.layout.height * scaleY;
+      const clip = new Graphics().rect(appearance.fillClip.x * scaleX, appearance.fillClip.y * scaleY, appearance.fillClip.width * scaleX * ratio, appearance.fillClip.height * scaleY).fill({ color: '#FFFFFF' }); fill.mask = clip;
+      const thumb = new Sprite(record.sliderTextures.thumb); thumb.x = (appearance.thumbPositions.min.x + (appearance.thumbPositions.max.x - appearance.thumbPositions.min.x) * ratio) * scaleX; thumb.y = (appearance.thumbPositions.min.y + (appearance.thumbPositions.max.y - appearance.thumbPositions.min.y) * ratio) * scaleY; thumb.width = appearance.thumbCanvas.width * scaleX; thumb.height = appearance.thumbCanvas.height * scaleY;
+      record.paint.addChild(track, fill, clip, thumb); return;
+    }
+    record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     record.paint.addChild(new Graphics().roundRect(margin, trackY - 3, trackWidth, 6, 3).fill({ color: '#D7E0EC' }));
     record.paint.addChild(new Graphics().roundRect(margin, trackY - 3, trackWidth * ratio, 6, 3).fill({ color: node.props.style.borderColor }));
     record.paint.addChild(new Graphics().circle(margin + trackWidth * ratio, trackY, 9).fill({ color: '#FFFFFF' }).stroke({ color: node.props.style.borderColor, width: 2 }));
   }
   function drawInput(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'Input') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint);
+    if (node.props.appearance && record.inputTexture) { const background = new Sprite(record.inputTexture); background.width = node.layout.width; background.height = node.layout.height; record.paint.addChild(background); }
+    else record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     const visible = node.props.value.length === 0 ? node.props.placeholder : node.props.inputType === 'password' ? '•'.repeat(node.props.value.length) : node.props.value;
     const style = node.props.value.length === 0 ? { ...node.props.style, textColor: '#75869A' } : node.props.style;
-    label(record, visible, 10, 0, node.layout.width - 20, node.layout.height, style);
+    if (node.props.appearance) { const source = node.props.value.length === 0 ? node.props.appearance.placeholderLayout : node.props.appearance.textLayout; const scaleX = node.layout.width / node.props.appearance.sourceCanvas.width, scaleY = node.layout.height / node.props.appearance.sourceCanvas.height; label(record, visible, source.x * scaleX, source.y * scaleY, source.width * scaleX, source.height * scaleY, style); }
+    else label(record, visible, 10, 0, node.layout.width - 20, node.layout.height, style);
     const focus = Math.max(0, Math.min(1, presentation(record).focus ?? 0));
     if (focus > 0) record.paint.addChild(new Graphics().roundRect(1, 1, node.layout.width - 2, node.layout.height - 2, Math.max(0, node.props.style.cornerRadius - 1)).stroke({ color: node.props.style.borderColor, width: 2, alpha: focus }));
   }
+  function drawContainer(record: RuntimeRecord): void {
+    const node = record.node; if (node.type !== 'Container') return;
+    clear(record.paint);
+    if (node.props.appearance && record.containerTexture) {
+      record.paint.addChild(rasterPart(record, record.containerTexture, node.props.appearance.sourceCanvas, node.props.appearance.background.layout));
+      return;
+    }
+    record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+  }
   function drawScroll(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'ScrollView') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint); clear(record.foreground);
+    if (!node.props.appearance || !record.scrollTextures) {
+      record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style)); return;
+    }
+    const appearance = node.props.appearance, values = presentation(record);
+    record.paint.addChild(rasterPart(record, record.scrollTextures.viewport, appearance.sourceCanvas, appearance.viewport.layout));
+    record.foreground.addChild(rasterPart(record, record.scrollTextures.scrollbarTrack, appearance.sourceCanvas, appearance.scrollbarTrack.layout));
+    const amount = node.props.contentHeight <= node.layout.height ? 0 : Math.max(0, Math.min(1, (values.scrollY ?? node.props.scrollY) / (node.props.contentHeight - node.layout.height)));
+    const scale = rasterScale(record, appearance.sourceCanvas), thumb = new Sprite(record.scrollTextures.scrollbarThumb);
+    thumb.x = (appearance.scrollbarThumbPositions.min.x + (appearance.scrollbarThumbPositions.max.x - appearance.scrollbarThumbPositions.min.x) * amount) * scale.x;
+    thumb.y = (appearance.scrollbarThumbPositions.min.y + (appearance.scrollbarThumbPositions.max.y - appearance.scrollbarThumbPositions.min.y) * amount) * scale.y;
+    thumb.width = appearance.scrollbarThumbCanvas.width * scale.x; thumb.height = appearance.scrollbarThumbCanvas.height * scale.y;
+    record.foreground.addChild(thumb);
   }
   function drawList(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'List') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint);
+    const appearance = node.props.appearance, textures = record.listTextures;
+    if (appearance && textures) {
+      const background = new Sprite(textures.background); background.width = node.layout.width; background.height = node.layout.height; record.paint.addChild(background);
+    } else record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     const rows = addClip(record.paint, node.layout.width, node.layout.height);
     const values = presentation(record);
     const selection = values.listSelection ?? (node.props.selectedId === null ? -1 : node.props.items.findIndex(item => item.id === node.props.selectedId));
@@ -761,30 +1064,65 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     node.props.items.forEach((item, index) => {
       const y = index * node.props.itemHeight;
       const row = new Container(); row.y = y; row.alpha = Math.max(0, Math.min(1, stagger * node.props.items.length - index)); rows.addChild(row);
-      row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight).fill({ color: '#FFFFFF' }));
+      if (appearance && textures) {
+        const base = new Sprite(textures.row); base.width = node.layout.width; base.height = node.props.itemHeight; row.addChild(base);
+      } else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight).fill({ color: '#FFFFFF' }));
       const selected = Math.max(0, Math.min(1, 1 - Math.abs(selection - index)));
-      if (selected > 0) row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight).fill({ color: '#E3F1EC', alpha: selected }));
-      const synthetic: TextNode = { id: `${node.id}.${item.id}`, type: 'Text', layout: { x: 12, y, width: node.layout.width - 24, height: node.props.itemHeight }, props: { text: item.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
-      const text = makeText(synthetic); text.x = 12; text.y = Math.max(0, (node.props.itemHeight - text.height) / 2); row.addChild(text);
+      if (selected > 0) {
+        if (appearance && textures) { const highlighted = new Sprite(textures.selectedRow); highlighted.width = node.layout.width; highlighted.height = node.props.itemHeight; highlighted.alpha = selected; row.addChild(highlighted); }
+        else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight).fill({ color: '#E3F1EC', alpha: selected }));
+      }
+      const labelLayout = appearance
+        ? { x: appearance.labelLayout.x * node.layout.width / appearance.rowCanvas.width, y: appearance.labelLayout.y * node.props.itemHeight / appearance.rowCanvas.height, width: appearance.labelLayout.width * node.layout.width / appearance.rowCanvas.width, height: appearance.labelLayout.height * node.props.itemHeight / appearance.rowCanvas.height }
+        : { x: 12, y: 0, width: node.layout.width - 24, height: node.props.itemHeight };
+      const synthetic: TextNode = { id: `${node.id}.${item.id}`, type: 'Text', layout: labelLayout, props: { text: item.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
+      const text = makeText(synthetic); text.x = labelLayout.x; text.y = labelLayout.y + Math.max(0, (labelLayout.height - text.height) / 2); row.addChild(text);
     });
   }
   function drawPanel(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'Panel' && node.type !== 'Dialog' && node.type !== 'Tabs') return;
-    clear(record.paint); record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    clear(record.paint); clear(record.foreground);
+    if (node.type === 'Panel' && node.props.appearance && record.panelTextures) {
+      const appearance = node.props.appearance;
+      record.paint.addChild(rasterPart(record, record.panelTextures.background, appearance.sourceCanvas, appearance.background.layout));
+      if (appearance.body && record.panelTextures.body) record.paint.addChild(rasterPart(record, record.panelTextures.body, appearance.sourceCanvas, appearance.body.layout));
+      record.foreground.addChild(rasterPart(record, record.panelTextures.header, appearance.sourceCanvas, appearance.header.layout));
+      const scale = rasterScale(record, appearance.sourceCanvas), title = appearance.titleLayout;
+      label(record, node.props.title, title.x * scale.x, title.y * scale.y, title.width * scale.x, title.height * scale.y, undefined, record.foreground);
+      return;
+    }
+    if (node.type === 'Dialog' && node.props.appearance && record.dialogTextures) {
+      const appearance = node.props.appearance;
+      record.paint.addChild(rasterPart(record, record.dialogTextures.background, appearance.sourceCanvas, appearance.background.layout));
+      record.paint.addChild(rasterPart(record, record.dialogTextures.body, appearance.sourceCanvas, appearance.body.layout));
+      record.foreground.addChild(rasterPart(record, record.dialogTextures.header, appearance.sourceCanvas, appearance.header.layout));
+      const scale = rasterScale(record, appearance.sourceCanvas), title = appearance.titleLayout;
+      label(record, node.props.title, title.x * scale.x, title.y * scale.y, title.width * scale.x, title.height * scale.y, undefined, record.foreground);
+      return;
+    }
+    record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     if (node.type === 'Panel' || node.type === 'Dialog') label(record, node.props.title, 14, 5, node.layout.width - 28, 30);
   }
   function drawTabs(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'Tabs') return;
     drawPanel(record);
-    const headerHeight = 48, width = node.layout.width / node.props.tabs.length;
+    const appearance = node.props.appearance, textures = record.tabsTextures;
+    const headerHeight = appearance ? appearance.headerHeight * node.layout.height / appearance.sourceCanvas.height : 48, width = node.layout.width / node.props.tabs.length;
     node.props.tabs.forEach((tab, index) => {
       const selected = tab.id === node.props.activeId;
-      record.paint.addChild(new Graphics().rect(index * width, 0, width, headerHeight).fill({ color: selected ? '#E8F3EE' : '#FFFFFF' }).stroke({ color: node.props.style.borderColor, width: 1 }));
-      label(record, tab.label, index * width + 5, 0, width - 10, headerHeight);
+      if (appearance && textures) {
+        const texture = selected ? textures.activeTab : textures.tab;
+        const background = new Sprite(texture); background.x = index * width; background.width = width; background.height = headerHeight; record.foreground.addChild(background);
+        const labelLayout = appearance.labelLayout;
+        label(record, tab.label, index * width + labelLayout.x * width / appearance.tabCanvas.width, labelLayout.y * headerHeight / appearance.tabCanvas.height, labelLayout.width * width / appearance.tabCanvas.width, labelLayout.height * headerHeight / appearance.tabCanvas.height, undefined, record.foreground);
+      } else {
+        record.paint.addChild(new Graphics().rect(index * width, 0, width, headerHeight).fill({ color: selected ? '#E8F3EE' : '#FFFFFF' }).stroke({ color: node.props.style.borderColor, width: 1 }));
+        label(record, tab.label, index * width + 5, 0, width - 10, headerHeight);
+      }
     });
     const selected = Math.max(0, node.props.tabs.findIndex(tab => tab.id === node.props.activeId));
     const progress = Math.max(0, Math.min(1, presentation(record).tabProgress ?? 1));
-    record.paint.addChild(new Graphics().rect(selected * width, headerHeight - 3, width * progress, 3).fill({ color: node.props.style.borderColor }));
+    if (!appearance) record.paint.addChild(new Graphics().rect(selected * width, headerHeight - 3, width * progress, 3).fill({ color: node.props.style.borderColor }));
   }
   function syncDetachedDialog(record: RuntimeRecord): void {
     if (!record.dialogDetached || !record.logicalDialogTransform) return;
@@ -819,7 +1157,15 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       return;
     }
     if (!record.dialogBlocker) {
-      const blocker = new Graphics().rect(0, 0, record.scope.document.canvas.width, record.scope.document.canvas.height).fill({ color: '#10233F', alpha: 1 });
+      const blocker = new Container();
+      if (record.dialogTextures?.overlay) {
+        const overlay = new Sprite(record.dialogTextures.overlay);
+        overlay.width = record.scope.document.canvas.width; overlay.height = record.scope.document.canvas.height;
+        blocker.addChild(overlay); record.dialogHasRasterOverlay = true;
+      } else {
+        blocker.addChild(new Graphics().rect(0, 0, record.scope.document.canvas.width, record.scope.document.canvas.height).fill({ color: '#10233F', alpha: 1 }));
+        record.dialogHasRasterOverlay = false;
+      }
       blocker.eventMode = 'static'; blocker.hitArea = new Rectangle(0, 0, record.scope.document.canvas.width, record.scope.document.canvas.height);
       record.scope.modalLayer.addChild(blocker); record.dialogBlocker = blocker;
     }
@@ -842,77 +1188,185 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const build = (node: UiNode, parent: Container, modalScope?: string, parentRecord?: RuntimeRecord): RuntimeRecord => {
       const view = new Container(); view.position.set(node.layout.x, node.layout.y);
       const visual = new Container(); visual.pivot.set(node.layout.width / 2, node.layout.height / 2); visual.position.set(node.layout.width / 2, node.layout.height / 2);
-      const paint = new Container(); visual.addChild(paint); view.addChild(visual); parent.addChild(view);
-      const record: RuntimeRecord = { scope, node, view, visual, paint, displayParent: parent, order: ordinal++, childIds: [], parent: parentRecord, modalScope, cleanups: [], resourceReleases: [], userVisible: true, tabVisible: true, destroyed: false, popupClosing: false, dialogDetached: false, dialogClosing: false, motion: {}, presentation: {}, motionKeys: new Set() };
+      const paint = new Container(), foreground = new Container();
+      // Foreground raster/text overlays never own input. Keeping them out of hit
+      // testing makes the semantic node's explicit hit area authoritative.
+      foreground.eventMode = 'none';
+      visual.addChild(paint); view.addChild(visual); parent.addChild(view);
+      const record: RuntimeRecord = { scope, node, view, visual, paint, foreground, displayParent: parent, order: ordinal++, childIds: [], parent: parentRecord, modalScope, cleanups: [], resourceReleases: [], userVisible: true, tabVisible: true, destroyed: false, popupClosing: false, dialogDetached: false, dialogClosing: false, motion: {}, presentation: {}, motionKeys: new Set() };
       scope.records.set(node.id, record); updateNodeAlpha(record);
       switch (node.type) {
         case 'Image': renderImage(record); break;
         case 'Text': drawTextNode(record); break;
-        case 'Container': record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style)); break;
+        case 'Container':
+          if (node.props.appearance) {
+            const background = scope.resources.acquireImage(node.props.appearance.background.image);
+            record.containerTexture = background.texture; record.resourceReleases.push(background.release);
+          }
+          record.redraw = () => drawContainer(record); record.redraw(); break;
         case 'Button':
+          if (node.props.appearance) {
+            const background = scope.resources.acquireImage(node.props.appearance.backgroundImage);
+            record.buttonTexture = background.texture; record.resourceReleases.push(background.release);
+          }
           record.redraw = () => drawButton(record); record.redraw();
           press(record, source => emit(record, 'activate', source));
           break;
         case 'Switch': case 'CheckBox':
+          if (node.type === 'Switch' && node.props.appearance) {
+            const track = scope.resources.acquireImage(node.props.appearance.trackImage);
+            const thumb = scope.resources.acquireImage(node.props.appearance.thumbImage);
+            record.toggleTextures = { track: track.texture, thumb: thumb.texture };
+            record.resourceReleases.push(track.release, thumb.release);
+          }
+          if (node.type === 'CheckBox' && node.props.appearance) {
+            const box = scope.resources.acquireImage(node.props.appearance.box.image), mark = scope.resources.acquireImage(node.props.appearance.mark.image);
+            record.checkboxTextures = { box: box.texture, mark: mark.texture }; record.resourceReleases.push(box.release, mark.release);
+          }
           record.redraw = () => drawToggle(record); record.redraw();
-          press(record, source => { if (record.node.type === 'Switch' || record.node.type === 'CheckBox') { pinPresentation(record, record.node.type === 'CheckBox' ? ['checked', 'checkAlpha', 'checkScale'] : ['checked']); record.node.props.checked = !record.node.props.checked; record.redraw!(); emit(record, 'change', source, record.node.props.checked); } });
+          press(record, source => { if (record.node.type === 'Switch' || record.node.type === 'CheckBox') {
+            const keys = record.node.type === 'CheckBox' ? ['checked', 'checkAlpha', 'checkScale'] : ['checked'];
+            preparePresentationChange(record, 'change', keys);
+            record.node.props.checked = !record.node.props.checked; record.redraw!(); emit(record, 'change', source, record.node.props.checked);
+          } });
           break;
         case 'RadioGroup':
+          if (node.props.appearance) {
+            record.radioTextures = new Map();
+            for (const item of node.props.appearance.items) { const option = scope.resources.acquireImage(item.option.image), indicator = scope.resources.acquireImage(item.indicator.image); record.radioTextures.set(item.optionId, { option: option.texture, indicator: indicator.texture }); record.resourceReleases.push(option.release, indicator.release); }
+          }
           record.redraw = () => drawChoices(record, 'radio'); record.redraw(); makeInteractive(record);
           bind(record, 'pointertap', event => {
             if (!interactive(record) || record.node.type !== 'RadioGroup') return;
-            const row = record.node.layout.height / record.node.props.options.length;
-            const index = Math.min(record.node.props.options.length - 1, Math.max(0, Math.floor(event.getLocalPosition(record.view).y / row)));
-            const choice = record.node.props.options[index]; if (record.node.props.selectedId !== choice.id) { pinPresentation(record, ['markerAlpha', 'markerY']); record.node.props.selectedId = choice.id; record.redraw!(); emit(record, 'change', sourceOf(event.pointerType), choice.id, choice.id); }
+            const point = event.getLocalPosition(record.view);
+            let choice;
+            if (record.node.props.appearance) {
+              const scaleX = record.node.layout.width / record.node.props.appearance.sourceCanvas.width, scaleY = record.node.layout.height / record.node.props.appearance.sourceCanvas.height;
+              const item = record.node.props.appearance.items.find(candidate => point.x >= candidate.hitArea.x * scaleX && point.x <= (candidate.hitArea.x + candidate.hitArea.width) * scaleX && point.y >= candidate.hitArea.y * scaleY && point.y <= (candidate.hitArea.y + candidate.hitArea.height) * scaleY);
+              choice = item ? record.node.props.options.find(option => option.id === item.optionId) : undefined;
+            } else {
+              const row = record.node.layout.height / record.node.props.options.length, index = Math.min(record.node.props.options.length - 1, Math.max(0, Math.floor(point.y / row))); choice = record.node.props.options[index];
+            }
+            if (choice && record.node.props.selectedId !== choice.id) { preparePresentationChange(record, 'change', ['markerAlpha', 'markerY']); record.node.props.selectedId = choice.id; record.redraw!(); emit(record, 'change', sourceOf(event.pointerType), choice.id, choice.id); render(); }
           });
           break;
         case 'Input':
+          if (node.props.appearance) { const background = scope.resources.acquireImage(node.props.appearance.backgroundImage); record.inputTexture = background.texture; record.resourceReleases.push(background.release); }
           record.redraw = () => drawInput(record); record.redraw();
           press(record, source => focusInput(record, source));
           break;
         case 'Select':
+          if (node.props.appearance) {
+            const field = scope.resources.acquireImage(node.props.appearance.fieldImage);
+            const arrow = scope.resources.acquireImage(node.props.appearance.arrowImage);
+            const popup = scope.resources.acquireImage(node.props.appearance.popupImage);
+            record.selectTextures = { field: field.texture, arrow: arrow.texture, popup: popup.texture };
+            record.resourceReleases.push(field.release, arrow.release, popup.release);
+          }
           record.redraw = () => drawChoices(record, 'select'); record.redraw();
           press(record, () => toggleSelect(record));
           break;
-        case 'ProgressBar': record.redraw = () => drawProgress(record); record.redraw(); break;
+        case 'ProgressBar':
+          if (node.props.appearance) { const track = scope.resources.acquireImage(node.props.appearance.track.image), fill = scope.resources.acquireImage(node.props.appearance.fill.image); record.progressTextures = { track: track.texture, fill: fill.texture }; record.resourceReleases.push(track.release, fill.release); }
+          record.redraw = () => drawProgress(record); record.redraw(); break;
         case 'Slider':
+          if (node.props.appearance) { const track = scope.resources.acquireImage(node.props.appearance.track.image), fill = scope.resources.acquireImage(node.props.appearance.fill.image), thumb = scope.resources.acquireImage(node.props.appearance.thumbImage); record.sliderTextures = { track: track.texture, fill: fill.texture, thumb: thumb.texture }; record.resourceReleases.push(track.release, fill.release, thumb.release); }
           record.redraw = () => drawSlider(record); record.redraw(); makeInteractive(record);
           bind(record, 'pointerdown', event => beginSlider(record, event));
           break;
         case 'ScrollView':
-          record.redraw = () => drawScroll(record); record.redraw(); makeInteractive(record, 'default');
+          if (node.props.appearance) {
+            const viewport = scope.resources.acquireImage(node.props.appearance.viewport.image);
+            const scrollbarTrack = scope.resources.acquireImage(node.props.appearance.scrollbarTrack.image);
+            const scrollbarThumb = scope.resources.acquireImage(node.props.appearance.scrollbarThumbImage);
+            record.scrollTextures = { viewport: viewport.texture, scrollbarTrack: scrollbarTrack.texture, scrollbarThumb: scrollbarThumb.texture };
+            record.resourceReleases.push(viewport.release, scrollbarTrack.release, scrollbarThumb.release);
+          }
+          record.redraw = () => drawScroll(record); record.redraw(); makeInteractive(record, 'grab');
+          bind(record, 'pointerdown', event => beginScrollDrag(record, event));
           bindWheel(record, event => {
             if (!interactive(record) || record.node.type !== 'ScrollView') return;
-            event.preventDefault(); pinPresentation(record, ['scrollX', 'scrollY']); record.node.props.scrollY = clampScroll(record.node.props.scrollY + event.deltaY, record.node.props.contentHeight, record.node.layout.height);
+            event.preventDefault(); preparePresentationChange(record, 'scroll', ['scrollX', 'scrollY']); record.node.props.scrollY = clampScroll(record.node.props.scrollY + event.deltaY, record.node.props.contentHeight, record.node.layout.height);
             record.node.props.scrollX = clampScroll(record.node.props.scrollX + event.deltaX, record.node.props.contentWidth, record.node.layout.width);
-            record.updateContentPosition?.(); emit(record, 'scroll', 'wheel', { x: record.node.props.scrollX, y: record.node.props.scrollY }); render();
+            record.redraw?.(); record.updateContentPosition?.(); emit(record, 'scroll', 'wheel', { x: record.node.props.scrollX, y: record.node.props.scrollY }); render();
           });
           break;
         case 'List':
+          if (node.props.appearance) {
+            const background = scope.resources.acquireImage(node.props.appearance.backgroundImage);
+            const row = scope.resources.acquireImage(node.props.appearance.rowImage);
+            const selectedRow = scope.resources.acquireImage(node.props.appearance.selectedRowImage);
+            record.listTextures = { background: background.texture, row: row.texture, selectedRow: selectedRow.texture };
+            record.resourceReleases.push(background.release, row.release, selectedRow.release);
+          }
           record.redraw = () => drawList(record); record.redraw(); makeInteractive(record);
           bind(record, 'pointertap', event => {
             if (!interactive(record) || record.node.type !== 'List') return;
-            const index = Math.floor(event.getLocalPosition(record.view).y / record.node.props.itemHeight);
-            const item = record.node.props.items[index]; if (item && record.node.props.selectedId !== item.id) { pinPresentation(record, ['listSelection']); record.node.props.selectedId = item.id; record.redraw!(); emit(record, 'change', sourceOf(event.pointerType), item.id, item.id); }
+            const point = event.getLocalPosition(record.view);
+            const index = Math.floor(point.y / record.node.props.itemHeight);
+            const appearance = record.node.props.appearance;
+            if (appearance) {
+              const localX = point.x * appearance.rowCanvas.width / record.node.layout.width;
+              const localY = (point.y - index * record.node.props.itemHeight) * appearance.rowCanvas.height / record.node.props.itemHeight;
+              const hit = appearance.hitArea;
+              if (localX < hit.x || localX > hit.x + hit.width || localY < hit.y || localY > hit.y + hit.height) return;
+            }
+            const item = record.node.props.items[index]; if (item && record.node.props.selectedId !== item.id) { preparePresentationChange(record, 'change', ['listSelection']); record.node.props.selectedId = item.id; record.redraw!(); emit(record, 'change', sourceOf(event.pointerType), item.id, item.id); render(); }
           });
           break;
-        case 'Panel': record.redraw = () => drawPanel(record); record.redraw(); break;
+        case 'Panel':
+          if (node.props.appearance) {
+            const background = scope.resources.acquireImage(node.props.appearance.background.image);
+            const header = scope.resources.acquireImage(node.props.appearance.header.image);
+            const body = node.props.appearance.body ? scope.resources.acquireImage(node.props.appearance.body.image) : undefined;
+            record.panelTextures = { background: background.texture, header: header.texture, body: body?.texture };
+            record.resourceReleases.push(background.release, header.release); if (body) record.resourceReleases.push(body.release);
+          }
+          record.redraw = () => drawPanel(record); record.redraw(); break;
         case 'Dialog':
+          if (node.props.appearance) {
+            const background = scope.resources.acquireImage(node.props.appearance.background.image);
+            const header = scope.resources.acquireImage(node.props.appearance.header.image);
+            const body = scope.resources.acquireImage(node.props.appearance.body.image);
+            const overlay = node.props.appearance.overlayImage ? scope.resources.acquireImage(node.props.appearance.overlayImage) : undefined;
+            record.dialogTextures = { background: background.texture, header: header.texture, body: body.texture, overlay: overlay?.texture };
+            record.resourceReleases.push(background.release, header.release, body.release); if (overlay) record.resourceReleases.push(overlay.release);
+          }
           record.redraw = () => { drawPanel(record); updateDialogBlocker(record); }; record.redraw();
           break;
         case 'Tabs':
+          if (node.props.appearance) {
+            const tab = scope.resources.acquireImage(node.props.appearance.tabImage);
+            const activeTab = scope.resources.acquireImage(node.props.appearance.activeTabImage);
+            record.tabsTextures = { tab: tab.texture, activeTab: activeTab.texture }; record.resourceReleases.push(tab.release, activeTab.release);
+          }
           record.redraw = () => drawTabs(record); record.redraw(); makeInteractive(record);
           bind(record, 'pointertap', event => {
-            if (!interactive(record) || record.node.type !== 'Tabs' || event.getLocalPosition(record.view).y > 48) return;
-            const index = Math.min(record.node.props.tabs.length - 1, Math.max(0, Math.floor(event.getLocalPosition(record.view).x / (record.node.layout.width / record.node.props.tabs.length))));
-            const tab = record.node.props.tabs[index]; if (record.node.props.activeId !== tab.id) { pinPresentation(record, ['tabProgress']); record.node.props.activeId = tab.id; record.redraw!(); record.updateTabs?.(); emit(record, 'change', sourceOf(event.pointerType), tab.id, tab.id); }
+            if (!interactive(record) || record.node.type !== 'Tabs') return;
+            const point = event.getLocalPosition(record.view);
+            const appearance = record.node.props.appearance;
+            const headerHeight = appearance ? appearance.headerHeight * record.node.layout.height / appearance.sourceCanvas.height : 48;
+            if (point.y > headerHeight) return;
+            const index = Math.min(record.node.props.tabs.length - 1, Math.max(0, Math.floor(point.x / (record.node.layout.width / record.node.props.tabs.length))));
+            if (appearance) {
+              const tabWidth = record.node.layout.width / record.node.props.tabs.length;
+              const localX = (point.x - index * tabWidth) * appearance.tabCanvas.width / tabWidth;
+              const localY = point.y * appearance.tabCanvas.height / headerHeight;
+              const hit = appearance.hitArea;
+              if (localX < hit.x || localX > hit.x + hit.width || localY < hit.y || localY > hit.y + hit.height) return;
+            }
+            const tab = record.node.props.tabs[index]; if (record.node.props.activeId !== tab.id) { preparePresentationChange(record, 'change', ['tabProgress']); record.node.props.activeId = tab.id; record.redraw!(); record.updateTabs?.(); emit(record, 'change', sourceOf(event.pointerType), tab.id, tab.id); render(); }
           });
           break;
       }
       if (isComposite(node)) {
         let childParent = visual;
         if (node.type === 'ScrollView') {
-          const clipped = addClip(visual, node.layout.width, node.layout.height); const content = new Container(); clipped.addChild(content); childParent = content;
+          const appearance = node.props.appearance;
+          const scale = appearance ? rasterScale(record, appearance.sourceCanvas) : undefined;
+          const clipped = addClip(visual, appearance ? appearance.viewport.layout.width * scale!.x : node.layout.width, appearance ? appearance.viewport.layout.height * scale!.y : node.layout.height);
+          if (appearance) clipped.position.set(appearance.viewport.layout.x * scale!.x, appearance.viewport.layout.y * scale!.y);
+          const content = new Container(); clipped.addChild(content); childParent = content;
           record.updateContentPosition = () => {
             const values = presentation(record); content.position.set(-(values.scrollX ?? node.props.scrollX), -(values.scrollY ?? node.props.scrollY));
             syncDetachedDialogs(scope); positionOpenPopup(scope);
@@ -935,6 +1389,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           record.updateTabs();
         }
       }
+      visual.addChild(foreground);
       applyPresentation(record);
       return record;
     };
@@ -1015,7 +1470,14 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     // View space remains the logical hit/layout space. This works for rotation,
     // legacy transforms, and presentation transforms without changing the drag contract.
     const local = record.view.toLocal({ x: point.x * zoom, y: point.y * zoom });
-    const ratio = Math.max(0, Math.min(1, (local.x - 14) / Math.max(1, node.layout.width - 28)));
+    let ratio: number;
+    if (node.props.appearance) {
+      const appearance = node.props.appearance, scaleX = node.layout.width / appearance.sourceCanvas.width, scaleY = node.layout.height / appearance.sourceCanvas.height;
+      const start = { x: (appearance.thumbPositions.min.x + appearance.thumbCanvas.width / 2) * scaleX, y: (appearance.thumbPositions.min.y + appearance.thumbCanvas.height / 2) * scaleY };
+      const end = { x: (appearance.thumbPositions.max.x + appearance.thumbCanvas.width / 2) * scaleX, y: (appearance.thumbPositions.max.y + appearance.thumbCanvas.height / 2) * scaleY };
+      const dx = end.x - start.x, dy = end.y - start.y, length = dx * dx + dy * dy;
+      ratio = Math.max(0, Math.min(1, length === 0 ? 0 : ((local.x - start.x) * dx + (local.y - start.y) * dy) / length));
+    } else ratio = Math.max(0, Math.min(1, (local.x - 14) / Math.max(1, node.layout.width - 28)));
     return snapSlider(node.props.min + ratio * (node.props.max - node.props.min), node.props.min, node.props.max, node.props.step);
   }
   function beginSlider(record: RuntimeRecord, event: FederatedPointerEvent): void {
@@ -1026,6 +1488,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     assign(sliderFromPoint(record, canvasPoint(event.nativeEvent as PointerEvent)));
     gestures.set(event.pointerId, {
       record,
+      move: point => assign(sliderFromPoint(record, point)),
       end: (_inside, source) => {
         if (gestures.get(event.pointerId)?.record !== record || record.node.type !== 'Slider') return;
         gestures.delete(event.pointerId); const committed = record.sliderPreview ?? origin; record.sliderPreview = undefined;
@@ -1035,6 +1498,66 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       cancel: () => {
         if (gestures.get(event.pointerId)?.record !== record || record.node.type !== 'Slider') return;
         gestures.delete(event.pointerId); record.sliderPreview = undefined; cancelRecordPresentation(record); record.redraw?.(); render();
+      },
+    });
+  }
+  function beginScrollDrag(record: RuntimeRecord, event: FederatedPointerEvent): void {
+    if (!interactive(record) || record.node.type !== 'ScrollView' || event.button !== 0 || !event.isPrimary || gestures.has(event.pointerId)) return;
+    if (openSelect) closePopup(openSelect);
+    canvas.focus({ preventScroll: true });
+    event.preventDefault();
+
+    const node = record.node;
+    const startCanvas = canvasPoint(event.nativeEvent as PointerEvent);
+    const start = record.view.toLocal({ x: startCanvas.x * zoom, y: startCanvas.y * zoom });
+    const origin = { x: node.props.scrollX, y: node.props.scrollY };
+    const maxScrollY = Math.max(0, node.props.contentHeight - node.layout.height);
+    let thumbTravelY = 0;
+    let draggingThumb = false;
+    if (node.props.appearance) {
+      const appearance = node.props.appearance, scale = rasterScale(record, appearance.sourceCanvas);
+      const amount = maxScrollY === 0 ? 0 : origin.y / maxScrollY;
+      const thumbX = (appearance.scrollbarThumbPositions.min.x + (appearance.scrollbarThumbPositions.max.x - appearance.scrollbarThumbPositions.min.x) * amount) * scale.x;
+      const thumbY = (appearance.scrollbarThumbPositions.min.y + (appearance.scrollbarThumbPositions.max.y - appearance.scrollbarThumbPositions.min.y) * amount) * scale.y;
+      const thumbWidth = appearance.scrollbarThumbCanvas.width * scale.x, thumbHeight = appearance.scrollbarThumbCanvas.height * scale.y;
+      const hitPadding = 4;
+      draggingThumb = start.x >= thumbX - hitPadding && start.x <= thumbX + thumbWidth + hitPadding
+        && start.y >= thumbY - hitPadding && start.y <= thumbY + thumbHeight + hitPadding;
+      thumbTravelY = (appearance.scrollbarThumbPositions.max.y - appearance.scrollbarThumbPositions.min.y) * scale.y;
+    }
+    const motionKey = `motion.n${record.order}.scroll`;
+    animator.cancel(motionKey); record.motionKeys.delete(motionKey);
+    record.view.cursor = 'grabbing';
+
+    const assign = (point: { x: number; y: number }): void => {
+      const local = record.view.toLocal({ x: point.x * zoom, y: point.y * zoom });
+      const x = draggingThumb ? origin.x : clampScroll(origin.x - (local.x - start.x), node.props.contentWidth, node.layout.width);
+      const y = draggingThumb
+        ? clampScroll(origin.y + (thumbTravelY === 0 ? 0 : (local.y - start.y) * maxScrollY / thumbTravelY), node.props.contentHeight, node.layout.height)
+        : clampScroll(origin.y - (local.y - start.y), node.props.contentHeight, node.layout.height);
+      node.props.scrollX = x; node.props.scrollY = y;
+      record.presentation.scrollX = x; record.presentation.scrollY = y;
+      record.redraw?.(); record.updateContentPosition?.(); render();
+    };
+    const finish = (restore: boolean, source: RuntimeInputSource): void => {
+      if (restore) { node.props.scrollX = origin.x; node.props.scrollY = origin.y; }
+      delete record.presentation.scrollX; delete record.presentation.scrollY;
+      record.view.cursor = 'grab';
+      record.redraw?.(); record.updateContentPosition?.();
+      if (restore) emit(record, 'cancel', source);
+      else if (node.props.scrollX !== origin.x || node.props.scrollY !== origin.y) emit(record, 'scroll', source, { x: node.props.scrollX, y: node.props.scrollY });
+      render();
+    };
+    gestures.set(event.pointerId, {
+      record,
+      move: assign,
+      end: (_inside, source) => {
+        if (gestures.get(event.pointerId)?.record !== record || record.node.type !== 'ScrollView') return;
+        gestures.delete(event.pointerId); finish(false, source);
+      },
+      cancel: (_reason, source) => {
+        if (gestures.get(event.pointerId)?.record !== record || record.node.type !== 'ScrollView') return;
+        gestures.delete(event.pointerId); finish(true, source);
       },
     });
   }
@@ -1056,10 +1579,18 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     if (openSelect === record) { closePopup(record); render(); return; }
     if (openSelect) closePopup(openSelect);
     const popup = new Container(); popup.eventMode = 'passive';
-    const rowHeight = Math.max(32, node.layout.height);
+    const popupHeight = node.props.appearance
+      ? node.layout.width * node.props.appearance.popupCanvas.height / node.props.appearance.popupCanvas.width
+      : Math.max(32, node.layout.height) * node.props.options.length;
+    const rowHeight = popupHeight / node.props.options.length;
+    if (node.props.appearance && record.selectTextures) {
+      const background = new Sprite(record.selectTextures.popup);
+      background.width = node.layout.width; background.height = popupHeight; popup.addChild(background);
+    }
     node.props.options.forEach((option, index) => {
       const row = new Container(); row.y = index * rowHeight; row.eventMode = 'static'; row.cursor = 'pointer'; row.hitArea = new Rectangle(0, 0, node.layout.width, rowHeight);
-      row.addChild(drawBox(node.layout.width, rowHeight, node.props.style, option.id === node.props.selectedId ? '#E3F1EC' : '#FFFFFF'));
+      if (!node.props.appearance) row.addChild(drawBox(node.layout.width, rowHeight, node.props.style, option.id === node.props.selectedId ? '#E3F1EC' : '#FFFFFF'));
+      else if (option.id === node.props.selectedId) row.addChild(new Graphics().roundRect(8, 6, node.layout.width - 16, rowHeight - 12, Math.min(12, rowHeight / 4)).fill({ color: '#6B8F3A', alpha: 0.14 }));
       const synthetic: TextNode = { id: `${node.id}.${option.id}`, type: 'Text', layout: { x: 10, y: 0, width: node.layout.width - 20, height: rowHeight }, props: { text: option.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
       const item = makeText(synthetic); item.x = 10; item.y = Math.max(0, (rowHeight - item.height) / 2); row.addChild(item);
       const choose = (event: FederatedPointerEvent) => {
@@ -1149,7 +1680,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           const row = record.node.layout.height / record.node.props.options.length;
           const selectedId = record.node.props.selectedId;
           const index = Math.max(0, record.node.props.options.findIndex(option => option.id === selectedId));
-          one('marker', { markerAlpha: values.markerAlpha ?? 0, markerY: values.markerY ?? row / 2 }, { markerAlpha: selectedId === null ? 0 : 1, markerY: index * row + row / 2 }, profile.changeMs, boundedEasing);
+          const item = record.node.props.appearance?.items[index], targetY = item ? (item.indicator.layout.y + item.indicator.layout.height / 2) * record.node.layout.height / record.node.props.appearance!.sourceCanvas.height : index * row + row / 2;
+          one('marker', { markerAlpha: values.markerAlpha ?? 0, markerY: values.markerY ?? (item ? targetY : row / 2) }, { markerAlpha: selectedId === null ? 0 : 1, markerY: targetY }, profile.changeMs, boundedEasing);
         } else if (record.node.type === 'Select') {
           animatePresentation(record, 'selection', { selectionFlash: 0 }, [{ to: { selectionFlash: 1 }, duration: Math.max(1, profile.changeMs / 2), easing: boundedEasing }, { to: { selectionFlash: 0 }, duration: Math.max(1, profile.changeMs / 2), easing: boundedEasing }]);
         } else if (record.node.type === 'List') {
@@ -1195,10 +1727,9 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   }
 
   listen(window, 'pointermove', ((event: PointerEvent) => {
-    const gesture = gestures.get(event.pointerId); if (!gesture || gesture.record.node.type !== 'Slider') return;
+    const gesture = gestures.get(event.pointerId); if (!gesture?.move) return;
     try {
-      const value = sliderFromPoint(gesture.record, canvasPoint(event)); gesture.record.sliderPreview = value; gesture.record.presentation.sliderValue = value;
-      gesture.record.redraw?.(); render();
+      event.preventDefault(); gesture.move(canvasPoint(event));
     }
     catch (error) { reportFatal(error); }
   }) as EventListener, true);
@@ -1276,7 +1807,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     setValue(id, value): void {
       const record = requireRecord(id); const node = record.node;
       if (node.type === 'Switch' || node.type === 'CheckBox') {
-        if (typeof value !== 'boolean') throw new TypeError('BOOLEAN_VALUE_REQUIRED'); pinPresentation(record, node.type === 'CheckBox' ? ['checked', 'checkAlpha', 'checkScale'] : ['checked']); node.props.checked = value; record.redraw?.(); emit(record, 'change', 'control', value);
+        if (typeof value !== 'boolean') throw new TypeError('BOOLEAN_VALUE_REQUIRED'); preparePresentationChange(record, 'change', node.type === 'CheckBox' ? ['checked', 'checkAlpha', 'checkScale'] : ['checked']); node.props.checked = value; record.redraw?.(); emit(record, 'change', 'control', value);
       } else if (node.type === 'Input') {
         if (typeof value !== 'string' || value.length > node.props.maxLength) throw new TypeError('INPUT_VALUE_INVALID');
         node.props.value = value; if (focusedInput === record) editor.value = value; record.redraw?.(); emit(record, 'change', 'control', value);
@@ -1285,21 +1816,21 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         // A direct value assignment owns the value. Do not let a stale drag's
         // captured origin overwrite it on pointerup.
         cancelGesturesFor(record, 'programmatic-value');
-        pinPresentation(record, ['sliderValue']); node.props.value = value; record.sliderPreview = undefined; record.redraw?.(); emit(record, 'change', 'control', node.props.value);
+        preparePresentationChange(record, 'progress', ['sliderValue']); node.props.value = value; record.sliderPreview = undefined; record.redraw?.(); emit(record, 'change', 'control', node.props.value);
       } else if (node.type === 'ProgressBar') {
-        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > node.props.max) throw new TypeError('PROGRESS_VALUE_INVALID'); pinPresentation(record, ['progress']); node.props.value = value; record.redraw?.(); emit(record, 'change', 'control', value);
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > node.props.max) throw new TypeError('PROGRESS_VALUE_INVALID'); preparePresentationChange(record, 'progress', ['progress']); node.props.value = value; record.redraw?.(); emit(record, 'change', 'control', value);
       } else if (node.type === 'RadioGroup' || node.type === 'Select') {
-        if (value !== null && (typeof value !== 'string' || !node.props.options.some(option => option.id === value))) throw new TypeError('CHOICE_VALUE_INVALID'); if (node.type === 'RadioGroup') pinPresentation(record, ['markerAlpha', 'markerY']); node.props.selectedId = value; record.redraw?.(); emit(record, 'change', 'control', value);
+        if (value !== null && (typeof value !== 'string' || !node.props.options.some(option => option.id === value))) throw new TypeError('CHOICE_VALUE_INVALID'); if (node.type === 'RadioGroup') preparePresentationChange(record, 'change', ['markerAlpha', 'markerY']); node.props.selectedId = value; record.redraw?.(); emit(record, 'change', 'control', value);
       } else if (node.type === 'List') {
-        if (value !== null && (typeof value !== 'string' || !node.props.items.some(item => item.id === value))) throw new TypeError('LIST_VALUE_INVALID'); pinPresentation(record, ['listSelection']); node.props.selectedId = value; record.redraw?.(); emit(record, 'change', 'control', value);
+        if (value !== null && (typeof value !== 'string' || !node.props.items.some(item => item.id === value))) throw new TypeError('LIST_VALUE_INVALID'); preparePresentationChange(record, 'change', ['listSelection']); node.props.selectedId = value; record.redraw?.(); emit(record, 'change', 'control', value);
       } else if (node.type === 'Tabs') {
-        if (typeof value !== 'string' || !node.props.tabs.some(tab => tab.id === value)) throw new TypeError('TAB_VALUE_INVALID'); pinPresentation(record, ['tabProgress']); node.props.activeId = value; record.redraw?.(); record.updateTabs?.(); emit(record, 'change', 'control', value, value);
+        if (typeof value !== 'string' || !node.props.tabs.some(tab => tab.id === value)) throw new TypeError('TAB_VALUE_INVALID'); preparePresentationChange(record, 'change', ['tabProgress']); node.props.activeId = value; record.redraw?.(); record.updateTabs?.(); emit(record, 'change', 'control', value, value);
       } else if (node.type === 'ScrollView') {
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('SCROLL_VALUE_REQUIRED');
         const data = value as { x?: unknown; y?: unknown }; if (typeof data.x !== 'number' || typeof data.y !== 'number' || !Number.isFinite(data.x) || !Number.isFinite(data.y)) throw new TypeError('SCROLL_VALUE_INVALID');
         const maxX = Math.max(0, node.props.contentWidth - node.layout.width), maxY = Math.max(0, node.props.contentHeight - node.layout.height);
         if (data.x < 0 || data.x > maxX || data.y < 0 || data.y > maxY) throw new TypeError('SCROLL_VALUE_OUT_OF_RANGE');
-        pinPresentation(record, ['scrollX', 'scrollY']); node.props.scrollX = data.x; node.props.scrollY = data.y; record.updateContentPosition?.(); emit(record, 'scroll', 'control', { x: node.props.scrollX, y: node.props.scrollY });
+        preparePresentationChange(record, 'scroll', ['scrollX', 'scrollY']); node.props.scrollX = data.x; node.props.scrollY = data.y; record.redraw?.(); record.updateContentPosition?.(); emit(record, 'scroll', 'control', { x: node.props.scrollX, y: node.props.scrollY });
       } else if (node.type === 'Dialog') {
         if (typeof value !== 'boolean') throw new TypeError('DIALOG_OPEN_REQUIRED');
         const wasOpen = node.props.open, wasClosing = record.dialogClosing;

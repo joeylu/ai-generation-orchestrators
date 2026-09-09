@@ -13,7 +13,8 @@ Reference uploads pass through the optional local vision bridge and strict
 semantic compiler before a preview is created. Unresolved, unsupported, invalid
 or unavailable recognition never falls back to Image/Button. Imported v0.2
 bundles keep their existing structure without a new vision call. The studio does
-not implicitly convert legacy bundles. See [vision integration](studio-vision.md).
+not implicitly convert legacy bundles. Recognition remains an optional adapter
+owned by the source workbench rather than the engine-neutral runtime.
 
 `createTreePreview(host, onFatal)` is the browser adapter for a validated v0.2
 `UiDocument`. Its public API exposes the canvas, tree loading, event
@@ -39,11 +40,12 @@ for a verified in-memory bundle. Without a font resolver the runtime performs
 a bounded browser fetch. Fonts are loaded through `FontFace`, added only for
 the candidate scope, and removed when the scope is released.
 
-Each scope owns uncached Pixi textures. Image nodes acquire a reference and
-release it when they are destroyed. Multiple nodes pointing at the same source
-share the one decoded texture; removing one node cannot invalidate the
-remaining sibling. `destroyNode(id)` is provided for this lifecycle inspection
-and cannot remove the document root.
+Each scope owns uncached Pixi textures. Image nodes and every raster part from
+an applied appearance acquire a reference and release it when they are
+destroyed. Multiple nodes pointing at the same source share the one decoded
+texture; removing one node cannot invalidate the remaining sibling.
+`destroyNode(id)` is provided for this lifecycle inspection and cannot remove
+the document root.
 
 ## Text and visible controls
 
@@ -60,16 +62,27 @@ only for a one-pixel invisible Input editor. Pixi draws the visible input while
 the hidden editor supplies focus, keyboard input, paste, selection behavior,
 and IME composition. It is removed during teardown.
 
-Button, Switch, CheckBox, RadioGroup, Input, Select, Slider, List, ScrollView,
+Button, Switch, CheckBox, RadioGroup, Input, Select, ProgressBar, Slider, List, ScrollView,
 Tabs, Dialog, Panel, Image, Text, and Container all have concrete Pixi
 rendering. Select options are Pixi popup rows in a tree-scope overlay, so their
 hit testing is not clipped by the Select base rectangle or covered by sibling
-controls. ScrollView masks its content and
-handles wheel scrolling. List has explicit `text-row` layout. Tabs hide every
+controls. ScrollView masks its content and supports wheel scrolling plus
+mouse, pen, and touch drag scrolling. A drag commits on pointer release and
+restores its starting position when cancelled. Raster ScrollViews also map
+direct dragging of the authored scrollbar thumb to the complete scroll range. List has explicit
+`text-row` layout. Tabs hide every
 non-active content child. A modal Dialog blocks background handlers and draws a
 Pixi overlay; it does not invent a dismiss action. Slider drag previews are
 snapped to the inclusive document step lattice, commit on release, and restore
 their original document value on cancellation.
+
+A v0.2 appearance application re-authenticates the target bundle, imported ZIP,
+and binding fingerprints. Missing or inconsistent roles, states, or geometry are
+rejected. Image rebinds to an authenticated resource; Text uses its layer to
+validate geometry while keeping semantic text and font rendering dynamic.
+Container and Panel use explicit raster parts, and Panel keeps its title as
+semantic text. This contract is portable; its current visual adapter and
+acceptance evidence cover PixiJS only.
 
 ## Events, mutations, and inspection
 

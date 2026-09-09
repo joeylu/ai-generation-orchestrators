@@ -1,12 +1,29 @@
 import { compileTree, validateTreeIntent, type ImageFactsMap } from './tree-compiler.ts';
 import { walkNodes, type UiDocument } from './tree-contract.ts';
+import { FLAT_VISION_ERROR_CODES, normalizeFlatVisionResult } from './vision-flat.ts';
+import { OBSERVATION_ERROR_CODES, compileStagedVisionResult, validateObservation, type VisionObservation } from './vision-observation.ts';
+import { compileSemanticObservation, NEUTRAL_SEMANTIC_PREVIEW_POLICY_V1, type MissingSemanticField } from './vision-semantic-compiler.ts';
 
 export type VisionSource = { path: string; sha256: string; width: number; height: number; mime: string; base64: string };
-export type VisionResult = { status: 'Ready'; summary: string; document: UiDocument }
-  | { status: 'Unresolved' | 'Custom-required'; summary: string };
+export type VisionResult = ({ status: 'Ready'; summary: string; document: UiDocument }
+  | { status: 'Unresolved' | 'Custom-required'; summary: string }) & {
+    semanticObservation?: VisionObservation; missing?: MissingSemanticField[];
+  };
 
 /** Model output is untrusted: bind it to this image, then compile without defaults. */
 export function compileVisionResult(value: unknown, source: Pick<VisionSource, 'path' | 'sha256' | 'width' | 'height'>): VisionResult {
+  if (value && typeof value === 'object' && 'version' in value && value.version === '0.4') {
+    const envelope = value as Record<string, unknown>;
+    const keys = ['version', 'sourceSha256', 'status', 'summary', 'observation'];
+    if (Object.keys(envelope).length !== keys.length || keys.some(key => !Object.hasOwn(envelope, key))
+      || envelope.sourceSha256 !== source.sha256 || typeof envelope.summary !== 'string' || !envelope.summary.trim() || envelope.summary.length > 2000) throw new Error('VISION_INVALID_RESPONSE');
+    const observation = validateObservation(envelope.observation, source);
+    if (observation.version !== '0.2' || envelope.status !== observation.status || envelope.summary !== observation.summary) throw new Error('VISION_INVALID_RESPONSE');
+    const result = compileSemanticObservation(observation, source, NEUTRAL_SEMANTIC_PREVIEW_POLICY_V1);
+    return { ...result, semanticObservation: observation };
+  }
+  if (value && typeof value === 'object' && 'version' in value && value.version === '0.3') return compileStagedVisionResult(value, source);
+  if (value && typeof value === 'object' && 'version' in value && value.version === '0.2') value = normalizeFlatVisionResult(value, source);
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('VISION_INVALID_RESPONSE');
   const data = value as Record<string, unknown>;
   const keys = data.status === 'Ready' ? ['version', 'sourceSha256', 'status', 'summary', 'intent', 'policy'] : ['version', 'sourceSha256', 'status', 'summary'];
@@ -62,7 +79,7 @@ function waitForPoll(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 export async function recognizeReference(source: VisionSource, signal: AbortSignal, onPending: () => void = () => {}): Promise<VisionResult> {
-  const activeSignal = AbortSignal.any([signal, AbortSignal.timeout(95000)]);
+  const activeSignal = AbortSignal.any([signal, AbortSignal.timeout(240000)]);
   let response = await fetch('/api/ui-vision', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ version: '0.1', source }), signal: activeSignal,
@@ -72,7 +89,13 @@ export async function recognizeReference(source: VisionSource, signal: AbortSign
     const value = await readResponse(response); activeSignal.throwIfAborted();
     if (response.status !== 202) {
       try { return compileVisionResult(value, source); }
-      catch (cause) { throw new Error('VISION_INVALID_RESPONSE', { cause }); }
+      catch (cause) {
+        if (cause instanceof Error && ([...FLAT_VISION_ERROR_CODES, ...OBSERVATION_ERROR_CODES] as readonly string[]).includes(cause.message)) throw cause;
+        if (cause instanceof Error && 'issues' in cause && Array.isArray(cause.issues)) {
+          throw new Error('VISION_CONTRACT_INVALID', { cause });
+        }
+        throw new Error('VISION_INVALID_RESPONSE', { cause });
+      }
     }
     const receipt = value as Record<string, unknown>;
     const keys = ['version', 'sourceSha256', 'status', 'analysisId', 'pollAfterSeconds'];

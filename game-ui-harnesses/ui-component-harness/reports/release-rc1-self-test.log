@@ -1,0 +1,8 @@
+
+> ai-ui-component-harness@0.2.0-rc.1 self-test
+> node scripts/cli.mjs self-test
+
+{
+  "ok": true,
+  "offline": true
+}

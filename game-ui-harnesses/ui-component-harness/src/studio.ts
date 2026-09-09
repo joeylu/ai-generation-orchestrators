@@ -5,10 +5,16 @@ import { createTreePreview, type TreePreview } from './tree-runtime.ts';
 import { compileMotionSystem, type MotionStyle, type MotionSystemDocument } from './motion-system.ts';
 import { MotionPlayer } from './motion.ts';
 import { createBundle, validateBundle, bundleResources, type UiBundle, type ResourceInput } from './bundle.ts';
+import { compileSemanticObservation, NEUTRAL_SEMANTIC_PREVIEW_POLICY_V1, type MissingSemanticField } from './vision-semantic-compiler.ts';
+import type { ObservationSource, VisionObservation } from './vision-observation.ts';
+import { createSemanticEditor } from './studio-semantic-editor.ts';
+import { createDecompositionPanel } from './studio-decomposition.ts';
+import { assertValidImportedDecomposition, type ImportedDecomposition } from './decomposition-import.ts';
+import { applyAppearanceBinding } from './appearance-apply.ts';
 
 type Scheme = 'original' | MotionStyle;
 type Reference = { source: string; width: number; height: number; file: string };
-type View = { scheme: Scheme; host: HTMLElement; preview: TreePreview; timeline?: MotionPlayer; resize: ResizeObserver; activations: number };
+type View = { scheme: Scheme; host: HTMLElement; preview: TreePreview; timeline?: MotionPlayer; resize: ResizeObserver; activations: number; activationCounts: Record<string, number> };
 const schemes: Scheme[] = ['original', 'playful', 'premium', 'corporate'];
 const names: Record<Scheme, string> = { original: '原样', playful: '轻快', premium: '精致', corporate: '稳重' };
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => {
@@ -20,6 +26,50 @@ let resources: ResourceInput[] = [], selected: Scheme = 'original', compare = fa
 let views: View[] = [], busy = false, generation = 0, controller = new AbortController(), thumbnail: string | undefined;
 let analysis = { status: 'Idle', summary: '' };
 let originalSystem: MotionSystemDocument | undefined, lastError: string | null = null;
+let semanticObservation: VisionObservation | undefined, semanticSource: ObservationSource | undefined;
+let semanticEditor: ReturnType<typeof createSemanticEditor> | undefined, semanticEdits = 0;
+let neutralPreview = false;
+let materialPreview = false;
+let decompositionPanel: ReturnType<typeof createDecompositionPanel> | undefined;
+
+function showMissing(missing: readonly MissingSemanticField[] = []) {
+  const fieldNames: Record<string, string> = { value: '当前值', inputType: '输入类型', title: '标题', placeholder: '占位文字', checked: '勾选状态', label: '标签', text: '文字', min: '最小值', max: '最大值', open: '打开状态', options: '选项内容', items: '列表内容', selectedId: '选中项', activeId: '当前页', tabs: '页签', 'tabs.contentId': '页签内容' };
+  $('semantic-missing').replaceChildren(...missing.map(item => {
+    const row = document.createElement('li'); row.textContent = `${item.componentId} · ${fieldNames[item.field] ?? item.field}：${item.field === 'tabs.contentId' ? '参考图未提供完整页面内容，暂时无法生成。' : '尚未确认，请补充；确实没有文字时可明确确认为空。'}`; return row;
+  }));
+}
+function clearSemanticPreview() {
+  try { disposeViews(); } catch (error) { lastError = error instanceof Error ? error.message : String(error); }
+  $('main-preview').replaceChildren(); bundle = undefined; originalSystem = undefined;
+  analysis = { status: 'Unresolved', summary: '识别结果已修改，请应用修正后查看画布。' };
+  $('semantic-feedback').textContent = '尚未应用；原始识图结果保持不变。'; sync();
+}
+function semanticProvenance() {
+  return { kind: 'user-provided' as const, description: `Semantic observation v0.2 with deterministic contract compilation and explicit neutral preview policy v1. Neutral procedural styles are not artwork reconstruction. Local user correction revisions: ${semanticEdits}. Model output is not visual acceptance.` };
+}
+async function applySemanticEdits() {
+  if (!semanticEditor || !semanticSource || busy) return;
+  const request = begin(); bundle = undefined; originalSystem = undefined;
+  let mounting = false;
+  try {
+    const result = compileSemanticObservation(semanticEditor.read(), semanticSource, NEUTRAL_SEMANTIC_PREVIEW_POLICY_V1);
+    request.check(); semanticEdits++; analysis = { status: result.status, summary: result.summary };
+    showMissing(result.status === 'Ready' ? [] : result.missing);
+    $('semantic-feedback').textContent = `已在本地应用第 ${semanticEdits} 次修正，没有重新识图。`;
+    if (result.status !== 'Ready') { busy = false; sync(); return; }
+    mounting = true;
+    bundle = await createBundle(result.document, resources, semanticProvenance()); request.check();
+    await mount(result.document, request);
+  } catch (error) {
+    if (request.ticket !== generation) return;
+    try { disposeViews(); } catch (cleanupError) { lastError = String(cleanupError); }
+    $('main-preview').replaceChildren();
+    bundle = undefined; busy = false;
+    lastError ??= error instanceof Error ? error.message : String(error);
+    analysis = { status: 'Unresolved', summary: mounting ? '画布无法显示。修正内容已保留，可重新应用。' : '修正尚未通过校验，请检查字段类型和数值范围。' };
+    $('semantic-feedback').textContent = analysis.summary; sync();
+  }
+}
 
 function isCancelled(error: unknown): boolean { return error instanceof DOMException && error.name === 'AbortError'; }
 function abortError(): DOMException { return new DOMException('Superseded preview', 'AbortError'); }
@@ -54,24 +104,38 @@ function sync() {
   $('reference-preview').hidden = !reference;
   $('analysis-state').hidden = analysis.status === 'Idle';
   $('analysis-summary').textContent = analysis.summary;
+  $('semantic-review').hidden = semanticObservation?.status !== 'Observed';
+  $('preview-disclosure').hidden = !neutralPreview;
+  for (const input of controls<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('#semantic-review input, #semantic-review select, #semantic-review button')) input.disabled = busy;
   $('canvas-name').textContent = filename || '效果画布';
-  $('scheme-name').textContent = ready ? names[selected] : '等待参考图';
+  $('scheme-name').textContent = ready ? selected === 'original' && neutralPreview ? '结构预览' : names[selected] : '等待参考图';
   $('reference-name').textContent = filename;
   $('reference-meta').textContent = reference ? `${reference.width} × ${reference.height}` : '';
   $('studio-status').textContent = busy ? analysis.status === 'Analyzing' ? '正在识别组件语义…' : '正在准备画布…' : ready ? '可以预览与导出'
-    : analysis.status === 'Unresolved' ? '组件语义尚不确定，请提供更清晰的参考图'
+    : analysis.status === 'Unresolved' ? '部分信息尚不确定，暂时无法生成完整方案'
     : analysis.status === 'Custom-required' ? '这张图需要当前组件库之外的组件' : analysis.status === 'Failed' ? '识图未完成' : '添加一张参考图，开始预览';
   $('studio-hint').textContent = !ready ? '参考图将发送至已配置的识图服务进行组件分析' : '直接操作画布中的组件，体验当前方案';
   for (const button of controls<HTMLButtonElement>('#scheme-options [data-scheme], .comparison-title[data-scheme]')) {
     button.setAttribute('aria-pressed', String(button.dataset.scheme === selected)); button.disabled = !ready;
   }
   for (const card of controls<HTMLElement>('.comparison-card[data-scheme]')) card.dataset.selected = String(card.dataset.scheme === selected);
-
+  if (materialPreview) {
+    $('scheme-name').textContent = '拆分包合成图';
+    $('studio-hint').textContent = '显示上游 preview.png 原始像素；尚未应用组件外观绑定。';
+    $('studio-compare').toggleAttribute('disabled', true);
+    $('studio-replay').toggleAttribute('disabled', true);
+    for (const button of controls<HTMLButtonElement>('#scheme-options [data-scheme]')) button.disabled = true;
+  }
+  decompositionPanel?.refresh();
 }
 function reset() {
   generation++; controller.abort(abortError()); controller = new AbortController();
   try { disposeViews(); } finally {
     bundle = undefined; resources = []; originalSystem = undefined; forgetReference(); filename = ''; selected = 'original'; compare = false; analysis = { status: 'Idle', summary: '' }; busy = false;
+    semanticObservation = undefined; semanticSource = undefined; semanticEditor = undefined; semanticEdits = 0;
+    neutralPreview = false;
+    materialPreview = false; decompositionPanel?.reset();
+    $('semantic-fields').replaceChildren(); showMissing(); $('semantic-feedback').textContent = '';
     lastError = null; $('studio-error').hidden = true; delete $('studio-error').dataset.errorDetail; sync();
   }
 }
@@ -84,6 +148,9 @@ function fail(error: unknown, message: string) {
   if (reason.includes('VISION_NOT_CONFIGURED')) message = '识图服务尚未连接，请先配置 MCP 服务。';
   else if (/VISION_|TimeoutError/.test(reason)) message = '识图未完成或结果未通过校验。请检查服务记录；已提交的识图任务可能仍在运行。';
   if (reason.startsWith('Error: STUDIO_VISION_FAILED') && !reason.includes('VISION_NOT_CONFIGURED')) message = '图片已读取，但识图结果未能完整接收或通过校验。请检查识图服务记录。';
+  if (/VISION_SEMANTIC_COVERAGE_MISMATCH|VISION_IMAGE_FALLBACK|VISION_HIDDEN_SEMANTIC_NODE/.test(reason)) message = '识别出的组件类型与生成方案不一致，暂时无法预览。';
+  if (/VISION_OBSERVATION_.*MISMATCH|VISION_OBSERVATION_MISSING_NODE|VISION_OBSERVATION_EXTRA_CONTROL/.test(reason)) message = '生成方案与识图观察不一致，暂时无法预览。';
+  if (/VISION_CONTRACT_INVALID|VISION_UNUSED_STYLE|VISION_UNKNOWN_STYLE|VISION_UNKNOWN_PARENT|VISION_MULTIPLE_ROOTS|VISION_TREE_CYCLE/.test(reason)) message = '识图已完成，但组件结构或属性不完整，暂时无法预览。';
   if (reason.startsWith('Error: STUDIO_CONTRACT_FAILED')) message = '识图已完成，但组件方案未通过校验，暂时无法预览。';
   if (reason.startsWith('Error: STUDIO_CANVAS_FAILED')) message = '识图已完成，但当前浏览器未能创建画布。请刷新页面或检查浏览器图形支持。';
   $('studio-error').dataset.errorDetail = reason;
@@ -181,12 +248,12 @@ async function mount(document: UiDocument, request: ReturnType<typeof begin>) {
       request.check();
       preview.canvas.setAttribute('aria-label', `${names[scheme]}方案预览`);
       preview.setMotionSystem(systemFor(scheme, document));
-      const view: View = { scheme, host, preview, resize: new ResizeObserver(() => { if (views.includes(view)) fit(view); }), activations: 0 };
+      const view: View = { scheme, host, preview, resize: new ResizeObserver(() => { if (views.includes(view)) fit(view); }), activations: 0, activationCounts: {} };
       if (timelineDocument) view.timeline = new MotionPlayer(timelineDocument, document, preview,
         { now: () => performance.now(), request: callback => requestAnimationFrame(callback), cancel: id => cancelAnimationFrame(id) }, undefined,
         error => { if (request.ticket === generation) fail(error, '动效无法继续播放，请重新打开方案。'); });
       preview.subscribe(event => {
-        if (event.type === 'activate') view.activations++;
+        if (event.type === 'activate') { view.activations++; view.activationCounts[event.id] = (view.activationCounts[event.id] ?? 0) + 1; }
         const trigger = view.timeline?.motion.trigger;
         if (trigger?.type === 'event' && trigger.targetId === event.id && trigger.event === event.type) view.timeline?.replay();
       });
@@ -233,9 +300,16 @@ async function upload(file: File) {
     const result = await recognizeReference({ path: resource.path, sha256: hash, width: reference.width, height: reference.height, mime, base64: encodeReference(bytes) }, request.signal,
       () => { request.check(); analysis.summary = '识图任务正在处理，结果完成后会自动显示。'; sync(); });
     request.check(); analysis = { status: result.status, summary: result.summary };
+    if (result.semanticObservation?.status === 'Observed') {
+      semanticObservation = result.semanticObservation;
+      neutralPreview = true;
+      semanticSource = { path: resource.path, sha256: hash, width: reference.width, height: reference.height };
+      semanticEditor = createSemanticEditor($('semantic-fields'), result.semanticObservation, clearSemanticPreview);
+      showMissing(result.missing);
+    }
     if (result.status !== 'Ready') { busy = false; sync(); return; }
     stage = 'CONTRACT';
-    bundle = await createBundle(result.document, resources, { kind: 'user-provided', description: 'User reference with LLM-produced semantic intent and layout; strict deterministic compilation passed. Model output is not human visual acceptance.' });
+    bundle = await createBundle(result.document, resources, semanticObservation ? semanticProvenance() : { kind: 'user-provided', description: 'User reference with LLM-produced semantic intent and layout; strict deterministic compilation passed. Model output is not human visual acceptance.' });
     request.check(); stage = 'CANVAS'; await mount(bundle.document as UiDocument, request);
   } catch (error) { if (request.ticket === generation) throw new Error(`STUDIO_${stage}_FAILED`, { cause: error }); }
 }
@@ -247,8 +321,10 @@ async function openBundle(file: File) {
     const candidate = await validateBundle(JSON.parse(await file.text())); request.check();
     if (candidate.document.schemaVersion !== '0.2') throw new Error('LEGACY_BUNDLE_REQUIRES_EXPLICIT_CONVERSION');
     resources = bundleResources(candidate); bundle = candidate; originalSystem = candidate.motionSystem;
+    neutralPreview = /neutral (procedural|preview)/i.test(candidate.provenance.description);
+    materialPreview = candidate.provenance.description.startsWith('Static upstream PNG composite only;');
     selected = candidate.motionSystem?.style ?? 'original';
-    analysis = { status: 'Imported', summary: '已恢复保存的组件方案' };
+    analysis = { status: 'Imported', summary: candidate.provenance.description.startsWith('Legacy layered pilot:') ? '原始贴图案例：取消、确定、关闭支持按钮反馈；开关与下拉框暂为静态图像。' : '已恢复保存的组件方案' };
     await mount(candidate.document, request);
   } catch (error) { if (request.ticket === generation) throw error; }
 }
@@ -260,6 +336,34 @@ async function exportSelected(): Promise<UiBundle> {
   if (ticket !== generation || scheme !== selected || busy) throw abortError();
   return validateBundle(result);
 }
+async function previewDecomposition(imported: ImportedDecomposition) {
+  const request = begin();
+  try {
+  await assertValidImportedDecomposition(imported); request.check();
+  const { width, height } = imported.canvas;
+  const document: UiDocument = { schemaVersion: '0.2', id: 'decomposition-preview', canvas: { width, height }, root: {
+    id: 'decomposition-composite', type: 'Image', layout: { x: 0, y: 0, width, height },
+    props: { source: imported.preview.path, fit: 'stretch', drawBackground: false, style: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF', borderWidth: 0, cornerRadius: 0, textColor: '#000000', fontFamily: 'sans-serif', fontSize: 16, fontWeight: 'normal', opacity: 1 } },
+  } };
+  const next = await createBundle(document, [imported.preview], { kind: 'user-provided', description: `Static upstream PNG composite only; no component binding applied. Delivery policy: ${imported.review.deliveryPolicy}; upstream human visual acceptance: ${imported.review.humanVisualAcceptance}. Archive SHA-256: ${imported.archiveSha256}; delivery digest: ${imported.deliveryDigest}.` });
+  request.check(); resources = [imported.preview]; bundle = next;
+  materialPreview = true; neutralPreview = false; semanticObservation = undefined; semanticEditor = undefined; semanticSource = undefined;
+  originalSystem = undefined; selected = 'original'; compare = false; filename = '拆分合成图';
+  analysis = { status: 'Imported', summary: '来自拆分包的静态合成图，组件绑定尚未应用。' };
+  await mount(document, request);
+  } catch (error) { if (request.ticket === generation) fail(error, '拆分合成图无法显示。'); }
+}
+async function applyDecompositionAppearance(imported: ImportedDecomposition, appearance: unknown, target: UiBundle) {
+  const request = begin();
+  try {
+    const next = await applyAppearanceBinding(target, imported, appearance); request.check();
+    resources = bundleResources(next); bundle = next; originalSystem = next.motionSystem;
+    materialPreview = false; neutralPreview = false; selected = next.motionSystem?.style ?? 'original'; compare = false;
+    semanticObservation = undefined; semanticEditor = undefined; semanticSource = undefined;
+    filename = '已应用外观绑定'; analysis = { status: 'Imported', summary: '拆分图层已按校验绑定应用到组件，可交互、切换方案并导出。' };
+    await mount(next.document as UiDocument, request);
+  } catch (error) { if (request.ticket === generation) throw error; }
+}
 async function download() {
   const exported = await exportSelected();
   const url = URL.createObjectURL(new Blob([JSON.stringify(exported, null, 2) + '\n'], { type: 'application/json' }));
@@ -268,6 +372,7 @@ async function download() {
   link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   $('studio-status').textContent = `已导出${names[selected]}方案`;
 }
+$('semantic-apply').addEventListener('click', action(applySemanticEdits));
 $('reference-file').addEventListener('change', action(async () => {
   const input = $<HTMLInputElement>('reference-file'), file = input.files?.[0]; input.value = ''; if (file) await upload(file);
 }, '图片无法打开，请选择有效的 PNG、JPG 或 WebP 图片（不超过 2 MB）。'));
@@ -295,9 +400,21 @@ const studio = {
   snapshot: () => ({ ready: Boolean(bundle && views.length && !busy), busy, scheme: selected, compare, kind: bundle?.document.schemaVersion === '0.2' ? bundle.document.root.type : null, analysis: { ...analysis },
     filename, resourceCount: resources.length, error: lastError,
     views: views.map(view => ({ scheme: view.scheme, document: view.preview.getDocument(), motionSystem: view.preview.getMotionSystem(),
-      inspection: view.preview.inspect(), motionSnapshot: view.preview.inspectMotionSystem(), timelineSnapshot: view.timeline?.snapshot() ?? null, activations: view.activations })) }),
+      inspection: view.preview.inspect(), motionSnapshot: view.preview.inspectMotionSystem(), timelineSnapshot: view.timeline?.snapshot() ?? null, activations: view.activations, activationCounts: { ...view.activationCounts } })) }),
   exportSelected,
 };
 declare global { interface Window { uiStudio: typeof studio } }
 window.uiStudio = studio;
+decompositionPanel = createDecompositionPanel({
+  capture: exportSelected,
+  current: () => !materialPreview && bundle?.document.schemaVersion === '0.2' && views.length && !busy ? currentDocument() : undefined,
+  busy: () => busy,
+  preview: previewDecomposition,
+  apply: applyDecompositionAppearance,
+  clearMaterialPreview: () => {
+    if (!materialPreview) return;
+    disposeViews(); bundle = undefined; resources = []; materialPreview = false;
+    filename = ''; analysis = { status: 'Idle', summary: '' }; sync();
+  },
+});
 sync();

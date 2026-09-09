@@ -14,8 +14,15 @@ FILES = (
     "vite.config.ts", "playwright.config.ts", "index.html", "workbench.html",
     "analysis/button-confirm.intent.json",
 )
-TREES = ("src", "tests", "scripts", "docs", "examples", "prompts", "agents", "skills", "reports", "public/fixtures")
+TREES = ("src", "tests", "scripts", "docs", "examples", "prompts", "agents", "skills", "public/fixtures")
 SUFFIXES = {".ts", ".mjs", ".py", ".md", ".json", ".yaml", ".css", ".svg", ".png", ".log"}
+EXCLUDED = {
+    "docs/studio-semantic-compiler.md", "docs/studio-staged-vision.md",
+    "docs/studio-vision.md", "docs/takeover-audit.md", "docs/tasks.md",
+    "examples/button-confirm.json", "public/fixtures/corrupt.png",
+    "scripts/studio-mcp-vision.mjs", "scripts/studio-semantic-vision.mjs",
+    "scripts/studio-staged-vision.mjs",
+}
 
 
 def main() -> None:
@@ -35,6 +42,7 @@ def main() -> None:
                 raise ValueError(f"symlink is not packageable: {path.relative_to(ROOT)}")
             if path.is_file() and path.suffix in SUFFIXES and "__pycache__" not in path.parts:
                 paths.add(path)
+    paths = {path for path in paths if path.relative_to(ROOT).as_posix() not in EXCLUDED}
     data: dict[str, bytes] = {}
     for path in sorted(paths):
         if path.is_symlink() or not path.resolve().is_relative_to(ROOT):

@@ -105,3 +105,65 @@ test('supports v0.2 documents and validates optional motion against that documen
   assert.equal(reloaded.motion?.id, 'fixture-entrance');
   assert.equal(bundleResources(reloaded).length, 2);
 });
+
+test('v0.2 button backgroundImage is a required portable bundle resource', async () => {
+  const document = fixtureDocument('composite') as any;
+  const button = document.root.children.find((node: any) => node.id === 'confirm');
+  button.props.backgroundImage = 'fixtures/confirm-background.png';
+  const resources = [
+    { path: 'fixtures/plate.svg', mime: 'image/svg+xml', bytes: new Uint8Array([60, 115, 118, 103, 62]) },
+    { path: 'fixtures/gem.svg', mime: 'image/svg+xml', bytes: new Uint8Array([60, 115, 118, 103, 47, 62]) },
+    { path: 'fixtures/confirm-background.png', mime: 'image/png', bytes: new Uint8Array([137, 80, 78, 71]) },
+  ] as const;
+  const bundle = await createBundle(document, resources, provenance);
+  const reloaded = await validateBundle(JSON.parse(JSON.stringify(bundle)));
+  assert.equal(bundleResources(reloaded).some(resource => resource.path === 'fixtures/confirm-background.png'), true);
+  await assert.rejects(
+    createBundle(document, resources.slice(0, 2), provenance),
+    (error: unknown) => error instanceof BundleError && error.issues.some(issue => issue.code === 'MISSING_RESOURCE'),
+  );
+});
+
+test('v0.2 Switch raster appearance requires both portable layer resources', async () => {
+  const document = fixtureDocument('gallery') as any;
+  const toggle = document.root.children.find((node: any) => node.id === 'sound');
+  toggle.props.appearance = {
+    trackImage: 'fixtures/switch-track.png', thumbImage: 'fixtures/switch-thumb.png', sourceCanvas: { width: 241, height: 129 },
+    thumbPositions: { off: { x: 18, y: 18 }, on: { x: 128, y: 18 } },
+  };
+  const resources = [
+    { path: 'fixtures/plate.svg', mime: 'image/svg+xml', bytes: new Uint8Array([60, 115, 118, 103, 62]) },
+    { path: 'fixtures/gem.svg', mime: 'image/svg+xml', bytes: new Uint8Array([60, 115, 118, 103, 47, 62]) },
+    { path: 'fixtures/switch-track.png', mime: 'image/png', bytes: new Uint8Array([137, 80, 78, 71]) },
+    { path: 'fixtures/switch-thumb.png', mime: 'image/png', bytes: new Uint8Array([137, 80, 78, 71, 1]) },
+  ];
+  const bundle = await createBundle(document, resources, provenance);
+  assert.equal(bundleResources(bundle).filter(resource => resource.path.includes('switch-')).length, 2);
+  await assert.rejects(
+    createBundle(document, resources.slice(0, 3), provenance),
+    (error: unknown) => error instanceof BundleError && error.issues.some(issue => issue.code === 'MISSING_RESOURCE'),
+  );
+});
+
+test('v0.2 Select raster appearance requires field, arrow, and popup resources', async () => {
+  const document = fixtureDocument('gallery') as any;
+  const select = document.root.children.find((node: any) => node.id === 'region');
+  select.props.appearance = {
+    fieldImage: 'fixtures/select-field.png', arrowImage: 'fixtures/select-arrow.png', popupImage: 'fixtures/select-popup.png',
+    sourceCanvas: { width: 300, height: 100 }, labelLayout: { x: 64, y: 18, width: 150, height: 64 },
+    arrowLayout: { x: 230, y: 40, width: 30, height: 21 }, popupCanvas: { width: 300, height: 150 }, popupGap: 2,
+  };
+  const resources = [
+    { path: 'fixtures/plate.svg', mime: 'image/svg+xml', bytes: new Uint8Array([60, 115, 118, 103, 62]) },
+    { path: 'fixtures/gem.svg', mime: 'image/svg+xml', bytes: new Uint8Array([60, 115, 118, 103, 47, 62]) },
+    { path: 'fixtures/select-field.png', mime: 'image/png', bytes: new Uint8Array([137, 80, 78, 71]) },
+    { path: 'fixtures/select-arrow.png', mime: 'image/png', bytes: new Uint8Array([137, 80, 78, 71, 1]) },
+    { path: 'fixtures/select-popup.png', mime: 'image/png', bytes: new Uint8Array([137, 80, 78, 71, 2]) },
+  ];
+  const bundle = await createBundle(document, resources, provenance);
+  assert.equal(bundleResources(bundle).filter(resource => resource.path.includes('select-')).length, 3);
+  await assert.rejects(
+    createBundle(document, resources.slice(0, 4), provenance),
+    (error: unknown) => error instanceof BundleError && error.issues.some(issue => issue.code === 'MISSING_RESOURCE'),
+  );
+});

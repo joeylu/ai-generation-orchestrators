@@ -74,6 +74,32 @@
           <p id="analysis-summary" class="section-copy"></p>
         </section>
 
+        <p id="preview-disclosure" class="sidebar-section section-copy" hidden>当前是中性样式的结构预览，用于检查组件与动效，并非原图美术还原。</p>
+        <section id="semantic-review" class="sidebar-section" hidden aria-labelledby="semantic-title">
+          <h2 id="semantic-title">确认识别结果</h2>
+          <p class="section-copy">修改只在本地重新编译，不会再次调用识图服务。</p>
+          <ul id="semantic-missing" aria-live="polite"></ul>
+          <div id="semantic-fields"></div>
+          <button id="semantic-apply" type="button">应用修正并预览</button>
+          <p id="semantic-feedback" class="section-copy" role="status"></p>
+        </section>
+
+        <section id="decomposition-panel" class="sidebar-section" aria-labelledby="decomposition-title">
+          <h2 id="decomposition-title">拆分素材</h2>
+          <p class="section-copy">打开拆分链路导出的 PNG ZIP，在本地查看素材与绑定。不会调用识图服务。</p>
+          <label class="bundle-import">导入拆分 ZIP<input id="decomposition-file" type="file" accept=".zip,application/zip" /></label>
+          <p id="decomposition-status" class="section-copy" role="status">尚未导入拆分素材。</p>
+          <details id="decomposition-details" hidden><summary>查看图层</summary><ul id="decomposition-layers"></ul></details>
+          <button id="decomposition-preview" type="button" disabled>查看拆分合成图</button>
+          <button id="appearance-target" type="button" disabled>使用当前组件作为绑定目标</button>
+          <p id="appearance-target-status" class="section-copy">先打开组件方案，再选择绑定目标。</p>
+          <button id="appearance-target-export" type="button" disabled>保存绑定目标方案</button>
+          <label class="bundle-import">导入外观绑定 JSON<input id="appearance-file" type="file" accept=".json,application/json" disabled /></label>
+          <p id="appearance-status" class="section-copy" role="status">外观绑定用于衔接组件与图层；此处的外观绑定尚未应用到控件。</p>
+          <button id="appearance-apply" type="button" disabled>应用绑定并预览</button>
+          <button id="appearance-export" type="button" disabled>导出已校验绑定</button>
+        </section>
+
         <section class="sidebar-section" aria-labelledby="scheme-title">
           <p class="section-kicker">呈现方案</p>
           <h2 id="scheme-title">选择一种感觉</h2>

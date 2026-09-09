@@ -72,6 +72,48 @@ function panelResponse(source: VisionSource, summary = '识别到一个带通知
   };
 }
 
+function flatStyle(id: string, overrides: Record<string, unknown> = {}) {
+  return { id, ...style(overrides) };
+}
+
+function flatSettingsResponse(source: VisionSource) {
+  return {
+    version: '0.2', sourceSha256: source.sha256, status: 'Ready',
+    summary: '设置面板包含关闭的音乐开关和已勾选的自动拾取。',
+    classification: 'composite', observedTypes: ['Panel', 'Switch', 'CheckBox'],
+    documentId: 'flat-settings', canvas: { width: 640, height: 360 },
+    styles: [
+      flatStyle('panel-style', { backgroundColor: '#EEF3F9', borderColor: '#8EA8C6', fontWeight: 'bold' }),
+      flatStyle('switch-style', { backgroundColor: '#D7E3F0', borderColor: '#8EA8C6' }),
+      flatStyle('checkbox-style', { backgroundColor: '#FFFFFF', borderColor: '#8EA8C6' }),
+    ],
+    nodes: [
+      { id: 'settings-panel', parentId: null, componentType: 'Panel', styleId: 'panel-style', props: { title: '设置' }, layout: { x: 24, y: 20, width: 592, height: 320 } },
+      { id: 'music-switch', parentId: 'settings-panel', componentType: 'Switch', styleId: 'switch-style', props: { label: '音乐', checked: false, enabled: true }, layout: { x: 36, y: 84, width: 270, height: 52 } },
+      { id: 'auto-pickup', parentId: 'settings-panel', componentType: 'CheckBox', styleId: 'checkbox-style', props: { label: '自动拾取', checked: true, enabled: true }, layout: { x: 36, y: 164, width: 270, height: 52 } },
+    ],
+  };
+}
+
+function observedSettings(source: VisionSource) {
+  const bounds = { x: 0, y: 0, width: source.width, height: source.height };
+  return {
+    version: '0.1', sourceSha256: source.sha256, status: 'Observed',
+    summary: '可见设置面板、音乐开关与自动拾取复选框。', components: [
+      { id: 'settings-panel', parentId: null, componentType: 'Panel', bounds, evidence: 'A titled settings panel is visibly framed.', visibleProps: { title: '设置' } },
+      { id: 'music-switch', parentId: 'settings-panel', componentType: 'Switch', bounds, evidence: 'The visible 音乐 toggle is off.', visibleProps: { label: '音乐', checked: false } },
+      { id: 'auto-pickup', parentId: 'settings-panel', componentType: 'CheckBox', bounds, evidence: 'The visible 自动拾取 square has a tick.', visibleProps: { label: '自动拾取', checked: true } },
+    ],
+  };
+}
+
+function stagedSettingsResponse(source: VisionSource, contract = flatSettingsResponse(source), observation = observedSettings(source)) {
+  return {
+    version: '0.3', sourceSha256: source.sha256, status: 'Ready',
+    summary: '两阶段识别确认了设置面板及其可见状态。', observation, contract,
+  };
+}
+
 async function snapshot(page: Page): Promise<StudioSnapshot> {
   return page.evaluate(() => (window as any).uiStudio.snapshot());
 }
@@ -509,4 +551,236 @@ test('a pending receipt rejects source and analysis ID drift without polling aga
   await expect(page.locator('#studio-export')).toBeDisabled();
   await page.waitForTimeout(1200);
   expect(calls).toEqual(['POST', 'POST', 'GET']);
+});
+
+test('a flat v0.2 Panel with Switch and CheckBox compiles to canvas and exports both observed checked states', async ({ page }) => {
+  await ready(page, async (route, source) => {
+    await route.fulfill({ json: flatSettingsResponse(source) });
+  });
+  await uploadReference(page, 'flat-settings.png');
+
+  const current = await snapshot(page);
+  expect(current).toMatchObject({ kind: 'Panel', analysis: { status: 'Ready', summary: '设置面板包含关闭的音乐开关和已勾选的自动拾取。' } });
+  expect(selectedView(current).inspection.nodes.map(node => node.type)).toEqual(expect.arrayContaining(['Panel', 'Switch', 'CheckBox']));
+  await expect(page.locator('#main-preview canvas')).toBeVisible();
+  const exported = await page.evaluate(() => (window as any).uiStudio.exportSelected()) as Bundle & { document: { root: { children: Array<{ id: string; props: { checked?: boolean } }> } } };
+  expect(exported.document.root.type).toBe('Panel');
+  expect(exported.document.root.children).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 'music-switch', props: expect.objectContaining({ checked: false }) }),
+    expect.objectContaining({ id: 'auto-pickup', props: expect.objectContaining({ checked: true }) }),
+  ]));
+});
+
+test('a flat response cannot claim ProgressBar while providing only an Image fallback', async ({ page }) => {
+  let submissions = 0;
+  await ready(page, async (route, source) => {
+    submissions += 1;
+    await route.fulfill({ json: {
+      version: '0.2', sourceSha256: source.sha256, status: 'Ready', summary: 'A health bar.',
+      classification: 'control', observedTypes: ['ProgressBar'], documentId: 'image-fallback', canvas: { width: 640, height: 360 },
+      styles: [flatStyle('art-style')],
+      nodes: [{ id: 'artwork', parentId: null, componentType: 'Image', styleId: 'art-style', props: { source: source.path, fit: 'stretch' }, layout: { x: 0, y: 0, width: 640, height: 360 } }],
+    } });
+  });
+  await page.locator('#reference-file').setInputFiles({ name: 'progress-fallback.png', mimeType: 'image/png', buffer: pngBytes });
+  await expect(page.locator('#studio-error')).toBeVisible();
+  await expect(page.locator('#studio-error')).toHaveAttribute('data-error-detail', /VISION_SEMANTIC_COVERAGE_MISMATCH/);
+  await expect(page.locator('#error-message')).toHaveText('识别出的组件类型与生成方案不一致，暂时无法预览。');
+  await expect.poll(async () => (await snapshot(page)).busy).toBe(false);
+  assertNoPreview(await snapshot(page));
+  await expect(page.locator('#studio-export')).toBeDisabled();
+  expect(submissions).toBe(1);
+});
+
+test('a flat Button with no observed label fails instead of acquiring a default label', async ({ page }) => {
+  await ready(page, async (route, source) => {
+    await route.fulfill({ json: {
+      version: '0.2', sourceSha256: source.sha256, status: 'Ready', summary: 'A button with no readable label.',
+      classification: 'control', observedTypes: ['Button'], documentId: 'label-required', canvas: { width: 640, height: 360 },
+      styles: [flatStyle('button-style', { fontWeight: 'bold' })],
+      nodes: [{ id: 'unlabeled-button', parentId: null, componentType: 'Button', styleId: 'button-style', props: { enabled: true }, layout: { x: 120, y: 120, width: 400, height: 120 } }],
+    } });
+  });
+  await page.locator('#reference-file').setInputFiles({ name: 'missing-button-label.png', mimeType: 'image/png', buffer: pngBytes });
+  await expect(page.locator('#studio-error')).toBeVisible();
+  await expect(page.locator('#studio-error')).toHaveAttribute('data-error-detail', /VISION_CONTRACT_INVALID/);
+  await expect(page.locator('#error-message')).toHaveText('识图已完成，但组件结构或属性不完整，暂时无法预览。');
+  await expect.poll(async () => (await snapshot(page)).busy).toBe(false);
+  assertNoPreview(await snapshot(page));
+  await expect(page.locator('#studio-export')).toBeDisabled();
+});
+
+test('a flat response with an unused style is rejected with a stable diagnostic and cannot export', async ({ page }) => {
+  await ready(page, async (route, source) => {
+    await route.fulfill({ json: {
+      version: '0.2', sourceSha256: source.sha256, status: 'Ready', summary: 'A decorative image.',
+      classification: 'artwork', observedTypes: ['Image'], documentId: 'unused-style', canvas: { width: 640, height: 360 },
+      styles: [flatStyle('art-style'), flatStyle('unused-style', { fontWeight: 'bold' })],
+      nodes: [{ id: 'artwork', parentId: null, componentType: 'Image', styleId: 'art-style', props: { source: source.path, fit: 'stretch' }, layout: { x: 0, y: 0, width: 640, height: 360 } }],
+    } });
+  });
+  await page.locator('#reference-file').setInputFiles({ name: 'unused-style.png', mimeType: 'image/png', buffer: pngBytes });
+  await expect(page.locator('#studio-error')).toBeVisible();
+  await expect(page.locator('#studio-error')).toHaveAttribute('data-error-detail', /VISION_UNUSED_STYLE/);
+  await expect.poll(async () => (await snapshot(page)).busy).toBe(false);
+  assertNoPreview(await snapshot(page));
+  await expect(page.locator('#studio-export')).toBeDisabled();
+});
+
+test('a v0.3 observation and matching flat contract survive repeated Pending receipts, then render and export checked states', async ({ page }) => {
+  const analysisId = '55555555-5555-4555-8555-555555555555';
+  const calls: string[] = [];
+  let polls = 0;
+  await ready(page, async (route, source) => {
+    const method = route.request().method();
+    calls.push(method);
+    if (method === 'POST') {
+      await route.fulfill({ status: 202, json: { version: '0.1', sourceSha256: source.sha256, status: 'Pending', analysisId, pollAfterSeconds: 1 } });
+      return;
+    }
+    polls += 1;
+    if (polls < 3) {
+      await route.fulfill({ status: 202, json: { version: '0.1', sourceSha256: source.sha256, status: 'Pending', analysisId, pollAfterSeconds: 1 } });
+      return;
+    }
+    await route.fulfill({ status: 200, json: stagedSettingsResponse(source) });
+  });
+  await uploadReference(page, 'staged-settings.png');
+  expect(calls).toEqual(['POST', 'GET', 'GET', 'GET']);
+  const current = await snapshot(page);
+  expect(current).toMatchObject({ kind: 'Panel', analysis: { status: 'Ready', summary: '两阶段识别确认了设置面板及其可见状态。' } });
+  await expect(page.locator('#main-preview canvas')).toBeVisible();
+  const exported = await page.evaluate(() => (window as any).uiStudio.exportSelected()) as Bundle & { document: { root: { children: Array<{ id: string; props: { checked?: boolean } }> } } };
+  expect(exported.document.root.children).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 'music-switch', props: expect.objectContaining({ checked: false }) }),
+    expect.objectContaining({ id: 'auto-pickup', props: expect.objectContaining({ checked: true }) }),
+  ]));
+});
+
+test('observation-only recognition compiles locally and type corrections do not call the model again', async ({ page }) => {
+  let calls = 0;
+  await ready(page, async (route, source) => {
+    calls++;
+    const observation = { version: '0.2', sourceSha256: source.sha256, status: 'Observed', summary: '自动保存复选框', components: [
+      { id: 'autosave', parentId: null, componentType: 'CheckBox', bounds: { x: 0, y: 0, width: source.width, height: source.height }, evidence: 'A square beside the visible label.', visibleProps: { label: '自动保存', checked: false } },
+    ] };
+    await route.fulfill({ json: { version: '0.4', sourceSha256: source.sha256, status: 'Observed', summary: observation.summary, observation } });
+  });
+  await uploadReference(page, 'semantic-only.png');
+  await expect(page.locator('#semantic-review')).toBeVisible();
+  await expect(page.locator('#preview-disclosure')).toContainText('并非原图美术还原');
+  await page.locator('#semantic-fields summary').click();
+  await page.getByLabel('autosave 组件类型', { exact: true }).selectOption('Switch');
+  await expect(page.locator('#studio-export')).toBeDisabled();
+  await page.locator('#semantic-apply').click();
+  await expect(page.locator('#semantic-missing')).toContainText('勾选状态');
+  expect(await snapshot(page)).toMatchObject({ ready: false, kind: null, views: [], resourceCount: 1 });
+  await page.getByLabel('autosave label', { exact: true }).fill('自动保存');
+  await page.getByLabel('autosave checked', { exact: true }).selectOption('false');
+  await page.getByLabel('autosave checked', { exact: true }).selectOption('');
+  await page.locator('#semantic-apply').click();
+  await expect(page.locator('#semantic-missing')).toContainText('勾选状态');
+  await page.getByLabel('autosave checked', { exact: true }).selectOption('false');
+  await page.locator('#semantic-apply').click();
+  await expect(page.locator('#studio-export')).toBeEnabled();
+  expect((await snapshot(page)).views[0].inspection.nodes.some(node => node.type === 'Switch')).toBe(true);
+  const exported = await page.evaluate(() => (window as any).uiStudio.exportSelected());
+  expect(exported.provenance.description).toContain('neutral preview policy');
+  expect(exported.provenance.description).toContain('revisions: 3');
+  expect(calls).toBe(1);
+  await page.locator('#open-bundle').setInputFiles({ name: 'neutral-roundtrip.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
+  await expect(page.locator('#studio-export')).toBeEnabled();
+  await expect(page.locator('#preview-disclosure')).toBeVisible();
+  await expect(page.locator('#semantic-review')).toBeHidden();
+});
+
+test('missing semantic fields remain explicit until confirmed locally, including an empty Input value', async ({ page }) => {
+  let calls = 0;
+  await ready(page, async (route, source) => {
+    calls++;
+    const observation = { version: '0.2', sourceSha256: source.sha256, status: 'Observed', summary: '玩家名称输入框', components: [
+      { id: 'name', parentId: null, componentType: 'Input', bounds: { x: 0, y: 0, width: source.width, height: source.height }, evidence: 'Visible input box.', visibleProps: { placeholder: '玩家名称' } },
+    ] };
+    await route.fulfill({ json: { version: '0.4', sourceSha256: source.sha256, status: 'Observed', summary: observation.summary, observation } });
+  });
+  await page.locator('#reference-file').setInputFiles({ name: 'semantic-missing.png', mimeType: 'image/png', buffer: pngBytes });
+  await expect(page.locator('#semantic-missing')).toContainText('当前值');
+  await expect(page.locator('#studio-export')).toBeDisabled();
+  await page.locator('#semantic-fields summary').click();
+  await page.getByLabel('name value 已确认', { exact: true }).check();
+  await page.getByLabel('name inputType', { exact: true }).selectOption('text');
+  await page.locator('#semantic-apply').click();
+  await expect(page.locator('#studio-export')).toBeEnabled();
+  expect(calls).toBe(1);
+});
+
+test('semantic v0.2 renders with explicit preview flags and rejects a policy mismatch', async ({ page }) => {
+  let violatePolicy = false;
+  await ready(page, async (route, source) => {
+    const observation = { ...observedSettings(source), version: '0.2' };
+    const contract = flatSettingsResponse(source);
+    if (violatePolicy) contract.nodes[1].props.enabled = false;
+    await route.fulfill({ json: stagedSettingsResponse(source, contract, observation) });
+  });
+  await uploadReference(page, 'semantic-v2-settings.png');
+  await expect(page.locator('#main-preview canvas')).toBeVisible();
+  await expect(page.locator('#studio-export')).toBeEnabled();
+  violatePolicy = true;
+  await page.locator('#reference-file').setInputFiles({ name: 'semantic-v2-policy-mismatch.png', mimeType: 'image/png', buffer: pngBytes });
+  await expect(page.locator('#studio-error')).toBeVisible();
+  await expect.poll(async () => (await snapshot(page)).busy).toBe(false);
+  assertNoPreview(await snapshot(page));
+  await expect(page.locator('#studio-export')).toBeDisabled();
+});
+
+test('a v0.3 contract cannot change an observed CheckBox checked state', async ({ page }) => {
+  await ready(page, async (route, source) => {
+    const contract = structuredClone(flatSettingsResponse(source));
+    const checkbox = contract.nodes.find(node => node.id === 'auto-pickup');
+    if (!checkbox) throw new Error('missing flat checkbox fixture');
+    checkbox.props.checked = false;
+    await route.fulfill({ json: stagedSettingsResponse(source, contract) });
+  });
+  await page.locator('#reference-file').setInputFiles({ name: 'staged-checked-mismatch.png', mimeType: 'image/png', buffer: pngBytes });
+  await expect(page.locator('#studio-error')).toBeVisible();
+  await expect(page.locator('#studio-error')).toHaveAttribute('data-error-detail', /VISION_OBSERVATION_PROPS_MISMATCH/);
+  await expect.poll(async () => (await snapshot(page)).busy).toBe(false);
+  assertNoPreview(await snapshot(page));
+  await expect(page.locator('#studio-export')).toBeDisabled();
+});
+
+test('a v0.3 unresolved observation with no contract is shown as uncertain and never creates a canvas', async ({ page }) => {
+  await ready(page, async (route, source) => {
+    await route.fulfill({ json: {
+      version: '0.3', sourceSha256: source.sha256, status: 'Unresolved', summary: '无法从图中确定控件的交互状态。',
+      observation: { version: '0.1', sourceSha256: source.sha256, status: 'Unresolved', summary: '开关状态被遮挡。' }, contract: null,
+    } });
+  });
+  await page.locator('#reference-file').setInputFiles({ name: 'staged-unresolved.png', mimeType: 'image/png', buffer: pngBytes });
+  await expect.poll(async () => (await snapshot(page)).busy).toBe(false);
+  const current = await snapshot(page);
+  expect(current.analysis).toEqual({ status: 'Unresolved', summary: '无法从图中确定控件的交互状态。' });
+  assertNoPreview(current, 1);
+  await expect(page.locator('#analysis-state')).toBeVisible();
+  await expect(page.locator('#analysis-summary')).toHaveText('无法从图中确定控件的交互状态。');
+  await expect(page.locator('#studio-stage')).toBeHidden();
+  await expect(page.locator('#studio-export')).toBeDisabled();
+});
+
+test('a v0.3 contract cannot replace an observed CheckBox with Image artwork', async ({ page }) => {
+  await ready(page, async (route, source) => {
+    const contract = structuredClone(flatSettingsResponse(source));
+    const replacement = contract.nodes.find(node => node.id === 'auto-pickup');
+    if (!replacement) throw new Error('missing flat checkbox fixture');
+    replacement.componentType = 'Image';
+    replacement.props = { source: source.path, fit: 'stretch' };
+    contract.observedTypes = ['Panel', 'Switch', 'Image'];
+    await route.fulfill({ json: stagedSettingsResponse(source, contract) });
+  });
+  await page.locator('#reference-file').setInputFiles({ name: 'staged-type-mismatch.png', mimeType: 'image/png', buffer: pngBytes });
+  await expect(page.locator('#studio-error')).toBeVisible();
+  await expect(page.locator('#studio-error')).toHaveAttribute('data-error-detail', /VISION_OBSERVATION_TYPE_MISMATCH/);
+  await expect.poll(async () => (await snapshot(page)).busy).toBe(false);
+  assertNoPreview(await snapshot(page));
+  await expect(page.locator('#studio-export')).toBeDisabled();
 });

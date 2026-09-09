@@ -38,7 +38,7 @@ export const VISION_TIMEOUT_MS = 90_000;
 const MAX_IMAGE_DIMENSION = 16_384;
 const MAX_IMAGE_PIXELS = 40_000_000;
 const mimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
-const statuses = new Set(['Ready', 'Unresolved', 'Custom-required']);
+const statuses = new Set(['Ready', 'Observed', 'Unresolved', 'Custom-required']);
 // Canonical UUID text is the only browser-visible analysis handle. The bridge
 // does not interpret its version or map it to a provider-side task identifier.
 const analysisIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,9 +52,9 @@ function record(value, code = 'VISION_INVALID_REQUEST') {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw bridgeError(code);
   return value;
 }
-function exactKeys(value, keys, code = 'VISION_INVALID_REQUEST') {
+function exactKeys(value, keys, code = 'VISION_INVALID_REQUEST', status) {
   const valueKeys = Object.keys(value);
-  if (valueKeys.length !== keys.length || keys.some(key => !Object.hasOwn(value, key))) throw bridgeError(code);
+  if (valueKeys.length !== keys.length || keys.some(key => !Object.hasOwn(value, key))) throw bridgeError(code, status);
 }
 function readU16BE(bytes, offset) { return (bytes[offset] << 8) | bytes[offset + 1]; }
 function readU16LE(bytes, offset) { return bytes[offset] | (bytes[offset + 1] << 8); }
@@ -155,11 +155,23 @@ function encodeProviderResult(value, responseLimit) {
   return { result, encoded };
 }
 function parseEncodedSemanticResult({ result, encoded }, expectedSourceSha256) {
-  if (result.version !== '0.1' || typeof result.sourceSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(result.sourceSha256)
+  const ready = result.version !== '0.4' && result.status === 'Ready';
+  const observed = result.version === '0.4' && result.status === 'Observed';
+  const nonReady = result.status === 'Unresolved' || result.status === 'Custom-required';
+  const keys = result.version === '0.4'
+    ? ['version', 'sourceSha256', 'status', 'summary', 'observation']
+    : result.version === '0.3'
+    ? ['version', 'sourceSha256', 'status', 'summary', 'observation', 'contract']
+    : result.version === '0.1'
+    ? (ready ? ['version', 'sourceSha256', 'status', 'summary', 'intent', 'policy'] : ['version', 'sourceSha256', 'status', 'summary'])
+    : (ready ? ['version', 'sourceSha256', 'status', 'summary', 'classification', 'observedTypes', 'documentId', 'canvas', 'styles', 'nodes'] : ['version', 'sourceSha256', 'status', 'summary']);
+  if (!['0.1', '0.2', '0.3', '0.4'].includes(result.version) || !(ready || observed || nonReady)
+    || typeof result.sourceSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(result.sourceSha256)
     || (expectedSourceSha256 !== undefined && result.sourceSha256 !== expectedSourceSha256)
     || !statuses.has(result.status) || typeof result.summary !== 'string' || !result.summary.trim() || result.summary.length > 2000) {
     throw bridgeError('VISION_INVALID_RESPONSE', 502);
   }
+  exactKeys(result, keys, 'VISION_INVALID_RESPONSE', 502);
   return { status: 200, body: encoded };
 }
 function parseSemanticResult(value, expectedSourceSha256, responseLimit) {

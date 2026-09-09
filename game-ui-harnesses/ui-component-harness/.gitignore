@@ -9,4 +9,5 @@ public/local/
 analysis/button-confirm.observation.json
 *.tgz
 .tmp/
+.npm-cache*/
 .env*.local

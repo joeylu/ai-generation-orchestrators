@@ -1154,3 +1154,17 @@ button:active:not(:disabled),
     animation-iteration-count: 1 !important;
   }
 }
+
+#semantic-fields { max-height: 360px; overflow: auto; }
+#semantic-fields details { padding: 8px 0; border-bottom: 1px solid #d6dce5; }
+#semantic-fields summary { cursor: pointer; overflow-wrap: anywhere; }
+#semantic-fields select, #semantic-fields input { min-width: 0; max-width: 100%; padding: 5px; }
+#semantic-fields label { display: grid; gap: 5px; margin: 8px 0; }
+#semantic-fields .semantic-field { grid-template-columns: 1fr 18px; }
+#semantic-fields .semantic-field span { grid-column: 1 / -1; }
+#semantic-fields small { color: #586779; }
+#semantic-missing { padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }
+#semantic-apply { margin-top: 12px; padding: 8px 12px; }
+#decomposition-panel button { margin: 6px 0; padding: 8px 12px; max-width: 100%; }
+#decomposition-panel .section-copy { overflow-wrap: anywhere; }
+#decomposition-layers { max-height: 180px; overflow: auto; padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }

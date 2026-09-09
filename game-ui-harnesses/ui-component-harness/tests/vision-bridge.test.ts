@@ -8,7 +8,51 @@ import { createVisionBridge, MAX_REQUEST_BYTES, MAX_SOURCE_BYTES, validateVision
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlGQ7YAAAAASUVORK5CYII=', 'base64');
 const source = () => ({ path: 'assets/reference.png', sha256: createHash('sha256').update(png).digest('hex'), width: 1, height: 1, mime: 'image/png', base64: png.toString('base64') });
 const input = () => ({ version: '0.1', source: source() });
-const ready = (value: ReturnType<typeof source>) => ({ version: '0.1', sourceSha256: value.sha256, status: 'Ready', summary: 'Reviewed by a test double.', intent: { opaque: true } });
+const ready = (value: ReturnType<typeof source>) => ({ version: '0.1', sourceSha256: value.sha256, status: 'Ready', summary: 'Reviewed by a test double.', intent: { opaque: true }, policy: { opaque: true } });
+
+test('bridge preserves a flat v0.2 result for strict consumer compilation', async () => {
+  const output = { version: '0.2', sourceSha256: source().sha256, status: 'Ready', summary: 'Flat test data.',
+    classification: 'control', observedTypes: ['Switch'], documentId: 'sample', canvas: { width: 1, height: 1 }, styles: [], nodes: [] };
+  const { server, origin } = await bridgeServer({ adapter: { analyze: async () => output } });
+  try { assert.deepEqual(await call(origin, input()), { status: 200, body: output }); }
+  finally { await close(server); }
+});
+
+test('final semantic envelopes are top-level whitelists and cannot leak adapter fields', async () => {
+  const image = source();
+  const flatReady = {
+    version: '0.2', sourceSha256: image.sha256, status: 'Ready', summary: 'Flat test data.',
+    classification: 'control', observedTypes: ['Switch'], documentId: 'sample', canvas: { width: 1, height: 1 }, styles: [], nodes: [],
+  };
+  const accepted = [
+    ready(image),
+    { version: '0.1', sourceSha256: image.sha256, status: 'Unresolved', summary: 'Required state is not visible.' },
+    flatReady,
+    { version: '0.2', sourceSha256: image.sha256, status: 'Custom-required', summary: 'Required state is not visible.' },
+    { version: '0.3', sourceSha256: image.sha256, status: 'Ready', summary: 'Staged test data.',
+      observation: { version: '0.1', sourceSha256: image.sha256, status: 'Observed', summary: 'Observed by a mock.', components: [] }, contract: flatReady },
+    { version: '0.3', sourceSha256: image.sha256, status: 'Unresolved', summary: 'Observation uncertain.',
+      observation: { version: '0.1', sourceSha256: image.sha256, status: 'Unresolved', summary: 'Observation uncertain.' }, contract: null },
+    { version: '0.4', sourceSha256: image.sha256, status: 'Observed', summary: 'Pure semantic observation.',
+      observation: { version: '0.2', sourceSha256: image.sha256, status: 'Observed', summary: 'Pure semantic observation.', components: [] } },
+    { version: '0.4', sourceSha256: image.sha256, status: 'Custom-required', summary: 'Visible facts need a custom component.',
+      observation: { version: '0.2', sourceSha256: image.sha256, status: 'Custom-required', summary: 'Visible facts need a custom component.' } },
+  ];
+  for (const output of accepted) {
+    const { server, origin } = await bridgeServer({ adapter: { analyze: async () => output } });
+    try { assert.deepEqual(await call(origin, input()), { status: 200, body: output }); }
+    finally { await close(server); }
+  }
+  for (const output of accepted) {
+    const secret = 'private-provider-detail-must-not-reach-browser';
+    const { server, origin } = await bridgeServer({ adapter: { analyze: async () => ({ ...output, providerSecret: secret }) } });
+    try {
+      const response = await call(origin, input());
+      assert.deepEqual(response, { status: 502, body: { version: '0.1', error: 'VISION_INVALID_RESPONSE' } });
+      assert.equal(JSON.stringify(response).includes(secret), false);
+    } finally { await close(server); }
+  }
+});
 
 async function bridgeServer(options: Parameters<typeof createVisionBridge>[0] = {}) {
   const bridge = createVisionBridge(options);
@@ -19,17 +63,32 @@ async function bridgeServer(options: Parameters<typeof createVisionBridge>[0] = 
   return { server, origin };
 }
 async function close(server: ReturnType<typeof createServer>) { server.closeAllConnections?.(); server.close(); await once(server, 'close'); }
+function localRequestOptions(origin: string, endpoint: string, method: string, headers: Record<string, string>) {
+  const target = new URL(endpoint, origin);
+  return { host: target.hostname, port: target.port, path: `${target.pathname}${target.search}`, method, headers };
+}
 async function call(origin: string, body?: unknown, headers: Record<string, string> = {}, method = 'POST', includeOrigin = true, endpoint = '/api/ui-vision') {
   const payload = body === undefined ? undefined : JSON.stringify(body);
-  const response = await fetch(`${origin}${endpoint}`, { method, headers: { ...(includeOrigin ? { Origin: origin } : {}), ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(payload)) } : {}), ...headers }, body: payload });
-  return { status: response.status, body: await response.json() };
+  const requestHeaders = { ...(includeOrigin ? { Origin: origin } : {}), ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(payload)) } : {}), ...headers };
+  return new Promise<{ status: number; body: unknown }>((resolve, reject) => {
+    const request = httpRequest(localRequestOptions(origin, endpoint, method, requestHeaders), response => {
+      let text = ''; response.setEncoding('utf8');
+      response.on('data', part => { text += part; });
+      response.once('end', () => {
+        try { resolve({ status: response.statusCode ?? 0, body: JSON.parse(text) }); }
+        catch (error) { reject(error); }
+      });
+    });
+    request.once('error', reject);
+    request.end(payload);
+  });
 }
 
 test('status does not disclose configuration and an absent adapter never receives a request', async () => {
   const { server, origin } = await bridgeServer({ adapterPath: '' });
   try {
     assert.deepEqual(await call(origin, undefined, {}, 'GET'), { status: 200, body: { version: '0.1', configured: false } });
-    // Node fetch simulates a browser GET that omits Origin but supplies its
+    // A Node HTTP client simulates a browser GET that omits Origin but supplies its
     // same-origin fetch metadata and page referrer.
     assert.deepEqual(await call(origin, undefined, { Referer: `${origin}/index.html`, 'Sec-Fetch-Site': 'same-origin' }, 'GET', false),
       { status: 200, body: { version: '0.1', configured: false } });
@@ -200,8 +259,14 @@ test('a disconnected browser aborts the adapter signal without leaking a provide
   const controller = new AbortController();
   const payload = JSON.stringify(input());
   try {
-    const flight = fetch(`${origin}/api/ui-vision`, { method: 'POST', signal: controller.signal,
-      headers: { Origin: origin, 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(payload)) }, body: payload });
+    const flight = new Promise<void>((resolve, reject) => {
+      const request = httpRequest(localRequestOptions(origin, '/api/ui-vision', 'POST', {
+        Origin: origin, 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(payload)),
+      }), response => { response.resume(); response.once('end', resolve); });
+      request.once('error', reject);
+      controller.signal.addEventListener('abort', () => request.destroy(new Error('TEST_CLIENT_ABORTED')), { once: true });
+      request.end(payload);
+    });
     await started;
     controller.abort();
     await assert.rejects(flight);

@@ -150,12 +150,29 @@ function requiredSources(document: ButtonContract | UiDocument): string[] {
   const sources: string[] = [];
   for (const node of walkNodes(document)) {
     const props = node.props as unknown as Record<string, unknown>;
-    for (const field of ['source', 'fontSource']) {
+    for (const field of ['source', 'fontSource', 'backgroundImage']) {
       const source = props[field];
       if (source !== undefined) {
         if (typeof source !== 'string') fail(`$.document.${node.id}.props.${field}`, 'SOURCE_REQUIRED', '资源引用必须为字符串');
         sources.push(source);
       }
+    }
+    if (node.type === 'Switch' && node.props.appearance) {
+      sources.push(node.props.appearance.trackImage, node.props.appearance.thumbImage);
+    }
+    if (node.type === 'Button' && node.props.appearance) sources.push(node.props.appearance.backgroundImage);
+    if (node.type === 'Select' && node.props.appearance) {
+      sources.push(node.props.appearance.fieldImage, node.props.appearance.arrowImage, node.props.appearance.popupImage);
+    }
+    if (node.type === 'CheckBox' && node.props.appearance) sources.push(node.props.appearance.box.image, node.props.appearance.mark.image);
+    if (node.type === 'RadioGroup' && node.props.appearance) for (const item of node.props.appearance.items) sources.push(item.option.image, item.indicator.image);
+    if (node.type === 'Input' && node.props.appearance) sources.push(node.props.appearance.backgroundImage);
+    if (node.type === 'ProgressBar' && node.props.appearance) sources.push(node.props.appearance.track.image, node.props.appearance.fill.image);
+    if (node.type === 'Slider' && node.props.appearance) sources.push(node.props.appearance.track.image, node.props.appearance.fill.image, node.props.appearance.thumbImage);
+    if (node.type === 'Container' && node.props.appearance) sources.push(node.props.appearance.background.image);
+    if (node.type === 'Panel' && node.props.appearance) {
+      sources.push(node.props.appearance.background.image, node.props.appearance.header.image);
+      if (node.props.appearance.body) sources.push(node.props.appearance.body.image);
     }
   }
   return sources;

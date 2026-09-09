@@ -3,6 +3,10 @@
 Approved scope: full UI mainline, separate component/canvas motion, local Web
 acceptance, deterministic import/export and Agent entry. No remote publication.
 
+The R00-Q61 table and `current-*` report names below are the initial historical
+snapshot. Later dated milestones and the release-candidate verification record
+the current implementation and test counts.
+
 | ID | Deliverable | Dependencies | Status | Acceptance |
 | --- | --- | --- | --- | --- |
 | R00 | Allowlisted migration, root exception, Button repair and baseline | audit | COMPLETE | legacy tests, production browser input and 14 probes |
@@ -16,13 +20,13 @@ acceptance, deterministic import/export and Agent entry. No remote publication.
 | K40 | Switch, CheckBox, RadioGroup | C15 | COMPLETE | actual mouse state changes, enable/disable and events |
 | K41 | ProgressBar, Slider | C15 | COMPLETE | ranges, step, cancellation and explicit program values |
 | K42 | Input, Select | C12/C15 | COMPLETE | keyboard, read-only, disabled input, synthetic composition, popup |
-| K43 | ScrollView, List | C13/C15 | COMPLETE | clipping, wheel, item selection, repeated nodes and cleanup |
+| K43 | ScrollView, List | C13/C15 | COMPLETE | clipping, wheel, content/thumb pointer drag, cancellation, item selection, repeated nodes and cleanup |
 | K44 | Panel, Dialog, Tabs | C13/C15 | COMPLETE | composition, modal isolation, active-page visibility |
 | A50 | Full interactive canvas and node inspector | K40-K44 | COMPLETE | 35-node / 16-type gallery and multi-control interactions |
 | M70/M71 | Separate motion contract, reusable clips and playback | A50 | COMPLETE | explicit offsets, conflicts, seek/stop/replay, restore |
 | H60 | CLI/library, Skill and source packaging | U20 | COMPLETE | fresh source install/build/test and installed CLI/library round trip |
 | Q60 | Engineering end-to-end regression and review | all implemented | COMPLETE | 116 unit tests, 21 production browser tests and reviewed Button |
-| L30 | Real online vision provider | configured provider | BLOCKED | no provider/model/auth selected; never fake success |
+| L30 | Optional vision adapter and protocol | provider-neutral boundary | COMPLETE | local server adapter, strict contracts, offline doubles and separately recorded live evaluations; provider configuration excluded from releases |
 | E80 | Other engine adapters | selected engine/version | BLOCKED | no engine selected |
 | Q61 | Real composite artwork, physical devices, visual signoff | user material/devices | NOT_RUN | procedural fixtures do not prove these |
 
@@ -159,7 +163,7 @@ remains historical evidence, not proof of online vision.
 | --- | --- | --- |
 | M94: upload through semantic compilation | COMPLETE | Removed Image/Button selector; source-bound strict model envelope supports all sixteen types; eight browser cases verify semantic results, export, uncertainty, errors and stale responses |
 | M95: optional local MCP adapter | COMPLETE | Server-only configuration, bounded transport, persisted submission and receipt, no automatic resubmission; eight bridge tests and four MCP adapter tests pass with test doubles |
-| M96: real vision service acceptance | PARTIAL | Business key configured; two real submissions, second Button + Image result normalized and accepted through click/comparison/export/restoration; uninterrupted fresh upload on the final adapter not executed |
+| M96: real vision service acceptance | PARTIAL | Two explicitly authorized local-adapter submissions; the second Button + Image result completed click/comparison/export/restoration; uninterrupted fresh upload on the final adapter not executed |
 | M97: live-response reliability fixes | COMPLETE | Strict recorded one-brace normalization, preserved raw result, at most three read-only queries of the same task after transport errors; 225 unit and 51 browser tests pass; final configured preview restarted |
 
 Executed [semantic upload verification](../reports/studio-vision-verification.json):
@@ -191,6 +195,111 @@ remained unchanged at three. The final screenshot approval timed out, so no new
 screenshot is claimed. This does not change M96's
 uninterrupted fresh-provider-upload limitation.
 
+## Generated-image intent baseline (2026-09-08)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M101: twenty-image coverage and live semantic evaluation | COMPLETE | Twenty reviewed generated images cover sixteen types; twenty single-submission jobs reached terminal states; 7 valid envelopes, 6 compiled results, only 2 semantic passes |
+
+This is a completed evaluation with an adverse result, not acceptance of vision
+stability. Twelve outputs contained invalid JSON, one failed the component
+contract, four compiled as whole-image fallbacks, and one provider task failed.
+No production logic was changed. See [baseline findings](../reports/intent-20-baseline.md).
+
+## Flat vision protocol optimization (2026-09-08)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M102: flat v0.2 intent and deterministic compilation | COMPLETE | Explicit nodes/styles/layout, strict parent and semantic consistency gates, legacy compatibility and instruction-bound cache |
+| M103: bridge and browser regression | COMPLETE | Exact final-envelope whitelist; build, 249 unit tests, self-test, doctor and 58 browser tests passed |
+| M104: same twenty-image live comparison | COMPLETE | Twenty new single-submission results: 19 valid source-bound envelopes, 14 compiled, 11 with all expected types; zero malformed JSON |
+
+These milestones complete the optimization and evaluation, not sixteen-component
+vision acceptance. The source-hash mismatch, five compilation failures and three
+compiled type misses remain failures. No failed output was repaired or
+resubmitted. See [comparison and limits](../reports/intent-flat-live.md).
+
+## Refined intent follow-up (2026-09-08)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M105: explicit type/structure instruction | COMPLETE | Visual distinctions, global IDs, direct-child tab content, style and source binding rules; bounded prompt with offline regression |
+| M106: actionable strict rejection diagnostics | COMPLETE | Bidirectional observed-type equality and stable decoder codes preserved through recognition; build, 252 unit tests and 59 browser tests passed with self-test/doctor |
+| M107: frozen twenty-image follow-up | COMPLETE | Twenty single submissions: 19 valid envelopes, 18 compiled and 12 complete expected-type sets; one provider task failed |
+
+This improves structural success but does not establish stable recognition. The
+ProgressBar regression and six compiled type misses remain recorded failures.
+See [follow-up comparison](../reports/intent-refined-live.md).
+
+## Two-stage experiment (2026-09-09)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M108: observation and contract pipeline | COMPLETE | Strict source/identity/property binding; persistent single-submission stage guards; legacy adapter retained |
+| M109: offline staged verification | COMPLETE | Build, 268 unit tests, self-test, doctor and 63 browser tests passed |
+| M110: frozen twenty plus four live trial | COMPLETE — ADVERSE RESULT | 24 observation and 11 contract tasks; original-set end-to-end 2/20, independent set 0/4; no retries |
+
+The staged adapter remains experimental and off by default. This did not improve
+recognition acceptance over the refined single-stage 12/20 result. Observation
+and rendering remain too coupled; explicit preview runtime policy is still
+needed. See [staged findings](../reports/intent-staged-live.md).
+
+## Pure semantic observation follow-up (2026-09-09)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M111: versioned pure observation and explicit preview policy | COMPLETE | v0.2 excludes render fields, supports bounded semantic parenting, and rejects missing/conflicting preview settings; v0.1 preserved |
+| M112: instruction identity and downgrade protection | COMPLETE | New pipelines require observation v0.2; actual cached stage instructions are bound to current instruction digests; mocked tampering regressions passed |
+| M113: final offline regression | COMPLETE | Final 278 unit tests and build passed; 64 browser tests, self-test and doctor passed |
+| M114: frozen semantic v0.2 live retest | COMPLETE | 24 observations and 24 contracts completed without retries; original-set end-to-end 13/20, added-set 4/4; previous trial records unchanged |
+
+See [revision evidence and limits](../reports/intent-semantic-v2.md). The default
+remains the refined single-stage adapter: the original-set net gain is only one
+sample, with Switch/Slider/ScrollView regressions. See [live retest](../reports/intent-semantic-v2-live.md).
+
+## Deterministic semantic compilation (2026-09-09)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M115: observation-only adapter and deterministic compiler | COMPLETE | One observation task, no model contract; strict v0.4 envelope, measured layouts, explicit neutral preview policy, aggregate missing facts |
+| M116: original-observation offline replay | COMPLETE | Zero provider calls; 18/24 compiled, 17/24 expected-type passes, six incomplete, zero compiler rejections; 18 validated bundles |
+| M117: local correction and preview integration | COMPLETE | Type/scalar corrections recompile locally; missing and empty distinct; edits clear prior preview; neutral notice and export provenance |
+| M118: final regression and local entry switch | COMPLETE | 291 unit tests, 66 browser tests, build, self-test and doctor passed; concurrent polling coalesced; local observation-only adapter restarted and health check configured=true |
+
+The neutral structural preview is not artwork reconstruction. Tabs remain
+Unresolved without a defined content mapping. Model accuracy has not changed;
+the original CheckBox and form Dialog omissions remain. See
+[compiler contract](studio-semantic-compiler.md) and
+[offline replay](../reports/intent-deterministic-replay.md).
+
+## Decomposition and appearance handoff (2026-09-09)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M119: offline public PNG ZIP import | COMPLETE | Stored ZIP and force-ZIP64 local headers; strict inventory, CRC/SHA/digest, scene/receipt and draft/QA checks; importer mutation and malformed-input regressions |
+| M120: engine-neutral appearance binding | COMPLETE | All 16 role definitions; exact document/ZIP/scene/delivery fingerprints; explicit non-cropping registration; complete declared part mappings and top-left Switch thumb endpoint geometry |
+| M121: local Studio handoff | COMPLETE | Original composite PNG preview; explicit target capture and exact target bundle export; binding JSON import/export/restoration; failed replacement clears stale output; zero vision requests in new browser cases |
+| M122: final offline regression | COMPLETE | 305 unit tests, 68 browser tests, build, self-test and doctor PASS; independent Python stored force-ZIP64 writer interoperability PASS |
+| M123: real decomposition artwork and textured control runtime | COMPLETE | Legacy r004 has textured Button/Switch/Select controls; r005 rebuilds Select through the current decomposition ZIP + 0.2 binding + automatic application path |
+
+See [handoff contract](decomposition-appearance.md),
+[evidence and limits](../reports/decomposition-appearance.md), and
+[final verification](../reports/decomposition-appearance-verification.json).
+
+## Legacy layered pilot runtime (2026-09-09)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M124: legacy r002 ZIP compatibility | COMPLETE | Bounded Node-only stored/deflate reader; 22 manifest files verified; legacy metadata retained without synthetic current receipts; explicit layer-to-Button conversion |
+| M125: transparent images and textured Buttons | COMPLETE | Optional Button backgroundImage and Image drawBackground=false; resource ownership, label suppression, transparent pixel/browser regression and bundle restoration passed |
+| M126: real settings pilot | COMPLETE | Three Buttons × four schemes = 12 target-specific activations; each scheme export/restoration passed with exact source resources; native-size screenshot max channel error 1, alpha error 0; no provider calls |
+| M127: full regression | COMPLETE | 312 unit tests, 69 browser tests, build, self-test and doctor PASS |
+
+See [legacy case contract and evidence](legacy-layered-case.md) and
+[final regression](../reports/legacy-layered-verification.json). Business actions
+are NOT_WIRED. Toggle/Select interactivity and state-part decomposition remain
+NOT_RUN; source pixels include raster text and approximate legacy coordinates.
+
 ## Remaining external acceptance
 
 Additional real-input acceptance (2026-09-08): the new 272×128 “购买” Button was
@@ -199,9 +308,60 @@ with 14 probes and restored after a full page reload from its portable bundle.
 See [second Button acceptance](../reports/purchase-button-review.md). This extends
 real Button evidence; it does not resolve the composite-artwork requirement.
 
-The optional online vision adapter is now configured locally with real Button
-evidence as recorded above. A second engine/version remains BLOCKED.
-Real composite artwork/clean layers, physical touch/pen and native IME panels,
+Historical local-adapter evidence is recorded above; it does not select a public
+provider or assert current service availability. A second engine/version remains BLOCKED.
+Complete composite controls with clean state-specific layers, physical touch/pen and native IME panels,
 additional browsers, narrow physical devices and user visual signoff are NOT_RUN.
 Explicit CORS/timeout/WebGL-context-loss fault injection and long-duration memory
 pressure are NOT_RUN; implemented handling is not a claim those injections passed.
+
+## Layered raster Switch runtime (2026-09-09)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M128: transparent Toggle part assets | COMPLETE | Music and Sound each provide a registered RGBA track and thumb; technical Alpha/zero-RGB/canvas checks passed; generated occlusion fill is recorded rather than claimed as source-identical |
+| M129: portable Switch appearance contract | COMPLETE | Optional track/thumb resources, source canvas and explicit off/on positions validate strictly; ordinary procedural Switch documents remain compatible |
+| M130: PixiJS interaction and export | COMPLETE | Both real settings Toggle controls move on click, all four schemes retain appearance data, exported bundle validates, runtime provider calls remain zero |
+| M131: regression | COMPLETE | 313 unit tests, focused raster Switch browser test and production build passed; the focused Playwright runner reported its test passed before its Windows web-server teardown was manually stopped |
+
+The r003 case replaces the two legacy static Toggle layers with live Switch nodes.
+
+## Layered raster Select runtime (2026-09-09)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M132: transparent Select part assets | COMPLETE | A 300×100 field, 30×21 arrow and 300×225 three-row popup are registered RGBA assets; the original visible label stays semantic text |
+| M133: portable Select appearance contract | COMPLETE | Optional field/arrow/popup resources, source canvases and explicit label/arrow layouts validate strictly; existing procedural Select documents remain compatible |
+| M134: PixiJS popup interaction and export | COMPLETE | Real r004 starts at 高清, opens three rows, selects 中等, and closes with updated semantic state; all four schemes preserve the three appearance resources and export valid bundles |
+| M135: regression and real-case acceptance | COMPLETE | 314 unit tests, production build, all 71 browser tests and Edge real-case acceptance passed; no runtime provider calls or console errors |
+
+The generated field and popup fill are visually reviewed local pilot assets, not
+claims of exact recovery for pixels hidden by baked text. Automatic application
+is covered below.
+
+## Automatic appearance application (2026-09-09)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M136: application-ready binding contract | COMPLETE | 0.1 stays validation/export-only; 0.2 requires explicit Button/Switch label geometry, Switch endpoints, Select popup layer and below-start placement |
+| M137: deterministic appearance compiler | COMPLETE | Reauthenticates target/ZIP/binding; applies Button, Switch and Select; full archive SHA namespace; preserves source resources and motion; rejects stale geometry and overwrite |
+| M138: Studio direct application | COMPLETE | “应用绑定并预览” compiles and mounts locally; live Button/Switch/Select interactions, four schemes and export work without model calls |
+| M139: current-format real pilot r005 | COMPLETE | Real Select layers packaged as a current decomposition draft ZIP, applied from target + 0.2 binding, changed 高清→中等, and exported under all four schemes |
+| M140: regression | COMPLETE | 316 unit tests, 72 browser tests and production build passed; r005 Edge acceptance recorded zero provider calls and zero console errors |
+| M141: first additional-control binding schemas | COMPLETE | CheckBox box/mark, per-option RadioGroup layers and hit areas, Input value/placeholder layouts, full-fill clips, and Slider endpoints are explicit in 0.2 |
+| M142: five runtime texture adapters | COMPLETE | CheckBox, RadioGroup, Input, ProgressBar and Slider preserve semantic state, dynamic text, clipping, hit testing and drag projection |
+| M143: deterministic first-batch application | COMPLETE | Five component types authenticate exact target/ZIP geometry, copy only bound bytes, reject overlap/stale state/existing appearance, and export portably |
+| M144: first-batch regression | COMPLETE | 319 unit tests, all 73 browser tests and production build passed without a vision-provider request |
+| M145: remaining appearance contracts | COMPLETE | Image, Text, Container, ScrollView, List, Panel, Dialog and Tabs have explicit 0.2 bindings with dynamic semantic content preserved |
+| M146: full PixiJS runtime coverage | COMPLETE | All 16 component types support deterministic appearance application; repeated rows/tabs, scroll thumbs and modal overlays use explicit geometry |
+| M147: second-batch regression (2026-09-10 snapshot) | COMPLETE | 323 unit tests, all 76 browser tests and production build passed without a vision-provider request |
+| M148: visible interaction feedback | COMPLETE | All ten directly interactive types pass both state-change and canvas-pixel-change checks; unbound Button press and RadioGroup/List/Tabs redraw fallbacks are covered |
+| M149: full 16-type E2E case | COMPLETE | One portable bundle contains all 16 types, exercises all ten interactive types, preserves three authenticated layered-source identities, exports a preview and passes with zero provider calls |
+
+## 0.2.0 release candidate (2026-09-10)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M150: `0.2.0-rc.1` freeze | COMPLETE | 16 component contracts and deterministic appearance application frozen; ten interactive types have state and visible-pixel feedback; Playful/Premium/Corporate profiles cover all 16 types |
+| M151: release boundary | COMPLETE | PixiJS/Web is the only accepted renderer; provider configuration, runtime state, user media and execution reports are excluded from release archives |
+| M152: release verification and artifacts | COMPLETE | fresh build, 323 unit tests, self-test, doctor and 76/76 browser tests passed; deterministic source ZIP, npm package and verification evidence are bound by `release-manifest.json` |

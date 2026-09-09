@@ -1,6 +1,6 @@
 {
   "name": "ui-component-harness",
-  "version": "0.2.0",
+  "version": "0.2.0-rc.1",
   "description": "Agent entry point for strict UI component and motion contracts, local PixiJS browser checks, and verified portable bundles.",
   "entry": "SKILL.md",
   "cli": "ai-ui-component",
