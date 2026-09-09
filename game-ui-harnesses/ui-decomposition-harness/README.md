@@ -123,7 +123,8 @@ application's web UI and deployment. No web server or Docker image is included.
 For an appearance-binding 0.2 delivery, two native-transparent supplemental
 boards can be split without provider access: a fixed 4x6 interactive-role board
 and a fixed 4x3 structural-role board whose final cell is reserved and empty.
-The command authenticates both source images, rejects missing roles or a populated reserved slot,
+The command authenticates both source images, rejects missing roles, incompatible
+List/Tab state-template geometry, or a populated reserved slot,
 exports 35 named PNG parts, and writes a deterministic draft ZIP:
 
 ```console

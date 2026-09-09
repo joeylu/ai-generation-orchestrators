@@ -255,6 +255,9 @@ The supplemental command assigns significant Alpha-connected regions to the
 mathematical grid line without being cut. It emits 24 interactive parts and 11
 structural parts in the documented role order. The twelfth structural cell is
 reserved and must contain no Alpha at or above the threshold.
+List normal/selected rows and Tabs inactive/active templates must have matching
+normalized geometry. Accepted pairs are padded, without resizing, to identical
+transparent canvases required by the component runtime.
 
 Generated component results must contain real transparent and opaque pixels. The
 runner preserves that Alpha directly and rejects opaque RGB or rendered

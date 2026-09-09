@@ -57,6 +57,11 @@ class SupplementalBoardTests(unittest.TestCase):
         self.assertEqual(manifest["assets"][0]["role"], "track")
         self.assertEqual(manifest["assets"][-1]["role"], "active-tab")
         self.assertGreater(manifest["assets"][0]["near_opaque_pixels_promoted"], 0)
+        rows = {row["id"]: row for row in manifest["assets"]}
+        self.assertEqual((rows["list_row"]["width"], rows["list_row"]["height"]),
+                         (rows["list_selected_row"]["width"], rows["list_selected_row"]["height"]))
+        self.assertEqual((rows["tabs_tab"]["width"], rows["tabs_tab"]["height"]),
+                         (rows["tabs_active_tab"]["width"], rows["tabs_active_tab"]["height"]))
         with zipfile.ZipFile(first / "ui-roles.supplemental.draft.zip") as archive:
             self.assertIsNone(archive.testzip())
             self.assertEqual(len(archive.namelist()), 36)
@@ -84,6 +89,19 @@ class SupplementalBoardTests(unittest.TestCase):
         result = split_supplemental_boards(
             interactive, structural, self.root / "output", "ui-roles")
         self.assertEqual(result["asset_count"], 35)
+
+    def test_rejects_state_templates_with_different_normalized_geometry(self):
+        interactive = self.board("interactive.png", 4, 6, len(INTERACTIVE_SLOTS))
+        structural = self.board("structural.png", 4, 3, len(STRUCTURAL_SLOTS))
+        with Image.open(structural) as source:
+            image = source.convert("RGBA")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((2 * 100, 2 * 100, 2 * 100 + 99, 2 * 100 + 99), fill=(0, 0, 0, 0))
+        draw.rectangle((2 * 100 + 10, 2 * 100 + 40, 2 * 100 + 90, 2 * 100 + 60),
+                       fill=(20, 150, 220, 255))
+        image.save(structural)
+        with self.assertRaisesRegex(ContractError, "SUPPLEMENTAL_BOARD_TAB_TEMPLATE_GEOMETRY_MISMATCH"):
+            split_supplemental_boards(interactive, structural, self.root / "output", "ui-roles")
 
 
 if __name__ == "__main__":

@@ -61,6 +61,39 @@ STRUCTURAL_SLOTS = (
 )
 
 
+def _normalized_size(bounds: tuple[int, int, int, int], canvas: tuple[int, int],
+                     columns: int, rows: int) -> tuple[float, float]:
+    return ((bounds[2] - bounds[0]) / (canvas[0] / columns),
+            (bounds[3] - bounds[1]) / (canvas[1] / rows))
+
+
+def _require_matching_template_geometry(
+        left: tuple[int, int, int, int], left_canvas: tuple[int, int], left_grid: tuple[int, int],
+        right: tuple[int, int, int, int], right_canvas: tuple[int, int], right_grid: tuple[int, int],
+        code: str) -> None:
+    left_size = _normalized_size(left, left_canvas, *left_grid)
+    right_size = _normalized_size(right, right_canvas, *right_grid)
+    require(all(abs(a - b) / max(a, b) <= 0.1 for a, b in zip(left_size, right_size)), code)
+
+
+def _equalize_pair_canvases(assets: list[dict], output: Path, first_id: str, second_id: str) -> None:
+    rows = {row["id"]: row for row in assets}
+    first, second = rows[first_id], rows[second_id]
+    paths = [output / first["file"], output / second["file"]]
+    images = [Image.open(path).convert("RGBA") for path in paths]
+    target = (max(image.width for image in images), max(image.height for image in images))
+    for row, path, image in zip((first, second), paths, images):
+        left = (target[0] - image.width) // 2
+        top = (target[1] - image.height) // 2
+        canvas = Image.new("RGBA", target, (0, 0, 0, 0))
+        canvas.alpha_composite(image, (left, top))
+        canvas.save(path, "PNG", optimize=True)
+        row["width"], row["height"] = target
+        row["canvas_padding"] = [left, top, target[0] - image.width - left,
+                                 target[1] - image.height - top]
+        row["sha256"] = sha256(path)
+
+
 def _validate_board(path: Path, columns: int, rows: int, blank_slots: set[int]) -> tuple[Image.Image, dict, list[tuple[int, int, int, int]], dict]:
     picture, evidence = load_verified_image(path.resolve())
     require(evidence["alpha_extrema"][0] == 0 and evidence["alpha_extrema"][1] >= 250,
@@ -149,6 +182,14 @@ def split_supplemental_boards(interactive_path: Path, structural_path: Path,
             "SUPPLEMENTAL_BOARD_INTERACTIVE_COUNT")
     require(len(structural_bounds) == len(STRUCTURAL_SLOTS),
             "SUPPLEMENTAL_BOARD_STRUCTURAL_COUNT")
+    _require_matching_template_geometry(
+        interactive_bounds[23], interactive.size, (INTERACTIVE_COLUMNS, INTERACTIVE_ROWS),
+        structural_bounds[8], structural.size, (STRUCTURAL_COLUMNS, STRUCTURAL_ROWS),
+        "SUPPLEMENTAL_BOARD_LIST_TEMPLATE_GEOMETRY_MISMATCH")
+    _require_matching_template_geometry(
+        structural_bounds[9], structural.size, (STRUCTURAL_COLUMNS, STRUCTURAL_ROWS),
+        structural_bounds[10], structural.size, (STRUCTURAL_COLUMNS, STRUCTURAL_ROWS),
+        "SUPPLEMENTAL_BOARD_TAB_TEMPLATE_GEOMETRY_MISMATCH")
 
     staging = output_path.with_name(f".{output_path.name}.{uuid.uuid4().hex}")
     staging.mkdir(parents=True, exist_ok=False)
@@ -161,6 +202,8 @@ def split_supplemental_boards(interactive_path: Path, structural_path: Path,
             *(_asset_row(structural, bounds, slot, index + 1 + len(INTERACTIVE_SLOTS), staging, padding)
               for index, (bounds, slot) in enumerate(zip(structural_bounds, STRUCTURAL_SLOTS))),
         ]
+        _equalize_pair_canvases(assets, staging, "list_row", "list_selected_row")
+        _equalize_pair_canvases(assets, staging, "tabs_tab", "tabs_active_tab")
         manifest = {
             "kind": "ai_ui_supplemental_asset_boards_draft_v1",
             "document": document,
@@ -189,6 +232,8 @@ def split_supplemental_boards(interactive_path: Path, structural_path: Path,
                 "reserved_slot_empty": True,
                 "transparent_rgb_zero": True,
                 "all_assets_have_transparent_and_opaque_pixels": True,
+                "paired_template_geometry_compatible": True,
+                "paired_template_canvases_equal": True,
             },
         }
         manifest["digest"] = digest(manifest)
