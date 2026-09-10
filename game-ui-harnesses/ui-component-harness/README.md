@@ -35,6 +35,8 @@ npm run dev
 再针对已固定的组件方案导入、校验和导出外观绑定 JSON。0.2 绑定可在本地确定性应用到
 全部 16 类组件合同；当前直接交互与视觉验收由 PixiJS 适配器实现。0.1 绑定保持只校验/导出兼容。
 绑定角色与运行时应用目录都覆盖 16 类组件，错误角色、状态或几何会明确拒绝应用。
+上游完成这两份明确合同时，也可只交付一个 `ui.component-handoff[.draft].zip`，通过
+`ai-ui-component component-handoff <zip> --output ui-bundle.json` 一次完成认证和应用。
 操作顺序与接口见 [拆分素材接入](docs/decomposition-appearance.md)。
 旧版 PSD 实验 ZIP 可通过 [旧包适配](docs/legacy-layered-case.md) 转成组件方案。
 分层外观会保留语义文字与真实交互，包括按钮点击、开关/复选切换、单选命中、输入法桥、
@@ -92,7 +94,7 @@ npm run test:browser
 测试强制软件 WebGL，不调用模型。生产预览测试设置 `UI_HARNESS_PREVIEW=1`。
 已有独立测试服务器时设置 `UI_HARNESS_EXTERNAL_SERVER=1`，测试将不接管该服务的生命周期。
 
-CLI 提供 `run`、`validate`、`inspect`、`compile`、`pack`、`unpack`、`self-test`、`doctor`。
+CLI 提供 `run`、`validate`、`inspect`、`compile`、`pack`、`component-handoff`、`unpack`、`self-test`、`doctor`。
 library 导出编译/校验/资源包/动效合同，不导入 DOM 或 PixiJS。`run` 的可选 Playwright
 适配器只连接已另行启动的本地 workbench；npm 安装包不携带 Web 发行物，也不会自动安装浏览器。
 源码目录存在时 runner 只加载 `src/` 图；安装包没有 `src/` 时才加载 `lib/`，不会混用两者。

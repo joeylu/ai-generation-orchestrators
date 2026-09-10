@@ -15,6 +15,8 @@ export const MAX_DECOMPOSITION_JSON_BYTES = 2 * 1024 * 1024;
 export const MAX_DECOMPOSITION_LAYERS = 256;
 export const MAX_DECOMPOSITION_IMAGE_PIXELS = 67_108_864;
 export const MAX_DECOMPOSITION_LAYER_PIXELS = 33_554_432;
+export const MAX_COMPONENT_HANDOFF_JSON_BYTES = 64 * 1024 * 1024;
+export const MAX_COMPONENT_HANDOFF_ARCHIVE_BYTES = 324 * 1024 * 1024;
 
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 const ZIP_EOCD = 0x06054b50;
@@ -189,8 +191,8 @@ function crc32(bytes: Uint8Array): number {
   return (value ^ 0xffffffff) >>> 0;
 }
 
-function parseZip(source: Uint8Array): ParsedZip {
-  if (!(source instanceof Uint8Array) || source.length < 22 || source.length > MAX_DECOMPOSITION_ARCHIVE_BYTES) fail('ZIP_SIZE_LIMIT');
+function parseZip(source: Uint8Array, maximumBytes = MAX_DECOMPOSITION_ARCHIVE_BYTES): ParsedZip {
+  if (!(source instanceof Uint8Array) || source.length < 22 || source.length > maximumBytes) fail('ZIP_SIZE_LIMIT');
   const copy = new Uint8Array(source);
   const searchStart = Math.max(0, copy.length - 0xffff - 22);
   let eocd = -1;
@@ -251,7 +253,7 @@ function parseZip(source: Uint8Array): ParsedZip {
     const dataEnd = checkedEnd(localExtraEnd, entry.size, centralOffset, 'ZIP_LOCAL_HEADER_INVALID');
     if (crc32(copy.subarray(localExtraEnd, dataEnd)) !== entry.crc) fail('ZIP_CRC_MISMATCH');
     previousLocalEnd = dataEnd; total += entry.size;
-    if (total > MAX_DECOMPOSITION_ARCHIVE_BYTES) fail('ZIP_UNCOMPRESSED_SIZE_LIMIT');
+    if (total > maximumBytes) fail('ZIP_UNCOMPRESSED_SIZE_LIMIT');
     members.set(entry.name, { name: entry.name, bytes: new Uint8Array(copy.subarray(localExtraEnd, dataEnd)) });
   }
   if (previousLocalEnd !== centralOffset) fail('ZIP_LOCAL_LAYOUT_INVALID');
@@ -313,7 +315,10 @@ class JsonReader {
 }
 
 function readJson(member: ZipMember, code: string): Record<string, unknown> {
-  if (member.bytes.length === 0 || member.bytes.length > MAX_DECOMPOSITION_JSON_BYTES) fail(code);
+  return readJsonBounded(member, code, MAX_DECOMPOSITION_JSON_BYTES);
+}
+function readJsonBounded(member: ZipMember, code: string, maximum: number): Record<string, unknown> {
+  if (member.bytes.length === 0 || member.bytes.length > maximum) fail(code);
   let text: string;
   try { text = new TextDecoder('utf-8', { fatal: true }).decode(member.bytes); } catch { return fail(code); }
   const parsed = new JsonReader(text).read();
@@ -511,6 +516,66 @@ export async function importDecompositionZip(input: Uint8Array): Promise<Importe
   });
   trustedImports.set(result, { archive: rawArchive, resourceDigests: layers.map(layer => layer.sha256), previewDigest: scene.previewSha256 });
   return result;
+}
+
+export interface ImportedComponentHandoffArchive {
+  readonly archiveSha256: string;
+  readonly decomposition: ImportedDecomposition;
+  readonly componentBundle: Readonly<Record<string, unknown>>;
+  readonly appearanceBinding: Readonly<Record<string, unknown>>;
+  readonly review: Readonly<{
+    deliveryPolicy: 'reviewed' | 'unreviewed_draft';
+    humanVisualAcceptance: boolean;
+  }>;
+}
+
+/**
+ * Authenticate the outer single-file handoff. The embedded decomposition ZIP
+ * remains byte-identical, so its existing archive-bound appearance contract
+ * has no circular fingerprint dependency.
+ */
+export async function importComponentHandoffArchive(input: Uint8Array): Promise<ImportedComponentHandoffArchive> {
+  if (!(input instanceof Uint8Array) || input.length > MAX_COMPONENT_HANDOFF_ARCHIVE_BYTES) fail('COMPONENT_HANDOFF_SIZE_LIMIT');
+  const raw = new Uint8Array(input); const archive = parseZip(raw, MAX_COMPONENT_HANDOFF_ARCHIVE_BYTES);
+  const manifestMember = archive.members.get('handoff.json');
+  const bundleMember = archive.members.get('component.ui-bundle.json');
+  const bindingMember = archive.members.get('appearance-binding.json');
+  if (!manifestMember || !bundleMember || !bindingMember) fail('COMPONENT_HANDOFF_REQUIRED_MEMBER');
+  const manifest = exactObject(readJson(manifestMember, 'COMPONENT_HANDOFF_MANIFEST_JSON'),
+    ['kind', 'status', 'decomposition', 'component_bundle', 'appearance_binding', 'delivery_policy', 'human_visual_acceptance'],
+    'COMPONENT_HANDOFF_MANIFEST');
+  if (manifest.kind !== 'ai_ui_component_handoff_v1') fail('COMPONENT_HANDOFF_KIND');
+  const policy = manifest.delivery_policy;
+  if (policy !== 'reviewed' && policy !== 'unreviewed_draft') fail('COMPONENT_HANDOFF_POLICY');
+  const accepted = boolean(manifest.human_visual_acceptance, 'COMPONENT_HANDOFF_ACCEPTANCE');
+  if (accepted !== (policy === 'reviewed')) fail('COMPONENT_HANDOFF_ACCEPTANCE');
+  if (manifest.status !== (accepted ? 'contracts_packaged_reviewed' : 'contracts_packaged_unreviewed_draft')) fail('COMPONENT_HANDOFF_STATUS');
+  const entry = (value: unknown, expectedPath: string | undefined, code: string) => {
+    const row = exactObject(value, ['path', 'sha256'], code);
+    if (typeof row.path !== 'string') fail(code);
+    safeZipPath(row.path);
+    if (expectedPath !== undefined && row.path !== expectedPath) fail(code);
+    return { path: row.path, sha256: sha(row.sha256, code) };
+  };
+  const decompositionEntry = entry(manifest.decomposition, undefined, 'COMPONENT_HANDOFF_DECOMPOSITION');
+  if (!/^decomposition\/[a-z][a-z0-9_-]{0,63}(?:\.draft)?\.zip$/.test(decompositionEntry.path)) fail('COMPONENT_HANDOFF_DECOMPOSITION');
+  const bundleEntry = entry(manifest.component_bundle, 'component.ui-bundle.json', 'COMPONENT_HANDOFF_BUNDLE');
+  const bindingEntry = entry(manifest.appearance_binding, 'appearance-binding.json', 'COMPONENT_HANDOFF_BINDING');
+  const names = ['appearance-binding.json', 'component.ui-bundle.json', decompositionEntry.path, 'handoff.json'].sort();
+  if (archive.names.length !== names.length || archive.names.some((name, index) => name !== names[index])) fail('COMPONENT_HANDOFF_INVENTORY');
+  const decompositionMember = archive.members.get(decompositionEntry.path);
+  if (!decompositionMember) fail('COMPONENT_HANDOFF_DECOMPOSITION');
+  await verifyDigest(decompositionMember.bytes, decompositionEntry.sha256, 'COMPONENT_HANDOFF_DECOMPOSITION_DIGEST');
+  await verifyDigest(bundleMember.bytes, bundleEntry.sha256, 'COMPONENT_HANDOFF_BUNDLE_DIGEST');
+  await verifyDigest(bindingMember.bytes, bindingEntry.sha256, 'COMPONENT_HANDOFF_BINDING_DIGEST');
+  const decomposition = await importDecompositionZip(decompositionMember.bytes);
+  if (decomposition.archiveSha256 !== decompositionEntry.sha256
+    || decomposition.review.deliveryPolicy !== policy
+    || decomposition.review.humanVisualAcceptance !== accepted) fail('COMPONENT_HANDOFF_DECOMPOSITION_MISMATCH');
+  const componentBundle = freeze(readJsonBounded(bundleMember, 'COMPONENT_HANDOFF_BUNDLE_JSON', MAX_COMPONENT_HANDOFF_JSON_BYTES));
+  const appearanceBinding = freeze(readJson(bindingMember, 'COMPONENT_HANDOFF_BINDING_JSON'));
+  return freeze({ archiveSha256: await sha256(raw), decomposition, componentBundle, appearanceBinding,
+    review: { deliveryPolicy: policy, humanVisualAcceptance: accepted } });
 }
 
 /**

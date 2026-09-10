@@ -20,7 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ai_ui_decomposition import batch, planning
 from ai_ui_decomposition.assembly import finalize, inspect_delivery
 from ai_ui_decomposition.adapter import export_request
-from ai_ui_decomposition.common import ContractError, digest, read_json, write_json
+from ai_ui_decomposition.common import ContractError, digest, read_json, sha256, write_json
+from ai_ui_decomposition.component_handoff import export_component_handoff
 from ai_ui_decomposition.headless import auto_run, job_status
 from ai_ui_decomposition.mcp_provider import AsyncMcpProvider, _NoRedirect
 from ai_ui_decomposition.process import process
@@ -186,6 +187,35 @@ class HeadlessTests(unittest.TestCase):
         path.write_bytes(b'corrupt')
         with self.assertRaisesRegex(ContractError, 'JOB_ARTIFACT_CHANGED'):
             job_status(self.job)
+
+    def test_component_handoff_packages_one_authenticated_outer_archive(self):
+        result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                          timeout_seconds=60, authorized=True, output_format='png_zip')
+        target = self.root / 'component.ui-bundle.json'
+        target.write_text('{"bundleVersion":"0.2"}\n', encoding='utf-8')
+        binding = self.root / 'appearance-binding.json'
+        write_json(binding, {
+            'kind': 'ui-appearance-binding', 'version': '0.2',
+            'documentSha256': 'a' * 64,
+            'deliveryDigest': read_json(self.job / 'delivery/delivery.json')['digest'],
+            'sceneSha256': sha256(self.job / 'delivery/scene.json'),
+            'archiveSha256': result['artifacts']['png_zip']['sha256'],
+            'registration': {}, 'bindings': [],
+        })
+        handoff = export_component_handoff(self.job / 'delivery', target, binding)
+        self.assertEqual(handoff['status'], 'archive_roundtrip_passed')
+        archive_path = self.job / 'delivery' / handoff['file']
+        with zipfile.ZipFile(archive_path) as archive:
+            self.assertEqual(archive.namelist(), [
+                'appearance-binding.json', 'component.ui-bundle.json',
+                'decomposition/ui.draft.zip', 'handoff.json'])
+            manifest = json.loads(archive.read('handoff.json'))
+            self.assertEqual(manifest['decomposition']['sha256'],
+                             result['artifacts']['png_zip']['sha256'])
+            self.assertFalse(manifest['human_visual_acceptance'])
+            with zipfile.ZipFile(io.BytesIO(archive.read('decomposition/ui.draft.zip'))) as inner:
+                self.assertIn('scene.json', inner.namelist())
+                self.assertIn('layers/button_one.png', inner.namelist())
 
     def test_low_available_memory_warns_but_full_job_continues(self):
         with patch('ai_ui_decomposition.resources.available_memory_bytes',

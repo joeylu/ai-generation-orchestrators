@@ -8,19 +8,38 @@ The later [legacy pilot adapter](legacy-layered-case.md) adds a direct Button
 texture path. It does not apply this standalone binding document automatically;
 the limitations below concern this binding-driven path.
 
-The current path is:
+The complete one-file path is:
 
 ```text
-Original reference → semantic observation → deterministic UI document
-Decomposition PNG ZIP → integrity validation → layer inventory + original preview
-                    UI document + explicit registration + layer-role mapping
+Original reference → semantic observation → deterministic component.ui-bundle.json
+Decomposition PNG ZIP → integrity validation → scene.json + PNG layers + preview
+                  exact component target + explicit layer-role binding
                                       ↓
-                         validated appearance-binding JSON
+                 ui.component-handoff[.draft].zip (single file)
                                       ↓
-                 deterministic application for all 16 component types
+              authenticated import + deterministic appearance application
                                       ↓
                      interactive PixiJS preview + portable bundle
 ```
+
+The outer ZIP is the transfer boundary between the two Harnesses. It contains
+`handoff.json`, the unchanged decomposition ZIP under `decomposition/`, the exact
+`component.ui-bundle.json`, and its `appearance-binding.json`. The manifest
+authenticates all three payloads. The nested decomposition receipt and scene then
+authenticate every PNG again. No filename-based component inference is performed.
+
+Consume it from the library with
+`importAndApplyComponentHandoff(archiveBytes)`, or from the offline CLI:
+
+```text
+ai-ui-component component-handoff ui.component-handoff.draft.zip \
+  --output ui-bundle.json
+```
+
+The command validates the outer manifest, nested decomposition delivery,
+component contract, binding geometry, role completeness, and all referenced PNG
+bytes before writing a new portable bundle. It refuses to overwrite an existing
+output.
 
 The Studio can display the package's original `preview.png` as a static material
 check. A validated 0.2 binding can be applied to all 16 component types in the
@@ -180,9 +199,10 @@ adapter therefore cannot infer source registration, recreate missing text,
 recover omitted control parts, or recover nine-slice settings from this ZIP.
 
 Nine-slice metadata, multiple repeated-item visual variants and automatic
-binding authoring remain future work.
+binding authoring remain future work. The one-file handoff removes manual file
+coordination; it does not guess semantic component types, text, actions, states,
+or layer roles.
 Visual acceptance remains separate from deterministic compilation.
 
-Offline executed evidence is recorded in
-The repository retains the dated verification report separately from the public
-release archive.
+Offline executed evidence is recorded in [tasks.md](tasks.md). The repository
+retains dated verification reports separately from the public release archive.

@@ -64,6 +64,11 @@ def parser() -> argparse.ArgumentParser:
     export = commands.add_parser("export")
     export.add_argument("--delivery", required=True, type=Path)
     export.add_argument("--format", choices=("png_zip",), help="Additional ZIP export from an existing verified delivery; does not rewrite its plan")
+    component_handoff = commands.add_parser(
+        "component-handoff", help="Package one self-contained ZIP for ui-component-harness")
+    component_handoff.add_argument("--delivery", required=True, type=Path)
+    component_handoff.add_argument("--component-bundle", required=True, type=Path)
+    component_handoff.add_argument("--appearance-binding", required=True, type=Path)
     adapter_export = commands.add_parser("adapter-export")
     adapter_export.add_argument("--run-dir", required=True, type=Path)
     adapter_export.add_argument("--asset", required=True)
@@ -97,6 +102,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def execute(args) -> dict:
+    if args.command == "component-handoff":
+        from .component_handoff import export_component_handoff
+        return export_component_handoff(args.delivery, args.component_bundle,
+                                        args.appearance_binding)
     if args.command == "split-supplemental-boards":
         from .supplemental_boards import split_supplemental_boards
         return split_supplemental_boards(

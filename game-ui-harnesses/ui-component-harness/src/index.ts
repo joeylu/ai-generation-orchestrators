@@ -19,3 +19,4 @@ export * from './vision-semantic-compiler.ts';
 export * from './decomposition-import.ts';
 export * from './appearance-binding.ts';
 export * from './appearance-apply.ts';
+export * from './component-handoff.ts';

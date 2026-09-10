@@ -365,3 +365,11 @@ is covered below.
 | M150: `0.2.0-rc.1` freeze | COMPLETE | 16 component contracts and deterministic appearance application frozen; ten interactive types have state and visible-pixel feedback; Playful/Premium/Corporate profiles cover all 16 types |
 | M151: release boundary | COMPLETE | PixiJS/Web is the only accepted renderer; provider configuration, runtime state, user media and execution reports are excluded from release archives |
 | M152: release verification and artifacts | COMPLETE | fresh build, 323 unit tests, self-test, doctor and 76/76 browser tests passed; deterministic source ZIP, npm package and verification evidence are bound by `release-manifest.json` |
+
+## Self-contained decomposition handoff (2026-09-10)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M153: authenticated outer handoff archive | COMPLETE | One archive binds the unchanged decomposition ZIP, exact semantic component bundle and explicit 0.2 appearance binding; nested and outer SHA-256 values are verified before use |
+| M154: direct component compiler entry | COMPLETE | `importAndApplyComponentHandoff` and `ai-ui-component component-handoff ... --output ...` validate and apply the package without provider calls or filename inference |
+| M155: offline regression | COMPLETE | 326 unit tests and production build pass; success and stale component-bundle digest paths are covered, including the CLI output path |
