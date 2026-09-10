@@ -14,6 +14,12 @@ export async function importAndApplyComponentHandoff(input: Uint8Array): Promise
   const bundle = await applyAppearanceBinding(
     handoff.componentBundle, handoff.decomposition, handoff.appearanceBinding,
   );
+  if (bundle.document.schemaVersion === '0.2'
+    && walkNodes(bundle.document).some(
+      node => INTERACTIVE_TYPES.has(node.type) && !Object.hasOwn(node.props, 'appearance'),
+    )) {
+    throw new DecompositionImportError('COMPONENT_HANDOFF_INTERACTIVE_BINDING_REQUIRED');
+  }
   if (bundle.document.schemaVersion === '0.2' && bundle.document.root.props.style.opacity === 0) {
     throw new DecompositionImportError('COMPONENT_HANDOFF_INVISIBLE_ROOT');
   }

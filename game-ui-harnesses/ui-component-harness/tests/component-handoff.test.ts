@@ -30,7 +30,7 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
 }
 
-async function outerArchive(options: { badBundleDigest?: boolean; invisibleRoot?: boolean; invisibleControl?: boolean } = {}) {
+async function outerArchive(options: { badBundleDigest?: boolean; invisibleRoot?: boolean; invisibleControl?: boolean; missingInteractiveBinding?: boolean } = {}) {
   const { fixture, target, binding } = await appearanceApplicationFixture();
   const componentBundle = structuredClone(target);
   const appearanceBinding = structuredClone(binding);
@@ -43,6 +43,9 @@ async function outerArchive(options: { badBundleDigest?: boolean; invisibleRoot?
     assert.ok(button);
     button.props.style = { ...button.props.style, opacity: 0 };
     appearanceBinding.documentSha256 = await appearanceDocumentSha256(componentBundle.document);
+  }
+  if (options.missingInteractiveBinding) {
+    appearanceBinding.bindings = appearanceBinding.bindings.filter(candidate => candidate.componentId !== 'apply-switch');
   }
   const bundleBytes = encoder.encode(`${JSON.stringify(componentBundle, null, 2)}\n`);
   const bindingBytes = encoder.encode(`${JSON.stringify(appearanceBinding, null, 2)}\n`);
@@ -91,6 +94,13 @@ test('outer archive rejects transparent interactive hotspots without visible sta
     (error: unknown) => error instanceof DecompositionImportError && error.code === 'COMPONENT_HANDOFF_INVISIBLE_INTERACTIVE');
 });
 
+test('outer archive rejects an interactive component without an appearance binding', async () => {
+  const archive = await outerArchive({ missingInteractiveBinding: true });
+  await assert.rejects(importAndApplyComponentHandoff(archive),
+    (error: unknown) => error instanceof DecompositionImportError
+      && error.code === 'COMPONENT_HANDOFF_INTERACTIVE_BINDING_REQUIRED');
+});
+
 test('CLI rejects transparent interactive hotspots without writing a bundle', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'ai-ui-component-handoff-invisible-control-cli-'));
   await writeFile(join(directory, 'handoff.zip'), await outerArchive({ invisibleControl: true }));
@@ -98,6 +108,16 @@ test('CLI rejects transparent interactive hotspots without writing a bundle', as
   const result = await runCli(directory, 'component-handoff', 'handoff.zip', '--output', output);
   assert.equal(result.code, 1);
   assert.match(result.stderr, /COMPONENT_HANDOFF_INVISIBLE_INTERACTIVE/);
+  await assert.rejects(readFile(output), (error: any) => error?.code === 'ENOENT');
+});
+
+test('CLI rejects missing interactive appearance coverage without writing a bundle', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-ui-component-handoff-missing-binding-cli-'));
+  await writeFile(join(directory, 'handoff.zip'), await outerArchive({ missingInteractiveBinding: true }));
+  const output = join(directory, 'ui-bundle.json');
+  const result = await runCli(directory, 'component-handoff', 'handoff.zip', '--output', output);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /COMPONENT_HANDOFF_INTERACTIVE_BINDING_REQUIRED/);
   await assert.rejects(readFile(output), (error: any) => error?.code === 'ENOENT');
 });
 

@@ -72,6 +72,16 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
             "APPEARANCE_BINDING_SCENE_MISMATCH")
     require(binding.get("archiveSha256") == sha256(decomposition),
             "APPEARANCE_BINDING_ARCHIVE_MISMATCH")
+    if isinstance(document, dict) and document.get("schemaVersion") == "0.2":
+        bindings = binding.get("bindings")
+        bound_component_ids = {
+            row.get("componentId") for row in bindings
+            if isinstance(row, dict) and isinstance(row.get("componentId"), str)
+        } if isinstance(bindings, list) else set()
+        require(all(node.get("type") not in INTERACTIVE_COMPONENT_TYPES
+                    or node.get("id") in bound_component_ids
+                    for node in _walk_component_nodes(document.get("root"))),
+                "COMPONENT_HANDOFF_INTERACTIVE_BINDING_REQUIRED")
 
     draft = receipt.get("delivery_policy") == "unreviewed_draft"
     output = delivery / ("ui.component-handoff.draft.zip" if draft

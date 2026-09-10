@@ -136,6 +136,9 @@ duplicate roles/layers/components and registration. A subset of components may
 be bound, but each declared binding must include all its required roles.
 Registration uses one positive uniform scale. This version disallows cropping:
 the complete transformed source canvas must fit inside the target canvas.
+Partial coverage is an authoring capability only. Importing the one-file
+`ai_ui_component_handoff_v1` archive requires every interactive semantic node
+to have a binding, so a complete handoff never falls back to generic controls.
 
 The role catalog and automatic runtime application cover all 16 component types.
 Every declared 0.2 mapping remains type-specific and fail-closed.

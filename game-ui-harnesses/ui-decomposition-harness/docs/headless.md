@@ -125,6 +125,11 @@ the delivery. The outer archive contains the unchanged decomposition ZIP,
 SHA-256 fingerprints for every payload. Keeping the decomposition ZIP nested
 avoids a circular fingerprint because the binding is already bound to that ZIP's
 hash. This command performs no semantic inference and no provider call.
+Unlike a standalone appearance-binding authoring step, this complete handoff
+requires an explicit appearance binding for every interactive semantic node.
+Missing Switch track/thumb, Select background/indicator/popup, or another
+interactive component's required roles stops packaging instead of substituting
+a generic runtime control.
 
 For the reviewed/manual route, set `document.format` to `png_zip` before
 `freeze`; after normal processing, review and `finalize`, run
