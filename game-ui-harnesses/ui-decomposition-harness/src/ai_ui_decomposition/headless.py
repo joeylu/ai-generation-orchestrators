@@ -246,6 +246,11 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
                                "export": "delivery/" + ("png-zip-export.json" if output_format == "png_zip" else "psd-export.json"), "plan": "project/plan.json",
                                "automated_visual_qa": "delivery/automated-visual-qa.json"}.items():
             artifacts[name] = {"path": relative, "sha256": sha256(safe_relative(job, relative))}
+        if output_format == "png_zip":
+            # This alias makes the only file that crosses the Harness boundary
+            # explicit. The other artifact entries are local diagnostics; the
+            # ZIP already contains scene.json, every named layer and receipts.
+            artifacts["ui_component_handoff"] = dict(artifacts["png_zip"])
         _record(job / "result.json", {"kind": "ai_ui_decomposition_job_result_v1",
             "job_digest": request["digest"],
             "status": "completed_visual_qa_draft" if visual_qa["outcome"] == "passed"

@@ -20,6 +20,10 @@ Version 0.4.0 also supports named PNG ZIP delivery via
 export stage. See [PNG ZIP delivery](docs/headless.md#png-zip-delivery-040).
 Existing PSD behavior remains the default; ZIP mode preserves the same visual
 quality policies and exports component PNGs rather than packing a sprite atlas.
+The completed job exposes that self-contained archive as
+`artifacts.ui_component_handoff`; pass that one ZIP to `ui-component-harness`.
+It contains `scene.json`, all named PNG layers, the composed preview and the
+delivery/QA receipts. The separately listed job artifacts are diagnostics.
 
 Version 0.4.1 changes the dynamic memory estimate to an advisory. A task whose
 estimated peak exceeds the diagnostic budget continues, while `check`, frozen

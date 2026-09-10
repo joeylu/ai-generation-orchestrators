@@ -160,6 +160,8 @@ class HeadlessTests(unittest.TestCase):
                               timeout_seconds=60, authorized=True, output_format='png_zip')
             self.assertEqual(result['status'], 'completed_visual_qa_draft')
             self.assertNotIn('psd', result['artifacts'])
+            self.assertEqual(result['artifacts']['ui_component_handoff'],
+                             result['artifacts']['png_zip'])
             path = self.job / result['artifacts']['png_zip']['path']
             with zipfile.ZipFile(path) as archive:
                 self.assertEqual(set(archive.namelist()), {'scene.json', 'delivery.json', 'preview.png',

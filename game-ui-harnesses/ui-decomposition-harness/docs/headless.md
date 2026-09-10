@@ -103,6 +103,14 @@ The job result exposes `artifacts.png_zip` and `artifacts.export` points to
 can offer the single ZIP download. Successful repeated calls verify the archive
 fingerprint and make zero new provider calls. Failed strict QA produces no ZIP.
 
+For a `ui-component-harness` handoff, transfer only
+`artifacts.ui_component_handoff`. It is an explicit alias of `artifacts.png_zip`
+with the same path and SHA-256, rather than a second archive. The `scene`,
+`preview`, `delivery`, `plan`, and `export` artifact entries expose local
+diagnostics and do not need to be copied separately. The UI Component importer
+authenticates `scene.json`, every `layers/*.png` member, the preview, delivery
+receipt, and optional QA receipt from this one ZIP.
+
 For the reviewed/manual route, set `document.format` to `png_zip` before
 `freeze`; after normal processing, review and `finalize`, run
 `ai-ui-decomposition export --delivery <directory>`. The exporter follows the
