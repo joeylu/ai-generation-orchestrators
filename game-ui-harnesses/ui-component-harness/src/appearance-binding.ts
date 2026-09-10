@@ -67,6 +67,14 @@ export interface AppearanceTextLayout {
   readonly width: number;
   readonly height: number;
 }
+/** A safe text/content area relative to the Select popup's top-left corner. */
+export interface AppearancePopupContentLayout {
+  readonly coordinateSpace: 'target-popup-local';
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
 export interface ButtonStateAppearance { readonly labelLayout: AppearanceTextLayout }
 export interface SelectStateAppearance {
   readonly labelLayout: AppearanceTextLayout;
@@ -75,6 +83,8 @@ export interface SelectStateAppearance {
     readonly anchor: 'below-start';
     readonly gap: number;
   };
+  /** Optional, explicit safe area for popup option content. */
+  readonly popupContentLayout?: AppearancePopupContentLayout;
 }
 export interface CheckBoxStateAppearance { readonly labelLayout: AppearanceTextLayout }
 export interface RadioGroupStateAppearance {
@@ -230,9 +240,9 @@ class BindingValidator {
 
   add(path: string, code: string, message: string): void { this.issues.push({ path, code, message }); }
 
-  object(value: unknown, path: string, keys: readonly string[]): Record<string, unknown> | undefined {
+  object(value: unknown, path: string, keys: readonly string[], required: readonly string[] = keys): Record<string, unknown> | undefined {
     if (!isObject(value)) { this.add(path, 'OBJECT_REQUIRED', 'must be an object'); return undefined; }
-    for (const key of keys) if (!Object.hasOwn(value, key)) this.add(`${path}.${key}`, 'REQUIRED', 'required field is missing');
+    for (const key of required) if (!Object.hasOwn(value, key)) this.add(`${path}.${key}`, 'REQUIRED', 'required field is missing');
     for (const key of Object.keys(value)) if (!keys.includes(key)) this.add(`${path}.${key}`, 'UNSUPPORTED_FIELD', 'unknown fields are not accepted');
     return value;
   }
@@ -404,10 +414,12 @@ function validateSelectState(
   path: string,
   width: number,
   height: number,
+  popupLayer: { width: number; height: number } | undefined,
+  registrationScale: number | undefined,
 ): void {
   const states = validator.object(value, path, ['select']);
   if (!states) return;
-  const state = validator.object(states.select, `${path}.select`, ['labelLayout', 'popupPlacement']);
+  const state = validator.object(states.select, `${path}.select`, ['labelLayout', 'popupPlacement', 'popupContentLayout'], ['labelLayout', 'popupPlacement']);
   if (!state) return;
   validateTextLayout(validator, state.labelLayout, `${path}.select.labelLayout`, width, height);
   const popup = validator.object(state.popupPlacement, `${path}.select.popupPlacement`, ['coordinateSpace', 'anchor', 'gap']);
@@ -416,6 +428,22 @@ function validateSelectState(
     if (popup.anchor !== 'below-start') validator.add(`${path}.select.popupPlacement.anchor`, 'UNSUPPORTED_POSITION_ANCHOR', 'must be below-start');
     const gap = validator.finite(popup.gap, `${path}.select.popupPlacement.gap`);
     if (gap && (popup.gap as number) < 0) validator.add(`${path}.select.popupPlacement.gap`, 'NON_NEGATIVE_NUMBER_REQUIRED', 'must be zero or greater');
+  }
+  if (Object.hasOwn(state, 'popupContentLayout')) {
+    const layout = validator.object(state.popupContentLayout, `${path}.select.popupContentLayout`, ['coordinateSpace', 'x', 'y', 'width', 'height']);
+    if (!layout) return;
+    if (layout.coordinateSpace !== 'target-popup-local') validator.add(`${path}.select.popupContentLayout.coordinateSpace`, 'UNSUPPORTED_COORDINATE_SPACE', 'must be target-popup-local');
+    const x = validator.finite(layout.x, `${path}.select.popupContentLayout.x`) ? layout.x as number : undefined;
+    const y = validator.finite(layout.y, `${path}.select.popupContentLayout.y`) ? layout.y as number : undefined;
+    const contentWidth = validator.positive(layout.width, `${path}.select.popupContentLayout.width`) ? layout.width as number : undefined;
+    const contentHeight = validator.positive(layout.height, `${path}.select.popupContentLayout.height`) ? layout.height as number : undefined;
+    const popupWidth = popupLayer && registrationScale !== undefined ? popupLayer.width * registrationScale : undefined;
+    const popupHeight = popupLayer && registrationScale !== undefined ? popupLayer.height * registrationScale : undefined;
+    if (x !== undefined && y !== undefined && contentWidth !== undefined && contentHeight !== undefined
+      && popupWidth !== undefined && popupHeight !== undefined
+      && (x < 0 || y < 0 || x + contentWidth > popupWidth || y + contentHeight > popupHeight)) {
+      validator.add(`${path}.select.popupContentLayout`, 'POPUP_CONTENT_OUT_OF_BOUNDS', 'must fit within the registered popup surface');
+    }
   }
 }
 
@@ -633,7 +661,11 @@ export async function validateAppearanceBinding(
         validateButtonState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height);
       }
       if (applicationVersion && component?.type === 'Select') {
-        validateSelectState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height);
+        const popupLayerId = Array.isArray(binding.parts)
+          ? binding.parts.find(part => isObject(part) && part.role === 'popup' && typeof part.layerId === 'string')?.layerId
+          : undefined;
+        validateSelectState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height,
+          imported.scene.layers.find(layer => layer.id === popupLayerId), registrationScale);
       }
       if (applicationVersion && component?.type === 'CheckBox') validateCheckBoxState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height);
       if (applicationVersion && component?.type === 'RadioGroup') validateRadioState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height, component.props.options.map(option => option.id));

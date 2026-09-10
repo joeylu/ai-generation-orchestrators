@@ -1587,12 +1587,22 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       const background = new Sprite(record.selectTextures.popup);
       background.width = node.layout.width; background.height = popupHeight; popup.addChild(background);
     }
+    const contentLayout = node.props.appearance?.popupContentLayout;
+    const popupScale = node.props.appearance ? node.layout.width / node.props.appearance.popupCanvas.width : 1;
+    const contentX = contentLayout ? contentLayout.x * popupScale : 0;
+    const contentY = contentLayout ? contentLayout.y * popupScale : 0;
+    const contentWidth = contentLayout ? contentLayout.width * popupScale : node.layout.width;
+    const contentHeight = contentLayout ? contentLayout.height * popupScale : popupHeight;
+    const content = new Container(); content.position.set(contentX, contentY);
+    const contentMask = new Graphics().rect(contentX, contentY, contentWidth, contentHeight).fill({ color: '#FFFFFF' });
+    content.mask = contentMask; popup.addChild(content, contentMask);
+    const contentRowHeight = contentHeight / node.props.options.length;
     node.props.options.forEach((option, index) => {
-      const row = new Container(); row.y = index * rowHeight; row.eventMode = 'static'; row.cursor = 'pointer'; row.hitArea = new Rectangle(0, 0, node.layout.width, rowHeight);
+      const row = new Container(); row.y = index * contentRowHeight; row.eventMode = 'static'; row.cursor = 'pointer'; row.hitArea = new Rectangle(0, 0, contentWidth, contentRowHeight);
       if (!node.props.appearance) row.addChild(drawBox(node.layout.width, rowHeight, node.props.style, option.id === node.props.selectedId ? '#E3F1EC' : '#FFFFFF'));
-      else if (option.id === node.props.selectedId) row.addChild(new Graphics().roundRect(8, 6, node.layout.width - 16, rowHeight - 12, Math.min(12, rowHeight / 4)).fill({ color: '#6B8F3A', alpha: 0.14 }));
-      const synthetic: TextNode = { id: `${node.id}.${option.id}`, type: 'Text', layout: { x: 10, y: 0, width: node.layout.width - 20, height: rowHeight }, props: { text: option.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
-      const item = makeText(synthetic); item.x = 10; item.y = Math.max(0, (rowHeight - item.height) / 2); row.addChild(item);
+      else if (option.id === node.props.selectedId) row.addChild(new Graphics().roundRect(8, 6, contentWidth - 16, contentRowHeight - 12, Math.min(12, contentRowHeight / 4)).fill({ color: '#6B8F3A', alpha: 0.14 }));
+      const synthetic: TextNode = { id: `${node.id}.${option.id}`, type: 'Text', layout: { x: 10, y: 0, width: contentWidth - 20, height: contentRowHeight }, props: { text: option.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
+      const item = makeText(synthetic); item.x = 10; item.y = Math.max(0, (contentRowHeight - item.height) / 2); row.addChild(item);
       const choose = (event: FederatedPointerEvent) => {
         try {
           if (!interactive(record) || node.props.selectedId !== option.id) {
@@ -1604,7 +1614,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       };
       // The popup owns its row listeners. Its destroy call clears them on every
       // close, so repeated opening cannot retain callbacks on the Select record.
-      row.on('pointertap', choose); popup.addChild(row);
+      row.on('pointertap', choose); content.addChild(row);
     });
     record.scope.overlay.addChild(popup); record.popup = popup; record.popupClosing = false; openSelect = record;
     if (hasAction(record, 'open')) record.presentation.popupOpen = 0;

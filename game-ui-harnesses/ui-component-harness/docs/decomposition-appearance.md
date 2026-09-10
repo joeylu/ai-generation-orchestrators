@@ -170,7 +170,11 @@ The full scaled thumb must fit within the component at both positions.
 Version 0.2 adds explicit runtime geometry. Button provides a semantic label
 layout; Switch provides thumb endpoints and label layout; Select maps
 `background`, `indicator`, and `popup` plus a semantic label layout and a
-`below-start` popup placement. Coordinates are target-component-local. The
+`below-start` popup placement. A Select may also provide `popupContentLayout`
+in `target-popup-local` coordinates. This rectangle defines the popup area in
+which option rows, labels, selection feedback, hit areas, and clipping are
+allowed; use it when decorative borders, shadows, or pointers make the full
+popup image unsuitable for content. Other coordinates are target-component-local. The
 compiler accepts no filename/role inference, non-uniform fit, popup stretching,
 existing appearance overwrite, missing label geometry, or stale evidence.
 

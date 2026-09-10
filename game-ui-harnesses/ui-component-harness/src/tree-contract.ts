@@ -45,6 +45,8 @@ export interface SelectRasterAppearance {
   labelLayout: Layout;
   arrowLayout: Layout;
   popupCanvas: CanvasSize;
+  /** Optional safe area for option labels, in popupCanvas-local coordinates. */
+  popupContentLayout?: Layout;
   popupGap: number;
 }
 export interface PositionedRasterPart { image: string; canvas: CanvasSize; layout: Layout }
@@ -449,7 +451,7 @@ class ContractValidator {
           }
         }
         if (type === 'Select' && Object.hasOwn(data, 'appearance')) {
-          const appearance = this.object(data.appearance, `${path}.appearance`, ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupGap']);
+          const appearance = this.object(data.appearance, `${path}.appearance`, ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupContentLayout', 'popupGap'], ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupGap']);
           if (appearance) {
             this.resource(appearance.fieldImage, `${path}.appearance.fieldImage`);
             this.resource(appearance.arrowImage, `${path}.appearance.arrowImage`);
@@ -469,7 +471,11 @@ class ContractValidator {
                 if (heightValid && yValid && layoutHeightValid && (layout.y as number) + (layout.height as number) > (sourceCanvas.height as number)) this.add(`${path}.appearance.${key}`, 'OUT_OF_RANGE', 'layout exceeds sourceCanvas height');
               }
             }
-            this.canvas(appearance.popupCanvas, `${path}.appearance.popupCanvas`);
+            const popupCanvas = this.object(appearance.popupCanvas, `${path}.appearance.popupCanvas`, ['width', 'height']);
+            if (popupCanvas) {
+              this.canvas(appearance.popupCanvas, `${path}.appearance.popupCanvas`);
+              if (Object.hasOwn(appearance, 'popupContentLayout')) this.appearanceLayout(appearance.popupContentLayout, `${path}.appearance.popupContentLayout`, popupCanvas);
+            }
             this.finite(appearance.popupGap, `${path}.appearance.popupGap`, { nonNegative: true });
           }
         }

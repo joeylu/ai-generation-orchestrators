@@ -321,11 +321,16 @@ export async function applyAppearanceBinding(
     const runtimeScale = component.width / field.width;
     if (!close(component.height / field.height, runtimeScale)) fail(`${path}.parts`, 'NON_UNIFORM_COMPONENT_SCALE', 'Select field must scale uniformly into the component');
     const local = (layout: Layout): Layout => ({ x: layout.x / runtimeScale, y: layout.y / runtimeScale, width: layout.width / runtimeScale, height: layout.height / runtimeScale });
+    const popupContentLayout = state.popupContentLayout ? local(state.popupContentLayout) : undefined;
+    if (popupContentLayout && (popupContentLayout.x < 0 || popupContentLayout.y < 0
+      || popupContentLayout.x + popupContentLayout.width > popup.width || popupContentLayout.y + popupContentLayout.height > popup.height)) {
+      fail(`${path}.states.select.popupContentLayout`, 'POPUP_CONTENT_OUT_OF_BOUNDS', 'popup content layout must fit within popupCanvas after runtime scaling');
+    }
     supported.props.appearance = {
       fieldImage: add(field), arrowImage: add(indicator), popupImage: add(popup),
       sourceCanvas: { width: field.width, height: field.height }, labelLayout: local(state.labelLayout),
       arrowLayout: { x: (indicatorBounds.x - component.x) / runtimeScale, y: (indicatorBounds.y - component.y) / runtimeScale, width: indicatorBounds.width / runtimeScale, height: indicatorBounds.height / runtimeScale },
-      popupCanvas: { width: popup.width, height: popup.height }, popupGap: state.popupPlacement.gap,
+      popupCanvas: { width: popup.width, height: popup.height }, ...(popupContentLayout ? { popupContentLayout } : {}), popupGap: state.popupPlacement.gap,
     };
   }
 

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { HarnessError } from '../src/contract.ts';
 import { applyAppearanceBinding } from '../src/appearance-apply.ts';
-import { bundleResources, validateBundle } from '../src/bundle.ts';
+import { bundleResources, createBundle, validateBundle } from '../src/bundle.ts';
+import { appearanceDocumentSha256 } from '../src/appearance-binding.ts';
 import { appearanceApplicationFixture } from './helpers/appearance-application-fixture.ts';
 import { firstBatchAppearanceFixture } from './helpers/first-batch-appearance-fixture.ts';
 import { secondBatchAppearanceFixture } from './helpers/second-batch-appearance-fixture.ts';
@@ -17,6 +18,34 @@ test('v0.2 binding deterministically applies Button, Switch, and Select appearan
   assert.equal((nodes.get('apply-select') as any).props.appearance.popupGap, 2);
   assert.equal(bundleResources(applied).filter(resource => resource.path.startsWith(`appearance/${value.imported.archiveSha256}/`)).length, 6);
   assert.equal(value.document.root.children.some((node: any) => node.props.appearance), false, 'target input remains unchanged');
+});
+
+test('Select popup content layout converts target-popup-local bounds into popupCanvas-local bounds', async () => {
+  const value = await appearanceApplicationFixture();
+  const document = structuredClone(value.document) as any;
+  document.canvas = { width: 1000, height: 800 };
+  document.root.layout = { x: 0, y: 0, width: 1000, height: 800 };
+  const nodes = new Map(document.root.children.map((node: any) => [node.id, node]));
+  nodes.get('apply-button').layout = { x: 20, y: 20, width: 200, height: 80 };
+  nodes.get('apply-switch').layout = { x: 20, y: 140, width: 360, height: 80 };
+  nodes.get('apply-select').layout = { x: 20, y: 260, width: 240, height: 80 };
+  const binding = structuredClone(value.binding) as any;
+  binding.documentSha256 = await appearanceDocumentSha256(document);
+  binding.registration.targetCanvas = { width: 1000, height: 800 };
+  binding.registration.transform = { scale: 2, offset: { x: 0, y: 0 } };
+  binding.bindings[0].states.button.labelLayout = { coordinateSpace: 'target-component-local', x: 20, y: 10, width: 160, height: 60 };
+  binding.bindings[1].states.switch.thumbPositions = { coordinateSpace: 'target-component-local', anchor: 'top-left', off: { x: 8, y: 8 }, on: { x: 288, y: 8 } };
+  binding.bindings[1].states.switch.labelLayout = { coordinateSpace: 'target-component-local', x: 96, y: 10, width: 180, height: 60 };
+  binding.bindings[2].states.select.labelLayout = { coordinateSpace: 'target-component-local', x: 20, y: 10, width: 140, height: 60 };
+  binding.bindings[2].states.select.popupPlacement.gap = 4;
+  binding.bindings[2].states.select.popupContentLayout = {
+    coordinateSpace: 'target-popup-local', x: 24, y: 36, width: 192, height: 120,
+  };
+  const target = await createBundle(document, [], { kind: 'programmatic-fixture', description: 'Scaled Select popup content conversion regression.' });
+  const applied = await applyAppearanceBinding(target, value.imported, binding);
+  const select = (applied.document.root.children as any[]).find(node => node.id === 'apply-select');
+  assert.deepEqual(select.props.appearance.popupContentLayout, { x: 12, y: 18, width: 96, height: 60 });
+  await validateBundle(applied);
 });
 
 test('v0.2 binding applies CheckBox, RadioGroup, Input, ProgressBar, and Slider without mutating the target', async () => {

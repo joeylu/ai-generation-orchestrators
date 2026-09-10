@@ -68,13 +68,15 @@ test('opt-in raster paint fields are portable, preserve absent defaults, and rej
   select.props.appearance = {
     fieldImage: 'assets/select-field.png', arrowImage: 'assets/select-arrow.png', popupImage: 'assets/select-popup.png',
     sourceCanvas: { width: 300, height: 100 }, labelLayout: { x: 64, y: 18, width: 150, height: 64 },
-    arrowLayout: { x: 230, y: 40, width: 30, height: 21 }, popupCanvas: { width: 300, height: 225 }, popupGap: 2,
+    arrowLayout: { x: 230, y: 40, width: 30, height: 21 }, popupCanvas: { width: 300, height: 225 },
+    popupContentLayout: { x: 18, y: 30, width: 264, height: 180 }, popupGap: 2,
   };
   const validated = validateDocument(source);
   assert.equal((validated.root.children[0] as any).props.drawBackground, false);
   assert.equal((validated.root.children[2] as any).props.backgroundImage, 'assets/button-background.png');
   assert.equal((validated.root.children[3] as any).props.appearance.thumbPositions.on.x, 128);
   assert.equal((validated.root.children[7] as any).props.appearance.popupCanvas.height, 225);
+  assert.deepEqual((validated.root.children[7] as any).props.appearance.popupContentLayout, { x: 18, y: 30, width: 264, height: 180 });
   assert.equal(Object.hasOwn((legalDocument().root.children[0] as any).props, 'drawBackground'), false);
   assert.equal(Object.hasOwn((legalDocument().root.children[2] as any).props, 'backgroundImage'), false);
 
@@ -94,6 +96,9 @@ test('opt-in raster paint fields are portable, preserve absent defaults, and rej
   };
   expectIssue(() => validateDocument(invalidSelect), '$.root.children[7].props.appearance.arrowImage', 'INVALID_RESOURCE_REFERENCE');
   expectIssue(() => validateDocument(invalidSelect), '$.root.children[7].props.appearance.arrowLayout', 'OUT_OF_RANGE');
+  const overflowPopupContent = structuredClone(source) as any;
+  overflowPopupContent.root.children[7].props.appearance.popupContentLayout = { x: 18, y: 30, width: 264, height: 196 };
+  expectIssue(() => validateDocument(overflowPopupContent), '$.root.children[7].props.appearance.popupContentLayout', 'OUT_OF_RANGE');
 });
 
 test('Slider raster appearance requires integer texture canvases and a bounded horizontal left-to-right axis', () => {

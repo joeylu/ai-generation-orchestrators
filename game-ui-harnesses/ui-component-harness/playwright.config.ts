@@ -10,7 +10,7 @@ export default defineConfig({
   expect: { timeout: 7000 },
   reporter: [['list'], ['json', { outputFile: 'test-results/browser-results.json' }]],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: process.env.UI_HARNESS_BASE_URL || 'http://127.0.0.1:4173',
     channel: process.env.UI_HARNESS_BROWSER || (process.platform === 'win32' ? 'msedge' : undefined),
     headless: true,
     launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },

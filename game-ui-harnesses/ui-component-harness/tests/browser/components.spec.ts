@@ -130,7 +130,8 @@ test('raster-layered Select opens its popup, changes value, and exports all laye
       props: { selectedId: 'high', options: [{ id: 'high', label: 'High' }, { id: 'medium', label: 'Medium' }, { id: 'smooth', label: 'Smooth' }], enabled: true, style, appearance: {
         fieldImage: 'fixtures/select-field.svg', arrowImage: 'fixtures/select-arrow.svg', popupImage: 'fixtures/select-popup.svg',
         sourceCanvas: { width: 300, height: 100 }, labelLayout: { x: 60, y: 18, width: 150, height: 64 },
-        arrowLayout: { x: 230, y: 40, width: 30, height: 21 }, popupCanvas: { width: 300, height: 225 }, popupGap: 2,
+        arrowLayout: { x: 230, y: 40, width: 30, height: 21 }, popupCanvas: { width: 300, height: 225 },
+        popupContentLayout: { x: 10, y: 20, width: 280, height: 185 }, popupGap: 2,
       } },
     }] },
   };
@@ -144,7 +145,7 @@ test('raster-layered Select opens its popup, changes value, and exports all laye
   await clickNode(page, 'raster-select-control');
   const open = await page.locator('#canvas-host canvas').screenshot();
   const point = await nodePoint(page, 'raster-select-control', 0.5, 0.5);
-  await page.mouse.click(point.x, point.y + (50 + 2 + 112.5) * point.scaleY);
+  await page.mouse.click(point.x, point.y + (50 + 2 + 20 + 92.5) * point.scaleY);
   await expectNodeValue(page, 'raster-select-control', 'medium');
   const closed = await page.locator('#canvas-host canvas').screenshot();
   expect(closed.equals(open)).toBe(false);

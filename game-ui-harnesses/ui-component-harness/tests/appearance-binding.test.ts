@@ -10,6 +10,7 @@ import {
 } from '../src/appearance-binding.ts';
 import { fixtureDocument } from '../src/fixtures.ts';
 import type { UiDocument, UiNodeType } from '../src/tree-contract.ts';
+import { appearanceApplicationFixture } from './helpers/appearance-application-fixture.ts';
 
 const encoder = new TextEncoder();
 const digest = (value: Uint8Array | string): string => createHash('sha256').update(value).digest('hex');
@@ -266,4 +267,24 @@ test('each declared binding is complete and explicit: no duplicate controls, lay
     const value = await validBinding(document, delivery); mutate(value);
     await expectIssue(() => validateAppearanceBinding(value, document, delivery), code, path);
   }
+});
+
+test('Select popup content layouts are optional, popup-local, and bounded by the authenticated popup surface', async () => {
+  const value = await appearanceApplicationFixture();
+  await validateAppearanceBinding(value.binding, value.document, value.imported);
+
+  const safe = structuredClone(value.binding) as any;
+  safe.bindings[2].states.select.popupContentLayout = {
+    coordinateSpace: 'target-popup-local', x: 12, y: 18, width: 96, height: 60,
+  };
+  const validated = await validateAppearanceBinding(safe, value.document, value.imported);
+  assert.deepEqual((validated.bindings[2].states as any).select.popupContentLayout, safe.bindings[2].states.select.popupContentLayout);
+
+  const wrongSpace = structuredClone(safe) as any;
+  wrongSpace.bindings[2].states.select.popupContentLayout.coordinateSpace = 'target-component-local';
+  await expectIssue(() => validateAppearanceBinding(wrongSpace, value.document, value.imported), 'UNSUPPORTED_COORDINATE_SPACE', '$appearanceBinding.bindings[2].states.select.popupContentLayout.coordinateSpace');
+
+  const overflow = structuredClone(safe) as any;
+  overflow.bindings[2].states.select.popupContentLayout.height = 73;
+  await expectIssue(() => validateAppearanceBinding(overflow, value.document, value.imported), 'POPUP_CONTENT_OUT_OF_BOUNDS', '$appearanceBinding.bindings[2].states.select.popupContentLayout');
 });
