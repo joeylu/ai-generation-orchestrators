@@ -373,3 +373,4 @@ is covered below.
 | M153: authenticated outer handoff archive | COMPLETE | One archive binds the unchanged decomposition ZIP, exact semantic component bundle and explicit 0.2 appearance binding; nested and outer SHA-256 values are verified before use |
 | M154: direct component compiler entry | COMPLETE | `importAndApplyComponentHandoff` and `ai-ui-component component-handoff ... --output ...` validate and apply the package without provider calls or filename inference |
 | M155: offline regression | COMPLETE | 326 unit tests and production build pass; success and stale component-bundle digest paths are covered, including the CLI output path |
+| M156: invisible-root handoff guard | COMPLETE | Producer packaging and consumer library/CLI reject a semantic v0.2 root with opacity 0 before a blank runtime bundle can be delivered; 87 decomposition tests, 328 component tests and the production build pass; regression includes output non-creation |

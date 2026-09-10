@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { importAndApplyComponentHandoff } from '../src/component-handoff.ts';
 import { DecompositionImportError, importComponentHandoffArchive } from '../src/decomposition-import.ts';
+import { appearanceDocumentSha256 } from '../src/appearance-binding.ts';
 import { walkNodes } from '../src/tree-contract.ts';
 import { appearanceApplicationFixture } from './helpers/appearance-application-fixture.ts';
 import { forceZip64Stored } from './helpers/decomposition-fixture.ts';
@@ -29,10 +30,16 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
 }
 
-async function outerArchive(options: { badBundleDigest?: boolean } = {}) {
+async function outerArchive(options: { badBundleDigest?: boolean; invisibleRoot?: boolean } = {}) {
   const { fixture, target, binding } = await appearanceApplicationFixture();
-  const bundleBytes = encoder.encode(`${JSON.stringify(target, null, 2)}\n`);
-  const bindingBytes = encoder.encode(`${JSON.stringify(binding, null, 2)}\n`);
+  const componentBundle = structuredClone(target);
+  const appearanceBinding = structuredClone(binding);
+  if (options.invisibleRoot && componentBundle.document.schemaVersion === '0.2') {
+    componentBundle.document.root.props.style.opacity = 0;
+    appearanceBinding.documentSha256 = await appearanceDocumentSha256(componentBundle.document);
+  }
+  const bundleBytes = encoder.encode(`${JSON.stringify(componentBundle, null, 2)}\n`);
+  const bindingBytes = encoder.encode(`${JSON.stringify(appearanceBinding, null, 2)}\n`);
   const manifest = {
     kind: 'ai_ui_component_handoff_v1', status: 'contracts_packaged_unreviewed_draft',
     decomposition: { path: 'decomposition/layered-fixture.draft.zip', sha256: await sha256(fixture.zip) },
@@ -64,6 +71,22 @@ test('one outer archive authenticates decomposition, semantics and binding then 
 test('outer archive rejects a stale component bundle fingerprint before contract application', async () => {
   await assert.rejects(importAndApplyComponentHandoff(await outerArchive({ badBundleDigest: true })),
     (error: unknown) => error instanceof DecompositionImportError && error.code === 'COMPONENT_HANDOFF_BUNDLE_DIGEST');
+});
+
+test('outer archive rejects a fully transparent root instead of producing a blank runtime', async () => {
+  const archive = await outerArchive({ invisibleRoot: true });
+  await assert.rejects(importAndApplyComponentHandoff(archive),
+    (error: unknown) => error instanceof DecompositionImportError && error.code === 'COMPONENT_HANDOFF_INVISIBLE_ROOT');
+});
+
+test('CLI rejects a fully transparent root without writing a blank bundle', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-ui-component-handoff-invisible-cli-'));
+  await writeFile(join(directory, 'handoff.zip'), await outerArchive({ invisibleRoot: true }));
+  const output = join(directory, 'ui-bundle.json');
+  const result = await runCli(directory, 'component-handoff', 'handoff.zip', '--output', output);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /COMPONENT_HANDOFF_INVISIBLE_ROOT/);
+  await assert.rejects(readFile(output), (error: any) => error?.code === 'ENOENT');
 });
 
 test('CLI consumes the one-file handoff and writes a validated portable bundle', async () => {

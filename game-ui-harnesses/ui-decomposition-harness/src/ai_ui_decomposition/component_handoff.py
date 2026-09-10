@@ -30,6 +30,14 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
     require(component_bundle.is_file() and not component_bundle.is_symlink()
             and 0 < component_bundle.stat().st_size <= MAX_COMPONENT_BUNDLE_BYTES,
             "COMPONENT_BUNDLE_FILE_REQUIRED")
+    bundle = read_json(component_bundle)
+    document = bundle.get("document")
+    if isinstance(document, dict) and document.get("schemaVersion") == "0.2":
+        root = document.get("root")
+        props = root.get("props") if isinstance(root, dict) else None
+        style = props.get("style") if isinstance(props, dict) else None
+        require(not isinstance(style, dict) or style.get("opacity") != 0,
+                "COMPONENT_HANDOFF_INVISIBLE_ROOT")
     require(appearance_binding.is_file() and not appearance_binding.is_symlink(),
             "APPEARANCE_BINDING_FILE_REQUIRED")
     binding = read_json(appearance_binding)
