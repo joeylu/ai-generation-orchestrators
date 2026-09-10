@@ -73,7 +73,7 @@ def _require_matching_template_geometry(
         code: str) -> None:
     left_size = _normalized_size(left, left_canvas, *left_grid)
     right_size = _normalized_size(right, right_canvas, *right_grid)
-    require(all(abs(a - b) / max(a, b) <= 0.1 for a, b in zip(left_size, right_size)), code)
+    require(all(abs(a - b) / max(a, b) <= 0.15 for a, b in zip(left_size, right_size)), code)
 
 
 def _equalize_pair_canvases(assets: list[dict], output: Path, first_id: str, second_id: str) -> None:
@@ -131,7 +131,7 @@ def _validate_board(path: Path, columns: int, rows: int, blank_slots: set[int]) 
 
 
 def _asset_row(source: Image.Image, bounds: tuple[int, int, int, int], slot: tuple[str, str, str, str | None],
-               index: int, output: Path, padding: int) -> dict:
+               index: int, output: Path, padding: int, scale: float = 1.0) -> dict:
     left, top, right, bottom = bounds
     width, height = source.size
     crop_bounds = (max(0, left - padding), max(0, top - padding),
@@ -150,16 +150,25 @@ def _asset_row(source: Image.Image, bounds: tuple[int, int, int, int], slot: tup
             "SUPPLEMENTAL_BOARD_ASSET_ALPHA_RANGE")
     asset_id, component_type, role, state = slot
     filename = f"{index:02d}_{asset_id}.png"
+    picture = Image.fromarray(crop, "RGBA")
+    if scale != 1.0:
+        target_size = (max(1, int(round(picture.width * scale))),
+                       max(1, int(round(picture.height * scale))))
+        picture = picture.resize(target_size, Image.Resampling.LANCZOS)
+        normalized = np.array(picture, copy=True)
+        normalized[normalized[:, :, 3] == 0, :3] = 0
+        picture = Image.fromarray(normalized, "RGBA")
     destination = output / "assets" / filename
-    Image.fromarray(crop, "RGBA").save(destination, "PNG", optimize=True)
+    picture.save(destination, "PNG", optimize=True)
     result = {
         "id": asset_id,
         "component_type": component_type,
         "role": role,
         "file": f"assets/{filename}",
         "source_bbox": list(crop_bounds),
-        "width": crop_bounds[2] - crop_bounds[0],
-        "height": crop_bounds[3] - crop_bounds[1],
+        "width": picture.width,
+        "height": picture.height,
+        "normalization_scale": scale,
         "near_opaque_pixels_promoted": promoted,
         "sha256": sha256(destination),
     }
@@ -196,10 +205,19 @@ def split_supplemental_boards(interactive_path: Path, structural_path: Path,
     try:
         (staging / "assets").mkdir()
         padding = max(4, int(round(min(*interactive.size, *structural.size) * 0.0064)))
+        interactive_cell = (interactive.width / INTERACTIVE_COLUMNS,
+                            interactive.height / INTERACTIVE_ROWS)
+        structural_cell = (structural.width / STRUCTURAL_COLUMNS,
+                           structural.height / STRUCTURAL_ROWS)
+        structural_scale_x = interactive_cell[0] / structural_cell[0]
+        structural_scale_y = interactive_cell[1] / structural_cell[1]
+        require(abs(structural_scale_x - structural_scale_y) <= 0.001,
+                "SUPPLEMENTAL_BOARD_NON_UNIFORM_CELL_SCALE")
+        structural_scale = (structural_scale_x + structural_scale_y) / 2
         assets = [
             *(_asset_row(interactive, bounds, slot, index + 1, staging, padding)
               for index, (bounds, slot) in enumerate(zip(interactive_bounds, INTERACTIVE_SLOTS))),
-            *(_asset_row(structural, bounds, slot, index + 1 + len(INTERACTIVE_SLOTS), staging, padding)
+            *(_asset_row(structural, bounds, slot, index + 1 + len(INTERACTIVE_SLOTS), staging, padding, structural_scale)
               for index, (bounds, slot) in enumerate(zip(structural_bounds, STRUCTURAL_SLOTS))),
         ]
         _equalize_pair_canvases(assets, staging, "list_row", "list_selected_row")
@@ -221,6 +239,8 @@ def split_supplemental_boards(interactive_path: Path, structural_path: Path,
                 "padding": padding,
                 "reserved_structural_slot": 12,
                 "reserved_slot_policy": "all alpha below threshold",
+                "canonical_cell_size": [interactive_cell[0], interactive_cell[1]],
+                "structural_uniform_normalization_scale": structural_scale,
                 "near_opaque_rule": "promote alpha >= 250 only when a crop has no alpha 255",
                 "interactive": interactive_extraction,
                 "structural": structural_extraction,

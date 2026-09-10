@@ -62,6 +62,8 @@ class SupplementalBoardTests(unittest.TestCase):
                          (rows["list_selected_row"]["width"], rows["list_selected_row"]["height"]))
         self.assertEqual((rows["tabs_tab"]["width"], rows["tabs_tab"]["height"]),
                          (rows["tabs_active_tab"]["width"], rows["tabs_active_tab"]["height"]))
+        self.assertEqual(rows["list_row"]["normalization_scale"], 1.0)
+        self.assertEqual(rows["list_selected_row"]["normalization_scale"], 1.0)
         with zipfile.ZipFile(first / "ui-roles.supplemental.draft.zip") as archive:
             self.assertIsNone(archive.testzip())
             self.assertEqual(len(archive.namelist()), 36)
@@ -102,6 +104,17 @@ class SupplementalBoardTests(unittest.TestCase):
         image.save(structural)
         with self.assertRaisesRegex(ContractError, "SUPPLEMENTAL_BOARD_TAB_TEMPLATE_GEOMETRY_MISMATCH"):
             split_supplemental_boards(interactive, structural, self.root / "output", "ui-roles")
+
+    def test_uniformly_normalizes_a_different_structural_cell_resolution(self):
+        interactive = self.board("interactive.png", 4, 6, len(INTERACTIVE_SLOTS))
+        structural = self.board("structural.png", 4, 3, len(STRUCTURAL_SLOTS))
+        with Image.open(structural) as source:
+            source.resize((800, 600), Image.Resampling.NEAREST).save(structural)
+        output = self.root / "output"
+        split_supplemental_boards(interactive, structural, output, "ui-roles")
+        manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+        rows = {row["id"]: row for row in manifest["assets"]}
+        self.assertEqual(rows["list_selected_row"]["normalization_scale"], 0.5)
 
 
 if __name__ == "__main__":

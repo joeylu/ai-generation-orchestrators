@@ -134,3 +134,8 @@ ai-ui-decomposition split-supplemental-boards \
   --output delivery/ui-appearance-roles \
   --document ui-appearance-roles
 ```
+
+When the two boards use different pixel resolutions, structural assets are
+uniformly normalized to the interactive board's cell size. List and Tab state
+pairs are then padded to identical transparent canvases without changing their
+aspect ratios.
