@@ -30,12 +30,18 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
 }
 
-async function outerArchive(options: { badBundleDigest?: boolean; invisibleRoot?: boolean } = {}) {
+async function outerArchive(options: { badBundleDigest?: boolean; invisibleRoot?: boolean; invisibleControl?: boolean } = {}) {
   const { fixture, target, binding } = await appearanceApplicationFixture();
   const componentBundle = structuredClone(target);
   const appearanceBinding = structuredClone(binding);
   if (options.invisibleRoot && componentBundle.document.schemaVersion === '0.2') {
     componentBundle.document.root.props.style.opacity = 0;
+    appearanceBinding.documentSha256 = await appearanceDocumentSha256(componentBundle.document);
+  }
+  if (options.invisibleControl && componentBundle.document.schemaVersion === '0.2') {
+    const button = walkNodes(componentBundle.document).find(node => node.id === 'apply-button');
+    assert.ok(button);
+    button.props.style = { ...button.props.style, opacity: 0 };
     appearanceBinding.documentSha256 = await appearanceDocumentSha256(componentBundle.document);
   }
   const bundleBytes = encoder.encode(`${JSON.stringify(componentBundle, null, 2)}\n`);
@@ -77,6 +83,22 @@ test('outer archive rejects a fully transparent root instead of producing a blan
   const archive = await outerArchive({ invisibleRoot: true });
   await assert.rejects(importAndApplyComponentHandoff(archive),
     (error: unknown) => error instanceof DecompositionImportError && error.code === 'COMPONENT_HANDOFF_INVISIBLE_ROOT');
+});
+
+test('outer archive rejects transparent interactive hotspots without visible state feedback', async () => {
+  const archive = await outerArchive({ invisibleControl: true });
+  await assert.rejects(importAndApplyComponentHandoff(archive),
+    (error: unknown) => error instanceof DecompositionImportError && error.code === 'COMPONENT_HANDOFF_INVISIBLE_INTERACTIVE');
+});
+
+test('CLI rejects transparent interactive hotspots without writing a bundle', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-ui-component-handoff-invisible-control-cli-'));
+  await writeFile(join(directory, 'handoff.zip'), await outerArchive({ invisibleControl: true }));
+  const output = join(directory, 'ui-bundle.json');
+  const result = await runCli(directory, 'component-handoff', 'handoff.zip', '--output', output);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /COMPONENT_HANDOFF_INVISIBLE_INTERACTIVE/);
+  await assert.rejects(readFile(output), (error: any) => error?.code === 'ENOENT');
 });
 
 test('CLI rejects a fully transparent root without writing a blank bundle', async () => {

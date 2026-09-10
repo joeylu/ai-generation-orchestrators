@@ -245,6 +245,37 @@ class HeadlessTests(unittest.TestCase):
         self.assertFalse((self.job / 'delivery/ui.component-handoff.draft.zip').exists())
         self.assertFalse((self.job / 'delivery/component-handoff-export.json').exists())
 
+    def test_component_handoff_rejects_transparent_interactive_control(self):
+        result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                          timeout_seconds=60, authorized=True, output_format='png_zip')
+        target = self.root / 'component.ui-bundle.json'
+        write_json(target, {
+            'bundleVersion': '0.1',
+            'document': {
+                'schemaVersion': '0.2', 'id': 'invisible-control',
+                'canvas': {'width': 64, 'height': 48},
+                'root': {'id': 'root', 'type': 'Container',
+                         'layout': {'x': 0, 'y': 0, 'width': 64, 'height': 48},
+                         'props': {'style': {'opacity': 1}},
+                         'children': [{'id': 'confirm', 'type': 'Button',
+                                      'layout': {'x': 4, 'y': 4, 'width': 40, 'height': 20},
+                                      'props': {'style': {'opacity': 0}}, 'children': []}]},
+            },
+        })
+        binding = self.root / 'appearance-binding.json'
+        write_json(binding, {
+            'kind': 'ui-appearance-binding', 'version': '0.2',
+            'documentSha256': 'a' * 64,
+            'deliveryDigest': read_json(self.job / 'delivery/delivery.json')['digest'],
+            'sceneSha256': sha256(self.job / 'delivery/scene.json'),
+            'archiveSha256': result['artifacts']['png_zip']['sha256'],
+            'registration': {}, 'bindings': [],
+        })
+        with self.assertRaisesRegex(ContractError, 'COMPONENT_HANDOFF_INVISIBLE_INTERACTIVE'):
+            export_component_handoff(self.job / 'delivery', target, binding)
+        self.assertFalse((self.job / 'delivery/ui.component-handoff.draft.zip').exists())
+        self.assertFalse((self.job / 'delivery/component-handoff-export.json').exists())
+
     def test_low_available_memory_warns_but_full_job_continues(self):
         with patch('ai_ui_decomposition.resources.available_memory_bytes',
                    return_value=1024 * 1024):

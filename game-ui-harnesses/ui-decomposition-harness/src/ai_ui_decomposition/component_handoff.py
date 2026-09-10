@@ -12,6 +12,22 @@ from .common import read_json, require, safe_relative, sha256, write_json
 
 
 MAX_COMPONENT_BUNDLE_BYTES = 67_108_864
+INTERACTIVE_COMPONENT_TYPES = {
+    "Button", "Switch", "CheckBox", "RadioGroup", "Input", "Select", "Slider",
+    "ScrollView", "List", "Dialog", "Tabs",
+}
+
+
+def _walk_component_nodes(root: object):
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        if not isinstance(node, dict):
+            continue
+        yield node
+        children = node.get("children")
+        if isinstance(children, list):
+            pending.extend(reversed(children))
 
 
 def export_component_handoff(delivery: Path, component_bundle: Path,
@@ -38,6 +54,13 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
         style = props.get("style") if isinstance(props, dict) else None
         require(not isinstance(style, dict) or style.get("opacity") != 0,
                 "COMPONENT_HANDOFF_INVISIBLE_ROOT")
+        for node in _walk_component_nodes(root):
+            if node.get("type") not in INTERACTIVE_COMPONENT_TYPES:
+                continue
+            props = node.get("props")
+            style = props.get("style") if isinstance(props, dict) else None
+            require(not isinstance(style, dict) or style.get("opacity") != 0,
+                    "COMPONENT_HANDOFF_INVISIBLE_INTERACTIVE")
     require(appearance_binding.is_file() and not appearance_binding.is_symlink(),
             "APPEARANCE_BINDING_FILE_REQUIRED")
     binding = read_json(appearance_binding)
