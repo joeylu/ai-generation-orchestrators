@@ -102,3 +102,22 @@ yet exercised it, so its scoring reliability is not established. Model-based
 component proposals and visual quality still need production monitoring. Automatic
 human visual acceptance, recovery of hidden pixels and PSB writing remain outside
 this release's accepted evidence.
+
+## Instance reconstruction trial (2026-09-10)
+
+A local, provider-neutral handoff trial flattened one generated 1536 x 1024 scene
+into 36 observed instances and opened a self-contained bundle in the UI Component
+Studio. The layout record bound every crop to source bounds and SHA-256. Five
+buttons and four checkboxes were represented as independent semantic controls;
+sixteen inventory, equipment and detail regions remained raster evidence because
+the component contract has no reusable item-row schema. Deterministic overlay
+comparison reduced RGB mean absolute error from 22.1888 to 9.4938 (57.21 percent),
+but human visual review rejected the result because proportions, seams and coarse
+parent regions remained visibly inaccurate. This run is negative evidence and
+does not establish visual acceptance or automatic instance inference.
+
+The regression suite now separately verifies the part that is safe to rely on:
+PNG ZIP delivery retains distinct instance IDs, coordinates and dimensions even
+when two nodes reuse identical asset bytes. A future reference-image trial can
+therefore replace the observed plan without changing the deterministic layout
+handoff contract.

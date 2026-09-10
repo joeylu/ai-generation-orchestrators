@@ -166,6 +166,14 @@ class HeadlessTests(unittest.TestCase):
                     'layers/scene.png', 'layers/button_one.png', 'layers/button_two.png', 'automated-visual-qa.json'})
                 for name in archive.namelist():
                     self.assertEqual(archive.read(name), (self.job / 'delivery' / name).read_bytes())
+                scene = json.loads(archive.read('scene.json'))
+                controls = next(group for group in scene['tree'] if group['id'] == 'controls')['children']
+                self.assertEqual([row['id'] for row in controls], ['button_one', 'button_two'])
+                self.assertEqual([(row['left'], row['top'], row['size']) for row in controls],
+                                 [(4, 30, [20, 12]), (36, 30, [20, 12])])
+                self.assertEqual([row['asset'] for row in controls], ['button', 'button'])
+                self.assertNotEqual(controls[0]['id'], controls[1]['id'])
+                self.assertEqual(archive.read(controls[0]['png']), archive.read(controls[1]['png']))
             calls = (self.provider.vision_calls, self.provider.image_calls, self.provider.quality_calls)
             again = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
                              timeout_seconds=60, authorized=True, output_format='png_zip')

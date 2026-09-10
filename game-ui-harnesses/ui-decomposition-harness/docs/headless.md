@@ -91,6 +91,13 @@ component instances retain their own names. This exports named component images,
 not a newly packed sprite atlas. ZIP I/O and readback use bounded chunks without
 loading all PNGs into RAM. Each archived file is checked against its SHA-256.
 
+`scene.json` is also the deterministic layout handoff. Consumers should read each
+pixel child's `id`, `asset`, `left`, `top`, `size`, `png`, and `sha256` directly;
+they must not recover coordinates by comparing the composed preview. Multiple
+children may reference the same reusable asset while retaining distinct instance
+IDs and placements. The exporter keeps that instance mapping inside the ZIP and
+the consumer can bind it to semantic components separately.
+
 The job result exposes `artifacts.png_zip` and `artifacts.export` points to
 `png-zip-export.json`; completion/QA status meanings remain unchanged. Consumers
 can offer the single ZIP download. Successful repeated calls verify the archive
