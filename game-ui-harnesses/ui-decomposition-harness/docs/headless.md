@@ -131,6 +131,13 @@ Missing Switch track/thumb, Select background/indicator/popup, or another
 interactive component's required roles stops packaging instead of substituting
 a generic runtime control.
 
+For each new Select binding, provide `states.select.popupContentLayout` with
+`coordinateSpace: "target-popup-local"`. Measure the safe content rectangle from
+the popup asset and keep option labels, selection feedback and hit areas inside
+it. Decorative borders, shadows and pointers are outside this rectangle. Older
+bindings without this optional field remain readable, but must not be used as the
+template for a new complete handoff.
+
 For the reviewed/manual route, set `document.format` to `png_zip` before
 `freeze`; after normal processing, review and `finalize`, run
 `ai-ui-decomposition export --delivery <directory>`. The exporter follows the

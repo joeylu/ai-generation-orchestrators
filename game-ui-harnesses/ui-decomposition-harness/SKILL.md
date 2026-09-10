@@ -66,6 +66,13 @@ coverage or human acceptance.
    handoff, select `--output-format png_zip`; memory estimates are advisory and
    never reject either delivery format.
 
+When authoring a 0.2 appearance binding for a Select, always provide
+`states.select.popupContentLayout` in `target-popup-local` coordinates. Measure
+the rectangle from the transparent popup asset so option labels, hit areas and
+selection feedback stay inside its usable interior and avoid ornamental borders,
+shadows and pointers. Do not infer this rectangle from the semantic component or
+silently use the full popup canvas for a new handoff.
+
 For copyable commands, read [docs/quickstart.md](docs/quickstart.md). For a
 user-managed container, read
 [docs/container-integration.md](docs/container-integration.md).

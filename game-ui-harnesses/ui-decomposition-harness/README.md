@@ -26,6 +26,9 @@ the composed preview and the delivery/QA receipts. After an exact UI Component
 bundle and explicit appearance binding exist, `component-handoff` wraps all three
 as one authenticated `ui.component-handoff[.draft].zip` for direct consumption by
 `ui-component-harness`. See [the handoff command](docs/headless.md#png-zip-delivery-040).
+New Select appearance bindings include `states.select.popupContentLayout` in
+`target-popup-local` coordinates so option content stays inside the popup asset's
+usable interior rather than crossing ornamental borders, shadows or pointers.
 
 Version 0.4.1 changes the dynamic memory estimate to an advisory. A task whose
 estimated peak exceeds the diagnostic budget continues, while `check`, frozen
