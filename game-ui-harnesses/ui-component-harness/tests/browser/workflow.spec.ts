@@ -8,9 +8,10 @@ import { fixtureInputs } from '../../src/fixtures.ts';
 import { fixtureDocument } from '../../src/fixtures.ts';
 
 const cli = fileURLToPath(new URL('../../scripts/cli.mjs', import.meta.url));
+const previewUrl = process.env.UI_HARNESS_BASE_URL || 'http://127.0.0.1:4173/';
 function run(request: string, output: string): Promise<{ code: number | null; output: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [cli, 'run', request, '--preview-url', 'http://127.0.0.1:4173/', '--output', output,
+    const child = spawn(process.execPath, [cli, 'run', request, '--preview-url', previewUrl, '--output', output,
       '--browser', process.env.UI_HARNESS_BROWSER || (process.platform === 'win32' ? 'msedge' : 'chromium')], { stdio: ['ignore', 'pipe', 'pipe'] });
     let log = ''; child.stdout.on('data', data => { log += data; }); child.stderr.on('data', data => { log += data; });
     child.on('error', reject); child.on('close', code => resolve({ code, output: log }));

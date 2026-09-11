@@ -407,3 +407,45 @@ is covered below.
   filters do not invent unavailable task datasets. Texture and font matching,
   missing decorative details, and final human visual acceptance remain outside
   this technical pass. No new generation was used.
+## State-color handoff compatibility (2026-09-12)
+
+- Corrected binding validation so Tabs.activeTextColor is optional, matching the
+  interface and legacy behavior. Exact hex validation rejects trailing newlines.
+- Select/Tabs color passthrough and omission tests pass; browser pixel checks
+  verify light active/field labels with dark inactive/menu labels. Scroll browser
+  test dispatches a DOM wheel event through Pixi, avoiding headless OS wheel-target
+  timing on its tiny fixture; the full sample also passes mouse wheel input. Existing proportional
+  runtime thumb sizing is retained.
+- 337 component unit tests and production build pass. Quest Journal was exported
+  to a fresh draft and reverse-imported using the official component-handoff CLI;
+  its colors, semantic dimensions and widget interactions passed. Human visual
+  acceptance remains false. No new media generation or old artifact edits.
+
+## Quest Journal tab-icon handoff acceptance (2026-09-12)
+
+- Package SHA-256 `41c577aa0c92292b09178f8e0c76c3cef4fc9c1068f6a6acd772f9add27ff445`
+  passes authenticated `component-handoff` reverse import and bundle validation:
+  37 nodes and 38 resources.
+- Tabs supplies `icon` and `active-icon` bindings for `active`, `completed`, and
+  `archive`, with explicit target-item-local geometry. Browser interaction confirms
+  all three icons remain visible while ACTIVE, COMPLETED, and ARCHIVE become active.
+  Visual review then rejected the state artwork: each tab's normal and active icon
+  resources have identical SHA-256 values, while the reference requires dark
+  inactive icons and light active icons. The consumer contract/runtime are ready;
+  the decomposition handoff must export distinct state rasters.
+- The package remains an `unreviewed_draft` with `human_visual_acceptance: false`.
+  Structural and interaction checks pass, but state-color visual acceptance fails.
+
+### r007 state-color correction
+
+- Package SHA-256 `37bba2823d5db10cd08622a1c574afbde51862300170872f927e122c8844dac0`
+  passes authenticated reverse import and bundle validation with 37 nodes and
+  38 resources. Each normal/active icon pair now has distinct content digests.
+- Browser interaction confirms the selected ACTIVE, COMPLETED, or ARCHIVE icon
+  is light while both inactive icons are dark, with stable geometry and alpha.
+  The package remains `unreviewed_draft` with `human_visual_acceptance: false`.
+- Browser regression maintenance now counts all 21 second-batch appearance
+  resources, derives ScrollView drag results from semantic viewport/content and
+  track geometry, and passes the configured preview URL to workflow CLI tests.
+  The production build, 337 unit tests, and all 81 browser tests pass against the
+  external `http://127.0.0.1:4273` preview.

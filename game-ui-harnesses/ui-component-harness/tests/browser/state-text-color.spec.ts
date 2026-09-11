@@ -51,4 +51,21 @@ test('raster Tabs and Select render their explicit selected-state text colors', 
   }, screenshot.toString('base64'));
   expect(brightCounts.activeTab).toBeGreaterThan(20);
   expect(brightCounts.selectField).toBeGreaterThan(20);
+  const box = await page.locator('#canvas-host canvas').boundingBox();
+  if (!box) throw new Error('missing canvas');
+  await page.mouse.click(box.x + 300 * box.width / 400, box.y + 25 * box.height / 150);
+  const opened = await page.locator('#canvas-host canvas').screenshot();
+  const darkCounts = await page.evaluate(async base64 => {
+    const image = new Image(); image.src = `data:image/png;base64,${base64}`; await image.decode();
+    const canvas = document.createElement('canvas'); canvas.width = 400; canvas.height = 150;
+    const ctx = canvas.getContext('2d')!; ctx.drawImage(image, 0, 0, 400, 150);
+    const count = (x: number, y: number, w: number, h: number) => {
+      const pixels = ctx.getImageData(x, y, w, h).data; let total = 0;
+      for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 20 && pixels[i + 1] < 20 && pixels[i + 2] < 20) total++;
+      return total;
+    };
+    return { inactive: count(128, 5, 104, 40), popup: count(258, 55, 130, 50) };
+  }, opened.toString('base64'));
+  expect(darkCounts.inactive).toBeGreaterThan(20);
+  expect(darkCounts.popup).toBeGreaterThan(20);
 });

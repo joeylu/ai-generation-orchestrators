@@ -38,6 +38,10 @@ test('raster ScrollView expands an undersized thumb to the semantic viewport rat
 
   const canvas = page.locator('#canvas-host canvas'); const box = await canvas.boundingBox();
   if (!box) throw new Error('missing canvas');
-  await page.mouse.move(box.x + 60, box.y + 50); await page.mouse.wheel(0, 120);
+  // Exercise the DOM -> Pixi wheel handler directly; OS wheel targeting of this
+  // tiny canvas is timing-sensitive in headless Chromium. No state API is used.
+  await canvas.dispatchEvent('wheel', { clientX: box.x + box.width / 2,
+    clientY: box.y + box.height / 2, deltaY: 120, deltaX: 0, deltaMode: 0,
+    bubbles: true, cancelable: true });
   await expect.poll(() => page.evaluate(() => (window as any).uiHarness.inspect().nodes[0].value)).toEqual({ x: 0, y: 1 });
 });

@@ -183,7 +183,7 @@ test('v0.2 binding applies the remaining eight component types and exports their
     expect(nodes.map((node: any) => node.type)).toEqual(['ScrollView', 'List', 'Dialog', 'Tabs', 'Image', 'Text', 'Container', 'Panel']);
     expect((nodes.find((node: any) => node.type === 'Text') as any).props.text).toBe('Live semantic text');
     expect((nodes.find((node: any) => node.type === 'Image') as any).props.source).toContain(`/image-layer.png`);
-    expect(exported.resources.filter((resource: any) => resource.path.startsWith(`appearance/${value.imported.archiveSha256}/`))).toHaveLength(17);
+    expect(exported.resources.filter((resource: any) => resource.path.startsWith(`appearance/${value.imported.archiveSha256}/`))).toHaveLength(21);
   }
   expect(requests).toBe(0);
 });
@@ -206,9 +206,15 @@ test('the eight-component showcase keeps List, Tabs, and ScrollView interactive 
   await page.mouse.move(box!.x + 100 * box!.width / 800, box!.y + 60 * box!.height / 760); await page.mouse.wheel(0, 50);
   await expect.poll(() => page.evaluate(() => window.uiStudio.snapshot().views[0].inspection.nodes.find(node => node.id === 'apply-scroll')?.value)).toEqual({ x: 0, y: 110 });
   await canvas.scrollIntoViewIfNeeded(); const dragBox = await canvas.boundingBox(); expect(dragBox).toBeTruthy();
-  const thumbX = dragBox!.x + 195 * dragBox!.width / 800, thumbY = dragBox!.y + (10 + 10 + 70 * 110 / 120 + 10) * dragBox!.height / 760;
+  const trackHeight = 100, viewportHeight = 120, contentHeight = 240;
+  const maxScrollY = contentHeight - viewportHeight, initialScrollY = 110;
+  const thumbHeight = trackHeight * viewportHeight / contentHeight;
+  const thumbTravelY = trackHeight - thumbHeight, dragDistance = 35;
+  const thumbX = dragBox!.x + 195 * dragBox!.width / 800;
+  const thumbY = dragBox!.y + (20 + thumbTravelY * initialScrollY / maxScrollY + thumbHeight / 2) * dragBox!.height / 760;
   await page.mouse.move(thumbX, thumbY); await page.mouse.down();
-  await page.mouse.move(thumbX, thumbY - 35 * dragBox!.height / 760); await page.mouse.up();
-  await expect.poll(() => page.evaluate(() => (window.uiStudio.snapshot().views[0].inspection.nodes.find(node => node.id === 'apply-scroll')?.value as { y: number }).y)).toBeCloseTo(50, 4);
+  await page.mouse.move(thumbX, thumbY - dragDistance * dragBox!.height / 760); await page.mouse.up();
+  const expectedScrollY = initialScrollY - dragDistance * maxScrollY / thumbTravelY;
+  await expect.poll(() => page.evaluate(() => (window.uiStudio.snapshot().views[0].inspection.nodes.find(node => node.id === 'apply-scroll')?.value as { y: number }).y)).toBeCloseTo(expectedScrollY, 4);
   expect(requests).toBe(0);
 });
