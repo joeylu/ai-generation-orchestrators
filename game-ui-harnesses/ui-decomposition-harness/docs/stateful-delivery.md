@@ -25,6 +25,9 @@ but no accepted ZIP. No existing output directory is reused. Matrix and browser
 receipts are sidecars bound by SHA-256; the old four-member archive contract is
 unchanged. Distribute the receipt directory with the ZIP. A bare legacy export
 does not establish stateful acceptance.
+Reference images and rebased `state-evidence.json` are included in the receipt
+directory so the sidecars remain inspectable after moving the directory. The
+matrix records both the original evidence digest and the rebased evidence digest.
 
 ## Evidence contract: `ui_state_evidence_v1`
 
@@ -33,9 +36,12 @@ Required fields are `kind`, `handoffSha256`, `reference` (`path`, `sha256`) and
 document and cannot escape its directory. Each component supplies exactly:
 
 * `states`: every expected state name maps to `{basis, region, note}`. `basis`
-  is `observed` or `user-confirmed`; `region` is `[x,y,width,height]` in reference
+  is `observed`, `user-confirmed`, or `contract-derived`; `region` is `[x,y,width,height]` in reference
   pixels. Notes must identify the observed or confirmed state semantics. Never
   claim an unseen state was observed, or infer state colors from luminance.
+  `contract-derived` identifies runtime regression targets from the immutable
+  supplied semantic/binding contract; it does not claim an alternate screenshot
+  exists or that a human approved the appearance.
 * `relations`: every part slot maps to `{mode, note}`. `mode` is `distinct` or
   `shared`. Notes explain the reference basis, including deliberate same-state
   reuse. The relevant state evidence is recorded alongside every matrix state.
@@ -51,6 +57,7 @@ Slots and supported public roles:
 | Select | every selected option, menu reopened | background, indicator, popup |
 | Switch | off, on | track, thumb (shared texture, distinct positions) |
 | List | every item selected | background, row/id (row, selected-row) |
+| ScrollView | top, middle, bottom | viewport, track (scrollbar-track), thumb (scrollbar-thumb) |
 
 All Tabs require a per-tab explicit `icon` and `active-icon` binding and both
 local layouts. Both PNGs have identical dimensions, alpha bytes and
@@ -74,7 +81,7 @@ whether a shared mark is currently visible or a shared thumb has moved.
 | STATE_REFERENCE_EVIDENCE_MISSING | absent/invalid evidence or reference digest |
 | STATE_DISTINCT_DUPLICATE | distinct visuals reuse bytes or decoded pixels |
 | STATE_SHARED_MISMATCH | shared declaration contradicts decoded pixels |
-| STATE_GEOMETRY_MISMATCH | canvas, alpha contour or local geometry differs |
+| STATE_GEOMETRY_MISMATCH | canvas or icon alpha contour/local geometry differs |
 | STATE_ALPHA_INVALID | non-RGBA, empty, or fully opaque state part |
 | STATE_BACKGROUND_BAKED_CONFLICT | known icon template also found in a Tab background |
 | STATE_ROLE_UNSUPPORTED | role absent from the current public adapter |
@@ -83,9 +90,12 @@ whether a shared mark is currently visible or a shared thumb has moved.
 | STATE_RESOURCE_MISMATCH | resources or bound package changed |
 | STATE_COMPONENT_IMPORT_FAILED | official CLI rejected the archive |
 | STATE_BROWSER_FAILED | browser receipt contains the specific runtime/pixel failure |
+| STATE_SCROLL_SEMANTICS_MISSING | missing/nonpositive/nonfinite content or viewport dimensions |
+| STATE_SCROLL_GEOMETRY_INVALID | invalid track, thumb positions, or thumb outside track |
 
-Version 1 requires native-size geometry and all enumerated items visible. Input,
-Slider, ScrollView and Dialog fail explicitly until their full acceptance
+Version 1 requires native-size geometry and all enumerated items visible, with
+the explicit runtime-sized ScrollView thumb exception below. Input,
+Slider and Dialog fail explicitly until their full acceptance
 adapters exist; their old delivery support is unchanged. Additional pressed,
 disabled, error or focus *image roles* cannot be invented. If a reference requires
 them, this profile cannot establish complete acceptance. It does not silently
@@ -94,11 +104,38 @@ the runtime's observable press transform, not a fictional pressed-image role.
 
 Known-template background detection scans integer positions at the delivered
 scale. It detects copies of the provided icon, not arbitrary repainted or
-rescaled semantic equivalents. Opaque-core browser comparison uses RGB tolerance
+rescaled semantic equivalents. It checks the immediate silhouette halo and
+requires 95% core per-channel matches, preventing a distant panel border from
+manufacturing a match. Opaque-core browser comparison uses RGB tolerance
 12 and a maximum 5% outlier fraction, masks text and genuinely covering layers,
-and requires actual visible pixels. Text tests check the expected color in each
+and requires actual visible pixels. Parts covered by higher verified state
+parts have `occluded: true, pass: null`; zero pixels never become a pixel pass.
+Transformed textures are compared using rendered pixel-center expectations,
+not nearest source pixels. Text tests check the expected color in each
 label area, not OCR/font identity. Alpha-contour equality is deterministic;
 arbitrary edge compositing fidelity still needs human review.
+
+## ScrollView acceptance
+
+The vertical adapter records viewport and track rectangles, `thumbPositions`,
+content/viewport dimensions, source thumb canvas, runtime thumb rectangle and
+scroll range for each state. It reproduces the current public runtime rule:
+`min(trackHeight, max(sourceThumbHeight, trackHeight * min(1, viewportHeight / contentHeight)))`.
+Thus short templates expand; explicitly larger authored thumbs retain current
+runtime compatibility. This is an acceptance expectation, never a rewrite of
+the source asset or invented content height. Expanded-thumb travel uses remaining
+track height; otherwise the public authored positions apply.
+
+Actual pointer drags verify top/middle/bottom scroll values, thumb pixels and
+direct-child coordinate movement. Nested coordinates include viewport offset,
+initial scroll and clipping. Horizontal overflow fails explicitly with
+`STATE_CAPABILITY_MISSING:HORIZONTAL_SCROLL`. No-overflow content yields a full
+track thumb and zero scroll. Quest Journal's 600px content / 596px viewport on a
+524px track yields a 520.507px thumb, 3.493px travel and 0/2/4px scroll values;
+the 90px PNG remains unchanged.
+
+Regular state backgrounds must share canvas dimensions, but may have different
+alpha artwork. Exact alpha-contour equality remains mandatory for Tabs icons.
 
 Tabs icon alpha validation additionally rejects near-solid rectangular plates:
 at least 2% of the alpha bounding box must remain transparent. A transparent
@@ -117,7 +154,7 @@ python -m unittest discover -s tests -p test_stateful.py -v
 ```
 
 Set `STATEFUL_BROWSER_TESTS=1` after the component build to run real browser
-acceptance for all seven types. Tests generate local deterministic PNG fixtures:
+acceptance for all eight types. Tests generate local deterministic PNG fixtures:
 `Tabs-identical` reproduces r006 and must fail after official import; `Tabs`
 reproduces r007's dark/light icons across ACTIVE, COMPLETED and ARCHIVE. They
 neither read nor overwrite the historical Quest Journal packages. Other tests
@@ -126,5 +163,5 @@ baked template detection. Dependency setup is not performed by tests.
 
 For persistent fresh evidence, run `python tests/run_stateful_regression.py
 --component-root ../ui-component-harness --output NEW_DIRECTORY` with the package
-installed (or `PYTHONPATH=src`). It records all seven browser cases and the
+installed (or `PYTHONPATH=src`). It records all eight browser cases and the
 expected duplicate-state rejection in `regression.json`.

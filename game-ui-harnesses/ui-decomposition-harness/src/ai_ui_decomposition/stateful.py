@@ -14,14 +14,17 @@ import zipfile
 import numpy as np
 from PIL import Image
 from scipy.signal import correlate2d
+from scipy.ndimage import binary_dilation
 
 from .common import ContractError, read_json, require, safe_relative, sha256, write_json
+from .stateful_scroll import scroll_geometry
 
-KINDS = {'Tabs', 'Button', 'CheckBox', 'RadioGroup', 'Select', 'Switch', 'List'}
+KINDS = {'Tabs', 'Button', 'CheckBox', 'RadioGroup', 'Select', 'Switch', 'List', 'ScrollView'}
 ROLES = {'Tabs': {'tab', 'active-tab', 'icon', 'active-icon'}, 'Button': {'background'},
          'CheckBox': {'box', 'mark'}, 'RadioGroup': {'option', 'indicator'},
          'Select': {'background', 'indicator', 'popup'}, 'Switch': {'track', 'thumb'},
-         'List': {'background', 'row', 'selected-row'}}
+         'List': {'background', 'row', 'selected-row'},
+         'ScrollView': {'viewport','scrollbar-track','scrollbar-thumb'}}
 
 
 def image_bytes(payload):
@@ -37,7 +40,9 @@ def baked_icon(background, icon):
     bg = np.asarray(background).astype(float)
     fg = np.asarray(icon).astype(float)
     mask = (fg[:, :, 3] >= 250).astype(float)
-    ring = (fg[:, :, 3] == 0).astype(float)
+    # Compare the silhouette's immediate halo. The entire rectangular padding
+    # can contain an unrelated panel border and manufacture false contrast.
+    ring = ((fg[:, :, 3] == 0) & binary_dilation(fg[:, :, 3] > 0,iterations=2)).astype(float)
     if min(mask.sum(), ring.sum()) < 3:
         return False
     if background.width < icon.width or background.height < icon.height:
@@ -48,7 +53,13 @@ def baked_icon(background, icon):
                 + (fg[:, :, c] ** 2 * mask).sum() for c in range(3)) / (3 * mask.sum())
     ring_mean = sum(correlate2d(bg[:, :, c], ring, mode='valid') / ring.sum() for c in range(3)) / 3
     core_mean = sum(correlate2d(bg[:, :, c], mask, mode='valid') / mask.sum() for c in range(3)) / 3
-    return bool(np.any((error < 12 ** 2) & (np.abs(ring_mean - core_mean) > 12)))
+    for y,x in np.argwhere((error < 12 ** 2) & (np.abs(ring_mean - core_mean) > 12)):
+        patch=bg[y:y+icon.height,x:x+icon.width]
+        core=mask.astype(bool)
+        matches=(np.max(np.abs(patch[:,:,:3]-fg[:,:,:3]),axis=2)<=12)&(patch[:,:,3]>=250)
+        if float(matches[core].mean())>=.95:
+            return True
+    return False
 
 
 def relation_check(a, b, mode, evidence):
@@ -61,11 +72,26 @@ def relation_check(a, b, mode, evidence):
     require(not (mode == 'shared' and not equal), 'STATE_SHARED_MISMATCH')
 
 
-def nodes(root, offset=(0, 0)):
+def intersect_rect(a,b):
+    if a is None:return b
+    x=max(a[0],b[0]);y=max(a[1],b[1])
+    return [x,y,max(0,min(a[0]+a[2],b[0]+b[2])-x),max(0,min(a[1]+a[3],b[1]+b[3])-y)]
+
+
+def node_contexts(root, offset=(0, 0), clip=None):
     pos = (offset[0] + root['layout']['x'], offset[1] + root['layout']['y'])
-    yield root, pos
+    yield root, pos, clip
+    child_pos=pos
+    if root['type']=='ScrollView' and 'appearance' in root['props']:
+        p=root['props'];r=p['appearance']['viewport']['layout']
+        clip=intersect_rect(clip,[pos[0]+r['x'],pos[1]+r['y'],r['width'],r['height']])
+        child_pos=(pos[0]+r['x']-p['scrollX'],pos[1]+r['y']-p['scrollY'])
     for child in root.get('children', []):
-        yield from nodes(child, pos)
+        yield from node_contexts(child, child_pos,clip)
+
+
+def nodes(root,offset=(0,0)):
+    for node,pos,_clip in node_contexts(root,offset):yield node,pos
 
 
 def state_names(node):
@@ -75,6 +101,7 @@ def state_names(node):
     if t == 'List': return [x['id'] for x in p['items']]
     if t in {'CheckBox', 'Switch'}: return ['off', 'on']
     if t == 'Button': return ['default', 'hover', 'pressed']
+    if t == 'ScrollView': return ['top','middle','bottom']
     raise ContractError('STATE_CAPABILITY_MISSING')
 
 
@@ -86,11 +113,11 @@ def compile_matrix(bundle, binding, evidence, assets):
     by_binding = {b['componentId']: b for b in binding['bindings']}
     resources = {r['path']: r for r in bundle['resources']}
     output = []
-    for n, (x, y) in nodes(bundle['document']['root']):
+    for n, (x, y), inherited_clip in node_contexts(bundle['document']['root']):
         t, p, ident = n['type'], n['props'], n['id']
         if t not in KINDS:
             # Scope is explicit; these controls require a future public adapter.
-            require(t not in {'Input', 'Dialog', 'Slider', 'ScrollView'}, 'STATE_CAPABILITY_MISSING:' + t)
+            require(t not in {'Input', 'Dialog', 'Slider'}, 'STATE_CAPABILITY_MISSING:' + t)
             continue
         require(ident in policies, 'STATE_MISSING:' + ident)
         policy = policies[ident]
@@ -105,7 +132,7 @@ def compile_matrix(bundle, binding, evidence, assets):
         # Refuse unimplemented coordinate transforms instead of guessing.
         require(a['sourceCanvas'] == {'width': w, 'height': h}, 'STATE_GEOMETRY_MISMATCH')
         records = []
-        def part(slot, role, image, rect, visible=True, **selectors):
+        def part(slot, role, image, rect, visible=True, runtime_sized=False, **selectors):
             matches = [q for q in b['parts'] if q['role'] == role and all(q.get(k) == v for k, v in selectors.items())]
             require(len(matches) == 1, 'STATE_MISSING:' + slot)
             layer = matches[0]['layerId']
@@ -117,7 +144,7 @@ def compile_matrix(bundle, binding, evidence, assets):
                 alpha=im.getchannel('A');box=alpha.getbbox()
                 # A transparent outer border alone cannot disguise an opaque plate.
                 require(float(np.mean(np.asarray(alpha.crop(box))>0))<.98,'STATE_ALPHA_INVALID:ICON_OPAQUE_PLATE:'+layer)
-            require([im.width, im.height] == rect[2:], 'STATE_GEOMETRY_MISMATCH:' + slot)
+            require(runtime_sized or [im.width, im.height] == rect[2:], 'STATE_GEOMETRY_MISMATCH:' + slot)
             return dict(slot=slot, role=role, layer=layer, image=image, sha256=resource['sha256'],
                         pixelSha256=hashlib.sha256(im.tobytes()).hexdigest(),
                         alphaSha256=hashlib.sha256(im.getchannel('A').tobytes()).hexdigest(),
@@ -127,12 +154,13 @@ def compile_matrix(bundle, binding, evidence, assets):
         for name in names:
             proof = policy['states'][name]
             require(isinstance(proof, dict) and set(proof) == {'basis', 'region', 'note'} and
-                    proof['basis'] in {'observed', 'user-confirmed'} and isinstance(proof['note'], str) and proof['note'].strip(),
+                    proof['basis'] in {'observed', 'user-confirmed', 'contract-derived'} and isinstance(proof['note'], str) and proof['note'].strip(),
                     'STATE_REFERENCE_EVIDENCE_MISSING')
             region = proof['region']
             require(isinstance(region, list) and len(region) == 4 and all(type(v) in (int, float) and math.isfinite(v) and v >= 0 for v in region) and min(region[2:]) > 0,
                     'STATE_REFERENCE_EVIDENCE_MISSING')
             parts, excludes, texts = [], [], []
+            scroll=None
             value = name
             action = 'click'
             point = [x+w/2, y+h/2]
@@ -180,6 +208,19 @@ def compile_matrix(bundle, binding, evidence, assets):
                 for index,option in enumerate(p['options']):
                     texts.append(dict(rect=[x+r['x'],y+h+a['popupGap']+r['y']+index*r['height']/len(names),r['width'],r['height']/len(names)],color=p['style']['textColor'],text=option['label']))
                 action='select';point=[x+r['x']+r['width']/2,y+h+a['popupGap']+r['y']+(names.index(name)+.5)*r['height']/len(names)]
+            elif t == 'ScrollView':
+                scroll=scroll_geometry(n,{'top':0,'middle':.5,'bottom':1}[name])
+                scroll['children']=[]
+                r=scroll['thumb']
+                parts=[positioned('viewport','viewport',a['viewport']),
+                       positioned('track','scrollbar-track',a['scrollbarTrack']),
+                       part('thumb','scrollbar-thumb',a['scrollbarThumbImage'],[x+r[0],y+r[1],r[2],r[3]],runtime_sized=True)]
+                value={'x':0,'y':scroll['scrollY']};action='scroll';point=[x+r[0]+r[2]/2,y+r[1]+r[3]/2]
+                # Child content covers the viewport, not the foreground scrollbar.
+                for child in n.get('children',[]):
+                    r=child['layout'];vp=scroll['viewport'];excludes.append(intersect_rect([x+vp['x'],y+vp['y'],vp['width'],vp['height']],
+                        [x+vp['x']+r['x'],y+vp['y']+r['y']-scroll['scrollY'],r['width'],r['height']]))
+                    scroll['children'].append({'id':child['id'],'x':x+vp['x']+r['x'],'y':y+vp['y']+r['y']-scroll['scrollY']})
             elif t == 'List':
                 parts=[part('background','background',a['backgroundImage'],[x,y,w,h])]
                 for index, item in enumerate(names):
@@ -188,7 +229,10 @@ def compile_matrix(bundle, binding, evidence, assets):
                     exclude(a['labelLayout'],x,y+index*p['itemHeight'])
                 point=[x+w/2,y+(names.index(name)+.5)*p['itemHeight']]
                 require(point[1] < y+h, 'STATE_NOT_VISIBLE')
-            records.append(dict(name=name,value=value,action=action,point=point,parts=parts,exclude=excludes,textRegions=texts,referenceEvidence=proof))
+                for child in n.get('children',[]):
+                    r=child['layout'];excludes.append([x+r['x'],y+r['y'],r['width'],r['height']])
+            records.append(dict(name=name,value=value,action=action,point=point,parts=parts,exclude=excludes,textRegions=texts,referenceEvidence=proof,scroll=scroll,
+                                clip=intersect_rect(inherited_clip,[x,y,w,h]) if t=='List' else inherited_clip if t!='Select' else None))
         # Every repeated slot needs an explicit relation, even if state visuals are shared.
         slots = {p['slot'] for s in records for p in s['parts']}
         require(set(policy['relations']) == slots, 'STATE_RELATION_MISSING:' + ident)
@@ -204,7 +248,7 @@ def compile_matrix(bundle, binding, evidence, assets):
             original=variants[0];im=image_bytes(assets[original['layer']])
             for q in variants[1:]:
                 other=image_bytes(assets[q['layer']])
-                require(im.size==other.size and im.getchannel('A').tobytes()==other.getchannel('A').tobytes(),'STATE_GEOMETRY_MISMATCH:'+slot)
+                require(im.size==other.size,'STATE_GEOMETRY_MISMATCH:'+slot)
                 if t=='Tabs' and slot.startswith('icon/'):
                     require(original['rect']==q['rect'] and im.getchannel('A').tobytes()==other.getchannel('A').tobytes(),'STATE_GEOMETRY_MISMATCH:'+slot)
             if rel['mode']=='distinct':
@@ -256,7 +300,13 @@ def accept(handoff, evidence_path, component_root, output, browser=True):
             require(all(s['referenceEvidence']['region'][0]+s['referenceEvidence']['region'][2]<=ref.width and
                         s['referenceEvidence']['region'][1]+s['referenceEvidence']['region'][3]<=ref.height
                         for c in matrix['components'] for s in c['states']), 'STATE_REFERENCE_EVIDENCE_MISSING')
-        matrix.update(handoffSha256=sha256(handoff),bundleSha256=sha256(output/'consumed.json'),reference=reference)
+        public_reference={'path':'reference/'+reference['path'],'sha256':reference['sha256']}
+        ref_target=safe_relative(output,public_reference['path']);ref_target.parent.mkdir(parents=True,exist_ok=True)
+        with source.open('rb') as reader,ref_target.open('xb') as writer:shutil.copyfileobj(reader,writer)
+        require(sha256(ref_target)==reference['sha256'],'STATE_REFERENCE_EVIDENCE_MISSING')
+        write_json(output/'state-evidence.json',{**evidence,'reference':public_reference})
+        matrix.update(handoffSha256=sha256(handoff),bundleSha256=sha256(output/'consumed.json'),reference=public_reference,
+                      inputEvidenceSha256=sha256(evidence_path),evidenceSha256=sha256(output/'state-evidence.json'))
         write_json(output/'state-matrix.json',matrix)
         report.update(status='deterministic_passed',handoffSha256=sha256(handoff),matrixSha256=sha256(output/'state-matrix.json'))
         if browser:

@@ -25,7 +25,7 @@
     "state": {
       "type": "object", "additionalProperties": false, "required": ["basis", "region", "note"],
       "properties": {
-        "basis": {"enum": ["observed", "user-confirmed"]},
+        "basis": {"enum": ["observed", "user-confirmed", "contract-derived"]},
         "note": {"$ref": "#/$defs/note"},
         "region": {"type": "array", "minItems": 4, "maxItems": 4,
           "prefixItems": [{"type": "number", "minimum": 0}, {"type": "number", "minimum": 0}, {"type": "number", "exclusiveMinimum": 0}, {"type": "number", "exclusiveMinimum": 0}]}

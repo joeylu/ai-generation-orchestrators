@@ -26,7 +26,7 @@ class StatefulTests(unittest.TestCase):
         cls.root = Path(cls.temp.name)/'fixtures'
         subprocess.run(['node',str(Path(__file__).with_name('stateful-fixtures.mjs')),str(cls.component),str(cls.root)],check=True,capture_output=True)
         cls.loaded = {}
-        for kind in ['Button','Switch','Select','CheckBox','RadioGroup','List','Tabs']:
+        for kind in ['Button','Switch','Select','CheckBox','RadioGroup','List','ScrollView','Tabs']:
             d=cls.root/kind
             accept(d/'ui.component-handoff.draft.zip',d/'evidence.json',cls.component,d/'qa',False)
             binding,assets=archive_inputs(d/'ui.component-handoff.draft.zip')
@@ -152,7 +152,7 @@ class StatefulTests(unittest.TestCase):
         self.assertEqual(before,(d/'qa/acceptance.json').read_bytes())
 
     def test_unsupported_component_does_not_silently_pass(self):
-        for kind in ['Input','Dialog','Slider','ScrollView']:
+        for kind in ['Input','Dialog','Slider']:
             data=self.fixture();data[0]['document']['root']['children'][0]['type']=kind
             with self.assertRaisesRegex(ContractError,'STATE_CAPABILITY_MISSING'):compile_matrix(*data)
 
