@@ -376,3 +376,9 @@ is covered below.
 | M156: invisible-root handoff guard | COMPLETE | Producer packaging and consumer library/CLI reject a semantic v0.2 root with opacity 0 before a blank runtime bundle can be delivered; 87 decomposition tests, 328 component tests and the production build pass; regression includes output non-creation |
 | M157: invisible-interactive handoff guard | COMPLETE | Producer packaging and consumer library/CLI reject opacity-0 interactive nodes so a static screenshot cannot masquerade as an interactive handoff; 88 decomposition tests and 330 component tests pass; regression includes output non-creation |
 | M158: complete interactive appearance coverage | COMPLETE | The one-file component handoff producer and consumer reject every interactive semantic node missing from `appearance-binding.json`; standalone appearance bindings may remain partial for authoring, while a complete handoff cannot silently substitute generic controls; 89 decomposition tests, 332 component tests and the production build pass |
+
+## Input interaction semantics (2026-09-11)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M159: text-field pointer behavior | COMPLETE | PixiJS Input uses a text cursor and focuses its hidden native editor on pointer tap without Button press/release events or fallback press scaling; 334 unit tests, 6/6 runtime-edge browser tests, 9/9 component browser tests and the production build pass |
