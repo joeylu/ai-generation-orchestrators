@@ -177,3 +177,18 @@ protect their semantics. Insets require explicit selection and visual review.
 Corner preservation is relative to the fitted generated material, not a promise
 of recovering the original reference's pixels. Old runtimes reject this new field;
 plans without it remain compatible.
+
+## Stateful appearance acceptance v1
+
+New stateful acceptance uses the opt-in strict `ai-ui-stateful` route described
+in [stateful-delivery.md](../docs/stateful-delivery.md), with
+[state-evidence.schema.json](state-evidence.schema.json). It consumes existing
+four-member handoff archives without changing their compatibility or bytes.
+Its machine matrix binds each enumerated state to public roles, resource and
+alpha hashes, geometry, and explicit reference evidence. Distinct states cannot
+share decoded pixels; shared states need explicit evidence. Tabs icons remain
+independent transparent parts with identical per-item geometry across states.
+The deterministic and real-browser receipts are hash-bound sidecars. Only the
+full successful route publishes a copied draft ZIP; QA-only emits diagnostics.
+Unsupported capabilities fail rather than falling back. Technical success never
+changes `human_visual_acceptance: false` or establishes final human acceptance.

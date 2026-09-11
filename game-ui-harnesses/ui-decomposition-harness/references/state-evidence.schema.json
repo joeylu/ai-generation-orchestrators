@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UI stateful appearance reference evidence v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["kind", "handoffSha256", "reference", "components"],
+  "properties": {
+    "kind": {"const": "ui_state_evidence_v1"},
+    "handoffSha256": {"$ref": "#/$defs/sha"},
+    "reference": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha"}}
+    },
+    "components": {"type": "object", "additionalProperties": {"$ref": "#/$defs/component"}}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "note": {"type": "string", "pattern": "\\S"},
+    "component": {
+      "type": "object", "additionalProperties": false, "required": ["states", "relations"],
+      "properties": {
+        "states": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/state"}},
+        "relations": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/relation"}}
+      }
+    },
+    "state": {
+      "type": "object", "additionalProperties": false, "required": ["basis", "region", "note"],
+      "properties": {
+        "basis": {"enum": ["observed", "user-confirmed"]},
+        "note": {"$ref": "#/$defs/note"},
+        "region": {"type": "array", "minItems": 4, "maxItems": 4,
+          "prefixItems": [{"type": "number", "minimum": 0}, {"type": "number", "minimum": 0}, {"type": "number", "exclusiveMinimum": 0}, {"type": "number", "exclusiveMinimum": 0}]}
+      }
+    },
+    "relation": {
+      "type": "object", "additionalProperties": false, "required": ["mode", "note"],
+      "properties": {"mode": {"enum": ["shared", "distinct"]}, "note": {"$ref": "#/$defs/note"}}
+    }
+  }
+}

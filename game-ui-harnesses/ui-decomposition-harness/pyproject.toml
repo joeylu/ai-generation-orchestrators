@@ -19,6 +19,10 @@ test = []
 
 [project.scripts]
 ai-ui-decomposition = "ai_ui_decomposition.cli:main"
+ai-ui-stateful = "ai_ui_decomposition.stateful:main"
+
+[tool.setuptools.package-data]
+ai_ui_decomposition = ["*.mjs"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -26,6 +30,6 @@ where = ["src"]
 [tool.setuptools.data-files]
 "share/ai-ui-decomposition" = ["SKILL.md", "skill.json"]
 "share/ai-ui-decomposition/agents" = ["agents/openai.yaml"]
-"share/ai-ui-decomposition/references" = ["references/*.md"]
+"share/ai-ui-decomposition/references" = ["references/*.md", "references/state-evidence.schema.json"]
 "share/ai-ui-decomposition/docs" = ["docs/*.md"]
 "share/ai-ui-decomposition/examples" = ["examples/*.md"]

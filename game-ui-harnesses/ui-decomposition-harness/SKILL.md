@@ -97,3 +97,16 @@ user-managed container, read
   roundtrip test exist.
 - Keep every attempt, review, and delivery immutable. Create a new run when a
   component or prompt must change.
+
+## Stateful appearance delivery (required for new stateful acceptance)
+
+After producing a component handoff, follow [stateful delivery](docs/stateful-delivery.md)
+and run `ai-ui-stateful` with explicit reference evidence and the current local
+component CLI/build. A legacy packaging success is not stateful acceptance.
+Use only public roles. Tabs require per-tab transparent icon/active-icon layers,
+matching alpha/local geometry, and explicit distinct/shared evidence. Never
+silently copy a state, bake its icon into the background, or replace missing
+appearance capabilities with procedural drawing. Missing adapters fail explicitly.
+Only a fresh receipt directory whose browser verification succeeded contains the
+accepted draft ZIP copy. Deliver its matrix and browser receipts alongside it.
+Keep `human_visual_acceptance: false`; final visual acceptance remains human.
