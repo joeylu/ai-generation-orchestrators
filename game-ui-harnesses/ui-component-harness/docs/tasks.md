@@ -382,3 +382,9 @@ is covered below.
 | Task | Status | Acceptance |
 | --- | --- | --- |
 | M159: text-field pointer behavior | COMPLETE | PixiJS Input uses a text cursor and focuses its hidden native editor on pointer tap without Button press/release events or fallback press scaling; 334 unit tests, 6/6 runtime-edge browser tests, 9/9 component browser tests and the production build pass |
+
+## Create Hero r002 handoff acceptance (2026-09-11)
+
+| Task | Status | Acceptance |
+| --- | --- | --- |
+| M160: authenticated r002 case import | COMPLETE | Outer/nested checksums and safe paths pass; the official handoff compiler emits a valid 0.2 bundle with 10 nodes and 19 resources; all eight interactive nodes have complete appearance bindings and exact source/target canvas geometry; Studio browser evidence confirms Input, RadioGroup, CheckBox, Slider and Button state feedback. The static scene matches the original closely, while regenerated control regions retain documented visual deltas; upstream status remains `unreviewed_draft` pending visual acceptance. |
