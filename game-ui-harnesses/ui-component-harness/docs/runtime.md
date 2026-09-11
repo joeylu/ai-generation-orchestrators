@@ -148,3 +148,9 @@ glyphs over raster artwork without painting a solid rectangle. Omission retains
 the existing background paint behavior. This does not change node opacity, text
 semantics, clipping, or font substitution. Consumers of this optional field need
 a runtime that recognizes it; older strict validators reject the field.
+
+Raster ScrollView thumb images are treated as scalable visual templates. When an
+authored thumb is shorter than the semantic `viewportHeight / contentHeight`
+ratio requires, the runtime expands it to the proportional track length and uses
+the same geometry for pointer dragging. This prevents a nearly fully visible list
+from implying a large amount of hidden content.

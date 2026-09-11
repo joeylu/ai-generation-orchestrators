@@ -397,8 +397,11 @@ is covered below.
 - Local Quest Journal draft: 37 nodes, 21 appearance bindings, 31 decomposition
   layers. Official ZIP reverse import reproduces the prepared Bundle exactly.
   Browser acceptance exercises Tabs, CheckBox, Select, List, ScrollView and Button.
-  An independent Chromium run reproduced both supplied runtime screenshots byte
-  for byte, including the open REGION state, and observed no page errors.
+  The first independent Chromium run reproduced both supplied runtime screenshots
+  byte for byte. Follow-up review found the supplied 90 px ScrollView thumb
+  inconsistent with a 596/600 visible-content ratio; the runtime now expands
+  undersized raster thumbs to their semantic track ratio while preserving larger
+  authored thumbs. All six controls still pass and no page errors occur.
   This is a geometry-first widget fixture, not a completed game: only the six
   observed tasks are supplied, scrolling is bounded to their known content, and
   filters do not invent unavailable task datasets. Texture and font matching,

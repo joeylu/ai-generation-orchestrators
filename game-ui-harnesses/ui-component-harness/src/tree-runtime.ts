@@ -1039,6 +1039,29 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     }
     record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
   }
+  function scrollThumbGeometry(record: RuntimeRecord, scrollY: number): { x: number; y: number; width: number; height: number; travelY: number } {
+    const node = record.node; if (node.type !== 'ScrollView' || !node.props.appearance) throw new Error('SCROLL_APPEARANCE_REQUIRED');
+    const appearance = node.props.appearance, scale = rasterScale(record, appearance.sourceCanvas);
+    const maxScrollY = Math.max(0, node.props.contentHeight - node.layout.height);
+    const amount = maxScrollY === 0 ? 0 : Math.max(0, Math.min(1, scrollY / maxScrollY));
+    const declaredHeight = appearance.scrollbarThumbCanvas.height * scale.y;
+    const trackY = appearance.scrollbarTrack.layout.y * scale.y;
+    const trackHeight = appearance.scrollbarTrack.layout.height * scale.y;
+    // A short source texture is an appearance template, not permission to imply
+    // large unseen content. Expand it when the semantic viewport/content ratio
+    // requires a longer thumb; retain explicitly larger authored thumbs.
+    const proportionalHeight = trackHeight * Math.min(1, node.layout.height / node.props.contentHeight);
+    const height = Math.min(trackHeight, Math.max(declaredHeight, proportionalHeight));
+    const expanded = height > declaredHeight + 0.01;
+    const travelY = expanded
+      ? Math.max(0, trackHeight - height)
+      : (appearance.scrollbarThumbPositions.max.y - appearance.scrollbarThumbPositions.min.y) * scale.y;
+    const y = expanded
+      ? trackY + travelY * amount
+      : (appearance.scrollbarThumbPositions.min.y + (appearance.scrollbarThumbPositions.max.y - appearance.scrollbarThumbPositions.min.y) * amount) * scale.y;
+    const x = (appearance.scrollbarThumbPositions.min.x + (appearance.scrollbarThumbPositions.max.x - appearance.scrollbarThumbPositions.min.x) * amount) * scale.x;
+    return { x, y, width: appearance.scrollbarThumbCanvas.width * scale.x, height, travelY };
+  }
   function drawScroll(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'ScrollView') return;
     clear(record.paint); clear(record.foreground);
@@ -1048,11 +1071,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const appearance = node.props.appearance, values = presentation(record);
     record.paint.addChild(rasterPart(record, record.scrollTextures.viewport, appearance.sourceCanvas, appearance.viewport.layout));
     record.foreground.addChild(rasterPart(record, record.scrollTextures.scrollbarTrack, appearance.sourceCanvas, appearance.scrollbarTrack.layout));
-    const amount = node.props.contentHeight <= node.layout.height ? 0 : Math.max(0, Math.min(1, (values.scrollY ?? node.props.scrollY) / (node.props.contentHeight - node.layout.height)));
-    const scale = rasterScale(record, appearance.sourceCanvas), thumb = new Sprite(record.scrollTextures.scrollbarThumb);
-    thumb.x = (appearance.scrollbarThumbPositions.min.x + (appearance.scrollbarThumbPositions.max.x - appearance.scrollbarThumbPositions.min.x) * amount) * scale.x;
-    thumb.y = (appearance.scrollbarThumbPositions.min.y + (appearance.scrollbarThumbPositions.max.y - appearance.scrollbarThumbPositions.min.y) * amount) * scale.y;
-    thumb.width = appearance.scrollbarThumbCanvas.width * scale.x; thumb.height = appearance.scrollbarThumbCanvas.height * scale.y;
+    const geometry = scrollThumbGeometry(record, values.scrollY ?? node.props.scrollY), thumb = new Sprite(record.scrollTextures.scrollbarThumb);
+    thumb.x = geometry.x; thumb.y = geometry.y; thumb.width = geometry.width; thumb.height = geometry.height;
     record.foreground.addChild(thumb);
   }
   function drawList(record: RuntimeRecord): void {
@@ -1525,15 +1545,11 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     let thumbTravelY = 0;
     let draggingThumb = false;
     if (node.props.appearance) {
-      const appearance = node.props.appearance, scale = rasterScale(record, appearance.sourceCanvas);
-      const amount = maxScrollY === 0 ? 0 : origin.y / maxScrollY;
-      const thumbX = (appearance.scrollbarThumbPositions.min.x + (appearance.scrollbarThumbPositions.max.x - appearance.scrollbarThumbPositions.min.x) * amount) * scale.x;
-      const thumbY = (appearance.scrollbarThumbPositions.min.y + (appearance.scrollbarThumbPositions.max.y - appearance.scrollbarThumbPositions.min.y) * amount) * scale.y;
-      const thumbWidth = appearance.scrollbarThumbCanvas.width * scale.x, thumbHeight = appearance.scrollbarThumbCanvas.height * scale.y;
+      const thumb = scrollThumbGeometry(record, origin.y);
       const hitPadding = 4;
-      draggingThumb = start.x >= thumbX - hitPadding && start.x <= thumbX + thumbWidth + hitPadding
-        && start.y >= thumbY - hitPadding && start.y <= thumbY + thumbHeight + hitPadding;
-      thumbTravelY = (appearance.scrollbarThumbPositions.max.y - appearance.scrollbarThumbPositions.min.y) * scale.y;
+      draggingThumb = start.x >= thumb.x - hitPadding && start.x <= thumb.x + thumb.width + hitPadding
+        && start.y >= thumb.y - hitPadding && start.y <= thumb.y + thumb.height + hitPadding;
+      thumbTravelY = thumb.travelY;
     }
     const motionKey = `motion.n${record.order}.scroll`;
     animator.cancel(motionKey); record.motionKeys.delete(motionKey);
