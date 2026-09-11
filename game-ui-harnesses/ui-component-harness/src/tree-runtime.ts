@@ -143,6 +143,7 @@ class TreeResources {
       if (node.type === 'Tabs' && node.props.appearance) {
         imageSources.add(node.props.appearance.tabImage);
         imageSources.add(node.props.appearance.activeTabImage);
+        for (const item of node.props.appearance.icons ?? []) { imageSources.add(item.icon.image); imageSources.add(item.activeIcon.image); }
       }
       if (node.type === 'Text' && node.props.fontSource) fontSources.set(`${node.props.fontSource}\u0000${node.props.style.fontFamily}`, node.props.fontSource);
     }
@@ -256,6 +257,7 @@ class TreeResources {
       if (node.type === 'Tabs' && node.props.appearance) {
         part(node.props.appearance.tabImage, node.props.appearance.tabCanvas, 'TAB_CANVAS_MISMATCH');
         part(node.props.appearance.activeTabImage, node.props.appearance.activeTabCanvas, 'ACTIVE_TAB_CANVAS_MISMATCH');
+        for (const item of node.props.appearance.icons ?? []) { part(item.icon.image, item.icon.canvas, 'TAB_ICON_CANVAS_MISMATCH'); part(item.activeIcon.image, item.activeIcon.canvas, 'ACTIVE_TAB_ICON_CANVAS_MISMATCH'); }
       }
     }
     await Promise.all([...fontSources.entries()].map(async ([key, source]) => {
@@ -337,7 +339,7 @@ interface RuntimeRecord {
   listTextures?: { background: Texture; row: Texture; selectedRow: Texture };
   panelTextures?: { background: Texture; header: Texture; body?: Texture };
   dialogTextures?: { background: Texture; header: Texture; body: Texture; overlay?: Texture };
-  tabsTextures?: { tab: Texture; activeTab: Texture };
+  tabsTextures?: { tab: Texture; activeTab: Texture; icons: Map<string, { icon: Texture; activeIcon: Texture }> };
   buttonTexture?: Texture;
   selectTextures?: { field: Texture; arrow: Texture; popup: Texture };
   userVisible: boolean;
@@ -1139,6 +1141,12 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       if (appearance && textures) {
         const texture = selected ? textures.activeTab : textures.tab;
         const background = new Sprite(texture); background.x = index * width; background.width = width; background.height = headerHeight; record.foreground.addChild(background);
+        const iconAppearance = appearance.icons?.find(item => item.tabId === tab.id), iconTextures = textures.icons.get(tab.id);
+        if (iconAppearance && iconTextures) {
+          const part = selected ? iconAppearance.activeIcon : iconAppearance.icon, icon = new Sprite(selected ? iconTextures.activeIcon : iconTextures.icon);
+          icon.x = index * width + part.layout.x * width / appearance.tabCanvas.width; icon.y = part.layout.y * headerHeight / appearance.tabCanvas.height;
+          icon.width = part.layout.width * width / appearance.tabCanvas.width; icon.height = part.layout.height * headerHeight / appearance.tabCanvas.height; record.foreground.addChild(icon);
+        }
         const labelLayout = appearance.labelLayout;
         const tabStyle = selected && appearance.activeTextColor ? { ...node.props.style, textColor: appearance.activeTextColor } : node.props.style;
         label(record, tab.label, index * width + labelLayout.x * width / appearance.tabCanvas.width, labelLayout.y * headerHeight / appearance.tabCanvas.height, labelLayout.width * width / appearance.tabCanvas.width, labelLayout.height * headerHeight / appearance.tabCanvas.height, tabStyle, record.foreground);
@@ -1370,7 +1378,10 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           if (node.props.appearance) {
             const tab = scope.resources.acquireImage(node.props.appearance.tabImage);
             const activeTab = scope.resources.acquireImage(node.props.appearance.activeTabImage);
-            record.tabsTextures = { tab: tab.texture, activeTab: activeTab.texture }; record.resourceReleases.push(tab.release, activeTab.release);
+            const icons = new Map<string, { icon: Texture; activeIcon: Texture }>();
+            record.resourceReleases.push(tab.release, activeTab.release);
+            for (const item of node.props.appearance.icons ?? []) { const icon = scope.resources.acquireImage(item.icon.image), activeIcon = scope.resources.acquireImage(item.activeIcon.image); icons.set(item.tabId, { icon: icon.texture, activeIcon: activeIcon.texture }); record.resourceReleases.push(icon.release, activeIcon.release); }
+            record.tabsTextures = { tab: tab.texture, activeTab: activeTab.texture, icons };
           }
           record.redraw = () => drawTabs(record); record.redraw(); makeInteractive(record);
           bind(record, 'pointertap', event => {

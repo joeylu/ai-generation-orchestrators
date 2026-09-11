@@ -287,7 +287,7 @@ export async function applyAppearanceBinding(
       continue;
     }
     if (supported.type === 'Tabs') {
-      only(`${path}.parts`, partLayers, ['tab', 'active-tab']);
+      only(`${path}.parts`, partLayers, ['tab', 'active-tab', 'icon', 'active-icon']);
       const tab = partLayers.get('tab')!, active = partLayers.get('active-tab')!;
       const state = componentBinding.states && 'tabs' in componentBinding.states ? componentBinding.states.tabs : undefined;
       if (!state) fail(`${path}.states`, 'TABS_STATE_REQUIRED', 'explicit repeated tab geometry is required');
@@ -302,7 +302,20 @@ export async function applyAppearanceBinding(
       const scale = binding.registration.transform.scale;
       if (!close(tab.width * scale, tabWidth) || !close(active.width * scale, tabWidth) || !close(tab.height * scale, state.headerHeight) || !close(active.height * scale, state.headerHeight)) fail(`${path}.parts`, 'TAB_TEMPLATE_SCALE_MISMATCH', 'tab templates must share the registered uniform scale');
       const local = (layout: Layout): Layout => ({ x: layout.x / scale, y: layout.y / scale, width: layout.width / scale, height: layout.height / scale });
-      supported.props.appearance = { sourceCanvas: { width: component.width / scale, height: component.height / scale }, tabImage: add(tab), tabCanvas: { width: tab.width, height: tab.height }, activeTabImage: add(active), activeTabCanvas: { width: active.width, height: active.height }, headerHeight: state.headerHeight / scale, labelLayout: local(state.labelLayout), hitArea: local(state.hitArea), ...(state.activeTextColor ? { activeTextColor: state.activeTextColor } : {}) };
+      const icons = state.icons?.map(iconState => {
+        const index = supported.props.tabs.findIndex(item => item.id === iconState.tabId);
+        const iconPart = componentBinding.parts.find(part => part.role === 'icon' && part.tabId === iconState.tabId);
+        const activeIconPart = componentBinding.parts.find(part => part.role === 'active-icon' && part.tabId === iconState.tabId);
+        const icon = iconPart ? sourceLayers.get(iconPart.layerId) : undefined, activeIcon = activeIconPart ? sourceLayers.get(activeIconPart.layerId) : undefined;
+        if (index < 0 || !icon || !activeIcon) fail(`${path}.parts`, 'TAB_ICON_LAYER_REQUIRED', `both icon states are required for ${iconState.tabId}`);
+        const verify = (layer: ImportedDecompositionLayer, layout: Layout, role: string) => {
+          const actual = transformed(layer, binding), expected = { x: component.x + index * tabWidth + layout.x, y: component.y + layout.y, width: layout.width, height: layout.height };
+          if (!close(actual.x, expected.x) || !close(actual.y, expected.y) || !close(actual.width, expected.width) || !close(actual.height, expected.height)) fail(`${path}.parts`, 'TAB_ICON_GEOMETRY_MISMATCH', `${role} must match its declared tab-local layout`);
+        };
+        verify(icon, iconState.iconLayout, 'icon'); verify(activeIcon, iconState.activeIconLayout, 'active-icon');
+        return { tabId: iconState.tabId, icon: { image: add(icon), canvas: { width: icon.width, height: icon.height }, layout: local(iconState.iconLayout) }, activeIcon: { image: add(activeIcon), canvas: { width: activeIcon.width, height: activeIcon.height }, layout: local(iconState.activeIconLayout) } };
+      });
+      supported.props.appearance = { sourceCanvas: { width: component.width / scale, height: component.height / scale }, tabImage: add(tab), tabCanvas: { width: tab.width, height: tab.height }, activeTabImage: add(active), activeTabCanvas: { width: active.width, height: active.height }, headerHeight: state.headerHeight / scale, labelLayout: local(state.labelLayout), hitArea: local(state.hitArea), ...(state.activeTextColor ? { activeTextColor: state.activeTextColor } : {}), ...(icons ? { icons } : {}) };
       continue;
     }
     only(`${path}.parts`, partLayers, ['background', 'indicator', 'popup']);

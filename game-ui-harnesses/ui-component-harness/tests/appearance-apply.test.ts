@@ -81,13 +81,14 @@ test('v0.2 binding applies the remaining eight types from explicit reusable temp
   assert.deepEqual((nodes.get('apply-scroll') as any).props.appearance.scrollbarThumbPositions.max, { x: 180, y: 80 });
   assert.deepEqual((nodes.get('apply-list') as any).props.appearance.hitArea, { x: 0, y: 0, width: 200, height: 50 });
   assert.equal((nodes.get('apply-dialog') as any).props.appearance.overlayCanvas.width, 800);
-  assert.deepEqual((nodes.get('apply-tabs') as any).props.appearance.labelLayout, { x: 10, y: 5, width: 180, height: 30 });
+  assert.deepEqual((nodes.get('apply-tabs') as any).props.appearance.labelLayout, { x: 90, y: 5, width: 100, height: 30 });
   assert.equal((nodes.get('apply-tabs') as any).props.appearance.activeTextColor, '#FFFFFF');
+  assert.deepEqual((nodes.get('apply-tabs') as any).props.appearance.icons.map((item: any) => item.tabId), ['tab-a', 'tab-b']);
   assert.equal((nodes.get('apply-image') as any).props.source, `appearance/${value.imported.archiveSha256}/image-layer.png`);
   assert.equal((nodes.get('apply-text') as any).props.text, 'Live semantic text');
   assert.ok((nodes.get('apply-container') as any).props.appearance);
   assert.equal((nodes.get('apply-panel') as any).props.title, 'Profile');
-  assert.equal(bundleResources(applied).filter(resource => resource.path.startsWith(`appearance/${value.imported.archiveSha256}/`)).length, 17);
+  assert.equal(bundleResources(applied).filter(resource => resource.path.startsWith(`appearance/${value.imported.archiveSha256}/`)).length, 21);
   assert.equal(value.document.root.children.some((node: any) => node.props.appearance), false);
 });
 
@@ -102,6 +103,8 @@ test('second-batch application rejects stale dynamic state and implicit repeated
   await assert.rejects(applyAppearanceBinding(nonModalOverlay, value.imported, nonModalBinding), (error: unknown) => error instanceof HarnessError && error.issues.some(issue => issue.code === 'OVERLAY_MODAL_MISMATCH'));
   const wrongActiveTab = structuredClone(value.binding) as any; wrongActiveTab.bindings[3].parts[1].tabId = 'tab-a';
   await assert.rejects(applyAppearanceBinding(value.target, value.imported, wrongActiveTab), (error: unknown) => error instanceof HarnessError && error.issues.some(issue => issue.code === 'ACTIVE_TAB_MISMATCH'));
+  const missingTabIcon = structuredClone(value.binding) as any; missingTabIcon.bindings[3].parts = missingTabIcon.bindings[3].parts.filter((part: any) => !(part.role === 'active-icon' && part.tabId === 'tab-a'));
+  await assert.rejects(applyAppearanceBinding(value.target, value.imported, missingTabIcon), (error: unknown) => error instanceof HarnessError && error.issues.some(issue => issue.code === 'MISSING_TAB_ICON_ROLE'));
 });
 
 test('application rejects legacy binding, stale popup geometry, and existing appearance instead of guessing or overwriting', async () => {

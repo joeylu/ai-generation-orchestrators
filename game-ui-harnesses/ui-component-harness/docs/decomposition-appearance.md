@@ -184,6 +184,12 @@ use the component's base `style.textColor`. Tabs `activeTextColor` affects only
 the active tab label. Both fields accept `#RGB` or `#RRGGBB`; absence preserves
 the base text color for backward compatibility.
 
+Tabs may also bind one `icon` and one `active-icon` part for every `tabId`.
+`states.tabs.icons` supplies matching `target-item-local` `iconLayout` and
+`activeIconLayout` rectangles. If any tab icon is supplied, both states are
+required for every tab, so switching tabs cannot make an icon disappear or
+reuse another tab's artwork.
+
 `applyAppearanceBinding(targetBundle, imported, binding)` preserves target
 resources and motion documents, adds only referenced layer bytes, and returns a
 new validated bundle. Version 0.1 remains a compatibility validation format and

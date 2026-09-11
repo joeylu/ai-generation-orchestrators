@@ -17,7 +17,7 @@ export type AppearanceRole =
   | 'track' | 'thumb' | 'box' | 'mark' | 'option' | 'indicator'
   | 'placeholder' | 'caret' | 'fill' | 'viewport' | 'content'
   | 'scrollbar-track' | 'scrollbar-thumb' | 'row' | 'selected-row'
-  | 'header' | 'body' | 'overlay' | 'tab' | 'active-tab' | 'popup';
+  | 'header' | 'body' | 'overlay' | 'tab' | 'active-tab' | 'icon' | 'active-icon' | 'popup';
 
 export interface AppearanceRoleDefinition {
   readonly componentType: UiNodeType;
@@ -109,7 +109,13 @@ export interface ScrollViewStateAppearance {
 export interface RepeatedItemLayout { readonly coordinateSpace: 'target-item-local'; readonly x: number; readonly y: number; readonly width: number; readonly height: number }
 export interface ListStateAppearance { readonly labelLayout: RepeatedItemLayout; readonly hitArea: RepeatedItemLayout }
 export interface DialogStateAppearance { readonly titleLayout: AppearanceTextLayout }
-export interface TabsStateAppearance { readonly headerHeight: number; readonly labelLayout: RepeatedItemLayout; readonly hitArea: RepeatedItemLayout; readonly activeTextColor?: string }
+export interface TabsStateAppearance {
+  readonly headerHeight: number;
+  readonly labelLayout: RepeatedItemLayout;
+  readonly hitArea: RepeatedItemLayout;
+  readonly activeTextColor?: string;
+  readonly icons?: readonly { readonly tabId: string; readonly iconLayout: RepeatedItemLayout; readonly activeIconLayout: RepeatedItemLayout }[];
+}
 
 export interface AppearancePartBinding {
   readonly role: AppearanceRole;
@@ -118,7 +124,7 @@ export interface AppearancePartBinding {
   readonly optionId?: string;
   /** Required for the 0.2 List row/selected-row sample template. */
   readonly itemId?: string;
-  /** Required for the 0.2 Tabs tab/active-tab sample template. */
+  /** Required for the 0.2 Tabs tab, active-tab, icon, and active-icon parts. */
   readonly tabId?: string;
 }
 
@@ -184,14 +190,14 @@ const applicationRoleDefinitions: readonly AppearanceRoleDefinition[] = [
   { componentType: 'ScrollView', requiredRoles: ['viewport', 'scrollbar-track', 'scrollbar-thumb'], allowedRoles: ['viewport', 'scrollbar-track', 'scrollbar-thumb'] },
   { componentType: 'List', requiredRoles: ['background', 'row', 'selected-row'], allowedRoles: ['background', 'row', 'selected-row'] },
   { componentType: 'Dialog', requiredRoles: ['background', 'header', 'body'], allowedRoles: ['background', 'header', 'body', 'overlay'] },
-  { componentType: 'Tabs', requiredRoles: ['tab', 'active-tab'], allowedRoles: ['tab', 'active-tab'] },
+  { componentType: 'Tabs', requiredRoles: ['tab', 'active-tab'], allowedRoles: ['tab', 'active-tab', 'icon', 'active-icon'] },
 ] as const;
 
 const rolesByType = new Map<UiNodeType, AppearanceRoleDefinition>(roleDefinitions.map(definition => [definition.componentType, definition]));
 const applicationRolesByType = new Map<UiNodeType, AppearanceRoleDefinition>(applicationRoleDefinitions.map(definition => [definition.componentType, definition]));
-const allRoles = new Set<AppearanceRole>(roleDefinitions.flatMap(definition => definition.allowedRoles));
+const allRoles = new Set<AppearanceRole>([...roleDefinitions, ...applicationRoleDefinitions].flatMap(definition => definition.allowedRoles));
 const sha256Pattern = /^[a-f0-9]{64}$/;
-const colorPattern = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const colorPattern = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})(?![\s\S])/;
 const maximumBindings = 1_000;
 
 /** A caller-isolated, reviewable role matrix for all 16 supported component types. */
@@ -514,15 +520,28 @@ function validateDialogState(validator: BindingValidator, value: unknown, path: 
   const states = validator.object(value, path, ['dialog']); if (!states) return;
   const state = validator.object(states.dialog, `${path}.dialog`, ['titleLayout']); if (state) validateTextLayout(validator, state.titleLayout, `${path}.dialog.titleLayout`, width, height);
 }
-function validateTabsState(validator: BindingValidator, value: unknown, path: string, tabWidth: number, height: number): void {
+function validateTabsState(validator: BindingValidator, value: unknown, path: string, tabWidth: number, height: number, tabIds: readonly string[], iconsBound: boolean): void {
   const states = validator.object(value, path, ['tabs']); if (!states) return;
-  const state = validator.object(states.tabs, `${path}.tabs`, ['headerHeight', 'labelLayout', 'hitArea', 'activeTextColor']); if (!state) return;
+  const state = validator.object(states.tabs, `${path}.tabs`, ['headerHeight', 'labelLayout', 'hitArea', 'activeTextColor', 'icons'], ['headerHeight', 'labelLayout', 'hitArea']); if (!state) return;
   if (Object.hasOwn(state, 'activeTextColor')) validator.color(state.activeTextColor, `${path}.tabs.activeTextColor`);
   const headerHeight = validator.positive(state.headerHeight, `${path}.tabs.headerHeight`) ? state.headerHeight as number : undefined;
   if (headerHeight !== undefined && headerHeight > height) validator.add(`${path}.tabs.headerHeight`, 'HEADER_OUT_OF_BOUNDS', 'must fit within the Tabs component');
   if (headerHeight !== undefined) {
     validateRepeatedItemLayout(validator, state.labelLayout, `${path}.tabs.labelLayout`, tabWidth, headerHeight);
     validateRepeatedItemLayout(validator, state.hitArea, `${path}.tabs.hitArea`, tabWidth, headerHeight);
+  }
+  if (iconsBound || Object.hasOwn(state, 'icons')) {
+    if (!Array.isArray(state.icons) || state.icons.length !== tabIds.length) {
+      validator.add(`${path}.tabs.icons`, 'TAB_ICON_STATE_MISMATCH', 'must contain one icon geometry entry for every tab'); return;
+    }
+    const seen = new Set<string>();
+    state.icons.forEach((raw, index) => {
+      const itemPath = `${path}.tabs.icons[${index}]`, item = validator.object(raw, itemPath, ['tabId', 'iconLayout', 'activeIconLayout']); if (!item) return;
+      const tabId = validator.string(item.tabId, `${itemPath}.tabId`) ? item.tabId as string : undefined;
+      if (tabId && !tabIds.includes(tabId)) validator.add(`${itemPath}.tabId`, 'UNKNOWN_TAB', 'must reference a Tabs entry');
+      else if (tabId && seen.has(tabId)) validator.add(`${itemPath}.tabId`, 'DUPLICATE_TAB_ICON', 'each tab may have one icon geometry entry'); else if (tabId) seen.add(tabId);
+      if (headerHeight !== undefined) { validateRepeatedItemLayout(validator, item.iconLayout, `${itemPath}.iconLayout`, tabWidth, headerHeight); validateRepeatedItemLayout(validator, item.activeIconLayout, `${itemPath}.activeIconLayout`, tabWidth, headerHeight); }
+    });
   }
 }
 function validateRadioState(validator: BindingValidator, value: unknown, path: string, width: number, height: number, optionIds: readonly string[]): void {
@@ -614,23 +633,25 @@ export async function validateAppearanceBinding(
         const radioOptionIds = applicationVersion && component?.type === 'RadioGroup' ? component.props.options.map(option => option.id) : [];
         const listItemIds = applicationVersion && component?.type === 'List' ? component.props.items.map(item => item.id) : [];
         const tabIds = applicationVersion && component?.type === 'Tabs' ? component.props.tabs.map(tab => tab.id) : [];
-        const maximumParts = radioOptionIds.length ? radioOptionIds.length * 2 : definition.allowedRoles.length;
+        const maximumParts = radioOptionIds.length ? radioOptionIds.length * 2 : tabIds.length ? 2 + tabIds.length * 2 : definition.allowedRoles.length;
         if (binding.parts.length === 0 || binding.parts.length > maximumParts) {
           validator.add(`${path}.parts`, 'PART_LIMIT', 'must contain only the explicitly allowed component roles');
         }
         const roles = new Set<AppearanceRole>();
         const radioRoles = new Map<string, Set<AppearanceRole>>();
+        const tabIconRoles = new Map<string, Set<AppearanceRole>>();
         for (const [partIndex, rawPart] of binding.parts.entries()) {
           const partPath = `${path}.parts[${partIndex}]`;
           const radioPart = applicationVersion && actualType === 'RadioGroup' && isObject(rawPart) && (rawPart.role === 'option' || rawPart.role === 'indicator');
           const listPart = applicationVersion && actualType === 'List' && isObject(rawPart) && (rawPart.role === 'row' || rawPart.role === 'selected-row');
-          const tabPart = applicationVersion && actualType === 'Tabs' && isObject(rawPart) && (rawPart.role === 'tab' || rawPart.role === 'active-tab');
+          const tabPart = applicationVersion && actualType === 'Tabs' && isObject(rawPart) && ['tab', 'active-tab', 'icon', 'active-icon'].includes(rawPart.role as string);
+          const tabIconPart = tabPart && isObject(rawPart) && (rawPart.role === 'icon' || rawPart.role === 'active-icon');
           const part = validator.object(rawPart, partPath, radioPart ? ['role', 'layerId', 'optionId'] : listPart ? ['role', 'layerId', 'itemId'] : tabPart ? ['role', 'layerId', 'tabId'] : ['role', 'layerId']);
           if (!part) continue;
           const role = typeof part.role === 'string' && allRoles.has(part.role as AppearanceRole) ? part.role as AppearanceRole : undefined;
           if (!role) validator.add(`${partPath}.role`, 'UNSUPPORTED_ROLE', 'must be a catalogued appearance role');
           else if (!definition.allowedRoles.includes(role) || (!applicationVersion && role === 'popup')) validator.add(`${partPath}.role`, 'ROLE_NOT_ALLOWED', 'is not allowed for this component type or binding version');
-          else if (!radioPart && roles.has(role)) validator.add(`${partPath}.role`, 'DUPLICATE_ROLE', 'a role may be mapped once per component');
+          else if (!radioPart && !tabIconPart && roles.has(role)) validator.add(`${partPath}.role`, 'DUPLICATE_ROLE', 'a role may be mapped once per component');
           else roles.add(role);
           if (radioPart) {
             const optionId = validator.string(part.optionId, `${partPath}.optionId`) ? part.optionId as string : undefined;
@@ -648,6 +669,7 @@ export async function validateAppearanceBinding(
             if (tabId && !tabIds.includes(tabId)) validator.add(`${partPath}.tabId`, 'UNKNOWN_TAB', 'must reference a Tabs entry');
             if (tabId && role === 'active-tab' && component?.type === 'Tabs' && tabId !== component.props.activeId) validator.add(`${partPath}.tabId`, 'ACTIVE_TAB_MISMATCH', 'active-tab must reference the current activeId');
             if (tabId && role === 'tab' && component?.type === 'Tabs' && component.props.tabs.length > 1 && tabId === component.props.activeId) validator.add(`${partPath}.tabId`, 'INACTIVE_SAMPLE_REQUIRED', 'tab must reference an inactive tab when one exists');
+            if (tabId && tabIconPart && role) { const assigned = tabIconRoles.get(tabId) ?? new Set<AppearanceRole>(); if (assigned.has(role)) validator.add(`${partPath}.role`, 'DUPLICATE_TAB_ICON_ROLE', 'each tab may map this icon role once'); assigned.add(role); tabIconRoles.set(tabId, assigned); }
           }
           const layerId = validator.string(part.layerId, `${partPath}.layerId`) ? part.layerId : undefined;
           if (layerId && !layers.has(layerId)) validator.add(`${partPath}.layerId`, 'UNKNOWN_LAYER', 'must reference an imported scene layer by ID');
@@ -660,6 +682,7 @@ export async function validateAppearanceBinding(
         if (applicationVersion && component?.type === 'List' && component.props.selectedId === null) validator.add(`${path}.componentId`, 'SELECTED_SAMPLE_REQUIRED', 'List appearance application requires a current selectedId for the selected-row sample');
         if (applicationVersion && component?.type === 'Dialog' && !component.props.modal && roles.has('overlay')) validator.add(`${path}.parts`, 'OVERLAY_MODAL_MISMATCH', 'overlay is allowed only for a modal Dialog');
         for (const optionId of radioOptionIds) for (const required of ['option', 'indicator'] as const) if (!radioRoles.get(optionId)?.has(required)) validator.add(`${path}.parts`, 'MISSING_OPTION_ROLE', `RadioGroup option ${optionId} must explicitly map ${required}`);
+        if (tabIconRoles.size > 0) for (const tabId of tabIds) for (const required of ['icon', 'active-icon'] as const) if (!tabIconRoles.get(tabId)?.has(required)) validator.add(`${path}.parts`, 'MISSING_TAB_ICON_ROLE', `Tabs entry ${tabId} must explicitly map ${required}`);
       }
       if (component?.type === 'Switch') {
         const thumbLayerId = Array.isArray(binding.parts)
@@ -694,7 +717,7 @@ export async function validateAppearanceBinding(
       }
       if (applicationVersion && component?.type === 'List') validateListState(validator, binding.states, `${path}.states`, component.layout.width, component.props.itemHeight);
       if (applicationVersion && component?.type === 'Dialog') validateDialogState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height);
-      if (applicationVersion && component?.type === 'Tabs') validateTabsState(validator, binding.states, `${path}.states`, component.layout.width / component.props.tabs.length, component.layout.height);
+      if (applicationVersion && component?.type === 'Tabs') validateTabsState(validator, binding.states, `${path}.states`, component.layout.width / component.props.tabs.length, component.layout.height, component.props.tabs.map(tab => tab.id), Array.isArray(binding.parts) && binding.parts.some(part => isObject(part) && (part.role === 'icon' || part.role === 'active-icon')));
     }
   }
   validator.finish();
