@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+import base64
 import hashlib
+import io
 import shutil
 import uuid
 import zipfile
 
+from PIL import Image
+
 from .assembly import inspect_delivery
-from .common import read_json, require, safe_relative, sha256, write_json
+from .common import ContractError, read_json, require, safe_relative, sha256, write_json
 
 
 MAX_COMPONENT_BUNDLE_BYTES = 67_108_864
@@ -28,6 +32,87 @@ def _walk_component_nodes(root: object):
         children = node.get("children")
         if isinstance(children, list):
             pending.extend(reversed(children))
+
+
+def _appearance_resource_paths(value: object):
+    if isinstance(value, dict):
+        for child in value.values():
+            yield from _appearance_resource_paths(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _appearance_resource_paths(child)
+    elif isinstance(value, str) and value.lower().endswith(".png"):
+        yield value
+
+
+def _validate_canvas_layout_pairs(value: object, component_id: str,
+                                  part_path: str = "appearance") -> None:
+    if isinstance(value, dict):
+        canvas, layout = value.get("canvas"), value.get("layout")
+        if isinstance(canvas, dict) and isinstance(layout, dict):
+            width, height = layout.get("width"), layout.get("height")
+            source_width, source_height = canvas.get("width"), canvas.get("height")
+            if all(isinstance(item, (int, float)) and item > 0
+                   for item in (width, height, source_width, source_height)):
+                cross_error = abs(width * source_height - height * source_width)
+                require(cross_error <= max(width * source_height,
+                                           height * source_width) * 0.001,
+                        f"COMPONENT_HANDOFF_NON_UNIFORM_APPEARANCE_PART:"
+                        f"{component_id}:{part_path}:{source_width}x{source_height}->"
+                        f"{width}x{height}")
+        for key, child in value.items():
+            _validate_canvas_layout_pairs(child, component_id, f"{part_path}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _validate_canvas_layout_pairs(child, component_id,
+                                          f"{part_path}[{index}]")
+
+
+def _validate_interactive_appearances(bundle: dict, root: object) -> None:
+    paths: set[str] = set()
+    for node in _walk_component_nodes(root):
+        if node.get("type") not in INTERACTIVE_COMPONENT_TYPES:
+            continue
+        layout = node.get("layout")
+        props = node.get("props")
+        appearance = props.get("appearance") if isinstance(props, dict) else None
+        if not isinstance(layout, dict) or not isinstance(appearance, dict):
+            continue
+        source = appearance.get("sourceCanvas")
+        if isinstance(source, dict):
+            width, height = layout.get("width"), layout.get("height")
+            source_width, source_height = source.get("width"), source.get("height")
+            if all(isinstance(value, (int, float)) and value > 0
+                   for value in (width, height, source_width, source_height)):
+                cross_error = abs(width * source_height - height * source_width)
+                require(cross_error <= max(width * source_height, height * source_width) * 0.001,
+                        f"COMPONENT_HANDOFF_NON_UNIFORM_APPEARANCE:{node.get('id')}:"
+                        f"{source_width}x{source_height}->{width}x{height}")
+        _validate_canvas_layout_pairs(appearance, str(node.get("id", "unknown")))
+        paths.update(_appearance_resource_paths(appearance))
+
+    resources = bundle.get("resources")
+    if not paths:
+        return
+    require(isinstance(resources, list), "COMPONENT_HANDOFF_APPEARANCE_RESOURCE_REQUIRED")
+    by_path = {row.get("path"): row for row in resources if isinstance(row, dict)}
+    for path in sorted(paths):
+        resource = by_path.get(path)
+        require(isinstance(resource, dict),
+                f"COMPONENT_HANDOFF_APPEARANCE_RESOURCE_REQUIRED:{path}")
+        try:
+            payload = base64.b64decode(resource.get("base64", ""), validate=True)
+            picture = Image.open(io.BytesIO(payload))
+            picture.load()
+        except (ValueError, TypeError, OSError) as exc:
+            raise ContractError(f"COMPONENT_HANDOFF_APPEARANCE_RESOURCE_INVALID:{path}") from exc
+        require(hashlib.sha256(payload).hexdigest() == resource.get("sha256"),
+                f"COMPONENT_HANDOFF_APPEARANCE_RESOURCE_CHANGED:{path}")
+        require("A" in picture.getbands(),
+                f"COMPONENT_HANDOFF_OPAQUE_INTERACTIVE_ASSET:{path}")
+        minimum, maximum = picture.getchannel("A").getextrema()
+        require(minimum == 0 and maximum > 0,
+                f"COMPONENT_HANDOFF_OPAQUE_INTERACTIVE_ASSET:{path}")
 
 
 def export_component_handoff(delivery: Path, component_bundle: Path,
@@ -61,6 +146,7 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
             style = props.get("style") if isinstance(props, dict) else None
             require(not isinstance(style, dict) or style.get("opacity") != 0,
                     "COMPONENT_HANDOFF_INVISIBLE_INTERACTIVE")
+        _validate_interactive_appearances(bundle, root)
     require(appearance_binding.is_file() and not appearance_binding.is_symlink(),
             "APPEARANCE_BINDING_FILE_REQUIRED")
     binding = read_json(appearance_binding)

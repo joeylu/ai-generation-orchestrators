@@ -66,6 +66,13 @@ coverage or human acceptance.
    handoff, select `--output-format png_zip`; memory estimates are advisory and
    never reject either delivery format.
 
+Before `component-handoff`, require every generated interactive asset to use its
+reference target dimensions. A different target size needs an explicit nine-slice
+contract; do not stretch a full control image. Interactive appearance PNGs must
+contain real transparent pixels. Missing reference-matched state art, font evidence,
+or focus/caret evidence keeps the component handoff visually unaccepted even when
+its schema and browser interaction checks pass.
+
 When authoring a 0.2 appearance binding for a Select, always provide
 `states.select.popupContentLayout` in `target-popup-local` coordinates. Measure
 the rectangle from the transparent popup asset so option labels, hit areas and

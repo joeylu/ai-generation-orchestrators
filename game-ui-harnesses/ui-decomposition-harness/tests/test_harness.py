@@ -76,6 +76,12 @@ class HarnessTests(unittest.TestCase):
         image.save(path)
         return path
 
+    def test_generated_component_must_match_reference_bounds_without_resize_contract(self):
+        changed = json.loads(json.dumps(self.plan))
+        changed["assets"][1]["output_size"] = [21, 12]
+        with self.assertRaisesRegex(ContractError, "GENERATED_TARGET_SIZE_MISMATCH"):
+            validate(changed, source_base=self.root)
+
     def complete_materials(self):
         batch.reserve(self.run, "button")
         batch.receive(self.run, "button", self.raw_component())

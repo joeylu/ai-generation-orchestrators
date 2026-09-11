@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import base64
+import hashlib
 import io
 import json
 import os
@@ -21,7 +23,9 @@ from ai_ui_decomposition import batch, planning
 from ai_ui_decomposition.assembly import finalize, inspect_delivery
 from ai_ui_decomposition.adapter import export_request
 from ai_ui_decomposition.common import ContractError, digest, read_json, sha256, write_json
-from ai_ui_decomposition.component_handoff import export_component_handoff
+from ai_ui_decomposition.component_handoff import (
+    _validate_interactive_appearances, export_component_handoff,
+)
 from ai_ui_decomposition.headless import auto_run, job_status
 from ai_ui_decomposition.mcp_provider import AsyncMcpProvider, _NoRedirect
 from ai_ui_decomposition.process import process
@@ -307,6 +311,97 @@ class HeadlessTests(unittest.TestCase):
             export_component_handoff(self.job / 'delivery', target, binding)
         self.assertFalse((self.job / 'delivery/ui.component-handoff.draft.zip').exists())
         self.assertFalse((self.job / 'delivery/component-handoff-export.json').exists())
+
+    def test_component_handoff_rejects_non_uniform_interactive_appearance(self):
+        result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                          timeout_seconds=60, authorized=True, output_format='png_zip')
+        target = self.root / 'component.ui-bundle.json'
+        write_json(target, {
+            'bundleVersion': '0.2', 'resources': [],
+            'document': {
+                'schemaVersion': '0.2', 'id': 'distorted-control',
+                'canvas': {'width': 64, 'height': 48},
+                'root': {'id': 'root', 'type': 'Container',
+                         'layout': {'x': 0, 'y': 0, 'width': 64, 'height': 48},
+                         'props': {'style': {'opacity': 1}},
+                         'children': [{'id': 'confirm', 'type': 'Button',
+                                      'layout': {'x': 4, 'y': 4, 'width': 40, 'height': 20},
+                                      'props': {'style': {'opacity': 1},
+                                                'appearance': {'sourceCanvas': {'width': 10, 'height': 10}}},
+                                      'children': []}]},
+            },
+        })
+        binding = self.root / 'appearance-binding.json'
+        write_json(binding, {
+            'kind': 'ui-appearance-binding', 'version': '0.2',
+            'documentSha256': 'a' * 64,
+            'deliveryDigest': read_json(self.job / 'delivery/delivery.json')['digest'],
+            'sceneSha256': sha256(self.job / 'delivery/scene.json'),
+            'archiveSha256': result['artifacts']['png_zip']['sha256'],
+            'registration': {}, 'bindings': [{'componentId': 'confirm'}],
+        })
+        with self.assertRaisesRegex(ContractError, 'COMPONENT_HANDOFF_NON_UNIFORM_APPEARANCE'):
+            export_component_handoff(self.job / 'delivery', target, binding)
+
+    def test_component_handoff_rejects_opaque_interactive_appearance_asset(self):
+        result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                          timeout_seconds=60, authorized=True, output_format='png_zip')
+        stream = io.BytesIO()
+        Image.new('RGBA', (40, 20), (80, 90, 100, 255)).save(stream, format='PNG')
+        payload = stream.getvalue()
+        target = self.root / 'component.ui-bundle.json'
+        write_json(target, {
+            'bundleVersion': '0.2',
+            'resources': [{'path': 'assets/button.png', 'mime': 'image/png',
+                           'sha256': hashlib.sha256(payload).hexdigest(),
+                           'base64': base64.b64encode(payload).decode('ascii')}],
+            'document': {
+                'schemaVersion': '0.2', 'id': 'opaque-control',
+                'canvas': {'width': 64, 'height': 48},
+                'root': {'id': 'root', 'type': 'Container',
+                         'layout': {'x': 0, 'y': 0, 'width': 64, 'height': 48},
+                         'props': {'style': {'opacity': 1}},
+                         'children': [{'id': 'confirm', 'type': 'Button',
+                                      'layout': {'x': 4, 'y': 4, 'width': 40, 'height': 20},
+                                      'props': {'style': {'opacity': 1},
+                                                'appearance': {'sourceCanvas': {'width': 40, 'height': 20},
+                                                               'backgroundImage': 'assets/button.png'}},
+                                      'children': []}]},
+            },
+        })
+        binding = self.root / 'appearance-binding.json'
+        write_json(binding, {
+            'kind': 'ui-appearance-binding', 'version': '0.2',
+            'documentSha256': 'a' * 64,
+            'deliveryDigest': read_json(self.job / 'delivery/delivery.json')['digest'],
+            'sceneSha256': sha256(self.job / 'delivery/scene.json'),
+            'archiveSha256': result['artifacts']['png_zip']['sha256'],
+            'registration': {}, 'bindings': [{'componentId': 'confirm'}],
+        })
+        with self.assertRaisesRegex(ContractError, 'COMPONENT_HANDOFF_OPAQUE_INTERACTIVE_ASSET'):
+            export_component_handoff(self.job / 'delivery', target, binding)
+
+    def test_component_handoff_rejects_non_uniform_interactive_subpart(self):
+        changed = {
+            'resources': [],
+            'document': {'root': {
+                'id': 'root', 'type': 'Container', 'children': [{
+                    'id': 'toggle', 'type': 'CheckBox',
+                    'layout': {'x': 0, 'y': 0, 'width': 40, 'height': 40},
+                    'props': {'appearance': {
+                        'sourceCanvas': {'width': 40, 'height': 40},
+                        'box': {
+                            'canvas': {'width': 120, 'height': 80},
+                            'layout': {'x': 0, 'y': 0, 'width': 40, 'height': 40},
+                        },
+                    }},
+                    'children': [],
+                }],
+            }},
+        }
+        with self.assertRaisesRegex(ContractError,
+                                    'COMPONENT_HANDOFF_NON_UNIFORM_APPEARANCE_PART'):
+            _validate_interactive_appearances(changed, changed['document']['root'])
 
     def test_low_available_memory_warns_but_full_job_continues(self):
         with patch('ai_ui_decomposition.resources.available_memory_bytes',

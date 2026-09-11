@@ -27,7 +27,9 @@ only the requested empty component, its shape, materials, colors and graphic sym
 Use exactly one background asset, with full-canvas source_region and output_size;
 its prompt must remove ALL foreground UI and complete the obscured background.
 Other assets should isolate only the named complete component, remove all unrelated
-UI and ordinary text, and preserve its visual aspect ratio. Main-panel prompt must
+UI and ordinary text, and preserve its exact geometry and visual style. Each generated
+component output_size must equal its source_region width and height exactly; do not
+upscale, downscale, stretch, restyle or substitute a generic control. Main-panel prompt must
 remove cards and buttons that will be separate layers. Output sizes match reference
 bounds, including complete borders; never compress button height to just the text area.
 Node exact fields: id (unique slug), asset (asset id), xy ([left,top] integers).

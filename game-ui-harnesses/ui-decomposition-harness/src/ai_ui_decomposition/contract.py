@@ -80,7 +80,7 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
             require(all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value)
                         for value in cached.values()), "CACHED_RESULT_DIGEST")
         require(asset.get("role") in {"background", "important_component"}, "ASSET_ROLE")
-        _box(asset.get("source_region"), canvas, "ASSET_REGION")
+        region = _box(asset.get("source_region"), canvas, "ASSET_REGION")
         size = _size(asset.get("output_size"), "ASSET_SIZE")
         mode = asset.get("output_mode")
         require(mode in {"opaque_canvas", "transparent_component", "keyed_component", "rgba"},
@@ -104,6 +104,9 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
         if route == "generated_isolation":
             require(mode in {"transparent_component", "keyed_component"},
                     "ISOLATION_OUTPUT_MODE")
+            if "resize" not in asset:
+                require(size == [region[2] - region[0], region[3] - region[1]],
+                        "GENERATED_TARGET_SIZE_MISMATCH")
         if mode == "transparent_component":
             require(route == "generated_isolation", "TRANSPARENT_COMPONENT_ROUTE")
         if route == "reuse_scaled":

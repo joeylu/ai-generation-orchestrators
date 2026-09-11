@@ -30,6 +30,13 @@ New Select appearance bindings include `states.select.popupContentLayout` in
 `target-popup-local` coordinates so option content stays inside the popup asset's
 usable interior rather than crossing ornamental borders, shadows or pointers.
 
+Component handoff now rejects interactive appearance canvases that would require
+non-uniform scaling into their target node. Generated component assets without an
+explicit nine-slice contract must use the exact width and height of their reference
+bounds. Every PNG referenced by an interactive appearance must also contain real
+transparent pixels. These checks prevent a runnable bundle from presenting stretched,
+opaque or generic replacement controls as a visually accepted reconstruction.
+
 Version 0.4.1 changes the dynamic memory estimate to an advisory. A task whose
 estimated peak exceeds the diagnostic budget continues, while `check`, frozen
 batch summaries and `doctor` expose the risk. Deterministic pixel, layer and node
