@@ -148,6 +148,23 @@ test('the hidden native editor accepts composition input and disabling it blurs 
   expect(disabled).toEqual({ focused: false, value: '漢字' });
 });
 
+test('Input focuses as a text field without button press or release semantics', async ({ page }) => {
+  await page.locator('#clear-events').click();
+  const current = await point(page, 'name');
+  await page.mouse.move(current.x, current.y);
+  await expect.poll(() => page.locator('#canvas-host canvas').evaluate(canvas => getComputedStyle(canvas).cursor)).toBe('text');
+  await page.mouse.click(current.x, current.y);
+
+  const result = await page.evaluate(() => ({
+    focused: document.activeElement === document.querySelector('#canvas-host input[aria-hidden="true"]'),
+    events: document.querySelector('#events')?.textContent ?? '',
+  }));
+  expect(result.focused).toBe(true);
+  expect(result.events).toContain('"type":"focus","id":"name"');
+  expect(result.events).not.toContain('"type":"press","id":"name"');
+  expect(result.events).not.toContain('"type":"release","id":"name"');
+});
+
 test('Select rows portal above sibling controls and repeated opening retains the adapter listener count', async ({ page }) => {
   const before = await inspection(page);
   const select = await clickNode(page, 'region');

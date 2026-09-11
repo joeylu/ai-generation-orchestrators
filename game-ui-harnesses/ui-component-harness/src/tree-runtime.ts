@@ -745,9 +745,14 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   function updateNodeAlpha(record: RuntimeRecord): void {
     const disabled = enabledOf(record.node) === false;
     record.view.alpha = styleOf(record.node).opacity * (disabled ? 0.55 : 1) * (record.motion.alpha ?? 1);
-    record.view.cursor = disabled ? 'default' : 'pointer';
+    record.view.cursor = disabled ? 'default' : interactiveCursor(record);
   }
-  function makeInteractive(record: RuntimeRecord, cursor = 'pointer'): void {
+  function interactiveCursor(record: RuntimeRecord): string {
+    if (record.node.type === 'Input') return 'text';
+    if (record.node.type === 'ScrollView') return 'grab';
+    return 'pointer';
+  }
+  function makeInteractive(record: RuntimeRecord, cursor = interactiveCursor(record)): void {
     record.view.eventMode = 'static'; record.view.cursor = cursor;
     record.view.hitArea = new Rectangle(0, 0, record.node.layout.width, record.node.layout.height);
     bind(record, 'pointerenter', event => {
@@ -1253,7 +1258,12 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         case 'Input':
           if (node.props.appearance) { const background = scope.resources.acquireImage(node.props.appearance.backgroundImage); record.inputTexture = background.texture; record.resourceReleases.push(background.release); }
           record.redraw = () => drawInput(record); record.redraw();
-          press(record, source => focusInput(record, source));
+          makeInteractive(record, 'text');
+          bind(record, 'pointertap', event => {
+            if (!interactive(record) || event.button !== 0 || !event.isPrimary) return;
+            if (openSelect) closePopup(openSelect);
+            focusInput(record, sourceOf(event.pointerType)); render();
+          });
           break;
         case 'Select':
           if (node.props.appearance) {
