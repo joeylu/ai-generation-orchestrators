@@ -287,4 +287,8 @@ test('Select popup content layouts are optional, popup-local, and bounded by the
   const overflow = structuredClone(safe) as any;
   overflow.bindings[2].states.select.popupContentLayout.height = 73;
   await expectIssue(() => validateAppearanceBinding(overflow, value.document, value.imported), 'POPUP_CONTENT_OUT_OF_BOUNDS', '$appearanceBinding.bindings[2].states.select.popupContentLayout');
+
+  const invalidColor = structuredClone(safe) as any;
+  invalidColor.bindings[2].states.select.fieldTextColor = 'white';
+  await expectIssue(() => validateAppearanceBinding(invalidColor, value.document, value.imported), 'COLOR_REQUIRED', '$appearanceBinding.bindings[2].states.select.fieldTextColor');
 });

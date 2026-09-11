@@ -302,7 +302,7 @@ export async function applyAppearanceBinding(
       const scale = binding.registration.transform.scale;
       if (!close(tab.width * scale, tabWidth) || !close(active.width * scale, tabWidth) || !close(tab.height * scale, state.headerHeight) || !close(active.height * scale, state.headerHeight)) fail(`${path}.parts`, 'TAB_TEMPLATE_SCALE_MISMATCH', 'tab templates must share the registered uniform scale');
       const local = (layout: Layout): Layout => ({ x: layout.x / scale, y: layout.y / scale, width: layout.width / scale, height: layout.height / scale });
-      supported.props.appearance = { sourceCanvas: { width: component.width / scale, height: component.height / scale }, tabImage: add(tab), tabCanvas: { width: tab.width, height: tab.height }, activeTabImage: add(active), activeTabCanvas: { width: active.width, height: active.height }, headerHeight: state.headerHeight / scale, labelLayout: local(state.labelLayout), hitArea: local(state.hitArea) };
+      supported.props.appearance = { sourceCanvas: { width: component.width / scale, height: component.height / scale }, tabImage: add(tab), tabCanvas: { width: tab.width, height: tab.height }, activeTabImage: add(active), activeTabCanvas: { width: active.width, height: active.height }, headerHeight: state.headerHeight / scale, labelLayout: local(state.labelLayout), hitArea: local(state.hitArea), ...(state.activeTextColor ? { activeTextColor: state.activeTextColor } : {}) };
       continue;
     }
     only(`${path}.parts`, partLayers, ['background', 'indicator', 'popup']);
@@ -331,6 +331,7 @@ export async function applyAppearanceBinding(
       sourceCanvas: { width: field.width, height: field.height }, labelLayout: local(state.labelLayout),
       arrowLayout: { x: (indicatorBounds.x - component.x) / runtimeScale, y: (indicatorBounds.y - component.y) / runtimeScale, width: indicatorBounds.width / runtimeScale, height: indicatorBounds.height / runtimeScale },
       popupCanvas: { width: popup.width, height: popup.height }, ...(popupContentLayout ? { popupContentLayout } : {}), popupGap: state.popupPlacement.gap,
+      ...(state.fieldTextColor ? { fieldTextColor: state.fieldTextColor } : {}),
     };
   }
 

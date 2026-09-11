@@ -85,6 +85,8 @@ export interface SelectStateAppearance {
   };
   /** Optional, explicit safe area for popup option content. */
   readonly popupContentLayout?: AppearancePopupContentLayout;
+  /** Text color for the collapsed field; popup options retain the component style. */
+  readonly fieldTextColor?: string;
 }
 export interface CheckBoxStateAppearance { readonly labelLayout: AppearanceTextLayout }
 export interface RadioGroupStateAppearance {
@@ -107,7 +109,7 @@ export interface ScrollViewStateAppearance {
 export interface RepeatedItemLayout { readonly coordinateSpace: 'target-item-local'; readonly x: number; readonly y: number; readonly width: number; readonly height: number }
 export interface ListStateAppearance { readonly labelLayout: RepeatedItemLayout; readonly hitArea: RepeatedItemLayout }
 export interface DialogStateAppearance { readonly titleLayout: AppearanceTextLayout }
-export interface TabsStateAppearance { readonly headerHeight: number; readonly labelLayout: RepeatedItemLayout; readonly hitArea: RepeatedItemLayout }
+export interface TabsStateAppearance { readonly headerHeight: number; readonly labelLayout: RepeatedItemLayout; readonly hitArea: RepeatedItemLayout; readonly activeTextColor?: string }
 
 export interface AppearancePartBinding {
   readonly role: AppearanceRole;
@@ -189,6 +191,7 @@ const rolesByType = new Map<UiNodeType, AppearanceRoleDefinition>(roleDefinition
 const applicationRolesByType = new Map<UiNodeType, AppearanceRoleDefinition>(applicationRoleDefinitions.map(definition => [definition.componentType, definition]));
 const allRoles = new Set<AppearanceRole>(roleDefinitions.flatMap(definition => definition.allowedRoles));
 const sha256Pattern = /^[a-f0-9]{64}$/;
+const colorPattern = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const maximumBindings = 1_000;
 
 /** A caller-isolated, reviewable role matrix for all 16 supported component types. */
@@ -251,6 +254,12 @@ class BindingValidator {
     if (typeof value !== 'string' || value.length === 0 || value !== value.trim() || value.length > 256) {
       this.add(path, 'STRING_REQUIRED', 'must be a bounded non-empty trimmed string'); return false;
     }
+    return true;
+  }
+
+  color(value: unknown, path: string): value is string {
+    if (!this.string(value, path)) return false;
+    if (!colorPattern.test(value)) { this.add(path, 'COLOR_REQUIRED', 'must be a #RGB or #RRGGBB color'); return false; }
     return true;
   }
 
@@ -419,8 +428,9 @@ function validateSelectState(
 ): void {
   const states = validator.object(value, path, ['select']);
   if (!states) return;
-  const state = validator.object(states.select, `${path}.select`, ['labelLayout', 'popupPlacement', 'popupContentLayout'], ['labelLayout', 'popupPlacement']);
+  const state = validator.object(states.select, `${path}.select`, ['labelLayout', 'popupPlacement', 'popupContentLayout', 'fieldTextColor'], ['labelLayout', 'popupPlacement']);
   if (!state) return;
+  if (Object.hasOwn(state, 'fieldTextColor')) validator.color(state.fieldTextColor, `${path}.select.fieldTextColor`);
   validateTextLayout(validator, state.labelLayout, `${path}.select.labelLayout`, width, height);
   const popup = validator.object(state.popupPlacement, `${path}.select.popupPlacement`, ['coordinateSpace', 'anchor', 'gap']);
   if (popup) {
@@ -506,7 +516,8 @@ function validateDialogState(validator: BindingValidator, value: unknown, path: 
 }
 function validateTabsState(validator: BindingValidator, value: unknown, path: string, tabWidth: number, height: number): void {
   const states = validator.object(value, path, ['tabs']); if (!states) return;
-  const state = validator.object(states.tabs, `${path}.tabs`, ['headerHeight', 'labelLayout', 'hitArea']); if (!state) return;
+  const state = validator.object(states.tabs, `${path}.tabs`, ['headerHeight', 'labelLayout', 'hitArea', 'activeTextColor']); if (!state) return;
+  if (Object.hasOwn(state, 'activeTextColor')) validator.color(state.activeTextColor, `${path}.tabs.activeTextColor`);
   const headerHeight = validator.positive(state.headerHeight, `${path}.tabs.headerHeight`) ? state.headerHeight as number : undefined;
   if (headerHeight !== undefined && headerHeight > height) validator.add(`${path}.tabs.headerHeight`, 'HEADER_OUT_OF_BOUNDS', 'must fit within the Tabs component');
   if (headerHeight !== undefined) {

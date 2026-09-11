@@ -38,6 +38,7 @@ export async function appearanceApplicationFixture() {
       { componentId: 'apply-select', componentType: 'Select', parts: [{ role: 'background', layerId: 'select-field' }, { role: 'indicator', layerId: 'select-arrow' }, { role: 'popup', layerId: 'select-popup' }], states: { select: {
         labelLayout: { coordinateSpace: 'target-component-local', x: 10, y: 5, width: 70, height: 30 },
         popupPlacement: { coordinateSpace: 'target-component-local', anchor: 'below-start', gap: 2 },
+        fieldTextColor: '#FFFFFF',
       } } },
     ],
   } as const;

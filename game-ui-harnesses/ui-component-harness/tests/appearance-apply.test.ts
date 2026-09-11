@@ -16,6 +16,7 @@ test('v0.2 binding deterministically applies Button, Switch, and Select appearan
   assert.deepEqual((nodes.get('apply-button') as any).props.appearance.labelLayout, { x: 10, y: 5, width: 80, height: 30 });
   assert.deepEqual((nodes.get('apply-switch') as any).props.appearance.thumbPositions.on, { x: 144, y: 4 });
   assert.equal((nodes.get('apply-select') as any).props.appearance.popupGap, 2);
+  assert.equal((nodes.get('apply-select') as any).props.appearance.fieldTextColor, '#FFFFFF');
   assert.equal(bundleResources(applied).filter(resource => resource.path.startsWith(`appearance/${value.imported.archiveSha256}/`)).length, 6);
   assert.equal(value.document.root.children.some((node: any) => node.props.appearance), false, 'target input remains unchanged');
 });
@@ -81,6 +82,7 @@ test('v0.2 binding applies the remaining eight types from explicit reusable temp
   assert.deepEqual((nodes.get('apply-list') as any).props.appearance.hitArea, { x: 0, y: 0, width: 200, height: 50 });
   assert.equal((nodes.get('apply-dialog') as any).props.appearance.overlayCanvas.width, 800);
   assert.deepEqual((nodes.get('apply-tabs') as any).props.appearance.labelLayout, { x: 10, y: 5, width: 180, height: 30 });
+  assert.equal((nodes.get('apply-tabs') as any).props.appearance.activeTextColor, '#FFFFFF');
   assert.equal((nodes.get('apply-image') as any).props.source, `appearance/${value.imported.archiveSha256}/image-layer.png`);
   assert.equal((nodes.get('apply-text') as any).props.text, 'Live semantic text');
   assert.ok((nodes.get('apply-container') as any).props.appearance);

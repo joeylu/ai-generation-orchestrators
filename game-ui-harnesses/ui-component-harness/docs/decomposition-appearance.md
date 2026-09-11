@@ -178,6 +178,12 @@ popup image unsuitable for content. Other coordinates are target-component-local
 compiler accepts no filename/role inference, non-uniform fit, popup stretching,
 existing appearance overwrite, missing label geometry, or stale evidence.
 
+State-specific semantic text colors are explicit and optional. Select
+`fieldTextColor` affects only the collapsed field, so popup options continue to
+use the component's base `style.textColor`. Tabs `activeTextColor` affects only
+the active tab label. Both fields accept `#RGB` or `#RRGGBB`; absence preserves
+the base text color for backward compatibility.
+
 `applyAppearanceBinding(targetBundle, imported, binding)` preserves target
 resources and motion documents, adds only referenced layer bytes, and returns a
 new validated bundle. Version 0.1 remains a compatibility validation format and

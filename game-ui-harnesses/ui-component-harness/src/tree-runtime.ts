@@ -938,7 +938,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         record.paint.addChild(field);
         const selected = node.props.options.find(option => option.id === node.props.selectedId);
         const text = appearance.labelLayout;
-        label(record, selected?.label ?? '', text.x * scaleX, text.y * scaleY, text.width * scaleX, text.height * scaleY);
+        const fieldStyle = appearance.fieldTextColor ? { ...node.props.style, textColor: appearance.fieldTextColor } : node.props.style;
+        label(record, selected?.label ?? '', text.x * scaleX, text.y * scaleY, text.width * scaleX, text.height * scaleY, fieldStyle);
         const arrowLayout = appearance.arrowLayout;
         const arrow = new Sprite(record.selectTextures.arrow);
         arrow.x = arrowLayout.x * scaleX; arrow.y = arrowLayout.y * scaleY;
@@ -1139,7 +1140,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         const texture = selected ? textures.activeTab : textures.tab;
         const background = new Sprite(texture); background.x = index * width; background.width = width; background.height = headerHeight; record.foreground.addChild(background);
         const labelLayout = appearance.labelLayout;
-        label(record, tab.label, index * width + labelLayout.x * width / appearance.tabCanvas.width, labelLayout.y * headerHeight / appearance.tabCanvas.height, labelLayout.width * width / appearance.tabCanvas.width, labelLayout.height * headerHeight / appearance.tabCanvas.height, undefined, record.foreground);
+        const tabStyle = selected && appearance.activeTextColor ? { ...node.props.style, textColor: appearance.activeTextColor } : node.props.style;
+        label(record, tab.label, index * width + labelLayout.x * width / appearance.tabCanvas.width, labelLayout.y * headerHeight / appearance.tabCanvas.height, labelLayout.width * width / appearance.tabCanvas.width, labelLayout.height * headerHeight / appearance.tabCanvas.height, tabStyle, record.foreground);
       } else {
         record.paint.addChild(new Graphics().rect(index * width, 0, width, headerHeight).fill({ color: selected ? '#E8F3EE' : '#FFFFFF' }).stroke({ color: node.props.style.borderColor, width: 1 }));
         label(record, tab.label, index * width + 5, 0, width - 10, headerHeight);

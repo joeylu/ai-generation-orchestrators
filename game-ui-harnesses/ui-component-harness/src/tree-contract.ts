@@ -48,6 +48,8 @@ export interface SelectRasterAppearance {
   /** Optional safe area for option labels, in popupCanvas-local coordinates. */
   popupContentLayout?: Layout;
   popupGap: number;
+  /** Text color for the collapsed field; popup options keep ControlStyle.textColor. */
+  fieldTextColor?: string;
 }
 export interface PositionedRasterPart { image: string; canvas: CanvasSize; layout: Layout }
 export interface CheckBoxRasterAppearance {
@@ -116,6 +118,8 @@ export interface TabsRasterAppearance {
   headerHeight: number;
   labelLayout: Layout;
   hitArea: Layout;
+  /** Text color used only by the active tab. */
+  activeTextColor?: string;
 }
 export interface ContainerRasterAppearance {
   sourceCanvas: CanvasSize;
@@ -452,8 +456,9 @@ class ContractValidator {
           }
         }
         if (type === 'Select' && Object.hasOwn(data, 'appearance')) {
-          const appearance = this.object(data.appearance, `${path}.appearance`, ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupContentLayout', 'popupGap'], ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupGap']);
+          const appearance = this.object(data.appearance, `${path}.appearance`, ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupContentLayout', 'popupGap', 'fieldTextColor'], ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupGap']);
           if (appearance) {
+            if (Object.hasOwn(appearance, 'fieldTextColor') && (!this.string(appearance.fieldTextColor, `${path}.appearance.fieldTextColor`) || !colorPattern.test(appearance.fieldTextColor as string))) this.add(`${path}.appearance.fieldTextColor`, 'COLOR_REQUIRED', 'must be a #RGB or #RRGGBB color');
             this.resource(appearance.fieldImage, `${path}.appearance.fieldImage`);
             this.resource(appearance.arrowImage, `${path}.appearance.arrowImage`);
             this.resource(appearance.popupImage, `${path}.appearance.popupImage`);
@@ -569,7 +574,7 @@ class ContractValidator {
       case 'Tabs':
         if (this.string(data.activeId, `${path}.activeId`) && !identifierPattern.test(data.activeId)) this.add(`${path}.activeId`, 'INVALID_ID', 'must be a valid tab ID reference');
         this.tabs(data.tabs, `${path}.tabs`); this.boolean(data.enabled, `${path}.enabled`);
-        if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'tabImage', 'tabCanvas', 'activeTabImage', 'activeTabCanvas', 'headerHeight', 'labelLayout', 'hitArea']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.resource(appearance.tabImage, `${path}.appearance.tabImage`); const tabCanvas = this.object(appearance.tabCanvas, `${path}.appearance.tabCanvas`, ['width', 'height']); if (tabCanvas) this.rasterCanvas(appearance.tabCanvas, `${path}.appearance.tabCanvas`); this.resource(appearance.activeTabImage, `${path}.appearance.activeTabImage`); const activeCanvas = this.object(appearance.activeTabCanvas, `${path}.appearance.activeTabCanvas`, ['width', 'height']); if (activeCanvas) { this.rasterCanvas(appearance.activeTabCanvas, `${path}.appearance.activeTabCanvas`); if (tabCanvas && (activeCanvas.width !== tabCanvas.width || activeCanvas.height !== tabCanvas.height)) this.add(`${path}.appearance.activeTabCanvas`, 'TAB_TEMPLATE_SIZE_MISMATCH', 'active and inactive tab templates must have identical intrinsic size'); } this.finite(appearance.headerHeight, `${path}.appearance.headerHeight`, { positive: true }); if (tabCanvas) { this.appearanceLayout(appearance.labelLayout, `${path}.appearance.labelLayout`, tabCanvas); this.appearanceLayout(appearance.hitArea, `${path}.appearance.hitArea`, tabCanvas); if (typeof appearance.headerHeight === 'number' && appearance.headerHeight !== tabCanvas.height) this.add(`${path}.appearance.headerHeight`, 'TAB_HEADER_SIZE_MISMATCH', 'headerHeight must equal the template height'); } } }
+        if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'tabImage', 'tabCanvas', 'activeTabImage', 'activeTabCanvas', 'headerHeight', 'labelLayout', 'hitArea', 'activeTextColor'], ['sourceCanvas', 'tabImage', 'tabCanvas', 'activeTabImage', 'activeTabCanvas', 'headerHeight', 'labelLayout', 'hitArea']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.resource(appearance.tabImage, `${path}.appearance.tabImage`); const tabCanvas = this.object(appearance.tabCanvas, `${path}.appearance.tabCanvas`, ['width', 'height']); if (tabCanvas) this.rasterCanvas(appearance.tabCanvas, `${path}.appearance.tabCanvas`); this.resource(appearance.activeTabImage, `${path}.appearance.activeTabImage`); const activeCanvas = this.object(appearance.activeTabCanvas, `${path}.appearance.activeTabCanvas`, ['width', 'height']); if (activeCanvas) { this.rasterCanvas(appearance.activeTabCanvas, `${path}.appearance.activeTabCanvas`); if (tabCanvas && (activeCanvas.width !== tabCanvas.width || activeCanvas.height !== tabCanvas.height)) this.add(`${path}.appearance.activeTabCanvas`, 'TAB_TEMPLATE_SIZE_MISMATCH', 'active and inactive tab templates must have identical intrinsic size'); } if (Object.hasOwn(appearance, 'activeTextColor') && (!this.string(appearance.activeTextColor, `${path}.appearance.activeTextColor`) || !colorPattern.test(appearance.activeTextColor as string))) this.add(`${path}.appearance.activeTextColor`, 'COLOR_REQUIRED', 'must be a #RGB or #RRGGBB color'); this.finite(appearance.headerHeight, `${path}.appearance.headerHeight`, { positive: true }); if (tabCanvas) { this.appearanceLayout(appearance.labelLayout, `${path}.appearance.labelLayout`, tabCanvas); this.appearanceLayout(appearance.hitArea, `${path}.appearance.hitArea`, tabCanvas); if (typeof appearance.headerHeight === 'number' && appearance.headerHeight !== tabCanvas.height) this.add(`${path}.appearance.headerHeight`, 'TAB_HEADER_SIZE_MISMATCH', 'headerHeight must equal the template height'); } } }
         this.style(data.style, `${path}.style`); break;
     }
   }
