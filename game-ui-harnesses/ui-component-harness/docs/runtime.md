@@ -141,3 +141,10 @@ transition. Interrupted closure must finalize teardown when a system is cleared.
 
 See the [16-type matrix](../skills/ui-motion/references/component-coverage.md)
 and [versioned profiles](../skills/ui-motion/references/motion-system.md).
+# Text background paint
+
+Schema 0.2 Text nodes may set `props.drawBackground: false` to render readable
+glyphs over raster artwork without painting a solid rectangle. Omission retains
+the existing background paint behavior. This does not change node opacity, text
+semantics, clipping, or font substitution. Consumers of this optional field need
+a runtime that recognizes it; older strict validators reject the field.

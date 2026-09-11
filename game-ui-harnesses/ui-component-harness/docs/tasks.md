@@ -388,3 +388,19 @@ is covered below.
 | Task | Status | Acceptance |
 | --- | --- | --- |
 | M160: authenticated r002 case import | COMPLETE | Outer/nested checksums and safe paths pass; the official handoff compiler emits a valid 0.2 bundle with 10 nodes and 19 resources; all eight interactive nodes have complete appearance bindings and exact source/target canvas geometry; Studio browser evidence confirms Input, RadioGroup, CheckBox, Slider and Button state feedback. The static scene matches the original closely, while regenerated control regions retain documented visual deltas; upstream status remains `unreviewed_draft` pending visual acceptance. |
+## Text background opt-out and geometry fixture (2026-09-11)
+
+- Text supports optional `drawBackground: false`; absent fields retain legacy
+  paint. 335 unit tests and the production build pass. The dedicated browser
+  pixel regression confirms preserved underlying pixels, visible glyphs, and
+  unchanged legacy paint.
+- Local Quest Journal draft: 37 nodes, 21 appearance bindings, 31 decomposition
+  layers. Official ZIP reverse import reproduces the prepared Bundle exactly.
+  Browser acceptance exercises Tabs, CheckBox, Select, List, ScrollView and Button.
+  An independent Chromium run reproduced both supplied runtime screenshots byte
+  for byte, including the open REGION state, and observed no page errors.
+  This is a geometry-first widget fixture, not a completed game: only the six
+  observed tasks are supplied, scrolling is bounded to their known content, and
+  filters do not invent unavailable task datasets. Texture and font matching,
+  missing decorative details, and final human visual acceptance remain outside
+  this technical pass. No new generation was used.

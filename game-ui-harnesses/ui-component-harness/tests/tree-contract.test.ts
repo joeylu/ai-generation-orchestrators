@@ -46,6 +46,17 @@ function expectIssue(run: () => unknown, path: string, code?: string): void {
     && error.issues.some(issue => issue.path === path && (code === undefined || issue.code === code)));
 }
 
+test('Text can opt out of background paint without making glyphs transparent', () => {
+  const source = legalDocument() as any;
+  assert.equal(Object.hasOwn(source.root.children[1].props, 'drawBackground'), false);
+  source.root.children[1].props.drawBackground = false;
+  const validated = validateDocument(source) as any;
+  assert.equal(validated.root.children[1].props.drawBackground, false);
+  assert.equal(validated.root.children[1].props.style.opacity, 1);
+  source.root.children[1].props.drawBackground = 'false';
+  expectIssue(() => validateDocument(source), '$.root.children[1].props.drawBackground', 'BOOLEAN_REQUIRED');
+});
+
 test('v0.2 validates every renderable node branch, optional image region, font source, and composite children', () => {
   const source = legalDocument();
   const result = validateDocument(source);

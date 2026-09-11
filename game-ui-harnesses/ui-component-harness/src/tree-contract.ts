@@ -131,7 +131,7 @@ export interface PanelRasterAppearance {
 }
 
 export interface ImageProps { source: string; region?: ImageRegion; fit: 'stretch' | 'contain' | 'cover'; drawBackground?: boolean; style: ControlStyle }
-export interface TextProps { text: string; wrap: 'none' | 'word'; overflow: 'clip' | 'ellipsis' | 'error'; lineHeight: number; fontSource?: string; style: ControlStyle }
+export interface TextProps { text: string; wrap: 'none' | 'word'; overflow: 'clip' | 'ellipsis' | 'error'; lineHeight: number; fontSource?: string; drawBackground?: boolean; style: ControlStyle }
 export interface ContainerProps { appearance?: ContainerRasterAppearance; style: ControlStyle }
 export interface ButtonProps { label: string; enabled: boolean; backgroundImage?: string; appearance?: ButtonRasterAppearance; style: ControlStyle }
 export interface ToggleProps { label: string; checked: boolean; enabled: boolean; style: ControlStyle }
@@ -329,14 +329,14 @@ class ContractValidator {
   }
   props(type: UiNodeType, value: unknown, path: string): void {
     const keysByType: Record<UiNodeType, readonly string[]> = {
-      Image: ['source', 'region', 'fit', 'drawBackground', 'style'], Text: ['text', 'wrap', 'overflow', 'lineHeight', 'fontSource', 'style'],
+      Image: ['source', 'region', 'fit', 'drawBackground', 'style'], Text: ['text', 'wrap', 'overflow', 'lineHeight', 'fontSource', 'drawBackground', 'style'],
       Container: ['appearance', 'style'], Button: ['label', 'enabled', 'backgroundImage', 'appearance', 'style'], Switch: ['label', 'checked', 'enabled', 'appearance', 'style'], CheckBox: ['label', 'checked', 'enabled', 'appearance', 'style'],
       RadioGroup: ['selectedId', 'options', 'enabled', 'appearance', 'style'], Input: ['value', 'placeholder', 'inputType', 'readOnly', 'maxLength', 'enabled', 'appearance', 'style'],
       Select: ['selectedId', 'options', 'enabled', 'appearance', 'style'], ProgressBar: ['value', 'max', 'appearance', 'style'], Slider: ['value', 'min', 'max', 'step', 'enabled', 'appearance', 'style'],
       ScrollView: ['scrollX', 'scrollY', 'contentWidth', 'contentHeight', 'appearance', 'style'], List: ['selectedId', 'items', 'itemTemplate', 'itemHeight', 'enabled', 'appearance', 'style'],
       Panel: ['title', 'appearance', 'style'], Dialog: ['open', 'title', 'modal', 'appearance', 'style'], Tabs: ['activeId', 'tabs', 'enabled', 'appearance', 'style'],
     };
-    const optionalByType: Partial<Record<UiNodeType, readonly string[]>> = { Image: ['region', 'drawBackground'], Text: ['fontSource'], Container: ['appearance'], Button: ['backgroundImage', 'appearance'], Switch: ['appearance'], CheckBox: ['appearance'], RadioGroup: ['appearance'], Input: ['appearance'], Select: ['appearance'], ProgressBar: ['appearance'], Slider: ['appearance'], ScrollView: ['appearance'], List: ['appearance'], Panel: ['appearance'], Dialog: ['appearance'], Tabs: ['appearance'] };
+    const optionalByType: Partial<Record<UiNodeType, readonly string[]>> = { Image: ['region', 'drawBackground'], Text: ['fontSource', 'drawBackground'], Container: ['appearance'], Button: ['backgroundImage', 'appearance'], Switch: ['appearance'], CheckBox: ['appearance'], RadioGroup: ['appearance'], Input: ['appearance'], Select: ['appearance'], ProgressBar: ['appearance'], Slider: ['appearance'], ScrollView: ['appearance'], List: ['appearance'], Panel: ['appearance'], Dialog: ['appearance'], Tabs: ['appearance'] };
     const allowed = keysByType[type];
     const required = keysByType[type].filter(key => !optionalByType[type]?.includes(key));
     const data = this.object(value, path, allowed, required);
@@ -350,6 +350,7 @@ class ContractValidator {
         this.style(data.style, `${path}.style`); break;
       }
       case 'Text': {
+        if (Object.hasOwn(data, 'drawBackground')) this.boolean(data.drawBackground, `${path}.drawBackground`);
         this.string(data.text, `${path}.text`, true);
         if (data.wrap !== 'none' && data.wrap !== 'word') this.add(`${path}.wrap`, 'UNSUPPORTED_VALUE', 'must be none or word');
         if (data.overflow !== 'clip' && data.overflow !== 'ellipsis' && data.overflow !== 'error') this.add(`${path}.overflow`, 'UNSUPPORTED_VALUE', 'must be clip, ellipsis, or error');

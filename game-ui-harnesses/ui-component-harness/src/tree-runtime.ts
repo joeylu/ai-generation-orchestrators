@@ -441,7 +441,7 @@ function makeText(node: TextNode, value = node.props.text): Text {
 function drawTextNode(record: RuntimeRecord): void {
   const node = record.node as TextNode;
   clear(record.paint);
-  record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+  if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
   const target = node.props.overflow === 'clip' ? addClip(record.paint, node.layout.width, node.layout.height) : record.paint;
   target.addChild(makeText(node));
 }
