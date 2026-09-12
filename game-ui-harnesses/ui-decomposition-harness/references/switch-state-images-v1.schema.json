@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Switch stateImages 1.0 (consumer contract)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "off",
+    "on"
+  ],
+  "properties": {
+    "version": {
+      "const": "1.0"
+    },
+    "off": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trackLayerId",
+        "thumbLayerId"
+      ],
+      "properties": {
+        "trackLayerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "thumbLayerId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "on": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trackLayerId",
+        "thumbLayerId"
+      ],
+      "properties": {
+        "trackLayerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "thumbLayerId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

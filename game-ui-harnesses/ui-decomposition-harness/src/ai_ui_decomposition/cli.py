@@ -16,6 +16,15 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description="Opt-in deterministic UI decomposition Harness")
     root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True)
+    strategy = commands.add_parser("material-strategy", help="Separate control geometry from comparable icon boards; no generation")
+    strategy.add_argument("--observations", required=True, type=Path)
+    strategy.add_argument("--output", required=True, type=Path)
+    delivery_check = commands.add_parser("delivery-check", help="Bound state, font and runtime visual pre-delivery checks")
+    delivery_check.add_argument("--config", required=True, type=Path)
+    delivery_check.add_argument("--output", required=True, type=Path)
+    region_qa = commands.add_parser("region-qa", help="Offline same-state regional pixel comparison")
+    for name in ("reference", "rendered", "policy", "output"):
+        region_qa.add_argument("--" + name, required=True, type=Path)
     init = commands.add_parser("init")
     init.add_argument("--reference", required=True, type=Path)
     init.add_argument("--plan", required=True, type=Path)
@@ -69,6 +78,16 @@ def parser() -> argparse.ArgumentParser:
     component_handoff.add_argument("--delivery", required=True, type=Path)
     component_handoff.add_argument("--component-bundle", required=True, type=Path)
     component_handoff.add_argument("--appearance-binding", required=True, type=Path)
+    component_handoff.add_argument('--legacy-without-reference', action='store_true', help='Explicitly export a legacy runtime-only package, not visual-comparison ready')
+    for option in ('reference-original', 'reference-state', 'acceptance-scope', 'reference-mapping', 'reference-derived'):
+        component_handoff.add_argument('--' + option, type=Path)
+    switch_handoff = commands.add_parser('switch-state-handoff', help='Offline authenticated Switch stateImages rebind; preserve reference bytes')
+    for option in ('source', 'binding', 'component-root', 'output'):
+        switch_handoff.add_argument('--' + option, required=True, type=Path)
+    upgrade = commands.add_parser('reference-handoff', help='Create a v2 self-contained reference ZIP from an existing draft; offline')
+    for option in ('source', 'original', 'state', 'scope', 'mapping', 'output'):
+        upgrade.add_argument('--' + option, required=True, type=Path)
+    upgrade.add_argument('--derived', type=Path)
     adapter_export = commands.add_parser("adapter-export")
     adapter_export.add_argument("--run-dir", required=True, type=Path)
     adapter_export.add_argument("--asset", required=True)
@@ -102,10 +121,30 @@ def parser() -> argparse.ArgumentParser:
 
 
 def execute(args) -> dict:
+    if args.command == "material-strategy":
+        from .material_strategy import write_strategy
+        return write_strategy(args.observations,args.output)
+    if args.command == "delivery-check":
+        from .delivery_check import check_delivery
+        return check_delivery(args.config, args.output)
+    if args.command == "region-qa":
+        from .region_qa import compare_regions
+        return compare_regions(args.reference, args.rendered, args.policy, args.output)
     if args.command == "component-handoff":
         from .component_handoff import export_component_handoff
+        from .common import require
+        require(args.legacy_without_reference or all((args.reference_original, args.reference_state, args.acceptance_scope, args.reference_mapping)), 'REFERENCE_ARGUMENTS_REQUIRED')
+        require(not args.legacy_without_reference or not any((args.reference_original, args.reference_state, args.acceptance_scope, args.reference_mapping, args.reference_derived)), 'REFERENCE_LEGACY_ARGUMENT_CONFLICT')
         return export_component_handoff(args.delivery, args.component_bundle,
-                                        args.appearance_binding)
+                                        args.appearance_binding, reference_original=args.reference_original,
+                                        reference_state=args.reference_state, acceptance_scope=args.acceptance_scope,
+                                        reference_mapping=args.reference_mapping, reference_derived=args.reference_derived)
+    if args.command == 'switch-state-handoff':
+        from .switch_handoff import rebind
+        return rebind(args.source.resolve(), args.binding.resolve(), args.component_root.resolve(), args.output.resolve())
+    if args.command == 'reference-handoff':
+        from .reference_delivery import upgrade_reference_handoff
+        return upgrade_reference_handoff(args.source, args.original, args.state, args.scope, args.mapping, args.output, args.derived)
     if args.command == "split-supplemental-boards":
         from .supplemental_boards import split_supplemental_boards
         return split_supplemental_boards(

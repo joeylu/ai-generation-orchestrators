@@ -136,6 +136,8 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
     project = job / "project"
     project.mkdir()
     picture.save(project / "reference.png")
+    from .reference_delivery import preserve_original
+    preserve_original(reference, project / 'reference.png')
     deadline = time.monotonic() + timeout_seconds
     stage = "planning"
     active_asset = None

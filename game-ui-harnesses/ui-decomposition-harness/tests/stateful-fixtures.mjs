@@ -11,6 +11,7 @@ const mod=p=>import(pathToFileURL(resolve(root,p)));
 const {appearanceApplicationFixture}=await mod('tests/helpers/appearance-application-fixture.ts');
 const {firstBatchAppearanceFixture}=await mod('tests/helpers/first-batch-appearance-fixture.ts');
 const {secondBatchAppearanceFixture}=await mod('tests/helpers/second-batch-appearance-fixture.ts');
+const {nativeTabsFixture}=await mod('tests/helpers/native-tabs-fixture.ts');
 const {forceZip64Stored}=await mod('tests/helpers/decomposition-fixture.ts');
 const {createBundle}=await mod('src/bundle.ts');
 const {importDecompositionZip}=await mod('src/decomposition-import.ts');
@@ -32,18 +33,20 @@ function transparent(png,icon=false,textured=false){
  }
  return Buffer.concat([b.subarray(0,33),chunk('IDAT',deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]);
 }
+const {switchStateImagesFixture}=await mod('tests/helpers/switch-state-images-fixture.ts');
 const cases=[await appearanceApplicationFixture(),await firstBatchAppearanceFixture(),await secondBatchAppearanceFixture()];
-for(const caseName of ['Button','Switch','Select','CheckBox','RadioGroup','List','ScrollView','Tabs','Tabs-identical']){
+for(const caseName of ['Button','Switch','Switch-images','Select','Select-overlay','CheckBox','RadioGroup','List','ScrollView','ScrollView-covered','Tabs','Tabs-identical','Tabs-native','Slider','ProgressBar','ProgressBar-health','ProgressBar-shield','ProgressBar-energy']){
  const kind=caseName.split('-')[0];
- const f=cases.find(f=>f.document.root.children.some(n=>n.type===kind));
+ const f=caseName==='Switch-images'?await switchStateImagesFixture():caseName==='Tabs-native'?await nativeTabsFixture():cases.find(f=>f.document.root.children.some(n=>n.type===kind));
  const document=structuredClone(f.document),node=document.root.children.find(n=>n.type===kind);
  document.root.children=[node];
+ if(caseName.startsWith('ProgressBar-'))node.props.value=({'ProgressBar-health':78,'ProgressBar-shield':42,'ProgressBar-energy':65})[caseName];
  if(kind==='ScrollView')node.children=[{id:'scroll-content-marker',type:'Text',layout:{x:8,y:8,width:150,height:25},props:{text:'Scroll me',wrap:'none',overflow:'ellipsis',lineHeight:20,drawBackground:false,style:{...node.props.style}}}];
  const binding=structuredClone(f.binding);binding.bindings=binding.bindings.filter(b=>b.componentId===node.id);
  if(kind==='Select')binding.bindings[0].states.select.popupContentLayout={coordinateSpace:'target-popup-local',x:6,y:6,width:108,height:78};
  const scene=structuredClone(f.fixture.scene),delivery=structuredClone(f.fixture.delivery);
  let members=f.fixture.members.map(m=>({name:m.name,bytes:Buffer.from(m.bytes)}));
- if(kind==='Tabs'){
+ if(kind==='Tabs'&&caseName!=='Tabs-native'){
   // Three tabs, preserving the public per-item role and local layout contracts.
   node.layout.width=600;node.props.tabs[0].label='ACTIVE';node.props.tabs[1].label='COMPLETED';
   node.props.tabs.push({id:'tab-c',label:'ARCHIVE',contentId:'content-c'});
@@ -58,7 +61,9 @@ for(const caseName of ['Button','Switch','Select','CheckBox','RadioGroup','List'
    members.push({name:`layers/${layerId}.png`,bytes:members.find(m=>m.name===layer.png).bytes});
   }
  }
- const used=new Set(binding.bindings[0].parts.map(p=>p.layerId));
+ const stateImages=binding.bindings[0].states?.switch?.stateImages;
+ if(caseName==='Switch-images'){node.props.label='';node.props.stateLabels={off:'OFF',on:'ON'};const state=binding.bindings[0].states.switch;state.stateLabelLayouts={off:state.labelLayout,on:state.labelLayout};delete state.labelLayout;}
+ const used=new Set([...binding.bindings[0].parts.map(p=>p.layerId),...(stateImages?[stateImages.off,stateImages.on].flatMap(pair=>[pair.trackLayerId,pair.thumbLayerId]):[])]);
  scene.tree=scene.tree.map(g=>({...g,children:g.children.filter(l=>l.role==='background'||used.has(l.id))}));
  const layers=scene.tree.flatMap(g=>g.children);
  members=members.filter(m=>!m.name.startsWith('layers/')||layers.some(l=>l.png===m.name));
@@ -69,15 +74,29 @@ for(const caseName of ['Button','Switch','Select','CheckBox','RadioGroup','List'
  delivery.scene_sha256=hash(sceneBytes);delivery.pixel_layers=layers.length;delete delivery.digest;delivery.digest=hash(Buffer.from(canonical(delivery)));
  members.find(m=>m.name==='delivery.json').bytes=json(delivery);
  const nested=forceZip64Stored(members),imported=await importDecompositionZip(nested);
- const target=await createBundle(document,[],{kind:'programmatic-fixture',description:'Stateful appearance regression. Synthetic local pixels, no generated media.'});
+ const extraResources=[];
+ if(caseName==='Select-overlay'){
+  const l=layers.find(l=>l.id===binding.bindings[0].parts.find(p=>p.role==='indicator').layerId);
+  const bytes=members.find(m=>m.name===l.png).bytes;
+  const [width,height]=l.size;
+  document.root.children.push({id:'select-field-icon',type:'Image',layout:{x:node.layout.x+2,y:node.layout.y+2,width,height},props:{source:'field-icon.png',fit:'stretch',drawBackground:false,style:{...node.props.style}}});
+  extraResources.push({path:'field-icon.png',mime:'image/png',bytes});
+ }
+ if(caseName==='ScrollView-covered'){
+  const l=layers.find(l=>l.id===binding.bindings[0].parts.find(p=>p.role==='viewport').layerId);
+  const bytes=members.find(m=>m.name===l.png).bytes;
+  node.children=[{id:'scroll-cover',type:'Image',layout:{x:0,y:0,width:node.layout.width,height:node.layout.height},props:{source:'viewport-overlay.png',fit:'stretch',drawBackground:false,style:{...node.props.style}}}];
+  extraResources.push({path:'viewport-overlay.png',mime:'image/png',bytes});
+ }
+ const target=await createBundle(document,extraResources,{kind:'programmatic-fixture',description:'Stateful appearance regression. Synthetic local pixels, no generated media.'});
  Object.assign(binding,{documentSha256:await appearanceDocumentSha256(document),deliveryDigest:imported.deliveryDigest,sceneSha256:imported.sceneSha256,archiveSha256:imported.archiveSha256});
  const bundleBytes=json(target),bindingBytes=json(binding);
  const manifest={kind:'ai_ui_component_handoff_v1',status:'contracts_packaged_unreviewed_draft',decomposition:{path:'decomposition/ui.draft.zip',sha256:hash(nested)},component_bundle:{path:'component.ui-bundle.json',sha256:hash(bundleBytes)},appearance_binding:{path:'appearance-binding.json',sha256:hash(bindingBytes)},delivery_policy:'unreviewed_draft',human_visual_acceptance:false};
  const zip=forceZip64Stored([{name:'handoff.json',bytes:json(manifest)},{name:'decomposition/ui.draft.zip',bytes:nested},{name:'component.ui-bundle.json',bytes:bundleBytes},{name:'appearance-binding.json',bytes:bindingBytes}]);
  const dir=resolve(out,caseName);await mkdir(dir);await writeFile(resolve(dir,'ui.component-handoff.draft.zip'),zip);
  const reference=members.find(m=>m.name==='preview.png').bytes;await writeFile(resolve(dir,'reference.png'),reference);
- const names=kind==='Tabs'?node.props.tabs.map(x=>x.id):['Select','RadioGroup'].includes(kind)?node.props.options.map(x=>x.id):kind==='List'?node.props.items.map(x=>x.id):kind==='Button'?['default','hover','pressed']:kind==='ScrollView'?['top','middle','bottom']:['off','on'];
- const slots=kind==='Tabs'?names.flatMap(id=>['background/'+id,'icon/'+id]):kind==='List'?['background',...names.map(id=>'row/'+id)]:kind==='RadioGroup'?names.flatMap(id=>['option/'+id,'indicator/'+id]):({Button:['background'],Switch:['track','thumb'],Select:['background','indicator','popup'],CheckBox:['box','mark'],ScrollView:['viewport','track','thumb']})[kind];
- const evidence={kind:'ui_state_evidence_v1',handoffSha256:hash(zip),reference:{path:'reference.png',sha256:hash(reference)},components:{[node.id]:{states:Object.fromEntries(names.map(n=>[n,{basis:'user-confirmed',region:[node.layout.x,node.layout.y,node.layout.width,node.layout.height],note:'Synthetic regression specification: explicit state assets and geometry; reference is a test canvas, not an artist-approved scene.'}])),relations:Object.fromEntries(slots.map(s=>[s,{mode:kind==='Tabs'||s.startsWith('row/')?'distinct':'shared',note:'Local fixture explicitly specifies this resource relationship; mark visibility and thumb movement are separate from shared pixels.'}]))}}};
+ const names=kind==='Tabs'?node.props.tabs.map(x=>x.id):['Select','RadioGroup'].includes(kind)?node.props.options.map(x=>x.id):kind==='List'?node.props.items.map(x=>x.id):kind==='Button'?['default','hover','pressed']:kind==='ScrollView'?['top','middle','bottom']:kind==='Slider'?['min','middle','max']:kind==='ProgressBar'?['initial','empty','middle','full']:['off','on'];
+ const slots=kind==='Tabs'?names.flatMap(id=>['background/'+id,'icon/'+id]):kind==='List'?['background',...names.map(id=>'row/'+id)]:kind==='RadioGroup'?names.flatMap(id=>['option/'+id,'indicator/'+id]):({Button:['background'],Switch:['track','thumb'],Select:['background','indicator','popup'],CheckBox:['box','mark'],ScrollView:['viewport','track','thumb'],Slider:['track','fill','thumb'],ProgressBar:['track','fill']})[kind];
+ const evidence={kind:'ui_state_evidence_v1',handoffSha256:hash(zip),reference:{path:'reference.png',sha256:hash(reference)},components:{[node.id]:{states:Object.fromEntries(names.map(n=>[n,{basis:'user-confirmed',region:[node.layout.x,node.layout.y,node.layout.width,node.layout.height],note:'Synthetic regression specification: explicit state assets and geometry; reference is a test canvas, not an artist-approved scene.'}])),relations:Object.fromEntries(slots.map(s=>[s,{mode:caseName==='Switch-images'||kind==='Tabs'||s.startsWith('row/')?'distinct':'shared',note:'Local fixture explicitly specifies this resource relationship; mark visibility and thumb movement are separate from shared pixels.'}]))}}};
  await writeFile(resolve(dir,'evidence.json'),json(evidence));
 }

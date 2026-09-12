@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UI appearance binding 0.2 Select or Tabs states fragment",
+  "description": "Validates one binding.states object. Other component states are governed by their own contracts.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "select"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "select": {
+          "$ref": "#/$defs/select"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "tabs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tabs": {
+          "$ref": "#/$defs/tabs"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "color": {
+      "type": "string",
+      "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})(?![\\s\\S])",
+      "maxLength": 7
+    },
+    "area": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinateSpace",
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "coordinateSpace": {
+          "enum": [
+            "target-component-local",
+            "target-item-local",
+            "target-popup-local"
+          ]
+        },
+        "x": {
+          "type": "number",
+          "minimum": 0
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "select": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "labelLayout",
+        "popupPlacement"
+      ],
+      "properties": {
+        "fieldTextColor": {
+          "$ref": "#/$defs/color",
+          "description": "Selected value in the field only. Popup options keep style.textColor. Omission preserves legacy behavior."
+        },
+        "labelLayout": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/area"
+            },
+            {
+              "properties": {
+                "coordinateSpace": {
+                  "const": "target-component-local"
+                }
+              }
+            }
+          ]
+        },
+        "popupContentLayout": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/area"
+            },
+            {
+              "properties": {
+                "coordinateSpace": {
+                  "const": "target-popup-local"
+                }
+              }
+            }
+          ]
+        },
+        "popupPlacement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "coordinateSpace",
+            "anchor",
+            "gap"
+          ],
+          "properties": {
+            "coordinateSpace": {
+              "const": "target-component-local"
+            },
+            "anchor": {
+              "const": "below-start"
+            },
+            "gap": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "tabs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "headerHeight",
+        "labelLayout",
+        "hitArea"
+      ],
+      "properties": {
+        "activeTextColor": {
+          "$ref": "#/$defs/color",
+          "description": "Active tab only. Inactive tabs keep style.textColor. Omission preserves legacy behavior."
+        },
+        "icons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tabId",
+              "iconLayout",
+              "activeIconLayout"
+            ],
+            "properties": {
+              "tabId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "iconLayout": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/area"
+                  },
+                  {
+                    "properties": {
+                      "coordinateSpace": {
+                        "const": "target-item-local"
+                      }
+                    }
+                  }
+                ]
+              },
+              "activeIconLayout": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/area"
+                  },
+                  {
+                    "properties": {
+                      "coordinateSpace": {
+                        "const": "target-item-local"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "headerHeight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "labelLayout": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/area"
+            },
+            {
+              "properties": {
+                "coordinateSpace": {
+                  "const": "target-item-local"
+                }
+              }
+            }
+          ]
+        },
+        "hitArea": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/area"
+            },
+            {
+              "properties": {
+                "coordinateSpace": {
+                  "const": "target-item-local"
+                }
+              }
+            }
+          ]
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tabId",
+              "layout",
+              "labelLayout",
+              "hitArea"
+            ],
+            "properties": {
+              "tabId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "layout": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/area"
+                  },
+                  {
+                    "properties": {
+                      "coordinateSpace": {
+                        "const": "target-component-local"
+                      }
+                    }
+                  }
+                ]
+              },
+              "labelLayout": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/area"
+                  },
+                  {
+                    "properties": {
+                      "coordinateSpace": {
+                        "const": "target-item-local"
+                      }
+                    }
+                  }
+                ]
+              },
+              "hitArea": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/area"
+                  },
+                  {
+                    "properties": {
+                      "coordinateSpace": {
+                        "const": "target-item-local"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -10,6 +10,23 @@ from .common import require
 KEY_RGB = np.array([248, 8, 248], dtype=np.float32)
 
 
+def require_long_control_geometry(image: Image.Image, size: list[int],
+                                  foreground_support: dict | None = None) -> None:
+    """Reject grossly shortened thin controls even inside a correct-size canvas."""
+    support_size = list(size)
+    if foreground_support is not None:
+        left, top, right, bottom = foreground_support["insets"]
+        support_size = [size[0] - left - right, size[1] - top - bottom]
+    if max(support_size) / min(support_size) < 8:
+        return
+    box = image.getchannel('A').getbbox()
+    require(box is not None, 'EMPTY_MATERIAL')
+    ratio = (box[2]-box[0]) / (box[3]-box[1])
+    expected = support_size[0]/support_size[1]
+    # Structural tolerance for thin-control margins, not a visual acceptance score.
+    require(abs(ratio/expected-1) <= 0.15, 'LONG_CONTROL_SUPPORT_ASPECT_MISMATCH')
+
+
 def normalize(image: Image.Image) -> Image.Image:
     values = np.array(image.convert("RGBA"))
     values[values[:, :, 3] == 0, :3] = 0
@@ -18,6 +35,11 @@ def normalize(image: Image.Image) -> Image.Image:
 
 def contain(image: Image.Image, size: list[int]) -> Image.Image:
     support = normalize(image)
+    # Pixels already discarded by the final Alpha policy must not enlarge the
+    # fitting bounds and shrink the visible component before they disappear.
+    values = np.array(support)
+    values[values[:, :, 3] < 8] = 0
+    support = Image.fromarray(values, "RGBA")
     box = support.getchannel("A").getbbox()
     require(box is not None, "EMPTY_MATERIAL")
     support = support.crop(box)
@@ -33,7 +55,7 @@ def contain(image: Image.Image, size: list[int]) -> Image.Image:
     return Image.fromarray(values, "RGBA")
 
 
-def nine_slice(image: Image.Image, size: list[int], insets: list[int]) -> Image.Image:
+def nine_slice(image: Image.Image, size: list[int], insets: list[int], *, preserve_alpha_margin: bool = False) -> Image.Image:
     """Expand fitted foreground; insets are left/top/right/bottom support pixels."""
     require(isinstance(insets, list) and len(insets) == 4
             and all(type(value) is int and value > 0 for value in insets),
@@ -44,6 +66,10 @@ def nine_slice(image: Image.Image, size: list[int], insets: list[int]) -> Image.
     support = normalize(image)
     box = support.getchannel("A").getbbox()
     require(box is not None, "EMPTY_MATERIAL")
+    if preserve_alpha_margin:
+        # Retain a real source pixel surrounding the support, where available.
+        # Never erase opaque edge pixels or synthesize a transparent success.
+        box = (max(0,box[0]-1),max(0,box[1]-1),min(support.width,box[2]+1),min(support.height,box[3]+1))
     support = support.crop(box)
     width, height = support.size
     target_width, target_height = size
@@ -70,7 +96,7 @@ def nine_slice(image: Image.Image, size: list[int], insets: list[int]) -> Image.
 def resize_material(material: Image.Image, asset: dict) -> Image.Image:
     if "resize" not in asset:
         return material
-    return nine_slice(material, asset["output_size"], asset["resize"]["insets"])
+    return nine_slice(material, asset["output_size"], asset["resize"]["insets"], preserve_alpha_margin=asset['resize'].get('preserve_alpha_margin',False))
 
 
 def matte_key(image: Image.Image, size: list[int]) -> Image.Image:

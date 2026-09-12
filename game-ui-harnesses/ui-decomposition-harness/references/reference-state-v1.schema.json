@@ -1,0 +1,881 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-ui:reference-state-v1",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "const": "ui-reference-state"
+    },
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "Tabs"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "activeId": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "activeId"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "CheckBox"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "checked": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "boolean"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "checked"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "Switch"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "checked": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "boolean"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "checked"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "RadioGroup"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "selectedId": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "selectedId"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "Select"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "selectedId": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "popupOpen": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "boolean"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "selectedId",
+                  "popupOpen"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "List"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "selectedId": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "selectedId"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "ScrollView"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "scrollX": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "scrollY": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "scrollX",
+                  "scrollY"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "Input"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "string"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "Slider"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "ProgressBar"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "componentType": {
+                "const": "Dialog"
+              },
+              "fields": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "unknown"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "const": "observed"
+                          },
+                          "value": {
+                            "type": "boolean"
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "value",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "open"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "componentId",
+              "componentType",
+              "fields"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "schemaVersion",
+    "components"
+  ],
+  "additionalProperties": false
+}

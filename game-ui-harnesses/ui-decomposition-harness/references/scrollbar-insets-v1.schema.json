@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-ui:scrollbar-insets-v1",
+  "description": "bindings[].states.scrollView.scrollbarInsets; distances inward from registered track edges in target-component units. Usable height must fit source thumb.",
+  "type": "object",
+  "required": ["version", "top", "bottom"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "1.0"},
+    "top": {"type": "number", "minimum": 0},
+    "bottom": {"type": "number", "minimum": 0}
+  }
+}

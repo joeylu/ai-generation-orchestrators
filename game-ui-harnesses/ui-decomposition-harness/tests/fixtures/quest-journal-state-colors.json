@@ -1,0 +1,8 @@
+{
+  "description": "User-confirmed Quest Journal semantic geometry and text colors; no raster artwork required.",
+  "bindings": [
+    {"componentId":"quest-tabs","componentType":"Tabs","states":{"tabs":{"headerHeight":65,"labelLayout":{"coordinateSpace":"target-item-local","x":80,"y":14,"width":150,"height":39},"hitArea":{"coordinateSpace":"target-item-local","x":0,"y":0,"width":238,"height":65},"activeTextColor":"#FFF8DF"}}},
+    {"componentId":"region","componentType":"Select","states":{"select":{"labelLayout":{"coordinateSpace":"target-component-local","x":20,"y":8,"width":170,"height":33},"popupPlacement":{"coordinateSpace":"target-component-local","anchor":"below-start","gap":0},"popupContentLayout":{"coordinateSpace":"target-popup-local","x":10,"y":8,"width":214,"height":154},"fieldTextColor":"#FFF8DF"}}}
+  ],
+  "scroll": {"componentId":"quest-scroll","viewport":{"x":133,"y":257,"width":509,"height":596},"contentWidth":509,"contentHeight":600,"track":{"x":484,"y":37,"width":14,"height":524},"thumbPositions":{"coordinateSpace":"target-component-local","anchor":"top-left","min":{"x":484,"y":37},"max":{"x":484,"y":40.49333333333333}},"thumbTextureSize":[14,90],"lengthOwner":"ui-component-runtime","contentScope":"Six visible rows only; unseen records are unknown."}
+}

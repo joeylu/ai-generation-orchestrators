@@ -192,6 +192,33 @@ class HeadlessTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, 'JOB_ARTIFACT_CHANGED'):
             job_status(self.job)
 
+    def test_component_handoff_color_validation_precedes_export_and_preserves_bytes(self):
+        result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
+                          timeout_seconds=60, authorized=True, output_format='png_zip')
+        target = self.root / 'component.ui-bundle.json'
+        target.write_text('{"bundleVersion":"0.2"}\n', encoding='utf-8')
+        binding = self.root / 'appearance-binding.json'
+        fixture = read_json(Path(__file__).parent / 'fixtures/quest-journal-state-colors.json')
+        value = {'kind': 'ui-appearance-binding', 'version': '0.2',
+                 'documentSha256': 'a' * 64,
+                 'deliveryDigest': read_json(self.job / 'delivery/delivery.json')['digest'],
+                 'sceneSha256': sha256(self.job / 'delivery/scene.json'),
+                 'archiveSha256': result['artifacts']['png_zip']['sha256'],
+                 'registration': {}, 'bindings': fixture['bindings']}
+        value['bindings'][0]['states']['tabs']['activeTextColor'] = 'white'
+        write_json(binding, value)
+        with self.assertRaisesRegex(ContractError, 'STATE_COLOR_INVALID'):
+            export_component_handoff(self.job / 'delivery', target, binding)
+        self.assertFalse((self.job / 'delivery/ui.component-handoff.draft.zip').exists())
+        value['bindings'][0]['states']['tabs']['activeTextColor'] = '#FFF8DF'
+        binding = self.root / 'appearance-binding-valid.json'
+        write_json(binding, value)
+        expected = binding.read_bytes()
+        exported = export_component_handoff(self.job / 'delivery', target, binding)
+        with zipfile.ZipFile(self.job / 'delivery' / exported['file']) as archive:
+            self.assertEqual(archive.read('appearance-binding.json'), expected)
+            self.assertEqual(json.loads(archive.read('handoff.json'))['appearance_binding']['sha256'], sha256(binding))
+
     def test_component_handoff_packages_one_authenticated_outer_archive(self):
         result = auto_run(self.reference, self.job, self.provider, maximum_calls=4,
                           timeout_seconds=60, authorized=True, output_format='png_zip')

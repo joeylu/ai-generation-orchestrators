@@ -25,6 +25,8 @@ def init_plan(reference: Path, plan_path: Path, plan_id: str, document_name: str
     require(not input_path.exists(), "REFERENCE_SNAPSHOT_EXISTS")
     input_path.parent.mkdir(parents=True, exist_ok=True)
     picture.save(input_path)
+    from .reference_delivery import preserve_original
+    preserve_original(reference, input_path)
     canvas = evidence["size"]
     plan = {
         "kind": KIND, "id": plan_id, "canvas": canvas,

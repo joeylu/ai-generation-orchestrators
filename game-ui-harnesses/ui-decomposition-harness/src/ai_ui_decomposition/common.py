@@ -79,8 +79,8 @@ def digest(value: object) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def read_json(path: Path) -> dict:
-    require(path.is_file() and path.stat().st_size <= 2_097_152, "JSON_INPUT_INVALID")
+def read_json(path: Path, *, max_bytes: int = 2_097_152) -> dict:
+    require(path.is_file() and path.stat().st_size <= max_bytes, "JSON_INPUT_INVALID")
     def pairs(items):
         result = {}
         for key, value in items:

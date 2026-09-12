@@ -9,7 +9,7 @@ from .resources import plan_resources
 KIND = "ai_ui_decomposition_plan_v1"
 TEXT_POLICY = "remove_ordinary_text_preserve_graphic_symbols"
 GRANULARITY = "important_components_only"
-ROUTES = {"generated_completion", "generated_isolation", "source_crop", "reuse_scaled"}
+ROUTES = {"generated_completion", "generated_isolation", "source_crop", "reuse_scaled", "imported_material"}
 
 
 def _fields(value: object, expected: set[str], code: str) -> None:
@@ -67,7 +67,7 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
         required = {"id", "role", "route", "source_region", "output_size",
                     "output_mode", "prompt", "source_asset"}
         require(isinstance(asset, dict) and required <= set(asset)
-                and set(asset) <= required | {"resize", "cached_result"}, "ASSET_FIELDS")
+                and set(asset) <= required | {"resize", "cached_result", "material_source", "foreground_support"}, "ASSET_FIELDS")
         key = identifier(asset.get("id"))
         require(key not in index, "DUPLICATE_ASSET")
         route = asset.get("route")
@@ -82,12 +82,43 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
         require(asset.get("role") in {"background", "important_component"}, "ASSET_ROLE")
         region = _box(asset.get("source_region"), canvas, "ASSET_REGION")
         size = _size(asset.get("output_size"), "ASSET_SIZE")
+        if "foreground_support" in asset:
+            support = asset["foreground_support"]
+            _fields(support, {"insets", "basis", "note"}, "FOREGROUND_SUPPORT_FIELDS")
+            require(route == "generated_isolation" and "resize" not in asset,
+                    "FOREGROUND_SUPPORT_ROUTE")
+            left, top, right, bottom = _vector(support["insets"], 4, "FOREGROUND_SUPPORT_INSETS")
+            require(min(left, top, right, bottom) >= 0
+                    and size[0] > left + right and size[1] > top + bottom,
+                    "FOREGROUND_SUPPORT_INSETS")
+            require(isinstance(support["basis"], str)
+                    and support["basis"] in {"reference-observed", "reference-derived", "user-confirmed"}
+                    and isinstance(support["note"], str) and support["note"].strip(),
+                    "FOREGROUND_SUPPORT_EVIDENCE")
         mode = asset.get("output_mode")
+        if route == "imported_material":
+            imported = asset.get("material_source")
+            _fields(imported, {"path", "sha256"}, "MATERIAL_SOURCE_FIELDS")
+            require(isinstance(imported["sha256"], str)
+                    and re.fullmatch(r"[0-9a-f]{64}", imported["sha256"]), "MATERIAL_SOURCE_DIGEST")
+            path = safe_relative((source_base or Path.cwd()).resolve(), imported["path"])
+            require(mode in {"rgba", "opaque_canvas"} and "resize" not in asset,
+                    "IMPORTED_MATERIAL_EXACT_ONLY")
+            if verify_source:
+                _, evidence = load_verified_image(path, size)
+                require(evidence["sha256"] == imported["sha256"], "IMPORTED_MATERIAL_CHANGED")
+                require(evidence["alpha_extrema"][1] > 0, "EMPTY_MATERIAL")
+                if mode == "opaque_canvas":
+                    require(evidence["alpha_extrema"] == [255, 255], "BACKGROUND_NOT_OPAQUE")
+        else:
+            require("material_source" not in asset, "MATERIAL_SOURCE_ROUTE")
         require(mode in {"opaque_canvas", "transparent_component", "keyed_component", "rgba"},
                 "OUTPUT_MODE")
         if "resize" in asset:
             resize = asset["resize"]
-            _fields(resize, {"mode", "insets"}, "RESIZE_FIELDS")
+            _fields(resize, {"mode", "insets"} | ({'preserve_alpha_margin'} if isinstance(resize,dict) and 'preserve_alpha_margin' in resize else set()), "RESIZE_FIELDS")
+            if 'preserve_alpha_margin' in resize:
+                require(type(resize['preserve_alpha_margin']) is bool, 'RESIZE_ALPHA_MARGIN')
             require(resize["mode"] == "nine_slice", "RESIZE_MODE")
             require(asset["role"] == "important_component"
                     and mode in {"transparent_component", "keyed_component", "rgba"},
@@ -98,7 +129,7 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
                     "RESIZE_TARGET_TOO_SMALL")
         if asset["role"] == "background":
             require(mode == "opaque_canvas" and size == canvas, "BACKGROUND_ASSET")
-            require(route in {"generated_completion", "source_crop"}, "BACKGROUND_ROUTE")
+            require(route in {"generated_completion", "source_crop", "imported_material"}, "BACKGROUND_ROUTE")
         if route == "generated_completion":
             require(mode == "opaque_canvas", "COMPLETION_OUTPUT_MODE")
         if route == "generated_isolation":
@@ -151,7 +182,10 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
             require(xy == [0, 0], "BACKGROUND_POSITION")
         node_ids.add(node_id)
         used.add(asset_id)
-    require(used == set(index), "UNUSED_ASSET")
+    # A verified source for a placed reuse_scaled asset need not also be painted.
+    # Requiring both would bake the old-size artwork beneath its fitted derivative.
+    source_only = {index[key]['source_asset'] for key in used if index[key]['route'] == 'reuse_scaled'}
+    require(used | source_only == set(index), "UNUSED_ASSET")
     require(len(background_nodes) == 1, "ONE_BACKGROUND_REQUIRED")
 
     groups = plan.get("groups")

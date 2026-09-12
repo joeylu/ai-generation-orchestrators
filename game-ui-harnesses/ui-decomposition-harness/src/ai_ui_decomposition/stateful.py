@@ -18,13 +18,19 @@ from scipy.ndimage import binary_dilation
 
 from .common import ContractError, read_json, require, safe_relative, sha256, write_json
 from .stateful_scroll import scroll_geometry
+from .stateful_slider import slider_geometry, progress_geometry
+from .stateful_dialog import dialog_state, DIALOG_STATES, DIALOG_ROLES
+from .stateful_static_children import button_image_children, select_image_overlays
 
-KINDS = {'Tabs', 'Button', 'CheckBox', 'RadioGroup', 'Select', 'Switch', 'List', 'ScrollView'}
-ROLES = {'Tabs': {'tab', 'active-tab', 'icon', 'active-icon'}, 'Button': {'background'},
+from .switch_state_images import validate_state_images
+
+KINDS = {'Tabs', 'Button', 'CheckBox', 'RadioGroup', 'Select', 'Switch', 'List', 'ScrollView', 'Slider', 'ProgressBar', 'Dialog'}
+ROLES = {'Dialog': DIALOG_ROLES, 'Tabs': {'tab', 'active-tab', 'icon', 'active-icon'}, 'Button': {'background'},
          'CheckBox': {'box', 'mark'}, 'RadioGroup': {'option', 'indicator'},
          'Select': {'background', 'indicator', 'popup'}, 'Switch': {'track', 'thumb'},
          'List': {'background', 'row', 'selected-row'},
-         'ScrollView': {'viewport','scrollbar-track','scrollbar-thumb'}}
+         'ScrollView': {'viewport','scrollbar-track','scrollbar-thumb'},
+         'Slider': {'track','fill','thumb'}, 'ProgressBar': {'track','fill'}}
 
 
 def image_bytes(payload):
@@ -33,6 +39,15 @@ def image_bytes(payload):
     im.load()
     require(im.mode == 'RGBA', 'STATE_ALPHA_INVALID')
     return im
+
+
+def require_part_alpha(extrema, component_type, role, layer):
+    # Overlays and rectangular progress fills can reach every canvas edge while
+    # retaining real partial Alpha. Icons and other isolated parts still need
+    # completely transparent pixels; opaque checkerboards remain invalid.
+    partial_edges = (component_type, role) in {('Dialog', 'overlay'), ('ProgressBar', 'fill')}
+    require((extrema[0] < 255 if partial_edges else extrema[0] == 0)
+            and extrema[1] > 0, 'STATE_ALPHA_INVALID:' + layer)
 
 
 def baked_icon(background, icon):
@@ -96,6 +111,9 @@ def nodes(root,offset=(0,0)):
 
 def state_names(node):
     p, t = node['props'], node['type']
+    if t == 'Dialog': return DIALOG_STATES
+    if t == 'Slider': return ['min','middle','max']
+    if t == 'ProgressBar': return ['initial','empty','middle','full']
     if t == 'Tabs': return [x['id'] for x in p['tabs']]
     if t in {'RadioGroup', 'Select'}: return [x['id'] for x in p['options']]
     if t == 'List': return [x['id'] for x in p['items']]
@@ -107,7 +125,7 @@ def state_names(node):
 
 def compile_matrix(bundle, binding, evidence, assets):
     require(evidence.get('kind') == 'ui_state_evidence_v1' and
-            set(evidence)=={'kind','handoffSha256','reference','components'}, 'STATE_MATRIX_INVALID')
+            set(evidence)-{'visualObservations'}=={'kind','handoffSha256','reference','components'}, 'STATE_MATRIX_INVALID')
     policies = evidence.get('components', {})
     require(isinstance(policies,dict),'STATE_MATRIX_INVALID')
     by_binding = {b['componentId']: b for b in binding['bindings']}
@@ -131,15 +149,23 @@ def compile_matrix(bundle, binding, evidence, assets):
         w, h = n['layout']['width'], n['layout']['height']
         # Refuse unimplemented coordinate transforms instead of guessing.
         require(a['sourceCanvas'] == {'width': w, 'height': h}, 'STATE_GEOMETRY_MISMATCH')
+        switch_images=validate_state_images(b,{key:image_bytes(data).size for key,data in assets.items()}) if t=='Switch' else None
+        if t=='Switch':
+            require(bool(switch_images)==('stateImages' in a),'STATE_SWITCH_IMAGES_MISMATCH')
+            if switch_images:
+                runtime_images=a['stateImages']
+                require(isinstance(runtime_images,dict) and set(runtime_images)=={'version','off','on'} and runtime_images['version']=='1.0','STATE_SWITCH_IMAGES_MISMATCH')
+                for side in ('off','on'):
+                    require(isinstance(runtime_images[side],dict) and set(runtime_images[side])=={'trackImage','thumbImage'},'STATE_SWITCH_IMAGES_MISMATCH')
         records = []
-        def part(slot, role, image, rect, visible=True, runtime_sized=False, **selectors):
+        def part(slot, role, image, rect, visible=True, runtime_sized=False, explicit_layer=None, **selectors):
             matches = [q for q in b['parts'] if q['role'] == role and all(q.get(k) == v for k, v in selectors.items())]
             require(len(matches) == 1, 'STATE_MISSING:' + slot)
-            layer = matches[0]['layerId']
+            layer = explicit_layer if explicit_layer is not None else matches[0]['layerId']
             resource = resources[image]
             require(layer in assets and hashlib.sha256(assets[layer]).hexdigest() == resource['sha256'], 'STATE_RESOURCE_MISMATCH')
             im = image_bytes(assets[layer]); extrema = im.getchannel('A').getextrema()
-            require(extrema[0] == 0 and extrema[1] > 0, 'STATE_ALPHA_INVALID:' + layer)
+            require_part_alpha(extrema, t, role, layer)
             if role in {'icon','active-icon'}:
                 alpha=im.getchannel('A');box=alpha.getbbox()
                 # A transparent outer border alone cannot disguise an opaque plate.
@@ -161,27 +187,44 @@ def compile_matrix(bundle, binding, evidence, assets):
                     'STATE_REFERENCE_EVIDENCE_MISSING')
             parts, excludes, texts = [], [], []
             scroll=None
+            slider=None
+            dialog=None
+            static_children=[]
             value = name
             action = 'click'
             point = [x+w/2, y+h/2]
             def exclude(r, ox=x, oy=y): excludes.append([ox+r['x'], oy+r['y'], r['width'], r['height']])
-            if t == 'Tabs':
+            if t == 'Dialog':
+                data=dialog_state(n,name,bundle['document']['canvas'],positioned,part)
+                parts,value,action,dialog=data['parts'],data['value'],data['action'],data['dialog']
+                exclude(a['titleLayout'])
+                for child in n.get('children',[]): exclude(child['layout'])
+            elif t == 'Tabs':
                 require(len(a.get('icons', [])) == len(names), 'STATE_MISSING:TAB_ICONS')
-                cell = w/len(names); point = [x+names.index(name)*cell+cell/2, y+a['headerHeight']/2]
+                cell = w/len(names)
                 for index, tab in enumerate(names):
+                    item=next((q for q in a.get('items',[]) if q['tabId']==tab),None)
+                    require('items' not in a or item is not None, 'STATE_MISSING:TAB_ITEM')
+                    layout=item['layout'] if item else {'x':index*cell,'y':0,'width':cell,'height':a['headerHeight']}
+                    tx,ty=x+layout['x'],y+layout['y']
+                    hit=item['hitArea'] if item else a['hitArea']
+                    if tab==name:point=[tx+hit['x']+hit['width']/2,ty+hit['y']+hit['height']/2]
                     active = tab == name
                     role = 'active-tab' if active else 'tab'
-                    parts.append(part('background/'+tab, role, a['activeTabImage' if active else 'tabImage'], [x+index*cell, y, cell, a['headerHeight']]))
+                    template=item if item else a
+                    parts.append(part('background/'+tab, role, template['activeTabImage' if active else 'tabImage'],
+                                      [tx,ty,layout['width'],layout['height']], **({'tabId':tab} if item else {})))
                     icon = next((q for q in a['icons'] if q['tabId'] == tab), None)
                     require(icon is not None, 'STATE_MISSING:TAB_ICONS')
                     data = icon['activeIcon' if active else 'icon']; r = data['layout']
                     parts.append(part('icon/'+tab, 'active-icon' if active else 'icon', data['image'],
-                                      [x+index*cell+r['x'], y+r['y'], r['width'], r['height']], tabId=tab))
+                                      [tx+r['x'], ty+r['y'], r['width'], r['height']], tabId=tab))
                     parts[-1]['localLayout']={'coordinateSpace':'target-item-local',**r}
-                    exclude(a['labelLayout'], x+index*cell, y)
+                    exclude(item['labelLayout'] if item else a['labelLayout'], tx, ty)
                     texts.append(dict(rect=excludes[-1],color=a.get('activeTextColor',p['style']['textColor']) if active else p['style']['textColor'],text=p['tabs'][index]['label']))
             elif t == 'Button':
                 parts.append(part('background', 'background', a['backgroundImage'], [x,y,w,h]))
+                static_children=button_image_children(n,resources,(x,y),inherited_clip)
                 exclude(a['labelLayout']); action = name; value = None
             elif t == 'CheckBox':
                 value = name == 'on'
@@ -189,10 +232,16 @@ def compile_matrix(bundle, binding, evidence, assets):
                 exclude(a['labelLayout'])
             elif t == 'Switch':
                 value = name == 'on'; pos = a['thumbPositions'][name]
-                thumb=image_bytes(base64.b64decode(resources[a['thumbImage']]['base64']))
-                parts = [part('track','track',a['trackImage'],[x,y,w,h]),
-                         part('thumb','thumb',a['thumbImage'],[x+pos['x'],y+pos['y'],thumb.width,thumb.height])]
-                if 'labelLayout' in a: exclude(a['labelLayout'])
+                pair=a['stateImages'][name] if switch_images else a
+                refs=switch_images[name] if switch_images else {}
+                thumb=image_bytes(base64.b64decode(resources[pair['thumbImage']]['base64']))
+                parts=[part('track','track',pair['trackImage'],[x,y,w,h],explicit_layer=refs.get('trackLayerId')),
+                       part('thumb','thumb',pair['thumbImage'],[x+pos['x'],y+pos['y'],thumb.width,thumb.height],explicit_layer=refs.get('thumbLayerId'))]
+                label_layout=a.get('stateLabelLayouts',{}).get(name) if p.get('stateLabels') else a.get('labelLayout')
+                if label_layout:
+                    exclude(label_layout)
+                if label_layout and p.get('stateLabels',{}).get(name,p.get('label','')):
+                    texts.append(dict(rect=excludes[-1],color=p['style']['textColor'],text=p.get('stateLabels',{}).get(name,p.get('label',''))))
             elif t == 'RadioGroup':
                 for q in a['items']:
                     oid = q['optionId']; parts += [positioned('option/'+oid,'option',q['option'],optionId=oid),positioned('indicator/'+oid,'indicator',q['indicator'],oid==name,optionId=oid)]
@@ -200,6 +249,7 @@ def compile_matrix(bundle, binding, evidence, assets):
                     if oid == name:
                         r=q['hitArea'];point=[x+r['x']+r['width']/2,y+r['y']+r['height']/2]
             elif t == 'Select':
+                static_children=select_image_overlays(bundle['document']['root'],n,resources,(x,y),inherited_clip)
                 parts = [part('background','background',a['fieldImage'],[x,y,w,h])]
                 r=a['arrowLayout'];parts.append(part('indicator','indicator',a['arrowImage'],[x+r['x'],y+r['y'],r['width'],r['height']]))
                 parts.append(part('popup','popup',a['popupImage'],[x,y+h+a['popupGap'],a['popupCanvas']['width'],a['popupCanvas']['height']]))
@@ -212,26 +262,39 @@ def compile_matrix(bundle, binding, evidence, assets):
                 scroll=scroll_geometry(n,{'top':0,'middle':.5,'bottom':1}[name])
                 scroll['children']=[]
                 r=scroll['thumb']
-                parts=[positioned('viewport','viewport',a['viewport']),
-                       positioned('track','scrollbar-track',a['scrollbarTrack']),
-                       part('thumb','scrollbar-thumb',a['scrollbarThumbImage'],[x+r[0],y+r[1],r[2],r[3]],runtime_sized=True)]
+                chrome_visible = not (p.get('scrollbarVisibility') == 'auto' and p['contentHeight'] <= h)
+                scroll['chromeVisible'] = chrome_visible
+                parts=[positioned('viewport','viewport',a['viewport'],p.get('drawBackground',True)),
+                       positioned('track','scrollbar-track',a['scrollbarTrack'],chrome_visible),
+                       part('thumb','scrollbar-thumb',a['scrollbarThumbImage'],[x+r[0],y+r[1],r[2],r[3]],chrome_visible,runtime_sized=True)]
                 value={'x':0,'y':scroll['scrollY']};action='scroll';point=[x+r[0]+r[2]/2,y+r[1]+r[3]/2]
                 # Child content covers the viewport, not the foreground scrollbar.
                 for child in n.get('children',[]):
                     r=child['layout'];vp=scroll['viewport'];excludes.append(intersect_rect([x+vp['x'],y+vp['y'],vp['width'],vp['height']],
                         [x+vp['x']+r['x'],y+vp['y']+r['y']-scroll['scrollY'],r['width'],r['height']]))
                     scroll['children'].append({'id':child['id'],'x':x+vp['x']+r['x'],'y':y+vp['y']+r['y']-scroll['scrollY']})
+                parts[0]['contentOcclusion']=bool(scroll['children'])
+                for foreground in parts[1:]:
+                    foreground['ignoreContentExclusions']=True
+            elif t in {'Slider','ProgressBar'}:
+                slider=slider_geometry(n,name) if t=='Slider' else progress_geometry(n,name)
+                parts=[positioned('track','track',a['track']),positioned('fill','fill',a['fill'],slider['ratio']>0)]
+                r=slider['fillClip'];parts[1]['clip']=[x+r[0],y+r[1],r[2],r[3]]
+                if t=='Slider':
+                    r=slider['thumb'];parts.append(part('thumb','thumb',a['thumbImage'],[x+r[0],y+r[1],r[2],r[3]]))
+                    point=[x+r[0]+r[2]/2,y+r[1]+r[3]/2]
+                value=slider['value'];action='slider' if t=='Slider' else 'progress'
             elif t == 'List':
-                parts=[part('background','background',a['backgroundImage'],[x,y,w,h])]
+                parts=[part('background','background',a['backgroundImage'],[x,y,w,h],p.get('drawBackground',True))]
                 for index, item in enumerate(names):
                     selected=item==name;role='selected-row' if selected else 'row'
-                    parts.append(part('row/'+item,role,a['selectedRowImage' if selected else 'rowImage'],[x,y+index*p['itemHeight'],w,p['itemHeight']]))
+                    parts.append(part('row/'+item,role,a['selectedRowImage' if selected else 'rowImage'],[x,y+index*p['itemHeight'],w,p['itemHeight']-p.get('rowGap',0)]))
                     exclude(a['labelLayout'],x,y+index*p['itemHeight'])
                 point=[x+w/2,y+(names.index(name)+.5)*p['itemHeight']]
                 require(point[1] < y+h, 'STATE_NOT_VISIBLE')
                 for child in n.get('children',[]):
                     r=child['layout'];excludes.append([x+r['x'],y+r['y'],r['width'],r['height']])
-            records.append(dict(name=name,value=value,action=action,point=point,parts=parts,exclude=excludes,textRegions=texts,referenceEvidence=proof,scroll=scroll,
+            records.append(dict(name=name,value=value,action=action,point=point,parts=parts,staticChildren=static_children,exclude=excludes,textRegions=texts,referenceEvidence=proof,scroll=scroll,slider=slider,dialog=dialog,
                                 clip=intersect_rect(inherited_clip,[x,y,w,h]) if t=='List' else inherited_clip if t!='Select' else None))
         # Every repeated slot needs an explicit relation, even if state visuals are shared.
         slots = {p['slot'] for s in records for p in s['parts']}
@@ -259,7 +322,7 @@ def compile_matrix(bundle, binding, evidence, assets):
             for bg in backgrounds:
                 for icon in icons:
                     require(not baked_icon(image_bytes(assets[bg]),image_bytes(assets[icon])), 'STATE_BACKGROUND_BAKED_CONFLICT')
-        output.append(dict(componentId=ident,componentType=t,states=records,relations=policy['relations']))
+        output.append(dict(componentId=ident,componentType=t,states=records,relations=policy['relations'],**({'stateAppearanceCoverage':'explicit_state_images' if switch_images else 'legacy_single_pair_not_full_state_appearance'} if t=='Switch' else {})))
     require(set(policies)=={r['componentId'] for r in output},'STATE_CAPABILITY_MISSING')
     return {'kind':'ui_state_matrix_v1','components':output,'human_visual_acceptance':False}
 
@@ -288,6 +351,15 @@ def accept(handoff, evidence_path, component_root, output, browser=True):
         reference=evidence['reference'];source=safe_relative(evidence_path.parent,reference['path'])
         require(set(reference)=={'path','sha256'},'STATE_REFERENCE_EVIDENCE_MISSING')
         require(sha256(source)==reference['sha256'],'STATE_REFERENCE_EVIDENCE_MISSING')
+        observations = None
+        if 'visualObservations' in evidence:
+            entry=evidence['visualObservations']
+            require(set(entry)=={'path','sha256'},'VISUAL_OBSERVATIONS_REFERENCE')
+            observation_path=safe_relative(evidence_path.parent,entry['path'])
+            require(sha256(observation_path)==entry['sha256'],'VISUAL_OBSERVATIONS_DIGEST')
+            observations=read_json(observation_path)
+            with observation_path.open('rb') as reader,(output/'visual-observations.json').open('xb') as writer:shutil.copyfileobj(reader,writer)
+            evidence={**evidence,'visualObservations':{'path':'visual-observations.json','sha256':entry['sha256']}}
         # Fresh CLI output is the authoritative consumed document, never a copied preview bundle.
         cli=component_root/'scripts/cli.mjs'
         result=subprocess.run(['node',str(cli),'component-handoff',str(handoff),'--output',str(output/'consumed.json')],capture_output=True,text=True)
@@ -313,6 +385,12 @@ def accept(handoff, evidence_path, component_root, output, browser=True):
             result=subprocess.run(['node',str(Path(__file__).with_name('stateful_browser.mjs')),str(component_root),str(output)],capture_output=True,text=True)
             require(result.returncode==0,'STATE_BROWSER_FAILED')
             report.update(status='technical_passed',browserSha256=sha256(output/'browser.json'))
+            if observations is not None:
+                from .visual_observations import check_visual_observations
+                checks=check_visual_observations(bundle,observations,read_json(output/'default-inspection.json',max_bytes=64*1024*1024))
+                write_json(output/'visual-observation-check.json',checks)
+                require(checks['status']=='passed','VISUAL_OBSERVATION_REJECTED')
+                report['visualObservationSha256']=sha256(output/'visual-observation-check.json')
             target=output/'ui.component-handoff.draft.zip';pending=output/'.handoff.pending'
             with handoff.open('rb') as reader, pending.open('xb') as writer:
                 shutil.copyfileobj(reader,writer)

@@ -45,3 +45,17 @@ Historical Quest Journal ZIP digests were checked unchanged:
 
 All new receipts keep `human_visual_acceptance: false`. No model/service calls,
 retries, private provider state or old-record modifications were involved.
+
+
+### 2026-09-12 Inventory reference-visible scrollbar
+
+Visibility-only offline rebind uses the consumer's existing always field, preserves
+reference evidence and content extents, and validates source/candidate via official
+CLI. Visual policy can explicitly require always. Producer tests: 209 total, 201
+passed, 8 optional skipped. Consumer: 390 unit and 2 browser regressions passed.
+Final v2 ZIP SHA-256: f0f5b28f22297ae35bf48ad2e851af0ed78ea277b22a2521fd544ff0b44fbfab.
+Evidence: work/ui-decomposition/inventory-shop-scrollbar-always-20260912-r001/.
+Studio-r003 confirms zero range, real input, no scroll events and visible chrome.
+Original short-thumb geometry and unoccluded end ornaments are NOT restored; see
+docs/scrollbar-reference-visibility.md. Unknown reference positions and scope are
+unchanged. Human visual acceptance remains false. No media generation.

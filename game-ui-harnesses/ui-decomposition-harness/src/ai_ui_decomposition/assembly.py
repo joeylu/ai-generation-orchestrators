@@ -133,8 +133,28 @@ def inspect_delivery(output: Path) -> dict:
     preview = safe_relative(output, scene["preview"])
     require(preview.is_file() and sha256(preview) == scene["preview_sha256"],
             "PREVIEW_CHANGED")
+    canvas = scene["canvas"]
+    require(isinstance(canvas, list) and len(canvas) == 2
+            and all(type(v) is int and v > 0 for v in canvas)
+            and canvas[0] * canvas[1] <= 16_777_216, "SCENE_CANVAS_INVALID")
+    composite = Image.new("RGBA", tuple(canvas), (0, 0, 0, 0))
     for group in scene["tree"]:
         for layer in group["children"]:
             path = safe_relative(output, layer["png"])
             require(path.is_file() and sha256(path) == layer["sha256"], "LAYER_CHANGED")
+            require(layer.get("visible") is True and layer.get("opacity") == 255
+                    and layer.get("blend_mode") == "normal", "LAYER_RENDER_INVALID")
+            picture, _ = load_verified_image(path, layer["size"])
+            x, y = layer["left"], layer["top"]
+            require(type(x) is int and type(y) is int and x >= 0 and y >= 0
+                    and x + picture.width <= canvas[0]
+                    and y + picture.height <= canvas[1], "LAYER_OUTSIDE_CANVAS")
+            composite.alpha_composite(picture, (x, y))
+    expected, _ = load_verified_image(preview, canvas)
+    # Compare decoded rows to keep peak memory bounded on large canvases.
+    composite = normalize(composite)
+    for y in range(canvas[1]):
+        box = (0, y, canvas[0], y + 1)
+        require(composite.crop(box).tobytes() == expected.crop(box).tobytes(),
+                "PREVIEW_COMPOSITE_MISMATCH")
     return receipt

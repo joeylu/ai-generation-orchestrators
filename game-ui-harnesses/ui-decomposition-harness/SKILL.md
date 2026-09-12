@@ -11,6 +11,15 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+When delivering Select/Tabs appearance states, preserve confirmed optional
+`fieldTextColor`/`activeTextColor` as described in references/contract.md.
+Never infer state text colors from runtime luminance or bake text into art.
+ScrollView source thumb texture height must not determine contentHeight or final
+thumb length: supply observed viewport/content semantics and track geometry.
+For decorated tracks use [scrollbar end insets](docs/scrollbar-insets-v1.md), measured
+from the registered track edges. Preserve ornaments and verify both real overflow
+and zero-range behavior through actual Studio input.
+
 For an explicitly authorized unattended draft, use `auto-run` and the configured
 optional provider as described in [docs/headless.md](docs/headless.md). It consumes
 two vision calls and a bounded number of image calls: planning first, then a mandatory
@@ -39,6 +48,12 @@ coverage or human acceptance.
 2. Apply the fixed text policy: remove ordinary raster text and pseudo-text while
    preserving deliberate pictograms and graphic symbols. Do not request fonts or
    reconstruct copy as image layers.
+   Before any external asset-board experiment, run `material-strategy` using
+   observed target sizes and explicit source-reuse evidence. Panels, controls,
+   tracks and fills require separate requests; only similarly sized icons may
+   share a board. Never reinterpret these separate requests as a mixed board
+   to reduce call count. Nine-slice is only for reviewed empty stretchable bases;
+   it must not distort pictograms or progress segment divisions.
 3. When continuing from completed raw results, use `result-binding` and the
    `cached_result` plan field described in [references/provider-adapter.md](references/provider-adapter.md).
    Freeze a new plan and use `reuse-result`; never edit old attempts or import old
@@ -73,6 +88,23 @@ contain real transparent pixels. Missing reference-matched state art, font evide
 or focus/caret evidence keeps the component handoff visually unaccepted even when
 its schema and browser interaction checks pass.
 
+Follow [visual delivery acceptance](docs/visual-delivery.md) for every reference
+reconstruction handoff. Keep the ordered layer preview separate from the runtime
+screenshot. Never create synthetic batch/material receipts to package a sample.
+Run same-state `region-qa` on the consumed runtime before handing it to a recipient;
+declare coverage and thresholds before evaluation. A rejected or missing comparison
+does not establish visual acceptance. Do not silently relax thresholds or generate
+again. Preserve missing font/state evidence as explicit limitations.
+
+For a component handoff, after importing the draft in the component runtime and
+capturing its evidence, run `delivery-check --config <check.json> --output <fresh-dir>`
+as the final delivery stage described in docs/visual-delivery.md. It automatically
+selects supported initial-state parts, reports missing font/state evidence, binds
+the candidate and screenshot hashes, and invokes regional QA. A failed report
+keeps the package draft and must be shown before handing it to a recipient.
+Do not replace missing browser observations with assumed values. The checker
+does not generate assets or grant human visual acceptance.
+
 When authoring a 0.2 appearance binding for a Select, always provide
 `states.select.popupContentLayout` in `target-popup-local` coordinates. Measure
 the rectangle from the transparent popup asset so option labels, hit areas and
@@ -100,6 +132,24 @@ user-managed container, read
 
 ## Stateful appearance delivery (required for new stateful acceptance)
 
+Switch ON/OFF art must use the existing consumer stateImages 1.0 extension; see
+[Switch delivery](docs/switch-state-images-v1.md). Never infer colors or silently
+fall back when an explicit state pair is incomplete. Legacy single-pair import
+does not establish complete state appearance.
+
+For drafts opting into standard system typography and layout, follow
+[visual layout policy v1](docs/visual-layout-policy.md). Separate row paint from
+row intervals, fit icon content inside its owner, preserve reference-visible chrome
+with explicit scrollbarVisibility:always even without overflow (report unsupported
+thumb geometry), and constrain progress fill to the inner cavity. Run the policy
+checker against the applied bundle; technical checks never grant human approval.
+
+New visual handoffs must follow [reference handoff v2](docs/reference-handoff-v2.md):
+include byte-identical original artwork, explicit coordinate mapping, observed/unknown
+reference state and acceptance scope. Preserve normalized derivatives separately.
+Never substitute preview.png or normalized PNG bytes for the original. The legacy
+export is explicitly runtime-only and is not ready for reference visual acceptance.
+
 After producing a component handoff, follow [stateful delivery](docs/stateful-delivery.md)
 and run `ai-ui-stateful` with explicit reference evidence and the current local
 component CLI/build. A legacy packaging success is not stateful acceptance.
@@ -107,6 +157,13 @@ Use only public roles. Tabs require per-tab transparent icon/active-icon layers,
 matching alpha/local geometry, and explicit distinct/shared evidence. Never
 silently copy a state, bake its icon into the background, or replace missing
 appearance capabilities with procedural drawing. Missing adapters fail explicitly.
+New reference-driven visual repairs must attach digest-bound visualObservations
+as described in [visual observations](docs/visual-observations-v1.md). Inventory
+all readable removed text and its runtime owner; verify actual font-size/bounds,
+text overlap, frame ownership and modal compositing before publishing acceptance.
+Dialog body is optional; do not force a second framed panel. Use an explicit
+native backdrop or raster overlay, never both. Legacy runtime-only checks do not
+establish these visual-layout guarantees.
 Only a fresh receipt directory whose browser verification succeeded contains the
 accepted draft ZIP copy. Deliver its matrix and browser receipts alongside it.
 Keep `human_visual_acceptance: false`; final visual acceptance remains human.

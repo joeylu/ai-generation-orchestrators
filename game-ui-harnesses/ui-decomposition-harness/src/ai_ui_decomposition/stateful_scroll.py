@@ -5,6 +5,7 @@ or guesses additional content to fit a short thumb image.
 """
 import math
 from .common import require
+from .scrollbar_insets import validate_insets
 
 
 def scroll_geometry(node, amount):
@@ -26,10 +27,18 @@ def scroll_geometry(node, amount):
     max_scroll=max(0,ch-h);fraction=amount if max_scroll else 0
     x=positions['min']['x']+(positions['max']['x']-positions['min']['x'])*fraction
     y=(track['y'] if expanded else positions['min']['y'])+travel*fraction
+    if 'scrollbarInsets' in a:
+        insets=validate_insets(a['scrollbarInsets'],track['height'],thumb['height'])
+        usable=track['height']-insets['top']-insets['bottom']
+        height=min(usable,max(thumb['height'],usable*min(1,h/ch)))
+        travel=max(0,usable-height)
+        x=positions['min']['x']
+        y=track['y']+insets['top']+travel*fraction
     require(track['x']<=x and x+thumb['width']<=track['x']+track['width']+.01 and
             track['y']<=y and y+height<=track['y']+track['height']+.01,'STATE_SCROLL_GEOMETRY_INVALID')
     return {'thumb':[x,y,thumb['width'],height], 'scrollY':max_scroll*fraction,
             'travelY':travel,'maxScrollY':max_scroll,'contentHeight':ch,'viewportHeight':h,
             'contentWidth':cw,'viewport':a['viewport']['layout'],'track':track,
             'thumbPositions':positions,'sourceThumbCanvas':thumb,
-            'sizingRule':'current-runtime:max(source-height,track-height*viewport/content),clamped-to-track'}
+            'sizingRule':('scrollbar-insets-v1:max(source-height,usable-height*viewport/content),clamped-to-usable-track' if 'scrollbarInsets' in a else 'current-runtime:max(source-height,track-height*viewport/content),clamped-to-track'),
+            **({'scrollbarInsets':a['scrollbarInsets']} if 'scrollbarInsets' in a else {})}

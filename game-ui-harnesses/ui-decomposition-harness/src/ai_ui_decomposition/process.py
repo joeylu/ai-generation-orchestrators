@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw
 
 from . import batch
 from .common import digest, require, sha256, write_json
-from .media import contain, matte_key, normalize, opaque_exact, resize_material
+from .media import contain, matte_key, normalize, opaque_exact, resize_material, require_long_control_geometry
 
 
 def process(run: Path) -> dict:
@@ -41,6 +41,12 @@ def process(run: Path) -> dict:
         for asset in (item for item in plan["assets"] if item["route"] != "reuse_scaled"):
             key = asset["id"]
             size = asset["output_size"]
+            if asset["route"] == "imported_material":
+                with Image.open(run / "input" / "materials" / (key + ".png")) as image:
+                    material = normalize(image)
+                require(list(material.size) == size, "IMPORTED_MATERIAL_SIZE")
+                save_material(asset, material)
+                continue
             if asset["route"].startswith("generated_"):
                 entry = frozen["requests"][key]
                 raw = run / "requests" / entry["id"] / "raw.png"
@@ -56,6 +62,8 @@ def process(run: Path) -> dict:
                 # Native transparent provider output bypasses chroma-key removal.
                 # This preserves legitimate magenta pixels and continuous alpha.
                 material = contain(source, size)
+            if asset['route'] == 'generated_isolation' and 'resize' not in asset:
+                require_long_control_geometry(material, size, asset.get("foreground_support"))
             save_material(asset, normalize(resize_material(material, asset)))
         for asset in (item for item in plan["assets"] if item["route"] == "reuse_scaled"):
             with Image.open(material_paths[asset["source_asset"]]) as source:

@@ -32,6 +32,11 @@ def load(run: Path) -> tuple[dict, dict]:
     reference = run / "input" / "reference.png"
     require(reference.is_file() and sha256(reference) == batch["source_sha256"],
             "SOURCE_SNAPSHOT_CHANGED")
+    for asset in plan["assets"]:
+        if asset["route"] == "imported_material":
+            path = run / "input" / "materials" / (asset["id"] + ".png")
+            require(path.is_file() and sha256(path) == asset["material_source"]["sha256"],
+                    "IMPORTED_MATERIAL_CHANGED")
     for entry in batch["requests"].values():
         request = safe_relative(run, entry["request"])
         crop = safe_relative(run, entry["crop"])
@@ -57,6 +62,17 @@ def freeze(plan_path: Path, workspace: Path, run_id: str) -> dict:
     require(_source_evidence["sha256"] == plan["source"]["sha256"], "SOURCE_CHANGED")
     image.save(reference)
     source_sha = sha256(reference)
+    imports = {}
+    for asset in plan["assets"]:
+        if asset["route"] != "imported_material":
+            continue
+        destination = run / "input" / "materials" / (asset["id"] + ".png")
+        destination.parent.mkdir(exist_ok=True)
+        shutil.copyfile(safe_relative(plan_base, asset["material_source"]["path"]), destination)
+        require(sha256(destination) == asset["material_source"]["sha256"], "IMPORTED_MATERIAL_CHANGED")
+        imports[asset["id"]] = {"path": destination.relative_to(run).as_posix(),
+            "sha256": sha256(destination), "generation_calls": 0,
+            "origin": "externally_supplied_material", "generation_provenance_verified": False}
     requests = {}
     order = []
     with Image.open(reference) as image:
@@ -98,6 +114,8 @@ def freeze(plan_path: Path, workspace: Path, run_id: str) -> dict:
              "maximum_calls": summary["generated_requests"], "automatic_retries": 0,
              "provider": None, "provider_invocation_included": False,
              "plan_summary": summary}
+    if imports:
+        batch["imported_materials"] = imports
     batch["digest"] = digest(batch)
     write_json(run / "batch.json", batch)
     return batch

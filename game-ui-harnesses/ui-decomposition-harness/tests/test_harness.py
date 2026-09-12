@@ -67,6 +67,15 @@ class HarnessTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_reuse_source_need_not_be_painted_but_orphans_still_fail(self):
+        changed = json.loads(json.dumps(self.plan))
+        changed['nodes'] = [n for n in changed['nodes'] if n['id'] != 'primary_button']
+        changed['groups'][1]['children'] = ['small_button']
+        validate(changed, source_base=self.root)
+        changed['assets'][2].update(route='source_crop', source_asset=None)
+        with self.assertRaisesRegex(ContractError, 'UNUSED_ASSET'):
+            validate(changed, source_base=self.root)
+
     def raw_component(self) -> Path:
         path = self.root / "raw.png"
         image = Image.new("RGB", (40, 30), (248, 8, 248))
@@ -388,6 +397,14 @@ class HarnessTests(unittest.TestCase):
             nine_slice(Image.new("RGBA", (4, 4), "gold"), [20, 20], [2, 2, 2, 2])
         with self.assertRaisesRegex(ContractError, "RESIZE_TARGET_TOO_SMALL"):
             nine_slice(Image.new("RGBA", (20, 20), "gold"), [4, 4], [2, 2, 2, 2])
+
+    def test_nine_slice_can_retain_real_source_alpha_margin_without_erasing_art(self):
+        source=Image.new('RGBA',(20,14)); ImageDraw.Draw(source).rectangle((2,2,17,11),fill='gold')
+        fitted=nine_slice(source,[40,20],[3,3,3,3],preserve_alpha_margin=True)
+        self.assertEqual(fitted.getchannel('A').getbbox(),(1,1,39,19))
+        self.assertEqual(fitted.getpixel((1,1)),(255,215,0,255))
+        opaque=nine_slice(Image.new('RGBA',(20,14),'gold'),[40,20],[3,3,3,3],preserve_alpha_margin=True)
+        self.assertEqual(opaque.getchannel('A').getextrema(),(255,255))
 
     def cached_plan(self, change=None):
         self.complete_materials()

@@ -14,8 +14,12 @@ def main():
     args=parser.parse_args();root=args.output.resolve();component=args.component_root.resolve()
     if root.exists():raise ContractError('OUTPUT_EXISTS')
     subprocess.run(['node',str(Path(__file__).with_name('stateful-fixtures.mjs')),str(component),str(root)],check=True)
+    cases=list(root.iterdir())
+    dialog_root=root/'dialog-fixtures'
+    subprocess.run(['node',str(Path(__file__).with_name('stateful-dialog-fixtures.mjs')),str(component),str(dialog_root)],check=True)
+    cases.extend(dialog_root.iterdir())
     results=[]
-    for case in sorted(root.iterdir()):
+    for case in sorted(cases):
         archive=case/'ui.component-handoff.draft.zip';before=sha256(archive)
         expected='STATE_DISTINCT_DUPLICATE' if case.name=='Tabs-identical' else None
         try:

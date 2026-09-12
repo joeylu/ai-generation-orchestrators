@@ -1,0 +1,390 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-ui:component-handoff-v2",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "const": "ai_ui_component_handoff_v2"
+    },
+    "schemaVersion": {
+      "const": "2.0"
+    },
+    "status": {
+      "const": "contracts_packaged_unreviewed_draft"
+    },
+    "decomposition": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "component_bundle": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "appearance_binding": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "delivery_policy": {
+      "const": "unreviewed_draft"
+    },
+    "human_visual_acceptance": {
+      "const": false
+    },
+    "reference": {
+      "type": "object",
+      "properties": {
+        "original": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "mapping": {
+          "type": "object",
+          "properties": {
+            "coordinateSpace": {
+              "const": "raw-image-pixel-edges-to-runtime-canvas"
+            },
+            "sourceSize": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "targetSize": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "crop": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 4,
+              "maxItems": 4
+            },
+            "rotationDegrees": {
+              "enum": [
+                0,
+                90,
+                180,
+                270
+              ]
+            },
+            "flipX": {
+              "type": "boolean"
+            },
+            "flipY": {
+              "type": "boolean"
+            },
+            "scale": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "offset": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "coordinateSpace",
+            "sourceSize",
+            "targetSize",
+            "crop",
+            "rotationDegrees",
+            "flipX",
+            "flipY",
+            "scale",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        "state": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        "derivatives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "mapping": {
+                "type": "object",
+                "properties": {
+                  "coordinateSpace": {
+                    "const": "raw-image-pixel-edges-to-runtime-canvas"
+                  },
+                  "sourceSize": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "targetSize": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "crop": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 4,
+                    "maxItems": 4
+                  },
+                  "rotationDegrees": {
+                    "enum": [
+                      0,
+                      90,
+                      180,
+                      270
+                    ]
+                  },
+                  "flipX": {
+                    "type": "boolean"
+                  },
+                  "flipY": {
+                    "type": "boolean"
+                  },
+                  "scale": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "offset": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                },
+                "required": [
+                  "coordinateSpace",
+                  "sourceSize",
+                  "targetSize",
+                  "crop",
+                  "rotationDegrees",
+                  "flipX",
+                  "flipY",
+                  "scale",
+                  "offset"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "width",
+              "height",
+              "source",
+              "mapping"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "original",
+        "mapping",
+        "state",
+        "scope",
+        "derivatives"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "kind",
+    "schemaVersion",
+    "status",
+    "decomposition",
+    "component_bundle",
+    "appearance_binding",
+    "delivery_policy",
+    "human_visual_acceptance",
+    "reference"
+  ],
+  "additionalProperties": false
+}

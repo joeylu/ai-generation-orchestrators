@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-ui:acceptance-scope-v1",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "const": "ui-acceptance-scope"
+    },
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "referenceState": {
+      "const": "reference/reference-state.json"
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mode": {
+            "enum": [
+              "compare",
+              "exclude"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "componentId",
+          "mode",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "derivedTestStates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "basis": {
+            "const": "contract-derived"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "componentId",
+          "basis",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "human_visual_acceptance": {
+      "const": false
+    }
+  },
+  "required": [
+    "kind",
+    "schemaVersion",
+    "referenceState",
+    "components",
+    "derivedTestStates",
+    "human_visual_acceptance"
+  ],
+  "additionalProperties": false
+}

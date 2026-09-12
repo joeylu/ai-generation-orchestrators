@@ -27,6 +27,13 @@ only the requested empty component, its shape, materials, colors and graphic sym
 Use exactly one background asset, with full-canvas source_region and output_size;
 its prompt must remove ALL foreground UI and complete the obscured background.
 Other assets should isolate only the named complete component, remove all unrelated
+UI. Never combine a panel, scrollbar, progress track/fill or button with icons in
+one atlas request. Long thin controls need independent requests at their original
+support ratio; do not shorten them to fit a grid. Each asset here is one component,
+not an asset board. Missing aspect-ratio fidelity must be reported, never corrected
+by non-uniform stretching. Preserve progress segment count and separate optional
+arrows or marks only when the intended component contract requires separate roles.
+Remove unrelated
 UI and ordinary text, and preserve its exact geometry and visual style. Each generated
 component output_size must equal its source_region width and height exactly; do not
 upscale, downscale, stretch, restyle or substitute a generic control. Main-panel prompt must

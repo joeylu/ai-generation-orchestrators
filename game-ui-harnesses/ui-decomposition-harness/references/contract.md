@@ -108,6 +108,32 @@ diagnosing memory exhaustion. Changes must arrive via a verified upstream releas
 
 Routes:
 
+Before optional external board generation, `material-strategy --observations
+observations.json --output strategy.json` groups only similar icons. The input
+kind is `ai_ui_material_observations_v1` and `assets` contain exactly `id`,
+`category` (icon/panel/track/fill/thumb/control), `target_size`, and boolean
+`source_reusable`. The latter is an explicit observation of clean, visible,
+reusable pixels, not an automatic assertion. All non-icon assets use independent
+requests unless explicitly reusable. Icons with aspect above 2 also remain
+independent; grouped icons differ by at most 2x on either axis, maximum 16 per
+board. This strategy creates no generation or authorization.
+
+For generated isolation without explicit nine-slice, processing checks thin
+controls (target aspect at least 8): foreground Alpha support aspect must be
+within 15% of target. This structural margin allowance rejects gross shortening
+inside a correctly sized canvas; it does not establish visual fidelity. An
+explicit nine-slice contract uses its separately reviewed cap geometry instead.
+
+- `imported_material`: explicitly supplied local PNG, bound by
+  `material_source: {"path": "inputs/control.png", "sha256": "..."}`.
+  The PNG must exactly match `output_size`; only `rgba` and `opaque_canvas`
+  are allowed, with no resize, prompt, cached result, or source asset.
+  Freeze snapshots the file and records zero generation calls, an external
+  material origin, and `generation_provenance_verified: false`. It does not
+  manufacture historical provider receipts. Processing preserves canvas margins
+  and continuous Alpha, normalizing only transparent RGB. Changed snapshots
+  fail before processing. Import proves file identity, not visual quality,
+  text removal, or historical generation provenance.
 - `generated_completion`: one opaque, UI-free completion request.
 - `generated_isolation`: one component on the fixed magenta key background.
 - `source_crop`: deterministic crop for an already acceptable text-free region.
@@ -177,6 +203,34 @@ protect their semantics. Insets require explicit selection and visual review.
 Corner preservation is relative to the fitted generated material, not a promise
 of recovering the original reference's pixels. Old runtimes reject this new field;
 plans without it remain compatible.
+# State text colors in component delivery
+
+Tabs may additionally supply `states.tabs.icons`, with one entry per tabId and
+explicit `iconLayout`/`activeIconLayout` in target-item-local coordinates. Each tab
+must bind both `icon` and `active-icon` roles when using icons, even when they
+share artwork. Icons are transparent PNG layers; tab backgrounds must not also
+contain those pictograms. The official component importer checks full tab coverage,
+role pairs and source/layout geometry. Do not synthesize missing status bindings.
+
+Appearance binding 0.2 permits optional `states.select.fieldTextColor` and
+`states.tabs.activeTextColor`, restricted to `#RGB` or `#RRGGBB`. The exporter
+validates these values before writing any handoff archive and preserves the
+binding bytes and checksum. Absent fields retain the old consumer behavior.
+See [the states JSON Schema](select-tabs-states.schema.json).
+
+Select field color affects only its current selected-value label. Popup options
+still use the component's `style.textColor`. Tabs active color affects only the
+active header; inactive headers retain `style.textColor`. These are explicit
+reference/user-confirmed semantics, never a luminance heuristic or baked text.
+Quest Journal's two overrides are both `#FFF8DF`.
+
+ScrollView delivery includes viewport layout, contentWidth/contentHeight, track
+layout and thumbPositions. The viewport height is the component layout height.
+The thumb PNG is a texture template, not the final visible thumb length; runtime
+uses viewport/content proportions. Do not invent hidden content to justify the
+texture's short height. The Quest Journal regression has 596px viewport height,
+600px known content height and a 524px track. Its semantic travel is about 3.493px,
+independent of the 90px source thumb texture. Unknown unseen tasks remain unknown.
 
 ## Stateful appearance acceptance v1
 

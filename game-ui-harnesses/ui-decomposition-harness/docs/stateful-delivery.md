@@ -58,8 +58,14 @@ Slots and supported public roles:
 | Switch | off, on | track, thumb (shared texture, distinct positions) |
 | List | every item selected | background, row/id (row, selected-row) |
 | ScrollView | top, middle, bottom | viewport, track (scrollbar-track), thumb (scrollbar-thumb) |
+| Slider | min, middle, max | track, fill, thumb; pointer drag and fill clipping |
+| ProgressBar | initial, empty, middle, full | track, fill; programmatic value and fill clipping |
+| Dialog | open, closed, reopened | background, body, header, optional overlay; child visibility and modal blocking |
 
-All Tabs require a per-tab explicit `icon` and `active-icon` binding and both
+Tabs with explicit public `items` use each tab's native rectangle, hit area,
+label rectangle and independently bound normal/active bases. Gaps remain gaps;
+they do not become equal-width clickable cells. Legacy Tabs without `items`
+retain equal-width geometry. All Tabs require a per-tab explicit `icon` and `active-icon` binding and both
 local layouts. Both PNGs have identical dimensions, alpha bytes and
 `target-item-local` geometry. Different states need different file **and decoded
 pixel** hashes. Shared visuals need explicit evidence; merely duplicating files
@@ -94,8 +100,8 @@ whether a shared mark is currently visible or a shared thumb has moved.
 | STATE_SCROLL_GEOMETRY_INVALID | invalid track, thumb positions, or thumb outside track |
 
 Version 1 requires native-size geometry and all enumerated items visible, with
-the explicit runtime-sized ScrollView thumb exception below. Input,
-Slider and Dialog fail explicitly until their full acceptance
+the explicit runtime-sized ScrollView thumb exception below. Input
+fails explicitly until its full acceptance
 adapters exist; their old delivery support is unchanged. Additional pressed,
 disabled, error or focus *image roles* cannot be invented. If a reference requires
 them, this profile cannot establish complete acceptance. It does not silently
@@ -114,6 +120,19 @@ Transformed textures are compared using rendered pixel-center expectations,
 not nearest source pixels. Text tests check the expected color in each
 label area, not OCR/font identity. Alpha-contour equality is deterministic;
 arbitrary edge compositing fidelity still needs human review.
+
+Switch optionally uses `props.stateLabels: {on, off}` and corresponding
+`states.switch.stateLabelLayouts: {on, off}` for runtime-drawn labels on either
+side of its thumb. Both layouts are required when state labels are supplied;
+the old fixed label remains supported. Acceptance additionally compares actual
+Pixi Text strings and their layout through runtime inspection. This confirms
+state-dependent text updates without claiming OCR or exact font identity.
+
+A rectangular ProgressBar fill may reach every edge of its canvas while
+retaining genuine partial Alpha (`minimum < 255`, nonempty maximum). It need
+not invent completely transparent corners. Fully opaque fills remain rejected;
+icon, track, background and other isolated-part Alpha requirements are unchanged.
+This rule verifies Alpha presence, not correct full-range fill semantics.
 
 ## ScrollView acceptance
 
@@ -147,6 +166,21 @@ successful screenshots and hash validation never promote a draft to final
 human visual acceptance.
 
 ## Local regression
+
+Slider probes use actual pointer drags at min/middle/max, consumer-compatible
+step rounding, thumb positions and clipped fill pixels. ProgressBar adds the
+supplied initial value plus empty/middle/full via the public value API; it is
+not presented as a directly draggable control.
+
+Dialog probes open/closed/reopened, child visibility, child Button activation,
+and a visible underlying Button outside the dialog to verify modal blocking
+and restoration. Missing probes fail explicitly. They distinguish activation
+from business routing: no reward grant or application-specific close handler
+is invented. Dialog compositing compares source-over pixels, including a raster
+overlay when supplied or the current native overlay otherwise. A full-canvas
+partially transparent overlay is valid without zero-alpha pixels; other state
+parts retain the usual alpha requirement. Unobserved underlying artwork is
+still a completion proposal, not source-matched evidence.
 
 ```text
 node tests/stateful-fixtures.mjs ../ui-component-harness NEW_FIXTURE_DIRECTORY
