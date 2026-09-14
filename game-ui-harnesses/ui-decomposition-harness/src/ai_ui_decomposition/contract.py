@@ -119,7 +119,9 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
             _fields(resize, {"mode", "insets"} | ({'preserve_alpha_margin'} if isinstance(resize,dict) and 'preserve_alpha_margin' in resize else set()), "RESIZE_FIELDS")
             if 'preserve_alpha_margin' in resize:
                 require(type(resize['preserve_alpha_margin']) is bool, 'RESIZE_ALPHA_MARGIN')
-            require(resize["mode"] == "nine_slice", "RESIZE_MODE")
+            require(resize["mode"] in {"nine_slice", "contain"}, "RESIZE_MODE")
+            require(resize["mode"] != "contain" or 'preserve_alpha_margin' not in resize,
+                    "RESIZE_CONTAIN_FIELDS")
             require(asset["role"] == "important_component"
                     and mode in {"transparent_component", "keyed_component", "rgba"},
                     "RESIZE_COMPONENT_ONLY")

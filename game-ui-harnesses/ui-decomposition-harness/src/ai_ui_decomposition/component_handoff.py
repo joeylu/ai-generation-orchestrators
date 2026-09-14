@@ -19,8 +19,16 @@ from .common import ContractError, load_verified_image, read_json, require, safe
 
 from .switch_state_images import validate_state_images
 from .scrollbar_insets import validate_insets
+from .scrollbar_thumb_slices import validate_thumb_slices
+from .select_option_icons import validate_option_icons
+from .select_menu_highlights import validate_menu_highlights
+from .tabs_layout import validate_tabs_layout
 
 MAX_COMPONENT_BUNDLE_BYTES = 67_108_864
+def _validate_tabs_background(node):
+    if node.get('type')=='Tabs' and 'drawBackground' in node.get('props',{}):
+        require(type(node['props']['drawBackground']) is bool,'COMPONENT_HANDOFF_TABS_BACKGROUND_BOOLEAN')
+
 INTERACTIVE_COMPONENT_TYPES = {
     "Button", "Switch", "CheckBox", "RadioGroup", "Input", "Select", "Slider",
     "ScrollView", "List", "Dialog", "Tabs",
@@ -35,8 +43,9 @@ def _validate_state_text_colors(binding: dict) -> None:
         if 'scrollView' in states:
             state=states['scrollView']
             require(row.get('componentType') == 'ScrollView' and isinstance(state,dict), 'COMPONENT_HANDOFF_STATE_TYPE_MISMATCH')
-            require(set(state) <= {'thumbPositions','scrollbarInsets'}, 'COMPONENT_HANDOFF_UNKNOWN_STATE_FIELD')
+            require(set(state) <= {'thumbPositions','scrollbarInsets','scrollbarThumbSlices'}, 'COMPONENT_HANDOFF_UNKNOWN_STATE_FIELD')
             if 'scrollbarInsets' in state: validate_insets(state['scrollbarInsets'])
+            if 'scrollbarThumbSlices' in state:validate_thumb_slices(state['scrollbarThumbSlices'],has_insets='scrollbarInsets' in state)
         if 'switch' in states:
             state=states['switch']
             require(row.get('componentType') == 'Switch' and isinstance(state,dict), 'COMPONENT_HANDOFF_STATE_TYPE_MISMATCH')
@@ -49,8 +58,8 @@ def _validate_state_text_colors(binding: dict) -> None:
                     require(isinstance(layout,dict) and set(layout)=={'coordinateSpace','x','y','width','height'} and layout['coordinateSpace']=='target-component-local', 'COMPONENT_HANDOFF_SWITCH_LABEL_LAYOUT_INVALID')
                     require(all(type(layout[k]) in (int,float) and math.isfinite(layout[k]) and layout[k] >= 0 for k in ('x','y','width','height')) and layout['width']>0 and layout['height']>0,'COMPONENT_HANDOFF_SWITCH_LABEL_LAYOUT_INVALID')
         for kind, component, field, allowed in (
-            ("select", "Select", "fieldTextColor", {"labelLayout", "popupPlacement", "popupContentLayout", "fieldTextColor"}),
-            ("tabs", "Tabs", "activeTextColor", {"headerHeight", "labelLayout", "hitArea", "activeTextColor", "icons", "items"}),
+            ("select", "Select", "fieldTextColor", {"labelLayout", "popupPlacement", "popupContentLayout", "fieldTextColor", "optionIcons", "menuHighlights"}),
+            ("tabs", "Tabs", "activeTextColor", {"headerHeight", "labelLayout", "hitArea", "activeTextColor", "icons", "items", "layoutPolicy"}),
         ):
             if kind not in states:
                 continue
@@ -84,8 +93,26 @@ def _validate_bound_layers(delivery: Path, binding: dict, document: dict) -> Non
             require(by_role.get('scrollbar-track') and by_role.get('scrollbar-thumb'), 'COMPONENT_HANDOFF_UNKNOWN_LAYER')
             scale=binding['registration']['transform']['scale']
             validate_insets(scroll['scrollbarInsets'],by_role['scrollbar-track']['size'][1]*scale,by_role['scrollbar-thumb']['size'][1]*scale)
+        if 'scrollbarThumbSlices' in scroll:
+            thumbs=[layers.get(p['layerId']) for p in parts if p['role']=='scrollbar-thumb']
+            require(len(thumbs)==1 and thumbs[0] is not None,'COMPONENT_HANDOFF_UNKNOWN_LAYER')
+            validate_thumb_slices(scroll['scrollbarThumbSlices'],thumbs[0]['size'][1],'scrollbarInsets' in scroll)
         images=validate_state_images(row,{key:l['size'] for key,l in layers.items()})
         referenced=parts+([{'layerId':pair[field]} for pair in (images['off'],images['on']) for field in ('trackLayerId','thumbLayerId')] if images else [])
+        if node['type'] == 'Tabs':
+            validate_tabs_layout(row.get('states', {}).get('tabs', {}), [t['id'] for t in node['props']['tabs']], node['layout']['width'], node['layout']['height'])
+        if node['type'] == 'Select' and 'menuHighlights' in row.get('states', {}).get('select', {}):
+            popup = [layers.get(p['layerId']) for p in parts if p['role'] == 'popup']
+            require(len(popup) == 1 and popup[0] is not None, 'SELECT_MENU_HIGHLIGHTS_POPUP_REQUIRED')
+            scale = binding['registration']['transform']['scale']
+            validate_menu_highlights(row['states']['select'], len(node['props']['options']), [v*scale for v in popup[0]['size']])
+        if node['type'] == 'Select' and 'optionIcons' in row.get('states', {}).get('select', {}):
+            popup = [layers.get(p['layerId']) for p in parts if p['role'] == 'popup']
+            require(len(popup) == 1 and popup[0] is not None, 'SELECT_OPTION_ICONS_POPUP_REQUIRED')
+            scale = binding['registration']['transform']['scale']
+            items = validate_option_icons(row['states']['select'], [o['id'] for o in node['props']['options']],
+                                          layers, [v * scale for v in popup[0]['size']])
+            referenced += [item['icon'] for item in items if item['icon'] is not None]
         for part in referenced:
             layer = layers.get(part.get("layerId"))
             require(isinstance(layer, dict), "COMPONENT_HANDOFF_UNKNOWN_LAYER")
@@ -192,7 +219,8 @@ def _validate_interactive_appearances(bundle: dict, root: object) -> None:
 def export_component_handoff(delivery: Path, component_bundle: Path,
                              appearance_binding: Path, *, reference_original: Path | None = None,
                              reference_state: Path | None = None, acceptance_scope: Path | None = None,
-                             reference_mapping: Path | None = None, reference_derived: Path | None = None) -> dict:
+                             reference_mapping: Path | None = None, reference_derived: Path | None = None,
+                             layout_spacing: Path | None = None) -> dict:
     delivery = delivery.resolve()
     receipt = inspect_delivery(delivery)
     export = read_json(delivery / "png-zip-export.json")
@@ -216,6 +244,7 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
         require(not isinstance(style, dict) or style.get("opacity") != 0,
                 "COMPONENT_HANDOFF_INVISIBLE_ROOT")
         for node in _walk_component_nodes(root):
+            _validate_tabs_background(node)
             if node.get("type") not in INTERACTIVE_COMPONENT_TYPES:
                 continue
             props = node.get("props")
@@ -248,6 +277,12 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
         _validate_bound_layers(delivery, binding, document)
 
     draft = receipt.get("delivery_policy") == "unreviewed_draft"
+    from .layout_spacing import require_export_spacing
+    if isinstance(document,dict) and document.get('schemaVersion')=='0.2':
+        spacing = require_export_spacing(document, read_json(layout_spacing) if layout_spacing is not None else None)
+    else:
+        require(layout_spacing is None,'SPACING_DOCUMENT_REQUIRED')
+        spacing = {'status':'legacy_not_checked','human_visual_acceptance':False}
     output = delivery / ("ui.component-handoff.draft.zip" if draft
                          else "ui.component-handoff.zip")
     export_receipt = delivery / "component-handoff-export.json"
@@ -319,5 +354,6 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
               "human_visual_acceptance": receipt.get("human_visual_acceptance")}
     result['reference_evidence'] = 'complete' if extra else 'missing_reference_evidence'
     result['visual_comparison_ready'] = bool(extra) and not unknown
+    result['layout_spacing'] = spacing
     write_json(export_receipt, result)
     return result

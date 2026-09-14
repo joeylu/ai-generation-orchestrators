@@ -42,11 +42,13 @@ estimated peak exceeds the diagnostic budget continues, while `check`, frozen
 batch summaries and `doctor` expose the risk. Deterministic pixel, layer and node
 limits remain enforced.
 
-The 0.5.0 development head requests native transparent PNG output for generated
-components. Valid Alpha bypasses chroma-key processing, preserving legitimate
-magenta pixels and continuous translucent edges. An opaque or checkerboard-rendered
-result is rejected as `TRANSPARENT_RESULT_REQUIRED`. Legacy frozen plans that
-explicitly use `keyed_component` retain the fixed magenta matte path.
+New automatic component plans default to a uniform solid #F808F8 background and
+deterministic local matte, including enclosed holes and transparent-edge cleanup.
+The declared key is validated; rendered checkerboards are never transparency.
+Explicit native-transparent plans remain supported and preserve valid Alpha,
+rejecting opaque results as `TRANSPARENT_RESULT_REQUIRED`. Existing frozen modes
+are unchanged. Native transparency will not become the default merely because a
+provider version changes; it requires verified output capability and a policy update.
 
 It also accepts a reviewed, native-transparent 4x4 asset board through the fully
 offline `split-board` command. The board uses the canonical 16 component order,

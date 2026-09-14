@@ -66,6 +66,11 @@
             <span>打开已保存的方案</span>
             <input id="open-bundle" type="file" accept="application/json,.json" />
           </label>
+          <label class="bundle-import" for="open-handoff">
+            <span>导入组件交付 ZIP</span>
+            <input id="open-handoff" type="file" accept="application/zip,.zip" />
+          </label>
+          <p id="handoff-review" class="section-copy" style="white-space:pre-wrap;overflow-wrap:anywhere" role="status" hidden></p>
         </section>
 
         <section id="analysis-state" class="sidebar-section" aria-live="polite" hidden>
@@ -191,6 +196,7 @@
         </div>
 
         <p id="studio-hint" class="studio-hint">参考图将发送至已配置的识图服务进行组件分析。</p>
+        <section id="reference-evidence-panel" aria-label="包内参考证据"></section>
       </main>
     </div>
 

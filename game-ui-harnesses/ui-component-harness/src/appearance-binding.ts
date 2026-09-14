@@ -1,3 +1,8 @@
+import { tabsLayoutError, type TabsLayoutPolicy } from './tabs-layout.ts';
+import { validateSelectOptionIcons, type SelectOptionIcons } from './select-option-icons.ts';
+import { validateSelectMenuHighlights, type SelectMenuHighlights } from './select-menu-highlights.ts';
+import { scrollbarThumbSlicesError, type ScrollbarThumbSlices } from './scrollbar-thumb-slices.ts';
+import { scrollbarInsetsError, type ScrollbarInsets } from './scrollbar-insets.ts';
 import { HarnessError, type Issue } from './contract.ts';
 import { assertValidImportedDecomposition, type ImportedDecomposition } from './decomposition-import.ts';
 import { validateDocument, walkNodes, type UiDocument, type UiNodeType } from './tree-contract.ts';
@@ -51,6 +56,11 @@ export interface AppearanceRegistration {
 }
 
 export interface SwitchStateAppearance {
+  readonly stateImages?: {
+    readonly version: '1.0';
+    readonly off: { readonly trackLayerId: string; readonly thumbLayerId: string };
+    readonly on: { readonly trackLayerId: string; readonly thumbLayerId: string };
+  };
   readonly thumbPositions: {
     readonly coordinateSpace: 'target-component-local';
     /** x/y identify the thumb image's top-left corner; no other anchor is implied. */
@@ -59,6 +69,7 @@ export interface SwitchStateAppearance {
     readonly on: AppearancePoint;
   };
   readonly labelLayout?: AppearanceTextLayout;
+  readonly stateLabelLayouts?: { readonly on: AppearanceTextLayout; readonly off: AppearanceTextLayout };
 }
 export interface AppearanceTextLayout {
   readonly coordinateSpace: 'target-component-local';
@@ -77,6 +88,8 @@ export interface AppearancePopupContentLayout {
 }
 export interface ButtonStateAppearance { readonly labelLayout: AppearanceTextLayout }
 export interface SelectStateAppearance {
+  readonly optionIcons?: SelectOptionIcons<'layerId'>;
+  readonly menuHighlights?: SelectMenuHighlights;
   readonly labelLayout: AppearanceTextLayout;
   readonly popupPlacement: {
     readonly coordinateSpace: 'target-component-local';
@@ -104,6 +117,8 @@ export interface SliderStateAppearance {
 }
 export interface PanelStateAppearance { readonly titleLayout: AppearanceTextLayout }
 export interface ScrollViewStateAppearance {
+  readonly scrollbarInsets?: ScrollbarInsets;
+  readonly scrollbarThumbSlices?: ScrollbarThumbSlices;
   readonly thumbPositions: { readonly coordinateSpace: 'target-component-local'; readonly anchor: 'top-left'; readonly min: AppearancePoint; readonly max: AppearancePoint };
 }
 export interface RepeatedItemLayout { readonly coordinateSpace: 'target-item-local'; readonly x: number; readonly y: number; readonly width: number; readonly height: number }
@@ -115,6 +130,9 @@ export interface TabsStateAppearance {
   readonly hitArea: RepeatedItemLayout;
   readonly activeTextColor?: string;
   readonly icons?: readonly { readonly tabId: string; readonly iconLayout: RepeatedItemLayout; readonly activeIconLayout: RepeatedItemLayout }[];
+  /** Explicit native cells; each tab then binds its own normal and active base. */
+  readonly layoutPolicy?: TabsLayoutPolicy;
+  readonly items?: readonly { readonly tabId: string; readonly layout: AppearanceTextLayout; readonly labelLayout: RepeatedItemLayout; readonly hitArea: RepeatedItemLayout }[];
 }
 
 export interface AppearancePartBinding {
@@ -170,8 +188,8 @@ const roleDefinitions: readonly AppearanceRoleDefinition[] = [
   { componentType: 'Slider', requiredRoles: ['track', 'thumb'], allowedRoles: ['track', 'fill', 'thumb'] },
   { componentType: 'ScrollView', requiredRoles: ['viewport'], allowedRoles: ['viewport', 'content', 'scrollbar-track', 'scrollbar-thumb'] },
   { componentType: 'List', requiredRoles: ['background', 'row'], allowedRoles: ['background', 'row', 'selected-row', 'text'] },
-  { componentType: 'Panel', requiredRoles: ['background', 'header'], allowedRoles: ['background', 'header', 'body', 'text'] },
-  { componentType: 'Dialog', requiredRoles: ['background', 'header', 'body'], allowedRoles: ['background', 'overlay', 'header', 'body', 'text'] },
+  { componentType: 'Panel', requiredRoles: ['background'], allowedRoles: ['background', 'header', 'body', 'text'] },
+  { componentType: 'Dialog', requiredRoles: ['background', 'header'], allowedRoles: ['background', 'overlay', 'header', 'body', 'text'] },
   { componentType: 'Tabs', requiredRoles: ['tab', 'active-tab', 'content'], allowedRoles: ['tab', 'active-tab', 'content', 'text'] },
 ] as const;
 const applicationRoleDefinitions: readonly AppearanceRoleDefinition[] = [
@@ -186,10 +204,10 @@ const applicationRoleDefinitions: readonly AppearanceRoleDefinition[] = [
   { componentType: 'Select', requiredRoles: ['background', 'indicator', 'popup'], allowedRoles: ['background', 'indicator', 'popup'] },
   { componentType: 'ProgressBar', requiredRoles: ['track', 'fill'], allowedRoles: ['track', 'fill'] },
   { componentType: 'Slider', requiredRoles: ['track', 'fill', 'thumb'], allowedRoles: ['track', 'fill', 'thumb'] },
-  { componentType: 'Panel', requiredRoles: ['background', 'header'], allowedRoles: ['background', 'header', 'body'] },
+  { componentType: 'Panel', requiredRoles: ['background'], allowedRoles: ['background', 'header', 'body'] },
   { componentType: 'ScrollView', requiredRoles: ['viewport', 'scrollbar-track', 'scrollbar-thumb'], allowedRoles: ['viewport', 'scrollbar-track', 'scrollbar-thumb'] },
   { componentType: 'List', requiredRoles: ['background', 'row', 'selected-row'], allowedRoles: ['background', 'row', 'selected-row'] },
-  { componentType: 'Dialog', requiredRoles: ['background', 'header', 'body'], allowedRoles: ['background', 'header', 'body', 'overlay'] },
+  { componentType: 'Dialog', requiredRoles: ['background', 'header'], allowedRoles: ['background', 'header', 'body', 'overlay'] },
   { componentType: 'Tabs', requiredRoles: ['tab', 'active-tab'], allowedRoles: ['tab', 'active-tab', 'icon', 'active-icon'] },
 ] as const;
 
@@ -355,10 +373,11 @@ function validateSwitchState(
   registrationScale: number | undefined,
   applicationVersion: boolean,
   requiresLabel: boolean,
+  requiresStateLabels: boolean,
 ): void {
   const states = validator.object(value, path, ['switch']);
   if (!states) return;
-  const state = validator.object(states.switch, `${path}.switch`, applicationVersion ? ['thumbPositions', 'labelLayout'] : ['thumbPositions']);
+  const state = validator.object(states.switch, `${path}.switch`, applicationVersion ? ['thumbPositions', 'labelLayout', 'stateLabelLayouts', 'stateImages'] : ['thumbPositions'], ['thumbPositions']);
   if (!state) return;
   const positions = validator.object(state.thumbPositions, `${path}.switch.thumbPositions`, ['coordinateSpace', 'anchor', 'off', 'on']);
   if (!positions) return;
@@ -387,6 +406,8 @@ function validateSwitchState(
     }
   }
   if (applicationVersion) {
+    if(requiresStateLabels && !state.stateLabelLayouts) validator.add(`${path}.switch.stateLabelLayouts`,'REQUIRED','stateLabels require both layouts');
+    if(state.stateLabelLayouts) {const layouts=validator.object(state.stateLabelLayouts,`${path}.switch.stateLabelLayouts`,['on','off']);if(layouts)for(const key of ['on','off'])validateTextLayout(validator,layouts[key],`${path}.switch.stateLabelLayouts.${key}`,width,height);}
     if (requiresLabel && !Object.hasOwn(state, 'labelLayout')) validator.add(`${path}.switch.labelLayout`, 'REQUIRED', 'non-empty Switch labels require explicit layout');
     if (Object.hasOwn(state, 'labelLayout')) validateTextLayout(validator, state.labelLayout, `${path}.switch.labelLayout`, width, height);
   }
@@ -434,7 +455,7 @@ function validateSelectState(
 ): void {
   const states = validator.object(value, path, ['select']);
   if (!states) return;
-  const state = validator.object(states.select, `${path}.select`, ['labelLayout', 'popupPlacement', 'popupContentLayout', 'fieldTextColor'], ['labelLayout', 'popupPlacement']);
+  const state = validator.object(states.select, `${path}.select`, ['labelLayout', 'popupPlacement', 'popupContentLayout', 'fieldTextColor', 'optionIcons', 'menuHighlights'], ['labelLayout', 'popupPlacement']);
   if (!state) return;
   if (Object.hasOwn(state, 'fieldTextColor')) validator.color(state.fieldTextColor, `${path}.select.fieldTextColor`);
   validateTextLayout(validator, state.labelLayout, `${path}.select.labelLayout`, width, height);
@@ -500,15 +521,25 @@ function validatePanelState(validator: BindingValidator, value: unknown, path: s
   const state = validator.object(states.panel, `${path}.panel`, ['titleLayout']);
   if (state) validateTextLayout(validator, state.titleLayout, `${path}.panel.titleLayout`, width, height);
 }
-function validateScrollViewState(validator: BindingValidator, value: unknown, path: string, width: number, height: number, thumbImage?: { width: number; height: number }, registrationScale?: number): void {
+function validateScrollViewState(validator: BindingValidator, value: unknown, path: string, trackBounds?: { x: number; y: number; width: number; height: number }, thumbImage?: { width: number; height: number }, registrationScale?: number): void {
   const states = validator.object(value, path, ['scrollView']); if (!states) return;
-  const state = validator.object(states.scrollView, `${path}.scrollView`, ['thumbPositions']); if (!state) return;
+  const state = validator.object(states.scrollView, `${path}.scrollView`, ['thumbPositions', 'scrollbarInsets', 'scrollbarThumbSlices'], ['thumbPositions']); if (!state) return;
+  if (Object.hasOwn(state, 'scrollbarThumbSlices')) {
+    const error = scrollbarThumbSlicesError(state.scrollbarThumbSlices, thumbImage?.height ?? NaN, Object.hasOwn(state, 'scrollbarInsets'));
+    if(error) validator.add(`${path}.scrollView.scrollbarThumbSlices`, 'INVALID_SCROLLBAR_THUMB_SLICES', error);
+  }
+  if (Object.hasOwn(state, 'scrollbarInsets') && trackBounds && thumbImage && registrationScale !== undefined) {
+    const error = scrollbarInsetsError(state.scrollbarInsets, trackBounds.height, thumbImage.height * registrationScale);
+    if (error) validator.add(`${path}.scrollView.scrollbarInsets`, 'INVALID_SCROLLBAR_INSETS', error);
+  }
   const positions = validator.object(state.thumbPositions, `${path}.scrollView.thumbPositions`, ['coordinateSpace', 'anchor', 'min', 'max']); if (!positions) return;
   if (positions.coordinateSpace !== 'target-component-local') validator.add(`${path}.scrollView.thumbPositions.coordinateSpace`, 'UNSUPPORTED_COORDINATE_SPACE', 'must be target-component-local');
   if (positions.anchor !== 'top-left') validator.add(`${path}.scrollView.thumbPositions.anchor`, 'UNSUPPORTED_POSITION_ANCHOR', 'must be top-left');
   const min = validator.point(positions.min, `${path}.scrollView.thumbPositions.min`), max = validator.point(positions.max, `${path}.scrollView.thumbPositions.max`);
   if (min && max && (min.x !== max.x || max.y <= min.y)) validator.add(`${path}.scrollView.thumbPositions`, 'SCROLL_AXIS_MISMATCH', 'vertical scrolling requires equal x coordinates and max.y greater than min.y');
-  if (thumbImage && registrationScale !== undefined) for (const [name, point] of [['min', min], ['max', max]] as const) if (point && (point.x < 0 || point.y < 0 || point.x + thumbImage.width * registrationScale > width || point.y + thumbImage.height * registrationScale > height)) validator.add(`${path}.scrollView.thumbPositions.${name}`, 'THUMB_OUT_OF_BOUNDS', 'the complete thumb must fit within the target component');
+  // The viewport clips content; its explicit scrollbar may sit beside it.
+  // Endpoints remain constrained by the registered track, including nested views.
+  if (trackBounds && thumbImage && registrationScale !== undefined) for (const [name, point] of [['min', min], ['max', max]] as const) if (point && (point.x < trackBounds.x || point.y < trackBounds.y || point.x + thumbImage.width * registrationScale > trackBounds.x + trackBounds.width || point.y + thumbImage.height * registrationScale > trackBounds.y + trackBounds.height)) validator.add(`${path}.scrollView.thumbPositions.${name}`, 'THUMB_OUT_OF_BOUNDS', 'the complete thumb must fit within the explicit scrollbar track');
 }
 function validateListState(validator: BindingValidator, value: unknown, path: string, width: number, itemHeight: number): void {
   const states = validator.object(value, path, ['list']); if (!states) return;
@@ -522,13 +553,41 @@ function validateDialogState(validator: BindingValidator, value: unknown, path: 
 }
 function validateTabsState(validator: BindingValidator, value: unknown, path: string, tabWidth: number, height: number, tabIds: readonly string[], iconsBound: boolean): void {
   const states = validator.object(value, path, ['tabs']); if (!states) return;
-  const state = validator.object(states.tabs, `${path}.tabs`, ['headerHeight', 'labelLayout', 'hitArea', 'activeTextColor', 'icons'], ['headerHeight', 'labelLayout', 'hitArea']); if (!state) return;
+  const state = validator.object(states.tabs, `${path}.tabs`, ['headerHeight', 'labelLayout', 'hitArea', 'activeTextColor', 'icons', 'items', 'layoutPolicy'], ['headerHeight', 'labelLayout', 'hitArea']); if (!state) return;
+  if (Object.hasOwn(state, 'layoutPolicy')) { const error = tabsLayoutError(state.layoutPolicy, state.items); if (error) validator.add(`${path}.tabs.layoutPolicy`, 'TAB_LAYOUT_POLICY_INVALID', error); }
+  const vertical = isObject(state.layoutPolicy) && state.layoutPolicy.orientation === 'vertical';
   if (Object.hasOwn(state, 'activeTextColor')) validator.color(state.activeTextColor, `${path}.tabs.activeTextColor`);
   const headerHeight = validator.positive(state.headerHeight, `${path}.tabs.headerHeight`) ? state.headerHeight as number : undefined;
   if (headerHeight !== undefined && headerHeight > height) validator.add(`${path}.tabs.headerHeight`, 'HEADER_OUT_OF_BOUNDS', 'must fit within the Tabs component');
+  const cells = new Map<string, { width: number; height: number }>();
+  if (Object.hasOwn(state, 'items')) {
+    if (!Array.isArray(state.items) || state.items.length !== tabIds.length) validator.add(`${path}.tabs.items`, 'TAB_ITEM_STATE_MISMATCH', 'must contain one cell per tab');
+    else {
+      const rects: Array<{ x: number; y: number; width: number; height: number }> = [];
+      state.items.forEach((raw, index) => {
+        const itemPath = `${path}.tabs.items[${index}]`, item = validator.object(raw, itemPath, ['tabId', 'layout', 'labelLayout', 'hitArea']); if (!item) return;
+        const id = item.tabId;
+        if (vertical && id !== tabIds[index]) validator.add(`${itemPath}.tabId`, 'TAB_ITEM_ORDER', 'vertical items must follow semantic tab order');
+        if (typeof id !== 'string' || !tabIds.includes(id)) validator.add(`${itemPath}.tabId`, 'UNKNOWN_TAB', 'must reference a tab');
+        else if (cells.has(id)) validator.add(`${itemPath}.tabId`, 'DUPLICATE_TAB_ITEM', 'each tab must have one cell');
+        validateTextLayout(validator, item.layout, `${itemPath}.layout`, tabWidth * tabIds.length, height);
+        const r = isObject(item.layout) ? item.layout : {};
+        if (['x', 'y', 'width', 'height'].every(k => typeof r[k] === 'number' && Number.isFinite(r[k]))) {
+          const rect = r as unknown as { x: number; y: number; width: number; height: number };
+          if ((vertical ? rect.x !== 0 : rect.y !== 0) || rect.height !== headerHeight) validator.add(`${itemPath}.layout`, 'TAB_HEADER_SIZE_MISMATCH', 'cell must use headerHeight and begin at x=0 (vertical) or y=0 (horizontal)');
+          if (rects.some(q => rect.x < q.x + q.width && rect.x + rect.width > q.x && rect.y < q.y + q.height && rect.y + rect.height > q.y)) validator.add(`${itemPath}.layout`, 'TAB_ITEM_OVERLAP', 'tab cells must not overlap');
+          if (vertical && rects.length && rect.y < rects[rects.length - 1].y + rects[rects.length - 1].height) validator.add(`${itemPath}.layout`, 'TAB_ITEM_ORDER', 'vertical cells must follow semantic tab order');
+          rects.push(rect); if (typeof id === 'string') cells.set(id, rect);
+          validateRepeatedItemLayout(validator, item.labelLayout, `${itemPath}.labelLayout`, rect.width, rect.height);
+          validateRepeatedItemLayout(validator, item.hitArea, `${itemPath}.hitArea`, rect.width, rect.height);
+        }
+      });
+    }
+  }
   if (headerHeight !== undefined) {
-    validateRepeatedItemLayout(validator, state.labelLayout, `${path}.tabs.labelLayout`, tabWidth, headerHeight);
-    validateRepeatedItemLayout(validator, state.hitArea, `${path}.tabs.hitArea`, tabWidth, headerHeight);
+    const first = cells.get(tabIds[0]);
+    validateRepeatedItemLayout(validator, state.labelLayout, `${path}.tabs.labelLayout`, first?.width ?? tabWidth, headerHeight);
+    validateRepeatedItemLayout(validator, state.hitArea, `${path}.tabs.hitArea`, first?.width ?? tabWidth, headerHeight);
   }
   if (iconsBound || Object.hasOwn(state, 'icons')) {
     if (!Array.isArray(state.icons) || state.icons.length !== tabIds.length) {
@@ -540,7 +599,7 @@ function validateTabsState(validator: BindingValidator, value: unknown, path: st
       const tabId = validator.string(item.tabId, `${itemPath}.tabId`) ? item.tabId as string : undefined;
       if (tabId && !tabIds.includes(tabId)) validator.add(`${itemPath}.tabId`, 'UNKNOWN_TAB', 'must reference a Tabs entry');
       else if (tabId && seen.has(tabId)) validator.add(`${itemPath}.tabId`, 'DUPLICATE_TAB_ICON', 'each tab may have one icon geometry entry'); else if (tabId) seen.add(tabId);
-      if (headerHeight !== undefined) { validateRepeatedItemLayout(validator, item.iconLayout, `${itemPath}.iconLayout`, tabWidth, headerHeight); validateRepeatedItemLayout(validator, item.activeIconLayout, `${itemPath}.activeIconLayout`, tabWidth, headerHeight); }
+      if (headerHeight !== undefined) { const cell = cells.get(tabId ?? ''); validateRepeatedItemLayout(validator, item.iconLayout, `${itemPath}.iconLayout`, cell?.width ?? tabWidth, cell?.height ?? headerHeight); validateRepeatedItemLayout(validator, item.activeIconLayout, `${itemPath}.activeIconLayout`, cell?.width ?? tabWidth, cell?.height ?? headerHeight); }
     });
   }
 }
@@ -633,13 +692,15 @@ export async function validateAppearanceBinding(
         const radioOptionIds = applicationVersion && component?.type === 'RadioGroup' ? component.props.options.map(option => option.id) : [];
         const listItemIds = applicationVersion && component?.type === 'List' ? component.props.items.map(item => item.id) : [];
         const tabIds = applicationVersion && component?.type === 'Tabs' ? component.props.tabs.map(tab => tab.id) : [];
-        const maximumParts = radioOptionIds.length ? radioOptionIds.length * 2 : tabIds.length ? 2 + tabIds.length * 2 : definition.allowedRoles.length;
+        const tabItems = tabIds.length > 0 && isObject(binding.states) && isObject(binding.states.tabs) && Object.hasOwn(binding.states.tabs, 'items');
+        const maximumParts = radioOptionIds.length ? radioOptionIds.length * 2 : tabIds.length ? (tabItems ? tabIds.length * 4 : 2 + tabIds.length * 2) : definition.allowedRoles.length;
         if (binding.parts.length === 0 || binding.parts.length > maximumParts) {
           validator.add(`${path}.parts`, 'PART_LIMIT', 'must contain only the explicitly allowed component roles');
         }
         const roles = new Set<AppearanceRole>();
         const radioRoles = new Map<string, Set<AppearanceRole>>();
         const tabIconRoles = new Map<string, Set<AppearanceRole>>();
+        const tabBaseRoles = new Map<string, Set<AppearanceRole>>();
         for (const [partIndex, rawPart] of binding.parts.entries()) {
           const partPath = `${path}.parts[${partIndex}]`;
           const radioPart = applicationVersion && actualType === 'RadioGroup' && isObject(rawPart) && (rawPart.role === 'option' || rawPart.role === 'indicator');
@@ -651,7 +712,7 @@ export async function validateAppearanceBinding(
           const role = typeof part.role === 'string' && allRoles.has(part.role as AppearanceRole) ? part.role as AppearanceRole : undefined;
           if (!role) validator.add(`${partPath}.role`, 'UNSUPPORTED_ROLE', 'must be a catalogued appearance role');
           else if (!definition.allowedRoles.includes(role) || (!applicationVersion && role === 'popup')) validator.add(`${partPath}.role`, 'ROLE_NOT_ALLOWED', 'is not allowed for this component type or binding version');
-          else if (!radioPart && !tabIconPart && roles.has(role)) validator.add(`${partPath}.role`, 'DUPLICATE_ROLE', 'a role may be mapped once per component');
+          else if (!radioPart && !tabIconPart && !(tabItems && tabPart) && roles.has(role)) validator.add(`${partPath}.role`, 'DUPLICATE_ROLE', 'a role may be mapped once per component');
           else roles.add(role);
           if (radioPart) {
             const optionId = validator.string(part.optionId, `${partPath}.optionId`) ? part.optionId as string : undefined;
@@ -667,8 +728,9 @@ export async function validateAppearanceBinding(
           if (tabPart) {
             const tabId = validator.string(part.tabId, `${partPath}.tabId`) ? part.tabId as string : undefined;
             if (tabId && !tabIds.includes(tabId)) validator.add(`${partPath}.tabId`, 'UNKNOWN_TAB', 'must reference a Tabs entry');
-            if (tabId && role === 'active-tab' && component?.type === 'Tabs' && tabId !== component.props.activeId) validator.add(`${partPath}.tabId`, 'ACTIVE_TAB_MISMATCH', 'active-tab must reference the current activeId');
-            if (tabId && role === 'tab' && component?.type === 'Tabs' && component.props.tabs.length > 1 && tabId === component.props.activeId) validator.add(`${partPath}.tabId`, 'INACTIVE_SAMPLE_REQUIRED', 'tab must reference an inactive tab when one exists');
+            if (!tabItems && tabId && role === 'active-tab' && component?.type === 'Tabs' && tabId !== component.props.activeId) validator.add(`${partPath}.tabId`, 'ACTIVE_TAB_MISMATCH', 'active-tab must reference the current activeId');
+            if (!tabItems && tabId && role === 'tab' && component?.type === 'Tabs' && component.props.tabs.length > 1 && tabId === component.props.activeId) validator.add(`${partPath}.tabId`, 'INACTIVE_SAMPLE_REQUIRED', 'tab must reference an inactive tab when one exists');
+            if (tabItems && tabId && (role === 'tab' || role === 'active-tab')) { const assigned = tabBaseRoles.get(tabId) ?? new Set<AppearanceRole>(); if (assigned.has(role)) validator.add(`${partPath}.role`, 'DUPLICATE_TAB_BASE_ROLE', 'each tab may map this base role once'); assigned.add(role); tabBaseRoles.set(tabId, assigned); }
             if (tabId && tabIconPart && role) { const assigned = tabIconRoles.get(tabId) ?? new Set<AppearanceRole>(); if (assigned.has(role)) validator.add(`${partPath}.role`, 'DUPLICATE_TAB_ICON_ROLE', 'each tab may map this icon role once'); assigned.add(role); tabIconRoles.set(tabId, assigned); }
           }
           const layerId = validator.string(part.layerId, `${partPath}.layerId`) ? part.layerId : undefined;
@@ -683,13 +745,35 @@ export async function validateAppearanceBinding(
         if (applicationVersion && component?.type === 'Dialog' && !component.props.modal && roles.has('overlay')) validator.add(`${path}.parts`, 'OVERLAY_MODAL_MISMATCH', 'overlay is allowed only for a modal Dialog');
         for (const optionId of radioOptionIds) for (const required of ['option', 'indicator'] as const) if (!radioRoles.get(optionId)?.has(required)) validator.add(`${path}.parts`, 'MISSING_OPTION_ROLE', `RadioGroup option ${optionId} must explicitly map ${required}`);
         if (tabIconRoles.size > 0) for (const tabId of tabIds) for (const required of ['icon', 'active-icon'] as const) if (!tabIconRoles.get(tabId)?.has(required)) validator.add(`${path}.parts`, 'MISSING_TAB_ICON_ROLE', `Tabs entry ${tabId} must explicitly map ${required}`);
+        if (tabItems) for (const tabId of tabIds) for (const required of ['tab', 'active-tab'] as const) if (!tabBaseRoles.get(tabId)?.has(required)) validator.add(`${path}.parts`, 'MISSING_TAB_BASE_ROLE', `Tabs entry ${tabId} must explicitly map ${required}`);
       }
       if (component?.type === 'Switch') {
         const thumbLayerId = Array.isArray(binding.parts)
           ? binding.parts.find(part => isObject(part) && part.role === 'thumb' && typeof part.layerId === 'string')?.layerId
           : undefined;
         const thumbLayer = thumbLayerId ? imported.scene.layers.find(layer => layer.id === thumbLayerId) : undefined;
-        validateSwitchState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height, thumbLayer, registrationScale, applicationVersion, component.props.label.length > 0);
+        const switchData = isObject(binding.states) && isObject(binding.states.switch) ? binding.states.switch : undefined;
+        if (switchData && Object.hasOwn(switchData, 'stateImages')) {
+          const imagePath = `${path}.states.switch.stateImages`;
+          const images = validator.object(switchData.stateImages, imagePath, ['version', 'off', 'on']);
+          if (images) {
+            if (images.version !== '1.0') validator.add(imagePath + '.version', 'UNSUPPORTED_VERSION', 'only 1.0 is supported');
+            for (const key of ['off', 'on']) {
+              const pair = validator.object(images[key], imagePath + '.' + key, ['trackLayerId', 'thumbLayerId']);
+              if (pair) for (const field of ['trackLayerId', 'thumbLayerId']) {
+                const layer = imported.scene.layers.find(layer => layer.id === pair[field]);
+                if (!layer) validator.add(imagePath + '.' + key + '.' + field, 'UNKNOWN_LAYER', 'must reference an authenticated delivery layer');
+                else {
+                  const role = field === 'trackLayerId' ? 'track' : 'thumb';
+                  const baseId = Array.isArray(binding.parts) ? binding.parts.find(part => isObject(part) && part.role === role)?.layerId : undefined;
+                  const base = imported.scene.layers.find(layer => layer.id === baseId);
+                  if (base && (base.width !== layer.width || base.height !== layer.height)) validator.add(imagePath + '.' + key + '.' + field, 'STATE_IMAGE_SIZE_MISMATCH', 'state images must match the base part dimensions');
+                }
+              }
+            }
+          }
+        }
+        validateSwitchState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height, thumbLayer, registrationScale, applicationVersion, component.props.label.length > 0 && !component.props.stateLabels, Boolean(component.props.stateLabels));
       }
       if (applicationVersion && component?.type === 'Button') {
         validateButtonState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height);
@@ -698,6 +782,16 @@ export async function validateAppearanceBinding(
         const popupLayerId = Array.isArray(binding.parts)
           ? binding.parts.find(part => isObject(part) && part.role === 'popup' && typeof part.layerId === 'string')?.layerId
           : undefined;
+        const selectData = isObject(binding.states) && isObject(binding.states.select) ? binding.states.select : undefined;
+        if (selectData && Object.hasOwn(selectData, 'menuHighlights')) {
+          for (const issue of validateSelectMenuHighlights(selectData.menuHighlights, selectData.popupContentLayout, component.props.options.length, `${path}.states.select.menuHighlights`)) validator.add(issue.path, issue.code, issue.message);
+        }
+        if (selectData && Object.hasOwn(selectData, 'optionIcons')) {
+          const issues = validateSelectOptionIcons(selectData.optionIcons, component.props.options.map(o => o.id), selectData.popupContentLayout, 'layerId', `${path}.states.select.optionIcons`, (id, p) => {
+            if (typeof id !== 'string' || !imported.scene.layers.some(layer => layer.id === id)) validator.add(p, 'UNKNOWN_LAYER', 'must reference an authenticated delivery layer');
+          });
+          for (const issue of issues) validator.add(issue.path, issue.code, issue.message);
+        }
         validateSelectState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height,
           imported.scene.layers.find(layer => layer.id === popupLayerId), registrationScale);
       }
@@ -711,11 +805,17 @@ export async function validateAppearanceBinding(
       }
       if (applicationVersion && component?.type === 'Panel') validatePanelState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height);
       if (applicationVersion && component?.type === 'ScrollView') {
-        if (component.props.scrollX !== 0 || component.props.contentWidth > component.layout.width || component.props.contentHeight <= component.layout.height) validator.add(`${path}.componentId`, 'VERTICAL_SCROLL_TEMPLATE_REQUIRED', 'ScrollView appearance currently requires vertical-only overflow and zero scrollX');
+        if (component.props.scrollX !== 0 || component.props.contentWidth > component.layout.width || (component.props.contentHeight <= component.layout.height && component.props.scrollbarVisibility !== 'auto' && component.props.scrollbarVisibility !== 'always')) validator.add(`${path}.componentId`, 'VERTICAL_SCROLL_TEMPLATE_REQUIRED', 'ScrollView appearance requires vertical-only content and zero scrollX; no-overflow content must explicitly use auto or always scrollbar visibility');
         const thumbLayerId = Array.isArray(binding.parts) ? binding.parts.find(part => isObject(part) && part.role === 'scrollbar-thumb' && typeof part.layerId === 'string')?.layerId : undefined;
-        validateScrollViewState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height, imported.scene.layers.find(layer => layer.id === thumbLayerId), registrationScale);
+        const scrollLayer = (role: string) => {
+          const id = Array.isArray(binding.parts) ? binding.parts.find(part => isObject(part) && part.role === role && typeof part.layerId === 'string')?.layerId : undefined;
+          return imported.scene.layers.find(layer => layer.id === id);
+        };
+        const viewport = scrollLayer('viewport'), track = scrollLayer('scrollbar-track');
+        const trackBounds = viewport && track && registrationScale !== undefined ? { x: (track.left - viewport.left) * registrationScale, y: (track.top - viewport.top) * registrationScale, width: track.width * registrationScale, height: track.height * registrationScale } : undefined;
+        validateScrollViewState(validator, binding.states, `${path}.states`, trackBounds, imported.scene.layers.find(layer => layer.id === thumbLayerId), registrationScale);
       }
-      if (applicationVersion && component?.type === 'List') validateListState(validator, binding.states, `${path}.states`, component.layout.width, component.props.itemHeight);
+      if (applicationVersion && component?.type === 'List') validateListState(validator, binding.states, `${path}.states`, component.layout.width, component.props.itemHeight - (component.props.rowGap ?? 0));
       if (applicationVersion && component?.type === 'Dialog') validateDialogState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height);
       if (applicationVersion && component?.type === 'Tabs') validateTabsState(validator, binding.states, `${path}.states`, component.layout.width / component.props.tabs.length, component.layout.height, component.props.tabs.map(tab => tab.id), Array.isArray(binding.parts) && binding.parts.some(part => isObject(part) && (part.role === 'icon' || part.role === 'active-icon')));
     }

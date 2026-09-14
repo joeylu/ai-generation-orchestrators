@@ -70,6 +70,35 @@
         }
       }
     },
+    "menuHighlights": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "coordinateSpace", "selected", "hover"],
+      "properties": {
+        "version": {"const": "1.0"},
+        "coordinateSpace": {"const": "popup-row-local"},
+        "selected": {"$ref": "#/$defs/menuHighlight"},
+        "hover": {"$ref": "#/$defs/menuHighlight"}
+      }
+    },
+    "menuHighlight": {
+      "type": "object", "additionalProperties": false,
+      "required": ["color", "alpha", "insets", "cornerRadius"],
+      "properties": {
+        "color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+        "alpha": {"type": "number", "minimum": 0, "maximum": 1},
+        "cornerRadius": {"type": "number", "minimum": 0},
+        "insets": {
+          "type": "object", "additionalProperties": false,
+          "required": ["top", "right", "bottom", "left"],
+          "properties": {
+            "top": {"type": "number", "minimum": 0},
+            "right": {"type": "number", "minimum": 0},
+            "bottom": {"type": "number", "minimum": 0},
+            "left": {"type": "number", "minimum": 0}
+          }
+        }
+      }
+    },
     "select": {
       "type": "object",
       "additionalProperties": false,
@@ -130,7 +159,21 @@
               "minimum": 0
             }
           }
+        },
+        "optionIcons": {
+          "$ref": "#/$defs/optionIcons"
+        },
+        "menuHighlights": {
+          "$ref": "#/$defs/menuHighlights"
         }
+      },
+      "dependentRequired": {
+        "optionIcons": [
+          "popupContentLayout"
+        ],
+        "menuHighlights": [
+          "popupContentLayout"
+        ]
       }
     },
     "tabs": {
@@ -279,6 +322,121 @@
                     "properties": {
                       "coordinateSpace": {
                         "const": "target-item-local"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "layoutPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "orientation"
+          ],
+          "properties": {
+            "version": {
+              "const": "1.0"
+            },
+            "orientation": {
+              "enum": [
+                "horizontal",
+                "vertical"
+              ]
+            }
+          }
+        }
+      },
+      "dependentRequired": {
+        "layoutPolicy": [
+          "items"
+        ]
+      }
+    },
+    "rowLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "optionIcons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "coordinateSpace",
+        "items"
+      ],
+      "properties": {
+        "version": {
+          "const": "1.0"
+        },
+        "coordinateSpace": {
+          "const": "popup-row-local"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "optionId",
+              "icon",
+              "labelLayout"
+            ],
+            "properties": {
+              "optionId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "labelLayout": {
+                "$ref": "#/$defs/rowLayout"
+              },
+              "icon": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "layerId",
+                      "layout"
+                    ],
+                    "properties": {
+                      "layerId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "layout": {
+                        "$ref": "#/$defs/rowLayout"
                       }
                     }
                   }

@@ -1,7 +1,7 @@
 # Headless image-to-draft-PSD integration
 
 The 0.5.0 development head extends the entry available in the `0.4.1` release
-with native transparent component generation. The entry remains an opt-in per-job
+with solid-key component generation and deterministic local transparency. The entry remains an opt-in per-job
 CLI/library function, not a web service.
 Offline tests exercise the complete runner with provider doubles and real PSD
 encoding. A separately authorized 0.2.0 live end-to-end check produced a

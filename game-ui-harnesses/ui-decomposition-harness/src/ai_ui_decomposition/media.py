@@ -10,6 +10,14 @@ from .common import require
 KEY_RGB = np.array([248, 8, 248], dtype=np.float32)
 
 
+def require_explicit_key_background(image: Image.Image) -> None:
+    """Declared key or already-transparent edges; never infer a returned palette."""
+    pixels=np.asarray(image.convert('RGBA'))
+    edge=np.concatenate([pixels[0],pixels[-1],pixels[:,0],pixels[:,-1]])
+    clear=(np.linalg.norm(edge[:,:3].astype(float)-KEY_RGB,axis=1)<45)|(edge[:,3]==0)
+    require(float(np.mean(clear))>=.98,'KEY_BACKGROUND_REQUIRED')
+
+
 def require_long_control_geometry(image: Image.Image, size: list[int],
                                   foreground_support: dict | None = None) -> None:
     """Reject grossly shortened thin controls even inside a correct-size canvas."""
@@ -96,10 +104,20 @@ def nine_slice(image: Image.Image, size: list[int], insets: list[int], *, preser
 def resize_material(material: Image.Image, asset: dict) -> Image.Image:
     if "resize" not in asset:
         return material
+    if asset['resize']['mode'] == 'contain':
+        width, height = asset['output_size']
+        left, top, right, bottom = asset['resize']['insets']
+        require(min(left, top, right, bottom) > 0 and width > left+right
+                and height > top+bottom, 'RESIZE_TARGET_TOO_SMALL')
+        fitted = contain(material, [width-left-right, height-top-bottom])
+        canvas = Image.new('RGBA', (width, height))
+        canvas.paste(fitted, (left, top))
+        return normalize(canvas)
     return nine_slice(material, asset["output_size"], asset["resize"]["insets"], preserve_alpha_margin=asset['resize'].get('preserve_alpha_margin',False))
 
 
 def matte_key(image: Image.Image, size: list[int]) -> Image.Image:
+    require_explicit_key_background(image)
     source = np.asarray(image.convert("RGBA"))
     rgb = source[:, :, :3].astype(np.float32)
     source_alpha = source[:, :, 3]

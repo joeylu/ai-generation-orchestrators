@@ -1,5 +1,10 @@
+import { formatValueText } from './value-text-bindings.ts';
+import { insetThumbGeometry } from './scrollbar-insets.ts';
+import { treeResourceReferences } from './tree-resources.ts';
+import { scrollHitArea } from './scroll-hit-area.ts';
+import { SCROLL_LINE_STEP, scrollWheelDelta } from './scroll-wheel.ts';
 import {
-  Application, Container, Graphics, Matrix, Rectangle, Sprite, Text, Texture,
+  Application, Container, Graphics, Matrix, Rectangle, Sprite, NineSliceSprite, Text, Texture,
   type FederatedPointerEvent, type FederatedWheelEvent,
 } from 'pixi.js';
 import { HarnessError } from './contract.ts';
@@ -33,6 +38,12 @@ export interface TreeRuntimeEvent {
 
 export interface RuntimeBounds { x: number; y: number; width: number; height: number }
 export interface RuntimeNodeInspection {
+  inputEditing?: InputEditingState;
+  popupOpen?: boolean;
+  popupBounds?: RuntimeBounds;
+  popupItems?: Array<{ optionId: string; text: string; iconBounds: RuntimeBounds | null }>;
+  renderedLabels?: Array<{text:string;x:number;y:number;width:number;height:number}>;
+  renderedTextBounds?: Array<{text:string;bounds:RuntimeBounds;fontFamily:string;fontSize:number}>;
   id: string;
   type: UiNode['type'];
   bounds: RuntimeBounds;
@@ -45,6 +56,8 @@ export interface TreeInspection {
   externalListeners: number;
   resources: number;
   nodes: RuntimeNodeInspection[];
+  /** Actual painter-order primitive rectangles, clipped by renderer masks; chrome/children remain distinct. */
+  paintRegions?: Array<{ componentId: string; bounds: RuntimeBounds }>;
 }
 
 export interface MotionPresentationInspection {
@@ -62,16 +75,21 @@ export interface MotionSystemInspection {
 }
 
 export type ImageResolver = (source: string, signal: AbortSignal) => Promise<HTMLImageElement>;
+export interface InputEditingState { focused: boolean; selectionStart: number; selectionEnd: number; selectionDirection: 'forward' | 'backward' | 'none'; caretVisible: boolean }
 export type FontResolver = (source: string, signal: AbortSignal) => Promise<ArrayBuffer>;
 export interface MotionValues { x?: number; y?: number; alpha?: number; scaleX?: number; scaleY?: number; rotation?: number }
 
 export interface TreePreview {
   readonly canvas: HTMLCanvasElement;
+  capturePng(): string;
   load(document: unknown, signal: AbortSignal, resolver?: ImageResolver, fontResolver?: FontResolver): Promise<void>;
   subscribe(listener: (event: TreeRuntimeEvent) => void): () => void;
   inspect(): TreeInspection;
   getDocument(): UiDocument;
   setValue(id: string, value: unknown): void;
+  /** Deterministic reference-state replay; never toggles based on an assumed initial state. */
+  setSelectOpen(id: string, open: boolean): void;
+  setInputEditing(id: string, state: Partial<InputEditingState>): void;
   setEnabled(id: string, enabled: boolean): void;
   setVisible(id: string, visible: boolean): void;
   /** Removes a mounted node and releases only its resource references. */
@@ -98,55 +116,7 @@ class TreeResources {
   private assertOpen(): void { if (this.disposed) throw new Error('RESOURCE_SCOPE_DESTROYED'); }
 
   async prepare(document: UiDocument, signal: AbortSignal, imageResolver: ImageResolver, fontResolver: FontResolver, current: () => void): Promise<void> {
-    const imageSources = new Set<string>();
-    const fontSources = new Map<string, string>();
-    for (const node of walkNodes(document)) {
-      if (node.type === 'Image') imageSources.add(node.props.source);
-      if (node.type === 'Container' && node.props.appearance) imageSources.add(node.props.appearance.background.image);
-      if (node.type === 'Button' && node.props.backgroundImage) imageSources.add(node.props.backgroundImage);
-      if (node.type === 'Button' && node.props.appearance) imageSources.add(node.props.appearance.backgroundImage);
-      if (node.type === 'Switch' && node.props.appearance) {
-        imageSources.add(node.props.appearance.trackImage);
-        imageSources.add(node.props.appearance.thumbImage);
-      }
-      if (node.type === 'Select' && node.props.appearance) {
-        imageSources.add(node.props.appearance.fieldImage);
-        imageSources.add(node.props.appearance.arrowImage);
-        imageSources.add(node.props.appearance.popupImage);
-      }
-      if (node.type === 'CheckBox' && node.props.appearance) { imageSources.add(node.props.appearance.box.image); imageSources.add(node.props.appearance.mark.image); }
-      if (node.type === 'RadioGroup' && node.props.appearance) for (const item of node.props.appearance.items) { imageSources.add(item.option.image); imageSources.add(item.indicator.image); }
-      if (node.type === 'Input' && node.props.appearance) imageSources.add(node.props.appearance.backgroundImage);
-      if (node.type === 'ProgressBar' && node.props.appearance) { imageSources.add(node.props.appearance.track.image); imageSources.add(node.props.appearance.fill.image); }
-      if (node.type === 'Slider' && node.props.appearance) { imageSources.add(node.props.appearance.track.image); imageSources.add(node.props.appearance.fill.image); imageSources.add(node.props.appearance.thumbImage); }
-      if (node.type === 'ScrollView' && node.props.appearance) {
-        imageSources.add(node.props.appearance.viewport.image);
-        imageSources.add(node.props.appearance.scrollbarTrack.image);
-        imageSources.add(node.props.appearance.scrollbarThumbImage);
-      }
-      if (node.type === 'List' && node.props.appearance) {
-        imageSources.add(node.props.appearance.backgroundImage);
-        imageSources.add(node.props.appearance.rowImage);
-        imageSources.add(node.props.appearance.selectedRowImage);
-      }
-      if (node.type === 'Panel' && node.props.appearance) {
-        imageSources.add(node.props.appearance.background.image);
-        imageSources.add(node.props.appearance.header.image);
-        if (node.props.appearance.body) imageSources.add(node.props.appearance.body.image);
-      }
-      if (node.type === 'Dialog' && node.props.appearance) {
-        imageSources.add(node.props.appearance.background.image);
-        imageSources.add(node.props.appearance.header.image);
-        imageSources.add(node.props.appearance.body.image);
-        if (node.props.appearance.overlayImage) imageSources.add(node.props.appearance.overlayImage);
-      }
-      if (node.type === 'Tabs' && node.props.appearance) {
-        imageSources.add(node.props.appearance.tabImage);
-        imageSources.add(node.props.appearance.activeTabImage);
-        for (const item of node.props.appearance.icons ?? []) { imageSources.add(item.icon.image); imageSources.add(item.activeIcon.image); }
-      }
-      if (node.type === 'Text' && node.props.fontSource) fontSources.set(`${node.props.fontSource}\u0000${node.props.style.fontFamily}`, node.props.fontSource);
-    }
+    const { imageSources, fontSources } = treeResourceReferences(document);
     await Promise.all([...imageSources].map(async source => {
       const image = await imageResolver(source, signal);
       this.assertOpen(); current(); signal.throwIfAborted();
@@ -172,14 +142,18 @@ class TreeResources {
       }
       if (node.type === 'Switch' && node.props.appearance) {
         const appearance = node.props.appearance;
-        const track = this.images.get(appearance.trackImage)?.texture;
-        const thumb = this.images.get(appearance.thumbImage)?.texture;
+        for (const pair of [appearance, ...(appearance.stateImages ? [appearance.stateImages.off, appearance.stateImages.on] : [])]) {
+          const track = this.images.get(pair.trackImage)?.texture;
+          const thumb = this.images.get(pair.thumbImage)?.texture;
+          const baseThumb = this.images.get(appearance.thumbImage)?.texture;
+          if (thumb && baseThumb && (thumb.width !== baseThumb.width || thumb.height !== baseThumb.height)) throw new Error(`SWITCH_STATE_IMAGE_SIZE_MISMATCH: ${node.id}`);
         if (!track || track.width !== appearance.sourceCanvas.width || track.height !== appearance.sourceCanvas.height) {
           throw new Error(`SWITCH_TRACK_CANVAS_MISMATCH: ${node.id}`);
         }
         if (!thumb || [appearance.thumbPositions.off, appearance.thumbPositions.on].some(point =>
           point.x + thumb.width > appearance.sourceCanvas.width || point.y + thumb.height > appearance.sourceCanvas.height)) {
           throw new Error(`SWITCH_THUMB_OUT_OF_BOUNDS: ${node.id}`);
+        }
         }
       }
       if (node.type === 'Select' && node.props.appearance) {
@@ -244,19 +218,20 @@ class TreeResources {
       if (node.type === 'Panel' && node.props.appearance) {
         const appearance = node.props.appearance;
         part(appearance.background.image, appearance.background.canvas, 'PANEL_BACKGROUND_CANVAS_MISMATCH');
-        part(appearance.header.image, appearance.header.canvas, 'PANEL_HEADER_CANVAS_MISMATCH');
+        if (appearance.header) part(appearance.header.image, appearance.header.canvas, 'PANEL_HEADER_CANVAS_MISMATCH');
         if (appearance.body) part(appearance.body.image, appearance.body.canvas, 'PANEL_BODY_CANVAS_MISMATCH');
       }
       if (node.type === 'Dialog' && node.props.appearance) {
         const appearance = node.props.appearance;
         part(appearance.background.image, appearance.background.canvas, 'DIALOG_BACKGROUND_CANVAS_MISMATCH');
         part(appearance.header.image, appearance.header.canvas, 'DIALOG_HEADER_CANVAS_MISMATCH');
-        part(appearance.body.image, appearance.body.canvas, 'DIALOG_BODY_CANVAS_MISMATCH');
+        if (appearance.body) part(appearance.body.image, appearance.body.canvas, 'DIALOG_BODY_CANVAS_MISMATCH');
         if (appearance.overlayImage && appearance.overlayCanvas) part(appearance.overlayImage, appearance.overlayCanvas, 'DIALOG_OVERLAY_CANVAS_MISMATCH');
       }
       if (node.type === 'Tabs' && node.props.appearance) {
         part(node.props.appearance.tabImage, node.props.appearance.tabCanvas, 'TAB_CANVAS_MISMATCH');
         part(node.props.appearance.activeTabImage, node.props.appearance.activeTabCanvas, 'ACTIVE_TAB_CANVAS_MISMATCH');
+        for (const item of node.props.appearance.items ?? []) { part(item.tabImage, item.tabCanvas, 'TAB_ITEM_CANVAS_MISMATCH'); part(item.activeTabImage, item.activeTabCanvas, 'ACTIVE_TAB_ITEM_CANVAS_MISMATCH'); }
         for (const item of node.props.appearance.icons ?? []) { part(item.icon.image, item.icon.canvas, 'TAB_ICON_CANVAS_MISMATCH'); part(item.activeIcon.image, item.activeIcon.canvas, 'ACTIVE_TAB_ICON_CANVAS_MISMATCH'); }
       }
     }
@@ -312,6 +287,7 @@ interface Gesture {
 }
 
 interface RuntimeRecord {
+  boundText?: string;
   readonly scope: MountedScope;
   readonly node: UiNode;
   readonly view: Container;
@@ -328,7 +304,7 @@ interface RuntimeRecord {
   readonly modalScope?: string;
   cleanups: Array<() => void>;
   resourceReleases: Array<() => void>;
-  toggleTextures?: { track: Texture; thumb: Texture };
+  toggleTextures?: { track: Texture; thumb: Texture; states?: { off: { track: Texture; thumb: Texture }; on: { track: Texture; thumb: Texture } } };
   checkboxTextures?: { box: Texture; mark: Texture };
   radioTextures?: Map<string, { option: Texture; indicator: Texture }>;
   inputTexture?: Texture;
@@ -337,15 +313,16 @@ interface RuntimeRecord {
   containerTexture?: Texture;
   scrollTextures?: { viewport: Texture; scrollbarTrack: Texture; scrollbarThumb: Texture };
   listTextures?: { background: Texture; row: Texture; selectedRow: Texture };
-  panelTextures?: { background: Texture; header: Texture; body?: Texture };
-  dialogTextures?: { background: Texture; header: Texture; body: Texture; overlay?: Texture };
-  tabsTextures?: { tab: Texture; activeTab: Texture; icons: Map<string, { icon: Texture; activeIcon: Texture }> };
+  panelTextures?: { background: Texture; header?: Texture; body?: Texture };
+  dialogTextures?: { background: Texture; header: Texture; body?: Texture; overlay?: Texture };
+  tabsTextures?: { tab: Texture; activeTab: Texture; items: Map<string, { tab: Texture; activeTab: Texture }>; icons: Map<string, { icon: Texture; activeIcon: Texture }> };
   buttonTexture?: Texture;
-  selectTextures?: { field: Texture; arrow: Texture; popup: Texture };
+  selectTextures?: { field: Texture; arrow: Texture; popup: Texture; icons: Map<string, Texture> };
   userVisible: boolean;
   tabVisible: boolean;
   destroyed: boolean;
   popup?: Container;
+  updatePopupHighlights?: () => void;
   popupClosing: boolean;
   dialogBlocker?: Container;
   dialogHasRasterOverlay?: boolean;
@@ -355,6 +332,7 @@ interface RuntimeRecord {
   redraw?: () => void;
   updateContentPosition?: () => void;
   updateTabs?: () => void;
+  tabFromWeights?: Record<string, number>;
   sliderPreview?: number;
   motion: MotionValues;
   presentation: Record<string, number>;
@@ -445,7 +423,7 @@ function drawTextNode(record: RuntimeRecord): void {
   clear(record.paint);
   if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
   const target = node.props.overflow === 'clip' ? addClip(record.paint, node.layout.width, node.layout.height) : record.paint;
-  target.addChild(makeText(node));
+  target.addChild(makeText(record.boundText===undefined?node:{...node,props:{...node.props,text:record.boundText}}));
 }
 
 function cloneForSnapshot(document: UiDocument): UiDocument { return validateDocument(structuredClone(document)); }
@@ -477,13 +455,24 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   const listeners = new Set<(event: TreeRuntimeEvent) => void>();
   const externalCleanups: Array<() => void> = [];
   const gestures = new Map<number, Gesture>();
+  // Pixi can synthesize pointertap after a completed/cancelled drag. Keep the
+  // pointer disqualified until its next down, including the native up -> Pixi tap gap.
+  const draggedPointers = new Set<number>();
+  const draggedReleases = new WeakSet<object>();
   let externalListeners = 0;
   let zoom = 1;
   let loadGeneration = 0;
   let destroyed = false;
   let active: MountedScope | undefined;
   let focusedInput: RuntimeRecord | undefined;
+  let caretOn = true, pinnedCaret: boolean | undefined, inputOffset = 0;
+  let caretChangedAt = performance.now();
+  const inputSelections = new WeakMap<RuntimeRecord, Pick<InputEditingState,'selectionStart'|'selectionEnd'|'selectionDirection'>>();
   let openSelect: RuntimeRecord | undefined;
+  let keyboardFocus: RuntimeRecord | undefined;
+  let focusRing: Graphics | undefined;
+  let keyboardPress: { record: RuntimeRecord; key: string } | undefined;
+  let pointerFocus = false;
   const controllers = new Set<AbortController>();
   // One animator frame can update a parent plus many staggered descendants.
   // Their presentation writes must all reach Pixi before a single render; a
@@ -497,8 +486,20 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   const reportFatal = (error: unknown): void => { try { onFatal(error); } catch { /* host callback failure cannot strand resources */ } };
   const reportCleanupErrors = (errors: readonly unknown[]): void => { for (const error of errors) reportFatal(error); };
   const assertAlive = (): void => { if (destroyed) throw new Error('TREE_PREVIEW_DESTROYED'); };
+  function updateBoundText(): void {
+    if(!active)return;
+    for(const binding of active.document.valueTextBindings?.bindings??[]){
+      const source=active.records.get(binding.sourceId),target=active.records.get(binding.targetId);
+      if(!source||!target)throw Error('VALUE_TEXT_RUNTIME_REFERENCE');
+      const props=source.node.props as {value?:number;max?:number;selectedId?:string|null};
+      const text=formatValueText(binding,{...props,...(source.node.type==='Slider'&&source.sliderPreview!==undefined?{value:source.sliderPreview}:{})});
+      if(target.boundText!==text){target.boundText=text;target.redraw?.();}
+    }
+  }
   const render = (): void => {
     if (destroyed) return;
+    updateBoundText();
+    if (keyboardFocus && !keyboardEligible(keyboardFocus)) setKeyboardFocus(undefined);
     if (renderBatchDepth > 0) { renderDirty = true; return; }
     renderDirty = false; app.render();
   };
@@ -521,10 +522,38 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     externalCleanups.push(() => { target.removeEventListener(type, callback, options); externalListeners -= 1; });
   };
 
+  // Pixi dispatches wheel from a passive capture listener. Cancel the native
+  // default later, only when its hit-tested ScrollView consumed this event.
+  const consumedWheels = new WeakSet<Event>();
+  listen(canvas, 'wheel', event => {
+    if (consumedWheels.has(event)) event.preventDefault();
+  }, { passive: false });
+
   const editor = document.createElement('input');
   editor.setAttribute('aria-hidden', 'true'); editor.tabIndex = -1;
   Object.assign(editor.style, { position: 'fixed', opacity: '0', width: '1px', height: '1px', pointerEvents: 'none', left: '-10000px', top: '0' });
   host.append(editor);
+  const measureContext = document.createElement('canvas').getContext('2d')!;
+  function inputWidth(record: RuntimeRecord, value: string): number {
+    const s = record.node.props.style;
+    measureContext.font = `${s.fontWeight} ${s.fontSize}px ${s.fontFamily}`;
+    return measureContext.measureText(value).width;
+  }
+  function editingState(record: RuntimeRecord): InputEditingState {
+    const focused = focusedInput === record && document.activeElement === editor && interactive(record);
+    const saved=inputSelections.get(record), length=record.node.type==='Input'?record.node.props.value.length:0;
+    const start = Math.min(length,focused ? editor.selectionStart ?? 0 : saved?.selectionStart??0), end = Math.min(length,focused ? editor.selectionEnd ?? 0 : saved?.selectionEnd??0);
+    return { focused, selectionStart: start, selectionEnd: end, selectionDirection: start===end?'none':focused?editor.selectionDirection??'none':saved?.selectionDirection??'none', caretVisible: focused && record.node.type === 'Input' && !record.node.props.readOnly && start === end && (pinnedCaret ?? caretOn) };
+  }
+  function syncEditing(reset = true): void {
+    if (reset) { pinnedCaret = undefined; caretOn = true; caretChangedAt = performance.now(); }
+    if (focusedInput) { focusedInput.redraw?.(); render(); }
+  }
+  const caretTimer = window.setInterval(() => { if (focusedInput && pinnedCaret === undefined && performance.now()-caretChangedAt>=500) { caretOn = !caretOn; caretChangedAt=performance.now(); syncEditing(false); } }, 100);
+  externalCleanups.push(() => window.clearInterval(caretTimer));
+  listen(document, 'selectionchange', () => { if (document.activeElement === editor) syncEditing(false); });
+  listen(editor, 'keyup', () => syncEditing());
+  listen(editor, 'select', () => syncEditing(false));
 
   function emit(record: RuntimeRecord, type: RuntimeEventType, source: RuntimeInputSource, value?: TreeRuntimeEvent['value'], targetId = record.node.id): void {
     const event: TreeRuntimeEvent = { type, id: record.node.id, source, sourceId: record.node.id, targetId };
@@ -583,6 +612,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     for (const key of keys) if (key in values) record.presentation[key] = values[key];
   }
   function preparePresentationChange(record: RuntimeRecord, action: MotionAction, keys: readonly string[]): void {
+    if (record.node.type === 'Tabs' && action === 'change') {
+      const progress = Math.max(0, Math.min(1, presentation(record).tabProgress ?? 1));
+      const activeId = record.node.props.activeId;
+      record.tabFromWeights = Object.fromEntries(record.node.props.tabs.map(tab => {
+        const target = tab.id === activeId ? 1 : 0;
+        return [tab.id, (record.tabFromWeights?.[tab.id] ?? target) * (1 - progress) + target * progress];
+      }));
+      if (hasAction(record, action)) record.presentation.tabProgress = 0;
+      else record.tabFromWeights = undefined;
+    }
     if (hasAction(record, action)) pinPresentation(record, keys);
     else for (const key of keys) delete record.presentation[key];
   }
@@ -596,7 +635,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     if (record.popup) record.popup.alpha = Math.max(0, Math.min(1, values.popupOpen ?? 1));
     if (record.dialogBlocker) {
       const alpha = Math.max(0, Math.min(1, values.dialogAlpha ?? 1));
-      record.dialogBlocker.alpha = (record.dialogHasRasterOverlay ? 1 : 0.28) * alpha;
+      record.dialogBlocker.alpha = (record.dialogHasRasterOverlay ? 1 : record.node.type === 'Dialog' ? (record.node.props.backdrop?.opacity ?? 0.28) : 0.28) * alpha;
     }
   }
   function refreshPresentation(record: RuntimeRecord): void {
@@ -668,6 +707,31 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   function interactive(record: RuntimeRecord): boolean {
     return active === record.scope && effectiveVisible(record) && enabledOf(record.node) !== false && !blocked(record);
   }
+  function keyboardEligible(record: RuntimeRecord): boolean {
+    if (!interactive(record) || !(enabledNodeTypes.has(record.node.type) || record.node.type === 'ScrollView')) return false;
+    for (let parent: RuntimeRecord | undefined = record; parent; parent = parent.parent) {
+      if (parent.node.props.style.opacity === 0) return false;
+    }
+    return true;
+  }
+  function setKeyboardFocus(record: RuntimeRecord | undefined): void {
+    if (keyboardPress && keyboardPress.record !== record) cancelKeyboardPress();
+    const previous = keyboardFocus; keyboardFocus = record;
+    if (focusRing && !focusRing.destroyed) focusRing.destroy(); focusRing = undefined;
+    if (previous && previous !== record && !previous.destroyed && previous.node.type !== 'Input') emit(previous, 'blur', 'keyboard');
+    if (!record) { canvas.removeAttribute('data-focused-component'); canvas.removeAttribute('aria-description'); return; }
+    canvas.dataset.focusedComponent = record.node.id;
+    canvas.setAttribute('aria-description', `${record.node.type}: ${record.node.id}. Tab 切换控件，Enter 或空格操作，方向键改变选项，Escape 关闭下拉框。`);
+    focusRing = new Graphics().rect(2, 2, Math.max(0, record.node.layout.width - 4), Math.max(0, record.node.layout.height - 4))
+      .stroke({ color: '#FFFFFF', width: 4 }).stroke({ color: '#2057D4', width: 2 });
+    focusRing.eventMode = 'none'; record.view.addChild(focusRing);
+    if (record.node.type === 'Input') focusInput(record, 'keyboard');
+    else { canvas.focus({ preventScroll: true }); if (previous !== record) emit(record, 'focus', 'keyboard'); }
+  }
+  function cancelKeyboardPress(): void {
+    const prior = keyboardPress; keyboardPress = undefined;
+    if (prior && !prior.record.destroyed) { cancelRecordPresentation(prior.record); emit(prior.record, 'cancel', 'keyboard'); }
+  }
   function refreshVisibility(record: RuntimeRecord): void {
     record.view.visible = effectiveVisible(record);
     if (record.node.type === 'Dialog') updateDialogBlocker(record);
@@ -705,6 +769,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const local = record.view.toLocal({ x: point.x * zoom, y: point.y * zoom });
     return local.x >= 0 && local.y >= 0 && local.x <= record.node.layout.width && local.y <= record.node.layout.height;
   }
+  function inspectRenderedText(record: RuntimeRecord): NonNullable<RuntimeNodeInspection['renderedTextBounds']> {
+    const result: NonNullable<RuntimeNodeInspection['renderedTextBounds']> = [];
+    const visit = (container: Container): void => {
+      for (const child of container.children) {
+        if (child instanceof Text) { const b = child.getBounds(); result.push({text:child.text,bounds:{x:b.x/zoom,y:b.y/zoom,width:b.width/zoom,height:b.height/zoom},fontFamily:String(child.style.fontFamily),fontSize:Number(child.style.fontSize)}); }
+        else if (child instanceof Container) visit(child);
+      }
+    };
+    visit(record.paint); visit(record.foreground); return result;
+  }
   function inspectionBounds(record: RuntimeRecord): RuntimeBounds {
     const { width, height } = record.node.layout;
     const corners = [record.view.toGlobal({ x: 0, y: 0 }), record.view.toGlobal({ x: width, y: 0 }), record.view.toGlobal({ x: 0, y: height }), record.view.toGlobal({ x: width, y: height })];
@@ -712,12 +786,36 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const x = Math.min(...xs), y = Math.min(...ys);
     return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
   }
+  function referencePaintRegions(scope: MountedScope): Array<{ componentId: string; bounds: RuntimeBounds }> {
+    const owners = new Map<Container, string>();
+    for (const record of scope.records.values()) {
+      for (const part of [record.paint, record.foreground, record.popup, record.dialogBlocker]) if (part) owners.set(part, record.node.id);
+    }
+    const regions: Array<{ componentId: string; bounds: RuntimeBounds }> = [];
+    const intersect = (a: RuntimeBounds, b: RuntimeBounds): RuntimeBounds => {
+      const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+      return { x, y, width: Math.max(0, Math.min(a.x + a.width, b.x + b.width) - x), height: Math.max(0, Math.min(a.y + a.height, b.y + b.height) - y) };
+    };
+    const visit = (part: Container, owner: string | undefined, clip: RuntimeBounds) => {
+      if (!part.visible || !part.renderable || part.alpha <= 0) return;
+      owner = owners.get(part) ?? owner;
+      const mask = part.mask;
+      if (mask instanceof Container) { const b = mask.getBounds(); clip = intersect(clip, { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom }); }
+      if (owner && (part instanceof Sprite || part instanceof NineSliceSprite || part instanceof Graphics || part instanceof Text)) {
+        if (!part.isRenderable) return;
+        const b = part.getBounds(), bounds = intersect(clip, { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom });
+        if (bounds.width && bounds.height) regions.push({ componentId: owner, bounds });
+      }
+      for (const child of part.children) visit(child, owner, clip);
+    };
+    visit(stage, undefined, { x: 0, y: 0, ...scope.document.canvas }); return regions;
+  }
   function closePopup(record: RuntimeRecord, cleanupErrors?: unknown[], force = false): void {
     if (!record.popup) return;
     const popup = record.popup;
     const close = () => {
       if (record.popup !== popup) return;
-      popup.removeFromParent(); popup.destroy({ children: true }); record.popup = undefined; record.popupClosing = false;
+      popup.removeFromParent(); popup.destroy({ children: true }); record.popup = undefined; record.popupClosing = false; record.updatePopupHighlights = undefined;
       if (openSelect === record) openSelect = undefined; delete record.presentation.popupOpen; refreshPresentation(record);
     };
     if (!force && !cleanupErrors && hasAction(record, 'close') && !record.popupClosing) {
@@ -757,6 +855,11 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   function makeInteractive(record: RuntimeRecord, cursor = interactiveCursor(record)): void {
     record.view.eventMode = 'static'; record.view.cursor = cursor;
     record.view.hitArea = new Rectangle(0, 0, record.node.layout.width, record.node.layout.height);
+    if (record.node.type === 'ScrollView' && record.node.props.appearance && !(record.node.props.scrollbarVisibility === 'auto' && record.node.props.contentHeight <= record.node.layout.height)) {
+      const a = record.node.props.appearance, r = a.scrollbarTrack.layout;
+      const sx = record.node.layout.width / a.sourceCanvas.width, sy = record.node.layout.height / a.sourceCanvas.height;
+      record.view.hitArea = scrollHitArea(record.node.layout, { x:r.x*sx, y:r.y*sy, width:r.width*sx, height:r.height*sy });
+    }
     bind(record, 'pointerenter', event => {
       if (!interactive(record)) return;
       runSystemAction(record, 'hover', true); emit(record, 'hover', sourceOf(event.pointerType), 1);
@@ -766,7 +869,10 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     });
   }
   function bind(record: RuntimeRecord, name: 'pointerdown' | 'pointerup' | 'pointerupoutside' | 'pointertap' | 'pointerenter' | 'pointerleave', callback: (event: FederatedPointerEvent) => void): void {
-    const guarded = (event: FederatedPointerEvent) => { try { callback(event); } catch (error) { reportFatal(error); } };
+    const guarded = (event: FederatedPointerEvent) => {
+      if (name === 'pointertap' && (draggedPointers.has(event.pointerId) || draggedReleases.has(event.nativeEvent) || event.button !== 0 || !event.isPrimary)) return;
+      try { callback(event); } catch (error) { reportFatal(error); }
+    };
     record.view.on(name, guarded); record.cleanups.push(() => record.view.off(name, guarded));
   }
   function bindWheel(record: RuntimeRecord, callback: (event: FederatedWheelEvent) => void): void {
@@ -888,17 +994,19 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         const appearance = node.props.appearance;
         const scaleX = node.layout.width / appearance.sourceCanvas.width;
         const scaleY = node.layout.height / appearance.sourceCanvas.height;
-        const track = new Sprite(record.toggleTextures.track);
+        const textures = record.toggleTextures.states?.[node.props.checked ? 'on' : 'off'] ?? record.toggleTextures;
+        const track = new Sprite(textures.track);
         track.width = node.layout.width; track.height = node.layout.height;
-        const thumb = new Sprite(record.toggleTextures.thumb);
-        thumb.width = record.toggleTextures.thumb.width * scaleX;
-        thumb.height = record.toggleTextures.thumb.height * scaleY;
+        const thumb = new Sprite(textures.thumb);
+        thumb.width = textures.thumb.width * scaleX;
+        thumb.height = textures.thumb.height * scaleY;
         thumb.x = (appearance.thumbPositions.off.x + (appearance.thumbPositions.on.x - appearance.thumbPositions.off.x) * checked) * scaleX;
         thumb.y = (appearance.thumbPositions.off.y + (appearance.thumbPositions.on.y - appearance.thumbPositions.off.y) * checked) * scaleY;
         record.paint.addChild(track, thumb);
-        if (appearance.labelLayout) {
-          const layout = appearance.labelLayout;
-          label(record, node.props.label, layout.x * scaleX, layout.y * scaleY, layout.width * scaleX, layout.height * scaleY);
+        const switchLabelLayout = node.props.stateLabels ? appearance.stateLabelLayouts?.[node.props.checked ? 'on' : 'off'] : appearance.labelLayout;
+        if (switchLabelLayout) {
+          const layout = switchLabelLayout;
+          label(record, node.props.stateLabels?.[node.props.checked ? 'on' : 'off'] ?? node.props.label, layout.x * scaleX, layout.y * scaleY, layout.width * scaleX, layout.height * scaleY);
         }
         return;
       }
@@ -906,7 +1014,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       const track = new Graphics().roundRect(8, (node.layout.height - side) / 2, side * 1.7, side, side / 2)
         .fill({ color: checked > 0.5 ? node.props.style.borderColor : '#AAB7C6' });
       const knob = new Graphics().circle(8 + side * (0.45 + checked * 0.8), node.layout.height / 2, side * 0.34).fill({ color: '#FFFFFF' });
-      record.paint.addChild(track, knob); label(record, node.props.label, side * 1.9 + 10, 0, node.layout.width - side * 1.9 - 16, node.layout.height);
+      record.paint.addChild(track, knob); label(record, node.props.stateLabels?.[node.props.checked ? 'on' : 'off'] ?? node.props.label, side * 1.9 + 10, 0, node.layout.width - side * 1.9 - 16, node.layout.height);
     } else {
       const checked = Math.max(0, Math.min(1, values.checked ?? (node.props.checked ? 1 : 0)));
       if (node.props.appearance && record.checkboxTextures) {
@@ -1028,7 +1136,22 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     else record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     const visible = node.props.value.length === 0 ? node.props.placeholder : node.props.inputType === 'password' ? '•'.repeat(node.props.value.length) : node.props.value;
     const style = node.props.value.length === 0 ? { ...node.props.style, textColor: '#75869A' } : node.props.style;
-    if (node.props.appearance) { const source = node.props.value.length === 0 ? node.props.appearance.placeholderLayout : node.props.appearance.textLayout; const scaleX = node.layout.width / node.props.appearance.sourceCanvas.width, scaleY = node.layout.height / node.props.appearance.sourceCanvas.height; label(record, visible, source.x * scaleX, source.y * scaleY, source.width * scaleX, source.height * scaleY, style); }
+    if (focusedInput === record && ['text', 'password'].includes(node.props.inputType)) {
+      const a = node.props.appearance, s = a?.textLayout;
+      const rect = s && a ? {x:s.x*node.layout.width/a.sourceCanvas.width,y:s.y*node.layout.height/a.sourceCanvas.height,width:s.width*node.layout.width/a.sourceCanvas.width,height:s.height*node.layout.height/a.sourceCanvas.height} : {x:10,y:0,width:node.layout.width-20,height:node.layout.height};
+      const edit = editingState(record), text = node.props.inputType === 'password' ? '•'.repeat(node.props.value.length) : node.props.value;
+      const start = inputWidth(record, text.slice(0,edit.selectionStart)), end = inputWidth(record,text.slice(0,edit.selectionEnd));
+      const caret = edit.selectionDirection === 'backward' ? start : end;
+      inputOffset = Math.max(0, Math.min(inputOffset, caret));
+      if(caret-inputOffset>rect.width-2) inputOffset=caret-rect.width+2;
+      const content = new Container(), mask = new Graphics().rect(rect.x,rect.y,rect.width,rect.height).fill(0xffffff);
+      record.paint.addChild(content,mask);content.mask=mask;
+      const h=Math.min(rect.height,node.props.style.fontSize*1.25), y=rect.y+(rect.height-h)/2;
+      if(edit.selectionStart!==edit.selectionEnd)content.addChild(new Graphics().rect(rect.x+start-inputOffset,y,end-start,h).fill({color:0x4b91e2,alpha:0.4}));
+      const item=new Text({text:text || node.props.placeholder,style:{fontFamily:style.fontFamily,fontSize:style.fontSize,fontWeight:style.fontWeight,fill:style.textColor}});item.x=rect.x-inputOffset;item.y=rect.y+Math.max(0,(rect.height-item.height)/2);content.addChild(item);
+      if(edit.caretVisible)content.addChild(new Graphics().rect(rect.x+caret-inputOffset,y,1.5,h).fill(node.props.style.textColor));
+    }
+    else if (node.props.appearance) { const source = node.props.value.length === 0 ? node.props.appearance.placeholderLayout : node.props.appearance.textLayout; const scaleX = node.layout.width / node.props.appearance.sourceCanvas.width, scaleY = node.layout.height / node.props.appearance.sourceCanvas.height; label(record, visible, source.x * scaleX, source.y * scaleY, source.width * scaleX, source.height * scaleY, style); }
     else label(record, visible, 10, 0, node.layout.width - 20, node.layout.height, style);
     const focus = Math.max(0, Math.min(1, presentation(record).focus ?? 0));
     if (focus > 0) record.paint.addChild(new Graphics().roundRect(1, 1, node.layout.width - 2, node.layout.height - 2, Math.max(0, node.props.style.cornerRadius - 1)).stroke({ color: node.props.style.borderColor, width: 2, alpha: focus }));
@@ -1042,6 +1165,19 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     }
     record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
   }
+  function scrollBoundaryFeedback(record: RuntimeRecord, delta: number): void {
+    if (record.node.type !== 'ScrollView' || !hasAction(record, 'scroll') || !delta || (motionStyle !== 'playful' && motionStyle !== 'premium') || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const maximum = Math.max(0, record.node.props.contentHeight - record.node.layout.height);
+    if (!maximum) return;
+    const atEnd = delta > 0 && record.node.props.scrollY >= maximum;
+    const atStart = delta < 0 && record.node.props.scrollY <= 0;
+    if (!atEnd && !atStart) return;
+    const amount = Math.min(maximum / 2, motionStyle === 'playful' ? 10 : 3) * (atEnd ? 1 : -1);
+    animatePresentation(record, 'scroll-boundary', { scrollRecoil: presentation(record).scrollRecoil ?? 0 }, [
+      { to: { scrollRecoil: amount }, duration: motionStyle === 'playful' ? 85 : 110, easing: 'ease-out' },
+      { to: { scrollRecoil: 0 }, duration: motionStyle === 'playful' ? 220 : 180, easing: 'ease-in-out' },
+    ]);
+  }
   function scrollThumbGeometry(record: RuntimeRecord, scrollY: number): { x: number; y: number; width: number; height: number; travelY: number } {
     const node = record.node; if (node.type !== 'ScrollView' || !node.props.appearance) throw new Error('SCROLL_APPEARANCE_REQUIRED');
     const appearance = node.props.appearance, scale = rasterScale(record, appearance.sourceCanvas);
@@ -1053,6 +1189,10 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     // A short source texture is an appearance template, not permission to imply
     // large unseen content. Expand it when the semantic viewport/content ratio
     // requires a longer thumb; retain explicitly larger authored thumbs.
+    if (appearance.scrollbarInsets) {
+      const geometry = insetThumbGeometry(trackY, trackHeight, declaredHeight, node.layout.height, node.props.contentHeight, scrollY, { version: '1.0', top: appearance.scrollbarInsets.top * scale.y, bottom: appearance.scrollbarInsets.bottom * scale.y });
+      return { ...geometry, x: appearance.scrollbarThumbPositions.min.x * scale.x, width: appearance.scrollbarThumbCanvas.width * scale.x };
+    }
     const proportionalHeight = trackHeight * Math.min(1, node.layout.height / node.props.contentHeight);
     const height = Math.min(trackHeight, Math.max(declaredHeight, proportionalHeight));
     const expanded = height > declaredHeight + 0.01;
@@ -1068,14 +1208,28 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   function drawScroll(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'ScrollView') return;
     clear(record.paint); clear(record.foreground);
+    record.foreground.eventMode = 'none'; record.foreground.hitArea = null;
     if (!node.props.appearance || !record.scrollTextures) {
-      record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style)); return;
+      if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style)); return;
     }
     const appearance = node.props.appearance, values = presentation(record);
-    record.paint.addChild(rasterPart(record, record.scrollTextures.viewport, appearance.sourceCanvas, appearance.viewport.layout));
+    if (node.props.drawBackground !== false) record.paint.addChild(rasterPart(record, record.scrollTextures.viewport, appearance.sourceCanvas, appearance.viewport.layout));
+    if (node.props.scrollbarVisibility === 'auto' && node.props.contentHeight <= node.layout.height) return;
+    // Painted scrollbar chrome must own its hits above content (including a
+    // List that spans underneath it). Its events still bubble to this ScrollView.
+    const track = appearance.scrollbarTrack.layout, scale = rasterScale(record, appearance.sourceCanvas);
+    record.foreground.eventMode = 'static'; record.foreground.interactiveChildren = false;
+    record.foreground.hitArea = new Rectangle(track.x * scale.x, track.y * scale.y, track.width * scale.x, track.height * scale.y);
     record.foreground.addChild(rasterPart(record, record.scrollTextures.scrollbarTrack, appearance.sourceCanvas, appearance.scrollbarTrack.layout));
-    const geometry = scrollThumbGeometry(record, values.scrollY ?? node.props.scrollY), thumb = new Sprite(record.scrollTextures.scrollbarThumb);
-    thumb.x = geometry.x; thumb.y = geometry.y; thumb.width = geometry.width; thumb.height = geometry.height;
+    const geometry = scrollThumbGeometry(record, values.scrollY ?? node.props.scrollY);
+    const slices = appearance.scrollbarThumbSlices;
+    const thumb = slices ? new NineSliceSprite({texture: record.scrollTextures.scrollbarThumb, leftWidth:0, rightWidth:0, topHeight:slices.top, bottomHeight:slices.bottom}) : new Sprite(record.scrollTextures.scrollbarThumb);
+    thumb.x = geometry.x; thumb.y = geometry.y;
+    if(slices){
+      // Keep source-pixel caps fixed while applying viewport scale exactly once.
+      thumb.width = geometry.width / scale.x; thumb.height = geometry.height / scale.y;
+      thumb.scale.set(scale.x, scale.y);
+    }else{thumb.width = geometry.width; thumb.height = geometry.height;}
     record.foreground.addChild(thumb);
   }
   function drawList(record: RuntimeRecord): void {
@@ -1083,8 +1237,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     clear(record.paint);
     const appearance = node.props.appearance, textures = record.listTextures;
     if (appearance && textures) {
-      const background = new Sprite(textures.background); background.width = node.layout.width; background.height = node.layout.height; record.paint.addChild(background);
-    } else record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+      if (node.props.drawBackground !== false) { const background = new Sprite(textures.background); background.width = node.layout.width; background.height = node.layout.height; record.paint.addChild(background); }
+    } else if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     const rows = addClip(record.paint, node.layout.width, node.layout.height);
     const values = presentation(record);
     const selection = values.listSelection ?? (node.props.selectedId === null ? -1 : node.props.items.findIndex(item => item.id === node.props.selectedId));
@@ -1093,16 +1247,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       const y = index * node.props.itemHeight;
       const row = new Container(); row.y = y; row.alpha = Math.max(0, Math.min(1, stagger * node.props.items.length - index)); rows.addChild(row);
       if (appearance && textures) {
-        const base = new Sprite(textures.row); base.width = node.layout.width; base.height = node.props.itemHeight; row.addChild(base);
-      } else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight).fill({ color: '#FFFFFF' }));
+        const base = new Sprite(textures.row); base.width = node.layout.width; base.height = node.props.itemHeight - (node.props.rowGap ?? 0); row.addChild(base);
+      } else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight - (node.props.rowGap ?? 0)).fill({ color: '#FFFFFF' }));
       const selected = Math.max(0, Math.min(1, 1 - Math.abs(selection - index)));
       if (selected > 0) {
-        if (appearance && textures) { const highlighted = new Sprite(textures.selectedRow); highlighted.width = node.layout.width; highlighted.height = node.props.itemHeight; highlighted.alpha = selected; row.addChild(highlighted); }
-        else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight).fill({ color: '#E3F1EC', alpha: selected }));
+        if (appearance && textures) { const highlighted = new Sprite(textures.selectedRow); highlighted.width = node.layout.width; highlighted.height = node.props.itemHeight - (node.props.rowGap ?? 0); highlighted.alpha = selected; row.addChild(highlighted); }
+        else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight - (node.props.rowGap ?? 0)).fill({ color: '#E3F1EC', alpha: selected }));
       }
       const labelLayout = appearance
-        ? { x: appearance.labelLayout.x * node.layout.width / appearance.rowCanvas.width, y: appearance.labelLayout.y * node.props.itemHeight / appearance.rowCanvas.height, width: appearance.labelLayout.width * node.layout.width / appearance.rowCanvas.width, height: appearance.labelLayout.height * node.props.itemHeight / appearance.rowCanvas.height }
-        : { x: 12, y: 0, width: node.layout.width - 24, height: node.props.itemHeight };
+        ? { x: appearance.labelLayout.x * node.layout.width / appearance.rowCanvas.width, y: appearance.labelLayout.y * (node.props.itemHeight - (node.props.rowGap ?? 0)) / appearance.rowCanvas.height, width: appearance.labelLayout.width * node.layout.width / appearance.rowCanvas.width, height: appearance.labelLayout.height * (node.props.itemHeight - (node.props.rowGap ?? 0)) / appearance.rowCanvas.height }
+        : { x: 12, y: 0, width: node.layout.width - 24, height: node.props.itemHeight - (node.props.rowGap ?? 0) };
       const synthetic: TextNode = { id: `${node.id}.${item.id}`, type: 'Text', layout: labelLayout, props: { text: item.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
       const text = makeText(synthetic); text.x = labelLayout.x; text.y = labelLayout.y + Math.max(0, (labelLayout.height - text.height) / 2); row.addChild(text);
     });
@@ -1114,7 +1268,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       const appearance = node.props.appearance;
       record.paint.addChild(rasterPart(record, record.panelTextures.background, appearance.sourceCanvas, appearance.background.layout));
       if (appearance.body && record.panelTextures.body) record.paint.addChild(rasterPart(record, record.panelTextures.body, appearance.sourceCanvas, appearance.body.layout));
-      record.foreground.addChild(rasterPart(record, record.panelTextures.header, appearance.sourceCanvas, appearance.header.layout));
+      if (appearance.header && record.panelTextures.header) record.foreground.addChild(rasterPart(record, record.panelTextures.header, appearance.sourceCanvas, appearance.header.layout));
       const scale = rasterScale(record, appearance.sourceCanvas), title = appearance.titleLayout;
       label(record, node.props.title, title.x * scale.x, title.y * scale.y, title.width * scale.x, title.height * scale.y, undefined, record.foreground);
       return;
@@ -1122,8 +1276,10 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     if (node.type === 'Dialog' && node.props.appearance && record.dialogTextures) {
       const appearance = node.props.appearance;
       record.paint.addChild(rasterPart(record, record.dialogTextures.background, appearance.sourceCanvas, appearance.background.layout));
-      record.paint.addChild(rasterPart(record, record.dialogTextures.body, appearance.sourceCanvas, appearance.body.layout));
-      record.foreground.addChild(rasterPart(record, record.dialogTextures.header, appearance.sourceCanvas, appearance.header.layout));
+      if (appearance.body && record.dialogTextures.body) record.paint.addChild(rasterPart(record, record.dialogTextures.body, appearance.sourceCanvas, appearance.body.layout));
+      // Header art is a surface below semantic children such as a close button.
+      // Keeping it in foreground hides an actionable child while leaving its hit area live.
+      record.paint.addChild(rasterPart(record, record.dialogTextures.header, appearance.sourceCanvas, appearance.header.layout));
       const scale = rasterScale(record, appearance.sourceCanvas), title = appearance.titleLayout;
       label(record, node.props.title, title.x * scale.x, title.y * scale.y, title.width * scale.x, title.height * scale.y, undefined, record.foreground);
       return;
@@ -1133,23 +1289,37 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   }
   function drawTabs(record: RuntimeRecord): void {
     const node = record.node; if (node.type !== 'Tabs') return;
-    drawPanel(record);
+    if (node.props.drawBackground === false) { clear(record.paint); clear(record.foreground); }
+    else drawPanel(record);
     const appearance = node.props.appearance, textures = record.tabsTextures;
     const headerHeight = appearance ? appearance.headerHeight * node.layout.height / appearance.sourceCanvas.height : 48, width = node.layout.width / node.props.tabs.length;
     node.props.tabs.forEach((tab, index) => {
       const selected = tab.id === node.props.activeId;
       if (appearance && textures) {
-        const texture = selected ? textures.activeTab : textures.tab;
-        const background = new Sprite(texture); background.x = index * width; background.width = width; background.height = headerHeight; record.foreground.addChild(background);
+        const cell = appearance.items?.find(item => item.tabId === tab.id), cellTextures = textures.items.get(tab.id);
+        const cellX = cell ? cell.layout.x * node.layout.width / appearance.sourceCanvas.width : index * width;
+        const cellY = cell ? cell.layout.y * node.layout.height / appearance.sourceCanvas.height : 0;
+        const cellWidth = cell ? cell.layout.width * node.layout.width / appearance.sourceCanvas.width : width;
+        const cellHeight = cell ? cell.layout.height * node.layout.height / appearance.sourceCanvas.height : headerHeight;
+        const canvas = cell?.tabCanvas ?? appearance.tabCanvas;
+        const progress = Math.max(0, Math.min(1, presentation(record).tabProgress ?? 1));
+        const weight = (record.tabFromWeights?.[tab.id] ?? (selected ? 1 : 0)) * (1 - progress) + (selected ? 1 : 0) * progress;
+        for (const state of [false, true]) {
+        const alpha = state ? weight : 1 - weight;
+        if (alpha <= 0) continue;
+        const layer = new Container(); layer.alpha = alpha; record.foreground.addChild(layer);
+        const texture = state ? (cellTextures?.activeTab ?? textures.activeTab) : (cellTextures?.tab ?? textures.tab);
+        const background = new Sprite(texture); background.x = cellX; background.y = cellY; background.width = cellWidth; background.height = cellHeight; layer.addChild(background);
         const iconAppearance = appearance.icons?.find(item => item.tabId === tab.id), iconTextures = textures.icons.get(tab.id);
         if (iconAppearance && iconTextures) {
-          const part = selected ? iconAppearance.activeIcon : iconAppearance.icon, icon = new Sprite(selected ? iconTextures.activeIcon : iconTextures.icon);
-          icon.x = index * width + part.layout.x * width / appearance.tabCanvas.width; icon.y = part.layout.y * headerHeight / appearance.tabCanvas.height;
-          icon.width = part.layout.width * width / appearance.tabCanvas.width; icon.height = part.layout.height * headerHeight / appearance.tabCanvas.height; record.foreground.addChild(icon);
+          const part = state ? iconAppearance.activeIcon : iconAppearance.icon, icon = new Sprite(state ? iconTextures.activeIcon : iconTextures.icon);
+          icon.x = cellX + part.layout.x * cellWidth / canvas.width; icon.y = cellY + part.layout.y * cellHeight / canvas.height;
+          icon.width = part.layout.width * cellWidth / canvas.width; icon.height = part.layout.height * cellHeight / canvas.height; layer.addChild(icon);
         }
-        const labelLayout = appearance.labelLayout;
-        const tabStyle = selected && appearance.activeTextColor ? { ...node.props.style, textColor: appearance.activeTextColor } : node.props.style;
-        label(record, tab.label, index * width + labelLayout.x * width / appearance.tabCanvas.width, labelLayout.y * headerHeight / appearance.tabCanvas.height, labelLayout.width * width / appearance.tabCanvas.width, labelLayout.height * headerHeight / appearance.tabCanvas.height, tabStyle, record.foreground);
+        const labelLayout = cell?.labelLayout ?? appearance.labelLayout;
+        const tabStyle = state && appearance.activeTextColor ? { ...node.props.style, textColor: appearance.activeTextColor } : node.props.style;
+        label(record, tab.label, cellX + labelLayout.x * cellWidth / canvas.width, cellY + labelLayout.y * cellHeight / canvas.height, labelLayout.width * cellWidth / canvas.width, labelLayout.height * cellHeight / canvas.height, tabStyle, layer);
+        }
       } else {
         record.paint.addChild(new Graphics().rect(index * width, 0, width, headerHeight).fill({ color: selected ? '#E8F3EE' : '#FFFFFF' }).stroke({ color: node.props.style.borderColor, width: 1 }));
         label(record, tab.label, index * width + 5, 0, width - 10, headerHeight);
@@ -1198,7 +1368,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         overlay.width = record.scope.document.canvas.width; overlay.height = record.scope.document.canvas.height;
         blocker.addChild(overlay); record.dialogHasRasterOverlay = true;
       } else {
-        blocker.addChild(new Graphics().rect(0, 0, record.scope.document.canvas.width, record.scope.document.canvas.height).fill({ color: '#10233F', alpha: 1 }));
+        blocker.addChild(new Graphics().rect(0, 0, record.scope.document.canvas.width, record.scope.document.canvas.height).fill({ color: node.type === 'Dialog' ? (node.props.backdrop?.color ?? '#10233F') : '#10233F', alpha: 1 }));
         record.dialogHasRasterOverlay = false;
       }
       blocker.eventMode = 'static'; blocker.hitArea = new Rectangle(0, 0, record.scope.document.canvas.width, record.scope.document.canvas.height);
@@ -1224,15 +1394,15 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       const view = new Container(); view.position.set(node.layout.x, node.layout.y);
       const visual = new Container(); visual.pivot.set(node.layout.width / 2, node.layout.height / 2); visual.position.set(node.layout.width / 2, node.layout.height / 2);
       const paint = new Container(), foreground = new Container();
-      // Foreground raster/text overlays never own input. Keeping them out of hit
-      // testing makes the semantic node's explicit hit area authoritative.
+      // Foreground overlays normally do not own input. Scrollbar chrome opts
+      // into a bounded hit surface in drawScroll to shield the content below it.
       foreground.eventMode = 'none';
       visual.addChild(paint); view.addChild(visual); parent.addChild(view);
       const record: RuntimeRecord = { scope, node, view, visual, paint, foreground, displayParent: parent, order: ordinal++, childIds: [], parent: parentRecord, modalScope, cleanups: [], resourceReleases: [], userVisible: true, tabVisible: true, destroyed: false, popupClosing: false, dialogDetached: false, dialogClosing: false, motion: {}, presentation: {}, motionKeys: new Set() };
       scope.records.set(node.id, record); updateNodeAlpha(record);
       switch (node.type) {
         case 'Image': renderImage(record); break;
-        case 'Text': drawTextNode(record); break;
+        case 'Text': record.redraw=()=>drawTextNode(record); record.redraw(); break;
         case 'Container':
           if (node.props.appearance) {
             const background = scope.resources.acquireImage(node.props.appearance.background.image);
@@ -1252,6 +1422,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
             const track = scope.resources.acquireImage(node.props.appearance.trackImage);
             const thumb = scope.resources.acquireImage(node.props.appearance.thumbImage);
             record.toggleTextures = { track: track.texture, thumb: thumb.texture };
+            const stateImages = node.props.appearance.stateImages;
+            if (stateImages) {
+              const acquire = (key: 'off' | 'on') => {
+                const pair = stateImages[key];
+                const stateTrack = scope.resources.acquireImage(pair.trackImage), stateThumb = scope.resources.acquireImage(pair.thumbImage);
+                record.resourceReleases.push(stateTrack.release, stateThumb.release);
+                return { track: stateTrack.texture, thumb: stateThumb.texture };
+              };
+              record.toggleTextures.states = { off: acquire('off'), on: acquire('on') };
+            }
             record.resourceReleases.push(track.release, thumb.release);
           }
           if (node.type === 'CheckBox' && node.props.appearance) {
@@ -1292,7 +1472,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           bind(record, 'pointertap', event => {
             if (!interactive(record) || event.button !== 0 || !event.isPrimary) return;
             if (openSelect) closePopup(openSelect);
-            focusInput(record, sourceOf(event.pointerType)); render();
+            focusInput(record, sourceOf(event.pointerType));
+            if (['text','password'].includes(node.props.inputType)) {
+              const local=record.view.toLocal(event.global), a=node.props.appearance;
+              const x=a?a.textLayout.x*node.layout.width/a.sourceCanvas.width:10;
+              const value=node.props.inputType==='password'?'•'.repeat(node.props.value.length):node.props.value;
+              const target=local.x-x+inputOffset;let index=0;
+              while(index<value.length && inputWidth(record,value.slice(0,index+1))<target)index++;
+              editor.setSelectionRange(index,index);syncEditing();
+            }
+            render();
           });
           break;
         case 'Select':
@@ -1300,10 +1489,14 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
             const field = scope.resources.acquireImage(node.props.appearance.fieldImage);
             const arrow = scope.resources.acquireImage(node.props.appearance.arrowImage);
             const popup = scope.resources.acquireImage(node.props.appearance.popupImage);
-            record.selectTextures = { field: field.texture, arrow: arrow.texture, popup: popup.texture };
+            const icons = new Map<string, Texture>();
+            for (const item of node.props.appearance.optionIcons?.items ?? []) if (item.icon) {
+              const resource = scope.resources.acquireImage(item.icon.image); icons.set(item.optionId, resource.texture); record.resourceReleases.push(resource.release);
+            }
+            record.selectTextures = { field: field.texture, arrow: arrow.texture, popup: popup.texture, icons };
             record.resourceReleases.push(field.release, arrow.release, popup.release);
           }
-          record.redraw = () => drawChoices(record, 'select'); record.redraw();
+          record.redraw = () => { drawChoices(record, 'select'); record.updatePopupHighlights?.(); }; record.redraw();
           press(record, () => toggleSelect(record));
           break;
         case 'ProgressBar':
@@ -1326,9 +1519,21 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           bind(record, 'pointerdown', event => beginScrollDrag(record, event));
           bindWheel(record, event => {
             if (!interactive(record) || record.node.type !== 'ScrollView') return;
-            event.preventDefault(); preparePresentationChange(record, 'scroll', ['scrollX', 'scrollY']); record.node.props.scrollY = clampScroll(record.node.props.scrollY + event.deltaY, record.node.props.contentHeight, record.node.layout.height);
-            record.node.props.scrollX = clampScroll(record.node.props.scrollX + event.deltaX, record.node.props.contentWidth, record.node.layout.width);
-            record.redraw?.(); record.updateContentPosition?.(); emit(record, 'scroll', 'wheel', { x: record.node.props.scrollX, y: record.node.props.scrollY }); render();
+            const delta = scrollWheelDelta(event, record.node.layout);
+            if (!delta) return;
+            if (event.nativeEvent instanceof Event) consumedWheels.add(event.nativeEvent);
+            event.stopPropagation();
+            cancelGesturesFor(record, 'wheel', 'wheel');
+            const maxX = Math.max(0, record.node.props.contentWidth - record.node.layout.width);
+            const maxY = Math.max(0, record.node.props.contentHeight - record.node.layout.height);
+            // Bound the delta before adding it, so even huge finite device
+            // values cannot overflow a valid document position into Infinity.
+            const nextY = record.node.props.scrollY + Math.max(-record.node.props.scrollY, Math.min(maxY - record.node.props.scrollY, delta.y));
+            const nextX = record.node.props.scrollX + Math.max(-record.node.props.scrollX, Math.min(maxX - record.node.props.scrollX, delta.x));
+            if (nextX === record.node.props.scrollX && nextY === record.node.props.scrollY) { scrollBoundaryFeedback(record, delta.y); return; }
+            preparePresentationChange(record, 'scroll', ['scrollX', 'scrollY']);
+            record.node.props.scrollY = nextY; record.node.props.scrollX = nextX;
+            record.redraw?.(); record.updateContentPosition?.(); emit(record, 'scroll', 'wheel', { x: record.node.props.scrollX, y: record.node.props.scrollY }); scrollBoundaryFeedback(record, delta.y); render();
           });
           break;
         case 'List':
@@ -1347,7 +1552,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
             const appearance = record.node.props.appearance;
             if (appearance) {
               const localX = point.x * appearance.rowCanvas.width / record.node.layout.width;
-              const localY = (point.y - index * record.node.props.itemHeight) * appearance.rowCanvas.height / record.node.props.itemHeight;
+              const localY = (point.y - index * record.node.props.itemHeight) * appearance.rowCanvas.height / (record.node.props.itemHeight - (record.node.props.rowGap ?? 0));
               const hit = appearance.hitArea;
               if (localX < hit.x || localX > hit.x + hit.width || localY < hit.y || localY > hit.y + hit.height) return;
             }
@@ -1357,20 +1562,20 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         case 'Panel':
           if (node.props.appearance) {
             const background = scope.resources.acquireImage(node.props.appearance.background.image);
-            const header = scope.resources.acquireImage(node.props.appearance.header.image);
+            const header = node.props.appearance.header ? scope.resources.acquireImage(node.props.appearance.header.image) : undefined;
             const body = node.props.appearance.body ? scope.resources.acquireImage(node.props.appearance.body.image) : undefined;
-            record.panelTextures = { background: background.texture, header: header.texture, body: body?.texture };
-            record.resourceReleases.push(background.release, header.release); if (body) record.resourceReleases.push(body.release);
+            record.panelTextures = { background: background.texture, header: header?.texture, body: body?.texture };
+            record.resourceReleases.push(background.release); if (header) record.resourceReleases.push(header.release); if (body) record.resourceReleases.push(body.release);
           }
           record.redraw = () => drawPanel(record); record.redraw(); break;
         case 'Dialog':
           if (node.props.appearance) {
             const background = scope.resources.acquireImage(node.props.appearance.background.image);
             const header = scope.resources.acquireImage(node.props.appearance.header.image);
-            const body = scope.resources.acquireImage(node.props.appearance.body.image);
+            const body = node.props.appearance.body ? scope.resources.acquireImage(node.props.appearance.body.image) : undefined;
             const overlay = node.props.appearance.overlayImage ? scope.resources.acquireImage(node.props.appearance.overlayImage) : undefined;
-            record.dialogTextures = { background: background.texture, header: header.texture, body: body.texture, overlay: overlay?.texture };
-            record.resourceReleases.push(background.release, header.release, body.release); if (overlay) record.resourceReleases.push(overlay.release);
+            record.dialogTextures = { background: background.texture, header: header.texture, body: body?.texture, overlay: overlay?.texture };
+            record.resourceReleases.push(background.release, header.release); if (body) record.resourceReleases.push(body.release); if (overlay) record.resourceReleases.push(overlay.release);
           }
           record.redraw = () => { drawPanel(record); updateDialogBlocker(record); }; record.redraw();
           break;
@@ -1379,15 +1584,24 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
             const tab = scope.resources.acquireImage(node.props.appearance.tabImage);
             const activeTab = scope.resources.acquireImage(node.props.appearance.activeTabImage);
             const icons = new Map<string, { icon: Texture; activeIcon: Texture }>();
+            const items = new Map<string, { tab: Texture; activeTab: Texture }>();
             record.resourceReleases.push(tab.release, activeTab.release);
             for (const item of node.props.appearance.icons ?? []) { const icon = scope.resources.acquireImage(item.icon.image), activeIcon = scope.resources.acquireImage(item.activeIcon.image); icons.set(item.tabId, { icon: icon.texture, activeIcon: activeIcon.texture }); record.resourceReleases.push(icon.release, activeIcon.release); }
-            record.tabsTextures = { tab: tab.texture, activeTab: activeTab.texture, icons };
+            for (const item of node.props.appearance.items ?? []) { const normal = scope.resources.acquireImage(item.tabImage), selected = scope.resources.acquireImage(item.activeTabImage); items.set(item.tabId, { tab: normal.texture, activeTab: selected.texture }); record.resourceReleases.push(normal.release, selected.release); }
+            record.tabsTextures = { tab: tab.texture, activeTab: activeTab.texture, icons, items };
           }
           record.redraw = () => drawTabs(record); record.redraw(); makeInteractive(record);
           bind(record, 'pointertap', event => {
             if (!interactive(record) || record.node.type !== 'Tabs') return;
             const point = event.getLocalPosition(record.view);
             const appearance = record.node.props.appearance;
+            if (appearance?.items) {
+              const x = point.x * appearance.sourceCanvas.width / record.node.layout.width, y = point.y * appearance.sourceCanvas.height / record.node.layout.height;
+              const cell = appearance.items.find(item => { const r = item.layout, hit = item.hitArea; return x >= r.x + hit.x && x < r.x + hit.x + hit.width && y >= r.y + hit.y && y < r.y + hit.y + hit.height; });
+              if (!cell) return;
+              if (record.node.props.activeId !== cell.tabId) { preparePresentationChange(record, 'change', ['tabProgress']); record.node.props.activeId = cell.tabId; record.redraw!(); record.updateTabs?.(); emit(record, 'change', sourceOf(event.pointerType), cell.tabId, cell.tabId); render(); }
+              return;
+            }
             const headerHeight = appearance ? appearance.headerHeight * record.node.layout.height / appearance.sourceCanvas.height : 48;
             if (point.y > headerHeight) return;
             const index = Math.min(record.node.props.tabs.length - 1, Math.max(0, Math.floor(point.x / (record.node.layout.width / record.node.props.tabs.length))));
@@ -1411,7 +1625,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           if (appearance) clipped.position.set(appearance.viewport.layout.x * scale!.x, appearance.viewport.layout.y * scale!.y);
           const content = new Container(); clipped.addChild(content); childParent = content;
           record.updateContentPosition = () => {
-            const values = presentation(record); content.position.set(-(values.scrollX ?? node.props.scrollX), -(values.scrollY ?? node.props.scrollY));
+            const values = presentation(record); content.position.set(-(values.scrollX ?? node.props.scrollX), -clampScroll((values.scrollY ?? node.props.scrollY) - (values.scrollRecoil ?? 0), node.props.contentHeight, node.layout.height));
             syncDetachedDialogs(scope); positionOpenPopup(scope);
           };
           record.updateContentPosition();
@@ -1545,7 +1759,12 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     });
   }
   function beginScrollDrag(record: RuntimeRecord, event: FederatedPointerEvent): void {
-    if (!interactive(record) || record.node.type !== 'ScrollView' || event.button !== 0 || !event.isPrimary || gestures.has(event.pointerId)) return;
+    if (!interactive(record) || record.node.type !== 'ScrollView' || event.button !== 0 || !event.isPrimary) return;
+    const pressedChild = gestures.get(event.pointerId);
+    // A Slider or nearer ScrollView owns its own drag. A simple child press can
+    // become a content drag, but only after the movement threshold is crossed.
+    if (pressedChild && (pressedChild.move || !isDescendantOf(pressedChild.record, record))) return;
+    if ([...gestures.values()].some(gesture => gesture.record === record)) return;
     if (openSelect) closePopup(openSelect);
     canvas.focus({ preventScroll: true });
     event.preventDefault();
@@ -1557,19 +1776,40 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const maxScrollY = Math.max(0, node.props.contentHeight - node.layout.height);
     let thumbTravelY = 0;
     let draggingThumb = false;
-    if (node.props.appearance) {
+    if (node.props.appearance && !(node.props.scrollbarVisibility === 'auto' && node.props.contentHeight <= node.layout.height)) {
       const thumb = scrollThumbGeometry(record, origin.y);
       const hitPadding = 4;
       draggingThumb = start.x >= thumb.x - hitPadding && start.x <= thumb.x + thumb.width + hitPadding
         && start.y >= thumb.y - hitPadding && start.y <= thumb.y + thumb.height + hitPadding;
       thumbTravelY = thumb.travelY;
+      // End decorations/empty track are not a content-panning surface.
+      if (event.target === record.foreground && !draggingThumb) return;
     }
-    const motionKey = `motion.n${record.order}.scroll`;
-    animator.cancel(motionKey); record.motionKeys.delete(motionKey);
-    record.view.cursor = 'grabbing';
-
+    let claimed = false;
+    let dragDeltaY = 0;
     const assign = (point: { x: number; y: number }): void => {
+      if (!claimed) {
+        const bounds = canvas.getBoundingClientRect();
+        const dx = (point.x - startCanvas.x) * zoom * bounds.width / app.screen.width;
+        const dy = (point.y - startCanvas.y) * zoom * bounds.height / app.screen.height;
+        // Thumb hits already exclude content: preserve precision even when its
+        // entire travel is only a few screen pixels. Content needs click slop.
+        if (draggingThumb ? dx === 0 && dy === 0 : Math.hypot(dx, dy) < 6) return;
+        claimed = true; draggedPointers.add(event.pointerId);
+        if (pressedChild) {
+          gestures.set(event.pointerId, pressedChild);
+          pressedChild.cancel('scroll-drag', sourceOf(event.pointerType));
+        }
+        gesture.record = record; gestures.set(event.pointerId, gesture);
+        const motionKey = `motion.n${record.order}.scroll`;
+        animator.cancel(motionKey); record.motionKeys.delete(motionKey);
+        const recoilKey = `motion.n${record.order}.scroll-boundary`;
+        animator.cancel(recoilKey); record.motionKeys.delete(recoilKey);
+        delete record.presentation.scrollRecoil;
+        record.view.cursor = 'grabbing';
+      }
       const local = record.view.toLocal({ x: point.x * zoom, y: point.y * zoom });
+      dragDeltaY = (local.y - start.y) * (draggingThumb ? 1 : -1);
       const x = draggingThumb ? origin.x : clampScroll(origin.x - (local.x - start.x), node.props.contentWidth, node.layout.width);
       const y = draggingThumb
         ? clampScroll(origin.y + (thumbTravelY === 0 ? 0 : (local.y - start.y) * maxScrollY / thumbTravelY), node.props.contentHeight, node.layout.height)
@@ -1585,42 +1825,72 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       record.redraw?.(); record.updateContentPosition?.();
       if (restore) emit(record, 'cancel', source);
       else if (node.props.scrollX !== origin.x || node.props.scrollY !== origin.y) emit(record, 'scroll', source, { x: node.props.scrollX, y: node.props.scrollY });
+      if (!restore) scrollBoundaryFeedback(record, dragDeltaY);
       render();
     };
-    gestures.set(event.pointerId, {
-      record,
+    const gesture: Gesture = {
+      record: pressedChild?.record ?? record,
       move: assign,
-      end: (_inside, source) => {
-        if (gestures.get(event.pointerId)?.record !== record || record.node.type !== 'ScrollView') return;
-        gestures.delete(event.pointerId); finish(false, source);
+      end: (inside, source) => {
+        if (gestures.get(event.pointerId) !== gesture) return;
+        gestures.delete(event.pointerId);
+        if (claimed) finish(false, source);
+        else if (pressedChild) {
+          gestures.set(event.pointerId, pressedChild); pressedChild.end(inside, source);
+        }
       },
-      cancel: (_reason, source) => {
-        if (gestures.get(event.pointerId)?.record !== record || record.node.type !== 'ScrollView') return;
-        gestures.delete(event.pointerId); finish(true, source);
+      cancel: (reason, source) => {
+        if (gestures.get(event.pointerId) !== gesture) return;
+        gestures.delete(event.pointerId); draggedPointers.add(event.pointerId);
+        if (claimed) finish(true, source);
+        else if (pressedChild) {
+          gestures.set(event.pointerId, pressedChild); pressedChild.cancel(reason, source);
+        }
       },
-    });
+    };
+    gestures.set(event.pointerId, gesture);
   }
   function focusInput(record: RuntimeRecord, source: RuntimeInputSource): void {
     if (!interactive(record) || record.node.type !== 'Input') return;
     if (focusedInput && focusedInput !== record) blurInput(focusedInput, source);
-    focusedInput = record; editor.type = record.node.props.inputType; editor.maxLength = record.node.props.maxLength; editor.value = record.node.props.value;
-    editor.readOnly = record.node.props.readOnly; editor.focus({ preventScroll: true }); emit(record, 'focus', source);
+    if (focusedInput === record && document.activeElement === editor) return;
+    focusedInput = record; inputOffset=0; pinnedCaret=undefined; caretOn=true; caretChangedAt=performance.now(); editor.type = record.node.props.inputType; editor.removeAttribute('maxlength'); editor.value = record.node.props.value;
+    editor.readOnly = record.node.props.readOnly; editor.focus({ preventScroll: true }); record.redraw?.(); emit(record, 'focus', source);
   }
   function blurInput(record: RuntimeRecord, source: RuntimeInputSource): void {
     if (focusedInput !== record) return;
+    inputSelections.set(record,{selectionStart:editor.selectionStart??0,selectionEnd:editor.selectionEnd??0,selectionDirection:editor.selectionDirection??'none'});
     focusedInput = undefined;
+    pinnedCaret=undefined;record.redraw?.();
     if (document.activeElement === editor) editor.blur();
     emit(record, 'blur', source); render();
+  }
+  function inspectPopupItems(record: RuntimeRecord): NonNullable<RuntimeNodeInspection['popupItems']> {
+    if (!record.popup || record.popupClosing || openSelect !== record) return [];
+    const result: NonNullable<RuntimeNodeInspection['popupItems']> = [];
+    const visit = (container: Container) => {
+      if (container.label?.startsWith('option-row:')) {
+        const icon = container.children.find(child => child.label?.startsWith('option-icon:'));
+        const b = icon?.getBounds(); let text = '';
+        const labels = (c: Container) => { if (c instanceof Text) text += c.text; else c.children.forEach(labels); };
+        labels(container);
+        result.push({ optionId: container.label.slice(11), text, iconBounds: b ? { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom } : null });
+      } else container.children.forEach(visit);
+    };
+    visit(record.popup); return result;
   }
   function toggleSelect(record: RuntimeRecord): void {
     const node = record.node;
     if (!interactive(record) || node.type !== 'Select') return;
     if (openSelect === record) { closePopup(record); render(); return; }
     if (openSelect) closePopup(openSelect);
-    const popup = new Container(); popup.eventMode = 'passive';
+    const popup = new Container(); popup.eventMode = 'static';
     const popupHeight = node.props.appearance
       ? node.layout.width * node.props.appearance.popupCanvas.height / node.props.appearance.popupCanvas.width
       : Math.max(32, node.layout.height) * node.props.options.length;
+    // The whole popup surface, including decoration outside its safe content,
+    // blocks hits to lower controls. Children still own option selection.
+    popup.hitArea = new Rectangle(0, 0, node.layout.width, popupHeight);
     const rowHeight = popupHeight / node.props.options.length;
     if (node.props.appearance && record.selectTextures) {
       const background = new Sprite(record.selectTextures.popup);
@@ -1636,12 +1906,43 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const contentMask = new Graphics().rect(contentX, contentY, contentWidth, contentHeight).fill({ color: '#FFFFFF' });
     content.mask = contentMask; popup.addChild(content, contentMask);
     const contentRowHeight = contentHeight / node.props.options.length;
+    const menuHighlights = node.props.appearance?.menuHighlights;
+    const highlightUpdates: Array<() => void> = [];
     node.props.options.forEach((option, index) => {
-      const row = new Container(); row.y = index * contentRowHeight; row.eventMode = 'static'; row.cursor = 'pointer'; row.hitArea = new Rectangle(0, 0, contentWidth, contentRowHeight);
+      const row = new Container(); row.label = `option-row:${option.id}`; row.y = index * contentRowHeight; row.eventMode = 'static'; row.cursor = 'pointer'; row.hitArea = new Rectangle(0, 0, contentWidth, contentRowHeight);
       if (!node.props.appearance) row.addChild(drawBox(node.layout.width, rowHeight, node.props.style, option.id === node.props.selectedId ? '#E3F1EC' : '#FFFFFF'));
-      else if (option.id === node.props.selectedId) row.addChild(new Graphics().roundRect(8, 6, contentWidth - 16, contentRowHeight - 12, Math.min(12, contentRowHeight / 4)).fill({ color: '#6B8F3A', alpha: 0.14 }));
-      const synthetic: TextNode = { id: `${node.id}.${option.id}`, type: 'Text', layout: { x: 10, y: 0, width: contentWidth - 20, height: contentRowHeight }, props: { text: option.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
-      const item = makeText(synthetic); item.x = 10; item.y = Math.max(0, (contentRowHeight - item.height) / 2); row.addChild(item);
+      else if (!menuHighlights && option.id === node.props.selectedId) row.addChild(new Graphics().roundRect(8, 6, contentWidth - 16, contentRowHeight - 12, Math.min(12, contentRowHeight / 4)).fill({ color: '#6B8F3A', alpha: 0.14 }));
+      const definition = node.props.appearance?.optionIcons?.items.find(item => item.optionId === option.id);
+      const label = definition ? { x: definition.labelLayout.x * popupScale, y: definition.labelLayout.y * popupScale, width: definition.labelLayout.width * popupScale, height: definition.labelLayout.height * popupScale } : { x: 10, y: 0, width: contentWidth - 20, height: contentRowHeight };
+      if (menuHighlights) {
+        const highlight = new Graphics(); highlight.eventMode = 'none'; row.addChild(highlight);
+        let hovered = false;
+        const update = () => {
+          highlight.clear();
+          const state = option.id === node.props.selectedId ? menuHighlights.selected : hovered ? menuHighlights.hover : undefined;
+          if (!state) return;
+          const {top,right,bottom,left} = state.insets;
+          highlight.roundRect(left*popupScale,top*popupScale,contentWidth-(left+right)*popupScale,contentRowHeight-(top+bottom)*popupScale,state.cornerRadius*popupScale).fill({color:state.color,alpha:state.alpha});
+        };
+        highlightUpdates.push(update); update();
+        row.on('pointerover', () => { hovered = true; update(); render(); });
+        row.on('pointerout', () => { hovered = false; update(); render(); });
+      } else {
+        const hover = new Graphics().rect(0, 0, contentWidth, contentRowHeight).fill({ color: '#6B8F3A', alpha: 0.12 });
+        hover.visible = false; hover.eventMode = 'none'; row.addChild(hover);
+        row.on('pointerover', () => { hover.visible = true; render(); });
+        row.on('pointerout', () => { hover.visible = false; render(); });
+      }
+      if (definition?.icon) {
+        const texture = record.selectTextures!.icons.get(option.id)!;
+        const box = definition.icon.layout, fit = Math.min(box.width / texture.width, box.height / texture.height) * popupScale;
+        const icon = new Sprite(texture); icon.eventMode = 'none'; icon.label = `option-icon:${option.id}`;
+        icon.scale.set(fit); icon.position.set(box.x * popupScale + (box.width * popupScale - icon.width) / 2, box.y * popupScale + (box.height * popupScale - icon.height) / 2); row.addChild(icon);
+      }
+      const synthetic: TextNode = { id: `${node.id}.${option.id}`, type: 'Text', layout: label, props: { text: option.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
+      const labelContainer = new Container(); labelContainer.position.set(label.x, label.y); labelContainer.eventMode = 'none';
+      const item = makeText(synthetic); item.y = Math.max(0, (label.height - item.height) / 2); labelContainer.addChild(item);
+      const labelMask = new Graphics().rect(label.x, label.y, label.width, label.height).fill({ color: '#FFFFFF' }); labelMask.eventMode = 'none'; labelContainer.mask = labelMask; row.addChild(labelContainer, labelMask);
       const choose = (event: FederatedPointerEvent) => {
         try {
           if (!interactive(record) || node.props.selectedId !== option.id) {
@@ -1655,6 +1956,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       // close, so repeated opening cannot retain callbacks on the Select record.
       row.on('pointertap', choose); content.addChild(row);
     });
+    record.updatePopupHighlights = menuHighlights ? () => highlightUpdates.forEach(update => update()) : undefined;
     record.scope.overlay.addChild(popup); record.popup = popup; record.popupClosing = false; openSelect = record;
     if (hasAction(record, 'open')) record.presentation.popupOpen = 0;
     positionPopup(record); runSystemAction(record, 'open'); emit(record, 'open', 'control'); render();
@@ -1775,6 +2077,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     }
   }
 
+  listen(window, 'pointerdown', ((event: PointerEvent) => { draggedPointers.delete(event.pointerId); }) as EventListener, true);
   listen(window, 'pointermove', ((event: PointerEvent) => {
     const gesture = gestures.get(event.pointerId); if (!gesture?.move) return;
     try {
@@ -1783,25 +2086,140 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     catch (error) { reportFatal(error); }
   }) as EventListener, true);
   listen(window, 'pointerup', ((event: PointerEvent) => {
-    const gesture = gestures.get(event.pointerId); if (!gesture) return;
-    try { gesture.end(contains(gesture.record, canvasPoint(event)), sourceOf(event.pointerType)); } catch (error) { reportFatal(error); }
+    const gesture = gestures.get(event.pointerId);
+    try { gesture?.end(contains(gesture.record, canvasPoint(event)), sourceOf(event.pointerType)); } catch (error) { reportFatal(error); }
+    // The weak native-event marker survives DOM propagation into Pixi without
+    // retaining released touch IDs or relying on microtask/listener ordering.
+    if (draggedPointers.delete(event.pointerId)) draggedReleases.add(event);
   }) as EventListener, true);
   listen(window, 'pointercancel', ((event: PointerEvent) => {
     const gesture = gestures.get(event.pointerId);
-    if (!gesture) return;
-    try { gesture.cancel('pointercancel', sourceOf(event.pointerType)); } catch (error) { reportFatal(error); }
+    try { gesture?.cancel('pointercancel', sourceOf(event.pointerType)); } catch (error) { reportFatal(error); }
+    if (draggedPointers.delete(event.pointerId)) draggedReleases.add(event);
   }) as EventListener, true);
-  listen(window, 'blur', () => { cancelGestures('blur'); if (openSelect) { closePopup(openSelect, undefined, true); render(); } });
+  listen(window, 'blur', () => { cancelGestures('blur'); cancelKeyboardPress(); if (openSelect) closePopup(openSelect, undefined, true); render(); });
   listen(document, 'visibilitychange', () => {
     if (!document.hidden) return;
+    cancelKeyboardPress();
     cancelGestures('hidden');
     if (openSelect) { closePopup(openSelect, undefined, true); render(); }
   });
-  listen(window, 'keydown', ((event: KeyboardEvent) => { if (event.key === 'Escape') cancelGestures('Escape', 'keyboard'); }) as EventListener);
+  listen(window, 'keydown', ((event: KeyboardEvent) => { pointerFocus = false; if (event.key === 'Escape') cancelGestures('Escape', 'keyboard'); }) as EventListener);
+
+  function keyboardInput(event: KeyboardEvent): void {
+    if (event.target !== canvas && event.target !== editor) return;
+    if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+    const current = focusedInput ?? keyboardFocus;
+    const eligible = active ? [...active.records.values()].filter(keyboardEligible) : [];
+    if (event.key === 'Tab') {
+      const index = current ? eligible.indexOf(current) : -1;
+      const next = index < 0 ? (event.shiftKey ? eligible.length - 1 : 0) : index + (event.shiftKey ? -1 : 1);
+      if (openSelect) closePopup(openSelect, undefined, true);
+      if (next < 0 || next >= eligible.length) {
+        if (focusedInput) blurInput(focusedInput, 'keyboard');
+        canvas.focus({ preventScroll: true }); setKeyboardFocus(undefined); render(); return;
+      }
+      event.preventDefault();
+      if (focusedInput) blurInput(focusedInput, 'keyboard');
+      setKeyboardFocus(eligible[next]); render(); return;
+    }
+    if (event.key === 'Escape') {
+      cancelKeyboardPress();
+      if (openSelect) { event.preventDefault(); closePopup(openSelect, undefined, true); render(); }
+      render();
+      return;
+    }
+    if (!current || !keyboardEligible(current) || current.node.type === 'Input') return;
+    const node = current.node;
+    const activate = event.key === 'Enter' || event.key === ' ';
+    if (node.type === 'Tabs' && node.props.appearance?.layoutPolicy?.orientation === 'vertical' && ['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    const direction = ['ArrowRight', 'ArrowDown'].includes(event.key) ? 1 : ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 0;
+    const endpoint = event.key === 'Home' || event.key === 'End';
+    if (!activate && !direction && !endpoint) return;
+    if (activate && ['Button', 'Switch', 'CheckBox', 'Select'].includes(node.type)) {
+      event.preventDefault(); if (event.repeat) return;
+      if (node.type === 'Button') {
+        if (keyboardPress) return;
+        keyboardPress = { record: current, key: event.key };
+        if (!runSystemAction(current, 'press')) { current.presentation.pressScale = 0.97; refreshPresentation(current); }
+        emit(current, 'press', 'keyboard');
+      }
+      else if (node.type === 'Switch' || node.type === 'CheckBox') {
+        preparePresentationChange(current, 'change', ['checked', 'checkAlpha', 'checkScale']);
+        node.props.checked = !node.props.checked; current.redraw?.(); emit(current, 'change', 'keyboard', node.props.checked);
+      } else toggleSelect(current);
+    } else if ((direction || endpoint) && (node.type === 'RadioGroup' || node.type === 'List' || node.type === 'Tabs' || node.type === 'Select')) {
+      event.preventDefault();
+      const items = node.type === 'Tabs' ? node.props.tabs : node.type === 'List' ? node.props.items : node.props.options;
+      if (!items.length) return;
+      const value = node.type === 'Tabs' ? node.props.activeId : node.props.selectedId;
+      const index = items.findIndex(item => item.id === value);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : Math.max(0, Math.min(items.length - 1, index + direction));
+      const selected = items[next].id;
+      if (value !== selected) {
+        preparePresentationChange(current, 'change', ['markerAlpha', 'markerY', 'listSelection', 'tabProgress']);
+        if (node.type === 'Tabs') node.props.activeId = selected; else node.props.selectedId = selected;
+        current.redraw?.(); current.updateTabs?.(); emit(current, 'change', 'keyboard', selected, selected);
+        if (openSelect === current) {
+          if (current.updatePopupHighlights) current.updatePopupHighlights();
+          else { closePopup(current, undefined, true); toggleSelect(current); }
+        }
+      }
+    } else if ((direction || endpoint) && node.type === 'Slider') {
+      event.preventDefault();
+      const target = event.key === 'Home' ? node.props.min : event.key === 'End' ? node.props.max : node.props.value + direction * node.props.step;
+      const next = snapSlider(target, node.props.min, node.props.max, node.props.step);
+      if (next !== node.props.value) { preparePresentationChange(current, 'progress', ['sliderValue']); node.props.value = next; current.redraw?.(); emit(current, 'change', 'keyboard', next); }
+    } else if ((direction || endpoint) && node.type === 'ScrollView') {
+      event.preventDefault();
+      const horizontal = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+      const priorX = node.props.scrollX, priorY = node.props.scrollY;
+      preparePresentationChange(current, 'scroll', ['scrollX', 'scrollY']);
+      if (endpoint) node.props.scrollY = event.key === 'Home' ? 0 : Math.max(0, node.props.contentHeight - node.layout.height);
+      else if (horizontal) node.props.scrollX = clampScroll(priorX + direction * SCROLL_LINE_STEP, node.props.contentWidth, node.layout.width);
+      else node.props.scrollY = clampScroll(priorY + direction * SCROLL_LINE_STEP, node.props.contentHeight, node.layout.height);
+      current.redraw?.(); current.updateContentPosition?.();
+      if (priorX !== node.props.scrollX || priorY !== node.props.scrollY) emit(current, 'scroll', 'keyboard', { x: node.props.scrollX, y: node.props.scrollY });
+    }
+    render();
+  }
+  listen(canvas, 'focus', () => {
+    if (!pointerFocus && !keyboardFocus && canvas.matches(':focus-visible') && active) {
+      const first = [...active.records.values()].find(keyboardEligible);
+      if (first) { setKeyboardFocus(first); render(); }
+    }
+  });
+  listen(canvas, 'blur', () => { if (!focusedInput) { setKeyboardFocus(undefined); render(); } });
+  listen(canvas, 'pointerdown', () => { pointerFocus = true; setKeyboardFocus(undefined); render(); }, true);
+  listen(canvas, 'keydown', ((event: KeyboardEvent) => { try { keyboardInput(event); } catch (error) { reportFatal(error); } }) as EventListener);
+  listen(canvas, 'keyup', ((event: KeyboardEvent) => {
+    const prior = keyboardPress; if (!prior || event.key !== prior.key) return;
+    event.preventDefault(); keyboardPress = undefined;
+    if (!keyboardEligible(prior.record) || keyboardFocus !== prior.record) { cancelRecordPresentation(prior.record); emit(prior.record, 'cancel', 'keyboard'); }
+    else {
+      if (!runSystemAction(prior.record, 'press', false)) { delete prior.record.presentation.pressScale; refreshPresentation(prior.record); }
+      emit(prior.record, 'release', 'keyboard'); emit(prior.record, 'activate', 'keyboard');
+    }
+    render();
+  }) as EventListener);
+  listen(editor, 'keydown', ((event: KeyboardEvent) => { try { keyboardInput(event); } catch (error) { reportFatal(error); } }) as EventListener);
+  // Enforce the contract using replacement length, not the old native value's
+  // length (native maxlength can drop the first replacement character at capacity).
+  listen(editor, 'beforeinput', ((event: InputEvent) => {
+    const record=focusedInput;
+    if(!record||record.node.type!=='Input')return;
+    if(record.node.props.readOnly||!interactive(record)){event.preventDefault();return;}
+    if(!event.isComposing&&event.inputType.startsWith('insert')&&event.data!==null&&editor.selectionStart!==null&&editor.selectionEnd!==null){
+      const length=editor.value.length-(editor.selectionEnd-editor.selectionStart)+event.data.length;
+      if(length>record.node.props.maxLength)event.preventDefault();
+    }
+  }) as EventListener);
   listen(editor, 'input', () => {
     const record = focusedInput; if (!record || record.node.type !== 'Input' || record.node.props.readOnly || !interactive(record)) return;
     const next = editor.value.slice(0, record.node.props.maxLength);
+    if(editor.value!==next)editor.value=next;
     if (next !== record.node.props.value) { record.node.props.value = next; record.redraw?.(); emit(record, 'change', 'keyboard', next); render(); }
+    syncEditing();
   });
   listen(editor, 'blur', () => { if (focusedInput) blurInput(focusedInput, 'keyboard'); });
   const contextLost = (event: Event) => {
@@ -1844,15 +2262,46 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       } finally { controllers.delete(controller); }
     },
     subscribe(listener) { assertAlive(); listeners.add(listener); return () => listeners.delete(listener); },
+    capturePng() {
+      assertAlive(); if (!active) throw new Error('TREE_NOT_LOADED');
+      const { width, height } = active.document.canvas;
+      const capture = app.renderer.extract.canvas({ target: stage, frame: new Rectangle(0, 0, width * zoom, height * zoom), resolution: 1 });
+      return (capture as HTMLCanvasElement).toDataURL('image/png');
+    },
     inspect(): TreeInspection {
       assertAlive();
       const scope = active;
       return {
         instances: scope ? 1 : 0, externalListeners, resources: scope?.resources.count() ?? 0,
-        nodes: scope ? [...scope.records.values()].sort((a, b) => a.order - b.order).map(record => ({ id: record.node.id, type: record.node.type, bounds: inspectionBounds(record), visible: effectiveVisible(record), enabled: enabledOf(record.node), value: inspectValue(record.node) })) : [],
+        paintRegions: scope ? referencePaintRegions(scope) : [],
+        nodes: scope ? [...scope.records.values()].sort((a, b) => a.order - b.order).map(record => ({ id: record.node.id, type: record.node.type, bounds: inspectionBounds(record), visible: effectiveVisible(record), enabled: enabledOf(record.node), value: inspectValue(record.node), ...(record.node.type === 'Input' ? {inputEditing: editingState(record)} : {}), renderedTextBounds: inspectRenderedText(record), ...(record.node.type === 'Select' ? {popupOpen: openSelect === record && Boolean(record.popup) && !record.popupClosing, popupItems: inspectPopupItems(record), ...(record.popup ? { popupBounds: (() => { const b = record.popup!.getBounds(); return { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom }; })() } : {})} : {}), ...(record.node.type === 'Switch' ? {renderedLabels: record.paint.children.filter((child): child is Text => child instanceof Text).map(child=>({text:child.text,x:child.x,y:child.y,width:child.width,height:child.height}))} : {}) })) : [],
       };
     },
     getDocument(): UiDocument { assertAlive(); if (!active) throw new Error('TREE_NOT_LOADED'); return cloneForSnapshot(active.document); },
+    setSelectOpen(id, open): void {
+      const record = requireRecord(id);
+      if (record.node.type !== 'Select' || typeof open !== 'boolean') throw new TypeError('SELECT_OPEN_VALUE_INVALID');
+      if (open && (!enabledOf(record.node) || !effectiveVisible(record))) throw new Error('REFERENCE_SELECT_UNAVAILABLE');
+      if (open && openSelect !== record) toggleSelect(record);
+      if (!open && openSelect === record) closePopup(record, undefined, true);
+      render();
+    },
+    setInputEditing(id, state): void {
+      const record=requireRecord(id), node=record.node;
+      if(node.type!=='Input'||!['text','password'].includes(node.props.inputType))throw Error('INPUT_EDITING_UNSUPPORTED');
+      if(state.caretVisible!==undefined&&typeof state.caretVisible!=='boolean'||state.focused!==undefined&&typeof state.focused!=='boolean'||state.selectionDirection!==undefined&&!['none','forward','backward'].includes(state.selectionDirection))throw Error('INPUT_EDITING_INVALID');
+      if(state.caretVisible===true&&node.props.readOnly)throw Error('INPUT_READONLY_CARET');
+      if(state.focused===true && !interactive(record))throw Error('INPUT_FOCUS_UNAVAILABLE');
+      const prior=editingState(record);
+      const start=state.selectionStart??prior.selectionStart,end=state.selectionEnd??prior.selectionEnd;
+      if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<start||end>node.props.value.length)throw Error('INPUT_SELECTION_INVALID');
+      if(state.focused===false){blurInput(record,'control');inputSelections.set(record,{selectionStart:start,selectionEnd:end,selectionDirection:state.selectionDirection??prior.selectionDirection});return;}
+      if(state.focused===true)focusInput(record,'control');
+      if(focusedInput!==record)throw Error('INPUT_EDITING_REQUIRES_FOCUS');
+      editor.setSelectionRange(start,end,state.selectionDirection??'none');
+      if(state.caretVisible!==undefined)pinnedCaret=state.caretVisible;
+      record.redraw?.();render();
+    },
     setValue(id, value): void {
       const record = requireRecord(id); const node = record.node;
       if (node.type === 'Switch' || node.type === 'CheckBox') {
@@ -1879,6 +2328,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         const data = value as { x?: unknown; y?: unknown }; if (typeof data.x !== 'number' || typeof data.y !== 'number' || !Number.isFinite(data.x) || !Number.isFinite(data.y)) throw new TypeError('SCROLL_VALUE_INVALID');
         const maxX = Math.max(0, node.props.contentWidth - node.layout.width), maxY = Math.max(0, node.props.contentHeight - node.layout.height);
         if (data.x < 0 || data.x > maxX || data.y < 0 || data.y > maxY) throw new TypeError('SCROLL_VALUE_OUT_OF_RANGE');
+        cancelGesturesFor(record, 'programmatic-value');
         preparePresentationChange(record, 'scroll', ['scrollX', 'scrollY']); node.props.scrollX = data.x; node.props.scrollY = data.y; record.redraw?.(); record.updateContentPosition?.(); emit(record, 'scroll', 'control', { x: node.props.scrollX, y: node.props.scrollY });
       } else if (node.type === 'Dialog') {
         if (typeof value !== 'boolean') throw new TypeError('DIALOG_OPEN_REQUIRED');
@@ -1914,6 +2364,9 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     },
     destroyNode(id): void {
       const record = requireRecord(id); if (active?.root === record) throw new Error('ROOT_NODE_DESTROY_FORBIDDEN');
+      for(const binding of active?.document.valueTextBindings?.bindings??[])for(const targetId of [binding.sourceId,binding.targetId]){
+        const target=active?.records.get(targetId);if(target&&isDescendantOf(target,record))throw Error('VALUE_TEXT_REFERENCED_NODE');
+      }
       removeFromDocument(record);
       const cleanupErrors: unknown[] = []; destroyRecord(record, true, cleanupErrors); reportCleanupErrors(cleanupErrors); render();
       const scope = active;
@@ -1993,6 +2446,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
 
 function inspectValue(node: UiNode): RuntimeNodeInspection['value'] | undefined {
   switch (node.type) {
+    case 'Dialog': return node.props.open;
     case 'Switch': case 'CheckBox': return node.props.checked;
     case 'Input': case 'ProgressBar': case 'Slider': return node.props.value;
     case 'RadioGroup': case 'Select': case 'List': return node.props.selectedId;

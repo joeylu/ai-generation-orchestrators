@@ -11,7 +11,7 @@ class RepeatedDefaultTests(unittest.TestCase):
  def test_list_repeats_source_template_without_selecting_every_row(self):
   n={'id':'l','type':'List','layout':{'width':100,'height':40},'props':{'items':[{'id':'a'},{'id':'b'}],'itemHeight':30,'selectedId':'b'}}
   r=self.select(n,[{'role':'row','itemId':'a'},{'role':'selected-row','itemId':'a'}])
-  self.assertEqual([(x['itemId'],x['role']) for x in r['selected']],[('a','row'),('b','selected-row')]);self.assertEqual(r['selected'][1]['position']['y'],30);self.assertEqual(r['selected'][1]['clip']['height'],40)
+  self.assertEqual([(x['itemId'],x['role']) for x in r['selected']],[('a','row'),('b','row'),('b','selected-row')]);self.assertEqual(r['selected'][1]['position']['y'],30);self.assertEqual(r['selected'][1]['clip']['height'],40)
  def test_select_initial_popup_is_standby(self):
   n={'id':'s','type':'Select','props':{}}
   r=self.select(n,[{'role':x} for x in ['background','indicator','popup']]);self.assertEqual([x['role'] for x in r['selected']],['background','indicator']);self.assertEqual(r['standby'][0]['role'],'popup')

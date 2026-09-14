@@ -16,7 +16,7 @@ def select_default_parts(document: dict, binding: dict) -> dict:
         if concealed: hidden.add(n['id'])
         for child in n.get('children', []): visit(child, concealed)
     visit(document['root'])
-    supported = {'Image', 'Input', 'Button', 'CheckBox', 'RadioGroup', 'Slider', 'Switch', 'Dialog', 'ProgressBar', 'Tabs', 'List', 'Select', 'ScrollView'}
+    supported = {'Image', 'Input', 'Button', 'CheckBox', 'RadioGroup', 'Slider', 'Switch', 'Panel', 'Dialog', 'ProgressBar', 'Tabs', 'List', 'Select', 'ScrollView'}
     for row in binding['bindings']:
         node = nodes[row['componentId']]
         kind, props = node['type'], node['props']
@@ -24,6 +24,11 @@ def select_default_parts(document: dict, binding: dict) -> dict:
             issues.append({'component':node['id'], 'code':'DEFAULT_STATE_UNSUPPORTED'})
             continue
         parts = row['parts']
+        if kind == 'Select':
+            # Menu icons are lifecycle-owned by Select, never closed-field overlays.
+            items = row.get('states', {}).get('select', {}).get('optionIcons', {}).get('items', [])
+            parts = parts + [{'role':'option-icon','layerId':item['icon']['layerId'],'optionId':item['optionId']}
+                             for item in items if item['icon'] is not None]
         if kind == 'Tabs':
             require(props.get('activeId') in {t['id'] for t in props['tabs']}, 'TABS_STATE_REQUIRED')
             parts = [dict(part, tabId=t['id']) for part in parts for t in props['tabs']
@@ -52,12 +57,13 @@ def select_default_parts(document: dict, binding: dict) -> dict:
             elif kind == 'List':
                 if part['role'] in {'row','selected-row'}:
                     chosen = part['itemId'] == props.get('selectedId')
-                    active = active and ((part['role']=='selected-row') == chosen)
+                    # Normal row paint remains beneath the selected overlay.
+                    active = active and (part['role']=='row' or chosen)
                     index = next(i for i,t in enumerate(props['items']) if t['id']==part['itemId'])
                     item['position'] = {'x':0,'y':index*props['itemHeight']}
                 item['clip'] = {'coordinateSpace':'target-component-local','x':0,'y':0,**{k:node['layout'][k] for k in ('width','height')}}
             elif kind == 'Select':
-                active = active and part['role'] != 'popup'
+                active = active and part['role'] not in {'popup','option-icon'}
             elif kind == 'ScrollView':
                 maximum=max(0,props['contentHeight']-node['layout']['height'])
                 offset=props.get('scrollY',0)

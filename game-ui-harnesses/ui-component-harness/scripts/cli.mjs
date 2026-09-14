@@ -31,7 +31,10 @@ Local commands:
   inspect <document-or-bundle.json>
   compile <intent.json> <policy.json> (--facts <facts.json> | --asset <file> | --asset <source>=<file>) [--output <document.json>]
   pack <document.json> --resource <portable-path>=<file> [--resource ...] --provenance-kind <kind> --provenance-description <text> [--motion <motion.json>] [--motion-system <system.json>] [--output <bundle.json>]
-  component-handoff <ui.component-handoff.zip> --output <ui-bundle.json>
+  component-handoff <ui.component-handoff.zip> --output <ui-bundle.json> [--reference-output <reference-evidence.json>]
+  reference-export <saved.ui-bundle.json> --output <new-handoff.zip>
+  bind-value-text <handoff.zip> <bindings.json> --output <new-handoff.zip>
+  reference-accept <handoff.zip> --output <new-directory>
   unpack <bundle.json> <empty-output-directory>
   self-test
   doctor
@@ -39,7 +42,7 @@ Local commands:
 --facts supplies caller-declared dimensions only. It never claims visual analysis.
 --asset reads dimensions from supplied image bytes (PNG, GIF, JPEG, WebP, or BMP);
 use source=file form for every v0.2 Image source. No command contacts a provider.
-run connects only to an explicitly supplied loopback workbench; other commands are offline.`;
+run connects only to an explicitly supplied loopback workbench; reference-accept manages a local static renderer and browser; other commands are offline.`;
 
 function fail(message) { throw new Error(message); }
 function parseOptions(tokens) {
@@ -212,12 +215,24 @@ function documentSummary(document) {
 }
 
 async function run() {
+  if (command === 'reference-accept' || command === 'reference-export') {
+    const { runReferenceCommand } = await import('./reference-run.mjs');
+    await runReferenceCommand(command, argv, moduleFromDistribution); return;
+  }
   if (command === 'run') {
     const { runWorkflowCommand } = await import('./workflow-run.mjs');
     await runWorkflowCommand(argv); return;
   }
   if (!command || command === '--help' || command === '-h' || command === 'help') { process.stdout.write(`${usage}\n`); return; }
   const { positionals, options } = parseOptions(argv);
+  if(command==='bind-value-text'){
+    onlyOptions(options,new Set(['output']));
+    if(positionals.length!==2||!one(options,'output'))fail('bind-value-text requires <handoff.zip> <bindings.json> --output <new.zip>');
+    const api=await moduleFromDistribution('value-text-handoff');
+    const bytes=await api.bindHandoffValueText(new Uint8Array(await readFile(positionals[0])),await jsonFile(positionals[1]));
+    const handle=await open(one(options,'output'),'wx',0o600);try{await handle.writeFile(bytes);}finally{await handle.close();}
+    await emit({bound:true,human_visual_acceptance:false});return;
+  }
   if (command === 'validate') {
     onlyOptions(options, new Set()); if (positionals.length !== 1) fail('validate requires one JSON file');
     const input = await jsonFile(positionals[0]);
@@ -256,14 +271,17 @@ async function run() {
     await emit(bundle, one(options, 'output')); return;
   }
   if (command === 'component-handoff') {
-    onlyOptions(options, new Set(['output']));
+    onlyOptions(options, new Set(['output', 'reference-output']));
     if (positionals.length !== 1) fail('component-handoff requires <ui.component-handoff.zip>');
     const output = one(options, 'output');
     if (!output) fail('component-handoff requires --output <ui-bundle.json>');
     const handoffApi = await moduleFromDistribution('component-handoff');
     const archive = new Uint8Array(await readFile(positionals[0]));
-    const bundle = await handoffApi.importAndApplyComponentHandoff(archive);
-    await emit(bundle, output); return;
+    const result = await handoffApi.importComponentHandoffWithReview(archive);
+    const referenceOutput = one(options, 'reference-output');
+    if (referenceOutput) await emit(result.referenceEvidence, referenceOutput);
+    process.stderr.write(`${JSON.stringify({ referenceEvidence: result.referenceEvidence.status, visualComparisonReady: result.referenceEvidence.visualComparisonReady, unknownFields: result.referenceEvidence.unknownFields })}\n`);
+    await emit(result.bundle, output); return;
   }
   if (command === 'unpack') {
     onlyOptions(options, new Set()); if (positionals.length !== 2) fail('unpack requires <bundle.json> <empty-output-directory>');

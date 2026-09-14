@@ -87,7 +87,10 @@ complete command catalog remains in [docs/automation.md](docs/automation.md).
 ## Boundaries
 
 - Use only implemented commands: `run`, `validate`, `inspect`, `compile`,
-  `pack`, `unpack`, `self-test`, and `doctor`.
+  `pack`, `unpack`, `component-handoff`, `reference-export`, `reference-accept`,
+  `self-test`, and `doctor`. For self-contained v2 reference acceptance, follow
+  [docs/reference-consumer-v2.md](docs/reference-consumer-v2.md). Preserve bundle
+  0.3's authenticated handoff attachment; never strip it to bypass stale evidence.
 - In a `run.json` manifest, both `resources[].file` and `resources[].path` are
   portable, forward-slash relative paths. They cannot be absolute, drive, UNC,
   empty, dot, parent, or trailing-dot/space paths. `file` stays below the
@@ -100,6 +103,17 @@ complete command catalog remains in [docs/automation.md](docs/automation.md).
 - The optional local Playwright adapter uses a separately installed development
   dependency and a matching loopback workbench that is either already running
   or started separately. The npm package does not contain a hosted or bundled
-  workbench distribution.
+  workbench distribution. The separate `reference-accept` command includes a
+  static acceptance renderer and owns its loopback server/browser teardown. It
+  requires local Playwright and an installed browser, never downloads either.
 - Do not start provider jobs, make model requests, or present a procedural
   fixture as user artwork or completed visual review.
+
+- `bind-value-text` supports explicit numeric bindings (1.0/1.1) and List selectedId-to-Text mappings (1.1);
+  use [the versioned contract](docs/value-text-bindings-v1.md), validate the new single
+  package and preserve original reference evidence. It never infers business links.
+
+- For Select popup option icons, use only [the official v1.0 contract](docs/select-option-icons-v1.md). Keep per-option layer bindings distinct from collapsed-field artwork and preserve unknown reference observations.
+- For explicit Select selected/hover menu backgrounds, use only [select-menu-highlights-v1.md](docs/select-menu-highlights-v1.md). Preserve legacy behavior when absent; never infer a theme or overwrite original reference observations.
+
+ScrollView optional vertical thumb slicing uses only [the source-pixel contract](docs/scrollbar-thumb-slices-v1.md). Do not infer cuts or replace missing artwork.

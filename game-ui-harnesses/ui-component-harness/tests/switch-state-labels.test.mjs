@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {validateDocument} from '../src/tree-contract.ts';
+const style={backgroundColor:'#FFFFFF',borderColor:'#000000',borderWidth:0,cornerRadius:0,textColor:'#FFFFFF',fontFamily:'sans-serif',fontSize:14,fontWeight:'normal',opacity:1};
+const area={x:1,y:1,width:20,height:20};
+const d={schemaVersion:'0.2',id:'switch-state-label-fixture',canvas:{width:100,height:40},root:{id:'switch',type:'Switch',layout:{x:0,y:0,width:100,height:40},props:{label:'',stateLabels:{on:'ON',off:'OFF'},checked:true,enabled:true,style,appearance:{trackImage:'track.png',thumbImage:'thumb.png',sourceCanvas:{width:100,height:40},thumbPositions:{off:{x:0,y:0},on:{x:60,y:0}},stateLabelLayouts:{on:area,off:{...area,x:50}}}}}};
+assert.doesNotThrow(()=>validateDocument(d));
+const missing=structuredClone(d);delete missing.root.props.appearance.stateLabelLayouts.off;assert.throws(()=>validateDocument(missing));
+const wrong=structuredClone(d);wrong.root.props.appearance.stateLabelLayouts.on.width=200;assert.throws(()=>validateDocument(wrong));
+const old=structuredClone(d);delete old.root.props.stateLabels;delete old.root.props.appearance.stateLabelLayouts;assert.doesNotThrow(()=>validateDocument(old));
+console.log('Switch state label semantic validation: valid, missing side, out-of-bounds, legacy passed');

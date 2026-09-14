@@ -74,6 +74,24 @@ test('first-batch application rejects overlapping RadioGroup hit areas and stale
   await assert.rejects(applyAppearanceBinding(value.target, value.imported, bakedInputText), (error: unknown) => error instanceof HarnessError && error.issues.some(issue => issue.code === 'ROLE_NOT_ALLOWED'));
 });
 
+test('ProgressBar accepts an inset cavity mask and rejects clips outside the fill', async () => {
+  const value = await firstBatchAppearanceFixture(); const binding:any = structuredClone(value.binding);
+  const clip=binding.bindings[3].states.progressBar.fillClip;
+  Object.assign(clip,{x:14,y:10,width:212,height:10});
+  const applied:any=await applyAppearanceBinding(value.target,value.imported,binding);
+  assert.deepEqual(applied.document.root.children.find((n:any)=>n.id==='apply-progress').props.appearance.fillClip,{x:14,y:10,width:212,height:10});
+  clip.x=9;
+  await assert.rejects(applyAppearanceBinding(value.target,value.imported,binding),/FILL_CLIP_GEOMETRY_MISMATCH/);
+});
+
+test('List imports painted row height separately from its interval and rejects hit areas in gaps',async()=>{
+  const f=await secondBatchAppearanceFixture(5); const applied:any=await applyAppearanceBinding(f.target,f.imported,f.binding);
+  const list=applied.document.root.children.find((n:any)=>n.id==='apply-list');
+  assert.equal(list.props.itemHeight,50); assert.equal(list.props.appearance.rowCanvas.height,45);
+  const bad:any=structuredClone(f.binding); bad.bindings[1].states.list.hitArea.height=50;
+  await assert.rejects(applyAppearanceBinding(f.target,f.imported,bad),/ITEM_LAYOUT_OUT_OF_BOUNDS/);
+});
+
 test('v0.2 binding applies the remaining eight types from explicit reusable templates', async () => {
   const value = await secondBatchAppearanceFixture(), applied = await applyAppearanceBinding(value.target, value.imported, value.binding);
   await validateBundle(JSON.parse(JSON.stringify(applied)));

@@ -5,6 +5,13 @@ reference evidence, and the current local UI Component checkout. It imports with
 the official `component-handoff` CLI before deriving a state matrix from the
 actual consumed bundle. No provider, model, or image generation is used.
 
+List state QA follows the consumer paint stack: every item retains its normal
+row, and the selected item adds the selected-row overlay. Transparent pixels in
+that overlay reveal the normal row, not the List background. The state matrix
+keeps both ordered parts under the existing `row/<itemId>` relation slot, and
+default-state selection preserves the normal underlay. Opaque and transparent
+selected templates use the same rule; pixel tolerances are unchanged.
+
 ```text
 ai-ui-stateful --handoff input/ui.component-handoff.draft.zip \
   --evidence input/state-evidence.json \
@@ -100,9 +107,9 @@ whether a shared mark is currently visible or a shared thumb has moved.
 | STATE_SCROLL_GEOMETRY_INVALID | invalid track, thumb positions, or thumb outside track |
 
 Version 1 requires native-size geometry and all enumerated items visible, with
-the explicit runtime-sized ScrollView thumb exception below. Input
-fails explicitly until its full acceptance
-adapters exist; their old delivery support is unchanged. Additional pressed,
+the explicit runtime-sized ScrollView thumb exception below. Text Input has a
+bounded [native-input profile](stateful-input-v1.md); unsupported input types and
+caret/IME remain explicit gaps. Additional pressed,
 disabled, error or focus *image roles* cannot be invented. If a reference requires
 them, this profile cannot establish complete acceptance. It does not silently
 substitute procedural controls. Button uses the public shared background with
@@ -174,13 +181,27 @@ not presented as a directly draggable control.
 
 Dialog probes open/closed/reopened, child visibility, child Button activation,
 and a visible underlying Button outside the dialog to verify modal blocking
-and restoration. Missing probes fail explicitly. They distinguish activation
+and restoration. When a delivery has no such background Button, the adapter
+creates a separate procedural bundle with an explicit hit probe, records its
+SHA-256 and three real-click screenshots (closed/open/closed), then reloads the
+original bundle. This fixture is never included in the delivery ZIP or treated
+as reference evidence. Unsupported roots, no exterior click area, or missing
+dialog action buttons still fail explicitly. Child visibility follows the
+selected Tabs branch and nested Dialog open states. They distinguish activation
 from business routing: no reward grant or application-specific close handler
 is invented. Dialog compositing compares source-over pixels, including a raster
 overlay when supplied or the current native overlay otherwise. A full-canvas
 partially transparent overlay is valid without zero-alpha pixels; other state
 parts retain the usual alpha requirement. Unobserved underlying artwork is
 still a completion proposal, not source-matched evidence.
+
+Select material comparison preserves fractional image registration. Popup
+pixels inside declared content exclusions are reported as occluded, not as
+successful base-image comparisons; option icons, text and declared menu
+highlights have their own checks. Keyboard focus screenshots are retained,
+then focus decoration is removed for material comparison. Popup teardown uses
+real Escape input after restoring canvas focus and checks that popup bounds
+and items are destroyed without changing the selected value.
 
 ```text
 node tests/stateful-fixtures.mjs ../ui-component-harness NEW_FIXTURE_DIRECTORY
@@ -199,3 +220,36 @@ For persistent fresh evidence, run `python tests/run_stateful_regression.py
 --component-root ../ui-component-harness --output NEW_DIRECTORY` with the package
 installed (or `PYTHONPATH=src`). It records all eight browser cases and the
 expected duplicate-state rejection in `regression.json`.
+
+List profile `structured-image-text-child-acceptance` uses the existing tree
+contract, with direct non-overlapping Image/Text children inside the List bounds.
+Images require digest-verified native-size RGBA resources with real alpha;
+Text uses ordinary system-font copy, word/no wrapping and clip/ellipsis/error.
+Nested or interactive children, scaled images, child background plates, opacity
+compositing and rich/custom-font text are outside this bounded profile and fail
+explicitly. Every item must retain a visible hit region in the initial viewport;
+automatic reveal of entirely hidden items is not implemented.
+
+The adapter compares each child's actual geometry and runtime text/font, then
+isolates child paint with public visibility controls and checks image source-over
+pixels, text color and leakage outside declared List/ScrollView clipping. Fully
+clipped children are recorded as clipped, not as visually inspected artwork.
+An intersecting nonempty text region without measurable text pixels fails; it is
+not silently excluded. Child regions remain excluded from the underlying row
+template comparison only because these independent checks own their paint.
+
+For a direct List inside a vertical ScrollView, real mouse and keyboard select
+each item; wheel, thumb drag and keyboard visit top/middle/bottom where applicable.
+Checks cover content displacement, values, events, repeated boundary input and
+zero-range behavior. Material snapshots wait for scrolling/selection/recoil
+presentation to settle. Hidden/restored and focused screenshots are separately
+hashed. Public visibility setup is pixel isolation, never proof of user input.
+No new consumer field is introduced. List-selected-label to external Text uses
+the consumer's existing valueTextBindings 1.1 through
+[value text integration](value-text-bindings-v1.md), with separate actual-text and
+event checks for each real selection plus initial/null/restore/control probes.
+
+Run `STATEFUL_BROWSER_TESTS=1` with `tests/test_list_children.py` for local
+procedural fixtures, including deliberately wrong copy, color, clipping, resource
+digests and unsupported geometry. These fixtures do not generate reference art
+or establish sample/human visual acceptance.

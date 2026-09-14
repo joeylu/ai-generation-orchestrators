@@ -128,13 +128,14 @@ export interface LayeredFixtureInput {
   readonly width: number;
   readonly height: number;
   readonly color?: readonly [number, number, number, number];
+  readonly bytes?: Uint8Array;
 }
 
 /** A small current-format delivery with caller-authored, explicit layer geometry. */
 export async function fixtureLayeredZip(canvas: readonly [number, number], inputLayers: readonly LayeredFixtureInput[]): Promise<DecompositionFixture> {
   const preview = fixtureRgbaPng(...canvas); const previewSha256 = await sha256(preview);
   const layers = await Promise.all(inputLayers.map(async layer => {
-    const bytes = fixtureRgbaPng(layer.width, layer.height, layer.color);
+    const bytes = layer.bytes ?? fixtureRgbaPng(layer.width, layer.height, layer.color);
     return { ...layer, bytes, sha256: await sha256(bytes) };
   }));
   const sceneLayer = (layer: typeof layers[number]) => ({

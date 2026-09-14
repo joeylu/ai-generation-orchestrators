@@ -17,16 +17,34 @@ For `transparent_component`, an adapter must request a transparent PNG and retur
 real Alpha; an opaque image or a checkerboard drawn into RGB is rejected. The
 included async MCP adapter expresses that requirement in the immutable prompt
 because the public Imagegen Tool exposes only `prompt` and `referenceImage`.
-Legacy `keyed_component` bundles retain their fixed magenta prompt and local
-matte behavior.
+New automatic plans use `keyed_component`: uniform solid `#F808F8`, no checkerboard,
+then deterministic local matte. An invalid declared background fails receipt or
+processing validation. Native RGBA remains an explicitly selected option; an
+adapter must not silently change the frozen mode.
 
 The external adapter may read these files and submit at most one provider call.
 It must not change any bundle file. The core never receives an endpoint, API key,
 workflow path, model path, or provider job identifier.
 
+For built-in Imagegen dispatch, call `adapter.builtin_image_arguments(bundle)`
+locally and forward the returned JSON object directly to the tool. Never manually
+copy, retype, summarize or interpolate its prompt, including provenance markers.
+Delegated agents obey the same rule. This helper validates request and file hashes
+but is not proof of submission. If actual tool arguments differ, preserve that
+fact separately and do not claim the frozen request was executed faithfully;
+sealing returned pixels alone cannot prove prompt fidelity.
+
 After a successful call, use `adapter-seal --source <image>` to copy and validate
 the result and create `result.json`. `adapter-import` verifies every request and
 result digest before materializing the raw image in the run.
+
+A decoded result that fails required Alpha or opaque aspect semantics is retained
+with a deterministic `rejected.json` receipt. Its state is `rejected`, not an
+unknown provider outcome. The raw file and reason remain available; the request
+cannot be reserved/received again or reused as a successful result. A rejected
+request blocks subsequent reservations in that run. Prepare a new plan and obtain
+fresh authorization for replacement compute; never patch the receipt or remove
+an opaque checkerboard by guessing its colors.
 
 If submission may have succeeded but the result is unavailable, do not seal a
 placeholder and do not resubmit. Run `indeterminate` against the original run and

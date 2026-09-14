@@ -67,7 +67,7 @@ class DialogIntegrationTests(unittest.TestCase):
 
     def test_official_import_closed_dialog_and_semitransparent_overlay(self):
         from ai_ui_decomposition.stateful import accept
-        for kind in ('Dialog', 'Dialog-native-overlay', 'Dialog-single-frame'):
+        for kind in ('Dialog', 'Dialog-native-overlay', 'Dialog-single-frame', 'Dialog-no-probe'):
             d = self.root / kind
             report = accept(d/'ui.component-handoff.draft.zip', d/'evidence.json', self.component, d/'qa', False)
             self.assertEqual(report['status'], 'deterministic_passed')
@@ -79,7 +79,7 @@ class DialogIntegrationTests(unittest.TestCase):
     @unittest.skipUnless(os.environ.get('STATEFUL_BROWSER_TESTS') == '1', 'Opt-in actual local PixiJS browser')
     def test_real_browser_dialog_state_and_modal_isolation(self):
         from ai_ui_decomposition.stateful import accept
-        for kind in ('Dialog', 'Dialog-native-overlay', 'Dialog-single-frame'):
+        for kind in ('Dialog', 'Dialog-native-overlay', 'Dialog-single-frame', 'Dialog-no-probe'):
             d = self.root / kind
             report = accept(d/'ui.component-handoff.draft.zip', d/'evidence.json', self.component, d/'browser', True)
             self.assertEqual(report['status'], 'technical_passed')
@@ -88,6 +88,15 @@ class DialogIntegrationTests(unittest.TestCase):
             self.assertEqual(len(dialog), 3)
             self.assertTrue(all(c['pass'] for r in dialog for c in r['checks']))
             self.assertFalse(receipt['human_visual_acceptance'])
+            if kind == 'Dialog-no-probe':
+                probes=[c for r in dialog for c in r['checks'] if c['slot']=='modal/isolated-background-probe']
+                self.assertEqual(len(probes),3)
+                self.assertTrue(all(p['basis']=='separate-programmatic-fixture' and p['deliveredBundleModified'] is False for p in probes))
+                self.assertEqual([c['actualActivations'] for c in probes[0]['checks']],[1,0,1])
+                self.assertEqual((d/'ui.component-handoff.draft.zip').read_bytes(),(d/'browser/ui.component-handoff.draft.zip').read_bytes())
+
+    def test_nested_tabs_logical_visibility(self):
+        subprocess.run(['node','--test',str(Path(__file__).with_name('dialog-visibility.test.mjs'))],check=True,capture_output=True)
 
 
 if __name__ == '__main__': unittest.main()

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-ui:scrollbar-thumb-slices-v1",
+  "description": "bindings[].states.scrollView.scrollbarThumbSlices. Requires scrollbarInsets; top+bottom must be below actual source PNG height (cross-resource validator).",
+  "type": "object",
+  "required": ["version", "coordinateSpace", "top", "bottom"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "1.0"},
+    "coordinateSpace": {"const": "thumb-source-pixels"},
+    "top": {"type": "integer", "minimum": 0},
+    "bottom": {"type": "integer", "minimum": 0}
+  }
+}

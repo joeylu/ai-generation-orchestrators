@@ -7,13 +7,16 @@ from .common import require, read_json
 
 
 def apply_bottom_space(node, scope, plan):
-    require(set(plan) == {'kind', 'version', 'sourceSha256', 'componentId',
+    fields = {'kind', 'version', 'sourceSha256', 'componentId',
                          'previousContentHeight', 'viewportHeight', 'bottomWhitespace',
-                         'authorization'}, 'SCROLL_LAYOUT_PLAN_FIELDS')
-    require(plan['kind'] == 'ui-scroll-bottom-space-plan' and plan['version'] == '1.0', 'SCROLL_LAYOUT_PLAN_VERSION')
+                         'authorization'}
+    if plan.get('version') == '1.1': fields.add('previousBottomWhitespace')
+    require(set(plan) == fields, 'SCROLL_LAYOUT_PLAN_FIELDS')
+    require(plan['kind'] == 'ui-scroll-bottom-space-plan' and plan['version'] in ('1.0','1.1'), 'SCROLL_LAYOUT_PLAN_VERSION')
     require(isinstance(plan['authorization'], str) and bool(plan['authorization'].strip()), 'SCROLL_LAYOUT_AUTHORIZATION_REQUIRED')
     require(all(type(plan[k]) in (int, float) and math.isfinite(plan[k]) and plan[k] >= 0
-                for k in ('previousContentHeight', 'viewportHeight', 'bottomWhitespace')), 'SCROLL_LAYOUT_NUMBER')
+                for k in ('previousContentHeight', 'viewportHeight', 'bottomWhitespace') +
+                (('previousBottomWhitespace',) if plan['version']=='1.1' else ())), 'SCROLL_LAYOUT_NUMBER')
     require(node['id'] == plan['componentId'] and node['type'] == 'ScrollView', 'SCROLL_LAYOUT_COMPONENT')
     require(node['layout']['height'] == plan['viewportHeight'] and
             node['props']['contentHeight'] == plan['previousContentHeight'], 'SCROLL_LAYOUT_STALE_GEOMETRY')
@@ -23,7 +26,7 @@ def apply_bottom_space(node, scope, plan):
     require(len(children) == 1 and children[0]['type'] == 'List', 'SCROLL_LAYOUT_EXTENT_UNSUPPORTED')
     child = children[0]; props = child['props']
     extent = child['layout']['y'] + max(0, len(props['items']) * props['itemHeight'] - props.get('rowGap', 0))
-    require(extent == plan['previousContentHeight'], 'SCROLL_LAYOUT_CONTENT_EXTENT')
+    require(extent + plan.get('previousBottomWhitespace',0) == plan['previousContentHeight'], 'SCROLL_LAYOUT_CONTENT_EXTENT')
     require(scope.get('human_visual_acceptance') is False and isinstance(scope.get('derivedTestStates'), list), 'SCROLL_LAYOUT_SCOPE_REQUIRED')
     height = extent + plan['bottomWhitespace']
     result = {'contentExtentHeight': extent, 'bottomWhitespace': plan['bottomWhitespace'],

@@ -35,6 +35,19 @@ class BottomSpaceTests(unittest.TestCase):
         self.plan['bottomWhitespace']=0
         self.assertEqual(apply_bottom_space(self.node,self.scope,self.plan)['scrollRange'],0)
 
+    def test_existing_space_is_replaced_not_accumulated(self):
+        self.node['props']['contentHeight']=610
+        plan={**self.plan,'version':'1.1','previousContentHeight':610,'previousBottomWhitespace':16,'bottomWhitespace':40}
+        result=apply_bottom_space(self.node,self.scope,plan)
+        self.assertEqual(result['contentHeight'],634)
+        with self.assertRaisesRegex(ContractError,'STALE_GEOMETRY'):apply_bottom_space(self.node,self.scope,plan)
+
+    def test_existing_space_requires_exact_evidence(self):
+        for previous in [15,-1,True,float('nan')]:
+            self.node['props']['contentHeight']=610
+            with self.subTest(previous=previous),self.assertRaises(ContractError):
+                apply_bottom_space(self.node,self.scope,{**self.plan,'version':'1.1','previousContentHeight':610,'previousBottomWhitespace':previous})
+
     def test_bad_numbers(self):
         for value in (-1, float('nan'), float('inf'), True):
             with self.subTest(value=value), self.assertRaisesRegex(ContractError,'NUMBER'):

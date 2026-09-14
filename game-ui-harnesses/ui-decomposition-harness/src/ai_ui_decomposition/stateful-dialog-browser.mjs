@@ -26,7 +26,38 @@ export async function prepareDialogContext(page, root, targetId) {
   }, {dialogs, ancestors: [...ancestors]});
 }
 
-export async function acceptDialog({page, canvas, component, bundle, at, saveScreenshot}) {
+export function logicalVisibility(root, targetDialog, open) {
+ const visible=new Map();
+ const walk=(n,parent=true)=>{
+  const own=parent&&(n.type!=='Dialog'||(n.id===targetDialog?open:n.props.open));visible.set(n.id,own);
+  for(const c of n.children??[])walk(c,own&&(n.type!=='Tabs'||n.props.tabs.find(t=>t.id===n.props.activeId)?.contentId===c.id));
+ };walk(root);return visible;
+}
+
+export async function isolatedModalProbe({page,component,bundle,at,createBundle,saveFixture,saveScreenshot}) {
+ const root=structuredClone(bundle.document),ids=new Set();const walk=n=>{ids.add(n.id);for(const c of n.children??[])walk(c);};walk(root.root);
+ let id='acceptance-modal-probe';while(ids.has(id))id+='-probe';
+ if(root.root.type!=='Container')throw Error('STATE_DIALOG_PROBE_ROOT_UNSUPPORTED');
+ root.root.children.unshift({id,type:'Button',layout:{x:0,y:0,...root.canvas},props:{label:'',enabled:true,style:{backgroundColor:'#314253',borderColor:'#314253',borderWidth:0,cornerRadius:0,textColor:'#FFFFFF',fontFamily:'Arial',fontSize:16,fontWeight:'normal',opacity:1}},children:[]});
+ const fixture=await createBundle(root,bundle.resources.map(r=>({path:r.path,mime:r.mime,bytes:Buffer.from(r.base64,'base64')})),{kind:'programmatic-fixture',description:'Acceptance-only clone with an explicit background hit probe; never a delivered business component or reference observation.'});
+ const evidence=await saveFixture(fixture);const checks=[];
+ try{
+  await page.evaluate(b=>window.uiHarness.importBundle(b),fixture);await prepareDialogContext(page,root.root,component.componentId);
+  const bounds=await page.evaluate(id=>window.uiHarness.inspect().nodes.find(n=>n.id===id).bounds,component.componentId);
+  const point=outsideDialogPoint({x:0,y:0,...root.canvas},bounds,root.canvas);
+  if(!point)throw Error('STATE_DIALOG_MODAL_PROBE_NO_EXTERIOR');
+  for(const open of [false,true,false]){
+   await page.evaluate(({id,open})=>window.uiHarness.setValue(id,open),{id:component.componentId,open});
+   const before=await page.evaluate(id=>window.uiHarness.activationCount(id),id);
+   await page.mouse.click(...await at(point));await page.mouse.move(1,1);
+   const delta=await page.evaluate(id=>window.uiHarness.activationCount(id),id)-before;
+   const shot=await saveScreenshot();checks.push({open,actualActivations:delta,pass:delta===(open?0:1),screenshot:shot.path,screenshotSha256:shot.sha256});
+  }
+ }finally{await page.evaluate(b=>window.uiHarness.importBundle(b),bundle);await prepareDialogContext(page,bundle.document.root,component.componentId);}
+ return {slot:'modal/isolated-background-probe',visible:true,pass:checks.every(c=>c.pass),basis:'separate-programmatic-fixture',fixture:evidence,checks,deliveredBundleModified:false};
+}
+
+export async function acceptDialog({page, canvas, component, bundle, at, saveScreenshot,runModalProbe}) {
   const id = component.componentId;
   const inspect = () => page.evaluate(() => window.uiHarness.inspect().nodes);
   const set = value => page.evaluate(({id, value}) => window.uiHarness.setValue(id, value), {id, value});
@@ -45,7 +76,7 @@ export async function acceptDialog({page, canvas, component, bundle, at, saveScr
     const q = closedNodes.find(v => v.id === n.id); if (!q?.visible) return false;
     return Boolean(outsideDialogPoint(q.bounds, dialogBounds, bundle.document.canvas));
   });
-  if (node.props.modal && !behind) throw Error('STATE_DIALOG_MODAL_PROBE_MISSING');
+  const isolatedProbe=node.props.modal&&!behind?await runModalProbe():undefined;
   if (!buttons.length) throw Error('STATE_DIALOG_ACTION_PROBE_MISSING');
   const baseline = await canvas.screenshot();
   const results = [];
@@ -58,8 +89,12 @@ export async function acceptDialog({page, canvas, component, bundle, at, saveScr
     }, id);
     const checks = [{slot: 'dialog/visibility', visible: true, actual: actual.visible,
       pass: actual.visible === state.value && actualOpen === state.value}];
+    const semanticRoot=await page.evaluate(()=>window.uiHarness.getDocument().root);
+    const expectedVisibility=logicalVisibility(semanticRoot,id,state.value);
     for (const child of childIds) checks.push({slot: 'child/' + child, visible: true,
-      pass: nodes.find(n => n.id === child)?.visible === state.value});
+      expectedVisible:expectedVisibility.get(child),actualVisible:nodes.find(n=>n.id===child)?.visible,
+      pass: nodes.find(n => n.id === child)?.visible === expectedVisibility.get(child)});
+    if(isolatedProbe)checks.push(isolatedProbe);
     if (behind) {
       const before = await count(behind.id);
       await click(outsideDialogPoint(closedNodes.find(n => n.id === behind.id).bounds, dialogBounds, bundle.document.canvas));
@@ -72,7 +107,7 @@ export async function acceptDialog({page, canvas, component, bundle, at, saveScr
       await click(center(nodes.find(n => n.id === button.id).bounds));
       const delta = await count(button.id) - before;
       checks.push({slot: 'action/' + button.id, visible: true, actualActivations: delta,
-        pass: delta === (state.value ? 1 : 0), businessRouting: 'not-bound-by-public-contract'});
+        pass: delta === (expectedVisibility.get(button.id) ? 1 : 0), businessRouting: 'not-bound-by-public-contract'});
     }
     await page.mouse.move(1, 1);
     const shot = await saveScreenshot();

@@ -111,3 +111,12 @@ The compiler is a pure deterministic function. It validates and clones its
 inputs, does no decode itself, does not mutate inputs, and returns a document
 that has passed `validateDocument`. `walkNodes(document)` returns the bounded
 pre-order draw sequence for a validated document.
+
+Value-to-text bindings use the independently versioned optional document.valueTextBindings
+field. The sole integration specification is [value-text-bindings-v1.md](value-text-bindings-v1.md).
+
+Select.appearance.optionIcons is optional and versioned; see [Select option icons v1.0](select-option-icons-v1.md) for strict row geometry, explicit null entries and resource semantics.
+
+Tabs supports optional boolean props.drawBackground; absent/true retains its
+rectangular background, false reveals the parent through transparent corners/gaps
+without hiding tab art, text or interaction. See [background ownership](tabs-background-v1.md).

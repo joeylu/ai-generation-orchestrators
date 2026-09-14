@@ -7,11 +7,11 @@ import { fixtureLayeredZip } from './decomposition-fixture.ts';
 const style: ControlStyle = { backgroundColor: '#F3F5F7', borderColor: '#315322', borderWidth: 1, cornerRadius: 8, textColor: '#243525', fontFamily: 'sans-serif', fontSize: 16, fontWeight: 'normal', opacity: 1 };
 const area = (coordinateSpace: 'target-component-local' | 'target-item-local', x: number, y: number, width: number, height: number) => ({ coordinateSpace, x, y, width, height });
 
-export async function secondBatchAppearanceFixture() {
+export async function secondBatchAppearanceFixture(rowGap = 0) {
   const document: UiDocument = { schemaVersion: '0.2', id: 'appearance-second-batch', canvas: { width: 800, height: 760 }, root: {
     id: 'root', type: 'Container', layout: { x: 0, y: 0, width: 800, height: 760 }, props: { style }, children: [
       { id: 'apply-scroll', type: 'ScrollView', layout: { x: 10, y: 10, width: 200, height: 120 }, props: { scrollX: 0, scrollY: 60, contentWidth: 200, contentHeight: 240, style }, children: [] },
-      { id: 'apply-list', type: 'List', layout: { x: 250, y: 10, width: 200, height: 100 }, props: { selectedId: 'second', items: [{ id: 'first', label: 'First' }, { id: 'second', label: 'Second' }], itemTemplate: 'text-row', itemHeight: 50, enabled: true, style }, children: [] },
+      { id: 'apply-list', type: 'List', layout: { x: 250, y: 10, width: 200, height: 100 }, props: { selectedId: 'second', items: [{ id: 'first', label: 'First' }, { id: 'second', label: 'Second' }], itemTemplate: 'text-row', itemHeight: 50, ...(rowGap ? {rowGap,drawBackground:false} : {}), enabled: true, style }, children: [] },
       { id: 'apply-dialog', type: 'Dialog', layout: { x: 50, y: 180, width: 300, height: 200 }, props: { open: true, title: 'Settings', modal: true, style }, children: [] },
       { id: 'apply-tabs', type: 'Tabs', layout: { x: 50, y: 420, width: 400, height: 160 }, props: { activeId: 'tab-b', tabs: [{ id: 'tab-a', label: 'A', contentId: 'content-a' }, { id: 'tab-b', label: 'B', contentId: 'content-b' }], enabled: true, style }, children: [
         { id: 'content-a', type: 'Container', layout: { x: 0, y: 40, width: 400, height: 120 }, props: { style }, children: [] },
@@ -29,8 +29,8 @@ export async function secondBatchAppearanceFixture() {
     { id: 'scroll-track', role: 'important_component', left: 190, top: 20, width: 10, height: 100, color: [180, 192, 198, 255] },
     { id: 'scroll-thumb', role: 'important_component', left: 190, top: 55, width: 10, height: 20, color: [55, 109, 138, 255] },
     { id: 'list-background', role: 'important_component', left: 250, top: 10, width: 200, height: 100, color: [235, 238, 229, 255] },
-    { id: 'list-row', role: 'important_component', left: 250, top: 10, width: 200, height: 50, color: [245, 241, 220, 255] },
-    { id: 'list-selected', role: 'important_component', left: 250, top: 60, width: 200, height: 50, color: [204, 224, 191, 255] },
+    { id: 'list-row', role: 'important_component', left: 250, top: 10, width: 200, height: 50-rowGap, color: [245, 241, 220, 255] },
+    { id: 'list-selected', role: 'important_component', left: 250, top: 60, width: 200, height: 50-rowGap, color: [204, 224, 191, 255] },
     { id: 'dialog-overlay', role: 'important_component', left: 0, top: 0, width: 800, height: 760, color: [25, 42, 53, 120] },
     { id: 'dialog-background', role: 'important_component', left: 50, top: 180, width: 300, height: 200, color: [244, 239, 219, 255] },
     { id: 'dialog-header', role: 'important_component', left: 50, top: 180, width: 300, height: 50, color: [174, 133, 52, 255] },
@@ -53,7 +53,7 @@ export async function secondBatchAppearanceFixture() {
   const binding = { kind: 'ui-appearance-binding', version: '0.2', documentSha256: await appearanceDocumentSha256(document), deliveryDigest: imported.deliveryDigest, sceneSha256: imported.sceneSha256, archiveSha256: imported.archiveSha256,
     registration: { sourceCanvas: { width: 800, height: 760 }, targetCanvas: { width: 800, height: 760 }, transform: { scale: 1, offset: { x: 0, y: 0 } } }, bindings: [
       { componentId: 'apply-scroll', componentType: 'ScrollView', parts: [{ role: 'viewport', layerId: 'scroll-viewport' }, { role: 'scrollbar-track', layerId: 'scroll-track' }, { role: 'scrollbar-thumb', layerId: 'scroll-thumb' }], states: { scrollView: { thumbPositions: { coordinateSpace: 'target-component-local', anchor: 'top-left', min: { x: 180, y: 10 }, max: { x: 180, y: 80 } } } } },
-      { componentId: 'apply-list', componentType: 'List', parts: [{ role: 'background', layerId: 'list-background' }, { role: 'row', layerId: 'list-row', itemId: 'first' }, { role: 'selected-row', layerId: 'list-selected', itemId: 'second' }], states: { list: { labelLayout: area('target-item-local', 12, 5, 176, 40), hitArea: area('target-item-local', 0, 0, 200, 50) } } },
+      { componentId: 'apply-list', componentType: 'List', parts: [{ role: 'background', layerId: 'list-background' }, { role: 'row', layerId: 'list-row', itemId: 'first' }, { role: 'selected-row', layerId: 'list-selected', itemId: 'second' }], states: { list: { labelLayout: area('target-item-local', 12, 5, 176, 40), hitArea: area('target-item-local', 0, 0, 200, 50-rowGap) } } },
       { componentId: 'apply-dialog', componentType: 'Dialog', parts: [{ role: 'background', layerId: 'dialog-background' }, { role: 'header', layerId: 'dialog-header' }, { role: 'body', layerId: 'dialog-body' }, { role: 'overlay', layerId: 'dialog-overlay' }], states: { dialog: { titleLayout: area('target-component-local', 12, 5, 276, 40) } } },
       { componentId: 'apply-tabs', componentType: 'Tabs', parts: [
         { role: 'tab', layerId: 'tab-inactive', tabId: 'tab-a' }, { role: 'active-tab', layerId: 'tab-active', tabId: 'tab-b' },

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { link, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { validateObservation } from '../src/vision-observation.ts';
 import { VISION_PREVIEW_POLICY_V1 } from '../src/vision-preview-policy.ts';
@@ -137,12 +137,18 @@ async function writeJson(directory, filename, value) {
 }
 async function writeExclusiveJson(directory, filename, value) {
   await mkdir(directory, { recursive: true });
+  const temporary = join(directory, `.${filename}.${randomUUID()}.tmp`);
   try {
-    await writeFile(join(directory, filename), `${JSON.stringify(value)}\n`, { encoding: 'utf8', flag: 'wx' });
+    await writeFile(temporary, `${JSON.stringify(value)}\n`, { encoding: 'utf8', flag: 'wx' });
+    // Publish complete bytes atomically without replacing another caller's gate.
+    // Opening the destination with wx exposes an empty/partial file to readers.
+    await link(temporary, join(directory, filename));
     return true;
   } catch (error) {
     if (error && typeof error === 'object' && error.code === 'EEXIST') return false;
     throw error;
+  } finally {
+    await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; });
   }
 }
 function pipelineRecord(value, id) {

@@ -1,7 +1,10 @@
 import './studio.css';
+import { mountReferencePanel } from './reference-panel.ts';
+import { importComponentHandoffWithReview } from './component-handoff.ts';
+import { MAX_COMPONENT_HANDOFF_ARCHIVE_BYTES } from './decomposition-import.ts';
 import { recognizeReference, encodeReference } from './studio-vision.ts';
 import { walkNodes, type UiDocument } from './tree-contract.ts';
-import { createTreePreview, type TreePreview } from './tree-runtime.ts';
+import { createTreePreview, type TreePreview, type TreeRuntimeEvent } from './tree-runtime.ts';
 import { compileMotionSystem, type MotionStyle, type MotionSystemDocument } from './motion-system.ts';
 import { MotionPlayer } from './motion.ts';
 import { createBundle, validateBundle, bundleResources, type UiBundle, type ResourceInput } from './bundle.ts';
@@ -14,7 +17,7 @@ import { applyAppearanceBinding } from './appearance-apply.ts';
 
 type Scheme = 'original' | MotionStyle;
 type Reference = { source: string; width: number; height: number; file: string };
-type View = { scheme: Scheme; host: HTMLElement; preview: TreePreview; timeline?: MotionPlayer; resize: ResizeObserver; activations: number; activationCounts: Record<string, number> };
+type View = { scheme: Scheme; host: HTMLElement; preview: TreePreview; timeline?: MotionPlayer; resize: ResizeObserver; activations: number; activationCounts: Record<string, number>; events: TreeRuntimeEvent[] };
 const schemes: Scheme[] = ['original', 'playful', 'premium', 'corporate'];
 const names: Record<Scheme, string> = { original: '原样', playful: '轻快', premium: '精致', corporate: '稳重' };
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => {
@@ -136,6 +139,8 @@ function reset() {
     neutralPreview = false;
     materialPreview = false; decompositionPanel?.reset();
     $('semantic-fields').replaceChildren(); showMissing(); $('semantic-feedback').textContent = '';
+    $('handoff-review').hidden = true; $('handoff-review').textContent = '';
+    $('reference-evidence-panel').replaceChildren();
     lastError = null; $('studio-error').hidden = true; delete $('studio-error').dataset.errorDetail; sync();
   }
 }
@@ -161,6 +166,7 @@ function action(work: () => void | Promise<void>, message = '预览暂时无法�
   return () => { Promise.resolve().then(work).catch(error => fail(error, message)); };
 }
 function begin() {
+  $('handoff-review').hidden = true; $('handoff-review').textContent = '';
   generation++; controller.abort(abortError()); controller = new AbortController();
   busy = true; lastError = null; $('studio-error').hidden = true; delete $('studio-error').dataset.errorDetail;
   disposeViews(); sync();
@@ -248,11 +254,12 @@ async function mount(document: UiDocument, request: ReturnType<typeof begin>) {
       request.check();
       preview.canvas.setAttribute('aria-label', `${names[scheme]}方案预览`);
       preview.setMotionSystem(systemFor(scheme, document));
-      const view: View = { scheme, host, preview, resize: new ResizeObserver(() => { if (views.includes(view)) fit(view); }), activations: 0, activationCounts: {} };
+      const view: View = { scheme, host, preview, resize: new ResizeObserver(() => { if (views.includes(view)) fit(view); }), activations: 0, activationCounts: {}, events: [] };
       if (timelineDocument) view.timeline = new MotionPlayer(timelineDocument, document, preview,
         { now: () => performance.now(), request: callback => requestAnimationFrame(callback), cancel: id => cancelAnimationFrame(id) }, undefined,
         error => { if (request.ticket === generation) fail(error, '动效无法继续播放，请重新打开方案。'); });
       preview.subscribe(event => {
+        view.events.push(event); if (view.events.length > 200) view.events.shift();
         if (event.type === 'activate') { view.activations++; view.activationCounts[event.id] = (view.activationCounts[event.id] ?? 0) + 1; }
         const trigger = view.timeline?.motion.trigger;
         if (trigger?.type === 'event' && trigger.targetId === event.id && trigger.event === event.type) view.timeline?.replay();
@@ -264,7 +271,13 @@ async function mount(document: UiDocument, request: ReturnType<typeof begin>) {
 }
 async function selectScheme(scheme: Scheme) {
   if (!bundle || busy || !schemes.includes(scheme)) return;
-  if (compare) { selected = scheme; sync(); return; }
+  if (compare) {
+    selected = scheme;
+    await toggleCompare();
+    $('main-preview').scrollIntoView({ block: 'center', behavior: 'instant' });
+    activeView()?.preview.canvas.focus({ preventScroll: true });
+    return;
+  }
   const view = activeView(); if (!view) return;
   view.timeline?.stop(); view.preview.resetMotion();
   view.preview.setMotionSystem(systemFor(scheme, view.preview.getDocument()));
@@ -317,7 +330,7 @@ async function openBundle(file: File) {
   reset(); filename = file.name;
   const request = begin();
   try {
-    if (!file.size || file.size > 100 * 1024 * 1024) throw new Error('BUNDLE_SIZE_LIMIT');
+    if (!file.size || file.size > 550 * 1024 * 1024) throw new Error('BUNDLE_SIZE_LIMIT');
     const candidate = await validateBundle(JSON.parse(await file.text())); request.check();
     if (candidate.document.schemaVersion !== '0.2') throw new Error('LEGACY_BUNDLE_REQUIRES_EXPLICIT_CONVERSION');
     resources = bundleResources(candidate); bundle = candidate; originalSystem = candidate.motionSystem;
@@ -326,13 +339,32 @@ async function openBundle(file: File) {
     selected = candidate.motionSystem?.style ?? 'original';
     analysis = { status: 'Imported', summary: candidate.provenance.description.startsWith('Legacy layered pilot:') ? '原始贴图案例：取消、确定、关闭支持按钮反馈；开关与下拉框暂为静态图像。' : '已恢复保存的组件方案' };
     await mount(candidate.document, request);
+    await mountReferencePanel($('reference-evidence-panel'), candidate, exportSelected, () => activeView()?.preview, () => activeView()?.timeline?.stop());
+  } catch (error) { if (request.ticket === generation) throw error; }
+}
+async function openHandoff(file: File) {
+  reset(); filename = file.name;
+  const request = begin();
+  try {
+    if (!file.size || file.size > MAX_COMPONENT_HANDOFF_ARCHIVE_BYTES) throw new Error('COMPONENT_HANDOFF_SIZE_LIMIT');
+    const bytes = new Uint8Array(await file.arrayBuffer()); request.check();
+    const result = await importComponentHandoffWithReview(bytes); request.check();
+    const candidate = result.bundle;
+    if (candidate.document.schemaVersion !== '0.2') throw new Error('LEGACY_BUNDLE_REQUIRES_EXPLICIT_CONVERSION');
+    resources = bundleResources(candidate); bundle = candidate; originalSystem = candidate.motionSystem;
+    selected = candidate.motionSystem?.style ?? 'original';
+    analysis = { status: 'Imported', summary: '交付包已通过摘要、合同与外观绑定校验，可直接操作组件。' };
+    await mount(candidate.document, request); request.check();
+    await mountReferencePanel($('reference-evidence-panel'), candidate, exportSelected, () => activeView()?.preview, () => activeView()?.timeline?.stop(), !result.hasRuntimeBundle); request.check();
+    $('handoff-review').textContent = `交付包 SHA-256：${result.archiveSha256}\n上游视觉审核：${result.review.humanVisualAcceptance ? '已声明通过' : '未通过（草稿）'}\n参考证据：${result.referenceEvidence.status}\n本次视觉验收：未确认。技术校验通过不等于视觉通过。`;
+    $('handoff-review').hidden = false;
   } catch (error) { if (request.ticket === generation) throw error; }
 }
 async function exportSelected(): Promise<UiBundle> {
   const view = activeView();
   if (!bundle || !view || busy) throw new Error('NO_READY_PREVIEW');
   const ticket = generation, scheme = selected;
-  const result = await createBundle(view.preview.getDocument(), resources, bundle.provenance, bundle.motion, view.preview.getMotionSystem() ?? undefined);
+  const result = await createBundle(view.preview.getDocument(), resources, bundle.provenance, bundle.motion, view.preview.getMotionSystem() ?? undefined, bundle.componentHandoff);
   if (ticket !== generation || scheme !== selected || busy) throw abortError();
   return validateBundle(result);
 }
@@ -380,6 +412,10 @@ $('replace-image').addEventListener('click', () => $<HTMLInputElement>('referenc
 $('open-bundle').addEventListener('change', action(async () => {
   const input = $<HTMLInputElement>('open-bundle'), file = input.files?.[0]; input.value = ''; if (file) await openBundle(file);
 }, '方案文件不完整、已损坏或版本不受支持，请重新导出新版组件包后再试。'));
+$('open-handoff').addEventListener('change', action(async () => {
+  const input = $<HTMLInputElement>('open-handoff'), file = input.files?.[0]; input.value = '';
+  if (file) await openHandoff(file);
+}, '交付包导入失败，请检查包摘要、合同及外观绑定。'));
 for (const button of controls<HTMLButtonElement>('#scheme-options [data-scheme]')) button.addEventListener('click', action(() => selectScheme(button.dataset.scheme as Scheme)));
 $('studio-compare').addEventListener('click', action(toggleCompare));
 $('studio-replay').addEventListener('click', action(() => { if (compare) for (const view of views) replay(view); else replay(); }));
@@ -400,8 +436,9 @@ const studio = {
   snapshot: () => ({ ready: Boolean(bundle && views.length && !busy), busy, scheme: selected, compare, kind: bundle?.document.schemaVersion === '0.2' ? bundle.document.root.type : null, analysis: { ...analysis },
     filename, resourceCount: resources.length, error: lastError,
     views: views.map(view => ({ scheme: view.scheme, document: view.preview.getDocument(), motionSystem: view.preview.getMotionSystem(),
-      inspection: view.preview.inspect(), motionSnapshot: view.preview.inspectMotionSystem(), timelineSnapshot: view.timeline?.snapshot() ?? null, activations: view.activations, activationCounts: { ...view.activationCounts } })) }),
+      inspection: view.preview.inspect(), motionSnapshot: view.preview.inspectMotionSystem(), timelineSnapshot: view.timeline?.snapshot() ?? null, activations: view.activations, activationCounts: { ...view.activationCounts }, events: [...view.events] })) }),
   exportSelected,
+  setValue: (id: string, value: unknown) => { const view=activeView(); if(!view)throw Error('NO_RUNTIME');view.preview.setValue(id,value); },
 };
 declare global { interface Window { uiStudio: typeof studio } }
 window.uiStudio = studio;

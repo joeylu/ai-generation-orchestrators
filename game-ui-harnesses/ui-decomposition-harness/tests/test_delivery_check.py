@@ -65,6 +65,21 @@ class DeliveryCheckTests(unittest.TestCase):
         document['root']['children'][0]['props']['checked'] = True
         self.assertIn('mark',[p['layerId'] for p in select_default_parts(document,binding)['selected']])
 
+    def test_list_default_keeps_normal_row_beneath_selected_overlay(self):
+        document={'root':{'id':'list','type':'List','layout':{'x':0,'y':0,'width':200,'height':100},
+                           'props':{'items':[{'id':'first'},{'id':'second'}],
+                                    'itemHeight':50,'selectedId':'second'}}}
+        binding={'bindings':[{'componentId':'list','parts':[
+            {'role':'row','layerId':'normal-row'},
+            {'role':'selected-row','layerId':'selected-row'}]}]}
+        result=select_default_parts(document,binding)
+        selected=[(p['role'],p['itemId'],p['layerId']) for p in result['selected']]
+        standby=[(p['role'],p['itemId'],p['layerId']) for p in result['standby']]
+        self.assertEqual(selected,[('row','first','normal-row'),
+                                   ('row','second','normal-row'),
+                                   ('selected-row','second','selected-row')])
+        self.assertEqual(standby,[('selected-row','first','selected-row')])
+
     def test_missing_evidence_is_a_failed_report_not_a_pass(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

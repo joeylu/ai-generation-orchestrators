@@ -449,3 +449,777 @@ is covered below.
   track geometry, and passes the configured preview URL to workflow CLI tests.
   The production build, 337 unit tests, and all 81 browser tests pass against the
   external `http://127.0.0.1:4273` preview.
+
+## Chain audit and import regressions (2026-09-12)
+
+- Fixed missing required-resource enumeration for ScrollView, List, Dialog and
+  Tabs, including optional overlays and both icon states. Removing each of 21
+  applied fixture rasters now fails both bundle creation and validation.
+- Handoff visibility checks now reject interactive nodes under a fully
+  transparent ancestor. Library and CLI regressions preserve positive-opacity
+  wrappers and verify that rejected imports do not create an output bundle.
+- Fixed partial JSON publication in the optional staged adapter's exclusive
+  gates. Complete temporary files are published without replacement; 16 concurrent
+  mocked polls still create one contract task and leave no temporary files.
+- Production build, 340 unit tests, CLI self-test and doctor pass. The original
+  81-case browser run passed 80 cases; a rebuild during execution invalidated a
+  hashed renderer module in the ScrollView case. That case passed after builds
+  stopped. Two new Studio cases also pass: real mouse/keyboard input on a
+  1536x1024 canvas with normal page chrome, and stale-preview clearing when an
+  inactive tab icon is missing. These are 83 distinct passing cases across runs,
+  not a single clean full-suite run. Local evidence is retained under
+  `work/ui-component-harness/audits/chain-audit-20260912/`.
+- No new media, live provider request or sample visual approval. Pending sample
+  acceptance and `human_visual_acceptance: false` remain unchanged.
+- A concurrent task changed Dialog header layering in `tree-runtime.ts` during
+  the audit. That change was preserved and is not included among these fixes;
+  the executed checks do not certify subsequent concurrent source edits.
+
+## 2026-09-12 Dialog header child visibility regression
+
+The isolated decomposition Dialog fixture reproduced a raster header covering a
+Close child button while that invisible button still accepted pointer input.
+Dialog header art now renders with the background/body before semantic children;
+its title remains in the foreground. Panel/ScrollView layer order is unchanged.
+
+Executed: production `npm run build`; two local deterministic fixture imports
+through the official component-handoff CLI; real PixiJS candidate Dialog
+acceptance for raster and native modal overlays, each with 15 state captures
+(three Dialog states and four Buttons with default/hover/pressed). The fixtures
+verify modal blocking/restoration, child activation/hidden suppression and
+RGBA source-over pixels. The Close raster regression failed before the fix and
+passed afterward. Fresh evidence resides in
+`work/ui-decomposition/reward-dialog-fullchain-20260912-r001/` under the
+`candidate-acceptance-*-r003` directories. These are synthetic local regression
+fixtures using proposed decomposition dispatcher hooks, not generated sample
+deliveries or integrated main-CLI acceptance. No provider requests occurred.
+
+## Audit follow-through: local import and keyboard workflow (2026-09-12)
+
+- Bundle validation and Pixi resource preparation now share the DOM-free
+  `treeResourceReferences` enumerator. The existing per-raster omission regression
+  remains in place; legacy v0.1 resource validation is unchanged.
+- Studio directly opens a component-handoff ZIP through the same compiler and
+  guards as the official CLI. It displays authenticated SHA-256 and upstream
+  review state, distinguishes local unconfirmed visual review, and clears old
+  previews/disclosures on failure. It does not import external acceptance files.
+- Workbench defaults to fit-to-width within the center pane. Numeric zoom uses
+  an isolated scroll area. A 1536x1024 fixture passes real mouse input at its right
+  edge while the inspector remains available; Studio has separate layout tests.
+- Added visible Pixi keyboard focus, Tab/Shift+Tab traversal, Button press/release,
+  toggle keys, choice/Slider/ScrollView arrows and Home/End, Select Escape, and
+  native Input editing. Runtime values, keyboard event sources, visible press
+  pixels, hidden/disabled/modal isolation, held-press cancellation and mouse vs
+  keyboard focus attribution have browser coverage.
+- Actual text input exposed an existing trimmed-value bug: typing a space could
+  make getDocument fail and clear the preview. Input now preserves exact string
+  whitespace while retaining maxLength validation.
+- Executed build/type checks and 341 unit tests pass. An isolated production
+  build on port 4274 passed all 87 browser cases without skips or retries.
+  The final pointer-focus attribution adjustment and its new regression then
+  passed all five targeted keyboard/Studio/workbench cases on the current build
+  (88 distinct cases now exist; no single 88-case run is claimed).
+- Logs and screenshots: `work/ui-component-harness/audits/chain-audit-20260912/`,
+  with `improvements-browser.log`, `final-targeted.log`, `next-unit.log`, and
+  `improvements.md`. Parallel Dialog and Tabs work was preserved. No commit,
+  provider call, media generation or human visual signoff was performed.
+
+## 2026-09-12 native unequal Tabs continuation
+
+- Added optional `states.tabs.items` and consumed `appearance.items`: explicit
+  per-tab native cell rectangles, normal/active base pairs and local text/hit
+  regions. Legacy equal-cell import and rendering remain compatible.
+- Import validates unique complete tab IDs/base roles, non-overlapping in-bounds
+  cells, exact source geometry and icon placement. Direct bundles and runtime
+  decode validate each per-item resource/canvas. Gaps do not select a tab.
+- `tests/native-tabs.test.ts`: four tests passed, covering import, negative
+  contracts, resources and uniform 2x registration. The prior appearance apply
+  and binding tests passed with the new tests. `npm run build` passed.
+- Real PixiJS `native-tabs.spec.ts` imports through the official CLI and checks
+  three unequal cells, each base/icon state, gap clicks and the former equal-cell
+  boundary. It and existing `tabs-icons.spec.ts` printed `ok`, but the Windows
+  Playwright webServer teardown stalled and required interruption; this is not a
+  successful whole-run exit. Fresh stateful receipts are tracked by the primary
+  decomposition task. Fixtures are local procedural pixels, not generated HUD
+  artwork or human visual acceptance.
+
+### Stateful main CLI integration follow-up — 2026-09-12
+
+- Pointer-down now renders immediately after clearing the keyboard focus ring,
+  preserving the current capture/pointerFocus logic. Without this, Button
+  pressed screenshots could retain a stale ring despite a cleared focus record.
+  Existing textured Button and Dialog fixtures reproduce the pixel failure.
+- Current component build passed. The sibling decomposition main CLI full suite
+  passed 163 tests with real browser cases, including native Tabs, Slider,
+  ProgressBar, Dialog and native Image children under Button press transforms.
+  See sibling `docs/stateful-parallel-integration-task-record.md` for exact logs.
+  This is local fixture acceptance, not generated artwork or human approval.
+
+### 2026-09-12 Inventory external scrollbar binding
+
+The actual Inventory reference has a 463px content viewport and a separately placed scrollbar. The previous binding, application, and direct bundle validators incorrectly required the thumb and track inside the viewport. ScrollView now permits the explicit external track, keeps its registered layer inside the target canvas during application, and validates both thumb endpoints against the track. Nested coordinates and uniform registration are covered.
+
+Executed: `node --test tests/scrollview-external-track.test.ts tests/appearance-binding.test.ts tests/appearance-apply.test.ts` — 17 passed; `npm run build` — passed. Inventory `assembly/fixture-r002` imports/validates/applies 65 nodes and 20 bindings using synthetic local fixture pixels. This is contract preparation only; it is not generated sample acceptance or human visual approval.
+
+Inventory follow-up: external track was drawable but blocked by viewport-only Pixi hitArea. Runtime now uses viewport union explicit track with an inert gap; four local external-track tests and build pass. Actual newly generated Inventory `acceptance-r004` passed official reverse import and 26 browser states. Its fully covered viewport records occluded/null, not pixel success. Final `delivery-check-r001` remains failed_visual_qa with strict regional mismatches and missing font/alternate-state evidence; human_visual_acceptance remains false.
+
+Merged verification after the parallel sample repairs: 349 component unit tests
+passed without skips, and 180 decomposition tests passed with real browser
+fixtures enabled. Logs: `work/ui-decomposition/parallel-keyed-component-tests-20260912-r001.log`
+and `work/ui-decomposition/parallel-keyed-full-tests-20260912-r002.log` in the
+repository root. Generated Reward Dialog separately passed 19 actual PixiJS
+states using its official imported handoff; strict reference-region comparison
+remains failed. Neither this test count nor actual screenshot checks establish
+human visual acceptance. No changes were committed.
+
+HUD corrected full chain: `battle-hud-fullchain-20260912-r001/acceptance-r008-01` passed official reverse import and48 actual PixiJS states, including rendered ON/OFF text/geometry for both Switches. Uses freshly authorized full-range squad-fill replacement and zero-compute310px Slider fill derivation. Final `delivery-check-r008` remains failed_visual_qa (15 strict reference regions plus font/alternate-state evidence gaps); human_visual_acceptance:false. RESULT-r008.md lists source/candidate hashes and remaining radar crop seam and source-value interpretation limits.
+
+## Reference handoff v2 — 2026-09-12
+
+Added compatible v2 archive import, authenticated original/derived reference files,
+explicit mapping, typed observed/unknown state and acceptance scope. The CLI exposes
+portable reference evidence via `--reference-output`; v1 remains importable but
+explicitly reports missing reference evidence and false visual-comparison readiness.
+Real PixiJS reference replay supports explicit Select popup open/close and discloses
+unknown fields rather than assigning invented source values.
+
+Executed: 372 component tests passed, 194 decomposition tests passed with browser
+fixtures enabled, build passed, and the dedicated real-browser reference replay
+test passed (including idempotent replay and distinct open/closed screenshots).
+Logs: repository `work/ui-decomposition/reference-contract-component-tests-r002.log`,
+`reference-contract-decomposition-tests-r002.log`, `reference-contract-build-r002.log`.
+Quest Journal v2 was imported from an isolated ZIP, all 38 runtime resource hashes
+verified, and a reference-state screenshot captured with Select open. Original
+bytes and prior bundle/binding/decomposition bytes were preserved exactly.
+Its scrollX/scrollY reference values remain unknown; full same-state visual
+comparison is blocked and human visual acceptance remains false. No media service
+was called and no changes were committed.
+# Reference v2 persistent consumer and unattended acceptance — 2026-09-12
+
+Implemented consumer bundle 0.3 with the authenticated original v2 ZIP attachment,
+scheme save/reopen and deterministic full-handoff re-export. Current value changes
+are retained; component/layout/options/canvas/resource edits invalidate evidence.
+Original/derived/reference-state/scope bytes survive export unchanged. The producer
+v2 delivery contract is unchanged; exported inner semantic bundles remain 0.1/0.2.
+
+Added `reference-export` and `reference-accept`. The latter owns a bundled static
+PixiJS renderer, ephemeral loopback server and browser, captures native pixels,
+compares observed state and painter-order clipped primitive regions with a named
+RGBA threshold policy, retains unknown/failed/empty-scope blockers, and always
+reports `human_visual_acceptance: false`. Studio retains evidence on reopen,
+supports mapped original/derivative inspection, reference replay, full-width
+side-by-side captures, native-size inspection, PNG download and complete ZIP export.
+Reference replay is not labelled real-input interaction acceptance.
+
+Executed: full offline suite **383 passed**; final focused reference/CLI suite
+**34 passed**; browser suite **5 passed**, with **2 passed** again after the final
+full-width panel change. Real Studio mouse/keyboard checks assert values, events
+and distinct visible captures. Mapping tests cover crop, both flips, quarter turns,
+nonuniform scale and offset. Standalone command tests cover independent procedural
+reference matching, isolated ZIP-only execution, old packages, unknown values,
+empty scopes, pixel mismatch, decoder failures, cleanup and overwrite refusal.
+Build passed. Windows Playwright shell-server teardown hung during two early runs;
+only those test-owned servers were stopped. The dedicated regression config now
+owns Vite in process and exits naturally; the formal acceptance CLI already owned
+and cleaned its separate static server without that workaround.
+
+Evidence root: `work/ui-component-harness/reference-v2-consumer-20260912-r001/`.
+Logs: `unit-tests.log`, `reference-release-tests.log`, `build-ui-final.log`;
+browser records: `browser-final/results.json`, `browser-layout-final/results.json`.
+`isolated-known/capture/report.json`: technical passed, zero differing pixels.
+`isolated-quest/capture/report.json`: blocked on `quest-scroll.scrollX` and
+`quest-scroll.scrollY`, with a real 1536x1024 runtime screenshot. Original input
+SHA-256 matches `ff17baf3366e681a40e9f6939f96b72513232cc6c10ba93f365fd62707dcb56a`.
+Final transferable draft ZIPs and their hashes are in `delivery-index.json`.
+No media/provider calls, commits, branch changes or rollback of other work.
+
+Comparison is explicitly a conservative primitive-rectangle policy, not semantic
+segmentation; invisible/no-owned-pixel compared scopes block. Animated references
+need a future frame-selection contract; the current command rejects them. Capture
+limits and local browser prerequisites are documented in `reference-consumer-v2.md`.
+
+## Battle HUD reference v2 consumer acceptance — 2026-09-12
+
+Tested the user-specified interaction-acceptance-r001 handoff (SHA-256
+`f02320b24294e08a6399052e15eb0376e201eb54b11cbbd77a7e91c4b2d25050`).
+Official import, 115 resources / 62 nodes, save/reopen, full ZIP re-export and
+official re-import passed with byte-identical reference evidence. The 48 upstream
+state screenshots and manifest/matrix/browser digest links match; 121 checked
+parts passed, while 8 invisible and 5 occluded parts remain separately classified.
+
+Independent Studio acceptance: **22 checks passed**, including 20 real input
+checks with observed values/events/visible feedback, reference state restoration,
+and save-close-reopen-export. No provider requests. Full same-state comparison
+remains blocked by four unknown squad meter values; no numeric estimates were
+promoted to observations. Slider value 99 with static Text `70%`, substituted fonts,
+button label positioning and reference texture differences are reported upstream.
+RESET/APPLY business behavior and unprovided tab page contents were not invented.
+
+Fixed a consumer layout bug exposed by the large canvas: the canvas was resizing
+the same auto-sized host used by fit(), producing ResizeObserver loop warnings.
+Size containment on the main/comparison canvas hosts breaks that feedback without
+changing logical coordinates. Added a large-canvas / four-scheme regression.
+Build and **6 browser regression tests passed**; HUD rerun reports no window errors.
+
+Evidence: `work/ui-component-harness/battle-hud-reference-v2-20260912-r001/`:
+`acceptance-summary.md`, `acceptance/report.json`, `studio-r002/interaction-report.json`,
+`studio-r002/studio-page.png`, `upstream-repair-request.md`,
+`roundtrip-verification.json`, `regression-final/results.json`, and `build.log`.
+All human visual acceptance flags remain false. Upstream input and other sample
+work were not modified; no changes were committed.
+
+## Switch state images v1 consumer support — 2026-09-12
+
+Implemented the versioned `stateImages` extension in appearance binding validation,
+application, UI tree validation, resource enumeration, PixiJS loading and semantic
+state texture selection. Save/reopen and v2 complete ZIP export retain both state
+pairs. Legacy single-pair behavior remains compatible; no sample names/colors are
+hardcoded. Producer integration and Battle HUD replacement artwork remain pending.
+Contract: [switch-state-images-v1.md](switch-state-images-v1.md).
+
+Validation: 386 Node tests passed; existing reference/Studio browser suite plus
+new real-input test passed (7 tests), followed by two focused final browser tests
+covering mouse/keyboard values/events, exact track/thumb pixels, persistence and
+invalid dimensions. Build passed. The local v2 procedural fixture completed the
+formal reference-accept CLI with technical_passed and human_visual_acceptance=false.
+Evidence: `work/ui-component-harness/switch-state-images-20260912-r001/`, including
+`unit-tests.log`, `browser-final/results.json`, `browser-verified/results.json`,
+`acceptance/report.json`, runtime.png and roundtrip.ui.component-handoff.draft.zip.
+No producer files or historical sample archives changed; no commit made.
+
+
+## 2026-09-12 Inventory visual layout policy
+
+Implemented opt-in List rowGap/drawBackground, ScrollView drawBackground and
+scrollbarVisibility:auto, including no-overflow import and zero-range arithmetic.
+List import validates painted height separately from interval. ProgressBar import
+accepts a contained inner fillClip while rejecting clips outside its texture.
+Absent optional fields preserve legacy behavior. Runtime uses the existing
+rectangular clip; curved/alpha cavity masks are not implemented.
+
+Evidence: 390 consumer unit tests passed; build passed. Producer 201 tests passed
+with local browser regressions enabled. Inventory new self-contained handoff passed
+26 real PixiJS state checks. Its standalone ZIP passed official import, save/reopen,
+reexport/reimport reference-byte preservation and screenshot capture. Reference
+comparison remains blocked by unknown original scrollX/scrollY; human acceptance
+remains false. No media generation or private services were called.
+
+Artifacts are in work/ui-decomposition/inventory-shop-fullchain-20260912-r001/
+acceptance-layout-policy-r001 and isolated-layout-policy-r001/acceptance.
+
+## Inventory sample independent consumer audit — 2026-09-12
+
+Tested acceptance-layout-policy-r001 ZIP (SHA256 4d17fa9406524b74e2934e2c1ed2c8cb2fde94188497ccf4e91e875d50d40647). No Switch components. Official reference-accept import/roundtrip/capture completed; full comparison blocked by unknown inventory-scroll.scrollX/scrollY. All 26 upstream screenshot hashes and handoff/browser/matrix hashes matched. Independent actual Studio mouse/keyboard audit passed 19 checks, including list image hit delegation, single-option popup bounds, no-overflow wheel behavior and button cancellation. Runtime window errors empty. No business/detail data inferred. Local preview :4284.
+
+Evidence: work/ui-component-harness/inventory-shop-20260912-r001/acceptance-summary.md, acceptance/report.json, upstream-chain.json and studio-final/interaction-report.json. Human visual acceptance remains false. Existing source changes from the layout-policy task were preserved, no commit made.
+
+## Battle HUD Switch replacement package — 2026-09-12
+
+Imported acceptance-r002 SHA256 e2025048c6a5e64bd93793f1ba68379d4a29d25a98618a005740aa24793a0266. Independent Studio 26 checks passed, including both switches with mouse and keyboard, declared ON/OFF assets, labels/events and save-close-reopen-export. Actual screenshots confirm blue ON and gray OFF. No runtime errors. Formal full reference comparison stays blocked on four unknown squad values; human_visual_acceptance=false. New preview :4285; old :4283 remains historical. Evidence: work/ui-component-harness/battle-hud-switch-20260912-r001/acceptance-summary.md and studio-r001/interaction-report.json. No sample archive or consumer runtime code changed in this reimport task.
+
+## Raster Tabs motion consumption — 2026-09-12
+
+Fixed runtime raster Tabs ignoring tabProgress: declared inactive/active backgrounds,
+icons and text now crossfade with existing style progress. Original/no-motion stays
+instant. Interrupted transitions retain current per-tab weights before retargeting.
+No new assets, colors, handoff fields or package changes. Existing hit rectangles,
+selection values and content visibility remain unchanged.
+
+Validation: build passed; 60 motion-system/native-tabs unit tests passed. Browser
+regression uses real mouse clicks and keyboard End with a paused Playwright clock:
+original frame is immediate; all three styles have different 50ms intermediate
+frames and settle correctly; rapid retargeting ends at the requested tab. Evidence:
+work/ui-component-harness/raster-tabs-motion-20260912-r001/results-verified.json
+and browser-verified/ PNGs. Initial unpaused-clock retry retained separately.
+Live Battle HUD :4285 uses source runtime; refresh to inspect. Human visual
+acceptance remains false; no Git commit or upstream archive modification.
+
+## Partial reference scope comparison — 2026-09-12
+
+Replaced whole-package unknown-state short-circuit with conservative local
+ProgressBar uncertainty masks. Unknown scroll/choice/popup still globally blocks;
+state mismatches and stale evidence remain blocking. Known failures take precedence
+over partial status. Policy/report version 1.1, CLI distinguishes visual_failed
+from failed, partially_verified exits 3. Studio shows passed/failed/unverified counts.
+
+Build passed; 3 browser tests and 6 CLI tests passed. Local browser cases cover
+partial success, known pixel failure, unknown dependency and overlap blocking.
+Real Battle HUD: visual_failed with partial coverage, 5 compare scopes passed,
+49 failed the existing pixel threshold, 4 unknown meters unverified. This exposes
+previously uncomputed visual differences, not import failure or human rejection.
+Evidence: work/ui-component-harness/reference-partial-20260912-r001/battle-hud/report.json,
+browser/, cli-tests.log and build.log. Human visual acceptance remains false.
+
+
+### 2026-09-12 ScrollView reference-visible no-overflow repair
+
+Existing scrollbarVisibility:always now passes appearance binding for no-overflow
+content. No-op wheel input no longer emits scroll. Build and 390 unit tests passed;
+2 browser regressions passed (Studio real input and existing proportional thumb).
+Inventory sample was uploaded through Studio as a v2 ZIP: 8 checks retained zero
+range and no scroll events. Track/thumb painted at 24x640 / 18x640. Original short
+thumb and baked end ornaments remain an explicit unsupported appearance gap.
+Evidence: work/ui-decomposition/inventory-shop-scrollbar-always-20260912-r001/
+studio-r003/report.json and 中文报告.md. No human visual approval or provider calls.
+
+## Inventory always-scrollbar package independent audit — 2026-09-12
+
+New ZIP f0f5b28f22297ae35bf48ad2e851af0ed78ea277b22a2521fd544ff0b44fbfab imported and roundtripped. 20 independent Studio real-input checks passed, including no-overflow wheel/drag with zero coordinates and no scroll events. Scrollbar now visible; full-height proportional thumb and missing source end ornament fidelity remain unresolved. Unknown scroll reference still blocks dependent visual comparison. Human acceptance false. Evidence: work/ui-component-harness/inventory-scrollbar-20260912-r001/acceptance-summary.md and studio-r001/interaction-report.json. Preview :4286. No runtime code or upstream package modified.
+
+
+### 2026-09-12 Reward Dialog reference comparison repair
+
+Dialog runtime inspection now exposes open as value, fixing false reference-state
+mismatch while retaining genuine closed/open mismatch. Occluded compare scopes
+count as unverified and partial coverage. Four local reference browser regressions
+passed; build and 390 unit tests passed. Real Reward v2: 19 interaction states and
+Studio mouse/keyboard/modal probes passed. Isolated official comparison returns
+visual_failed (9 failed, 7 unverified), not visual approval. Evidence resides in
+work/ui-decomposition/reward-dialog-reference-v2-20260912-r001/.
+
+## Scrollbar end insets v1 consumer support — 2026-09-12
+
+Added optional versioned scrollbarInsets top/bottom to binding and runtime contracts,
+strict shared validation, single-scale import and proportional thumb geometry within
+the usable track. Drag mapping uses the same travel distance. Old packages retain
+legacy behavior. No sample archive modified; producer integration still required.
+Contract: docs/scrollbar-insets-v1.md.
+
+Build passed; 7 focused unit tests passed (legacy, invalid insets, scaling, persistence,
+small/zero overflow geometry). Real Studio browser regression passed for wheel and
+thumb drag with 20px and zero overflow, verifying scroll values/events and renderer
+paint bounds outside protected ends. Evidence: work/ui-component-harness/
+scrollbar-insets-20260912-r001/browser and build.log. No media generation or commit.
+
+
+### 2026-09-13 Reward visual composition repair
+
+Dialog body is optional; positioned background need not fill the component canvas.
+Explicit native backdrop color/opacity preserves old defaults and rejects raster
+conflicts. Own Pixi text bounds/font metrics support reference-layout checks.
+Consumer tests: 393 passed. Producer fixture additionally tests optional body,
+inset background and black 60% modal source-over behavior with real input.
+Actual Reward: 19 states and Studio mouse/keyboard passed. 26 text observations,
+frame/scrim ownership, text overlap and action clearance passed. Strict pixel
+comparison remains failed (9 failed / 27 unverified); no human approval.
+Evidence: work/ui-decomposition/reward-dialog-visual-repair-20260912-r001/.
+
+## Reward dialog independent acceptance — 2026-09-13
+
+acceptance-r004 input 4fe9077754cb8e2052286264cdc4e52d0c68ef5380af0ba416323594492abb01 imported and roundtripped. Six independent Studio mouse/keyboard checks passed, including modal blocking of currency and button cancellation; no backend/close behavior inferred. Known reference state; visual_failed with 9 differing scopes and 27 scopes without independent owned pixels. Scope does not exempt font/ornament differences. Human acceptance false. Evidence: work/ui-component-harness/reward-dialog-20260913-r001/acceptance-summary.md. Preview :4287 uses isolated cache. No runtime code or package changes.
+
+## Reference panel vertical layout — 2026-09-13
+
+Simplified the reference panel to one delivery ZIP export action and a static
+mapped reference below the existing live canvas, matching its displayed width.
+Removed manual replay/compare, screenshot download and evidence-selector controls
+from this panel. CLI automation and workbench APIs remain available. Fresh handoff
+imports replay known reference fields automatically; saved bundles keep saved
+values. Reference text does not claim automated/human visual approval.
+
+Build and two browser regressions passed, including vertical position/equal-width
+assertions, single panel action, real pointer/key feedback, save/reopen and full ZIP
+export/reimport. Evidence: work/ui-component-harness/reference-layout-20260913-r001/
+browser. Existing :4287 source preview updates on reload. No media generation or
+upstream package modification.
+
+## Inventory insets replacement independent audit — 2026-09-13
+
+Input ff2c8ad7c7adf75c98f86cecfe196d63ff7db51f107329b675ba3f3116a90a41 passed official import/roundtrip/capture. Four targeted Studio checks passed: top36/bottom40, viewport629/content649, real wheel0–20 clamp, thumb drag back to0, keyboardEnd/Home, scroll events and protected paint bounds. Actual image confirms visible end ornaments. Full reference comparison still blocked by unknown original scroll coordinates. Human acceptance false. Evidence: work/ui-component-harness/inventory-insets-20260913-r001/acceptance-summary.md. Preview :4288; no runtime edits.
+
+## Scroll boundary style feedback — 2026-09-13
+
+Added local vertical wheel boundary recoil for bound ScrollView motion: playful
+up to10px (85ms outward/220ms return), premium up to3px (110/180ms). Amplitude is
+capped at half the real scroll range. Original/corporate, reduced-motion and zero
+overflow do not recoil. Only clipped content presentation moves inward within
+valid scroll limits; thumb geometry and semantic values are unchanged. Repeated
+boundary wheel input emits no fake scroll event. Drag remains direct manipulation.
+
+Build passed. Independent Studio browser regression passed across four schemes,
+checking actual wheel input, intermediate screenshots, semantic values, event
+counts, unchanged thumb paint regions and zero recoil after settling. Test evidence:
+work/ui-component-harness/scroll-recoil-20260913-r001/browser-verified. Earlier
+attempts retained: live preview auto-import/clock interference; final uses an
+isolated local Vite server and real time. Human acceptance unchanged, no new media
+or upstream package edits. Preview :4288 loads updated source on refresh.
+
+## Drag release recoil and native wheel containment — 2026-09-13
+
+ScrollView release now uses the existing style boundary feedback after actual
+vertical drag displacement. Cancel restores origin without recoil; a new drag
+cancels pending recoil. Semantic values and thumb geometry remain bounded.
+Pixi uses a passive wheel capture listener: hit-tested consumed native events are
+now canceled by a separate non-passive canvas listener, removed during teardown.
+Handled events stop Pixi propagation; outside input retains native page scrolling.
+
+Build passed. Real Studio browser regression passed across all four schemes:
+wheel boundary values/events/pixels, native page scroll containment, real thumb
+movement and mouse scroll event, release presentation and settled zero, plus
+outside-page wheel scrolling. Evidence: work/ui-component-harness/scroll-drag-20260913-r001/browser-r002.
+First test attempt used a content drag that did not change value; retained as
+failed evidence; final explicitly tests the user's thumb-drag path. Human visual
+acceptance remains false. Preview :4288 uses updated source on refresh.
+
+## Runtime state export repair — 2026-09-13
+
+Fixed selection-dependent List binding rejection by preserving the original
+sampling bundle and appearance binding. Export emits handoff schema 2.1 with
+runtime_bundle using existing UiBundle fields. Both bundles are authenticated;
+only declared mutable state and validated motion may differ. Geometry, resources,
+IDs and options remain protected. Studio reimport preserves saved state instead
+of automatically replaying the reference over it. v1/2.0 remain supported.
+
+Validation: build passed; 6 persistence, 33 handoff/reference, 6 new runtime-bundle
+and 1 producer-schema/gate regression passed. Real inventory Studio mouse selected
+mana, downloaded ZIP, reimported and retained mana. Official CLI import passed.
+All original ZIP members except the versioned manifest are byte-identical.
+Evidence: work/ui-component-harness/export-state-20260913-r001/r002;
+byte-report.json and cli-import.ui-bundle.json in parent. First browser attempt
+exported successfully but sampled remount too early; retained. Final waits ready.
+Human visual acceptance remains false; original unknown scroll coordinates remain
+unknown. No upstream package changes, no commits. Both sides document 2.1.
+
+## Create Hero v2 independent acceptance and Input editing — 2026-09-13
+
+Source SHA 485d5344e99868a1f36e6ccc85871e1126ac85778972c362348b7a63c9768218.
+Isolated reference-accept completed import/roundtrip/capture; visual blocked by
+unknown voice-pitch.value (10 unverified scopes). Studio-r004 passed 11 real-input
+and persistence groups; separate real Tab/Home/End Slider check passed. Source
+members except versioned manifest byte-identical; exported ZIP reimported by CLI.
+NAME Aria/TITLE empty retained. No original image/state edits or human acceptance.
+
+Input now draws native-editor-driven caret and selection, supports pointer placement,
+keyboard offsets, readonly/disabled and deterministic reference phase. Fixed native
+capacity replacement dropping first character with selection-aware length handling.
+Reference-state1.1 reuses observed/unknown envelopes, with both validators/schema;
+authoritative docs/input-editing-reference-v1.1.md. Old1.0 stays compatible.
+
+Build, 35 consumer units, 3 producer units and multi-scenario real browser regression
+passed. Evidence and retained failures: work/ui-component-harness/create-hero-20260913-r001/acceptance-summary.md.
+Visual typography/edge differences and IME/grapheme/mobile/email/number limits remain
+explicit. Preview4289, no commits or model/media calls.
+
+## 2026-09-13 Panel single-frame acceptance
+
+Panel header is optional with semantic title retained; legacy split surfaces remain supported. Build and 408 local tests pass. Evidence: work/ui-decomposition/panel-reference-20260913-r001. Studio real input and isolated CLI import pass; original-reference visual comparison fails. No human visual approval. See panel-composition-v1.md.
+
+## CHARACTER Panel value-to-text binding — 2026-09-13
+
+Implemented optional UiDocument.valueTextBindings version1.0. Explicit numeric source
+Slider.value or ProgressBar.value/max -> Text with literals and bounded fraction/group
+formatting. No scripts, inferred names, reverse writes or target events. Derived text
+is presentation only; authored text/reference observations remain intact. Initial
+load, drag preview/commit, keyboard and formal setValue share the renderer path.
+Bindings persist in document/bundle and authenticated handoff; new bind-value-text
+CLI verifies and writes a fresh package. Source/target types prevent cycles; duplicate
+targets and invalid fields/formats fail. Bound node deletion is rejected before mutation.
+
+Panel source a95caaabe5809ab385a4ce6fb4a2d8dfa0d76d1a46d789c64e9a93eb23baae74.
+New package abdc247c528263a83873380674469f59bd81d873e7d97087380393a7aebbaae9.
+Real Studio 70->89->88 with matching visible text; ProgressBar3500 displays3,500/5,000
+with one source event. Save/reopen/export/Studio reimport/official CLI all passed;
+reference/material bytes and unknown Input fields unchanged. Twelve other real input
+checks passed. 419 offline tests, browser regression and final build passed.
+Evidence: work/ui-component-harness/character-panel-20260913-r001/acceptance-summary.md.
+Contract: docs/value-text-bindings-v1.md. Preview4291. Visual remains draft/unconfirmed;
+no media/private services and no commits.
+
+
+## Select per-option menu icons — 2026-09-13
+
+Implemented optional optionIcons version 1.0 in Select state appearance and runtime
+appearance. Authoritative integration doc: docs/select-option-icons-v1.md. Explicit
+optionId -> authenticated layer/image plus icon and label row rectangles; every
+option declared once, null is the only no-icon marker. Shared strict geometry /
+version / ID validation, resource collection and contain rendering preserve bytes,
+alpha and aspect. Popup rows own hits and complete popup surface blocks lower
+controls, including its decorative gutters. No icons transfer into closed fields.
+
+Build and 438 offline tests passed (19 new Select tests). Two actual Studio/browser
+scenarios and five existing keyboard/reference-replay/handoff regressions passed.
+Real mouse red->green and keyboard green->blue->green each emit exactly one change;
+no duplicate boundary/same-choice change, no lower Button activation, no closed
+icon residue. Actual screenshot pixels, alpha padding, ratios and row mapping checked.
+Studio save/reopen/export/CLI reimport remains interactive. Final ZIP isolated alone;
+original members byte-preserved, source unknown state retained. No human acceptance.
+
+Evidence: work/ui-component-harness/select-option-icons-20260913-r001/acceptance-report.json
+and 验收说明.md. Final fixture ZIP isolated-delivery/ui.component-handoff.draft.zip
+SHA-256 a47a88817c6fb590461ca4bd54e36b7a889e4737dd64a7af9b94f30337429575.
+Preview 4292. Procedural geometry only, no Quest Journal generation or business inference.
+Historical test failures retained; branch tony, no commits or unrelated modifications.
+
+
+## Quest Journal new keyed handoff independent acceptance — 2026-09-14
+
+Input 90e06ac1ba23593c76ec06308d459731d40d16862437271037572e40994e7477
+was copied alone to a fresh isolation directory and imported by current official CLI.
+41 nodes and all reference/resources resolved. Actual Studio replayed known state
+with Select open; 21 real pointer/keyboard value changes and 2 Button activations
+passed with value/event/visible feedback evidence. Ten zero-range ScrollView inputs
+(2 wheel, 2 drag, 6 keyboard) retained x/y=0 with no scroll event or page wheel leak.
+Track600 with 33/34 insets yields actual 533px thumb, ornaments remain visible.
+
+Studio save/reopen/export/reimport and subsequent true input passed; official CLI
+reimport passed. Every original ZIP member except upgraded manifest byte-identical;
+all appearance/value-text bindings, original1740bf09..., mappings and unknowns retained.
+Output SHA-256 1e0ddce5448228fa0a34d137d69a14b1ac5b81862cdb4751e85499e87d09be2f.
+Evidence: work/ui-component-harness/quest-journal-20260914-r001/acceptance-report.json
+and 验收说明.md; preview4293. Build438 offline tests and4 procedural browser regressions
+passed. Initial120s Studio timeout retained; second300s-budget run passed in121s.
+
+No reproducible runtime bug found. Corrected obsolete reference-consumer-v2.md
+export/UI prose to existing handoff2.1 and vertical reference layout; no schema or
+source artwork changes. Reference visual result remains blocked:41 unverified scopes,
+zero exclusions. Original short/proportional long thumb difference disclosed.
+Four FONT_METRICS_MISSING retained; REGION_QA_STATE_MISMATCH stems solely from unknown
+reference scroll versus runtime0, not a Select mismatch. Human visual acceptance false.
+No added business data, model/media calls, commits or unrelated workspace changes.
+
+## Quest Journal authorized bottom-space handoff acceptance — 2026-09-14
+
+Input SHA-256 758f29d9add5e4765012ba5cdea62dbd15b424b69386058b54e87e21fcd2ce2e.
+Independent comparison confirms only contentHeight594->616; viewport596 gives
+20px real travel, 22px added bottom whitespace, unchanged six tasks and 33/34 insets.
+Source images, reference states and materials byte-identical; mapping unchanged,
+zero excluded scopes. Added whitespace is an authorized derived layout.
+
+Official isolated ZIP import and actual Studio comprehensive test passed (121s).
+Sixteen real scroll inputs: ten changes and six boundary no-ops, finite 0..20 values,
+no duplicate boundary events or outer-page wheel movement. Middle drag position and
+20px content displacement verified. Proportional thumb515.695 fits usable533px.
+Other controls:21 real value changes and2 button activations; Select icons/keyboard,
+CheckBoxes/Tabs/List and programmatic progress text checked. Studio save/reopen/export
+and subsequent input plus official CLI reimport passed. All evidence/resource bytes,
+appearance/value-text bindings and unknown reference fields preserved.
+
+Evidence: work/ui-component-harness/quest-journal-bottom-space-20260914-r001/
+acceptance-report.json and 验收说明.md. Output delivery/ui.component-handoff.draft.zip
+SHA-256 f226a4bf36b1fbb1656dea824f6efdd845791ab6d85697dd6fb387f9efead2ff.
+Preview4294. No runtime changes needed; no repeated full offline suite this round.
+Official visual acceptance remains blocked by unknown source scrollX/Y; short-thumb
+difference retained, human_visual_acceptance=false. Branch tony; no commits or media.
+
+## ScrollView content drag / click arbitration audit — 2026-09-14
+
+User-reported content drag reproduced in actual Quest Journal Studio: scrollY20
+also selected friend instead of retaining grove. Pixi pointertap followed the drag;
+prior acceptance covered thumb dragging but missed content-start dragging.
+Added generic 6 CSS px content threshold and native release tap suppression,
+including cancel/zero-range cases. Child presses yield after threshold; Slider
+and nearest nested ScrollView retain drag ownership. Scrollbar foreground now
+shields overlapping content hits; ornament/empty track does not pan. Thumb drag
+keeps immediate fine movement. Wheel/programmatic assignment cancels stale drag.
+No document/schema/source ZIP/reference changes. Runtime behavior documented.
+
+Build and438 Node tests passed. Final source:10 relevant browser regressions,
+1 scaled-canvas/1px-thumb test,2 actual Quest Journal scenarios passed (13 total).
+Real drag now retains grove with zero extra List changes; fresh click selects once.
+Complete Studio controls, sixteen scroll inputs, save/reopen/export/reimport passed.
+Evidence: work/ui-component-harness/scroll-gesture-audit-20260914-r001/
+acceptance-report.json and 审计说明.md;46 screenshot hashes. Historical reproducer,
+test-coordinate error, one transient recoil screenshot failure and intermediate
+compile error retained. Subsequent unchanged recoil assertions passed twice.
+Physical touch/pen and non-pixel wheel deltaMode remain unverified; line/page unit
+normalization remains a recorded cross-device gap. Human visual acceptance false;
+unknown source scroll remains unknown. Preview4294; tony; no commits or media calls.
+
+## ScrollView wheel deltaMode normalization — 2026-09-14
+
+Closed the line/page unit gap recorded in the preceding gesture audit. Added a
+pure scroll-wheel helper: pixels unchanged, lines40 logical units (shared keyboard
+step), pages receiving viewport width/height. Signed/fractional values preserved;
+invalid modes/nonfinite/overflow conversions ignored, valid deltas bounded before
+addition. Existing hit containment, no-op event suppression and recoil maintained.
+Runtime policy documented; no package/schema/artwork/reference state changes.
+
+Build and442 offline tests passed (4 new unit cases).14 browser scenarios passed,
+including prior gesture/insets/keyboard/four-style recoil regression. Three wheel
+scenarios rerun successfully after adding screenshot-difference and actual text
+position assertions. Pixel wheel used real browser mouse input; line/page modes
+used explicit untrusted standard WheelEvent into actual Studio/Pixi dispatch.
+Do not claim physical device testing for simulated modes. Zero-range/nested views
+retain values and contain events; repeated boundary input emits no extra scroll.
+Evidence: work/ui-component-harness/scroll-wheel-units-20260914-r001/
+acceptance-report.json, 修补说明.md, browser-r001 and visual-r002. Preview4294;
+human_visual_acceptance=false; tony; no commits, media or private service calls.
+
+### 2026-09-14 — Vertical native Tabs layout policy
+
+Implemented [tabs-layout-v1](tabs-layout-v1.md): exact optional layoutPolicy on
+the existing native items, explicit vertical x=0 / ordered y geometry, unchanged
+legacy horizontal packages, Up/Down/Home/End navigation and Left/Right no-op.
+Existing per-tab bases, normal/active icons, hit areas and independent child page
+layouts are preserved through compiler and bundle validation.
+
+Executed: build passed; 445 offline tests passed; six Studio browser cases passed
+(vertical standalone and Dialog, existing horizontal native Tabs and keyboard
+regressions). Actual pointer/key input checked values, event counts, visible pages
+and base/icon pixels. Save/reopen/export and official CLI reimport preserved the
+layout and complete v2 reference evidence. Three-state producer Pixi acceptance
+also passed. Evidence: work/ui-decomposition/tabs-layout-v1-20260914-r001/
+acceptance-report.json and browser-r004. Earlier r001–r003 fixture failures are
+retained separately; final r004 has zero failures. These are procedural fixtures,
+not generated Settings artwork. human_visual_acceptance=false; tony; no commit.
+
+
+### 2026-09-14 — 16-component capability audit and Slider portability
+
+Audited all 16 component types and documented bounded producer/consumer profiles.
+Fixed Slider fractional origins, scientific steps and off-lattice endpoint handling;
+pointer/keyboard now share snapSlider and preserve valid saved values. See
+[Slider lattice](slider-step-lattice.md). Build and 446 offline tests passed.
+27 browser cases passed, including real Studio raster Slider input/events/pixels
+and save/reopen, all-type gallery, modal/focus, scroll-child gestures, Select icons,
+Switch states and vertical Tabs. Producer full suite with opt-in browsers: 275 pass,
+zero skipped. Evidence: work/ui-decomposition/component-capability-audit-20260914-r001/
+audit-report.json and browser-r003. Earlier Dialog failure was a source-test/static-
+preview server mismatch, resolved on Vite source server; no Dialog product patch.
+New producer capability-check and optional freeze --capabilities reject unsupported
+requirements before requests are created. Legacy batches remain compatible. No
+media calls, no commit, tony, human_visual_acceptance=false.
+
+## Select explicit menu highlights v1.0 — 2026-09-14
+
+Published unique docs/select-menu-highlights-v1.md; author field is
+bindings[].states.select.menuHighlights. Shared strict binding/document validator,
+registered inset/radius conversion, and Pixi state-only background painting.
+Selected wins over hover without stacking; icons/text remain untinted. Keyboard
+selection updates the open popup without losing its current hover. Absent extension
+retains historical green/stacking behavior; invalid declarations fail explicitly.
+Documentation included in package files; no producer implementation changes.
+
+Build468 offline tests passed, including22 highlight cases;9 unique browser
+scenarios passed (2 highlight/legacy,6 existing icons/keyboard/replay,1 Settings).
+Real pointer/keyboard input, values/events, actual background/icon/text pixels,
+close/reopen and Studio save/export/official CLI reimport verified. All source
+reference/material members except authored appearance and manifest byte-preserved.
+Settings blue #168ADD selected0.45/hover0.20 is a declared derived choice; final
+insets1/8/1/8 respect the padded texture border, not a claim of recovered source art.
+First un-inset draft and connection/test-position failures retained in fresh outputs.
+
+Evidence: work/ui-component-harness/select-menu-highlights-20260914-r001/
+acceptance-report.json and 验收说明.md (26 screenshot hashes). Final delivery-r002 ZIP
+SHA-256 c84ffed922a8f42cc7d665b696c108fde1ecc56ccd33fb9bd725a2c7cb7879ba.
+Studio roundtrip SHA-256 6d6384c3b13dce1130d47b3e1ba6798b627f9a90ce13f8ac79a58bcffff099a9.
+Preview4299. Original7 unknown fields retained, visualComparisonReady=false,
+human_visual_acceptance=false. No media/model/private service calls, no commits.
+
+## Latest upstream Settings full-stateful-r003 independent acceptance — 2026-09-14
+
+Input SHA-256 05e0033a0dd9a280b321d5cc0e6d654da4f784bc13c46c83202e91d4f42a4b7a.
+Fresh isolated ZIP imported with official component-handoff CLI and actual Studio.
+Two real Edge/PixiJS browser scenarios passed: Select three choices/icons/highlight
+pixels, mouse/keyboard values and event counts; Switch/CheckBox bidirectional
+mouse/Space, Input edit/clear, RadioGroup, vertical Tabs, Slider 65 -> 81 -> 80
+with visible value-text synchronization, and Button activation. Studio save/reload,
+full ZIP export, official CLI reimport, and actual Studio ZIP reimport passed.
+All 16 appearance objects, 50 resources, valueTextBindings, 7 original non-manifest
+members and original reference descriptors/mappings/unknowns retained unchanged.
+No product patch needed. New build passed. Official reference-accept ended blocked
+with 28 unverified scopes, 7 unchanged unknown fields; cleanup completed.
+human_visual_acceptance=false. No new offline unit suite claimed for this audit.
+Evidence: work/ui-component-harness/settings-full-stateful-r003-20260914-r001/
+acceptance-report.json and 验收报告.md, 36 image hashes. Studio roundtrip ZIP SHA-256:
+acd084b0256f6bd66d178e6068a6ff6eebb8c509cd28021174d5183b2f173284.
+Local preview 4300 serves this exact isolated input. Branch tony; no commit.
+
+## List selected-item text binding v1.1 — 2026-09-14
+
+Extended existing UiDocument.valueTextBindings only. Unique authoring document is
+value-text-bindings-v1.md (versions1.0/1.1), now included in package files. List
+selectedId uses a complete explicit itemId/text map plus required emptyText.
+Strict source/target types, map coverage, duplicates, unknown fields/versions,
+invalid references, conflicting targets and literal bounds are validated.
+Text remains presentation only; existing source event semantics are unchanged.
+Old numeric1.0 and mixed numeric/List1.1 supported through the same render path.
+
+Build passed;495 offline cases passed, including27 new List cases;38 targeted
+List/legacy cases passed. Two real Edge/PixiJS browser scenarios passed: six mouse
+choices, Tab/arrows/Home/End, public setValue including null and repeated null,
+values/rendered text/event deltas, numeric regressions, Studio save/reload/export,
+official CLI reimport and actual ZIP reimport with continued keyboard selection.
+Initial test expected no replay change event; corrected baseline assertion and
+retained browser-r001. Product API behavior was not changed to fit the test.
+All6 non-manifest source members, reference descriptors,
+original bytes and8 resources retained; binding and saved runtime document equal.
+Evidence: work/ui-component-harness/list-text-bindings-20260914-r001/
+acceptance-report.json and 验收报告.md;16 state screenshot hashes plus Studio page.
+Fixture ZIP SHA-256 dce576473ce006ef09f214e7f04c88557cc606ef29af5ad5e3543863528bf656.
+This is a procedural fixture, not a generated Skill Library delivery or visual
+acceptance. No upstream files/artwork/reference unknowns edited, no private/model
+calls, no commit, tony; human_visual_acceptance=false. Local preview4301.
+
+## Skill Library r008-02 independent consumer acceptance — 2026-09-15
+
+Latest ZIP isolated and official CLI imported. Input SHA-256:
+0aec7a54d926218c6c9e77b892607726c98535e9b962541fdc432f0ff0fbeed1.
+Two actual Studio browser scenarios passed: six icon-area mouse selections,
+keyboard/API/null value-text projection and event counts, save/reload/full ZIP
+export/CLI and Studio reimport with continued keyboard binding; CheckBox/Tabs/
+Button events and zero-range scroll wheel/drag/keyboard without fake scroll or
+List selection. Seven source non-manifest members and32 resources byte preserved.
+No product patch or full offline suite rerun needed.23 actual browser screenshots.
+Reference acceptance blocked:33 unverified scopes, scrollX/Y remain unknown;
+human_visual_acceptance=false. Visible typography differences remain (Shadow
+Step description wrapping and selected-name emphasis). No source art changed.
+Evidence: work/ui-component-harness/skill-library-r008-02-20260914-r001/
+acceptance-report.json and 验收报告.md. Preview4302. tony; no commit.
+
+## Skill Library r009-01 independent acceptance — 2026-09-15
+
+Input SHA-256 ce7c8fb4f99e78ca84ac02127dc3cb44d2f50df0217d36fc27e510a650a14543.
+Official isolated import and two actual Studio browser scenarios passed. Explicit
+contentHeight874 vs viewport850 provides24px bottom space; wheel/thumb/keyboard
+reach bottom, Home restores0, with no outer-page wheel scrolling or List misselection.
+Six choices/text/events and save/reload/export/official CLI/Studio reimport passed.
+Reference bytes and binding preserved. No consumer patch. Reference comparison
+blocked with33 unverified scopes; scrollX/Y unknown retained, human_visual_acceptance=false.
+Typography fields for description-shadow and selected-name unchanged from r008.
+Evidence: work/ui-component-harness/skill-library-r009-01-20260915-r001/
+acceptance-report.json and 验收报告.md. Preview4303. No commit; tony.
+
+## ScrollView vertical thumb slices v1.0 — 2026-09-15
+
+Unique docs/scrollbar-thumb-slices-v1.md and author field
+states.scrollView.scrollbarThumbSlices. Source-pixel integer top/bottom caps,
+positive middle, explicit existing track insets required; legacy absence unchanged.
+Shared strict binding/document validation, appearance persistence, vertical-only
+Pixi slicing and paint-region inclusion implemented. No producer/sample artwork edits.
+Build and504 offline tests passed (9 new);2 actual Studio browser tests passed,
+covering six length/scale combinations, RGB pixels, wheel/drag/keyboard, zero-range
+events, save/reopen/export and official CLI/Studio reimport. Source reference bytes
+and unknowns retained. Earlier fixture/test failures preserved, final browser-r004
+passed. Windows sandbox account1909 required authorized host execution.
+Evidence: work/ui-component-harness/scrollbar-thumb-slices-20260915-r001/
+acceptance-report.json, 验收报告.md and 拆分端口令.md. Fixture ZIP SHA-256:
+bf7177a06911e3fc9e010e92fd24ee8ba1b75ed2d4e5591bf6deb1cedb9f488d.
+No real sample slice coordinates inferred; tony, no commit, human_visual_acceptance=false.
+
+## 2026-09-15 Tabs background ownership
+
+Implemented optional semantic Tabs.props.drawBackground. False skips only the
+Tabs rectangle; absent/true preserves legacy behavior. Boolean validation and
+Bundle/application roundtrip are covered. Contract: tabs-background-v1.md.
+Build and508 offline tests passed. Browser fixture verifies actual parent pixels
+for false and old plate pixels for absent/true, plus mouse selection. Skill Library
+r011:38 PixiJS checks passed;37 Studio checks completed before a15s reimport wait
+timeout, then4 isolated reimport/document/resources/real-tab checks passed.
+All receipts retained separately; no human visual acceptance, commit or release.
+
+## Skill Library thumb-slices acceptance-01 — 2026-09-15
+
+Independent isolated ZIP and official CLI import passed. Input SHA-256:
+84f6689ee46facb214501e82ea6fd183493d5db9cae35dc901fdfcec8f437b8a.
+Explicit thumb source12x60 uses fixed6px top/bottom,48px stretch middle; track
+insets32/32 and24px scroll range unchanged. Compared with r009-01, only appearance
+binding and handoff manifest changed; all other6 members byte identical.
+Two actual Studio browser scenarios passed: six choices/text/events, null/API,
+mouse/keyboard, check/tabs/buttons,24px wheel/drag/keyboard without outer scrolling
+or list misselection, save/reopen/export/official CLI and Studio reimport.
+New slice declaration and all resources/reference evidence retained. No new patch.
+Reference comparison blocked,33 scopes unverified, original scroll unknowns remain;
+human_visual_acceptance=false. Typography differences unchanged.
+Evidence: work/ui-component-harness/skill-library-slices-20260915-r001/
+acceptance-report.json and 验收报告.md. Preview4304. tony, no commit.

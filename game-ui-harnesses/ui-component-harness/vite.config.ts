@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
   build: { rollupOptions: { input: {
     studio: 'index.html',
     workbench: 'workbench.html',
+    referenceAcceptance: 'reference-acceptance.html',
   } } },
   server: { host: '127.0.0.1', port: 4173, strictPort: true },
   preview: { host: '127.0.0.1', port: 4173, strictPort: true },

@@ -12,9 +12,13 @@ TYPES = {'Container','Image','Text','Button','Input','CheckBox','RadioGroup','Se
 
 
 def plan_boards(description: dict) -> dict:
-    require(set(description)=={'kind','strategy','assets'} and
+    require({'kind','strategy','assets'}<=set(description)<= {'kind','strategy','assets','packing_canvas','extraction_policy'} and
             description['kind']=='ai_ui_material_observations_v2' and
             description['strategy']=='component-family-board-v1','BOARD_OBSERVATIONS_KIND')
+    canvas=description.get('packing_canvas')
+    if 'packing_canvas' in description:
+        require(isinstance(canvas,list) and len(canvas)==2 and
+                all(type(v) is int and 32<=v<=4096 for v in canvas),'BOARD_PACKING_CANVAS')
     assets=description['assets']
     require(isinstance(assets,list) and 0<len(assets)<=128,'BOARD_ASSETS')
     groups={};seen=set();reuse=[]
@@ -40,11 +44,22 @@ def plan_boards(description: dict) -> dict:
         if not g['slots']:continue
         # Fixed pixel cells keep the target scale; no square-cell distortion.
         # A long stack must be explicitly regrouped before authorization.
-        width=max(s['target_size'][0] for s in g['slots'])+16;y=8
+        width=canvas[0] if canvas else max(s['target_size'][0] for s in g['slots'])+16;y=8
+        x=8;row_height=0
         for s in g['slots']:
-            w,h=s['target_size'];s['crop']=[8,y,w,h];y+=h+16
-        require(width<=4096 and y-8<=4096,'BOARD_CANVAS_LIMIT_REGROUP_REQUIRED')
-        g['canvas']=[width,y-8];boards.append(g)
+            w,h=s['target_size']
+            if canvas:
+                require(w+16<=width,'BOARD_CANVAS_LIMIT_REGROUP_REQUIRED')
+                if x+w>width-8:x=8;y+=row_height+16;row_height=0
+                require(y+h<=canvas[1]-8,'BOARD_CANVAS_LIMIT_REGROUP_REQUIRED')
+                s['crop']=[x,y,w,h];x+=w+16;row_height=max(row_height,h)
+            else:s['crop']=[8,y,w,h];y+=h+16
+        require(width<=4096 and (canvas is not None or y-8<=4096),'BOARD_CANVAS_LIMIT_REGROUP_REQUIRED')
+        g['canvas']=list(canvas) if canvas else [width,y-8];boards.append(g)
+    if 'extraction_policy' in description:
+        from .relative_board import add_windows,validate_policy
+        validate_policy(description['extraction_policy'])
+        for board in boards:add_windows(board,description['extraction_policy'])
     result={'kind':'ai_ui_component_board_strategy_v1','observations':description,
             'observations_digest':digest(description),'boards':boards,'source_reuse':reuse,
             'generation_request_count':len(boards),'generation_calls':0,'automatic_retries':0,
@@ -58,6 +73,9 @@ def verify_strategy(strategy: dict) -> None:
 
 
 def crop_board(raw: Image.Image, board: dict, mode: str) -> tuple[dict, list]:
+    if 'extraction_policy' in board:
+        from .relative_board import crop_relative
+        return crop_relative(raw,board,mode)
     require(list(raw.size)==board['canvas'],'BOARD_CANVAS_MISMATCH')
     require(mode in {'transparent_component','keyed_component'},'BOARD_OUTPUT_MODE')
     values=np.asarray(raw.convert('RGBA'))
@@ -97,7 +115,7 @@ def extract(run: Path, asset: str, strategy_path: Path, board_id: str, output: P
     # Literal provenance marker belongs in the digest-bound generation prompt.
     marker=f"component-family-board-v1:{strategy['digest']}:{board_id}"
     require(marker in item['prompt'],'BOARD_PLAN_BINDING')
-    raw,evidence=load_verified_image(raw_path,board['canvas'])
+    raw,evidence=load_verified_image(raw_path,None if 'extraction_policy' in board else board['canvas'])
     require(evidence['sha256']==receipt['raw_sha256'],'BOARD_RAW_CHANGED')
     if item['output_mode']=='transparent_component':
         require(evidence['mode']=='RGBA','BOARD_NATIVE_ALPHA_REQUIRED')

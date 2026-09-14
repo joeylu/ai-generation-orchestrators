@@ -1,6 +1,9 @@
 // Local acceptance driver. Only the current component distribution is served.
-import {prepareDialogContext,acceptDialog} from './stateful-dialog-browser.mjs';
+import {prepareDialogContext,acceptDialog,isolatedModalProbe} from './stateful-dialog-browser.mjs';
 import {staticChildChecks} from './stateful-static-children-browser.mjs';
+import {checkListChildren} from './stateful-list-children-browser.mjs';
+import {checkBoundTexts,acceptListTextProbe} from './stateful-list-text-browser.mjs';
+import {verifySelectMenuHighlights} from './select-menu-highlights-browser.mjs';
 import {readFile,writeFile} from 'node:fs/promises';
 import {resolve,sep,extname} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -35,28 +38,62 @@ try{
   await page.evaluate(b=>window.uiHarness.importBundle(b),bundle);
   await prepareDialogContext(page,bundle.document.root,component.componentId);
   if(component.componentType==='Dialog'){
-   try { results.push(...await acceptDialog({page,canvas,component,bundle,at,saveScreenshot:async()=>{
+   const saveScreenshot=async()=>{
     const path=`state-${String(++shotIndex).padStart(4,'0')}.png`;
     const bytes=await canvas.screenshot({path:resolve(output,path)});return {bytes,path,sha256:hash(bytes)};
-   }})); } catch(error) { if(error.results)results.push(...error.results); throw error; }
+   };
+   const runModalProbe=async()=>{const {createBundle}=await import(pathToFileURL(resolve(componentRoot,'lib/bundle.js')));return isolatedModalProbe({page,component,bundle,at,createBundle,saveScreenshot,saveFixture:async fixture=>{const path=`modal-probe-${component.componentId}.ui-bundle.json`,bytes=Buffer.from(JSON.stringify(fixture));await writeFile(resolve(output,path),bytes,{flag:'wx'});return {path,sha256:hash(bytes)};}});};
+   try { results.push(...await acceptDialog({page,canvas,component,bundle,at,saveScreenshot,runModalProbe})); } catch(error) { if(error.results)results.push(...error.results); throw error; }
    continue;
   }
-  const inputs=component.componentType==='Switch'?component.states.flatMap(s=>['mouse','keyboard'].map(inputProtocol=>({...s,inputProtocol}))):component.states;
+  const selectIcons=component.componentType==='Select'&&component.states.some(s=>s.parts.some(p=>p.role==='option-icon'));
+  const structuredScroll=component.componentType==='ScrollView'&&component.states.some(s=>s.listChildren?.length);
+  const structuredList=component.componentType==='List'&&component.states.some(s=>s.listChildren?.length||s.boundTexts?.length);
+  const probeText=async probe=>{
+   const result=await acceptListTextProbe({page,component,probe,saveScreenshot:async phase=>{
+    const path=`binding-${component.componentId}-${probe.name}-${phase}.png`,bytes=await canvas.screenshot({path:resolve(output,path)});return {path,bytes,sha256:hash(bytes)};
+   }});results.push(result);if(result.checks.some(c=>!c.pass))throw Error('STATE_BOUND_TEXT_MISMATCH');
+  };
+  if(component.boundTextProbes)await probeText(component.boundTextProbes[0]);
+  const inputs=structuredScroll?['drag','wheel','keyboard'].flatMap(inputProtocol=>component.states.filter(s=>inputProtocol!=='keyboard'||s.name!=='middle').map(s=>({...s,inputProtocol}))):structuredList?['mouse','keyboard'].flatMap(inputProtocol=>component.states.map(s=>({...s,inputProtocol}))):component.componentType==='Switch'||selectIcons?component.states.flatMap(s=>['mouse','keyboard'].map(inputProtocol=>({...s,inputProtocol}))):component.states;
   for(const state of inputs){
+   if(component.componentType==='Input')await page.evaluate(b=>window.uiHarness.importBundle(b),bundle);
    const get=()=>page.evaluate(id=>window.uiHarness.inspect().nodes.find(n=>n.id===id),component.componentId);
    const before=await get();if(!before?.visible)throw Error('STATE_NOT_VISIBLE');
-   if(state.action==='progress'){
+   let expectedSelectChanges=0;
+   if(structuredScroll||component.componentType==='List')await page.evaluate(()=>document.querySelector('#events').replaceChildren());
+   if(state.action==='input'){
+    await page.evaluate(()=>document.querySelector('#events').replaceChildren());
+    if(state.name!=='initial'){
+     await click(state.point);
+     if(state.name!=='disabled')await page.keyboard.press('Control+A');
+     if(state.name==='empty')await page.keyboard.press('Backspace');
+     else await page.keyboard.type(state.name==='limit'?state.value+'EXCESS':state.name==='edited'?state.value:'ATTEMPT');
+    }
+   }else if(state.action==='progress'){
     await page.evaluate(({id,value})=>window.uiHarness.setValue(id,value),{id:component.componentId,value:state.value});
    }else if(state.action==='slider'){
     const g=state.slider,ratio=(before.value-g.min)/(g.max-g.min),a=g.thumbPositions;
     const start=[before.bounds.x+a.min.x+(a.max.x-a.min.x)*ratio+g.sourceThumbCanvas.width/2,before.bounds.y+a.min.y+g.sourceThumbCanvas.height/2];
     await page.mouse.move(...await at(start));await page.mouse.down();await page.mouse.move(...await at(state.point),{steps:8});await page.mouse.up();
+   }else if(structuredScroll&&state.inputProtocol==='wheel'){
+    const v=state.scroll.viewport;await page.mouse.move(...await at([before.bounds.x+v.x+v.width/2,before.bounds.y+v.y+v.height/2]));
+    await page.mouse.wheel(0,state.value.y-before.value.y|| (state.name==='top'?-100:100));await page.waitForTimeout(60);
+   }else if(structuredScroll&&state.inputProtocol==='keyboard'){
+    await canvas.focus();for(let i=0;i<200&&await canvas.getAttribute('data-focused-component')!==component.componentId;i++)await page.keyboard.press('Tab');
+    if(await canvas.getAttribute('data-focused-component')!==component.componentId)throw Error('STATE_KEYBOARD_FOCUS_MISSING');
+    await page.keyboard.press(state.name==='top'?'Home':'End');
    }else if(state.action==='scroll'&&state.scroll.chromeVisible!==false){
     const geometry=state.scroll,top=component.states[0].parts.find(p=>p.slot==='thumb').rect;
     const fraction=geometry.maxScrollY?before.value.y/geometry.maxScrollY:0;
     const start=[top[0]+top[2]/2,top[1]+top[3]/2+geometry.travelY*fraction];
     const target=[state.point[0],state.point[1]+(state.name==='top'?-8:state.name==='bottom'?8:0)];
     await page.mouse.move(...await at(start));await page.mouse.down();await page.mouse.move(...await at(target),{steps:8});await page.mouse.up();
+   }else if(structuredList&&state.inputProtocol==='keyboard'){
+    await canvas.focus();for(let i=0;i<200&&await canvas.getAttribute('data-focused-component')!==component.componentId;i++)await page.keyboard.press('Tab');
+    if(await canvas.getAttribute('data-focused-component')!==component.componentId)throw Error('STATE_KEYBOARD_FOCUS_MISSING');
+    const names=component.states.map(s=>s.name),from=names.indexOf(before.value),to=names.indexOf(state.name);
+    for(let i=0;i<Math.abs(to-from);i++)await page.keyboard.press(to>from?'ArrowDown':'ArrowUp');
    }else if(component.componentType==='Switch'){
     const toggle=async()=>{
      if(state.inputProtocol==='mouse')await click(state.point);
@@ -74,15 +111,53 @@ try{
     if(before.value===state.value){await click(state.point);await page.waitForFunction(({id,v})=>window.uiHarness.inspect().nodes.find(n=>n.id===id).value!==v,{id:component.componentId,v:state.value});}
     await click(state.point);
    }else if(state.action==='select'){
-    const bounds=before.bounds;await click([bounds.x+bounds.width/2,bounds.y+bounds.height/2]);await click(state.point);
-    // Reopen to inspect both selected field and menu raster states.
-    await click([bounds.x+bounds.width/2,bounds.y+bounds.height/2]);
+    await page.evaluate(()=>document.querySelector('#events').replaceChildren());
+    if(state.inputProtocol==='keyboard'){
+     await canvas.focus();
+     for(let i=0;i<200&&await canvas.getAttribute('data-focused-component')!==component.componentId;i++)await page.keyboard.press('Tab');
+     if(await canvas.getAttribute('data-focused-component')!==component.componentId)throw Error('STATE_KEYBOARD_FOCUS_MISSING');
+     await page.keyboard.press('Enter');
+     const names=component.states.map(s=>s.name),from=names.indexOf(before.value),to=names.indexOf(state.name);
+     if(from===to&&names.length>1){
+      await page.keyboard.press(to===0?'ArrowDown':'ArrowUp');await page.keyboard.press(to===0?'ArrowUp':'ArrowDown');expectedSelectChanges+=2;
+     }
+     for(let i=0;i<Math.abs(to-from);i++){await page.keyboard.press(to>from?'ArrowDown':'ArrowUp');expectedSelectChanges++;}
+    }else{
+     const bounds=before.bounds;await click([bounds.x+bounds.width/2,bounds.y+bounds.height/2]);await click(state.point);
+     expectedSelectChanges=before.value===state.value?0:1;
+     // Reopen to inspect both selected field and menu raster states.
+     await click([bounds.x+bounds.width/2,bounds.y+bounds.height/2]);
+    }
    }else if(state.action==='default'||(state.action==='scroll'&&state.scroll.chromeVisible===false))await page.mouse.move(1,1);
    else if(state.action==='hover')await page.mouse.move(...await at(state.point));
    else if(state.action==='pressed'){await page.mouse.move(...await at(state.point));await page.mouse.down();}
    else await click(state.point);
    if(state.value!==null)await page.waitForFunction(({id,v})=>{const actual=window.uiHarness.inspect().nodes.find(n=>n.id===id).value;return typeof v==='object'?Math.abs(actual.x-v.x)<.05&&Math.abs(actual.y-v.y)<.05:actual===v;},{id:component.componentId,v:state.value});
-   let focusedCapture;
+   if(structuredScroll)await page.waitForFunction(({id,y})=>{const p=window.uiHarness.inspectMotionSystem().nodes.find(n=>n.id===id).presentation;return Math.abs((p.scrollY??y)-y)<.001&&Math.abs(p.scrollRecoil??0)<.001;},{id:component.componentId,y:state.value.y});
+   let focusedCapture,inputEditorEvidence;
+   if((structuredScroll||structuredList)&&state.inputProtocol==='keyboard'){
+    const name=`focus-scroll-${shotIndex+1}.png`,bytes=await canvas.screenshot({path:resolve(output,name)});
+    focusedCapture={path:name,sha256:hash(bytes),protocol:'Real keyboard boundary scroll; blur before material comparison.'};
+    await canvas.evaluate(c=>c.blur());
+    await page.waitForFunction(id=>Math.abs(window.uiHarness.inspectMotionSystem().nodes.find(n=>n.id===id).presentation.focus??0)<.001,component.componentId);
+   }
+   if(component.componentType==='List')await page.waitForFunction(({id,index})=>Math.abs((window.uiHarness.inspectMotionSystem().nodes.find(n=>n.id===id).presentation.listSelection??index)-index)<.001,{id:component.componentId,index:component.states.findIndex(s=>s.name===state.name)});
+   if(selectIcons&&state.inputProtocol==='keyboard'){
+    const name=`focus-select-${shotIndex+1}.png`,bytes=await canvas.screenshot({path:resolve(output,name)});
+    focusedCapture={path:name,sha256:hash(bytes),protocol:'Real keyboard selection; focused screenshot retained before material comparison.'};
+    await canvas.evaluate(c=>c.blur());
+    await page.waitForFunction(()=>!document.querySelector('#canvas-host canvas').hasAttribute('data-focused-component'));
+    await page.waitForFunction(id=>Math.abs(window.uiHarness.inspectMotionSystem().nodes.find(n=>n.id===id).presentation.focus??0)<.001,component.componentId);
+   }
+   if(component.componentType==='Input'){
+    inputEditorEvidence=await page.evaluate(()=>{const e=document.querySelector('#canvas-host input[aria-hidden="true"]');return e?{focused:document.activeElement===e,readOnly:e.readOnly,disabled:e.disabled}:null;});
+    if(inputEditorEvidence?.focused){
+     const name=`focus-${component.componentId}-${state.name}.png`,bytes=await canvas.screenshot({path:resolve(output,name)});
+     focusedCapture={path:name,sha256:hash(bytes),protocol:'Real native keyboard editing; focus retained here, blur before background template comparison.'};
+     await page.evaluate(()=>document.activeElement?.blur());
+     await page.waitForFunction(id=>Math.abs(window.uiHarness.inspectMotionSystem().nodes.find(n=>n.id===id).presentation.focus??0)<.001,component.componentId);
+    }
+   }
    if(component.componentType==='Switch'){
     await page.waitForFunction(({id,value})=>Math.abs((window.uiHarness.inspectMotionSystem().nodes.find(n=>n.id===id).presentation.checked??Number(value))-Number(value))<.001,{id:component.componentId,value:state.value});
     if(state.inputProtocol==='keyboard'){
@@ -100,9 +175,16 @@ try{
    const screenshotPath=`state-${String(++shotIndex).padStart(4,'0')}.png`;
    const screenshot=await canvas.screenshot({path:resolve(output,screenshotPath)});
    const checks=await page.evaluate(async({shot,parts,exclude,texts,resources,size,scale,bounds,clip})=>{
-    const decode=async(data,rect)=>{const i=new Image();i.src='data:image/png;base64,'+data;await i.decode();const c=document.createElement('canvas');c.width=rect?Math.ceil(rect[2]):i.width;c.height=rect?Math.ceil(rect[3]):i.height;const ctx=c.getContext('2d');ctx.drawImage(i,0,0,rect?rect[2]:i.width,rect?rect[3]:i.height);return {w:c.width,h:c.height,data:ctx.getImageData(0,0,c.width,c.height).data};};
+    const drawTexture=(ctx,i,r,slices)=>{
+     if(!slices){ctx.drawImage(i,...r);return;}
+     const {top,bottom}=slices,h=i.height,w=i.width,[x,y,dw,dh]=r;
+     if(top)ctx.drawImage(i,0,0,w,top,x,y,dw,top);
+     ctx.drawImage(i,0,top,w,h-top-bottom,x,y+top,dw,dh-top-bottom);
+     if(bottom)ctx.drawImage(i,0,h-bottom,w,bottom,x,y+dh-bottom,dw,bottom);
+    };
+    const decode=async(data,rect,slices)=>{const i=new Image();i.src='data:image/png;base64,'+data;await i.decode();const c=document.createElement('canvas');c.width=rect?Math.ceil(rect[0]+rect[2])-Math.floor(rect[0]):i.width;c.height=rect?Math.ceil(rect[1]+rect[3])-Math.floor(rect[1]):i.height;const ctx=c.getContext('2d');drawTexture(ctx,i,[rect?rect[0]-Math.floor(rect[0]):0,rect?rect[1]-Math.floor(rect[1]):0,rect?rect[2]:i.width,rect?rect[3]:i.height],slices);return {w:c.width,h:c.height,data:ctx.getImageData(0,0,c.width,c.height).data};};
     const actual=await decode(shot);if(actual.w!==size.width||actual.h!==size.height)throw Error('STATE_CANVAS_SCALE_MISMATCH');
-    const decoded=await Promise.all(parts.map(p=>decode(resources[p.image],p.rect)));
+    const decoded=await Promise.all(parts.map(p=>decode(resources[p.image],p.rect,p.scrollbarThumbSlices)));
     if(scale!==1){
      // Render transformed texture expectations at actual pixel centers. Nearest
      // source-pixel sampling is incorrect for textured buttons scaled by 0.97.
@@ -110,7 +192,7 @@ try{
       const i=new Image();i.src='data:image/png;base64,'+resources[p.image];await i.decode();
       const c=document.createElement('canvas');c.width=size.width;c.height=size.height;const ctx=c.getContext('2d');
       ctx.translate(bounds.x+bounds.width/2,bounds.y+bounds.height/2);ctx.scale(scale,scale);ctx.translate(-bounds.x-bounds.width/2,-bounds.y-bounds.height/2);
-      ctx.drawImage(i,...p.rect);return ctx.getImageData(0,0,c.width,c.height).data;
+      drawTexture(ctx,i,p.rect,p.scrollbarThumbSlices);return ctx.getImageData(0,0,c.width,c.height).data;
      }));
      return parts.map((p,index)=>{
       if(!p.visible)return {slot:p.slot,visible:false};let seen=0,bad=0;
@@ -131,12 +213,12 @@ try{
      const src=decoded[index];let seen=0,bad=0,covered=0;
      for(let y=0;y<src.h;y++)for(let x=0;x<src.w;x++){
       const off=(y*src.w+x)*4;if(src.data[off+3]<250)continue;
-      const gx=Math.round(p.rect[0]+x),gy=Math.round(p.rect[1]+y);
+      const gx=Math.floor(p.rect[0])+x,gy=Math.floor(p.rect[1])+y;
       if(p.clip&&(gx<p.clip[0]||gy<p.clip[1]||gx>=p.clip[0]+p.clip[2]||gy>=p.clip[1]+p.clip[3]))continue;
       if(clip&&(gx<clip[0]||gy<clip[1]||gx>=clip[0]+clip[2]||gy>=clip[1]+clip[3]))continue;
       if(!p.staticChild&&!p.ignoreContentExclusions&&exclude.some(r=>gx>=r[0]&&gy>=r[1]&&gx<r[0]+r[2]&&gy<r[1]+r[3])){if(p.contentOcclusion)covered++;continue;}
       // Mask pixels covered by higher state parts; do not compare hidden layers.
-      if(parts.some((top,j)=>{if(j<=index||!top.visible)return false;if(top.clip&&(gx<top.clip[0]||gy<top.clip[1]||gx>=top.clip[0]+top.clip[2]||gy>=top.clip[1]+top.clip[3]))return false;const tx=Math.round(gx-top.rect[0]),ty=Math.round(gy-top.rect[1]);return tx>=0&&ty>=0&&tx<decoded[j].w&&ty<decoded[j].h&&decoded[j].data[(ty*decoded[j].w+tx)*4+3]>0;})){covered++;continue;}
+      if(parts.some((top,j)=>{if(j<=index||!top.visible)return false;if(top.clip&&(gx<top.clip[0]||gy<top.clip[1]||gx>=top.clip[0]+top.clip[2]||gy>=top.clip[1]+top.clip[3]))return false;const tx=gx-Math.floor(top.rect[0]),ty=gy-Math.floor(top.rect[1]);return tx>=0&&ty>=0&&tx<decoded[j].w&&ty<decoded[j].h&&decoded[j].data[(ty*decoded[j].w+tx)*4+3]>0;})){covered++;continue;}
       // Sample stable opaque cores when the public runtime applies a press scale.
       if(scale!==1&&(x<3||y<3||x>=src.w-3||y>=src.h-3))continue;
       const ax=Math.round(bounds.x+bounds.width/2+(gx-bounds.x-bounds.width/2)*scale);
@@ -164,6 +246,58 @@ try{
     }
    }
    checks.push(...await staticChildChecks(page,state.staticChildren,scale,before.bounds));
+   checks.push(...await checkListChildren({page,children:state.listChildren,resources:Object.fromEntries(bundle.resources.map(r=>[r.path,r.base64])),saveScreenshot:async phase=>{
+    const path=`list-${shotIndex}-${phase}.png`,bytes=await canvas.screenshot({path:resolve(output,path)});return {path,bytes,sha256:hash(bytes)};
+   }}));
+   checks.push(...await checkBoundTexts({page,entries:state.boundTexts,saveScreenshot:async phase=>{
+    const path=`bound-text-${shotIndex}-${phase}.png`,bytes=await canvas.screenshot({path:resolve(output,path)});return {path,bytes,sha256:hash(bytes)};
+   }}));
+   if(structuredScroll||component.componentType==='List'){
+    const events=(await page.locator('#events li').allTextContents()).flatMap(t=>{try{return [JSON.parse(t)];}catch{return [];}});
+    const changed=structuredScroll?Math.abs(before.value.y-state.value.y)>.01:before.value!==state.value;
+    const own=events.filter(e=>e.id===component.componentId&&['change','scroll'].includes(e.type));
+    const validValues=structuredScroll?own.every((e,i)=>Number.isFinite(e.value?.y)&&e.value.x===0&&e.value.y>=0&&e.value.y<=state.scroll.maxScrollY&&(!i||e.value.y!==own[i-1].value.y)):own.every(e=>component.states.some(s=>s.value===e.value));
+    const expectedListEvents=state.inputProtocol==='keyboard'?Math.abs(component.states.findIndex(s=>s.value===before.value)-component.states.findIndex(s=>s.value===state.value)):Number(changed);
+    checks.push({slot:'list-composition/input-events',visible:true,inputProtocol:state.inputProtocol??'mouse',events,expectedChange:changed,
+     pass:validValues&&(structuredScroll?(changed?own.length>0:own.length===0):own.length===expectedListEvents)&&(!structuredScroll||!events.some(e=>e.type==='change'&&e.id!==component.componentId))&&!(state.boundTexts??[]).some(t=>events.some(e=>e.id===t.nodeId&&['change','input'].includes(e.type)))});
+    if(structuredScroll&&state.name!=='middle'&&state.inputProtocol!=='drag'){
+     await page.evaluate(()=>document.querySelector('#events').replaceChildren());
+     if(state.inputProtocol==='keyboard'){
+      await canvas.focus();for(let i=0;i<200&&await canvas.getAttribute('data-focused-component')!==component.componentId;i++)await page.keyboard.press('Tab');
+      await page.keyboard.press(state.name==='top'?'Home':'End');await page.keyboard.press(state.name==='top'?'ArrowUp':'ArrowDown');
+     }else{const v=state.scroll.viewport;await page.mouse.move(...await at([before.bounds.x+v.x+v.width/2,before.bounds.y+v.y+v.height/2]));await page.mouse.wheel(0,state.name==='top'?-100:100);await page.mouse.wheel(0,state.name==='top'?-100:100);}
+     await page.waitForTimeout(60);
+     const repeated=(await page.locator('#events li').allTextContents()).flatMap(t=>{try{return [JSON.parse(t)];}catch{return [];}}),value=(await get()).value;
+     checks.push({slot:'list-composition/repeated-boundary',visible:true,value,events:repeated,pass:value.x===0&&value.y===state.value.y&&!repeated.some(e=>['scroll','change'].includes(e.type))});
+     if(state.inputProtocol==='keyboard')await canvas.evaluate(c=>c.blur());
+     await page.waitForFunction(id=>Math.abs(window.uiHarness.inspectMotionSystem().nodes.find(n=>n.id===id).presentation.scrollRecoil??0)<.001,component.componentId);
+    }
+   }
+   if(selectIcons){
+    const observed=await get();
+    const events=(await page.locator('#events li').allTextContents()).flatMap(t=>{try{return [JSON.parse(t)];}catch{return [];}}).filter(e=>e.type==='change');
+    checks.push({slot:'select-input-events',visible:true,events,expectedSelectChanges,pass:events.length===expectedSelectChanges&&events.every(e=>e.id===component.componentId&&e.source===state.inputProtocol)});
+    for(const part of state.parts.filter(p=>p.role==='option-icon')){
+     const item=observed.popupItems?.find(i=>i.optionId===part.slot.slice('option-icon/'.length)),r=item?.iconBounds;
+     checks.push({slot:'select-icon-geometry/'+part.slot,visible:true,actual:r,expected:part.rect,pass:observed.popupOpen&&Boolean(r&&[r.x,r.y,r.width,r.height].every((v,i)=>Math.abs(v-part.rect[i])<.05))});
+    }
+    const find=n=>n.id===component.componentId?n:(n.children??[]).map(find).find(Boolean);
+    for(const option of find(bundle.document.root).props.options){
+     const text=observed.popupItems?.find(i=>i.optionId===option.id)?.text;
+     checks.push({slot:'select-option-label/'+option.id,visible:true,actual:text,expected:option.label,pass:text===option.label||Boolean(text?.endsWith('…')&&text.length>1&&option.label.startsWith(text.slice(0,-1)))});
+    }
+   }
+   if(component.componentType==='Input'){
+    const observed=await get();const events=(await page.locator('#events li').allTextContents()).flatMap(t=>{try{return [JSON.parse(t)];}catch{return [];}});
+    const blocked=['readonly','disabled'].includes(state.name);
+    checks.push({slot:'input-value-events',visible:true,events,actualValue:observed.value,pass:observed.value===state.value&&(blocked?!events.some(e=>e.id===component.componentId&&['input','change'].includes(e.type)):state.name==='initial'||before.value===state.value||events.some(e=>e.id===component.componentId&&['input','change'].includes(e.type)))});
+    const editor=inputEditorEvidence;
+    checks.push({slot:'native-focus',visible:true,editor,pass:state.name==='initial'||Boolean(editor&&(state.name==='disabled'?!editor.focused:editor.focused))});
+    const labels=observed.renderedTextBounds??[];
+    const findNode=n=>n.id===component.componentId?n:(n.children??[]).map(findNode).find(Boolean);
+    const props=findNode(bundle.document.root).props,expectedText=state.value||props.placeholder;
+    checks.push({slot:'runtime-input-text',visible:true,labels,expectedText,pass:state.name==='limit'?labels.some(l=>l.text.startsWith('Q')):expectedText?labels.some(l=>l.text===expectedText):!labels.some(l=>l.text)});
+   }
    if(state.scroll){
     const children=await page.evaluate(()=>window.uiHarness.inspect().nodes);
     for(const expected of state.scroll.children){const actual=children.find(n=>n.id===expected.id)?.bounds;
@@ -175,14 +309,24 @@ try{
     const parsed=events.flatMap(t=>{try{return [JSON.parse(t)];}catch{return [];}});
     checks.push({slot:'input-event',visible:true,inputProtocol:state.inputProtocol,events:parsed,pass:parsed.some(e=>e.id===component.componentId&&e.type==='change'&&e.source===state.inputProtocol&&e.value===state.value)});
    }
+   if(component.selectMenuHighlights){
+    const find=n=>n.id===component.componentId?n:(n.children??[]).map(find).find(Boolean);
+    checks.push(...await verifySelectMenuHighlights({page,canvas,at,node:find(bundle.document.root),observed:await get(),resources:Object.fromEntries(bundle.resources.map(r=>[r.path,r.base64])),saveScreenshot:async phase=>{const path=`menu-${shotIndex}-${phase}.png`,bytes=await canvas.screenshot({path:resolve(output,path)});return {path,bytes,sha256:hash(bytes)};}}));
+   }
    const snapshot=await get();results.push({componentId:component.componentId,state:state.name,inputProtocol:state.inputProtocol,focusedCapture,actualValue:snapshot.value,presentation,screenshot:screenshotPath,screenshotSha256:hash(screenshot),checks});
-   await page.mouse.up();if(component.componentType==='Select')await click([before.bounds.x+before.bounds.width/2,before.bounds.y+before.bounds.height/2]);
+   await page.mouse.up();if(component.componentType==='Select'){await canvas.focus();await page.keyboard.press('Escape');}
+   if(selectIcons){
+    await page.waitForFunction(id=>{const n=window.uiHarness.inspect().nodes.find(n=>n.id===id);return !n.popupOpen&&!n.popupBounds&&n.popupItems.length===0;},component.componentId);
+    const closed=await get(),name=`closed-${shotIndex}.png`,bytes=await canvas.screenshot({path:resolve(output,name)});
+    checks.push({slot:'select-popup-destroyed',visible:true,screenshot:name,sha256:hash(bytes),pass:closed.value===state.value&&!closed.popupOpen&&closed.popupItems.length===0&&!closed.popupBounds});
+   }
    if(checks.some(c=>c.visible&&!c.occluded&&!c.pass))throw Error('STATE_BROWSER_PIXELS_MISMATCH');
   }
+  if(component.boundTextProbes)for(const probe of component.boundTextProbes.slice(1))await probeText(probe);
  }
  if(errors.length)throw Error('STATE_BROWSER_RUNTIME_ERROR');
 }catch(e){failure=e.message;process.exitCode=2;}
 finally{
  await browser?.close();await new Promise(r=>server.close(r));
- await writeFile(resolve(output,'browser.json'),JSON.stringify({kind:'ui_state_browser_v1',status:failure?'failed':'technical_passed',error:failure,results,bundleSha256:hash(bytes),matrixSha256:hash(await readFile(resolve(output,'state-matrix.json'))),human_visual_acceptance:false},null,2)+'\n');
+ await writeFile(resolve(output,'browser.json'),JSON.stringify({kind:'ui_state_browser_v1',status:failure?'failed':matrix.acceptanceScope?.mode==='targeted'?'targeted_passed':'technical_passed',acceptanceScope:matrix.acceptanceScope,error:failure,results,bundleSha256:hash(bytes),matrixSha256:hash(await readFile(resolve(output,'state-matrix.json'))),human_visual_acceptance:false},null,2)+'\n');
 }

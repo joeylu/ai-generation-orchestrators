@@ -8,6 +8,8 @@
  * compression method are rejected before resource bytes are exposed.
  */
 import type { ResourceInput } from './bundle.ts';
+import { validateRuntimeBundle } from './runtime-bundle.ts';
+import { referencePaths, validateReferenceEvidence, type ReferenceEvidence } from './reference-evidence.ts';
 
 export const MAX_DECOMPOSITION_ARCHIVE_BYTES = 256 * 1024 * 1024;
 export const MAX_DECOMPOSITION_ENTRY_BYTES = 256 * 1024 * 1024;
@@ -519,6 +521,8 @@ export async function importDecompositionZip(input: Uint8Array): Promise<Importe
 }
 
 export interface ImportedComponentHandoffArchive {
+  readonly runtimeBundle?: import('./bundle.ts').UiBundle;
+  readonly referenceEvidence: ReferenceEvidence;
   readonly archiveSha256: string;
   readonly decomposition: ImportedDecomposition;
   readonly componentBundle: Readonly<Record<string, unknown>>;
@@ -541,10 +545,14 @@ export async function importComponentHandoffArchive(input: Uint8Array): Promise<
   const bundleMember = archive.members.get('component.ui-bundle.json');
   const bindingMember = archive.members.get('appearance-binding.json');
   if (!manifestMember || !bundleMember || !bindingMember) fail('COMPONENT_HANDOFF_REQUIRED_MEMBER');
-  const manifest = exactObject(readJson(manifestMember, 'COMPONENT_HANDOFF_MANIFEST_JSON'),
-    ['kind', 'status', 'decomposition', 'component_bundle', 'appearance_binding', 'delivery_policy', 'human_visual_acceptance'],
+  const rawManifest = readJson(manifestMember, 'COMPONENT_HANDOFF_MANIFEST_JSON');
+  const v2 = rawManifest.kind === 'ai_ui_component_handoff_v2';
+  const v21 = v2 && rawManifest.schemaVersion === '2.1';
+  const manifest = exactObject(rawManifest,
+    ['kind', 'status', 'decomposition', 'component_bundle', 'appearance_binding', 'delivery_policy', 'human_visual_acceptance', ...(v2 ? ['schemaVersion', 'reference'] : []), ...(v21 ? ['runtime_bundle'] : [])],
     'COMPONENT_HANDOFF_MANIFEST');
-  if (manifest.kind !== 'ai_ui_component_handoff_v1') fail('COMPONENT_HANDOFF_KIND');
+  if (!v2 && manifest.kind !== 'ai_ui_component_handoff_v1') fail('COMPONENT_HANDOFF_KIND');
+  if (v2 && ((!v21 && manifest.schemaVersion !== '2.0') || manifest.human_visual_acceptance !== false)) fail('REFERENCE_VERSION_OR_ACCEPTANCE');
   const policy = manifest.delivery_policy;
   if (policy !== 'reviewed' && policy !== 'unreviewed_draft') fail('COMPONENT_HANDOFF_POLICY');
   const accepted = boolean(manifest.human_visual_acceptance, 'COMPONENT_HANDOFF_ACCEPTANCE');
@@ -561,7 +569,11 @@ export async function importComponentHandoffArchive(input: Uint8Array): Promise<
   if (!/^decomposition\/[a-z][a-z0-9_-]{0,63}(?:\.draft)?\.zip$/.test(decompositionEntry.path)) fail('COMPONENT_HANDOFF_DECOMPOSITION');
   const bundleEntry = entry(manifest.component_bundle, 'component.ui-bundle.json', 'COMPONENT_HANDOFF_BUNDLE');
   const bindingEntry = entry(manifest.appearance_binding, 'appearance-binding.json', 'COMPONENT_HANDOFF_BINDING');
-  const names = ['appearance-binding.json', 'component.ui-bundle.json', decompositionEntry.path, 'handoff.json'].sort();
+  const runtimeEntry = v21 ? entry(manifest.runtime_bundle, 'runtime.ui-bundle.json', 'RUNTIME_BUNDLE_ENTRY') : undefined;
+  let referenceNames: string[] = [];
+  if (v2) { try { referenceNames = referencePaths(manifest.reference); } catch (error) { fail((error as Error).message); } }
+  const names = ['appearance-binding.json', 'component.ui-bundle.json', decompositionEntry.path, 'handoff.json', ...referenceNames, ...(runtimeEntry ? [runtimeEntry.path] : [])].sort();
+  if (referenceNames.some(name => !archive.members.has(name))) fail('REFERENCE_MEMBER_MISSING');
   if (archive.names.length !== names.length || archive.names.some((name, index) => name !== names[index])) fail('COMPONENT_HANDOFF_INVENTORY');
   const decompositionMember = archive.members.get(decompositionEntry.path);
   if (!decompositionMember) fail('COMPONENT_HANDOFF_DECOMPOSITION');
@@ -573,9 +585,27 @@ export async function importComponentHandoffArchive(input: Uint8Array): Promise<
     || decomposition.review.deliveryPolicy !== policy
     || decomposition.review.humanVisualAcceptance !== accepted) fail('COMPONENT_HANDOFF_DECOMPOSITION_MISMATCH');
   const componentBundle = freeze(readJsonBounded(bundleMember, 'COMPONENT_HANDOFF_BUNDLE_JSON', MAX_COMPONENT_HANDOFF_JSON_BYTES));
+  if (componentBundle.bundleVersion === '0.3' || Object.hasOwn(componentBundle, 'componentHandoff')) fail('RECURSIVE_COMPONENT_HANDOFF');
   const appearanceBinding = freeze(readJson(bindingMember, 'COMPONENT_HANDOFF_BINDING_JSON'));
-  return freeze({ archiveSha256: await sha256(raw), decomposition, componentBundle, appearanceBinding,
+  let runtimeBundle;
+  if (runtimeEntry) {
+    const member = archive.members.get(runtimeEntry.path)!;
+    await verifyDigest(member.bytes, runtimeEntry.sha256, 'RUNTIME_BUNDLE_DIGEST');
+    runtimeBundle = await validateRuntimeBundle(readJsonBounded(member, 'RUNTIME_BUNDLE_JSON', MAX_COMPONENT_HANDOFF_JSON_BYTES), componentBundle);
+  }
+  let referenceEvidence: ReferenceEvidence = { status: 'missing_reference_evidence', visualComparisonReady: false, unknownFields: [], humanVisualAcceptance: false, files: [] };
+  if (v2) {
+    try { referenceEvidence = await validateReferenceEvidence(manifest.reference as Record<string, unknown>, archive.members, componentBundle.document as Record<string, unknown>, bytes => readJson({ name: 'reference', bytes }, 'REFERENCE_JSON_INVALID')); }
+    catch (error) { fail((error as Error).message); }
+  }
+  return freeze({ archiveSha256: await sha256(raw), decomposition, componentBundle, appearanceBinding, referenceEvidence, runtimeBundle,
     review: { deliveryPolicy: policy, humanVisualAcceptance: accepted } });
+}
+
+/** Copies of ZIP entries, only after the complete handoff has passed validation. */
+export async function componentHandoffEntries(input: Uint8Array): Promise<Map<string, Uint8Array>> {
+  await importComponentHandoffArchive(input);
+  return new Map([...parseZip(input, MAX_COMPONENT_HANDOFF_ARCHIVE_BYTES).members].map(([name, member]) => [name, new Uint8Array(member.bytes)]));
 }
 
 /**

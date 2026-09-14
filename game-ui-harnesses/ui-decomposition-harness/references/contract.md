@@ -140,13 +140,15 @@ explicit nine-slice contract uses its separately reviewed cap geometry instead.
 - `reuse_scaled`: reuse one accepted important component with uniform scaling by default;
   it creates no provider request and cannot chain through another reuse asset.
 
-Generated isolation accepts `transparent_component` or the legacy
-`keyed_component` output mode. New automatic plans select `transparent_component`.
-Its provider result must contain both fully transparent and fully opaque pixels;
+Generated isolation accepts `keyed_component` (new automatic default) or explicit
+`transparent_component`. Keyed generation requires a uniform solid `#F808F8`
+background, with no checkerboard or simulated transparency. The declared key is
+validated before global removal, including enclosed holes. The existing input
+pixel cap remains in force; no image-derived key guessing is allowed.
+For explicit native transparency, the result must contain transparent and opaque pixels;
 processing normalizes and fits that Alpha directly and never applies the magenta
 matte. An opaque RGB image or rendered checkerboard is rejected before processing.
-The legacy keyed mode remains available for existing plans and adapters and retains
-its input-pixel cap and global `#F808F8` removal behavior.
+Existing plan modes remain unchanged; changing mode requires a new frozen plan.
 
 `source_crop` and `reuse_scaled` have `prompt: null`. Generated routes require a
 prompt. `source_asset` is present only for `reuse_scaled`.
@@ -204,6 +206,16 @@ Corner preservation is relative to the fitted generated material, not a promise
 of recovering the original reference's pixels. Old runtimes reject this new field;
 plans without it remain compatible.
 # State text colors in component delivery
+
+## Explicit contain margin
+
+`resize: {"mode":"contain","insets":[1,1,1,1]}` uniformly fits an existing
+component inside the target canvas after matte/contain, then places it inside
+explicit transparent margins (left, top, right, bottom, positive target pixels).
+It does not erase corners, infer a matte or stretch a pictogram. Target dimensions
+must exceed opposing inset sums. `preserve_alpha_margin` is nine-slice-only.
+Plans without this mode keep their previous processing. Bind the choice before
+freeze; existing raw results may be reused because it is deterministic resizing.
 
 Tabs may additionally supply `states.tabs.icons`, with one entry per tabId and
 explicit `iconLayout`/`activeIconLayout` in target-item-local coordinates. Each tab

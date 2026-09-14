@@ -52,13 +52,19 @@ class SliderStateTests(unittest.TestCase):
     def test_scientific_python_notation_matches_consumer_fixed_notation(self):
         node = fixture(); node['props'].update(min=0, max=.00002, step=.00001)
         self.assertEqual(slider_geometry(node, 'middle')['value'], .00001)
-        # Current public snapSlider derives precision from the exponent string.
+        # Scientific steps retain their actual decimal precision.
         node['props'].update(min=0, max=.00000024, step=.00000012)
-        self.assertEqual(slider_geometry(node, 'middle')['value'], 0)
+        self.assertEqual(slider_geometry(node, 'middle')['value'], .00000012)
 
     def test_to_fixed_binary_half_tie_matches_consumer(self):
         node = fixture(); node['props'].update(min=.125, max=1.125, step=.01)
-        self.assertEqual(slider_geometry(node, 'min')['value'], .13)
+        self.assertEqual(slider_geometry(node, 'min')['value'], .125)
+
+    def test_endpoint_stays_on_declared_lattice(self):
+        node=fixture();node['props'].update(min=0,max=10,step=4)
+        self.assertEqual(slider_geometry(node,'max')['value'],8)
+        node['props'].update(min=.5,max=4.5,step=1)
+        self.assertEqual(slider_geometry(node,'middle')['value'],2.5)
 
     def test_invalid_ranges_fail(self):
         for value in [None, True, 0, -1, float('nan')]:

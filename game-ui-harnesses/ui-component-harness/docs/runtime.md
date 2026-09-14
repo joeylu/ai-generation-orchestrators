@@ -62,6 +62,27 @@ only for a one-pixel invisible Input editor. Pixi draws the visible input while
 the hidden editor supplies focus, keyboard input, paste, selection behavior,
 and IME composition. It is removed during teardown.
 
+Input values preserve leading and trailing whitespace, including intermediate
+editing states. The contract still enforces string type and maxLength. It does
+not trim user input when taking a snapshot or exporting a bundle.
+
+The v0.2 canvas supports keyboard navigation with a visible Pixi focus outline.
+Tab and Shift+Tab traverse available controls in document order; at the ends,
+focus can leave the canvas for the surrounding page. Hidden, disabled and
+modal-blocked controls are skipped. Enter/Space press and release Button once;
+moving focus, disabling the target, Escape or window blur cancels a held press.
+Enter/Space toggle Switch and CheckBox or open/close Select. Arrow keys and
+Home/End change RadioGroup, List, Tabs, Select and Slider values; ScrollView
+supports arrows and Home/End. Select arrow changes commit immediately; Escape
+closes the popup without rolling back the selection. Input uses its native
+editing bridge and keeps browser text-editing shortcuts. Activation, change and
+scroll events from these handlers identify their source as keyboard.
+This is keyboard-operability support, not a screen-reader or WCAG certification.
+
+The engineering workbench defaults to fitting the canvas within its center pane,
+beside the inspector. Numeric zoom remains available and scrolls within that pane.
+The consumer Studio maintains its own fitting behavior.
+
 Button, Switch, CheckBox, RadioGroup, Input, Select, ProgressBar, Slider, List, ScrollView,
 Tabs, Dialog, Panel, Image, Text, and Container all have concrete Pixi
 rendering. Select options are Pixi popup rows in a tree-scope overlay, so their
@@ -69,7 +90,29 @@ hit testing is not clipped by the Select base rectangle or covered by sibling
 controls. ScrollView masks its content and supports wheel scrolling plus
 mouse, pen, and touch drag scrolling. A drag commits on pointer release and
 restores its starting position when cancelled. Raster ScrollViews also map
-direct dragging of the authored scrollbar thumb to the complete scroll range. List has explicit
+direct dragging of the authored scrollbar thumb to the complete scroll range.
+Content panning starts after 6 CSS pixels of pointer travel; smaller movement is
+a click without incidental scroll. A claimed drag suppresses Pixi's subsequent
+tap, including boundary and zero-range drags. Child Button/CheckBox/Select presses
+yield to a content drag after the threshold and cancel their press feedback;
+Slider and the nearest nested ScrollView retain their own drag. Thumb movement
+has no content click threshold, preserving fine control on short travel ranges.
+The painted scrollbar owns its hit surface above children; empty track and end
+decorations do not pan or select content. Escape/blur/pointer cancellation restores
+the drag origin and suppresses the trailing tap. A valid programmatic ScrollView
+assignment or wheel input cancels the old gesture before taking ownership, so a
+later pointer release cannot overwrite the newer value. These are runtime input
+rules; they add no document fields or inferred content.
+Wheel `deltaMode` is normalized before range clamping: pixel mode (0) retains
+the existing numeric delta in logical canvas units, line mode (1) uses 40 logical
+units per line on either axis (the same policy as keyboard arrows), and page
+mode (2) uses the receiving ScrollView's width for X and height for Y. A logical
+line here is an input step, not an inferred List row height or source-image fact.
+Signs and fractional units are preserved. Invalid modes, nonfinite deltas and
+overflowing conversions are ignored without mutating values or emitting scroll.
+Valid events remain contained at boundaries and in zero-range/nested views;
+only actual value changes emit a scroll event. No handoff upgrade is required.
+List has explicit
 `text-row` layout. Tabs hide every
 non-active content child. A modal Dialog blocks background handlers and draws a
 Pixi overlay; it does not invent a dismiss action. Slider drag previews are

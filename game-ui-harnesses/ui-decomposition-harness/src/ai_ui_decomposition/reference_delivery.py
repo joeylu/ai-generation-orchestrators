@@ -79,14 +79,15 @@ def validate_mapping(mapping, image_size, canvas):
 
 def validate_states(state, scope, document):
     exact(state, ['kind', 'schemaVersion', 'components'], 'REFERENCE_STATE_SCHEMA')
-    require(state['kind'] == 'ui-reference-state' and state['schemaVersion'] == '1.0' and isinstance(state['components'], list), 'REFERENCE_STATE_SCHEMA')
+    require(state['kind'] == 'ui-reference-state' and state['schemaVersion'] in ('1.0', '1.1') and isinstance(state['components'], list), 'REFERENCE_STATE_SCHEMA')
     by_id = nodes(document); seen = set(); unknown = []
     for row in state['components']:
         exact(row, ['componentId', 'componentType', 'fields'], 'REFERENCE_STATE_SCHEMA')
         cid = row['componentId']; node = by_id.get(cid)
         require(node is not None and cid not in seen and row['componentType'] == node['type'] and node['type'] in FIELDS, 'REFERENCE_STATE_COMPONENT')
         seen.add(cid); props = node['props']; kind = node['type']
-        exact(row['fields'], FIELDS[kind], 'REFERENCE_STATE_FIELDS')
+        editing = state['schemaVersion'] == '1.1' and kind == 'Input'
+        exact(row['fields'], FIELDS[kind] + (['focused', 'selectionStart', 'selectionEnd', 'selectionDirection', 'caretVisible'] if editing else []), 'REFERENCE_STATE_FIELDS')
         for field, evidence in row['fields'].items():
             require(isinstance(evidence, dict), 'REFERENCE_STATE_EVIDENCE')
             if evidence.get('status') == 'unknown':
@@ -96,8 +97,13 @@ def validate_states(state, scope, document):
             exact(evidence, ['status', 'value', 'evidence'], 'REFERENCE_STATE_EVIDENCE')
             require(evidence['status'] == 'observed' and isinstance(evidence['evidence'], str) and evidence['evidence'].strip(), 'REFERENCE_STATE_EVIDENCE')
             value = evidence['value']
-            if field in ('checked', 'popupOpen', 'open'):
+            if field in ('checked', 'popupOpen', 'open', 'focused', 'caretVisible'):
                 require(type(value) is bool, 'REFERENCE_STATE_VALUE')
+            elif field in ('selectionStart', 'selectionEnd'):
+                limit = len(row['fields']['value']['value'].encode('utf-16-le'))//2 if row['fields']['value']['status'] == 'observed' else props['maxLength']
+                require(type(value) is int and 0 <= value <= limit, 'REFERENCE_STATE_SELECTION')
+            elif field == 'selectionDirection':
+                require(value in ('forward', 'backward', 'none'), 'REFERENCE_STATE_SELECTION')
             elif field in ('activeId', 'selectedId'):
                 options = props['tabs' if kind == 'Tabs' else 'items' if kind == 'List' else 'options']
                 require((value is None and kind != 'Tabs') or (isinstance(value, str) and value in [x['id'] for x in options]), 'REFERENCE_STATE_OPTION')
@@ -110,6 +116,20 @@ def validate_states(state, scope, document):
                 if kind == 'Slider':
                     steps = (value-low)/props['step']
                     require(abs(steps-round(steps)) < 1e-6, 'REFERENCE_STATE_VALUE')
+        if editing:
+            def known(key):
+                field = row['fields'][key]
+                return field['value'] if field['status'] == 'observed' else None
+            require(props['inputType'] in ('text', 'password'), 'REFERENCE_INPUT_EDITING_UNSUPPORTED')
+            a, b = known('selectionStart'), known('selectionEnd')
+            require(a is None or b is None or a <= b, 'REFERENCE_STATE_SELECTION')
+            if a is not None and a == b and known('selectionDirection') is not None:
+                require(known('selectionDirection') == 'none', 'REFERENCE_STATE_SELECTION')
+            if known('focused') is True:
+                require(props.get('enabled') is not False, 'REFERENCE_INPUT_DISABLED_FOCUS')
+            if known('caretVisible') is True:
+                require(known('focused') is True and not props['readOnly'] and a is not None and a == b, 'REFERENCE_CARET_CONFLICT')
+    require(sum(1 for r in state['components'] if r['componentType'] == 'Input' and r['fields'].get('focused', {}).get('status') == 'observed' and r['fields']['focused'].get('value') is True) <= 1, 'REFERENCE_MULTIPLE_FOCUSED_INPUTS')
     require(seen == {cid for cid, node in by_id.items() if node['type'] in FIELDS}, 'REFERENCE_STATE_COVERAGE')
     exact(scope, ['kind', 'schemaVersion', 'referenceState', 'components', 'derivedTestStates', 'human_visual_acceptance'], 'ACCEPTANCE_SCOPE_SCHEMA')
     require(scope['kind'] == 'ui-acceptance-scope' and scope['schemaVersion'] == '1.0' and scope['referenceState'] == 'reference/reference-state.json' and scope['human_visual_acceptance'] is False, 'ACCEPTANCE_SCOPE_SCHEMA')

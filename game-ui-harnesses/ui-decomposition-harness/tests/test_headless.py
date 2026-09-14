@@ -76,7 +76,8 @@ class FakeProvider:
         if read_json(bundle / "handoff.json")["asset"] == "scene":
             picture = Image.new("RGB", (48, 48) if self.wrong_ratio else (64, 48), "#17314a")
         else:
-            picture = Image.new("RGBA", (80, 60), (0, 0, 0, 0))
+            mode=read_json(bundle / "handoff.json")['expected_result']['output_mode']
+            picture = Image.new("RGBA", (80, 60), (248, 8, 248, 255) if mode=='keyed_component' else (0, 0, 0, 0))
             ImageDraw.Draw(picture).rectangle((10, 12, 69, 47), fill="#db9b31")
         result = state_dir / "raw.png"
         picture.save(result)
@@ -127,15 +128,15 @@ class HeadlessTests(unittest.TestCase):
         self.assertEqual((self.provider.vision_calls, self.provider.quality_calls,
                           self.provider.image_calls), (1, 1, 2))
 
-    def test_automatic_component_uses_native_transparency_without_key_removal(self):
+    def test_automatic_component_defaults_to_explicit_key_removal(self):
         result = self.run_job()
         self.assertEqual(result["status"], "completed_visual_qa_draft")
         plan = read_json(self.job / "project/plan.json")
         component = next(asset for asset in plan["assets"] if asset["id"] == "button")
-        self.assertEqual(component["output_mode"], "transparent_component")
+        self.assertEqual(component["output_mode"], "keyed_component")
         prompt = (self.job / "workspace/runs/automatic/requests/automatic-ui-button-r001/prompt.txt").read_text()
-        self.assertIn("genuinely transparent", prompt)
-        self.assertNotIn("#F808F8", prompt)
+        self.assertIn("#F808F8", prompt)
+        self.assertNotIn("genuinely transparent", prompt)
 
     def test_opaque_component_result_is_terminal_instead_of_silently_matted(self):
         original = self.provider.generate
@@ -147,7 +148,9 @@ class HeadlessTests(unittest.TestCase):
                 Image.new("RGB", (80, 60), "white").save(path)
                 return path
             return original(bundle, state_dir=state_dir, timeout=timeout)
-        with patch.object(self.provider, "generate", side_effect=opaque_component):
+        materialize=planning.materialize
+        def explicit_native(*args,**kwargs):return materialize(*args,**kwargs,component_output_mode='transparent_component')
+        with patch.object(self.provider, "generate", side_effect=opaque_component),patch.object(planning,'materialize',side_effect=explicit_native):
             result = self.run_job()
         self.assertEqual(result["status"], "failed_no_resubmit")
         self.assertEqual(result["reason"], "TRANSPARENT_RESULT_REQUIRED")
@@ -854,11 +857,11 @@ class McpAdapterTests(unittest.TestCase):
         self.assertFalse(read_json(state / "outcome.json")["automatic_resubmit"])
         self.assertTrue((state / "rpc-0000/response.bin").exists())
 
-    def image_bundle(self, asset="scene"):
+    def image_bundle(self, asset="scene", component_output_mode='keyed_component'):
         project = self.root / "project"
         project.mkdir()
         Image.new("RGB", (64, 48), "blue").save(project / "reference.png")
-        planning.materialize(json.dumps(proposal()), project, [64, 48], 4)
+        planning.materialize(json.dumps(proposal()), project, [64, 48], 4,component_output_mode=component_output_mode)
         batch.freeze(project / "plan.json", self.root / "work", "test")
         run = self.root / "work/runs/test"
         if asset == "button":
@@ -871,7 +874,7 @@ class McpAdapterTests(unittest.TestCase):
         return bundle
 
     def test_transparent_component_uses_prompt_only_imagegen_contract(self):
-        bundle = self.image_bundle("button")
+        bundle = self.image_bundle("button",component_output_mode='transparent_component')
         stream = io.BytesIO()
         Image.new("RGBA", (80, 60), (0, 0, 0, 0)).save(stream, format="PNG")
         payload = stream.getvalue()

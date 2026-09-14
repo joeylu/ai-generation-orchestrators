@@ -11,9 +11,48 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+Apply [bounded delivery and focused verification](docs/execution-efficiency-v1.md)
+to every new sample. Separate sample execution from tool development, diagnose
+affected controls before full interaction/Studio roundtrip, and run final full
+acceptance after the candidate stabilizes. Targeted checks never publish an
+accepted ZIP. Record phase timings and honor the local acceptance deadline;
+never weaken quality gates or retry generation to meet a latency target.
+
+For an explicitly user-requested single-approval draft with conditional replacements,
+use [bounded execution](docs/bounded-execution-v1.md). Freeze every candidate prompt
+and the shared budget before authorization. Replacements are distinct pre-approved
+single-use requests, never resubmissions of unknown jobs. A user-approved keyed
+route is the default for new plans: fixed solid #F808F8 followed by deterministic
+local matte. Native transparency requires an explicit plan choice; never silently
+change a frozen route or promote a provider merely because its version changed.
+
+Before freezing a new reference sample, follow [component capability preflight](docs/capability-preflight-v1.md). Declare every required layout/state profile, run capability-check, and pass that plan-bound request to freeze --capabilities. Do not omit unsupported profiles to pass; type coverage is not variant coverage.
+
+
+When a Slider or ProgressBar has visible numeric text, or a List has a visible
+selected-item text label (consumer contract 1.1), follow
+[value text integration](docs/value-text-bindings-v1.md). Declare its explicit
+source/target relationship using the consumer contract, attach it through the
+official CLI, and test actual rendered text after real input. Do not leave a
+fixed reference numeral beside a changing control or infer bindings from names.
+
 When delivering Select/Tabs appearance states, preserve confirmed optional
 `fieldTextColor`/`activeTextColor` as described in references/contract.md.
 Never infer state text colors from runtime luminance or bake text into art.
+For explicit Select selected/hover backgrounds, follow
+[menu highlight integration](docs/select-menu-highlights-v1.md). Preserve the
+consumer's versioned menuHighlights and popupContentLayout, with selected taking
+priority over hover. No inferred palette or new default for legacy packages.
+For vertical Tabs, use the consumer's explicit versioned
+[Tabs layout policy](docs/tabs-layout-v1.md), preserving native per-tab geometry,
+state assets and independent content layouts. Never infer direction or replace
+Tabs with buttons to bypass a missing capability.
+For Tabs background ownership use the consumer's
+[Tabs background contract](../ui-component-harness/docs/tabs-background-v1.md):
+author semantic props.drawBackground=false when the parent Panel owns the exposed
+background. Keep tab/state PNGs transparent and preserve icons/text/hit regions.
+Do not add a states.tabs synonym or remove the plate globally for old packages.
+Check actual exposed corner pixels against the parent, not only PNG Alpha.
 ScrollView source thumb texture height must not determine contentHeight or final
 thumb length: supply observed viewport/content semantics and track geometry.
 For decorated tracks use [scrollbar end insets](docs/scrollbar-insets-v1.md), measured
@@ -23,6 +62,11 @@ Explicitly authorized content-bottom whitespace follows
 [bottom-space planning](docs/scroll-bottom-space-v1.md). It changes existing
 contentHeight only, preserves original unknown scroll evidence, and must never
 be applied as a default 20px overflow policy.
+Every new ScrollView must explicitly record bottom whitespace (including zero
+with a reason). For Panel footer controls, declare the measured inner border and
+minimum gap; check it with layout_spacing.check_layout_spacing before packaging.
+Do not substitute outer-frame containment for usable-area padding. Keep text and
+buttons separate, and verify the applied runtime document against the same plan.
 
 For an explicitly authorized unattended draft, use `auto-run` and the configured
 optional provider as described in [docs/headless.md](docs/headless.md). It consumes
@@ -59,7 +103,9 @@ coverage or human acceptance.
    icons and state parts in separate cells and deliver independent PNG bindings.
    The legacy v1 strategy still separates controls from comparable icon boards;
    never reinterpret an old authorization. Strict extraction rejects missing,
-   displaced or clipped parts; it does not automatically recover cell drift.
+   displaced or clipped parts. New keyed plans may explicitly select the bounded
+   relative-cell extraction profile in that document before authorization; old
+   fixed-cell plans are never reinterpreted.
    Nine-slice is only for reviewed empty stretchable bases; it must not distort
    pictograms or progress segment divisions.
 3. When continuing from completed raw results, use `result-binding` and the
@@ -74,9 +120,11 @@ coverage or human acceptance.
    one returned image. If the call may have been accepted but its outcome is
    unknown, run `indeterminate` and stop; never resubmit automatically.
 4. Run `process`. Inspect `materials/contact-sheet.png` and the individual RGBA
-   files. New automatic component requests require native transparent PNG output
-   and preserve its Alpha without chroma-key removal. Legacy plans that explicitly
-   use `keyed_component` still remove magenta globally, including enclosed holes.
+   files. New automatic component requests use `keyed_component`: generate a
+   uniform solid #F808F8 background, validate the declared key, then remove it
+   globally, including enclosed holes. Never request a rendered checkerboard or
+   infer a replacement key from the image. Explicit `transparent_component`
+   plans preserve real Alpha and fail if the provider returns opaque artwork.
    Reused components are scaled uniformly and centered by default. Explicit
    nine-slice resizing is available for stretchable empty bases; choose fitted
    foreground insets in the plan rather than stretching pictograms or products.
@@ -126,6 +174,10 @@ user-managed container, read
 
 ## Boundaries
 
+For user-approved functional drafts, use [functional material audit](docs/functional-material-audit-v1.md)
+to collect all material defects and separate cosmetic warnings from functional blockers.
+Its offline repair proposal does not authorize generation or replace runtime acceptance.
+
 - The model quality gate can withhold an unattended draft, but it is not human
   visual acceptance and does not establish perfect semantic importance or fidelity.
 - Keep this Harness isolated. Do not alter another Harness, its environment, or
@@ -148,6 +200,15 @@ warnings do not trigger automatic repairs. After full stateful acceptance, run
 `studio-acceptance` for real input and persistence, then the final delivery-check.
 Unsupported Studio profiles require an explicit specialized result, never a silent
 skip. Studio display-scale screenshots must not be treated as native pixel oracles.
+
+For ScrollView thumb cap preservation, follow [source-pixel thumb slices](docs/scrollbar-thumb-slices-v1.md)
+and the linked sole consumer contract. Measure each authenticated PNG; never copy
+fixture cut lines or scale source-pixel caps during registration. Keep valid track
+insets and real proportional scroll geometry. Missing stretchable art is a gap.
+
+Text Input uses the [bounded native-input profile](docs/stateful-input-v1.md).
+Keep observed content separate from QA strings; never infer caret, IME, non-text
+input types or error-skin coverage from ordinary text-entry tests.
 
 Switch ON/OFF art must use the existing consumer stateImages 1.0 extension; see
 [Switch delivery](docs/switch-state-images-v1.md). Never infer colors or silently
@@ -184,3 +245,18 @@ establish these visual-layout guarantees.
 Only a fresh receipt directory whose browser verification succeeded contains the
 accepted draft ZIP copy. Deliver its matrix and browser receipts alongside it.
 Keep `human_visual_acceptance: false`; final visual acceptance remains human.
+
+For static Panel delivery follow [Panel delivery](docs/panel-delivery-v1.md). Bind a complete frame once; never overlay duplicate header/body crops. Use the current consumer optional-header capability and report visual fidelity separately from static runtime checks.
+
+For Select popup option icons follow [Select option icons](docs/select-option-icons-v1.md)
+and its linked consumer contract. Use optionId-bound optionIcons with explicit safe-row
+icon/label layouts. Preserve full PNG alpha padding and contain aspect ratio; never
+bake menu icons into popup backgrounds or simulate them with field Image overlays.
+Keep unknown reference state unknown; obtain fresh plan authorization before new media.
+
+Standard freeze with Panel/ScrollView capabilities requires --component-document
+and --layout-spacing. Standard component-handoff (including Python API) requires
+spacing plan 1.1 for ScrollView or direct Panel buttons, validates the final tree,
+and rejects missing decisions before export. Explicitly classify header buttons
+through nonFooterButtons; standalone plan 1.0 cannot satisfy this gate. See
+[required spacing entry gates](docs/scroll-bottom-space-v1.md).

@@ -4,6 +4,9 @@ import { createPreview, type Preview, type ButtonInstance } from './pixi-adapter
 import { HarnessError, validateButton, type ButtonContract } from './contract.ts';
 import { validateButtonIntent, validatePreviewPolicy } from './intent-compiler.ts';
 import { createTreePreview, type TreePreview, type TreeRuntimeEvent } from './tree-runtime.ts';
+import { replayReferenceState } from './reference-replay.ts';
+import { validatePersistedHandoff, exportReferenceHandoff, type PersistedHandoff } from './reference-persistence.ts';
+import type { ReferenceEvidence } from './reference-evidence.ts';
 import { validateDocument, walkNodes, type UiDocument, type UiNode } from './tree-contract.ts';
 import { compileTree, validateTreeIntent, validateTreePolicy, type ImageFactsMap } from './tree-compiler.ts';
 import { createBundle, validateBundle, bundleResources, type ResourceInput, type BundleProvenance } from './bundle.ts';
@@ -23,6 +26,7 @@ const canonical = (source: string) => source.startsWith('./') ? source.slice(2) 
 let tree: TreePreview | undefined, legacy: Preview | undefined, legacyInstance: ButtonInstance | undefined;
 let currentDocument: UiDocument | ButtonContract | undefined;
 let provenance: BundleProvenance = { kind: 'programmatic-fixture', description: 'Explicit procedural engineering fixture; not vision recognition.' };
+let componentHandoff: PersistedHandoff | undefined;
 let controller: AbortController | undefined, generation = 0, selectedId = '', activates = 0;
 const activationCounts = new Map<string, number>();
 let motion: MotionPlayer | undefined, currentMotion: MotionDocument | undefined;
@@ -165,7 +169,7 @@ async function mountTree(documentInput: unknown, request: ReturnType<typeof begi
     await preview.load(contract, request.signal, async (source, signal) => {
       const existing = decoded.get(source); return existing ?? decode(await resource(source, signal), signal);
     }, async (source, signal) => new Uint8Array((await resource(source, signal)).bytes).buffer);
-    request.check(); preview.setZoom(Number(el<HTMLSelectElement>('zoom').value)); currentDocument = contract;
+    request.check(); currentDocument = contract; applyWorkbenchZoom();
     selectedId = contract.root.id; el('lifecycle').textContent = '运行中'; el('render-info').textContent = 'PixiJS · WebGL';
     el<HTMLButtonElement>('export-bundle').disabled = false; el<HTMLButtonElement>('show-dialog').disabled = contract.id !== 'fixture-gallery';
     el<HTMLButtonElement>('legacy-probes').disabled = true; sync();
@@ -206,7 +210,7 @@ async function loadLegacy(contract?: ButtonContract) {
       const result = await legacy.loadIntent(input, policy, request.signal, () => {}, imageResolver); legacyInstance = result.instance; currentDocument = result.compilation.contract;
     }
     request.check(); legacyInstance.subscribe(value => { if (value.type === 'activate') activates++; log(value, value.type); sync(); });
-    legacy.setZoom(Number(el<HTMLSelectElement>('zoom').value)); el('lifecycle').textContent = '运行中'; el('render-info').textContent = 'PixiJS · v0.1 Button';
+    applyWorkbenchZoom(); el('lifecycle').textContent = '运行中'; el('render-info').textContent = 'PixiJS · v0.1 Button';
     el('canvas-title').textContent = 'v0.1 整图 Button'; el('source-note').textContent = provenance.description;
     el<HTMLButtonElement>('legacy-probes').disabled = !!contract; el<HTMLButtonElement>('export-bundle').disabled = false; sync();
   } catch (error) { if (request.ticket === generation) report(error); throw error; }
@@ -221,7 +225,7 @@ async function exportBundle() {
     if (node.type === 'Image') needed.add(node.props.source);
     if (node.type === 'Button' && node.props.backgroundImage) needed.add(node.props.backgroundImage);
     if (node.type === 'Button' && node.props.appearance) needed.add(node.props.appearance.backgroundImage);
-    if (node.type === 'Switch' && node.props.appearance) { needed.add(node.props.appearance.trackImage); needed.add(node.props.appearance.thumbImage); }
+    if (node.type === 'Switch' && node.props.appearance) { needed.add(node.props.appearance.trackImage); needed.add(node.props.appearance.thumbImage); if (node.props.appearance.stateImages) for (const key of ['off', 'on'] as const) { needed.add(node.props.appearance.stateImages[key].trackImage); needed.add(node.props.appearance.stateImages[key].thumbImage); } }
     if (node.type === 'Select' && node.props.appearance) { needed.add(node.props.appearance.fieldImage); needed.add(node.props.appearance.arrowImage); needed.add(node.props.appearance.popupImage); }
     if (node.type === 'CheckBox' && node.props.appearance) { needed.add(node.props.appearance.box.image); needed.add(node.props.appearance.mark.image); }
     if (node.type === 'RadioGroup' && node.props.appearance) for (const item of node.props.appearance.items) { needed.add(item.option.image); needed.add(item.indicator.image); }
@@ -231,14 +235,14 @@ async function exportBundle() {
     if (node.type === 'Container' && node.props.appearance) needed.add(node.props.appearance.background.image);
     if (node.type === 'ScrollView' && node.props.appearance) { needed.add(node.props.appearance.viewport.image); needed.add(node.props.appearance.scrollbarTrack.image); needed.add(node.props.appearance.scrollbarThumbImage); }
     if (node.type === 'List' && node.props.appearance) { needed.add(node.props.appearance.backgroundImage); needed.add(node.props.appearance.rowImage); needed.add(node.props.appearance.selectedRowImage); }
-    if (node.type === 'Panel' && node.props.appearance) { needed.add(node.props.appearance.background.image); needed.add(node.props.appearance.header.image); if (node.props.appearance.body) needed.add(node.props.appearance.body.image); }
-    if (node.type === 'Dialog' && node.props.appearance) { needed.add(node.props.appearance.background.image); needed.add(node.props.appearance.header.image); needed.add(node.props.appearance.body.image); if (node.props.appearance.overlayImage) needed.add(node.props.appearance.overlayImage); }
-    if (node.type === 'Tabs' && node.props.appearance) { needed.add(node.props.appearance.tabImage); needed.add(node.props.appearance.activeTabImage); }
+    if (node.type === 'Panel' && node.props.appearance) { needed.add(node.props.appearance.background.image); if (node.props.appearance.header) needed.add(node.props.appearance.header.image); if (node.props.appearance.body) needed.add(node.props.appearance.body.image); }
+    if (node.type === 'Dialog' && node.props.appearance) { needed.add(node.props.appearance.background.image); needed.add(node.props.appearance.header.image); if (node.props.appearance.body) needed.add(node.props.appearance.body.image); if (node.props.appearance.overlayImage) needed.add(node.props.appearance.overlayImage); }
+    if (node.type === 'Tabs' && node.props.appearance) { needed.add(node.props.appearance.tabImage); needed.add(node.props.appearance.activeTabImage); for (const item of node.props.appearance.items ?? []) { needed.add(item.tabImage); needed.add(item.activeTabImage); } }
     if (node.type === 'Text' && node.props.fontSource) needed.add(node.props.fontSource);
   }
   const signal = controller?.signal ?? new AbortController().signal;
   const data = await Promise.all([...needed].map(source => resource(source, signal)));
-  return createBundle(contract, data, provenance, timeline, system);
+  return createBundle(contract, componentHandoff ? [...resources.values()] : data, provenance, timeline, system, componentHandoff);
 }
 async function importBundle(input: unknown) {
   invalidate(); const ticket = generation;
@@ -248,6 +252,7 @@ async function importBundle(input: unknown) {
   if (bundle.document.schemaVersion === '0.1') await loadLegacy(bundle.document); else await loadDocument(bundle.document);
   if (bundle.motion) { el<HTMLTextAreaElement>('motion-editor').value = json(bundle.motion); applyMotion(); }
   if (bundle.motionSystem) setMotionSystem(bundle.motionSystem);
+  componentHandoff = bundle.componentHandoff;
   el('source-note').textContent = `组件包 · ${provenance.description}`; log({ type: 'bundle-import', id: bundle.document.id });
   return bundle.document;
 }
@@ -340,7 +345,7 @@ for (const button of document.querySelectorAll<HTMLButtonElement>('[data-tab]'))
 el('load-example').addEventListener('click', action(loadExample));
 el('compile').addEventListener('click', action(async () => { const input = parse('intent-editor'); provenance = { kind: 'user-provided', description: '导入或编辑的严格 intent · 布局来源由显式 policy 记录' }; if ((input as { intentVersion?: string })?.intentVersion === '0.1') { const validated = validateButtonIntent(input); Object.assign(legacyIntent, validated); Object.assign(legacyPolicy, validatePreviewPolicy(parse('policy-editor'))); await loadLegacy(); } else { await compile(input); } }));
 el('destroy').addEventListener('click', action(() => { invalidate(); el('lifecycle').textContent = '已销毁'; el('render-info').textContent = '无实例'; }));
-el('zoom').addEventListener('change', action(() => { const zoom = Number(el<HTMLSelectElement>('zoom').value); tree?.setZoom(zoom); legacy?.setZoom(zoom); sync(); }));
+el('zoom').addEventListener('change', action(() => { applyWorkbenchZoom(); sync(); }));
 el('show-dialog').addEventListener('click', action(() => { tree?.setValue('dialog', true); sync(); }));
 el('node-enabled').addEventListener('change', action(() => { const value = el<HTMLInputElement>('node-enabled').checked; if (tree) tree.setEnabled(selectedId, value); else legacyInstance?.setEnabled(value); sync(); }));
 el('set-node-value').addEventListener('click', action(() => { if (!tree) throw new Error('NO_TREE'); tree.setValue(selectedId, JSON.parse(el<HTMLInputElement>('node-value').value)); sync(); }));
@@ -348,7 +353,7 @@ el('clear-events').addEventListener('click', () => { el('events').replaceChildre
 el('asset-files').addEventListener('change', action(async () => { const input = el<HTMLInputElement>('asset-files'); try { await importAssets([...(input.files ?? [])]); } finally { input.value = ''; } }));
 el('use-image').addEventListener('click', action(useImage));
 el('intent-file').addEventListener('change', action(async () => { const file = el<HTMLInputElement>('intent-file').files?.[0]; if (file) { if (file.size > 4 * 1024 * 1024) throw new Error('INTENT_SIZE_LIMIT'); const input = JSON.parse(await file.text()); if (input.intentVersion === '0.1') validateButtonIntent(input); else validateTreeIntent(input); el<HTMLTextAreaElement>('intent-editor').value = json(input); log('intent 已导入；配置明确布局后编译'); } }));
-el('bundle-file').addEventListener('change', action(async () => { const file = el<HTMLInputElement>('bundle-file').files?.[0]; if (file) { if (file.size > 100 * 1024 * 1024) throw new Error('BUNDLE_SIZE_LIMIT'); await importBundle(JSON.parse(await file.text())); } }));
+el('bundle-file').addEventListener('change', action(async () => { const file = el<HTMLInputElement>('bundle-file').files?.[0]; if (file) { if (file.size > 550 * 1024 * 1024) throw new Error('BUNDLE_SIZE_LIMIT'); await importBundle(JSON.parse(await file.text())); } }));
 el('document-file').addEventListener('change', action(async () => {
   const input = el<HTMLInputElement>('document-file'), file = input.files?.[0];
   try { if (file) { if (file.size > 4 * 1024 * 1024) throw new Error('DOCUMENT_SIZE_LIMIT'); await importDocument(JSON.parse(await file.text())); } }
@@ -381,7 +386,10 @@ const api = {
   inspect: () => tree?.inspect() ?? { instances: legacy?.inspect().instances ?? 0, externalListeners: legacy?.inspect().externalListeners ?? 0, resources: legacyInstance ? 1 : 0, nodes: [] },
   getDocument: () => tree ? tree.getDocument() : currentDocument && structuredClone(currentDocument),
   loadDocument, importDocument, compile, importBundle, exportBundle, importAssets, loadExample,
+  exportReferenceHandoff: async () => exportReferenceHandoff(await exportBundle()),
+  replaySavedReferenceState: async () => { const saved = await exportBundle(); const evidence = await validatePersistedHandoff(saved.componentHandoff, saved); if (!tree) throw new Error('NO_TREE'); const result = replayReferenceState(evidence, tree); sync(); return result; },
   setValue: (id: string, value: unknown) => { if (!tree) throw new Error('NO_TREE'); tree.setValue(id, value); sync(); },
+  replayReferenceState: (evidence: ReferenceEvidence) => { if (!tree) throw new Error('NO_TREE'); const result = replayReferenceState(evidence, tree); sync(); return result; },
   setEnabled: (id: string, value: boolean) => { if (!tree) throw new Error('NO_TREE'); tree.setEnabled(id, value); sync(); },
   setVisible: (id: string, value: boolean) => { if (!tree) throw new Error('NO_TREE'); tree.setVisible(id, value); sync(); },
   destroyNode: (id: string) => { if (!tree) throw new Error('NO_TREE'); tree.destroyNode(id); sync(); },
@@ -399,3 +407,19 @@ const api = {
 declare global { interface Window { uiHarness: typeof api } }
 window.uiHarness = api;
 await loadExample().catch(error => { if (!(error instanceof DOMException && error.name === 'AbortError')) report(error); });
+
+function applyWorkbenchZoom() {
+  const choice = el<HTMLSelectElement>('zoom').value;
+  tree?.setZoom(choice === 'fit' ? 1 : Number(choice));
+  legacy?.setZoom(choice === 'fit' ? 1 : Number(choice));
+  const canvas = el('canvas-host').querySelector('canvas');
+  if (!canvas) return;
+  const area = document.querySelector<HTMLElement>('.canvas-area')!;
+  const style = getComputedStyle(area);
+  const available = area.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const scale = choice === 'fit' ? Math.min(1, Math.max(1, available) / canvas.width) : 1;
+  canvas.style.width = canvas.width * scale + 'px'; canvas.style.height = canvas.height * scale + 'px';
+}
+const canvasAreaResize = new ResizeObserver(() => { if (el<HTMLSelectElement>('zoom').value === 'fit') applyWorkbenchZoom(); });
+canvasAreaResize.observe(document.querySelector('.canvas-area')!);
+window.addEventListener('pagehide', () => canvasAreaResize.disconnect(), { once: true });

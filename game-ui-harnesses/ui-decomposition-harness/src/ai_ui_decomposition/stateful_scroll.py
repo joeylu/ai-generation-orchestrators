@@ -6,6 +6,7 @@ or guesses additional content to fit a short thumb image.
 import math
 from .common import require
 from .scrollbar_insets import validate_insets
+from .scrollbar_thumb_slices import validate_thumb_slices
 
 
 def scroll_geometry(node, amount):
@@ -15,6 +16,7 @@ def scroll_geometry(node, amount):
     require(cw<=w and p.get('scrollX',0)==0,'STATE_CAPABILITY_MISSING:HORIZONTAL_SCROLL')
     require(a['sourceCanvas']=={'width':w,'height':h},'STATE_GEOMETRY_MISMATCH')
     track=a['scrollbarTrack']['layout'];thumb=a['scrollbarThumbCanvas'];positions=a['scrollbarThumbPositions']
+    if 'scrollbarThumbSlices' in a:validate_thumb_slices(a['scrollbarThumbSlices'],thumb['height'],'scrollbarInsets' in a)
     require(all(type(v) in (int,float) and math.isfinite(v) for r in (track,thumb,positions['min'],positions['max']) for v in r.values()),'STATE_SCROLL_GEOMETRY_INVALID')
     require(track['width']>0 and track['height']>0 and thumb['width']>0 and thumb['height']>0,'STATE_SCROLL_GEOMETRY_INVALID')
     # Current runtime expands short texture templates, while preserving a larger
@@ -41,4 +43,5 @@ def scroll_geometry(node, amount):
             'contentWidth':cw,'viewport':a['viewport']['layout'],'track':track,
             'thumbPositions':positions,'sourceThumbCanvas':thumb,
             'sizingRule':('scrollbar-insets-v1:max(source-height,usable-height*viewport/content),clamped-to-usable-track' if 'scrollbarInsets' in a else 'current-runtime:max(source-height,track-height*viewport/content),clamped-to-track'),
-            **({'scrollbarInsets':a['scrollbarInsets']} if 'scrollbarInsets' in a else {})}
+            **({'scrollbarInsets':a['scrollbarInsets']} if 'scrollbarInsets' in a else {}),
+            **({'scrollbarThumbSlices':a['scrollbarThumbSlices']} if 'scrollbarThumbSlices' in a else {})}

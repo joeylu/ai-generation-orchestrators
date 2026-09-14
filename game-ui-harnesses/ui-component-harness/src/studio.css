@@ -881,6 +881,8 @@ body[data-busy="true"] .studio-status::before {
 
 .main-preview {
   display: grid;
+  /* Its viewport must not grow from the canvas that fit() sizes against it. */
+  contain: size;
   place-items: center;
   width: 100%;
   overflow: auto;
@@ -942,6 +944,7 @@ body[data-busy="true"] .studio-status::before {
 }
 
 .preview-host {
+  contain: size;
   display: grid;
   min-width: 0;
   min-height: 220px;
@@ -1168,3 +1171,11 @@ button:active:not(:disabled),
 #decomposition-panel button { margin: 6px 0; padding: 8px 12px; max-width: 100%; }
 #decomposition-panel .section-copy { overflow-wrap: anywhere; }
 #decomposition-layers { max-height: 180px; overflow: auto; padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }
+/* Evidence comparison stays below the live stage and uses its full width. */
+#reference-evidence-panel:not(:empty) { margin-top: 24px; padding: 20px; border: 1px solid #dedce8; border-radius: 16px; background: #fff; overflow-wrap: anywhere; }
+#reference-evidence-panel > div:first-of-type { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+#reference-evidence-panel button, #reference-evidence-panel select { min-height: 36px; max-width: 100%; padding: 7px 12px; border: 1px solid #d9d5e7; border-radius: 8px; background: #f8f7fc; color: #353147; font: inherit; }
+#reference-evidence-panel button { cursor: pointer; }
+#reference-evidence-panel button:disabled { cursor: wait; opacity: .6; }
+#reference-evidence-panel figcaption { margin: 8px 0; font-size: 14px; }
+#reference-evidence-panel canvas, #reference-evidence-panel img { cursor: zoom-in; }

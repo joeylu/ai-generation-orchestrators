@@ -23,6 +23,29 @@ def parser() -> argparse.ArgumentParser:
     composition = commands.add_parser('composition-check', help='Evidence-bound background ownership and advisory visible row spacing')
     for name in ('bundle','screenshot','plan','output'):
         composition.add_argument('--'+name,required=True,type=Path)
+    capability = commands.add_parser('capability-check', help='Check explicit component layout/state requirements before media generation')
+    capability.add_argument('--request', required=True, type=Path)
+    capability.add_argument('--output', required=True, type=Path)
+    approval=commands.add_parser('execution-authorize',help='Record explicit approval for a frozen bounded request envelope; no generation')
+    approval.add_argument('--run-dir',required=True,type=Path)
+    approval.add_argument('--approval',required=True)
+    issue=commands.add_parser('execution-issue',help='Record a hash-bound blocking observation for a known returned result')
+    issue.add_argument('--run-dir',required=True,type=Path)
+    for field in ('asset','category','evidence'):issue.add_argument('--'+field,required=True)
+    select=commands.add_parser('execution-select',help='Select successful frozen requests into a zero-call reuse plan')
+    for field in ('run-dir','source-plan','output'):select.add_argument('--'+field,required=True,type=Path)
+    value_text = commands.add_parser('value-text-handoff', help='Attach explicit valueTextBindings through the official consumer CLI')
+    for name in ('source', 'bindings', 'component-root', 'output'):
+        value_text.add_argument('--'+name, required=True, type=Path)
+    repair = commands.add_parser('material-repair-plan', help='Compile an offline replacement plan; no generation')
+    for name in ('run-dir', 'source-plan', 'audit', 'output'):
+        repair.add_argument('--'+name, required=True, type=Path)
+    repair.add_argument('--id', required=True)
+    repair.add_argument('--reuse-source-run', action='append', type=Path, default=[])
+    audit = commands.add_parser('material-audit', help='Offline functional material triage; no compute or export approval')
+    audit.add_argument('--run-dir', required=True, type=Path)
+    audit.add_argument('--output', required=True, type=Path)
+    audit.add_argument('--observations', type=Path)
     strategy = commands.add_parser("material-strategy", help="Separate control geometry from comparable icon boards; no generation")
     strategy.add_argument("--observations", required=True, type=Path)
     strategy.add_argument("--output", required=True, type=Path)
@@ -45,6 +68,10 @@ def parser() -> argparse.ArgumentParser:
     freeze.add_argument("--plan", required=True, type=Path)
     freeze.add_argument("--workspace", required=True, type=Path)
     freeze.add_argument("--run", required=True)
+    freeze.add_argument('--capabilities', type=Path, help='Explicit plan-bound component capability request; unsupported profiles block freeze')
+    freeze.add_argument('--component-document',type=Path,help='Semantic document/bundle for required spacing preflight')
+    freeze.add_argument('--layout-spacing',type=Path,help='Explicit producer spacing plan 1.1')
+    freeze.add_argument('--execution-policy',type=Path,help='Frozen conditional replacement requests and bounded compute envelope')
     for name in ("reserve", "receive", "indeterminate"):
         command = commands.add_parser(name)
         command.add_argument("--run-dir", required=True, type=Path)
@@ -85,6 +112,7 @@ def parser() -> argparse.ArgumentParser:
     component_handoff.add_argument("--delivery", required=True, type=Path)
     component_handoff.add_argument("--component-bundle", required=True, type=Path)
     component_handoff.add_argument("--appearance-binding", required=True, type=Path)
+    component_handoff.add_argument('--layout-spacing',type=Path,help='Required spacing plan 1.1 for ScrollView or Panel buttons')
     component_handoff.add_argument('--legacy-without-reference', action='store_true', help='Explicitly export a legacy runtime-only package, not visual-comparison ready')
     for option in ('reference-original', 'reference-state', 'acceptance-scope', 'reference-mapping', 'reference-derived'):
         component_handoff.add_argument('--' + option, type=Path)
@@ -134,6 +162,28 @@ def execute(args) -> dict:
     if args.command=='composition-check':
         from .studio_acceptance import run_composition
         return run_composition(args.bundle.resolve(),args.screenshot.resolve(),args.plan.resolve(),args.output.resolve())
+    if args.command=='execution-authorize':
+        from .bounded_execution import authorize
+        return authorize(args.run_dir,args.approval)
+    if args.command=='execution-issue':
+        from .bounded_execution import issue
+        return issue(args.run_dir,args.asset,args.category,args.evidence)
+    if args.command=='execution-select':
+        from .bounded_execution import select_plan
+        return select_plan(args.run_dir,args.source_plan,args.output)
+    if args.command == 'capability-check':
+        from .capabilities import check_file
+        return check_file(args.request,args.output)
+    if args.command == 'value-text-handoff':
+        from .value_text_handoff import attach
+        return attach(args.source.resolve(), args.bindings.resolve(), args.component_root.resolve(), args.output.resolve())
+    if args.command == 'material-repair-plan':
+        from .material_repair import compile_plan
+        return compile_plan(args.run_dir.resolve(), args.source_plan.resolve(), args.audit.resolve(),
+                            args.output.resolve(), args.id, args.reuse_source_run)
+    if args.command == 'material-audit':
+        from .material_audit import audit
+        return audit(args.run_dir.resolve(), args.output.resolve(), args.observations)
     if args.command == "material-strategy":
         from .material_strategy import write_strategy
         return write_strategy(args.observations,args.output)
@@ -151,7 +201,8 @@ def execute(args) -> dict:
         return export_component_handoff(args.delivery, args.component_bundle,
                                         args.appearance_binding, reference_original=args.reference_original,
                                         reference_state=args.reference_state, acceptance_scope=args.acceptance_scope,
-                                        reference_mapping=args.reference_mapping, reference_derived=args.reference_derived)
+                                        reference_mapping=args.reference_mapping, reference_derived=args.reference_derived,
+                                        layout_spacing=args.layout_spacing)
     if args.command == 'switch-state-handoff':
         from .switch_handoff import rebind
         return rebind(args.source.resolve(), args.binding.resolve(), args.component_root.resolve(), args.output.resolve())
@@ -187,7 +238,7 @@ def execute(args) -> dict:
         plan_path = args.plan.resolve()
         return validate(read_json(plan_path), source_base=plan_path.parent)
     if args.command == "freeze":
-        return batch.freeze(args.plan, args.workspace, args.run)
+        return batch.freeze(args.plan, args.workspace, args.run, capability_request=args.capabilities, execution_policy=args.execution_policy, component_document=args.component_document, layout_spacing=args.layout_spacing)
     run = getattr(args, "run_dir", None)
     if run is not None:
         run = run.resolve()
@@ -234,7 +285,7 @@ def main(argv=None) -> int:
     try:
         result = execute(args)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 2 if result.get("status") in {"failed_no_resubmit", "failed_visual_qa"} else 0
+        return 2 if result.get("status") in {"failed_no_resubmit", "failed_visual_qa", "needs_repair", "capability_blocked"} else 0
     except ContractError as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc)}, ensure_ascii=False, sort_keys=True))

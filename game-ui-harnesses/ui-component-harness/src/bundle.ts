@@ -1,8 +1,10 @@
+import { treeResourceReferences } from './tree-resources.ts';
+import { validatePersistedHandoff, type PersistedHandoff } from './reference-persistence.ts';
 import { validateButton, type ButtonContract } from './contract.ts';
 import { validateMotion, type MotionDocument } from './motion.ts';
 import { validateMotionSystem, type MotionSystemDocument } from './motion-system.ts';
 import { validateResourceReference, ResourceReferenceError } from './resource-reference.ts';
-import { validateDocument, walkNodes, type UiDocument } from './tree-contract.ts';
+import { validateDocument, type UiDocument } from './tree-contract.ts';
 
 /** These caps make imported browser bundles bounded before any bytes are used. */
 export const MAX_BUNDLE_RESOURCES = 256;
@@ -28,12 +30,13 @@ export interface BundleProvenance {
   description: string;
 }
 export interface UiBundle {
-  bundleVersion: '0.1' | '0.2';
+  bundleVersion: '0.1' | '0.2' | '0.3';
   document: ButtonContract | UiDocument;
   resources: BundleResource[];
   provenance: BundleProvenance;
   motion?: MotionDocument;
   motionSystem?: MotionSystemDocument;
+  componentHandoff?: PersistedHandoff;
 }
 export interface BundleIssue { path: string; code: string; message: string }
 export class BundleError extends Error {
@@ -147,36 +150,10 @@ function validateDocumentForBundle(input: unknown): ButtonContract | UiDocument 
 }
 function requiredSources(document: ButtonContract | UiDocument): string[] {
   if (document.schemaVersion === '0.1') return [document.slots.visual.props.source];
-  const sources: string[] = [];
-  for (const node of walkNodes(document)) {
-    const props = node.props as unknown as Record<string, unknown>;
-    for (const field of ['source', 'fontSource', 'backgroundImage']) {
-      const source = props[field];
-      if (source !== undefined) {
-        if (typeof source !== 'string') fail(`$.document.${node.id}.props.${field}`, 'SOURCE_REQUIRED', '资源引用必须为字符串');
-        sources.push(source);
-      }
-    }
-    if (node.type === 'Switch' && node.props.appearance) {
-      sources.push(node.props.appearance.trackImage, node.props.appearance.thumbImage);
-    }
-    if (node.type === 'Button' && node.props.appearance) sources.push(node.props.appearance.backgroundImage);
-    if (node.type === 'Select' && node.props.appearance) {
-      sources.push(node.props.appearance.fieldImage, node.props.appearance.arrowImage, node.props.appearance.popupImage);
-    }
-    if (node.type === 'CheckBox' && node.props.appearance) sources.push(node.props.appearance.box.image, node.props.appearance.mark.image);
-    if (node.type === 'RadioGroup' && node.props.appearance) for (const item of node.props.appearance.items) sources.push(item.option.image, item.indicator.image);
-    if (node.type === 'Input' && node.props.appearance) sources.push(node.props.appearance.backgroundImage);
-    if (node.type === 'ProgressBar' && node.props.appearance) sources.push(node.props.appearance.track.image, node.props.appearance.fill.image);
-    if (node.type === 'Slider' && node.props.appearance) sources.push(node.props.appearance.track.image, node.props.appearance.fill.image, node.props.appearance.thumbImage);
-    if (node.type === 'Container' && node.props.appearance) sources.push(node.props.appearance.background.image);
-    if (node.type === 'Panel' && node.props.appearance) {
-      sources.push(node.props.appearance.background.image, node.props.appearance.header.image);
-      if (node.props.appearance.body) sources.push(node.props.appearance.body.image);
-    }
-  }
-  return sources;
+  const { imageSources, fontSources } = treeResourceReferences(document);
+  return [...imageSources, ...fontSources.values()];
 }
+
 function assertResourceInput(value: unknown, path: string): ResourceInput {
   const data = record(value, path, ['path', 'mime', 'bytes']);
   const declaredPath = nonempty(data.path, `${path}.path`);
@@ -238,12 +215,13 @@ export async function createBundle(
   provenance: BundleProvenance,
   motion?: unknown,
   motionSystem?: unknown,
+  componentHandoff?: PersistedHandoff,
 ): Promise<UiBundle> {
   const validatedDocument = validateDocumentForBundle(document);
   const inputs = inputResources(resources);
   assertRequiredSources(validatedDocument, new Set(inputs.map(sourceMapKey)));
   const output: UiBundle = {
-    bundleVersion: motionSystem === undefined ? '0.1' : '0.2',
+    bundleVersion: componentHandoff ? '0.3' : motionSystem === undefined ? '0.1' : '0.2',
     document: validatedDocument,
     resources: await Promise.all(inputs.map(async resource => ({
       id: resource.path,
@@ -262,13 +240,15 @@ export async function createBundle(
     if (validatedDocument.schemaVersion !== '0.2') fail('$.motionSystem', 'MOTION_REQUIRES_V02', '动效体系只能附着在 v0.2 UI 文档');
     output.motionSystem = validateMotionSystem(motionSystem, validatedDocument);
   }
+  if (componentHandoff) output.componentHandoff = componentHandoff;
   return validateBundle(output);
 }
 
 /** Validate bytes, checksum, path safety, document and optional motion. */
 export async function validateBundle(input: unknown): Promise<UiBundle> {
-  const data = record(input, '$', ['bundleVersion', 'document', 'resources', 'provenance'], ['motion', 'motionSystem']);
-  if (data.bundleVersion !== '0.1' && data.bundleVersion !== '0.2') fail('$.bundleVersion', 'UNSUPPORTED_VERSION', '仅支持 bundle 0.1 / 0.2');
+  const data = record(input, '$', ['bundleVersion', 'document', 'resources', 'provenance'], ['motion', 'motionSystem', 'componentHandoff']);
+  if (!['0.1', '0.2', '0.3'].includes(data.bundleVersion as string)) fail('$.bundleVersion', 'UNSUPPORTED_VERSION', '仅支持 bundle 0.1 / 0.2 / 0.3');
+  if ((data.bundleVersion === '0.3') !== Object.hasOwn(data, 'componentHandoff')) fail('$.componentHandoff', 'BUNDLE_VERSION_REQUIRED', '参考交付附件需要 bundle 0.3');
   if (data.bundleVersion === '0.1' && Object.hasOwn(data, 'motionSystem')) fail('$.motionSystem', 'BUNDLE_VERSION_REQUIRED', '动效体系需要 bundle 0.2');
   if (data.bundleVersion === '0.2' && !Object.hasOwn(data, 'motionSystem')) fail('$.motionSystem', 'REQUIRED', 'bundle 0.2 必须包含动效体系');
   const document = validateDocumentForBundle(data.document);
@@ -302,7 +282,7 @@ export async function validateBundle(input: unknown): Promise<UiBundle> {
     resources.push({ id, path: resourcePath, mime, sha256: sha256Value, base64: resource.base64 as string });
   }
   assertRequiredSources(document, paths);
-  const output: UiBundle = { bundleVersion: data.bundleVersion, document, resources, provenance: validateProvenance(data.provenance) };
+  const output: UiBundle = { bundleVersion: data.bundleVersion as UiBundle['bundleVersion'], document, resources, provenance: validateProvenance(data.provenance) };
   if (Object.hasOwn(data, 'motion')) {
     if (document.schemaVersion !== '0.2') fail('$.motion', 'MOTION_REQUIRES_V02', '动效只能附着在 v0.2 UI 文档');
     output.motion = validateMotion(data.motion, document);
@@ -310,6 +290,10 @@ export async function validateBundle(input: unknown): Promise<UiBundle> {
   if (Object.hasOwn(data, 'motionSystem')) {
     if (document.schemaVersion !== '0.2') fail('$.motionSystem', 'MOTION_REQUIRES_V02', '动效体系只能附着在 v0.2 UI 文档');
     output.motionSystem = validateMotionSystem(data.motionSystem, document);
+  }
+  if (data.componentHandoff !== undefined) {
+    await validatePersistedHandoff(data.componentHandoff, output);
+    output.componentHandoff = structuredClone(data.componentHandoff) as PersistedHandoff;
   }
   const verified = deepFreeze(output);
   verifiedBundles.add(verified);

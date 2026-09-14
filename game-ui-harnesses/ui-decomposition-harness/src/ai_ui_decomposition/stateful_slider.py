@@ -7,15 +7,7 @@ from .common import require
 def _consumer_precision(step):
     # ECMAScript String(number) uses fixed notation for [1e-6, 1e21), unlike
     # Python's str(1e-5). Its scientific exponents do not have leading zeros.
-    token = str(step)
-    if 1e-6 <= step < 1e21:
-        token = format(Decimal(token), 'f')
-        if '.' in token: token = token.rstrip('0').rstrip('.')
-    elif 'e' in token:
-        mantissa, exponent = token.split('e')
-        token = mantissa.rstrip('0').rstrip('.') if '.' in mantissa else mantissa
-        token += 'e' + ('+' if int(exponent) >= 0 else '-') + str(abs(int(exponent)))
-    return min(12, len(token.split('.')[1]) if '.' in token else 0)
+    return max(0, -Decimal(str(step)).normalize().as_tuple().exponent)
 
 
 def _consumer_fixed(value, precision):
@@ -72,9 +64,17 @@ def slider_geometry(node, name):
             clip['y'] + clip['height'] <= layout['height'], 'STATE_SLIDER_GEOMETRY_INVALID')
     # Match the consumer's positive quotient Math.round, including half-step ties.
     target = {'min': low, 'middle': (low + high) / 2, 'max': high}[name]
-    snapped = low + math.floor((target - low) / step + .5) * step
-    precision = _consumer_precision(step)
-    value = min(high, max(low, _consumer_fixed(snapped, precision)))
+    aligned = lambda v: abs((v-low)/step-round((v-low)/step)) <= 2.220446049250313e-16*max(1,abs((v-low)/step))*8
+    span = (high-low)/step
+    require(math.isfinite(span), 'STATE_SLIDER_SEMANTICS_INVALID')
+    last = round(span) if aligned(high) else math.floor(span)
+    index = max(0,min(last,math.floor((target-low)/step+.5)))
+    snapped = low+index*step
+    precision = max(_consumer_precision(low),_consumer_precision(step))
+    rounded = _consumer_fixed(snapped,precision) if precision<=100 else snapped
+    value = rounded if low<=rounded<=high and aligned(rounded) else snapped
+    if not (low<=value<=high and aligned(value)) and index==last and aligned(high): value=high
+    require(low<=value<=high and aligned(value),'STATE_SLIDER_UNREPRESENTABLE')
     ratio = (value - low) / (high - low)
     x = start['x'] + (end['x'] - start['x']) * ratio
     return {'value': value, 'ratio': ratio, 'min': low, 'max': high, 'step': step,

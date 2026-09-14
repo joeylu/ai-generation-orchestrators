@@ -54,7 +54,8 @@ reuse chains or resize policies. Example of shape (replace numbers and content):
 
 
 def materialize(description: str, project: Path, canvas: list[int], maximum_calls: int,
-                *, output_format: str = "psd") -> dict:
+                *, output_format: str = "psd", component_output_mode: str = "keyed_component") -> dict:
+    require(component_output_mode in {'keyed_component','transparent_component'},'PLANNER_COMPONENT_OUTPUT_MODE')
     require(isinstance(description, str) and len(description.encode("utf-8")) <= 2_097_152,
             "PLANNER_RESPONSE_LIMIT")
     # Preserve the exact response for diagnosis, then use the same strict JSON reader
@@ -83,7 +84,7 @@ def materialize(description: str, project: Path, canvas: list[int], maximum_call
         if background:
             require(row["source_region"] == [0, 0, *canvas], "PLANNER_BACKGROUND_REGION")
         assets.append({**row, "route": "generated_completion" if background else "generated_isolation",
-                       "output_mode": "opaque_canvas" if background else "transparent_component",
+                       "output_mode": "opaque_canvas" if background else component_output_mode,
                        "source_asset": None})
     plan = {"kind": KIND, "id": "automatic-ui", "canvas": canvas,
             "source": {"path": "reference.png", "sha256": sha256(project / "reference.png"),

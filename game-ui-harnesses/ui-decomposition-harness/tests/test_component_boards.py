@@ -21,6 +21,17 @@ def paint(board,keyed=False):
 
 
 class BoardTests(unittest.TestCase):
+    def test_explicit_provider_canvas_packs_without_resizing_and_keeps_empty_space(self):
+        d=observations();d['packing_canvas']=[128,128];r=plan_boards(d);b=r['boards'][0]
+        self.assertEqual(b['canvas'],[128,128]);self.assertEqual(b['slots'][0]['crop'],[8,8,40,20])
+        self.assertEqual(b['slots'][1]['crop'],[64,8,40,20]);self.assertEqual(b['slots'][2]['crop'],[8,44,12,12])
+        parts,_=crop_board(paint(b),b,'transparent_component');self.assertEqual(parts['thumb'].size,(12,12));verify_strategy(r)
+
+    def test_provider_canvas_failures_are_precompute(self):
+        for canvas,code in [([32,32],'CANVAS_LIMIT'),([128,32],'CANVAS_LIMIT'),([True,128],'PACKING_CANVAS'),([128.5,128],'PACKING_CANVAS'),(None,'PACKING_CANVAS')]:
+            d=observations();d['packing_canvas']=canvas
+            with self.subTest(canvas=canvas),self.assertRaisesRegex(ContractError,code):plan_boards(d)
+
     def test_component_parts_share_board_and_other_groups_stay_separate(self):
         d=observations();d['assets'].append({**d['assets'][0],'id':'button','component_type':'Button','component_group':'button-blue'})
         r=plan_material_strategy(d);self.assertEqual(r['generation_request_count'],2)
@@ -96,3 +107,16 @@ class BoardTests(unittest.TestCase):
         frozen=read_json(run/'batch.json') if (run/'batch.json').exists() else batch.load(run)[0]
         (run/'requests'/frozen['requests']['button']['id']/'raw.png').write_bytes(before+b'tamper')
         with self.assertRaises(ContractError):extract(run,'button',strategy,b['id'],f.root/'tampered')
+class BoardRequestPromptTests(unittest.TestCase):
+    def test_board_inventory_is_not_recentered_as_one_component(self):
+        from ai_ui_decomposition.batch import _prompt
+        asset={'route':'generated_isolation','output_size':[774,822],'output_mode':'transparent_component',
+               'prompt':'Raw canvas 1024 x 1536. component-family-board-v1:'+('a'*64)+':list-board. Cells are fixed.'}
+        prompt=_prompt(asset)
+        self.assertIn('Raw canvas 1024 x 1536',prompt)
+        self.assertIn('every cell coordinate and size',prompt)
+        self.assertNotIn('Target support ratio',prompt)
+        self.assertNotIn('one complete component centered',prompt)
+        asset['prompt']='One empty list row.'
+        self.assertIn('Target support ratio is 774:822',_prompt(asset))
+        self.assertIn('one complete component centered',_prompt(asset))

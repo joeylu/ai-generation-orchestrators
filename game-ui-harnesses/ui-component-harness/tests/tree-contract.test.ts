@@ -46,6 +46,25 @@ function expectIssue(run: () => unknown, path: string, code?: string): void {
     && error.issues.some(issue => issue.path === path && (code === undefined || issue.code === code)));
 }
 
+test('List paint gap and background opt-out remain explicit and reject invalid gaps', () => {
+  const doc = legalDocument(); const list = walkNodes(doc).find(n => n.type === 'List');
+  assert.ok(list?.type === 'List'); list.props.rowGap = 5; list.props.drawBackground = false;
+  assert.doesNotThrow(() => validateDocument(doc));
+  for (const gap of [-1, 32, 33, NaN]) { list.props.rowGap = gap; assert.throws(() => validateDocument(doc)); }
+});
+
+test('Input preserves whitespace during editing while retaining its type and length limits', () => {
+  for (const value of [' ', ' Ada ', 'Ada ']) {
+    const document = legalDocument();
+    const input = walkNodes(document).find(node => node.id === 'input');
+    assert.ok(input?.type === 'Input'); input.props.value = value;
+    const validated = walkNodes(validateDocument(document)).find(node => node.id === 'input');
+    assert.ok(validated?.type === 'Input'); assert.equal(validated.props.value, value);
+    input.props.value = ' '.repeat(input.props.maxLength + 1);
+    assert.throws(() => validateDocument(document));
+  }
+});
+
 test('Text can opt out of background paint without making glyphs transparent', () => {
   const source = legalDocument() as any;
   assert.equal(Object.hasOwn(source.root.children[1].props, 'drawBackground'), false);

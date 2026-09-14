@@ -20,3 +20,13 @@ export * from './decomposition-import.ts';
 export * from './appearance-binding.ts';
 export * from './appearance-apply.ts';
 export * from './component-handoff.ts';
+export * from './reference-evidence.ts';
+export * from './reference-replay.ts';
+export * from './reference-persistence.ts';
+export * from './value-text-bindings.ts';
+export * from './value-text-handoff.ts';
+
+export { validateSelectOptionIcons, type SelectOptionIcons } from './select-option-icons.ts';
+export { validateSelectMenuHighlights, type SelectMenuHighlights, type SelectMenuHighlight } from './select-menu-highlights.ts';
+
+export * from './scrollbar-thumb-slices.ts';

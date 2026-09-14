@@ -41,6 +41,16 @@ component contract, binding geometry, role completeness, and all referenced PNG
 bytes before writing a new portable bundle. It refuses to overwrite an existing
 output.
 
+Studio also accepts this archive directly through **导入组件交付 ZIP**. It runs
+the same compiler and gates as the CLI, mounts the resulting interactive bundle,
+and displays the authenticated archive SHA-256 and upstream review declaration.
+`importComponentHandoffWithReview(bytes)` provides the compiled bundle and these
+metadata in one library call; `importAndApplyComponentHandoff` remains compatible.
+Failed or superseded imports cannot keep an old successful preview or disclosure.
+Successful import does not grant new human visual acceptance. External state
+screenshots and acceptance-scope files beside the ZIP are not imported by this
+entry; the existing handoff inventory contract is unchanged.
+
 The Studio can display the package's original `preview.png` as a static material
 check. A validated 0.2 binding can be applied to all 16 component types in the
 tree contract. Text pixels are authenticated for exact geometry but are not
@@ -190,6 +200,23 @@ Tabs may also bind one `icon` and one `active-icon` part for every `tabId`.
 required for every tab, so switching tabs cannot make an icon disappear or
 reuse another tab's artwork.
 
+For native unequal-width tabs, supply `states.tabs.items`, with exactly one entry
+per semantic tab: `{tabId, layout, labelLayout, hitArea}`. `layout` is an explicit
+`target-component-local` rectangle; `labelLayout` and `hitArea` are
+`target-item-local`. Cells begin at y=0, share the declared `headerHeight`, fit
+inside the component, and must not overlap. Gaps are permitted and do not respond
+to pointer selection. Each tab then requires its own `tab` and `active-tab` part
+with that `tabId`; both source layers must exactly match its native rectangle
+after the declared uniform registration. Icon geometry is measured inside its
+own cell. No per-cell stretching or guessed tab widths is performed.
+
+The consumed raster appearance carries `items` with explicit layouts, normal and
+active image paths/canvases and per-item text/hit areas. Existing top-level fields
+remain for compatibility and the compiler derives them from the first item. If
+`items` is absent, the original equal-cell contract and shared base pair are
+unchanged. Direct bundles validate every per-item resource and canvas, and the
+runtime draws and hit-tests the same declared geometry.
+
 `applyAppearanceBinding(targetBundle, imported, binding)` preserves target
 resources and motion documents, adds only referenced layer bytes, and returns a
 new validated bundle. Version 0.1 remains a compatibility validation format and
@@ -225,3 +252,19 @@ Visual acceptance remains separate from deterministic compilation.
 
 Offline executed evidence is recorded in [tasks.md](tasks.md). The repository
 retains dated verification reports separately from the public release archive.
+# Reference evidence v2
+
+The importer also accepts `ai_ui_component_handoff_v2` / schemaVersion `2.0`.
+It authenticates the original image, optional normalized derivatives, reference
+state, scope and mapping before exposing evidence. V1 import remains compatible
+but returns `referenceEvidence.status: missing_reference_evidence`, never readiness.
+The official CLI accepts `--reference-output <new-file>` and always reports
+reference readiness on stderr. Reference bytes remain separate from runtime bundle
+resources. See the producer's `docs/reference-handoff-v2.md` for schema and
+mapping order. The workbench API `replayReferenceState` restores observed fields,
+including an explicitly opened Select; unknown state never becomes an observation.
+Human visual acceptance remains false for v2.
+
+Switch per-state textures: see [versioned state images v1](switch-state-images-v1.md).
+
+Select popup per-option icon extension: [the sole v1.0 integration contract](select-option-icons-v1.md). Explicit optionId/layerId/layout; never infer from Choice labels.

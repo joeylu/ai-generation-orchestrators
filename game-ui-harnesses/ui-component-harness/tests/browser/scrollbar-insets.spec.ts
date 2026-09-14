@@ -1,0 +1,11 @@
+import {test,expect} from '@playwright/test';import {fixture} from '../helpers/scrollbar-insets-fixture.ts';import {applyAppearanceBinding} from '../../src/appearance-apply.ts';import {appearanceDocumentSha256} from '../../src/appearance-binding.ts';
+test('real wheel and thumb drag respect inset range with small and zero overflow',async({page},info)=>{
+ for(const height of [140,120]){const f=await fixture();f.target=structuredClone(f.target);const n:any=(f.target.document as any).root.children[0].children[0];n.props.contentHeight=height;n.props.scrollbarVisibility='always';f.binding.documentSha256=await appearanceDocumentSha256(f.target.document);f.binding.bindings[0].states.scrollView.scrollbarInsets={version:'1.0',top:20,bottom:20};const b=await applyAppearanceBinding(f.target,f.imported,f.binding);
+ await page.goto('/');await page.locator('#open-bundle').setInputFiles({name:'insets.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(b))});await page.waitForFunction(()=>window.uiStudio?.snapshot().ready);const canvas=page.locator('#main-preview canvas');await canvas.scrollIntoViewIfNeeded();const rect=await canvas.boundingBox();if(!rect)throw Error('canvas');const point=(x:number,y:number)=>({x:rect.x+x*rect.width/300,y:rect.y+y*rect.height/250});const at=point(80,90);await page.mouse.move(at.x,at.y);await page.mouse.wheel(0,20);await page.waitForTimeout(100);
+ let view=await page.evaluate(()=>window.uiStudio.snapshot().views[0]);expect((view.document as any).root.children[0].children[0].props.scrollY).toBe(height-120);
+ const a=point(147,100),end=point(147,66);await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:6});await page.mouse.up();
+ view=await page.evaluate(()=>window.uiStudio.snapshot().views[0]);expect((view.document as any).root.children[0].children[0].props.scrollY).toBe(0);
+ const paint=view.inspection.paintRegions!.filter(r=>r.componentId==='scroll');const thumb=paint.at(-1)!.bounds;expect(thumb.y).toBeGreaterThanOrEqual(65);expect(thumb.y+thumb.height).toBeLessThanOrEqual(135);
+ if(height===120)expect(view.events.filter(e=>e.id==='scroll'&&e.type==='scroll')).toHaveLength(0);else expect(view.events.some(e=>e.id==='scroll'&&e.type==='scroll')).toBe(true);
+ await canvas.screenshot({path:info.outputPath('content-'+height+'.png')});}
+});

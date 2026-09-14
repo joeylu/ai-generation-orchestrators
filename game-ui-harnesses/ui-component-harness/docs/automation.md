@@ -12,6 +12,9 @@ ai-ui-component inspect <document-or-bundle.json>
 ai-ui-component compile <intent.json> <policy.json> (--facts <facts.json> | --asset <file> | --asset <source>=<file>) [--output <document.json>]
 ai-ui-component pack <document.json> --resource <portable-path>=<file> [--resource ...] --provenance-kind <kind> --provenance-description <text> [--motion <motion.json>] [--motion-system <system.json>] [--output <bundle.json>]
 ai-ui-component unpack <bundle.json> <empty-output-directory>
+ai-ui-component component-handoff <handoff.zip> --output <saved.ui-bundle.json> [--reference-output <evidence.json>]
+ai-ui-component reference-export <saved.ui-bundle.json> --output <new-handoff.zip>
+ai-ui-component reference-accept <handoff.zip> --output <new-directory>
 ai-ui-component self-test
 ai-ui-component doctor
 ```
@@ -22,7 +25,9 @@ Use `run` for the complete, explicitly declared workflow. Start a matching local
 workbench or reuse an already-running matching loopback workbench, then pass its
 literal HTTP loopback URL and a new output directory. `@playwright/test` and its browser are optional local development
 dependencies; `run` never installs them, starts a workbench, or downloads a
-browser. The installed npm package has no hosted or bundled web distribution.
+browser. The installed npm package has no hosted or bundled interactive workbench;
+`reference-accept` ships its own separate static acceptance renderer. Its persistence,
+scope policy, output rules and prerequisites are in [reference-consumer-v2.md](reference-consumer-v2.md).
 When the source checkout contains `src/`, the runner uses that graph; only an
 installed package without `src/` uses `lib/`, so a run never combines source and
 stale library modules. The protocol handshake checks the declared workflow
@@ -102,3 +107,7 @@ for the design boundary and the workflow reference for browser verification.
 `self-test` and `doctor` remain offline. `doctor` exposes only public local
 capability: it does not print credentials, query strings, home directories,
 model paths, workflow files, or provider state.
+
+`bind-value-text <handoff.zip> <bindings.json> --output <new-handoff.zip>` attaches
+explicit version1.0 document valueTextBindings, revalidates and refuses output overwrite.
+See [value text binding contract](value-text-bindings-v1.md).

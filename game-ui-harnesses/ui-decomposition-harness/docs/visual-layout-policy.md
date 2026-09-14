@@ -16,6 +16,15 @@ visual acceptance. Existing bundles retain their prior rendering defaults.
   enclosing ScrollView drawBackground:false when the scene already owns the panel.
   Keep a source slot only when fully inset; do not stretch/crop item artwork to
   hide overlap. Empty stretchable bases may use an explicit nine-slice derivative.
+  Inspect visible border-to-border spacing as a cosmetic advisory: rowGap alone
+  does not include padding inside a row texture. Compare normal and selected rows
+  in actual runtime screenshots; opaque paper pixels are not proof of a border's
+  location. Do not impose one universal spacing threshold or regenerate materials
+  for a minor density preference. When explicitly tightening spacing, keep row
+  paint, text and icons unchanged where possible, update child offsets and List
+  height together, then recompute ScrollView contentHeight from the painted extent
+  plus the already approved bottom whitespace. Do not inflate whitespace to retain
+  an old scroll range. Structural clipping/overlap remains a functional failure.
 - Tabs: use separate icon and active-icon bindings, equal local anchors and
   canvases, fixed icon and label rectangles, and reference-derived visible-alpha
   height ratios. Resize icons uniformly through reuse_scaled, never nine-slice.

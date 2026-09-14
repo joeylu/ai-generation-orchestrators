@@ -226,7 +226,7 @@ test('staged recovery accepts a submission record above one MiB without contacti
   });
 });
 
-test('two concurrent observation polls share one receipt transition and create one contract vision task', async () => {
+test('sixteen concurrent observation polls read complete gates and create one contract vision task', async () => {
   await configured(async state => {
     let observationReads = 0; let releaseObservation: (() => void) | undefined;
     let observationRead: (() => void) | undefined;
@@ -249,13 +249,14 @@ test('two concurrent observation polls share one receipt transition and create o
       return json({ jsonrpc: '2.0', id: 3, result: { structuredContent: completeContract ? completed(taskId, contract()) : queued(taskId) } });
     };
     const first = await submit({ version: '0.1', source: source() });
-    const concurrent = Promise.all([poll(first.analysisId), poll(first.analysisId)]);
+    const concurrent = Promise.all(Array.from({ length: 16 }, () => poll(first.analysisId)));
     await observationStarted;
     assert.equal(observationReads, 1, 'concurrent callers share one provider task read');
     releaseObservation!();
     const both = await concurrent;
-    assert.deepEqual(both, [{ ...first, pollAfterSeconds: 1 }, { ...first, pollAfterSeconds: 1 }]);
+    assert.deepEqual(both, Array.from({ length: 16 }, () => ({ ...first, pollAfterSeconds: 1 })));
     assert.equal(contractVisionCalls, 1);
+    assert.equal((await readdir(state)).some(file => file.endsWith('.tmp')), false, 'published gates leave no temporary files');
     const receipts = await Promise.all((await readdir(state)).filter(file => file.endsWith('.receipt.json')).map(async file => JSON.parse(await readFile(join(state, file), 'utf8'))));
     const observationReceipt = receipts.find(receipt => receipt.taskId === 'observation-concurrent');
     assert.equal(observationReceipt?.status, 'completed');

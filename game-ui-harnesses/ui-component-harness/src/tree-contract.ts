@@ -1,3 +1,9 @@
+import { tabsLayoutError, type TabsLayoutPolicy } from './tabs-layout.ts';
+import { validateSelectOptionIcons, type SelectOptionIcons } from './select-option-icons.ts';
+import { validateSelectMenuHighlights, type SelectMenuHighlights } from './select-menu-highlights.ts';
+import { validateValueTextBindings } from './value-text-bindings.ts';
+import { scrollbarThumbSlicesError, type ScrollbarThumbSlices } from './scrollbar-thumb-slices.ts';
+import { scrollbarInsetsError, type ScrollbarInsets } from './scrollbar-insets.ts';
 import { HarnessError, type Issue } from './contract.ts';
 import { validateResourceReference } from './resource-reference.ts';
 
@@ -29,15 +35,24 @@ export interface ControlStyle {
 export interface Choice { id: string; label: string }
 export interface TabDefinition { id: string; label: string; contentId: string }
 export interface Point { x: number; y: number }
+export interface SwitchStateImages {
+  version: '1.0';
+  off: { trackImage: string; thumbImage: string };
+  on: { trackImage: string; thumbImage: string };
+}
 export interface SwitchRasterAppearance {
+  stateImages?: SwitchStateImages;
   trackImage: string;
   thumbImage: string;
   sourceCanvas: CanvasSize;
   thumbPositions: { off: Point; on: Point };
   labelLayout?: Layout;
+  stateLabelLayouts?: { on: Layout; off: Layout };
 }
 export interface ButtonRasterAppearance { backgroundImage: string; sourceCanvas: CanvasSize; labelLayout: Layout }
 export interface SelectRasterAppearance {
+  menuHighlights?: SelectMenuHighlights;
+  optionIcons?: SelectOptionIcons;
   fieldImage: string;
   arrowImage: string;
   popupImage: string;
@@ -83,6 +98,8 @@ export interface SliderRasterAppearance {
   thumbPositions: { min: Point; max: Point };
 }
 export interface ScrollViewRasterAppearance {
+  scrollbarInsets?: ScrollbarInsets;
+  scrollbarThumbSlices?: ScrollbarThumbSlices;
   sourceCanvas: CanvasSize;
   viewport: PositionedRasterPart;
   scrollbarTrack: PositionedRasterPart;
@@ -104,12 +121,13 @@ export interface DialogRasterAppearance {
   sourceCanvas: CanvasSize;
   background: PositionedRasterPart;
   header: PositionedRasterPart;
-  body: PositionedRasterPart;
+  body?: PositionedRasterPart;
   overlayImage?: string;
   overlayCanvas?: CanvasSize;
   titleLayout: Layout;
 }
 export interface TabsRasterAppearance {
+  layoutPolicy?: TabsLayoutPolicy;
   sourceCanvas: CanvasSize;
   tabImage: string;
   tabCanvas: CanvasSize;
@@ -122,6 +140,8 @@ export interface TabsRasterAppearance {
   activeTextColor?: string;
   /** Optional per-tab icon rasters for inactive and active states. */
   icons?: Array<{ tabId: string; icon: PositionedRasterPart; activeIcon: PositionedRasterPart }>;
+  /** Native per-tab cell geometry and bases; absent means legacy equal cells. */
+  items?: Array<{ tabId: string; layout: Layout; tabImage: string; tabCanvas: CanvasSize; activeTabImage: string; activeTabCanvas: CanvasSize; labelLayout: Layout; hitArea: Layout }>;
 }
 export interface ContainerRasterAppearance {
   sourceCanvas: CanvasSize;
@@ -130,7 +150,7 @@ export interface ContainerRasterAppearance {
 export interface PanelRasterAppearance {
   sourceCanvas: CanvasSize;
   background: PositionedRasterPart;
-  header: PositionedRasterPart;
+  header?: PositionedRasterPart;
   body?: PositionedRasterPart;
   /** The semantic title remains Pixi text; this only fixes its explicit bounds. */
   titleLayout: Layout;
@@ -141,7 +161,7 @@ export interface TextProps { text: string; wrap: 'none' | 'word'; overflow: 'cli
 export interface ContainerProps { appearance?: ContainerRasterAppearance; style: ControlStyle }
 export interface ButtonProps { label: string; enabled: boolean; backgroundImage?: string; appearance?: ButtonRasterAppearance; style: ControlStyle }
 export interface ToggleProps { label: string; checked: boolean; enabled: boolean; style: ControlStyle }
-export interface SwitchProps extends ToggleProps { appearance?: SwitchRasterAppearance }
+export interface SwitchProps extends ToggleProps { stateLabels?: { on: string; off: string }; appearance?: SwitchRasterAppearance }
 export interface ChoiceProps { selectedId: string | null; options: Choice[]; enabled: boolean; style: ControlStyle }
 export interface CheckBoxProps extends ToggleProps { appearance?: CheckBoxRasterAppearance }
 export interface RadioGroupProps extends ChoiceProps { appearance?: RadioGroupRasterAppearance }
@@ -149,11 +169,11 @@ export interface SelectProps extends ChoiceProps { appearance?: SelectRasterAppe
 export interface InputProps { value: string; placeholder: string; inputType: 'text' | 'password' | 'email' | 'number'; readOnly: boolean; maxLength: number; enabled: boolean; appearance?: InputRasterAppearance; style: ControlStyle }
 export interface ProgressBarProps { value: number; max: number; appearance?: ProgressBarRasterAppearance; style: ControlStyle }
 export interface SliderProps { value: number; min: number; max: number; step: number; enabled: boolean; appearance?: SliderRasterAppearance; style: ControlStyle }
-export interface ScrollViewProps { scrollX: number; scrollY: number; contentWidth: number; contentHeight: number; appearance?: ScrollViewRasterAppearance; style: ControlStyle }
-export interface ListProps { selectedId: string | null; items: Choice[]; itemTemplate: 'text-row'; itemHeight: number; enabled: boolean; appearance?: ListRasterAppearance; style: ControlStyle }
+export interface ScrollViewProps { drawBackground?: boolean; scrollbarVisibility?: 'auto' | 'always'; scrollX: number; scrollY: number; contentWidth: number; contentHeight: number; appearance?: ScrollViewRasterAppearance; style: ControlStyle }
+export interface ListProps { rowGap?: number; drawBackground?: boolean; selectedId: string | null; items: Choice[]; itemTemplate: 'text-row'; itemHeight: number; enabled: boolean; appearance?: ListRasterAppearance; style: ControlStyle }
 export interface PanelProps { title: string; appearance?: PanelRasterAppearance; style: ControlStyle }
-export interface DialogProps { open: boolean; title: string; modal: boolean; appearance?: DialogRasterAppearance; style: ControlStyle }
-export interface TabsProps { activeId: string; tabs: TabDefinition[]; enabled: boolean; appearance?: TabsRasterAppearance; style: ControlStyle }
+export interface DialogProps { open: boolean; title: string; modal: boolean; backdrop?: { color: string; opacity: number }; appearance?: DialogRasterAppearance; style: ControlStyle }
+export interface TabsProps { activeId: string; tabs: TabDefinition[]; enabled: boolean; drawBackground?: boolean; appearance?: TabsRasterAppearance; style: ControlStyle }
 
 interface BaseNode<T extends UiNodeType, P> { id: string; type: T; layout: Layout; props: P }
 export type ImageNode = BaseNode<'Image', ImageProps>;
@@ -176,7 +196,7 @@ export type UiNode = ImageNode | TextNode | ContainerNode | ButtonNode | SwitchN
   | RadioGroupNode | InputNode | SelectNode | ProgressBarNode | SliderNode | ScrollViewNode
   | ListNode | PanelNode | DialogNode | TabsNode;
 
-export interface UiDocument { schemaVersion: typeof UI_SCHEMA_VERSION; id: string; canvas: CanvasSize; root: UiNode }
+export interface UiDocument { schemaVersion: typeof UI_SCHEMA_VERSION; id: string; canvas: CanvasSize; root: UiNode; valueTextBindings?: import('./value-text-bindings.ts').ValueTextBindings }
 
 const nodeTypes = new Set<UiNodeType>([
   'Image', 'Text', 'Container', 'Button', 'Switch', 'CheckBox', 'RadioGroup', 'Input',
@@ -333,16 +353,44 @@ class ContractValidator {
     }
     if (typeof value === 'object' && value !== null) this.ancestors.delete(value);
   }
+  tabItems(appearance: Record<string, unknown>, tabs: unknown, path: string): Map<string, Record<string, unknown>> {
+    const result = new Map<string, Record<string, unknown>>();
+    if (Object.hasOwn(appearance, 'layoutPolicy')) { const error = tabsLayoutError(appearance.layoutPolicy, appearance.items); if (error) this.add(`${path}.layoutPolicy`, 'TAB_LAYOUT_POLICY_INVALID', error); }
+    const vertical = (appearance.layoutPolicy as TabsLayoutPolicy | undefined)?.orientation === 'vertical';
+    if (!Object.hasOwn(appearance, 'items')) return result;
+    if (!Array.isArray(appearance.items) || !Array.isArray(tabs) || appearance.items.length !== tabs.length) { this.add(`${path}.items`, 'TAB_ITEM_APPEARANCE_MISMATCH', 'must contain one cell per tab'); return result; }
+    const source = typeof appearance.sourceCanvas === 'object' && appearance.sourceCanvas !== null ? appearance.sourceCanvas as Record<string, unknown> : undefined;
+    const rects: Layout[] = [];
+    appearance.items.forEach((raw, index) => {
+      const itemPath = `${path}.items[${index}]`, item = this.object(raw, itemPath, ['tabId', 'layout', 'tabImage', 'tabCanvas', 'activeTabImage', 'activeTabCanvas', 'labelLayout', 'hitArea']); if (!item) return;
+      if (typeof item.tabId !== 'string' || !tabs.some(t => t && typeof t === 'object' && t.id === item.tabId)) this.add(`${itemPath}.tabId`, 'BROKEN_REFERENCE', 'must reference a tab');
+      else if (result.has(item.tabId)) this.add(`${itemPath}.tabId`, 'DUPLICATE_TAB_ITEM', 'each tab must have one cell');
+      else result.set(item.tabId, item);
+      this.appearanceLayout(item.layout, `${itemPath}.layout`, source);
+      const normal = this.object(item.tabCanvas, `${itemPath}.tabCanvas`, ['width', 'height']), active = this.object(item.activeTabCanvas, `${itemPath}.activeTabCanvas`, ['width', 'height']);
+      this.rasterCanvas(item.tabCanvas, `${itemPath}.tabCanvas`); this.rasterCanvas(item.activeTabCanvas, `${itemPath}.activeTabCanvas`);
+      this.resource(item.tabImage, `${itemPath}.tabImage`); this.resource(item.activeTabImage, `${itemPath}.activeTabImage`);
+      this.appearanceLayout(item.labelLayout, `${itemPath}.labelLayout`, normal); this.appearanceLayout(item.hitArea, `${itemPath}.hitArea`, normal);
+      const r = item.layout as Layout | undefined;
+      if (r && [r.x, r.y, r.width, r.height].every(v => typeof v === 'number' && Number.isFinite(v))) {
+        if ((vertical ? r.x !== 0 : r.y !== 0) || r.height !== appearance.headerHeight || normal?.width !== r.width || normal?.height !== r.height || active?.width !== r.width || active?.height !== r.height) this.add(itemPath, 'TAB_ITEM_CANVAS_MISMATCH', 'each native cell must match both canvases and header height');
+        if (rects.some(q => r.x < q.x + q.width && r.x + r.width > q.x && r.y < q.y + q.height && r.y + r.height > q.y)) this.add(`${itemPath}.layout`, 'TAB_ITEM_OVERLAP', 'tab cells must not overlap');
+        if (vertical && (item.tabId !== (tabs[index] as { id?: string })?.id || (rects.length && r.y < rects[rects.length - 1].y + rects[rects.length - 1].height))) this.add(itemPath, 'TAB_ITEM_ORDER', 'vertical cells must follow semantic tab order');
+        rects.push(r);
+      }
+    });
+    return result;
+  }
   props(type: UiNodeType, value: unknown, path: string): void {
     const keysByType: Record<UiNodeType, readonly string[]> = {
       Image: ['source', 'region', 'fit', 'drawBackground', 'style'], Text: ['text', 'wrap', 'overflow', 'lineHeight', 'fontSource', 'drawBackground', 'style'],
-      Container: ['appearance', 'style'], Button: ['label', 'enabled', 'backgroundImage', 'appearance', 'style'], Switch: ['label', 'checked', 'enabled', 'appearance', 'style'], CheckBox: ['label', 'checked', 'enabled', 'appearance', 'style'],
+      Container: ['appearance', 'style'], Button: ['label', 'enabled', 'backgroundImage', 'appearance', 'style'], Switch: ['label', 'checked', 'enabled', 'appearance', 'stateLabels', 'style'], CheckBox: ['label', 'checked', 'enabled', 'appearance', 'style'],
       RadioGroup: ['selectedId', 'options', 'enabled', 'appearance', 'style'], Input: ['value', 'placeholder', 'inputType', 'readOnly', 'maxLength', 'enabled', 'appearance', 'style'],
       Select: ['selectedId', 'options', 'enabled', 'appearance', 'style'], ProgressBar: ['value', 'max', 'appearance', 'style'], Slider: ['value', 'min', 'max', 'step', 'enabled', 'appearance', 'style'],
-      ScrollView: ['scrollX', 'scrollY', 'contentWidth', 'contentHeight', 'appearance', 'style'], List: ['selectedId', 'items', 'itemTemplate', 'itemHeight', 'enabled', 'appearance', 'style'],
-      Panel: ['title', 'appearance', 'style'], Dialog: ['open', 'title', 'modal', 'appearance', 'style'], Tabs: ['activeId', 'tabs', 'enabled', 'appearance', 'style'],
+      ScrollView: ['scrollX', 'scrollY', 'contentWidth', 'contentHeight', 'appearance', 'drawBackground', 'scrollbarVisibility', 'style'], List: ['selectedId', 'items', 'itemTemplate', 'itemHeight', 'rowGap', 'enabled', 'appearance', 'drawBackground', 'style'],
+      Panel: ['title', 'appearance', 'style'], Dialog: ['open', 'title', 'modal', 'backdrop', 'appearance', 'style'], Tabs: ['activeId', 'tabs', 'enabled', 'drawBackground', 'appearance', 'style'],
     };
-    const optionalByType: Partial<Record<UiNodeType, readonly string[]>> = { Image: ['region', 'drawBackground'], Text: ['fontSource', 'drawBackground'], Container: ['appearance'], Button: ['backgroundImage', 'appearance'], Switch: ['appearance'], CheckBox: ['appearance'], RadioGroup: ['appearance'], Input: ['appearance'], Select: ['appearance'], ProgressBar: ['appearance'], Slider: ['appearance'], ScrollView: ['appearance'], List: ['appearance'], Panel: ['appearance'], Dialog: ['appearance'], Tabs: ['appearance'] };
+    const optionalByType: Partial<Record<UiNodeType, readonly string[]>> = { Image: ['region', 'drawBackground'], Text: ['fontSource', 'drawBackground'], Container: ['appearance'], Button: ['backgroundImage', 'appearance'], Switch: ['appearance', 'stateLabels'], CheckBox: ['appearance'], RadioGroup: ['appearance'], Input: ['appearance'], Select: ['appearance'], ProgressBar: ['appearance'], Slider: ['appearance'], ScrollView: ['appearance', 'drawBackground', 'scrollbarVisibility'], List: ['appearance', 'drawBackground', 'rowGap'], Panel: ['appearance'], Dialog: ['appearance', 'backdrop'], Tabs: ['appearance', 'drawBackground'] };
     const allowed = keysByType[type];
     const required = keysByType[type].filter(key => !optionalByType[type]?.includes(key));
     const data = this.object(value, path, allowed, required);
@@ -377,13 +425,13 @@ class ContractValidator {
               }
             }
           } else {
-            const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'background', 'header', 'body', 'titleLayout'], ['sourceCanvas', 'background', 'header', 'titleLayout']);
+            const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'background', 'header', 'body', 'titleLayout'], ['sourceCanvas', 'background', 'titleLayout']);
             if (appearance) {
               const sourceCanvas = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']);
               if (sourceCanvas) {
                 this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`);
                 this.positionedRasterPart(appearance.background, `${path}.appearance.background`, sourceCanvas);
-                this.positionedRasterPart(appearance.header, `${path}.appearance.header`, sourceCanvas);
+                if (Object.hasOwn(appearance, 'header')) this.positionedRasterPart(appearance.header, `${path}.appearance.header`, sourceCanvas);
                 if (Object.hasOwn(appearance, 'body')) this.positionedRasterPart(appearance.body, `${path}.appearance.body`, sourceCanvas);
                 this.appearanceLayout(appearance.titleLayout, `${path}.appearance.titleLayout`, sourceCanvas);
               }
@@ -415,9 +463,23 @@ class ContractValidator {
         this.style(data.style, `${path}.style`); break;
       case 'Switch': case 'CheckBox':
         this.string(data.label, `${path}.label`, true); this.boolean(data.checked, `${path}.checked`); this.boolean(data.enabled, `${path}.enabled`);
+        if (type === 'Switch' && Object.hasOwn(data, 'stateLabels')) {
+          const labels=this.object(data.stateLabels, `${path}.stateLabels`, ['on','off']);
+          if(labels) for(const key of ['on','off']) this.string(labels[key], `${path}.stateLabels.${key}`, true);
+        }
         if (type === 'Switch' && Object.hasOwn(data, 'appearance')) {
-          const appearance = this.object(data.appearance, `${path}.appearance`, ['trackImage', 'thumbImage', 'sourceCanvas', 'thumbPositions', 'labelLayout'], ['trackImage', 'thumbImage', 'sourceCanvas', 'thumbPositions']);
+          const appearance = this.object(data.appearance, `${path}.appearance`, ['trackImage', 'thumbImage', 'sourceCanvas', 'thumbPositions', 'labelLayout', 'stateLabelLayouts', 'stateImages'], ['trackImage', 'thumbImage', 'sourceCanvas', 'thumbPositions']);
           if (appearance) {
+            if (Object.hasOwn(appearance, 'stateImages')) {
+              const images = this.object(appearance.stateImages, `${path}.appearance.stateImages`, ['version', 'off', 'on']);
+              if (images) {
+                if (images.version !== '1.0') this.add(`${path}.appearance.stateImages.version`, 'UNSUPPORTED_VERSION', 'only 1.0 is supported');
+                for (const key of ['off', 'on']) {
+                  const pair = this.object(images[key], `${path}.appearance.stateImages.${key}`, ['trackImage', 'thumbImage']);
+                  if (pair) for (const part of ['trackImage', 'thumbImage']) this.resource(pair[part], `${path}.appearance.stateImages.${key}.${part}`);
+                }
+              }
+            }
             this.resource(appearance.trackImage, `${path}.appearance.trackImage`);
             this.resource(appearance.thumbImage, `${path}.appearance.thumbImage`);
             this.canvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`);
@@ -426,6 +488,8 @@ class ContractValidator {
               const point = this.object(positions[state], `${path}.appearance.thumbPositions.${state}`, ['x', 'y']);
               if (point) { this.finite(point.x, `${path}.appearance.thumbPositions.${state}.x`, { nonNegative: true }); this.finite(point.y, `${path}.appearance.thumbPositions.${state}.y`, { nonNegative: true }); }
             }
+            if(data.stateLabels && !appearance.stateLabelLayouts) this.add(`${path}.appearance.stateLabelLayouts`,'REQUIRED','stateLabels require both layouts');
+            if(appearance.stateLabelLayouts) { const layouts=this.object(appearance.stateLabelLayouts,`${path}.appearance.stateLabelLayouts`,['on','off']); if(layouts) for(const key of ['on','off']) this.appearanceLayout(layouts[key],`${path}.appearance.stateLabelLayouts.${key}`,appearance.sourceCanvas as Record<string,unknown>); }
             if (Object.hasOwn(appearance, 'labelLayout')) this.layout(appearance.labelLayout, `${path}.appearance.labelLayout`);
           }
         }
@@ -458,12 +522,14 @@ class ContractValidator {
           }
         }
         if (type === 'Select' && Object.hasOwn(data, 'appearance')) {
-          const appearance = this.object(data.appearance, `${path}.appearance`, ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupContentLayout', 'popupGap', 'fieldTextColor'], ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupGap']);
+          const appearance = this.object(data.appearance, `${path}.appearance`, ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupContentLayout', 'popupGap', 'fieldTextColor', 'optionIcons', 'menuHighlights'], ['fieldImage', 'arrowImage', 'popupImage', 'sourceCanvas', 'labelLayout', 'arrowLayout', 'popupCanvas', 'popupGap']);
           if (appearance) {
             if (Object.hasOwn(appearance, 'fieldTextColor') && (!this.string(appearance.fieldTextColor, `${path}.appearance.fieldTextColor`) || !colorPattern.test(appearance.fieldTextColor as string))) this.add(`${path}.appearance.fieldTextColor`, 'COLOR_REQUIRED', 'must be a #RGB or #RRGGBB color');
             this.resource(appearance.fieldImage, `${path}.appearance.fieldImage`);
             this.resource(appearance.arrowImage, `${path}.appearance.arrowImage`);
             this.resource(appearance.popupImage, `${path}.appearance.popupImage`);
+            if (Object.hasOwn(appearance, 'optionIcons')) this.issues.push(...validateSelectOptionIcons(appearance.optionIcons, ids, appearance.popupContentLayout, 'image', `${path}.appearance.optionIcons`, (v, p) => this.resource(v, p)));
+            if (Object.hasOwn(appearance, 'menuHighlights')) this.issues.push(...validateSelectMenuHighlights(appearance.menuHighlights, appearance.popupContentLayout, ids.length, `${path}.appearance.menuHighlights`));
             const sourceCanvas = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']);
             if (sourceCanvas) {
               const widthValid = this.finite(sourceCanvas.width, `${path}.appearance.sourceCanvas.width`, { positive: true });
@@ -490,7 +556,9 @@ class ContractValidator {
         this.style(data.style, `${path}.style`); break;
       }
       case 'Input':
-        this.string(data.value, `${path}.value`, true); this.string(data.placeholder, `${path}.placeholder`, true);
+        // Editing may temporarily leave leading/trailing spaces; preserve exact input.
+        if (typeof data.value !== 'string') this.add(`${path}.value`, 'STRING_REQUIRED', 'must be a string');
+        this.string(data.placeholder, `${path}.placeholder`, true);
         if (data.inputType !== 'text' && data.inputType !== 'password' && data.inputType !== 'email' && data.inputType !== 'number') this.add(`${path}.inputType`, 'UNSUPPORTED_VALUE', 'unsupported input type');
         this.boolean(data.readOnly, `${path}.readOnly`); this.finite(data.maxLength, `${path}.maxLength`, { positive: true, integer: true });
         if (typeof data.value === 'string' && typeof data.maxLength === 'number' && Number.isSafeInteger(data.maxLength) && data.value.length > data.maxLength) this.add(`${path}.value`, 'VALUE_TOO_LONG', 'value exceeds maxLength');
@@ -546,22 +614,35 @@ class ContractValidator {
         }
         this.style(data.style, `${path}.style`); break;
       case 'ScrollView':
+        if (Object.hasOwn(data, 'drawBackground')) this.boolean(data.drawBackground, `${path}.drawBackground`);
+        if (Object.hasOwn(data, 'scrollbarVisibility') && !['auto', 'always'].includes(data.scrollbarVisibility as string)) this.add(`${path}.scrollbarVisibility`, 'UNSUPPORTED_VALUE', 'must be auto or always');
         this.finite(data.scrollX, `${path}.scrollX`, { nonNegative: true }); this.finite(data.scrollY, `${path}.scrollY`, { nonNegative: true });
         this.finite(data.contentWidth, `${path}.contentWidth`, { positive: true }); this.finite(data.contentHeight, `${path}.contentHeight`, { positive: true });
         if (Object.hasOwn(data, 'appearance')) {
-          const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'viewport', 'scrollbarTrack', 'scrollbarThumbImage', 'scrollbarThumbCanvas', 'scrollbarThumbPositions']);
+          const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'viewport', 'scrollbarTrack', 'scrollbarThumbImage', 'scrollbarThumbCanvas', 'scrollbarThumbPositions', 'scrollbarInsets', 'scrollbarThumbSlices'], ['sourceCanvas', 'viewport', 'scrollbarTrack', 'scrollbarThumbImage', 'scrollbarThumbCanvas', 'scrollbarThumbPositions']);
           if (appearance) {
-            const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) { this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.positionedRasterPart(appearance.viewport, `${path}.appearance.viewport`, source); this.positionedRasterPart(appearance.scrollbarTrack, `${path}.appearance.scrollbarTrack`, source); }
+            const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) { this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.positionedRasterPart(appearance.viewport, `${path}.appearance.viewport`, source); this.positionedRasterPart(appearance.scrollbarTrack, `${path}.appearance.scrollbarTrack`); }
             this.resource(appearance.scrollbarThumbImage, `${path}.appearance.scrollbarThumbImage`); const thumb = this.object(appearance.scrollbarThumbCanvas, `${path}.appearance.scrollbarThumbCanvas`, ['width', 'height']); if (thumb) this.rasterCanvas(appearance.scrollbarThumbCanvas, `${path}.appearance.scrollbarThumbCanvas`);
+            if (Object.hasOwn(appearance, 'scrollbarThumbSlices')) {
+              const error = scrollbarThumbSlicesError(appearance.scrollbarThumbSlices, (appearance.scrollbarThumbCanvas as any)?.height, Object.hasOwn(appearance, 'scrollbarInsets'));
+              if(error) this.add(`${path}.appearance.scrollbarThumbSlices`, 'INVALID_SCROLLBAR_THUMB_SLICES', error);
+            }
+            if (Object.hasOwn(appearance, 'scrollbarInsets')) {
+              const error = scrollbarInsetsError(appearance.scrollbarInsets, (appearance.scrollbarTrack as any)?.layout?.height, (appearance.scrollbarThumbCanvas as any)?.height);
+              if (error) this.add(`${path}.appearance.scrollbarInsets`, 'INVALID_SCROLLBAR_INSETS', error);
+            }
             const positions = this.object(appearance.scrollbarThumbPositions, `${path}.appearance.scrollbarThumbPositions`, ['min', 'max']); if (positions) {
               const points: Record<string, Record<string, unknown>> = {}; for (const key of ['min', 'max'] as const) { const point = this.object(positions[key], `${path}.appearance.scrollbarThumbPositions.${key}`, ['x', 'y']); if (point) { this.finite(point.x, `${path}.appearance.scrollbarThumbPositions.${key}.x`, { nonNegative: true }); this.finite(point.y, `${path}.appearance.scrollbarThumbPositions.${key}.y`, { nonNegative: true }); points[key] = point; } }
               if (points.min && points.max && typeof points.min.x === 'number' && typeof points.min.y === 'number' && typeof points.max.x === 'number' && typeof points.max.y === 'number' && (points.min.x !== points.max.x || points.max.y <= points.min.y)) this.add(`${path}.appearance.scrollbarThumbPositions`, 'SCROLLBAR_AXIS_MISMATCH', 'vertical scrollbar requires equal x and increasing y');
-              if (source && thumb && typeof source.width === 'number' && typeof source.height === 'number' && typeof thumb.width === 'number' && typeof thumb.height === 'number') for (const [key, point] of Object.entries(points)) if (typeof point.x === 'number' && typeof point.y === 'number' && (point.x + thumb.width > source.width || point.y + thumb.height > source.height)) this.add(`${path}.appearance.scrollbarThumbPositions.${key}`, 'THUMB_OUT_OF_BOUNDS', 'the complete thumb must fit within sourceCanvas');
+              const track = appearance.scrollbarTrack as { layout?: Record<string, unknown> } | null, bounds = track?.layout;
+              if (bounds && thumb && typeof bounds.x === 'number' && typeof bounds.y === 'number' && typeof bounds.width === 'number' && typeof bounds.height === 'number' && typeof thumb.width === 'number' && typeof thumb.height === 'number') for (const [key, point] of Object.entries(points)) if (typeof point.x === 'number' && typeof point.y === 'number' && (point.x < bounds.x || point.y < bounds.y || point.x + thumb.width > bounds.x + bounds.width || point.y + thumb.height > bounds.y + bounds.height)) this.add(`${path}.appearance.scrollbarThumbPositions.${key}`, 'THUMB_OUT_OF_BOUNDS', 'the complete thumb must fit within the explicit scrollbar track');
             }
           }
         }
         this.style(data.style, `${path}.style`); break;
       case 'List': {
+        if (Object.hasOwn(data, 'rowGap')) { this.finite(data.rowGap, `${path}.rowGap`, {nonNegative:true}); if (typeof data.rowGap === 'number' && typeof data.itemHeight === 'number' && data.rowGap >= data.itemHeight) this.add(`${path}.rowGap`, 'ROW_GAP_INVALID', 'must be less than itemHeight'); }
+        if (Object.hasOwn(data, 'drawBackground')) this.boolean(data.drawBackground, `${path}.drawBackground`);
         const ids = this.choices(data.items, `${path}.items`, 'item');
         this.selected(data.selectedId, `${path}.selectedId`, ids, 'item');
         if (data.itemTemplate !== 'text-row') this.add(`${path}.itemTemplate`, 'UNSUPPORTED_VALUE', 'v0.2 supports only the text-row item template');
@@ -571,12 +652,14 @@ class ContractValidator {
       }
       case 'Dialog':
         this.boolean(data.open, `${path}.open`); this.string(data.title, `${path}.title`, true); this.boolean(data.modal, `${path}.modal`);
-        if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'background', 'header', 'body', 'overlayImage', 'overlayCanvas', 'titleLayout'], ['sourceCanvas', 'background', 'header', 'body', 'titleLayout']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) { this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.positionedRasterPart(appearance.background, `${path}.appearance.background`, source); this.positionedRasterPart(appearance.header, `${path}.appearance.header`, source); this.positionedRasterPart(appearance.body, `${path}.appearance.body`, source); this.appearanceLayout(appearance.titleLayout, `${path}.appearance.titleLayout`, source); } const hasOverlay = Object.hasOwn(appearance, 'overlayImage') || Object.hasOwn(appearance, 'overlayCanvas'); if (hasOverlay) { this.resource(appearance.overlayImage, `${path}.appearance.overlayImage`); this.rasterCanvas(appearance.overlayCanvas, `${path}.appearance.overlayCanvas`); } if (data.modal === false && hasOverlay) this.add(`${path}.appearance`, 'OVERLAY_MODAL_MISMATCH', 'overlay fields are allowed only for a modal Dialog'); } }
+        if (Object.hasOwn(data, 'backdrop')) { const b = this.object(data.backdrop, `${path}.backdrop`, ['color', 'opacity']); if (b) { if (!this.string(b.color, `${path}.backdrop.color`) || !colorPattern.test(b.color as string)) this.add(`${path}.backdrop.color`, 'COLOR_REQUIRED', 'must be a hex color'); this.finite(b.opacity, `${path}.backdrop.opacity`, { min: 0, max: 1 }); } if (data.modal !== true || (data.appearance as any)?.overlayImage) this.add(`${path}.backdrop`, 'BACKDROP_CONFLICT', 'explicit native backdrop requires modal without raster overlay'); }
+        if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'background', 'header', 'body', 'overlayImage', 'overlayCanvas', 'titleLayout'], ['sourceCanvas', 'background', 'header', 'titleLayout']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) { this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.positionedRasterPart(appearance.background, `${path}.appearance.background`, source); this.positionedRasterPart(appearance.header, `${path}.appearance.header`, source); if (appearance.body !== undefined) this.positionedRasterPart(appearance.body, `${path}.appearance.body`, source); this.appearanceLayout(appearance.titleLayout, `${path}.appearance.titleLayout`, source); } const hasOverlay = Object.hasOwn(appearance, 'overlayImage') || Object.hasOwn(appearance, 'overlayCanvas'); if (hasOverlay) { this.resource(appearance.overlayImage, `${path}.appearance.overlayImage`); this.rasterCanvas(appearance.overlayCanvas, `${path}.appearance.overlayCanvas`); } if (data.modal === false && hasOverlay) this.add(`${path}.appearance`, 'OVERLAY_MODAL_MISMATCH', 'overlay fields are allowed only for a modal Dialog'); } }
         this.style(data.style, `${path}.style`); break;
       case 'Tabs':
+        if (Object.hasOwn(data, 'drawBackground')) this.boolean(data.drawBackground, `${path}.drawBackground`);
         if (this.string(data.activeId, `${path}.activeId`) && !identifierPattern.test(data.activeId)) this.add(`${path}.activeId`, 'INVALID_ID', 'must be a valid tab ID reference');
         this.tabs(data.tabs, `${path}.tabs`); this.boolean(data.enabled, `${path}.enabled`);
-        if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'tabImage', 'tabCanvas', 'activeTabImage', 'activeTabCanvas', 'headerHeight', 'labelLayout', 'hitArea', 'activeTextColor', 'icons'], ['sourceCanvas', 'tabImage', 'tabCanvas', 'activeTabImage', 'activeTabCanvas', 'headerHeight', 'labelLayout', 'hitArea']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.resource(appearance.tabImage, `${path}.appearance.tabImage`); const tabCanvas = this.object(appearance.tabCanvas, `${path}.appearance.tabCanvas`, ['width', 'height']); if (tabCanvas) this.rasterCanvas(appearance.tabCanvas, `${path}.appearance.tabCanvas`); this.resource(appearance.activeTabImage, `${path}.appearance.activeTabImage`); const activeCanvas = this.object(appearance.activeTabCanvas, `${path}.appearance.activeTabCanvas`, ['width', 'height']); if (activeCanvas) { this.rasterCanvas(appearance.activeTabCanvas, `${path}.appearance.activeTabCanvas`); if (tabCanvas && (activeCanvas.width !== tabCanvas.width || activeCanvas.height !== tabCanvas.height)) this.add(`${path}.appearance.activeTabCanvas`, 'TAB_TEMPLATE_SIZE_MISMATCH', 'active and inactive tab templates must have identical intrinsic size'); } if (Object.hasOwn(appearance, 'activeTextColor') && (!this.string(appearance.activeTextColor, `${path}.appearance.activeTextColor`) || !colorPattern.test(appearance.activeTextColor as string))) this.add(`${path}.appearance.activeTextColor`, 'COLOR_REQUIRED', 'must be a #RGB or #RRGGBB color'); if (Object.hasOwn(appearance, 'icons')) { if (!Array.isArray(appearance.icons) || !Array.isArray(data.tabs) || appearance.icons.length !== data.tabs.length) this.add(`${path}.appearance.icons`, 'TAB_ICON_APPEARANCE_MISMATCH', 'must contain one icon pair for every tab'); else { const iconIds = new Set<string>(); appearance.icons.forEach((raw, index) => { const iconPath = `${path}.appearance.icons[${index}]`; const item = this.object(raw, iconPath, ['tabId', 'icon', 'activeIcon']); if (!item) return; if (!this.string(item.tabId, `${iconPath}.tabId`) || !(data.tabs as Array<{ id?: unknown }>).some(tab => tab.id === item.tabId)) this.add(`${iconPath}.tabId`, 'BROKEN_REFERENCE', 'must reference a tab'); else if (iconIds.has(item.tabId as string)) this.add(`${iconPath}.tabId`, 'DUPLICATE_TAB_ICON', 'each tab may have one icon pair'); else iconIds.add(item.tabId as string); this.positionedRasterPart(item.icon, `${iconPath}.icon`, tabCanvas); this.positionedRasterPart(item.activeIcon, `${iconPath}.activeIcon`, tabCanvas); }); } } this.finite(appearance.headerHeight, `${path}.appearance.headerHeight`, { positive: true }); if (tabCanvas) { this.appearanceLayout(appearance.labelLayout, `${path}.appearance.labelLayout`, tabCanvas); this.appearanceLayout(appearance.hitArea, `${path}.appearance.hitArea`, tabCanvas); if (typeof appearance.headerHeight === 'number' && appearance.headerHeight !== tabCanvas.height) this.add(`${path}.appearance.headerHeight`, 'TAB_HEADER_SIZE_MISMATCH', 'headerHeight must equal the template height'); } } }
+        if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'tabImage', 'tabCanvas', 'activeTabImage', 'activeTabCanvas', 'headerHeight', 'labelLayout', 'hitArea', 'activeTextColor', 'icons', 'items', 'layoutPolicy'], ['sourceCanvas', 'tabImage', 'tabCanvas', 'activeTabImage', 'activeTabCanvas', 'headerHeight', 'labelLayout', 'hitArea']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); const tabCells = this.tabItems(appearance, data.tabs, `${path}.appearance`); this.resource(appearance.tabImage, `${path}.appearance.tabImage`); const tabCanvas = this.object(appearance.tabCanvas, `${path}.appearance.tabCanvas`, ['width', 'height']); if (tabCanvas) this.rasterCanvas(appearance.tabCanvas, `${path}.appearance.tabCanvas`); this.resource(appearance.activeTabImage, `${path}.appearance.activeTabImage`); const activeCanvas = this.object(appearance.activeTabCanvas, `${path}.appearance.activeTabCanvas`, ['width', 'height']); if (activeCanvas) { this.rasterCanvas(appearance.activeTabCanvas, `${path}.appearance.activeTabCanvas`); if (tabCanvas && (activeCanvas.width !== tabCanvas.width || activeCanvas.height !== tabCanvas.height)) this.add(`${path}.appearance.activeTabCanvas`, 'TAB_TEMPLATE_SIZE_MISMATCH', 'active and inactive tab templates must have identical intrinsic size'); } if (Object.hasOwn(appearance, 'activeTextColor') && (!this.string(appearance.activeTextColor, `${path}.appearance.activeTextColor`) || !colorPattern.test(appearance.activeTextColor as string))) this.add(`${path}.appearance.activeTextColor`, 'COLOR_REQUIRED', 'must be a #RGB or #RRGGBB color'); if (Object.hasOwn(appearance, 'icons')) { if (!Array.isArray(appearance.icons) || !Array.isArray(data.tabs) || appearance.icons.length !== data.tabs.length) this.add(`${path}.appearance.icons`, 'TAB_ICON_APPEARANCE_MISMATCH', 'must contain one icon pair for every tab'); else { const iconIds = new Set<string>(); appearance.icons.forEach((raw, index) => { const iconPath = `${path}.appearance.icons[${index}]`; const item = this.object(raw, iconPath, ['tabId', 'icon', 'activeIcon']); if (!item) return; if (!this.string(item.tabId, `${iconPath}.tabId`) || !(data.tabs as Array<{ id?: unknown }>).some(tab => tab.id === item.tabId)) this.add(`${iconPath}.tabId`, 'BROKEN_REFERENCE', 'must reference a tab'); else if (iconIds.has(item.tabId as string)) this.add(`${iconPath}.tabId`, 'DUPLICATE_TAB_ICON', 'each tab may have one icon pair'); else iconIds.add(item.tabId as string); const cellCanvas = tabCells.get(item.tabId as string)?.tabCanvas as Record<string, unknown> | undefined; this.positionedRasterPart(item.icon, `${iconPath}.icon`, cellCanvas ?? tabCanvas); this.positionedRasterPart(item.activeIcon, `${iconPath}.activeIcon`, cellCanvas ?? tabCanvas); }); } } this.finite(appearance.headerHeight, `${path}.appearance.headerHeight`, { positive: true }); if (tabCanvas) { this.appearanceLayout(appearance.labelLayout, `${path}.appearance.labelLayout`, tabCanvas); this.appearanceLayout(appearance.hitArea, `${path}.appearance.hitArea`, tabCanvas); if (typeof appearance.headerHeight === 'number' && appearance.headerHeight !== tabCanvas.height) this.add(`${path}.appearance.headerHeight`, 'TAB_HEADER_SIZE_MISMATCH', 'headerHeight must equal the template height'); } } }
         this.style(data.style, `${path}.style`); break;
     }
   }
@@ -645,7 +728,7 @@ function isStepAligned(value: number, min: number, step: number): boolean {
 /** Validate and clone a complete v0.2 UI tree without changing any caller-owned value. */
 export function validateDocument(input: unknown): UiDocument {
   const validator = new ContractValidator();
-  const root = validator.object(input, '$', ['schemaVersion', 'id', 'canvas', 'root']);
+  const root = validator.object(input, '$', ['schemaVersion', 'id', 'canvas', 'root','valueTextBindings'], ['schemaVersion', 'id', 'canvas', 'root']);
   if (root) {
     if (root.schemaVersion !== UI_SCHEMA_VERSION) validator.add('$.schemaVersion', 'UNSUPPORTED_VERSION', 'only schemaVersion 0.2 is supported');
     validator.identifier(root.id, '$.id', 'node');
@@ -653,6 +736,7 @@ export function validateDocument(input: unknown): UiDocument {
     validator.node(root.root, '$.root', 1);
   }
   validator.finish();
+  if(root && Object.hasOwn(root,'valueTextBindings'))validateValueTextBindings(root.valueTextBindings,input as UiDocument);
   return structuredClone(input) as UiDocument;
 }
 

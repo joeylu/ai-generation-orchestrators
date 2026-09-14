@@ -5,7 +5,7 @@ import shutil
 
 from PIL import Image
 
-from .common import (digest, identifier, load_verified_image, read_json, require,
+from .common import (ContractError, digest, identifier, load_verified_image, read_json, require,
                      safe_relative, sha256, write_json)
 from .contract import validate
 from .resources import require_keyed_input_limit
@@ -29,6 +29,20 @@ def load(run: Path) -> tuple[dict, dict]:
     plan = read_json(run / "plan.json")
     validate(plan, verify_source=False)
     require(digest(plan) == batch["plan_digest"], "PLAN_CHANGED")
+    if 'bounded_execution' in batch:
+        from .bounded_execution import validate as validate_execution
+        entry=batch['bounded_execution'];path=safe_relative(run,entry['path'])
+        require(sha256(path)==entry['sha256'],'EXECUTION_POLICY_CHANGED')
+        validate_execution(read_json(path),plan)
+    if 'capability_preflight' in batch:
+        entry=batch['capability_preflight']
+        require(sha256(run/'capability-request.json')==entry['request_sha256'] and
+                sha256(run/'capability-report.json')==entry['report_sha256'],'CAPABILITY_SNAPSHOT_CHANGED')
+    spacing=batch.get('layout_spacing_preflight',{})
+    if spacing.get('status')=='passed':
+        for name in ('document','plan','report'):
+            path=run/f'layout-spacing-{name}.json'
+            require(path.is_file() and sha256(path)==spacing[name+'_sha256'],'SPACING_SNAPSHOT_CHANGED')
     reference = run / "input" / "reference.png"
     require(reference.is_file() and sha256(reference) == batch["source_sha256"],
             "SOURCE_SNAPSHOT_CHANGED")
@@ -47,10 +61,38 @@ def load(run: Path) -> tuple[dict, dict]:
     return batch, plan
 
 
-def freeze(plan_path: Path, workspace: Path, run_id: str) -> dict:
+def freeze(plan_path: Path, workspace: Path, run_id: str, *, capability_request: Path | None = None, execution_policy: Path | None = None,
+           component_document: Path | None = None, layout_spacing: Path | None = None) -> dict:
     plan = read_json(plan_path.resolve())
     plan_base = plan_path.resolve().parent
     summary = validate(plan, source_base=plan_base)
+    execution=None
+    if execution_policy is not None:
+        from .bounded_execution import validate as validate_execution
+        execution=validate_execution(read_json(execution_policy),plan)
+    capability=None
+    capability_input=None
+    if capability_request is not None:
+        from .capabilities import audit
+        capability_input=read_json(capability_request)
+        capability=audit(capability_input)
+        require(capability['planDigest']==digest(plan),'CAPABILITY_PLAN_MISMATCH')
+        require(capability['status']=='capability_supported','CAPABILITY_UNSUPPORTED_BEFORE_FREEZE')
+    require((component_document is None)==(layout_spacing is None),'SPACING_PREFLIGHT_ARGUMENTS')
+    spacing_document=spacing_plan=spacing_report=None
+    if capability_input and any(c['type'] in ('Panel','ScrollView') for c in capability_input['components']):
+        require(component_document is not None,'SPACING_PREFLIGHT_REQUIRED')
+    if component_document is not None:
+        from .layout_spacing import require_export_spacing
+        data=read_json(component_document,max_bytes=64*1024*1024)
+        spacing_document=data.get('document',data);spacing_plan=read_json(layout_spacing)
+        if capability_input:
+            def walk(node):
+                yield node
+                for child in node.get('children',[]):yield from walk(child)
+            inventory={n['id']:n['type'] for n in walk(spacing_document['root'])}
+            require(all(inventory.get(c['id'])==c['type'] for c in capability_input['components']),'SPACING_CAPABILITY_DOCUMENT_MISMATCH')
+        spacing_report=require_export_spacing(spacing_document,spacing_plan)
     run = run_location(workspace, run_id)
     require(not run.exists(), "RUN_EXISTS")
     (run / "input").mkdir(parents=True)
@@ -116,6 +158,23 @@ def freeze(plan_path: Path, workspace: Path, run_id: str) -> dict:
              "plan_summary": summary}
     if imports:
         batch["imported_materials"] = imports
+    if capability is not None:
+        write_json(run/'capability-request.json',capability_input)
+        write_json(run/'capability-report.json',capability)
+        batch['capability_preflight']={'request_sha256':sha256(run/'capability-request.json'),
+                                      'report_sha256':sha256(run/'capability-report.json'),
+                                      'status':'capability_supported'}
+    if execution is not None:
+        write_json(run/'execution-policy.json',execution)
+        batch['bounded_execution']={'path':'execution-policy.json','sha256':sha256(run/'execution-policy.json')}
+        batch['maximum_calls']=execution['maximum_calls']
+    if spacing_report is not None:
+        batch['layout_spacing_preflight']={'status':'passed'}
+        for name,value in [('document',spacing_document),('plan',spacing_plan),('report',spacing_report)]:
+            path=run/f'layout-spacing-{name}.json';write_json(path,value)
+            batch['layout_spacing_preflight'][name+'_sha256']=sha256(path)
+    else:
+        batch['layout_spacing_preflight']={'status':'legacy_not_checked'}
     batch["digest"] = digest(batch)
     write_json(run / "batch.json", batch)
     return batch
@@ -123,6 +182,18 @@ def freeze(plan_path: Path, workspace: Path, run_id: str) -> dict:
 
 def _prompt(asset: dict) -> str:
     width, height = asset["output_size"]
+    # The explicit existing board marker denotes a complete cell inventory.
+    # output_size is its preview support, not permission to recenter/resize cells.
+    if asset['route']=='generated_isolation' and 'component-family-board-v1:' in asset['prompt']:
+        backdrop=('a genuinely transparent RGBA background with real alpha; never a checkerboard'
+                  if asset['output_mode']=='transparent_component' else 'a flat uniform vivid magenta #F808F8 background; no checkerboard, gradient or transparency simulation')
+        layout=('Keep every part in its explicitly assigned relative search window. Preserve each part\'s aspect ratio; do not merge or reorder parts. '
+                if 'component-family-relative-cell-v1' in asset['prompt'] else
+                'Keep the explicitly declared raw canvas and every cell coordinate and size. Do not recenter, rescale, merge or reorder the individual parts. ')
+        return (asset['prompt'].strip()+' Use the full reference and crop as style evidence. '
+                'Return exactly one complete material board on '+backdrop+'. '
+                +layout+
+                'No text, numerals, pseudo-text, labels, logos or watermarks; preserve intentional pictograms.')
     common = (f" Target support ratio is {width}:{height}. Use the full UI reference and exact "
               "crop as style evidence. Do not draw text, numerals, pseudo-text, labels, logos, "
               "or watermarks. Preserve intentional pictograms and graphic symbols.")
@@ -136,7 +207,7 @@ def _prompt(asset: dict) -> str:
                   "ground, backdrop or cast shadow outside the component.")
     return (asset["prompt"].strip() + common
             + " Return exactly one complete component centered on a flat uniform vivid magenta "
-              "#F808F8 background. Leave clean margin on every edge and preserve internal holes.")
+              "#F808F8 background. Leave clean margin on every edge and preserve internal holes. Do not draw a checkerboard or transparency simulation.")
 
 
 def _require_output_evidence(asset: dict, evidence: dict) -> None:
@@ -157,11 +228,15 @@ def state(run: Path, entry: dict) -> str:
     reused = (directory / "reused.json").is_file()
     indeterminate = (directory / "indeterminate.json").is_file()
     recovered = (directory / "recovered.json").is_file()
-    require(sum((received, reused)) <= 1
+    rejected = (directory / "rejected.json").is_file()
+    require(sum((received, reused, rejected)) <= 1
+            and (not rejected or not indeterminate and not recovered)
             and (not recovered or indeterminate and not received and not reused),
             "CONFLICTING_RESULT_STATE")
     if recovered:
         return "recovered"
+    if rejected:
+        return "rejected"
     if (directory / "reused.json").is_file():
         return "reused"
     if (directory / "received.json").is_file():
@@ -174,21 +249,41 @@ def state(run: Path, entry: dict) -> str:
 
 
 def reserve(run: Path, asset: str) -> dict:
+    frozen,_=load(run)
+    if 'bounded_execution' not in frozen:return _reserve(run,asset)
+    # One admission + reservation at a time across local processes. A crashed
+    # lock is not expired automatically: the caller must reconcile its outcome.
+    lock=run/'execution-reservation.lock'
+    try:handle=lock.open('x')
+    except FileExistsError:raise ContractError('EXECUTION_RESERVATION_BUSY') from None
+    try:return _reserve(run,asset)
+    finally:handle.close();lock.unlink()
+
+
+def _reserve(run: Path, asset: str) -> dict:
     batch, plan = load(run)
     asset = identifier(asset)
     require(asset in batch["requests"], "UNKNOWN_REQUEST")
     require("cached_result" not in next(item for item in plan["assets"] if item["id"] == asset),
             "CACHED_RESULT_NO_GENERATION")
-    index = batch["dispatch_order"].index(asset)
-    for prior in batch["dispatch_order"][:index]:
-        require(state(run, batch["requests"][prior]) in {"received", "reused", "recovered", "indeterminate"},
-                "PRIOR_REQUEST_NOT_TERMINAL")
+    authorization=None
+    if 'bounded_execution' in batch:
+        from .bounded_execution import admit
+        authorization=admit(run,batch,asset)
+    else:
+        index = batch["dispatch_order"].index(asset)
+        for prior in batch["dispatch_order"][:index]:
+            require(state(run, batch["requests"][prior]) in {"received", "reused", "recovered", "indeterminate"},
+                    "PRIOR_REQUEST_NOT_TERMINAL")
     entry = batch["requests"][asset]
     require(state(run, entry) == "prepared", "REQUEST_ALREADY_STARTED")
     record = {"kind": "ai_ui_decomposition_request_reserved_v1",
               "batch_digest": batch["digest"], "asset": asset,
               "request_id": entry["id"], "request_sha256": entry["request_sha256"],
               "single_use": True, "automatic_retries": 0}
+    if authorization is not None:record['execution_authorization_sha256']=authorization
+    parallel=run/'parallel-dispatch-authorization.json'
+    if authorization is not None and parallel.is_file():record['parallel_dispatch_authorization_sha256']=sha256(parallel)
     write_json(run / "requests" / entry["id"] / "reserved.json", record)
     return record
 
@@ -209,7 +304,23 @@ def receive(run: Path, asset: str, source: Path) -> dict:
     require(not raw.exists(), "RAW_ALREADY_MATERIALIZED")
     shutil.copyfile(source, raw)
     _image, evidence = load_verified_image(raw)
-    _require_output_evidence(asset_record, evidence)
+    try:
+        _require_output_evidence(asset_record, evidence)
+        if asset_record['output_mode']=='keyed_component':
+            from .media import require_explicit_key_background
+            require_explicit_key_background(_image)
+    except ContractError as exc:
+        # A returned, decoded image with wrong output semantics is a known
+        # rejection, not an indeterminate provider outcome or reusable result.
+        write_json(raw.parent / 'rejected.json', {
+            'kind':'ai_ui_decomposition_request_rejected_v1',
+            'batch_digest':batch['digest'], 'asset':asset,
+            'request_id':entry['id'], 'raw_sha256':sha256(raw),
+            'size':evidence['size'], 'mode':evidence['mode'],
+            'alpha_extrema':evidence['alpha_extrema'], 'bytes':evidence['bytes'],
+            'reason':str(exc), 'generation_calls':1, 'automatic_retries':0,
+            'automatic_resubmit':False})
+        raise
     record = {"kind": "ai_ui_decomposition_request_received_v1",
               "batch_digest": batch["digest"], "asset": asset,
               "request_id": entry["id"], "raw_sha256": sha256(raw),
@@ -263,6 +374,9 @@ def recover_receive(run: Path, asset: str, source: Path) -> dict:
     shutil.copyfile(source, raw)
     _image, evidence = load_verified_image(raw)
     _require_output_evidence(item, evidence)
+    if item['output_mode'] == 'keyed_component':
+        from .media import require_explicit_key_background
+        require_explicit_key_background(_image)
     record = {"kind": "ai_ui_decomposition_request_recovered_v1",
               "batch_digest": frozen["digest"], "asset": asset, "request_id": entry["id"],
               "indeterminate_sha256": sha256(directory / "indeterminate.json"),
@@ -280,7 +394,7 @@ def status(run: Path) -> dict:
              "state": state(run, batch["requests"][asset])}
             for asset in batch["dispatch_order"]]
     counts = {name: sum(row["state"] == name for row in rows)
-              for name in ("prepared", "reserved", "received", "reused", "recovered", "indeterminate")}
+              for name in ("prepared", "reserved", "received", "reused", "recovered", "indeterminate", "rejected")}
     return {"kind": "ai_ui_decomposition_batch_status_v1",
             "batch_digest": batch["digest"], "rows": rows, **counts,
             "maximum_calls": batch["maximum_calls"], "automatic_retries": 0}

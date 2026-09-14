@@ -1,4 +1,5 @@
 import { HarnessError } from './contract.ts';
+import { scaleSelectMenuHighlights } from './select-menu-highlights.ts';
 import { bundleResources, createBundle, validateBundle, type ResourceInput, type UiBundle } from './bundle.ts';
 import { APPEARANCE_APPLICATION_BINDING_VERSION, validateAppearanceBinding, type AppearanceBindingDocument, type AppearanceComponentBinding, type AppearanceRole } from './appearance-binding.ts';
 import { assertValidImportedDecomposition, type ImportedDecomposition, type ImportedDecompositionLayer } from './decomposition-import.ts';
@@ -131,7 +132,7 @@ export async function applyAppearanceBinding(
       only(`${path}.parts`, partLayers, ['background', 'header', 'body']);
       const background = partLayers.get('background')!, header = partLayers.get('header')!, body = partLayers.get('body');
       requireExactComponentLayer(`${path}.parts`, background, component, binding);
-      const headerLayout = localLayer(`${path}.parts`, header, component, binding);
+      const headerLayout = header ? localLayer(`${path}.parts`, header, component, binding) : undefined;
       const bodyLayout = body ? localLayer(`${path}.parts`, body, component, binding) : undefined;
       const state = componentBinding.states && 'panel' in componentBinding.states ? componentBinding.states.panel : undefined;
       if (!state) fail(`${path}.states`, 'PANEL_STATE_REQUIRED', 'explicit Panel title geometry is required');
@@ -141,7 +142,7 @@ export async function applyAppearanceBinding(
       node.props.appearance = {
         sourceCanvas: { width: background.width, height: background.height },
         background: { image: add(background), canvas: { width: background.width, height: background.height }, layout: { x: 0, y: 0, width: background.width, height: background.height } },
-        header: { image: add(header), canvas: { width: header.width, height: header.height }, layout: local(headerLayout) },
+        ...(header && headerLayout ? { header: { image: add(header), canvas: { width: header.width, height: header.height }, layout: local(headerLayout) } } : {}),
         ...(body && bodyLayout ? { body: { image: add(body), canvas: { width: body.width, height: body.height }, layout: local(bodyLayout) } } : {}),
         titleLayout: local(state.titleLayout),
       };
@@ -175,11 +176,17 @@ export async function applyAppearanceBinding(
       if (!positions) fail(`${path}.states`, 'SWITCH_STATE_REQUIRED', 'explicit Switch state positions are required');
       const runtimeScale = component.width / track.width;
       supported.props.appearance = {
+        ...(switchState?.stateImages ? { stateImages: {
+          version: '1.0' as const,
+          off: { trackImage: add(sourceLayers.get(switchState.stateImages.off.trackLayerId)!), thumbImage: add(sourceLayers.get(switchState.stateImages.off.thumbLayerId)!) },
+          on: { trackImage: add(sourceLayers.get(switchState.stateImages.on.trackLayerId)!), thumbImage: add(sourceLayers.get(switchState.stateImages.on.thumbLayerId)!) },
+        } } : {}),
         trackImage: add(track), thumbImage: add(thumb), sourceCanvas: { width: track.width, height: track.height },
         thumbPositions: {
           off: { x: positions.off.x / runtimeScale, y: positions.off.y / runtimeScale },
           on: { x: positions.on.x / runtimeScale, y: positions.on.y / runtimeScale },
         },
+        ...(switchState?.stateLabelLayouts ? {stateLabelLayouts: Object.fromEntries(['on','off'].map(key => { const r=switchState.stateLabelLayouts![key as 'on'|'off']; return [key,{x:r.x/runtimeScale,y:r.y/runtimeScale,width:r.width/runtimeScale,height:r.height/runtimeScale}]; })) as {on: import('./tree-contract.ts').Layout;off: import('./tree-contract.ts').Layout}} : {}),
         ...(switchState?.labelLayout ? { labelLayout: {
           x: switchState.labelLayout.x / runtimeScale, y: switchState.labelLayout.y / runtimeScale,
           width: switchState.labelLayout.width / runtimeScale, height: switchState.labelLayout.height / runtimeScale,
@@ -221,7 +228,7 @@ export async function applyAppearanceBinding(
       only(`${path}.parts`, partLayers, ['track', 'fill']); const track = partLayers.get('track')!, fill = partLayers.get('fill')!; requireExactComponentLayer(`${path}.parts`, track, component, binding);
       const fillLayout = localLayer(`${path}.parts`, fill, component, binding), state = componentBinding.states && 'progressBar' in componentBinding.states ? componentBinding.states.progressBar : undefined;
       if (!state) fail(`${path}.states`, 'PROGRESS_STATE_REQUIRED', 'explicit ProgressBar fill clipping geometry is required');
-      if (![fillLayout.x - state.fillClip.x, fillLayout.y - state.fillClip.y, fillLayout.width - state.fillClip.width, fillLayout.height - state.fillClip.height].every(close.bind(null, 0))) fail(`${path}.states`, 'FILL_CLIP_GEOMETRY_MISMATCH', 'full fill layer must exactly match the declared fill clip');
+      if (state.fillClip.x < fillLayout.x || state.fillClip.y < fillLayout.y || state.fillClip.x + state.fillClip.width > fillLayout.x + fillLayout.width || state.fillClip.y + state.fillClip.height > fillLayout.y + fillLayout.height) fail(`${path}.states`, 'FILL_CLIP_GEOMETRY_MISMATCH', 'declared inner fill clip must be contained in the full-range fill layer');
       const scale = component.width / track.width; if (!close(component.height / track.height, scale)) fail(`${path}.parts`, 'NON_UNIFORM_COMPONENT_SCALE', 'ProgressBar track must scale uniformly into the component'); const local = (layout: Layout): Layout => ({ x: layout.x / scale, y: layout.y / scale, width: layout.width / scale, height: layout.height / scale });
       supported.props.appearance = { sourceCanvas: { width: track.width, height: track.height }, track: { image: add(track), canvas: { width: track.width, height: track.height }, layout: { x: 0, y: 0, width: track.width, height: track.height } }, fill: { image: add(fill), canvas: { width: fill.width, height: fill.height }, layout: local(fillLayout) }, fillClip: local(state.fillClip), fillDirection: 'left-to-right', fillSource: 'full-range-template' };
       continue;
@@ -241,16 +248,20 @@ export async function applyAppearanceBinding(
       only(`${path}.parts`, partLayers, ['viewport', 'scrollbar-track', 'scrollbar-thumb']);
       const viewport = partLayers.get('viewport')!, track = partLayers.get('scrollbar-track')!, thumb = partLayers.get('scrollbar-thumb')!;
       requireExactComponentLayer(`${path}.parts`, viewport, component, binding);
-      const trackLayout = localLayer(`${path}.parts`, track, component, binding), actualThumb = localLayer(`${path}.parts`, thumb, component, binding);
+      const trackGlobal = requireContained(`${path}.parts`, track, { x: 0, y: 0, ...document.canvas }, binding);
+      const thumbGlobal = requireContained(`${path}.parts`, thumb, trackGlobal, binding);
+      const trackLayout = { ...trackGlobal, x: trackGlobal.x - component.x, y: trackGlobal.y - component.y };
+      const actualThumb = { ...thumbGlobal, x: thumbGlobal.x - component.x, y: thumbGlobal.y - component.y };
       const state = componentBinding.states && 'scrollView' in componentBinding.states ? componentBinding.states.scrollView : undefined;
       if (!state) fail(`${path}.states`, 'SCROLL_STATE_REQUIRED', 'explicit scrollbar endpoint geometry is required');
-      const ratio = supported.props.scrollY / (supported.props.contentHeight - component.height);
+      const scrollRange = Math.max(0, supported.props.contentHeight - component.height);
+      const ratio = scrollRange > 0 ? supported.props.scrollY / scrollRange : 0;
       const expected = { x: state.thumbPositions.min.x, y: state.thumbPositions.min.y + (state.thumbPositions.max.y - state.thumbPositions.min.y) * ratio };
       if (!close(actualThumb.x, expected.x) || !close(actualThumb.y, expected.y)) fail(`${path}.states`, 'SCROLL_VALUE_GEOMETRY_MISMATCH', 'imported thumb position must match scrollY and the declared endpoints');
       const scale = component.width / viewport.width;
       if (!close(component.height / viewport.height, scale)) fail(`${path}.parts`, 'NON_UNIFORM_COMPONENT_SCALE', 'ScrollView viewport must scale uniformly into the component');
       const local = (layout: Layout): Layout => ({ x: layout.x / scale, y: layout.y / scale, width: layout.width / scale, height: layout.height / scale });
-      supported.props.appearance = { sourceCanvas: { width: viewport.width, height: viewport.height }, viewport: { image: add(viewport), canvas: { width: viewport.width, height: viewport.height }, layout: { x: 0, y: 0, width: viewport.width, height: viewport.height } }, scrollbarTrack: { image: add(track), canvas: { width: track.width, height: track.height }, layout: local(trackLayout) }, scrollbarThumbImage: add(thumb), scrollbarThumbCanvas: { width: thumb.width, height: thumb.height }, scrollbarThumbPositions: { min: { x: state.thumbPositions.min.x / scale, y: state.thumbPositions.min.y / scale }, max: { x: state.thumbPositions.max.x / scale, y: state.thumbPositions.max.y / scale } } };
+      supported.props.appearance = { sourceCanvas: { width: viewport.width, height: viewport.height }, viewport: { image: add(viewport), canvas: { width: viewport.width, height: viewport.height }, layout: { x: 0, y: 0, width: viewport.width, height: viewport.height } }, scrollbarTrack: { image: add(track), canvas: { width: track.width, height: track.height }, layout: local(trackLayout) }, scrollbarThumbImage: add(thumb), scrollbarThumbCanvas: { width: thumb.width, height: thumb.height }, ...(state.scrollbarThumbSlices ? {scrollbarThumbSlices: {...state.scrollbarThumbSlices}} : {}), ...(state.scrollbarInsets ? { scrollbarInsets: {version: '1.0' as const, top: state.scrollbarInsets.top / scale, bottom: state.scrollbarInsets.bottom / scale} } : {}), scrollbarThumbPositions: { min: { x: state.thumbPositions.min.x / scale, y: state.thumbPositions.min.y / scale }, max: { x: state.thumbPositions.max.x / scale, y: state.thumbPositions.max.y / scale } } };
       continue;
     }
     if (supported.type === 'List') {
@@ -263,7 +274,7 @@ export async function applyAppearanceBinding(
         const itemId = componentBinding.parts.find(part => part.role === role)?.itemId;
         const index = supported.props.items.findIndex(item => item.id === itemId);
         const actual = transformed(layer, binding);
-        if (index < 0 || !close(actual.x, component.x) || !close(actual.y, component.y + index * supported.props.itemHeight) || !close(actual.width, component.width) || !close(actual.height, supported.props.itemHeight)) fail(`${path}.parts`, 'LIST_SAMPLE_GEOMETRY_MISMATCH', `${role} must exactly match its declared item row`);
+        if (index < 0 || !close(actual.x, component.x) || !close(actual.y, component.y + index * supported.props.itemHeight) || !close(actual.width, component.width) || !close(actual.height, supported.props.itemHeight - (supported.props.rowGap ?? 0))) fail(`${path}.parts`, 'LIST_SAMPLE_GEOMETRY_MISMATCH', `${role} must exactly match its declared painted item row, excluding rowGap`);
       };
       checkSample('row', row); checkSample('selected-row', selected);
       const scale = component.width / background.width;
@@ -275,15 +286,14 @@ export async function applyAppearanceBinding(
     if (supported.type === 'Dialog') {
       only(`${path}.parts`, partLayers, ['background', 'header', 'body', 'overlay']);
       const background = partLayers.get('background')!, header = partLayers.get('header')!, body = partLayers.get('body')!, overlay = partLayers.get('overlay');
-      requireExactComponentLayer(`${path}.parts`, background, component, binding);
-      const headerLayout = localLayer(`${path}.parts`, header, component, binding), bodyLayout = localLayer(`${path}.parts`, body, component, binding);
+      const backgroundLayout = localLayer(`${path}.parts`, background, component, binding);
+      const headerLayout = localLayer(`${path}.parts`, header, component, binding), bodyLayout = body ? localLayer(`${path}.parts`, body, component, binding) : undefined;
       const state = componentBinding.states && 'dialog' in componentBinding.states ? componentBinding.states.dialog : undefined;
       if (!state) fail(`${path}.states`, 'DIALOG_STATE_REQUIRED', 'explicit Dialog title geometry is required');
       if (overlay) { const actual = transformed(overlay, binding); if (!close(actual.x, 0) || !close(actual.y, 0) || !close(actual.width, document.canvas.width) || !close(actual.height, document.canvas.height)) fail(`${path}.parts`, 'OVERLAY_CANVAS_MISMATCH', 'modal overlay must exactly match the target document canvas'); }
-      const scale = component.width / background.width;
-      if (!close(component.height / background.height, scale)) fail(`${path}.parts`, 'NON_UNIFORM_COMPONENT_SCALE', 'Dialog background must scale uniformly into the component');
+      const scale = binding.registration.transform.scale;
       const local = (layout: Layout): Layout => ({ x: layout.x / scale, y: layout.y / scale, width: layout.width / scale, height: layout.height / scale });
-      supported.props.appearance = { sourceCanvas: { width: background.width, height: background.height }, background: { image: add(background), canvas: { width: background.width, height: background.height }, layout: { x: 0, y: 0, width: background.width, height: background.height } }, header: { image: add(header), canvas: { width: header.width, height: header.height }, layout: local(headerLayout) }, body: { image: add(body), canvas: { width: body.width, height: body.height }, layout: local(bodyLayout) }, ...(overlay ? { overlayImage: add(overlay), overlayCanvas: { width: overlay.width, height: overlay.height } } : {}), titleLayout: local(state.titleLayout) };
+      supported.props.appearance = { sourceCanvas: { width: component.width / scale, height: component.height / scale }, background: { image: add(background), canvas: { width: background.width, height: background.height }, layout: local(backgroundLayout) }, header: { image: add(header), canvas: { width: header.width, height: header.height }, layout: local(headerLayout) }, ...(body && bodyLayout ? { body: { image: add(body), canvas: { width: body.width, height: body.height }, layout: local(bodyLayout) } } : {}), ...(overlay ? { overlayImage: add(overlay), overlayCanvas: { width: overlay.width, height: overlay.height } } : {}), titleLayout: local(state.titleLayout) };
       continue;
     }
     if (supported.type === 'Tabs') {
@@ -291,6 +301,37 @@ export async function applyAppearanceBinding(
       const tab = partLayers.get('tab')!, active = partLayers.get('active-tab')!;
       const state = componentBinding.states && 'tabs' in componentBinding.states ? componentBinding.states.tabs : undefined;
       if (!state) fail(`${path}.states`, 'TABS_STATE_REQUIRED', 'explicit repeated tab geometry is required');
+      if (state.items) {
+        const scale = binding.registration.transform.scale;
+        const local = (r: Layout): Layout => ({ x: r.x / scale, y: r.y / scale, width: r.width / scale, height: r.height / scale });
+        const layerFor = (tabId: string, role: AppearanceRole): ImportedDecompositionLayer => {
+          const part = componentBinding.parts.find(p => p.role === role && p.tabId === tabId);
+          const layer = part && sourceLayers.get(part.layerId);
+          if (!layer) fail(`${path}.parts`, 'TAB_ITEM_LAYER_REQUIRED', `${tabId} must map ${role}`);
+          return layer;
+        };
+        const items = supported.props.tabs.map(item => {
+          const cell = state.items!.find(q => q.tabId === item.id)!;
+          const normal = layerFor(item.id, 'tab'), selected = layerFor(item.id, 'active-tab');
+          for (const layer of [normal, selected]) {
+            const actual = transformed(layer, binding), expected = cell.layout;
+            if (!close(actual.x, component.x + expected.x) || !close(actual.y, component.y + expected.y) || !close(actual.width, expected.width) || !close(actual.height, expected.height)) fail(`${path}.parts`, 'TAB_ITEM_GEOMETRY_MISMATCH', 'each tab base must match its exact declared native cell');
+          }
+          return { tabId: item.id, layout: local(cell.layout), tabImage: add(normal), tabCanvas: { width: normal.width, height: normal.height }, activeTabImage: add(selected), activeTabCanvas: { width: selected.width, height: selected.height }, labelLayout: local(cell.labelLayout), hitArea: local(cell.hitArea) };
+        });
+        const icons = state.icons?.map(iconState => {
+          const cell = state.items!.find(q => q.tabId === iconState.tabId)!;
+          const icon = layerFor(iconState.tabId, 'icon'), activeIcon = layerFor(iconState.tabId, 'active-icon');
+          for (const [layer, expected] of [[icon, iconState.iconLayout], [activeIcon, iconState.activeIconLayout]] as const) {
+            const actual = transformed(layer, binding);
+            if (!close(actual.x, component.x + cell.layout.x + expected.x) || !close(actual.y, component.y + cell.layout.y + expected.y) || !close(actual.width, expected.width) || !close(actual.height, expected.height)) fail(`${path}.parts`, 'TAB_ICON_GEOMETRY_MISMATCH', 'icon must match its declared native tab-local rectangle');
+          }
+          return { tabId: iconState.tabId, icon: { image: add(icon), canvas: { width: icon.width, height: icon.height }, layout: local(iconState.iconLayout) }, activeIcon: { image: add(activeIcon), canvas: { width: activeIcon.width, height: activeIcon.height }, layout: local(iconState.activeIconLayout) } };
+        });
+        const first = items[0];
+        supported.props.appearance = { sourceCanvas: { width: component.width / scale, height: component.height / scale }, tabImage: first.tabImage, tabCanvas: first.tabCanvas, activeTabImage: first.activeTabImage, activeTabCanvas: first.activeTabCanvas, headerHeight: state.headerHeight / scale, labelLayout: first.labelLayout, hitArea: first.hitArea, items, ...(state.layoutPolicy ? { layoutPolicy: { ...state.layoutPolicy } } : {}), ...(state.activeTextColor ? { activeTextColor: state.activeTextColor } : {}), ...(icons ? { icons } : {}) };
+        continue;
+      }
       const tabWidth = component.width / supported.props.tabs.length;
       const checkSample = (role: 'tab' | 'active-tab', layer: ImportedDecompositionLayer) => {
         const tabId = componentBinding.parts.find(part => part.role === role)?.tabId;
@@ -340,6 +381,10 @@ export async function applyAppearanceBinding(
       fail(`${path}.states.select.popupContentLayout`, 'POPUP_CONTENT_OUT_OF_BOUNDS', 'popup content layout must fit within popupCanvas after runtime scaling');
     }
     supported.props.appearance = {
+      ...(state.optionIcons ? { optionIcons: { version: state.optionIcons.version, coordinateSpace: state.optionIcons.coordinateSpace,
+        items: state.optionIcons.items.map(item => ({ optionId: item.optionId, labelLayout: local(item.labelLayout),
+          icon: item.icon === null ? null : { image: add(sourceLayers.get(item.icon.layerId)!), layout: local(item.icon.layout) } })) } } : {}),
+      ...(state.menuHighlights ? {menuHighlights:scaleSelectMenuHighlights(state.menuHighlights,1/runtimeScale)} : {}),
       fieldImage: add(field), arrowImage: add(indicator), popupImage: add(popup),
       sourceCanvas: { width: field.width, height: field.height }, labelLayout: local(state.labelLayout),
       arrowLayout: { x: (indicatorBounds.x - component.x) / runtimeScale, y: (indicatorBounds.y - component.y) / runtimeScale, width: indicatorBounds.width / runtimeScale, height: indicatorBounds.height / runtimeScale },
@@ -354,5 +399,5 @@ export async function applyAppearanceBinding(
   return createBundle(document, [...existing, ...additions.values()], {
     kind: target.provenance.kind,
     description: `${target.provenance.description} Applied authenticated appearance binding ${imported.archiveSha256.slice(0, 16)} with ${binding.bindings.length} explicit component mapping(s).`,
-  }, target.motion, target.motionSystem);
+  }, target.motion, target.motionSystem, target.componentHandoff);
 }

@@ -1,0 +1,52 @@
+import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import { referenceV2Fixture } from '../helpers/reference-v2-fixture.ts';
+import { importComponentHandoffWithReview } from '../../src/component-handoff.ts';
+
+test('Studio v2: real pointer/key feedback, save, close/reopen, reference preview and full ZIP export', async ({ page, context }, info) => {
+  const f = await referenceV2Fixture();
+  await page.goto('/');
+  await page.locator('#open-handoff').setInputFiles({ name: 'reference.zip', mimeType: 'application/zip', buffer: Buffer.from(f.zip) });
+  const panel = page.locator('#reference-evidence-panel');
+  await expect(panel).toContainText('参考图仅供对照');
+  await expect(panel.getByRole('button')).toHaveCount(1);
+  const reference = panel.locator('figure canvas'); await expect(reference).toBeVisible();
+  const referenceBox=await reference.boundingBox(), runtimeBox=await page.locator('#main-preview canvas').boundingBox();
+  expect(referenceBox!.y).toBeGreaterThan(runtimeBox!.y+runtimeBox!.height);
+  expect(referenceBox!.width).toBeCloseTo(runtimeBox!.width,0);
+  const canvas = page.locator('#main-preview canvas'); await canvas.scrollIntoViewIfNeeded();
+  const before = await canvas.screenshot({ path: info.outputPath('studio-reference-on.png') });
+  const box = await canvas.boundingBox(); if (!box) throw Error('NO_CANVAS');
+  await page.mouse.click(box.x + 90 / 500 * box.width, box.y + 90 / 400 * box.height);
+  await expect.poll(() => page.evaluate(() => window.uiStudio.snapshot().views[0].inspection.nodes.find(n => n.id === 'apply-switch')?.value)).toBe(false);
+  expect(await page.evaluate(() => window.uiStudio.snapshot().views[0].events.some(e => e.type === 'change' && e.source === 'mouse' && e.value === false))).toBe(true);
+  expect(before.equals(await canvas.screenshot({ path: info.outputPath('studio-pointer-off.png') }))).toBe(false);
+  await canvas.focus(); await page.keyboard.press('Tab'); await page.keyboard.press('Space');
+  await expect.poll(() => page.evaluate(() => window.uiStudio.snapshot().views[0].inspection.nodes.find(n => n.id === 'apply-switch')?.value)).toBe(true);
+  expect(await page.evaluate(() => window.uiStudio.snapshot().views[0].events.some(e => e.type === 'change' && e.source === 'keyboard' && e.value === true))).toBe(true);
+  await canvas.screenshot({ path: info.outputPath('studio-keyboard-on.png') });
+  const snapshot = await page.evaluate(() => window.uiStudio.snapshot());
+  await info.attach('real-input-events', { body: JSON.stringify(snapshot.views[0].events), contentType: 'application/json' });
+  const downloadPromise = page.waitForEvent('download'); await page.locator('#studio-export').click(); const download = await downloadPromise;
+  const saved = info.outputPath('saved.ui-bundle.json'); await download.saveAs(saved);
+  await page.close(); const reopened = await context.newPage(); await reopened.goto('/');
+  await reopened.locator('#open-bundle').setInputFiles(saved);
+  await expect(reopened.locator('#reference-evidence-panel')).toContainText('参考图仅供对照');
+  expect(await reopened.evaluate(() => window.uiStudio.snapshot().views[0].inspection.nodes.find(n => n.id === 'apply-switch')?.value)).toBe(true);
+  const exportPromise = reopened.waitForEvent('download'); await reopened.getByRole('button', { name: '导出交付包' }).click();
+  const exported = await exportPromise, path = info.outputPath('studio-roundtrip.zip'); await exported.saveAs(path);
+  const compiled = await importComponentHandoffWithReview(await readFile(path));
+  expect(compiled.referenceEvidence).toEqual((await importComponentHandoffWithReview(f.zip)).referenceEvidence);
+  await reopened.screenshot({ path: info.outputPath('studio-reopened-page.png'), fullPage: true });
+});
+
+test('formal renderer replay is repeatable, reports unknowns and blocks a changed runtime state', async ({ page }) => {
+  const { bundle } = await importComponentHandoffWithReview((await referenceV2Fixture()).zip);
+  await page.goto('/reference-acceptance.html'); await page.waitForFunction(() => Boolean((window as any).referenceAcceptance));
+  await page.evaluate(b => (window as any).referenceAcceptance.load(b), bundle);
+  await page.evaluate(async () => { await (window as any).referenceAcceptance.replay(); await (window as any).referenceAcceptance.replay(); });
+  const canvas = page.locator('#runtime canvas'); await page.mouse.click(90, 90);
+  const off = await canvas.screenshot({ omitBackground: true });
+  const result = await page.evaluate(png => (window as any).referenceAcceptance.compare(png), off.toString('base64'));
+  expect(result.status).toBe('blocked'); expect(result.reason).toBe('RUNTIME_REFERENCE_STATE_MISMATCH');
+});

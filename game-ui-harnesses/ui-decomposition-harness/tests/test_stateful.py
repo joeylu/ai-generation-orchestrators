@@ -1,4 +1,5 @@
 """Real local archives, public importer, and opt-in real PixiJS browser regression."""
+import base64
 import copy
 import hashlib
 import io
@@ -9,6 +10,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 from PIL import Image, ImageDraw
@@ -40,6 +42,73 @@ class StatefulTests(unittest.TestCase):
     def fixture(self,kind='Tabs'):
         return copy.deepcopy(self.loaded[kind])
 
+    def test_scroll_thumb_slices_preserve_source_units_in_matrix(self):
+        bundle,binding,evidence,assets=self.fixture('ScrollView')
+        node=next(n for n in bundle['document']['root']['children'] if n['type']=='ScrollView')
+        a=node['props']['appearance'];state=binding['bindings'][0]['states']['scrollView']
+        value={'version':'1.0','coordinateSpace':'thumb-source-pixels','top':2,'bottom':3}
+        for target in (a,state):
+            target['scrollbarInsets']={'version':'1.0','top':0,'bottom':0}
+            target['scrollbarThumbSlices']=copy.deepcopy(value)
+        matrix=compile_matrix(bundle,binding,evidence,assets)
+        for state in matrix['components'][0]['states']:
+            thumb=next(p for p in state['parts'] if p['slot']=='thumb')
+            self.assertEqual(thumb['scrollbarThumbSlices'],value)
+        a['scrollbarThumbSlices']['top']=1
+        with self.assertRaisesRegex(ContractError,'SLICES_MISMATCH'):compile_matrix(bundle,binding,evidence,assets)
+
+    def test_targeted_deterministic_scope_and_timings(self):
+        d=self.root/'List'
+        component_id=compile_matrix(*self.fixture('List'))['components'][0]['componentId']
+        out=d/'targeted-qa'
+        report=accept(d/'ui.component-handoff.draft.zip',d/'evidence.json',self.component,out,False,components=[component_id])
+        self.assertEqual(report['status'],'deterministic_passed')
+        self.assertEqual(report['scope']['mode'],'targeted')
+        self.assertEqual(report['scope']['testedComponentIds'],[component_id])
+        self.assertEqual([s['name'] for s in report['execution']['stages']],['evidence','official-import','deterministic-matrix'])
+        self.assertTrue(all(s['status']=='passed' for s in report['execution']['stages']))
+        self.assertFalse((out/'ui.component-handoff.draft.zip').exists())
+
+    def test_unknown_target_fails_before_browser(self):
+        d=self.root/'List';out=d/'targeted-unknown'
+        with self.assertRaisesRegex(ContractError,'STATE_COMPONENT_SCOPE_UNKNOWN'):
+            accept(d/'ui.component-handoff.draft.zip',d/'evidence.json',self.component,out,components=['nonexistent'])
+        report=json.loads((out/'acceptance.json').read_text())
+        self.assertEqual(report['status'],'failed')
+        self.assertEqual(report['execution']['stages'][-1]['name'],'deterministic-matrix')
+        self.assertFalse((out/'browser.json').exists())
+
+    def test_timeout_preserves_failure_without_retry_or_zip(self):
+        d=self.root/'List';out=d/'timed-out'
+        with patch('ai_ui_decomposition.stateful.subprocess.run',side_effect=subprocess.TimeoutExpired('node',1)) as run:
+            with self.assertRaisesRegex(ContractError,'STATE_ACCEPTANCE_TIMEOUT'):
+                accept(d/'ui.component-handoff.draft.zip',d/'evidence.json',self.component,out,timeout_seconds=1)
+        self.assertEqual(run.call_count,1)
+        self.assertLessEqual(run.call_args.kwargs['timeout'],1)
+        report=json.loads((out/'acceptance.json').read_text())
+        self.assertEqual(report['execution']['stages'][-1]['status'],'failed')
+        self.assertEqual(report['execution']['stages'][-1]['name'],'official-import')
+        self.assertFalse((out/'ui.component-handoff.draft.zip').exists())
+
+    def test_invalid_target_scope_does_not_create_output(self):
+        d=self.root/'List';out=d/'invalid-scope'
+        for selection in [[],['same','same'],'list',[1]]:
+            with self.subTest(selection=selection), self.assertRaisesRegex(ContractError,'STATE_COMPONENT_SCOPE_INVALID'):
+                accept(d/'ui.component-handoff.draft.zip',d/'evidence.json',self.component,out,components=selection)
+        self.assertFalse(out.exists())
+
+    @unittest.skipUnless(os.environ.get('STATEFUL_BROWSER_TESTS')=='1','Opt-in real PixiJS acceptance')
+    def test_targeted_real_browser_never_publishes_zip(self):
+        d=self.root/'List';out=d/'targeted-browser'
+        component_id=compile_matrix(*self.fixture('List'))['components'][0]['componentId']
+        report=accept(d/'ui.component-handoff.draft.zip',d/'evidence.json',self.component,out,components=[component_id])
+        self.assertEqual(report['status'],'targeted_passed')
+        browser=json.loads((out/'browser.json').read_text())
+        self.assertEqual(browser['status'],'targeted_passed')
+        self.assertEqual(browser['acceptanceScope']['testedComponentIds'],[component_id])
+        self.assertTrue(browser['results'])
+        self.assertFalse((out/'ui.component-handoff.draft.zip').exists())
+
     def test_seven_public_component_state_matrices(self):
         for kind,parts in self.loaded.items():
             with self.subTest(kind=kind):
@@ -47,6 +116,86 @@ class StatefulTests(unittest.TestCase):
                 self.assertEqual(matrix['components'][0]['componentType'],kind)
                 self.assertGreaterEqual(len(matrix['components'][0]['states']),2)
                 self.assertIs(matrix['human_visual_acceptance'],False)
+
+    def test_list_selected_state_retains_normal_row_under_overlay(self):
+        bundle,binding,evidence,assets=self.fixture('List')
+        node=next(n for n in bundle['document']['root']['children'] if n['type']=='List')
+        selected_source=node['props']['appearance']['selectedRowImage']
+        selected_resource=next(r for r in bundle['resources'] if r['path']==selected_source)
+        with Image.open(io.BytesIO(base64.b64decode(selected_resource['base64']))) as original:
+            overlay_fixture=original.convert('RGBA')
+        # Keep the normal row opaque while making the selected overlay's first
+        # eight rows transparent, reproducing the source-over edge case.
+        for y in range(min(8,overlay_fixture.height)):
+            for x in range(overlay_fixture.width):
+                red,green,blue,_=overlay_fixture.getpixel((x,y))
+                overlay_fixture.putpixel((x,y),(red,green,blue,0))
+        encoded=io.BytesIO();overlay_fixture.save(encoded,format='PNG');overlay_payload=encoded.getvalue()
+        overlay_layer=next(q['layerId'] for q in binding['bindings'] if q['componentId']==node['id']
+                            for q in q['parts'] if q['role']=='selected-row')
+        assets[overlay_layer]=overlay_payload
+        selected_resource['base64']=base64.b64encode(overlay_payload).decode()
+        selected_resource['sha256']=hashlib.sha256(overlay_payload).hexdigest()
+        matrix=compile_matrix(bundle,binding,evidence,assets)
+        selected=next(s for s in matrix['components'][0]['states'] if s['name']=='first')
+        first=[p for p in selected['parts'] if p['slot']=='row/first']
+        self.assertEqual([p['role'] for p in first],['row','selected-row'])
+        self.assertEqual(first[0]['rect'],first[1]['rect'])
+        self.assertNotEqual(first[0]['pixelSha256'],first[1]['pixelSha256'])
+        # The selected texture has a transparent top edge; the normal layer
+        # must remain present there for source-over compositing.
+        normal=Image.open(io.BytesIO(assets[first[0]['layer']])).convert('RGBA')
+        overlay=Image.open(io.BytesIO(assets[first[1]['layer']])).convert('RGBA')
+        self.assertEqual(overlay.getpixel((normal.width//2,1))[3],0)
+        self.assertEqual(normal.getpixel((normal.width//2,1))[3],255)
+
+    def test_button_empty_label_keeps_background_and_image_child_checks(self):
+        bundle,binding,evidence,assets=self.fixture('Button')
+        node=next(n for n in bundle['document']['root']['children'] if n['type']=='Button')
+        source=node['props']['appearance']['backgroundImage']
+        # Reuse the authenticated button background as a native-size image child.
+        resource=next(r for r in bundle['resources'] if r['path']==source)
+        payload=base64.b64decode(resource['base64'])
+        with Image.open(io.BytesIO(payload)) as decoded:
+            width,height=decoded.size
+        node['children']=[{'id':'button-image-child','type':'Image',
+                           'layout':{'x':0,'y':0,'width':width,'height':height},
+                           'props':{'source':source,'fit':'contain','drawBackground':False,
+                                    'style':{'opacity':1}},'children':[]}]
+        node['props']['label']=''
+        empty=compile_matrix(bundle,binding,evidence,assets)['components'][0]['states'][0]
+        self.assertEqual(empty['exclude'],[])
+        self.assertEqual([p['slot'] for p in empty['staticChildren']],['child-image/button-image-child'])
+        node['props']['label']='Action'
+        labeled=compile_matrix(bundle,binding,evidence,assets)['components'][0]['states'][0]
+        self.assertEqual(len(labeled['exclude']),1)
+        self.assertEqual([p['slot'] for p in labeled['staticChildren']],['child-image/button-image-child'])
+
+    def test_vertical_tabs_export_isolation_and_state_geometry(self):
+        from test_select_option_icons import export_fixture
+        d=self.root/'Tabs-vertical'
+        state=[{'componentId':'vertical-tabs','componentType':'Tabs','fields':{'activeId':{'status':'unknown','reason':'Synthetic regression, not observed artwork.'}}}]
+        result=export_fixture(d/'ui.component-handoff.draft.zip', d/'exported', state)
+        isolated=d/'isolated'; isolated.mkdir()
+        shutil.copyfile(d/'exported'/result['file'],isolated/'only.zip')
+        subprocess.run(['node',str(self.component/'scripts/cli.mjs'),'component-handoff','only.zip','--output','bundle.json','--reference-output','reference.json'],cwd=isolated,check=True,capture_output=True)
+        bundle=json.loads((isolated/'bundle.json').read_text())
+        binding,assets=archive_inputs(isolated/'only.zip')
+        evidence=json.loads((d/'evidence.json').read_text())
+        matrix=compile_matrix(bundle,binding,evidence,assets)
+        node=bundle['document']['root']['children'][0]
+        self.assertEqual(node['props']['appearance']['layoutPolicy'],{'version':'1.0','orientation':'vertical'})
+        self.assertEqual([s['name'] for s in matrix['components'][0]['states']],['combat','audio','accessibility'])
+        self.assertFalse(result['visual_comparison_ready'])
+        node['props']['appearance']['layoutPolicy']['orientation']='horizontal'
+        with self.assertRaises(ContractError):compile_matrix(bundle,binding,evidence,assets)
+
+    @unittest.skipUnless(os.environ.get('STATEFUL_BROWSER_TESTS')=='1','Opt-in real PixiJS acceptance')
+    def test_vertical_tabs_browser(self):
+        d=self.root/'Tabs-vertical'
+        accept(d/'ui.component-handoff.draft.zip', d/'evidence.json', self.component, d/'vertical-browser', True)
+        report=json.loads((d/'vertical-browser/browser.json').read_text())
+        self.assertEqual(report['status'],'technical_passed')
 
     def test_switch_images_authenticated_export_and_state_matrix(self):
         from ai_ui_decomposition.switch_handoff import rebind
@@ -63,6 +212,46 @@ class StatefulTests(unittest.TestCase):
             self.assertEqual(len({p['pixelSha256'] for state in component['states'] for p in state['parts'] if p['slot']==slot}),2)
         legacy=compile_matrix(*self.fixture('Switch'))
         self.assertEqual(legacy['components'][0]['stateAppearanceCoverage'],'legacy_single_pair_not_full_state_appearance')
+
+    def test_select_icons_producer_export_isolated_official_import(self):
+        from test_select_option_icons import export_fixture
+        from ai_ui_decomposition.delivery_check import select_default_parts
+        d=self.root/'Select-icons'
+        result=export_fixture(d/'ui.component-handoff.draft.zip',d/'exported')
+        self.assertEqual(result['reference_evidence'],'complete')
+        self.assertFalse(result['visual_comparison_ready'])
+        isolated=d/'isolated';isolated.mkdir()
+        shutil.copyfile(d/'exported'/result['file'],isolated/'only.zip')
+        subprocess.run(['node',str(self.component/'scripts/cli.mjs'),'component-handoff','only.zip','--output','bundle.json','--reference-output','reference.json'],cwd=isolated,check=True,capture_output=True)
+        bundle=json.loads((isolated/'bundle.json').read_text())
+        binding,assets=archive_inputs(isolated/'only.zip')
+        defaults=select_default_parts(bundle['document'],binding)
+        self.assertFalse(any(p['role']=='option-icon' for p in defaults['selected']))
+        self.assertEqual(len([p for p in defaults['standby'] if p['role']=='option-icon']),3)
+        evidence=json.loads((d/'evidence.json').read_text())
+        matrix=compile_matrix(bundle,binding,evidence,assets)
+        states=matrix['components'][0]['states']
+        for state in states:
+            icons=[p for p in state['parts'] if p['role']=='option-icon']
+            self.assertEqual([p['slot'] for p in icons],['option-icon/red','option-icon/green','option-icon/blue'])
+            self.assertEqual(icons[1]['canvas'],[20,32])
+            self.assertEqual(icons[1]['rect'][2:],[17.5,28])
+        with zipfile.ZipFile(isolated/'only.zip') as archive:
+            self.assertEqual(archive.read('reference/original.png'),(d/'exported/preview.png').read_bytes())
+        broken=copy.deepcopy(bundle)
+        broken['document']['root']['children'][0]['props']['appearance']['optionIcons']['items'][0]['icon']['layout']['x']+=1
+        with self.assertRaisesRegex(ContractError,'STATE_SELECT_ICONS_MISMATCH'):compile_matrix(broken,binding,evidence,assets)
+
+    @unittest.skipUnless(os.environ.get('STATEFUL_BROWSER_TESTS')=='1','Opt-in real PixiJS acceptance')
+    def test_select_icons_mouse_keyboard_pixels_and_close(self):
+        d=self.root/'Select-icons'
+        accept(d/'ui.component-handoff.draft.zip',d/'evidence.json',self.component,d/'icons-browser',True)
+        report=json.loads((d/'icons-browser/browser.json').read_text())
+        self.assertEqual(len(report['results']),6)
+        self.assertEqual({r['inputProtocol'] for r in report['results']},{'mouse','keyboard'})
+        for row in report['results']:
+            for slot in ['option-icon/red','option-icon/green','option-icon/blue','select-input-events','select-popup-destroyed']:
+                self.assertTrue(next(c for c in row['checks'] if c['slot']==slot)['pass'])
 
     @unittest.skipUnless(os.environ.get('STATEFUL_BROWSER_TESTS')=='1','Opt-in real PixiJS acceptance')
     def test_switch_images_mouse_keyboard_actual_textures_and_events(self):
@@ -190,7 +379,7 @@ class StatefulTests(unittest.TestCase):
 
     def test_unsupported_component_does_not_silently_pass(self):
         for kind in ['Input']:
-            data=self.fixture();data[0]['document']['root']['children'][0]['type']=kind
+            data=self.fixture();data[0]['document']['root']['children'][0]['type']=kind;data[0]['document']['root']['children'][0]['props']['inputType']='password'
             with self.assertRaisesRegex(ContractError,'STATE_CAPABILITY_MISSING'):compile_matrix(*data)
 
     def test_native_tab_geometry_after_official_import(self):
