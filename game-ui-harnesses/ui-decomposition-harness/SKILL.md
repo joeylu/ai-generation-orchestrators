@@ -52,12 +52,16 @@ coverage or human acceptance.
 2. Apply the fixed text policy: remove ordinary raster text and pseudo-text while
    preserving deliberate pictograms and graphic symbols. Do not request fonts or
    reconstruct copy as image layers.
-   Before any external asset-board experiment, run `material-strategy` using
-   observed target sizes and explicit source-reuse evidence. Panels, controls,
-   tracks and fills require separate requests; only similarly sized icons may
-   share a board. Never reinterpret these separate requests as a mixed board
-   to reduce call count. Nine-slice is only for reviewed empty stretchable bases;
-   it must not distort pictograms or progress segment divisions.
+   Before asset-board generation, run `material-strategy` using observed target
+   sizes and explicit source-reuse evidence. For new plans proposing one material
+   board per component/style group, explicitly choose
+   [component-family boards v1](docs/component-family-boards-v1.md). Keep bases,
+   icons and state parts in separate cells and deliver independent PNG bindings.
+   The legacy v1 strategy still separates controls from comparable icon boards;
+   never reinterpret an old authorization. Strict extraction rejects missing,
+   displaced or clipped parts; it does not automatically recover cell drift.
+   Nine-slice is only for reviewed empty stretchable bases; it must not distort
+   pictograms or progress segment divisions.
 3. When continuing from completed raw results, use `result-binding` and the
    `cached_result` plan field described in [references/provider-adapter.md](references/provider-adapter.md).
    Freeze a new plan and use `reuse-result`; never edit old attempts or import old

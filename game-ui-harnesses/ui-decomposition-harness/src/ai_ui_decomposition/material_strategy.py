@@ -4,6 +4,9 @@ from .common import digest, identifier, read_json, require, write_json
 
 
 def plan_material_strategy(description: dict) -> dict:
+    if description.get('kind') == 'ai_ui_material_observations_v2':
+        from .component_boards import plan_boards
+        return plan_boards(description)
     require(set(description) == {'kind','assets'} and description['kind'] == 'ai_ui_material_observations_v1',
             'MATERIAL_OBSERVATIONS_KIND')
     assets = description['assets']
