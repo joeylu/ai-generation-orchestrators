@@ -16,6 +16,13 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description="Opt-in deterministic UI decomposition Harness")
     root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True)
+    studio = commands.add_parser('studio-acceptance', help='Local real Studio scroll input and complete save/export roundtrip; no media')
+    for name in ('source','component-root','output'):
+        studio.add_argument('--'+name, required=True, type=Path)
+    studio.add_argument('--timeout-seconds',type=int,default=600)
+    composition = commands.add_parser('composition-check', help='Evidence-bound background ownership and advisory visible row spacing')
+    for name in ('bundle','screenshot','plan','output'):
+        composition.add_argument('--'+name,required=True,type=Path)
     strategy = commands.add_parser("material-strategy", help="Separate control geometry from comparable icon boards; no generation")
     strategy.add_argument("--observations", required=True, type=Path)
     strategy.add_argument("--output", required=True, type=Path)
@@ -121,6 +128,12 @@ def parser() -> argparse.ArgumentParser:
 
 
 def execute(args) -> dict:
+    if args.command=='studio-acceptance':
+        from .studio_acceptance import run_studio
+        return run_studio(args.source.resolve(),args.component_root.resolve(),args.output.resolve(),args.timeout_seconds)
+    if args.command=='composition-check':
+        from .studio_acceptance import run_composition
+        return run_composition(args.bundle.resolve(),args.screenshot.resolve(),args.plan.resolve(),args.output.resolve())
     if args.command == "material-strategy":
         from .material_strategy import write_strategy
         return write_strategy(args.observations,args.output)

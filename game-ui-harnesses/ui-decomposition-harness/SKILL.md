@@ -140,6 +140,15 @@ user-managed container, read
 
 ## Stateful appearance delivery (required for new stateful acceptance)
 
+Use the formal [Studio/composition entries](docs/studio-composition-acceptance-v1.md)
+instead of copying sample-specific Studio scripts for supported ScrollViews.
+Before full acceptance, check explicit background ownership and screenshot-bound
+visible row spacing with `composition-check`. Report unchecked coverage; density
+warnings do not trigger automatic repairs. After full stateful acceptance, run
+`studio-acceptance` for real input and persistence, then the final delivery-check.
+Unsupported Studio profiles require an explicit specialized result, never a silent
+skip. Studio display-scale screenshots must not be treated as native pixel oracles.
+
 Switch ON/OFF art must use the existing consumer stateImages 1.0 extension; see
 [Switch delivery](docs/switch-state-images-v1.md). Never infer colors or silently
 fall back when an explicit state pair is incomplete. Legacy single-pair import
