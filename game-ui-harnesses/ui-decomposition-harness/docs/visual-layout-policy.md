@@ -26,10 +26,13 @@ visual acceptance. Existing bundles retain their prior rendering defaults.
   When the reference visibly contains a scrollbar, explicitly use the existing
   scrollbarVisibility:always and record that value in the scrollViews policy.
   Visibility does not create scroll range. No-op wheel/drag must not emit scroll.
-  The current proportional thumb rule fills the whole track without overflow;
-  it cannot preserve an observed short thumb or reserve baked end ornaments.
-  Report this appearance gap without changing reference evidence, acceptance
-  scope, content height, or substituting static pretend controls.
+  The proportional thumb fills the usable track without overflow; use the formal
+  scrollbarInsets 1.0 contract to reserve measured end ornaments. It cannot
+  preserve an observed short thumb without corresponding real content extent.
+  Report that gap without changing original evidence or substituting static
+  pretend controls. User-authorized content-bottom whitespace may be proposed
+  and applied through [explicit bottom-space planning](scroll-bottom-space-v1.md),
+  using existing contentHeight and derivedTestStates, never a default overflow.
   Legacy absence keeps existing chrome. Do not invent content to match a short
   source thumb. Track, movable thumb and optional arrow controls have separate
   visual ownership; a track request must not include arrows, thumb or ornaments

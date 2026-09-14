@@ -19,6 +19,10 @@ thumb length: supply observed viewport/content semantics and track geometry.
 For decorated tracks use [scrollbar end insets](docs/scrollbar-insets-v1.md), measured
 from the registered track edges. Preserve ornaments and verify both real overflow
 and zero-range behavior through actual Studio input.
+Explicitly authorized content-bottom whitespace follows
+[bottom-space planning](docs/scroll-bottom-space-v1.md). It changes existing
+contentHeight only, preserves original unknown scroll evidence, and must never
+be applied as a default 20px overflow policy.
 
 For an explicitly authorized unattended draft, use `auto-run` and the configured
 optional provider as described in [docs/headless.md](docs/headless.md). It consumes

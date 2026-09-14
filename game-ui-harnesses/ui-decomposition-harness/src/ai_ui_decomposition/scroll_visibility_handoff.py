@@ -8,7 +8,7 @@ import zipfile
 from .common import require, write_json, sha256, safe_relative
 
 
-def rebind(source, component_root, output, component_id, visibility):
+def rebind(source, component_root, output, component_id, visibility, *, bottom_space_plan=None):
     require(visibility in ('auto', 'always'), 'SCROLL_VISIBILITY_INVALID')
     require(not output.exists(), 'SCROLL_HANDOFF_OUTPUT_EXISTS')
     output.mkdir(parents=True)
@@ -36,6 +36,21 @@ def rebind(source, component_root, output, component_id, visibility):
     require(len(nodes) == 1 and nodes[0]['type'] == 'ScrollView', 'SCROLL_HANDOFF_COMPONENT')
     before = nodes[0]['props'].get('scrollbarVisibility')
     nodes[0]['props']['scrollbarVisibility'] = visibility
+    changed = {'handoff.json', bundle_path, binding_path}
+    layout_result = None
+    if bottom_space_plan is not None:
+        from .scroll_bottom_space import apply_bottom_space
+        require(before == visibility, 'SCROLL_LAYOUT_VISIBILITY_CHANGE')
+        require(bottom_space_plan.get('sourceSha256') == sha256(source), 'SCROLL_LAYOUT_SOURCE_MISMATCH')
+        require(bottom_space_plan.get('componentId') == component_id, 'SCROLL_LAYOUT_COMPONENT')
+        scope_entry = manifest.get('reference', {}).get('scope', {})
+        scope_path = scope_entry.get('path')
+        require(scope_path in members and hashlib.sha256(members[scope_path]).hexdigest() == scope_entry.get('sha256'), 'SCROLL_LAYOUT_SCOPE_DIGEST')
+        scope = json.loads(members[scope_path])
+        layout_result = apply_bottom_space(nodes[0], scope, bottom_space_plan)
+        members[scope_path] = (json.dumps(scope, ensure_ascii=False, indent=2)+'\n').encode('utf8')
+        scope_entry['sha256'] = hashlib.sha256(members[scope_path]).hexdigest()
+        changed.add(scope_path)
     write_json(output/'semantic-candidate.json', bundle)
     script = "import fs from 'node:fs'; import {validateBundle} from './lib/bundle.js'; import {appearanceDocumentSha256} from './lib/appearance-binding.js'; const b=await validateBundle(JSON.parse(fs.readFileSync(process.argv[1],'utf8'))); console.log(await appearanceDocumentSha256(b.document));"
     run = subprocess.run(['node', '--input-type=module', '-e', script, str(output/'semantic-candidate.json')], cwd=component_root, capture_output=True, text=True)
@@ -50,11 +65,13 @@ def rebind(source, component_root, output, component_id, visibility):
     with zipfile.ZipFile(candidate, 'x', compression=zipfile.ZIP_STORED) as z:
         for name, data in sorted(members.items()): z.writestr(name, data)
     consume(candidate, 'consumed.json')
-    preserved = [n for n in members if n not in ('handoff.json', bundle_path, binding_path)]
+    preserved = [n for n in members if n not in changed]
     with zipfile.ZipFile(candidate) as z:
         require(z.testzip() is None and all(z.read(n) == original[n] for n in preserved), 'SCROLL_HANDOFF_PRESERVATION')
     target = output/'ui.component-handoff.draft.zip'; candidate.rename(target)
     report = dict(kind='ui_scroll_visibility_rebind_v1', sourceSha256=sha256(source), sha256=sha256(target), componentId=component_id, before=before, after=visibility, preservedMembers=preserved, officialImport='passed', human_visual_acceptance=False)
+    if layout_result is not None:
+        report['derivedLayout'] = layout_result
     write_json(output/'export.json', report)
     return report
 
