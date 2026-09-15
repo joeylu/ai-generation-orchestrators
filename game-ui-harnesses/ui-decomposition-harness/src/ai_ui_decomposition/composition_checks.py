@@ -53,7 +53,7 @@ def check_composition(document, screenshot, plan, base):
         if any(g<0 for g in gaps):errors.append({'code':'ROW_PAINT_OVERLAP','componentId':ident,'gaps':gaps})
         elif any(not gap[0]<=g<=gap[1] for g in gaps):warnings.append({'code':'ROW_DENSITY_ADVISORY','componentId':ident,'gaps':gaps,'preferredGap':gap})
         checked.append({'componentId':ident,'state':e['state'],'visibleGaps':gaps,'measurement':'explicit screenshot-bound paint bounds; no automatic border detection'})
-    return {'kind':'ui_composition_checks_v1','status':'failed' if errors else 'passed_with_advisories' if warnings else 'passed',
+    return {'kind':'ui_composition_checks_v1','status':'failed' if errors else 'not_checked' if not checked else 'passed_with_advisories' if warnings else 'passed',
             'errors':errors,'warnings':warnings,'checks':checked,'uncheckedBackgroundIds':[i for i,n in nodes.items() if n['type'] in ('Tabs','List','ScrollView') and i not in seen],
             'uncheckedListSpacingIds':[i for i,n in nodes.items() if n['type']=='List' and i not in row_seen],
             'human_visual_acceptance':False}

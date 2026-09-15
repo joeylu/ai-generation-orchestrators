@@ -102,10 +102,9 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
             require(isinstance(imported["sha256"], str)
                     and re.fullmatch(r"[0-9a-f]{64}", imported["sha256"]), "MATERIAL_SOURCE_DIGEST")
             path = safe_relative((source_base or Path.cwd()).resolve(), imported["path"])
-            require(mode in {"rgba", "opaque_canvas"} and "resize" not in asset,
-                    "IMPORTED_MATERIAL_EXACT_ONLY")
+            require(mode in {"rgba", "opaque_canvas"}, "IMPORTED_MATERIAL_EXACT_ONLY")
             if verify_source:
-                _, evidence = load_verified_image(path, size)
+                _, evidence = load_verified_image(path, None if "resize" in asset else size)
                 require(evidence["sha256"] == imported["sha256"], "IMPORTED_MATERIAL_CHANGED")
                 require(evidence["alpha_extrema"][1] > 0, "EMPTY_MATERIAL")
                 if mode == "opaque_canvas":

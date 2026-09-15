@@ -57,6 +57,17 @@ class StatefulTests(unittest.TestCase):
         a['scrollbarThumbSlices']['top']=1
         with self.assertRaisesRegex(ContractError,'SLICES_MISMATCH'):compile_matrix(bundle,binding,evidence,assets)
 
+    def test_button_lines_exclude_only_their_own_rectangles_and_check_all_strings(self):
+        from test_button_label_lines import ButtonLabelLinesTests
+        bundle,binding,evidence,assets=self.fixture('Button');node=bundle['document']['root']['children'][0]
+        node['props']['label']='返回\nBACK';node['props']['appearance']['labelLines']=ButtonLabelLinesTests().spec()
+        matrix=compile_matrix(bundle,binding,evidence,assets)
+        for state in matrix['components'][0]['states']:
+            self.assertEqual([t['text'] for t in state['textRegions']],['返回','BACK'])
+            self.assertEqual(len(state['textRegions']),2)
+        node['props']['appearance']['labelLines']['lines'][0]['text']='wrong'
+        with self.assertRaisesRegex(ContractError,'BUTTON_LABEL_LINES_TEXT_MISMATCH'):compile_matrix(bundle,binding,evidence,assets)
+
     def test_targeted_deterministic_scope_and_timings(self):
         d=self.root/'List'
         component_id=compile_matrix(*self.fixture('List'))['components'][0]['componentId']
@@ -77,6 +88,24 @@ class StatefulTests(unittest.TestCase):
         self.assertEqual(report['status'],'failed')
         self.assertEqual(report['execution']['stages'][-1]['name'],'deterministic-matrix')
         self.assertFalse((out/'browser.json').exists())
+
+    def test_failed_default_text_observation_stops_before_all_state_inputs(self):
+        from ai_ui_decomposition.common import write_json,read_json,sha256
+        from types import SimpleNamespace
+        d=self.root/'Button';evidence=read_json(d/'evidence.json')
+        write_json(d/'negative-observations.json',dict(kind='ui_visual_observations_v1',texts=[dict(componentId='apply-button',text='Missing text',minFontSize=18,region=dict(x=0,y=0,width=100,height=40))],dialogs=[]))
+        evidence['visualObservations']=dict(path='negative-observations.json',sha256=sha256(d/'negative-observations.json'));write_json(d/'negative-evidence.json',evidence)
+        real=subprocess.run;browser_calls=[];out=d/'negative-preview'
+        def run(command,**kwargs):
+            if str(command[1]).endswith('stateful_browser.mjs'):
+                browser_calls.append(command);write_json(out/'preflight-default-inspection.json',dict(nodes=[]))
+                return SimpleNamespace(returncode=0)
+            return real(command,**kwargs)
+        with patch('ai_ui_decomposition.stateful.subprocess.run',side_effect=run):
+            with self.assertRaisesRegex(ContractError,'VISUAL_OBSERVATION_PREFLIGHT_REJECTED'):
+                accept(d/'ui.component-handoff.draft.zip',d/'negative-evidence.json',self.component,out)
+        self.assertEqual(len(browser_calls),1);self.assertEqual(browser_calls[0][-1],'--default-only')
+        self.assertFalse((out/'browser.json').exists());self.assertFalse((out/'ui.component-handoff.draft.zip').exists())
 
     def test_timeout_preserves_failure_without_retry_or_zip(self):
         d=self.root/'List';out=d/'timed-out'

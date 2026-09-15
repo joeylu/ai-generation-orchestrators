@@ -60,4 +60,11 @@ def check_visual_observations(bundle, observations, inspection):
         actions=[c for c in n.get('children',[]) if c['type']=='Button']
         gap=min(bottom-c['layout']['y']-c['layout']['height'] for c in actions)
         check(gap>=spec['bottomContentInset']-.1,'DIALOG_BOTTOM_CONTENT_INSET',ident,actualGap=gap)
-    return dict(kind='ui_visual_observation_check_v1',status='passed' if not issues else 'failed',issues=issues,checks=checks,human_visual_acceptance=False)
+    relation_report=None
+    if 'visualRelations' in observations:
+        from .visual_relations import check_visual_relations
+        relation_report=check_visual_relations(bundle,observations['visualRelations'],inspection)
+        checks.extend(relation_report['checks']);issues.extend(relation_report['issues'])
+    return dict(kind='ui_visual_observation_check_v1',status='passed' if not issues else 'failed',issues=issues,checks=checks,
+                visualRelations=relation_report if relation_report is not None else {'status':'not_declared'},
+                human_visual_acceptance=False)

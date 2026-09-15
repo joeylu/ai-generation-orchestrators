@@ -1,4 +1,5 @@
 import { tabsLayoutError, type TabsLayoutPolicy } from './tabs-layout.ts';
+import {buttonLabelLinesError, type ButtonLabelLines} from './button-label-lines.ts';
 import { validateSelectOptionIcons, type SelectOptionIcons } from './select-option-icons.ts';
 import { validateSelectMenuHighlights, type SelectMenuHighlights } from './select-menu-highlights.ts';
 import { validateValueTextBindings } from './value-text-bindings.ts';
@@ -49,7 +50,7 @@ export interface SwitchRasterAppearance {
   labelLayout?: Layout;
   stateLabelLayouts?: { on: Layout; off: Layout };
 }
-export interface ButtonRasterAppearance { backgroundImage: string; sourceCanvas: CanvasSize; labelLayout: Layout }
+export interface ButtonRasterAppearance { backgroundImage: string; sourceCanvas: CanvasSize; labelLayout: Layout; labelLines?: ButtonLabelLines }
 export interface SelectRasterAppearance {
   menuHighlights?: SelectMenuHighlights;
   optionIcons?: SelectOptionIcons;
@@ -344,7 +345,7 @@ class ContractValidator {
     if (!type) this.add(`${path}.type`, 'UNSUPPORTED_TYPE', 'unsupported renderable node type');
     this.identifier(data.id, `${path}.id`, 'node');
     this.layout(data.layout, `${path}.layout`);
-    if (type) this.props(type, data.props, `${path}.props`);
+    if (type) this.props(type, data.props, `${path}.props`, data.layout);
     if (type === 'ScrollView') this.scrollBounds(data.props, data.layout, `${path}.props`);
     if (type && compositeTypes.has(type)) {
       if (!Array.isArray(data.children)) this.add(`${path}.children`, 'ARRAY_REQUIRED', 'composite node children must be an array');
@@ -381,7 +382,7 @@ class ContractValidator {
     });
     return result;
   }
-  props(type: UiNodeType, value: unknown, path: string): void {
+  props(type: UiNodeType, value: unknown, path: string, nodeLayout: unknown): void {
     const keysByType: Record<UiNodeType, readonly string[]> = {
       Image: ['source', 'region', 'fit', 'drawBackground', 'style'], Text: ['text', 'wrap', 'overflow', 'lineHeight', 'fontSource', 'drawBackground', 'style'],
       Container: ['appearance', 'style'], Button: ['label', 'enabled', 'backgroundImage', 'appearance', 'style'], Switch: ['label', 'checked', 'enabled', 'appearance', 'stateLabels', 'style'], CheckBox: ['label', 'checked', 'enabled', 'appearance', 'style'],
@@ -443,8 +444,9 @@ class ContractValidator {
         this.string(data.label, `${path}.label`, true); this.boolean(data.enabled, `${path}.enabled`);
         if (Object.hasOwn(data, 'backgroundImage')) this.resource(data.backgroundImage, `${path}.backgroundImage`);
         if (Object.hasOwn(data, 'appearance')) {
-          const appearance = this.object(data.appearance, `${path}.appearance`, ['backgroundImage', 'sourceCanvas', 'labelLayout']);
+          const appearance = this.object(data.appearance, `${path}.appearance`, ['backgroundImage', 'sourceCanvas', 'labelLayout','labelLines'], ['backgroundImage','sourceCanvas','labelLayout']);
           if (appearance) {
+            if(Object.hasOwn(appearance,'labelLines')) {const bounds=nodeLayout as Layout|undefined;const error=buttonLabelLinesError(appearance.labelLines,data.label,bounds?.width??0,bounds?.height??0);if(error)this.add(`${path}.appearance.labelLines`,error,'Invalid explicit Button text lines');}
             this.resource(appearance.backgroundImage, `${path}.appearance.backgroundImage`);
             const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']);
             if (source) {

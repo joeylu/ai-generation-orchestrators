@@ -44,6 +44,7 @@ def process(run: Path) -> dict:
             if asset["route"] == "imported_material":
                 with Image.open(run / "input" / "materials" / (key + ".png")) as image:
                     material = normalize(image)
+                material = resize_material(material, asset)
                 require(list(material.size) == size, "IMPORTED_MATERIAL_SIZE")
                 save_material(asset, material)
                 continue

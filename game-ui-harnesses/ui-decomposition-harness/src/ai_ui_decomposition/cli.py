@@ -16,6 +16,15 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description="Opt-in deterministic UI decomposition Harness")
     root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True)
+    delivery_run=commands.add_parser('delivery-run',help='Bounded local v2 layout, real-state, Studio and reference acceptance; no media')
+    for name in ('plan','component-root','output'):delivery_run.add_argument('--'+name,required=True,type=Path)
+    delivery_run.add_argument('--timeout-seconds',type=int,default=1200)
+    handoff_job=commands.add_parser('handoff-job',help='Compile one data-only plan from verified processed materials and run local acceptance; no media')
+    for name in ('plan','component-root','output'):handoff_job.add_argument('--'+name,required=True,type=Path)
+    handoff_job.add_argument('--timeout-seconds',type=int,default=1200)
+    revision=commands.add_parser('appearance-revision',help='Deterministic official semantic/layout revision preserving v2 artwork and reference bytes')
+    for name in ('source','bundle','binding','component-root','output'):revision.add_argument('--'+name,required=True,type=Path)
+    revision.add_argument('--derived-states',type=Path,help='Append explicit authorized derived state descriptions; never replace observed state or comparison scope')
     studio = commands.add_parser('studio-acceptance', help='Local real Studio scroll input and complete save/export roundtrip; no media')
     for name in ('source','component-root','output'):
         studio.add_argument('--'+name, required=True, type=Path)
@@ -156,6 +165,15 @@ def parser() -> argparse.ArgumentParser:
 
 
 def execute(args) -> dict:
+    if args.command=='handoff-job':
+        from .handoff_build import build_and_run
+        return build_and_run(args.plan.resolve(),args.component_root.resolve(),args.output.resolve(),args.timeout_seconds)
+    if args.command=='delivery-run':
+        from .delivery_pipeline import run_delivery
+        return run_delivery(args.plan.resolve(),args.component_root.resolve(),args.output.resolve(),args.timeout_seconds)
+    if args.command=='appearance-revision':
+        from .appearance_revision import revise
+        return revise(args.source.resolve(),args.bundle.resolve(),args.binding.resolve(),args.component_root.resolve(),args.output.resolve(),args.derived_states.resolve() if args.derived_states else None)
     if args.command=='studio-acceptance':
         from .studio_acceptance import run_studio
         return run_studio(args.source.resolve(),args.component_root.resolve(),args.output.resolve(),args.timeout_seconds)
@@ -285,7 +303,7 @@ def main(argv=None) -> int:
     try:
         result = execute(args)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 2 if result.get("status") in {"failed_no_resubmit", "failed_visual_qa", "needs_repair", "capability_blocked"} else 0
+        return 2 if result.get("status") in {"failed", "blocked_reference", "failed_no_resubmit", "failed_visual_qa", "needs_repair", "capability_blocked"} else 0
     except ContractError as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc)}, ensure_ascii=False, sort_keys=True))

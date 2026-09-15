@@ -30,6 +30,13 @@ test('Studio Select per-option icons: true input, pixels, popup hits, keyboard a
     const n = await node(); expect(n.popupOpen).toBe(true);
     expect(n.popupItems?.map(i => [i.optionId,i.text])).toEqual([['red','RED CIRCLE'],['green','GREEN TRIANGLE'],['blue','BLUE DIAMOND']]);
     for (const [i,row] of n.popupItems!.entries()) {
+      expect(row.textBounds).toHaveLength(1);
+      const label=row.textBounds![0];
+      expect(label.text).toBe(row.text); expect(label.fontSize).toBeGreaterThan(0);
+      expect(label.bounds.x).toBeGreaterThanOrEqual(n.popupBounds!.x);
+      expect(label.bounds.x+label.bounds.width).toBeLessThanOrEqual(n.popupBounds!.x+n.popupBounds!.width);
+      expect(label.bounds.y).toBeGreaterThanOrEqual(n.popupBounds!.y);
+      expect(label.bounds.height).toBeGreaterThan(0);
       const b = row.iconBounds!; expect(b).not.toBeNull();
       expect(b.x).toBeGreaterThanOrEqual(78); expect(b.x + b.width).toBeLessThanOrEqual(106.001);
       expect(b.y).toBeGreaterThanOrEqual(134 + i * 48); expect(b.y + b.height).toBeLessThanOrEqual(162.001 + i * 48);

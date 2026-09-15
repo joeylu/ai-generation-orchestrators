@@ -29,3 +29,15 @@ ornaments are not recognized. Strict original-image pixel diagnostics remain
 separate. Default Arial identity is allowed to differ from source typography;
 size, layout, content and color still require review. No technical receipt grants
 human_visual_acceptance. No acceptance-scope exclusions are added to hide failures.
+
+Optional `visualRelations` follows [explicit visual relations v1](visual-relations-v1.md).
+`check_visual_observations` invokes that checker and folds failures into its top-level
+status. The existing observations SHA, default screenshot/inspection capture and
+bundle hashes bind the relation inputs; both default preflight and final stateful
+checks evaluate the same plan. Reports include the complete `visualRelations`
+subreport, or `not_declared` when absent. No relationship is inferred from IDs.
+
+For user-authorized derived layouts, preserve the original observation/state file
+in the handoff, record the adjustment in acceptance-scope.derivedTestStates and
+identify revised text envelopes as derived layout targets in the separate QA
+observations. Do not relabel those targets as recovered original-image evidence.

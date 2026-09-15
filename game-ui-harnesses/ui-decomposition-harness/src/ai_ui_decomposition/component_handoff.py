@@ -23,6 +23,7 @@ from .scrollbar_thumb_slices import validate_thumb_slices
 from .select_option_icons import validate_option_icons
 from .select_menu_highlights import validate_menu_highlights
 from .tabs_layout import validate_tabs_layout
+from .button_label_lines import validate_label_lines
 
 MAX_COMPONENT_BUNDLE_BYTES = 67_108_864
 def _validate_tabs_background(node):
@@ -33,6 +34,12 @@ INTERACTIVE_COMPONENT_TYPES = {
     "Button", "Switch", "CheckBox", "RadioGroup", "Input", "Select", "Slider",
     "ScrollView", "List", "Dialog", "Tabs",
 }
+# Panels are static rather than stateful.  When a binding row exists, its
+# raster parts are validated with the same source/alpha checks as interactive
+# controls, but the public component contract also permits an unadorned Panel
+# with no appearance binding.  Keep Panel in this set for validating supplied
+# rows without making it an unconditional coverage requirement.
+HANDOFF_REQUIRED_COMPONENT_TYPES = INTERACTIVE_COMPONENT_TYPES | {"Panel"}
 
 
 def _validate_state_text_colors(binding: dict) -> None:
@@ -40,6 +47,10 @@ def _validate_state_text_colors(binding: dict) -> None:
     for row in binding.get("bindings", []):
         states = row.get("states", {})
         require(isinstance(states, dict), "COMPONENT_HANDOFF_STATES_INVALID")
+        if 'button' in states:
+            state=states['button']
+            require(row.get('componentType')=='Button' and isinstance(state,dict) and set(state)<= {'labelLayout','labelLines'},'COMPONENT_HANDOFF_STATE_TYPE_MISMATCH')
+            if 'labelLines' in state:validate_label_lines(state['labelLines'])
         if 'scrollView' in states:
             state=states['scrollView']
             require(row.get('componentType') == 'ScrollView' and isinstance(state,dict), 'COMPONENT_HANDOFF_STATE_TYPE_MISMATCH')
@@ -83,7 +94,7 @@ def _validate_bound_layers(delivery: Path, binding: dict, document: dict) -> Non
         require(isinstance(node, dict), "COMPONENT_HANDOFF_UNKNOWN_COMPONENT")
         require(row.get("componentType") == node.get("type"),
                 "COMPONENT_HANDOFF_COMPONENT_TYPE_MISMATCH")
-        if node.get("type") not in INTERACTIVE_COMPONENT_TYPES:
+        if node.get("type") not in HANDOFF_REQUIRED_COMPONENT_TYPES:
             continue
         parts = row.get("parts")
         require(isinstance(parts, list) and parts, "COMPONENT_HANDOFF_BOUND_PARTS_REQUIRED")
@@ -98,6 +109,8 @@ def _validate_bound_layers(delivery: Path, binding: dict, document: dict) -> Non
             require(len(thumbs)==1 and thumbs[0] is not None,'COMPONENT_HANDOFF_UNKNOWN_LAYER')
             validate_thumb_slices(scroll['scrollbarThumbSlices'],thumbs[0]['size'][1],'scrollbarInsets' in scroll)
         images=validate_state_images(row,{key:l['size'] for key,l in layers.items()})
+        if node['type']=='Button' and 'labelLines' in row.get('states',{}).get('button',{}):
+            validate_label_lines(row['states']['button']['labelLines'],node['props']['label'],[node['layout']['width'],node['layout']['height']])
         referenced=parts+([{'layerId':pair[field]} for pair in (images['off'],images['on']) for field in ('trackLayerId','thumbLayerId')] if images else [])
         if node['type'] == 'Tabs':
             validate_tabs_layout(row.get('states', {}).get('tabs', {}), [t['id'] for t in node['props']['tabs']], node['layout']['width'], node['layout']['height'])
@@ -121,6 +134,23 @@ def _validate_bound_layers(delivery: Path, binding: dict, document: dict) -> Non
             minimum, maximum = picture.getchannel("A").getextrema()
             require(minimum == 0 and maximum > 0,
                     f"COMPONENT_HANDOFF_OPAQUE_INTERACTIVE_ASSET:{layer['id']}")
+
+
+def _require_component_binding_coverage(document: dict, binding: dict) -> None:
+    """Require bindings for interactive surfaces; Panel appearance is optional."""
+    bindings = binding.get("bindings")
+    bound_component_ids = {
+        row.get("componentId") for row in bindings
+        if isinstance(row, dict) and isinstance(row.get("componentId"), str)
+    } if isinstance(bindings, list) else set()
+    nodes = list(_walk_component_nodes(document.get("root")))
+    # Keep the established diagnostic for interactive controls so callers and
+    # existing fixtures remain source-compatible. A Panel may intentionally be
+    # a plain semantic surface; only a supplied Panel binding is validated by
+    # _validate_bound_layers below.
+    require(all(node.get("type") not in INTERACTIVE_COMPONENT_TYPES
+                or node.get("id") in bound_component_ids for node in nodes),
+            "COMPONENT_HANDOFF_INTERACTIVE_BINDING_REQUIRED")
 
 
 def _walk_component_nodes(root: object):
@@ -172,7 +202,7 @@ def _validate_canvas_layout_pairs(value: object, component_id: str,
 def _validate_interactive_appearances(bundle: dict, root: object) -> None:
     paths: set[str] = set()
     for node in _walk_component_nodes(root):
-        if node.get("type") not in INTERACTIVE_COMPONENT_TYPES:
+        if node.get("type") not in HANDOFF_REQUIRED_COMPONENT_TYPES:
             continue
         layout = node.get("layout")
         props = node.get("props")
@@ -245,7 +275,7 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
                 "COMPONENT_HANDOFF_INVISIBLE_ROOT")
         for node in _walk_component_nodes(root):
             _validate_tabs_background(node)
-            if node.get("type") not in INTERACTIVE_COMPONENT_TYPES:
+            if node.get("type") not in HANDOFF_REQUIRED_COMPONENT_TYPES:
                 continue
             props = node.get("props")
             style = props.get("style") if isinstance(props, dict) else None
@@ -265,15 +295,7 @@ def export_component_handoff(delivery: Path, component_bundle: Path,
     require(binding.get("archiveSha256") == sha256(decomposition),
             "APPEARANCE_BINDING_ARCHIVE_MISMATCH")
     if isinstance(document, dict) and document.get("schemaVersion") == "0.2":
-        bindings = binding.get("bindings")
-        bound_component_ids = {
-            row.get("componentId") for row in bindings
-            if isinstance(row, dict) and isinstance(row.get("componentId"), str)
-        } if isinstance(bindings, list) else set()
-        require(all(node.get("type") not in INTERACTIVE_COMPONENT_TYPES
-                    or node.get("id") in bound_component_ids
-                    for node in _walk_component_nodes(document.get("root"))),
-                "COMPONENT_HANDOFF_INTERACTIVE_BINDING_REQUIRED")
+        _require_component_binding_coverage(document, binding)
         _validate_bound_layers(delivery, binding, document)
 
     draft = receipt.get("delivery_policy") == "unreviewed_draft"

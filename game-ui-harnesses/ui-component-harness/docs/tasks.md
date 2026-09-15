@@ -1223,3 +1223,77 @@ Reference comparison blocked,33 scopes unverified, original scroll unknowns rema
 human_visual_acceptance=false. Typography differences unchanged.
 Evidence: work/ui-component-harness/skill-library-slices-20260915-r001/
 acceptance-report.json and 验收报告.md. Preview4304. tony, no commit.
+
+## Bilingual Expedition assembly-r003 independent audit — 2026-09-15
+
+Input SHA-256 9565f9e765897d6fb91eba93698548f103bf533f4c88f86aae2a606510e0911b.
+Isolated official import and actual Studio real inputs/save/reopen/export/CLI and
+ZIP reimport passed. Two Inputs edit/clear/64-char cap, mixed text insertion,
+Select mouse/keyboard, CheckBox and Button events checked. Physical IME not tested.
+Visual issues found: form-panel lacks authored appearance; reference badge/border
+missing under procedural panel; authored18px Input/Select/Button text visibly small.
+Source evidence and upstream repair instructions saved, no silent material fallback
+accepted as visual restoration. Scope includes affected components. Official visual
+comparison blocked with21 unverified scopes and10 unchanged Input editing unknowns.
+Evidence: work/ui-component-harness/bilingual-expedition-20260915-r001/
+acceptance-report.json, 验收报告.md, 拆分端修补建议.md. Initial test assertion failures
+retained; final settings-r004 passed. No source patch, tony, no commit,
+human_visual_acceptance=false. Preview4305.
+
+## Bilingual Expedition r007 independent audit — 2026-09-15
+Isolated CLI import and one actual Studio input/save/reopen/export/CLI/Studio reimport test passed. All non-manifest package members byte-preserved. Crest/frame restored; remaining Text background patches, small labels and left-aligned buttons recorded. Reference comparison blocked by original Input editing unknowns; human_visual_acceptance=false. No consumer source patch. Evidence: work/ui-component-harness/bilingual-expedition-r007-20260915-r001/acceptance-report.json and 验收报告.md. Preview4306; tony; no commit.
+
+## Bilingual Expedition r008 independent audit — 2026-09-15
+Isolated CLI import and actual Studio real-input/save/reopen/export/CLI/Studio reimport passed (1 E2E test). All non-manifest members byte-preserved. Text background patches removed, typography enlarged and buttons centered. Reference comparison remains blocked by original Input editing unknowns; human_visual_acceptance=false. No source patch. Evidence: work/ui-component-harness/bilingual-expedition-r008-20260915-r001/acceptance-report.json and 验收报告.md. Preview4307; tony; no commit.
+
+## Producer layout-gate inspection support — 2026-09-15
+
+Added optional readonly popupItems.textBounds (actual Pixi text, world bounds,
+font family/size). No appearance/ZIP contract or runtime drawing change. Build
+passed; 2 Select option-icon browser tests passed in 8.6s with an ephemeral local
+static server, mouse/keyboard and existing roundtrip assertions. The initial
+Playwright-managed server run completed both test bodies but stalled in teardown;
+it was interrupted, not recorded as a clean run. A subsequent external-server
+attempt without a live server failed and is retained. Final evidence is
+work/ui-decomposition/layout-gates-verification-20260915-r001/consumer-browser-r003
+and consumer-browser-r003.log. Separate producer benchmark-r003 uses actual CLI,
+stateful and Studio: technical checks pass; two unknown reference fields keep
+blocked_reference and human_visual_acceptance=false. This does not reaccept the
+Bilingual Expedition sample or establish a 20-minute generation SLA. No media,
+provider calls or commit; existing unrelated task changes retained.
+
+## Button per-line labels and Bilingual Expedition r009 — 2026-09-15
+
+Implemented the optional version 1.0 contract in docs/button-label-lines-v1.md:
+states.button.labelLines, target-component-local geometry, exact label join,
+per-line size/weight/alignment and strict validation. Import/application/runtime
+and saved appearance retain the same field; old single-label Buttons remain
+compatible. Actual Pixi text overflow fails instead of silently shrinking.
+
+Build passed; all 511 offline tests passed. One dedicated browser scenario passed
+with mouse/keyboard activation, enabled/disabled and default/hover/pressed labels.
+The new Bilingual Expedition draft passed 26 stateful result rows / 187 checks,
+Studio save/reopen/export/official CLI/Studio reimport, plus a separate actual
+Studio menu/Button input probe. The generic Studio helper also passed a normal
+procedural Select run including roundtrip (2 checks). Evidence:
+work/ui-decomposition/bilingual-expedition-layout-r009-20260915-r001/.
+
+Draft revision-r006 SHA-256:
+8f308f9822b6eb612c0e760a68fb1a50ef82409c7aeb0b74475ab4491bb8d44d.
+The original reference and observations remain unchanged. Ten unknown Input
+editing fields keep reference comparison blocked; human_visual_acceptance=false.
+No media/service calls, no commit. This technical acceptance is not visual signoff.
+
+## Bilingual Expedition r010 deterministic layout revision — 2026-09-15
+
+No consumer source changes in this round. Producer draft SHA-256
+e8dd5bac9ea9186e9741d0be0a4cedc58a6c73342f517e31a04e997b76ecdeaa
+passed official import,26 stateful rows/187 actual Pixi checks and6 Studio checks
+covering real Select opening, both Buttons via mouse/keyboard and full
+save/reopen/export/official CLI/Studio reimport. Evidence:
+work/ui-decomposition/bilingual-expedition-layout-r010-20260915-r001/acceptance-r001/.
+Reference evidence bytes survived roundtrip. Original10 Input editing unknowns
+keep reference comparison blocked; human_visual_acceptance=false, no commit.
+
+## Bilingual Expedition layout r010 independent audit — 2026-09-15
+Isolated official import and actual Studio real-input/save/reopen/export/CLI/Studio reimport passed (1 E2E, 2.3m). Non-manifest package members byte-preserved, including reference evidence and labelLines. Button bilingual sizing and revised layout visible; no obvious new overlap observed. Reference comparison blocked by original Input editing unknowns; human_visual_acceptance=false. No source patch or commit; preserved shared changes on tony. Evidence: work/ui-component-harness/bilingual-expedition-r010-20260915-r001/acceptance-report.json and 验收报告.md. Preview4308.

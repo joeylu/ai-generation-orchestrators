@@ -46,6 +46,15 @@ class DeliveryCheckTests(unittest.TestCase):
             self.assertTrue(result['region_qa_digest'])
             self.assertTrue((root/'result/region-qa.json').exists())
 
+            # Parent-local rectangles must not feed pixel QA as world coordinates.
+            config['requireWorldBounds']=True
+            config['bundle']=put('bundle.json',{'document':{'root':{'id':'parent','type':'Container','layout':{'x':1,'y':1,'width':4,'height':4},'props':{},'children':[
+                {'id':'background','type':'Container','layout':{'x':0,'y':0,'width':4,'height':4},'props':{}}]}}})
+            path.write_text(json.dumps(config))
+            checked=check_delivery(path,root/'world-result')
+            self.assertIn({'code':'REGION_WORLD_BOUNDS_MISMATCH','component':'background','expected':[1,1,4,4]},checked['issues'])
+            self.assertFalse((root/'world-result/region-qa.json').exists())
+
     def test_mutually_exclusive_parts_and_slider_are_selected_from_values(self):
         document = {'root':{'id':'root','type':'Container','props':{},'children':[
             {'id':'check','type':'CheckBox','props':{'checked':False}},

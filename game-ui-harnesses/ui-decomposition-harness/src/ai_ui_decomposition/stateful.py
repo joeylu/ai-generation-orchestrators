@@ -129,7 +129,7 @@ def state_names(node):
 
 def compile_matrix(bundle, binding, evidence, assets):
     require(evidence.get('kind') == 'ui_state_evidence_v1' and
-            set(evidence)-{'visualObservations'}=={'kind','handoffSha256','reference','components'}, 'STATE_MATRIX_INVALID')
+            set(evidence)-{'visualObservations','layoutRequirements'}=={'kind','handoffSha256','reference','components'}, 'STATE_MATRIX_INVALID')
     policies = evidence.get('components', {})
     require(isinstance(policies,dict),'STATE_MATRIX_INVALID')
     by_binding = {b['componentId']: b for b in binding['bindings']}
@@ -266,7 +266,11 @@ def compile_matrix(bundle, binding, evidence, assets):
             elif t == 'Button':
                 parts.append(part('background', 'background', a['backgroundImage'], [x,y,w,h]))
                 static_children=button_image_children(n,resources,(x,y),inherited_clip)
-                if p.get('label','').strip():
+                if 'labelLines' in a:
+                    from .button_label_lines import validate_label_lines
+                    for line in validate_label_lines(a['labelLines'],p['label'],[w,h]):
+                        exclude(line['layout']);texts.append(dict(rect=excludes[-1],color=p['style']['textColor'],text=line['text']))
+                elif p.get('label','').strip():
                     exclude(a['labelLayout'])
                 action = name; value = None
             elif t == 'CheckBox':
@@ -422,7 +426,7 @@ def archive_inputs(path):
     return binding,assets
 
 
-def accept(handoff, evidence_path, component_root, output, browser=True, *, components=None, timeout_seconds=600):
+def accept(handoff, evidence_path, component_root, output, browser=True, *, components=None, timeout_seconds=600, require_visual_layout=False):
     from .acceptance_execution import AcceptanceExecution
     execution=AcceptanceExecution(timeout_seconds)
     require(components is None or (isinstance(components,list) and components and
@@ -439,6 +443,18 @@ def accept(handoff, evidence_path, component_root, output, browser=True, *, comp
         require(set(reference)=={'path','sha256'},'STATE_REFERENCE_EVIDENCE_MISSING')
         require(sha256(source)==reference['sha256'],'STATE_REFERENCE_EVIDENCE_MISSING')
         observations = None
+        layout_requirements = None
+        if require_visual_layout:
+            require('visualObservations' in evidence and 'layoutRequirements' in evidence,
+                    'REFERENCE_LAYOUT_EVIDENCE_REQUIRED')
+        if 'layoutRequirements' in evidence:
+            entry=evidence['layoutRequirements']
+            require(set(entry)=={'path','sha256'},'LAYOUT_REQUIREMENTS_REFERENCE')
+            path=safe_relative(evidence_path.parent,entry['path'])
+            require(sha256(path)==entry['sha256'],'LAYOUT_REQUIREMENTS_DIGEST')
+            layout_requirements=read_json(path)
+            with path.open('rb') as reader,(output/'layout-requirements.json').open('xb') as writer:shutil.copyfileobj(reader,writer)
+            evidence={**evidence,'layoutRequirements':{'path':'layout-requirements.json','sha256':entry['sha256']}}
         if 'visualObservations' in evidence:
             entry=evidence['visualObservations']
             require(set(entry)=={'path','sha256'},'VISUAL_OBSERVATIONS_REFERENCE')
@@ -456,7 +472,15 @@ def accept(handoff, evidence_path, component_root, output, browser=True, *, comp
         require((output/'consumed.json').stat().st_size<=64*1024*1024,'STATE_ARCHIVE_LIMIT')
         bundle=json.loads((output/'consumed.json').read_text(encoding='utf-8'))
         binding,assets=archive_inputs(handoff)
+        if layout_requirements is not None:
+            from .layout_gate import check_layout_requirements
+            checks=check_layout_requirements(bundle,layout_requirements,observations)
+            write_json(output/'layout-check.json',checks)
+            require(checks['status']=='passed','REFERENCE_LAYOUT_REJECTED')
+            report['layoutCheckSha256']=sha256(output/'layout-check.json')
+        report['layoutCoverage']='required_checked' if layout_requirements is not None else 'not_verified_legacy_runtime_only'
         matrix=compile_matrix(bundle,binding,evidence,assets)
+        matrix['requireVisualLayout']=layout_requirements is not None
         with Image.open(source) as ref:
             require(all(s['referenceEvidence']['region'][0]+s['referenceEvidence']['region'][2]<=ref.width and
                         s['referenceEvidence']['region'][1]+s['referenceEvidence']['region'][3]<=ref.height
@@ -480,6 +504,14 @@ def accept(handoff, evidence_path, component_root, output, browser=True, *, comp
         report.update(status='deterministic_passed',handoffSha256=sha256(handoff),matrixSha256=sha256(output/'state-matrix.json'))
         execution.remaining()
         if browser:
+            if observations is not None:
+                execution.start('default-layout-preflight')
+                result=subprocess.run(['node',str(Path(__file__).with_name('stateful_browser.mjs')),str(component_root),str(output),'--default-only'],capture_output=True,text=True,timeout=execution.remaining())
+                require(result.returncode==0,'STATE_DEFAULT_PREVIEW_FAILED')
+                from .visual_observations import check_visual_observations
+                checks=check_visual_observations(bundle,observations,read_json(output/'preflight-default-inspection.json',max_bytes=64*1024*1024))
+                write_json(output/'preflight-visual-observation-check.json',checks)
+                require(checks['status']=='passed','VISUAL_OBSERVATION_PREFLIGHT_REJECTED')
             execution.start('browser')
             result=subprocess.run(['node',str(Path(__file__).with_name('stateful_browser.mjs')),str(component_root),str(output)],capture_output=True,text=True,timeout=execution.remaining())
             require(result.returncode==0,'STATE_BROWSER_FAILED')
@@ -491,6 +523,10 @@ def accept(handoff, evidence_path, component_root, output, browser=True, *, comp
                 write_json(output/'visual-observation-check.json',checks)
                 require(checks['status']=='passed','VISUAL_OBSERVATION_REJECTED')
                 report['visualObservationSha256']=sha256(output/'visual-observation-check.json')
+                report['visualObservationCoverage']='checked'
+            else:
+                execution.finish('not_run')
+                report['visualObservationCoverage']='not_verified_legacy_runtime_only'
             execution.remaining()
             if components is None:
                 execution.start('delivery-copy')
@@ -520,9 +556,10 @@ def main(argv=None):
     p.add_argument('--qa-only',action='store_true',help='Never establishes browser acceptance')
     p.add_argument('--component',action='append',help='Targeted diagnostic component ID; repeatable. Never publishes a ZIP.')
     p.add_argument('--timeout-seconds',type=int,default=600,help='Acceptance deadline (default 600s); no automatic retry.')
+    p.add_argument('--require-visual-layout',action='store_true',help='Require complete layout requirements and visual observations; reject before browser when unsafe.')
     a=p.parse_args(argv)
     try:
-        print(json.dumps(accept(a.handoff.resolve(),a.evidence.resolve(),a.component_root.resolve(),a.output.resolve(),not a.qa_only,components=a.component,timeout_seconds=a.timeout_seconds),indent=2));return 0
+        print(json.dumps(accept(a.handoff.resolve(),a.evidence.resolve(),a.component_root.resolve(),a.output.resolve(),not a.qa_only,components=a.component,timeout_seconds=a.timeout_seconds,require_visual_layout=a.require_visual_layout),indent=2));return 0
     except ContractError as exc:
         print(json.dumps({'status':'failed','code':str(exc),'human_visual_acceptance':False}));return 2
 

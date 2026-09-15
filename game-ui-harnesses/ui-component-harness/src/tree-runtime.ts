@@ -41,7 +41,8 @@ export interface RuntimeNodeInspection {
   inputEditing?: InputEditingState;
   popupOpen?: boolean;
   popupBounds?: RuntimeBounds;
-  popupItems?: Array<{ optionId: string; text: string; iconBounds: RuntimeBounds | null }>;
+  popupItems?: Array<{ optionId: string; text: string; iconBounds: RuntimeBounds | null;
+    textBounds?: Array<{text:string;bounds:RuntimeBounds;fontFamily:string;fontSize:number}> }>;
   renderedLabels?: Array<{text:string;x:number;y:number;width:number;height:number}>;
   renderedTextBounds?: Array<{text:string;bounds:RuntimeBounds;fontFamily:string;fontSize:number}>;
   id: string;
@@ -967,6 +968,15 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     clear(record.paint);
     if (node.props.appearance && record.buttonTexture) {
       const background = new Sprite(record.buttonTexture); background.width = node.layout.width; background.height = node.layout.height; record.paint.addChild(background);
+      if(node.props.appearance.labelLines) {
+        for(const [index,line] of node.props.appearance.labelLines.lines.entries()) {
+          const r=line.layout;
+          const text=makeText({id:`${node.id}.label-line-${index}`,type:'Text',layout:r,props:{text:line.text,wrap:'none',overflow:'error',lineHeight:line.fontSize*1.25,style:{...node.props.style,fontSize:line.fontSize,fontWeight:line.fontWeight}}});
+          text.x=r.x+(line.align==='center'?(r.width-text.width)/2:line.align==='right'?r.width-text.width:0);
+          text.y=r.y+(r.height-text.height)/2;record.paint.addChild(text);
+        }
+        return;
+      }
       const scaleX = node.layout.width / node.props.appearance.sourceCanvas.width, scaleY = node.layout.height / node.props.appearance.sourceCanvas.height;
       const layout = node.props.appearance.labelLayout;
       label(record, node.props.label, layout.x * scaleX, layout.y * scaleY, layout.width * scaleX, layout.height * scaleY);
@@ -1872,9 +1882,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       if (container.label?.startsWith('option-row:')) {
         const icon = container.children.find(child => child.label?.startsWith('option-icon:'));
         const b = icon?.getBounds(); let text = '';
-        const labels = (c: Container) => { if (c instanceof Text) text += c.text; else c.children.forEach(labels); };
+        const textBounds: NonNullable<RuntimeNodeInspection['renderedTextBounds']> = [];
+        const labels = (c: Container) => {
+          if (c instanceof Text) {
+            text += c.text;
+            const r=c.getBounds();
+            textBounds.push({text:c.text,bounds:{x:r.x/zoom,y:r.y/zoom,width:r.width/zoom,height:r.height/zoom},fontFamily:String(c.style.fontFamily),fontSize:Number(c.style.fontSize)});
+          } else c.children.forEach(labels);
+        };
         labels(container);
-        result.push({ optionId: container.label.slice(11), text, iconBounds: b ? { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom } : null });
+        result.push({ optionId: container.label.slice(11), text, textBounds, iconBounds: b ? { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom } : null });
       } else container.children.forEach(visit);
     };
     visit(record.popup); return result;

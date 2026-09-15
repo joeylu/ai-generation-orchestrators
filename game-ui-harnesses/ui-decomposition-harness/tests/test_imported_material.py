@@ -61,8 +61,36 @@ class ImportedMaterialTests(unittest.TestCase):
         for change in [{'material_source':{'path':'icon.png','sha256':'0'*64}},
                        {'output_size':[5,5]},
                        {'material_source':{'path':'../icon.png','sha256':'0'*64}},
-                       {'resize':{'mode':'nine_slice','insets':[1,1,1,1]}}]:
+                       {'resize':{'mode':'nine_slice','insets':[0,1,1,1]}}]:
             plan = copy.deepcopy(self.plan)
             plan['assets'][1].update(change)
             with self.assertRaises(ContractError):
                 validate(plan,source_base=self.root)
+
+    def test_explicit_imported_refit_preserves_source_and_uses_no_calls(self):
+        from PIL import ImageDraw
+        im=Image.new('RGBA',(10,8));ImageDraw.Draw(im).rectangle((2,1,7,6),fill='white')
+        im.save(self.root/'icon.png')
+        asset=self.plan['assets'][1]
+        asset.update(output_size=[12,10],resize={'mode':'contain','insets':[3,3,3,3]})
+        asset['material_source']['sha256']=sha256(self.root/'icon.png')
+        frozen=self.freeze();self.assertEqual(frozen['maximum_calls'],0)
+        run=self.root/'workspace/runs/test';process(run)
+        self.assertEqual(sha256(run/'input/materials/icon.png'),asset['material_source']['sha256'])
+        with Image.open(run/'materials/icon/material.png') as result:
+            self.assertEqual(result.size,(12,10))
+            x,y,r,b=result.getchannel('A').getbbox()
+            self.assertGreaterEqual(x,3);self.assertGreaterEqual(y,3)
+            self.assertLessEqual(r,9);self.assertLessEqual(b,7)
+        finalize(run,self.root/'delivery',draft=True);inspect_delivery(self.root/'delivery')
+
+    def test_imported_nine_slice_keeps_corner_pixels_and_snapshot_digest(self):
+        im=Image.new('RGBA',(8,8),'white');im.putpixel((0,0),(90,70,40,128));im.save(self.root/'icon.png')
+        asset=self.plan['assets'][1]
+        asset.update(output_size=[12,10],resize={'mode':'nine_slice','insets':[2,2,2,2]})
+        asset['material_source']['sha256']=sha256(self.root/'icon.png')
+        self.freeze();run=self.root/'workspace/runs/test';process(run)
+        with Image.open(run/'materials/icon/material.png') as result:
+            self.assertEqual(result.size,(12,10));self.assertEqual(result.getpixel((0,0)),(90,70,40,128))
+        im.putpixel((3,3),(0,0,0,0));im.save(run/'input/materials/icon.png')
+        with self.assertRaisesRegex(ContractError,'IMPORTED_MATERIAL_CHANGED'):batch.load(run)

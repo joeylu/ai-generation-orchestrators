@@ -167,13 +167,25 @@ def check_delivery(config_path: Path, output: Path) -> dict:
     qa = None
     if {'region_policy','reference','rendered'} <= inputs.keys():
         policy = read_json(inputs['region_policy'])
+        if config.get('requireWorldBounds') and 'bundle' not in inputs:
+            issues.append({'code':'REGION_WORLD_BOUNDS_MISMATCH','reason':'bundle_missing'})
+        elif config.get('requireWorldBounds'):
+            from .layout_gate import world_bounds
+            expected=world_bounds(bundle['document'])
+            for region in policy.get('regions',[]):
+                rect=expected.get(region['id'])
+                bounds=[math.floor(rect['x']),math.floor(rect['y']),
+                        math.ceil(rect['x']+rect['width'])-math.floor(rect['x']),
+                        math.ceil(rect['y']+rect['height'])-math.floor(rect['y'])] if rect else None
+                if region.get('bounds')!=bounds:
+                    issues.append({'code':'REGION_WORLD_BOUNDS_MISMATCH','component':region['id'],'expected':bounds})
         covered = {r['id'] for r in policy.get('regions',[])}
         for node in nodes:
             if node['type'] in INTERACTIVE_COMPONENT_TYPES and node['id'] not in covered:
                 issues.append({'code':'REGION_COVERAGE_MISSING','component':node['id']})
         if state != policy.get('rendered_state'):
             issues.append({'code':'BROWSER_POLICY_STATE_MISMATCH'})
-        else:
+        elif not any(i['code']=='REGION_WORLD_BOUNDS_MISMATCH' for i in issues):
             try:
                 qa = compare_regions(inputs['reference'], inputs['rendered'],inputs['region_policy'],output/'region-qa.json')
             except ContractError as exc:

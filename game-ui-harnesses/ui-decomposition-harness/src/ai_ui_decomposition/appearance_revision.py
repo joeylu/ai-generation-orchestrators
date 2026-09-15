@@ -7,7 +7,7 @@ import subprocess
 import zipfile
 from .common import require,read_json,write_json,sha256,safe_relative
 
-def revise(source,bundle_path,binding_path,component_root,output):
+def revise(source,bundle_path,binding_path,component_root,output,derived_states=None):
     require(not output.exists(),'APPEARANCE_REVISION_OUTPUT_EXISTS');output.mkdir(parents=True)
     def consume(path,name):
         r=subprocess.run(['node',str(component_root/'scripts/cli.mjs'),'component-handoff',str(path),'--output',str(output/name)],capture_output=True,text=True)
@@ -31,15 +31,26 @@ def revise(source,bundle_path,binding_path,component_root,output):
     require(r.returncode==0,'APPEARANCE_REVISION_DOCUMENT:'+r.stderr);binding['documentSha256']=r.stdout.strip()
     for field,value in [('component_bundle',bundle),('appearance_binding',binding)]:
         entry=manifest[field];members[entry['path']]=(json.dumps(value,ensure_ascii=False,indent=2)+'\n').encode('utf8');entry['sha256']=hashlib.sha256(members[entry['path']]).hexdigest()
+    changed_scope=None
+    if derived_states is not None:
+        from .reference_delivery import validate_states
+        entry=read_json(derived_states);require(set(entry)=={'kind','states'} and entry['kind']=='ui-derived-state-additions-v1','APPEARANCE_REVISION_DERIVED_STATES')
+        additions=entry['states'];require(isinstance(additions,list) and additions,'APPEARANCE_REVISION_DERIVED_STATES')
+        scope_path=manifest['reference']['scope']['path'];scope=json.loads(members[scope_path])
+        scope['derivedTestStates']+=additions
+        validate_states(json.loads(members[manifest['reference']['state']['path']]),scope,bundle['document'])
+        members[scope_path]=(json.dumps(scope,ensure_ascii=False,indent=2)+'\n').encode('utf8')
+        manifest['reference']['scope']['sha256']=hashlib.sha256(members[scope_path]).hexdigest();changed_scope=scope_path
     members['handoff.json']=(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n').encode('utf8')
     candidate=output/'candidate.zip'
     with zipfile.ZipFile(candidate,'x',compression=zipfile.ZIP_STORED) as z:
         for name,data in sorted(members.items()):z.writestr(name,data)
     consume(candidate,'consumed.json')
-    preserved=[n for n in members if n not in ('handoff.json',manifest['component_bundle']['path'],manifest['appearance_binding']['path'])]
+    preserved=[n for n in members if n not in ('handoff.json',manifest['component_bundle']['path'],manifest['appearance_binding']['path'],changed_scope)]
     with zipfile.ZipFile(candidate) as z:require(z.testzip() is None and all(z.read(n)==original[n] for n in preserved),'APPEARANCE_REVISION_PRESERVATION')
     target=output/'ui.component-handoff.draft.zip';candidate.rename(target)
     report=dict(kind='ui_appearance_revision_v1',sourceSha256=sha256(source),sha256=sha256(target),preservedMembers=preserved,status='official_import_passed',human_visual_acceptance=False)
+    if changed_scope:report['appendedDerivedStatesSha256']=sha256(derived_states)
     write_json(output/'revision.json',report);return report
 
 if __name__=='__main__':

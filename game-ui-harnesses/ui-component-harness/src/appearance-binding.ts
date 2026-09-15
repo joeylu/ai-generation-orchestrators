@@ -1,4 +1,5 @@
 import { tabsLayoutError, type TabsLayoutPolicy } from './tabs-layout.ts';
+import {buttonLabelLinesError, type ButtonLabelLines} from './button-label-lines.ts';
 import { validateSelectOptionIcons, type SelectOptionIcons } from './select-option-icons.ts';
 import { validateSelectMenuHighlights, type SelectMenuHighlights } from './select-menu-highlights.ts';
 import { scrollbarThumbSlicesError, type ScrollbarThumbSlices } from './scrollbar-thumb-slices.ts';
@@ -86,7 +87,7 @@ export interface AppearancePopupContentLayout {
   readonly width: number;
   readonly height: number;
 }
-export interface ButtonStateAppearance { readonly labelLayout: AppearanceTextLayout }
+export interface ButtonStateAppearance { readonly labelLayout: AppearanceTextLayout; readonly labelLines?: ButtonLabelLines }
 export interface SelectStateAppearance {
   readonly optionIcons?: SelectOptionIcons<'layerId'>;
   readonly menuHighlights?: SelectMenuHighlights;
@@ -437,11 +438,12 @@ function validateRepeatedItemLayout(validator: BindingValidator, value: unknown,
     && (x < 0 || y < 0 || x + itemWidth > width || y + itemHeight > height)) validator.add(path, 'ITEM_LAYOUT_OUT_OF_BOUNDS', 'must fit within one repeated item');
 }
 
-function validateButtonState(validator: BindingValidator, value: unknown, path: string, width: number, height: number): void {
+function validateButtonState(validator: BindingValidator, value: unknown, path: string, width: number, height: number, label: string): void {
   const states = validator.object(value, path, ['button']);
   if (!states) return;
-  const state = validator.object(states.button, `${path}.button`, ['labelLayout']);
+  const state = validator.object(states.button, `${path}.button`, ['labelLayout','labelLines'], ['labelLayout']);
   if (state) validateTextLayout(validator, state.labelLayout, `${path}.button.labelLayout`, width, height);
+  if(state && Object.hasOwn(state,'labelLines')) {const error=buttonLabelLinesError(state.labelLines,label,width,height);if(error)validator.add(`${path}.button.labelLines`,error,'Invalid explicit Button text lines');}
 }
 
 function validateSelectState(
@@ -776,7 +778,7 @@ export async function validateAppearanceBinding(
         validateSwitchState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height, thumbLayer, registrationScale, applicationVersion, component.props.label.length > 0 && !component.props.stateLabels, Boolean(component.props.stateLabels));
       }
       if (applicationVersion && component?.type === 'Button') {
-        validateButtonState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height);
+        validateButtonState(validator, binding.states, `${path}.states`, component.layout.width, component.layout.height, component.type==='Button'?component.props.label:'');
       }
       if (applicationVersion && component?.type === 'Select') {
         const popupLayerId = Array.isArray(binding.parts)

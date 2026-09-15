@@ -17,6 +17,9 @@ class CompositionChecksTests(unittest.TestCase):
     def run_check(self):return check_composition(self.doc,self.shot,self.plan,self.root)
     def test_density_is_advisory_and_unchecked_explicit(self):
         r=self.run_check();self.assertEqual(r['status'],'passed_with_advisories');self.assertEqual(r['warnings'][0]['code'],'ROW_DENSITY_ADVISORY');self.assertEqual(r['uncheckedBackgroundIds'],['list'])
+    def test_empty_plan_is_not_checked_not_passed(self):
+        self.plan.update(backgrounds=[],rowSpacing=[])
+        r=self.run_check();self.assertEqual(r['status'],'not_checked');self.assertEqual(r['checks'],[])
     def test_duplicate_background_fails_even_if_color_matches(self):
         self.doc['root']['children'][0]['props']['drawBackground']=True
         self.assertEqual(self.run_check()['errors'][0]['code'],'BACKGROUND_DUPLICATE_OWNER')

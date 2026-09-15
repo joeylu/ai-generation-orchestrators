@@ -11,6 +11,29 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+For every new full component handoff use the
+[layout-gated delivery entry](docs/layout-delivery-run-v1.md). Record complete
+Panel/Text background ownership, opaque/translucent popup intent, Button text
+profiles and visual text observations before compute. Declare required profiles
+in capability-check; do not omit unsupported translucent popup requirements.
+For per-line Button text use the consumer's [labelLines 1.0](../ui-component-harness/docs/button-label-lines-v1.md)
+and declare `per-line-text-layout`; provide an observation for every rendered line.
+Measure visible Alpha support as well as the PNG canvas: equal canvas widths do
+not establish aligned visible field edges. Refit existing empty frames only with
+explicit measured nine-slice insets, and fit arrows/marks with explicit contain
+insets. Imported materials may use these existing resize policies without media
+calls; the frozen plan preserves the original source fingerprint. Never stretch
+an ornament through a resizable band or call changed material bytes unchanged.
+For observed decoration-to-text gaps, aligned visible field edges and icon/mark
+padding, declare [explicit visual relations](docs/visual-relations-v1.md) inside
+visualObservations before acceptance. Bind source ROIs and Alpha fingerprints to
+the actual inspected paint regions. A native canvas-size match or text-only
+containment does not cover these relationships. Record absent coverage explicitly;
+the checker does not recognize arbitrary painted ornaments or infer relationships.
+After materials are verified, use `handoff-job` (data-only build plan) or
+`delivery-run` (existing v2 ZIP), instead of writing a per-sample packaging script.
+Legacy stateful acceptance alone does not establish reference-layout fidelity.
+
 Apply [bounded delivery and focused verification](docs/execution-efficiency-v1.md)
 to every new sample. Separate sample execution from tool development, diagnose
 affected controls before full interaction/Studio roundtrip, and run final full

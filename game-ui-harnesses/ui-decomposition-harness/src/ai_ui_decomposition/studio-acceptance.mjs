@@ -6,7 +6,9 @@ import {createServer} from 'node:http';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
+import {checkStudioLayoutControls} from './studio-layout-controls.mjs';
 const [rootArg,zipArg,outArg,budgetArg='600']=process.argv.slice(2);
+const probeOnly=process.argv[6]==='--layout-probe-only';
 const deadline=Date.now()+Number(budgetArg)*1000;
 const remaining=()=>{const ms=deadline-Date.now();assert.ok(ms>0,'STUDIO_TIMEOUT');return ms;};
 const root=resolve(rootArg),zip=resolve(zipArg),out=resolve(outArg),dist=resolve(root,'dist');
@@ -14,6 +16,7 @@ await mkdir(out,{recursive:false});
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const walk=n=>[n,...(n.children??[]).flatMap(walk)];
 const report={kind:'ui_studio_acceptance_v1',status:'running',human_visual_acceptance:false,checks:[],screenshots:[],errors:[],blockedNetwork:[],inputProtocol:'real mouse/wheel/keyboard; DPR1; unmodified Studio layout'};
+if(probeOnly)report.kind='ui_studio_layout_probe_v1';
 let server,browser,page;
 const timer=setTimeout(()=>{browser?.close().catch(()=>{});},Number(budgetArg)*1000);
 try {
@@ -34,7 +37,7 @@ try {
  const bundle=await page.evaluate(()=>window.uiStudio.exportSelected());
  await writeFile(resolve(out,'initial-bundle.json'),JSON.stringify(bundle));
  const nodes=walk(bundle.document.root),scrolls=nodes.filter(n=>n.type==='ScrollView');
- report.coverage={scrollIds:scrolls.map(n=>n.id),otherControls:'document/resources roundtrip only; run ai-ui-stateful for full state coverage',backgroundPixels:'not inferred from Studio screenshots'};
+ report.coverage={scrollIds:probeOnly?[]:scrolls.map(n=>n.id),otherControls:'explicit Select popup layout and Button labelLines real input; other controls require ai-ui-stateful',roundtrip:!probeOnly,backgroundPixels:'not inferred from Studio screenshots'};
  const canvas=page.locator('#main-preview canvas'),snapshot=()=>page.evaluate(()=>window.uiStudio.snapshot().views[0]);
  const get=(s,id)=>{const n=s.inspection.nodes.find(n=>n.id===id);assert.ok(n,`missing ${id}`);return n;};
  const events=(s,id)=>s.events.filter(e=>e.id===id&&e.type==='scroll');
@@ -47,7 +50,7 @@ try {
  };
  const focus=async id=>{await canvas.focus();for(let i=0;i<nodes.length*3+10&&(await canvas.getAttribute('data-focused-component'))!==id;i++)await page.keyboard.press('Tab');assert.equal(await canvas.getAttribute('data-focused-component'),id,'FOCUS_UNREACHABLE');};
  await shot('initial');
- for(const [index,node] of scrolls.entries()){
+ for(const [index,node] of (probeOnly?[]:scrolls).entries()){
   const id=node.id,a=node.props.appearance;
   assert.ok(a?.scrollbarInsets,'STUDIO_PROFILE_REQUIRES_INSETS');assert.equal(node.props.scrollbarVisibility,'always','STUDIO_PROFILE_REQUIRES_ALWAYS');
   assert.ok(node.children?.length>0,'STUDIO_PROFILE_REQUIRES_CONTENT');
@@ -89,6 +92,8 @@ try {
   await focus(id);
   for(const [key,value] of [['End',max],['End',max],['ArrowUp',Math.max(0,max-40)],['Home',0],['Home',0],['ArrowDown',Math.min(40,max)],['Home',0]])await perform(`keyboard ${key}`,value,()=>page.keyboard.press(key));
  }
+ await checkStudioLayoutControls({page,canvas,nodes,snapshot,get,point,focus,shot,report});
+ if(!probeOnly){
  const before=await page.evaluate(()=>window.uiStudio.exportSelected());
  const [save]=await Promise.all([page.waitForEvent('download'),page.locator('#studio-export').click()]);await save.saveAs(resolve(out,'saved.json'));
  await page.reload();await page.locator('#open-bundle').setInputFiles(resolve(out,'saved.json'));await page.waitForFunction(()=>window.uiStudio?.snapshot().ready);
@@ -101,7 +106,9 @@ try {
  const after=await page.evaluate(()=>window.uiStudio.exportSelected());assert.deepEqual(after.document,before.document);assert.deepEqual(after.resources,before.resources);await shot('zip-reimport');
  report.checks.push({name:'save/reopen/export/official CLI/Studio reimport',status:'passed'});
  assert.deepEqual(report.errors,[]);assert.deepEqual(report.blockedNetwork,[]);
- report.roundtripSha256=hash(await readFile(resolve(out,'roundtrip.zip')));report.status='passed';
+ report.roundtripSha256=hash(await readFile(resolve(out,'roundtrip.zip')));
+ }
+ assert.deepEqual(report.errors,[]);assert.deepEqual(report.blockedNetwork,[]);report.status='passed';
 }catch(e){report.status='failed';report.failure={message:e.message,stack:e.stack};if(page)try{await page.screenshot({path:resolve(out,'failure.png'),fullPage:true});}catch{}}
 finally{clearTimeout(timer);await browser?.close();if(server)await new Promise(r=>server.close(r));await writeFile(resolve(out,'report.json'),JSON.stringify(report,null,2));}
 console.log(JSON.stringify({status:report.status,checks:report.checks.length}));process.exitCode=report.status==='passed'?0:1;

@@ -37,11 +37,12 @@ function transparent(png,icon=false,textured=false){
 const {switchStateImagesFixture}=await mod('tests/helpers/switch-state-images-fixture.ts');
 const {selectOptionIconsFixture}=await mod('tests/helpers/select-option-icons-fixture.ts');
 const cases=[await appearanceApplicationFixture(),await firstBatchAppearanceFixture(),await secondBatchAppearanceFixture()];
-for(const caseName of ['Input','Input-readonly','Input-disabled','Button','Switch','Switch-images','Select','Select-overlay','Select-icons','Select-highlights','CheckBox','RadioGroup','List','ScrollView','ScrollView-covered','Tabs','Tabs-identical','Tabs-native','Tabs-vertical','Slider','ProgressBar','ProgressBar-health','ProgressBar-shield','ProgressBar-energy']){
+for(const caseName of ['Input','Input-readonly','Input-disabled','Button','Switch','Switch-images','Select','Select-layout','Select-overlay','Select-icons','Select-highlights','CheckBox','RadioGroup','List','ScrollView','ScrollView-covered','Tabs','Tabs-identical','Tabs-native','Tabs-vertical','Slider','ProgressBar','ProgressBar-health','ProgressBar-shield','ProgressBar-energy']){
  const kind=caseName.split('-')[0];
  const f=caseName==='Tabs-vertical'?await verticalTabsFixture():['Select-icons','Select-highlights'].includes(caseName)?await selectOptionIconsFixture():caseName==='Switch-images'?await switchStateImagesFixture():caseName==='Tabs-native'?await nativeTabsFixture():cases.find(f=>f.document.root.children.some(n=>n.type===kind));
  const document=structuredClone(f.document),node=document.root.children.find(n=>n.type===kind);
  document.root.children=[node];
+ if(caseName==='Select-layout')node.props.style.fontFamily='Arial';
  if(kind==='Input'){node.props.maxLength=12;if(caseName==='Input-readonly')node.props.readOnly=true;if(caseName==='Input-disabled')node.props.enabled=false;}
  if(caseName.startsWith('ProgressBar-'))node.props.value=({'ProgressBar-health':78,'ProgressBar-shield':42,'ProgressBar-energy':65})[caseName];
  if(kind==='ScrollView')node.children=[{id:'scroll-content-marker',type:'Text',layout:{x:8,y:8,width:150,height:25},props:{text:'Scroll me',wrap:'none',overflow:'ellipsis',lineHeight:20,drawBackground:false,style:{...node.props.style}}}];

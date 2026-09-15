@@ -1,0 +1,88 @@
+{
+  "$id": "urn:ai-ui:button-label-lines-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Mirror of ui-component-harness/docs/button-label-lines-v1.md. Runtime validation additionally checks joined semantic label, parent bounds, overlap and line height.",
+  "properties": {
+    "coordinateSpace": {
+      "const": "target-component-local"
+    },
+    "lines": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "align": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ]
+          },
+          "fontSize": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "fontWeight": {
+            "enum": [
+              "normal",
+              "bold"
+            ]
+          },
+          "layout": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              "width": {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              "x": {
+                "minimum": 0,
+                "type": "number"
+              },
+              "y": {
+                "minimum": 0,
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "text": {
+            "minLength": 1,
+            "pattern": "^[^\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "fontSize",
+          "fontWeight",
+          "align",
+          "layout"
+        ],
+        "type": "object"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "type": "array"
+    },
+    "version": {
+      "const": "1.0"
+    }
+  },
+  "required": [
+    "version",
+    "coordinateSpace",
+    "lines"
+  ],
+  "type": "object"
+}

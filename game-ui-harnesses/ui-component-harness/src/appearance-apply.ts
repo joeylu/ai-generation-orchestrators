@@ -162,6 +162,7 @@ export async function applyAppearanceBinding(
       const runtimeScale = component.width / background.width;
       supported.props.appearance = {
         backgroundImage: add(background), sourceCanvas: { width: background.width, height: background.height },
+        ...(state.labelLines?{labelLines:structuredClone(state.labelLines)}:{}),
         labelLayout: { x: state.labelLayout.x / runtimeScale, y: state.labelLayout.y / runtimeScale, width: state.labelLayout.width / runtimeScale, height: state.labelLayout.height / runtimeScale },
       };
       continue;

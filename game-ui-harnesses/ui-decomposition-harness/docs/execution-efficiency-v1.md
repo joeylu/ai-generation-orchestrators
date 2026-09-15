@@ -3,6 +3,12 @@
 This is a producer workflow rule and local acceptance capability, not a hosted
 service, a latency SLA, an automatic repair service or an evidence cache.
 
+The unified [layout-gated delivery commands](layout-delivery-run-v1.md) now bind
+processed materials or an existing v2 package to full stateful, Studio and official
+reference checks under one local budget. Missing layout observations, unsafe popup
+surfaces and substituted acceptance report kinds stop publication. See that contract
+for plan schemas, intermediate diagnostic ZIPs and remaining timing limitations.
+
 ## Normal sample execution
 
 1. Before compute, finish capability, layout, source reuse and material-strategy

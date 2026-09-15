@@ -1,9 +1,25 @@
 """Panel is a static surface, including when nested in a closed Dialog."""
 import unittest
+from ai_ui_decomposition.common import ContractError
 from ai_ui_decomposition.delivery_check import select_default_parts
+from ai_ui_decomposition.component_handoff import _require_component_binding_coverage
 
 
 class PanelDeliveryTests(unittest.TestCase):
+    def test_plain_panel_without_appearance_binding_is_legal(self):
+        document = {'root': {'id': 'page', 'type': 'Container', 'children': [
+            {'id': 'panel', 'type': 'Panel', 'props': {}, 'children': []}]}}
+        _require_component_binding_coverage(document, {'bindings': []})
+        _require_component_binding_coverage(document, {'bindings': [
+            {'componentId': 'panel', 'componentType': 'Panel', 'parts': [
+                {'role': 'background', 'layerId': 'panel-frame'}]}]})
+
+    def test_interactive_binding_is_still_required(self):
+        document = {'root': {'id': 'page', 'type': 'Container', 'children': [
+            {'id': 'input', 'type': 'Input', 'props': {}, 'children': []}]}}
+        with self.assertRaisesRegex(ContractError, 'COMPONENT_HANDOFF_INTERACTIVE_BINDING_REQUIRED'):
+            _require_component_binding_coverage(document, {'bindings': []})
+
     def test_panel_selects_all_bound_surfaces_without_invented_states(self):
         for roles in [('background', 'header'), ('background', 'header', 'body')]:
             panel = dict(id='panel', type='Panel', props={'title': 'CHARACTER'})

@@ -126,12 +126,20 @@ explicit nine-slice contract uses its separately reviewed cap geometry instead.
 
 - `imported_material`: explicitly supplied local PNG, bound by
   `material_source: {"path": "inputs/control.png", "sha256": "..."}`.
-  The PNG must exactly match `output_size`; only `rgba` and `opaque_canvas`
-  are allowed, with no resize, prompt, cached result, or source asset.
+  Without `resize`, the PNG must exactly match `output_size`; only `rgba` and
+  `opaque_canvas` are allowed, with no prompt, cached result, or source asset.
+  An explicit `resize` may reuse the existing `contain` or `nine_slice` contract
+  for an `rgba` important component. The verified source may have a different
+  size; processing applies that frozen transform and requires the exact output
+  size. No resize is inferred from Alpha bounds or component type. Use `contain`
+  for symbols and explicitly measured insets for empty stretchable surfaces;
+  do not stretch pictograms or decorated center ornaments with nine-slice.
   Freeze snapshots the file and records zero generation calls, an external
   material origin, and `generation_provenance_verified: false`. It does not
-  manufacture historical provider receipts. Processing preserves canvas margins
-  and continuous Alpha, normalizing only transparent RGB. Changed snapshots
+  manufacture historical provider receipts. Without resize, processing preserves
+  canvas margins and continuous Alpha, normalizing only transparent RGB. Explicit
+  resize uses the existing deterministic fitter and records its parameters in the
+  frozen plan; source snapshots are retained unchanged. Changed snapshots
   fail before processing. Import proves file identity, not visual quality,
   text removal, or historical generation provenance.
 - `generated_completion`: one opaque, UI-free completion request.
