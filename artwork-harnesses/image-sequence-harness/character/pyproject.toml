@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-character-image-sequence"
+version = "0.2.1"
+description = "Fixed 4x4 character animation with optional cloud MCP adapters"
+requires-python = ">=3.11"
+readme = "README.md"
+license = "MIT"
+dependencies = ["Pillow>=10,<13", "jsonschema>=4.18,<5"]
+
+[project.scripts]
+ai-character-image-sequence = "ai_character_image_sequence.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ai_character_image_sequence = ["schemas/*.json"]

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reference", "motion", "phases", "loop", "duration_ms", "board_size", "frame_size"],
+  "properties": {
+    "reference": {"type": "string", "minLength": 1},
+    "reference_preparation_handoff": {"type": "string", "minLength": 1},
+    "reference_mode": {"type": "string", "enum": ["auto", "cloud"], "default": "auto"},
+    "motion": {"type": "string", "minLength": 1, "maxLength": 8000},
+    "phases": {
+      "description": "Four consecutive action phases, four poses per phase.",
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"type": "string", "minLength": 1, "maxLength": 2000}
+    },
+    "loop": {"type": "boolean"},
+    "duration_ms": {"type": "integer", "minimum": 160, "maximum": 60000},
+    "board_size": {"type": "integer", "minimum": 128, "maximum": 4096, "multipleOf": 4},
+    "frame_size": {"type": "integer", "minimum": 32, "maximum": 1024},
+    "alignment_mode": {
+      "description": "Optional deterministic per-frame translation after fixed-cell extraction.",
+      "type": "string", "enum": ["none", "bottom_y", "bottom_center"], "default": "none"
+    },
+    "alignment_reference_frame": {
+      "description": "One-based frame whose detected anchor becomes the shared target.",
+      "type": "integer", "minimum": 1, "maximum": 16, "default": 1
+    },
+    "alignment_padding": {
+      "description": "Transparent pixels added on every side before alignment to prevent clipping.",
+      "type": "integer", "minimum": 0, "maximum": 256, "default": 16
+    },
+    "pose_blueprint": {
+      "description": "Optional exact frame-by-frame pose responsibilities in reading order.",
+      "type": "array", "minItems": 16, "maxItems": 16,
+      "items": {"type": "string", "minLength": 1, "maxLength": 1000}
+    },
+    "timing_weights": {
+      "description": "Relative positive display weights for all 16 frames; total duration remains duration_ms.",
+      "type": "array", "minItems": 16, "maxItems": 16,
+      "items": {"type": "integer", "minimum": 1, "maximum": 16}
+    },
+    "gif": {"type": "boolean", "default": true}
+  }
+}
