@@ -11,6 +11,19 @@ def fixture():
     return bundle,observations,inspection
 
 class VisualObservationTests(unittest.TestCase):
+    def test_geometry_detects_underfill_and_offcenter_inside_valid_box(self):
+        b,o,i=fixture();o['texts'][0]['geometry']=dict(version='1.0',referenceBounds=[10,70,50,10],maxCenterOffset=[1,1],widthRatio=[.95,1.1],evidence='Offline measured reference fixture')
+        o['requiredTextGeometryIds']=['claim']
+        codes=[r['code'] for r in check_visual_observations(b,o,i)['issues']]
+        self.assertIn('TEXT_RENDERED_CENTER',codes);self.assertIn('TEXT_RENDERED_WIDTH_RATIO',codes)
+        i['nodes'][0]['renderedTextBounds'][0]['bounds']['width']=50
+        self.assertEqual(check_visual_observations(b,o,i)['status'],'passed')
+        del o['texts'][0]['geometry']
+        self.assertIn('TEXT_GEOMETRY_MISSING',[r['code'] for r in check_visual_observations(b,o,i)['issues']])
+    def test_geometry_rejects_unknown_version_and_nan(self):
+        for version,offset in [('2.0',1),('1.0',float('nan'))]:
+            b,o,i=fixture();o['texts'][0]['geometry']=dict(version=version,referenceBounds=[10,70,50,10],maxCenterOffset=[offset,1],widthRatio=[.8,1.1],evidence='Fixture')
+            with self.assertRaises(ValueError):check_visual_observations(b,o,i)
     def test_valid_observations_are_not_human_acceptance(self):
         r=check_visual_observations(*fixture());self.assertEqual(r['status'],'passed');self.assertFalse(r['human_visual_acceptance'])
     def test_missing_text_small_font_bad_position_duplicate_frame_and_wrong_backdrop_fail(self):

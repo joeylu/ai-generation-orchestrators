@@ -72,7 +72,19 @@ def verify_strategy(strategy: dict) -> None:
     require(strategy==plan_boards(strategy.get('observations',{})),'BOARD_STRATEGY_CHANGED')
 
 
+def validate_canvas_size(size,board):
+    """Same geometry gate at ingestion and extraction; never rescale to pass."""
+    if 'extraction_policy' in board:
+        from .relative_board import validate_policy
+        from .resources import require_keyed_input_limit
+        policy=board['extraction_policy'];validate_policy(policy)
+        rw,rh=size;cw,ch=board['canvas'];require_keyed_input_limit([rw,rh])
+        require(abs((rw/rh)/(cw/ch)-1)<=policy['max_canvas_aspect_error'],'BOARD_RELATIVE_CANVAS_ASPECT')
+    else:require(list(size)==board['canvas'],'BOARD_CANVAS_MISMATCH')
+
+
 def crop_board(raw: Image.Image, board: dict, mode: str) -> tuple[dict, list]:
+    validate_canvas_size(raw.size,board)
     if 'extraction_policy' in board:
         from .relative_board import crop_relative
         return crop_relative(raw,board,mode)

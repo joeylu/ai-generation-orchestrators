@@ -11,6 +11,37 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+For title/subtitle roles in the four-type delivery compiler, provide
+[source-relative text geometry](docs/text-geometry-preflight-v1.md) before compute.
+Check real rendered center and width, not only authored font size and containment.
+Missing geometry is missing coverage; never silently describe it as verified.
+
+For single-row keyed component boards whose precise generated placement cannot
+be guaranteed, explicitly plan [foreground-gap extraction](docs/foreground-gap-extraction-v1.md).
+Use actual empty gaps for cuts and deterministic contain fitting; do not require
+pixel-perfect generated partition lines. Preserve count, separation, edge and
+semantic-review checks. Existing frozen attempts need separate revision evidence,
+never an in-place strategy or receipt rewrite.
+
+For local workflow development or offline MCP simulation, see
+[the fixed DAG prototype](docs/local-workflow-v1.md). Its lifecycle controls and
+four-type compiler are implemented. The repository adapter connects the official
+v2 build entry and supports supplied-response preflight; real MCP execution still
+requires new plan-bound authorization. The file bridges support
+subagent/MCP transport via immutable `generationMode:"file"` and `reviewMode:"file"`; use their one-use
+assignments and verified receive command, never hand-write DAG receipts or repeat
+an assignment. New file bridge jobs require recording the exact tool arguments
+with `workflow-record-submission` immediately before the single external call.
+Invoke using those same recorded arguments, never reconstruct the prompt. The
+record proves caller intent, not independent provider execution. Inspect status
+for assigned/invocation_recorded/received progress. Board canvas geometry is checked
+before batch receipt; failure stops the job without dispatching the next material.
+Initial vision/repair still require a supplied response or trusted provider
+configuration. The
+separate test adapter uses synthetic fixtures. Do not present fixture
+completion as user-artwork, Studio or visual acceptance. Keep existing full
+delivery and plan-bound compute authorization requirements below.
+
 For every new full component handoff use the
 [layout-gated delivery entry](docs/layout-delivery-run-v1.md). Record complete
 Panel/Text background ownership, opaque/translucent popup intent, Button text

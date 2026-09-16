@@ -16,6 +16,41 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description="Opt-in deterministic UI decomposition Harness")
     root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True)
+    consolidated=commands.add_parser('consolidated-delivery',help='Join digest-bound generated runs and execute official acceptance; no media')
+    for name in ('plan','workspace','component-root','output'):consolidated.add_argument('--'+name,required=True,type=Path)
+    workflow_init=commands.add_parser('workflow-init',help='Create a local fixed DAG; trusted adapter config, no provider calls')
+    for name in ('reference','job','adapter-config'):workflow_init.add_argument('--'+name,required=True,type=Path)
+    workflow_init.add_argument('--maximum-calls',type=int,default=8)
+    workflow_init.add_argument('--stage-timeout',type=int,default=120)
+    workflow_init.add_argument('--active-timeout',type=int,default=1200)
+    workflow_advance=commands.add_parser('workflow-advance',help='Advance local DAG; never resubmit uncertain external nodes')
+    workflow_advance.add_argument('--job',required=True,type=Path)
+    workflow_advance.add_argument('--allow-vision',action='store_true')
+    workflow_advance.add_argument('--max-nodes',type=int,default=8)
+    workflow_status=commands.add_parser('workflow-status',help='Verify local DAG receipts, no compute')
+    workflow_status.add_argument('--job',required=True,type=Path)
+    workflow_auth=commands.add_parser('workflow-authorize',help='Explicitly authorize one frozen job by plan digest')
+    workflow_auth.add_argument('--job',required=True,type=Path)
+    workflow_auth.add_argument('--plan-digest',required=True)
+    workflow_recover=commands.add_parser('workflow-recover-local',help='Archive one crash-interrupted pure compiler attempt')
+    workflow_recover.add_argument('--job',required=True,type=Path)
+    workflow_recover.add_argument('--node',required=True,choices=['compile','compile_repaired'])
+    bridge_export=commands.add_parser('workflow-export-generation',help='Assign next authorized generation request once; no media calls')
+    bridge_export.add_argument('--job',required=True,type=Path)
+    bridge_receive=commands.add_parser('workflow-receive-generation',help='Verify and receive one externally generated PNG; no resubmission')
+    bridge_receive.add_argument('--job',required=True,type=Path)
+    bridge_receive.add_argument('--request-digest',required=True)
+    bridge_receive.add_argument('--source',required=True,type=Path)
+    bridge_submit=commands.add_parser('workflow-record-submission',help='Record exact arguments before one external generation call; never invokes a provider')
+    bridge_submit.add_argument('--job',required=True,type=Path)
+    bridge_submit.add_argument('--request-digest',required=True)
+    bridge_submit.add_argument('--arguments',required=True,type=Path)
+    review_export=commands.add_parser('workflow-export-review',help='Export one visual review assignment; no model calls')
+    review_export.add_argument('--job',required=True,type=Path)
+    review_receive=commands.add_parser('workflow-receive-review',help='Validate external visual assessment against formal policy')
+    review_receive.add_argument('--job',required=True,type=Path)
+    review_receive.add_argument('--request-digest',required=True)
+    review_receive.add_argument('--source',required=True,type=Path)
     delivery_run=commands.add_parser('delivery-run',help='Bounded local v2 layout, real-state, Studio and reference acceptance; no media')
     for name in ('plan','component-root','output'):delivery_run.add_argument('--'+name,required=True,type=Path)
     delivery_run.add_argument('--timeout-seconds',type=int,default=1200)
@@ -165,6 +200,36 @@ def parser() -> argparse.ArgumentParser:
 
 
 def execute(args) -> dict:
+    if args.command=='consolidated-delivery':
+        from .consolidated_delivery import run
+        return run(args.plan,args.workspace,args.component_root,args.output)
+    if args.command.startswith('workflow-'):
+        from . import workflow
+        from .common import require
+        if args.command=='workflow-init':
+            config=read_json(args.adapter_config)
+            require(set(config)=={'factory','options','fixture'},'WORKFLOW_ADAPTER_CONFIG')
+            return workflow.create_job(args.reference,args.job,factory=config['factory'],options=config['options'],fixture=config['fixture'],
+                maximum_calls=args.maximum_calls,stage_timeout=args.stage_timeout,active_timeout=args.active_timeout)
+        if args.command=='workflow-export-generation':
+            from .workflow_bridge import export_generation
+            return export_generation(args.job)
+        if args.command=='workflow-record-submission':
+            from .workflow_bridge import record_submission
+            return record_submission(args.job,args.request_digest,args.arguments)
+        if args.command=='workflow-export-review':
+            from .workflow_review_bridge import export_review
+            return export_review(args.job)
+        if args.command=='workflow-receive-review':
+            from .workflow_review_bridge import receive_review
+            return receive_review(args.job,args.request_digest,args.source)
+        if args.command=='workflow-receive-generation':
+            from .workflow_bridge import receive_generation
+            return receive_generation(args.job,args.request_digest,args.source)
+        if args.command=='workflow-advance':return workflow.advance(args.job,allow_vision=args.allow_vision,max_nodes=args.max_nodes)
+        if args.command=='workflow-authorize':return workflow.authorize(args.job,args.plan_digest)
+        if args.command=='workflow-recover-local':return workflow.recover_local(args.job,args.node)
+        return workflow.inspect_job(args.job)
     if args.command=='handoff-job':
         from .handoff_build import build_and_run
         return build_and_run(args.plan.resolve(),args.component_root.resolve(),args.output.resolve(),args.timeout_seconds)
@@ -303,7 +368,7 @@ def main(argv=None) -> int:
     try:
         result = execute(args)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 2 if result.get("status") in {"failed", "blocked_reference", "failed_no_resubmit", "failed_visual_qa", "needs_repair", "capability_blocked"} else 0
+        return 2 if result.get("status") in {"failed", "blocked_reference", "failed_no_resubmit", "failed_visual_qa", "needs_repair", "capability_blocked", "timed_out", "indeterminate", "rejected"} else 0
     except ContractError as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc)}, ensure_ascii=False, sort_keys=True))

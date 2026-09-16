@@ -4,6 +4,7 @@ This does not discover text by OCR or recognize arbitrary painted ornaments.
 """
 import base64
 import io
+import math
 from PIL import Image
 from .common import require
 from .visual_policy import walk,contains
@@ -17,6 +18,10 @@ def check_visual_observations(bundle, observations, inspection):
     def check(ok,code,ident,**detail):
         row=dict(componentId=ident,code=code,pass_=bool(ok),**detail);checks.append(row)
         if not ok:issues.append(row)
+    required=observations.get('requiredTextGeometryIds',[])
+    require(isinstance(required,list) and all(isinstance(x,str) for x in required) and len(required)==len(set(required)),'TEXT_GEOMETRY_REQUIRED_IDS')
+    for ident in required:
+        check(any(s['componentId']==ident and 'geometry' in s for s in observations['texts']),'TEXT_GEOMETRY_MISSING',ident)
     for spec in observations['texts']:
         ident=spec['componentId'];n=nodes.get(ident);a=actual.get(ident)
         check(n is not None and a is not None,'TEXT_OWNER_MISSING',ident)
@@ -30,6 +35,17 @@ def check_visual_observations(bundle, observations, inspection):
         r=spec['region'];tolerance=4
         envelope=dict(x=r['x']-tolerance,y=r['y']-tolerance,width=r['width']+2*tolerance,height=r['height']+2*tolerance)
         check(contains(envelope,label['bounds']),'TEXT_OUTSIDE_OBSERVED_REGION',ident,actual=label['bounds'],expected=r)
+        if 'geometry' in spec:
+            g=spec['geometry']
+            require(isinstance(g,dict) and set(g)=={'version','referenceBounds','maxCenterOffset','widthRatio','evidence'} and g['version']=='1.0','TEXT_GEOMETRY_SCHEMA')
+            require(isinstance(g['evidence'],str) and bool(g['evidence'].strip()),'TEXT_GEOMETRY_EVIDENCE')
+            ref=g['referenceBounds'];offset=g['maxCenterOffset'];ratio=g['widthRatio']
+            require(isinstance(ref,list) and len(ref)==4 and isinstance(offset,list) and len(offset)==2 and isinstance(ratio,list) and len(ratio)==2,'TEXT_GEOMETRY_VALUES')
+            require(all(type(v) in (int,float) and math.isfinite(v) for v in ref+offset+ratio) and min(ref[2:])>0 and min(offset)>=0 and 0<ratio[0]<=ratio[1],'TEXT_GEOMETRY_VALUES')
+            b=label['bounds'];delta=[abs(b['x']+b['width']/2-ref[0]-ref[2]/2),abs(b['y']+b['height']/2-ref[1]-ref[3]/2)]
+            check(all(delta[i]<=offset[i] for i in range(2)),'TEXT_RENDERED_CENTER',ident,actualOffset=delta,maximum=offset)
+            value=b['width']/ref[2]
+            check(ratio[0]<=value<=ratio[1],'TEXT_RENDERED_WIDTH_RATIO',ident,actualRatio=value,allowed=ratio)
     for index,(ident,one) in enumerate(rendered):
         for other_id,two in rendered[index+1:]:
             width=min(one['x']+one['width'],two['x']+two['width'])-max(one['x'],two['x'])
@@ -66,5 +82,6 @@ def check_visual_observations(bundle, observations, inspection):
         relation_report=check_visual_relations(bundle,observations['visualRelations'],inspection)
         checks.extend(relation_report['checks']);issues.extend(relation_report['issues'])
     return dict(kind='ui_visual_observation_check_v1',status='passed' if not issues else 'failed',issues=issues,checks=checks,
+                textGeometryCoverage={'checked':[s['componentId'] for s in observations['texts'] if 'geometry' in s], 'undeclared':[s['componentId'] for s in observations['texts'] if 'geometry' not in s]},
                 visualRelations=relation_report if relation_report is not None else {'status':'not_declared'},
                 human_visual_acceptance=False)
