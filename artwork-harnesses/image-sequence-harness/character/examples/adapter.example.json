@@ -1,0 +1,10 @@
+{
+  "adapter": "queued_image_mcp_v1",
+  "key_env": "CHARACTER_IMAGE_MCP_KEY",
+  "endpoints": {
+    "generate": "https://example.invalid/imagegen",
+    "matte": "https://example.invalid/birefnet"
+  },
+  "timeout_seconds": 45,
+  "matte_options": {}
+}

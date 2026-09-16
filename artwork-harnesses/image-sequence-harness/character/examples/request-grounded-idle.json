@@ -1,0 +1,18 @@
+{
+  "reference": "reference.png",
+  "motion": "角色侧视站立待机，双脚持续着地，仅做轻微呼吸、眨眼和衣物跟随运动",
+  "phases": [
+    "保持双脚着地并缓慢吸气，胸肩轻微上升",
+    "吸气最高点短暂停留并自然眨眼一次",
+    "保持双脚着地并缓慢呼气，衣物轻微跟随",
+    "回到中立呼吸状态并平滑衔接下一周期"
+  ],
+  "loop": true,
+  "duration_ms": 1600,
+  "board_size": 1024,
+  "frame_size": 256,
+  "alignment_mode": "bottom_y",
+  "alignment_reference_frame": 1,
+  "alignment_padding": 16,
+  "gif": true
+}

@@ -1,0 +1,7 @@
+__pycache__/
+*.egg-info/
+build/
+dist/
+.test-work/
+.character-image-sequence/
+.codex/config.toml

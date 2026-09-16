@@ -1,0 +1,17 @@
+{
+  "reference": "reference.png",
+  "motion": "角色侧视原地跑步，保持身份、服装、比例、镜头与画风一致",
+  "phases": [
+    "左脚接地承重，身体进入下压阶段，双臂自然反向摆动",
+    "左脚蹬地，双腿经过交错位置，身体轻微抬升",
+    "右脚接地承重，与前半周期形成对应动作",
+    "右脚蹬地，恢复到接近下一次左脚接地的姿态，不重复首帧"
+  ],
+  "loop": true,
+  "duration_ms": 1000,
+  "board_size": 1024,
+  "frame_size": 256,
+  "alignment_mode": "none",
+  "alignment_reference_frame": 1,
+  "gif": true
+}
