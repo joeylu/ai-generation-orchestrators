@@ -23,6 +23,7 @@ from .stateful_dialog import dialog_state, DIALOG_STATES, DIALOG_ROLES
 from .stateful_static_children import button_image_children, select_image_overlays
 from .stateful_list_children import list_children
 from .stateful_list_text import list_text_targets
+from .document_extensions import item_offsets, check_extensions, linked_component_ids, validate_linkage_receipt
 
 from .switch_state_images import validate_state_images
 from .stateful_input import input_states, input_value
@@ -104,8 +105,9 @@ def node_contexts(root, offset=(0, 0), clip=None):
         p=root['props'];r=p['appearance']['viewport']['layout']
         clip=intersect_rect(clip,[pos[0]+r['x'],pos[1]+r['y'],r['width'],r['height']])
         child_pos=(pos[0]+r['x']-p['scrollX'],pos[1]+r['y']-p['scrollY'])
+    offsets=item_offsets(root)
     for child in root.get('children', []):
-        yield from node_contexts(child, child_pos,clip)
+        yield from node_contexts(child, (child_pos[0],child_pos[1]+offsets.get(child['id'],0)),clip)
 
 
 def nodes(root,offset=(0,0)):
@@ -363,7 +365,7 @@ def compile_matrix(bundle, binding, evidence, assets):
                     parts.append(part('row/'+item,'row',a['rowImage'],rect))
                     if item==name:
                         parts.append(part('row/'+item,'selected-row',a['selectedRowImage'],rect))
-                    exclude(a['labelLayout'],x,y+index*p['itemHeight'])
+                    if not p.get('itemContents'):exclude(a['labelLayout'],x,y+index*p['itemHeight'])
                 point=[x+w/2,y+(names.index(name)+.5)*p['itemHeight']]
                 require(point[1] < y+h, 'STATE_NOT_VISIBLE')
                 hit=a['hitArea']
@@ -372,8 +374,8 @@ def compile_matrix(bundle, binding, evidence, assets):
                 require(min(row_clip[2:])>0,'STATE_LIST_ITEM_OUTSIDE_VIEWPORT')
                 point=[row_clip[0]+row_clip[2]/2,row_clip[1]+row_clip[3]/2]
                 structured_children=list_children(n,resources,(x,y),inherited_clip)
-                for child in n.get('children',[]):
-                    r=child['layout'];excludes.append([x+r['x'],y+r['y'],r['width'],r['height']])
+                for child in structured_children:
+                    excludes.append(child['rect'])
             records.append(dict(name=name,value=value,action=action,point=point,parts=parts,staticChildren=static_children,listChildren=structured_children,exclude=excludes,textRegions=texts,referenceEvidence=proof,scroll=scroll,slider=slider,dialog=dialog,
                                 clip=intersect_rect(inherited_clip,[x,y,w,h]) if t=='List' else inherited_clip if t!='Select' else None))
             if t=='List':records[-1]['boundTexts']=list_text_targets(bundle['document'],n,contexts,value)
@@ -471,6 +473,9 @@ def accept(handoff, evidence_path, component_root, output, browser=True, *, comp
         execution.start('deterministic-matrix')
         require((output/'consumed.json').stat().st_size<=64*1024*1024,'STATE_ARCHIVE_LIMIT')
         bundle=json.loads((output/'consumed.json').read_text(encoding='utf-8'))
+        extension_check=check_extensions(bundle['document'])
+        write_json(output/'document-extensions.json',extension_check)
+        report['documentExtensionsSha256']=sha256(output/'document-extensions.json')
         binding,assets=archive_inputs(handoff)
         if layout_requirements is not None:
             from .layout_gate import check_layout_requirements
@@ -481,6 +486,8 @@ def accept(handoff, evidence_path, component_root, output, browser=True, *, comp
         report['layoutCoverage']='required_checked' if layout_requirements is not None else 'not_verified_legacy_runtime_only'
         matrix=compile_matrix(bundle,binding,evidence,assets)
         matrix['requireVisualLayout']=layout_requirements is not None
+        matrix['linkedComponentIds']=sorted(linked_component_ids(bundle['document']))
+        report['linkageCoverage']='not_run' if matrix['linkedComponentIds'] else 'not_applicable'
         with Image.open(source) as ref:
             require(all(s['referenceEvidence']['region'][0]+s['referenceEvidence']['region'][2]<=ref.width and
                         s['referenceEvidence']['region'][1]+s['referenceEvidence']['region'][3]<=ref.height
@@ -513,6 +520,13 @@ def accept(handoff, evidence_path, component_root, output, browser=True, *, comp
                 write_json(output/'preflight-visual-observation-check.json',checks)
                 require(checks['status']=='passed','VISUAL_OBSERVATION_PREFLIGHT_REJECTED')
             execution.start('browser')
+            if matrix['linkedComponentIds']:
+                result=subprocess.run(['node',str(Path(__file__).with_name('linkage-browser.mjs')),str(component_root),str(output)],capture_output=True,text=True,timeout=execution.remaining())
+                write_json(output/'linkage-process.json',dict(exitCode=result.returncode,stdout=result.stdout[-4000:],stderr=result.stderr[-4000:]))
+                require(result.returncode==0,'LINKAGE_BROWSER_FAILED')
+                linkage=read_json(output/'linkage-browser.json',max_bytes=64*1024*1024)
+                validate_linkage_receipt(linkage, matrix)
+                report.update(linkageCoverage='checked',linkageBrowserSha256=sha256(output/'linkage-browser.json'))
             result=subprocess.run(['node',str(Path(__file__).with_name('stateful_browser.mjs')),str(component_root),str(output)],capture_output=True,text=True,timeout=execution.remaining())
             require(result.returncode==0,'STATE_BROWSER_FAILED')
             report.update(status='targeted_passed' if components is not None else 'technical_passed',browserSha256=sha256(output/'browser.json'))

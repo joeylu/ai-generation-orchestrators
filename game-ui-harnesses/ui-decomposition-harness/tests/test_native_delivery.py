@@ -116,6 +116,47 @@ class NativeDeliveryTests(unittest.TestCase):
                 bad=copy.deepcopy(request);mutate(bad)
                 with self.assertRaises(ValueError):compile_delivery(fixture/'reference.png',bad,self.root/('invalid-'+name),self.consumer,8)
 
+    def test_owned_image_row_source_registration_and_official_import(self):
+        fixture=self.root/'fixtures/List';request,raws=native_fixture(fixture)
+        node=request['document']['root']['children'][1];p=node['props'];r=node['layout']
+        p['itemContents']=dict(version='1.0',coordinateSpace='item-local',labelMode='children',items=[])
+        request['visualObservations']['texts']=[]
+        next(c for c in request['capabilities'] if c['id']==node['id'])['profiles'].append('item-contents-v1')
+        for i,item in enumerate(p['items']):
+            cid=item['id']+'-icon';style=copy.deepcopy(p['style'])
+            node['children'].append(dict(id=cid,type='Image',layout=dict(x=8,y=8,width=24,height=24),props=dict(source='layers/'+cid+'.png',fit='contain',drawBackground=False,style=style)))
+            p['itemContents']['items'].append(dict(itemId=item['id'],childIds=[cid]))
+            request['capabilities'].append(dict(id=cid,type='Image',profiles=['base']))
+            request['appearance']['bindings'].append(dict(componentId=cid,componentType='Image',parts=[dict(role='image',layerId=cid)]))
+            request['materials'].append(dict(layerId=cid,componentId=cid,rect=[r['x']+8,r['y']+i*50+8,24,24],description='Procedural owned icon',groupId=None))
+            request['acceptanceScope']['components'].append(dict(componentId=cid,mode='compare',reason='Procedural owned image'))
+            image=Image.new('RGBA',(24,24));image.paste(('red','blue')[i],(2,2,22,22));buffer=io.BytesIO();image.save(buffer,format='PNG');raws[cid]=buffer.getvalue()
+        out=self.root/'owned-images';out.mkdir();compiled=out/'compiled'
+        bad=copy.deepcopy(request);bad['materials'][-1]['rect'][1]-=50
+        with self.assertRaisesRegex(ValueError,'NATIVE_IMAGE_SOURCE_REGISTRATION'):
+            compile_delivery(fixture/'reference.png',bad,out/'bad',self.consumer,8)
+        compile_delivery(fixture/'reference.png',request,compiled,self.consumer,8)
+        batch.freeze(compiled/'plan.json',out/'generation','one',capability_request=compiled/'capabilities.json',component_document=compiled/'semantic-document.json',layout_spacing=compiled/'layout-spacing.json')
+        run=out/'generation/runs/one'
+        for asset in read_json(compiled/'plan.json')['assets']:
+            key=asset['id'];bundle=out/('request-'+key);export_request(run,key,bundle)
+            if key.startswith('board-'):
+                board=read_json(compiled/('strategy-'+key[6:]+'.json'))['boards'][0];image=Image.new('RGB',board['canvas'],'#F808F8')
+                for slot in board['slots']:
+                    part=Image.open(io.BytesIO(raws[slot['asset_id']])).convert('RGBA');l,t,r,b=slot['search_window'];image.paste(part,((l+r-part.width)//2,(t+b-part.height)//2),part)
+            elif key=='background':image=Image.open(io.BytesIO(raws[key])).convert('RGB')
+            else:
+                part=Image.open(io.BytesIO(raws[key])).convert('RGBA');image=Image.new('RGB',part.size,'#F808F8');image.paste(part,(0,0),part)
+            path=out/(key+'.png');image.save(path);seal_result(bundle,path);import_result(run,bundle)
+        build=prepare_handoff(compiled,run,out/'prepared',self.consumer)
+        build_handoff(build,self.consumer,out/'handoff',AcceptanceExecution(90))
+        result=accept(out/'handoff/acceptance-inputs/source.zip',out/'handoff/acceptance-inputs/evidence.json',self.consumer,out/'state',browser=os.environ.get('NATIVE_DELIVERY_BROWSER')=='1')
+        self.assertIn(result['status'],('deterministic_passed','technical_passed'))
+        applied=read_json(out/'state/consumed.json',max_bytes=64000000)['document']
+        owned=next(n for n in walk(applied['root']) if n['id']==node['id'])
+        self.assertEqual(owned['props']['itemContents'],p['itemContents'])
+        self.assertEqual([c['layout']['y'] for c in owned['children']],[8,8])
+
     def test_native_input_reaches_dag_authorization_without_media(self):
         from ai_ui_decomposition import workflow
         fixture=self.root/'fixtures/CheckBox';request,_=native_fixture(fixture)
@@ -149,3 +190,17 @@ class NativeDeliveryTests(unittest.TestCase):
         self.assertIn('foreground-gap-row',prompt)
         self.assertIn(str(board['canvas']),prompt)
         for slot in board['slots']:self.assertIn(str(slot['search_window']),prompt)
+
+    def test_content_gap_policy_reaches_native_compile_and_request(self):
+        from test_content_gap_board import policy
+        from ai_ui_decomposition.batch import _prompt
+        fixture=self.root/'fixtures/CheckBox';request,_=native_fixture(fixture)
+        request['boardPolicies']['checkbox']=policy()
+        out=self.root/'content-gap';compile_delivery(fixture/'reference.png',request,out,self.consumer,8)
+        board=read_json(out/'strategy-checkbox.json')['boards'][0]
+        self.assertEqual(board['extraction_policy'],policy())
+        asset=next(a for a in read_json(out/'plan.json')['assets'] if a['id']=='board-checkbox')
+        prompt=_prompt(asset)
+        self.assertIn('component-family-content-gap-v1.1',prompt)
+        self.assertIn('not exact pixel placement',prompt)
+        self.assertNotIn('Keep the explicitly declared raw canvas',prompt)

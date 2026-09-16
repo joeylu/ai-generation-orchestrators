@@ -1,6 +1,7 @@
 """Bounded direct Image/Text List children; no consumer extension or inferred copy."""
 from .common import require
 from .stateful_static_children import button_image_children
+from .document_extensions import item_offsets
 
 
 def intersection(a,b):
@@ -14,20 +15,23 @@ def list_children(node,resources,origin,clip=None):
     require(node['props']['style']['opacity']==1,'STATE_LIST_CHILD_OPACITY')
     clip=intersection(clip,[*origin,node['layout']['width'],node['layout']['height']])
     result=[]
+    offsets=item_offsets(node)
     for child in node['children']:
+        child_origin=(origin[0],origin[1]+offsets.get(child['id'],0))
+        child_clip=intersection(clip,[*child_origin,node['layout']['width'],node['props']['itemHeight']-node['props'].get('rowGap',0)]) if offsets else clip
         kind=child['type'];p=child['props'];r=child['layout']
         require(kind in {'Image','Text'} and not child.get('children'),'STATE_LIST_CHILD_TYPE:'+child['id'])
         require(p.get('drawBackground') is False and p['style']['opacity']==1,'STATE_LIST_CHILD_STYLE:'+child['id'])
         require(r['x']>=0 and r['y']>=0 and r['x']+r['width']<=node['layout']['width'] and
                 r['y']+r['height']<=node['layout']['height'],'STATE_LIST_CHILD_BOUNDS:'+child['id'])
-        rect=[origin[0]+r['x'],origin[1]+r['y'],r['width'],r['height']]
+        rect=[child_origin[0]+r['x'],child_origin[1]+r['y'],r['width'],r['height']]
         require(not any(intersection(rect,a['rect'])[2]*intersection(rect,a['rect'])[3]>0 for a in result),
                 'STATE_LIST_CHILD_OVERLAP:'+child['id'])
-        record=dict(nodeId=child['id'],parentId=node['id'],kind=kind,rect=rect,clip=clip,
-                    visibleRect=intersection(rect,clip),localLayout=dict(r))
+        record=dict(nodeId=child['id'],parentId=node['id'],kind=kind,rect=rect,clip=child_clip,
+                    visibleRect=intersection(rect,child_clip),localLayout=dict(r))
         if kind=='Image':
             wrapper={'id':node['id'],'props':node['props'],'children':[child]}
-            verified=button_image_children(wrapper,resources,origin,clip)[0]
+            verified=button_image_children(wrapper,resources,child_origin,child_clip)[0]
             record.update(image=verified['image'],sha256=verified['sha256'],canvas=verified['canvas'])
         else:
             require('appearance' not in p and not p.get('fontSource') and p['wrap'] in {'word','none'} and

@@ -15,10 +15,20 @@ For explicit native UiDocument plans involving Tabs/Input/Select/List/CheckBox,
 use [native delivery input 1.0](docs/native-delivery-input-v1.md) through the
 existing repository DAG. Preserve the consumer's props, appearance and reference
 state contracts; this expands the supplied-data compiler, not the legacy
-four-type vision prompt. Check cross-component behavior separately: native
-controls and value-text bindings do not implement quantity stores, arithmetic,
-search filtering or sorting. Do not authorize a sample assuming those behaviors
-exist when no consumer contract supports them.
+four-type vision prompt. For quantity, arithmetic, filtering, sorting and owned
+List children, use [consumer linkage integration](docs/component-linkages-v1.md).
+Require explicit versioned capability coverage and canonical source row geometry;
+single-control base support does not establish cross-component acceptance.
+For repeated ordinary Image symbols at the same size, use the bounded
+[shared Image source v1.0](docs/shared-image-materials-v1.md) declaration and
+retain every component's own layer binding and rectangle.
+For empty-frame fitting and monochrome state families, use the explicitly bound
+[processed-material refit](docs/material-refit-v1.md) recipes. Declare canonical
+glyph/palette provenance for derived color states; never claim independently
+generated silhouettes have matching Alpha. Keep common-alpha repair limits intact.
+For new frame-based handoffs, provide visibleMaterialGeometry at build time,
+including visible extent and explicit ornament/text reservations. Missing declared
+paint geometry is missing coverage, not automatic visual acceptance.
 
 For title/subtitle roles in the four-type delivery compiler, provide
 [source-relative text geometry](docs/text-geometry-preflight-v1.md) before compute.
@@ -27,6 +37,19 @@ Missing geometry is missing coverage; never silently describe it as verified.
 
 For single-row keyed component boards whose precise generated placement cannot
 be guaranteed, explicitly plan [foreground-gap extraction](docs/foreground-gap-extraction-v1.md).
+For uncertain canvas whitespace or icons containing disconnected strokes, evaluate
+[content-based extraction 1.1](docs/content-gap-extraction-v1.1.md) before freeze.
+For mixed-size icons, explicitly evaluate [mixed-size separation 1.2](docs/content-gap-extraction-v1.2.md)
+instead of requiring the largest icon's full margin around each small neighbor.
+When a returned empty frame has the wrong whole-image aspect, evaluate a
+[measured nine-slice revision](docs/measured-frame-fit-v1.md). Inspect its actual
+corners and stretch-safe bands; bind support pixels and raw fingerprints. Do not
+apply guessed insets to icons or treat material-only revision as a successful
+generation receipt. This is deterministic processing, not automatic regeneration.
+Declare its bounded gap and per-part aspect tolerances; do not increase them after
+failure or silently migrate a 1.0 receipt. This validates geometry, not identity or
+paired-state Alpha agreement. New 1.1 requests must pass full content ingestion
+checks before dispatching the next image; retain ambiguous failures.
 Use actual empty gaps for cuts and deterministic contain fitting; do not require
 pixel-perfect generated partition lines. Preserve count, separation, edge and
 semantic-review checks. Existing frozen attempts need separate revision evidence,

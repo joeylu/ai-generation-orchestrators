@@ -82,10 +82,14 @@ def freeze(plan_path: Path, workspace: Path, run_id: str, *, capability_request:
     spacing_document=spacing_plan=spacing_report=None
     if capability_input and any(c['type'] in ('Panel','ScrollView') for c in capability_input['components']):
         require(component_document is not None,'SPACING_PREFLIGHT_REQUIRED')
+    if capability_input and any(set(c['profiles']) & {'component-linkages-v1','item-contents-v1'} for c in capability_input['components']):
+        require(component_document is not None,'DOCUMENT_EXTENSION_PREFLIGHT_REQUIRED')
     if component_document is not None:
         from .layout_spacing import require_export_spacing
         data=read_json(component_document,max_bytes=64*1024*1024)
         spacing_document=data.get('document',data);spacing_plan=read_json(layout_spacing)
+        from .document_extensions import check_extensions
+        check_extensions(spacing_document, capability_input['components'] if capability_input else None)
         if capability_input:
             def walk(node):
                 yield node
@@ -190,6 +194,11 @@ def _prompt(asset: dict) -> str:
         layout=('Keep every part in its explicitly assigned relative search window. Preserve each part\'s aspect ratio; do not merge or reorder parts. '
                 if 'component-family-relative-cell-v1' in asset['prompt'] else
                 'Keep the explicitly declared raw canvas and every cell coordinate and size. Do not recenter, rescale, merge or reorder the individual parts. ')
+        if 'component-family-content-gap-v1.1' in asset['prompt']:
+            layout=('The planned canvas and windows are packing guidance, not exact pixel placement. '
+                    'Use exactly one horizontal row in the declared order, with full outer margins. '
+                    'Preserve each individual part aspect ratio. Separate whole components by wide uniform key-color gutters, '
+                    'clearly larger than any tiny disconnected strokes within an icon. Do not join, omit, duplicate or reorder parts. ')
         return (asset['prompt'].strip()+' Use the full reference and crop as style evidence. '
                 'Return exactly one complete material board on '+backdrop+'. '
                 +layout+

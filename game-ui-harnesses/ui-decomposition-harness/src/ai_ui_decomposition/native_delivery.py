@@ -19,6 +19,8 @@ from .contract import validate
 from .capabilities import audit
 from .layout_spacing import require_export_spacing
 from .reference_delivery import validate_mapping, validate_states
+from .document_extensions import item_offsets, check_extensions
+from .shared_materials import is_shared, validate_shared_sources
 
 
 KIND = "ui_native_delivery_input_v1"
@@ -70,8 +72,9 @@ def _global_rects(document: dict) -> dict[str, list[float]]:
         x = parent_x + layout["x"]
         y = parent_y + layout["y"]
         result[node["id"]] = [x, y, layout["width"], layout["height"]]
+        offsets = item_offsets(node)
         for child in node.get("children", []):
-            visit(child, x, y)
+            visit(child, x, y + offsets.get(child['id'], 0))
 
     visit(document["root"])
     return result
@@ -224,7 +227,8 @@ def _validate_materials(rows: object, document: dict, by_id: dict[str, dict],
     canvas = [document["canvas"]["width"], document["canvas"]["height"]]
     for row in rows:
         require(isinstance(row, dict) and
-                set(row) == {"layerId", "componentId", "rect", "description", "groupId"},
+                {"layerId", "componentId", "rect", "description", "groupId"} <= set(row) <=
+                {"layerId", "componentId", "rect", "description", "groupId", "sharedSource"},
                 "NATIVE_MATERIAL_FIELDS")
         layer, cid, rect, group = row["layerId"], row["componentId"], row["rect"], row["groupId"]
         identifier(layer)
@@ -242,10 +246,13 @@ def _validate_materials(rows: object, document: dict, by_id: dict[str, dict],
                 "NATIVE_MATERIAL_GROUP")
         if isinstance(group, str):
             identifier(group)
-        result[layer] = {
+        normalized = {
             "componentId": cid, "componentType": component_types[cid], "layerId": layer,
             "rect": list(rect), "description": row["description"], "groupId": group,
         }
+        if "sharedSource" in row:
+            normalized["sharedSource"] = copy.deepcopy(row["sharedSource"])
+        result[layer] = normalized
     # A material for a document Image is exported as layers/<componentId>.png;
     # require the source declaration to agree with _materialized_handoff.
     for cid, node in by_id.items():
@@ -253,6 +260,7 @@ def _validate_materials(rows: object, document: dict, by_id: dict[str, dict],
             matching = [row for row in result.values() if row["componentId"] == cid]
             require(len(matching)==1 and node["props"].get("source") == f"layers/{cid}.png",
                     "NATIVE_IMAGE_RESOURCE_BINDING")
+            require(matching[0]['rect']==rects[cid], 'NATIVE_IMAGE_SOURCE_REGISTRATION')
     background = [row for row in result.values() if row["componentId"] == "background" or row["layerId"] == "background"]
     require(len(background) == 1, "NATIVE_BACKGROUND_REQUIRED")
     bg = background[0]
@@ -308,8 +316,10 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     require(request["referenceSha256"] == proof["sha256"], "NATIVE_REFERENCE_BINDING")
     document, by_id, rects = _validate_document_shape(request["document"])
     cli_preflight=_validate_cli_document(document, Path(component_root))
+    extension_check=check_extensions(document, request['capabilities'])
     materials = _validate_materials(request["materials"], document, by_id, rects)
     _validate_appearance(request["appearance"], document, by_id, materials, proof["size"])
+    validate_shared_sources(materials, by_id, rects, request["appearance"])
     validate_mapping(request["referenceMapping"], proof["size"], document["canvas"])
     mapping=request['referenceMapping']
     require(proof['size']==[document['canvas']['width'],document['canvas']['height']] and
@@ -348,6 +358,8 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
 
     groups: dict[str, list[dict]] = {}
     for row in materials.values():
+        if is_shared(row):
+            continue
         group = row["groupId"]
         if group is not None:
             groups.setdefault(group, []).append(row)
@@ -386,11 +398,17 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
         if layer == background["layerId"]:
             continue
         rect = row["rect"]
-        group = row["groupId"]
-        asset_id = f"board-{group}" if group is not None else layer
-        catalog.append({"componentId": row["componentId"], "componentType": row["componentType"],
-                        "layerId": layer, "rect": rect, "generationAsset": asset_id,
-                        "board": group})
+        generated = materials[row["sharedSource"]["sourceLayerId"]] if is_shared(row) else row
+        group = generated["groupId"]
+        asset_id = f"board-{group}" if group is not None else generated["layerId"]
+        catalog_row = {"componentId": row["componentId"], "componentType": row["componentType"],
+                       "layerId": layer, "rect": rect, "generationAsset": asset_id,
+                       "board": group}
+        if is_shared(row):
+            catalog_row["sharedSource"] = copy.deepcopy(row["sharedSource"])
+        catalog.append(catalog_row)
+        if is_shared(row):
+            continue
         if group is not None:
             continue
         marker = f"native-layer-binding-v1:{appearance_digest}:{layer}"
@@ -408,6 +426,8 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
         marker = f"component-family-board-v1:{strategy['digest']}:{group}"
         native_marker = f"native-layer-binding-v1:{appearance_digest}:{group}"
         board=strategy['boards'][0]
+        if board['extraction_policy']['version'] in {'1.1', '1.2'}:
+            native_marker += ' component-family-content-gap-v1.1'
         windows='; '.join(f"{slot['asset_id']}: {slot['search_window']}" for slot in board['slots'])
         assets.append({"id": asset_id, "role": "important_component", "route": "generated_isolation",
                        "source_region": [0, 0, *canvas], "output_size": canvas,
@@ -454,6 +474,7 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     write_json(output / "capability-check.json", capability_check)
 
     write_json(output / "semantic-document.json", document)
+    write_json(output / "document-extensions.json", extension_check)
     write_json(output / "response.json", request)
     write_json(output / "consumer-preflight.json",dict(exitCode=0,stdout=cli_preflight,scope='pure_document_no_materials'))
     write_json(output / "reference-state.json", request["referenceState"])

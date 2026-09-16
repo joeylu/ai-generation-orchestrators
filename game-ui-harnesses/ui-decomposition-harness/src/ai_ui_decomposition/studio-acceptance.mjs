@@ -94,6 +94,18 @@ try {
  }
  await checkStudioLayoutControls({page,canvas,nodes,snapshot,get,point,focus,shot,report});
  if(!probeOnly){
+ for(const p of bundle.document.componentLinkages?.pipelines??[]){
+  const current=await snapshot(),list=get(current,p.listId);
+  assert.ok(list.visibleItemIds?.length,'STUDIO_LINKAGE_REQUIRES_VISIBLE_INITIAL_ITEM');
+  if(list.value===null){const b=list.bounds;await page.mouse.click(...await point(b.x+b.width/2,b.y+nodes.find(n=>n.id===p.listId).props.itemHeight/2));}
+  const beforeQuantity=await page.evaluate(async id=>{const b=await window.uiStudio.exportSelected();const p=b.document.componentLinkages.pipelines.find(p=>p.listId===id);return b.document.linkageState?.quantities.find(q=>q.listId===id)?.value??p.quantity.initial;},p.listId);
+  const increase=beforeQuantity<p.quantity.max,id=increase?p.quantity.incrementId:p.quantity.decrementId;
+  const expected=increase?Math.min(p.quantity.max,beforeQuantity+p.quantity.step):Math.max(p.quantity.min,beforeQuantity-p.quantity.step);
+  const b=get(await snapshot(),id).bounds;await page.mouse.click(...await point(b.x+b.width/2,b.y+b.height/2));
+  await page.waitForFunction(async({listId,expected})=>{const b=await window.uiStudio.exportSelected(),p=b.document.componentLinkages.pipelines.find(p=>p.listId===listId);return (b.document.linkageState?.quantities.find(q=>q.listId===listId)?.value??p.quantity.initial)===expected;},{listId:p.listId,expected});
+  report.checks.push({name:'linkage quantity real mouse before persistence',listId:p.listId,before:beforeQuantity,after:expected,status:'passed'});
+  await shot('linkage-'+p.listId);
+ }
  const before=await page.evaluate(()=>window.uiStudio.exportSelected());
  const [save]=await Promise.all([page.waitForEvent('download'),page.locator('#studio-export').click()]);await save.saveAs(resolve(out,'saved.json'));
  await page.reload();await page.locator('#open-bundle').setInputFiles(resolve(out,'saved.json'));await page.waitForFunction(()=>window.uiStudio?.snapshot().ready);

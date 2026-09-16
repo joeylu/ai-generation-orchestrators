@@ -79,15 +79,17 @@ def validate_canvas_size(size,board):
         from .resources import require_keyed_input_limit
         policy=board['extraction_policy'];validate_policy(policy)
         rw,rh=size;cw,ch=board['canvas'];require_keyed_input_limit([rw,rh])
-        require(abs((rw/rh)/(cw/ch)-1)<=policy['max_canvas_aspect_error'],'BOARD_RELATIVE_CANVAS_ASPECT')
+        if policy['version']=='1.0':
+            require(abs((rw/rh)/(cw/ch)-1)<=policy['max_canvas_aspect_error'],'BOARD_RELATIVE_CANVAS_ASPECT')
     else:require(list(size)==board['canvas'],'BOARD_CANVAS_MISMATCH')
 
 
-def crop_board(raw: Image.Image, board: dict, mode: str) -> tuple[dict, list]:
+def crop_board(raw: Image.Image, board: dict, mode: str, *, measured_frames=None) -> tuple[dict, list]:
     validate_canvas_size(raw.size,board)
     if 'extraction_policy' in board:
         from .relative_board import crop_relative
-        return crop_relative(raw,board,mode)
+        return crop_relative(raw,board,mode,measured_frames)
+    require(not measured_frames,'FRAME_FIT_CONTENT_POLICY_REQUIRED')
     require(list(raw.size)==board['canvas'],'BOARD_CANVAS_MISMATCH')
     require(mode in {'transparent_component','keyed_component'},'BOARD_OUTPUT_MODE')
     values=np.asarray(raw.convert('RGBA'))

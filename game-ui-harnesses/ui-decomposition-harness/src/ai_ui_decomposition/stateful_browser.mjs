@@ -18,6 +18,11 @@ const matrix=JSON.parse(await readFile(resolve(output,'state-matrix.json'),'utf8
 const bytes=await readFile(resolve(output,'consumed.json'));const bundle=JSON.parse(bytes);
 const hash=b=>createHash('sha256').update(b).digest('hex');
 if(hash(bytes)!==matrix.bundleSha256)throw Error('STATE_RESOURCE_MISMATCH');
+const linkedIds=new Set(matrix.linkedComponentIds??[]);
+if(!defaultOnly&&linkedIds.size){
+ const proof=JSON.parse(await readFile(resolve(output,'linkage-browser.json'),'utf8'));
+ if(proof.status!=='passed'||proof.bundleSha256!==matrix.bundleSha256||proof.handoffSha256!==matrix.handoffSha256||!proof.checks?.length||proof.checks.some(c=>c.pass!==true)||JSON.stringify([...new Set(proof.coveredComponentIds)].sort())!==JSON.stringify([...linkedIds].sort()))throw Error('LINKAGE_BROWSER_RECEIPT_REQUIRED');
+}
 const dist=resolve(componentRoot,'dist');
 const server=createServer(async(req,res)=>{try{
  const path=resolve(dist,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));
@@ -40,6 +45,7 @@ try{
  const defaultBytes=await canvas.screenshot({path:resolve(output,prefix+'default.png')});
  await writeFile(resolve(output,prefix+'default-capture.json'),JSON.stringify({kind:'ui_runtime_capture_v1',bundleSha256:hash(bytes),handoffSha256:matrix.handoffSha256,screenshot:{path:prefix+'default.png',sha256:hash(defaultBytes)},inspection:{path:prefix+'default-inspection.json',sha256:hash(await readFile(resolve(output,prefix+'default-inspection.json')))},human_visual_acceptance:false},null,2));
  for(const component of defaultOnly?[]:matrix.components){
+  if(linkedIds.has(component.componentId)&&component.componentType==='List')continue; // Dynamic row order/paint is checked by the bound linkage receipt; other controls retain their raster checks.
   await page.evaluate(b=>window.uiHarness.importBundle(b),bundle);
   await prepareDialogContext(page,bundle.document.root,component.componentId);
   if(component.componentType==='Dialog'){

@@ -85,6 +85,12 @@ Its exact `ui_handoff_build_plan_v1` fields are:
 | referenceOriginal, referenceState, acceptanceScope, referenceMapping | Separate `{path,sha256}` references to existing v2 inputs |
 | layoutSpacing, layoutRequirements, visualObservations | Separate `{path,sha256}` references to producer plans |
 | stateEvidence | `{kind:"ui_state_evidence_v1",components:{...}}`; existing per-component evidence specification |
+| visibleMaterialGeometry (optional for legacy plans) | `{path,sha256}` of an explicit `ui_visible_material_geometry_plan_v1`; checked against verified processed assets before finalization |
+
+For new frame-based plans, include the visible geometry declarations described in
+[material refit and visible geometry](material-refit-v1.md). A correct PNG size
+alone does not prove correct painted bounds. Declare reserved ornament regions
+and text rectangles; absence of this optional legacy field grants no such coverage.
 
 All paths resolve below the plan directory. Existing finalizer and PNG exporter
 verify the frozen run/materials and author scene/delivery records. Official consumer

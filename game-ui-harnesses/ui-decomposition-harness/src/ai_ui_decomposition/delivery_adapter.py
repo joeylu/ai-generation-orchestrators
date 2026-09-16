@@ -153,6 +153,7 @@ def prepare_handoff(compiled, generation_run, output, component_root, *, materia
     from . import batch
     from .process import process
     from .component_boards import extract
+    from .shared_materials import generated_rows
     compiled=Path(compiled);output=Path(output);require(not output.exists(),'OUTPUT_EXISTS');output.mkdir(parents=True)
     catalog=read_json(compiled/'material-catalog.json');generation_run=Path(generation_run)
     require(material_paths is None,'ADAPTER_AUTHENTICATED_MATERIALS_REQUIRED')
@@ -163,7 +164,7 @@ def prepare_handoff(compiled, generation_run, output, component_root, *, materia
     for group,strategy in catalog['strategies'].items():
         report=extract(generation_run,'board-'+group,compiled/strategy['path'],group,output/('extracted-'+group))
         for row in report['parts']:extraction[row['asset_id']]=output/('extracted-'+group)/row['path']
-    paths={row['layerId']:extraction[row['layerId']] if row['board'] else generation_run/'materials'/row['generationAsset']/'material.png' for row in catalog['parts']}
+    paths={row['layerId']:extraction[row['layerId']] if row['board'] else generation_run/'materials'/row['generationAsset']/'material.png' for row in generated_rows(catalog['parts'])}
     return _materialized_handoff(compiled,paths,output,component_root,plan)
 
 
@@ -171,17 +172,24 @@ def _materialized_handoff(compiled,paths,output,component_root,plan):
     # Private join shared by verified single-run and multi-run producers.
     from . import batch
     from .process import process
+    from .shared_materials import resolve_paths, shared_map
     catalog=read_json(compiled/'material-catalog.json')
+    paths=resolve_paths(catalog['parts'],paths)
     original=_copy(compiled/catalog['original'],output/catalog['original'])
     assets=[];nodes=[];resource_args=[]
     document=read_json(compiled/'semantic-document.json')
+    material_targets={}
     for row in catalog['parts']:
         key=row['layerId'];source=paths[key]
         target=_copy(source,output/'materials'/(key+'.png'));x,y,w,h=row['rect']
+        material_targets[key]=target
         _,proof=load_verified_image(target,[w,h]);mode='opaque_canvas' if key=='background' else 'rgba'
         assets.append(dict(id=key,role='background' if key=='background' else 'important_component',route='imported_material',source_region=[x,y,x+w,y+h],output_size=[w,h],output_mode=mode,prompt='',source_asset=None,material_source=dict(path=target.relative_to(output).as_posix(),sha256=proof['sha256'])))
         nodes.append(dict(id=key,asset=key,xy=[x,y]))
         if row['componentType']=='Image':resource_args += ['--resource',f"layers/{row['componentId']}.png={target.resolve()}"]
+    shared_record=shared_map(catalog['parts'],material_targets)
+    if shared_record is not None:
+        write_json(output/'shared-material-map.json',shared_record)
     imported={**plan,'id':'visual-delivery-materialized','source':dict(path=original.name,sha256=sha256(original),size=plan['canvas']),'assets':assets,'nodes':nodes,'groups':[dict(id='runtime-layers',children=[n['id'] for n in nodes])]}
     write_json(output/'materialized-plan.json',imported)
     names=['semantic-document.json','layout-spacing.json','layout-requirements.json','visual-observations.json','reference-state.json','acceptance-scope.json','reference-mapping.json','appearance-plan.json','state-evidence.json']

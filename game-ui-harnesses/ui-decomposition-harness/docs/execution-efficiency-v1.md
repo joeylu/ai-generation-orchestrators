@@ -52,6 +52,14 @@ the required broader suite once after the patch stabilizes. Repeat broader tests
 only for a subsequent change/failure/unresolved concern. Do not label development
 time as provider generation time or claim that engineering work met a service SLA.
 
+Browser linkage checkpoint assertions return document state only. Repeated quantity
+steps assert the emitted numeric value, exactly one change event and the actual
+rendered number after every real click. Exported quantity state is still checked
+at initial/boundary checkpoints and persistence. Keep unchanged image base64 inside
+the browser and avoid recompiling/exporting the entire artwork bundle per step;
+full bundle/pixel/roundtrip checks remain separate. This retains every quantity
+step and adds visible text checks without weakening state or event boundaries.
+
 ## Implemented local acceptance controls
 
 `ai-ui-stateful` keeps full acceptance as its default. Add repeatable
@@ -87,3 +95,8 @@ Remaining work before a service latency claim: whole-job stage instrumentation,
 representative sample benchmarks, provider queue measurements, dependency-aware
 incremental scheduling and end-to-end resource cleanup under forced termination.
 None is established by targeted acceptance or by a single successful sample.
+
+Linkage screenshots capture the measured full canvas rectangle directly, with a
+bounded 30-second capture timeout and a before/after geometry check. This avoids
+element screenshot auto-scrolling after keyboard focus; it does not crop away
+failing regions, skip pixel assertions or retry a failed capture automatically.

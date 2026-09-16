@@ -24,7 +24,7 @@ def build_handoff(plan_path, component_root, output, execution):
     plan=read_json(plan_path,max_bytes=64*1024*1024);base=plan_path.resolve().parent
     required={'kind','run','componentBundle','appearance','referenceOriginal','referenceState',
               'acceptanceScope','referenceMapping','layoutSpacing','layoutRequirements','visualObservations','stateEvidence'}
-    require(set(plan)==required and plan['kind']=='ui_handoff_build_plan_v1','HANDOFF_BUILD_PLAN')
+    require(required<=set(plan)<=required|{'visibleMaterialGeometry'} and plan['kind']=='ui_handoff_build_plan_v1','HANDOFF_BUILD_PLAN')
     run=plan['run'];require(set(run)=={'path','batchSha256','materialsSha256'},'HANDOFF_BUILD_RUN')
     directory=safe_relative(base,run['path'])
     require(sha256(directory/'batch.json')==run['batchSha256'] and
@@ -32,6 +32,21 @@ def build_handoff(plan_path, component_root, output, execution):
     names=('componentBundle','referenceOriginal','referenceState','acceptanceScope','referenceMapping',
            'layoutSpacing','layoutRequirements','visualObservations')
     paths={k:_input(base,plan[k]) for k in names}
+    if 'visibleMaterialGeometry' in plan:
+        from .visible_material_geometry import check_visible_material_geometry
+        from .process import read_materials
+        execution.start('visible-material-geometry')
+        geometry=read_json(_input(base,plan['visibleMaterialGeometry']))
+        require(set(geometry)=={'kind','version','checks'} and geometry['kind']=='ui_visible_material_geometry_plan_v1' and geometry['version']=='1.0' and isinstance(geometry['checks'],list) and geometry['checks'],'VISIBLE_GEOMETRY_PLAN')
+        materials=read_materials(directory)
+        images={r['asset']:safe_relative(directory,r['path']) for r in materials['assets']}
+        checks=[]
+        for specification in geometry['checks']:
+            require(specification.get('materialId') in images,'VISIBLE_GEOMETRY_MATERIAL_MISSING')
+            checks.append(check_visible_material_geometry(images[specification['materialId']],specification))
+        passed=all(c['status']=='passed' for c in checks)
+        write_json(output/'visible-material-geometry.json',dict(status='passed' if passed else 'failed',checks=checks,human_visual_acceptance=False))
+        require(passed,'VISIBLE_MATERIAL_GEOMETRY_REJECTED')
     appearance=copy.deepcopy(plan['appearance'])
     require(set(appearance)=={'registration','bindings'},'HANDOFF_BUILD_APPEARANCE')
     require(set(plan['stateEvidence'])=={'kind','components'} and plan['stateEvidence']['kind']=='ui_state_evidence_v1',

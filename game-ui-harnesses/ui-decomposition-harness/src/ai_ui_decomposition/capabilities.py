@@ -19,7 +19,7 @@ PROFILES = {
     'ProgressBar': {'base','left-to-right','inner-fill-mask','value-text'},
     'Slider': {'base','horizontal','fractional-step','value-text'},
     'ScrollView': {'base','vertical','zero-range','always-visible','insets-v1','authorized-bottom-space'},
-    'List': {'base','equal-height-rows','row-gap','structured-image-text-child-acceptance','selected-label-text-binding'},
+    'List': {'base','equal-height-rows','row-gap','structured-image-text-child-acceptance','selected-label-text-binding','component-linkages-v1','item-contents-v1'},
     'Panel': {'base','optional-header','nested-children'},
     'Dialog': {'base','modal','non-modal','optional-body','nested-children'},
     'Tabs': {'base','horizontal','vertical-v1','per-tab-icons','native-items'},

@@ -53,6 +53,24 @@ fs.writeFileSync(process.argv[1],JSON.stringify(await createBundle(document,[],{
                 self.assertEqual(json.loads(z.read('handoff.json'))['kind'],'ai_ui_component_handoff_v2')
             self.assertEqual(read_json(root/'build/layout-check.json')['status'],'passed')
             self.assertEqual(read_json(root/'build/assembly/delivery.json')['human_visual_acceptance'],False)
+            from ai_ui_decomposition.process import read_materials
+            from ai_ui_decomposition.common import safe_relative
+            source_row=next(r for r in read_materials(run)['assets'] if r['asset']=='scene')
+            geometry=dict(kind='ui_visible_material_geometry_plan_v1',version='1.0',checks=[dict(
+                kind='ui_visible_material_geometry_v1',version='1.0',materialId='scene',
+                sourceSha256=sha256(safe_relative(run,source_row['path'])),alphaThreshold=128,
+                minimumOccupancy=None,expectedAlphaBounds=dict(rect=[0,0,1,1],tolerance=[0]*4),
+                imageWorldRect=None,reservedRects=[],textWorldRects=[])])
+            write_json(root/'geometry.json',geometry);plan['visibleMaterialGeometry']=ref('geometry.json')
+            write_json(root/'with-geometry.json',plan)
+            with self.assertRaisesRegex(ContractError,'VISIBLE_MATERIAL_GEOMETRY_REJECTED'):
+                build_handoff(root/'with-geometry.json',component,root/'geometry-failed',AcceptanceExecution(60))
+            self.assertFalse((root/'geometry-failed/assembly').exists())
+            geometry['checks'][0].update(expectedAlphaBounds=None,minimumOccupancy={'width':.5})
+            write_json(root/'geometry-good.json',geometry);plan['visibleMaterialGeometry']=ref('geometry-good.json')
+            write_json(root/'with-geometry-good.json',plan)
+            build_handoff(root/'with-geometry-good.json',component,root/'geometry-passed',AcceptanceExecution(60))
+            self.assertEqual(read_json(root/'geometry-passed/visible-material-geometry.json')['status'],'passed')
             # Mutated material identity and workspace escapes fail before finalization.
             plan['run']['materialsSha256']='0'*64;write_json(root/'bad.json',plan)
             with self.assertRaisesRegex(ContractError,'HANDOFF_BUILD_RUN_CHANGED'):

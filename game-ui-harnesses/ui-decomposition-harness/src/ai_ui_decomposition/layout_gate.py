@@ -14,6 +14,7 @@ from PIL import Image
 
 from .common import require
 from .visual_policy import walk, contains
+from .document_extensions import item_offsets
 
 
 def world_bounds(document):
@@ -29,7 +30,8 @@ def world_bounds(document):
         props = node.get('props', {})
         dx = props.get('scrollX', 0) if node['type'] == 'ScrollView' else 0
         dy = props.get('scrollY', 0) if node['type'] == 'ScrollView' else 0
-        for child in node.get('children', []): visit(child, x-dx, y-dy)
+        offsets=item_offsets(node)
+        for child in node.get('children', []): visit(child, x-dx, y-dy+offsets.get(child['id'],0))
     visit(document['root'])
     return result
 
@@ -42,7 +44,7 @@ def text_owners(document):
             result.add(node['id'])
         elif kind == 'Input' and (p.get('value') or p.get('placeholder')):
             result.add(node['id'])
-        elif kind in ('Select', 'RadioGroup', 'List', 'Tabs'):
+        elif kind in ('Select', 'RadioGroup', 'List', 'Tabs') and not (kind=='List' and p.get('itemContents')):
             result.add(node['id'])
         elif kind in ('Panel', 'Dialog') and p.get('title'):
             result.add(node['id'])
