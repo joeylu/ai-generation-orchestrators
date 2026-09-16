@@ -11,6 +11,15 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+For explicit native UiDocument plans involving Tabs/Input/Select/List/CheckBox,
+use [native delivery input 1.0](docs/native-delivery-input-v1.md) through the
+existing repository DAG. Preserve the consumer's props, appearance and reference
+state contracts; this expands the supplied-data compiler, not the legacy
+four-type vision prompt. Check cross-component behavior separately: native
+controls and value-text bindings do not implement quantity stores, arithmetic,
+search filtering or sorting. Do not authorize a sample assuming those behaviors
+exist when no consumer contract supports them.
+
 For title/subtitle roles in the four-type delivery compiler, provide
 [source-relative text geometry](docs/text-geometry-preflight-v1.md) before compute.
 Check real rendered center and width, not only authored font size and containment.

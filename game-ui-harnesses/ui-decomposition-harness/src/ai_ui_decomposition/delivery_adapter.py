@@ -45,6 +45,9 @@ def button_text_state(text,font_size,width,height):
 
 def compile_delivery(reference, response, output, component_root, maximum_calls):
     """Build only authored inputs; frozen/bundle/delivery receipts remain program-owned."""
+    if isinstance(response,dict) and response.get('kind')=='ui_native_delivery_input_v1':
+        from .native_delivery import compile_native_delivery
+        return compile_native_delivery(reference,response,output,component_root,maximum_calls)
     require(set(response)=={'draft','observations'},'ADAPTER_RESPONSE_FIELDS')
     draft=copy.deepcopy(response['draft']);obs=response['observations']
     required={'version','referenceSha256','geometryCorrections','panelFooters','materials'}

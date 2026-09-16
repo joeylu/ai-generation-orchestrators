@@ -5,6 +5,12 @@ general DAG platform. Existing `auto-run`, `handoff-job` and `delivery-run` are
 unchanged. The workflow controls trusted adapters; model output never selects
 Python modules, commands, budgets, authorization or transitions.
 
+The supplied-response compiler additionally accepts
+[native delivery input 1.0](native-delivery-input-v1.md) for explicit native
+Panel/Text/Image/Button/Tabs/Input/Select/List/CheckBox plans. The legacy vision
+prompt remains bounded to four types; this extension does not infer business
+behavior or silently switch the provider's requested response schema.
+
 ## Implemented graph
 
 `vision -> compile -> freeze -> authorization -> generate -> process -> review -> deliver`
