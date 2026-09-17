@@ -1,3 +1,4 @@
+import {walkNodes} from '../../src/tree-contract.ts';
 import {fixtureLayeredZip} from './decomposition-fixture.ts';
 import {importDecompositionZip} from '../../src/decomposition-import.ts';
 import {createBundle} from '../../src/bundle.ts';
@@ -16,29 +17,45 @@ export function listTextDocument():UiDocument{
  {id:'experience',type:'ProgressBar',layout:{x:20,y:500,width:220,height:20},props:{value:2480,max:5000,style}},text('experience-label',270,490,300)
  ]}};
 }
-export async function listTextHandoffFixture(){
- const d=listTextDocument();const fixture=await fixtureLayeredZip([600,600],[
+export async function listTextHandoffFixture(document?:UiDocument, resources:import('../../src/bundle.ts').ResourceInput[]=[], listBackground?: 'own'|'parent'){
+ const d=document??listTextDocument();const rowHeight=50-(walkNodes(d).find(n=>n.type==='List')?.props as any).rowGap || 50;const composite=walkNodes(d).find(n=>n.type==='List'&&n.props.itemContents);const extra=document?.componentLinkages?[
+ ...['search','sort','minus','plus','purchase'].map(id=>{const n=walkNodes(d).find(n=>n.id===id)!;return{id:id+'-bg',role:'important_component' as const,left:n.layout.x,top:n.layout.y,width:n.layout.width,height:n.layout.height,color:[210,220,230,255] as [number,number,number,number]};}),
+ {id:'sort-arrow',role:'important_component' as const,left:570,top:162,width:12,height:10},
+ {id:'sort-popup',role:'important_component' as const,left:430,top:187,width:160,height:70},
+ {id:'tab-normal',role:'important_component' as const,left:510,top:70,width:80,height:35},
+ {id:'tab-selected',role:'important_component' as const,left:430,top:70,width:80,height:35}
+ ]:[];const fixture=await fixtureLayeredZip([600,600],[...extra,...(composite?[{id:'composite-text-evidence',role:'important_component' as const,left:70,top:147,width:245,height:18}]:[]),
  {id:'scene-background',role:'background',left:0,top:0,width:600,height:600,color:[243,245,247,255]},
- {id:'list-background',role:'important_component',left:20,top:20,width:400,height:300,color:[235,238,229,255]},
- {id:'list-row',role:'important_component',left:20,top:20,width:400,height:50,color:[245,241,220,255]},
- {id:'list-selected',role:'important_component',left:20,top:70,width:400,height:50,color:[160,205,240,255]},
+ ...(listBackground==='parent'?[]:[{id:'list-background',role:'important_component' as const,left:20,top:20,width:400,height:300,color:[235,238,229,255] as [number,number,number,number]}]),
+ {id:'list-row',role:'important_component',left:20,top:20,width:400,height:rowHeight,color:[245,241,220,255]},
+ {id:'list-selected',role:'important_component',left:20,top:70,width:400,height:rowHeight,color:[160,205,240,255]},
  {id:'slider-track',role:'important_component',left:20,top:415,width:220,height:10,color:[160,170,180,255]},
  {id:'slider-fill',role:'important_component',left:25,top:417,width:210,height:6,color:[30,140,220,255]},
  {id:'slider-thumb',role:'important_component',left:100,top:400,width:20,height:30,color:[10,80,160,255]},
  {id:'progress-track',role:'important_component',left:20,top:500,width:220,height:20,color:[160,170,180,255]},
  {id:'progress-fill',role:'important_component',left:25,top:505,width:210,height:10,color:[30,140,220,255]}
- ]);const imported=await importDecompositionZip(fixture.zip),target=await createBundle(d,[],{kind:'programmatic-fixture',description:'Six explicit labels; deterministic blocks, not generated Skill Library artwork'});
+ ]);const imported=await importDecompositionZip(fixture.zip),target=await createBundle(d,resources,{kind:'programmatic-fixture',description:'Six explicit labels; deterministic blocks, not generated Skill Library artwork'});
  const area=(x:number,y:number,width:number,height:number)=>({coordinateSpace:'target-component-local',x,y,width,height});
  const binding={kind:'ui-appearance-binding',version:'0.2',documentSha256:await appearanceDocumentSha256(d),deliveryDigest:imported.deliveryDigest,sceneSha256:imported.sceneSha256,archiveSha256:imported.archiveSha256,registration:{sourceCanvas:{width:600,height:600},targetCanvas:{width:600,height:600},transform:{scale:1,offset:{x:0,y:0}}},bindings:[
- {componentId:'skill-list',componentType:'List',parts:[{role:'background',layerId:'list-background'},{role:'row',layerId:'list-row',itemId:'ember'},{role:'selected-row',layerId:'list-selected',itemId:'tidal'}],states:{list:{labelLayout:{coordinateSpace:'target-item-local',x:12,y:8,width:376,height:34},hitArea:{coordinateSpace:'target-item-local',x:0,y:0,width:400,height:50}}}},
+ {componentId:'skill-list',componentType:'List',parts:[{role:'background',layerId:'list-background'},{role:'row',layerId:'list-row',itemId:'ember'},{role:'selected-row',layerId:'list-selected',itemId:'tidal'}],states:{list:{labelLayout:{coordinateSpace:'target-item-local',x:12,y:8,width:376,height:34},hitArea:{coordinateSpace:'target-item-local',x:0,y:0,width:400,height:rowHeight}}}},
  {componentId:'power',componentType:'Slider',parts:[{role:'track',layerId:'slider-track'},{role:'fill',layerId:'slider-fill'},{role:'thumb',layerId:'slider-thumb'}],states:{slider:{sourceState:'full-range-template',fillClip:{...area(5,17,210,6),anchor:'top-left',direction:'left-to-right'},thumbPositions:{coordinateSpace:'target-component-local',anchor:'top-left',min:{x:0,y:0},max:{x:200,y:0}}}}},
  {componentId:'experience',componentType:'ProgressBar',parts:[{role:'track',layerId:'progress-track'},{role:'fill',layerId:'progress-fill'}],states:{progressBar:{sourceState:'full-range-template',fillClip:{...area(5,5,210,10),anchor:'top-left',direction:'left-to-right'}}}}
  ]};
+ if(listBackground){const lb=binding.bindings[0] as any;lb.states.list.backgroundPolicy={version:'1.0',mode:listBackground};lb.states.list.hitArea.height=rowHeight;if(listBackground==='parent')lb.parts=lb.parts.filter((p:any)=>p.role!=='background');}
+ if(document?.componentLinkages){const out=binding.bindings as any[];for(const id of ['minus','plus','purchase'])out.push({componentId:id,componentType:'Button',parts:[{role:'background',layerId:id+'-bg'}],states:{button:{labelLayout:area(3,3,59,29)}}});out.push({componentId:'search',componentType:'Input',parts:[{role:'background',layerId:'search-bg'}],states:{input:{textLayout:area(5,3,150,29),placeholderLayout:area(5,3,150,29)}}},{componentId:'sort',componentType:'Select',parts:[{role:'background',layerId:'sort-bg'},{role:'indicator',layerId:'sort-arrow'},{role:'popup',layerId:'sort-popup'}],states:{select:{labelLayout:area(5,3,130,29),popupPlacement:{coordinateSpace:'target-component-local',anchor:'below-start',gap:2}}}},{componentId:'category',componentType:'Tabs',parts:[{role:'tab',layerId:'tab-normal',tabId:'a'},{role:'active-tab',layerId:'tab-selected',tabId:'all'}],states:{tabs:{headerHeight:35,labelLayout:{coordinateSpace:'target-item-local',x:5,y:3,width:70,height:29},hitArea:{coordinateSpace:'target-item-local',x:0,y:0,width:80,height:35}}}});}
+ if(composite)(binding.bindings as any[]).push({componentId:'shadow-description',componentType:'Text',parts:[{role:'text',layerId:'composite-text-evidence'}]});
  const observed=(value:unknown)=>({status:'observed',value,evidence:'Deterministic fixture state only; not observation of user artwork'});
  const state={kind:'ui-reference-state',schemaVersion:'1.0',components:[{componentId:'skill-list',componentType:'List',fields:{selectedId:observed('tidal')}},{componentId:'power',componentType:'Slider',fields:{value:observed(40)}},{componentId:'experience',componentType:'ProgressBar',fields:{value:observed(2480)}}]};
- const scope={kind:'ui-acceptance-scope',schemaVersion:'1.0',referenceState:'reference/reference-state.json',human_visual_acceptance:false,derivedTestStates:[],components:[d.root,...d.root.children].map(n=>({componentId:n.id,mode:'compare',reason:'Procedural fixture only'}))};
+ if(document?.componentLinkages){for(const p of document.componentLinkages.pipelines){(state.components as any[]).push({componentId:p.search.inputId,componentType:'Input',fields:{value:observed('')}},{componentId:p.category.tabsId,componentType:'Tabs',fields:{activeId:observed('all')}},{componentId:p.sort.selectId,componentType:'Select',fields:{selectedId:observed('low'),popupOpen:observed(false)}});}}
+ const scope={kind:'ui-acceptance-scope',schemaVersion:'1.0',referenceState:'reference/reference-state.json',human_visual_acceptance:false,derivedTestStates:[],components:walkNodes(d).map(n=>({componentId:n.id,mode:'compare',reason:'Procedural fixture only'}))};
  const enc=(v:unknown)=>new TextEncoder().encode(JSON.stringify(v));const entries=new Map<string,Uint8Array>([['component.ui-bundle.json',enc(target)],['appearance-binding.json',enc(binding)],['decomposition/fixture.draft.zip',fixture.zip],['reference/original.png',imported.preview.bytes],['reference/reference-state.json',enc(state)],['acceptance-scope.json',enc(scope)]]);
  const entry=async(path:string)=>({path,sha256:await referenceSha256(entries.get(path)!)});const mapping={coordinateSpace:'raw-image-pixel-edges-to-runtime-canvas',sourceSize:[600,600],targetSize:[600,600],crop:[0,0,600,600],rotationDegrees:0,flipX:false,flipY:false,scale:[1,1],offset:[0,0]};
  entries.set('handoff.json',enc({kind:'ai_ui_component_handoff_v2',schemaVersion:'2.0',status:'contracts_packaged_unreviewed_draft',delivery_policy:'unreviewed_draft',human_visual_acceptance:false,component_bundle:await entry('component.ui-bundle.json'),appearance_binding:await entry('appearance-binding.json'),decomposition:await entry('decomposition/fixture.draft.zip'),reference:{original:{...await entry('reference/original.png'),width:600,height:600},state:await entry('reference/reference-state.json'),scope:await entry('acceptance-scope.json'),mapping,derivatives:[]}}));
  return{zip:zip(entries),document:d};
 }
+
+
+
+
+
+

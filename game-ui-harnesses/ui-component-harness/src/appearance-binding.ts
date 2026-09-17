@@ -1,3 +1,4 @@
+import {listBackgroundPolicyError, type ListBackgroundPolicy} from './list-background.ts';
 import { tabsLayoutError, type TabsLayoutPolicy } from './tabs-layout.ts';
 import {buttonLabelLinesError, type ButtonLabelLines} from './button-label-lines.ts';
 import { validateSelectOptionIcons, type SelectOptionIcons } from './select-option-icons.ts';
@@ -123,7 +124,7 @@ export interface ScrollViewStateAppearance {
   readonly thumbPositions: { readonly coordinateSpace: 'target-component-local'; readonly anchor: 'top-left'; readonly min: AppearancePoint; readonly max: AppearancePoint };
 }
 export interface RepeatedItemLayout { readonly coordinateSpace: 'target-item-local'; readonly x: number; readonly y: number; readonly width: number; readonly height: number }
-export interface ListStateAppearance { readonly labelLayout: RepeatedItemLayout; readonly hitArea: RepeatedItemLayout }
+export interface ListStateAppearance { readonly backgroundPolicy?: ListBackgroundPolicy; readonly labelLayout: RepeatedItemLayout; readonly hitArea: RepeatedItemLayout }
 export interface DialogStateAppearance { readonly titleLayout: AppearanceTextLayout }
 export interface TabsStateAppearance {
   readonly headerHeight: number;
@@ -545,7 +546,8 @@ function validateScrollViewState(validator: BindingValidator, value: unknown, pa
 }
 function validateListState(validator: BindingValidator, value: unknown, path: string, width: number, itemHeight: number): void {
   const states = validator.object(value, path, ['list']); if (!states) return;
-  const state = validator.object(states.list, `${path}.list`, ['labelLayout', 'hitArea']); if (!state) return;
+  const state = validator.object(states.list, `${path}.list`, ['labelLayout', 'hitArea', 'backgroundPolicy'], ['labelLayout','hitArea']); if (!state) return;
+  if(Object.hasOwn(state,'backgroundPolicy')) { const error=listBackgroundPolicyError(state.backgroundPolicy); if(error) validator.add(`${path}.list.backgroundPolicy`,'LIST_BACKGROUND_POLICY_INVALID',error); }
   validateRepeatedItemLayout(validator, state.labelLayout, `${path}.list.labelLayout`, width, itemHeight);
   validateRepeatedItemLayout(validator, state.hitArea, `${path}.list.hitArea`, width, itemHeight);
 }
@@ -740,7 +742,9 @@ export async function validateAppearanceBinding(
           if (layerId && layerIds.has(layerId)) validator.add(`${partPath}.layerId`, 'DUPLICATE_LAYER', 'an imported layer may be bound once');
           if (layerId) layerIds.add(layerId);
         }
-        for (const required of definition.requiredRoles) if (!roles.has(required)) {
+        const parentList = applicationVersion && actualType === 'List' && isObject(binding.states) && isObject(binding.states.list) && isObject(binding.states.list.backgroundPolicy) && binding.states.list.backgroundPolicy.mode === 'parent';
+        if(parentList && roles.has('background')) validator.add(`${path}.parts`, 'LIST_BACKGROUND_FORBIDDEN', 'parent mode forbids background');
+        for (const required of definition.requiredRoles) if (!(parentList && required === 'background') && !roles.has(required)) {
           validator.add(`${path}.parts`, 'MISSING_REQUIRED_ROLE', `must explicitly map required role: ${required}`);
         }
         if (applicationVersion && component?.type === 'List' && component.props.selectedId === null) validator.add(`${path}.componentId`, 'SELECTED_SAMPLE_REQUIRED', 'List appearance application requires a current selectedId for the selected-row sample');

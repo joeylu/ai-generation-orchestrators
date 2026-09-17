@@ -30,3 +30,11 @@ export { validateSelectOptionIcons, type SelectOptionIcons } from './select-opti
 export { validateSelectMenuHighlights, type SelectMenuHighlights, type SelectMenuHighlight } from './select-menu-highlights.ts';
 
 export * from './scrollbar-thumb-slices.ts';
+
+export { validateComponentLinkages, visibleLinkageItems, linkageTransition, quantityValue, linkageTotal } from './component-linkages.ts';
+export type { ComponentLinkages, LinkagePipeline, LinkageState } from './component-linkages.ts';
+
+export { validateListItemContents } from './list-item-contents.ts';
+export type { ListItemContents } from './list-item-contents.ts';
+
+export type {ListBackgroundPolicy} from './list-background.ts';

@@ -1,3 +1,6 @@
+import {listBackgroundPolicyError, type ListBackgroundPolicy} from './list-background.ts';
+import {validateListItemContents} from './list-item-contents.ts';
+import { validateComponentLinkages } from './component-linkages.ts';
 import { tabsLayoutError, type TabsLayoutPolicy } from './tabs-layout.ts';
 import {buttonLabelLinesError, type ButtonLabelLines} from './button-label-lines.ts';
 import { validateSelectOptionIcons, type SelectOptionIcons } from './select-option-icons.ts';
@@ -109,8 +112,9 @@ export interface ScrollViewRasterAppearance {
   scrollbarThumbPositions: { min: Point; max: Point };
 }
 export interface ListRasterAppearance {
+  backgroundPolicy?: ListBackgroundPolicy;
   sourceCanvas: CanvasSize;
-  backgroundImage: string;
+  backgroundImage?: string;
   rowImage: string;
   rowCanvas: CanvasSize;
   selectedRowImage: string;
@@ -171,7 +175,7 @@ export interface InputProps { value: string; placeholder: string; inputType: 'te
 export interface ProgressBarProps { value: number; max: number; appearance?: ProgressBarRasterAppearance; style: ControlStyle }
 export interface SliderProps { value: number; min: number; max: number; step: number; enabled: boolean; appearance?: SliderRasterAppearance; style: ControlStyle }
 export interface ScrollViewProps { drawBackground?: boolean; scrollbarVisibility?: 'auto' | 'always'; scrollX: number; scrollY: number; contentWidth: number; contentHeight: number; appearance?: ScrollViewRasterAppearance; style: ControlStyle }
-export interface ListProps { rowGap?: number; drawBackground?: boolean; selectedId: string | null; items: Choice[]; itemTemplate: 'text-row'; itemHeight: number; enabled: boolean; appearance?: ListRasterAppearance; style: ControlStyle }
+export interface ListProps { itemContents?: import('./list-item-contents.ts').ListItemContents; rowGap?: number; drawBackground?: boolean; selectedId: string | null; items: Choice[]; itemTemplate: 'text-row'; itemHeight: number; enabled: boolean; appearance?: ListRasterAppearance; style: ControlStyle }
 export interface PanelProps { title: string; appearance?: PanelRasterAppearance; style: ControlStyle }
 export interface DialogProps { open: boolean; title: string; modal: boolean; backdrop?: { color: string; opacity: number }; appearance?: DialogRasterAppearance; style: ControlStyle }
 export interface TabsProps { activeId: string; tabs: TabDefinition[]; enabled: boolean; drawBackground?: boolean; appearance?: TabsRasterAppearance; style: ControlStyle }
@@ -197,7 +201,7 @@ export type UiNode = ImageNode | TextNode | ContainerNode | ButtonNode | SwitchN
   | RadioGroupNode | InputNode | SelectNode | ProgressBarNode | SliderNode | ScrollViewNode
   | ListNode | PanelNode | DialogNode | TabsNode;
 
-export interface UiDocument { schemaVersion: typeof UI_SCHEMA_VERSION; id: string; canvas: CanvasSize; root: UiNode; valueTextBindings?: import('./value-text-bindings.ts').ValueTextBindings }
+export interface UiDocument { schemaVersion: typeof UI_SCHEMA_VERSION; id: string; canvas: CanvasSize; root: UiNode; valueTextBindings?: import('./value-text-bindings.ts').ValueTextBindings; componentLinkages?: import('./component-linkages.ts').ComponentLinkages; linkageState?: import('./component-linkages.ts').LinkageState }
 
 const nodeTypes = new Set<UiNodeType>([
   'Image', 'Text', 'Container', 'Button', 'Switch', 'CheckBox', 'RadioGroup', 'Input',
@@ -388,10 +392,10 @@ class ContractValidator {
       Container: ['appearance', 'style'], Button: ['label', 'enabled', 'backgroundImage', 'appearance', 'style'], Switch: ['label', 'checked', 'enabled', 'appearance', 'stateLabels', 'style'], CheckBox: ['label', 'checked', 'enabled', 'appearance', 'style'],
       RadioGroup: ['selectedId', 'options', 'enabled', 'appearance', 'style'], Input: ['value', 'placeholder', 'inputType', 'readOnly', 'maxLength', 'enabled', 'appearance', 'style'],
       Select: ['selectedId', 'options', 'enabled', 'appearance', 'style'], ProgressBar: ['value', 'max', 'appearance', 'style'], Slider: ['value', 'min', 'max', 'step', 'enabled', 'appearance', 'style'],
-      ScrollView: ['scrollX', 'scrollY', 'contentWidth', 'contentHeight', 'appearance', 'drawBackground', 'scrollbarVisibility', 'style'], List: ['selectedId', 'items', 'itemTemplate', 'itemHeight', 'rowGap', 'enabled', 'appearance', 'drawBackground', 'style'],
+      ScrollView: ['scrollX', 'scrollY', 'contentWidth', 'contentHeight', 'appearance', 'drawBackground', 'scrollbarVisibility', 'style'], List: ['itemContents', 'selectedId', 'items', 'itemTemplate', 'itemHeight', 'rowGap', 'enabled', 'appearance', 'drawBackground', 'style'],
       Panel: ['title', 'appearance', 'style'], Dialog: ['open', 'title', 'modal', 'backdrop', 'appearance', 'style'], Tabs: ['activeId', 'tabs', 'enabled', 'drawBackground', 'appearance', 'style'],
     };
-    const optionalByType: Partial<Record<UiNodeType, readonly string[]>> = { Image: ['region', 'drawBackground'], Text: ['fontSource', 'drawBackground'], Container: ['appearance'], Button: ['backgroundImage', 'appearance'], Switch: ['appearance', 'stateLabels'], CheckBox: ['appearance'], RadioGroup: ['appearance'], Input: ['appearance'], Select: ['appearance'], ProgressBar: ['appearance'], Slider: ['appearance'], ScrollView: ['appearance', 'drawBackground', 'scrollbarVisibility'], List: ['appearance', 'drawBackground', 'rowGap'], Panel: ['appearance'], Dialog: ['appearance', 'backdrop'], Tabs: ['appearance', 'drawBackground'] };
+    const optionalByType: Partial<Record<UiNodeType, readonly string[]>> = { Image: ['region', 'drawBackground'], Text: ['fontSource', 'drawBackground'], Container: ['appearance'], Button: ['backgroundImage', 'appearance'], Switch: ['appearance', 'stateLabels'], CheckBox: ['appearance'], RadioGroup: ['appearance'], Input: ['appearance'], Select: ['appearance'], ProgressBar: ['appearance'], Slider: ['appearance'], ScrollView: ['appearance', 'drawBackground', 'scrollbarVisibility'], List: ['appearance', 'drawBackground', 'rowGap', 'itemContents'], Panel: ['appearance'], Dialog: ['appearance', 'backdrop'], Tabs: ['appearance', 'drawBackground'] };
     const allowed = keysByType[type];
     const required = keysByType[type].filter(key => !optionalByType[type]?.includes(key));
     const data = this.object(value, path, allowed, required);
@@ -649,7 +653,7 @@ class ContractValidator {
         this.selected(data.selectedId, `${path}.selectedId`, ids, 'item');
         if (data.itemTemplate !== 'text-row') this.add(`${path}.itemTemplate`, 'UNSUPPORTED_VALUE', 'v0.2 supports only the text-row item template');
         this.finite(data.itemHeight, `${path}.itemHeight`, { positive: true }); this.boolean(data.enabled, `${path}.enabled`);
-        if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'backgroundImage', 'rowImage', 'rowCanvas', 'selectedRowImage', 'selectedRowCanvas', 'labelLayout', 'hitArea']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.resource(appearance.backgroundImage, `${path}.appearance.backgroundImage`); this.resource(appearance.rowImage, `${path}.appearance.rowImage`); const rowCanvas = this.object(appearance.rowCanvas, `${path}.appearance.rowCanvas`, ['width', 'height']); if (rowCanvas) { this.rasterCanvas(appearance.rowCanvas, `${path}.appearance.rowCanvas`); this.appearanceLayout(appearance.labelLayout, `${path}.appearance.labelLayout`, rowCanvas); this.appearanceLayout(appearance.hitArea, `${path}.appearance.hitArea`, rowCanvas); } this.resource(appearance.selectedRowImage, `${path}.appearance.selectedRowImage`); const selectedCanvas = this.object(appearance.selectedRowCanvas, `${path}.appearance.selectedRowCanvas`, ['width', 'height']); if (selectedCanvas) { this.rasterCanvas(appearance.selectedRowCanvas, `${path}.appearance.selectedRowCanvas`); if (rowCanvas && (selectedCanvas.width !== rowCanvas.width || selectedCanvas.height !== rowCanvas.height)) this.add(`${path}.appearance.selectedRowCanvas`, 'ROW_TEMPLATE_SIZE_MISMATCH', 'selected and unselected row templates must have identical intrinsic size'); } } }
+        if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'backgroundImage', 'backgroundPolicy', 'rowImage', 'rowCanvas', 'selectedRowImage', 'selectedRowCanvas', 'labelLayout', 'hitArea'], ['sourceCanvas','rowImage','rowCanvas','selectedRowImage','selectedRowCanvas','labelLayout','hitArea']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); if(Object.hasOwn(appearance,'backgroundPolicy')) { const error=listBackgroundPolicyError(appearance.backgroundPolicy); if(error)this.add(`${path}.appearance.backgroundPolicy`,'LIST_BACKGROUND_POLICY_INVALID',error); } const parent = (appearance.backgroundPolicy as ListBackgroundPolicy | undefined)?.mode === 'parent'; if(parent) { if(Object.hasOwn(appearance,'backgroundImage')) this.add(`${path}.appearance.backgroundImage`,'LIST_BACKGROUND_FORBIDDEN','parent mode forbids backgroundImage'); } else this.resource(appearance.backgroundImage, `${path}.appearance.backgroundImage`); this.resource(appearance.rowImage, `${path}.appearance.rowImage`); const rowCanvas = this.object(appearance.rowCanvas, `${path}.appearance.rowCanvas`, ['width', 'height']); if (rowCanvas) { this.rasterCanvas(appearance.rowCanvas, `${path}.appearance.rowCanvas`); if(appearance.backgroundPolicy && source) { const scale=Number(source.width)/Number(rowCanvas.width); if(Math.abs(scale-1)>1e-6) this.add(`${path}.appearance.rowCanvas`,'ROW_TEMPLATE_SIZE_MISMATCH','row width must match sourceCanvas'); } this.appearanceLayout(appearance.labelLayout, `${path}.appearance.labelLayout`, rowCanvas); this.appearanceLayout(appearance.hitArea, `${path}.appearance.hitArea`, rowCanvas); } this.resource(appearance.selectedRowImage, `${path}.appearance.selectedRowImage`); const selectedCanvas = this.object(appearance.selectedRowCanvas, `${path}.appearance.selectedRowCanvas`, ['width', 'height']); if (selectedCanvas) { this.rasterCanvas(appearance.selectedRowCanvas, `${path}.appearance.selectedRowCanvas`); if (rowCanvas && (selectedCanvas.width !== rowCanvas.width || selectedCanvas.height !== rowCanvas.height)) this.add(`${path}.appearance.selectedRowCanvas`, 'ROW_TEMPLATE_SIZE_MISMATCH', 'selected and unselected row templates must have identical intrinsic size'); } } }
         this.style(data.style, `${path}.style`); break;
       }
       case 'Dialog':
@@ -730,7 +734,7 @@ function isStepAligned(value: number, min: number, step: number): boolean {
 /** Validate and clone a complete v0.2 UI tree without changing any caller-owned value. */
 export function validateDocument(input: unknown): UiDocument {
   const validator = new ContractValidator();
-  const root = validator.object(input, '$', ['schemaVersion', 'id', 'canvas', 'root','valueTextBindings'], ['schemaVersion', 'id', 'canvas', 'root']);
+  const root = validator.object(input, '$', ['schemaVersion', 'id', 'canvas', 'root','valueTextBindings','componentLinkages','linkageState'], ['schemaVersion', 'id', 'canvas', 'root']);
   if (root) {
     if (root.schemaVersion !== UI_SCHEMA_VERSION) validator.add('$.schemaVersion', 'UNSUPPORTED_VERSION', 'only schemaVersion 0.2 is supported');
     validator.identifier(root.id, '$.id', 'node');
@@ -739,7 +743,7 @@ export function validateDocument(input: unknown): UiDocument {
   }
   validator.finish();
   if(root && Object.hasOwn(root,'valueTextBindings'))validateValueTextBindings(root.valueTextBindings,input as UiDocument);
-  return structuredClone(input) as UiDocument;
+  validateComponentLinkages(input as UiDocument); validateListItemContents(input as UiDocument); return structuredClone(input) as UiDocument;
 }
 
 /** Pre-order drawing order. The function remains bounded if an untrusted cast bypassed validation. */
@@ -757,3 +761,5 @@ export function walkNodes(document: UiDocument): UiNode[] {
   }
   return result;
 }
+
+

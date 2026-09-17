@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "List background policy 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "mode"
+  ],
+  "properties": {
+    "version": {
+      "const": "1.0"
+    },
+    "mode": {
+      "enum": [
+        "own",
+        "parent"
+      ]
+    }
+  }
+}

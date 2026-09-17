@@ -143,3 +143,8 @@ continue delivery on exit 3 only as an explicitly partial result, never full app
 Artifacts are retained for all completed captures. Read comparison.counts and each
 scope's reason; human_visual_acceptance remains false. This versions consumer
 report and comparison policy to 1.1; producer handoff/state/scope fields are unchanged.
+
+## Studio static artwork policy
+All four Studio schemes keep only the first full-canvas Image (global origin 0,0, dimensions equal to the canvas) and its transform ancestors static. This is the explicit Studio backdrop convention; when absent, no images are excluded. The policy traverses Container/Panel/Dialog structure without matching IDs or filenames. Images owned by interactive controls remain part of control feedback. Imported motion-system bindings and timeline tracks targeting protected nodes are filtered for Studio playback and export; empty animation documents are omitted. Source UI, original reference evidence and the input ZIP remain unchanged. Explicit low-level runtime motion APIs outside Studio retain their authored semantics. Other decorative images and panels retain their motion. This is a Studio scheme policy, not a new handoff field.
+
+

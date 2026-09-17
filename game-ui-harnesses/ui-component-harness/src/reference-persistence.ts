@@ -27,7 +27,7 @@ function canonical(value: any): string {
 const mutable: Record<string, string[]> = { Tabs: ['activeId'], CheckBox: ['checked'], Switch: ['checked'], RadioGroup: ['selectedId'], List: ['selectedId'], Select: ['selectedId'], ScrollView: ['scrollX', 'scrollY'], Input: ['value'], Slider: ['value'], ProgressBar: ['value'], Dialog: ['open'] };
 function nodes(document: any): any[] { const all: any[] = []; const visit = (n: any) => { all.push(n); for (const c of n.children ?? []) visit(c); }; visit(document.root); return all; }
 function structure(document: any): string {
-  const copy = structuredClone(document);
+  const copy = structuredClone(document); delete copy.linkageState;
   for (const node of nodes(copy)) for (const key of mutable[node.type] ?? []) delete node.props[key];
   return canonical(copy);
 }
@@ -69,6 +69,8 @@ export async function exportReferenceHandoff(bundle: UiBundle): Promise<Uint8Arr
   const write = (path: string, value: unknown) => entries.set(path, new TextEncoder().encode(JSON.stringify(value)));
   const semantic = read('component.ui-bundle.json'), manifest = read('handoff.json');
   const current = new Map(nodes(bundle.document).map(n => [n.id, n]));
+  if ('linkageState' in bundle.document) semantic.document.linkageState = structuredClone(bundle.document.linkageState);
+  else delete semantic.document.linkageState;
   for (const node of nodes(semantic.document)) for (const key of mutable[node.type] ?? []) node.props[key] = current.get(node.id).props[key];
   if (bundle.motion) semantic.motion = bundle.motion; else delete semantic.motion;
   if (bundle.motionSystem) semantic.motionSystem = bundle.motionSystem; else delete semantic.motionSystem;
@@ -79,3 +81,4 @@ export async function exportReferenceHandoff(bundle: UiBundle): Promise<Uint8Arr
   write('handoff.json', manifest);
   const output = zip(entries); await compileComponentHandoff(output); return output;
 }
+

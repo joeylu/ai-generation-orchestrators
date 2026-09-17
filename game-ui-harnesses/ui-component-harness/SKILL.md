@@ -117,3 +117,7 @@ complete command catalog remains in [docs/automation.md](docs/automation.md).
 - For explicit Select selected/hover menu backgrounds, use only [select-menu-highlights-v1.md](docs/select-menu-highlights-v1.md). Preserve legacy behavior when absent; never infer a theme or overwrite original reference observations.
 
 ScrollView optional vertical thumb slicing uses only [the source-pixel contract](docs/scrollbar-thumb-slices-v1.md). Do not infer cuts or replace missing artwork.
+
+For explicit cross-component quantity, pricing and List filtering/sorting, use only [component-linkages-v1.md](docs/component-linkages-v1.md). Keep dataset/configuration separate from linkageState runtime snapshots and original reference observations.
+
+For List parent-background rendering use only [list-background-v1.md](docs/list-background-v1.md); absence never implies parent mode.

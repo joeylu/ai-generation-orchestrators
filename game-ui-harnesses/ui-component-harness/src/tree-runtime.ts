@@ -1,4 +1,5 @@
 import { formatValueText } from './value-text-bindings.ts';
+import { linkageTransition, visibleLinkageItems, quantityValue, writeQuantity, linkageTotal } from './component-linkages.ts';
 import { insetThumbGeometry } from './scrollbar-insets.ts';
 import { treeResourceReferences } from './tree-resources.ts';
 import { scrollHitArea } from './scroll-hit-area.ts';
@@ -43,6 +44,7 @@ export interface RuntimeNodeInspection {
   popupBounds?: RuntimeBounds;
   popupItems?: Array<{ optionId: string; text: string; iconBounds: RuntimeBounds | null;
     textBounds?: Array<{text:string;bounds:RuntimeBounds;fontFamily:string;fontSize:number}> }>;
+  visibleItemIds?: string[];
   renderedLabels?: Array<{text:string;x:number;y:number;width:number;height:number}>;
   renderedTextBounds?: Array<{text:string;bounds:RuntimeBounds;fontFamily:string;fontSize:number}>;
   id: string;
@@ -212,7 +214,7 @@ class TreeResources {
       }
       if (node.type === 'List' && node.props.appearance) {
         const appearance = node.props.appearance;
-        part(appearance.backgroundImage, appearance.sourceCanvas, 'LIST_BACKGROUND_CANVAS_MISMATCH');
+        if (appearance.backgroundImage) part(appearance.backgroundImage, appearance.sourceCanvas, 'LIST_BACKGROUND_CANVAS_MISMATCH');
         part(appearance.rowImage, appearance.rowCanvas, 'LIST_ROW_CANVAS_MISMATCH');
         part(appearance.selectedRowImage, appearance.selectedRowCanvas, 'LIST_SELECTED_ROW_CANVAS_MISMATCH');
       }
@@ -313,7 +315,7 @@ interface RuntimeRecord {
   sliderTextures?: { track: Texture; fill: Texture; thumb: Texture };
   containerTexture?: Texture;
   scrollTextures?: { viewport: Texture; scrollbarTrack: Texture; scrollbarThumb: Texture };
-  listTextures?: { background: Texture; row: Texture; selectedRow: Texture };
+  listTextures?: { background?: Texture; row: Texture; selectedRow: Texture };
   panelTextures?: { background: Texture; header?: Texture; body?: Texture };
   dialogTextures?: { background: Texture; header: Texture; body?: Texture; overlay?: Texture };
   tabsTextures?: { tab: Texture; activeTab: Texture; items: Map<string, { tab: Texture; activeTab: Texture }>; icons: Map<string, { icon: Texture; activeIcon: Texture }> };
@@ -333,6 +335,8 @@ interface RuntimeRecord {
   redraw?: () => void;
   updateContentPosition?: () => void;
   updateTabs?: () => void;
+  updateListContents?: () => void;
+  itemVisible?: boolean;
   tabFromWeights?: Record<string, number>;
   sliderPreview?: number;
   motion: MotionValues;
@@ -487,6 +491,35 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   const reportFatal = (error: unknown): void => { try { onFatal(error); } catch { /* host callback failure cannot strand resources */ } };
   const reportCleanupErrors = (errors: readonly unknown[]): void => { for (const error of errors) reportFatal(error); };
   const assertAlive = (): void => { if (destroyed) throw new Error('TREE_PREVIEW_DESTROYED'); };
+  let linking = false;
+  const linkageSelections = new Map<string, string | null>();
+  function listItems(record: RuntimeRecord) {
+    if(record.node.type!=='List')return [];
+    const p=record.scope.document.componentLinkages?.pipelines.find(p=>p.listId===record.node.id);
+    if(!p)return record.node.props.items;
+    return visibleLinkageItems(record.scope.document,p).map(i=>record.node.type==='List'?record.node.props.items.find(n=>n.id===i.itemId)!:neverItem());
+  }
+  function neverItem(): never {throw Error('LINKAGE_LIST_TYPE');}
+  function linkageEnabled(record:RuntimeRecord):boolean {
+    const p=record.scope.document.componentLinkages?.pipelines.find(p=>p.purchase.buttonId===record.node.id);
+    if(!p||p.purchase.emptySelection==='enabled')return true;
+    const list=record.scope.records.get(p.listId)!;
+    return list.node.type==='List'&&list.node.props.selectedId!==null;
+  }
+  function updateLinkages(event?:TreeRuntimeEvent):void {
+    if(!active||linking)return;linking=true;
+    try { for(const p of active.document.componentLinkages?.pipelines??[]){
+      const list=active.records.get(p.listId)!;if(list.node.type!=='List')throw Error('LINKAGE_LIST_TYPE');
+      const visible=listItems(list),old=list.node.props.selectedId;
+      const before=quantityValue(active.document,p);
+      const next=linkageTransition(p,visible.map(i=>i.id),old,linkageSelections.get(p.listId),before,event?.type==='activate'?event.id:undefined);
+      const selected=next.selectedId,quantity=next.quantity;list.node.props.selectedId=selected;linkageSelections.set(p.listId,selected);      if(quantity!==before){writeQuantity(active.document,p,quantity);if(event)emit(active.records.get(p.quantity.textId)!,'change','control',quantity);}
+      if(old!==selected&&event)emit(list,'change','control',selected);
+      if(old!==selected||event&&(event.type==='change'||event.type==='activate')){cancelPresentationTree(list);list.redraw?.();}
+      for(const [id,text] of [[p.quantity.textId,String(quantity)],[p.total.textId,linkageTotal(active.document,p)]]){const target=active.records.get(id)!;if(target.boundText!==text){target.boundText=text;target.redraw?.();}}
+      active.records.get(p.purchase.buttonId)?.redraw?.();
+    }}finally{linking=false;}
+  }
   function updateBoundText(): void {
     if(!active)return;
     for(const binding of active.document.valueTextBindings?.bindings??[]){
@@ -499,6 +532,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   }
   const render = (): void => {
     if (destroyed) return;
+    updateLinkages();
+    if(active)for(const record of active.records.values())record.updateListContents?.();
     updateBoundText();
     if (keyboardFocus && !keyboardEligible(keyboardFocus)) setKeyboardFocus(undefined);
     if (renderBatchDepth > 0) { renderDirty = true; return; }
@@ -559,6 +594,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   function emit(record: RuntimeRecord, type: RuntimeEventType, source: RuntimeInputSource, value?: TreeRuntimeEvent['value'], targetId = record.node.id): void {
     const event: TreeRuntimeEvent = { type, id: record.node.id, source, sourceId: record.node.id, targetId };
     if (value !== undefined) event.value = value;
+    if(type==='change'||type==='activate')updateLinkages(event);
     for (const listener of [...listeners]) {
       try { listener(event); } catch (error) { reportFatal(error); }
     }
@@ -593,7 +629,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       case 'ScrollView': return { ...common, scrollX: record.node.props.scrollX, scrollY: record.node.props.scrollY };
       case 'List': {
         const selectedId = record.node.props.selectedId;
-        return { ...common, hoverScale: 1, listSelection: selectedId === null ? -1 : record.node.props.items.findIndex(item => item.id === selectedId), stagger: 1 };
+        return { ...common, hoverScale: 1, listSelection: selectedId === null ? -1 : listItems(record).findIndex(item => item.id === selectedId), stagger: 1 };
       }
       case 'Container': case 'Panel': return { ...common, stagger: 1 };
       case 'Dialog': return { ...common, dialogScale: 1, dialogAlpha: 1 };
@@ -698,7 +734,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     return last;
   }
   function effectiveVisible(record: RuntimeRecord): boolean {
-    return !record.destroyed && record.userVisible && record.tabVisible && (record.node.type !== 'Dialog' || record.node.props.open || record.dialogClosing)
+    return !record.destroyed && record.userVisible && record.tabVisible && record.itemVisible !== false && (record.node.type !== 'Dialog' || record.node.props.open || record.dialogClosing)
       && (!record.parent || effectiveVisible(record.parent));
   }
   function blocked(record: RuntimeRecord): boolean {
@@ -706,7 +742,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     return Boolean(modal && record.modalScope !== modal.node.id && record.node.id !== modal.node.id);
   }
   function interactive(record: RuntimeRecord): boolean {
-    return active === record.scope && effectiveVisible(record) && enabledOf(record.node) !== false && !blocked(record);
+    return active === record.scope && effectiveVisible(record) && enabledOf(record.node) !== false && linkageEnabled(record) && !blocked(record);
   }
   function keyboardEligible(record: RuntimeRecord): boolean {
     if (!interactive(record) || !(enabledNodeTypes.has(record.node.type) || record.node.type === 'ScrollView')) return false;
@@ -844,7 +880,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     if (openSelect?.scope === scope) positionPopup(openSelect);
   }
   function updateNodeAlpha(record: RuntimeRecord): void {
-    const disabled = enabledOf(record.node) === false;
+    const disabled = enabledOf(record.node) === false || !linkageEnabled(record);
     record.view.alpha = styleOf(record.node).opacity * (disabled ? 0.55 : 1) * (record.motion.alpha ?? 1);
     record.view.cursor = disabled ? 'default' : interactiveCursor(record);
   }
@@ -1247,15 +1283,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     clear(record.paint);
     const appearance = node.props.appearance, textures = record.listTextures;
     if (appearance && textures) {
-      if (node.props.drawBackground !== false) { const background = new Sprite(textures.background); background.width = node.layout.width; background.height = node.layout.height; record.paint.addChild(background); }
+      if (appearance.backgroundPolicy?.mode !== 'parent' && textures.background && node.props.drawBackground !== false) { const background = new Sprite(textures.background); background.width = node.layout.width; background.height = node.layout.height; record.paint.addChild(background); }
     } else if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     const rows = addClip(record.paint, node.layout.width, node.layout.height);
     const values = presentation(record);
-    const selection = values.listSelection ?? (node.props.selectedId === null ? -1 : node.props.items.findIndex(item => item.id === node.props.selectedId));
+    const selection = values.listSelection ?? (node.props.selectedId === null ? -1 : listItems(record).findIndex(item => item.id === node.props.selectedId));
     const stagger = Math.max(0, Math.min(1, values.stagger ?? 1));
-    node.props.items.forEach((item, index) => {
+    const visibleRows = listItems(record);
+    visibleRows.forEach((item, index) => {
       const y = index * node.props.itemHeight;
-      const row = new Container(); row.y = y; row.alpha = Math.max(0, Math.min(1, stagger * node.props.items.length - index)); rows.addChild(row);
+      const row = new Container(); row.y = y; row.alpha = Math.max(0, Math.min(1, stagger * visibleRows.length - index)); rows.addChild(row);
       if (appearance && textures) {
         const base = new Sprite(textures.row); base.width = node.layout.width; base.height = node.props.itemHeight - (node.props.rowGap ?? 0); row.addChild(base);
       } else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight - (node.props.rowGap ?? 0)).fill({ color: '#FFFFFF' }));
@@ -1264,6 +1301,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         if (appearance && textures) { const highlighted = new Sprite(textures.selectedRow); highlighted.width = node.layout.width; highlighted.height = node.props.itemHeight - (node.props.rowGap ?? 0); highlighted.alpha = selected; row.addChild(highlighted); }
         else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight - (node.props.rowGap ?? 0)).fill({ color: '#E3F1EC', alpha: selected }));
       }
+      if(node.props.itemContents)return;
       const labelLayout = appearance
         ? { x: appearance.labelLayout.x * node.layout.width / appearance.rowCanvas.width, y: appearance.labelLayout.y * (node.props.itemHeight - (node.props.rowGap ?? 0)) / appearance.rowCanvas.height, width: appearance.labelLayout.width * node.layout.width / appearance.rowCanvas.width, height: appearance.labelLayout.height * (node.props.itemHeight - (node.props.rowGap ?? 0)) / appearance.rowCanvas.height }
         : { x: 12, y: 0, width: node.layout.width - 24, height: node.props.itemHeight - (node.props.rowGap ?? 0) };
@@ -1548,11 +1586,12 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           break;
         case 'List':
           if (node.props.appearance) {
-            const background = scope.resources.acquireImage(node.props.appearance.backgroundImage);
+            const background = node.props.appearance.backgroundImage ? scope.resources.acquireImage(node.props.appearance.backgroundImage) : undefined;
             const row = scope.resources.acquireImage(node.props.appearance.rowImage);
             const selectedRow = scope.resources.acquireImage(node.props.appearance.selectedRowImage);
-            record.listTextures = { background: background.texture, row: row.texture, selectedRow: selectedRow.texture };
-            record.resourceReleases.push(background.release, row.release, selectedRow.release);
+            record.listTextures = {background: background?.texture, row: row.texture, selectedRow: selectedRow.texture};
+            if(background)record.resourceReleases.push(background.release);
+            record.resourceReleases.push(row.release,selectedRow.release);
           }
           record.redraw = () => drawList(record); record.redraw(); makeInteractive(record);
           bind(record, 'pointertap', event => {
@@ -1566,7 +1605,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
               const hit = appearance.hitArea;
               if (localX < hit.x || localX > hit.x + hit.width || localY < hit.y || localY > hit.y + hit.height) return;
             }
-            const item = record.node.props.items[index]; if (item && record.node.props.selectedId !== item.id) { preparePresentationChange(record, 'change', ['listSelection']); record.node.props.selectedId = item.id; record.redraw!(); emit(record, 'change', sourceOf(event.pointerType), item.id, item.id); render(); }
+            const item = listItems(record)[index]; if (item && record.node.props.selectedId !== item.id) { preparePresentationChange(record, 'change', ['listSelection']); record.node.props.selectedId = item.id; record.redraw!(); emit(record, 'change', sourceOf(event.pointerType), item.id, item.id); render(); }
           });
           break;
         case 'Panel':
@@ -1628,6 +1667,22 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       }
       if (isComposite(node)) {
         let childParent = visual;
+        const itemParents = new Map<string, Container>();
+        if(node.type==='List' && node.props.itemContents){
+          const viewport=addClip(visual,node.layout.width,node.layout.height);
+          const rows=node.props.itemContents.items.map(item=>{
+            const row=addClip(viewport,node.layout.width,node.props.itemHeight-(node.props.rowGap??0));
+            for(const id of item.childIds)itemParents.set(id,row);
+            return{item,row};
+          });
+          record.updateListContents=()=>{
+            const visible=listItems(record),byId=new Map(visible.map((item,index)=>[item.id,index]));
+            const stagger=Math.max(0,Math.min(1,presentation(record).stagger??1));
+            for(const {item,row}of rows){const index=byId.get(item.itemId);row.visible=index!==undefined;row.y=(index??0)*node.props.itemHeight;row.alpha=index===undefined?0:Math.max(0,Math.min(1,stagger*visible.length-index));
+              for(const id of item.childIds){const child=scope.records.get(id);if(child){child.itemVisible=index!==undefined;refreshVisibility(child);}}
+            }
+          };
+        }
         if (node.type === 'ScrollView') {
           const appearance = node.props.appearance;
           const scale = appearance ? rasterScale(record, appearance.sourceCanvas) : undefined;
@@ -1642,8 +1697,9 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         }
         const childModalScope = node.type === 'Dialog' && node.props.modal ? node.id : modalScope;
         for (const child of node.children) {
-          const built = build(child, childParent, childModalScope, record); record.childIds.push(built.node.id);
+          const built = build(child, itemParents.get(child.id)??childParent, childModalScope, record); record.childIds.push(built.node.id);
         }
+        record.updateListContents?.();
         if (node.type === 'Tabs') {
           record.updateTabs = () => {
             if (record.node.type !== 'Tabs') return;
@@ -2054,7 +2110,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           animatePresentation(record, 'selection', { selectionFlash: 0 }, [{ to: { selectionFlash: 1 }, duration: Math.max(1, profile.changeMs / 2), easing: boundedEasing }, { to: { selectionFlash: 0 }, duration: Math.max(1, profile.changeMs / 2), easing: boundedEasing }]);
         } else if (record.node.type === 'List') {
           const selectedId = record.node.props.selectedId;
-          const target = selectedId === null ? -1 : record.node.props.items.findIndex(item => item.id === selectedId);
+          const target = selectedId === null ? -1 : listItems(record).findIndex(item => item.id === selectedId);
           one('selection', { listSelection: values.listSelection ?? -1 }, { listSelection: target }, profile.changeMs, boundedEasing);
         } else if (record.node.type === 'Tabs') {
           one('tabs', { tabProgress: 0 }, { tabProgress: 1 }, profile.changeMs, boundedEasing);
@@ -2167,7 +2223,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       } else toggleSelect(current);
     } else if ((direction || endpoint) && (node.type === 'RadioGroup' || node.type === 'List' || node.type === 'Tabs' || node.type === 'Select')) {
       event.preventDefault();
-      const items = node.type === 'Tabs' ? node.props.tabs : node.type === 'List' ? node.props.items : node.props.options;
+      const items = node.type === 'Tabs' ? node.props.tabs : node.type === 'List' ? listItems(current) : node.props.options;
       if (!items.length) return;
       const value = node.type === 'Tabs' ? node.props.activeId : node.props.selectedId;
       const index = items.findIndex(item => item.id === value);
@@ -2264,7 +2320,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         candidate = buildScope(document, resources); current(); combined.throwIfAborted();
         const prior = active;
         if (prior) { animator.cancelAll(); motionSystem = null; motionStyle = null; }
-        stage.addChild(candidate.holder); active = candidate;
+        stage.addChild(candidate.holder); active = candidate; linkageSelections.clear();
         stage.scale.set(zoom); app.renderer.resize(document.canvas.width * zoom, document.canvas.height * zoom);
         if (prior) disposeScope(prior, true);
         render();
@@ -2291,7 +2347,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       return {
         instances: scope ? 1 : 0, externalListeners, resources: scope?.resources.count() ?? 0,
         paintRegions: scope ? referencePaintRegions(scope) : [],
-        nodes: scope ? [...scope.records.values()].sort((a, b) => a.order - b.order).map(record => ({ id: record.node.id, type: record.node.type, bounds: inspectionBounds(record), visible: effectiveVisible(record), enabled: enabledOf(record.node), value: inspectValue(record.node), ...(record.node.type === 'Input' ? {inputEditing: editingState(record)} : {}), renderedTextBounds: inspectRenderedText(record), ...(record.node.type === 'Select' ? {popupOpen: openSelect === record && Boolean(record.popup) && !record.popupClosing, popupItems: inspectPopupItems(record), ...(record.popup ? { popupBounds: (() => { const b = record.popup!.getBounds(); return { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom }; })() } : {})} : {}), ...(record.node.type === 'Switch' ? {renderedLabels: record.paint.children.filter((child): child is Text => child instanceof Text).map(child=>({text:child.text,x:child.x,y:child.y,width:child.width,height:child.height}))} : {}) })) : [],
+        nodes: scope ? [...scope.records.values()].sort((a, b) => a.order - b.order).map(record => ({ id: record.node.id, type: record.node.type, bounds: inspectionBounds(record), visible: effectiveVisible(record), enabled: linkageEnabled(record) ? enabledOf(record.node) : false, ...(record.node.type === 'List' ? {visibleItemIds:listItems(record).map(i=>i.id)} : {}), value: inspectValue(record.node), ...(record.node.type === 'Input' ? {inputEditing: editingState(record)} : {}), renderedTextBounds: inspectRenderedText(record), ...(record.node.type === 'Select' ? {popupOpen: openSelect === record && Boolean(record.popup) && !record.popupClosing, popupItems: inspectPopupItems(record), ...(record.popup ? { popupBounds: (() => { const b = record.popup!.getBounds(); return { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom }; })() } : {})} : {}), ...(record.node.type === 'Switch' ? {renderedLabels: record.paint.children.filter((child): child is Text => child instanceof Text).map(child=>({text:child.text,x:child.x,y:child.y,width:child.width,height:child.height}))} : {}) })) : [],
       };
     },
     getDocument(): UiDocument { assertAlive(); if (!active) throw new Error('TREE_NOT_LOADED'); return cloneForSnapshot(active.document); },
@@ -2337,7 +2393,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       } else if (node.type === 'RadioGroup' || node.type === 'Select') {
         if (value !== null && (typeof value !== 'string' || !node.props.options.some(option => option.id === value))) throw new TypeError('CHOICE_VALUE_INVALID'); if (node.type === 'RadioGroup') preparePresentationChange(record, 'change', ['markerAlpha', 'markerY']); node.props.selectedId = value; record.redraw?.(); emit(record, 'change', 'control', value);
       } else if (node.type === 'List') {
-        if (value !== null && (typeof value !== 'string' || !node.props.items.some(item => item.id === value))) throw new TypeError('LIST_VALUE_INVALID'); preparePresentationChange(record, 'change', ['listSelection']); node.props.selectedId = value; record.redraw?.(); emit(record, 'change', 'control', value);
+        if (value !== null && (typeof value !== 'string' || !listItems(record).some(item => item.id === value))) throw new TypeError('LIST_VALUE_INVALID'); preparePresentationChange(record, 'change', ['listSelection']); node.props.selectedId = value; record.redraw?.(); emit(record, 'change', 'control', value);
       } else if (node.type === 'Tabs') {
         if (typeof value !== 'string' || !node.props.tabs.some(tab => tab.id === value)) throw new TypeError('TAB_VALUE_INVALID'); preparePresentationChange(record, 'change', ['tabProgress']); node.props.activeId = value; record.redraw?.(); record.updateTabs?.(); emit(record, 'change', 'control', value, value);
       } else if (node.type === 'ScrollView') {
@@ -2472,3 +2528,6 @@ function inspectValue(node: UiNode): RuntimeNodeInspection['value'] | undefined 
     default: return undefined;
   }
 }
+
+
+

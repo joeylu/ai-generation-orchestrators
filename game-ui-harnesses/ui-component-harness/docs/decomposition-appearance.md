@@ -268,3 +268,5 @@ Human visual acceptance remains false for v2.
 Switch per-state textures: see [versioned state images v1](switch-state-images-v1.md).
 
 Select popup per-option icon extension: [the sole v1.0 integration contract](select-option-icons-v1.md). Explicit optionId/layerId/layout; never infer from Choice labels.
+
+List explicit parent-background mode: [List background policy 1.0](list-background-v1.md). Absence retains the legacy required background role.

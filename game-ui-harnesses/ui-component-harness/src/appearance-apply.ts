@@ -16,7 +16,11 @@ function globalLayouts(document: UiDocument): Map<string, Layout> {
   const visit = (node: UiNode, parentX: number, parentY: number) => {
     const layout = { x: parentX + node.layout.x, y: parentY + node.layout.y, width: node.layout.width, height: node.layout.height };
     result.set(node.id, layout);
-    if ('children' in node) node.children.forEach(child => visit(child, layout.x, layout.y));
+    if ('children' in node) node.children.forEach(child => {
+      const owner=node.type==='List'?node.props.itemContents?.items.find(row=>row.childIds.includes(child.id)):undefined;
+      const rowOffset=owner&&node.type==='List'?node.props.items.findIndex(item=>item.id===owner.itemId)*node.props.itemHeight:0;
+      visit(child, layout.x, layout.y+rowOffset);
+    });
   };
   visit(document.root, 0, 0); return result;
 }
@@ -268,9 +272,10 @@ export async function applyAppearanceBinding(
     if (supported.type === 'List') {
       only(`${path}.parts`, partLayers, ['background', 'row', 'selected-row']);
       const background = partLayers.get('background')!, row = partLayers.get('row')!, selected = partLayers.get('selected-row')!;
-      requireExactComponentLayer(`${path}.parts`, background, component, binding);
       const state = componentBinding.states && 'list' in componentBinding.states ? componentBinding.states.list : undefined;
       if (!state) fail(`${path}.states`, 'LIST_STATE_REQUIRED', 'explicit repeated row geometry is required');
+      const parentBackground = state.backgroundPolicy?.mode === 'parent';
+      if (!parentBackground) requireExactComponentLayer(`${path}.parts`, background, component, binding);
       const checkSample = (role: 'row' | 'selected-row', layer: ImportedDecompositionLayer) => {
         const itemId = componentBinding.parts.find(part => part.role === role)?.itemId;
         const index = supported.props.items.findIndex(item => item.id === itemId);
@@ -278,10 +283,10 @@ export async function applyAppearanceBinding(
         if (index < 0 || !close(actual.x, component.x) || !close(actual.y, component.y + index * supported.props.itemHeight) || !close(actual.width, component.width) || !close(actual.height, supported.props.itemHeight - (supported.props.rowGap ?? 0))) fail(`${path}.parts`, 'LIST_SAMPLE_GEOMETRY_MISMATCH', `${role} must exactly match its declared painted item row, excluding rowGap`);
       };
       checkSample('row', row); checkSample('selected-row', selected);
-      const scale = component.width / background.width;
-      if (!close(component.height / background.height, scale) || !close(component.width / row.width, scale) || !close(component.width / selected.width, scale)) fail(`${path}.parts`, 'NON_UNIFORM_COMPONENT_SCALE', 'List background and row templates must use one uniform runtime scale');
+      const scale = parentBackground ? binding.registration.transform.scale : component.width / background.width;
+      if ((!parentBackground && !close(component.height / background.height, scale)) || !close(component.width / row.width, scale) || !close(component.width / selected.width, scale)) fail(`${path}.parts`, 'NON_UNIFORM_COMPONENT_SCALE', 'List background and row templates must use one uniform runtime scale');
       const local = (layout: Layout): Layout => ({ x: layout.x / scale, y: layout.y / scale, width: layout.width / scale, height: layout.height / scale });
-      supported.props.appearance = { sourceCanvas: { width: background.width, height: background.height }, backgroundImage: add(background), rowImage: add(row), rowCanvas: { width: row.width, height: row.height }, selectedRowImage: add(selected), selectedRowCanvas: { width: selected.width, height: selected.height }, labelLayout: local(state.labelLayout), hitArea: local(state.hitArea) };
+      supported.props.appearance = { sourceCanvas: { width: component.width / scale, height: component.height / scale }, ...(state.backgroundPolicy ? {backgroundPolicy: {...state.backgroundPolicy}} : {}), ...(!parentBackground ? {backgroundImage: add(background)} : {}), rowImage: add(row), rowCanvas: { width: row.width, height: row.height }, selectedRowImage: add(selected), selectedRowCanvas: { width: selected.width, height: selected.height }, labelLayout: local(state.labelLayout), hitArea: local(state.hitArea) };
       continue;
     }
     if (supported.type === 'Dialog') {

@@ -7,6 +7,7 @@ import { walkNodes, type UiDocument } from './tree-contract.ts';
 import { createTreePreview, type TreePreview, type TreeRuntimeEvent } from './tree-runtime.ts';
 import { compileMotionSystem, type MotionStyle, type MotionSystemDocument } from './motion-system.ts';
 import { MotionPlayer } from './motion.ts';
+import { staticImageSystem, staticImageTimeline } from './studio-static-images.ts';
 import { createBundle, validateBundle, bundleResources, type UiBundle, type ResourceInput } from './bundle.ts';
 import { compileSemanticObservation, NEUTRAL_SEMANTIC_PREVIEW_POLICY_V1, type MissingSemanticField } from './vision-semantic-compiler.ts';
 import type { ObservationSource, VisionObservation } from './vision-observation.ts';
@@ -195,8 +196,8 @@ function systemFor(scheme: Scheme, document: UiDocument): MotionSystemDocument |
   if (scheme === 'original') return null;
   // Preserve an imported selected system (including subsets) until a different
   // whole-canvas style is chosen. Scheme switching never rewrites UI values.
-  if (originalSystem?.style === scheme) return originalSystem;
-  return compileMotionSystem({ id: `studio-${scheme}`, style: scheme, targets: walkNodes(document).map(node => node.id) }, document);
+  if (originalSystem?.style === scheme) return staticImageSystem(document, originalSystem);
+  return staticImageSystem(document, compileMotionSystem({ id: `studio-${scheme}`, style: scheme, targets: walkNodes(document).map(node => node.id) }, document));
 }
 function activeView(): View | undefined { return views.find(view => view.scheme === selected); }
 function currentDocument(): UiDocument {
@@ -224,7 +225,7 @@ function replay(view = activeView()) {
 async function mount(document: UiDocument, request: ReturnType<typeof begin>) {
   if (!bundle) throw new Error('NO_STUDIO_BUNDLE');
   const source = new Map(resources.map(resource => [resource.path, resource]));
-  const timelineDocument = bundle.motion;
+  const timelineDocument = staticImageTimeline(document, bundle.motion);
   const chosen = compare ? schemes : [selected];
   sync();
   for (const scheme of chosen) {
@@ -364,7 +365,7 @@ async function exportSelected(): Promise<UiBundle> {
   const view = activeView();
   if (!bundle || !view || busy) throw new Error('NO_READY_PREVIEW');
   const ticket = generation, scheme = selected;
-  const result = await createBundle(view.preview.getDocument(), resources, bundle.provenance, bundle.motion, view.preview.getMotionSystem() ?? undefined, bundle.componentHandoff);
+  const result = await createBundle(view.preview.getDocument(), resources, bundle.provenance, staticImageTimeline(view.preview.getDocument(), bundle.motion), view.preview.getMotionSystem() ?? undefined, bundle.componentHandoff);
   if (ticket !== generation || scheme !== selected || busy) throw abortError();
   return validateBundle(result);
 }

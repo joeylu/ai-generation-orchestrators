@@ -48,10 +48,15 @@
     "docs/automation.md",
     "docs/reference-consumer-v2.md",
     "docs/decomposition-appearance.md",
+    "docs/list-background-v1.md",
+    "docs/list-background-v1.schema.json",
+    "docs/examples/list-background-v1.binding.json",
     "docs/select-menu-highlights-v1.md",
     "docs/button-label-lines-v1.md",
     "docs/tabs-background-v1.md",
     "docs/value-text-bindings-v1.md",
+    "docs/component-linkages-v1.md",
+    "docs/examples/list-item-contents-v1.document.json",
     "docs/scrollbar-thumb-slices-v1.md",
     "docs/legacy-layered-case.md",
     "docs/motion.md",
@@ -91,3 +96,5 @@
     "vite": "8.2.2"
   }
 }
+
+

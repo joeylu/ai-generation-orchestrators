@@ -34,7 +34,7 @@ export function treeResourceReferences(document: UiDocument): { imageSources: Se
       imageSources.add(node.props.appearance.scrollbarThumbImage);
     }
     if (node.type === 'List' && node.props.appearance) {
-      imageSources.add(node.props.appearance.backgroundImage);
+      if(node.props.appearance.backgroundImage) imageSources.add(node.props.appearance.backgroundImage);
       imageSources.add(node.props.appearance.rowImage);
       imageSources.add(node.props.appearance.selectedRowImage);
     }
