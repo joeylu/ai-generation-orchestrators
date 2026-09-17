@@ -37,6 +37,26 @@ ROLES = {'Input': {'background'}, 'Dialog': DIALOG_ROLES, 'Tabs': {'tab', 'activ
          'Slider': {'track','fill','thumb'}, 'ProgressBar': {'track','fill'}}
 
 
+def _list_background_mode(binding: dict) -> str:
+    """Resolve the exact List background policy used by the consumer.
+
+    An omitted policy is the established own-background behavior.  Keeping
+    this check next to the state renderer prevents a parent List from being
+    represented as an independent background part in the state matrix.
+    """
+    states = binding.get('states', {})
+    require(isinstance(states, dict), 'STATE_LIST_BACKGROUND_POLICY')
+    state = states.get('list', {})
+    require(isinstance(state, dict), 'STATE_LIST_BACKGROUND_POLICY')
+    if 'backgroundPolicy' not in state:
+        return 'own'
+    policy = state['backgroundPolicy']
+    require(isinstance(policy, dict) and set(policy) == {'version', 'mode'} and
+            policy['version'] == '1.0' and policy['mode'] in {'parent', 'own'},
+            'STATE_LIST_BACKGROUND_POLICY')
+    return policy['mode']
+
+
 def image_bytes(payload):
     im = Image.open(io.BytesIO(payload))
     require(im.width*im.height<=16_777_216,'STATE_IMAGE_LIMIT')
@@ -153,6 +173,16 @@ def compile_matrix(bundle, binding, evidence, assets):
         require(ident in by_binding and 'appearance' in p, 'STATE_CAPABILITY_MISSING:' + ident)
         b, a = by_binding[ident], p['appearance']
         require(all(q['role'] in ROLES[t] for q in b['parts']), 'STATE_ROLE_UNSUPPORTED')
+        list_parent_background = False
+        if t == 'List':
+            list_parent_background = _list_background_mode(b) == 'parent'
+            require(_list_background_mode({'states': {'list': a}}) == _list_background_mode(b),
+                    'STATE_LIST_BACKGROUND_POLICY')
+            expected_roles = {'row', 'selected-row'} if list_parent_background else ROLES[t]
+            require({q['role'] for q in b['parts']} == expected_roles,
+                    'STATE_LIST_BACKGROUND_POLICY')
+            require(('backgroundImage' in a) is (not list_parent_background),
+                    'STATE_LIST_BACKGROUND_POLICY')
         w, h = n['layout']['width'], n['layout']['height']
         # Refuse unimplemented coordinate transforms instead of guessing.
         require(a['sourceCanvas'] == {'width': w, 'height': h}, 'STATE_GEOMETRY_MISMATCH')
@@ -357,7 +387,9 @@ def compile_matrix(bundle, binding, evidence, assets):
                     point=[x+r[0]+r[2]/2,y+r[1]+r[3]/2]
                 value=slider['value'];action='slider' if t=='Slider' else 'progress'
             elif t == 'List':
-                parts=[part('background','background',a['backgroundImage'],[x,y,w,h],p.get('drawBackground',True))]
+                parts=[]
+                if not list_parent_background:
+                    parts.append(part('background','background',a['backgroundImage'],[x,y,w,h],p.get('drawBackground',True)))
                 for index, item in enumerate(names):
                     rect=[x,y+index*p['itemHeight'],w,p['itemHeight']-p.get('rowGap',0)]
                     # Consumer drawList retains the normal row below the selected

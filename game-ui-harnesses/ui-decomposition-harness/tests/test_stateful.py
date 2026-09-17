@@ -146,6 +146,23 @@ class StatefulTests(unittest.TestCase):
                 self.assertGreaterEqual(len(matrix['components'][0]['states']),2)
                 self.assertIs(matrix['human_visual_acceptance'],False)
 
+    def test_list_parent_background_omits_only_background_and_rejects_mismatch(self):
+        bundle,binding,evidence,assets=self.fixture('List')
+        node=next(n for n in bundle['document']['root']['children'] if n['type']=='List')
+        b=next(b for b in binding['bindings'] if b['componentId']==node['id'])
+        b['states']['list']['backgroundPolicy']={'version':'1.0','mode':'parent'}
+        b['parts']=[p for p in b['parts'] if p['role']!='background']
+        a=node['props']['appearance'];a.pop('backgroundImage')
+        a['backgroundPolicy']={'version':'1.0','mode':'parent'}
+        evidence['components'][node['id']]['relations'].pop('background')
+        matrix=compile_matrix(bundle,binding,evidence,assets)
+        for state in matrix['components'][0]['states']:
+            self.assertFalse(any(p['role']=='background' for p in state['parts']))
+            self.assertTrue(any(p['role']=='row' for p in state['parts']))
+        a['backgroundPolicy']['mode']='own'
+        with self.assertRaisesRegex(ContractError,'STATE_LIST_BACKGROUND_POLICY'):
+            compile_matrix(bundle,binding,evidence,assets)
+
     def test_list_selected_state_retains_normal_row_under_overlay(self):
         bundle,binding,evidence,assets=self.fixture('List')
         node=next(n for n in bundle['document']['root']['children'] if n['type']=='List')

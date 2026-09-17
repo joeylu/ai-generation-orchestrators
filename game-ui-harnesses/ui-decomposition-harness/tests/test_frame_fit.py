@@ -9,6 +9,16 @@ from ai_ui_decomposition.relative_board import gap_windows
 from test_content_gap_board import board,picture
 
 class FrameFitTests(unittest.TestCase):
+    def test_row_frame_preserves_end_band_after_proportional_height_fit(self):
+        im=Image.new('RGBA',(200,40),'white');ImageDraw.Draw(im).rectangle((175,12,185,26),fill='blue')
+        spec=self.spec(im);spec.update(version='1.1',role='row-frame',resize=dict(mode='height_then_nine_slice',insets=[10,4,30,4]))
+        out,_=fit_frame(im,[120,24],2,spec)
+        scaled=im.resize((100,20),Image.Resampling.LANCZOS)
+        self.assertEqual(out.crop((103,2,118,22)).tobytes(),scaled.crop((85,0,100,20)).tobytes())
+        spec['role']='empty-frame'
+        validate_frames({'tab':spec},board())
+        self.assertEqual(fit_frame(im,[120,24],2,spec)[0].tobytes(),out.tobytes())
+
     def spec(self,im):
         return dict(version='1.0',role='empty-frame',supportSha256=hashlib.sha256(im.tobytes()).hexdigest(),supportSize=list(im.size),resize=dict(mode='nine_slice',insets=[6,6,6,6]),evidence='Local fixture measured 6px corners.')
 

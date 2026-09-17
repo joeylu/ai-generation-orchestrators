@@ -166,6 +166,15 @@ class NativeDeliveryTests(unittest.TestCase):
         self.assertEqual(result['status'],'awaiting_authorization')
         self.assertFalse((job/'nodes/generate').exists())
 
+    def test_authored_environment_scope_reaches_generation_plan(self):
+        fixture=self.root/'fixtures/CheckBox';request,_=native_fixture(fixture)
+        background=next(row for row in request['materials'] if row['layerId']=='background')
+        background['description']='Keep the synthetic blue banner but remove its lettering as an explicit derived scope.'
+        out=self.root/'background-scope'
+        compile_delivery(fixture/'reference.png',request,out,self.consumer,8)
+        prompt=next(row['prompt'] for row in read_json(out/'plan.json')['assets'] if row['id']=='background')
+        self.assertIn(background['description'],prompt)
+
     def test_required_observation_state_and_appearance_cannot_be_omitted(self):
         fixture=self.root/'fixtures/CheckBox';request,_=native_fixture(fixture)
         cid=request['document']['root']['children'][1]['id']

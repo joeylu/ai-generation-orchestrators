@@ -21,10 +21,11 @@ from .layout_spacing import require_export_spacing
 from .reference_delivery import validate_mapping, validate_states
 from .document_extensions import item_offsets, check_extensions
 from .shared_materials import is_shared, validate_shared_sources
+from . import planned_glyphs
 
 
 KIND = "ui_native_delivery_input_v1"
-VERSION = "1.0"
+VERSIONS = {"1.0", "1.1", "1.2"}
 
 # Container is a structural document root/parent.  These are the component
 # types for which this bounded producer has an explicit native delivery route.
@@ -40,6 +41,10 @@ _NATIVE_FIELDS = {
     "acceptanceScope", "referenceMapping", "layoutSpacing",
     "layoutRequirements", "visualObservations", "stateEvidence",
 }
+_NATIVE_FIELDS_V1_1 = _NATIVE_FIELDS | {"visibleGeometryRequirements"}
+_NATIVE_FIELDS_V1_2 = _NATIVE_FIELDS | {"derivedGlyphs"}
+_NATIVE_FIELDS_V1_2_VISIBLE = _NATIVE_FIELDS_V1_2 | {"visibleGeometryRequirements"}
+VISIBLE_GEOMETRY_MARKER = "native-visible-geometry-requirements-v1:"
 
 _REQUIRED_APPEARANCE_ROLES = {
     "Image": {"image"},
@@ -54,8 +59,105 @@ _REQUIRED_APPEARANCE_ROLES = {
 }
 
 
+def _list_background_mode(binding: dict) -> str:
+    """Return the consumer-defined List background ownership mode.
+
+    The absence of the field is deliberately mapped to the legacy own mode.
+    This is a local structural check only; the official component CLI remains
+    authoritative for the complete appearance binding.
+    """
+    states = binding.get("states", {})
+    require(isinstance(states, dict), "NATIVE_APPEARANCE_STATES_REQUIRED")
+    state = states.get("list", {})
+    require(isinstance(state, dict), "NATIVE_LIST_BACKGROUND_POLICY")
+    if "backgroundPolicy" not in state:
+        return "own"
+    policy = state["backgroundPolicy"]
+    require(isinstance(policy, dict) and set(policy) == {"version", "mode"},
+            "NATIVE_LIST_BACKGROUND_POLICY")
+    require(policy["version"] == "1.0" and policy["mode"] in {"parent", "own"},
+            "NATIVE_LIST_BACKGROUND_POLICY")
+    return policy["mode"]
+
+
 def _finite(value: object) -> bool:
     return type(value) in (int, float) and math.isfinite(value)
+
+
+def _validate_world_rect(value: object, code: str, *, positive: bool) -> None:
+    require(isinstance(value, dict) and set(value) == {"x", "y", "width", "height"}, code)
+    require(all(_finite(value[key]) for key in ("x", "y", "width", "height")), code)
+    require(value["width"] > 0 and value["height"] > 0 if positive else
+            value["width"] >= 0 and value["height"] >= 0, code)
+
+
+def validate_visible_geometry_requirements(request: dict,
+                                           material_ids: set[str]) -> list[dict] | None:
+    """Validate native 1.1 declarations without inventing image evidence.
+
+    Source digests and source-pixel bounds are intentionally absent here: the
+    materialized-handoff producer fills those only from verified output PNGs.
+    """
+    version = request.get("version")
+    if version == "1.0":
+        return None
+    require(version in {"1.1", "1.2"}, "NATIVE_INPUT_VERSION")
+    if "visibleGeometryRequirements" not in request:
+        return None
+    rows = request["visibleGeometryRequirements"]
+    require(isinstance(rows, list) and len(rows) <= 128,
+            "NATIVE_VISIBLE_GEOMETRY_REQUIREMENTS")
+    seen_materials: set[str] = set()
+    for row in rows:
+        require(isinstance(row, dict) and set(row) == {
+            "materialId", "alphaThreshold", "minimumOccupancy", "reservedRects",
+            "textWorldRects", "imageWorldRect",
+        }, "NATIVE_VISIBLE_GEOMETRY_FIELDS")
+        material_id = row["materialId"]
+        identifier(material_id)
+        require(material_id in material_ids, "NATIVE_VISIBLE_GEOMETRY_MATERIAL_MISSING")
+        require(material_id not in seen_materials, "NATIVE_VISIBLE_GEOMETRY_MATERIAL_DUPLICATE")
+        seen_materials.add(material_id)
+        threshold = row["alphaThreshold"]
+        require(type(threshold) is int and 1 <= threshold <= 255,
+                "NATIVE_VISIBLE_GEOMETRY_ALPHA_THRESHOLD")
+        minimum = row["minimumOccupancy"]
+        require(isinstance(minimum, dict) and set(minimum) <= {"width", "height"} and minimum,
+                "NATIVE_VISIBLE_GEOMETRY_MINIMUM_OCCUPANCY")
+        for axis, value in minimum.items():
+            require(_finite(value) and 0 <= value <= 1,
+                    "NATIVE_VISIBLE_GEOMETRY_MINIMUM_OCCUPANCY")
+        reserved, texts, image_world = row["reservedRects"], row["textWorldRects"], row["imageWorldRect"]
+        require(isinstance(reserved, list) and isinstance(texts, list),
+                "NATIVE_VISIBLE_GEOMETRY_RELATIONS")
+        if image_world is not None:
+            _validate_world_rect(image_world, "NATIVE_VISIBLE_GEOMETRY_IMAGE_WORLD_RECT", positive=True)
+        if reserved:
+            require(image_world is not None and texts,
+                    "NATIVE_VISIBLE_GEOMETRY_RELATIONS")
+        reserved_ids: set[str] = set()
+        for item in reserved:
+            require(isinstance(item, dict) and set(item) == {"id", "rect"},
+                    "NATIVE_VISIBLE_GEOMETRY_RESERVED_RECT")
+            identifier(item["id"])
+            require(item["id"] not in reserved_ids,
+                    "NATIVE_VISIBLE_GEOMETRY_RESERVED_RECT")
+            reserved_ids.add(item["id"])
+            rect = item["rect"]
+            require(isinstance(rect, list) and len(rect) == 4 and
+                    all(type(value) is int for value in rect) and
+                    rect[0] >= 0 and rect[1] >= 0 and rect[2] > 0 and rect[3] > 0,
+                    "NATIVE_VISIBLE_GEOMETRY_RESERVED_RECT")
+        text_ids: set[str] = set()
+        for item in texts:
+            require(isinstance(item, dict) and set(item) == {"id", "rect"},
+                    "NATIVE_VISIBLE_GEOMETRY_TEXT_RECT")
+            identifier(item["id"])
+            require(item["id"] not in text_ids,
+                    "NATIVE_VISIBLE_GEOMETRY_TEXT_RECT")
+            text_ids.add(item["id"])
+            _validate_world_rect(item["rect"], "NATIVE_VISIBLE_GEOMETRY_TEXT_RECT", positive=True)
+    return copy.deepcopy(rows)
 
 
 def _walk(node: dict):
@@ -200,8 +302,17 @@ def _validate_appearance(appearance: object, document: dict, by_id: dict[str, di
                     materials[layer]["componentType"] == kind, "NATIVE_LAYER_OWNER_MISMATCH")
             bound_layers.add(layer)
             roles.add(role)
-        require(_REQUIRED_APPEARANCE_ROLES.get(kind, set()) <= roles,
-                "NATIVE_APPEARANCE_REQUIRED_ROLE")
+        required_roles = _REQUIRED_APPEARANCE_ROLES.get(kind, set())
+        if kind == "List":
+            # list-background-v1 is the sole producer/consumer contract for
+            # this choice. Parent owns only row paint; own and legacy retain
+            # the independent List background layer.
+            mode = _list_background_mode(binding)
+            required_roles = {"row", "selected-row"} if mode == "parent" else required_roles
+            require(roles == required_roles if mode == "parent" else required_roles <= roles,
+                    "NATIVE_LIST_BACKGROUND_POLICY")
+        else:
+            require(required_roles <= roles, "NATIVE_APPEARANCE_REQUIRED_ROLE")
         if kind in STATEFUL_TYPES:
             require("states" in binding and isinstance(binding["states"], dict),
                     "NATIVE_APPEARANCE_STATES_REQUIRED")
@@ -303,10 +414,17 @@ def _board_strategy(group: str, rows: list[dict], policy: dict) -> dict:
 
 def compile_native_delivery(reference, request, output, component_root, maximum_calls):
     """Compile a native UiDocument into the established offline DAG plan."""
-    require(isinstance(request, dict) and set(request) == _NATIVE_FIELDS,
-            "NATIVE_INPUT_FIELDS")
-    require(request["kind"] == KIND and request["version"] == VERSION,
+    require(isinstance(request, dict), "NATIVE_INPUT_FIELDS")
+    require(request.get("kind") == KIND and request.get("version") in VERSIONS,
             "NATIVE_INPUT_VERSION")
+    if request["version"] == "1.0":
+        require(set(request) == _NATIVE_FIELDS, "NATIVE_INPUT_FIELDS")
+    elif request["version"] == "1.1":
+        require(set(request) in (_NATIVE_FIELDS, _NATIVE_FIELDS_V1_1),
+                "NATIVE_INPUT_FIELDS")
+    else:
+        require(set(request) in (_NATIVE_FIELDS_V1_2, _NATIVE_FIELDS_V1_2_VISIBLE),
+                "NATIVE_INPUT_FIELDS")
     require(type(maximum_calls) is int and maximum_calls >= 0, "NATIVE_MAXIMUM_CALLS")
     source = Path(reference)
     picture, proof = load_verified_image(source)
@@ -318,7 +436,14 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     cli_preflight=_validate_cli_document(document, Path(component_root))
     extension_check=check_extensions(document, request['capabilities'])
     materials = _validate_materials(request["materials"], document, by_id, rects)
+    visible_geometry_requirements = validate_visible_geometry_requirements(
+        request, set(materials))
     _validate_appearance(request["appearance"], document, by_id, materials, proof["size"])
+    if request["version"] == "1.2" and request["derivedGlyphs"]:
+        require(source.suffix.lower() == ".png", "NATIVE_GLYPH_REFERENCE_PNG_REQUIRED")
+    glyph_envelope = planned_glyphs.compile_recipes(
+        request, materials, document, request["appearance"], picture,
+        proof["sha256"], proof["size"])
     validate_shared_sources(materials, by_id, rects, request["appearance"])
     validate_mapping(request["referenceMapping"], proof["size"], document["canvas"])
     mapping=request['referenceMapping']
@@ -329,6 +454,10 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     require(request['appearance']['registration']['transform']==dict(scale=1,offset=dict(x=0,y=0)),
             'NATIVE_IDENTITY_REGISTRATION_REQUIRED')
     validate_states(request["referenceState"], request["acceptanceScope"], document)
+    compiled_acceptance_scope = planned_glyphs.acceptance_scope(
+        request["acceptanceScope"], glyph_envelope)
+    if glyph_envelope is not None:
+        validate_states(request["referenceState"], compiled_acceptance_scope, document)
     spacing_report = require_export_spacing(document, request["layoutSpacing"])
     state_evidence = _validate_state_evidence(request["stateEvidence"])
     require(isinstance(request["layoutRequirements"], dict) and
@@ -356,9 +485,11 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
         require(isinstance(ref,list) and len(ref)==4 and isinstance(off,list) and len(off)==2 and isinstance(ratio,list) and len(ratio)==2,'TEXT_GEOMETRY_VALUES')
         require(all(_finite(v) for v in ref+off+ratio) and min(ref[2:])>0 and min(off)>=0 and 0<ratio[0]<=ratio[1],'TEXT_GEOMETRY_VALUES')
 
+    derived_target_ids = {recipe["targetLayerId"]
+                          for recipe in (glyph_envelope or {}).get("recipes", [])}
     groups: dict[str, list[dict]] = {}
     for row in materials.values():
-        if is_shared(row):
+        if is_shared(row) or row["layerId"] in derived_target_ids:
             continue
         group = row["groupId"]
         if group is not None:
@@ -378,6 +509,13 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
 
     canvas = [document["canvas"]["width"], document["canvas"]["height"]]
     appearance_digest = digest(request["appearance"])
+    geometry_marker = (VISIBLE_GEOMETRY_MARKER + digest(visible_geometry_requirements) + " "
+                       if visible_geometry_requirements is not None else "")
+    glyph_marker = planned_glyphs.marker(glyph_envelope)
+    from .material_ownership import compile_ownership, MARKER as OWNERSHIP_MARKER
+    ownership = compile_ownership(request, materials)
+    ownership_text = {r['layerId']:r['instruction'] for r in ownership['layers']}
+    plan_markers = glyph_marker + geometry_marker + OWNERSHIP_MARKER + ownership['digest'] + ' '
     assets: list[dict] = []
     placed: list[dict] = []
     catalog: list[dict] = []
@@ -387,17 +525,30 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     assets.append({"id": "background", "role": "background", "route": "generated_completion",
                    "source_region": [0, 0, *canvas], "output_size": canvas,
                    "output_mode": "opaque_canvas",
-                   "prompt": f"{bg_marker} Complete the reference scene with all UI materials removed; preserve only the environmental background.",
+                   "prompt": f"{plan_markers}{bg_marker} Complete the reference scene with all UI materials removed; preserve only the environmental background. Authored environmental scope: {background['description']}",
                    "source_asset": None})
     placed.append({"id": "background", "asset": "background", "xy": [0, 0]})
     catalog.append({"componentId": background["componentId"], "componentType": "Image",
                     "layerId": background["layerId"], "rect": background["rect"],
                     "generationAsset": "background", "board": None})
 
+    derived_targets = {recipe["targetLayerId"]: recipe
+                       for recipe in (glyph_envelope or {}).get("recipes", [])}
     for layer, row in materials.items():
         if layer == background["layerId"]:
             continue
         rect = row["rect"]
+        if layer in derived_targets:
+            recipe = derived_targets[layer]
+            catalog.append({"componentId": row["componentId"],
+                            "componentType": row["componentType"],
+                            "layerId": layer, "rect": rect,
+                            "generationAsset": None, "board": None,
+                            "derivedGlyph": {
+                                "canonicalLayerId": recipe["canonicalLayerId"],
+                                "recipeDigest": glyph_envelope["digest"],
+                            }})
+            continue
         generated = materials[row["sharedSource"]["sourceLayerId"]] if is_shared(row) else row
         group = generated["groupId"]
         asset_id = f"board-{group}" if group is not None else generated["layerId"]
@@ -415,24 +566,28 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
         assets.append({"id": asset_id, "role": "important_component", "route": "generated_isolation",
                        "source_region": [rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3]],
                        "output_size": rect[2:], "output_mode": "keyed_component",
-                       "prompt": f"{marker} {row['description']} Preserve the complete component shape and transparent holes; use solid #F808F8 only as the declared key backdrop. No text or labels.",
+                       "prompt": f"{plan_markers}{marker} {row['description']} {ownership_text[layer]} Preserve the complete component shape and transparent holes; use solid #F808F8 only as the declared key backdrop. No text or labels.",
                        "source_asset": None})
         placed.append({"id": asset_id, "asset": asset_id, "xy": [rect[0], rect[1]]})
 
     for group, rows in groups.items():
         strategy = strategies[group]
         asset_id = f"board-{group}"
-        parts = "; ".join(f"{row['layerId']} ({row['rect'][2]}x{row['rect'][3]}): {row['description']}" for row in rows)
+        parts = "; ".join(f"{row['layerId']} ({row['rect'][2]}x{row['rect'][3]}): {row['description']} {ownership_text[row['layerId']]}" for row in rows)
         marker = f"component-family-board-v1:{strategy['digest']}:{group}"
         native_marker = f"native-layer-binding-v1:{appearance_digest}:{group}"
         board=strategy['boards'][0]
-        if board['extraction_policy']['version'] in {'1.1', '1.2'}:
+        if board['extraction_policy']['version'] in {'1.3','1.4'}:
+            parts += '; Explicit disconnected glyph structure: ' + '; '.join(
+                f"{g['asset_id']}: {g['column_groups']} columns by {g['row_groups']} rows of disconnected strokes, internal gaps at most {g['max_internal_gap_ratio']} of glyph height"
+                for g in board['extraction_policy']['disconnected_glyphs'])
+        if board['extraction_policy']['version'] in {'1.1', '1.2', '1.3', '1.4', '1.5'}:
             native_marker += ' component-family-content-gap-v1.1'
         windows='; '.join(f"{slot['asset_id']}: {slot['search_window']}" for slot in board['slots'])
         assets.append({"id": asset_id, "role": "important_component", "route": "generated_isolation",
                        "source_region": [0, 0, *canvas], "output_size": canvas,
                        "output_mode": "keyed_component",
-                       "prompt": f"{marker} {native_marker} Canvas {board['canvas']}, extraction {board['extraction_policy']['mode']}. Planned windows [left,top,right,bottom]: {windows}. Complete {group} board. Preserve declared order and full silhouettes with separated key-color gutters; for foreground-gap-row, windows guide placement and cuts follow actual empty gaps. {parts} Use uniform #F808F8 elsewhere; no text, labels, reordering or merged parts.",
+                       "prompt": f"{plan_markers}{marker} {native_marker} Canvas {board['canvas']}, extraction {board['extraction_policy']['mode']}. Planned windows [left,top,right,bottom]: {windows}. Complete {group} board. Preserve declared order and full silhouettes with separated key-color gutters; for foreground-gap-row, windows guide placement and cuts follow actual empty gaps. {parts} Use uniform #F808F8 elsewhere; no text, labels, reordering or merged parts.",
                        "source_asset": None})
         placed.append({"id": asset_id, "asset": asset_id, "xy": [0, 0]})
 
@@ -460,6 +615,7 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     plan_check = validate(plan, source_base=output)
     write_json(output / "plan.json", plan)
     write_json(output / "plan-check.json", plan_check)
+    write_json(output / "material-ownership.json", ownership)
 
     capability_request = {"kind": "ui-decomposition-capability-request", "version": "1.0",
                           "planDigest": digest(plan), "components": copy.deepcopy(request["capabilities"])}
@@ -478,7 +634,7 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     write_json(output / "response.json", request)
     write_json(output / "consumer-preflight.json",dict(exitCode=0,stdout=cli_preflight,scope='pure_document_no_materials'))
     write_json(output / "reference-state.json", request["referenceState"])
-    write_json(output / "acceptance-scope.json", request["acceptanceScope"])
+    write_json(output / "acceptance-scope.json", compiled_acceptance_scope)
     write_json(output / "reference-mapping.json", request["referenceMapping"])
     write_json(output / "layout-spacing.json", request["layoutSpacing"])
     write_json(output / "spacing-check.json", spacing_report)
@@ -486,6 +642,7 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     write_json(output / "visual-observations.json", request["visualObservations"])
     write_json(output / "state-evidence.json", state_evidence)
     write_json(output / "appearance-plan.json", copy.deepcopy(request["appearance"]))
+    planned_glyphs.write_compiled(output / "planned-glyphs.json", glyph_envelope)
     strategy_refs: dict[str, dict] = {}
     for group, strategy in strategies.items():
         filename = f"strategy-{group}.json"

@@ -19,7 +19,7 @@ def check_material(compiled,asset,source):
     if board is None:return
     picture,_=load_verified_image(source)
     validate_canvas_size(picture.size,board)
-    if board.get('extraction_policy',{}).get('version') in {'1.1','1.2'}:
+    if board.get('extraction_policy',{}).get('version') in {'1.1','1.2','1.3','1.4','1.5'}:
         # Content-based canvas policy must check actual content at ingestion,
         # before accepting this result or dispatching the next media request.
         from .component_boards import crop_board

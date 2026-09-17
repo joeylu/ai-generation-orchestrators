@@ -8,6 +8,34 @@ Original source files, receipts and reference evidence are not overwritten.
 
 Every recipe binds `version:1.0`, `operation`, `sourceSha256`, and nonempty `evidence`.
 
+- `reference-region-copy`: `referenceSha256`, `sourceRect`, `targetRect`
+  (both x/y/width/height), and `staticContentOnly:true`. Copies an explicitly
+  reviewed fully opaque static interior from the compiler's original reference,
+  without resampling, into the existing material canvas. Both rectangles must be
+  in bounds and have identical sizes. The rest is an authored transparent margin,
+  not recovered source Alpha. Use for intact static tile interiors without text,
+  selected-state background, clipping or neighboring control pixels. The evidence
+  must explain the safe interior; the checker validates bytes and geometry but
+  cannot infer whether a depicted symbol is dynamic. Do not use it to fabricate
+  missing state art or conceal an occluded edge. The original reference remains
+  byte-identical. The old material digest is also bound for provenance.
+- `visible-content-contain`: measured `alphaBounds` (left/top/right/bottom) and
+  integer `padding` from 1 through 16. Trims only transparent outside pixels and
+  uniformly fits visible content to the existing canvas minus padding. Explicit
+  enlargement is limited to 2x. No recoloring, shape completion or nonuniform
+  scaling occurs; source Alpha bounds and SHA must match. Use a separate visible
+  geometry gate to check the intended support after fitting.
+- `reference-regions-overlay`: `referenceSha256`, `staticContentOnly:true`, and
+  up to 16 nonoverlapping `regions:[{sourceRect,targetRect}]`. Uses the same exact,
+  opaque, equal-size source-copy checks, but retains the existing verified material
+  outside those target rectangles. This supports explicitly owned static divider
+  strips. It does not erase text, restore unobserved artwork or choose safe regions
+  automatically. Review each patch for baked dynamic state and neighboring text.
+
+Refitting shared or derived target layers directly is rejected. Refit their
+canonical source; the normal materializer recomputes aliases and derived glyphs
+with fresh provenance, so old target bytes cannot survive a source change.
+
 - `visible-frame-nine-slice`: exact observed `alphaBounds` (left/top/right/bottom),
   positive four-sided `insets` and `padding`. Trim only transparent outer canvas,
   protect measured corner/end bands and fit to the original target canvas. This

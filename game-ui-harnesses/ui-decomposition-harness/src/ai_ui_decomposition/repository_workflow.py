@@ -13,9 +13,20 @@ from .common import read_json, write_json, require, digest, sha256, safe_relativ
 from .delivery_adapter import compile_delivery, prepare_handoff, _copy
 
 
+def compile_error(exc):
+    """Expose bounded compiler locations, never raw provider/path exceptions."""
+    message=str(exc)
+    location=re.fullmatch(r'(SHOP_FACTS_[A-Z0-9_]{1,80}):([A-Za-z0-9_.\[\] -]{1,100})',message)
+    if location:
+        return {'errorCode':location[1],'field':location[2]}
+    code=message if re.fullmatch(r'[A-Z0-9_]{1,100}',message) else 'REPOSITORY_COMPILE_REJECTED'
+    return {'errorCode':code}
+
+
 class RepositoryWorkflow:
     def __init__(self, options):
-        require(isinstance(options,dict) and 'componentRoot' in options and set(options)<={'componentRoot','response','providerConfig','generationMode','reviewMode'},'REPOSITORY_WORKFLOW_OPTIONS')
+        require(isinstance(options,dict) and 'componentRoot' in options and set(options)<={'componentRoot','response','providerConfig','generationMode','reviewMode','planningProfile'},'REPOSITORY_WORKFLOW_OPTIONS')
+        require(options.get('planningProfile','vision-draft-1') in ('vision-draft-1','shop-facts-v1'),'REPOSITORY_PLANNING_PROFILE')
         require(options.get('generationMode','provider') in ('provider','file'),'REPOSITORY_GENERATION_MODE')
         require(options.get('reviewMode','provider') in ('provider','file'),'REPOSITORY_REVIEW_MODE')
         self.options=options
@@ -50,18 +61,23 @@ textGeometry must cover every title/subtitle node. Each geometry is exactly {ver
 Geometry corrections, when needed, are {componentId,rect,reason}, with global integer rect and explicit visual-estimate reason. Every direct Panel Button must be covered by its Panel footer entry. innerBottom is the Panel-local conservative safe horizontal boundary ABOVE lower ornaments; minimumGap must fit all Button bottoms. Evidence must explain visual estimate, not claim pixel measurement. No guessed footer bounds.
 materials covers each Panel/Image/Button exactly once, with an English empty-art description. Remove ordinary text; Panel removes child icons/buttons, Image keeps its own local circular outline, Button removes label. No missing-state recovery claims. Program chooses solid key, budgets, board grouping, reference mapping and policies.
 '''.replace('REFERENCE_DIGEST',c['spec']['referenceSha256'])
+                if self.options.get('planningProfile')=='shop-facts-v1':
+                    from .shop_facts import planning_instruction
+                    instruction=planning_instruction(c['spec']['referenceSha256'],c['spec']['canvas'])
                 if node=='repair':instruction+=' Fix only the previous compiler rejection: '+json.dumps(c['receipts']['compile']['data'])+'. Previous response: '+artifact('vision','response').read_text(encoding='utf-8')
                 raw=provider().plan(reference,instruction,state_dir=job/'private'/node,timeout=seconds)
-                require(isinstance(raw,str) and len(raw.encode('utf-8'))<=2_097_152,'REPOSITORY_VISION_RESPONSE_LIMIT')
+                response_limit=65_536 if self.options.get('planningProfile')=='shop-facts-v1' else 2_097_152
+                require(isinstance(raw,str) and len(raw.encode('utf-8'))<=response_limit,'REPOSITORY_VISION_RESPONSE_LIMIT')
                 (out/'response.json').write_text(raw,encoding='utf-8');read_json(out/'response.json')
             return result({'source':'supplied_mcp_response' if node=='vision' and 'response' in self.options else 'provider_response'},{'response':'response.json'})
         if node in ('compile','compile_repaired'):
             response=read_json(artifact('vision' if node=='compile' else 'repair','response'))
             try:
+                if self.options.get('planningProfile')=='shop-facts-v1':
+                    require(isinstance(response,dict) and response.get('kind')=='ui_shop_facts_v1','SHOP_FACTS_PROFILE_REQUIRED')
                 report=compile_delivery(reference,response,out/'prepared',root,c['spec']['maximumCalls'])
             except ValueError as exc:
-                code=str(exc) if re.fullmatch(r'[A-Z0-9_]{1,100}',str(exc)) else 'REPOSITORY_COMPILE_REJECTED'
-                return files({'errorCode':code},'invalid')
+                return files(compile_error(exc),'invalid')
             r=files(report);r['artifacts']['plan']='prepared/plan.json';return r
         comp='compile_repaired' if 'compile_repaired' in c['receipts'] else 'compile'
         compiled=artifact(comp,'plan').parent

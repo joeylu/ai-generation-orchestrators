@@ -10,7 +10,7 @@ registration at the original canvas size. Crop/rotation/scaled registration plan
 are rejected rather than silently interpreted. A full-canvas Image and material
 named `background` is required. These are producer limits, not consumer limits.
 
-The input envelope is `kind: ui_native_delivery_input_v1`, `version: 1.0`, with:
+The original input envelope is `kind: ui_native_delivery_input_v1`, `version: 1.0`, with:
 
 - `referenceSha256`: fingerprint of the original input image.
 - `document`: the consumer's unchanged schemaVersion 0.2 UiDocument.
@@ -30,6 +30,35 @@ The input envelope is `kind: ui_native_delivery_input_v1`, `version: 1.0`, with:
 - `referenceState`, `acceptanceScope`, `referenceMapping`, `layoutSpacing`,
   `layoutRequirements`, `visualObservations`, `stateEvidence`: existing contracts,
   supplied intact instead of translated into a competing state vocabulary.
+
+Native input `1.1` accepts the same fields and may add an optional
+`visibleGeometryRequirements` array. Version `1.0` keeps its exact original field
+set and behavior. Each declaration names a material by its `layerId`; it does not
+contain a source digest or source-pixel bounds because those are unknown before
+the material is produced:
+
+```json
+{
+  "materialId": "panel-frame",
+  "alphaThreshold": 1,
+  "minimumOccupancy": {"width": 0.72},
+  "reservedRects": [],
+  "textWorldRects": [],
+  "imageWorldRect": null
+}
+```
+
+Every declaration has exactly these six fields. `minimumOccupancy` must declare
+`width`, `height`, or both in `[0, 1]`. Rectangle IDs and coordinates use the
+same contracts as `visible-material-geometry-v1.md`; when reserved rectangles
+are present, provide a positive `imageWorldRect` and at least one text rectangle.
+Unknown material IDs, malformed values, and unsupported native versions fail
+native compilation. The canonical declarations are bound into the frozen
+generation plan. At materialization, the producer reads the verified PNG digest,
+creates the existing `ui_visible_material_geometry_plan_v1` document, and adds
+it to `build-plan.json`. `build_handoff` runs that source-bound check before
+finalizing or exporting the package; a failed check stops packaging. This is a
+technical gate and does not establish human visual acceptance.
 
 Use the current consumer document validator before generation. Generated material
 refs belong in `appearance`, never preinserted into `document.props.appearance`.

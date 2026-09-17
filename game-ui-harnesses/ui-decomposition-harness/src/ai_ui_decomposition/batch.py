@@ -185,6 +185,9 @@ def freeze(plan_path: Path, workspace: Path, run_id: str, *, capability_request:
 
 
 def _prompt(asset: dict) -> str:
+    scoped = 'native-material-ownership-v1:' in asset['prompt']
+    symbols = ('Preserve symbols only in their explicitly assigned layers; surface exclusions take precedence.'
+               if scoped else 'preserve intentional pictograms.')
     width, height = asset["output_size"]
     # The explicit existing board marker denotes a complete cell inventory.
     # output_size is its preview support, not permission to recenter/resize cells.
@@ -202,10 +205,10 @@ def _prompt(asset: dict) -> str:
         return (asset['prompt'].strip()+' Use the full reference and crop as style evidence. '
                 'Return exactly one complete material board on '+backdrop+'. '
                 +layout+
-                'No text, numerals, pseudo-text, labels, logos or watermarks; preserve intentional pictograms.')
+                'No text, numerals, pseudo-text, labels, logos or watermarks; '+symbols)
     common = (f" Target support ratio is {width}:{height}. Use the full UI reference and exact "
               "crop as style evidence. Do not draw text, numerals, pseudo-text, labels, logos, "
-              "or watermarks. Preserve intentional pictograms and graphic symbols.")
+              "or watermarks. " + (symbols if scoped else "Preserve intentional pictograms and graphic symbols."))
     if asset["route"] == "generated_completion":
         return asset["prompt"].strip() + common + " Return one complete opaque UI-free scene."
     if asset["output_mode"] == "transparent_component":

@@ -33,6 +33,66 @@ def _cli(component_root, args, timeout=60):
     return r.stdout
 
 
+def _native_visible_geometry_requirements(compiled, plan):
+    """Recheck the native declaration against the digest-bound generation plan."""
+    from .native_delivery import KIND, VISIBLE_GEOMETRY_MARKER, validate_visible_geometry_requirements
+
+    prompts = [asset.get('prompt', '') for asset in plan.get('assets', [])
+               if isinstance(asset, dict)]
+    markers = [marker for prompt in prompts
+               for marker in re.findall(re.escape(VISIBLE_GEOMETRY_MARKER) + r'([0-9a-f]{64})', prompt)]
+    response_path = Path(compiled) / 'response.json'
+    if not response_path.is_file():
+        require(not markers, 'NATIVE_VISIBLE_GEOMETRY_RESPONSE_MISSING')
+        return None
+    response = read_json(response_path)
+    if response.get('kind') != KIND:
+        require(not markers, 'NATIVE_VISIBLE_GEOMETRY_RESPONSE_MISMATCH')
+        return None
+    catalog = read_json(Path(compiled) / 'material-catalog.json')
+    material_ids = {row['layerId'] for row in catalog.get('parts', [])
+                    if isinstance(row, dict) and isinstance(row.get('layerId'), str)}
+    requirements = validate_visible_geometry_requirements(response, material_ids)
+    if requirements is None:
+        require(not markers, 'NATIVE_VISIBLE_GEOMETRY_PLAN_BINDING')
+        return None
+    expected = digest(requirements)
+    require(len(prompts) == len(plan.get('assets', [])) and prompts and
+            all(prompt.count(VISIBLE_GEOMETRY_MARKER + expected) == 1 for prompt in prompts) and
+            len(markers) == len(prompts) and set(markers) == {expected},
+            'NATIVE_VISIBLE_GEOMETRY_PLAN_BINDING')
+    return requirements
+
+
+def _materialized_visible_geometry_plan(run, requirements):
+    if requirements is None:
+        return None
+    from .process import read_materials
+
+    run = Path(run)
+    materials = read_materials(run)
+    images = {row['asset']: safe_relative(run, row['path']) for row in materials['assets']}
+    checks = []
+    for declaration in requirements:
+        material_id = declaration['materialId']
+        require(material_id in images, 'NATIVE_VISIBLE_GEOMETRY_MATERIAL_MISSING')
+        _image, proof = load_verified_image(images[material_id])
+        checks.append({
+            'kind': 'ui_visible_material_geometry_v1',
+            'version': '1.0',
+            'materialId': material_id,
+            'sourceSha256': proof['sha256'],
+            'alphaThreshold': declaration['alphaThreshold'],
+            'minimumOccupancy': copy.deepcopy(declaration['minimumOccupancy']),
+            'expectedAlphaBounds': None,
+            'imageWorldRect': copy.deepcopy(declaration['imageWorldRect']),
+            'reservedRects': copy.deepcopy(declaration['reservedRects']),
+            'textWorldRects': copy.deepcopy(declaration['textWorldRects']),
+        })
+    return {'kind': 'ui_visible_material_geometry_plan_v1',
+            'version': '1.0', 'checks': checks}
+
+
 def button_text_state(text,font_size,width,height):
     """Explicit compiler layout policy: one centered line, separate from skin extent."""
     line_height=font_size*1.25
@@ -45,6 +105,9 @@ def button_text_state(text,font_size,width,height):
 
 def compile_delivery(reference, response, output, component_root, maximum_calls):
     """Build only authored inputs; frozen/bundle/delivery receipts remain program-owned."""
+    if isinstance(response,dict) and response.get('kind')=='ui_shop_facts_v1':
+        from .shop_facts_adapter import compile_shop_facts
+        return compile_shop_facts(reference,response,output,component_root,maximum_calls)
     if isinstance(response,dict) and response.get('kind')=='ui_native_delivery_input_v1':
         from .native_delivery import compile_native_delivery
         return compile_native_delivery(reference,response,output,component_root,maximum_calls)
@@ -159,6 +222,7 @@ def prepare_handoff(compiled, generation_run, output, component_root, *, materia
     require(material_paths is None,'ADAPTER_AUTHENTICATED_MATERIALS_REQUIRED')
     frozen,plan=batch.load(generation_run)
     require(digest(plan)==digest(read_json(compiled/'plan.json')),'ADAPTER_GENERATION_PLAN_CHANGED')
+    _native_visible_geometry_requirements(compiled, plan)
     process(generation_run)
     extraction={}
     for group,strategy in catalog['strategies'].items():
@@ -173,7 +237,11 @@ def _materialized_handoff(compiled,paths,output,component_root,plan):
     from . import batch
     from .process import process
     from .shared_materials import resolve_paths, shared_map
+    from . import planned_glyphs
+    visible_geometry_requirements = _native_visible_geometry_requirements(compiled, plan)
     catalog=read_json(compiled/'material-catalog.json')
+    paths = dict(paths)
+    paths.update(planned_glyphs.materialize(compiled, paths, output, plan, catalog))
     paths=resolve_paths(catalog['parts'],paths)
     original=_copy(compiled/catalog['original'],output/catalog['original'])
     assets=[];nodes=[];resource_args=[]
@@ -187,6 +255,7 @@ def _materialized_handoff(compiled,paths,output,component_root,plan):
         assets.append(dict(id=key,role='background' if key=='background' else 'important_component',route='imported_material',source_region=[x,y,x+w,y+h],output_size=[w,h],output_mode=mode,prompt='',source_asset=None,material_source=dict(path=target.relative_to(output).as_posix(),sha256=proof['sha256'])))
         nodes.append(dict(id=key,asset=key,xy=[x,y]))
         if row['componentType']=='Image':resource_args += ['--resource',f"layers/{row['componentId']}.png={target.resolve()}"]
+    planned_glyphs.verify_final_materials(compiled,output,plan,catalog,material_targets)
     shared_record=shared_map(catalog['parts'],material_targets)
     if shared_record is not None:
         write_json(output/'shared-material-map.json',shared_record)
@@ -197,8 +266,13 @@ def _materialized_handoff(compiled,paths,output,component_root,plan):
     caps=read_json(compiled/'capabilities.json');caps['planDigest']=digest(imported);write_json(output/'capabilities.json',caps)
     batch.freeze(output/'materialized-plan.json',output/'workspace','materialized',capability_request=output/'capabilities.json',component_document=output/'semantic-document.json',layout_spacing=output/'layout-spacing.json')
     run=output/'workspace/runs/materialized';process(run)
+    visible_geometry_plan = _materialized_visible_geometry_plan(run, visible_geometry_requirements)
+    if visible_geometry_plan is not None:
+        write_json(output/'visible-material-geometry-plan.json', visible_geometry_plan)
     _cli(component_root,['pack',output/'semantic-document.json',*resource_args,'--provenance-kind','user-provided','--provenance-description','Reference-derived semantic layout with authenticated generated materials; no human visual acceptance.','--output',output/'bundle.json'])
     def ref(name):return dict(path=name,sha256=sha256(output/name))
     build=dict(kind='ui_handoff_build_plan_v1',run=dict(path=run.relative_to(output).as_posix(),batchSha256=sha256(run/'batch.json'),materialsSha256=sha256(run/'materials/materials.json')),componentBundle=ref('bundle.json'),appearance=read_json(output/'appearance-plan.json'),referenceOriginal=ref(original.name),referenceState=ref('reference-state.json'),acceptanceScope=ref('acceptance-scope.json'),referenceMapping=ref('reference-mapping.json'),layoutSpacing=ref('layout-spacing.json'),layoutRequirements=ref('layout-requirements.json'),visualObservations=ref('visual-observations.json'),stateEvidence=read_json(output/'state-evidence.json'))
+    if visible_geometry_plan is not None:
+        build['visibleMaterialGeometry'] = ref('visible-material-geometry-plan.json')
     write_json(output/'build-plan.json',build)
     return output/'build-plan.json'

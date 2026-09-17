@@ -11,6 +11,37 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+For the bounded single-panel shop profile, use
+[compact shop facts v1.0](docs/shop-facts-v1.md). Supply observed text, source
+geometry and explicit derived runtime decisions once; the deterministic compiler
+expands native components, repeated row children and references. In the repository
+DAG select `planningProfile:"shop-facts-v1"` explicitly. Do not copy a previous
+sample's native JSON or use this profile for unsupported layouts. Unknown
+required observations block compilation; compact facts do not establish image
+recognition accuracy or remove the fresh plan-bound generation authorization.
+For this shop profile, explicitly record owned static icon tiles, visible symbol
+support, row border weight, checkbox polarity and Panel dividers through the
+optional materialObservations in that contract. Do not remove a declared static
+backplate as though it were the enclosing runtime control. Verified fully visible
+static interiors or divider strips may use the bounded reference-copy operations
+in [processed-material refit](docs/material-refit-v1.md); inspect safe rectangles,
+bind original bytes and preserve unknown states. Copying opaque pixels with an
+authored margin is not Alpha recovery. Occupancy checks do not recognize missing
+tiles, arbitrary residual text, or incorrect artwork colors.
+For each observed selected/checked state, review the fill separately from the
+outline and state mark. A blue outline does not establish a blue selected fill.
+Record all visible differences in the frozen material observations, then compare
+the assembled state against the reference before full browser acceptance. Report
+an omitted fill or misregistered mark as a remaining visual defect even when
+distinct-pixel, Alpha, geometry and interaction checks pass; never silently
+recolor a generated surface or spend another generation attempt to hide it.
+For matching monochrome Tabs glyph states, declare the native 1.2
+[planned glyph derivation](docs/planned-glyphs-v1.md) using one canonical glyph
+and explicit solid palette ROIs in the original reference. Generate the canonical
+glyph only; the program verifies provenance and preserves Alpha for the derived
+state. Distinct states must differ in actual pixels. This bounded route does not
+support arbitrary multicolored icon recoloring.
+
 For explicit native UiDocument plans involving Tabs/Input/Select/List/CheckBox,
 use [native delivery input 1.0](docs/native-delivery-input-v1.md) through the
 existing repository DAG. Preserve the consumer's props, appearance and reference
@@ -41,6 +72,19 @@ For uncertain canvas whitespace or icons containing disconnected strokes, evalua
 [content-based extraction 1.1](docs/content-gap-extraction-v1.1.md) before freeze.
 For mixed-size icons, explicitly evaluate [mixed-size separation 1.2](docs/content-gap-extraction-v1.2.md)
 instead of requiring the largest icon's full margin around each small neighbor.
+For a grid glyph with observed disconnected columns and rows, explicitly declare
+[glyph-column extraction 1.3](docs/content-gap-extraction-v1.3.md) before freeze.
+Record its exact column/row-group counts and local gap evidence; do not enlarge the
+global threshold or infer merges from the required number of assets. Existing
+failed raw images require a separate revision and can still fail other gates.
+For clear key gaps rejected only by the older height-multiple margin, evaluate
+[verified gap separation 1.4](docs/content-gap-extraction-v1.4.md). It requires
+external gaps wider than allowed internal merges and a verified pure-key cut
+moat; it does not weaken part count, geometry or visual acceptance checks.
+For reviewed independently connected objects, evaluate
+[connected silhouette extraction 1.5](docs/content-gap-extraction-v1.5.md).
+It preserves narrow verified key gaps without proximity merging; fragmented or
+touching objects still fail. Do not require a wide visual gap solely for extraction.
 When a returned empty frame has the wrong whole-image aspect, evaluate a
 [measured nine-slice revision](docs/measured-frame-fit-v1.md). Inspect its actual
 corners and stretch-safe bands; bind support pixels and raw fingerprints. Do not
@@ -346,3 +390,20 @@ spacing plan 1.1 for ScrollView or direct Panel buttons, validates the final tre
 and rejects missing decisions before export. Explicitly classify header buttons
 through nonFooterButtons; standalone plan 1.0 cannot satisfy this gate. See
 [required spacing entry gates](docs/scroll-bottom-space-v1.md).
+
+Native generation must compile [material ownership](docs/material-ownership-v1.md)
+into surface and icon prompts. Independently bound icons and child controls must
+not be baked into their enclosing surface; generic symbol-preservation wording
+must respect these exclusions. Inspect returned content; prompt rules alone do not
+prove successful separation.
+
+For List surfaces use the consumer's sole [background policy 1.0](../ui-component-harness/docs/list-background-v1.md).
+Explicit `states.list.backgroundPolicy` parent mode binds only row/selected-row;
+do not generate a placeholder background. Own or absent retains the three-part
+contract. Register `list-background-v1` and preserve the policy in state evidence.
+Shop facts require explicit background evidence; a failed generation never selects
+parent mode automatically.
+For returned boards with an explicitly reviewed alternative arrangement, use
+[source-region revision](docs/source-region-revision-v1.md), retaining all original
+parts and provenance. A later contract may select a verified subset; it may not
+erase the original failure or fabricate generation acceptance.

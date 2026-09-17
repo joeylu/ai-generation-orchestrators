@@ -13,6 +13,11 @@ def is_shared(row: dict) -> bool:
     return "sharedSource" in row
 
 
+def is_derived(row: dict) -> bool:
+    """Return whether a catalog row is supplied by a compiled local recipe."""
+    return isinstance(row.get("derivedGlyph"), dict)
+
+
 def validate_shared_sources(rows: dict[str, dict], by_id: dict[str, dict],
                             rects: dict[str, list[float]], appearance: dict) -> None:
     """Validate declarations after ordinary material and appearance checks."""
@@ -60,7 +65,7 @@ def validate_shared_sources(rows: dict[str, dict], by_id: dict[str, dict],
 
 def generated_rows(parts: list[dict]) -> list[dict]:
     """Return material rows that require an authenticated generated result."""
-    return [row for row in parts if not is_shared(row)]
+    return [row for row in parts if not is_shared(row) and not is_derived(row)]
 
 
 def resolve_paths(parts: list[dict], source_paths: dict[str, Path]) -> dict[str, Path]:

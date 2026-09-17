@@ -8,16 +8,31 @@ from .resources import require_keyed_input_limit
 
 
 def validate_policy(policy):
-    if isinstance(policy,dict) and policy.get('version') in {'1.1','1.2'}:
+    if isinstance(policy,dict) and policy.get('version') in {'1.1','1.2','1.3','1.4','1.5'}:
         fields={'version','mode','target_padding','canvas_policy','max_internal_gap_ratio','max_part_aspect_error'}
-        if policy['version']=='1.2':
+        if policy['version'] in {'1.2','1.3','1.4','1.5'}:
             fields.add('separation_basis')
-            require(policy.get('separation_basis')=='mixed-height','BOARD_RELATIVE_POLICY')
+            require(policy.get('separation_basis')==('connected-silhouette' if policy['version']=='1.5' else 'verified-key-gap' if policy['version']=='1.4' else 'mixed-height'),'BOARD_RELATIVE_POLICY')
+        if policy['version'] in {'1.3','1.4'}:
+            fields.add('disconnected_glyphs')
+            rows=policy.get('disconnected_glyphs')
+            require(isinstance(rows,list) and 0<len(rows)<=128,'BOARD_GLYPH_DECLARATIONS')
+            seen=set()
+            for row in rows:
+                require(isinstance(row,dict) and set(row)=={'asset_id','column_groups','row_groups','max_internal_gap_ratio','evidence'},'BOARD_GLYPH_DECLARATION')
+                key=row['asset_id'];ratio=row['max_internal_gap_ratio']
+                require(isinstance(key,str) and key and key not in seen,'BOARD_GLYPH_ID');seen.add(key)
+                require(type(row['column_groups']) is int and 2<=row['column_groups']<=4,'BOARD_GLYPH_COLUMNS')
+                require(type(row['row_groups']) is int and 2<=row['row_groups']<=4,'BOARD_GLYPH_ROWS')
+                require(type(ratio) in (int,float) and math.isfinite(ratio) and 0<ratio<=.25,'BOARD_GLYPH_RATIO')
+                require(isinstance(row['evidence'],str) and 0<len(row['evidence'].strip())<=1000,'BOARD_GLYPH_EVIDENCE')
         require(set(policy)==fields and
                 policy['mode']=='foreground-gap-row' and policy['canvas_policy']=='content-bounds','BOARD_RELATIVE_POLICY')
         require(type(policy['target_padding']) is int and 1<=policy['target_padding']<=16,'BOARD_RELATIVE_POLICY')
         for key,limit in [('max_internal_gap_ratio',.08),('max_part_aspect_error',.5)]:
             require(type(policy[key]) in (int,float) and math.isfinite(policy[key]) and 0<=policy[key]<=limit,'BOARD_RELATIVE_POLICY')
+        if policy['version']=='1.5':
+            require(policy['max_internal_gap_ratio']==0,'BOARD_CONNECTED_NO_MERGE')
         return
     require(isinstance(policy,dict) and set(policy)=={'version','mode','target_padding','max_canvas_aspect_error'} and
             policy['version']=='1.0' and policy['mode'] in {'relative-cell','foreground-gap-row'},'BOARD_RELATIVE_POLICY')
@@ -27,6 +42,7 @@ def validate_policy(policy):
 
 def add_windows(board,policy):
     validate_policy(policy);board['extraction_policy']=dict(policy)
+    _glyph_declarations(policy,board['slots'])
     width,height=board['canvas'];rows={}
     for slot in board['slots']:
         require(min(slot['target_size'])>2*policy['target_padding'],'BOARD_RELATIVE_PADDING')
@@ -41,13 +57,25 @@ def add_windows(board,policy):
         for j,s in enumerate(cells):s['search_window']=[x_edges[j],y_edges[i],x_edges[j+1],y_edges[i+1]]
 
 
+def _glyph_declarations(policy,slots):
+    rows={r['asset_id']:r for r in (policy or {}).get('disconnected_glyphs',[])}
+    by_id={s['asset_id']:s for s in slots}
+    require(set(rows)<=set(by_id),'BOARD_GLYPH_UNKNOWN_ASSET')
+    for key in rows:
+        w,h=by_id[key]['target_size']
+        require(.5<=w/h<=2,'BOARD_GLYPH_TARGET_ASPECT')
+    return rows
+
+
 def gap_windows(foreground,slots,policy=None,frame_ids=()):
     """Conservative horizontal projection: no noise deletion or identity inference."""
     require(not (foreground[0].any() or foreground[-1].any() or foreground[:,0].any() or foreground[:,-1].any()),'BOARD_GAP_CANVAS_CLIPPED')
     occupied=foreground.any(axis=0)
     transitions=np.diff(np.r_[False,occupied,False].astype(int))
     starts=np.flatnonzero(transitions==1);ends=np.flatnonzero(transitions==-1)
-    if policy is not None and policy['version'] in {'1.1','1.2'}:
+    glyphs=_glyph_declarations(policy,slots)
+    ordered=sorted(slots,key=lambda s:s['crop'][0])
+    if policy is not None and policy['version'] in {'1.1','1.2','1.3','1.4','1.5'}:
         # Group projection intervals, never paint, erase or bridge source pixels.
         # Thresholds depend on observed silhouette height, not canvas whitespace.
         groups=[]
@@ -62,18 +90,45 @@ def gap_windows(foreground,slots,policy=None,frame_ids=()):
                     prev[1]=int(end);prev[2]=min(prev[2],top);prev[3]=max(prev[3],bottom)
                     continue
             groups.append([int(start),int(end),top,bottom])
+        if policy['version']=='1.5':
+            from scipy.ndimage import label
+            for g in groups:
+                _, count=label(foreground[:,g[0]:g[1]],structure=np.ones((3,3)))
+                require(count==1,'BOARD_CONNECTED_FRAGMENTED')
+        if glyphs:
+            require(len(groups)==sum(glyphs.get(s['asset_id'],{}).get('column_groups',1) for s in ordered),'BOARD_GLYPH_GROUP_COUNT')
+            merged=[];cursor=0
+            for slot in ordered:
+                spec=glyphs.get(slot['asset_id']);count=spec['column_groups'] if spec else 1
+                chunk=groups[cursor:cursor+count];cursor+=count
+                if spec:
+                    row_bounds=[]
+                    for g in chunk:
+                        occupied_y=foreground[:,g[0]:g[1]].any(axis=1)
+                        tr=np.diff(np.r_[False,occupied_y,False].astype(int))
+                        tops=np.flatnonzero(tr==1);bottoms=np.flatnonzero(tr==-1)
+                        require(len(tops)==spec['row_groups'],'BOARD_GLYPH_GRID_STRUCTURE')
+                        row_bounds.append(list(zip(tops,bottoms)))
+                    for row in zip(*row_bounds):
+                        require(max(t for t,b in row)<min(b for t,b in row),'BOARD_GLYPH_GRID_STRUCTURE')
+                    height=max(g[3] for g in chunk)-min(g[2] for g in chunk)
+                    require(max(g[2] for g in chunk)<min(g[3] for g in chunk),'BOARD_GLYPH_ROW_ALIGNMENT')
+                    require(all(b[0]-a[1]<=math.floor(height*spec['max_internal_gap_ratio']) for a,b in zip(chunk,chunk[1:])),'BOARD_GLYPH_INTERNAL_GAP')
+                merged.append([chunk[0][0],chunk[-1][1],min(g[2] for g in chunk),max(g[3] for g in chunk)])
+            groups=merged
         starts=np.array([g[0] for g in groups],dtype=int);ends=np.array([g[1] for g in groups],dtype=int)
     require(len(starts)==len(slots),'BOARD_GAP_COUNT_OR_JOINED')
     require(len({s['crop'][1] for s in slots})==1,'BOARD_GAP_SINGLE_ROW_REQUIRED')
     ordered=sorted(slots,key=lambda s:s['crop'][0])
     require(len({s['crop'][0] for s in ordered})==len(slots),'BOARD_GAP_ORDER_AMBIGUOUS')
     bounds=[]
-    for start,end in zip(starts,ends):
+    for index,(start,end) in enumerate(zip(starts,ends)):
         ys=np.flatnonzero(foreground[:,start:end].any(axis=1))
-        tolerance=0 if policy is None or policy['version']=='1.0' else math.floor((ys[-1]-ys[0]+1)*policy['max_internal_gap_ratio'])
+        ratio=glyphs.get(ordered[index]['asset_id'],{}).get('max_internal_gap_ratio',(policy or {}).get('max_internal_gap_ratio',0))
+        tolerance=math.floor((ys[-1]-ys[0]+1)*ratio)
         require(np.all(np.diff(ys)<=tolerance+1),'BOARD_GAP_MULTIPLE_ROWS')
         bounds.append((int(ys[0]),int(ys[-1])+1))
-    if policy is not None and policy['version'] in {'1.1','1.2'}:
+    if policy is not None and policy['version'] in {'1.1','1.2','1.3','1.4','1.5'}:
         for index,(slot,(top,bottom)) in enumerate(zip(ordered,bounds)):
             if slot['asset_id'] in frame_ids:
                 continue
@@ -82,13 +137,22 @@ def gap_windows(foreground,slots,policy=None,frame_ids=()):
             require(abs(actual/expected-1)<=policy['max_part_aspect_error'],'BOARD_GAP_PART_ASPECT:'+slot['asset_id'])
         for i in range(len(starts)-1):
             threshold=math.ceil(max(bounds[i][1]-bounds[i][0],bounds[i+1][1]-bounds[i+1][0])*policy['max_internal_gap_ratio']*4)
-            if policy['version']=='1.2':
+            if policy['version'] in {'1.2','1.3'}:
                 heights=[bounds[i][1]-bounds[i][0],bounds[i+1][1]-bounds[i+1][0]]
                 # Still exceed the larger silhouette's internal grouping radius;
                 # scale the stronger separation margin to the smaller neighbor.
                 threshold=max(math.floor(max(heights)*policy['max_internal_gap_ratio'])+2,
                               math.ceil(min(heights)*policy['max_internal_gap_ratio']*4))
+            if policy['version'] in {'1.4','1.5'}:
+                # Separation must exceed either neighbor's admissible internal
+                # grouping radius. A clear cut does not need four times height*r.
+                threshold=max(2,2+math.floor(max(
+                    (bounds[j][1]-bounds[j][0])*glyphs.get(ordered[j]['asset_id'],{}).get('max_internal_gap_ratio',policy['max_internal_gap_ratio'])
+                    for j in (i,i+1))))
             require(starts[i+1]-ends[i]>=max(2,threshold),'BOARD_GAP_AMBIGUOUS_SEPARATION')
+            if glyphs:
+                internal=max((bounds[j][1]-bounds[j][0])*glyphs.get(ordered[j]['asset_id'],{}).get('max_internal_gap_ratio',policy['max_internal_gap_ratio']) for j in (i,i+1))
+                require(starts[i+1]-ends[i]>math.floor(internal)+1,'BOARD_GLYPH_EXTERNAL_GAP')
     require(max(t for t,b in bounds)<min(b for t,b in bounds),'BOARD_GAP_ROW_ALIGNMENT')
     # At least two empty columns keep both neighboring crop edges clear.
     require(all(int(starts[i+1]-ends[i])>=2 for i in range(len(starts)-1)),'BOARD_GAP_TOO_NARROW')
@@ -113,6 +177,11 @@ def crop_relative(raw,board,mode,measured_frames=None):
         from .frame_fit import validate_frames
         validate_frames(frames,board)
     windows=gap_windows(foreground,board['slots'],policy,frames) if policy['mode']=='foreground-gap-row' else None
+    if policy['version'] in {'1.4','1.5'}:
+        # Require actual declared-key pixels on both sides of every cut, not
+        # merely absence of high-distance foreground after thresholding.
+        cuts=sorted({v[2] for v in windows.values()}-{raw.width})
+        require(all(np.all(distance[:,x-1:x+1]<45) for x in cuts),'BOARD_CUT_KEY_MOAT')
     parts={};records=[];padding=policy['target_padding']
     for slot in board['slots']:
         l,t,r,b=slot['search_window'];box=[round(l*rw/cw),round(t*rh/ch),round(r*rw/cw),round(b*rh/ch)]
@@ -142,6 +211,6 @@ def crop_relative(raw,board,mode,measured_frames=None):
                         'target_padding':padding,'alpha_bbox':list(part.getchannel('A').getbbox()),
                         'transform':'explicit global key removal; '+policy['mode']+'; uniform per-part fit',
                         'semantic_identity':'requires_review','state_registration':'requires_runtime_acceptance'})
-        if policy['version'] in {'1.1','1.2'}:
+        if policy['version'] in {'1.1','1.2','1.3','1.4','1.5'}:
             records[-1]['grouping_policy']=dict(policy)
     return parts,records

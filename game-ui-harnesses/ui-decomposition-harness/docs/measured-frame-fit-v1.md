@@ -1,5 +1,18 @@
 # Measured empty-frame fit 1.0
 
+## Row-frame extension 1.1
+
+An explicitly measured row may use `version: "1.1"`, `role: "row-frame"`,
+`resize.mode: "height_then_nine_slice"`. Other fields and source pixel fingerprints
+remain unchanged. The source is first proportionally resized to the target inner
+height; measured insets scale by the same factor. Only the middle width then
+changes. The full-height left and right bands preserve state marks without
+nonuniform stretching. Declare sufficient end bands from actual pixels; this
+does not automatically locate marks or claim exact reference geometry.
+The original empty-frame 1.0 behavior is unchanged.
+Version 1.1 also accepts `role: "empty-frame"` for empty Button surfaces using
+the same proportional-height fitting. It never adds symbols or text.
+
 Producer-only deterministic post-generation adaptation. Reuses `media.nine_slice`
 and its `resize: {mode:"nine_slice",insets:[left,top,right,bottom]}` semantics.
 Consumer schemas are unchanged. No implicit adaptation of icons or arbitrary art.

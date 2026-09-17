@@ -11,6 +11,15 @@ Panel/Text/Image/Button/Tabs/Input/Select/List/CheckBox plans. The legacy vision
 prompt remains bounded to four types; this extension does not infer business
 behavior or silently switch the provider's requested response schema.
 
+Set the immutable repository option `planningProfile:"shop-facts-v1"` to request
+the bounded [compact shop facts](shop-facts-v1.md) schema from the planning
+provider, or supply that schema via `response` for offline preflight. The program
+expands native 1.2 components and bindings, compiles and freezes them through the
+same DAG, then waits for fresh plan-bound authorization. Other profiles retain
+the legacy prompt. This is one explicit shop layout profile, not an arbitrary
+16-component screenshot compiler. Planning responses are bounded to 64 KiB and
+validated facts to 15 KiB; semantic accuracy still requires observation review.
+
 ## Implemented graph
 
 `vision -> compile -> freeze -> authorization -> generate -> process -> review -> deliver`
@@ -49,7 +58,7 @@ successful-delivery guarantee. Do not route user artwork through the test adapte
 
 Trusted options are `componentRoot`, optional `response` (a supplied MCP response
 for offline preflight) and optional `providerConfig` in the existing Provider config
-format, plus `generationMode:"provider"|"file"` and `reviewMode:"provider"|"file"` (default provider). Set workflow
+format, plus `generationMode:"provider"|"file"`, `reviewMode:"provider"|"file"` (default provider), and `planningProfile:"vision-draft-1"|"shop-facts-v1"` (default legacy vision). Set workflow
 `fixture:false`. File mode uses the explicit generation bridge below without a
 provider; initial vision/repair still require providerConfig unless the initial response
 is supplied. File review is described below. Options and
