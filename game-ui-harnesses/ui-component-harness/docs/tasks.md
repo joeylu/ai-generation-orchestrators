@@ -18,6 +18,15 @@ now have separate contexts; bundle import closes the original page first.
 Recoil pixel sampling uses the browser test clock with native wheel/drag input,
 while other motion checks retain native RAF. All 23 affected local cases passed.
 
+Run 35353800471 passed 137/138 browser cases. The remaining Button assertion
+received real press input but native RAF delivery paused for 11.7 seconds until
+the failure screenshot requested a compositor frame; the resulting pressScale
+was the correct 0.97. Button checks now save the presented pressed frames before
+inspecting feedback, without advancing a test clock or changing runtime state.
+Focused remote run 35361306509 passed. Unhelpful headed/vsync experiments were
+removed; full headless Chromium remains. Manual browser_filter diagnostics are
+explicitly partial; an empty filter runs every CI job. Full verification follows.
+
 Approved scope: full UI mainline, separate component/canvas motion, local Web
 acceptance, deterministic import/export and Agent entry. No remote publication.
 
