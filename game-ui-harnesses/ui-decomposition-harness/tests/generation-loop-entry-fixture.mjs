@@ -1,8 +1,8 @@
 /** Run the exact exported entry with only provider/file-tool test doubles. */
 import {execFileSync} from 'node:child_process';
-import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,realpathSync} from 'node:fs';
 import {dirname,join} from 'node:path';
-const [script,raw,output]=process.argv.slice(2);
+const [script,raw,output]=process.argv.slice(2).map(path=>realpathSync(path));
 let calls=0;
 const tools={
   exec_command:async ({cmd})=>{

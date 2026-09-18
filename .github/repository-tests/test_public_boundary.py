@@ -128,12 +128,16 @@ class PublicBoundaryTests(unittest.TestCase):
         self.assertIn('name = "ai-ui-decomposition"', (ui / "pyproject.toml").read_text(encoding="utf-8"))
 
     def test_harness_catalog_separates_implemented_and_planned_entries(self) -> None:
+        image_character = ROOT / "artwork-harnesses" / "image-sequence-harness" / "character"
+        self.assertTrue((image_character / "pyproject.toml").is_file())
+        self.assertTrue((image_character / "src/ai_character_image_sequence/cli.py").is_file())
+        self.assertTrue((image_character / "skills/character-image-sequence/SKILL.md").is_file())
         background = ROOT / "artwork-harnesses" / "image-background-removal-harness"
         self.assertTrue((background / "SKILL.md").is_file())
         self.assertTrue((background / "skill.json").is_file())
         planned = (
             ROOT / "artwork-harnesses" / "image-generation-harness",
-            ROOT / "artwork-harnesses" / "image-sequence-harness",
+            ROOT / "artwork-harnesses" / "image-sequence-harness" / "prop",
             ROOT / "artwork-harnesses" / "video-sequence-harness" / "prop",
             ROOT / "audio-harnesses",
             ROOT / "game-scene-harnesses",

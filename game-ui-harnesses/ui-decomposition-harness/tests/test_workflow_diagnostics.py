@@ -32,7 +32,7 @@ class DiagnosticTests(unittest.TestCase):
         result=classify_delivery(self.fixture(),self.sha)
         self.assertEqual(result['acceptance'],'blocked_reference')
         self.assertEqual(result['unknownFields'],['search.focused'])
-        self.assertEqual(result['candidate'],self.candidate)
+        self.assertEqual(result['candidate'],self.candidate.resolve())
         self.assertFalse(result['human_visual_acceptance'])
 
     def test_reference_pass_remains_distinct(self):

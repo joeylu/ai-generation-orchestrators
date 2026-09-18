@@ -5,6 +5,7 @@ import io
 import os
 import re
 import shlex
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -38,6 +39,12 @@ class QuickstartTests(unittest.TestCase):
             *sorted((ROOT / "game-ui-harnesses").rglob("*.md")),
             *sorted((ROOT / "game-scene-harnesses").rglob("*.md")),
         ]
+        # Installed dependencies and local experiment reports are not repository
+        # documentation. Keep the same check after npm/fixture setup as on checkout.
+        tracked = set(subprocess.check_output(
+            ['git', '-c', 'safe.directory=' + ROOT.resolve().as_posix(),
+             'ls-files', '-z'], cwd=ROOT).decode('utf-8').split('\0'))
+        files = [file for file in files if file.relative_to(ROOT).as_posix() in tracked]
         for file in files:
             text = re.sub(r"```.*?```", "", file.read_text(encoding="utf-8"), flags=re.DOTALL)
             for target in re.findall(r"\]\(([^)]+)\)", text):

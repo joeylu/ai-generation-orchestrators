@@ -21,10 +21,10 @@ jobs:
           cache: npm
           cache-dependency-path: game-ui-harnesses/ui-component-harness/package-lock.json
       - run: npm ci --ignore-scripts
-      - run: npm test
-      - run: npm run build
-      - run: npm run self-test
       - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm test
+      - run: npm run self-test
       - run: npm run test:browser
         env:
           UI_HARNESS_PREVIEW: "1"
@@ -38,12 +38,23 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       AI_FRAME_ANIMATION_OFFLINE_TESTS: "1"
+      PYTHONPATH: ${{ github.workspace }}/game-ui-harnesses/ui-decomposition-harness/tests
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           cache: pip
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: game-ui-harnesses/ui-component-harness/package-lock.json
+      - name: Build local component consumer for offline integration fixtures
+        working-directory: game-ui-harnesses/ui-component-harness
+        run: |
+          npm ci --ignore-scripts
+          npm run build
       - name: Install independent Harness packages
         run: >-
           python -m pip install
