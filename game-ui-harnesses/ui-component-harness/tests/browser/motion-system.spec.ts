@@ -411,7 +411,7 @@ for (const style of styles) test(`trusted Button press, release, cancellation, a
   await page.evaluate(() => (window as any).uiHarness.setEnabled('confirm', true));
 });
 
-test('ancestor hiding, unrelated disabling, dialog teardown, and transformed Slider gestures preserve their own lifecycles', async ({ page }) => {
+test('ancestor hiding interrupts child motion without reviving hidden controls', async ({ page }) => {
   await openGallery(page);
   await install(page, system('corporate', 'interruptions'));
 
@@ -431,6 +431,12 @@ test('ancestor hiding, unrelated disabling, dialog teardown, and transformed Sli
   expect(systemNode(await inspectSystem(page), 'confirm')).toMatchObject({ visible: false, presentation: { entryAlpha: 1, entryY: 0 } });
   await page.evaluate(() => (window as any).uiHarness.setVisible('confirm', true));
 
+});
+
+test('unrelated disabling preserves another control captured pointer', async ({ page }) => {
+  await openGallery(page);
+  await install(page, system('corporate', 'isolated-lifecycle'));
+
   // A disabled Switch has no authority to cancel another control's captured pointer gesture.
   const button = await nodePoint(page, 'confirm');
   const activationCount = await page.evaluate(() => (window as any).uiHarness.activates());
@@ -442,6 +448,12 @@ test('ancestor hiding, unrelated disabling, dialog teardown, and transformed Sli
   await expect.poll(() => page.evaluate(() => (window as any).uiHarness.activates())).toBe(activationCount + 1);
   await waitForIdle(page);
   await page.evaluate(() => (window as any).uiHarness.setEnabled('sound', true));
+
+});
+
+test('clearing a closing Dialog releases its blocker across system replacement', async ({ page }) => {
+  await openGallery(page);
+  await install(page, system('corporate', 'isolated-lifecycle'));
 
   // Clearing or replacing a system while a modal closes must clear closing state instead of reviving its blocker later.
   await page.evaluate(() => (window as any).uiHarness.setValue('dialog', true));
@@ -457,6 +469,12 @@ test('ancestor hiding, unrelated disabling, dialog teardown, and transformed Sli
   await waitForIdle(page);
   expect(readDocumentNode(await page.evaluate(() => (window as any).uiHarness.getDocument()), 'dialog').props.open).toBe(false);
   expect(systemNode(await inspectSystem(page), 'dialog').visible).toBe(false);
+
+});
+
+test('transformed Slider gestures commit snapped values with legacy motion and zoom', async ({ page }) => {
+  await openGallery(page);
+  await install(page, system('corporate', 'isolated-lifecycle'));
 
   // Hit testing uses transformed view coordinates: a legacy timeline scale/rotation plus zoom still commits the intended snapped Slider value.
   const transformedSliderMotion = {
@@ -628,7 +646,7 @@ for (const style of styles) test(`Dialog protects the full canvas through close 
   expect(runtimeNode(runtime, 'page-stats').visible).toBe(true);
 });
 
-test('workbench controls and portable bundles preserve a system alongside an independent timeline', async ({ page, context }) => {
+test('workbench controls apply and clear the selected motion system', async ({ page }) => {
   await openGallery(page);
   await page.locator('#motion-style').selectOption('corporate');
   await page.locator('#apply-motion-system').click();
@@ -636,6 +654,10 @@ test('workbench controls and portable bundles preserve a system alongside an ind
   await page.locator('#clear-motion-system').click();
   await expect.poll(() => page.evaluate(() => (window as any).uiHarness.getMotionSystem())).toBeNull();
 
+});
+
+test('portable bundles preserve a system alongside an independent timeline', async ({ page, context }) => {
+  await openGallery(page);
   const independentMotion = {
     motionVersion: '0.1', id: 'independent-bundle-motion', scope: 'canvas', duration: 1000,
     trigger: { type: 'manual' },
@@ -651,6 +673,7 @@ test('workbench controls and portable bundles preserve a system alongside an ind
   const bundle = await page.evaluate(() => (window as any).uiHarness.exportBundle());
   expect(bundle).toMatchObject({ bundleVersion: '0.2', motion: { id: 'independent-bundle-motion' }, motionSystem: installed });
 
+  await page.close();
   const second = await context.newPage();
   await openGallery(second);
   await second.evaluate(bundle => (window as any).uiHarness.importBundle(bundle), bundle);

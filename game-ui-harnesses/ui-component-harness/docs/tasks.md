@@ -11,6 +11,13 @@ cases with unchanged assertions and timeouts. Local baseline motion: 16 passed;
 targeted follow-up and Linux CI results are recorded in
 `work/ci-repair-20260918-r001/`. No provider calls or visual acceptance claims.
 
+Follow-up: 30 targeted browser cases passed locally. Linux run 35350858313
+passed 131/134 cases with full headless Chromium; remaining failures were two
+combined-flow timeouts and a transient recoil screenshot. Lifecycle scenarios
+now have separate contexts; bundle import closes the original page first.
+Recoil pixel sampling uses the browser test clock with native wheel/drag input,
+while other motion checks retain native RAF. All 23 affected local cases passed.
+
 Approved scope: full UI mainline, separate component/canvas motion, local Web
 acceptance, deterministic import/export and Agent entry. No remote publication.
 
