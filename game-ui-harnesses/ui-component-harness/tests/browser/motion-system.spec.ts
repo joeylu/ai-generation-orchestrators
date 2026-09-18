@@ -380,7 +380,7 @@ test('Tabs indicator pixels move after an inspected in-flight tabProgress transi
   expect(readDocumentNode(await page.evaluate(() => (window as any).uiHarness.getDocument()), 'details').props.activeId).toBe('tab-stats');
 });
 
-for (const style of styles) test(`trusted Button press, release, cancellation, and disabling produce one activation in every profile [${style}]`, async ({ page }) => {
+for (const style of styles) test(`trusted Button press, release, cancellation, and disabling produce one activation in every profile [${style}]`, async ({ page }, info) => {
   await page.addInitScript(() => {
     const nativeRequest = window.requestAnimationFrame.bind(window);
     const frames = (window as any).__motionFrames = { requested: 0, delivered: 0, recent: [] as unknown[] };
@@ -402,6 +402,10 @@ for (const style of styles) test(`trusted Button press, release, cancellation, a
 
   await page.mouse.move(button.x, button.y);
   await page.mouse.down();
+  // Request a presented compositor frame before inspecting visual feedback.
+  // Linux software rendering can keep native RAF pending until a capture;
+  // this neither advances a test clock nor changes the application's state.
+  await page.locator('#canvas-host canvas').screenshot({ path: info.outputPath('pressed.png') });
   await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
   expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before);
   await page.mouse.up();
@@ -410,6 +414,7 @@ for (const style of styles) test(`trusted Button press, release, cancellation, a
   expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
 
   await page.mouse.down();
+  await page.locator('#canvas-host canvas').screenshot({ path: info.outputPath('pressed-before-cancel.png') });
   await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
   await page.mouse.move(button.x + Math.max(80, button.bounds.width * button.scaleX + 8), button.y);
   await page.mouse.up();

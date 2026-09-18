@@ -14,9 +14,7 @@ export default defineConfig({
     // Use the full browser's headless compositor for WebGL and native RAF tests.
     channel: process.env.UI_HARNESS_BROWSER || (process.platform === 'win32' ? 'msedge' : 'chromium'),
     headless: true,
-    // SwiftShader on CI has no physical display vsync; preserve native RAF and
-    // its frame-rate limit while avoiding GPU swap synchronization stalls.
-    launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-vsync'] },
+    launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
     viewport: { width: 1600, height: 1100 },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
