@@ -23,7 +23,9 @@ const results = [];
 for (const [name, args] of commands) {
   const start = Date.now();
   const result = spawnSync(process.execPath, [npmCli, ...args], {
-    cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 300000,
+    // The full browser suite takes 16-20 minutes on software-rendered CI.
+    // Keep per-case limits in Playwright; do not kill the whole suite at 5 minutes.
+    cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: name === 'browser' ? 1800000 : 300000,
     // Browser contract probes import /src modules; the built CLI is checked above.
     env: { ...process.env, UI_HARNESS_PREVIEW: '0' },
   });
