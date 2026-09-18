@@ -105,6 +105,14 @@ async function inspectSystem(page: Page): Promise<SystemInspection> {
   return page.evaluate(() => (window as any).uiHarness.inspectMotionSystem());
 }
 
+async function expectPresentedPress(page: Page, path?: string): Promise<void> {
+  // Software rendering can leave native RAF pending until presentation is
+  // requested. Observe an actual compositor frame, without advancing a clock
+  // or changing runtime state, before asserting the held visual feedback.
+  await page.locator('#canvas-host canvas').screenshot({ path });
+  await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
+}
+
 async function inspectRuntime(page: Page): Promise<{ nodes: RuntimeNode[] }> {
   return page.evaluate(() => (window as any).uiHarness.inspect());
 }
@@ -352,7 +360,7 @@ test('composite Button image pixels follow the Button presentation scale', async
   await page.mouse.move(button.x, button.y);
   const before = await renderedGemBounds(page);
   await page.mouse.down();
-  await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
+  await expectPresentedPress(page);
   const pressed = await renderedGemBounds(page);
   expect(pressed.fingerprint).not.toBe(before.fingerprint);
   expect(pressed.maxX - pressed.minX).toBeLessThanOrEqual(before.maxX - before.minX);
@@ -402,11 +410,7 @@ for (const style of styles) test(`trusted Button press, release, cancellation, a
 
   await page.mouse.move(button.x, button.y);
   await page.mouse.down();
-  // Request a presented compositor frame before inspecting visual feedback.
-  // Linux software rendering can keep native RAF pending until a capture;
-  // this neither advances a test clock nor changes the application's state.
-  await page.locator('#canvas-host canvas').screenshot({ path: info.outputPath('pressed.png') });
-  await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
+  await expectPresentedPress(page, info.outputPath('pressed.png'));
   expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before);
   await page.mouse.up();
   await expect.poll(() => page.evaluate(() => (window as any).uiHarness.activates())).toBe(before + 1);
@@ -414,8 +418,7 @@ for (const style of styles) test(`trusted Button press, release, cancellation, a
   expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
 
   await page.mouse.down();
-  await page.locator('#canvas-host canvas').screenshot({ path: info.outputPath('pressed-before-cancel.png') });
-  await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
+  await expectPresentedPress(page, info.outputPath('pressed-before-cancel.png'));
   await page.mouse.move(button.x + Math.max(80, button.bounds.width * button.scaleX + 8), button.y);
   await page.mouse.up();
   await waitForIdle(page);
@@ -469,7 +472,7 @@ test('unrelated disabling preserves another control captured pointer', async ({ 
   const button = await nodePoint(page, 'confirm');
   const activationCount = await page.evaluate(() => (window as any).uiHarness.activates());
   await page.mouse.move(button.x, button.y); await page.mouse.down();
-  await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
+  await expectPresentedPress(page);
   await page.evaluate(() => (window as any).uiHarness.setEnabled('sound', false));
   expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
   await page.mouse.up();
