@@ -11,6 +11,14 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+First select the requested deliverable. For reference-to-PNG decomposition only,
+follow [assets-only v1](docs/assets-only-v1.md) and use `ai-ui-assets`. Stop at the
+named PNG ZIP. Do not request shop facts, native UiDocument, state evidence,
+appearance bindings, consumer setup, browser/Studio acceptance or v2 reference
+scope for that task. Keep original material/source/review gates and timing.
+The component workflow below applies only when runnable UI delivery is requested.
+An asset ZIP does not establish interactive or human visual acceptance.
+
 Begin [end-to-end timing](docs/timeline-v1.md) at reference input, before inspection.
 Record every phase including planning, authorization waiting, generation, manual
 review, code/environment repairs, processing, tests, packaging and acceptance.

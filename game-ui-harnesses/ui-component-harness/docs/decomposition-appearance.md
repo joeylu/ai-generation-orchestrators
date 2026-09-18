@@ -4,6 +4,44 @@ This offline handoff consumes the PNG ZIP exported by the sibling
 `ui-decomposition-harness`. It connects material evidence to an existing semantic
 UI document. It does not invoke a model or change the upstream Harness.
 
+## Independent asset ZIP entry
+
+For a separately produced `ai-ui-assets` PNG ZIP, build directly without the
+producer's delivery directory or an outer component-handoff archive:
+
+```text
+ai-ui-component assets-build assets.zip target.ui-bundle.json appearance-binding.json --output built.ui-bundle.json
+ai-ui-component validate built.ui-bundle.json
+```
+
+The three inputs are independent immutable artifacts: the old named-layer ZIP,
+an explicitly authored semantic target bundle, and the existing version 0.2
+appearance-binding document. The library equivalent is
+`compileDecompositionAssets(archiveBytes, targetBundle, binding)`.
+Use `importDecompositionZip` to obtain authenticated layer IDs, asset IDs,
+positions, dimensions, archive/scene/delivery hashes, and use
+`appearanceDocumentSha256` to fingerprint the target. Author roles, registration
+and states explicitly; never infer them from filenames. All bindings remain tied
+to the exact target and ZIP. Changing either requires a newly validated binding.
+
+This entry reuses the existing importer and appearance compiler, plus the same
+interactive coverage and invisible-control gates as component-handoff import.
+It rejects missing required parts/states, stale digests, invalid geometry and
+existing output paths. It does not generate missing images. If, for example, a
+Switch lacks its required thumb, supply an explicitly planned supplementary
+material package and rebind; a normal-state screenshot does not prove other states.
+
+The output is a validated portable bundle with bound PNG bytes. CLI stderr
+reports the source archive hash, upstream review, `runtimeAcceptance:not_run`
+and `visualComparisonReady:false`; compilation does not grant human acceptance.
+Keep the source ZIP, target and binding beside the result for reproducibility.
+The ZIP has no v2 original/reference-state evidence, and this command does not
+invent it. Use the existing v2 path when official reference comparison is needed.
+No new fields or members were added to the decomposition ZIP: its current layer
+inventory already contains the material identity and geometry needed for binding.
+
+The existing one-file component-handoff and Studio routes below remain supported.
+
 The later [legacy pilot adapter](legacy-layered-case.md) adds a direct Button
 texture path. It does not apply this standalone binding document automatically;
 the limitations below concern this binding-driven path.

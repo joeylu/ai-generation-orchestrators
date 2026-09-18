@@ -1,5 +1,25 @@
 # Implementation tasks
 
+## 2026-09-19 Independent asset ZIP build
+
+Added `assets-build` and `compileDecompositionAssets`: existing PNG ZIP + explicit
+target bundle + existing appearance binding compile without an upstream run or
+outer handoff. Import, geometry and coverage gates are shared with the current
+consumer; no asset format changes or inferred states. Consumer build passed,
+3 new tests and 11 existing component-handoff tests passed. The producer's real
+PNG export also passed an isolated CLI bridge test with two Button nodes, exact
+PNG byte preservation, rejection of incomplete bindings and no overwrite.
+No provider, browser/Studio or human visual acceptance was performed.
+
+Historical-artwork follow-up: Quest Journal material reuse produced 47 PNG layers;
+the isolated ZIP built 41 nodes and 62 resource entries through `assets-build`.
+ZIP bytes, component document, resources and motion matched the existing handoff
+path. Fresh browser default and mouse-opened menu captures each differed by zero
+pixels between the two paths. Evidence: `work/ui-decomposition/quest-journal-assets-isolation-20260919-r001/`.
+Existing icon/label/backplate defects remain; no new generation or full
+Studio/state matrix rerun. This proves this sample's transport/build equivalence,
+not fresh reference planning/generation fidelity or human visual acceptance.
+
 ## 2026-09-18 CI repair
 
 CI now prepares Chromium before Node browser-backed fixtures and builds the local

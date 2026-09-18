@@ -4,6 +4,11 @@
 route. Its unattended route has an automatic visual-quality gate, but that gate is
 not a human reviewer.**
 
+For **reference image -> named PNG layers ZIP only**, use the independent
+[`ai-ui-assets` entry](docs/assets-only-v1.md). It preserves the original PNG
+archive contract and requires no component document, Node/browser, Studio or PSD
+dependency. The component workflow below is a separate, optional product route.
+
 For the Windows tool-host file-generation workflow, the formal entry is
 `workflow-export-loop`: after fresh plan-bound authorization, it exports the
 packaged continuous serial execution script, including official receive/dispatch,

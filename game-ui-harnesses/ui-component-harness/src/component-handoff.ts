@@ -1,7 +1,7 @@
 import { applyAppearanceBinding } from './appearance-apply.ts';
 import { validateBundle, type UiBundle } from './bundle.ts';
 import { encodeArchive } from './reference-persistence.ts';
-import { DecompositionImportError, importComponentHandoffArchive } from './decomposition-import.ts';
+import { DecompositionImportError, importComponentHandoffArchive, importDecompositionZip } from './decomposition-import.ts';
 import { walkNodes, type UiNode } from './tree-contract.ts';
 import { restoreRuntimeBundle } from './runtime-bundle.ts';
 
@@ -37,6 +37,19 @@ export async function compileComponentHandoff(input: Uint8Array) {
     handoff.componentBundle, handoff.decomposition, handoff.appearanceBinding,
   );
   if (handoff.runtimeBundle) bundle = await validateBundle(restoreRuntimeBundle(bundle, handoff.runtimeBundle));
+  validateAppliedComponentCoverage(bundle);
+  return { bundle, hasRuntimeBundle: !!handoff.runtimeBundle, archiveSha256: handoff.archiveSha256, review: handoff.review, referenceEvidence: handoff.referenceEvidence };
+}
+
+/** Build from independent assets plus authored semantics; never infer missing states. */
+export async function compileDecompositionAssets(input: Uint8Array, target: unknown, binding: unknown) {
+  const imported = await importDecompositionZip(input);
+  const bundle = await applyAppearanceBinding(target, imported, binding);
+  validateAppliedComponentCoverage(bundle);
+  return { bundle, archiveSha256: imported.archiveSha256, review: imported.review };
+}
+
+function validateAppliedComponentCoverage(bundle: UiBundle): void {
   if (bundle.document.schemaVersion === '0.2'
     && walkNodes(bundle.document).some(
       node => INTERACTIVE_TYPES.has(node.type) && !Object.hasOwn(node.props, 'appearance'),
@@ -50,5 +63,4 @@ export async function compileComponentHandoff(input: Uint8Array) {
     && hasInvisibleInteractive(bundle.document.root)) {
     throw new DecompositionImportError('COMPONENT_HANDOFF_INVISIBLE_INTERACTIVE');
   }
-  return { bundle, hasRuntimeBundle: !!handoff.runtimeBundle, archiveSha256: handoff.archiveSha256, review: handoff.review, referenceEvidence: handoff.referenceEvidence };
 }

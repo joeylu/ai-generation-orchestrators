@@ -32,6 +32,7 @@ Local commands:
   compile <intent.json> <policy.json> (--facts <facts.json> | --asset <file> | --asset <source>=<file>) [--output <document.json>]
   pack <document.json> --resource <portable-path>=<file> [--resource ...] --provenance-kind <kind> --provenance-description <text> [--motion <motion.json>] [--motion-system <system.json>] [--output <bundle.json>]
   component-handoff <ui.component-handoff.zip> --output <ui-bundle.json> [--reference-output <reference-evidence.json>]
+  assets-build <assets.zip> <target.ui-bundle.json> <appearance-binding.json> --output <ui-bundle.json>
   reference-export <saved.ui-bundle.json> --output <new-handoff.zip>
   bind-value-text <handoff.zip> <bindings.json> --output <new-handoff.zip>
   reference-accept <handoff.zip> --output <new-directory>
@@ -270,6 +271,17 @@ async function run() {
     const bundle = await bundleApi.createBundle(await jsonFile(positionals[0]), resources, { kind, description }, motion ? await jsonFile(motion) : undefined, motionSystem ? await jsonFile(motionSystem) : undefined);
     await emit(bundle, one(options, 'output')); return;
   }
+  if (command === 'assets-build') {
+    onlyOptions(options, new Set(['output']));
+    if (positionals.length !== 3 || !one(options, 'output')) fail('assets-build requires <assets.zip> <target.ui-bundle.json> <appearance-binding.json> --output <ui-bundle.json>');
+    const api = await moduleFromDistribution('component-handoff');
+    const result = await api.compileDecompositionAssets(new Uint8Array(await readFile(positionals[0])),
+      await jsonFile(positionals[1]), await jsonFile(positionals[2]));
+    await emit(result.bundle, one(options, 'output'));
+    process.stderr.write(`${JSON.stringify({ archiveSha256: result.archiveSha256, upstreamReview: result.review,
+      runtimeAcceptance: 'not_run', visualComparisonReady: false })}\n`);
+    return;
+  }
   if (command === 'component-handoff') {
     onlyOptions(options, new Set(['output', 'reference-output']));
     if (positionals.length !== 1) fail('component-handoff requires <ui.component-handoff.zip>');
@@ -305,7 +317,7 @@ async function run() {
   }
   if (command === 'doctor') {
     onlyOptions(options, new Set()); if (positionals.length) fail('doctor takes no arguments');
-    await emit({ offline: true, node: process.version, commands: ['run', 'validate', 'inspect', 'compile', 'pack', 'component-handoff', 'unpack', 'self-test', 'doctor'], providerConfigured: false }); return;
+    await emit({ offline: true, node: process.version, commands: ['run', 'validate', 'inspect', 'compile', 'pack', 'assets-build', 'component-handoff', 'unpack', 'self-test', 'doctor'], providerConfigured: false }); return;
   }
   fail(`unsupported command: ${command}`);
 }

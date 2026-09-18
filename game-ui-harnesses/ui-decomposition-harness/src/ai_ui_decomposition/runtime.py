@@ -14,7 +14,9 @@ from .resources import (DEFAULT_MEMORY_BUDGET_BYTES, MAX_KEYED_INPUT_PIXELS,
                         memory_budget_policy)
 
 
-def init_plan(reference: Path, plan_path: Path, plan_id: str, document_name: str) -> dict:
+def init_plan(reference: Path, plan_path: Path, plan_id: str, document_name: str,
+              *, output_format: str = "auto") -> dict:
+    require(output_format in {"auto", "png_zip"}, "OUTPUT_FORMAT")
     plan_id = identifier(plan_id)
     document_name = identifier(document_name)
     reference = reference.resolve()
@@ -41,7 +43,7 @@ def init_plan(reference: Path, plan_path: Path, plan_id: str, document_name: str
                     "source_asset": None}],
         "nodes": [{"id": "background", "asset": "scene", "xy": [0, 0]}],
         "groups": [{"id": "background_group", "children": ["background"]}],
-        "document": {"name": document_name, "format": "auto"},
+        "document": {"name": document_name, "format": output_format},
     }
     validate(plan, source_base=plan_path.parent)
     write_json(plan_path, plan)

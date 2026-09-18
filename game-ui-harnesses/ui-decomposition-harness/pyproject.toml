@@ -18,6 +18,7 @@ psd = ["psd-tools==1.18.0", "attrs==26.1.0"]
 test = []
 
 [project.scripts]
+ai-ui-assets = "ai_ui_decomposition.assets_cli:main"
 ai-ui-decomposition = "ai_ui_decomposition.cli:main"
 ai-ui-stateful = "ai_ui_decomposition.stateful:main"
 
