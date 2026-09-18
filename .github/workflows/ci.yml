@@ -25,9 +25,14 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run self-test
+      # Contract probes import /src modules; npm test also checks the built CLI.
       - run: npm run test:browser
-        env:
-          UI_HARNESS_PREVIEW: "1"
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: ui-browser-failure-evidence
+          path: game-ui-harnesses/ui-component-harness/test-results/
+          if-no-files-found: ignore
 
   test:
     strategy:

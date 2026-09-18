@@ -1,5 +1,16 @@
 # Implementation tasks
 
+## 2026-09-18 CI repair
+
+CI now prepares Chromium before Node browser-backed fixtures and builds the local
+consumer for the offline Python integration matrix. The four Python matrix jobs,
+dependency audit and release build passed in run 35343685393. Browser CLI paths
+are resolved relative to the test module, and source-import contract probes use
+the development server in CI and `npm run verify`. Motion profiles run as separate
+cases with unchanged assertions and timeouts. Local baseline motion: 16 passed;
+targeted follow-up and Linux CI results are recorded in
+`work/ci-repair-20260918-r001/`. No provider calls or visual acceptance claims.
+
 Approved scope: full UI mainline, separate component/canvas motion, local Web
 acceptance, deterministic import/export and Agent entry. No remote publication.
 

@@ -24,7 +24,8 @@ for (const [name, args] of commands) {
   const start = Date.now();
   const result = spawnSync(process.execPath, [npmCli, ...args], {
     cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 300000,
-    env: { ...process.env, UI_HARNESS_PREVIEW: '1' },
+    // Browser contract probes import /src modules; the built CLI is checked above.
+    env: { ...process.env, UI_HARNESS_PREVIEW: '0' },
   });
   const output = redact(`${result.stdout ?? ''}${result.stderr ?? ''}${result.error ? String(result.error) : ''}`);
   writeFileSync(resolve(reports, `${prefix}-${name}.log`), output);
@@ -59,7 +60,7 @@ if (results.some(result => result.name === 'browser')) {
 }
 const report = { generatedAt: new Date().toISOString(), node: process.version, platform: process.platform,
   browserChannel: process.env.UI_HARNESS_BROWSER || (process.platform === 'win32' ? 'msedge' : 'chromium'),
-  mode: process.env.UI_HARNESS_EXTERNAL_SERVER === '1' ? 'external-local-server' : 'production-preview', graphics: 'software WebGL / SwiftShader',
+  mode: process.env.UI_HARNESS_EXTERNAL_SERVER === '1' ? 'external-local-server' : 'development-server', graphics: 'software WebGL / SwiftShader',
   status: results.length === commands.length && results.every(result => result.status === 'PASS') ? 'PASS' : 'FAIL',
   commands: results, browser, sources };
 writeFileSync(resolve(reports, `${prefix}-verification.json`), JSON.stringify(report, null, 2) + '\n');

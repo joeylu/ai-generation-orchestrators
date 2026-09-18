@@ -257,7 +257,8 @@ test('catalog and compiler validate all 48 style/component bindings without muta
   expect(() => validateMotionSystem(duplicated, ui)).toThrow(/DUPLICATE_TARGET/);
 });
 
-test('each profile binds every live gallery type and enter, exit, reapply, and clear have deterministic endpoints', async ({ page }) => {
+// Each style gets a fresh browser context and its own unchanged time budget.
+for (const style of styles) test(`each profile binds every live gallery type and enter, exit, reapply, and clear have deterministic endpoints [${style}]`, async ({ page }) => {
   await openGallery(page);
   const targetIds = galleryTargets().map(target => target.id);
   const imageId = targetId('Image');
@@ -275,55 +276,53 @@ test('each profile binds every live gallery type and enter, exit, reapply, and c
   });
   expect(unboundSelectOpen).toEqual({ error: expect.stringContaining('MOTION_ACTION_NOT_BOUND'), popupOpen: 0 });
 
-  for (const style of styles) {
-    const input = system(style, `endpoints-${style}`);
-    await install(page, input);
-    expect(await page.evaluate(() => (window as any).uiHarness.getMotionSystem())).toEqual(input);
-    const initial = await inspectSystem(page);
-    expect(initial).toMatchObject({ style, systemId: input.id, scheduler: { running: 0, pendingFrame: false, destroyed: false } });
-    expect(initial.nodes.filter(node => targetIds.includes(node.id)).map(node => [node.id, node.type]).sort((left, right) => left[0].localeCompare(right[0])))
-      .toEqual(galleryTargets().map(target => [target.id, target.type]).sort((left, right) => left[0].localeCompare(right[0])));
-    for (const node of initial.nodes.filter(node => targetIds.includes(node.id))) {
-      for (const value of Object.values(node.presentation)) expect(Number.isFinite(value)).toBe(true);
-    }
-
-    await play(page, imageId, 'enter');
-    await waitForMotion(page);
-    expect(systemNode(await inspectSystem(page), imageId)).toMatchObject({ visible: true, presentation: { entryAlpha: 1, entryY: 0 } });
-
-    await play(page, imageId, 'exit');
-    await waitForMotion(page);
-    expect(systemNode(await inspectSystem(page), imageId)).toMatchObject({ visible: true, presentation: { entryAlpha: 0 } });
-
-    await play(page, textId, 'emphasis');
-    await waitForMotion(page);
-    expect(systemNode(await inspectSystem(page), textId).presentation.emphasisScale).toBe(1);
-
-    await play(page, containerId, 'stagger');
-    await waitForMotion(page);
-    expect(systemNode(await inspectSystem(page), containerId).presentation.stagger).toBe(1);
-    expect(systemNode(await inspectSystem(page), imageId)).toMatchObject({ visible: true, presentation: { entryAlpha: 1, entryY: 0 } });
-
-    await play(page, panelId, 'stagger');
-    await waitForMotion(page);
-    const panel = systemNode(await inspectSystem(page), panelId);
-    expect(panel.presentation.stagger).toBe(1);
-    expect(systemNode(await inspectSystem(page), 'footer-text')).toMatchObject({ visible: true, presentation: { entryAlpha: 1, entryY: 0 } });
-
-    // Re-applying while an action is live cancels the prior scheduler and restores the new system's canonical presentation.
-    await play(page, 'confirm', 'enter');
-    const reapplied = system(style, `reapplied-${style}`);
-    await install(page, reapplied);
-    const afterReapply = await inspectSystem(page);
-    expect(afterReapply.scheduler).toEqual({ running: 0, pendingFrame: false, destroyed: false });
-    expect(systemNode(afterReapply, 'confirm').presentation).toEqual(systemNode(initial, 'confirm').presentation);
-
-    await page.evaluate(() => (window as any).uiHarness.setMotionSystem(null));
-    await expect.poll(() => page.evaluate(() => (window as any).uiHarness.getMotionSystem())).toBeNull();
-    const cleared = await inspectSystem(page);
-    expect(cleared).toMatchObject({ style: null, systemId: null, scheduler: { running: 0, pendingFrame: false, destroyed: false } });
-    expect(systemNode(cleared, 'confirm').presentation).toEqual(systemNode(initial, 'confirm').presentation);
+  const input = system(style, `endpoints-${style}`);
+  await install(page, input);
+  expect(await page.evaluate(() => (window as any).uiHarness.getMotionSystem())).toEqual(input);
+  const initial = await inspectSystem(page);
+  expect(initial).toMatchObject({ style, systemId: input.id, scheduler: { running: 0, pendingFrame: false, destroyed: false } });
+  expect(initial.nodes.filter(node => targetIds.includes(node.id)).map(node => [node.id, node.type]).sort((left, right) => left[0].localeCompare(right[0])))
+    .toEqual(galleryTargets().map(target => [target.id, target.type]).sort((left, right) => left[0].localeCompare(right[0])));
+  for (const node of initial.nodes.filter(node => targetIds.includes(node.id))) {
+    for (const value of Object.values(node.presentation)) expect(Number.isFinite(value)).toBe(true);
   }
+
+  await play(page, imageId, 'enter');
+  await waitForMotion(page);
+  expect(systemNode(await inspectSystem(page), imageId)).toMatchObject({ visible: true, presentation: { entryAlpha: 1, entryY: 0 } });
+
+  await play(page, imageId, 'exit');
+  await waitForMotion(page);
+  expect(systemNode(await inspectSystem(page), imageId)).toMatchObject({ visible: true, presentation: { entryAlpha: 0 } });
+
+  await play(page, textId, 'emphasis');
+  await waitForMotion(page);
+  expect(systemNode(await inspectSystem(page), textId).presentation.emphasisScale).toBe(1);
+
+  await play(page, containerId, 'stagger');
+  await waitForMotion(page);
+  expect(systemNode(await inspectSystem(page), containerId).presentation.stagger).toBe(1);
+  expect(systemNode(await inspectSystem(page), imageId)).toMatchObject({ visible: true, presentation: { entryAlpha: 1, entryY: 0 } });
+
+  await play(page, panelId, 'stagger');
+  await waitForMotion(page);
+  const panel = systemNode(await inspectSystem(page), panelId);
+  expect(panel.presentation.stagger).toBe(1);
+  expect(systemNode(await inspectSystem(page), 'footer-text')).toMatchObject({ visible: true, presentation: { entryAlpha: 1, entryY: 0 } });
+
+  // Re-applying while an action is live cancels the prior scheduler and restores the new system's canonical presentation.
+  await play(page, 'confirm', 'enter');
+  const reapplied = system(style, `reapplied-${style}`);
+  await install(page, reapplied);
+  const afterReapply = await inspectSystem(page);
+  expect(afterReapply.scheduler).toEqual({ running: 0, pendingFrame: false, destroyed: false });
+  expect(systemNode(afterReapply, 'confirm').presentation).toEqual(systemNode(initial, 'confirm').presentation);
+
+  await page.evaluate(() => (window as any).uiHarness.setMotionSystem(null));
+  await expect.poll(() => page.evaluate(() => (window as any).uiHarness.getMotionSystem())).toBeNull();
+  const cleared = await inspectSystem(page);
+  expect(cleared).toMatchObject({ style: null, systemId: null, scheduler: { running: 0, pendingFrame: false, destroyed: false } });
+  expect(systemNode(cleared, 'confirm').presentation).toEqual(systemNode(initial, 'confirm').presentation);
 });
 
 test('latest entry channel ownership wins across parent interruption and child stagger', async ({ page }) => {
@@ -381,37 +380,35 @@ test('Tabs indicator pixels move after an inspected in-flight tabProgress transi
   expect(readDocumentNode(await page.evaluate(() => (window as any).uiHarness.getDocument()), 'details').props.activeId).toBe('tab-stats');
 });
 
-test('trusted Button press, release, cancellation, and disabling produce one activation in every profile', async ({ page }) => {
+for (const style of styles) test(`trusted Button press, release, cancellation, and disabling produce one activation in every profile [${style}]`, async ({ page }) => {
   await openGallery(page);
 
-  for (const style of styles) {
-    await install(page, system(style, `button-${style}`));
-    const button = await nodePoint(page, 'confirm');
-    const before = await page.evaluate(() => (window as any).uiHarness.activates());
+  await install(page, system(style, `button-${style}`));
+  const button = await nodePoint(page, 'confirm');
+  const before = await page.evaluate(() => (window as any).uiHarness.activates());
 
-    await page.mouse.move(button.x, button.y);
-    await page.mouse.down();
-    await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
-    expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before);
-    await page.mouse.up();
-    await expect.poll(() => page.evaluate(() => (window as any).uiHarness.activates())).toBe(before + 1);
-    await waitForIdle(page);
-    expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
+  await page.mouse.move(button.x, button.y);
+  await page.mouse.down();
+  await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
+  expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before);
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => (window as any).uiHarness.activates())).toBe(before + 1);
+  await waitForIdle(page);
+  expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
 
-    await page.mouse.down();
-    await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
-    await page.mouse.move(button.x + Math.max(80, button.bounds.width * button.scaleX + 8), button.y);
-    await page.mouse.up();
-    await waitForIdle(page);
-    expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before + 1);
-    expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
+  await page.mouse.down();
+  await expect.poll(async () => systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBeLessThan(1);
+  await page.mouse.move(button.x + Math.max(80, button.bounds.width * button.scaleX + 8), button.y);
+  await page.mouse.up();
+  await waitForIdle(page);
+  expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before + 1);
+  expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
 
-    await page.evaluate(() => (window as any).uiHarness.setEnabled('confirm', false));
-    await page.mouse.click(button.x, button.y);
-    expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before + 1);
-    expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
-    await page.evaluate(() => (window as any).uiHarness.setEnabled('confirm', true));
-  }
+  await page.evaluate(() => (window as any).uiHarness.setEnabled('confirm', false));
+  await page.mouse.click(button.x, button.y);
+  expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before + 1);
+  expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
+  await page.evaluate(() => (window as any).uiHarness.setEnabled('confirm', true));
 });
 
 test('ancestor hiding, unrelated disabling, dialog teardown, and transformed Slider gestures preserve their own lifecycles', async ({ page }) => {
@@ -503,14 +500,9 @@ test('ancestor hiding, unrelated disabling, dialog teardown, and transformed Sli
   })())).toBe(75);
 });
 
-test('control-specific presentation follows real gallery input and settles without changing committed values early', async ({ page }) => {
+for (const style of styles) test(`control-specific presentation follows real gallery input and settles without changing committed values early [${style}]`, async ({ page }) => {
   await openGallery(page);
-  for (const [index, style] of styles.entries()) {
-    if (index > 0) {
-      await page.evaluate(document => (window as any).uiHarness.loadDocument(document), fixtureDocument('gallery'));
-      await expect.poll(() => page.evaluate(() => (window as any).uiHarness.getDocument()?.id)).toBe('fixture-gallery');
-    }
-    await install(page, system(style, `control-feedback-${style}`));
+  await install(page, system(style, `control-feedback-${style}`));
 
   await clickNode(page, 'sound');
   await waitForIdle(page);
@@ -584,17 +576,11 @@ test('control-specific presentation follows real gallery input and settles witho
   await waitForIdle(page);
   expect(readDocumentNode(await page.evaluate(() => (window as any).uiHarness.getDocument()), 'inventory').props.selectedId).toBe('item-gem');
   expect(systemNode(await inspectSystem(page), 'inventory').presentation.listSelection).toBe(1);
-  }
 });
 
-test('Dialog protects the full canvas through close while Tabs transition header and content', async ({ page }) => {
+for (const style of styles) test(`Dialog protects the full canvas through close while Tabs transition header and content [${style}]`, async ({ page }) => {
   await openGallery(page);
-  for (const [index, style] of styles.entries()) {
-    if (index > 0) {
-      await page.evaluate(document => (window as any).uiHarness.loadDocument(document), fixtureDocument('gallery'));
-      await expect.poll(() => page.evaluate(() => (window as any).uiHarness.getDocument()?.id)).toBe('fixture-gallery');
-    }
-    await install(page, system(style, `modal-and-tabs-${style}`));
+  await install(page, system(style, `modal-and-tabs-${style}`));
 
   const opening = await page.evaluate(() => {
     const api = (window as any).uiHarness;
@@ -640,7 +626,6 @@ test('Dialog protects the full canvas through close while Tabs transition header
   const runtime = await inspectRuntime(page);
   expect(runtimeNode(runtime, 'page-info').visible).toBe(false);
   expect(runtimeNode(runtime, 'page-stats').visible).toBe(true);
-  }
 });
 
 test('workbench controls and portable bundles preserve a system alongside an independent timeline', async ({ page, context }) => {
