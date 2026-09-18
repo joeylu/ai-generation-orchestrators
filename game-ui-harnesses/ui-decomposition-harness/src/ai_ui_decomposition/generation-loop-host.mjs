@@ -8,9 +8,13 @@ export async function runToolGeneration({tools,config,progress=async()=>{},onIma
     if(result.exit_code!==0) throw new Error('LOOP_HOST_COMMAND_FAILED');
     return JSON.parse(result.output);
   };
-  const cli=args=>`$env:PYTHONPATH=${quote(config.packageRoot)}; & ${quote(config.python)} -X utf8 -B -m ai_ui_decomposition.cli ${args}`;
+  const assets=config.product==='assets';
+  const module=assets?'ai_ui_decomposition.assets_cli':'ai_ui_decomposition.cli';
+  const statusArgs=assets?`generation-status --run-dir ${quote(config.job)}`:`workflow-status --job ${quote(config.job)}`;
+  const exchangeArgs=assets?`exchange-generation --run-dir ${quote(config.job)}`:`workflow-exchange-generation --job ${quote(config.job)}`;
+  const cli=args=>`$env:PYTHONPATH=${quote(config.packageRoot)}; & ${quote(config.python)} -X utf8 -B -m ${module} ${args}`;
   // Validate fresh official state before making a journal or reserving a request.
-  const status=await run(cli(`workflow-status --job ${quote(config.job)}`));
+  const status=await run(cli(statusArgs));
   if(status.status!=='ready'||status.nextNode!=='generate'||status.jobDigest!==config.jobDigest)
     throw new Error('LOOP_HOST_NOT_FRESH');
   await run(`& ${quote(config.node)} ${quote(config.bridge)} init ${quote(config.journal)}`);
@@ -28,7 +32,7 @@ export async function runToolGeneration({tools,config,progress=async()=>{},onIma
   const result=await runGenerationLoop({maxCalls:config.maximumCalls,persist,schedule,unschedule,progress,
     exchange:async previous=>{
       const at=Date.now();
-      const response=await run(cli(`workflow-exchange-generation --job ${quote(config.job)}`+
+      const response=await run(cli(exchangeArgs+
         (previous?` --request-digest ${quote(previous.requestDigest)} --source ${quote(previous.source)}`:'')));
       timings.push({phase:'exchange',ms:Date.now()-at,api:response.timings});return response;
     },

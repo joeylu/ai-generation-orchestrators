@@ -35,6 +35,18 @@ def parser() -> argparse.ArgumentParser:
     command("check", "plan")
     freeze = command("freeze", "plan", "workspace")
     freeze.add_argument("--run", required=True)
+    freeze.add_argument("--material-preflight", choices=("per-image-v1", "after-generation-v1"), default="per-image-v1")
+    command("material-preflight", "run-dir", "output")
+    auth = command("authorize-generation", "run-dir")
+    auth.add_argument("--plan-digest", required=True)
+    auth.add_argument("--approval", required=True)
+    command("generation-status", "run-dir")
+    exchange = command("exchange-generation", "run-dir")
+    exchange.add_argument("--request-digest")
+    exchange.add_argument("--source", type=Path)
+    loop = command("export-loop", "run-dir", "output", "output-root")
+    loop.add_argument("--python", type=Path)
+    loop.add_argument("--node", default="node")
     for name in ("status", "process", "review-template"):
         command(name, "run-dir")
     final = command("finalize", "run-dir", "output")
@@ -64,6 +76,18 @@ def parser() -> argparse.ArgumentParser:
 
 def execute(args) -> dict:
     name = args.command
+    if name in {"authorize-generation", "generation-status", "exchange-generation", "export-loop"}:
+        from . import assets_generation as generation
+        if name == "authorize-generation":
+            return generation.authorize(args.run_dir, args.plan_digest, args.approval)
+        if name == "generation-status":
+            return generation.status(args.run_dir)
+        if name == "exchange-generation":
+            return generation.exchange(args.run_dir, args.request_digest, args.source)
+        return generation.export_loop(args.run_dir, args.output, args.output_root, args.python, args.node)
+    if name == "material-preflight":
+        from .material_preflight import check_batch
+        return check_batch(None, args.run_dir.resolve(), args.output)
     if name in {"doctor", "self-test", "init"}:
         from .runtime import doctor, init_plan, self_test
         if name == "init":
@@ -77,7 +101,7 @@ def execute(args) -> dict:
         if name == "check":
             return checked
         from .batch import freeze
-        return freeze(args.plan, args.workspace, args.run)
+        return freeze(args.plan, args.workspace, args.run, material_preflight=args.material_preflight)
     if name in {"auto-run", "job-status"}:
         from .headless import auto_run, job_status, load_provider
         if name == "job-status":
@@ -133,7 +157,10 @@ def main(argv=None) -> int:
         else:
             result = execute(args)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 2 if result.get("status") in {"failed", "failed_no_resubmit", "failed_visual_qa", "timed_out", "indeterminate", "rejected"} else 0
+        status = result.get("status")
+        if isinstance(status, dict):
+            status = status.get("status")
+        return 2 if status in {"failed", "failed_no_resubmit", "failed_visual_qa", "timed_out", "indeterminate", "rejected"} else 0
     except (ContractError, OSError, RuntimeError, ValueError) as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc) if isinstance(exc, ContractError) else "LOCAL_INPUT_OR_IO_ERROR"}))

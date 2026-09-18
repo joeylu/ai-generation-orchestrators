@@ -9,7 +9,11 @@ For **reference image -> named PNG layers ZIP only**, use the independent
 archive contract and requires no component document, Node/browser, Studio or PSD
 dependency. The component workflow below is a separate, optional product route.
 
-For the Windows tool-host file-generation workflow, the formal entry is
+For pure asset Windows tool-host generation, use `ai-ui-assets export-loop` after
+fresh frozen-batch authorization as described in [assets-only v1](docs/assets-only-v1.md).
+It shares the serial generation loop but never enters component planning or acceptance.
+
+For the component Windows tool-host file-generation workflow, the formal entry is
 `workflow-export-loop`: after fresh plan-bound authorization, it exports the
 packaged continuous serial execution script, including official receive/dispatch,
 durable response transport, image-byte verification and phase timing. Execute

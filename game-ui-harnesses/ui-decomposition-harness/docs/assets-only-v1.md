@@ -107,10 +107,62 @@ Use the existing [timeline](timeline-v1.md) from reference input to ZIP handoff.
 bracket planning, approvals and external tool calls. Wrapping `auto-run` measures
 that invocation as one span, not a fabricated per-image breakdown.
 
-The repository DAG's continuous generation loop is **not** exposed by this entry:
-it is currently bound to component planning/delivery. This first separation keeps
-the original provider and portable file-exchange routes. Moving that loop into a
-shared assets orchestration module is separate work, not an implemented feature.
+## Continuous tool-host generation, without the component DAG
+
+After authoring and checking the asset plan, freeze a fresh batch with deferred
+material QA if the user wants all images collected before quality reporting:
+
+```text
+ai-ui-assets freeze --plan project/plan.json --workspace workspace --run sample-r002 --material-preflight after-generation-v1
+ai-ui-assets authorize-generation --run-dir workspace/runs/sample-r002 --plan-digest EXACT_FROZEN_PLAN_DIGEST --approval "Exact user approval of this frozen plan and call budget"
+ai-ui-assets export-loop --run-dir workspace/runs/sample-r002 --output loop-r002/run.js --output-root VERIFIED_TOOL_IMAGE_DIRECTORY
+```
+
+`authorize-generation` records actual fresh user authorization; do not supply
+approval on their behalf. It binds the plan digest, batch digest and exact call
+budget. Export requires an authorized, unstarted PNG batch. It calls no provider.
+Read the exported script in full and execute it unchanged using the host procedure
+in [continuous generation](continuous-generation-loop-v1.md). The shared loop
+uses `ai-ui-assets generation-status` and `exchange-generation`, not a component
+workflow. It records invocation intent before every external call and verifies
+the returned source, submission and receive receipts. The Windows tool host,
+response persistence, PNG byte validation, timing and zero-retry rules are shared
+with the existing component entry. One image call is active at a time.
+
+An uncertain, interrupted or partially recorded request prevents further dispatch.
+Do not rerun an interrupted script or reuse its approval. This initial loop
+supports fresh generated requests, not cached-result batches or conditional
+replacement policies; those fail explicitly and retain their existing commands.
+It stops with `generation_complete`, next step `process`, without processing,
+visual review, export or runtime acceptance. That status only proves receipt.
+
+For a batch frozen with `after-generation-v1`, run:
+
+```text
+ai-ui-assets material-preflight --run-dir workspace/runs/sample-r002 --output material-preflight-r002.json
+ai-ui-assets process --run-dir workspace/runs/sample-r002
+ai-ui-assets review-template --run-dir workspace/runs/sample-r002
+```
+
+Then perform the reviewed finalize/export steps above. Preflight checks every
+received image and writes original source-bound quality receipts; any failure
+blocks processing. Invalid transport/image bytes and unknown outcomes still stop
+the loop immediately. Deferred preflight does not turn a failed material into a
+pass, invoke a retry, or authorize a draft. Specialized component-family boards
+still require their existing compiled extraction strategy; this standalone
+preflight rejects that marker rather than guessing a strategy. The original
+per-image QA mode remains the default for backward compatibility; choose deferred
+QA before freezing, never by editing a frozen batch.
+
+Five offline regressions cover authorization, no resubmission, changed-source
+rejection, complete-before-preflight quality reporting and execution of the exact
+exported host script with a simulated image tool. They establish no live-provider
+latency or visual fidelity.
+
+Executed 2026-09-19: asset generation 5/5, existing generation loop 4/4,
+assets CLI 4/4, deferred preflight 7/7 and loop entry catalog 2/2 passed
+(22 Python cases, including the existing Node loop suite). Windows test execution
+uses Python UTF-8 mode for Node output. No actual image-provider call was made.
 
 The existing `ai-ui-decomposition` and `ai-ui-stateful` commands remain compatible.
 Their component/Studio/reference gates are unchanged. Consumers can start a

@@ -11,6 +11,9 @@ def check_batch(compiled, run, output):
     from .common import sha256, digest, write_json, ContractError
     from .media import require_explicit_key_background
     frozen, plan = batch.load(run)
+    if compiled is None:
+        require(not any('component-family-board-v1:' in a.get('prompt','') for a in plan['assets']),
+                'BOARD_COMPILED_STRATEGY_REQUIRED')
     require(frozen.get('material_preflight') == 'after-generation-v1', 'MATERIAL_PREFLIGHT_MODE')
     require(all(batch.state(run, frozen['requests'][k]) == 'received'
                 for k in frozen['dispatch_order']), 'MATERIAL_PREFLIGHT_BATCH_INCOMPLETE')
@@ -29,11 +32,12 @@ def check_batch(compiled, run, output):
         require(all(receipt.get(k) == evidence[k] for k in ('size','mode','bytes','alpha_extrema')),
                 'MATERIAL_PREFLIGHT_SOURCE_CHANGED')
         # Resolve and verify the immutable strategy outside the quality exception handler.
-        board_for(compiled, key)
+        if compiled is not None:
+            board_for(compiled, key)
         item = next(a for a in plan['assets'] if a['id'] == key)
         failures = []
         checks = [lambda: batch._require_output_evidence(item, evidence),
-                  lambda: check_material(compiled, key, raw)]
+                  lambda: check_material(compiled, key, raw) if compiled is not None else check_single_material(item,raw)]
         if item['output_mode'] == 'keyed_component':
             checks.insert(1, lambda: require_explicit_key_background(picture))
         for check in checks:
@@ -79,11 +83,7 @@ def check_material(compiled,asset,source):
         # returned materials are being checked, rather than failing one later.
         plan=read_json(compiled/'plan.json')
         item=next(a for a in plan['assets'] if a['id']==asset)
-        if item['route']=='generated_isolation' and 'resize' not in item and max(item['output_size'])/min(item['output_size'])>=8:
-            from .media import matte_key,contain,require_long_control_geometry
-            picture,_=load_verified_image(source)
-            material=matte_key(picture,item['output_size']) if item['output_mode']=='keyed_component' else contain(picture,item['output_size'])
-            require_long_control_geometry(material,item['output_size'],item.get('foreground_support'))
+        check_single_material(item,source)
         return
     picture,_=load_verified_image(source)
     validate_canvas_size(picture.size,board)
@@ -92,3 +92,11 @@ def check_material(compiled,asset,source):
         # before accepting this result or dispatching the next media request.
         from .component_boards import crop_board
         crop_board(picture,board,'keyed_component')
+
+
+def check_single_material(item,source):
+    if item['route']=='generated_isolation' and 'resize' not in item and max(item['output_size'])/min(item['output_size'])>=8:
+        from .media import matte_key,contain,require_long_control_geometry
+        picture,_=load_verified_image(source)
+        material=matte_key(picture,item['output_size']) if item['output_mode']=='keyed_component' else contain(picture,item['output_size'])
+        require_long_control_geometry(material,item['output_size'],item.get('foreground_support'))

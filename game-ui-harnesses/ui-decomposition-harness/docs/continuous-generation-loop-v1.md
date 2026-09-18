@@ -1,5 +1,12 @@
 # Continuous serial generation loop
 
+There are two product entries sharing this loop and host implementation:
+`ai-ui-decomposition workflow-export-loop` for the existing component DAG, and
+`ai-ui-assets export-loop` for a fresh independently authorized PNG asset batch.
+The latter uses asset status/exchange commands and stops before processing or
+review; see [the asset-only contract](assets-only-v1.md). Neither entry grants
+compute authorization or invokes generation merely by exporting a script.
+
 `generation-loop.mjs` implements a dependency-free, host-injected async loop.
 It performs no filesystem/network operation or provider lookup on its own.
 It is suitable for a persistent tool-orchestration cell: the host supplies official
