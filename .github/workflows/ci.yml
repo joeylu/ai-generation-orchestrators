@@ -3,6 +3,13 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      browser_filter:
+        description: "Optional Playwright title filter for a diagnostic run; empty runs full CI"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -26,7 +33,16 @@ jobs:
       - run: npm test
       - run: npm run self-test
       # Contract probes import /src modules; npm test also checks the built CLI.
-      - run: npm run test:browser
+      # Real display scheduling avoids headless WebGL begin-frame stalls.
+      - name: Run browser acceptance
+        env:
+          BROWSER_FILTER: ${{ inputs.browser_filter }}
+        run: |
+          if [ -n "$BROWSER_FILTER" ]; then
+            xvfb-run --auto-servernum npm run test:browser -- --headed --grep "$BROWSER_FILTER"
+          else
+            xvfb-run --auto-servernum npm run test:browser -- --headed
+          fi
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
@@ -35,6 +51,7 @@ jobs:
           if-no-files-found: ignore
 
   test:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.browser_filter == '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -103,6 +120,7 @@ jobs:
           if-no-files-found: error
 
   dependency-audit:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.browser_filter == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
