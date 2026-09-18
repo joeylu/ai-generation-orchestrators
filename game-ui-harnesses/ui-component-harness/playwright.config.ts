@@ -11,7 +11,8 @@ export default defineConfig({
   reporter: [['list'], ['json', { outputFile: 'test-results/browser-results.json' }]],
   use: {
     baseURL: process.env.UI_HARNESS_BASE_URL || 'http://127.0.0.1:4173',
-    channel: process.env.UI_HARNESS_BROWSER || (process.platform === 'win32' ? 'msedge' : undefined),
+    // Use the full browser's headless compositor for WebGL and native RAF tests.
+    channel: process.env.UI_HARNESS_BROWSER || (process.platform === 'win32' ? 'msedge' : 'chromium'),
     headless: true,
     launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
     viewport: { width: 1600, height: 1100 },
