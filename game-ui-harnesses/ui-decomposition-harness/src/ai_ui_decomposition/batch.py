@@ -62,7 +62,9 @@ def load(run: Path) -> tuple[dict, dict]:
 
 
 def freeze(plan_path: Path, workspace: Path, run_id: str, *, capability_request: Path | None = None, execution_policy: Path | None = None,
-           component_document: Path | None = None, layout_spacing: Path | None = None) -> dict:
+           component_document: Path | None = None, layout_spacing: Path | None = None,
+           material_preflight: str = 'per-image-v1') -> dict:
+    require(material_preflight in ('per-image-v1','after-generation-v1'),'MATERIAL_PREFLIGHT_MODE')
     plan = read_json(plan_path.resolve())
     plan_base = plan_path.resolve().parent
     summary = validate(plan, source_base=plan_base)
@@ -179,6 +181,8 @@ def freeze(plan_path: Path, workspace: Path, run_id: str, *, capability_request:
             batch['layout_spacing_preflight'][name+'_sha256']=sha256(path)
     else:
         batch['layout_spacing_preflight']={'status':'legacy_not_checked'}
+    if material_preflight == 'after-generation-v1':
+        batch['material_preflight'] = material_preflight
     batch["digest"] = digest(batch)
     write_json(run / "batch.json", batch)
     return batch
@@ -317,8 +321,10 @@ def receive(run: Path, asset: str, source: Path) -> dict:
     shutil.copyfile(source, raw)
     _image, evidence = load_verified_image(raw)
     try:
-        _require_output_evidence(asset_record, evidence)
-        if asset_record['output_mode']=='keyed_component':
+        deferred = batch.get('material_preflight') == 'after-generation-v1'
+        if not deferred:
+            _require_output_evidence(asset_record, evidence)
+        if not deferred and asset_record['output_mode']=='keyed_component':
             from .media import require_explicit_key_background
             require_explicit_key_background(_image)
     except ContractError as exc:
@@ -340,6 +346,8 @@ def receive(run: Path, asset: str, source: Path) -> dict:
               "alpha_extrema": evidence["alpha_extrema"],
               "bytes": evidence["bytes"], "generation_calls": 1,
               "automatic_retries": 0}
+    if deferred:
+        record['qualityStatus'] = 'pending'
     write_json(raw.parent / "received.json", record)
     return record
 

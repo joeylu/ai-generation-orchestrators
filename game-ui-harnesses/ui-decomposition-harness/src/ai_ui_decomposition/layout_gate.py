@@ -74,6 +74,19 @@ def select_surface(node, resources):
                 checkedPixels=int(region.size), minAlpha=int(region.min()))
 
 
+def require_planning_coverage(document, requirements, observations):
+    """Reject missing owner declarations before spending generation calls."""
+    require(isinstance(requirements,dict) and requirements.get('kind')=='ui_layout_requirements_v1','LAYOUT_REQUIREMENTS_SCHEMA')
+    nodes=list(walk(document['root']))
+    for section,kind in [('panels','Panel'),('selects','Select'),('buttons','Button'),('textBackgrounds','Text')]:
+        rows=requirements.get(section)
+        require(isinstance(rows,list) and all(isinstance(r,dict) for r in rows),'LAYOUT_REQUIREMENTS_SECTION')
+        ids=[r.get('componentId') for r in rows]
+        require(len(ids)==len(set(ids)) and set(ids)=={n['id'] for n in nodes if n['type']==kind},'LAYOUT_REQUIREMENTS_COVERAGE:'+section)
+    owners={r.get('componentId') for r in observations.get('texts',[])}
+    require(text_owners(document)<=owners,'VISUAL_TEXT_COVERAGE_MISSING')
+
+
 def check_layout_requirements(bundle, requirements, observations):
     require(isinstance(requirements, dict) and set(requirements) ==
             {'kind','panels','selects','buttons','textBackgrounds'} and

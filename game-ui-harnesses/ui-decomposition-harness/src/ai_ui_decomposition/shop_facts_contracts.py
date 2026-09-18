@@ -59,7 +59,33 @@ def _finalize_capabilities(request: dict) -> None:
     request["capabilities"] = rows
 
 
-def _finalize_board_policies(request: dict) -> None:
+def glyph_policy(tabs: list[dict]) -> dict | None:
+    """Bind explicit observed topology to the generated canonical state only."""
+    from .relative_board import validate_policy
+    declarations = []
+    for tab in tabs:
+        if "glyphStructure" not in tab:
+            continue
+        spec = tab["glyphStructure"]
+        require(isinstance(spec, dict) and set(spec) == {
+            "columnGroups", "rowGroups", "maxInternalGapRatio", "evidence"},
+            "SHOP_FACTS_GLYPH_STRUCTURE")
+        declarations.append({
+            "asset_id": "tab-icon-" + tab["id"] + ("-active" if tab["selected"] else ""),
+            "column_groups": spec["columnGroups"], "row_groups": spec["rowGroups"],
+            "max_internal_gap_ratio": spec["maxInternalGapRatio"], "evidence": spec["evidence"],
+        })
+    if not declarations:
+        return None
+    policy = dict(version="1.3", mode="foreground-gap-row", target_padding=2,
+                  canvas_policy="content-bounds", max_internal_gap_ratio=0.08,
+                  max_part_aspect_error=0.5, separation_basis="mixed-height",
+                  disconnected_glyphs=declarations)
+    validate_policy(policy)
+    return policy
+
+
+def _finalize_board_policies(request: dict, facts: dict) -> None:
     from .relative_board import validate_policy
 
     policies = request.get("boardPolicies")
@@ -79,6 +105,8 @@ def _finalize_board_policies(request: dict) -> None:
             "max_part_aspect_error": 0.5,
             "separation_basis": "mixed-height",
         }
+        if group == "shop-tabs":
+            policy = glyph_policy(facts["tabs"]["items"]) or policy
         validate_policy(policy)
         normalized[group] = policy
     request["boardPolicies"] = normalized
@@ -258,7 +286,7 @@ def finalize_request(facts: dict, request: dict) -> dict:
     require(isinstance(facts, dict) and isinstance(request, dict), "SHOP_FACTS_FINALIZE_INPUT")
     request = deepcopy(request)
     _finalize_capabilities(request)
-    _finalize_board_policies(request)
+    _finalize_board_policies(request, facts)
     from .document_extensions import check_extensions
     check_extensions(request["document"], request["capabilities"])
     from .reference_delivery import validate_states

@@ -31,9 +31,10 @@ VERSIONS = {"1.0", "1.1", "1.2"}
 # types for which this bounded producer has an explicit native delivery route.
 SUPPORTED_TYPES = {
     "Container", "Panel", "Text", "Image", "Button", "Tabs", "Input",
-    "Select", "List", "CheckBox",
+    "Select", "ProgressBar", "ScrollView", "List", "CheckBox",
 }
-STATEFUL_TYPES = {"Panel", "Button", "Tabs", "Input", "Select", "List", "CheckBox"}
+STATEFUL_TYPES = {"Panel", "Button", "Tabs", "Input", "Select", "ProgressBar",
+                  "ScrollView", "List", "CheckBox"}
 
 _NATIVE_FIELDS = {
     "kind", "version", "referenceSha256", "document", "materials",
@@ -54,6 +55,8 @@ _REQUIRED_APPEARANCE_ROLES = {
     "Tabs": {"tab", "active-tab"},
     "Input": {"background"},
     "Select": {"background", "indicator", "popup"},
+    "ProgressBar": {"track", "fill"},
+    "ScrollView": {"viewport", "scrollbar-track", "scrollbar-thumb"},
     "List": {"background", "row", "selected-row"},
     "CheckBox": {"box", "mark"},
 }
@@ -250,6 +253,121 @@ def _validate_registration(registration: object, source_size: list[int], canvas:
             "NATIVE_APPEARANCE_REGISTRATION")
 
 
+def _validate_target_layout(value: object, width: float, height: float,
+                            code: str, *, extra: set[str] | None = None) -> None:
+    """Validate a consumer target-component-local rectangle.
+
+    Native input is compiled before any generated PNG exists.  This mirrors
+    the consumer's coordinate, finite-value and containment checks while
+    deliberately leaving source-pixel checks to the official importer.
+    """
+    keys = {"coordinateSpace", "x", "y", "width", "height"}
+    if extra:
+        keys |= extra
+    require(isinstance(value, dict) and set(value) == keys, code)
+    require(value["coordinateSpace"] == "target-component-local", code)
+    require(all(_finite(value[key]) for key in ("x", "y", "width", "height")), code)
+    require(value["width"] > 0 and value["height"] > 0, code)
+    require(value["x"] >= 0 and value["y"] >= 0 and
+            value["x"] + value["width"] <= width and
+            value["y"] + value["height"] <= height, code)
+
+
+def _validate_progress_state(binding: dict, node: dict) -> None:
+    """Validate the exact native ProgressBar state vocabulary.
+
+    The consumer accepts a complete full-range fill template and clips it at
+    runtime.  It does not accept a provider-specific state image or an
+    alternate fill direction in this route.
+    """
+    states = binding.get("states")
+    require(isinstance(states, dict) and set(states) == {"progressBar"},
+            "NATIVE_PROGRESS_STATE")
+    state = states["progressBar"]
+    require(isinstance(state, dict) and set(state) == {"sourceState", "fillClip"},
+            "NATIVE_PROGRESS_STATE_FIELDS")
+    require(state["sourceState"] == "full-range-template",
+            "NATIVE_PROGRESS_FULL_RANGE_TEMPLATE")
+    clip = state["fillClip"]
+    require(isinstance(clip, dict) and set(clip) == {
+        "coordinateSpace", "anchor", "direction", "x", "y", "width", "height",
+    }, "NATIVE_PROGRESS_FILL_CLIP")
+    require(clip["anchor"] == "top-left" and clip["direction"] == "left-to-right",
+            "NATIVE_PROGRESS_FILL_CLIP")
+    _validate_target_layout(clip, node["layout"]["width"], node["layout"]["height"],
+                            "NATIVE_PROGRESS_FILL_CLIP", extra={"anchor", "direction"})
+
+
+def _material_local_rect(layer_id: str, component_id: str, materials: dict[str, dict],
+                         rects: dict[str, list[float]] | None) -> list[float]:
+    rect = materials[layer_id]["rect"]
+    if rects is None:
+        return list(rect)
+    origin = rects[component_id]
+    return [rect[0] - origin[0], rect[1] - origin[1], rect[2], rect[3]]
+
+
+def _validate_scroll_state(binding: dict, node: dict, materials: dict[str, dict],
+                           rects: dict[str, list[float]] | None) -> None:
+    """Validate the consumer's vertical ScrollView appearance contract.
+
+    Track/thumb source dimensions are represented by the authored material
+    rectangles at this stage.  The producer still rechecks decoded PNG sizes
+    and all resource fingerprints during handoff/import.
+    """
+    props = node["props"]
+    require(props.get("scrollX") == 0 and
+            props.get("contentWidth") <= node["layout"]["width"],
+            "NATIVE_SCROLL_VERTICAL_ONLY")
+    if props.get("contentHeight") <= node["layout"]["height"]:
+        require(props.get("scrollbarVisibility") in {"auto", "always"},
+                "NATIVE_SCROLL_VISIBILITY_REQUIRED")
+
+    states = binding.get("states")
+    require(isinstance(states, dict) and set(states) == {"scrollView"},
+            "NATIVE_SCROLL_STATE")
+    state = states["scrollView"]
+    require(isinstance(state, dict) and set(state) <= {
+        "thumbPositions", "scrollbarInsets", "scrollbarThumbSlices",
+    } and "thumbPositions" in state, "NATIVE_SCROLL_STATE_FIELDS")
+    positions = state["thumbPositions"]
+    require(isinstance(positions, dict) and set(positions) == {
+        "coordinateSpace", "anchor", "min", "max",
+    }, "NATIVE_SCROLL_THUMB_POSITIONS")
+    require(positions["coordinateSpace"] == "target-component-local" and
+            positions["anchor"] == "top-left", "NATIVE_SCROLL_THUMB_POSITIONS")
+    minimum, maximum = positions["min"], positions["max"]
+    require(isinstance(minimum, dict) and set(minimum) == {"x", "y"} and
+            isinstance(maximum, dict) and set(maximum) == {"x", "y"} and
+            all(_finite(point[key]) for point in (minimum, maximum) for key in ("x", "y")),
+            "NATIVE_SCROLL_THUMB_POSITIONS")
+    require(minimum["x"] == maximum["x"] and maximum["y"] > minimum["y"],
+            "NATIVE_SCROLL_AXIS")
+
+    track_layer = next(part["layerId"] for part in binding["parts"]
+                       if part["role"] == "scrollbar-track")
+    thumb_layer = next(part["layerId"] for part in binding["parts"]
+                       if part["role"] == "scrollbar-thumb")
+    track = _material_local_rect(track_layer, node["id"], materials, rects)
+    thumb = materials[thumb_layer]["rect"]
+    require(track[2] > 0 and track[3] > 0 and thumb[2] > 0 and thumb[3] > 0,
+            "NATIVE_SCROLL_GEOMETRY")
+    for point in (minimum, maximum):
+        require(point["x"] >= track[0] and
+                point["x"] + thumb[2] <= track[0] + track[2] and
+                point["y"] >= track[1] and
+                point["y"] + thumb[3] <= track[1] + track[3],
+                "NATIVE_SCROLL_THUMB_BOUNDS")
+
+    if "scrollbarInsets" in state:
+        from .scrollbar_insets import validate_insets
+        validate_insets(state["scrollbarInsets"], track[3], thumb[3])
+    if "scrollbarThumbSlices" in state:
+        from .scrollbar_thumb_slices import validate_thumb_slices
+        validate_thumb_slices(state["scrollbarThumbSlices"], thumb[3],
+                              "scrollbarInsets" in state)
+
+
 def _layer_refs(value: object, refs: list[str]) -> None:
     if isinstance(value, dict):
         for key, child in value.items():
@@ -268,7 +386,8 @@ def _layer_refs(value: object, refs: list[str]) -> None:
 
 
 def _validate_appearance(appearance: object, document: dict, by_id: dict[str, dict],
-                         materials: dict[str, dict], source_size: list[int]) -> None:
+                         materials: dict[str, dict], source_size: list[int],
+                         rects: dict[str, list[float]] | None = None) -> None:
     require(isinstance(appearance, dict) and set(appearance) == {"registration", "bindings"},
             "NATIVE_APPEARANCE_SCHEMA")
     _validate_registration(appearance["registration"], source_size, document["canvas"])
@@ -323,6 +442,10 @@ def _validate_appearance(appearance: object, document: dict, by_id: dict[str, di
             require(materials[layer]["componentId"] == cid and
                     materials[layer]["componentType"] == kind, "NATIVE_LAYER_OWNER_MISMATCH")
             bound_layers.add(layer)
+        if kind == "ProgressBar":
+            _validate_progress_state(binding, by_id[cid])
+        elif kind == "ScrollView":
+            _validate_scroll_state(binding, by_id[cid], materials, rects)
     # Every material is an explicit layer binding; there is no implicit art
     # assignment based on component names or order.
     require(bound_layers == set(materials), "NATIVE_APPEARANCE_LAYER_COVERAGE")
@@ -438,7 +561,7 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     materials = _validate_materials(request["materials"], document, by_id, rects)
     visible_geometry_requirements = validate_visible_geometry_requirements(
         request, set(materials))
-    _validate_appearance(request["appearance"], document, by_id, materials, proof["size"])
+    _validate_appearance(request["appearance"], document, by_id, materials, proof["size"], rects)
     if request["version"] == "1.2" and request["derivedGlyphs"]:
         require(source.suffix.lower() == ".png", "NATIVE_GLYPH_REFERENCE_PNG_REQUIRED")
     glyph_envelope = planned_glyphs.compile_recipes(
@@ -476,6 +599,8 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
     for cid in required_text:
         specs=[s for s in visual['texts'] if s.get('componentId')==cid and 'geometry' in s]
         require(bool(specs),'NATIVE_TEXT_GEOMETRY_MISSING')
+    from .layout_gate import require_planning_coverage
+    require_planning_coverage(document,request['layoutRequirements'],visual)
     for spec in visual['texts']:
         require(isinstance(spec,dict) and spec.get('componentId') in by_id,'NATIVE_TEXT_OBSERVATION_ID')
         if 'geometry' not in spec:continue
@@ -577,10 +702,19 @@ def compile_native_delivery(reference, request, output, component_root, maximum_
         marker = f"component-family-board-v1:{strategy['digest']}:{group}"
         native_marker = f"native-layer-binding-v1:{appearance_digest}:{group}"
         board=strategy['boards'][0]
+        if board['extraction_policy'].get('separation_basis') == 'mixed-height':
+            ratio = board['extraction_policy']['max_internal_gap_ratio']
+            parts += (f'; External gutters between adjacent assets must be at least '
+                      f'max(floor(max(left ink height,right ink height)*{ratio})+2, '
+                      f'ceil(min(left ink height,right ink height)*{ratio}*4)) pixels. '
+                      'This external clearance is separate from declared internal glyph gaps.')
         if board['extraction_policy']['version'] in {'1.3','1.4'}:
             parts += '; Explicit disconnected glyph structure: ' + '; '.join(
                 f"{g['asset_id']}: {g['column_groups']} columns by {g['row_groups']} rows of disconnected strokes, internal gaps at most {g['max_internal_gap_ratio']} of glyph height"
                 for g in board['extraction_policy']['disconnected_glyphs'])
+            parts += ('; External glyph gutters must also exceed floor(max(each adjacent ink height '
+                      'times its declared internal gap ratio))+1 pixels; undeclared assets use '
+                      f"{board['extraction_policy']['max_internal_gap_ratio']} as their ratio.")
         if board['extraction_policy']['version'] in {'1.1', '1.2', '1.3', '1.4', '1.5'}:
             native_marker += ' component-family-content-gap-v1.1'
         windows='; '.join(f"{slot['asset_id']}: {slot['search_window']}" for slot in board['slots'])

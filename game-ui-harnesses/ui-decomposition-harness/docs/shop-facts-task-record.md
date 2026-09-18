@@ -1,5 +1,31 @@
 # Compact shop planning integration
 
+2026-09-17 staged DAG repair: new repository jobs freeze deliveryProfile
+staged-draft-v1 at creation. Process builds and validates the real default preview;
+the controller yields awaiting_review before review and the independent full
+acceptance node. Rejected/changed preview never starts expensive acceptance.
+After technical state/layout and Studio pass, authenticated reference-blocked
+receipts with nonempty unknowns and no failed comparisons can produce only
+completed_diagnostic_draft, unchanged archive plus explicit diagnostics/evidence.
+No unknown, reference scope, receipt or acceptance threshold is rewritten.
+Existing frozen jobs are not migrated. Full offline regression: 608 tests,
+589 passed, 19 skipped, 126.839 seconds process elapsed. No media/service calls.
+Fresh Skyport formal replay r002 confirms the new immutable profile through
+compile/freeze in 5.054638 seconds wall time, awaiting authorization; actual
+new-artwork browser delivery remains unexecuted. Evidence lives in
+work/ui-decomposition/workflow-staged-repair-20260917-r001/修补报告.md.
+
+2026-09-17 timing follow-up: added the local append-only phase timeline and
+main CLI --timeline/--timing-category integration. Start at reference input and
+record planning, authorization waiting, media calls, processing, review, code/
+environment repairs, tests, packaging and acceptance through final handoff.
+Reports include UTC boundaries, whole elapsed, phase/category tables, original/
+package hashes, unclassified gaps and clock consistency. Parallel child detail
+is not summed twice. No generation or acceptance policy changes. Five new timing
+tests plus nine public-runtime regressions passed (14 total); no media/services
+were called. Historical Skyport timing audit explicitly marks missing boundaries;
+legacy elapsed records do not establish complete end-to-end wall time.
+
 The observed failure was a large model-authored native document copied from an
 earlier sample: duplicate IDs, row child bounds outside the available row height,
 and unrelated material descriptions survived until native preflight. This work
@@ -118,3 +144,87 @@ CLI import passed for draft SHA-256
 The Chinese 验收报告-r005.md links all raw, reference, runtime and Studio evidence
 and explicitly retains the selected-fill and registration defects. No human
 visual pass is claimed.
+
+Selected-row continuation (2026-09-17): one fresh plan-bound authorization was
+consumed for one selected-only material, zero retries. Pale-blue fill now comes
+from the returned artwork. Added measuredFrames 1.2 protected_grid: authenticated
+support, uniform rational downscale, preserved corner/mark cells and divider
+width, explicit stretch-safe grid bands. It does not recognize image semantics,
+recolor pixels or infer visual acceptance. Existing 1.0/1.1 behavior remains.
+Six new offline tests cover protected geometry, rejects and repeatable official
+source-region revision. Full regression: 588 tests, 569 passed, 19 skipped,
+126.252 seconds process elapsed. The initial incomplete Python/fixture-path
+environment failure is retained; corrected existing offline environment passed
+without installing dependencies or changing application logic to hide failures.
+
+The sample list-selected-repair-20260917-r003/integration-r001 under the existing
+Skyport visual-repair work directory changes only selected-row material bytes.
+Default artwork was inspected before full browser acceptance. Actual acceptance:
+1493 linkage checks, 37 state/interaction records, 11 Studio checks and isolated
+official CLI import passed. Original reference/state bytes and mapping unchanged.
+Generation took 35.241 seconds; full acceptance 499.641 seconds (314.203 state/layout,
+138.438 Studio, 46.921 reference). Reference remains blocked by the same five
+unknown Input fields, human_visual_acceptance=false. The unreviewed draft SHA is
+c615b20f45a9283c2792f2b07511b7e79d74425497e4c6e4acd7b01204c13855.
+Check shape/texture, gold search icon, product Alpha, font and Panel differences
+remain explicit in the Chinese report. No accepted final publish is claimed.
+# 2026-09-17：批次结束后统一素材预检
+
+用户要求单张质量失败不再打断整批生成。新 repository workflow 默认冻结
+`materialPreflight:"after-generation-v1"`，两种传输先收齐预算内图片，process
+统一报告每张图的输出语义、底色和几何问题及耗时。待检/失败素材不能提取或复用，
+任一失败阻止预览和交付。授权、来源完整性与不明结果仍即时停止；旧任务不迁移。
+正式合同见 [batch material preflight](batch-material-preflight-v1.md)。
+本轮完整离线回归 620 项，601 通过、19 跳过；新增 7 项定向检查通过。
+本地证据在 `work/ui-decomposition/deferred-preflight-repair-20260917-r001/`，没有生成调用。
+# Current Skyport material-repair baseline (rechecked 2026-09-17)
+
+Use `visual-repair-20260917-r001/list-selected-repair-20260917-r003/integration-r001`
+under the Skyport live work directory as the latest integrated List-repair
+baseline, not `isolated-r005`. The selected pale-blue fill, reduced mark width
+and divider alignment were already repaired and accepted technically there.
+The current draft SHA-256 is
+`c615b20f45a9283c2792f2b07511b7e79d74425497e4c6e4acd7b01204c13855`.
+The later nine-image speed replays and two-image orchestration check are separate
+experiments; they do not supersede this integrated delivery.
+
+A read-only recovery audit verified actual ZIP SHA/CRC, packaged reference and
+reference-state equality with r005, and delivery receipt source identity.
+The side-by-side runtime image was inspected again: selected fill and alignment
+are improved; check shape/texture, gold search icon, product Alpha, fonts and
+Panel differences remain. Reference is still blocked by five Input unknowns;
+human_visual_acceptance remains false. No media or browser checks were rerun.
+Audit evidence: `work/ui-decomposition/skyport-baseline-audit-20260917-r001/`.
+
+## Quest Journal explicit recovery (2026-09-18)
+
+The 18-call replay's failed material quality records remain unchanged. Added the
+formal reviewed-material-recovery producer, native Alpha source-region extraction,
+same-tab glyph layer aliases, earlier long-control checks and planning owner
+coverage. No additional media calls were made. Default preview and official
+reference save/reopen/export/import checks pass technically; reference comparison
+remains blocked by unknown ScrollView offsets. Visual review fails: icons are
+smaller than the old package and the generated right note background is missing.
+Do not promote this diagnostic draft over the old package or call it accepted.
+Evidence: `work/ui-decomposition/quest-journal-formal-replay-20260917-r001/repair-r001/`.
+The recovery contract is [reviewed material recovery](reviewed-material-recovery-v1.md).
+
+Quest follow-up repair-r003 used one newly authorized opaque background request
+(zero retries), restoring the missing note/clasp while preserving every other
+processed material hash. The formal verified-background-replacement refit binds
+the new received/processed source and its plan identity. Full sample checks passed:
+1196 real-input checks across 40 records, 18 Studio checks, isolated CLI import,
+and byte-identical reference evidence. Reference comparison remains blocked by
+ScrollView scrollX/scrollY unknowns; visual differences remain. The package is a
+diagnostic draft, not visual acceptance. Exact evidence and phase timings are in
+`work/ui-decomposition/quest-journal-formal-replay-20260917-r001/repair-r003/`.
+
+Closeout verification: full offline unittest discovery ran 656 cases in 214.544s,
+637 passed and 19 opt-in browser cases skipped, with no failures. The existing
+sample browser/Studio receipts were retained rather than rerun. The latest draft
+SHA-256 is `ba7759a232d17b484056e88651aac952caa070d6ea902f4b39986d8128a5fc7f`;
+ZIP CRC and original-reference identity were rechecked. The source/API/test coverage
+matrix, cumulative pending-file inventory and remaining visual differences are in
+`work/ui-decomposition/quest-journal-formal-replay-20260917-r001/closeout-r001/`.
+No generation, commit or push occurred during closeout. Explicit repair APIs are
+implemented; automatic semantic repair in the repository DAG is not claimed.

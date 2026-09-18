@@ -15,6 +15,9 @@ from .process import process, review_template
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description="Opt-in deterministic UI decomposition Harness")
     root.add_argument("--version", action="version", version=__version__)
+    root.add_argument('--timeline', type=Path, help='Existing phase timeline; record command and unclassified gaps')
+    from .timeline import CATEGORIES
+    root.add_argument('--timing-category', choices=sorted(CATEGORIES), default='unclassified')
     commands = root.add_subparsers(dest="command", required=True)
     consolidated=commands.add_parser('consolidated-delivery',help='Join digest-bound generated runs and execute official acceptance; no media')
     for name in ('plan','workspace','component-root','output'):consolidated.add_argument('--'+name,required=True,type=Path)
@@ -29,6 +32,10 @@ def parser() -> argparse.ArgumentParser:
     workflow_advance.add_argument('--max-nodes',type=int,default=8)
     workflow_status=commands.add_parser('workflow-status',help='Verify local DAG receipts, no compute')
     workflow_status.add_argument('--job',required=True,type=Path)
+    loop_export=commands.add_parser('workflow-export-loop',help='Export packaged Windows tool-host entry; no generation or authorization')
+    for name in ('job','output','output-root'):loop_export.add_argument('--'+name,required=True,type=Path)
+    loop_export.add_argument('--python',type=Path)
+    loop_export.add_argument('--node',default='node')
     workflow_auth=commands.add_parser('workflow-authorize',help='Explicitly authorize one frozen job by plan digest')
     workflow_auth.add_argument('--job',required=True,type=Path)
     workflow_auth.add_argument('--plan-digest',required=True)
@@ -37,6 +44,10 @@ def parser() -> argparse.ArgumentParser:
     workflow_recover.add_argument('--node',required=True,choices=['compile','compile_repaired'])
     bridge_export=commands.add_parser('workflow-export-generation',help='Assign next authorized generation request once; no media calls')
     bridge_export.add_argument('--job',required=True,type=Path)
+    exchange=commands.add_parser('workflow-exchange-generation',help='Receive previous image and return next exact invocation arguments; no media calls')
+    exchange.add_argument('--job',required=True,type=Path)
+    exchange.add_argument('--request-digest')
+    exchange.add_argument('--source',type=Path)
     bridge_receive=commands.add_parser('workflow-receive-generation',help='Verify and receive one externally generated PNG; no resubmission')
     bridge_receive.add_argument('--job',required=True,type=Path)
     bridge_receive.add_argument('--request-digest',required=True)
@@ -214,6 +225,12 @@ def execute(args) -> dict:
         if args.command=='workflow-export-generation':
             from .workflow_bridge import export_generation
             return export_generation(args.job)
+        if args.command=='workflow-export-loop':
+            from .loop_entry import export_loop
+            return export_loop(args.job,args.output,args.output_root,args.python,args.node)
+        if args.command=='workflow-exchange-generation':
+            from .workflow_exchange import exchange
+            return exchange(args.job,request_digest=args.request_digest,source=args.source)
         if args.command=='workflow-record-submission':
             from .workflow_bridge import record_submission
             return record_submission(args.job,args.request_digest,args.arguments)
@@ -366,9 +383,17 @@ def execute(args) -> dict:
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
     try:
-        result = execute(args)
+        if args.timeline:
+            from .timeline import measured
+            with measured(args.timeline, args.command, args.timing_category):
+                result = execute(args)
+        else:
+            result = execute(args)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-        return 2 if result.get("status") in {"failed", "blocked_reference", "failed_no_resubmit", "failed_visual_qa", "needs_repair", "capability_blocked", "timed_out", "indeterminate", "rejected"} else 0
+        status = result.get('status')
+        if args.command == 'workflow-exchange-generation':
+            status = status.get('status') if isinstance(status, dict) else status
+        return 2 if status in {"failed", "blocked_reference", "failed_no_resubmit", "failed_visual_qa", "needs_repair", "capability_blocked", "timed_out", "indeterminate", "rejected"} else 0
     except ContractError as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc)}, ensure_ascii=False, sort_keys=True))

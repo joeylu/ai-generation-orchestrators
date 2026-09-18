@@ -21,6 +21,7 @@ def receive_generation(job,request_digest,source):
 
 
 class WorkflowBridgeTests(unittest.TestCase):
+    preflight_mode = 'per-image-v1'
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.base=Path(self.tmp.name)
         ref=self.base/'reference.png';Image.new('RGB',(200,160),'#102030').save(ref)
@@ -29,7 +30,7 @@ class WorkflowBridgeTests(unittest.TestCase):
         consumer=Path(__file__).resolve().parents[2]/'ui-component-harness'
         response=dict(draft=draft(),observations=dict(version='delivery-observations-1',referenceSha256=sha256(ref),geometryCorrections=[],panelFooters=[dict(componentId='panel',innerBottom=140,minimumGap=8,evidence='Fixture measured boundary')],materials=[dict(componentId='panel',description='Empty panel'),dict(componentId='action',description='Empty button')]))
         self.job=self.base/'job'
-        w.create_job(ref,self.job,factory='ai_ui_decomposition.repository_workflow:create',options=dict(componentRoot=str(consumer),response=response,generationMode='file'),maximum_calls=4,stage_timeout=60)
+        w.create_job(ref,self.job,factory='ai_ui_decomposition.repository_workflow:create',options=dict(componentRoot=str(consumer),response=response,generationMode='file',materialPreflight=self.preflight_mode),maximum_calls=4,stage_timeout=60)
         self.assertEqual(w.advance(self.job,allow_vision=True)['status'],'awaiting_authorization')
     def tearDown(self):self.tmp.cleanup()
     def authorize(self):

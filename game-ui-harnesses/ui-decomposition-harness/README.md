@@ -4,6 +4,27 @@
 route. Its unattended route has an automatic visual-quality gate, but that gate is
 not a human reviewer.**
 
+For the Windows tool-host file-generation workflow, the formal entry is
+`workflow-export-loop`: after fresh plan-bound authorization, it exports the
+packaged continuous serial execution script, including official receive/dispatch,
+durable response transport, image-byte verification and phase timing. Execute
+that script unchanged in the tool host; the CLI itself does not invoke the
+built-in image tool. See [continuous generation](docs/continuous-generation-loop-v1.md).
+Generation completion still requires material preflight, default-preview review
+and the applicable acceptance gates before delivery. This route is opt-in and
+does not migrate existing provider jobs or imply human visual acceptance.
+
+For an already received failed batch, the explicit offline
+[reviewed recovery entry](docs/reviewed-material-recovery-v1.md) preserves the
+original failed quality records and revalidates reviewed source-region/Alpha
+transformations. [Processed-material refit](docs/material-refit-v1.md) supports
+bounded geometry correction and a separately verified opaque background replacement.
+These are formal opt-in repair modules, not automatic repair decisions in the
+repository DAG. Their `prepare_preview` integration still runs ordinary import,
+layout and default-browser checks before the full delivery entry. Source regions,
+safe patches and semantic visual differences require review; technical success
+never establishes human visual acceptance.
+
 This package turns a UI decomposition plan plus locally materialized component
 images into a layered PSD. The development headless entry can also obtain a plan
 and images through a configured optional provider. It keeps only important editable or reusable

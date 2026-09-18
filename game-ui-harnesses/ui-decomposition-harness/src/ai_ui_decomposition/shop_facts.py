@@ -45,6 +45,10 @@ def planning_instruction(reference_sha256: str, canvas: list[int] | dict[str, in
         "search behavior and any changed row pitch. This profile supports only one Panel, Tabs, one search "
         "Input, one sort Select, one uniform List, and a footer with selected name, quantity, total, checkbox, "
         "two buttons and slogan. Unsupported or ambiguous layouts must be reported as unsupportedProfile.\n"
+        "For a directly observed disconnected rectangular tab glyph grid, include optional glyphStructure "
+        "with columnGroups and rowGroups (integers 2..4), maxInternalGapRatio (positive, at most 0.25 "
+        "of glyph height), and nonempty source observation evidence. Do not infer topology from its name "
+        "or expected board slot count. Omit this field for connected glyphs; ambiguous topology is unsupported. "
         f"Bind source.sha256 to {reference_sha256} and source.canvas to {size}. "
         "The following self-contained structural example is synthetic: replace all observed values, geometry and semantics from the new image; never copy its content. "
         + json.dumps(synthetic_facts(reference_sha256, [640,480]), ensure_ascii=False, separators=(",", ":"))
@@ -170,7 +174,10 @@ def _validate_facts(reference: Path, facts: dict) -> tuple[list[int], str, str]:
     require(isinstance(tabs["items"], list) and 2 <= len(tabs["items"]) <= 8, "SHOP_FACTS_TABS")
     tab_ids, selected_tabs, all_tabs = set(), 0, 0
     for index, tab in enumerate(tabs["items"]):
-        _exact(tab, {"id", "label", "labelBounds", "glyphDescription", "glyphBounds", "glyphPaletteRects", "category", "selected", "bounds"}, f"tabs.items[{index}]")
+        _exact(tab, {"id", "label", "labelBounds", "glyphDescription", "glyphBounds", "glyphPaletteRects", "category", "selected", "bounds"}, f"tabs.items[{index}]", optional={"glyphStructure"})
+        if "glyphStructure" in tab:
+            from .shop_facts_contracts import glyph_policy
+            glyph_policy([tab])  # Use the extraction contract's bounded topology validation.
         identifier(tab["id"]); require(tab["id"] not in tab_ids, "SHOP_FACTS_DUPLICATE_ID"); tab_ids.add(tab["id"])
         require(isinstance(tab["label"], str) and tab["label"].strip() and isinstance(tab["glyphDescription"], str) and tab["glyphDescription"].strip(), "SHOP_FACTS_TAB_TEXT")
         require(type(tab["selected"]) is bool, "SHOP_FACTS_TAB_SELECTED")

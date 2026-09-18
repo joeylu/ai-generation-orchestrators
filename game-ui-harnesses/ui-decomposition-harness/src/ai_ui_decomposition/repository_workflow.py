@@ -25,7 +25,9 @@ def compile_error(exc):
 
 class RepositoryWorkflow:
     def __init__(self, options):
-        require(isinstance(options,dict) and 'componentRoot' in options and set(options)<={'componentRoot','response','providerConfig','generationMode','reviewMode','planningProfile'},'REPOSITORY_WORKFLOW_OPTIONS')
+        require(isinstance(options,dict) and 'componentRoot' in options and set(options)<={'componentRoot','response','providerConfig','generationMode','reviewMode','planningProfile','deliveryProfile','materialPreflight'},'REPOSITORY_WORKFLOW_OPTIONS')
+        require(options.get('materialPreflight','per-image-v1') in ('per-image-v1','after-generation-v1'),'MATERIAL_PREFLIGHT_MODE')
+        require(options.get('deliveryProfile','legacy-v1') in ('legacy-v1','staged-draft-v1'),'REPOSITORY_DELIVERY_PROFILE')
         require(options.get('planningProfile','vision-draft-1') in ('vision-draft-1','shop-facts-v1'),'REPOSITORY_PLANNING_PROFILE')
         require(options.get('generationMode','provider') in ('provider','file'),'REPOSITORY_GENERATION_MODE')
         require(options.get('reviewMode','provider') in ('provider','file'),'REPOSITORY_REVIEW_MODE')
@@ -42,7 +44,10 @@ class RepositoryWorkflow:
         def files(data=None,status='ok'):
             # Hash every authored output, including plans/strategies/evidence snapshots.
             return dict(status=status,data=data or {},artifacts={f'file-{i:04d}':p.relative_to(out).as_posix() for i,p in enumerate(sorted(out.rglob('*'))) if p.is_file()})
-        def result(data, refs):return dict(status='ok',data=data,artifacts=refs)
+        def result(data, refs):
+            if node == 'process' and (out/'material-preflight.json').is_file():
+                refs = {**refs, 'material-preflight':'material-preflight.json'}
+            return dict(status='ok',data=data,artifacts=refs)
         reference=safe_relative(job,c['spec']['reference'])
         def provider():
             from .headless import load_provider
@@ -82,7 +87,7 @@ materials covers each Panel/Image/Button exactly once, with an English empty-art
         comp='compile_repaired' if 'compile_repaired' in c['receipts'] else 'compile'
         compiled=artifact(comp,'plan').parent
         if node=='freeze':
-            frozen=batch.freeze(compiled/'plan.json',out/'workspace','generation',capability_request=compiled/'capabilities.json',component_document=compiled/'semantic-document.json',layout_spacing=compiled/'layout-spacing.json')
+            frozen=batch.freeze(compiled/'plan.json',out/'workspace','generation',capability_request=compiled/'capabilities.json',component_document=compiled/'semantic-document.json',layout_spacing=compiled/'layout-spacing.json',material_preflight=self.options.get('materialPreflight','per-image-v1'))
             _copy(compiled/'plan.json',out/'plan.json')
             r=files(dict(planDigest=digest(read_json(compiled/'plan.json')),maximumCalls=frozen['maximum_calls']))
             # Freeze artifacts must not include request state that changes on receive.
@@ -103,7 +108,8 @@ materials covers each Panel/Image/Button exactly once, with an English empty-art
                     raw=p.generate(bundle,state_dir=job/'private'/key,timeout=remaining)
                     seal_result(bundle,raw)
                     from .material_preflight import check_material
-                    check_material(compiled,key,bundle/'result.png')
+                    if self.options.get('materialPreflight') != 'after-generation-v1':
+                        check_material(compiled,key,bundle/'result.png')
                     import_result(run,bundle)
                 except Exception:
                     current,_=batch.load(run)
@@ -112,6 +118,18 @@ materials covers each Panel/Image/Button exactly once, with an English empty-art
             write_json(out/'generation.json',dict(requests=len(frozen['dispatch_order']),batchDigest=frozen['digest'],automaticRetries=0))
             return result({}, {'generation':'generation.json'})
         if node=='process':
+            if self.options.get('materialPreflight') == 'after-generation-v1':
+                from .material_preflight import check_batch
+                quality=check_batch(compiled,run,out/'material-preflight.json')
+                if quality['status'] != 'passed':
+                    return dict(status='failed',data=dict(errorCode='BATCH_MATERIAL_PREFLIGHT_FAILED',
+                        failedMaterials=quality['failed'],human_visual_acceptance=False),
+                        artifacts={'material-preflight':'material-preflight.json'})
+            if self.options.get('deliveryProfile')=='staged-draft-v1':
+                from .workflow_preview import prepare_preview
+                prepared=prepare_preview(compiled,run,root,out/'preview',max(1,int(seconds)))
+                return result(dict(human_visual_acceptance=False,acceptance='preview_only'),
+                    {key:path.relative_to(out).as_posix() for key,path in prepared.items()})
             from .handoff_build import build_and_run
             plan_path=prepare_handoff(compiled,run,out/'prepared',root)
             report=build_and_run(plan_path,root,out/'acceptance',timeout_seconds=max(1,int(seconds)))
@@ -131,6 +149,37 @@ materials covers each Panel/Image/Button exactly once, with an English empty-art
             description=provider().visual_qa(reference,artifact('process','preview'),artifact('process','contact'),instruction,state_dir=job/'private/review',timeout=seconds)
             receipt=write_receipt(out/'review.json',description,asset_ids=ids,plan_digest=digest(plan),materials_digest=sha256(artifact('process','contact')),reference=reference,preview=artifact('process','preview'),contact_sheet=artifact('process','contact'))
             return result(dict(decision='accept' if receipt['outcome']=='passed' else 'reject',human_visual_acceptance=False),{'review':'review.json'})
+        if node=='acceptance':
+            require(self.options.get('deliveryProfile')=='staged-draft-v1','REPOSITORY_DELIVERY_PROFILE')
+            require(c['receipts']['review']['data']['decision']=='accept','REPOSITORY_REVIEW_REQUIRED')
+            from .delivery_pipeline import run_delivery
+            from .workflow_diagnostics import classify_delivery
+            plan_path=artifact('process','run_plan')
+            run_delivery(plan_path,root,out/'acceptance',max(1,int(seconds)))
+            outcome=classify_delivery(out/'acceptance/delivery-run.json',sha256(artifact('process','candidate')))
+            r=files({k:v for k,v in outcome.items() if k!='candidate'})
+            r['artifacts'].update(acceptance='acceptance/delivery-run.json',candidate=outcome['candidate'].relative_to(out).as_posix())
+            return r
+        if node=='deliver' and self.options.get('deliveryProfile')=='staged-draft-v1':
+            from .workflow_diagnostics import classify_delivery
+            require(c['receipts']['review']['data']['decision']=='accept','REPOSITORY_REVIEW_REQUIRED')
+            receipt_path=artifact('acceptance','acceptance')
+            outcome=classify_delivery(receipt_path,sha256(artifact('process','candidate')))
+            target=_copy(outcome['candidate'],out/'ui.component-handoff.draft.zip')
+            refs={'delivery':target.name}
+            data={k:v for k,v in outcome.items() if k!='candidate'}
+            if outcome['acceptance']=='blocked_reference':
+                # Separate sidecar: never mutate the original archive or make a
+                # reference-blocked artifact look like an accepted final ZIP.
+                write_json(out/'diagnostic.json',dict(kind='ui_workflow_diagnostic_draft_v1',
+                    **data,packageSha256=sha256(target),acceptedFinal=False))
+                refs['diagnostic']='diagnostic.json'
+                for name,source in [('delivery-run.json',receipt_path),
+                    ('reference-report.json',receipt_path.parent/'reference/report.json'),
+                    ('state-acceptance.json',receipt_path.parent/'stateful/acceptance.json'),
+                    ('studio-receipt.json',receipt_path.parent/'studio/receipt.json')]:
+                    _copy(source,out/name);refs[name.removesuffix('.json')]=name
+            return result(data,refs)
         if node=='deliver':
             receipt=read_json(artifact('process','acceptance'));require(receipt['status']=='machine_checks_passed_human_review_required','REPOSITORY_ACCEPTANCE_CHANGED')
             require(c['receipts']['review']['data']['decision']=='accept','REPOSITORY_REVIEW_REQUIRED')

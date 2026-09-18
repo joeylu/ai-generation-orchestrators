@@ -114,6 +114,7 @@ class ShopWorkflowProfileTests(unittest.TestCase):
                 options=dict(componentRoot=str(consumer), response=facts,
                              planningProfile='shop-facts-v1', generationMode='file'),
                 maximum_calls=9, stage_timeout=60)
+            self.assertEqual(read_json(job/'job.json')['options']['deliveryProfile'],'staged-draft-v1')
             result = workflow.advance(job, allow_vision=True, max_nodes=2)
             compiled_receipt = read_json(job / 'nodes/compile/receipt.json')
             self.assertEqual(compiled_receipt['status'], 'ok', compiled_receipt.get('data'))

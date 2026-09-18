@@ -635,3 +635,18 @@ and Studio roundtrip stages. A generated row can pass distinctness and geometry
 checks while omitting its observed fill; retain this as a visual defect, not a
 technical failure waiver or a claim of full reference restoration. This is a
 planning/review rule, not an automatic semantic color recognition capability.
+# Disconnected tab glyph observations
+
+`tabs.items[].glyphStructure` is an optional bounded source observation with exactly
+`columnGroups`, `rowGroups` (integers 2–4), `maxInternalGapRatio` (positive, at most
+0.25 of glyph height), and nonempty `evidence` (at most 1000 characters).
+Declare it only for an observed disconnected rectangular grid. Names, expected
+slot counts, and provider output do not establish source topology.
+
+The compiler maps the declaration to the generated canonical glyph: selected
+tabs use `tab-icon-{id}-active`, others `tab-icon-{id}`. The finalized `shop-tabs`
+board uses extraction 1.3 and preserves the declaration in its hashed strategy
+and generation prompt. Other families and facts without declarations retain 1.2.
+The global 0.08 internal gap cap and external separation gates are unchanged.
+Mixed-height generation prompts state the actual external gutter bound. Correct
+grid grouping does not imply that a dense returned board passes separation.

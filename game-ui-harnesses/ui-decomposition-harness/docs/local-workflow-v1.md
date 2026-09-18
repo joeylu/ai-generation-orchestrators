@@ -22,6 +22,36 @@ validated facts to 15 KiB; semantic accuracy still requires observation review.
 
 ## Implemented graph
 
+New repository jobs default to the immutable option
+`deliveryProfile:"staged-draft-v1"` at **job creation**, before job hashing:
+
+`vision -> compile -> freeze -> authorization -> generate -> process(default preview) -> awaiting_review -> review -> acceptance -> deliver`
+
+`process` builds the self-contained v2 candidate, runs deterministic import/layout
+checks and captures the actual default runtime with visual-observation checks.
+It does not run the full linkage/state browser, Studio or reference comparison.
+The controller always yields `awaiting_review` after this node, even in provider
+review mode. A subsequent explicit advance (with vision permission), or existing
+file `workflow-export-review`/`workflow-receive-review`, reviews the immutable
+reference/runtime/contact bundle. Reject/unknown stops before expensive checks.
+An accepted model review remains `human_visual_acceptance:false`.
+
+Only then does the independent `acceptance` node run the existing full delivery
+entry. It binds its candidate hash back to the reviewed preview's candidate.
+Technical or visual failure remains terminal. Reference status `blocked` with
+nonempty unknownFields and zero failed comparisons may advance **only after**
+state/layout and Studio pass with authenticated receipts. Delivery copies the
+unchanged diagnostic candidate plus `diagnostic.json`, reference report and
+technical receipts; terminal state is `completed_diagnostic_draft`, with
+`acceptance:"blocked_reference"`, `acceptedFinal:false` and human acceptance false.
+No unknown values, scope, reference bytes or acceptance thresholds are changed.
+Reference passed remains the distinct `completed_draft` path.
+
+Existing jobs lacking this option keep their original graph. Explicit
+`deliveryProfile:"legacy-v1"` is available for compatibility. Do not modify a
+frozen job to migrate it; create a new job with fresh authorization. The legacy
+graph below still applies to those jobs and to the original test adapter:
+
 `vision -> compile -> freeze -> authorization -> generate -> process -> review -> deliver`
 
 A rejected compilation expands exactly once into `repair -> compile_repaired`.
@@ -56,7 +86,8 @@ successful-delivery guarantee. Do not route user artwork through the test adapte
 
 ### Repository adapter preflight
 
-Trusted options are `componentRoot`, optional `response` (a supplied MCP response
+Trusted options are `componentRoot`, optional `deliveryProfile` (staged/legacy as
+described above), optional `response` (a supplied MCP response
 for offline preflight) and optional `providerConfig` in the existing Provider config
 format, plus `generationMode:"provider"|"file"`, `reviewMode:"provider"|"file"` (default provider), and `planningProfile:"vision-draft-1"|"shop-facts-v1"` (default legacy vision). Set workflow
 `fixture:false`. File mode uses the explicit generation bridge below without a
@@ -78,7 +109,9 @@ EXIF rotation/flip is rejected rather than incorrectly labeled identity.
 The compiler creates a background request, individual Panel requests and separate
 Button/Image family boards using the existing relative-cell strategy. It does
 not invent material identity or footer geometry; missing observations fail.
-The generated boards are intermediates. After verified receipt, the adapter uses
+The generated boards are intermediates. The following describes the legacy
+delivery profile; the default staged profile separates preview, review and full
+acceptance as documented above. After verified receipt, the adapter uses
 the official extraction functions, creates an imported-material run for actual
 individual layers, packs with the consumer CLI, then calls build_and_run. That
 entry owns official import, stateful layout checks, Studio and reference acceptance.
@@ -299,3 +332,10 @@ even for one line: centered alignment and a centered text box of fontSize × 1.2
 This is an explicit runtime layout policy, not a measurement of source glyphs.
 Text exclusions must not cover the entire skin and prevent actual background
 pixel checks. Button bounds, text and authored font size remain unchanged.
+# Batch-end quality scheduling
+
+New repository jobs default to `materialPreflight:"after-generation-v1"`.
+See [batch material preflight](batch-material-preflight-v1.md): collect all
+authorized images first, then aggregate quality failures before processing.
+Received is transport evidence, not quality approval. Old jobs retain their
+frozen scheduling, and indeterminate requests are never automatically resubmitted.

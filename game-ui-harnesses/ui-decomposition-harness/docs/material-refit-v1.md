@@ -8,6 +8,15 @@ Original source files, receipts and reference evidence are not overwritten.
 
 Every recipe binds `version:1.0`, `operation`, `sourceSha256`, and nonempty `evidence`.
 
+- `verified-background-replacement`: `runDirectory`, `assetId`, `batchDigest`,
+  `rawSha256`, and `materialSha256`. Replace only a compiled opaque background
+  with another fully verified processed opaque background of identical dimensions
+  from the identical original reference. Revalidate the received raw source,
+  quality status, processed material manifest and all hashes. Record the new source
+  plan/batch identity explicitly; never attribute the replacement to the old prompt.
+  This operation performs no generation and does not authorize a request. Failed
+  sources, changed bytes, translucent results and non-background targets are rejected.
+
 - `reference-region-copy`: `referenceSha256`, `sourceRect`, `targetRect`
   (both x/y/width/height), and `staticContentOnly:true`. Copies an explicitly
   reviewed fully opaque static interior from the compiler's original reference,
@@ -35,6 +44,12 @@ Every recipe binds `version:1.0`, `operation`, `sourceSha256`, and nonempty `evi
 Refitting shared or derived target layers directly is rejected. Refit their
 canonical source; the normal materializer recomputes aliases and derived glyphs
 with fresh provenance, so old target bytes cannot survive a source change.
+Verified same-tab icon/active-icon binding aliases are also accepted as input:
+the producer reconstructs their expected IDs from the compiled appearance plan,
+requires exact canonical byte identity, and regenerates them after the refit.
+Unknown additional layers and altered aliases are rejected. Default preview accepts
+an explicit `refit` recipe mapping, mutually exclusive with `recovery`, and binds
+the resulting material-refit receipt before the ordinary import/layout/browser gates.
 
 - `visible-frame-nine-slice`: exact observed `alphaBounds` (left/top/right/bottom),
   positive four-sided `insets` and `padding`. Trim only transparent outer canvas,

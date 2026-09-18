@@ -12,7 +12,7 @@ from .relative_board import add_windows
 from .media import KEY_RGB,matte_key,normalize,require_long_control_geometry
 
 
-def _validate_source_regions(source_regions, board, raw):
+def _validate_source_regions(source_regions, board, raw, *, source_alpha=None):
     """Validate explicit source pixel boxes for every frozen board slot."""
     require(isinstance(source_regions, dict), 'BOARD_SOURCE_REGIONS_FIELDS')
     slots = {slot['asset_id']: slot for slot in board['slots']}
@@ -43,8 +43,12 @@ def _validate_source_regions(source_regions, board, raw):
                     'BOARD_SOURCE_REGIONS_OVERLAP')
 
     pixels = np.asarray(raw.convert('RGBA'))
+    alpha = pixels[:, :, 3]
     distance = np.linalg.norm(pixels[:, :, :3].astype(float) - KEY_RGB, axis=2)
-    foreground = (distance >= 145) & (pixels[:, :, 3] > 0)
+    if source_alpha == 'preserve':
+        foreground = alpha > 0
+    else:
+        foreground = (distance >= 145) & (alpha > 0)
     assigned = np.zeros(foreground.shape, dtype=bool)
     for region in checked.values():
         x, y, w, h = region
@@ -53,14 +57,19 @@ def _validate_source_regions(source_regions, board, raw):
                                distance[y + h - 1, x:x + w],
                                distance[y:y + h, x],
                                distance[y:y + h, x + w - 1]))
-        alpha = np.concatenate((pixels[y, x:x + w, 3],
-                                pixels[y + h - 1, x:x + w, 3],
-                                pixels[y:y + h, x, 3],
-                                pixels[y:y + h, x + w - 1, 3]))
-        # Match the existing key contract: transparent edge pixels are also
-        # clear, while opaque edge pixels must carry the declared key color.
-        clear = (edge < 45) | (alpha == 0)
-        require(bool(np.all(clear)), 'BOARD_SOURCE_REGIONS_KEY_EDGE')
+        region_alpha = np.concatenate((alpha[y, x:x + w],
+                                       alpha[y + h - 1, x:x + w],
+                                       alpha[y:y + h, x],
+                                       alpha[y:y + h, x + w - 1]))
+        if source_alpha == 'preserve':
+            require(bool(np.all(region_alpha == 0)),
+                    'BOARD_SOURCE_REGIONS_ALPHA_EDGE')
+        else:
+            # Match the existing key contract: transparent edge pixels are
+            # also clear, while opaque edge pixels must carry the declared key
+            # color.
+            clear = (edge < 45) | (region_alpha == 0)
+            require(bool(np.all(clear)), 'BOARD_SOURCE_REGIONS_KEY_EDGE')
         local = foreground[y:y + h, x:x + w]
         require(local.any(), 'BOARD_SOURCE_REGIONS_EMPTY')
         require(not (local[0, :].any() or local[-1, :].any() or
@@ -70,7 +79,8 @@ def _validate_source_regions(source_regions, board, raw):
     return checked
 
 
-def _crop_source_regions(raw, board, source_regions, measured_frames=None):
+def _crop_source_regions(raw, board, source_regions, measured_frames=None,
+                         source_alpha=None):
     """Crop explicit regions, retaining the established matte and fit gates."""
     policy = board.get('extraction_policy')
     if policy is not None:
@@ -80,7 +90,8 @@ def _crop_source_regions(raw, board, source_regions, measured_frames=None):
     else:
         require(not measured_frames, 'FRAME_FIT_CONTENT_POLICY_REQUIRED')
         padding = 0
-    regions = _validate_source_regions(source_regions, board, raw)
+    regions = _validate_source_regions(source_regions, board, raw,
+                                       source_alpha=source_alpha)
     if measured_frames:
         from .frame_fit import validate_frames
         validate_frames(measured_frames, board)
@@ -90,7 +101,11 @@ def _crop_source_regions(raw, board, source_regions, measured_frames=None):
         asset_id = slot['asset_id']
         x, y, width, height = regions[asset_id]
         target = list(slot['target_size'])
-        cropped = matte_key(raw.crop((x, y, x + width, y + height)), [width, height])
+        cropped = raw.crop((x, y, x + width, y + height))
+        if source_alpha == 'preserve':
+            cropped = normalize(cropped)
+        else:
+            cropped = matte_key(cropped, [width, height])
         bbox = cropped.getchannel('A').getbbox()
         require(bbox is not None, 'BOARD_SOURCE_REGIONS_EMPTY')
         support = cropped.crop(bbox)
@@ -120,8 +135,10 @@ def _crop_source_regions(raw, board, source_regions, measured_frames=None):
                       'uniform_scale': scale, 'resampled_size': fitted,
                       'target_offset': offset, 'target_padding': padding,
                       'alpha_bbox': list(part.getchannel('A').getbbox()),
-                      'transform': 'explicit source region key removal; ' +
-                                   policy['mode'] + '; uniform per-part fit',
+                      'transform': (('explicit source region alpha preservation; '
+                                    if source_alpha == 'preserve' else
+                                    'explicit source region key removal; ') +
+                                   policy['mode'] + '; uniform per-part fit'),
                       'semantic_identity': 'requires_review',
                       'state_registration': 'requires_runtime_acceptance',
                       'grouping_policy': dict(policy)}
@@ -134,22 +151,41 @@ def _crop_source_regions(raw, board, source_regions, measured_frames=None):
             record = {'asset_id': asset_id, 'source_window': list(regions[asset_id]),
                       'target_size': target,
                       'alpha_bbox': list(part.getchannel('A').getbbox()),
-                      'transform': 'pixel crop; explicit source region',
+                      'transform': ('pixel crop; explicit source region; alpha preserved'
+                                    if source_alpha == 'preserve'
+                                    else 'pixel crop; explicit source region'),
                       'semantic_identity': 'requires_review',
                       'state_registration': 'requires_runtime_acceptance'}
+        if source_alpha == 'preserve':
+            # Diagnostic only: never discard continuous Alpha or fit against an
+            # inferred visible core. Faint distant pixels can shrink the artwork.
+            alpha = cropped.getchannel('A')
+            core = alpha.point(lambda value: 255 if value >= 8 else 0).getbbox()
+            record['alphaSupportDiagnostic'] = {
+                'threshold': 8, 'fitUsesAllNonzeroAlpha': True,
+                'coreBBoxInWindow': list(core) if core else None,
+                'coreToSupportWidth': (core[2]-core[0])/(bbox[2]-bbox[0]) if core else 0,
+                'coreToSupportHeight': (core[3]-core[1])/(bbox[3]-bbox[1]) if core else 0,
+                'purpose': 'visual review only; no alpha threshold applied',
+            }
         parts[asset_id] = part
         rows.append(record)
     return parts, rows
 
 
 def revise(raw_path, strategy_path, board_id, expected_sha256, policy, reason,
-           output, measured_frames=None, source_regions=None):
+           output, measured_frames=None, source_regions=None, source_alpha=None):
     require(not output.exists(),'OUTPUT_EXISTS')
     require(isinstance(reason,str) and reason.strip(),'BOARD_REVISION_REASON')
     strategy=read_json(strategy_path);verify_strategy(strategy)
     boards=[b for b in strategy['boards'] if b['id']==board_id]
     require(len(boards)==1,'BOARD_NOT_FOUND')
     raw,evidence=load_verified_image(raw_path)
+    require(source_alpha in (None, 'preserve'), 'BOARD_SOURCE_ALPHA_MODE')
+    if source_alpha is not None:
+        require(source_regions is not None, 'BOARD_SOURCE_ALPHA_REGIONS_REQUIRED')
+        require(evidence['alpha_extrema'] == [0, 255],
+                'BOARD_SOURCE_ALPHA_REQUIRED')
     require(evidence['sha256']==expected_sha256,'BOARD_RAW_CHANGED')
     board=copy.deepcopy(boards[0]);add_windows(board,policy)
     if source_regions is None:
@@ -157,12 +193,14 @@ def revise(raw_path, strategy_path, board_id, expected_sha256, policy, reason,
                                  measured_frames=measured_frames)
     else:
         parts, rows = _crop_source_regions(raw, board, source_regions,
-                                           measured_frames=measured_frames)
+                                           measured_frames=measured_frames,
+                                           source_alpha=source_alpha)
     output.mkdir(parents=True)
     for row in rows:
         file=output/(row['asset_id']+'.png');parts[row['asset_id']].save(file)
         row.update(path=file.name,sha256=sha256(file))
-    report={'kind':'ai_ui_board_extraction_revision_v1','version':'1.0',
+    report={'kind':'ai_ui_board_extraction_revision_v1',
+            'version':'1.1' if source_alpha is not None else '1.0',
             'original_strategy_digest':strategy['digest'],'board':board_id,
             'raw_sha256':expected_sha256,'source_size':list(raw.size),
             'extraction_policy':policy,'reason':reason,'parts':rows,
@@ -173,6 +211,8 @@ def revise(raw_path, strategy_path, board_id, expected_sha256, policy, reason,
     if source_regions is not None:
         report['sourceRegions'] = copy.deepcopy(source_regions)
         report['sourceStrategy'] = copy.deepcopy(strategy)
+    if source_alpha is not None:
+        report['sourceAlpha'] = source_alpha
     report['digest']=digest(report);write_json(output/'extraction-revision.json',report)
     return report
 
@@ -183,11 +223,13 @@ def main():
     for name in ('board','expected-sha256','reason'):parser.add_argument('--'+name,required=True)
     parser.add_argument('--measured-frames',type=Path)
     parser.add_argument('--source-regions',type=Path)
+    parser.add_argument('--source-alpha', choices=['preserve'])
     args=parser.parse_args()
     report=revise(args.raw,args.strategy,args.board,args.expected_sha256,
                   read_json(args.policy),args.reason,args.output,
                   read_json(args.measured_frames) if args.measured_frames else None,
-                  read_json(args.source_regions) if args.source_regions else None)
+                  read_json(args.source_regions) if args.source_regions else None,
+                  args.source_alpha)
     print(report['digest'])
 
 

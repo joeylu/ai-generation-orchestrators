@@ -140,7 +140,9 @@ def receive_generation(job,request_digest,source):
         planref=rows[comp]['artifacts']['plan']
         compiled=safe_relative(job/'nodes'/comp/'output',planref['path']).parent
         from .material_preflight import check_material
-        try:check_material(compiled,bundle.name,bundle/'result.png')
+        try:
+            if spec.get('options',{}).get('materialPreflight') != 'after-generation-v1':
+                check_material(compiled,bundle.name,bundle/'result.png')
         except ContractError as exc:
             code=str(exc) if re.fullmatch(r'[A-Z][A-Z0-9_]{0,99}',str(exc)) else 'WORKFLOW_NODE_FAILED'
             w._record(bundle/'rejected.json',dict(errorCode=code,rawSha256=sha256(bundle/'result.png'),receivedAt=time.time()))
@@ -153,6 +155,7 @@ def receive_generation(job,request_digest,source):
         submission=w._read(bundle/'submission.json') if (bundle/'submission.json').exists() else None
         w._record(bundle/'accepted.json',dict(assignmentDigest=assignment['digest'],imageSha256=sha256(bundle/'result.png'),
             manifestSha256=sha256(bundle/'result.json'),receivedAt=time.time(),
+            qualityStatus='pending' if spec.get('options',{}).get('materialPreflight')=='after-generation-v1' else 'preflight_passed',
             submissionDigest=submission['digest'] if submission else None))
         if all(batch.state(run,frozen['requests'][k])=='received' for k in frozen['dispatch_order']):
             require(w.inspect_job(job)['status']=='awaiting_external','BRIDGE_DEADLINE_EXCEEDED')

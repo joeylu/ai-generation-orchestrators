@@ -1,4 +1,45 @@
-# Measured empty-frame fit 1.0
+# Measured frame fit 1.0–1.2
+
+## Protected row grid extension 1.2
+
+For an already returned row whose mark size and divider position cannot both be
+fitted by proportional-height 1.1, an explicitly reviewed `role:"row-frame"`
+may use `version:"1.2"` and `resize.mode:"protected_grid"`. This is a bounded
+producer transform of the same authenticated pixels, not new state artwork,
+recoloring, automatic landmark detection or a consumer capability extension.
+
+Keep the existing support SHA-256, support size and nonempty evidence. The resize
+object has exactly `mode`, `scale`, `sourceX`, `sourceY`, `targetX`, `targetY`,
+`markCell`, and `dividerColumn`. `scale:[numerator,denominator]` is a positive
+integer rational at most one. First uniformly downsample the complete support
+with LANCZOS. Raw support grid boundaries are mapped with Python's integer
+`round`; reject any band that collapses. `sourceX/Y` and `targetX/Y` each have
+5 through 12 strictly increasing integer boundaries, matching lengths per axis,
+starting at zero and ending at the raw support or target **inner** size. Target
+coordinates exclude the existing transparent target padding.
+
+`markCell:[column,row]` selects one strictly interior cell containing the entire
+reviewed mark, including its antialiasing halo. `dividerColumn` selects another
+strictly interior column containing the complete divider stroke. The four corner
+cells and mark cell must retain their uniformly scaled width and height exactly;
+they are copied unchanged. The divider column must retain its scaled width.
+Other cells may resample only within these explicit bands. The full grid tiles
+the image: no omitted source region, patch replacement or painted fill is allowed.
+Normalize transparent RGB and retain the declared outer padding.
+
+Use only where all nonstretchable artwork fits those protected cells and the
+remaining bands are inspected stretch-safe fill/edges. Document source support,
+corner/mark/divider measurements, uniform scale and target registration before
+processing. Do not choose a grid to clip a mark, erase an unwanted border or
+hide a failed appearance. Texture stretching remains a declared difference;
+the transform cannot restore missing colors, details, occlusion or reference Alpha.
+
+The existing `measuredFrames` revision and sourced-handoff path carry this spec
+without changing a frozen generation prompt or successful raw receipt. Source
+identity, matte, separation, clipping, output geometry and runtime gates remain
+mandatory. Review the assembled state before full browser acceptance. Tests use
+procedural local fixtures and do not submit generation jobs. Versions 1.0 and
+1.1 keep their existing behavior.
 
 ## Row-frame extension 1.1
 

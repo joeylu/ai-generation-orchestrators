@@ -12,7 +12,32 @@ def apply_refit(source, spec, sources, *, reference=None):
     require(sha256(source)==spec.get('sourceSha256'),'REFIT_SOURCE_CHANGED')
     im=Image.open(source).convert('RGBA')
     base={'version','operation','sourceSha256','evidence'}
-    if spec['operation']=='reference-regions-overlay':
+    if spec['operation']=='verified-background-replacement':
+        require(set(spec)==base|{'runDirectory','assetId','batchDigest','rawSha256','materialSha256'},'REFIT_FIELDS')
+        from .cached import verified_result
+        from .process import read_materials
+        from .common import safe_relative
+        run=Path(spec['runDirectory']).resolve()
+        frozen,item,receipt,raw=verified_result(run,spec['assetId'])
+        require(frozen['digest']==spec['batchDigest'] and sha256(raw)==spec['rawSha256'],'REFIT_REPLACEMENT_SOURCE_CHANGED')
+        require(reference is not None and sha256(reference)==frozen['source_sha256'],'REFIT_REFERENCE_CHANGED')
+        require(item['role']=='background' and item['output_mode']=='opaque_canvas' and
+                item['output_size']==list(im.size),'REFIT_BACKGROUND_GEOMETRY')
+        materials=read_materials(run)
+        require(materials['batch_digest']==frozen['digest'],'REFIT_REPLACEMENT_BATCH_CHANGED')
+        row=next((r for r in materials['assets'] if r['asset']==spec['assetId']),None)
+        require(row is not None,'REFIT_REPLACEMENT_MATERIAL_MISSING')
+        replacement=safe_relative(run,row['path'])
+        require(sha256(replacement)==spec['materialSha256'],'REFIT_REPLACEMENT_MATERIAL_CHANGED')
+        out=Image.open(replacement).convert('RGBA')
+        require(out.size==im.size and im.getchannel('A').getextrema()==(255,255) and
+                out.getchannel('A').getextrema()==(255,255),'REFIT_BACKGROUND_ALPHA')
+        evidence=dict(operation=spec['operation'],sourceBatchDigest=frozen['digest'],
+                      sourceAsset=spec['assetId'],rawSha256=sha256(raw),
+                      processedMaterialSha256=sha256(replacement),
+                      sourcePlanDigest=frozen['plan_digest'],pixelCopyExact=True,
+                      generationCalls=0,basis='explicit replacement source; original prompt is not attributed to new artwork')
+    elif spec['operation']=='reference-regions-overlay':
         require(set(spec)==base|{'referenceSha256','regions','staticContentOnly'},'REFIT_FIELDS')
         require(reference is not None and sha256(reference)==spec['referenceSha256'],'REFIT_REFERENCE_CHANGED')
         require(spec['staticContentOnly'] is True,'REFIT_STATIC_CONTENT_REQUIRED')
@@ -92,7 +117,7 @@ def apply_refit(source, spec, sources, *, reference=None):
         evidence=dict(operation=spec['operation'],paletteRgb=color.tolist(),paletteRect=rect,
                       alphaExactCanonical=True,basis='contract-derived solid-color state; not restoration of observed state pixels')
     else:raise ValueError('REFIT_OPERATION')
-    require(out.getchannel('A').getextrema()==(0,255),'REFIT_ALPHA')
+    require(out.getchannel('A').getextrema()==((255,255) if spec['operation']=='verified-background-replacement' else (0,255)),'REFIT_ALPHA')
     return out,evidence
 
 
@@ -105,11 +130,27 @@ def prepare_refit(compiled,source_run,recipes,output,component_root):
     materials=read_materials(source_run)
     sources={r['asset']:safe_relative(source_run,r['path']) for r in materials['assets']}
     catalog=read_json(compiled/'material-catalog.json')
-    require(set(sources)=={r['layerId'] for r in catalog['parts']},'REFIT_LAYER_COVERAGE')
+    canonical={r['layerId'] for r in catalog['parts']}
+    require(canonical<=set(sources),'REFIT_LAYER_COVERAGE')
+    if set(sources)!=canonical:
+        from .binding_aliases import materialize
+        _,_,_,aliases=materialize(catalog,read_json(compiled/'appearance-plan.json'),
+                                 {key:sources[key] for key in canonical})
+        require(set(sources)==canonical|{r['layerId'] for r in aliases},'REFIT_LAYER_COVERAGE')
+        for alias in aliases:
+            require(sha256(sources[alias['layerId']])==alias['sourceSha256'],'REFIT_ALIAS_CHANGED')
+        # Recompute aliases from their canonical source after refitting.
+        sources={key:sources[key] for key in canonical}
     require(isinstance(recipes,dict) and set(recipes)<=set(sources),'REFIT_UNKNOWN_LAYER')
     from .shared_materials import generated_rows
     independent={row['layerId'] for row in generated_rows(catalog['parts'])}
     require(set(recipes)<=independent,'REFIT_DERIVED_OR_SHARED_TARGET')
+    plan=read_json(compiled/'plan.json')
+    for key,spec in recipes.items():
+        if spec.get('operation')=='verified-background-replacement':
+            row=next(r for r in catalog['parts'] if r['layerId']==key)
+            asset=next(a for a in plan['assets'] if a['id']==row['generationAsset'])
+            require(asset['role']=='background' and asset['output_mode']=='opaque_canvas','REFIT_BACKGROUND_TARGET_REQUIRED')
     # Validate all sources/recipes before publishing any transformed output.
     reference=safe_relative(compiled,catalog['original'])
     changed={key:apply_refit(sources[key],spec,sources,reference=reference) for key,spec in recipes.items()}

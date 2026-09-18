@@ -16,8 +16,17 @@ import time
 
 from .common import digest, load_verified_image, read_json, require, safe_relative, sha256, write_json
 
-NODES = {'vision', 'compile', 'repair', 'compile_repaired', 'freeze', 'generate', 'process', 'review', 'deliver'}
+NODES = {'vision', 'compile', 'repair', 'compile_repaired', 'freeze', 'generate', 'process', 'review', 'acceptance', 'deliver'}
 EXTERNAL = {'vision', 'repair', 'generate', 'review'}
+
+
+def _staged(spec):
+    return spec.get('options',{}).get('deliveryProfile') == 'staged-draft-v1'
+
+
+def _node_order(spec):
+    head = ('vision','compile','repair','compile_repaired','freeze','generate','process','review')
+    return head + (('acceptance','deliver') if _staged(spec) else ('deliver',))
 
 
 def _record(path, body):
@@ -48,6 +57,14 @@ def create_job(reference, job, *, factory, options=None, maximum_calls=8,
     require(type(stage_timeout) is int and 1 <= stage_timeout <= 3600, 'WORKFLOW_TIMEOUT')
     require(type(active_timeout) is int and 1 <= active_timeout <= 86400, 'WORKFLOW_TIMEOUT')
     require(type(fixture) is bool and isinstance(options or {}, dict), 'WORKFLOW_OPTIONS')
+    options=dict(options or {})
+    if factory=='ai_ui_decomposition.repository_workflow:create':
+        # Select the new graph once, before job hashing. Existing jobs without
+        # this immutable option retain their old node order.
+        options.setdefault('deliveryProfile','staged-draft-v1')
+        options.setdefault('materialPreflight','after-generation-v1')
+        require(options['materialPreflight'] in ('per-image-v1','after-generation-v1'),'MATERIAL_PREFLIGHT_MODE')
+        require(options['deliveryProfile'] in ('legacy-v1','staged-draft-v1'),'REPOSITORY_DELIVERY_PROFILE')
     picture, evidence = load_verified_image(Path(reference))
     binding = _adapter_hash(factory)
     job = Path(job).resolve(); require(not job.exists(), 'WORKFLOW_EXISTS')
@@ -77,14 +94,14 @@ def _load(job):
 def _receipts(job, spec):
     rows = {}
     found={p.name:p for p in (job/'nodes').glob('*')} if (job/'nodes').exists() else {}
-    require(set(found)<=NODES,'WORKFLOW_NODE')
-    for name in ('vision','compile','repair','compile_repaired','freeze','generate','process','review','deliver'):
+    require(set(found)<=set(_node_order(spec)),'WORKFLOW_NODE')
+    for name in _node_order(spec):
         if name not in found: continue
         directory=found[name]
         require(directory.name in NODES, 'WORKFLOW_NODE')
         start = _read(directory/'started.json')
         require(start['jobDigest'] == spec['digest'] and start['node'] == directory.name, 'WORKFLOW_NODE_BINDING')
-        require(_next(rows)==name and start['dependencies']=={k:v['digest'] for k,v in rows.items()}, 'WORKFLOW_DEPENDENCY_CHANGED')
+        require(_next(rows,spec)==name and start['dependencies']=={k:v['digest'] for k,v in rows.items()}, 'WORKFLOW_DEPENDENCY_CHANGED')
         if (directory/'receipt.json').exists():
             receipt = _read(directory/'receipt.json')
             require(receipt['startDigest'] == start['digest'], 'WORKFLOW_RECEIPT_BINDING')
@@ -103,7 +120,7 @@ def _receipts(job, spec):
     return rows
 
 
-def _next(rows):
+def _next(rows,spec=None):
     for name in ('vision','compile'):
         if name not in rows: return name
         if rows[name]['status'] not in ('ok','invalid'): return None
@@ -111,7 +128,8 @@ def _next(rows):
         for name in ('repair','compile_repaired'):
             if name not in rows: return name
             if rows[name]['status'] != 'ok': return None
-    for name in ('freeze','generate','process','review','deliver'):
+    tail=('freeze','generate','process','review') + (('acceptance','deliver') if _staged(spec or {}) else ('deliver',))
+    for name in tail:
         if name not in rows: return name
         if rows[name]['status'] != 'ok': return None
         if name=='review' and rows[name]['data']['decision']!='accept':return None
@@ -121,13 +139,16 @@ def _next(rows):
 def inspect_job(job):
     job,spec = _load(job); rows = _receipts(job,spec)
     failed = next((r for r in rows.values() if r['status'] in ('failed','indeterminate','timed_out')), None)
-    state = 'ready'; next_node = _next(rows)
+    state = 'ready'; next_node = _next(rows,spec)
     if failed: state = failed['status']
     elif any(r.get('status')=='awaiting_external' for r in rows.values()): state='awaiting_external'
     elif rows.get('compile_repaired',{}).get('status') == 'invalid': state = 'rejected'
     elif rows.get('review',{}).get('data',{}).get('decision') in ('reject','unknown'):state='rejected'
-    elif 'deliver' in rows: state = 'fixture_complete' if spec['fixture'] else 'completed_draft'
+    elif 'deliver' in rows:
+        state = ('fixture_complete' if spec['fixture'] else
+                 'completed_diagnostic_draft' if rows['deliver']['data'].get('acceptance')=='blocked_reference' else 'completed_draft')
     elif next_node == 'generate' and not (job/'authorization.json').exists(): state = 'awaiting_authorization'
+    elif next_node == 'review' and _staged(spec): state = 'awaiting_review'
     if (job/'authorization.json').exists(): _authorization(job,spec,rows)
     if (job/'budget-exhausted.json').exists():
         marker=_read(job/'budget-exhausted.json');require(marker['jobDigest']==spec['digest'],'WORKFLOW_BUDGET_BINDING')
@@ -163,7 +184,11 @@ def authorize(job, plan_digest):
 
 def _validate_result(node, result, output, spec):
     require(set(result)=={'status','data','artifacts'},'WORKFLOW_RESULT_FIELDS')
-    require(result['status'] in ('ok','invalid') and (result['status']=='ok' or node in ('compile','compile_repaired')),'WORKFLOW_RESULT_STATUS')
+    require(result['status']=='ok' or
+            (result['status']=='invalid' and node in ('compile','compile_repaired')) or
+            (result['status']=='failed' and node=='process' and
+             spec.get('options',{}).get('materialPreflight')=='after-generation-v1'),
+            'WORKFLOW_RESULT_STATUS')
     require(isinstance(result['data'],dict) and isinstance(result['artifacts'],dict),'WORKFLOW_RESULT_DATA')
     refs={}
     for key,path in result['artifacts'].items():
@@ -177,7 +202,12 @@ def _validate_result(node, result, output, spec):
         require('plan' in refs and digest(read_json(safe_relative(output,refs['plan']['path'])))==result['data']['planDigest'], 'WORKFLOW_FROZEN_PLAN_CHANGED')
     if node=='deliver' and result['status']=='ok':
         require(result['data'].get('human_visual_acceptance') is False,'WORKFLOW_HUMAN_ACCEPTANCE')
-        require(result['data'].get('acceptance')==('fixture_only' if spec['fixture'] else 'passed') and bool(refs),'WORKFLOW_ACCEPTANCE_REQUIRED')
+        allowed={'fixture_only'} if spec['fixture'] else {'passed'} | ({'blocked_reference'} if _staged(spec) else set())
+        require(result['data'].get('acceptance') in allowed and bool(refs),'WORKFLOW_ACCEPTANCE_REQUIRED')
+        if result['data'].get('acceptance')=='blocked_reference':
+            require(result['data'].get('referenceComparison')=='blocked' and
+                    bool(result['data'].get('unknownFields')) and 'diagnostic' in refs,
+                    'WORKFLOW_DIAGNOSTIC_REQUIRED')
     if node=='review':
         require(result['data'].get('decision') in ('accept','reject','unknown'),'WORKFLOW_REVIEW_DECISION')
         require(result['data'].get('human_visual_acceptance') is False,'WORKFLOW_HUMAN_ACCEPTANCE')
@@ -195,7 +225,7 @@ def advance(job, *, allow_vision=False, max_nodes=8):
     job,spec=_load(job)
     for _ in range(max_nodes):
         status=inspect_job(job)
-        if status['status']!='ready' or status['nextNode'] is None: return status
+        if status['status'] not in ('ready','awaiting_review') or status['nextNode'] is None: return status
         rows=_receipts(job,spec);node=status['nextNode']
         if node in ('vision','repair','review'): require(allow_vision is True,'WORKFLOW_VISION_AUTHORIZATION_REQUIRED')
         if node=='review' and spec['options'].get('reviewMode')=='file':
@@ -241,6 +271,10 @@ def advance(job, *, allow_vision=False, max_nodes=8):
             code=str(exc) if isinstance(exc,ContractError) and re.fullmatch(r'[A-Z][A-Z0-9_]{0,99}',str(exc)) else 'WORKFLOW_NODE_FAILED'
             body=dict(status='failed',reason='NODE_FAILED_NO_RESUBMIT',data={'errorCode':code},artifacts={})
         _record(directory/'receipt.json',dict(**body,node=node,startDigest=start['digest'],elapsedSeconds=time.monotonic()-began))
+        if node=='process' and _staged(spec):
+            # Always yield the real default preview, even with provider review.
+            # A separate advance/export-review call is required to continue.
+            return inspect_job(job)
     return inspect_job(job)
 
 

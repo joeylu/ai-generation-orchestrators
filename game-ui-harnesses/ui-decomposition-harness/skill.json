@@ -5,6 +5,12 @@
   "entry": "SKILL.md",
   "cli": "ai-ui-decomposition",
   "commands": [
+    "workflow-init",
+    "workflow-status",
+    "workflow-authorize",
+    "workflow-export-loop",
+    "workflow-exchange-generation",
+    "workflow-advance",
     "auto-run",
     "job-status",
     "init",

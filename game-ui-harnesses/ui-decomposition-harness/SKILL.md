@@ -11,6 +11,14 @@ for pixel-perfect manual Photoshop reconstruction.
 
 ## Workflow
 
+Begin [end-to-end timing](docs/timeline-v1.md) at reference input, before inspection.
+Record every phase including planning, authorization waiting, generation, manual
+review, code/environment repairs, processing, tests, packaging and acceptance.
+Finish only at the final package handoff and attach the complete phase table and
+JSON. Use explicit boundaries for Agent work and main CLI `--timeline` for commands;
+unclassified gaps must stay visible. Never substitute generation-only duration for
+total elapsed or claim historical file timestamps are measured phase durations.
+
 For the bounded single-panel shop profile, use
 [compact shop facts v1.0](docs/shop-facts-v1.md). Supply observed text, source
 geometry and explicit derived runtime decisions once; the deterministic compiler
@@ -43,6 +51,7 @@ state. Distinct states must differ in actual pixels. This bounded route does not
 support arbitrary multicolored icon recoloring.
 
 For explicit native UiDocument plans involving Tabs/Input/Select/List/CheckBox,
+vertical ScrollView or left-to-right ProgressBar,
 use [native delivery input 1.0](docs/native-delivery-input-v1.md) through the
 existing repository DAG. Preserve the consumer's props, appearance and reference
 state contracts; this expands the supplied-data compiler, not the legacy
@@ -53,6 +62,11 @@ single-control base support does not establish cross-component acceptance.
 For repeated ordinary Image symbols at the same size, use the bounded
 [shared Image source v1.0](docs/shared-image-materials-v1.md) declaration and
 retain every component's own layer binding and rectangle.
+For an already received batch rejected by material quality, use only an explicit
+[reviewed material recovery](docs/reviewed-material-recovery-v1.md) specification
+bound to the original raw bytes. Preserve the failed report and every foreground
+pixel; new extraction/Alpha declarations require independent validation. Never
+turn a failed quality receipt into a pass or infer a new generation authorization.
 For empty-frame fitting and monochrome state families, use the explicitly bound
 [processed-material refit](docs/material-refit-v1.md) recipes. Declare canonical
 glyph/palette provenance for derived color states; never claim independently
@@ -90,18 +104,31 @@ When a returned empty frame has the wrong whole-image aspect, evaluate a
 corners and stretch-safe bands; bind support pixels and raw fingerprints. Do not
 apply guessed insets to icons or treat material-only revision as a successful
 generation receipt. This is deterministic processing, not automatic regeneration.
+For a returned row with a separately measured state mark and divider, the same
+contract's protected-grid 1.2 may preserve the uniformly scaled mark and corners
+while fitting reviewed empty bands. Bind the actual support hash and every grid
+boundary; inspect the assembled output. It cannot add a missing fill, repaint
+artwork, infer landmarks or turn an unreviewed row into visual acceptance.
 Declare its bounded gap and per-part aspect tolerances; do not increase them after
 failure or silently migrate a 1.0 receipt. This validates geometry, not identity or
-paired-state Alpha agreement. New 1.1 requests must pass full content ingestion
-checks before dispatching the next image; retain ambiguous failures.
+paired-state Alpha agreement. New repository jobs use batch-end quality checking:
+collect all authorized images, then report every material's quality failures before
+processing. Retain ambiguous failures; do not retry or publish failed materials.
 Use actual empty gaps for cuts and deterministic contain fitting; do not require
 pixel-perfect generated partition lines. Preserve count, separation, edge and
 semantic-review checks. Existing frozen attempts need separate revision evidence,
 never an in-place strategy or receipt rewrite.
 
 For local workflow development or offline MCP simulation, see
-[the fixed DAG prototype](docs/local-workflow-v1.md). Its lifecycle controls and
-four-type compiler are implemented. The repository adapter connects the official
+[the fixed DAG prototype](docs/local-workflow-v1.md). New repository jobs'
+immutable `deliveryProfile:"staged-draft-v1"` requires a real
+default preview and explicit `awaiting_review` stop before full acceptance.
+Review that exact reference/runtime/contact bundle; rejected or unknown review
+never starts full acceptance. Reference unknowns may produce only
+`completed_diagnostic_draft` with unchanged ZIP, diagnostic sidecar and receipts
+after technical checks pass. This is not a reference pass or accepted final;
+technical/visual failures still block. Existing jobs are never silently migrated.
+Its lifecycle controls and four-type compiler are implemented. The repository adapter connects the official
 v2 build entry and supports supplied-response preflight; real MCP execution still
 requires new plan-bound authorization. The file bridges support
 subagent/MCP transport via immutable `generationMode:"file"` and `reviewMode:"file"`; use their one-use
@@ -109,9 +136,31 @@ assignments and verified receive command, never hand-write DAG receipts or repea
 an assignment. New file bridge jobs require recording the exact tool arguments
 with `workflow-record-submission` immediately before the single external call.
 Invoke using those same recorded arguments, never reconstruct the prompt. The
+serial [single-exchange entry](docs/generation-exchange-v1.md) combines receive,
+next assignment and exact argument return. Forward those arguments directly in
+the same tool orchestration cell to avoid separate Agent/file-read round trips;
+retain per-call and whole-phase timings separately. No parallel dispatch is implied.
+For the Windows PowerShell tool host, use the official `workflow-export-loop`
+entry after fresh authorization, as documented in
+[continuous serial loop](docs/continuous-generation-loop-v1.md). Execute the
+exported packaged script unchanged in one awaited tool cell; do not rebuild its
+exchange, persistence or path-resolution callbacks per task. It reads the frozen
+budget, validates fresh job state, binds exact arguments and writes its timing
+summary to the exclusive journal. Export itself never generates or authorizes.
+For other hosts with verified result-path resolution and durable event storage, use the
+[continuous serial loop](docs/continuous-generation-loop-v1.md) to avoid returning
+to the Agent after every image. Validate its host callbacks first; an unknown
+response format or interrupted call stops the loop without retry. Offline loop
+completion does not establish real generation speed or visual acceptance.
+The
 record proves caller intent, not independent provider execution. Inspect status
-for assigned/invocation_recorded/received progress. Board canvas geometry is checked
-before batch receipt; failure stops the job without dispatching the next material.
+for assigned/invocation_recorded/received progress. New repository jobs freeze
+`materialPreflight:"after-generation-v1"`: received means transport complete with
+quality pending, not material acceptance. Geometry, Alpha and key-background
+checks run for all images after generation, before preview or packaging; failures
+produce one per-material report and block delivery. Budget, request/source identity,
+decode/resource limits and indeterminate outcomes still stop immediately. Existing
+jobs retain their frozen `per-image-v1` behavior; never migrate old receipts.
 Initial vision/repair still require a supplied response or trusted provider
 configuration. The
 separate test adapter uses synthetic fixtures. Do not present fixture

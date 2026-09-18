@@ -56,7 +56,7 @@ def export_review(job):
     require(spec['options'].get('reviewMode')=='file','REVIEW_FILE_MODE_REQUIRED')
     with _lock(job):
         status=w.inspect_job(job);rows=w._receipts(job,spec)
-        require(status['status']=='ready' and status['nextNode']=='review','REVIEW_NOT_READY_NO_RESUBMIT')
+        require(status['status'] in ('ready','awaiting_review') and status['nextNode']=='review','REVIEW_NOT_READY_NO_RESUBMIT')
         plan,inputs=_inputs(job,spec,rows)
         remaining=spec['activeTimeout']-status['activeSeconds'];require(remaining>0,'REVIEW_BUDGET_EXHAUSTED')
         directory=job/'nodes/review';directory.mkdir()

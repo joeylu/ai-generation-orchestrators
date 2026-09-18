@@ -3,7 +3,8 @@ from .common import digest
 
 MARKER = 'native-material-ownership-v1:'
 SURFACES = {'background', 'tab', 'active-tab', 'row', 'selected-row', 'popup',
-            'track', 'box', 'fill', 'overlay', 'backdrop'}
+            'track', 'box', 'fill', 'overlay', 'backdrop', 'viewport',
+            'scrollbar-track', 'scrollbar-thumb'}
 
 
 def compile_ownership(request, materials):

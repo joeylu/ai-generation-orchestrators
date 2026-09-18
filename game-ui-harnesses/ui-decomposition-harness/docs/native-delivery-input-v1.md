@@ -66,6 +66,35 @@ Image resources use the existing `layers/<componentId>.png` convention. All
 material references and board group ownership must resolve explicitly. Base
 support does not certify every optional profile or final material.
 
+## Native producer coverage for ProgressBar and ScrollView
+
+The native compiler supports the consumer's `ProgressBar` and vertical
+`ScrollView` document types. Their required appearance roles are explicit:
+
+- `ProgressBar`: `track` and `fill`, with `states.progressBar` containing only
+  `sourceState: "full-range-template"` and a target-component-local rectangular
+  `fillClip` whose `anchor` is `top-left` and `direction` is `left-to-right`.
+- `ScrollView`: `viewport`, `scrollbar-track` and `scrollbar-thumb`, with
+  `states.scrollView.thumbPositions` using target-component-local top-left
+  points. The two points must share x and increase in y. The producer accepts
+  only vertical semantic scrolling (`scrollX: 0` and `contentWidth` no wider
+  than the viewport); no-overflow documents must state `scrollbarVisibility`
+  as `auto` or `always`.
+
+`scrollbarInsets` and `scrollbarThumbSlices` keep their existing consumer
+contracts. Insets are checked against the declared track/thumb material
+geometry, and thumb slices require insets and a non-empty source middle
+segment. Material rectangles provide pre-generation geometry only; decoded PNG
+dimensions, alpha, resource ownership and final runtime sizing remain gates of
+the official consumer import and stateful acceptance. Missing materials,
+unknown state fields, unsupported directions, horizontal scroll semantics and
+invalid thumb geometry fail native compilation before any generation request.
+These types use the existing capability profiles (`ProgressBar`:
+`left-to-right`, `inner-fill-mask`, `value-text`; `ScrollView`: `vertical`,
+`zero-range`, `always-visible`, `insets-v1`, `authorized-bottom-space`). A
+successful native compile still does not establish material or human visual
+acceptance.
+
 Provide this envelope as repository adapter `options.response` in the existing
 `workflow-init` adapter configuration. `workflow-advance` compiles and freezes
 offline, then pauses for plan-bound compute authorization. The legacy built-in

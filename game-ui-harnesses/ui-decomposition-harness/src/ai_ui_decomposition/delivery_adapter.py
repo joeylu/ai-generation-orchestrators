@@ -243,6 +243,10 @@ def _materialized_handoff(compiled,paths,output,component_root,plan):
     paths = dict(paths)
     paths.update(planned_glyphs.materialize(compiled, paths, output, plan, catalog))
     paths=resolve_paths(catalog['parts'],paths)
+    from .binding_aliases import materialize as materialize_aliases
+    catalog,appearance,paths,aliases=materialize_aliases(catalog,read_json(compiled/'appearance-plan.json'),paths)
+    if aliases:
+        write_json(output/'binding-aliases.json',dict(kind='ui_binding_aliases_v1',aliases=aliases,generationCalls=0,human_visual_acceptance=False))
     original=_copy(compiled/catalog['original'],output/catalog['original'])
     assets=[];nodes=[];resource_args=[]
     document=read_json(compiled/'semantic-document.json')
@@ -262,7 +266,9 @@ def _materialized_handoff(compiled,paths,output,component_root,plan):
     imported={**plan,'id':'visual-delivery-materialized','source':dict(path=original.name,sha256=sha256(original),size=plan['canvas']),'assets':assets,'nodes':nodes,'groups':[dict(id='runtime-layers',children=[n['id'] for n in nodes])]}
     write_json(output/'materialized-plan.json',imported)
     names=['semantic-document.json','layout-spacing.json','layout-requirements.json','visual-observations.json','reference-state.json','acceptance-scope.json','reference-mapping.json','appearance-plan.json','state-evidence.json']
-    for name in names:_copy(compiled/name,output/name)
+    for name in names:
+        if name!='appearance-plan.json' or not aliases:_copy(compiled/name,output/name)
+    if aliases:write_json(output/'appearance-plan.json',appearance)
     caps=read_json(compiled/'capabilities.json');caps['planDigest']=digest(imported);write_json(output/'capabilities.json',caps)
     batch.freeze(output/'materialized-plan.json',output/'workspace','materialized',capability_request=output/'capabilities.json',component_document=output/'semantic-document.json',layout_spacing=output/'layout-spacing.json')
     run=output/'workspace/runs/materialized';process(run)

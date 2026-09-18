@@ -8,6 +8,15 @@ from .resources import require_keyed_input_limit
 
 
 def verified_result(run: Path, asset: str) -> tuple[dict, dict, dict, Path]:
+    return _verified_result(run, asset)
+
+
+def _verified_result(run: Path, asset: str, *, revision_errors=frozenset()) -> tuple[dict, dict, dict, Path]:
+    """Internal provenance verification for explicit, revalidated recovery only.
+
+    Normal reuse always calls verified_result and still rejects failed quality.
+    The recovery producer must validate a fresh transformation before publishing.
+    """
     frozen, plan = batch.load(run)
     asset = identifier(asset)
     require(asset in frozen["requests"], "UNKNOWN_REQUEST")
@@ -21,6 +30,16 @@ def verified_result(run: Path, asset: str) -> tuple[dict, dict, dict, Path]:
     record_name = {"received": "received.json", "recovered": "recovered.json",
                    "reused": "reused.json"}[state]
     record = read_json(directory / record_name)
+    if frozen.get('material_preflight') == 'after-generation-v1':
+        require((directory/'quality.json').is_file(), 'MATERIAL_QUALITY_PENDING')
+        quality = read_json(directory/'quality.json')
+        require(quality.get('digest') == digest({k:v for k,v in quality.items() if k != 'digest'}) and
+                quality.get('batchDigest') == frozen['digest'] and quality.get('asset') == asset and
+                quality.get('receiptSha256') == sha256(directory/record_name) and
+                quality.get('rawSha256') == sha256(directory/'raw.png'), 'MATERIAL_QUALITY_CHANGED')
+        require(quality.get('status') == 'passed' or
+                (quality.get('status') == 'failed' and quality.get('errors') and
+                 set(quality['errors']) <= set(revision_errors)), 'MATERIAL_QUALITY_FAILED')
     kinds = {"received": "ai_ui_decomposition_request_received_v1",
              "recovered": "ai_ui_decomposition_request_recovered_v1",
              "reused": "ai_ui_decomposition_result_reused_v1"}

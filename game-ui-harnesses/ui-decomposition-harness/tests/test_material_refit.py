@@ -6,6 +6,60 @@ from ai_ui_decomposition.material_refit import apply_refit
 from unittest.mock import patch
 
 class MaterialRefitTests(unittest.TestCase):
+    def test_background_replacement_binds_reference_raw_processed_bytes_and_role(self):
+        with tempfile.TemporaryDirectory() as t:
+            run=Path(t);source=run/'old.png';raw=run/'raw.png';reference=run/'reference.png'
+            replacement=run/'new.png'
+            for path,color in [(source,'blue'),(raw,'red'),(replacement,'red'),(reference,'white')]:
+                Image.new('RGBA',(12,12),color).save(path)
+            frozen=dict(digest='batch',plan_digest='plan',source_sha256=sha256(reference))
+            item=dict(role='background',output_mode='opaque_canvas',output_size=[12,12])
+            spec=dict(version='1.0',operation='verified-background-replacement',sourceSha256=sha256(source),
+                      evidence='Reviewed missing static note',runDirectory=str(run),assetId='bg',
+                      batchDigest='batch',rawSha256=sha256(raw),materialSha256=sha256(replacement))
+            materials=dict(batch_digest='batch',assets=[dict(asset='bg',path='new.png')])
+            with patch('ai_ui_decomposition.cached.verified_result',return_value=(frozen,item,{},raw)), \
+                 patch('ai_ui_decomposition.process.read_materials',return_value=materials):
+                out,evidence=apply_refit(source,spec,{},reference=reference)
+                self.assertEqual(out.tobytes(),Image.open(replacement).tobytes())
+                self.assertEqual(evidence['sourcePlanDigest'],'plan')
+                for change,code in [({'rawSha256':'wrong'},'SOURCE_CHANGED'),({'materialSha256':'wrong'},'MATERIAL_CHANGED')]:
+                    with self.assertRaisesRegex(ContractError,code):
+                        apply_refit(source,{**spec,**change},{},reference=reference)
+                Image.new('RGBA',(12,12),'black').save(reference)
+                with self.assertRaisesRegex(ContractError,'REFERENCE_CHANGED'):
+                    apply_refit(source,spec,{},reference=reference)
+                frozen['source_sha256']=sha256(reference);item['role']='important_component'
+                with self.assertRaisesRegex(ContractError,'BACKGROUND_GEOMETRY'):
+                    apply_refit(source,spec,{},reference=reference)
+
+    def test_same_tab_binding_alias_is_verified_then_recomputed(self):
+        from ai_ui_decomposition.common import write_json
+        from ai_ui_decomposition.binding_aliases import materialize
+        from ai_ui_decomposition.material_refit import prepare_refit
+        with tempfile.TemporaryDirectory() as t:
+            base=Path(t); compiled=base/'compiled'; compiled.mkdir()
+            run=base/'run'; (run/'materials').mkdir(parents=True)
+            source=run/'glyph.png'; Image.new('RGBA',(12,12),'red').save(source)
+            catalog=dict(original='original.png',parts=[dict(layerId='glyph')])
+            appearance=dict(bindings=[dict(componentType='Tabs',componentId='tabs',parts=[
+                dict(layerId='glyph',tabId='one',role='icon'),
+                dict(layerId='glyph',tabId='one',role='active-icon')])])
+            _,_,_,aliases=materialize(catalog,appearance,{'glyph':source})
+            alias=aliases[0]['layerId']; alias_path=run/(alias+'.png'); alias_path.write_bytes(source.read_bytes())
+            rows=[dict(asset='glyph',path=source.name),dict(asset=alias,path=alias_path.name)]
+            write_json(compiled/'material-catalog.json',catalog)
+            write_json(compiled/'appearance-plan.json',appearance)
+            write_json(compiled/'plan.json',{})
+            write_json(run/'materials/materials.json',dict(assets=rows))
+            Image.new('RGB',(12,12),'white').save(compiled/'original.png')
+            with patch('ai_ui_decomposition.process.read_materials',return_value=dict(assets=rows)),patch('ai_ui_decomposition.delivery_adapter._materialized_handoff',return_value='built') as join:
+                self.assertEqual(prepare_refit(compiled,run,{},base/'out',base),'built')
+                self.assertEqual(set(join.call_args.args[1]),{'glyph'})
+                Image.new('RGBA',(12,12),'blue').save(alias_path)
+                with self.assertRaisesRegex(ContractError,'REFIT_ALIAS_CHANGED'):
+                    prepare_refit(compiled,run,{},base/'bad',base)
+
     def test_overlay_only_changes_explicit_owned_static_regions(self):
         with tempfile.TemporaryDirectory() as t:
             source,reference=Path(t)/'old.png',Path(t)/'reference.png'

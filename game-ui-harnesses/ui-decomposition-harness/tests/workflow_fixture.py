@@ -88,6 +88,8 @@ class Fixture:
             return result(artifacts={'evidence':'processed.json'})
         if node=='review':
             return result(dict(decision=self.options.get('review','accept'),human_visual_acceptance=False,fixtureOnly=True))
+        if node=='acceptance':
+            return result(dict(fixtureOnly=True,human_visual_acceptance=False))
         if node=='deliver':
             from ai_ui_decomposition.assembly import finalize,inspect_delivery
             from ai_ui_decomposition.png_zip import export_png_zip
