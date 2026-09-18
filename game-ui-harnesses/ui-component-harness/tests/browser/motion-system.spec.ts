@@ -381,6 +381,19 @@ test('Tabs indicator pixels move after an inspected in-flight tabProgress transi
 });
 
 for (const style of styles) test(`trusted Button press, release, cancellation, and disabling produce one activation in every profile [${style}]`, async ({ page }) => {
+  await page.addInitScript(() => {
+    const nativeRequest = window.requestAnimationFrame.bind(window);
+    const frames = (window as any).__motionFrames = { requested: 0, delivered: 0, recent: [] as unknown[] };
+    window.requestAnimationFrame = callback => {
+      frames.requested++;
+      return nativeRequest(timestamp => {
+        frames.delivered++;
+        frames.recent.push({ timestamp, now: performance.now(), visibility: document.visibilityState });
+        if (frames.recent.length > 20) frames.recent.shift();
+        callback(timestamp);
+      });
+    };
+  });
   await openGallery(page);
 
   await install(page, system(style, `button-${style}`));
@@ -409,6 +422,16 @@ for (const style of styles) test(`trusted Button press, release, cancellation, a
   expect(await page.evaluate(() => (window as any).uiHarness.activates())).toBe(before + 1);
   expect(systemNode(await inspectSystem(page), 'confirm').presentation.pressScale).toBe(1);
   await page.evaluate(() => (window as any).uiHarness.setEnabled('confirm', true));
+});
+
+test.afterEach(async ({ page }, info) => {
+  if (info.status === info.expectedStatus || page.isClosed()) return;
+  const diagnostics = await page.evaluate(() => ({
+    now: performance.now(), visibility: document.visibilityState,
+    frames: (window as any).__motionFrames,
+    motion: (window as any).uiHarness?.inspectMotionSystem(),
+  })).catch(error => ({ error: String(error) }));
+  await info.attach('native-frame-diagnostics', { body: JSON.stringify(diagnostics, null, 2), contentType: 'application/json' });
 });
 
 test('ancestor hiding interrupts child motion without reviving hidden controls', async ({ page }) => {

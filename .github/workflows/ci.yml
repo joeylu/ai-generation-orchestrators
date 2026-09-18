@@ -33,15 +33,14 @@ jobs:
       - run: npm test
       - run: npm run self-test
       # Contract probes import /src modules; npm test also checks the built CLI.
-      # Real display scheduling avoids headless WebGL begin-frame stalls.
       - name: Run browser acceptance
         env:
           BROWSER_FILTER: ${{ inputs.browser_filter }}
         run: |
           if [ -n "$BROWSER_FILTER" ]; then
-            xvfb-run --auto-servernum npm run test:browser -- --headed --grep "$BROWSER_FILTER"
+            npm run test:browser -- --grep "$BROWSER_FILTER"
           else
-            xvfb-run --auto-servernum npm run test:browser -- --headed
+            npm run test:browser
           fi
       - uses: actions/upload-artifact@v7
         if: failure()
