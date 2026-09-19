@@ -1,6 +1,6 @@
 /** Run the exact exported entry with only provider/file-tool test doubles. */
 import {execFileSync} from 'node:child_process';
-import {readFileSync,writeFileSync,mkdirSync,realpathSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,realpathSync,existsSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 const [script,raw,output]=process.argv.slice(2).map(path=>realpathSync(path));
 let calls=0;
@@ -37,4 +37,12 @@ const notify=event=>{
 };
 const result=await new AsyncFunction('tools','notify','generatedImage','setTimeout','clearTimeout',readFileSync(script,'utf8'))(tools,notify,()=>{},setTimeout,clearTimeout);
 if(!completionSeen)throw Error('missing durable completion notification');
+// Test-only gate: prove the coordinator does not need a narrative/end-of-turn reply.
+if(process.env.LOOP_FIXTURE_HANDOFF_GATE){
+  const deadline=Date.now()+30000;
+  while(!existsSync(process.env.LOOP_FIXTURE_HANDOFF_GATE)){
+    if(Date.now()>deadline)throw Error('fixture handoff gate timeout');
+    await new Promise(resolve=>setTimeout(resolve,25));
+  }
+}
 writeFileSync(join(output,'entry-result.json'),JSON.stringify({result,simulatedCalls:calls,providerCalls:0}),{flag:'wx'});
