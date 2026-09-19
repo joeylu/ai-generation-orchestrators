@@ -34,6 +34,16 @@ def parser() -> argparse.ArgumentParser:
     command("self-test")
     command("check", "plan")
     command("coverage-check", "plan", "coverage", "output")
+    command("planning-check", "plan", "coverage", "output")
+    command("registration-check", "run-dir", "specification", "output")
+    command("align-materials", "run-dir", "specification", "output")
+    command("brief-request", "reference", "output")
+    brief=command("prepare-brief", "reference", "brief", "output")
+    brief.add_argument('--request',type=Path)
+    brief.add_argument('--previous-budget',type=Path)
+    brief.add_argument('--legacy-brief',action='store_true',help='Explicit v1 replay without v2 granularity review')
+    budget=command('budget-review','plan','groups','output')
+    budget.add_argument('--previous-budget',type=Path)
     command("coverage-bind", "plan", "coverage", "output")
     command("board-compile", "plan", "groups", "output")
     board_freeze=command("board-freeze", "compiled", "workspace")
@@ -44,6 +54,7 @@ def parser() -> argparse.ArgumentParser:
     recovery.add_argument("--materials-only",action="store_true")
     freeze = command("freeze", "plan", "workspace")
     freeze.add_argument("--run", required=True)
+    freeze.add_argument("--replay-from", type=Path, help="Verify and replay explicitly bound historical requests; still needs fresh authorization")
     freeze.add_argument("--material-preflight", choices=("per-image-v1", "after-generation-v1"), default="per-image-v1")
     command("material-preflight", "run-dir", "output")
     auth = command("authorize-generation", "run-dir")
@@ -62,6 +73,7 @@ def parser() -> argparse.ArgumentParser:
         command(name, "run-dir")
     final = command("finalize", "run-dir", "output")
     final.add_argument("--draft", action="store_true")
+    final.add_argument('--registration',type=Path,help='Require measured internal registration before finalization')
     command("export", "delivery")
     command("inspect", "delivery")
     export = command("adapter-export", "run-dir", "bundle")
@@ -88,13 +100,38 @@ def parser() -> argparse.ArgumentParser:
 
 def execute(args) -> dict:
     name = args.command
-    if name in {'coverage-check','coverage-bind'}:
+    if name=='align-materials':
+        from .measured_placement import prepare_alignment
+        return prepare_alignment(args.run_dir,read_json(args.specification),args.output)
+    if name == 'registration-check':
+        from .assets_registration import review
+        from .common import write_json
+        require(not args.output.exists(),'OUTPUT_EXISTS')
+        result=review(args.run_dir,read_json(args.specification))
+        write_json(args.output,result)
+        return result
+    if name in {'brief-request','prepare-brief'}:
+        from .assets_brief import prepare,request_brief
+        if name=='brief-request':return request_brief(args.reference,args.output)
+        return prepare(args.reference,args.brief,args.output,args.request,args.previous_budget,legacy_brief=args.legacy_brief)
+    if name=='budget-review':
+        from .assets_budget import review_budget
+        from .contract import validate
+        from .common import write_json
+        plan=read_json(args.plan);validate(plan,source_base=args.plan.resolve().parent)
+        report=review_budget(plan,read_json(args.groups),read_json(args.previous_budget) if args.previous_budget else None)
+        write_json(args.output,report);return report
+    if name in {'coverage-check','coverage-bind','planning-check'}:
         from .reference_coverage import check,bind
         from .common import write_json
         if name=='coverage-bind':return bind(args.plan,args.coverage,args.output)
         from .contract import validate
         plan=read_json(args.plan);validate(plan,source_base=args.plan.resolve().parent)
-        report=check(plan,read_json(args.coverage));write_json(args.output,report);return report
+        if name=='planning-check':
+            from .assets_planning import review
+            report=review(plan,read_json(args.coverage))
+        else:report=check(plan,read_json(args.coverage))
+        write_json(args.output,report);return report
     if name.startswith("board-"):
         from . import assets_boards
         if name == "board-compile":
@@ -140,7 +177,7 @@ def execute(args) -> dict:
         from .batch import freeze
         from .reference_coverage import require_coverage
         require_coverage(plan)
-        return freeze(args.plan, args.workspace, args.run, material_preflight=args.material_preflight)
+        return freeze(args.plan, args.workspace, args.run, material_preflight=args.material_preflight, replay_from=args.replay_from)
     if name in {"auto-run", "job-status"}:
         from .headless import auto_run, job_status, load_provider
         if name == "job-status":
@@ -162,6 +199,10 @@ def execute(args) -> dict:
         from .batch import load
         _, plan = load(args.run_dir.resolve())
         require(plan["document"]["format"] == "png_zip", "PNG_ZIP_PLAN_REQUIRED")
+        if args.registration is not None:
+            from .assets_registration import review
+            checked=review(args.run_dir,read_json(args.registration))
+            require(checked['status']=='passed','REGISTRATION_BLOCKED:'+checked['classification'])
         return finalize(args.run_dir.resolve(), args.output, draft=args.draft)
     if name == "export":
         from .png_zip import export_png_zip

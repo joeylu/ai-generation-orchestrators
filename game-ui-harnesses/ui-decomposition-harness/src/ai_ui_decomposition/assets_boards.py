@@ -50,6 +50,7 @@ def compile_boards(plan_path, groups_path, output):
             a=index[slot['asset_id']]
             prompt+=f"Part {a['id']} in search window {slot['search_window']} (left top right bottom), suggested drawing rectangle {slot['crop']} (left top width height), target aspect ratio {slot['target_size'][0]}:{slot['target_size'][1]}, reference rectangle {a['source_region']} (left top right bottom): {a['prompt']} "
             parts.append(dict(assetId=a['id'],generationAsset='board-'+key,board=key))
+        prompt+='Individual part exclusions apply only inside that part, not to artwork owned by another board slot. '
         prompt+='Each window owns one complete named part. Search windows are isolation boundaries, not shapes to fill. Center each part inside its suggested drawing rectangle, preserve its target aspect ratio and leave unused space empty; never stretch a part to fill a window. These board placement instructions override any standalone canvas placement in individual part descriptions. Keep wide empty gutters; uniform #F808F8 background, no labels or checkerboard. Preserve each part silhouette and proportions.'
         generation['assets'].append(dict(id='board-'+key,role='important_component',route='generated_isolation',source_region=[0,0,*target['canvas']],output_size=target['canvas'],output_mode='keyed_component',prompt=prompt,source_asset=None))
     generation['nodes']=[dict(id=a['id'],asset=a['id'],xy=[0,0]) for a in generation['assets']]

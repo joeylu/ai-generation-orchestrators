@@ -40,6 +40,17 @@ old PNG archive is not the self-contained reference handoff v2 format.
 
 ## Reviewed route / external image tool
 
+For a new reference-aligned plan, prefer [compact visual brief](assets-brief-v1.md):
+`brief-request` records the host request before model dispatch, then `prepare-brief`
+compiles a reviewed visual inventory through official preflight and freeze without
+media generation. The expanded-plan commands below remain supported for explicit
+advanced planning and existing jobs.
+Preparation also emits a non-blocking budget review with compatible-size board
+candidates. After corrections, pass `--previous-budget` to compare call counts;
+review candidates semantically before changing grouping. Explicit observed-repeat
+mapping is documented in the compact brief contract; it never authorizes reuse
+based only on equal dimensions.
+
 Install the base package for development, without `[psd]`. Alternatively use
 `python -m ai_ui_decomposition.assets_cli` with the installed package.
 
@@ -47,6 +58,7 @@ Install the base package for development, without `[psd]`. Alternatively use
 ai-ui-assets init --reference reference.png --plan project/plan.json --id sample-r001 --document sample
 ai-ui-assets check --plan project/plan.json
 ai-ui-assets coverage-check --plan project/plan.json --coverage coverage.json --output coverage-check.json
+ai-ui-assets planning-check --plan project/plan.json --coverage coverage.json --output planning-check.json
 ai-ui-assets coverage-bind --plan project/plan.json --coverage coverage.json --output project/covered-plan.json
 ai-ui-assets freeze --plan project/covered-plan.json --workspace workspace --run sample-r001
 ```
@@ -62,6 +74,15 @@ for generation; missing ownership is not repaired by a complete file inventory.
 Neither command generates images. Review the frozen plan and obtain fresh
 single-use compute approval before each approved external request. Export/seal/
 import use the unchanged [provider protocol](../references/provider-adapter.md).
+
+For reference-aligned layouts, the consolidated `planning-check` also verifies
+declared element source and placement coverage, retaining all issues in one
+digest-bound report. Review that report, prompts and grouping together before
+freeze; see its bounded geometry scope in the inventory contract. It does not
+recognize missing artwork or infer a mapping for rearranged layouts. After
+authorization, use the exported `execution-handoff.json` to dispatch the exact
+entry without repeating planning. Live timing is still required to establish
+whether this reduces total preparation time.
 
 ```text
 ai-ui-assets adapter-export --run-dir workspace/runs/sample-r001 --asset scene --bundle outbox/scene

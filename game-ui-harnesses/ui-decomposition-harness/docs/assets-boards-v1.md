@@ -40,6 +40,14 @@ image tool actually saves returned PNGs, not a desired delivery directory.
 Export does not configure the tool's output destination. A missing source root
 is rejected before the host script is written; an existing directory alone
 does not prove that the tool will write there. Confirm it from host evidence.
+The export also writes `execution-handoff.json` next to the entry. It binds the
+script hash, plan/job digests, total and already assigned calls, zero retries,
+output-root mode, journal/completion paths and executor/coordinator responsibilities.
+Pass this local file directly to the executor; do not rebuild a second manual
+execution plan. It contains local operational paths and must not enter portable
+deliveries or published examples. It is a dispatch aid, not a new authorization
+or a substitute for the entry's fresh-state checks. Existing handoffs are never
+overwritten. Required input viewing and tool instructions still apply.
 Subagents can have a different output directory from their parent task. If a
 tool response is already durably recorded but receiving it failed, do not repeat
 the call. Export a new loop with `--returned-response OLD-JOURNAL-EVENT.json`

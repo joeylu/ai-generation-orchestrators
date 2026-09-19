@@ -41,11 +41,15 @@ class MaterialOwnershipTests(unittest.TestCase):
         rows={r['layerId']:r for r in compile_ownership(req,mats)['layers']}
         self.assertEqual(rows['list']['excludedLayerIds'],['row'])
 
-    def test_frozen_prompt_scopes_symbol_rule_legacy_unchanged(self):
+    def test_new_prompts_respect_removals_with_or_without_native_marker(self):
         asset=dict(output_size=[100,100],route='generated_isolation',output_mode='keyed_component',
                    prompt='component-family-board-v1:abc native-material-ownership-v1:123')
         actual=_prompt(asset)
         self.assertIn('surface exclusions take precedence',actual)
         self.assertNotIn('preserve intentional pictograms.',actual)
         asset['prompt']='component-family-board-v1:abc'
-        self.assertIn('preserve intentional pictograms.',_prompt(asset))
+        self.assertIn('explicit removal instructions take precedence',_prompt(asset))
+        asset['prompt']='Keep frame; remove circular icons and lower buttons.'
+        actual=_prompt(asset)
+        self.assertIn('explicit removal instructions take precedence',actual)
+        self.assertNotIn('Preserve intentional pictograms and graphic symbols.',actual)

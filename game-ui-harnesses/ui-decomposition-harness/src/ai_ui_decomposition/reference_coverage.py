@@ -17,7 +17,8 @@ def check(plan, coverage):
     if not all(review[k] for k in ('inventoryReviewed','removalsReviewed')):
         issues.append('COVERAGE_REVIEW_PENDING')
     for row in rows:
-        require(isinstance(row,dict) and set(row)=={'id','label','region','disposition','ownerAssets','removedBy','reason'},'COVERAGE_ELEMENT_FIELDS')
+        require(isinstance(row,dict) and {'id','label','region','disposition','ownerAssets','removedBy','reason'} <= set(row)
+                <= {'id','label','region','disposition','ownerAssets','removedBy','reason','reuse'},'COVERAGE_ELEMENT_FIELDS')
         key=identifier(row['id']);require(key not in seen,'COVERAGE_DUPLICATE_ELEMENT');seen.add(key)
         require(isinstance(row['label'],str) and bool(row['label'].strip()) and isinstance(row['reason'],str),'COVERAGE_LABEL')
         rect=row['region'];require(isinstance(rect,list) and len(rect)==4 and all(type(v)is int for v in rect),'COVERAGE_REGION')
@@ -36,6 +37,18 @@ def check(plan, coverage):
             excluded.append(dict(id=key,label=row['label'],reason=row['reason']))
         else:issues.append('COVERAGE_ELEMENT_UNRESOLVED:'+key)
         if removed and not owners and disposition!='excluded':issues.append('COVERAGE_REMOVED_WITHOUT_OWNER:'+key)
+    by_id={r['id']:r for r in rows}
+    for row in rows:
+        if 'reuse' not in row:continue
+        reuse=row['reuse']
+        require(isinstance(reuse,dict) and set(reuse)=={'element','reason'} and
+                isinstance(reuse['element'],str) and reuse['element'] in by_id and
+                isinstance(reuse['reason'],str) and bool(reuse['reason'].strip()),'COVERAGE_REUSE_FIELDS')
+        canonical=by_id[reuse['element']]
+        require(canonical is not row and 'reuse' not in canonical and
+                row['disposition']==canonical['disposition']=='material' and
+                len(row['ownerAssets'])==1 and row['ownerAssets']==canonical['ownerAssets'] and
+                row['region'][2:]==canonical['region'][2:], 'COVERAGE_REUSE_MAPPING')
     issues.extend('COVERAGE_ASSET_UNACCOUNTED:'+a for a in sorted(assets-owned))
     result=dict(kind='ui_reference_coverage_check_v1',status='passed' if not issues else 'blocked',
         sourceSha256=coverage['sourceSha256'],coverageDigest=digest(coverage),issues=issues,exclusions=excluded,
@@ -67,6 +80,11 @@ def bind(plan_path,coverage_path,output):
 def remap(coverage,mapping):
     result=deepcopy(coverage)
     for row in result['elements']:
-        for field in ('ownerAssets','removedBy'):
-            row[field]=sorted({mapping.get(k,k) for k in row[field]})
+        original_owners=set(row['ownerAssets'])
+        owners={mapping.get(k,k) for k in original_owners}
+        # Cross-slot exclusions do not remove artwork from the whole board.
+        # Keep genuine self-removal conflicts visible at the mapped scope.
+        row['removedBy']=sorted({mapping.get(k,k) for k in row['removedBy']
+            if mapping.get(k,k) not in owners or k in original_owners})
+        row['ownerAssets']=sorted(owners)
     return result

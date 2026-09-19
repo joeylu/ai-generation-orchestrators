@@ -67,11 +67,16 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
         required = {"id", "role", "route", "source_region", "output_size",
                     "output_mode", "prompt", "source_asset"}
         require(isinstance(asset, dict) and required <= set(asset)
-                and set(asset) <= required | {"resize", "cached_result", "material_source", "foreground_support"}, "ASSET_FIELDS")
+                and set(asset) <= required | {"resize", "cached_result", "material_source", "foreground_support", "historical_request"}, "ASSET_FIELDS")
         key = identifier(asset.get("id"))
         require(key not in index, "DUPLICATE_ASSET")
         route = asset.get("route")
         require(route in ROUTES, "ASSET_ROUTE")
+        if 'historical_request' in asset:
+            require(route.startswith('generated_') and 'cached_result' not in asset,
+                    'HISTORICAL_REQUEST_ROUTE')
+            require(isinstance(asset['historical_request'],str) and
+                    re.fullmatch(r'[0-9a-f]{64}',asset['historical_request']), 'HISTORICAL_REQUEST_DIGEST')
         if "cached_result" in asset:
             cached = asset["cached_result"]
             _fields(cached, {"source_batch_digest", "source_request_digest", "raw_sha256"},

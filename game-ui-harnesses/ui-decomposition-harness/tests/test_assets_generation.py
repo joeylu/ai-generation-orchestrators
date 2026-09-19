@@ -26,6 +26,31 @@ class AssetsGenerationTests(unittest.TestCase):
 
     def tearDown(self):self.temp.cleanup()
 
+    def test_historical_freeze_preserves_request_and_requires_source(self):
+        self.authorize();self.receive_all()
+        check_batch(None,self.run,self.root/'historical-quality.json')
+        frozen,plan=batch.load(self.run)
+        for asset in plan['assets']:
+            asset['historical_request']=read_json(self.run/frozen['requests'][asset['id']]['request'])['digest']
+        path=self.root/'replay.json';write_json(path,plan)
+        with self.assertRaisesRegex(ContractError,'HISTORICAL_SOURCE_REQUIRED'):
+            batch.freeze(path,self.root/'replay-work','missing')
+        from unittest.mock import patch
+        with patch('ai_ui_decomposition.batch._prompt',side_effect=AssertionError('Must not recompile')):
+            result=batch.freeze(path,self.root/'replay-work','good',replay_from=self.run)
+        new=self.root/'replay-work/runs/good'
+        for key,entry in result['requests'].items():
+            old=read_json(self.run/frozen['requests'][key]['request'])
+            current=read_json(new/entry['request'])
+            self.assertEqual(old['prompt'],current['prompt'])
+            self.assertEqual(old['input_sha256'],current['input_sha256'])
+        self.assertFalse((new/'assets-authorization.json').exists())
+        self.assertEqual(batch.status(new)['received'],0)
+        plan['assets'][0]['prompt']+=' changed';write_json(self.root/'changed.json',plan)
+        with self.assertRaisesRegex(ContractError,'HISTORICAL_SEMANTICS_CHANGED'):
+            batch.freeze(self.root/'changed.json',self.root/'replay-work','bad',replay_from=self.run)
+        self.assertFalse((self.root/'replay-work/runs/bad').exists())
+
     def authorize(self):return generation.authorize(self.run,digest(self.plan),'Explicit offline fixture approval')
 
     def receive_all(self,bad_first=False):
@@ -46,6 +71,21 @@ class AssetsGenerationTests(unittest.TestCase):
         batch.indeterminate(self.run,request['asset'],'fixture interruption')
         self.assertEqual(generation.status(self.run)['status'],'failed_no_resubmit')
         with self.assertRaisesRegex(ContractError,'NO_RESUBMIT'):generation.exchange(self.run)
+
+    def test_executor_handoff_binds_entry_without_spending_authorization(self):
+        self.authorize()
+        result=generation.export_loop(self.run,self.root/'entry/run.js',self.root,output_root_mode='session-child')
+        handoff=read_json(Path(result['executionHandoff']))
+        from ai_ui_decomposition.common import sha256
+        self.assertEqual(handoff['scriptSha256'],sha256(Path(handoff['script'])))
+        self.assertEqual(handoff['planDigest'],digest(self.plan))
+        self.assertEqual(handoff['digest'],digest({k:v for k,v in handoff.items() if k!='digest'}))
+        self.assertEqual(handoff['outputRootMode'],'session-child')
+        self.assertEqual(handoff['automaticRetries'],0)
+        self.assertEqual(generation.status(self.run)['assignedCalls'],0)
+        with self.assertRaisesRegex(ContractError,'LOOP_EXPORT_OUTPUT_EXISTS'):
+            generation.export_loop(self.run,self.root/'entry/other.js',self.root)
+        self.assertFalse((self.root/'entry/other.js').exists())
 
     def test_complete_batch_stops_before_processing_and_review(self):
         self.authorize();result=self.receive_all()

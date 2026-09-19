@@ -2,7 +2,7 @@
 from pathlib import Path
 import json
 import sys
-from .common import read_json, require, sha256
+from .common import read_json, require, sha256, write_json, digest
 
 
 def export_loop(job, output, output_root, python=None, node='node'):
@@ -25,6 +25,8 @@ def export_loop(job, output, output_root, python=None, node='node'):
 def write_loop(config, output, plan_digest):
     """Shared host-script packaging; callers own product-specific authorization."""
     output=Path(output).resolve()
+    handoff_path=output.parent/'execution-handoff.json'
+    require(not handoff_path.exists(),'LOOP_EXPORT_OUTPUT_EXISTS')
     root=Path(__file__).resolve().parent
     require(Path(config['outputRoot']).is_dir(), 'LOOP_EXPORT_SOURCE_ROOT_MISSING')
     require(not Path(config['journal']).exists() and not Path(config['transport']).exists(),'LOOP_EXPORT_OUTPUT_EXISTS')
@@ -37,5 +39,20 @@ def write_loop(config, output, plan_digest):
     source+='\nreturn await runToolGeneration({tools,config:'+json.dumps(config,ensure_ascii=True)+',progress:async e=>notify(e),onImage:r=>generatedImage(r),schedule:setTimeout,unschedule:clearTimeout});\n'
     output.parent.mkdir(parents=True,exist_ok=True)
     with output.open('x',encoding='utf-8') as stream:stream.write(source)
+    handoff=dict(kind='ui_generation_execution_handoff_v1',script=str(output),scriptSha256=sha256(output),
+        planDigest=plan_digest,jobDigest=config['jobDigest'],runDirectory=config['job'],
+        maximumCalls=config['maximumCalls'],assignedCalls=config.get('assignedCalls',0),
+        automaticRetries=0,outputRoot=config['outputRoot'],outputRootMode=config.get('outputRootMode','direct'),
+        journal=config['journal'],completion=str(output.parent/'completion.json'),
+        scope='Local execution only; not authorization or portable delivery evidence.',
+        executorSteps=['Verify script hash and fresh official status; inspect required reference inputs.',
+            'Execute this exact entry once using the approved image tool host. Do not replan or reauthorize.',
+            'Persist returned responses before receive. Never resubmit uncertain calls.',
+            'Stop at completion; the coordinator owns quality review, processing and packaging.'],
+        coordinatorSteps=['Verify completion journal hash and official status immediately; do not wait for narrative.',
+            'Record setup, tool time, loop overhead and handoff delay separately.'])
+    handoff['digest']=digest(handoff)
+    write_json(handoff_path,handoff)
     return dict(script=str(output),sha256=sha256(output),maximumCalls=config['maximumCalls'],
+                executionHandoff=str(handoff_path),executionHandoffDigest=handoff['digest'],
                 planDigest=plan_digest,generationCalls=0,host='windows-powershell-tool-cell')

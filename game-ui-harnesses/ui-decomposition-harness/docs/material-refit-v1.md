@@ -56,6 +56,22 @@ the resulting material-refit receipt before the ordinary import/layout/browser g
   protect measured corner/end bands and fit to the original target canvas. This
   is for explicitly inspected frames; protect any known end ornament in a fixed
   band. It is not suitable for stretching glyphs or pictograms.
+- `visible-horizontal-band-fit`: for an explicitly inspected `role:"ornamented-rule"`
+  only. Bind exact `alphaBounds`, `sourceX`, `targetX`, `protectedColumns`, and
+  `offset:[x,y]`. Source and target X grids have equal lengths (6..16 boundaries),
+  start at zero and strictly increase; the source grid ends at the full support
+  width. Source support and destination canvas must both be horizontal, at least
+  8:1. Each band spans the entire unchanged support height. Protect both end bands
+  and at least one interior ornament band; protected widths and every RGBA pixel
+  remain exact. Only explicitly reviewed straight-line bands may change width,
+  by factors from 0.5 through 2. Every source band is used once; nothing is erased,
+  replaced or vertically stretched. Positive offset leaves transparent margins on
+  all sides within the original output canvas. No additional image is generated.
+  Inspect all ornaments and antialiasing halos before choosing bands: the program
+  checks tiling and pixel preservation, not semantic placement of the protected
+  bands. Horizontal rail texture resampling and end relocation are explicit visual
+  differences, not restoration of the reference. The unchanged downstream long
+  control geometry and Alpha gates must still pass.
 - `monochrome-state-from-canonical`: `canonicalLayerId`, `canonicalSha256`,
   `paletteLayerId`, `paletteSha256`, and explicit source-pixel `paletteRect`
   (x/y/width/height). Canonical size must match; preserve its Alpha byte-for-byte.

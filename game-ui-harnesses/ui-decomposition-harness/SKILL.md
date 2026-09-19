@@ -19,6 +19,33 @@ scope for that task. Keep original material/source/review gates and timing.
 The component workflow below applies only when runnable UI delivery is requested.
 An asset ZIP does not establish interactive or human visual acceptance.
 
+For new reference-aligned assets-only planning, prefer the
+[compact visual brief](docs/assets-brief-v1.md). The host calls `brief-request`
+and uses its current v2 input contract. Declare visual units and justify splitting
+each unit across assets, including pairwise seam, occlusion and alignment evidence.
+`prepare-brief` checks this before budget diagnostics, board compilation or freeze.
+Do not label parts of one connected static panel as unrelated units to evade this
+review. `--legacy-brief` is explicit historical v1 replay without this new check;
+never present that route as granularity-verified. Expanded legacy plans and existing
+frozen batches remain compatible and do not acquire this check retroactively.
+The host calls `brief-request`
+before model dispatch. The model supplies only visual assets, regions, placements,
+independent element owners/text exclusions and compatible board membership.
+`prepare-brief` owns the repetitive plan fields, explicit removal prompts,
+packing calculations, preflight, freeze and synchronous stage events. It does not
+infer missing artwork or authorize generation. Read this assets-only contract
+instead of loading unrelated component delivery contracts for a PNG-only task.
+
+For observed repeated artwork, explicitly declare each repeated element's canonical
+`reuse` source and visual reason in the compact brief; retain every observed region.
+Only reviewed equal-size translated copies are supported. Do not enlarge source
+boxes or delete observations to bypass source gaps. If instances differ, split
+them, then reconsider compatible boards and the total generation budget. Inspect
+the new budget report and compare it with the preceding revision after corrections.
+Size-based board candidates are suggestions, never proof of material compatibility.
+Before setting reviewed=true, inspect actual icon/ornament edges in the reference:
+matching declared rectangles cannot detect a clipped edge or an inaccurate box.
+
 When delegating an authorized file-tool run, give the executor the frozen run,
 digest and exported entry once; do not ask it to repeat planning. The loop emits
 `completion-ready` after writing `completion.json` beside the exported entry. The coordinator may
@@ -26,6 +53,18 @@ read that small handoff immediately, verify official generation status, and begi
 processing without waiting for a narrative reply. Keep tool time, dispatch/setup
 and post-generation handoff time separate. Missing completion is not permission
 to replay a request; inspect the durable journal and official state first.
+
+For reference-aligned PNG plans, submit the plan, independent coverage inventory
+and grouping decision together for one consolidated review. Run `planning-check`
+before binding/freezing; resolve its aggregated source/placement gaps once, then
+visually cross-check prompts, seams and grouping. This explicit preflight does not
+replace semantic review or apply to relocated/rescaled layouts without a mapping.
+Do not repeat the inventory after authorization. `export-loop` writes the local
+`execution-handoff.json`; delegate that file and exact entry instead of manually
+reconstructing paths and budgets. The executor retains required tool instructions,
+input viewing, hash and fresh-state verification, then starts the entry directly.
+The coordinator owns processing and timing. These changes reduce repeat work;
+offline checks alone do not establish a live execution speedup.
 
 Before freezing an assets-only plan, perform the independent reference inventory
 and removal/ownership cross-check in [reference coverage](docs/reference-coverage-v1.md).
@@ -38,12 +77,50 @@ do not treat it as an ordinary texture difference. This is caller visual review,
 not automatic semantic detection. Never mark the review complete without looking.
 
 For asset-only tasks, do not equate one output PNG with one generation call.
+Choose output granularity before optimizing call count. Preserve a visually
+connected static panel (including fixed ornaments, dividers and row surfaces)
+as one material when independent editing, reuse or state changes are not requested.
+Independent inventory elements may share that material owner: inventory coverage
+does not require one PNG per element. Split independently changing or reused
+artwork separately. If finer splitting is needed, explicitly review shared seams,
+occlusions and visible placement; do not silently trade fidelity for more layers.
+This is caller planning, not automatic visual grouping. Keep runtime semantics
+separate from static appearance ownership; never flatten independently changing
+states just to reduce calls.
 Review similar-material grouping with [independent asset boards](docs/assets-boards-v1.md)
 before freezing the budget. Use the public board compile/freeze/preflight/process
 commands; do not import a component DAG or hand-author successful extraction
 receipts. Keep backgrounds, illustrations and unlike aspect ratios separate.
 The chosen groups and extraction rules require review; fewer calls alone do not
 establish better quality. Materialize boards into individual PNGs before delivery.
+
+For fidelity regression review, compare the same original, the previous actual
+delivery preview and the new preview. Label component screenshots with text
+separately from text-free PNG composites; do not compare their whole-image error
+as though they were identical products. Inspect raw outputs before attributing
+drift to extraction. Record invented background subjects, duplicate attachments,
+visible frame bounds and changed button proportions explicitly. Technical Alpha
+and aspect checks cannot establish visual identity. Preserve rejected drafts;
+do not spend new compute or declare prompt edits visually verified without a new
+authorized run. Prefer the simplest reviewed grouping that preserves fidelity,
+not the smallest call count.
+
+Describe removal targets in visible terms: count, location, color and shape,
+not only runtime labels such as "child Button skins". Distinguish retained large
+ornaments from excluded small icons, and explicitly preserve surrounding texture
+and spacing after removal. Do not refill exclusions with empty control outlines.
+Keep these descriptions concise and specific to the observed reference. Inspect
+the returned surface alone before composition to catch baked-in duplicate controls;
+successful Alpha checks do not detect this. A successful single sample does not
+establish stable generation or justify automatically changing other frozen prompts.
+
+For an explicitly requested historical baseline experiment, use
+[verified historical request replay](docs/historical-request-replay-v1.md).
+Bind the original received request digest and freeze with `--replay-from`;
+copying the old description through the current prompt compiler is not exact
+request replay. Verify reference/crop identity and retain source/placement gaps.
+Do not trim coverage to fit an old crop. This route preserves historical wording,
+requires fresh authorization and makes no claim about identical model conditions.
 
 Begin [end-to-end timing](docs/timeline-v1.md) at reference input, before inspection.
 Record every phase including planning, authorization waiting, generation, manual
@@ -101,6 +178,11 @@ For an already received batch rejected by material quality, use only an explicit
 bound to the original raw bytes. Preserve the failed report and every foreground
 pixel; new extraction/Alpha declarations require independent validation. Never
 turn a failed quality receipt into a pass or infer a new generation authorization.
+For a thin decorative rule with a center ornament, do not stretch the ornament
+with an empty-frame recipe. The bounded `processed-ornament-refit` recovery may
+use measured full-height horizontal bands: protect the center ornament and both
+ends exactly, resample only inspected straight sections, and re-run the original
+long-control gate. Record the rail-length change and preserve failed receipts.
 For empty-frame fitting and monochrome state families, use the explicitly bound
 [processed-material refit](docs/material-refit-v1.md) recipes. Declare canonical
 glyph/palette provenance for derived color states; never claim independently
@@ -387,6 +469,12 @@ user-managed container, read
 
 ## Boundaries
 
+When the user accepts a generated surface and requests aligning independent
+artwork to it, use [measured alignment](docs/measured-alignment-v1.md) and the
+formal `align-materials` entry. Keep caller-measured rows digest-bound, inspect
+the resulting composite, and describe it as adaptation to the accepted surface,
+not exact reference reconstruction. Never apply this decision without user scope.
+
 For user-approved functional drafts, use [functional material audit](docs/functional-material-audit-v1.md)
 to collect all material defects and separate cosmetic warnings from functional blockers.
 Its offline repair proposal does not authorize generation or replace runtime acceptance.
@@ -490,3 +578,19 @@ For returned boards with an explicitly reviewed alternative arrangement, use
 [source-region revision](docs/source-region-revision-v1.md), retaining all original
 parts and provenance. A later contract may select a verified subset; it may not
 erase the original failure or fabricate generation acceptance.
+
+For compound static panels, inspect the assembled composition for missing or
+redesigned artwork, visibly displaced rows/icons, inconsistent spacing and changed
+ornament proportions. Compact v2 compilation carries contained inventory regions
+into reference-relative prompt guidance, including reserved spaces for excluded
+artwork/text. Inspect the image too: boxes are not silhouettes or semantic proof.
+For explicitly requested precise registration, measure reference and processed
+internal boundaries using [measured internal registration](docs/assets-registration-v1.md).
+Use `registration-check` and pass that specification to `finalize --registration`.
+Do not move independently placed icons to follow a misgenerated row and call it
+reference restoration. Unknown/failed measurements block this explicit gate even
+for a draft. Legacy invocations without the option are unchanged; do not describe
+them as registration-verified. This check does not recognize landmarks or repair
+artwork automatically. Its fixed 2px threshold is not the visual acceptance
+criterion for ordinary approximate PNG decomposition. Do not retrofit a looser
+threshold onto failed reports or call an unchecked draft visually accepted.

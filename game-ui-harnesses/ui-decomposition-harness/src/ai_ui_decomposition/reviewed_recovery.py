@@ -65,6 +65,11 @@ def prepare_materials(compiled, run, specification, output, *, catalog=None):
                 require(set(revision)=={'kind','rawSha256','reason','recipe'} and
                         revision['recipe'].get('operation')=='visible-frame-nine-slice', 'RECOVERY_REVISION_FIELDS')
                 errors = {'LONG_CONTROL_SUPPORT_ASPECT_MISMATCH'}
+            elif revision['kind'] == 'processed-ornament-refit':
+                require(set(revision)=={'kind','rawSha256','reason','recipe'} and
+                        isinstance(revision['recipe'],dict) and
+                        revision['recipe'].get('operation')=='visible-horizontal-band-fit','RECOVERY_REVISION_FIELDS')
+                errors = {'LONG_CONTROL_SUPPORT_ASPECT_MISMATCH'}
             elif revision['kind'] == 'verified-replacement-source':
                 require(set(revision)=={'kind','rawSha256','reason','sourceRunDirectory','sourceAsset','sourceBatchDigest','sourceRawSha256'},'RECOVERY_REVISION_FIELDS')
                 require(all(r['board'] is None for r in rows if r['generationAsset']==key),'RECOVERY_REPLACEMENT_SINGLE_REQUIRED')
@@ -142,7 +147,7 @@ def prepare_materials(compiled, run, specification, output, *, catalog=None):
                 elif item['output_mode']=='keyed_component':material=matte_key(picture,item['output_size'])
                 elif item['output_mode']=='opaque_canvas':material=opaque_exact(picture,item['output_size'])
                 else:material=contain(picture,item['output_size'])
-            if revision and revision['kind']=='processed-frame-refit':
+            if revision and revision['kind'] in {'processed-frame-refit','processed-ornament-refit'}:
                 from .material_refit import apply_refit
                 prior=output/(key+'-before-refit.png');material.save(prior)
                 material, refit_evidence=apply_refit(prior,revision['recipe'],{})

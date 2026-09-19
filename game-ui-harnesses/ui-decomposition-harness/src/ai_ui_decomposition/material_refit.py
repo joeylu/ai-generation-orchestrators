@@ -97,6 +97,38 @@ def apply_refit(source, spec, sources, *, reference=None):
         fit=nine_slice(im.crop(box),[im.width-2*p,im.height-2*p],inset)
         out=Image.new('RGBA',im.size);out.paste(fit,(p,p));out=normalize(out)
         evidence=dict(operation=spec['operation'],sourceAlphaBounds=list(box),outputAlphaBounds=list(out.getchannel('A').getbbox()),insets=inset,padding=p)
+    elif spec['operation']=='visible-horizontal-band-fit':
+        require(set(spec)==base|{'role','alphaBounds','sourceX','targetX','protectedColumns','offset'},'REFIT_FIELDS')
+        require(spec['role']=='ornamented-rule','REFIT_BAND_ROLE')
+        box=im.getchannel('A').getbbox()
+        require(box is not None and list(box)==spec['alphaBounds'],'REFIT_ALPHA_BOUNDS_CHANGED')
+        support=im.crop(box);sx,tx=spec['sourceX'],spec['targetX']
+        require(support.width/support.height>=8 and im.width/im.height>=8,'REFIT_BAND_HORIZONTAL_RULE')
+        require(isinstance(sx,list) and isinstance(tx,list) and 6<=len(sx)<=16 and len(tx)==len(sx),'REFIT_BAND_GRID')
+        for grid in (sx,tx):
+            require(all(type(v)is int for v in grid) and grid[0]==0 and
+                    all(a<b for a,b in zip(grid,grid[1:])),'REFIT_BAND_GRID')
+        require(sx[-1]==support.width,'REFIT_BAND_SOURCE_COVERAGE')
+        protected=spec['protectedColumns'];n=len(sx)-1
+        require(isinstance(protected,list) and all(type(v)is int and 0<=v<n for v in protected) and
+                len(set(protected))==len(protected) and len(protected)>=3 and 0 in protected and n-1 in protected,
+                'REFIT_BAND_PROTECTED')
+        offset=spec['offset']
+        require(isinstance(offset,list) and len(offset)==2 and all(type(v)is int and v>=1 for v in offset) and
+                offset[0]+tx[-1]<im.width and offset[1]+support.height<im.height,'REFIT_BAND_TARGET')
+        out=Image.new('RGBA',im.size)
+        for i in range(n):
+            sw,tw=sx[i+1]-sx[i],tx[i+1]-tx[i]
+            require(.5<=tw/sw<=2,'REFIT_BAND_EXCESSIVE_SCALE')
+            if i in protected:require(sw==tw,'REFIT_BAND_PROTECTED_DISTORTION')
+            tile=support.crop((sx[i],0,sx[i+1],support.height))
+            if sw!=tw:tile=tile.resize((tw,support.height),Image.Resampling.LANCZOS)
+            out.paste(tile,(offset[0]+tx[i],offset[1]))
+        out=normalize(out)
+        evidence=dict(operation=spec['operation'],sourceAlphaBounds=list(box),outputAlphaBounds=list(out.getchannel('A').getbbox()),
+                      sourceX=sx,targetX=tx,protectedColumns=protected,offset=offset,
+                      protectedBandsExact=True,verticalScale=1,fullSourceTiling=True,
+                      basis='Caller-reviewed horizontal rule; only declared stretch-safe bands resampled. No semantic detection or missing-art recovery.')
     elif spec['operation']=='monochrome-state-from-canonical':
         require(set(spec)==base|{'canonicalLayerId','canonicalSha256','paletteLayerId','paletteSha256','paletteRect'},'REFIT_FIELDS')
         c,p=spec['canonicalLayerId'],spec['paletteLayerId']

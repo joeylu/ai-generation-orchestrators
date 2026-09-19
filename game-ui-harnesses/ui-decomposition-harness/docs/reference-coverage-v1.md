@@ -15,6 +15,15 @@ Inventory `region` is not the plan's `source_region`: the latter uses
 `[left,top,right,bottom]`. For example inventory `[1428,347,108,291]` corresponds
 to source bounds `[1428,347,1536,638]`. Convert explicitly; do not copy the tuple.
 
+During caller review, compare each element's region with its owner's source
+bounds **and** placed output extent (`node.xy` plus `asset.output_size`). An owner
+name alone is insufficient: a crest extending above the panel must expand the
+panel source/output bounds or have a separate owner. Inspect seams between adjacent
+materials too; a divider between an illustration's bottom and a strip's top must
+belong to one declared owner. This is a required planning review. The separate
+`planning-check` below checks declared geometry, not image semantics. Preserve rejected
+drafts and record reviewer corrections instead of reporting first-pass success.
+
 ```json
 {
   "kind": "ui_reference_coverage_v1",
@@ -33,9 +42,37 @@ element regions are allowed for nested artwork; they do not establish ownership.
 
 ```text
 ai-ui-assets coverage-check --plan project/plan.json --coverage coverage.json --output coverage-check.json
+ai-ui-assets planning-check --plan project/plan.json --coverage coverage.json --output planning-check.json
 ai-ui-assets coverage-bind --plan project/plan.json --coverage coverage.json --output project/covered-plan.json
 ai-ui-assets freeze --plan project/covered-plan.json --workspace workspace --run generation
 ```
+
+For a reference-aligned target layout, `planning-check` aggregates the coverage
+issues and checks each material element against the union of its owners' source
+rectangles and placed output rectangles. A gap between adjacent owners is a gap,
+even when their combined outer envelope contains the element. Reports bind the
+plan and inventory digests, include each tested rectangle and distinguish
+`PLANNING_SOURCE_GAP` from `PLANNING_PLACEMENT_GAP`. They never modify the inputs,
+authorize compute or claim that generated pixels match those rectangles.
+Run this explicit preflight on the target plan before freeze, not on intermediate
+generation boards whose placements are transport-only. Existing `coverage-check`
+and legacy validation retain their structural semantics; this is not a new
+retroactive gate on old receipts. Rescaled/rearranged layouts require a separately
+reviewed coordinate mapping and are outside this geometry profile. Undeclared
+elements and prompt semantics still need the one consolidated visual review.
+
+An optional element `reuse:{element,reason}` explicitly maps a repeated observed
+instance to another canonical element in the same inventory. Both must be material
+elements, have exactly the same single owner and equal observed width/height.
+The canonical element cannot itself reuse another element; a nonempty reviewed
+reason is required. All observation rectangles remain unchanged. Structural checks
+validate the mapping; `planning-check` checks the canonical source rectangle and
+the repeated instance's own placed rectangle. It also requires a node at the exact
+source-to-instance translation and an output size equal to the source size.
+`PLANNING_REUSE_TRANSFORM` reports invalid transforms. No scaling or inferred
+visual equivalence is supported. The declaration survives board ownership remapping
+and remains digest-bound in the target plan; generated board placements are not
+subject to the target-layout geometry check.
 
 Check aggregates unresolved elements, missing owners, removal-without-owner,
 owner/removal conflicts, unaccounted assets and pending reviews. Bind succeeds

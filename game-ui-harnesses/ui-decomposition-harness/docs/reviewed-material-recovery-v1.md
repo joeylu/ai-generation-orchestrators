@@ -36,6 +36,15 @@ Unknown assets/errors, pending quality and changed bytes fail closed.
   intermediate and preserves measured corner/end bands. The unchanged long-control
   geometry gate runs on the result. Never use it to stretch pictograms or hide a
   missing state. Record texture/divider resampling as a visual difference.
+- `processed-ornament-refit` requires a hash-bound `recipe` using only
+  `visible-horizontal-band-fit` from the processed-material contract. It may
+  reconsider only `LONG_CONTROL_SUPPORT_ASPECT_MISMATCH`. Reproduce the original
+  normal matte first and match its PNG digest and Alpha bounds; copy the inspected
+  center ornament and both end bands exactly, adjusting only declared straight
+  line bands. Preserve the full source tiling and source height. Run the same
+  long-control geometry gate after fitting. This neither changes its threshold
+  nor permits generic glyph distortion, missing-art repair or replacement pixels.
+  The failed quality report remains failed, with its digest in recovery lineage.
 
 The producer writes `recovery-lineage.json`, containing original raw/receipt/quality
 hashes and statuses, revision specifications, extracted receipts and final material

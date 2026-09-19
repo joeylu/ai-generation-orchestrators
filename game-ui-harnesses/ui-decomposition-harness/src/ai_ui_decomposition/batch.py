@@ -63,11 +63,28 @@ def load(run: Path) -> tuple[dict, dict]:
 
 def freeze(plan_path: Path, workspace: Path, run_id: str, *, capability_request: Path | None = None, execution_policy: Path | None = None,
            component_document: Path | None = None, layout_spacing: Path | None = None,
-           material_preflight: str = 'per-image-v1') -> dict:
+           material_preflight: str = 'per-image-v1', replay_from: Path | None = None) -> dict:
     require(material_preflight in ('per-image-v1','after-generation-v1'),'MATERIAL_PREFLIGHT_MODE')
     plan = read_json(plan_path.resolve())
     plan_base = plan_path.resolve().parent
     summary = validate(plan, source_base=plan_base)
+    historical = {}
+    replay_assets = [a for a in plan['assets'] if 'historical_request' in a]
+    require(bool(replay_assets) == (replay_from is not None), 'HISTORICAL_SOURCE_REQUIRED')
+    if replay_assets:
+        from .cached import verified_result
+        source_batch, source_plan = load(replay_from.resolve())
+        require(source_plan['source']['sha256'] == plan['source']['sha256'], 'HISTORICAL_REFERENCE_CHANGED')
+        for asset in replay_assets:
+            entry = next((e for e in source_batch['requests'].values()
+                          if read_json(replay_from/e['request'])['digest']==asset['historical_request']), None)
+            require(entry is not None, 'HISTORICAL_REQUEST_NOT_FOUND')
+            old_request=read_json(replay_from/entry['request'])
+            _, old_asset, receipt, _ = verified_result(replay_from.resolve(), old_request['asset'])
+            require(receipt['kind']=='ai_ui_decomposition_request_received_v1', 'HISTORICAL_ORIGINAL_REQUIRED')
+            for field in ('role','route','source_region','output_size','output_mode','prompt'):
+                require(asset[field]==old_asset[field], 'HISTORICAL_SEMANTICS_CHANGED:'+field)
+            historical[asset['id']]=old_request
     execution=None
     if execution_policy is not None:
         from .bounded_execution import validate as validate_execution
@@ -136,7 +153,9 @@ def freeze(plan_path: Path, workspace: Path, run_id: str, *, capability_request:
             crop = directory / "crop.png"
             image.crop(tuple(asset["source_region"])).save(crop)
             prompt = directory / "prompt.txt"
-            prompt_text = _prompt(asset)
+            prompt_text = historical[key]['prompt'] if key in historical else _prompt(asset)
+            if key in historical:
+                require(historical[key]['input_sha256']==[source_sha,sha256(crop)], 'HISTORICAL_INPUT_CHANGED')
             prompt.write_text(prompt_text + "\n", encoding="utf-8")
             request = {"kind": "ai_ui_decomposition_provider_request_v1",
                        "id": request_id, "asset": key,
@@ -189,9 +208,13 @@ def freeze(plan_path: Path, workspace: Path, run_id: str, *, capability_request:
 
 
 def _prompt(asset: dict) -> str:
+    fidelity = (' Treat the reference artwork as the reconstruction target, not permission to redesign. '
+                'Preserve observed silhouettes, border weight, ornament shapes, colors and contrast. '
+                'Do not add focal objects, decorative hardware, glow or details absent from the reference. '
+                'Explicit ownership exclusions and declared output placement still apply. ')
     scoped = 'native-material-ownership-v1:' in asset['prompt']
     symbols = ('Preserve symbols only in their explicitly assigned layers; surface exclusions take precedence.'
-               if scoped else 'preserve intentional pictograms.')
+               if scoped else 'Preserve only pictograms and graphic symbols explicitly owned by this material; explicit removal instructions take precedence. Do not restore excluded icons or controls as decoration.')
     width, height = asset["output_size"]
     # The explicit existing board marker denotes a complete cell inventory.
     # output_size is its preview support, not permission to recenter/resize cells.
@@ -206,15 +229,17 @@ def _prompt(asset: dict) -> str:
                     'Use exactly one horizontal row in the declared order, with full outer margins. '
                     'Preserve each individual part aspect ratio. Separate whole components by wide uniform key-color gutters, '
                     'clearly larger than any tiny disconnected strokes within an icon. Do not join, omit, duplicate or reorder parts. ')
-        return (asset['prompt'].strip()+' Use the full reference and crop as style evidence. '
+        return (asset['prompt'].strip()+fidelity+' Use each declared reference region as that part\'s visual target. '
                 'Return exactly one complete material board on '+backdrop+'. '
                 +layout+
                 'No text, numerals, pseudo-text, labels, logos or watermarks; '+symbols)
     common = (f" Target support ratio is {width}:{height}. Use the full UI reference and exact "
-              "crop as style evidence. Do not draw text, numerals, pseudo-text, labels, logos, "
-              "or watermarks. " + (symbols if scoped else "Preserve intentional pictograms and graphic symbols."))
+              "crop as the visual reconstruction target. Do not draw text, numerals, pseudo-text, labels, logos, "
+              "or watermarks. " + fidelity + symbols)
     if asset["route"] == "generated_completion":
-        return asset["prompt"].strip() + common + " Return one complete opaque UI-free scene."
+        return (asset["prompt"].strip() + common + " Return one complete opaque UI-free scene."
+                " Preserve visible background composition and brightness; complete only occluded regions"
+                " with local surrounding texture. Do not invent a new central subject or relocate visible motifs.")
     if asset["output_mode"] == "transparent_component":
         return (asset["prompt"].strip() + common
                 + " Return exactly one complete component centered on a genuinely transparent "

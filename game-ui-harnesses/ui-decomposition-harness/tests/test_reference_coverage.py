@@ -49,4 +49,13 @@ class CoverageTests(unittest.TestCase):
         self.coverage['elements'].pop(1)
         self.assertIn('COVERAGE_ASSET_UNACCOUNTED:paper',check(self.plan,self.coverage)['issues'])
 
+    def test_board_remap_collapses_cross_slot_removal_but_not_self_conflict(self):
+        self.coverage['elements'][0]['removedBy']=['paper']
+        mapping={'panel':'board','paper':'board'}
+        mapped=remap(self.coverage,mapping)
+        self.assertEqual(mapped['elements'][0]['removedBy'],[])
+        self.assertEqual(self.coverage['elements'][0]['removedBy'],['paper'])
+        self.coverage['elements'][0]['removedBy'].append('panel')
+        self.assertEqual(remap(self.coverage,mapping)['elements'][0]['removedBy'],['board'])
+
 if __name__=='__main__':unittest.main()
