@@ -1,12 +1,56 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {createLoopJournal,verifyBuiltinResult} from '../src/ai_ui_decomposition/generation-loop-node.mjs';
 const bytes=Buffer.from([137,80,78,71,13,10,26,10,0]);
+
+test('completion handoff binds durable journal and never overwrites an earlier completion',()=>{
+  const root=mkdtempSync(join(tmpdir(),'loop-completion-'));
+  const bridge=fileURLToPath(new URL('../src/ai_ui_decomposition/generation-loop-bridge.mjs',import.meta.url));
+  const call=(...args)=>JSON.parse(execFileSync(process.execPath,[bridge,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
+  try {
+    const journal=join(root,'journal'),input=join(root,'0001.json');
+    call('init',journal);
+    const report={kind:'ui_generation_loop_execution_v1',result:{status:{status:'generation_complete',nextNode:'process',assignedCalls:1,planDigest:'plan',jobDigest:'job'}},
+      startedAt:'2026-01-01T00:00:00Z',finishedAt:'2026-01-01T00:00:04Z',elapsedMs:4000,automaticRetries:0,
+      timings:[{phase:'generation',ms:2000},{phase:'persist',ms:1000}]};
+    writeFileSync(input,JSON.stringify({kind:'ui_generation_loop_events_v1',events:[{event:'execution-summary',report}]}));
+    call('persist',journal,input);
+    const original=readFileSync(join(root,'completion.json'));
+    const summary=JSON.parse(original);
+    assert.equal(summary.status,'generation_complete');
+    assert.equal(summary.nextNode,'process');
+    assert.equal(summary.generationMs,2000);
+    assert.equal(summary.elapsedMs,4000);
+    assert.equal(summary.requiresOfficialStatusCheck,true);
+    assert.equal(summary.journalSha256,createHash('sha256').update(readFileSync(join(journal,'0001.json'))).digest('hex'));
+    const second=join(root,'0002.json');writeFileSync(second,readFileSync(input));
+    assert.throws(()=>call('persist',journal,second));
+    assert.deepEqual(readFileSync(join(root,'completion.json')),original);
+  } finally {rmSync(root,{recursive:true});}
+});
+test('explicit session-child roots accept agent output but reject siblings and deeper paths',()=>{
+  const root=mkdtempSync(join(tmpdir(),'loop-session-'));
+  const response=source=>({image_url:'data:image/png;base64,'+bytes.toString('base64'),output_hint:`Saved as ${source} by default.`});
+  try {
+    for(const session of ['agent-one','agent-two']){
+      const dir=join(root,session);mkdirSync(dir);const source=join(dir,'result.png');writeFileSync(source,bytes);
+      assert.equal(verifyBuiltinResult(response(source),root,'session-child'),source);
+      assert.throws(()=>verifyBuiltinResult(response(source),root),/OUTSIDE_ROOT/);
+    }
+    const nested=join(root,'agent-one','nested');mkdirSync(nested);
+    const deep=join(nested,'result.png');writeFileSync(deep,bytes);
+    assert.throws(()=>verifyBuiltinResult(response(deep),root,'session-child'),/OUTSIDE_ROOT/);
+    assert.throws(()=>verifyBuiltinResult(response(join(root+'-sibling','agent','result.png')),root,'session-child'),/OUTSIDE_ROOT/);
+    const changed=join(root,'agent-one','result.png');writeFileSync(changed,'changed');
+    assert.throws(()=>verifyBuiltinResult(response(changed),root,'session-child'),/BYTES_MISMATCH/);
+  } finally {rmSync(root,{recursive:true});}
+});
 test('megabyte response batch survives file transport without truncation',()=>{
   const root=mkdtempSync(join(tmpdir(),'loop-large-'));
   const bridge=fileURLToPath(new URL('../src/ai_ui_decomposition/generation-loop-bridge.mjs',import.meta.url));

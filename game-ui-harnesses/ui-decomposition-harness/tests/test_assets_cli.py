@@ -15,7 +15,13 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ai_ui_decomposition.assets_cli import main, parser
-from ai_ui_decomposition.common import read_json, write_json
+from ai_ui_decomposition.common import read_json, write_json, sha256
+
+
+def fixture_coverage(source_sha,ids,canvas):
+    return dict(kind='ui_reference_coverage_v1',sourceSha256=source_sha,
+        review=dict(inventoryReviewed=True,removalsReviewed=True,basis='Authored synthetic fixture inventory'),
+        elements=[dict(id=k,label=k,region=[0,0,*canvas],disposition='material',ownerAssets=[k],removedBy=[],reason='') for k in ids])
 
 
 class FixtureProvider:
@@ -64,8 +70,10 @@ def run_fixture(root, *, reject=False, fail=False, authorized=True):
     if not config.exists():
         write_json(config, {"fixture": True})
     provider = FixtureProvider(reject, fail)
+    coverage=root/'coverage.json'
+    if not coverage.exists():write_json(coverage,fixture_coverage(sha256(reference),['scene','button'],[64,48]))
     argv = ["auto-run", "--reference", str(reference), "--job-dir", str(root / "job"),
-            "--provider-config", str(config), "--max-generation-calls", "2"]
+            "--provider-config", str(config), "--max-generation-calls", "2", "--coverage",str(coverage)]
     if authorized:
         argv.append("--allow-provider-calls-and-unreviewed-draft")
     with patch("ai_ui_decomposition.headless.load_provider", return_value=provider), \
@@ -76,6 +84,18 @@ def run_fixture(root, *, reject=False, fail=False, authorized=True):
 
 
 class AssetsCliTests(unittest.TestCase):
+    def test_unreviewed_inventory_stops_automatic_image_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);reference=root/'reference.png'
+            Image.new('RGB',(64,48),'#17314a').save(reference)
+            coverage=fixture_coverage(sha256(reference),['scene','button'],[64,48])
+            coverage['review']['inventoryReviewed']=False
+            write_json(root/'coverage.json',coverage)
+            code,result,calls=run_fixture(root)
+            self.assertEqual(code,2)
+            self.assertEqual(calls,0)
+            self.assertFalse((root/'job/workspace/runs/automatic').exists())
+
     def test_file_exchange_reviewed_delivery_keeps_review_gate(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -94,6 +114,11 @@ class AssetsCliTests(unittest.TestCase):
             bundle = root / "request"
             invoke("init", "--reference", reference, "--plan", plan, "--id", "test", "--document", "test")
             invoke("check", "--plan", plan)
+            invoke("freeze", "--plan", plan, "--workspace", root / "workspace", "--run", "test",expected=2)
+            self.assertFalse(run.exists())
+            write_json(root/'coverage.json',fixture_coverage(read_json(plan)['source']['sha256'],['scene'],[32,24]))
+            invoke('coverage-bind','--plan',plan,'--coverage',root/'coverage.json','--output',root/'covered-plan.json')
+            plan=root/'covered-plan.json'
             invoke("freeze", "--plan", plan, "--workspace", root / "workspace", "--run", "test")
             invoke("adapter-export", "--run-dir", run, "--asset", "scene", "--bundle", bundle)
             # Synthetic local fixture substitutes the external provider result.

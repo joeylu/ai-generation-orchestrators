@@ -92,7 +92,7 @@ def job_status(job: Path) -> dict:
 
 def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: int,
              timeout_seconds: int, authorized: bool, provider_binding: str = "injected",
-             visual_qa_policy: str = "strict", output_format: str = "psd") -> dict:
+             visual_qa_policy: str = "strict", output_format: str = "psd",reference_coverage=None) -> dict:
     """Caller explicitly delegates two vision calls and a bounded frozen plan.
 
     A repeated successful job verifies and returns existing files. Every other
@@ -115,6 +115,9 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
             "provider_binding": provider_binding, "delivery_policy": "unreviewed_draft",
             "visual_qa_policy": visual_qa_policy, "automatic_retries": 0}
     job = job.resolve()
+    if reference_coverage is not None:
+        require(reference_coverage.get('sourceSha256')==evidence['sha256'],'COVERAGE_REFERENCE_CHANGED')
+        body['referenceCoverageDigest']=digest(reference_coverage)
     if output_format != "psd":
         body["output_format"] = output_format
     if job.exists():
@@ -160,8 +163,11 @@ def auto_run(reference: Path, job: Path, provider: Provider, *, maximum_calls: i
         except Exception as exc:
             raise ContractError("PLANNING_PROVIDER_FAILED") from exc
         remaining()
+        normalized_coverage=None
+        if reference_coverage is not None:
+            normalized_coverage={**reference_coverage,'sourceSha256':sha256(project/'reference.png')}
         plan = planning.materialize(description, project, list(picture.size), maximum_calls,
-                                    output_format=output_format)
+                                    output_format=output_format,reference_coverage=normalized_coverage)
         frozen = batch.freeze(project / "plan.json", job / "workspace", "automatic")
         require(frozen["maximum_calls"] <= maximum_calls, "JOB_BUDGET_EXCEEDED")
         _record(job / "authorization.json", {"job_digest": request["digest"],

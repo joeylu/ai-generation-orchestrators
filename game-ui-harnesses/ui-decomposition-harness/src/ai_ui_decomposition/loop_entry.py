@@ -26,6 +26,7 @@ def write_loop(config, output, plan_digest):
     """Shared host-script packaging; callers own product-specific authorization."""
     output=Path(output).resolve()
     root=Path(__file__).resolve().parent
+    require(Path(config['outputRoot']).is_dir(), 'LOOP_EXPORT_SOURCE_ROOT_MISSING')
     require(not Path(config['journal']).exists() and not Path(config['transport']).exists(),'LOOP_EXPORT_OUTPUT_EXISTS')
     # Paths enter JS literals, then single-quoted PowerShell arguments; never shell interpolation.
     require(all('\n' not in x and '\r' not in x for x in config.values() if isinstance(x,str)), 'LOOP_EXPORT_PATH')

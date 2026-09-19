@@ -3,7 +3,7 @@ from .common import read_json,safe_relative,require,load_verified_image
 from .component_boards import verify_strategy,validate_canvas_size
 
 
-def check_batch(compiled, run, output):
+def check_batch(compiled, run, output, *, verify_all_board_parts=False):
     """Inspect every received image; integrity errors still stop immediately."""
     import time
     import re
@@ -40,6 +40,11 @@ def check_batch(compiled, run, output):
                   lambda: check_material(compiled, key, raw) if compiled is not None else check_single_material(item,raw)]
         if item['output_mode'] == 'keyed_component':
             checks.insert(1, lambda: require_explicit_key_background(picture))
+        if verify_all_board_parts and compiled is not None:
+            from .component_boards import crop_board
+            board=board_for(compiled,key)
+            if board is not None:
+                checks.append(lambda: crop_board(picture,board,item['output_mode']))
         for check in checks:
             try:
                 check()

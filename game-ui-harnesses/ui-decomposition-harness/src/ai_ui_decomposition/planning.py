@@ -54,7 +54,7 @@ reuse chains or resize policies. Example of shape (replace numbers and content):
 
 
 def materialize(description: str, project: Path, canvas: list[int], maximum_calls: int,
-                *, output_format: str = "psd", component_output_mode: str = "keyed_component") -> dict:
+                *, output_format: str = "psd", component_output_mode: str = "keyed_component", reference_coverage=None) -> dict:
     require(component_output_mode in {'keyed_component','transparent_component'},'PLANNER_COMPONENT_OUTPUT_MODE')
     require(isinstance(description, str) and len(description.encode("utf-8")) <= 2_097_152,
             "PLANNER_RESPONSE_LIMIT")
@@ -91,6 +91,8 @@ def materialize(description: str, project: Path, canvas: list[int], maximum_call
                        "size": canvas}, "text_policy": TEXT_POLICY, "granularity": GRANULARITY,
             "assets": assets, "nodes": proposal["nodes"], "groups": proposal["groups"],
             "document": {"name": "ui", "format": output_format}, "delivery_policy": "unreviewed_draft"}
+    if reference_coverage is not None:
+        plan['reference_coverage']=reference_coverage
     try:
         validate(plan, source_base=project)
     except (TypeError, KeyError, AttributeError, ValueError) as exc:

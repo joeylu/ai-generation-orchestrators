@@ -33,6 +33,15 @@ def parser() -> argparse.ArgumentParser:
     command("doctor")
     command("self-test")
     command("check", "plan")
+    command("coverage-check", "plan", "coverage", "output")
+    command("coverage-bind", "plan", "coverage", "output")
+    command("board-compile", "plan", "groups", "output")
+    board_freeze=command("board-freeze", "compiled", "workspace")
+    board_freeze.add_argument("--run", required=True)
+    command("board-preflight", "compiled", "run-dir", "output")
+    command("board-process", "compiled", "run-dir", "output")
+    recovery=command("board-recover", "compiled", "run-dir", "specification", "output")
+    recovery.add_argument("--materials-only",action="store_true")
     freeze = command("freeze", "plan", "workspace")
     freeze.add_argument("--run", required=True)
     freeze.add_argument("--material-preflight", choices=("per-image-v1", "after-generation-v1"), default="per-image-v1")
@@ -45,6 +54,8 @@ def parser() -> argparse.ArgumentParser:
     exchange.add_argument("--request-digest")
     exchange.add_argument("--source", type=Path)
     loop = command("export-loop", "run-dir", "output", "output-root")
+    loop.add_argument("--returned-response")
+    loop.add_argument("--output-root-mode", choices=("direct", "session-child"), default="direct")
     loop.add_argument("--python", type=Path)
     loop.add_argument("--node", default="node")
     for name in ("status", "process", "review-template"):
@@ -66,6 +77,7 @@ def parser() -> argparse.ArgumentParser:
     reuse.add_argument("--asset", required=True)
     reuse.add_argument("--source-asset", required=True)
     automatic = command("auto-run", "reference", "job-dir", "provider-config")
+    automatic.add_argument("--coverage",type=Path,required=True)
     automatic.add_argument("--max-generation-calls", type=int, required=True)
     automatic.add_argument("--timeout-seconds", type=int, default=3600)
     automatic.add_argument("--visual-qa-policy", choices=("strict", "advisory"), default="strict")
@@ -76,15 +88,40 @@ def parser() -> argparse.ArgumentParser:
 
 def execute(args) -> dict:
     name = args.command
+    if name in {'coverage-check','coverage-bind'}:
+        from .reference_coverage import check,bind
+        from .common import write_json
+        if name=='coverage-bind':return bind(args.plan,args.coverage,args.output)
+        from .contract import validate
+        plan=read_json(args.plan);validate(plan,source_base=args.plan.resolve().parent)
+        report=check(plan,read_json(args.coverage));write_json(args.output,report);return report
+    if name.startswith("board-"):
+        from . import assets_boards
+        if name == "board-compile":
+            from .reference_coverage import require_coverage
+            require_coverage(read_json(args.plan))
+            return assets_boards.compile_boards(args.plan, args.groups, args.output)
+        if name == "board-freeze":
+            from .reference_coverage import require_coverage
+            require_coverage(read_json(args.compiled/'target-plan.json'))
+            return assets_boards.freeze(args.compiled, args.workspace, args.run)
+        if name == "board-preflight":
+            return assets_boards.preflight(args.compiled, args.run_dir, args.output)
+        if name == "board-process":
+            return assets_boards.materialize(args.compiled, args.run_dir, args.output)
+        if name == "board-recover":
+            return assets_boards.recover(args.compiled,args.run_dir,read_json(args.specification),args.output,materials_only=args.materials_only)
     if name in {"authorize-generation", "generation-status", "exchange-generation", "export-loop"}:
         from . import assets_generation as generation
         if name == "authorize-generation":
+            from .reference_coverage import require_coverage
+            require_coverage(read_json(args.run_dir/'plan.json'))
             return generation.authorize(args.run_dir, args.plan_digest, args.approval)
         if name == "generation-status":
             return generation.status(args.run_dir)
         if name == "exchange-generation":
             return generation.exchange(args.run_dir, args.request_digest, args.source)
-        return generation.export_loop(args.run_dir, args.output, args.output_root, args.python, args.node)
+        return generation.export_loop(args.run_dir, args.output, args.output_root, args.python, args.node, args.returned_response, args.output_root_mode)
     if name == "material-preflight":
         from .material_preflight import check_batch
         return check_batch(None, args.run_dir.resolve(), args.output)
@@ -101,6 +138,8 @@ def execute(args) -> dict:
         if name == "check":
             return checked
         from .batch import freeze
+        from .reference_coverage import require_coverage
+        require_coverage(plan)
         return freeze(args.plan, args.workspace, args.run, material_preflight=args.material_preflight)
     if name in {"auto-run", "job-status"}:
         from .headless import auto_run, job_status, load_provider
@@ -112,7 +151,7 @@ def execute(args) -> dict:
         return auto_run(args.reference, args.job_dir, load_provider(config),
                         maximum_calls=args.max_generation_calls, timeout_seconds=args.timeout_seconds,
                         authorized=True, provider_binding=digest(config),
-                        visual_qa_policy=args.visual_qa_policy, output_format="png_zip")
+                        visual_qa_policy=args.visual_qa_policy, output_format="png_zip",reference_coverage=read_json(args.coverage))
     if name in {"process", "review-template"}:
         from .process import process, review_template
         return (process if name == "process" else review_template)(args.run_dir.resolve())
@@ -160,7 +199,7 @@ def main(argv=None) -> int:
         status = result.get("status")
         if isinstance(status, dict):
             status = status.get("status")
-        return 2 if status in {"failed", "failed_no_resubmit", "failed_visual_qa", "timed_out", "indeterminate", "rejected"} else 0
+        return 2 if status in {"blocked", "failed", "failed_no_resubmit", "failed_visual_qa", "timed_out", "indeterminate", "rejected"} else 0
     except (ContractError, OSError, RuntimeError, ValueError) as exc:
         print(json.dumps({"status": "rejected", "error": type(exc).__name__,
                           "reason": str(exc) if isinstance(exc, ContractError) else "LOCAL_INPUT_OR_IO_ERROR"}))

@@ -4,6 +4,11 @@
 source path is POSIX-style and relative to the plan file. Frozen public records
 retain only the copied reference and relative run paths.
 
+Optional `reference_coverage` embeds the source-bound, caller-reviewed element
+inventory described in [reference coverage](../docs/reference-coverage-v1.md).
+When present it is validated and included in the plan digest. New independent
+assets-only freeze/authorization paths require it; legacy plans remain readable.
+
 ```json
 {
   "kind": "ai_ui_decomposition_plan_v1",

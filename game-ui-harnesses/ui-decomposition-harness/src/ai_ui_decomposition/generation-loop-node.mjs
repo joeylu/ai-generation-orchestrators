@@ -14,10 +14,11 @@ export function createLoopJournal(directory) {
   };
 }
 
-export function verifyBuiltinResult(response,directory) {
-  const source=builtinResultPath(response,directory);
+export function verifyBuiltinResult(response,directory,rootMode='direct') {
+  const source=builtinResultPath(response,directory,rootMode);
   const root=realpathSync(directory), actual=realpathSync(source);
-  if(lstatSync(source).isSymbolicLink() || dirname(actual)!==root || !lstatSync(actual).isFile())
+  const expectedParent=rootMode==='direct'?dirname(actual):dirname(dirname(actual));
+  if(lstatSync(source).isSymbolicLink() || lstatSync(dirname(source)).isSymbolicLink() || expectedParent!==root || !lstatSync(actual).isFile())
     throw new Error('LOOP_PHYSICAL_PATH_INVALID');
   const encoded=response.image_url.slice('data:image/png;base64,'.length);
   const inline=Buffer.from(encoded,'base64');

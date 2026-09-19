@@ -39,7 +39,7 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
     required = {"kind", "id", "canvas", "source", "text_policy", "granularity",
                 "assets", "nodes", "groups", "document"}
     require(isinstance(plan, dict) and required <= set(plan)
-            and set(plan) <= required | {"delivery_policy"}, "PLAN_FIELDS")
+            and set(plan) <= required | {"delivery_policy", "reference_coverage"}, "PLAN_FIELDS")
     require(plan.get("delivery_policy", "reviewed") in {"reviewed", "unreviewed_draft"},
             "DELIVERY_POLICY")
     require(plan.get("kind") == KIND, "PLAN_KIND")
@@ -209,6 +209,9 @@ def validate(plan: dict, verify_source: bool = True, source_base: Path | None = 
             "DOCUMENT")
     identifier(document.get("name"))
     require(document.get("format") in {"auto", "psd", "psb", "png_zip"}, "DOCUMENT_FORMAT")
+    if 'reference_coverage' in plan:
+        from .reference_coverage import require_coverage
+        require_coverage(plan)
     resources = plan_resources(plan)
     generated = sum(asset["route"].startswith("generated_") and "cached_result" not in asset
                     for asset in assets)

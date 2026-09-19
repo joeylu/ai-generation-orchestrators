@@ -6,7 +6,7 @@ import time
 
 from . import batch
 from .adapter import export_request, seal_result, import_result, builtin_image_arguments
-from .common import digest, read_json, write_json, require, sha256
+from .common import digest, read_json, write_json, require, sha256, MAX_IMAGE_BYTES
 
 
 def _record(path, body):
@@ -122,13 +122,30 @@ def exchange(run, request_digest=None, source=None):
             arguments=arguments,submissionDigest=submitted['digest']),timings={'totalSeconds':time.perf_counter()-start})
 
 
-def export_loop(run, output, output_root, python=None, node='node'):
+def export_loop(run, output, output_root, python=None, node='node', returned_response=None, output_root_mode='direct'):
     from .loop_entry import write_loop
     run=Path(run).resolve();output=Path(output).resolve();current=status(run)
-    require(current['status']=='ready' and current['assignedCalls']==0, 'LOOP_EXPORT_NOT_AUTHORIZED_FRESH')
+    recovery={}
+    require(output_root_mode in {'direct','session-child'},'LOOP_ROOT_MODE')
+    if returned_response is None:
+        require(current['status']=='ready' and current['assignedCalls']==0, 'LOOP_EXPORT_NOT_AUTHORIZED_FRESH')
+    else:
+        pending=[k for k,v in current['requests'].items() if v=='reserved']
+        require(current['status']=='awaiting_external' and len(pending)==1,'LOOP_RECOVERY_NOT_WAITING')
+        response=Path(returned_response).resolve()
+        # The durable tool response contains a full PNG in base64, not just metadata.
+        payload=read_json(response,max_bytes=4*((MAX_IMAGE_BYTES+2)//3)+2_097_152)
+        event=payload['events'][-1] if payload.get('kind')=='ui_generation_loop_events_v1' and payload.get('events') else payload
+        submitted=_read(run/'assets-exchange'/pending[0]/'submission.json')
+        require(event.get('event')=='tool-returned' and event.get('requestDigest')==submitted['requestDigest'] and
+                isinstance(event.get('response'),dict),'LOOP_RECOVERY_RESPONSE_MISMATCH')
+        recovery=dict(returnedResponse=str(response),returnedResponseSha256=sha256(response),
+            returnedRequestDigest=submitted['requestDigest'],assignedCalls=current['assignedCalls'])
     root=Path(__file__).resolve().parent
     config=dict(product='assets',job=str(run),jobDigest=current['jobDigest'],maximumCalls=current['maximumCalls'],
         python=str(python or sys.executable),node=str(node),packageRoot=str(root.parent),
         bridge=str(root/'generation-loop-bridge.mjs'),outputRoot=str(Path(output_root).resolve()),
         journal=str(output.parent/'journal'),transport=str(output.parent/'transport'))
+    config.update(recovery)
+    config['outputRootMode']=output_root_mode
     return write_loop(config,output,current['planDigest'])

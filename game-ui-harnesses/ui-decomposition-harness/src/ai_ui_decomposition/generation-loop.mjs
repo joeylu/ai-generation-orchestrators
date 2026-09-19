@@ -16,7 +16,8 @@ export function batchedLoopPersistence(writeBatch) {
   };
 }
 
-export function builtinResultPath(result, allowedDirectory) {
+export function builtinResultPath(result, allowedDirectory, rootMode='direct') {
+  requireValue(['direct','session-child'].includes(rootMode),'LOOP_ROOT_MODE');
   // Observed built-in transport hint, not a promised provider schema. Fail closed.
   requireValue(result && typeof result.image_url === 'string' &&
     result.image_url.startsWith('data:image/png;base64,'), 'LOOP_PNG_RESULT_REQUIRED');
@@ -33,20 +34,26 @@ export function builtinResultPath(result, allowedDirectory) {
   requireValue(!path.split('/').some(x => x === '..' || x === '.') &&
     !root.split('/').some(x => x === '..' || x === '.'), 'LOOP_PATH_TRAVERSAL');
   // Restrict to a direct child of the caller-verified output directory.
-  requireValue(path.slice(0, path.lastIndexOf('/')) === root, 'LOOP_PATH_OUTSIDE_ROOT');
+  const parent=path.slice(0,path.lastIndexOf('/'));
+  requireValue(rootMode==='direct'?parent===root:
+    parent.startsWith(root+'/') && /^[^/:]+$/.test(parent.slice(root.length+1)), 'LOOP_PATH_OUTSIDE_ROOT');
   requireValue(/^[^/:]+\.png$/.test(path.slice(path.lastIndexOf('/') + 1)), 'LOOP_PATH_INVALID');
   return raw;
 }
 
 export async function runGenerationLoop({maxCalls, exchange, generate, resolveResult,
     persist, progress = async () => {}, cancelled = () => false,
-    now = () => Date.now(), schedule, unschedule}) {
-  requireValue(Number.isInteger(maxCalls) && maxCalls > 0 && maxCalls <= 32, 'LOOP_BUDGET');
+    now = () => Date.now(), schedule, unschedule, initialPrevious = null}) {
+  requireValue(Number.isInteger(maxCalls) && maxCalls >= (initialPrevious ? 0 : 1) && maxCalls <= 32, 'LOOP_BUDGET');
   requireValue([exchange, generate, resolveResult, persist].every(x => typeof x === 'function'),
     'LOOP_HOST_REQUIRED');
   requireValue((schedule === undefined) === (unschedule === undefined), 'LOOP_TIMER_PAIR');
   const seen = new Set(); const started = now();
-  let previous = null, calls = 0, current = null;
+  if(initialPrevious) {
+    requireValue(/^[0-9a-f]{64}$/.test(initialPrevious.requestDigest) && typeof initialPrevious.source==='string' && initialPrevious.source.length>0,'LOOP_RECOVERY_INPUT');
+    seen.add(initialPrevious.requestDigest);
+  }
+  let previous = initialPrevious, calls = 0, current = null;
   const elapsed = () => Math.max(0, now() - started);
   try {
     for (;;) {

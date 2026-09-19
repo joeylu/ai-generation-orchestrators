@@ -26,7 +26,7 @@ def preserve_canvas_alpha(image, size):
     return normalize(result)
 
 
-def prepare(compiled, run, specification, output, component_root):
+def prepare_materials(compiled, run, specification, output, *, catalog=None):
     compiled, run, output = Path(compiled), Path(run), Path(output)
     require(not output.exists(), 'OUTPUT_EXISTS')
     require(isinstance(specification, dict) and set(specification) ==
@@ -34,12 +34,14 @@ def prepare(compiled, run, specification, output, component_root):
             'RECOVERY_SPECIFICATION')
     revisions = specification['revisions']
     require(isinstance(revisions, dict) and revisions, 'RECOVERY_REVISIONS_REQUIRED')
-    catalog = read_json(compiled/'material-catalog.json')
+    catalog = read_json(compiled/'material-catalog.json') if catalog is None else catalog
     plan = read_json(compiled/'plan.json')
+    from .batch import load
+    _,source_plan=load(run)
     rows = generated_rows(catalog['parts'])
     keys = {r['generationAsset'] for r in rows}
     require(set(revisions) <= keys, 'RECOVERY_UNKNOWN_ASSET')
-    verified = {}
+    verified = {}; replacements = {}
     for key in sorted(keys):
         revision = revisions.get(key)
         errors = set()
@@ -50,6 +52,10 @@ def prepare(compiled, run, specification, output, component_root):
                 require(set(revision) <= {'kind','rawSha256','reason','sourceRegions','sourceAlpha','measuredFrames'} and 'sourceRegions' in revision, 'RECOVERY_REVISION_FIELDS')
                 errors = {'BOARD_GAP_AMBIGUOUS_SEPARATION', 'BOARD_GAP_COUNT_OR_JOINED', 'BOARD_GAP_MULTIPLE_ROWS'}
                 errors.update('BOARD_GAP_PART_ASPECT:'+r['layerId'] for r in rows if r['generationAsset']==key)
+                # Explicit regions revalidate full coverage and clear borders instead
+                # of relying on a generated canvas ratio or the old search windows.
+                errors.add('BOARD_RELATIVE_CANVAS_ASPECT')
+                errors.update('BOARD_CELL_EDGE_CLIPPED:'+r['layerId'] for r in rows if r['generationAsset']==key)
                 if revision.get('sourceAlpha') == 'preserve':
                     errors |= {'BOARD_KEY_BACKGROUND_REQUIRED', 'KEY_BACKGROUND_REQUIRED'}
             elif revision['kind'] == 'native-alpha-canvas':
@@ -59,18 +65,37 @@ def prepare(compiled, run, specification, output, component_root):
                 require(set(revision)=={'kind','rawSha256','reason','recipe'} and
                         revision['recipe'].get('operation')=='visible-frame-nine-slice', 'RECOVERY_REVISION_FIELDS')
                 errors = {'LONG_CONTROL_SUPPORT_ASPECT_MISMATCH'}
+            elif revision['kind'] == 'verified-replacement-source':
+                require(set(revision)=={'kind','rawSha256','reason','sourceRunDirectory','sourceAsset','sourceBatchDigest','sourceRawSha256'},'RECOVERY_REVISION_FIELDS')
+                require(all(r['board'] is None for r in rows if r['generationAsset']==key),'RECOVERY_REPLACEMENT_SINGLE_REQUIRED')
+                errors = {'LONG_CONTROL_SUPPORT_ASPECT_MISMATCH'}
             else:
                 raise ValueError('RECOVERY_REVISION_KIND')
         frozen, item, receipt, raw = _verified_result(run, key, revision_errors=errors)
         require(receipt.get('kind') == 'ai_ui_decomposition_request_received_v1',
                 'RECOVERY_ORIGINAL_RECEIVED_REQUIRED')
         require(frozen['digest'] == specification['batchDigest'], 'RECOVERY_BATCH_CHANGED')
-        require(plan['source']['sha256'] == frozen['source_sha256'], 'RECOVERY_REFERENCE_CHANGED')
+        # The frozen input is normalized PNG; compare original source bindings,
+        # while batch.load independently verifies the normalized input bytes.
+        require(plan['source']['sha256'] == source_plan['source']['sha256'], 'RECOVERY_REFERENCE_CHANGED')
         target = next(a for a in plan['assets'] if a['id']==key)
         for field in ('prompt','output_size','output_mode','source_region','route','role'):
             require(item[field] == target[field], 'RECOVERY_PLAN_CHANGED')
         if revision:
             require(revision['rawSha256']==sha256(raw), 'RECOVERY_RAW_CHANGED')
+        if revision and revision['kind']=='verified-replacement-source':
+            from .cached import verified_result
+            replacement_run=Path(revision['sourceRunDirectory']).resolve()
+            rf,ri,rr,rraw=verified_result(replacement_run,revision['sourceAsset'])
+            _,rp=load(replacement_run)
+            require(rr['kind']=='ai_ui_decomposition_request_received_v1','RECOVERY_REPLACEMENT_RECEIVED_REQUIRED')
+            require(rf['digest']==revision['sourceBatchDigest'] and sha256(rraw)==revision['sourceRawSha256'],'RECOVERY_REPLACEMENT_SOURCE_CHANGED')
+            require(rp['source']['sha256']==plan['source']['sha256'],'RECOVERY_REPLACEMENT_REFERENCE_CHANGED')
+            require(all(ri[field]==item[field] for field in ('output_size','output_mode','source_region','route','role')) and
+                    ri.get('resize')==item.get('resize') and ri.get('foreground_support')==item.get('foreground_support'), 'RECOVERY_REPLACEMENT_GEOMETRY_CHANGED')
+            replacements[key]=(rraw,dict(sourceBatchDigest=rf['digest'],sourcePlanDigest=digest(rp),
+                sourceAsset=ri['id'],rawSha256=sha256(rraw),receiptSha256=sha256(rraw.parent/'received.json'),
+                basis='separately received replacement; original prompt and failed quality retained'))
         verified[key]=(item,receipt,raw)
     output.mkdir(parents=True)
     paths, lineage = {}, []
@@ -104,6 +129,9 @@ def prepare(compiled, run, specification, output, component_root):
                     paths[layer]=directory/(layer+'.png');part.save(paths[layer])
         else:
             require(len(targets)==1 and targets[0]['rect'][2:]==item['output_size'], 'RECOVERY_TARGET_GEOMETRY')
+            if key in replacements:
+                raw,replacement_evidence=replacements[key]
+                evidence['replacementSource']=replacement_evidence
             with Image.open(raw) as picture:
                 if revision and revision['kind']=='native-alpha-canvas':
                     require(picture.mode == 'RGBA' and list(picture.getchannel('A').getextrema()) == revision['sourceAlphaExtrema'], 'RECOVERY_ALPHA_CHANGED')
@@ -129,6 +157,13 @@ def prepare(compiled, run, specification, output, component_root):
                 generationCalls=0,human_visual_acceptance=False,
                 materials={key:dict(path=p.relative_to(output).as_posix(),sha256=sha256(p)) for key,p in paths.items()})
     record['digest']=digest(record);write_json(output/'recovery-lineage.json',record)
+    return paths, record
+
+
+def prepare(compiled, run, specification, output, component_root):
+    compiled,output=Path(compiled),Path(output)
+    paths,_=prepare_materials(compiled,run,specification,output)
+    plan=read_json(compiled/'plan.json')
     from .delivery_adapter import _materialized_handoff
     return _materialized_handoff(compiled,paths,output,component_root,plan)
 

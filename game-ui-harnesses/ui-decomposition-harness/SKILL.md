@@ -19,6 +19,32 @@ scope for that task. Keep original material/source/review gates and timing.
 The component workflow below applies only when runnable UI delivery is requested.
 An asset ZIP does not establish interactive or human visual acceptance.
 
+When delegating an authorized file-tool run, give the executor the frozen run,
+digest and exported entry once; do not ask it to repeat planning. The loop emits
+`completion-ready` after writing `completion.json` beside the exported entry. The coordinator may
+read that small handoff immediately, verify official generation status, and begin
+processing without waiting for a narrative reply. Keep tool time, dispatch/setup
+and post-generation handoff time separate. Missing completion is not permission
+to replay a request; inspect the durable journal and official state first.
+
+Before freezing an assets-only plan, perform the independent reference inventory
+and removal/ownership cross-check in [reference coverage](docs/reference-coverage-v1.md).
+Scan the reference itself, including edge attachments, leather straps, clasps,
+ties and ornaments; do not substitute the existing asset list for this scan.
+Use `coverage-check` and `coverage-bind`; unresolved important elements block
+new generation. At composite review recheck every declared element. Missing
+important artwork is incomplete reference coverage, even in a technical draft;
+do not treat it as an ordinary texture difference. This is caller visual review,
+not automatic semantic detection. Never mark the review complete without looking.
+
+For asset-only tasks, do not equate one output PNG with one generation call.
+Review similar-material grouping with [independent asset boards](docs/assets-boards-v1.md)
+before freezing the budget. Use the public board compile/freeze/preflight/process
+commands; do not import a component DAG or hand-author successful extraction
+receipts. Keep backgrounds, illustrations and unlike aspect ratios separate.
+The chosen groups and extraction rules require review; fewer calls alone do not
+establish better quality. Materialize boards into individual PNGs before delivery.
+
 Begin [end-to-end timing](docs/timeline-v1.md) at reference input, before inspection.
 Record every phase including planning, authorization waiting, generation, manual
 review, code/environment repairs, processing, tests, packaging and acceptance.

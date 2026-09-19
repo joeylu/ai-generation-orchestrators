@@ -4,10 +4,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import base64
+import json
 from PIL import Image
 from test_assets_cli import FixtureProvider
 from ai_ui_decomposition import batch, planning, assets_generation as generation
-from ai_ui_decomposition.common import digest, read_json, ContractError
+from ai_ui_decomposition.common import digest, read_json, write_json, ContractError
 from ai_ui_decomposition.material_preflight import check_batch
 from ai_ui_decomposition.process import process
 
@@ -70,6 +72,46 @@ class AssetsGenerationTests(unittest.TestCase):
         frozen,_=batch.load(self.run);key=frozen['dispatch_order'][0]
         (self.run/'requests'/frozen['requests'][key]['id']/'raw.png').write_bytes(b'changed')
         with self.assertRaisesRegex(ContractError,'RESULT_CHANGED'):generation.status(self.run)
+
+    def test_export_rejects_nonexistent_provider_source_root_before_writing(self):
+        self.authorize()
+        entry=self.root/'entry/run.js'
+        with self.assertRaisesRegex(ContractError,'LOOP_EXPORT_SOURCE_ROOT_MISSING'):
+            generation.export_loop(self.run,entry,self.root/'imaginary-provider-output')
+        self.assertFalse(entry.parent.exists())
+        self.assertFalse((self.run/'assets-exchange').exists())
+
+    @unittest.skipUnless(shutil.which('powershell') and shutil.which('node'),'Windows host fixture')
+    def test_returned_response_recovery_does_not_regenerate_pending_asset(self):
+        self.authorize();request=generation.exchange(self.run)['nextRequest']
+        session=self.root/'agent-session';session.mkdir()
+        raw=session/'reference.png';shutil.copyfile(self.root/'reference.png',raw)
+        Image.new('RGB',(1024,1024),'blue').save(raw,compress_level=0)
+        response=self.root/'returned.json'
+        event=dict(event='tool-returned',requestDigest=request['requestDigest'],response=dict(
+            image_url='data:image/png;base64,'+base64.b64encode(raw.read_bytes()).decode(),
+            output_hint=f'Fixture saved as {raw} by default.'))
+        write_json(response,event)
+        self.assertGreater(response.stat().st_size,2_097_152)
+        entry=self.root/'recovery'
+        generation.export_loop(self.run,entry/'run.js',self.root,returned_response=response,output_root_mode='session-child')
+        # A changed response after export cannot receive or dispatch any request.
+        event['toolMs']=1;response.write_text(json.dumps(event),encoding='utf-8')
+        result=subprocess.run([shutil.which('node'),str(Path(__file__).with_name('generation-loop-entry-fixture.mjs')),
+            str(entry/'run.js'),str(raw),str(entry)],capture_output=True,text=True,timeout=120)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('LOOP_RECOVERY_RESPONSE_CHANGED',result.stderr)
+        self.assertEqual(generation.status(self.run)['assignedCalls'],1)
+        self.assertFalse((entry/'journal').exists())
+        fresh=self.root/'recovery-verified'
+        generation.export_loop(self.run,fresh/'run.js',self.root,returned_response=response,output_root_mode='session-child')
+        result=subprocess.run([shutil.which('node'),str(Path(__file__).with_name('generation-loop-entry-fixture.mjs')),
+            str(fresh/'run.js'),str(raw),str(fresh)],capture_output=True,text=True,timeout=120)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertEqual(read_json(fresh/'entry-result.json')['simulatedCalls'],1)
+        self.assertEqual(generation.status(self.run)['status'],'generation_complete')
+        with self.assertRaisesRegex(ContractError,'LOOP_RECOVERY_NOT_WAITING'):
+            generation.export_loop(self.run,self.root/'again/run.js',self.root,returned_response=response)
 
     @unittest.skipUnless(shutil.which('powershell') and shutil.which('node'),'Windows host fixture')
     def test_exported_loop_runs_unchanged_without_component_workflow(self):

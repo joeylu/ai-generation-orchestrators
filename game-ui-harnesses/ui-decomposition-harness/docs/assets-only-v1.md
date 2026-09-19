@@ -28,6 +28,9 @@ under the existing text policy; this is not pixel-perfect OCR reconstruction.
 All planned layers must pass processing and package validation. Missing or failed
 assets cannot be silently omitted to produce a successful archive.
 
+For multiple similar materials per image call, use
+[independent asset boards](assets-boards-v1.md). Output PNGs remain separate.
+
 No UiDocument, appearance bindings, runtime state matrix, business linkage,
 reference-state comparison, Node, PixiJS, browser, Studio or PSD extra is required.
 An unknown runtime caret/focus state does not block this asset product, because
@@ -43,12 +46,19 @@ Install the base package for development, without `[psd]`. Alternatively use
 ```text
 ai-ui-assets init --reference reference.png --plan project/plan.json --id sample-r001 --document sample
 ai-ui-assets check --plan project/plan.json
-ai-ui-assets freeze --plan project/plan.json --workspace workspace --run sample-r001
+ai-ui-assets coverage-check --plan project/plan.json --coverage coverage.json --output coverage-check.json
+ai-ui-assets coverage-bind --plan project/plan.json --coverage coverage.json --output project/covered-plan.json
+ai-ui-assets freeze --plan project/covered-plan.json --workspace workspace --run sample-r001
 ```
 
 `init` writes a PNG ZIP starter plan, **not automatic semantic decomposition**.
 Before check/freeze, author the complete asset/node/group plan using the existing
 [plan contract](../references/contract.md). Check/freeze reject non-PNG plans.
+New freezes and generation authorization also require a bound
+[reviewed reference inventory](reference-coverage-v1.md). Independently inspect
+the original reference, run `coverage-check`, then `coverage-bind` into a new
+plan beside the original and freeze that covered plan. Init alone is not ready
+for generation; missing ownership is not repaired by a complete file inventory.
 Neither command generates images. Review the frozen plan and obtain fresh
 single-use compute approval before each approved external request. Export/seal/
 import use the unchanged [provider protocol](../references/provider-adapter.md).
@@ -86,7 +96,7 @@ is not a bypass for a reviewed plan. Failed/old output directories are retained.
 ## Optional configured-provider draft
 
 ```text
-ai-ui-assets auto-run --reference reference.png --job-dir job-r001 --provider-config provider.json --max-generation-calls 8 --allow-provider-calls-and-unreviewed-draft
+ai-ui-assets auto-run --reference reference.png --job-dir job-r001 --provider-config provider.json --coverage coverage.json --max-generation-calls 8 --allow-provider-calls-and-unreviewed-draft
 ai-ui-assets job-status --job-dir job-r001
 ```
 
@@ -149,8 +159,9 @@ received image and writes original source-bound quality receipts; any failure
 blocks processing. Invalid transport/image bytes and unknown outcomes still stop
 the loop immediately. Deferred preflight does not turn a failed material into a
 pass, invoke a retry, or authorize a draft. Specialized component-family boards
-still require their existing compiled extraction strategy; this standalone
-preflight rejects that marker rather than guessing a strategy. The original
+use `board-preflight` and `board-process` with their compiled extraction strategy
+as described in [asset boards](assets-boards-v1.md). Plain material preflight
+rejects the board marker rather than guessing a strategy. The original
 per-image QA mode remains the default for backward compatibility; choose deferred
 QA before freezing, never by editing a frozen batch.
 
