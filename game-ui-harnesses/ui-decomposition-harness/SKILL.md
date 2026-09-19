@@ -114,6 +114,12 @@ the returned surface alone before composition to catch baked-in duplicate contro
 successful Alpha checks do not detect this. A successful single sample does not
 establish stable generation or justify automatically changing other frozen prompts.
 
+Check [declared visible support](docs/visible-support-v1.md), not just PNG canvas
+dimensions. Unexpected transparent bands can hide a flattened button. Preserve
+declared margins and failed geometry evidence; do not enlarge margins to obtain a
+pass. Reviewed corner-preserving fitting can still stretch interior textures and
+is not an automatic fidelity repair.
+
 For an explicitly requested historical baseline experiment, use
 [verified historical request replay](docs/historical-request-replay-v1.md).
 Bind the original received request digest and freeze with `--replay-from`;

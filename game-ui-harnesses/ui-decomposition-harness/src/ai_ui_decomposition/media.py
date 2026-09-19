@@ -10,6 +10,23 @@ from .common import require
 KEY_RGB = np.array([248, 8, 248], dtype=np.float32)
 
 
+def visible_support_geometry(image: Image.Image, size: list[int], insets: list[int]) -> dict:
+    """Measure nonzero Alpha support against declared margins; no semantic inference."""
+    require(list(image.size) == list(size), 'SUPPORT_CANVAS_SIZE')
+    require(len(insets) == 4 and all(type(v) is int and v >= 0 for v in insets),
+            'SUPPORT_INSETS')
+    left, top, right, bottom = insets
+    expected = [size[0]-left-right, size[1]-top-bottom]
+    require(min(expected) > 0, 'SUPPORT_INSETS')
+    box = image.convert('RGBA').getchannel('A').getbbox()
+    require(box is not None, 'EMPTY_MATERIAL')
+    actual = [box[2]-box[0], box[3]-box[1]]
+    return dict(canvasSize=list(size), alphaBounds=list(box), visibleSize=actual,
+                allowedInsets=list(insets), expectedVisibleSize=expected,
+                actualInsets=[box[0], box[1], size[0]-box[2], size[1]-box[3]],
+                relativeSizeError=[abs(a/e-1) for a,e in zip(actual,expected)])
+
+
 def require_explicit_key_background(image: Image.Image) -> None:
     """Declared key or already-transparent edges; never infer a returned palette."""
     pixels=np.asarray(image.convert('RGBA'))
@@ -19,12 +36,19 @@ def require_explicit_key_background(image: Image.Image) -> None:
 
 
 def require_long_control_geometry(image: Image.Image, size: list[int],
-                                  foreground_support: dict | None = None) -> None:
+                                  foreground_support: dict | None = None, *,
+                                  preserve_source_alpha: bool = False) -> None:
     """Reject grossly shortened thin controls even inside a correct-size canvas."""
     support_size = list(size)
     if foreground_support is not None:
         left, top, right, bottom = foreground_support["insets"]
         support_size = [size[0] - left - right, size[1] - top - bottom]
+        geometry = visible_support_geometry(image, size, foreground_support['insets'])
+        # Explicit support applies to ordinary buttons too, not just 8:1 rails.
+        # Two pixels accommodate raster rounding; 15% is a structural tolerance.
+        require(preserve_source_alpha or all(abs(a-e) <= max(2, .15*e) for a,e in
+                    zip(geometry['visibleSize'], geometry['expectedVisibleSize'])),
+                'VISIBLE_SUPPORT_SIZE_MISMATCH')
     if max(support_size) / min(support_size) < 8:
         return
     box = image.getchannel('A').getbbox()

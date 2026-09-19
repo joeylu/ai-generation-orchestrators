@@ -129,7 +129,8 @@ def _crop_source_regions(raw, board, source_regions, measured_frames=None,
             part = normalize(part)
             require(part.getchannel('A').getextrema() == (0, 255),
                     'BOARD_PART_ALPHA')
-            require_long_control_geometry(part, target, {'insets': [padding] * 4})
+            require_long_control_geometry(part, target, {'insets': [padding] * 4},
+                                          preserve_source_alpha=source_alpha == 'preserve')
             record = {'asset_id': asset_id, 'source_window': list(regions[asset_id]),
                       'matte_bbox_in_window': list(bbox), 'target_size': target,
                       'uniform_scale': scale, 'resampled_size': fitted,
