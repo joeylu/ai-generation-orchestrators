@@ -1,8 +1,25 @@
-# UI Layer Harness — 0.1.0a1 preview
+# UI Layer Harness — 0.1.0a2 preview
 
 独立 UI 拆分入口：参考图 → M1/M2 规划 → M3 冻结 → 宿主生图交换 → 归位 → UI 图层 ZIP。
 本入口从本地实验链路收口，保留旧 `ai-ui-decomposition` / `ai-ui-assets` 命令及行为。
 它不是旧包 0.5.0 的新模式，也不是组件化交付；普通业务文字被移除。
+
+## 目录
+
+```text
+ui-layer-harness/
+├── README.md                # 总览与快速开始
+├── requirements.txt         # 源码运行依赖
+├── ui_layer.py              # 稳定的公开调用入口
+├── src/ai_ui_layers/        # 规划、执行、定位、打包与可选模型适配器
+├── tests/                   # 离线测试及测试导入配置
+└── docs/
+    ├── SERVICE-CONTRACT.md  # Docker / Web 接入边界
+    └── RELEASE-NOTES.md     # 版本变化与验证范围
+```
+
+规划 schema、提示词与示例继续共用相邻 `ui-decomposition-harness/planning-harness/`，不复制第二套合同。
+内部模块使用包内导入；服务仍只调用根目录的 `ui_layer.py`。
 
 ## 安装和启动
 
@@ -33,7 +50,8 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 
 ## 接入合同
 
-见 [SERVICE-CONTRACT.md](SERVICE-CONTRACT.md)：命令、授权、状态、媒体交换和交付边界。
+见 [服务接入合同](docs/SERVICE-CONTRACT.md)：命令、授权、状态、媒体交换和交付边界。
+版本变化见 [发布说明](docs/RELEASE-NOTES.md)。
 Docker 项目负责服务封装；Web 消费该服务 API 和公开图层包；本仓库不规定 HTTP 路由。
 独立产物合同为 `ui_layer_composition_v1`，不是后续 UI component 的组件树合同。
 
@@ -49,7 +67,7 @@ Docker 项目负责服务封装；Web 消费该服务 API 和公开图层包；�
 ## 验证
 
 ```text
-python -m unittest discover -s game-ui-harnesses/ui-layer-harness -p "test_*.py"
+python -m unittest discover -s game-ui-harnesses/ui-layer-harness/tests -p "test_*.py"
 ```
 
 所有测试离线，使用替身及程序图形，不调用生成服务。首次上线需在外部服务环境完成真实任务联调。
