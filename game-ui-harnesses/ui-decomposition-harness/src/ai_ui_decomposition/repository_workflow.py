@@ -35,7 +35,7 @@ class RepositoryWorkflow:
 
     def run(self,c):
         require(c['spec']['fixture'] is False,'REPOSITORY_WORKFLOW_NOT_FIXTURE')
-        job=Path(c['job']);out=Path(c['output']);node=c['node'];root=Path(self.options['componentRoot']).resolve()
+        job=Path(c['job']).resolve();out=Path(c['output']).resolve();node=c['node'];root=Path(self.options['componentRoot']).resolve()
         seconds=c.get('timeoutSeconds',c['spec']['stageTimeout'])
         def artifact(stage,key):
             row=c['receipts'][stage]['artifacts'][key]

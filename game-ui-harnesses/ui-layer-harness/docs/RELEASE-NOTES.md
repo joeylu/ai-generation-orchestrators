@@ -1,4 +1,16 @@
-# 0.1.0a2 preview
+# Release notes
+
+## Unreleased CI compatibility fixes
+
+- Import Pillow's `Image` explicitly so Python 3.10 can evaluate key-evidence annotations.
+- Emit public CLI JSON as UTF-8 even on Windows hosts with a legacy console encoding.
+- Fail test jobs on the first unsuccessful command on both Linux and Windows.
+- Normalize Windows short-name aliases when checking generation results, delivery artifacts,
+  and checkpoint overlap; retain traversal, symlink, and byte-identity checks.
+- Bring offline board fixtures into agreement with their declared visible dimensions;
+  the runtime size gate and thin-button rejection remain unchanged.
+
+## 0.1.0a2 preview
 
 整理为 src/ai_ui_layers、tests、docs 目录；修正包内导入、仓库资源定位、测试发现、CI 与文档链接。
 根目录 ui_layer.py 的命令、stdout JSON 和图层包合同保持兼容，不修改旧正式链路。

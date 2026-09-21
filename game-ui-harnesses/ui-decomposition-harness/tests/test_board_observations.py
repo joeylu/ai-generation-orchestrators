@@ -103,7 +103,7 @@ class ObservedBoardResizeTests(unittest.TestCase):
 
     def test_legacy_observed_extraction_without_resize_still_rejects_long_support(self):
         f,sp,op,_=self._fixture(resize=False)
-        with self.assertRaisesRegex(ContractError,'LONG_CONTROL_SUPPORT_ASPECT_MISMATCH'):
+        with self.assertRaisesRegex(ContractError,'VISIBLE_SUPPORT_SIZE_MISMATCH'):
             extract(f.run,sp,op,f.root/'parts')
         self.assertFalse((f.root/'parts').exists())
 

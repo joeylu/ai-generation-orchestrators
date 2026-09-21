@@ -58,8 +58,9 @@ def native_fixture(directory):
     reference=dict(kind='ui-reference-state',schemaVersion='1.0',components=[dict(componentId=n['id'],componentType=n['type'],fields={f:dict(status='unknown',reason='Procedural fixture has no observed reference state') for f in FIELDS[n['type']]}) for n in nodes if n['type'] in FIELDS])
     scope=dict(kind='ui-acceptance-scope',schemaVersion='1.0',referenceState='reference/reference-state.json',components=[dict(componentId=n['id'],mode='compare',reason='Explicit fixture comparison scope') for n in nodes],derivedTestStates=[],human_visual_acceptance=False)
     evidence=read_json(directory/'evidence.json')
+    # The procedural source assets use one-pixel margins, including the tiny Select indicator.
     request=dict(kind='ui_native_delivery_input_v1',version='1.0',referenceSha256=sha256(directory/'reference.png'),document=document,materials=materials,
-        boardPolicies={kind.lower():dict(version='1.0',mode='relative-cell',target_padding=2,max_canvas_aspect_error=.15)},
+        boardPolicies={kind.lower():dict(version='1.0',mode='relative-cell',target_padding=1,max_canvas_aspect_error=.15)},
         appearance=dict(registration=binding['registration'],bindings=bindings),
         capabilities=[dict(id=n['id'],type=n['type'],profiles=['base']) for n in nodes],referenceState=reference,acceptanceScope=scope,
         referenceMapping=dict(coordinateSpace='raw-image-pixel-edges-to-runtime-canvas',sourceSize=size,targetSize=size,crop=[0,0,*size],rotationDegrees=0,flipX=False,flipY=False,scale=[1,1],offset=[0,0]),

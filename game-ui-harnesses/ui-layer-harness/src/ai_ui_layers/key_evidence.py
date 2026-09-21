@@ -1,4 +1,5 @@
 import numpy as np
+from PIL import Image
 from .compile_visual import HARNESS  # Establish the source-distribution core import path.
 from ai_ui_decomposition.media import KEY_RGB
 

@@ -19,12 +19,36 @@ class GenerationLoopTests(unittest.TestCase):
                     return_value={'status':{'status':status},'nextRequest':None}), redirect_stdout(io.StringIO()):
                 self.assertEqual(main(['workflow-exchange-generation','--job','fixture']),code)
 
+    @unittest.skipUnless(sys.platform == 'win32' and shutil.which('node'), 'Windows path aliases')
+    def test_result_binding_accepts_short_directory_alias_without_allowing_traversal(self):
+        import ctypes
+        import tempfile
+        from PIL import Image
+        with tempfile.TemporaryDirectory(prefix='long-result-directory-') as tmp:
+            root=Path(tmp).resolve();source=root/'result.png'
+            Image.new('RGBA',(2,2),(1,2,3,255)).save(source)
+            buffer=ctypes.create_unicode_buffer(32768)
+            length=ctypes.windll.kernel32.GetShortPathNameW(str(root),buffer,len(buffer))
+            if not length or buffer.value == str(root):self.skipTest('8.3 aliases unavailable')
+            module=Path(__file__).resolve().parents[1]/'src/ai_ui_decomposition/generation-loop-node.mjs'
+            script="""const [url,source,alias]=process.argv.slice(1);
+const {verifyBuiltinResult}=await import(url);const fs=await import('node:fs');
+const response={image_url:'data:image/png;base64,'+fs.readFileSync(source).toString('base64'),output_hint:`Saved as ${source} by default.`};
+if(verifyBuiltinResult(response,alias)!==fs.realpathSync.native(source))throw Error('alias mismatch');
+response.output_hint=`Saved as ${alias}/../${alias.replaceAll(String.fromCharCode(92),'/').split('/').at(-1)}/result.png by default.`;
+try {verifyBuiltinResult(response,alias);throw Error('traversal accepted');}
+catch(e){if(!e.message.includes('LOOP_PATH_TRAVERSAL'))throw e;}
+"""
+            result=subprocess.run([shutil.which('node'),'--input-type=module','-e',script,
+                module.as_uri(),str(source),buffer.value],capture_output=True,text=True,encoding='utf-8')
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
     @unittest.skipUnless(shutil.which('node'), 'Node required for host loop tests')
     def test_offline_host_loop(self):
         result=subprocess.run([shutil.which('node'),'--test',str(Path(__file__).with_name('generation-loop.test.mjs')),
                               str(Path(__file__).with_name('generation-loop-node.test.mjs')),
                               str(Path(__file__).with_name('generation-loop-batching.test.mjs'))],
-                              capture_output=True,text=True,timeout=30)
+                              capture_output=True,text=True,encoding='utf-8',timeout=30)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
 

@@ -52,6 +52,11 @@ jobs:
 
   test:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.browser_filter == '' }}
+    defaults:
+      run:
+        # Explicit bash uses -e -o pipefail on both runner platforms.
+        # PowerShell otherwise lets a later native command mask an earlier failure.
+        shell: bash
     strategy:
       fail-fast: false
       matrix:

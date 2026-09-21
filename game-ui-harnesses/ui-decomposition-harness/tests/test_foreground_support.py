@@ -49,7 +49,7 @@ class ForegroundSupportTests(unittest.TestCase):
             require_long_control_geometry(self.picture(15), [278, 18])
 
     def test_actual_overthin_fill_still_fails(self):
-        with self.assertRaisesRegex(ContractError, "LONG_CONTROL_SUPPORT_ASPECT_MISMATCH"):
+        with self.assertRaisesRegex(ContractError, "VISIBLE_SUPPORT_SIZE_MISMATCH"):
             require_long_control_geometry(self.picture(10), [278, 18], self.support())
 
     def test_valid_support_contract(self):

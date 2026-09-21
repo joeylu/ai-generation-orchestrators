@@ -76,9 +76,13 @@ class OfflineResumeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); fixture = build_fixture(root, frame_counts=[16])
             handoff = load_decoded_handoff(root, fixture["handoff_path"], raw_video=fixture["raw"])
-            with self.assertRaisesRegex(ValueError, "checkpoint_overlaps_delivery"):
-                process_decoded_handoff(root=root, plan=fixture["plan"], handoff=handoff,
-                    out_dir=root / "delivery", key_color="#00FF00", checkpoint_root=root / "delivery/cache")
+            # A lexical alias must not hide overlap with a canonical checkpoint path.
+            (root / "alias").mkdir()
+            for output in (root / "delivery", root / "alias/../delivery"):
+                with self.subTest(output=output), self.assertRaisesRegex(ValueError, "checkpoint_overlaps_delivery"):
+                    process_decoded_handoff(root=root, plan=fixture["plan"], handoff=handoff,
+                        out_dir=output, key_color="#00FF00", checkpoint_root=root / "delivery/cache")
+                self.assertFalse((root / "delivery").exists())
 
     def test_internal_decode_budget_fails_before_ffmpeg(self):
         from ai_frame_animation.processing import process_video

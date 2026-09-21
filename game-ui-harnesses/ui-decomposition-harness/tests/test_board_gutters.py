@@ -11,7 +11,8 @@ def fixture():
        'assets':[{'id':k,'component_type':'Tabs','component_group':'tabs','target_size':[80,40],
                   'source_reusable':False,'source_evidence':''} for k in ['off','on']]}
     s=plan_boards(d);im=Image.new('RGB',(200,120),'#F808F8');draw=ImageDraw.Draw(im)
-    draw.rectangle((35,40,100,75),fill='#123456');draw.rectangle((125,40,185,75),fill='#ABCDEF')
+    # Match the declared 76x36 visible target after matte edge removal.
+    draw.rectangle((35,40,100,72),fill='#123456');draw.rectangle((125,40,190,72),fill='#ABCDEF')
     return s,im
 
 

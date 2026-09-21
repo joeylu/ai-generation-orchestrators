@@ -523,7 +523,9 @@ def process_from_decoded(
             raise ValueError("checkpoint_requires_verified_handoff")
         reject_links(checkpoint_root)
         checkpoint_root = rooted_path(root, checkpoint_root, must_exist=False)
-        if checkpoint_root == out_dir or checkpoint_root in out_dir.parents or out_dir in checkpoint_root.parents:
+        # Compare canonical paths, including Windows short-name aliases.
+        delivery_root = out_dir.resolve()
+        if checkpoint_root == delivery_root or checkpoint_root in delivery_root.parents or delivery_root in checkpoint_root.parents:
             raise ValueError("checkpoint_overlaps_delivery")
     if out_dir.exists():
         if out_dir.is_symlink() or not out_dir.is_dir() or any(out_dir.iterdir()):

@@ -16,7 +16,7 @@ export function batchedLoopPersistence(writeBatch) {
   };
 }
 
-export function builtinResultPath(result, allowedDirectory, rootMode='direct') {
+export function builtinResultPath(result, allowedDirectory, rootMode='direct', canonicalizeDirectory=value=>value) {
   requireValue(['direct','session-child'].includes(rootMode),'LOOP_ROOT_MODE');
   // Observed built-in transport hint, not a promised provider schema. Fail closed.
   requireValue(result && typeof result.image_url === 'string' &&
@@ -34,9 +34,12 @@ export function builtinResultPath(result, allowedDirectory, rootMode='direct') {
   requireValue(!path.split('/').some(x => x === '..' || x === '.') &&
     !root.split('/').some(x => x === '..' || x === '.'), 'LOOP_PATH_TRAVERSAL');
   // Restrict to a direct child of the caller-verified output directory.
-  const parent=path.slice(0,path.lastIndexOf('/'));
-  requireValue(rootMode==='direct'?parent===root:
-    parent.startsWith(root+'/') && /^[^/:]+$/.test(parent.slice(root.length+1)), 'LOOP_PATH_OUTSIDE_ROOT');
+  // Optional filesystem host normalization handles Windows short-name aliases.
+  // Validate raw syntax above before resolving; never normalize away traversal.
+  const parent=normalize(canonicalizeDirectory(path.slice(0,path.lastIndexOf('/'))));
+  const canonicalRoot=normalize(canonicalizeDirectory(root));
+  requireValue(rootMode==='direct'?parent===canonicalRoot:
+    parent.startsWith(canonicalRoot+'/') && /^[^/:]+$/.test(parent.slice(canonicalRoot.length+1)), 'LOOP_PATH_OUTSIDE_ROOT');
   requireValue(/^[^/:]+\.png$/.test(path.slice(path.lastIndexOf('/') + 1)), 'LOOP_PATH_INVALID');
   return raw;
 }

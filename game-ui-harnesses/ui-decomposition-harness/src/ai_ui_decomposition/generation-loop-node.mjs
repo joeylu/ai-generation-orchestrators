@@ -15,8 +15,12 @@ export function createLoopJournal(directory) {
 }
 
 export function verifyBuiltinResult(response,directory,rootMode='direct') {
-  const source=builtinResultPath(response,directory,rootMode);
-  const root=realpathSync(directory), actual=realpathSync(source);
+  const canonicalDirectory=path=>{
+    try {return realpathSync.native(path);}
+    catch(error) {if(error.code==='ENOENT')return path;throw error;}
+  };
+  const source=builtinResultPath(response,directory,rootMode,canonicalDirectory);
+  const root=realpathSync.native(directory), actual=realpathSync.native(source);
   const expectedParent=rootMode==='direct'?dirname(actual):dirname(dirname(actual));
   if(lstatSync(source).isSymbolicLink() || lstatSync(dirname(source)).isSymbolicLink() || expectedParent!==root || !lstatSync(actual).isFile())
     throw new Error('LOOP_PHYSICAL_PATH_INVALID');

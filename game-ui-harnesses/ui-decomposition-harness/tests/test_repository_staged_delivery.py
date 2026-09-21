@@ -14,7 +14,8 @@ class RepositoryStagedDeliveryTests(unittest.TestCase):
         # Reuse data builders, not inherited test methods or live result receipts.
         self.fixture=diagnostic_fixtures.DiagnosticTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         self.root=self.fixture.root;self.fixture.fixture()
-        self.job=self.root/'job';self.job.mkdir()
+        (self.root/'alias').mkdir()
+        self.job=self.root/'alias/../job';self.job.mkdir()
         (self.job/'original.png').write_bytes(b'original fixture')
         self.rows={}
         for node,key,name,body in [('compile','plan','plan.json',b'{}'),('freeze','batch','batch.json',b'{}'),
