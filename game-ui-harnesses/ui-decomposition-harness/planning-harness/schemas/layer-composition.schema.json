@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["kind", "canvas", "coordinates", "order", "textPolicy", "backgroundMode", "reference", "preview", "layers"],
+  "properties": {
+    "kind": {"const": "ui_layer_composition_v1"},
+    "canvas": {"type": "object", "additionalProperties": false, "required": ["width", "height"], "properties": {
+      "width": {"type": "integer", "minimum": 1, "maximum": 8192}, "height": {"type": "integer", "minimum": 1, "maximum": 8192}
+    }},
+    "coordinates": {"const": "top-left-pixels"}, "order": {"const": "array-back-to-front"},
+    "textPolicy": {"enum": ["remove-business-text", "preserve-raster-text"]},
+    "backgroundMode": {"enum": ["scene-only", "preserve-underlay"]},
+    "reference": {"const": "reference.png"}, "preview": {"const": "preview.png"},
+    "layers": {"type": "array", "minItems": 1, "maxItems": 128, "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "role", "path", "x", "y", "width", "height", "visible"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "name": {"type": "string", "minLength": 1, "maxLength": 512},
+        "role": {"enum": ["background", "foreground"]},
+        "path": {"type": "string", "pattern": "^layers/layer-[0-9]{3}\\.png$"},
+        "x": {"type": "integer", "minimum": 0}, "y": {"type": "integer", "minimum": 0},
+        "width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1},
+        "visible": {"const": true}
+      }
+    }}
+  }
+}

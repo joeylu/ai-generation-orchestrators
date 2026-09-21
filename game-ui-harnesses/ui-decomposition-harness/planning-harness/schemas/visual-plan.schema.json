@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UI visual plan v5 - explicit material regions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "coordinateSpace",
+    "materials",
+    "objects",
+    "unknowns"
+  ],
+  "properties": {
+    "kind": {
+      "const": "ui_visual_plan_v5",
+      "type": "string"
+    },
+    "coordinateSpace": {
+      "const": "reference-normalized-ltrb",
+      "type": "string"
+    },
+    "materials": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "role",
+          "zOrder",
+          "bboxNorm"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "role": {
+            "enum": [
+              "background",
+              "foreground"
+            ],
+            "type": "string"
+          },
+          "zOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255,
+            "description": "Semantic back-to-front layer. Ties allowed for disjoint material regions; overlapping same-layer regions require M2 review."
+          },
+          "bboxNorm": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "preserveText": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Exact visible lettering explicitly retained on this material. Empty means remove all lettering, including text baked into a logo. Unreadable exceptions go to unknowns."
+          }
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "bboxNorm",
+          "materialId"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "bboxNorm": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional auxiliary localization. Use null normally; never defines the material crop."
+          },
+          "materialId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "background",
+              "panel",
+              "card",
+              "button",
+              "icon",
+              "illustration",
+              "badge",
+              "decoration",
+              "logo",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "backgroundMode": {
+      "type": "string",
+      "enum": [
+        "scene-only",
+        "preserve-underlay"
+      ],
+      "description": "scene-only removes UI; preserve-underlay retains visible lower UI and its dimming, removing only separately exported foreground."
+    },
+    "textPolicy": {
+      "type": "string",
+      "const": "remove-business-text",
+      "description": "Remove ordinary text; preserve only exact per-material preserveText exceptions."
+    }
+  },
+  "$comment": "ID uniqueness, references, bbox edge ordering, exactly one full-canvas background, material coverage and z-order constraints require relationship validation. Schema validity is not review or freeze approval. Scope fields remain optional only for archived v5 compatibility. New M1 transport requires every field; scoped plans require backgroundMode, textPolicy and preserveText on every material."
+}

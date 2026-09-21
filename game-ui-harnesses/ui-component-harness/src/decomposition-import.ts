@@ -85,6 +85,12 @@ export interface ImportedDecomposition {
 
 interface ZipMember { name: string; bytes: Uint8Array }
 interface ParsedZip { readonly members: ReadonlyMap<string, ZipMember>; readonly names: readonly string[] }
+
+/** Generic bounded stored-ZIP reader; legacy component parsing stays unchanged. */
+export function readStoredZipMembers(source: Uint8Array): ReadonlyMap<string, Uint8Array> {
+  const parsed = parseZip(source, MAX_DECOMPOSITION_ARCHIVE_BYTES, 512);
+  return new Map([...parsed.members].map(([name, member]) => [name, member.bytes]));
+}
 interface ImportState {
   readonly archive: Uint8Array;
   readonly resourceDigests: readonly string[];
@@ -193,7 +199,7 @@ function crc32(bytes: Uint8Array): number {
   return (value ^ 0xffffffff) >>> 0;
 }
 
-function parseZip(source: Uint8Array, maximumBytes = MAX_DECOMPOSITION_ARCHIVE_BYTES): ParsedZip {
+function parseZip(source: Uint8Array, maximumBytes = MAX_DECOMPOSITION_ARCHIVE_BYTES, maximumEntries = MAX_DECOMPOSITION_LAYERS + 4): ParsedZip {
   if (!(source instanceof Uint8Array) || source.length < 22 || source.length > maximumBytes) fail('ZIP_SIZE_LIMIT');
   const copy = new Uint8Array(source);
   const searchStart = Math.max(0, copy.length - 0xffff - 22);
@@ -206,7 +212,7 @@ function parseZip(source: Uint8Array, maximumBytes = MAX_DECOMPOSITION_ARCHIVE_B
   if (u16(copy, eocd + 4) !== 0 || u16(copy, eocd + 6) !== 0) fail('ZIP_MULTIDISK_FORBIDDEN');
   const entriesOnDisk = u16(copy, eocd + 8); const entries = u16(copy, eocd + 10);
   const centralSize = u32(copy, eocd + 12); const centralOffset = u32(copy, eocd + 16);
-  if (entries !== entriesOnDisk || entries === 0 || entries > MAX_DECOMPOSITION_LAYERS + 4) fail('ZIP_ENTRY_LIMIT');
+  if (entries !== entriesOnDisk || entries === 0 || entries > maximumEntries) fail('ZIP_ENTRY_LIMIT');
   if (entries === 0xffff || centralSize === 0xffffffff || centralOffset === 0xffffffff) fail('ZIP64_CENTRAL_DIRECTORY_UNSUPPORTED');
   if (checkedEnd(centralOffset, centralSize, copy.length) !== eocd) fail('ZIP_CENTRAL_DIRECTORY_INVALID');
 

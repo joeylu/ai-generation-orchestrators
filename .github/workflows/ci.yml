@@ -30,6 +30,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - run: node scripts/build-layer-viewer.mjs
       - run: npm test
       - run: npm run self-test
       # Contract probes import /src modules; npm test also checks the built CLI.
@@ -84,6 +85,8 @@ jobs:
           "./game-ui-harnesses/ui-decomposition-harness[test,psd]"
       - name: Run offline fixtures and test doubles
         run: |
+          python -m pip install -r game-ui-harnesses/ui-layer-harness/requirements.txt
+          python -m unittest discover -s game-ui-harnesses/ui-layer-harness -p "test_*.py" -v
           python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
           python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
           python -m unittest discover -s game-ui-harnesses/ui-decomposition-harness/tests -p "test_*.py" -v

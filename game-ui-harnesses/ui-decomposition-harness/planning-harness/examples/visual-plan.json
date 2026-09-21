@@ -1,0 +1,118 @@
+{
+  "kind": "ui_visual_plan_v5",
+  "coordinateSpace": "reference-normalized-ltrb",
+  "materials": [
+    {
+      "id": "asset-scene",
+      "label": "完整背景",
+      "role": "background",
+      "zOrder": 0,
+      "bboxNorm": [
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "asset-panel",
+      "label": "面板与固定徽饰",
+      "role": "foreground",
+      "zOrder": 1,
+      "bboxNorm": [
+        0.1,
+        0.05,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "asset-buy-button",
+      "label": "购买按钮底板",
+      "role": "foreground",
+      "zOrder": 2,
+      "bboxNorm": [
+        0.5,
+        0.75,
+        0.8,
+        0.85
+      ]
+    },
+    {
+      "id": "asset-coin-a",
+      "label": "第一枚金币",
+      "role": "foreground",
+      "zOrder": 3,
+      "bboxNorm": [
+        0.7,
+        0.25,
+        0.75,
+        0.3
+      ]
+    },
+    {
+      "id": "asset-coin-b",
+      "label": "第二枚金币",
+      "role": "foreground",
+      "zOrder": 3,
+      "bboxNorm": [
+        0.7,
+        0.4,
+        0.75,
+        0.45
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "id": "scene",
+      "label": "场景整体",
+      "kind": "background",
+      "bboxNorm": null,
+      "materialId": "asset-scene"
+    },
+    {
+      "id": "panel",
+      "label": "纸面板和金属外框",
+      "kind": "panel",
+      "bboxNorm": null,
+      "materialId": "asset-panel"
+    },
+    {
+      "id": "crest",
+      "label": "顶部固定徽饰",
+      "kind": "decoration",
+      "bboxNorm": [
+        0.4,
+        0.05,
+        0.6,
+        0.16
+      ],
+      "materialId": "asset-panel"
+    },
+    {
+      "id": "buy-button",
+      "label": "购买按钮",
+      "kind": "button",
+      "bboxNorm": null,
+      "materialId": "asset-buy-button"
+    },
+    {
+      "id": "coin-a",
+      "label": "第一枚金币图形",
+      "kind": "icon",
+      "bboxNorm": null,
+      "materialId": "asset-coin-a"
+    },
+    {
+      "id": "coin-b",
+      "label": "第二枚金币图形",
+      "kind": "icon",
+      "bboxNorm": null,
+      "materialId": "asset-coin-b"
+    }
+  ],
+  "unknowns": [
+    "面板与突出徽饰的连接边界需要在原图复核。"
+  ]
+}
