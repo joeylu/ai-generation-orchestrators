@@ -47,7 +47,7 @@ def preview(config_path, output):
                             fit_mode='frame-bounds' if key in frame_overrides or key in integrated else row.get('fitMode','contain'))
         if key in integrated:
             report['registrationPolicy']={'mode':'whole-material-frame-bounds','outerObjectId':integrated[key],
-                'basis':'one declared card/button contains all owned details and equals material region; no measured reference silhouette',
+                'basis':'one card/button with bounded owned details; explicit outer box equals material region or null auxiliary box uses declared material bounds; no measured reference silhouette',
                 'internalRepositioning':False}
         records.append({'id':key,'source':str(raw),'sourceSha256':digest(raw),
                         'xy':row['xy'],'report':report})

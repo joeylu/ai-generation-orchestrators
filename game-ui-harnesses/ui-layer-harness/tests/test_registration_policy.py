@@ -26,6 +26,19 @@ class RegistrationPolicyTests(unittest.TestCase):
         self.assertEqual(integrated_surface(self.visual,self.material),'buy-button')
         self.assertNotIn(self.material['id'],candidates(self.visual))
 
+    def test_null_outer_auxiliary_box_keeps_bounded_owned_icon_integrated(self):
+        next(o for o in self.visual['objects'] if o['id']=='buy-button')['bboxNorm']=None
+        self.assertEqual(integrated_surface(self.visual,self.material),'buy-button')
+        self.assertNotIn(self.material['id'],candidates(self.visual))
+        self.visual['objects'][-1]['kind']='button'
+        self.assertIsNone(integrated_surface(self.visual,self.material))
+
+    def test_null_outer_does_not_hide_missing_or_outside_child_geometry(self):
+        next(o for o in self.visual['objects'] if o['id']=='buy-button')['bboxNorm']=None
+        for bounds in (None,[0,0,.01,.01]):
+            self.visual['objects'][-1]['bboxNorm']=bounds
+            self.assertIsNone(integrated_surface(self.visual,self.material))
+
     def test_unknown_or_outside_details_remain_candidates(self):
         for bounds in (None,[0,0,.01,.01]):
             visual=copy.deepcopy(self.visual);visual['objects'][-1]['bboxNorm']=bounds
