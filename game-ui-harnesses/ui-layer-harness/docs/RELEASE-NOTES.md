@@ -1,5 +1,10 @@
 # Release notes
 
+## Unreleased review transport path resolution
+
+- Resolve the review evidence directory before invoking the read-only Codex adapter in its temporary working directory. Relative `review-material` output paths previously caused local schema loading to fail before model review; schema, image attachments and response paths now keep their intended location.
+- An offline regression reproduces the failure with relative paths containing spaces, using the real command builder and a filesystem-only transport double. No prompt, severity, generation authorization or retry policy changes. Existing failed reviews and pinned runtimes are not rewritten or automatically rerun.
+
 ## Unreleased small-material boundary evidence
 
 - A real portrait hero-selection run froze after one repair while its exit-symbol crop still omitted the top outline. M2 and rereview saw only an enlarged candidate crop in their local evidence and missed the clipping; no image generation was authorized.

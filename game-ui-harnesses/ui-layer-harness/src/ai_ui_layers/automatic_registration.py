@@ -62,6 +62,8 @@ def candidates(visual):
 
 
 def call_model(folder):
+    # Codex runs in a separate temporary cwd; bind every attachment/output first.
+    folder=Path(folder).resolve()
     exe=shutil.which('codex')
     if not exe:raise ValueError('CODEX_NOT_FOUND')
     with tempfile.TemporaryDirectory(prefix='ui-registration-') as cwd:
