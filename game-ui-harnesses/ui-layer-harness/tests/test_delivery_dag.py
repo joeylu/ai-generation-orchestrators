@@ -22,6 +22,16 @@ class DeliveryTests(unittest.TestCase):
         (self.viewer/'viewer.js').write_text('void 0;')
         self.run = delivery.init(self.image,self.root/'run',self.viewer)
         self.model = FakeModel(); self.dag = delivery.DeliveryDag(self.run,self.model)
+        self.review_calls=[]
+        mock_review=patch('ai_ui_layers.single_material_review.call_model',
+                          side_effect=lambda folder:DeliveryTests.fixture_review(self,folder))
+        mock_review.start();self.addCleanup(mock_review.stop)
+
+    def fixture_review(self,folder):
+        key=read(folder/'request.json')['materialId'];self.review_calls.append(key)
+        save(folder/'draft.json',dict(materialIds=[key],findings=[]))
+        return dict(exitCode=0,turnCompleted=True,unexpectedEvents=[],
+                    responseSha256=digest(folder/'draft.json'))
 
     def test_user_notes_bound_through_all_planning_turns_and_tamper_blocks(self):
         notes=self.root/'notes.txt';notes.write_text('The pale inner strip is the thumb.',encoding='utf-8')
@@ -39,7 +49,7 @@ class DeliveryTests(unittest.TestCase):
                 delivery.DeliveryDag(run,model).verify()
             path.write_bytes(data)
 
-    def complete_media(self):
+    def complete_media(self, clipped=False):
         job = self.run/'generation'; config = read(job/'job.json')
         exchange.authorize(job,config['digest'],'fixture authorization only')
         roles = {a['id']:a['role'] for a in read(job/'snapshot/execution-plan.candidate.json')['assets']}
@@ -47,7 +57,7 @@ class DeliveryTests(unittest.TestCase):
             request = exchange.next_request(job)
             raw = self.root/'raw.png'
             im = Image.new('RGBA',(1000,1000),(25,40,60,255) if roles[request['asset']]=='background' else (0,0,0,0))
-            if roles[request['asset']] != 'background': ImageDraw.Draw(im).rectangle((100,100,899,899),fill=(80,90,100,255))
+            if roles[request['asset']] != 'background': ImageDraw.Draw(im).rectangle((0 if clipped else 100,100,899,899),fill=(80,90,100,255))
             im.save(raw); exchange.receive(job,request['submissionDigest'],raw)
 
     @staticmethod
@@ -70,8 +80,93 @@ class DeliveryTests(unittest.TestCase):
             self.dag.execute()
             self.assertEqual(before,digest(self.run/'delivery/ui-layers.zip'))
             self.assertEqual(reg.call_count,1)
+        roles={a['id']:a['role'] for a in read(self.run/'generation/snapshot/execution-plan.candidate.json')['assets']}
+        self.assertEqual(set(self.review_calls),{key for key,role in roles.items() if role!='background'})
+        self.assertEqual(len(self.review_calls),len(set(self.review_calls)))
         self.assertEqual(len(self.model.calls),2)
         self.assertFalse(result['humanVisualAcceptance'])
+
+    def finding_model(self,category='style',magnitude='major'):
+        def model(folder):
+            key=read(folder/'request.json')['materialId'];self.review_calls.append(key)
+            save(folder/'draft.json',dict(materialIds=[key],findings=[dict(materialId=key,
+                category=category,magnitude=magnitude,ownership='clear',referenceState='not-applicable',
+                generatedState='not-applicable',evidence='The received artwork is brighter.',
+                suggestion='Compare the original colors.')]))
+            return dict(exitCode=0,turnCompleted=True,unexpectedEvents=[],responseSha256=digest(folder/'draft.json'))
+        return model
+
+    def test_visual_blocker_stops_before_registration_and_cannot_resume(self):
+        self.dag.execute();self.complete_media()
+        self.dag.material_model=self.finding_model()
+        with patch('ai_ui_layers.delivery_dag.register',side_effect=AssertionError('must not register')):
+            with self.assertRaisesRegex(ValueError,'SINGLE_MATERIAL_REVIEW_BLOCKED'):self.dag.execute()
+            with self.assertRaisesRegex(ValueError,'NO_RESUBMIT'):self.dag.execute()
+        self.assertEqual(len(self.review_calls),1)
+        result=self.dag.status()
+        self.assertEqual(result['status'],'stopped_no_retry')
+        self.assertEqual(result['materialReview']['records'][0]['blockers'][0]['category'],'style')
+        self.assertFalse((self.run/'registration-input.json').exists())
+        self.assertFalse((self.run/'delivery').exists())
+
+    def test_review_transport_failure_stops_without_retry_or_delivery(self):
+        self.dag.execute();self.complete_media()
+        def failed(folder):
+            self.review_calls.append(folder)
+            save(folder/'transport.json',dict(exitCode=1,turnCompleted=False,unexpectedEvents=[]))
+            raise ValueError('TRANSPORT_OR_ISOLATION_FAILURE')
+        self.dag.material_model=failed
+        with self.assertRaisesRegex(ValueError,'SINGLE_MATERIAL_REVIEW_BLOCKED'):self.dag.execute()
+        with self.assertRaisesRegex(ValueError,'NO_RESUBMIT'):self.dag.execute()
+        self.assertEqual(len(self.review_calls),1)
+        self.assertEqual(self.dag.status()['materialReview']['records'][0]['status'],'indeterminate_review_no_retry')
+        self.assertFalse((self.run/'registration').exists())
+
+    def test_warning_is_bound_into_package_and_review_tampering_blocks_resume(self):
+        self.dag.execute();self.complete_media()
+        self.dag.material_model=self.finding_model(magnitude='minor')
+        with patch('ai_ui_layers.delivery_dag.register',side_effect=self.fixture_registration):
+            result=self.dag.execute()
+        self.assertEqual(result['status'],'delivered_pending_visual_review')
+        import zipfile
+        with zipfile.ZipFile(self.run/'delivery/ui-layers.zip') as archive:
+            review=json.loads(archive.read('review.json'))
+        warning=result['materialReview']['warnings'][0]
+        self.assertTrue(any(warning['reviewSha256'] in issue for issue in review['issues']))
+        self.assertFalse(review['humanVisualAcceptance'])
+        response=next((self.run/'material-review').glob('*/review/draft.json'))
+        response.write_text('{}',encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'COMPLETED_OUTPUT_CHANGED'):self.dag.execute()
+
+    def test_malformed_review_never_reaches_registration(self):
+        self.dag.execute();self.complete_media()
+        def malformed(folder):
+            self.review_calls.append(folder);save(folder/'draft.json',dict(materialIds=[],findings=[]))
+            return dict(exitCode=0,turnCompleted=True,unexpectedEvents=[],responseSha256=digest(folder/'draft.json'))
+        self.dag.material_model=malformed
+        with self.assertRaisesRegex(ValueError,'SHEET_IDENTITY_MISMATCH'):self.dag.execute()
+        with self.assertRaisesRegex(ValueError,'NO_RESUBMIT'):self.dag.execute()
+        self.assertEqual(len(self.review_calls),1)
+        self.assertFalse((self.run/'registration').exists())
+
+    def test_clipped_raw_stops_before_any_visual_model_call(self):
+        self.dag.execute();self.complete_media(clipped=True)
+        with self.assertRaisesRegex(ValueError,'MATERIAL_GATE_FAILED'):self.dag.execute()
+        self.assertEqual(self.review_calls,[])
+        self.assertEqual(self.dag.status()['materialReview']['modelCalls'],0)
+        self.assertFalse((self.run/'registration').exists())
+
+    def test_interrupted_review_is_not_dispatched_again(self):
+        self.dag.execute();self.complete_media()
+        def interrupted(folder):
+            self.review_calls.append(folder)
+            raise KeyboardInterrupt('interrupted after dispatch')
+        self.dag.material_model=interrupted
+        with self.assertRaises(KeyboardInterrupt):self.dag.execute()
+        self.assertEqual(self.dag.status()['status'],'stopped_no_retry')
+        with self.assertRaisesRegex(ValueError,'NO_RESUBMIT'):self.dag.execute()
+        self.assertEqual(len(self.review_calls),1)
+        self.assertFalse((self.run/'delivery').exists())
 
     def test_pending_media_is_never_resubmitted(self):
         self.dag.execute(); job=self.run/'generation'

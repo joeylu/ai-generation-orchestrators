@@ -13,6 +13,7 @@ from .freeze_visual import inspect
 from .layer_package import build, sources_from_preview, validate_archive
 from .extract_sheets import extract
 from .adapt_strip import adapt_materials
+from .review_single_job import run as review_single_job
 
 GRAPH = {'planning': [], 'prepare': ['planning'], 'raw_complete': ['prepare'],
          'registration': ['raw_complete'], 'package': ['registration']}
@@ -56,10 +57,11 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
 
 
 class DeliveryDag(planning.Dag):
-    def __init__(self, root, model=planning.live_model, registration_model=None, sheet_model=None):
+    def __init__(self, root, model=planning.live_model, registration_model=None, sheet_model=None, material_model=None):
         super().__init__(root, model)
         self.registration_model = registration_model
         self.sheet_model = sheet_model
+        self.material_model = material_model
 
     def verify(self):
         if digest(self.root/'.dag/config.json') != read(self.root/'.dag/config-digest.json')['sha256']:
@@ -88,6 +90,8 @@ class DeliveryDag(planning.Dag):
         if self.config.get('generationMode')=='sheets':
             extraction=extract(snapshot,inspect(snapshot)['digest'],sources,self.root/'extraction',self.sheet_model)
             sources=extraction['materials'];pre_adapted=extraction.get('adaptations',{})
+        else:
+            review_single_job(job,self.root/'material-review',self.material_model)
         sources=adapt_materials(snapshot,sources,self.root/'adaptation',pre_adapted)
         if any(digest(job/name)!=sha for name,sha in receipts.items()):raise ValueError('RAW_RECEIPT_CHANGED')
         save(self.root/'registration-input.json', dict(snapshot=str(snapshot),
@@ -117,9 +121,16 @@ class DeliveryDag(planning.Dag):
                       self.root/'registration', model_call=self.registration_model))
             self.node('package', lambda: build(self.root/'generation/snapshot',
                       sources_from_preview(self.root/'generation/snapshot', self.root/'registration/preview',
-                          read(self.root/'extraction/result.json').get('warnings',[]) if (self.root/'extraction/result.json').exists() else []),
+                          self.visual_warnings()),
                       self.root/'delivery', self.inputs))
             return self.status()
+
+    def visual_warnings(self):
+        warnings=[]
+        for name in ('extraction','material-review'):
+            path=self.root/name/'result.json'
+            if path.exists():warnings.extend(read(path).get('warnings',[]))
+        return warnings
 
     def status(self):
         self.verify()
@@ -150,6 +161,8 @@ class DeliveryDag(planning.Dag):
             result['extraction']['decisions']=evidence.get('decisions',[])
         if (self.root/'adaptation/result.json').exists():
             result['adaptation']=read(self.root/'adaptation/result.json')
+        if (self.root/'material-review/result.json').exists():
+            result['materialReview']=read(self.root/'material-review/result.json')
         if self.config['target'] == 'frozen' and nodes['planning'] == 'completed': result['status'] = 'frozen'
         if nodes['package'] == 'completed':
             result['package'] = validate_archive(self.root/'delivery/ui-layers.zip')

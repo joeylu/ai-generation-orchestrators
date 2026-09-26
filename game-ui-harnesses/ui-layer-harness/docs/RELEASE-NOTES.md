@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased singleton delivery review gate
+
+- New single-mode delivery runs review each raw foreground after all raw technical checks and before adaptation, registration or packaging. The existing material reviewer and severity policy are reused; a blocker, invalid response, transport failure or interruption stops the DAG without automatic redispatch.
+- Successful review evidence is bound by the raw_complete checkpoint. Minor warnings retain their material and review digest in the package; status adds materialReview. Background and final-composite visual acceptance remain outside this gate, and all deliveries still require visual acceptance.
+- Offline regressions cover major visual blockers, transport failures, invalid identities, interruption, raw clipping before model calls, warning propagation, changed evidence and idempotent resume. Sheets, explicit review-required recovery, immutable old runs and generation approvals remain unchanged. No tag is published.
+
 ## Unreleased review transport path resolution
 
 - Resolve the review evidence directory before invoking the read-only Codex adapter in its temporary working directory. Relative `review-material` output paths previously caused local schema loading to fail before model review; schema, image attachments and response paths now keep their intended location.

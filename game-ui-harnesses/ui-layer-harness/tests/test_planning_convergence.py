@@ -115,7 +115,9 @@ class ConvergenceTests(unittest.TestCase):
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
-        dag=delivery.DeliveryDag(self.run,model)
+        self.review_calls=[]
+        dag=delivery.DeliveryDag(self.run,model,
+            material_model=lambda folder:DeliveryTests.fixture_review(self,folder))
         self.assertEqual(dag.execute()['status'],'awaiting_authorization')
         self.assertEqual(len(self.calls),6)
         DeliveryTests.complete_media(self)
