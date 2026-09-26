@@ -125,7 +125,10 @@ def verify_run(run, *, _allow_issues=False):
         from .session_review import session_id
         if not (run/review_name/'result.json').exists():raise ValueError('REPAIRED_CANDIDATE_REQUIRES_NEW_REVIEW')
         merged,patch_report=merge_patch(source,read(run/repair_name/'draft.json'),read(run/'m1/schema.json'),digest(source))
-        if merged!=read(run/repair_name/'candidate.json') or patch_report['programIssues'] or patch_report['unresolvedIssues']:
+        intermediate_program_issues = (repair_name=='repair' and (run/'repair2').exists())
+        if (merged!=read(run/repair_name/'candidate.json') or
+                (patch_report['programIssues'] and not intermediate_program_issues) or
+                patch_report['unresolvedIssues']):
             raise ValueError('INVALID_REPAIR')
         rr=run/review_name;bound=read(rr/'request.json');receipt=read(rr/'result.json')
         transport=read(rr/'transport.json')

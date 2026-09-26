@@ -325,12 +325,14 @@ class Dag:
              'reviewSha256':digest(review_dir/'draft.json'),'inputs':{n:digest(p/n) for n in names}})
         self.call(p)
 
-    def repair_check(self, source=None, name='repair'):
+    def repair_check(self, source=None, name='repair', allow_program_issues=False):
         p=self.root/name;source=source or self.root/'m1/draft.json'
         plan,report=merge_patch(source,read(p/'draft.json'),read(self.root/'m1/schema.json'),digest(source))
         report['remainingUnknowns']=plan['unknowns']
         save(p/'candidate.json',plan);save(p/'report.json',report)
-        if report['programIssues'] or report['unresolvedIssues'] or plan['unknowns']:raise ValueError('REPAIR_UNRESOLVED')
+        if (report['unresolvedIssues'] or plan['unknowns'] or
+                (report['programIssues'] and not allow_program_issues)):
+            raise ValueError('REPAIR_UNRESOLVED')
         render_for_review(self.root/'m1/reference.png',plan,p/'preview')
 
     def execute(self):
@@ -342,9 +344,11 @@ class Dag:
             initial_plan=read(self.root/'m1/draft.json')
             needs=bool(split(read(self.root/'m2/draft.json'),initial_plan)[0] or read(self.root/'m1/program-check.json')['issues'] or initial_plan['unknowns'])
             if needs:
-                self.node('repair',self.repair);self.node('repair_check',self.repair_check)
+                self.node('repair',self.repair)
+                self.node('repair_check',lambda:self.repair_check(allow_program_issues=True))
                 self.node('rereview',lambda:self.review('rereview',self.root/'repair/candidate.json',self.root/'repair/preview/materials-overlay.png'))
-                if split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'))[0]:
+                if (split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'))[0] or
+                        read(self.root/'repair/report.json')['programIssues']):
                     self.node('repair2',lambda:self.repair(self.root/'repair/candidate.json',self.root/'rereview','repair2'))
                     self.node('repair_check2',lambda:self.repair_check(self.root/'repair/candidate.json','repair2'))
                     self.node('rereview2',lambda:self.review('rereview2',self.root/'repair2/candidate.json',self.root/'repair2/preview/materials-overlay.png'))

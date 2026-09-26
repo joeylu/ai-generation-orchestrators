@@ -108,6 +108,38 @@ class DagTests(unittest.TestCase):
         self.assertEqual(model.calls,[('m1',None),('m2',SID),('repair',SID),('rereview',SID)])
         self.assertTrue((self.root/'frozen/evidence/revised-visual-plan.json').exists())
 
+    def test_renderable_first_repair_structure_error_uses_second_repair(self):
+        fake=FakeModel(repair=True)
+        def model(folder,sid,first):
+            fake(folder,sid,first)
+            if folder.name=='repair':
+                answer=read(folder/'draft.json')
+                source=read(folder.parent/'m1/draft.json')
+                background=next(m for m in source['materials'] if m['role']=='background')
+                answer['objects']['upsert'].append(dict(id='rocky-scar',label='Rocky clearing',
+                    kind='background',materialId=background['id'],bboxNorm=[.2,.2,.3,.3]))
+            elif folder.name=='repair2':
+                source=folder.parent/'repair/candidate.json'
+                answer=dict(sourcePlanSha256=digest(source),materials=dict(upsert=[],remove=[]),
+                    objects=dict(upsert=[dict(id='rocky-scar',label='Rocky clearing',
+                        kind='decoration',materialId=next(m['id'] for m in read(source)['materials']
+                        if m['role']=='background'),bboxNorm=[.2,.2,.3,.3])],remove=[]),
+                    unknowns=None,backgroundMode=None,textPolicy=None,unresolvedIssues=[])
+            elif folder.name=='rereview2':
+                answer=dict(issues=[],coverageAudit=coverage(),smallMaterialAudit=small_audit(folder))
+            else:return
+            (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
+            receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
+            (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
+        result=Dag(self.root,model).execute()
+        self.assertEqual(result['status'],'frozen')
+        self.assertEqual([name for name,_ in fake.calls],
+                         ['m1','m2','repair','rereview','repair2','rereview2'])
+        self.assertEqual([i['code'] for i in read(self.root/'repair/report.json')['programIssues']],
+                         ['BACKGROUND_OBJECT'])
+        self.assertEqual(read(self.root/'repair2/report.json')['programIssues'],[])
+        self.assertFalse(read(self.root/'frozen/evidence/revised-visual-plan.json')['unknowns'])
+
     def test_coverage_finding_triggers_bounded_repair_even_with_empty_issues(self):
         fake=FakeModel();seen={}
         def model(folder,sid,first):
