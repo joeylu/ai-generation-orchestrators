@@ -54,7 +54,7 @@ class GenerateSessionPromptTests(unittest.TestCase):
                 stdout.write(b'{"type":"turn.failed"}\n')
             def communicate(self, data, timeout):return (None,None)
         with tempfile.TemporaryDirectory() as tmp:
-            job=Path(tmp)
+            job=Path(tmp).resolve()
             request=dict(asset='asset',submissionDigest='digest',arguments=dict(
                 prompt='Exact prompt',referenced_image_paths=[str(job/'reference.png')]))
             argv=['codex','--ephemeral','--output-schema','schema.json','--image','old.png',
