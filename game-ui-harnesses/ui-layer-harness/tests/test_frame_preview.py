@@ -32,3 +32,13 @@ class FramePreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'FRAME_OVERRIDE_REQUIRES_CARRIER_PANEL'):
             preview(config,self.root/'preview')
         self.assertFalse((self.root/'preview').exists())
+
+    def test_explicit_single_button_frame_fit_is_reviewable(self):
+        config=self.root/'config.json'
+        save(config,{'snapshot':str(self.snapshot),'snapshotDigest':self.frozen['digest'],
+                     'materials':{'asset-buy-button':str(self.raw)},
+                     'frameBoundsMaterials':['asset-buy-button']})
+        report=preview(config,self.root/'preview')
+        self.assertEqual(report['records'][0]['report']['fitting']['mode'],'frame-bounds')
+        self.assertIn('NONUNIFORM_FRAME_RESAMPLING_REVIEW_DECORATIONS',
+                      report['records'][0]['report'].get('warnings',[]))

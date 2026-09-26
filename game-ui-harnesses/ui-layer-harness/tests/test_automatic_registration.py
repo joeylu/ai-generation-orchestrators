@@ -1,14 +1,32 @@
 import _bootstrap  # Enable source-layout imports for unittest discovery.
 import copy
+import json
 import unittest
+from unittest.mock import patch
 from PIL import Image,ImageDraw
 import test_compile_visual
 from ai_ui_layers.evaluate import read,save,digest
 from ai_ui_layers.freeze_visual import freeze
-from ai_ui_layers.automatic_registration import run,validate_answer,refine_source_bounds,BASE
+from ai_ui_layers.automatic_registration import run,validate_answer,refine_source_bounds,BASE,observation_image,original_coordinates,call_model
 
 
 class AutomaticRegistrationTests(unittest.TestCase):
+    def test_cli_receives_third_closeup_only_when_present(self):
+        folder=self.root/'model-images';folder.mkdir()
+        for name in ('reference.png','generated.png','detail-compare.png'):
+            Image.new('RGB',(8,8)).save(folder/name)
+        (folder/'prompt.md').write_text('Review images.',encoding='utf-8')
+        with patch('ai_ui_layers.automatic_registration.shutil.which',return_value='codex'), \
+             patch('ai_ui_layers.automatic_registration.command',return_value=['codex','--image','old']), \
+             patch('ai_ui_layers.automatic_registration.invoke',return_value={}) as invoke:
+            call_model(folder)
+            self.assertEqual(invoke.call_args.args[0][2],','.join(str(folder/name)
+                for name in ('reference.png','generated.png','detail-compare.png')))
+            (folder/'detail-compare.png').unlink()
+            call_model(folder)
+            self.assertEqual(invoke.call_args.args[0][2],','.join(str(folder/name)
+                for name in ('reference.png','generated.png')))
+
     def setUp(self):
         test_compile_visual.VisualCompileTests.setUp(self)
         self.visual['objects'].append(dict(id='second-button',label='Second button',kind='button',
@@ -50,6 +68,67 @@ class AutomaticRegistrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'OWNERSHIP'):run(self.config,self.root/'output',self.model)
         self.assertEqual(read(self.root/'output/result.json')['status'],'blocked_no_retry')
         self.assertFalse((self.root/'output/preview').exists())
+
+    def test_clipped_whole_material_blocks_before_any_localization_call(self):
+        # A valid control group must not consume a model call when another
+        # supplied material already fails the existing raw-source boundary gate.
+        panel=self.root/'clipped-panel.png'
+        im=Image.new('RGBA',(100,100))
+        ImageDraw.Draw(im).rectangle((10,0,89,89),fill='white');im.save(panel)
+        config=read(self.config);config['materials']['asset-panel']=str(panel)
+        self.config.write_text(json.dumps(config),encoding='utf-8')
+        output=self.root/'output'
+        with self.assertRaisesRegex(ValueError,'MATERIAL_POSTPROCESS_BLOCKED'):
+            run(self.config,output,self.model)
+        self.assertEqual(self.calls,0)
+        self.assertEqual(read(output/'result.json')['modelCalls'],0)
+        checks=read(output/'raw-preflight.json')['materials']
+        panel_check=next(r for r in checks if r['materialId']=='asset-panel')
+        self.assertIn('POSSIBLY_CLIPPED_SOURCE',panel_check['issues'])
+        self.assertFalse((output/'localize-1').exists())
+
+    def test_valid_whole_material_does_not_skip_group_localization(self):
+        panel=self.root/'panel.png'
+        im=Image.new('RGBA',(100,100))
+        ImageDraw.Draw(im).rectangle((10,10,89,89),fill='white');im.save(panel)
+        config=read(self.config);config['materials']['asset-panel']=str(panel)
+        self.config.write_text(json.dumps(config),encoding='utf-8')
+        result=run(self.config,self.root/'output',self.model)
+        self.assertEqual(self.calls,1)
+        self.assertEqual(result['status'],'awaiting_visual_review')
+
+    def test_large_observation_maps_adjacent_edges_without_overlap(self):
+        raw=self.root/'wide.png';im=Image.new('RGBA',(2170,725))
+        ImageDraw.Draw(im).rectangle((100,250,2069,469),fill='white');im.save(raw)
+        original=digest(raw)
+        mapping=observation_image(raw,self.root/'observed.png')
+        self.assertEqual(mapping['observationSize'],[1536,513])
+        self.assertEqual(digest(raw),original)
+        with Image.open(self.root/'observed.png') as seen:self.assertEqual(seen.size,(1536,513))
+        answer=dict(parts=[dict(fragments=[dict(sourceBox=[0,0,768,513],targetBox=[0,0,768,513])]),
+                           dict(fragments=[dict(sourceBox=[768,0,1536,513],targetBox=[768,0,1536,513])])])
+        mapped=original_coordinates(answer,mapping,mapping)
+        self.assertEqual(mapped['parts'][0]['fragments'][0]['sourceBox'],[0,0,1085,725])
+        self.assertEqual(mapped['parts'][1]['fragments'][0]['sourceBox'],[1085,0,2170,725])
+        self.assertEqual(answer['parts'][0]['fragments'][0]['sourceBox'],[0,0,768,513])
+        answer['parts'][0]['fragments'][0]['sourceBox']=[0,0,2170,725]
+        with self.assertRaises(ValueError):original_coordinates(answer,mapping,mapping)
+
+    def test_resized_model_attachment_keeps_original_pixels_authoritative(self):
+        with Image.open(self.raw) as im:large=im.resize((2000,2000),Image.Resampling.NEAREST)
+        large.save(self.raw);original=digest(self.raw)
+        self.answer['parts'][0]['fragments'][0]['sourceBox']=[140,140,480,480]
+        self.answer['parts'][1]['fragments'][0]['sourceBox']=[900,140,1250,480]
+        def observed_model(folder):
+            with Image.open(folder/'generated.png') as seen:self.assertEqual(seen.size,(1536,1536))
+            self.assertEqual(read(folder/'observation-mapping.json')['generated']['originalSize'],[2000,2000])
+            return self.model(folder)
+        output=self.root/'output';run(self.config,output,observed_model)
+        placement=read(output/'localize-1/placement.json')
+        self.assertEqual(placement['sourceSha256'],original)
+        self.assertEqual(placement['parts'][0]['sourceBox'],[200,200,600,600])
+        self.assertEqual(placement['parts'][1]['sourceBox'],[1200,200,1600,600])
+        self.assertEqual(digest(self.raw),original)
 
     def test_model_uncertainty_stops_without_guessing(self):
         self.answer['issues']=['Second control not present in generated image.']

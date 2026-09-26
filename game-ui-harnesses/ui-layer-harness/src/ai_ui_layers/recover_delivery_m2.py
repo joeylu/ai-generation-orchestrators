@@ -6,6 +6,7 @@ from . import delivery_dag as delivery
 from . import planning_dag as planning
 from .evaluate import read, save, digest
 from .session_review import session_id
+from .codex_call import CLI_MODEL, CLI_EFFORT
 
 
 def recover(source, output, reason):
@@ -21,6 +22,9 @@ def recover(source, output, reason):
         for done in (root/'.dag').glob('*/done.json'):
             for name,sha in read(done)['outputs'].items():
                 if digest(root/name)!=sha: raise ValueError('COMPLETED_OUTPUT_CHANGED')
+    old_config=read(old/'.dag/config.json')
+    if (old_config['model'],old_config['effort'])!=(CLI_MODEL,CLI_EFFORT):
+        raise ValueError('MODEL_CHANGED_NEW_SESSION_REQUIRED')
     if not (old/'.dag/m1/done.json').exists() or not (old/'.dag/check/done.json').exists(): raise ValueError('M1_NOT_COMPLETE')
     if not (old/'.dag/m2/started.json').exists() or (old/'.dag/m2/done.json').exists(): raise ValueError('M2_NOT_INTERRUPTED')
     if any((old/'.dag'/name).exists() for name in ('repair','rereview','freeze')): raise ValueError('LATER_STAGE_EXISTS')

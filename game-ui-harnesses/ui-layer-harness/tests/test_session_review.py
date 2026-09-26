@@ -48,9 +48,21 @@ class SessionReviewTests(unittest.TestCase):
             with self.assertRaises(ValueError):session_id(p)
 
     @patch('ai_ui_layers.codex_call.skill_overrides',return_value='skills.config=[]')
+    def test_review_resends_clean_original_before_overlay(self,_):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);(root/'m1').mkdir();(root/'m1/reference.png').write_bytes(b'fixture')
+            for stage in ('m2','repair','rereview'):
+                folder=root/stage;folder.mkdir()
+                args=resume_command('codex',folder,root,'12345678-1234-1234-1234-123456789abc')
+                self.assertEqual(args[args.index('--image')+1],str(root/'m1/reference.png')+','+str(folder/'review-overlay.png'))
+                self.assertIn('features.shell_tool=false',args)
+
+    @patch('ai_ui_layers.codex_call.skill_overrides',return_value='skills.config=[]')
     def test_resume_retains_isolation_and_only_adds_overlay(self,_):
         p=Path('folder with spaces');sid='12345678-1234-1234-1234-123456789abc'
         args=resume_command('codex',p,p,sid)
+        self.assertEqual(args[args.index('--model')+1],'gpt-6-luna')
+        self.assertIn('model_reasoning_effort="xhigh"',args)
         self.assertEqual(args[-2:],[sid,'-'])
         for flag in ['--ephemeral','--last','--dangerously-bypass-approvals-and-sandbox']:
             self.assertNotIn(flag,args)

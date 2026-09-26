@@ -1,5 +1,6 @@
 import _bootstrap  # Enable source-layout imports for unittest discovery.
 import tempfile
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -21,6 +22,22 @@ class DeliveryTests(unittest.TestCase):
         (self.viewer/'viewer.js').write_text('void 0;')
         self.run = delivery.init(self.image,self.root/'run',self.viewer)
         self.model = FakeModel(); self.dag = delivery.DeliveryDag(self.run,self.model)
+
+    def test_user_notes_bound_through_all_planning_turns_and_tamper_blocks(self):
+        notes=self.root/'notes.txt';notes.write_text('The pale inner strip is the thumb.',encoding='utf-8')
+        run=delivery.init(self.image,self.root/'with-notes',self.viewer,planning_notes=notes)
+        notes.write_text('External source changed after init.',encoding='utf-8')
+        model=FakeModel(repair=True);result=delivery.DeliveryDag(run,model).execute()
+        self.assertEqual(result['status'],'awaiting_authorization')
+        for stage in ['m1','m2','repair','rereview']:
+            prompt=(run/'planning'/stage/'prompt.md').read_text(encoding='utf-8')
+            self.assertIn('The pale inner strip is the thumb.',prompt)
+            self.assertNotIn('External source changed',prompt)
+        for path in [run/'.dag/inputs/planning-notes.txt',run/'planning/.dag/inputs/planning-notes.txt']:
+            data=path.read_bytes();path.write_text('tampered',encoding='utf-8')
+            with self.assertRaisesRegex(ValueError,'INPUT_CHANGED'):
+                delivery.DeliveryDag(run,model).verify()
+            path.write_bytes(data)
 
     def complete_media(self):
         job = self.run/'generation'; config = read(job/'job.json')
@@ -66,6 +83,39 @@ class DeliveryTests(unittest.TestCase):
         exchange.fail(job,request['submissionDigest'],'fixture indeterminate')
         self.assertEqual(self.dag.execute()['status'],'blocked_no_resubmit')
         self.assertFalse((self.run/'registration').exists())
+
+    def test_frozen_strip_policy_flows_to_registration_and_binds_derived_files(self):
+        fake=FakeModel()
+        def model(folder,sid,first):
+            fake(folder,sid,first)
+            if first:
+                plan=read(folder/'draft.json')
+                plan['materials'].append(dict(id='plain-strip',label='Plain thumb',role='foreground',
+                    zOrder=255,bboxNorm=[.95,.1,.96,.9],preserveText=[],adaptationPolicy='simple-strip'))
+                plan['objects'].append(dict(id='thumb-object',label='Plain thumb',kind='decoration',
+                    bboxNorm=[.95,.1,.96,.9],materialId='plain-strip'))
+                (folder/'draft.json').write_text(json.dumps(plan),encoding='utf-8')
+                receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
+                (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
+        dag=delivery.DeliveryDag(self.run,model)
+        self.assertEqual(dag.execute()['status'],'awaiting_authorization')
+        self.complete_media()
+        dag.node('raw_complete',dag.collect_raw)
+        inputs=read(self.run/'registration-input.json')
+        derived=self.run/'adaptation/plain-strip/adapted.png'
+        self.assertEqual(Path(inputs['materials']['plain-strip']),derived)
+        evidence=read(self.run/'adaptation/result.json')['materials']['plain-strip']
+        self.assertEqual(evidence['targetArtworkSize'],[10,800])
+        self.assertFalse(evidence['generationRatioAccurate'])
+        self.assertEqual(evidence['sourceSha256'],digest(self.run/'generation/attempts/plain-strip/raw.png'))
+        self.assertEqual(evidence['outputSha256'],digest(derived))
+        dag.verify()
+        with patch('ai_ui_layers.delivery_dag.register',side_effect=self.fixture_registration):
+            result=dag.execute()
+        self.assertEqual(result['status'],'delivered_pending_visual_review')
+        self.assertFalse(result['humanVisualAcceptance'])
+        derived.write_bytes(b'tamper')
+        with self.assertRaisesRegex(ValueError,'COMPLETED_OUTPUT_CHANGED'):dag.verify()
 
     def test_localization_failure_stops_package_and_no_retry(self):
         self.dag.execute(); self.complete_media()

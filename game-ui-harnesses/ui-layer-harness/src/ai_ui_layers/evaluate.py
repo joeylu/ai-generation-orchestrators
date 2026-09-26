@@ -9,6 +9,7 @@ import time
 
 from jsonschema import Draft202012Validator
 from PIL import Image, ImageDraw
+from .card_geometry import repeated_card_height_outlier
 
 
 def digest(path):
@@ -43,6 +44,18 @@ def pixel_box(box, width, height):
 
 def check_relations(plan):
     issues = []
+    outlier = repeated_card_height_outlier(plan)
+    if outlier:
+        group, outlier_id, typical = outlier
+        issues.append({'code': 'REPEATED_CARD_HEIGHT_OUTLIER_REVIEW', 'category': 'geometry',
+                       'materialIds': [mid for mid, _ in group],
+                       'suspectedOutlierId': outlier_id,
+                       'medianHeightNorm': round(typical, 6),
+                       'peerHeightEdgeAlternativesNorm': {
+                           'topIfBottomCorrect': round(next(box[3] for mid, box in group if mid == outlier_id) - typical, 6),
+                           'bottomIfTopCorrect': round(next(box[1] for mid, box in group if mid == outlier_id) + typical, 6)},
+                       'requires': 'source-review-and-repair',
+                       'basis': 'aligned, nonoverlapping card materials; alternative edges are search anchors, not automatic edits'})
     for material in plan['materials']:
         texts=material.get('preserveText',[])
         if len(texts)!=len(set(texts)):issues.append({'code':'DUPLICATE_PRESERVE_TEXT','id':material['id']})

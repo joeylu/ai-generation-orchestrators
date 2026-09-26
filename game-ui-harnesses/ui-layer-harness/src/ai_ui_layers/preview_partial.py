@@ -30,9 +30,14 @@ def preview(config_path, output):
     if not set(frame_overrides)<=set(config['materials']):raise ValueError('UNUSED_FRAME_OVERRIDE')
     if set(frame_overrides)&set(overrides):raise ValueError('CONFLICTING_PLACEMENT_OVERRIDES')
     carriers={m['id'] for m in visual['materials'] if carries_foreground(visual,m)}
+    # A single empty button backing can be fitted as one frame when explicitly
+    # selected. Multi-object controls still need their rigid details protected.
+    single_buttons={m['id'] for m in visual['materials'] if m['role']=='foreground'
+                    and not m.get('preserveText') and
+                    [o['kind'] for o in visual['objects'] if o['materialId']==m['id']]==['button']}
     integrated={m['id']:integrated_surface(visual,m) for m in visual['materials'] if integrated_surface(visual,m) is not None}
     if set(integrated)&set(overrides):raise ValueError('INTEGRATED_SURFACE_REQUIRES_WHOLE_PLACEMENT')
-    if not set(frame_overrides)<=carriers:raise ValueError('FRAME_OVERRIDE_REQUIRES_CARRIER_PANEL')
+    if not set(frame_overrides)<=carriers|single_buttons:raise ValueError('FRAME_OVERRIDE_REQUIRES_CARRIER_PANEL')
     output.mkdir(parents=True,exist_ok=False)
     canvas=Image.new('RGBA',tuple(plan['canvas']))
     records=[]

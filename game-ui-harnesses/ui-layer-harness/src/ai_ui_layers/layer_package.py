@@ -65,7 +65,7 @@ def validate_archive(archive):
                 humanVisualAcceptance=False,generationCalls=0)
 
 
-def sources_from_preview(snapshot, preview):
+def sources_from_preview(snapshot, preview, warnings=()):
     snapshot=Path(snapshot).resolve();preview=Path(preview).resolve()
     frozen=inspect(snapshot);report=read(preview/'report.json')
     if report['snapshotDigest']!=frozen['digest']:raise ValueError('PREVIEW_SNAPSHOT_MISMATCH')
@@ -79,7 +79,12 @@ def sources_from_preview(snapshot, preview):
         if digest(path)!=row['report']['materialSha256']:raise ValueError('PREVIEW_MATERIAL_CHANGED')
         sources[key]=dict(path=str(path),sha256=digest(path))
     if set(sources)!=known:raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
-    return dict(sources=sources,issues=['该回拼尚待视觉验收；自动处理成功不代表与参考图完全一致。'])
+    issues=['该回拼尚待视觉验收；自动处理成功不代表与参考图完全一致。']
+    for warning in warnings:
+        issues.append(portable_text('[visual warning: '+warning['category']+'] '+warning['materialId']+
+            ': '+warning['evidence']+' Suggestion: '+warning['suggestion']+
+            ' Review SHA-256: '+warning['reviewSha256']))
+    return dict(sources=sources,issues=issues)
 
 
 def build(snapshot, sources_path, output, viewer):
@@ -93,6 +98,8 @@ def build(snapshot, sources_path, output, viewer):
     if len({p['drawIndex'] for p in placements})!=len(placements):raise ValueError('AMBIGUOUS_ORDER')
     if visual.get('textPolicy') not in ('remove-business-text','preserve-raster-text'):raise ValueError('TEXT_POLICY_REQUIRED')
     issues=evidence.get('issues',[])
+    if (snapshot/'planning-warnings.json').exists():
+        issues=list(issues)+['[planning warning] '+w['code']+': '+w['description']+' Suggestion: '+w['suggestedChange'] for w in read(snapshot/'planning-warnings.json')['warnings']]
     if not isinstance(issues,list) or len(issues)>128:raise ValueError('ISSUES_REQUIRED')
     for issue in issues:portable_text(issue)
     for name in ('viewer.html','viewer.js'):
@@ -108,24 +115,38 @@ def build(snapshot, sources_path, output, viewer):
     composition=dict(kind='ui_layer_composition_v1',canvas=dict(width=width,height=height),coordinates='top-left-pixels',
                      order='array-back-to-front',textPolicy=visual['textPolicy'],backgroundMode=visual['backgroundMode'],
                      reference='reference.png',preview='preview.png',layers=layers)
+    result=write_package(snapshot/'reference.png',composition,sources,output,viewer,issues)
+    result.update(sourceSnapshotDigest=frozen['digest'])
+    save(output/'package-result.json',result)
+    return result
+
+
+def write_package(reference, composition, sources, output, viewer, issues):
+    """Shared deterministic writer; callers own planning/acceptance provenance."""
+    output=Path(output);viewer=Path(viewer);reference=Path(reference)
+    layers=composition['layers']
     check_composition(composition)
+    if set(sources)!={layer['id'] for layer in layers}:raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
+    for issue in issues:portable_text(issue)
+    for name in ('viewer.html','viewer.js'):
+        if not (viewer/name).is_file():raise ValueError('BUILT_VIEWER_REQUIRED')
     output.mkdir(parents=True,exist_ok=False);folder=output/'package';folder.mkdir();(folder/'layers').mkdir()
     for layer in layers:
         value=sources[layer['id']];data=Path(value['path']).read_bytes()
         if hashlib.sha256(data).hexdigest()!=value['sha256']:raise ValueError('SOURCE_CHANGED')
         (folder/layer['path']).write_bytes(data)
-    (folder/'reference.png').write_bytes((snapshot/'reference.png').read_bytes())
+    (folder/'reference.png').write_bytes(reference.read_bytes())
     save(folder/'composition.json',composition)
     image=composite(folder,composition);image.save(folder/'preview.png')
     with Image.open(folder/'preview.png') as saved:
         if ImageChops.difference(image,saved.convert('RGBA')).getbbox():raise ValueError('COMPOSITE_MISMATCH')
-    save(folder/'review.json',dict(status='review-required',humanVisualAcceptance=False,textPolicy=visual['textPolicy'],
+    save(folder/'review.json',dict(status='review-required',humanVisualAcceptance=False,textPolicy=composition['textPolicy'],
          issues=issues,technicalChecks=['complete-layer-set','png-geometry','source-digests','pixel-composition'],
          scope='Static raster layer delivery only; not a component or interaction package.'))
     for name in ('viewer.html','viewer.js'):(folder/name).write_bytes((viewer/name).read_bytes())
     (folder/'README.txt').write_text('UI 拆分图层包 v1\n解压后打开 viewer.html，再选择本 ZIP 即可在本地查看。无需上传图片。\n'
         'composition.json 是唯一回拼合同：原图像素、左上角锚点、数组从后到前、PNG 原尺寸，不额外拉伸。\n'
-        '本包待视觉验收；请查看 review.json。业务文字策略：'+visual['textPolicy']+'。\n'
+        '本包待视觉验收；请查看 review.json。业务文字策略：'+composition['textPolicy']+'。\n'
         '不包含组件语义、业务行为、交互状态或字体还原；不宣称可以直接导入 ui-component。\n',encoding='utf-8')
     files={p.relative_to(folder).as_posix():dict(sha256=digest(p),bytes=p.stat().st_size)
            for p in sorted(folder.rglob('*'),key=lambda p:p.relative_to(folder).as_posix()) if p.is_file()}
@@ -136,8 +157,7 @@ def build(snapshot, sources_path, output, viewer):
             if p.is_file():
                 info=zipfile.ZipInfo(p.relative_to(folder).as_posix(),(2020,1,1,0,0,0))
                 info.external_attr=0o100644<<16;z.writestr(info,p.read_bytes())
-    result=validate_archive(archive);result.update(layerCount=len(layers),sourceSnapshotDigest=frozen['digest'])
-    save(output/'package-result.json',result)
+    result=validate_archive(archive);result.update(layerCount=len(layers))
     return result
 
 

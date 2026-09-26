@@ -9,15 +9,45 @@ import numpy as np
 from PIL import Image
 from jsonschema import Draft202012Validator
 from .compile_visual import HARNESS
-from .codex_call import command
+from .codex_call import command, CLI_MODEL, CLI_EFFORT
 from .session_review import invoke
 from .evaluate import read,save,digest
 from .freeze_visual import inspect
 from .place_parts import box
 from .preview_partial import preview
 from .registration_policy import integrated_surface
+from .postprocess_visual import process
 
 BASE=HARNESS/'planning-harness'
+OBSERVATION_MAX_EDGE=1536
+
+
+def observation_image(source, destination):
+    """Bound the actual attachment size; preserve the original as pixel authority."""
+    with Image.open(source) as im:
+        original=im.size
+        image=im.convert('RGBA')
+        image.thumbnail((OBSERVATION_MAX_EDGE,OBSERVATION_MAX_EDGE),Image.Resampling.LANCZOS)
+        image.save(destination)
+    return dict(originalSize=list(original),observationSize=list(image.size),
+                originalSha256=digest(Path(source)),observationSha256=digest(destination),
+                mapping='floor-rational-half-open-edges')
+
+
+def original_box(values, mapping):
+    observed=mapping['observationSize'];original=mapping['originalSize']
+    checked=box(values,observed)
+    mapped=[v*original[i%2]//observed[i%2] for i,v in enumerate(checked)]
+    return box(mapped,original)
+
+
+def original_coordinates(answer, source_mapping, reference_mapping):
+    result=copy.deepcopy(answer)
+    for part in result['parts']:
+        for fragment in part['fragments']:
+            fragment['sourceBox']=original_box(fragment['sourceBox'],source_mapping)
+            fragment['targetBox']=original_box(fragment['targetBox'],reference_mapping)
+    return result
 
 
 def candidates(visual):
@@ -35,8 +65,10 @@ def call_model(folder):
     exe=shutil.which('codex')
     if not exe:raise ValueError('CODEX_NOT_FOUND')
     with tempfile.TemporaryDirectory(prefix='ui-registration-') as cwd:
-        args=command(exe,folder,Path(cwd),'gpt-5.6-luna','xhigh')
-        args[args.index('--image')+1]=str(folder/'reference.png')+','+str(folder/'generated.png')
+        args=command(exe,folder,Path(cwd),CLI_MODEL,CLI_EFFORT)
+        images=[folder/'reference.png',folder/'generated.png']
+        if (folder/'detail-compare.png').is_file():images.append(folder/'detail-compare.png')
+        args[args.index('--image')+1]=','.join(map(str,images))
         return invoke(args,folder,cwd,(folder/'prompt.md').read_text(encoding='utf-8'))
 
 
@@ -131,19 +163,40 @@ def run(config_path, output, model_call=None, selected=None):
          driver=driver,generationCalls=0,automaticResubmissions=0))
     config['partPlacements']={};calls=0;reports=[]
     try:
+        # Run the existing whole-material gates before spending localization calls.
+        # Selected groups still require their per-part placement validation below.
+        assets={a['id']:a for a in read(snapshot/'execution-plan.candidate.json')['assets']}
+        integrated={r['materialId'] for r in whole}
+        raw_checks=[]
+        for key,source in config['materials'].items():
+            if key in selected:continue
+            row=placements[key]
+            checked=process(Path(source),row['outputSize'],output/'raw-preflight'/key,
+                            background=assets[key]['role']=='background',
+                            fit_mode='frame-bounds' if key in integrated else row.get('fitMode','contain'))
+            raw_checks.append(dict(materialId=key,sourceSha256=checked['sourceSha256'],
+                                   status=checked['status'],issues=checked['issues']))
+        save(output/'raw-preflight.json',dict(materials=raw_checks,generationCalls=0,modelCalls=0))
+        if any(r['status']=='blocked' for r in raw_checks):
+            raise ValueError('MATERIAL_POSTPROCESS_BLOCKED')
         for i,key in enumerate(selected):
             folder=output/('localize-'+str(i+1));folder.mkdir()
             source=Path(config['materials'][key]);objects=[o for o in visual['objects'] if o['materialId']==key]
-            for name,src in [('reference.png',reference),('generated.png',source),
-                             ('schema.json',BASE/'schemas/material-registration.schema.json')]:
-                (folder/name).write_bytes(src.read_bytes())
+            reference_mapping=observation_image(reference,folder/'reference.png')
+            source_mapping=observation_image(source,folder/'generated.png')
+            save(folder/'observation-mapping.json',dict(reference=reference_mapping,generated=source_mapping))
+            (folder/'schema.json').write_bytes((BASE/'schemas/material-registration.schema.json').read_bytes())
             with Image.open(source) as im:raw=im.convert('RGBA')
             with Image.open(reference) as im:reference_size=im.size
-            data=dict(materialId=key,referenceSize=list(reference_size),generatedSize=list(raw.size),
-                      referenceMaterialRegion=placements[key]['sourceRegion'],objects=objects)
+            region=placements[key]['sourceRegion']
+            observed_region=[v*reference_mapping['observationSize'][i%2]//reference_size[i%2]
+                             for i,v in enumerate(region)]
+            data=dict(materialId=key,referenceSize=reference_mapping['observationSize'],
+                      generatedSize=source_mapping['observationSize'],
+                      referenceMaterialRegion=observed_region,objects=objects)
             prompt=(BASE/'prompts/material-registration.md').read_text(encoding='utf-8')+'\n'+json.dumps(data,ensure_ascii=False)
             (folder/'prompt.md').write_text(prompt,encoding='utf-8')
-            fingerprints={n:digest(folder/n) for n in ('reference.png','generated.png','schema.json','prompt.md')}
+            fingerprints={n:digest(folder/n) for n in ('reference.png','generated.png','schema.json','prompt.md','observation-mapping.json')}
             save(folder/'request.json',dict(inputs=fingerprints,materialId=key))
             print(json.dumps(dict(stage='localize',material=key)),flush=True)
             calls+=1;transport=(model_call or call_model)(folder)
@@ -154,6 +207,8 @@ def run(config_path, output, model_call=None, selected=None):
             answer=read(folder/'draft.json');schema=read(folder/'schema.json')
             Draft202012Validator(schema).validate(answer)
             if answer['issues']:raise ValueError('MODEL_REPORTED_ISSUES: '+json.dumps(answer['issues'],ensure_ascii=False))
+            answer=original_coordinates(answer,source_mapping,reference_mapping)
+            save(folder/'original-coordinate-answer.json',answer)
             answer,adjustments=refine_source_bounds(answer,raw)
             save(folder/'source-bound-refinement.json',dict(adjustments=adjustments,basis='local existing alpha bounds; target boxes unchanged'))
             parts,coverage=validate_answer(answer,schema,objects,

@@ -45,13 +45,22 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 ```
 
 入口为源码分发，尚不提供独立 wheel。服务必须安装并配置可用的 Codex CLI 规划/定位适配器，
-以及自己的生图调用能力；桌面工具不会自动进入容器。当前模型配置为 Luna/xhigh，见适配器代码。
+以及自己的生图调用能力；桌面工具不会自动进入容器。新任务的 Codex CLI session
+统一配置为 `gpt-6-luna` / `xhigh`，见适配器代码。旧冻结任务按其原运行时指纹处理。
 不要将本地登录凭证、会话目录或样本加入分发制品。
 
 ## 接入合同
 
 见 [服务接入合同](docs/SERVICE-CONTRACT.md)：命令、授权、状态、媒体交换和交付边界。
 版本变化见 [发布说明](docs/RELEASE-NOTES.md)。
+相似样本的通用防错规则和验证边界见 [视觉保障](docs/VISUAL-SAFEGUARDS.md)。
+多份已接收变体的确定性恢复与待验收打包见 [变体恢复合同](docs/REVIEW-REQUIRED-VARIANTS.md)。
+单份完整已接收作业也可用 `finish-variants --received-job JOB --job-digest DIGEST`
+自动完成确定性切板、预览、来源重放及待验收打包；原严格 DAG 的视觉阻断不会被改写。
+新任务可选 `--generation-mode sheets`，将多份独立素材同板生成后提取，见
+[素材板合同](docs/GENERATION-SHEETS.md)。默认 single 与最终图层包保持兼容。
+用户确认并经 M2 复核的宽卡片/面板框可用显式[横向框体适配](docs/HORIZONTAL-FRAME-SLICE.md)，
+四角保持等比，仅缩放无固定细节的中段；默认素材仍保持原比例。
 Docker 项目负责服务封装；Web 消费该服务 API 和公开图层包；本仓库不规定 HTTP 路由。
 独立产物合同为 `ui_layer_composition_v1`，不是后续 UI component 的组件树合同。
 
@@ -71,3 +80,5 @@ python -m unittest discover -s game-ui-harnesses/ui-layer-harness/tests -p "test
 ```
 
 所有测试离线，使用替身及程序图形，不调用生成服务。首次上线需在外部服务环境完成真实任务联调。
+
+新规划 DAG 最多两轮局部修补与复审（最多 6 次规划模型调用）；旧会话授权和冻结记录不扩充。轻微规划告警随报告保留，重复阻断或超过两轮停止。详见 docs/SERVICE-CONTRACT.md 的 Bounded planning convergence。

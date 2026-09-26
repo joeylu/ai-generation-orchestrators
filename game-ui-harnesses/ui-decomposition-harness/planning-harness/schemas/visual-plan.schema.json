@@ -66,6 +66,11 @@
               "maximum": 1
             }
           },
+          "adaptationPolicy": {
+            "type": "string",
+            "enum": ["preserve", "simple-strip", "horizontal-frame-slice"],
+            "description": "Default preserve. simple-strip is for reviewed plain strips; horizontal-frame-slice is for reviewed wide card/panel frames with protected ornate ends and a stretchable plain center. Neither policy repairs missing artwork."
+          },
           "preserveText": {
             "type": "array",
             "maxItems": 64,

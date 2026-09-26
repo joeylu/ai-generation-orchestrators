@@ -6,6 +6,7 @@ import shutil
 import tempfile
 from jsonschema import Draft202012Validator
 from .evaluate import read,save,digest,check_relations
+from .codex_call import CLI_MODEL, CLI_EFFORT
 from .local_patch import merge_patch
 from .session_review import invoke,resume_command,session_id,build_review_prompt,render_for_review
 
@@ -13,6 +14,9 @@ from .session_review import invoke,resume_command,session_id,build_review_prompt
 def run(root):
     root=Path(root).resolve();m1=root/'m1';repair=root/'repair';folder=root/'rereview'
     result=read(root/'result.json');sid=result['sessionId']
+    bound=read(root/'request.json')
+    if (bound['model'],bound['effort'])!=(CLI_MODEL,CLI_EFFORT):
+        raise ValueError('MODEL_CHANGED_NEW_SESSION_REQUIRED')
     candidate,report=merge_patch(m1/'draft.json',read(repair/'draft.json'),read(m1/'schema.json'),result['sourcePlanSha256'])
     if candidate!=read(repair/'candidate.json') or report['programIssues'] or report['unresolvedIssues']:
         raise ValueError('REPAIR_NOT_READY')

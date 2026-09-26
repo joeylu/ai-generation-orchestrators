@@ -13,6 +13,9 @@ import time
 from jsonschema import Draft202012Validator
 from .evaluate import check_relations, draw_order, read
 
+CLI_MODEL = 'gpt-6-luna'
+CLI_EFFORT = 'xhigh'
+
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -101,9 +104,10 @@ def inspect_events(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('image', 'prompt', 'schema', 'output', 'model'):
+    for name in ('image', 'prompt', 'schema', 'output'):
         parser.add_argument('--'+name, required=True)
-    parser.add_argument('--effort', default='xhigh', choices=['low','medium','high','xhigh'])
+    parser.add_argument('--model', default=CLI_MODEL)
+    parser.add_argument('--effort', default=CLI_EFFORT, choices=['low','medium','high','xhigh'])
     parser.add_argument('--codex', default='codex')
     parser.add_argument('--timeout', type=int, default=900)
     parser.add_argument('--execute', action='store_true', help='Submit one CLI run; otherwise prepare only')

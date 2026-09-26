@@ -37,6 +37,8 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate'):
     for i, material in enumerate(materials):
         key = material['id']; background = material['role'] == 'background'
         l,t,r,b = pixel_box(material['bboxNorm'], *size)
+        from .adapt_strip import validate_policy
+        validate_policy(visual,material,[r-l,b-t])
         owned = [{'id': o['id'], 'kind': o['kind'], 'label': o['label']}
                  for o in visual['objects'] if o['materialId'] == key]
         overlapping = {m['id'] for m in materials if m['id'] != key
@@ -89,11 +91,15 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate'):
 
 
 def selected_paths(run):
+    if (run/'repair2').exists():return run/'repair2/candidate.json',run/'rereview2/draft.json'
     if (run/'repair').exists():return run/'repair/candidate.json',run/'rereview/draft.json'
     return run/'m1/draft.json',run/'m2/draft.json'
 
 
-def verify_run(run):
+def verify_run(run, *, _allow_issues=False):
+    if (run/'revision.json').exists():
+        from .revise_plan import verify_revision
+        return verify_revision(run, allow_issues=_allow_issues)
     request = read(run/'request.json'); result = read(run/'result.json')
     for name in ('reference.png', 'prompt.md', 'schema.json'):
         if digest(run/'m1'/name) != request['inputs'][name]:
@@ -112,19 +118,21 @@ def verify_run(run):
     Draft202012Validator(read(run/'m2/schema.json')).validate(review)
     if result['unknownIssueIds'] or not result['sameSessionVerified']:
         raise ValueError('M2_UNRESOLVED')
-    if (run/'repair').exists():
+    source=run/'m1/draft.json'
+    for repair_name,review_name in [('repair','rereview'),('repair2','rereview2')]:
+        if not (run/repair_name).exists():continue
         from .local_patch import merge_patch
         from .session_review import session_id
-        if not (run/'rereview/result.json').exists():raise ValueError('REPAIRED_CANDIDATE_REQUIRES_NEW_REVIEW')
-        merged,patch_report=merge_patch(run/'m1/draft.json',read(run/'repair/draft.json'),read(run/'m1/schema.json'),result['sourcePlanSha256'])
-        if merged!=read(run/'repair/candidate.json') or patch_report['programIssues'] or patch_report['unresolvedIssues']:
+        if not (run/review_name/'result.json').exists():raise ValueError('REPAIRED_CANDIDATE_REQUIRES_NEW_REVIEW')
+        merged,patch_report=merge_patch(source,read(run/repair_name/'draft.json'),read(run/'m1/schema.json'),digest(source))
+        if merged!=read(run/repair_name/'candidate.json') or patch_report['programIssues'] or patch_report['unresolvedIssues']:
             raise ValueError('INVALID_REPAIR')
-        rr=run/'rereview';bound=read(rr/'request.json');receipt=read(rr/'result.json')
+        rr=run/review_name;bound=read(rr/'request.json');receipt=read(rr/'result.json')
         transport=read(rr/'transport.json')
         if transport['exitCode'] or not transport['turnCompleted'] or transport.get('responseSha256')!=digest(rr/'draft.json'):
             raise ValueError('INVALID_REREVIEW_RECEIPT')
         if bound['sessionId']!=result['sessionId']:raise ValueError('SESSION_CHANGED')
-        if bound['candidateSha256']!=digest(run/'repair/candidate.json') or bound['patchSha256']!=digest(run/'repair/draft.json'):
+        if bound['candidateSha256']!=digest(run/repair_name/'candidate.json') or bound['patchSha256']!=digest(run/repair_name/'draft.json'):
             raise ValueError('REPAIR_CHANGED')
         for name,value in bound['inputs'].items():
             if digest(rr/name)!=value:raise ValueError('REREVIEW_INPUT_CHANGED')
@@ -132,27 +140,33 @@ def verify_run(run):
             raise ValueError('REREVIEW_CHANGED')
         if session_id(rr/'events.jsonl')!=result['sessionId']:raise ValueError('SESSION_CHANGED')
         review=read(rr/'draft.json');Draft202012Validator(read(rr/'schema.json')).validate(review)
-    if review['issues']:raise ValueError('M2_UNRESOLVED')
+        source=run/repair_name/'candidate.json'
+    from .planning_review_policy import split
+    if split(review)[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
     visual = read(selected_paths(run)[0])
     Draft202012Validator(read(run/'m1/schema.json')).validate(visual)
     return visual
 
 
-def compile_run(run, output, max_calls=128):
+def compile_run(run, output, max_calls=128, generation_mode="single"):
     started = time.perf_counter(); run=Path(run); output=Path(output)
     if max_calls < 1:
         raise ValueError('INVALID_CALL_LIMIT')
     visual = verify_run(run)
     plan_path,review_path=selected_paths(run)
-    if len(visual['materials']) > max_calls:
-        raise ValueError('CALL_LIMIT_EXCEEDED')
+    if generation_mode not in ('single','sheets'):raise ValueError('GENERATION_MODE')
     source = run/'m1/reference.png'; before=digest(source)
     with Image.open(source) as image:
         if image.getexif().get(274, 1) != 1:
             raise ValueError('NONIDENTITY_COORDINATE_MAPPING')
         image.load(); picture=image.convert('RGBA')
     plan, placements = compile_plan(visual, picture.size, before)
+    from .generation_groups import build_groups
+    groups=build_groups(visual,plan) if generation_mode=='sheets' else None
+    calls=groups['plannedCalls'] if groups else len(plan['assets'])
+    if calls>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
     output.mkdir(parents=True, exist_ok=False)
+    if groups:save(output/'generation-groups.json',groups)
     (output/'reference.png').write_bytes(source.read_bytes())
     if digest(output/'reference.png') != before:
         raise ValueError('REFERENCE_CHANGED')
@@ -184,7 +198,7 @@ def compile_run(run, output, max_calls=128):
             'sourcePlanSha256':digest(plan_path),'reviewSha256':digest(review_path),
             'sourceImageSha256':before,'candidateSha256':digest(output/'execution-plan.candidate.json'),
             'legacyStructureValidation':summary,'materialCount':len(plan['assets']),
-            'layerCount':len(plan['nodes']),'plannedCalls':len(plan['assets']),'maximumCalls':max_calls,
+            'layerCount':len(plan['nodes']),'plannedCalls':calls,'maximumCalls':max_calls,
             'generationCalls':0,'freezeExecuted':False,'productionReady':False,'humanVisualAcceptance':False,
             'blockers':blockers,'artifacts':artifacts,'elapsedSeconds':time.perf_counter()-started}
     save(output/'compile-report.json', report)

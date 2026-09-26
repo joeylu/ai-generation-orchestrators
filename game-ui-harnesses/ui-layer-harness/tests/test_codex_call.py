@@ -6,14 +6,16 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from ai_ui_layers.codex_call import command, inspect_events
+from ai_ui_layers.codex_call import command, inspect_events, CLI_MODEL, CLI_EFFORT
 from jsonschema import Draft202012Validator
 
 
 class TransportTests(unittest.TestCase):
     @patch('ai_ui_layers.codex_call.skill_overrides', return_value='skills.config=[]')
     def test_isolation_and_literal_arguments(self, _):
-        args = command('codex', Path('dir with spaces'), Path('empty'), 'gpt-5.6-luna', 'xhigh')
+        args = command('codex', Path('dir with spaces'), Path('empty'), CLI_MODEL, CLI_EFFORT)
+        self.assertEqual(args[args.index('--model')+1], 'gpt-6-luna')
+        self.assertIn('model_reasoning_effort="xhigh"', args)
         for value in ('--strict-config','--ignore-user-config','--ephemeral','read-only',
                       'approval_policy="never"','project_doc_max_bytes=0',
                       'features.shell_tool=false','features.view_image=false','skills.config=[]'):

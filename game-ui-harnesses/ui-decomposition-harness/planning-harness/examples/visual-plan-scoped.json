@@ -13,7 +13,8 @@
         1,
         1
       ],
-      "preserveText": []
+      "preserveText": [],
+      "adaptationPolicy": "preserve"
     },
     {
       "id": "asset-panel",
@@ -26,7 +27,8 @@
         0.9,
         0.9
       ],
-      "preserveText": []
+      "preserveText": [],
+      "adaptationPolicy": "preserve"
     },
     {
       "id": "asset-buy-button",
@@ -39,7 +41,8 @@
         0.8,
         0.85
       ],
-      "preserveText": []
+      "preserveText": [],
+      "adaptationPolicy": "preserve"
     },
     {
       "id": "asset-coin-a",
@@ -52,7 +55,8 @@
         0.75,
         0.3
       ],
-      "preserveText": []
+      "preserveText": [],
+      "adaptationPolicy": "preserve"
     },
     {
       "id": "asset-coin-b",
@@ -65,7 +69,8 @@
         0.75,
         0.45
       ],
-      "preserveText": []
+      "preserveText": [],
+      "adaptationPolicy": "preserve"
     }
   ],
   "objects": [
