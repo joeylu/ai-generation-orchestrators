@@ -20,11 +20,11 @@ class AutomaticRegistrationTests(unittest.TestCase):
              patch('ai_ui_layers.automatic_registration.command',return_value=['codex','--image','old']), \
              patch('ai_ui_layers.automatic_registration.invoke',return_value={}) as invoke:
             call_model(folder)
-            self.assertEqual(invoke.call_args.args[0][2],','.join(str(folder/name)
+            self.assertEqual(invoke.call_args.args[0][2],','.join(str(folder.resolve()/name)
                 for name in ('reference.png','generated.png','detail-compare.png')))
             (folder/'detail-compare.png').unlink()
             call_model(folder)
-            self.assertEqual(invoke.call_args.args[0][2],','.join(str(folder/name)
+            self.assertEqual(invoke.call_args.args[0][2],','.join(str(folder.resolve()/name)
                 for name in ('reference.png','generated.png')))
 
     def setUp(self):
