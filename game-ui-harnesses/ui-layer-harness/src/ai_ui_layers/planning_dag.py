@@ -152,7 +152,9 @@ class Dag:
             width,height=reference.size
         context=(f'参考图原始画布：width={width}, height={height} 像素。'
                  'bboxNorm 的 x 除以完整画布宽、y 除以完整画布高；'
-                 '不要使用界面显示尺寸、假定方形画布或附加留白作为分母。\n\n')
+                 '不要使用界面显示尺寸、假定方形画布或附加留白作为分母。'
+                 '全画布背景框不证明其他可见图形已被覆盖；有明确边界的界面覆盖区按视觉单元判断素材归属，'
+                 '不能用背景全框代替覆盖检查。短标签放不下的可见细节分给多个对象，描述须完整。\n\n')
         (p/'prompt.md').write_text(context+(p/'prompt.md').read_text(encoding='utf-8-sig')+self.user_context(),encoding='utf-8')
         save(p/'schema.json',transport_schema(read(self.inputs/'storage-schema.json')))
         save(self.root/'request.json',{'inputs':{n:digest(p/n) for n in ('reference.png','prompt.md','schema.json')},
@@ -299,6 +301,7 @@ class Dag:
                 'unknowns/backgroundMode/textPolicy 为 null 时沿用，preserveText 在对应素材记录内修订。'
                 '对 UNASSIGNED_VISIBLE_ARTWORK，先核对原图；确有遗漏时补齐所属材料与对象的可见内容描述，必要时新增对象或材料，不靠缩框或改 unknowns 掩盖。'
                 '补充描述时保留旧 label 中未被问题否定的场景、图形和颜色，复查完整改写结果，不输出截断词或乱码。'
+                '单条 label 上限 200 字符；若细节放不下，新增同素材对象承载描述，或按独立视觉单元拆素材，不截断句子，也不在素材与对象 label 中重复清单。'
                 '先对照干净原图核对受影响素材、相邻素材及完整对象组的四边极值与唯一归属；M2 的 suggestedChange 是待验证建议，不是只修所提一边或照抄坐标。'
                 '固定装饰不因新增记录就必须加辅助框；只有需要局部定位时提供，已有必要定位框不得为消除告警改成 null。'
                 '非 null 框须覆盖名称所指完整图形及延伸，父素材框覆盖不能抵消辅助框截断。'

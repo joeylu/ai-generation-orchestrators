@@ -4,6 +4,37 @@ from ai_ui_layers.short_prompt import build,exclusions,carries_foreground,object
 
 
 class ShortPromptTests(unittest.TestCase):
+    def test_underlay_and_free_standing_portrait_do_not_bake_crop_background(self):
+        materials=[dict(id='underlay',label='Forest game screen',role='background',
+                        bboxNorm=[0,0,1,1],zOrder=0,preserveText=[]),
+                   dict(id='panel',label='Translucent dialogue panel',role='foreground',
+                        bboxNorm=[0,.8,.9,1],zOrder=1,preserveText=[]),
+                   dict(id='portrait',label='Elf portrait',role='foreground',
+                        bboxNorm=[0,.55,.25,1],zOrder=2,preserveText=[])]
+        objects=[dict(id='scene',materialId='underlay',kind='background',
+                      label='Forest map',bboxNorm=None),
+                 dict(id='surface',materialId='panel',kind='panel',
+                      label='Dark translucent surface',bboxNorm=materials[1]['bboxNorm']),
+                 dict(id='elf',materialId='portrait',kind='illustration',
+                      label='Elf holding a sword',bboxNorm=materials[2]['bboxNorm'])]
+        objects.extend(dict(id=f'icon-{i}',materialId='underlay',kind='icon',
+                            label='Tiny resource icon',bboxNorm=[.01*i,0,.01*i+.005,.01])
+                       for i in range(30))
+        plan=dict(backgroundMode='preserve-underlay',textPolicy='remove-business-text',
+                  materials=materials,objects=objects)
+        underlay=build(plan,'underlay',[1600,1000])
+        self.assertIn('Tiny resource icon',underlay)
+        self.assertIn('Translucent dialogue panel',underlay)
+        self.assertNotIn('withinMaterial',underlay)
+        self.assertLess(len(underlay),1000)
+        panel=build(plan,'panel',[1600,1000])
+        self.assertIn('translucency in alpha',panel)
+        self.assertIn('do not bake the scene',panel)
+        portrait=build(plan,'portrait',[1600,1000])
+        self.assertIn('crop box is not the illustration silhouette',portrait)
+        self.assertNotIn('Do not cut out the person',portrait)
+        self.assertNotIn('internal scene/background',portrait)
+
     def test_one_icon_with_anchored_decorative_text_keeps_the_text_in_compact_prompt(self):
         from ai_ui_layers.short_prompt import is_compact_labeled_icon
         material=dict(id='icon',label='Flags and paint palette',role='foreground',

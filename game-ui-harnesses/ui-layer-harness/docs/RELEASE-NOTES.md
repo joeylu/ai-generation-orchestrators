@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased dense-plan and foreground extraction prompts
+
+- Planning prompts now keep bounded material labels short and place distinct visible details in object records. M2 may accept coverage across those records, while its existing coverage audit and two-repair limit remain blocking. A landscape dialogue sample first stopped on repeated omissions and truncated 200-character labels; a fresh planning run reached M3 after two reviewed repairs, with no generation submitted.
+- New background requests deduplicate object descriptions and omit redundant per-object coordinate JSON when the full reference is already the layout authority. Generic foreground panels preserve observed translucency in alpha. An illustration crop no longer implies that surrounding scene pixels belong to the illustration; owned painted interiors and frames remain eligible.
+- Offline tests cover the free-standing portrait, translucent panel, and dense background prompt paths. Existing frozen requests and received media remain immutable; no tag is published.
+
 ## Unreleased singleton delivery review gate
 
 - New single-mode delivery runs review each raw foreground after all raw technical checks and before adaptation, registration or packaging. The existing material reviewer and severity policy are reused; a blocker, invalid response, transport failure or interruption stops the DAG without automatic redispatch.

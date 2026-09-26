@@ -87,6 +87,23 @@ def build(visual, asset_id, reference_size=None):
         return compact_icon_prompt(target,reference_size,material['preserveText'])
     if is_atomic_artwork(visual,material):
         return atomic_prompt(visual,material,reference_size)
+    if material['role']=='background':
+        details=list(dict.fromkeys(o['label'] for o in visual['objects']
+                                   if o['materialId']==asset_id))
+        prompt=('Use the full reference image. Reconstruct this full opaque underlay at its original layout: '
+                +material['label']+'. Retain these visible details: '
+                +json.dumps(details,ensure_ascii=False)+'. ')
+        if visual['backgroundMode']=='preserve-underlay':
+            excluded=[m['label'] for m in visual['materials'] if m['role']=='foreground']
+            prompt+=('Keep the visible underlying UI, icons, navigation, layout and dimming. '
+                     'Remove only these separately exported foreground materials: '
+                     +json.dumps(excluded,ensure_ascii=False)+'. '
+                     'Complete their occluded areas from visible underlay evidence; do not brighten the underlay. ')
+        else:
+            prompt+='Remove all UI surfaces and controls; reconstruct the scene behind them from visible scene evidence. '
+        return (prompt+'Remove ordinary labels and numbers except this exact preserveText list: '
+                +json.dumps(material['preserveText'],ensure_ascii=False)+'. '
+                'Output a full opaque image at the reference aspect ratio.')
     owned = object_content(visual,material)
     if carries_foreground(visual,material):
         return carrier_prompt(visual,material,owned,reference_size)
@@ -99,25 +116,18 @@ def build(visual, asset_id, reference_size=None):
               'The list overrides text visible in the reference or mentioned in object descriptions. '
               'Retain listed decorative lettering exactly as visible. Do not remove its glyphs. '
               'No program will redraw missing artwork. '+TEXT_REMOVAL_LAYOUT)
-    if material['role'] == 'background':
-        if visual['backgroundMode']=='preserve-underlay':
-            excluded=[m['label'] for m in visual['materials'] if m['role']=='foreground']
-            prompt+=('Keep the visible underlying UI surfaces, icons, navigation, layout and dimming. '
-                     'Remove only these separately exported foreground materials: '+json.dumps(excluded,ensure_ascii=False)+'. '
-                     'Complete their occluded areas from visible underlay evidence; do not replace the underlay with a bare scene or brighten it. ')
-        else:prompt+='Remove all UI surfaces and controls; reconstruct the scene behind them from visible scene evidence. '
-        return prompt+'Output a full opaque image at the reference aspect ratio.'
     excluded=exclusions(visual,material)
     prompt+=OWNERSHIP_SCOPE+layout_constraints(visual,material,reference_size)+FOREGROUND_FIDELITY
+    if any(o.get('kind')=='panel' and o['materialId']==asset_id for o in visual['objects']):
+        prompt+='Preserve any observed surface translucency in alpha; do not bake the scene behind it into the panel. '
     if excluded:
         prompt+=('Do not draw artwork owned by these other overlapping materials: '
                  +json.dumps(excluded,ensure_ascii=False)+'. '
                  'Remove their frames, ornaments and backing as well as their central content; do not leave empty placeholders or duplicate outlines. '
                  'Keep only the explicitly retained artwork above; do not borrow the excluded unit\'s backing or end ornaments. ')
     if any(o.get('kind')=='illustration' and o['materialId']==asset_id for o in visual['objects']):
-        prompt+=('Retain the COMPLETE picture, including its internal scene/background and any owned frame, '
-                 'at the original relative scale. Do not cut out the person or objects inside the picture. '
-                 'The picture interior must remain filled; transparency belongs outside the whole asset. ')
+        prompt+=('The crop box is not the illustration silhouette. Keep an interior or frame only when it belongs '
+                 'to the illustration; clear unrelated scene outside its actual contour. ')
     return prompt + ('Remove unrelated UI and scene. Keep grouped shapes separate '
                      'with their original gaps and no shared backing. Output a transparent PNG, '
                      'with all contours intact and clear padding outside the artwork.')
