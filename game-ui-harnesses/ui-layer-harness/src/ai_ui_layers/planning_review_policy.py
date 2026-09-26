@@ -24,6 +24,11 @@ def split(review, plan=None):
             raise ValueError('DUPLICATE_SMALL_MATERIAL_AUDIT')
         for row in rows:
             owner=row['materialId']
+            boundary=row.get('boundary')
+            if boundary and boundary['status']!='complete':
+                issues.append(dict(code='SMALL_MATERIAL_BOUNDARY_REVIEW',category='geometry',
+                    ids=[owner],description=boundary['evidence'],
+                    suggestedChange='Check the owned contour against the original context and correct its crop; do not infer an edge from the candidate crop.'))
             descriptions=[] if plan is None else [item['label'] for item in plan['materials']
                 if item['id']==owner]+[item['label'] for item in plan['objects']
                 if item['materialId']==owner]

@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased small-material boundary evidence
+
+- A real portrait hero-selection run froze after one repair while its exit-symbol crop still omitted the top outline. M2 and rereview saw only an enlarged candidate crop in their local evidence and missed the clipping; no image generation was authorized.
+- New small-material contact sheets pair an expanded original context (with a diagnostic candidate boundary) and the unmarked crop. Each review records boundary completeness and source evidence; clipped or uncertain owned contours become geometry blockers through the existing bounded repair path, even with no ordinary issues. The program does not assign new bounds or infer ownership from surrounding pixels.
+- New internal review responses require the boundary observation. CLI/status/composition remain unchanged, generation prompts are unchanged, and existing pinned runs remain untouched. Diagnostic evidence does not guarantee that a model will detect every clipped contour.
+
 ## Unreleased plan-bound coverage routing
 
 - Fix small-material audit findings with a nonempty quote absent from the owning plan: M2 already detected these, but repair routing and M3 rechecked them without the plan and could silently freeze. Routing, repeated-finding checks and final freeze now use the exact plan reviewed at each stage.

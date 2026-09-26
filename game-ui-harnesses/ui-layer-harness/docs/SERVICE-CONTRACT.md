@@ -244,6 +244,14 @@ the reviewer assigns an object name. A color-diverse small crop may be attached
 once more as a deterministic enlarged original-image detail; it is review
 evidence, never a generated layer or program-drawn replacement.
 
+New small-material evidence pairs expanded original context with the unmarked
+candidate crop. Its magenta boundary is diagnostic; nearby pixels do not change
+ownership. Internal adapters must return `boundary.status` as
+`complete|clipped|uncertain` and nonempty `boundary.evidence` for each audited
+material. Clipped or uncertain owned contours produce geometry blockers in the
+same bounded repair path. No bounds are automatically changed. This changes the
+runtime fingerprint for new runs only, not public CLI/status/composition fields.
+
 Planning category `cosmetic` is advisory only with code `MINOR_COLOR_TONE` or
 `DESCRIPTION_WORDING`. Unknown cosmetic codes fail closed. Missing/duplicate
 artwork, ownership/state changes, substantial wrong colors and clipping remain

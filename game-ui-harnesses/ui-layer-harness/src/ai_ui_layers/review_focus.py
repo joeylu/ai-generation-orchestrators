@@ -24,18 +24,32 @@ def make_small_material_focus(reference, plan, output, limit=12):
             selected.append((material['id'],box))
     selected=selected[:limit]
     if not selected:return None
-    cell_w,cell_h=288,240;columns=min(3,len(selected));rows=(len(selected)+columns-1)//columns
+    cell_w,cell_h=512,256;columns=min(2,len(selected));rows=(len(selected)+columns-1)//columns
     board=Image.new('RGB',(columns*cell_w,rows*cell_h),(31,38,47));draw=ImageDraw.Draw(board)
+    items=[]
     for i,(mid,box) in enumerate(selected):
         x=(i%columns)*cell_w;y=(i//columns)*cell_h
         draw.text((x+8,y+6),mid,fill=(245,245,245))
-        crop=source.crop(tuple(box))
-        enlarged=ImageOps.contain(crop,(cell_w-16,cell_h-36),Image.Resampling.NEAREST)
-        board.paste(enlarged,(x+(cell_w-enlarged.width)//2,y+28+(cell_h-36-enlarged.height)//2))
+        left,top,right,bottom=box
+        margin=max(16,(max(right-left,bottom-top)+1)//2)
+        context_box=[max(0,left-margin),max(0,top-margin),
+                     min(width,right+margin),min(height,bottom+margin)]
+        context=source.crop(tuple(context_box))
+        # Mark the candidate boundary outside its pixels, never erase a contour.
+        ImageDraw.Draw(context).rectangle((left-context_box[0]-1,top-context_box[1]-1,
+            right-context_box[0],bottom-context_box[1]),outline=(255,70,210),width=1)
+        for column,crop in enumerate((context,source.crop(tuple(box)))):
+            enlarged=ImageOps.contain(crop,(cell_w//2-16,cell_h-52),Image.Resampling.NEAREST)
+            px=x+column*(cell_w//2)+(cell_w//2-enlarged.width)//2
+            py=y+44+(cell_h-52-enlarged.height)//2
+            board.paste(enlarged,(px,py))
+            draw.text((x+column*(cell_w//2)+8,y+24),
+                      'CONTEXT / magenta crop box' if column==0 else 'CANDIDATE CROP',fill=(245,245,245))
+        items.append(dict(materialId=mid,sourceBox=box,contextBox=context_box))
     image_path=output/'coverage-small-materials.png';board.save(image_path)
     metadata=dict(kind='ui_m2_small_material_focus_v1',file=image_path.name,
-                  imageSha256=digest(image_path),items=[dict(materialId=mid,sourceBox=box) for mid,box in selected],
-                  display='Original reference crops enlarged uniformly with nearest-neighbor; labels and dark margins are diagnostic only.')
+                  imageSha256=digest(image_path),items=items,
+                  display='Each item: original context with magenta candidate boundary on left, unmarked candidate crop on right; independent nearest-neighbor fits. Context pixels do not change ownership. Labels, boxes and margins are diagnostic only.')
     # A single enlarged crop preserves tiny multicolor markings that can be
     # lost when the contact sheet is downsampled by a vision transport.
     candidates=[]

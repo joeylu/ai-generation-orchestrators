@@ -24,7 +24,8 @@ def small_audit(folder):
     source=folder.parent/'m1/draft.json'
     if not source.exists():source=folder.parent/'source-plan.json'
     materials={row['id']:row for row in read(source)['materials']}
-    return [dict(materialId=item['materialId'],parts=[dict(
+    return [dict(materialId=item['materialId'],
+        boundary=dict(status='complete',evidence='Fixture contour is inside the candidate.'),parts=[dict(
         visiblePart=materials[item['materialId']]['label'],
         observedAppearance='Fixture shape and color, no distinct surface marks',
         planEvidenceQuote=materials[item['materialId']]['label'],

@@ -8,6 +8,30 @@ from ai_ui_layers.session_review import resume_command
 
 
 class ReviewFocusTests(unittest.TestCase):
+    def test_small_crop_context_exposes_omitted_contour_without_changing_plan(self):
+        import copy
+        from ai_ui_layers.evaluate import digest
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'source.png'
+            image=Image.new('RGB',(400,600),(20,30,40))
+            # An upper colored segment is outside an incorrectly lowered crop.
+            ImageDraw.Draw(image).rectangle((350,8,365,20),fill=(250,220,10))
+            ImageDraw.Draw(image).rectangle((350,21,365,44),fill=(80,170,90))
+            image.save(source);before=digest(source)
+            plan=dict(materials=[dict(id='symbol',role='foreground',bboxNorm=[.85,.04,.95,.10])])
+            original=copy.deepcopy(plan)
+            focus=make_small_material_focus(source,plan,root)
+            self.assertEqual(plan,original);self.assertEqual(digest(source),before)
+            item=focus['items'][0]
+            self.assertLessEqual(item['contextBox'][1],8)
+            self.assertGreater(item['sourceBox'][1],20)
+            with Image.open(root/focus['file']) as board:
+                left=board.crop((0,0,board.width//2,board.height))
+                right=board.crop((board.width//2,0,board.width,board.height))
+                self.assertIn((250,220,10),[color for _,color in left.getcolors(left.width*left.height)])
+                self.assertNotIn((250,220,10),[color for _,color in right.getcolors(right.width*right.height)])
+            self.assertEqual(focus['imageSha256'],digest(root/focus['file']))
+
     def test_multicolor_small_material_gets_bound_original_detail(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);source=root/'source.png';image=Image.new('RGB',(400,400),'white')

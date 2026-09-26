@@ -198,9 +198,13 @@ class Dag:
                               'planEvidenceQuote':{'type':'string'},
                               'suggestedChange':{'type':'string','minLength':1}}}
             material_schema={'type':'object','additionalProperties':False,
-                'required':['materialId','parts'],
+                'required':['materialId','parts','boundary'],
                 'properties':{'materialId':{'type':'string','enum':[
                     row['materialId'] for row in small_focus['items']]},
+                    'boundary':{'type':'object','additionalProperties':False,
+                        'required':['status','evidence'],'properties':{
+                            'status':{'type':'string','enum':['complete','clipped','uncertain']},
+                            'evidence':{'type':'string','minLength':1}}},
                     'parts':{'type':'array','minItems':1,'items':part_schema}}}
             required.append('smallMaterialAudit')
             properties['smallMaterialAudit']={'type':'array',
@@ -215,7 +219,9 @@ class Dag:
             prompt+='\n先核销上轮问题；仍检查完整候选。新增阻断必须给原图证据，不能只换措辞重复问题。上轮问题：'+json.dumps(read(prior),ensure_ascii=False)
             prompt+='\n检查修补后的完整候选，本次仅复审：\n'+json.dumps(plan,ensure_ascii=False)
         if small_focus:
-            prompt=('小素材局部附件仅放大原图已规划裁片。按附件的每个 materialId 填 smallMaterialAudit，'
+            prompt=('小素材附件每项左侧为原图上下文（粉框标候选裁片），右侧为无标记裁片；两侧独立等比放大。'
+                    '先核对完整自有轮廓是否被框截断，boundary.status 填 complete/clipped/uncertain，evidence 说明原图依据；裁片外像素不自动属于此素材。'
+                    '按附件的每个 materialId 填 smallMaterialAudit，'
                     '先只按原图逐一列出图标内每个可辨认的组成部分，并在 observedAppearance 写清外形、颜色、'
                     '表面印记或“无可辨印记”；小型附属道具和被部分遮挡的部分也要列出，不能因物体名称不确定而省略彩色点纹。'
                     '每个 visiblePart 的 planEvidenceQuote 必须逐字摘自该素材或其对象的现有 label，'
