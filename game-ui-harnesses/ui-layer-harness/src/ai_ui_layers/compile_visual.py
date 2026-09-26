@@ -142,8 +142,8 @@ def verify_run(run, *, _allow_issues=False):
         review=read(rr/'draft.json');Draft202012Validator(read(rr/'schema.json')).validate(review)
         source=run/repair_name/'candidate.json'
     from .planning_review_policy import split
-    if split(review)[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
     visual = read(selected_paths(run)[0])
+    if split(review,visual)[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
     Draft202012Validator(read(run/'m1/schema.json')).validate(visual)
     return visual
 

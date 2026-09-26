@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased plan-bound coverage routing
+
+- Fix small-material audit findings with a nonempty quote absent from the owning plan: M2 already detected these, but repair routing and M3 rechecked them without the plan and could silently freeze. Routing, repeated-finding checks and final freeze now use the exact plan reviewed at each stage.
+- Explicit child revisions use the same derived blockers for parent eligibility, local patch scope and final freeze. Repeated unresolved findings still stop, and new findings can use only the existing second repair; no extra calls or retries are added.
+- Offline regression fixtures cover initial review, second repair, repeated failure, direct freeze and explicit child revision. This fixes enforcement, not the model's ability to observe every small detail. Public CLI/status/composition contracts are unchanged; old pinned runs and generation approvals remain unchanged. No tag is published.
+
 ## Unreleased complete singleton bundle recovery
 
 - A single owned icon with no separate object box now uses a short extraction prompt for newly frozen requests; one composite icon with anchored decorative lettering uses the same prompt while naming the retained text. It identifies the reference region, asks to remove the panel/background and nearby labels, and avoids semantic object descriptions, ratio instructions, and long negative lists that encouraged redraw. Existing frozen requests and receipts stay immutable; prompt wording does not guarantee pixel-identical generation.

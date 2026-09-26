@@ -258,7 +258,9 @@ class Dag:
                  'seconds':receipt['elapsedSeconds'],'issueCount':len(answer['issues']),'automaticRetry':False})
             if blockers:
                 previous=self.root/('parent-review' if (self.root/'revision.json').exists() else 'm2' if name=='rereview' else 'rereview')/'draft.json'
-                repeated=signatures(blockers)&signatures(split(read(previous))[0])
+                previous_plan=(self.root/'source-plan.json' if (self.root/'revision.json').exists()
+                               else self.root/('m1/draft.json' if name=='rereview' else 'repair/candidate.json'))
+                repeated=signatures(blockers)&signatures(split(read(previous),read(previous_plan))[0])
                 if name=='rereview2' or repeated or (self.root/'revision.json').exists() or self.config.get('maximumRepairs',1)<2:
                     raise ValueError('REREVIEW_UNRESOLVED')
 
@@ -328,11 +330,12 @@ class Dag:
                 save(self.root/'.dag/execution.json',{'driver':'codex-cli' if self.model is live_model else 'injected-test-double'})
             self.node('m1',self.m1);self.node('check',self.check)
             self.node('m2',lambda:self.review('m2',self.root/'m1/draft.json',self.root/'m1/preview/materials-overlay.png'))
-            needs=bool(split(read(self.root/'m2/draft.json'))[0] or read(self.root/'m1/program-check.json')['issues'] or read(self.root/'m1/draft.json')['unknowns'])
+            initial_plan=read(self.root/'m1/draft.json')
+            needs=bool(split(read(self.root/'m2/draft.json'),initial_plan)[0] or read(self.root/'m1/program-check.json')['issues'] or initial_plan['unknowns'])
             if needs:
                 self.node('repair',self.repair);self.node('repair_check',self.repair_check)
                 self.node('rereview',lambda:self.review('rereview',self.root/'repair/candidate.json',self.root/'repair/preview/materials-overlay.png'))
-                if split(read(self.root/'rereview/draft.json'))[0]:
+                if split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'))[0]:
                     self.node('repair2',lambda:self.repair(self.root/'repair/candidate.json',self.root/'rereview','repair2'))
                     self.node('repair_check2',lambda:self.repair_check(self.root/'repair/candidate.json','repair2'))
                     self.node('rereview2',lambda:self.review('rereview2',self.root/'repair2/candidate.json',self.root/'repair2/preview/materials-overlay.png'))

@@ -9,6 +9,7 @@ from .evaluate import read, save, digest
 from .local_patch import merge_patch
 from .session_review import session_id
 from .freeze_visual import freeze
+from .planning_review_policy import split
 
 
 def verify_parent(source):
@@ -27,7 +28,8 @@ def verify_parent(source):
         raise ValueError('FAILED_REREVIEW_REQUIRED')
     if (source/'frozen').exists():raise ValueError('UNFROZEN_PARENT_REQUIRED')
     verify_run(source,_allow_issues=True)
-    if not read(source/'rereview/draft.json')['issues']:raise ValueError('PARENT_ISSUES_REQUIRED')
+    if not split(read(source/'rereview/draft.json'),read(selected_paths(source)[0]))[0]:
+        raise ValueError('PARENT_ISSUES_REQUIRED')
 
 
 def init(source, output, reason):
@@ -95,13 +97,13 @@ def verify_revision(root, allow_issues=False):
     bound=read(review/'request.json')
     if bound['candidateSha256']!=digest(repair/'candidate.json') or bound['patchSha256']!=digest(repair/'draft.json'):
         raise ValueError('REVISION_REVIEW_MISMATCH')
-    if read(review/'draft.json')['issues'] and not allow_issues:raise ValueError('M2_UNRESOLVED')
+    if split(read(review/'draft.json'),candidate)[0] and not allow_issues:raise ValueError('M2_UNRESOLVED')
     return candidate
 
 
 def check_scope(root):
     plan=read(root/'source-plan.json');patch=read(root/'repair/draft.json')
-    ids={key for issue in read(root/'parent-review/draft.json')['issues'] for key in issue['ids']}
+    ids={key for issue in split(read(root/'parent-review/draft.json'),plan)[0] for key in issue['ids']}
     owners=ids|{o['materialId'] for o in plan['objects'] if o['id'] in ids}
     allowed={'materials':{m['id'] for m in plan['materials'] if m['id'] in owners},
              'objects':{o['id'] for o in plan['objects'] if o['materialId'] in owners}}

@@ -234,6 +234,11 @@ records a literal quote from its owning material or object description, or an
 empty quote and a local correction. Missing or nonmatching quotes become
 semantic repair blockers. This is internal planning evidence; it does not alter
 the public CLI, status names, or `ui_layer_composition_v1` package format.
+Repair routing and freeze re-evaluate those quotes against the exact reviewed
+plan, including each repaired candidate. Repeated-finding checks use the prior
+review's own plan. Explicit child revisions apply the same derived blockers to
+parent eligibility, permitted patch scope and final freeze; an empty top-level
+`issues` list cannot override an unmatched small-material quote.
 The component observation includes visible shape, color and surface marks before
 the reviewer assigns an object name. A color-diverse small crop may be attached
 once more as a deterministic enlarged original-image detail; it is review
