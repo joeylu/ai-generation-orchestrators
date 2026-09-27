@@ -2,9 +2,10 @@ import _bootstrap  # Enable source-layout imports for unittest discovery.
 from pathlib import Path
 import tempfile
 import unittest
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageColor
 from ai_ui_layers.review_focus import make_focus,make_small_material_focus
 from ai_ui_layers.session_review import resume_command
+from ai_ui_layers.planning_review_policy import split
 
 
 class ReviewFocusTests(unittest.TestCase):
@@ -46,6 +47,49 @@ class ReviewFocusTests(unittest.TestCase):
             self.assertTrue((root/focus['detail']['file']).is_file())
             with Image.open(root/focus['detail']['file']) as detail:
                 self.assertGreaterEqual(detail.width,480)
+                expected={(255,255,255)} | {ImageColor.getrgb(color) for color in
+                    ('#e02020','#e0a020','#20c030','#20b0d0','#3040c0','#d020b0')}
+                self.assertTrue({color for _,color in detail.getcolors(detail.width*detail.height)} <= expected)
+
+    def test_overflow_small_materials_keep_boundary_evidence_and_block_clipped_crop(self):
+        from ai_ui_layers.evaluate import digest
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);m1=root/'m1';m2=root/'m2';m1.mkdir();m2.mkdir()
+            source=m1/'reference.png';image=Image.new('RGB',(480,240),(25,25,25))
+            materials=[]
+            for index in range(13):
+                x=20+(index%7)*60;y=30+(index//7)*70
+                materials.append(dict(id=f'icon-{index}',role='foreground',
+                                      bboxNorm=[x/480,y/240,(x+20)/480,(y+20)/240]))
+            ImageDraw.Draw(image).rectangle((320,96,339,101),fill=(250,220,10))
+            image.save(source)
+            focus=make_small_material_focus(source,dict(materials=materials),m2)
+            self.assertEqual(len(focus['items']),12)
+            self.assertEqual([row['materialId'] for row in focus['boundaryOnlyItems']],['icon-12'])
+            self.assertEqual(len(focus['pages']),2)
+            for page in focus['pages']:
+                self.assertEqual(page['imageSha256'],digest(m2/page['file']))
+            with Image.open(m2/focus['pages'][1]['file']) as board:
+                self.assertIn((250,220,10),[color for _,color in board.getcolors(board.width*board.height)])
+            for name in ('review-overlay.png',):Image.new('RGB',(2,2)).save(m2/name)
+            args=resume_command('codex',m2,root,'12345678-1234-1234-1234-123456789abc')
+            images=args[args.index('--image')+1].split(',')
+            self.assertIn(str(m2/focus['pages'][1]['file']),images)
+            self.assertLess(images.index(str(m2/focus['pages'][0]['file'])),
+                            images.index(str(m2/focus['pages'][1]['file'])))
+            review=dict(issues=[],smallBoundaryAudit=[dict(materialId='icon-12',
+                boundary=dict(status='clipped',evidence='The yellow contour extends above the crop.'))])
+            self.assertEqual(split(review)[0][0]['ids'],['icon-12'])
+
+    def test_small_narrow_icon_is_audited_without_consuming_a_strip_slot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'source.png'
+            Image.new('RGB',(400,300),(25,25,25)).save(source)
+            plan=dict(materials=[
+                dict(id='tabs',role='foreground',bboxNorm=[.1,.1,.4,.1667]),
+                dict(id='torch',role='foreground',bboxNorm=[.2,.3,.23,.41])])
+            focus=make_small_material_focus(source,plan,root)
+            self.assertEqual([item['materialId'] for item in focus['items']],['torch'])
 
     def test_near_edge_decoration_exposes_pixels_outside_parent_crop(self):
         with tempfile.TemporaryDirectory() as tmp:

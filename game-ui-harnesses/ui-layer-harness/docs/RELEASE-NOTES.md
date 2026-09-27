@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased dense small-material boundary coverage
+
+- Planning reviews previously attached only the first 12 small-material close-ups; later icons had no per-material boundary observation. New M2/rereviews page every compact small crop into bound context/candidate images, including narrow icons while excluding long strips. The first 12 retain detailed part/quote checks, while later crops require a compact boundary audit; clipped or uncertain contours use the existing geometry blocker and two-repair limit. Enlarged color-detail evidence also preserves source pixel steps. This adds review image input but no planning or generation calls. It does not infer a contour, alter frozen runs, or guarantee that a vision model notices every one-pixel omission.
+
 ## Unreleased rendering-style review evidence
 
 - A one-sheet Minetest inventory diagnostic used the existing short sheet prompt and passed the exact-prompt, alpha, grid and sheet-identity gates, extracting six separate icons. The visual reviewer reported only a minor yellow fringe on a wood block, while close comparison also showed smoother, more polished icon rendering than the pixel-stepped reference. The shared sheet/single-material review prompt now explicitly checks rendering texture and edge treatment; this changes future review evidence, not old receipts or their decisions. The diagnostic is not a complete UI delivery or human visual acceptance.

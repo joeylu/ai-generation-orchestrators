@@ -38,6 +38,18 @@ def split(review, plan=None):
                     issues.append(dict(code='UNDESCRIBED_SMALL_MATERIAL_PART',category='semantic',
                         ids=[owner],description=owner+': '+part['visiblePart']+'; '+part['observedAppearance'],
                         suggestedChange=part['suggestedChange']))
+    if 'smallBoundaryAudit' in review:
+        rows=review['smallBoundaryAudit']
+        ids=[row['materialId'] for row in rows]
+        detailed={row['materialId'] for row in review.get('smallMaterialAudit',[])}
+        if len(ids)!=len(set(ids)) or detailed.intersection(ids):
+            raise ValueError('DUPLICATE_SMALL_BOUNDARY_AUDIT')
+        for row in rows:
+            boundary=row['boundary']
+            if boundary['status']!='complete':
+                issues.append(dict(code='SMALL_MATERIAL_BOUNDARY_REVIEW',category='geometry',
+                    ids=[row['materialId']],description=boundary['evidence'],
+                    suggestedChange='Check the owned contour against the original context and correct its crop; do not infer an edge from the candidate crop.'))
     for issue in issues:
         if issue['category'] == 'cosmetic':
             if issue['code'] not in COSMETIC_CODES:

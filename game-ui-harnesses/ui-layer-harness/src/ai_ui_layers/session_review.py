@@ -29,7 +29,10 @@ def resume_command(exe, folder, cwd, sid):
     for i, arg in enumerate(base):
         if arg == '-c': configs.extend(['-c', base[i+1]])
     reference=folder.parent/'m1/reference.png'
-    images=([reference] if reference.is_file() else [])+[folder/'review-overlay.png']+sorted(folder.glob('focus-*.png'))+sorted(folder.glob('coverage-*.png'))
+    coverage=sorted(folder.glob('coverage-*.png'),key=lambda p:(
+        0 if p.name=='coverage-small-materials.png' else
+        1 if p.name.startswith('coverage-small-materials-') else 2,p.name))
+    images=([reference] if reference.is_file() else [])+[folder/'review-overlay.png']+sorted(folder.glob('focus-*.png'))+coverage
     return [exe, 'exec', 'resume', '--strict-config', '--ignore-user-config',
             '--skip-git-repo-check', '--model',CLI_MODEL,'--json',
             '-c','sandbox_mode="read-only"', *configs,

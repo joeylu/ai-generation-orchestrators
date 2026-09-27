@@ -3,6 +3,7 @@ import colorsys
 from PIL import Image, ImageDraw, ImageOps
 from .evaluate import pixel_box, save, digest
 from .card_geometry import repeated_card_height_outlier, repeated_card_alignment_group
+from .review_image import fit_resampling
 
 
 def _window(center, span, limit):
@@ -13,47 +14,55 @@ def _window(center, span, limit):
 
 def make_small_material_focus(reference, plan, output, limit=12):
     """Enlarge small planned artwork for M2 evidence without changing the plan."""
+    if limit<1:raise ValueError('SMALL_MATERIAL_PAGE_SIZE')
     with Image.open(reference) as image:
         source=image.convert('RGB');width,height=source.size
     selected=[]
     for material in plan['materials']:
         if material['role']!='foreground':continue
         box=pixel_box(material['bboxNorm'],width,height)
-        area=(box[2]-box[0])*(box[3]-box[1])
-        if 0<area<=width*height*.025 and min(box[2]-box[0],box[3]-box[1])>=16:
+        size=(box[2]-box[0],box[3]-box[1]);area=size[0]*size[1]
+        if 0<area<=width*height*.025 and min(size)>=8 and max(size)/min(size)<=4:
             selected.append((material['id'],box))
-    selected=selected[:limit]
     if not selected:return None
-    cell_w,cell_h=512,256;columns=min(2,len(selected));rows=(len(selected)+columns-1)//columns
-    board=Image.new('RGB',(columns*cell_w,rows*cell_h),(31,38,47));draw=ImageDraw.Draw(board)
-    items=[]
-    for i,(mid,box) in enumerate(selected):
-        x=(i%columns)*cell_w;y=(i//columns)*cell_h
-        draw.text((x+8,y+6),mid,fill=(245,245,245))
-        left,top,right,bottom=box
-        margin=max(16,(max(right-left,bottom-top)+1)//2)
-        context_box=[max(0,left-margin),max(0,top-margin),
-                     min(width,right+margin),min(height,bottom+margin)]
-        context=source.crop(tuple(context_box))
-        # Mark the candidate boundary outside its pixels, never erase a contour.
-        ImageDraw.Draw(context).rectangle((left-context_box[0]-1,top-context_box[1]-1,
-            right-context_box[0],bottom-context_box[1]),outline=(255,70,210),width=1)
-        for column,crop in enumerate((context,source.crop(tuple(box)))):
-            enlarged=ImageOps.contain(crop,(cell_w//2-16,cell_h-52),Image.Resampling.NEAREST)
-            px=x+column*(cell_w//2)+(cell_w//2-enlarged.width)//2
-            py=y+44+(cell_h-52-enlarged.height)//2
-            board.paste(enlarged,(px,py))
-            draw.text((x+column*(cell_w//2)+8,y+24),
-                      'CONTEXT / magenta crop box' if column==0 else 'CANDIDATE CROP',fill=(245,245,245))
-        items.append(dict(materialId=mid,sourceBox=box,contextBox=context_box))
-    image_path=output/'coverage-small-materials.png';board.save(image_path)
-    metadata=dict(kind='ui_m2_small_material_focus_v1',file=image_path.name,
-                  imageSha256=digest(image_path),items=items,
+    cell_w,cell_h=512,256
+    items=[];pages=[]
+    for page_index,start in enumerate(range(0,len(selected),limit)):
+        page=selected[start:start+limit]
+        columns=min(2,len(page));rows=(len(page)+columns-1)//columns
+        board=Image.new('RGB',(columns*cell_w,rows*cell_h),(31,38,47));draw=ImageDraw.Draw(board)
+        page_ids=[]
+        for i,(mid,box) in enumerate(page):
+            x=(i%columns)*cell_w;y=(i//columns)*cell_h
+            draw.text((x+8,y+6),mid,fill=(245,245,245))
+            left,top,right,bottom=box
+            margin=max(16,(max(right-left,bottom-top)+1)//2)
+            context_box=[max(0,left-margin),max(0,top-margin),
+                         min(width,right+margin),min(height,bottom+margin)]
+            context=source.crop(tuple(context_box))
+            # Mark the candidate boundary outside its pixels, never erase a contour.
+            ImageDraw.Draw(context).rectangle((left-context_box[0]-1,top-context_box[1]-1,
+                right-context_box[0],bottom-context_box[1]),outline=(255,70,210),width=1)
+            for column,crop in enumerate((context,source.crop(tuple(box)))):
+                enlarged=ImageOps.contain(crop,(cell_w//2-16,cell_h-52),Image.Resampling.NEAREST)
+                px=x+column*(cell_w//2)+(cell_w//2-enlarged.width)//2
+                py=y+44+(cell_h-52-enlarged.height)//2
+                board.paste(enlarged,(px,py))
+                draw.text((x+column*(cell_w//2)+8,y+24),
+                          'CONTEXT / magenta crop box' if column==0 else 'CANDIDATE CROP',fill=(245,245,245))
+            items.append(dict(materialId=mid,sourceBox=box,contextBox=context_box))
+            page_ids.append(mid)
+        filename='coverage-small-materials.png' if page_index==0 else f'coverage-small-materials-{page_index+1:02}.png'
+        image_path=output/filename;board.save(image_path)
+        pages.append(dict(file=filename,imageSha256=digest(image_path),materialIds=page_ids))
+    metadata=dict(kind='ui_m2_small_material_focus_v1',file=pages[0]['file'],
+                  imageSha256=pages[0]['imageSha256'],pages=pages,
+                  items=items[:limit],boundaryOnlyItems=items[limit:],
                   display='Each item: original context with magenta candidate boundary on left, unmarked candidate crop on right; independent nearest-neighbor fits. Context pixels do not change ownership. Labels, boxes and margins are diagnostic only.')
     # A single enlarged crop preserves tiny multicolor markings that can be
     # lost when the contact sheet is downsampled by a vision transport.
     candidates=[]
-    for mid,box in selected:
+    for mid,box in selected[:limit]:
         crop=source.crop(tuple(box));bins=[0]*12
         pixels=crop.tobytes()
         for red,green,blue in zip(pixels[0::3],pixels[1::3],pixels[2::3]):
@@ -64,11 +73,12 @@ def make_small_material_focus(reference, plan, output, limit=12):
         candidates.append((diversity,mid,box))
     diversity,mid,box=max(candidates)
     if diversity>=4:
-        detail=ImageOps.contain(source.crop(tuple(box)),(512,512),Image.Resampling.LANCZOS)
+        crop=source.crop(tuple(box))
+        detail=ImageOps.contain(crop,(512,512),fit_resampling(crop.size,(512,512)))
         detail_path=output/'coverage-color-detail.png';detail.save(detail_path)
         metadata['detail']=dict(file=detail_path.name,materialId=mid,sourceBox=box,
                                 imageSha256=digest(detail_path),
-                                display='Same original crop enlarged with Lanczos; no visual content added.')
+                                display='Same original crop enlarged without smoothing; no visual content added.')
     save(output/'coverage-small-materials.json',metadata)
     return metadata
 

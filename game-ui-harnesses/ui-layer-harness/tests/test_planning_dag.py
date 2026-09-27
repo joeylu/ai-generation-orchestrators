@@ -32,6 +32,14 @@ def small_audit(folder):
         suggestedChange='Clarify this visible part in the owner description.')])
         for item in read(metadata)['items']]
 
+
+def small_boundary_audit(folder):
+    metadata=folder/'coverage-small-materials.json'
+    if not metadata.exists():return []
+    return [dict(materialId=item['materialId'],
+        boundary=dict(status='complete',evidence='Fixture contour is inside the candidate.'))
+        for item in read(metadata).get('boundaryOnlyItems',[])]
+
 class FakeModel:
     def __init__(self,repair=False,unresolved=False,mismatch=False):
         self.calls=[];self.repair=repair;self.unresolved=unresolved;self.mismatch=mismatch
@@ -44,6 +52,8 @@ class FakeModel:
                    'description':'fixture finding','suggestedChange':'clarify panel label'}
             answer={'issues':[issue] if (folder.name=='m2' and self.repair) or (folder.name=='rereview' and self.unresolved) else [],
                     'coverageAudit':coverage(),'smallMaterialAudit':small_audit(folder)}
+            boundary=small_boundary_audit(folder)
+            if boundary:answer['smallBoundaryAudit']=boundary
         else:
             source=read(folder.parent/'m1/draft.json');panel=copy.deepcopy(next(m for m in source['materials'] if m['id']=='asset-panel'));panel['label']+=' fixed'
             answer={'sourcePlanSha256':digest(folder.parent/'m1/draft.json'),'materials':{'upsert':[panel],'remove':[]},
@@ -74,6 +84,32 @@ class DagTests(unittest.TestCase):
                          'UNDESCRIBED_SMALL_MATERIAL_PART')
         row['parts'][0]['planEvidenceQuote']=owner['label']
         self.assertEqual(split(dict(issues=[],smallMaterialAudit=[row]),plan)[0],[])
+
+    def test_boundary_only_overflow_page_is_bound_and_blocks_before_freeze(self):
+        model=FakeModel();dag=Dag(self.root,model);dag.m1()
+        plan=read(self.root/'m1/draft.json')
+        for index in range(13):
+            x=50+index*60
+            plan['materials'].append(dict(id=f'extra-icon-{index}',label=f'Icon {index}',
+                role='foreground',zOrder=30,bboxNorm=[x/1000,.1,(x+24)/1000,.124],
+                preserveText=[]))
+        plan_path=self.root/'m1/draft.json'
+        plan_path.write_text(json.dumps(plan),encoding='utf-8')
+        overlay=self.root/'test-overlay.png';Image.new('RGB',(1000,1000)).save(overlay)
+        dag.review('m2',plan_path,overlay)
+        focus=read(self.root/'m2/coverage-small-materials.json')
+        self.assertGreater(len(focus['pages']),1)
+        self.assertTrue(focus['boundaryOnlyItems'])
+        request=read(self.root/'m2/request.json')
+        for page in focus['pages']:
+            self.assertEqual(request['inputs'][page['file']],digest(self.root/'m2'/page['file']))
+        self.assertIn('smallBoundaryAudit',read(self.root/'m2/schema.json')['required'])
+        answer=read(self.root/'m2/draft.json')
+        self.assertEqual(len(answer['smallBoundaryAudit']),len(focus['boundaryOnlyItems']))
+        answer['smallBoundaryAudit'][0]['boundary']=dict(status='clipped',
+            evidence='The owned icon continues above its crop.')
+        self.assertTrue(any(issue['code']=='SMALL_MATERIAL_BOUNDARY_REVIEW'
+                            for issue in split(answer,plan)[0]))
 
     def test_portrait_canvas_context_uses_source_dimensions_and_is_bound(self):
         source=Path(self.tmp.name)/'portrait.png'

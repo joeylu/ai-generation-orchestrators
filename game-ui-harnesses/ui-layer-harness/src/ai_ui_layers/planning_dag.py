@@ -212,6 +212,16 @@ class Dag:
             properties['smallMaterialAudit']={'type':'array',
                 'minItems':len(small_focus['items']),'maxItems':len(small_focus['items']),
                 'items':material_schema}
+            if small_focus['boundaryOnlyItems']:
+                required.append('smallBoundaryAudit')
+                properties['smallBoundaryAudit']={'type':'array',
+                    'minItems':len(small_focus['boundaryOnlyItems']),
+                    'maxItems':len(small_focus['boundaryOnlyItems']),
+                    'items':{'type':'object','additionalProperties':False,
+                        'required':['materialId','boundary'],
+                        'properties':{'materialId':{'type':'string','enum':[
+                            row['materialId'] for row in small_focus['boundaryOnlyItems']]},
+                            'boundary':material_schema['properties']['boundary']}}}
         schema={'type':'object','additionalProperties':False,'required':required,
                 'properties':properties}
         save(p/'schema.json',schema)
@@ -223,7 +233,7 @@ class Dag:
         if small_focus:
             prompt=('小素材附件每项左侧为原图上下文（粉框标候选裁片），右侧为无标记裁片；两侧独立等比放大。'
                     '先核对完整自有轮廓是否被框截断，boundary.status 填 complete/clipped/uncertain，evidence 说明原图依据；裁片外像素不自动属于此素材。'
-                    '按附件的每个 materialId 填 smallMaterialAudit，'
+                    '按第一页的每个 materialId 填 smallMaterialAudit，'
                     '先只按原图逐一列出图标内每个可辨认的组成部分，并在 observedAppearance 写清外形、颜色、'
                     '表面印记或“无可辨印记”；小型附属道具和被部分遮挡的部分也要列出，不能因物体名称不确定而省略彩色点纹。'
                     '每个 visiblePart 的 planEvidenceQuote 必须逐字摘自该素材或其对象的现有 label，'
@@ -231,6 +241,9 @@ class Dag:
                     '已覆盖的部件 suggestedChange 填“无需修改”；'
                     '程序会将空引文或不存在的引文转为修补阻断。不能用整体名称冒充内部部件的证据。'
                     '框内场景或底板仍按原归属，不自动算作图标内容；不要把诊断标签或暗色边距当作原图内容。'+prompt)
+            if small_focus['boundaryOnlyItems']:
+                prompt=('其余小素材也附在后续页；对每个 materialId 填 smallBoundaryAudit，'
+                        '只核对上下文中的完整自有轮廓是否被候选框截断，clipped 或 uncertain 必须说明原图依据。'+prompt)
             if small_focus.get('detail'):
                 prompt=('另附 '+small_focus['detail']['materialId']+' 的原图彩色局部放大，'
                         '先检查各部件内部的色点和印记；它只提供更多观察像素，不改变归属。'+prompt)
@@ -240,7 +253,7 @@ class Dag:
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
         names=['schema.json','review-source.md','review-overlay.png','prompt.md']
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
-        if small_focus:names+=['coverage-small-materials.json',small_focus['file']]
+        if small_focus:names+=['coverage-small-materials.json']+[row['file'] for row in small_focus['pages']]
         if small_focus and small_focus.get('detail'):names.append(small_focus['detail']['file'])
         bound={'sessionId':sid,'originalImageResent':True,
                'originalReferenceSha256':digest(self.root/'m1/reference.png'),
@@ -252,6 +265,10 @@ class Dag:
         if small_focus and ({row['materialId'] for row in answer['smallMaterialAudit']} !=
                             {row['materialId'] for row in small_focus['items']}):
             raise ValueError('SMALL_MATERIAL_AUDIT_IDS_REQUIRED')
+        if small_focus and small_focus['boundaryOnlyItems'] and (
+                {row['materialId'] for row in answer['smallBoundaryAudit']} !=
+                {row['materialId'] for row in small_focus['boundaryOnlyItems']}):
+            raise ValueError('SMALL_BOUNDARY_AUDIT_IDS_REQUIRED')
         blockers,warnings=split(answer,plan)
         if any(set(i['ids'])-known for i in blockers+warnings):raise ValueError('UNKNOWN_REVIEW_IDS')
         save(p/'assessment.json',dict(blockers=blockers,warnings=warnings,reviewSha256=digest(p/'draft.json')))
@@ -292,9 +309,11 @@ class Dag:
             for row in focus:(p/row['file']).write_bytes((review_dir/row['file']).read_bytes())
         small_focus=(review_dir/'coverage-small-materials.json').exists()
         if small_focus:
-            detail=read(review_dir/'coverage-small-materials.json').get('detail')
-            for name in ('coverage-small-materials.json','coverage-small-materials.png')+(
-                    (detail['file'],) if detail else ()):
+            small_metadata=read(review_dir/'coverage-small-materials.json')
+            detail=small_metadata.get('detail')
+            small_files=[row['file'] for row in small_metadata.get('pages',[
+                {'file':small_metadata['file']}])]
+            for name in ['coverage-small-materials.json',*small_files,*([detail['file']] if detail else [])]:
                 (p/name).write_bytes((review_dir/name).read_bytes())
         prompt=('继续同一会话，按 M2 与程序问题仅修补一次，不重写整个计划、不调用工具。'
                 'materials/objects.upsert 为新增或替换的完整记录，remove 为删除 ID，保留无关记录。'
@@ -318,7 +337,7 @@ class Dag:
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
         names=['schema.json','prompt.md','review-overlay.png','source-context.json']
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
-        if small_focus:names+=['coverage-small-materials.json','coverage-small-materials.png']
+        if small_focus:names+=['coverage-small-materials.json',*small_files]
         if small_focus and detail:names.append(detail['file'])
         save(p/'request.json',{'sessionId':read(self.root/'session.json')['sessionId'],'sourcePlanSha256':source_sha,
              'originalImageResent':True,'originalReferenceSha256':digest(self.root/'m1/reference.png'),

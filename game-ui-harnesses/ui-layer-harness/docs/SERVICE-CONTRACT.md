@@ -248,11 +248,14 @@ the fixed ceiling bounds them. Each patch is merged against its own source diges
 freeze verifies both chains and preserves both rounds' evidence.
 
 When a planning review has small foreground-material crops, M2 and every
-rereview must audit each listed material separately. Each visible component
-records a literal quote from its owning material or object description, or an
-empty quote and a local correction. Missing or nonmatching quotes become
-semantic repair blockers. This is internal planning evidence; it does not alter
-the public CLI, status names, or `ui_layer_composition_v1` package format.
+rereview receive paged, fingerprint-bound context/crop evidence for all of them.
+The first 12 receive component and boundary audits; every remaining small crop
+receives a boundary-only audit rather than silently dropping out of review.
+Each detailed visible component records a literal quote from its owning material
+or object description, or an empty quote and a local correction. Missing or
+nonmatching quotes become semantic repair blockers. This is internal planning
+evidence; it does not alter the public CLI, status names, or
+`ui_layer_composition_v1` package format.
 Repair routing and freeze re-evaluate those quotes against the exact reviewed
 plan, including each repaired candidate. Repeated-finding checks use the prior
 review's own plan. Explicit child revisions apply the same derived blockers to
@@ -266,10 +269,11 @@ evidence, never a generated layer or program-drawn replacement.
 New small-material evidence pairs expanded original context with the unmarked
 candidate crop. Its magenta boundary is diagnostic; nearby pixels do not change
 ownership. Internal adapters must return `boundary.status` as
-`complete|clipped|uncertain` and nonempty `boundary.evidence` for each audited
-material. Clipped or uncertain owned contours produce geometry blockers in the
+`complete|clipped|uncertain` and nonempty `boundary.evidence` for each small
+material, including boundary-only overflow pages. Clipped or uncertain owned contours produce geometry blockers in the
 same bounded repair path. No bounds are automatically changed. This changes the
 runtime fingerprint for new runs only, not public CLI/status/composition fields.
+Additional pages increase review image input but do not add planning calls.
 
 Planning category `cosmetic` is advisory only with code `MINOR_COLOR_TONE` or
 `DESCRIPTION_WORDING`. Unknown cosmetic codes fail closed. Missing/duplicate
