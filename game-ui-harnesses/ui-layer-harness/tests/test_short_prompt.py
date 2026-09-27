@@ -25,6 +25,8 @@ class ShortPromptTests(unittest.TestCase):
         underlay=build(plan,'underlay',[1600,1000])
         self.assertIn('Tiny resource icon',underlay)
         self.assertIn('Translucent dialogue panel',underlay)
+        self.assertIn('Keep already visible underlay details in place',underlay)
+        self.assertIn('Change only separately exported foreground regions and ordinary text',underlay)
         self.assertNotIn('withinMaterial',underlay)
         self.assertLess(len(underlay),1000)
         panel=build(plan,'panel',[1600,1000])
@@ -287,7 +289,7 @@ class ShortPromptTests(unittest.TestCase):
                            {'id':'modal','label':'Reward modal','role':'foreground','bboxNorm':[.1,.1,.9,.9],'preserveText':[]}],
               'objects':[{'materialId':'bg','label':'Underlying UI'}]}
         prompt=build(plan,'bg')
-        self.assertIn('Keep the visible underlying UI',prompt)
+        self.assertIn('Keep already visible underlay details in place',prompt)
         self.assertNotIn('Remove all UI surfaces',prompt)
         self.assertIn('["WORLD"]',prompt)
         self.assertIn('Reward modal',prompt)

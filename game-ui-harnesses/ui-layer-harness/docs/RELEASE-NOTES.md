@@ -6,6 +6,7 @@
 - New background requests deduplicate object descriptions and omit redundant per-object coordinate JSON when the full reference is already the layout authority. Generic foreground panels preserve observed translucency in alpha. An illustration crop no longer implies that surrounding scene pixels belong to the illustration; owned painted interiors and frames remain eligible.
 - Offline tests cover the free-standing portrait, translucent panel, and dense background prompt paths. Existing frozen requests and received media remain immutable; no tag is published.
 - If the first local patch introduces a renderable structural issue, its report remains bound and the existing rereview and second-repair slots can correct it. The final patch and freeze still require zero structural issues; non-renderable plans, unresolved unknowns, and exhausted repair limits still stop.
+- A received landscape dialogue job exposed global redraw of already visible HUD icons and map structures in its generated full-canvas underlay. New `preserve-underlay` prompts ask the image model to keep those visible details in place and change only separately exported foreground regions and ordinary text. This is a prompt constraint, not deterministic pixel preservation or a visual pass. The same job's translucent panel failed the existing proportion review; no retry or quality-gate exception was made. Its frozen prompt and terminal review evidence remain unchanged.
 
 ## Unreleased singleton delivery review gate
 

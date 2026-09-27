@@ -90,12 +90,13 @@ def build(visual, asset_id, reference_size=None):
     if material['role']=='background':
         details=list(dict.fromkeys(o['label'] for o in visual['objects']
                                    if o['materialId']==asset_id))
-        prompt=('Use the full reference image. Reconstruct this full opaque underlay at its original layout: '
+        prompt=('Use the full reference image. Make this full opaque underlay at its original layout: '
                 +material['label']+'. Retain these visible details: '
                 +json.dumps(details,ensure_ascii=False)+'. ')
         if visual['backgroundMode']=='preserve-underlay':
             excluded=[m['label'] for m in visual['materials'] if m['role']=='foreground']
-            prompt+=('Keep the visible underlying UI, icons, navigation, layout and dimming. '
+            prompt+=('Keep already visible underlay details in place, including small UI icons, scene structures and dimming. '
+                     'Change only separately exported foreground regions and ordinary text. '
                      'Remove only these separately exported foreground materials: '
                      +json.dumps(excluded,ensure_ascii=False)+'. '
                      'Complete their occluded areas from visible underlay evidence; do not brighten the underlay. ')
