@@ -1,5 +1,10 @@
 # Release notes
 
+## Unreleased opaque-underlay diagnostic review
+
+- The optional single-material `review-material` action now uses the opaque background gate for a frozen background request. Previously it treated every request as a transparent foreground and stopped on a valid opaque underlay before visual comparison. Foreground alpha/key checks are unchanged.
+- Background reviews compare visible scene details against the full reference while excluding separately owned foreground UI. They remain one-call, read-only diagnostics with `humanVisualAcceptance=false`; the strict delivery DAG still does not treat background review as automatic final-composite acceptance.
+
 ## Unreleased explicit image transparency mode
 
 - A received menu logo had a painted checkerboard instead of transparent pixels. Its prompt requested transparent PNG, but the Codex CLI image call omitted the image tool's `transparent_background` parameter. New foreground and sheet sessions explicitly request `true`; full-scene background sessions request `false` without changing frozen image prompts.

@@ -45,6 +45,7 @@ class SingleMaterialReviewTests(unittest.TestCase):
     def setUp(self):
         test_compile_visual.VisualCompileTests.setUp(self)
         snapshot=self.root/'snapshot';frozen=freeze(self.run,snapshot,5)
+        self.snapshot_digest=frozen['digest']
         prompt=self.root/'edit.txt';prompt.write_text('Remove the label, preserve the card.',encoding='utf-8')
         self.job=self.root/'job'
         config=prepare(snapshot,frozen['digest'],self.job,['asset-coin-a'],prompt,'crop-only')
@@ -78,6 +79,33 @@ class SingleMaterialReviewTests(unittest.TestCase):
         self.assertEqual(len(result['blockers']),1)
         self.assertTrue((output/'review/detail-compare.png').is_file())
         self.assertEqual(len(calls),1)
+
+    def test_opaque_background_reaches_visual_review_without_foreground_key_gate(self):
+        job=self.root/'background-job'
+        config=prepare(self.root/'snapshot',self.snapshot_digest,job,
+                       ['asset-scene'],reference_mode='full-only')
+        authorize(job,config['digest'],'offline fixture approval')
+        request=next_request(job)
+        raw=self.root/'background-raw.png'
+        Image.new('RGB',(400,400),(65,75,85)).save(raw)
+        receive(job,request['submissionDigest'],raw)
+        calls=[]
+        def model(folder):
+            calls.append(folder)
+            prompt=(folder/'prompt.md').read_text(encoding='utf-8')
+            self.assertIn('generated opaque underlay',prompt)
+            self.assertIn('foreground UI materials',prompt)
+            save(folder/'draft.json',dict(materialIds=['asset-scene'],findings=[]))
+            from ai_ui_layers.evaluate import digest
+            return dict(exitCode=0,turnCompleted=True,unexpectedEvents=[],
+                        responseSha256=digest(folder/'draft.json'))
+        result=review(job,self.root/'background-review',model)
+        self.assertEqual(result['status'],'reviewed_pending_visual_acceptance')
+        self.assertEqual(len(calls),1)
+        from ai_ui_layers.evaluate import read
+        gate=read(self.root/'background-review/processed/report.json')
+        self.assertEqual(gate['keyEvidence']['route'],'opaque-background')
+        self.assertEqual(gate['issues'],[])
 
     def test_changed_raw_stops_before_model(self):
         raw=self.job/'attempts/asset-coin-a/raw.png'

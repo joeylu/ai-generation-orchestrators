@@ -85,6 +85,18 @@ def review_prompt(asset, visual):
             '\nExpected materialIds: '+asset+'. Entries: '+json.dumps(entries,ensure_ascii=False))
 
 
+def background_review_prompt(asset, visual):
+    entries=review_entries(visual,[asset])
+    return ('Compare image 1, the original full reference, with image 2, the generated opaque underlay. '
+            'Image 3 shows them side by side with independent uniform fits for inspection, not measurement. '
+            'This material owns the visible background scene; foreground UI materials in the reference are '
+            'separately owned and their removal is expected. Do not infer details hidden behind those controls. '
+            'Inspect visible background pattern, structure, colors and placement, and confirm the output stays opaque. '
+            'Report changed visible artwork, not the absence of separately owned UI or ordinary text. '
+            'No tools or fixes. '+PROMPT+
+            '\nExpected materialIds: '+asset+'. Entries: '+json.dumps(entries,ensure_ascii=False))
+
+
 def review(job, output, model_call=None, request_id=None):
     job=Path(job);output=Path(output)
     config,index=load_job(job)
@@ -96,8 +108,13 @@ def review(job, output, model_call=None, request_id=None):
     row=index[asset];raw=job/'attempts'/asset/'raw.png'
     receipt=verified(job/'attempts'/asset/'received.json')
     if digest(raw)!=receipt['rawSha256']:raise ValueError('RESULT_CHANGED')
+    assets=read(job/'snapshot/execution-plan.candidate.json')['assets']
+    matching=[item for item in assets if item['id']==asset]
+    if len(matching)!=1 or matching[0]['role'] not in ('background','important_component'):
+        raise ValueError('UNKNOWN_MATERIAL_ROLE')
+    background=matching[0]['role']=='background'
     output.mkdir(parents=True,exist_ok=False)
-    gate=process(raw,row['outputSize'],output/'processed')
+    gate=process(raw,row['outputSize'],output/'processed',background=background)
     if gate['issues']:
         result=dict(status='blocked_no_retry',reason='MATERIAL_GATE_FAILED',materialId=asset,
                     rawSha256=receipt['rawSha256'],modelCalls=0,humanVisualAcceptance=False)
@@ -111,7 +128,7 @@ def review(job, output, model_call=None, request_id=None):
     save(folder/'schema.json',SCHEMA)
     visual_path=job/'snapshot/evidence/revised-visual-plan.json'
     visual=read(visual_path if visual_path.is_file() else job/'snapshot/evidence/m1-draft.json')
-    prompt=review_prompt(asset,visual)
+    prompt=(background_review_prompt if background else review_prompt)(asset,visual)
     (folder/'prompt.md').write_text(prompt,encoding='utf-8')
     names=('reference.png','generated.png','detail-compare.png','detail-compare.json',
            'schema.json','prompt.md')
