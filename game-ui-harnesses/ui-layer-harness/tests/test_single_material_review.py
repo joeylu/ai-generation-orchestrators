@@ -4,7 +4,7 @@ import unittest
 from PIL import Image, ImageDraw
 
 import test_compile_visual
-from ai_ui_layers.evaluate import save
+from ai_ui_layers.evaluate import digest, save
 from ai_ui_layers.experimental_executor import prepare, authorize, next_request, receive
 from ai_ui_layers.freeze_visual import freeze
 from ai_ui_layers.single_material_review import comparison, review, review_prompt
@@ -41,6 +41,22 @@ class SingleMaterialReviewTests(unittest.TestCase):
             self.assertNotEqual(image.getpixel((960,40)),image.getpixel((984,40)))
         with Image.open(opaque_preview) as image:
             self.assertEqual(image.getpixel((960,40)),image.getpixel((984,40)))
+
+    def test_comparison_shows_target_fit_separately_from_raw(self):
+        reference=self.root/'tiny-reference.png'
+        raw=self.root/'large-raw.png'
+        fitted=self.root/'small-fit.png'
+        Image.new('RGBA',(2,2),(200,20,20,255)).save(reference)
+        Image.new('RGBA',(40,40),(20,200,20,255)).save(raw)
+        Image.new('RGBA',(2,2),(20,20,200,255)).save(fitted)
+        preview=self.root/'three-pane.png'
+        evidence=comparison(reference,raw,preview,fitted)
+        self.assertEqual(evidence['processedSha256'],digest(fitted))
+        with Image.open(preview) as image:
+            self.assertEqual(image.size,(2160,300))
+            self.assertEqual(image.getpixel((360,150)),(200,20,20))
+            self.assertEqual(image.getpixel((1080,150)),(20,200,20))
+            self.assertEqual(image.getpixel((1800,150)),(20,20,200))
 
     def setUp(self):
         test_compile_visual.VisualCompileTests.setUp(self)

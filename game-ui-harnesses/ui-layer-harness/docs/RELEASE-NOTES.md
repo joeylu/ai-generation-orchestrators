@@ -4,6 +4,7 @@
 
 - A one-sheet Minetest inventory diagnostic used the existing short sheet prompt and passed the exact-prompt, alpha, grid and sheet-identity gates, extracting six separate icons. The visual reviewer reported only a minor yellow fringe on a wood block, while close comparison also showed smoother, more polished icon rendering than the pixel-stepped reference. The shared sheet/single-material review prompt now explicitly checks rendering texture and edge treatment; this changes future review evidence, not old receipts or their decisions. The diagnostic is not a complete UI delivery or human visual acceptance.
 - Close-up review images now enlarge small reference and generated pixels with nearest-neighbor sampling; reductions still use Lanczos. This prevents the review attachment itself from smoothing source pixel steps before a sheet or single-material visual check. It changes display evidence for new reviews only, not the received PNG, extraction, severity policy or any old review decision.
+- One crop-only pickaxe result kept coarse blocks in the raw PNG, but its existing Lanczos target fit softened them. New single-material reviews show the raw and actual deterministic target-size fit beside the reference in one bound close-up, so the reviewer can distinguish generation changes from postprocess texture damage. The prompt also states that required transparent raw margins alone are not a contour error. No resampling policy or old review decision changes.
 
 ## Unreleased visible-scene preservation
 

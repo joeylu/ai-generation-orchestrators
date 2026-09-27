@@ -14,7 +14,7 @@ from .sheet_review_policy import SCHEMA, PROMPT, classify
 from .review_image import fit_resampling
 
 
-def comparison(reference, generated, output):
+def comparison(reference, generated, output, processed=None):
     with Image.open(reference) as im:
         original=im.convert('RGBA')
     with Image.open(generated) as im:
@@ -22,16 +22,21 @@ def comparison(reference, generated, output):
     support=created.getchannel('A').point(lambda a: 255 if a>=8 else 0).getbbox()
     if support is None:raise ValueError('EMPTY_MATERIAL')
     created=created.crop(support)
+    images=[original,created]
+    if processed is not None:
+        with Image.open(processed) as im:
+            images.append(im.convert('RGBA'))
     pane_w,pane_h=720,300
-    canvas=Image.new('RGBA',(pane_w*2,pane_h),(29,37,47,255))
+    canvas=Image.new('RGBA',(pane_w*len(images),pane_h),(29,37,47,255))
     draw=ImageDraw.Draw(canvas)
     tile=24
-    for y in range(0,pane_h,tile):
-        for x in range(0,pane_w,tile):
-            shade=190 if (x//tile+y//tile)%2 else 235
-            draw.rectangle((pane_w+x,y,pane_w+min(x+tile,pane_w)-1,
-                            min(y+tile,pane_h)-1),fill=(shade,shade,shade,255))
-    for i,image in enumerate((original,created)):
+    for pane in range(1,len(images)):
+        for y in range(0,pane_h,tile):
+            for x in range(0,pane_w,tile):
+                shade=190 if (x//tile+y//tile)%2 else 235
+                draw.rectangle((pane*pane_w+x,y,pane*pane_w+min(x+tile,pane_w)-1,
+                                min(y+tile,pane_h)-1),fill=(shade,shade,shade,255))
+    for i,image in enumerate(images):
         scale=min((pane_w-32)/image.width,(pane_h-32)/image.height)
         size=(max(1,round(image.width*scale)),max(1,round(image.height*scale)))
         image=image.resize(size,fit_resampling(image.size,size))
@@ -40,8 +45,9 @@ def comparison(reference, generated, output):
         canvas.alpha_composite(image,(x,y))
     canvas.convert('RGB').save(output)
     return dict(referenceSha256=digest(reference),generatedSha256=digest(generated),
+                **({'processedSha256':digest(processed)} if processed is not None else {}),
                 generatedSupportBox=list(support),displayPane=[pane_w,pane_h],
-                policy='two-independent-uniform-display-fits-right-checkerboard-not-geometry-measurement')
+                policy='independent-uniform-display-fits-right-checkerboard-not-geometry-measurement')
 
 
 def finalize_failed_transport(output):
@@ -65,9 +71,9 @@ def finalize_failed_transport(output):
 def review_prompt(asset, visual):
     entries=review_entries(visual,[asset])
     return ('Compare image 1, the original rectangular reference crop, against image 2, '
-            'the received raw generated material. Image 3 places the original on the '
-            'left and the generated visible artwork over a checkerboard on the right; '
-            'the checkerboard reveals alpha and is not generated artwork. Each pane '
+            'the received raw generated material. Image 3 places the original on the left, '
+            'the raw generated artwork in the middle and its deterministic target-size fit on '
+            'the right. Each checkerboard reveals alpha and is not generated artwork. Each pane '
             'is fitted independently for inspection, not measurement; enlarged source pixels '
             'are shown without smoothing. The reference crop may '
             'contain scene pixels, removed business text and artwork assigned to other '
@@ -82,15 +88,18 @@ def review_prompt(asset, visual):
             'absence is expected. Inspect contour aspect, internal layout, missing or '
             'extra OWNED details and output transparency. Scene pixels outside or '
             'visible through a translucent material are not owned. Do not infer '
-            'geometry only from crop rectangles. Report a visible raw proportion '
-            'error before target fitting. No tools or fixes. '+PROMPT+
+            'geometry only from crop rectangles. Transparent output margins are required; '
+            'different occupancy of the reference crop and raw canvas is not a contour error. '
+            'Report a visible raw proportion error before target fitting, and report any '
+            'texture damage introduced by the target-size fit. No tools or fixes. '+PROMPT+
             '\nExpected materialIds: '+asset+'. Entries: '+json.dumps(entries,ensure_ascii=False))
 
 
 def background_review_prompt(asset, visual):
     entries=review_entries(visual,[asset])
     return ('Compare image 1, the original full reference, with image 2, the generated opaque underlay. '
-            'Image 3 shows them side by side with independent uniform fits for inspection, not measurement. '
+            'Image 3 shows the reference, raw underlay and deterministic target-size fit in three '
+            'independently fitted panes for inspection, not measurement. '
             'This material owns the visible background scene; foreground UI materials in the reference are '
             'separately owned and their removal is expected. Do not infer details hidden behind those controls. '
             'Inspect visible background pattern, structure, colors and placement, and confirm the output stays opaque. '
@@ -125,7 +134,8 @@ def review(job, output, model_call=None, request_id=None):
     reference=job/'snapshot'/row['crop']
     observation_image(reference,folder/'reference.png')
     observation_image(raw,folder/'generated.png')
-    detail=comparison(reference,raw,folder/'detail-compare.png')
+    processed=output/'processed/material.png'
+    detail=comparison(reference,raw,folder/'detail-compare.png',processed)
     save(folder/'detail-compare.json',detail)
     save(folder/'schema.json',SCHEMA)
     visual_path=job/'snapshot/evidence/revised-visual-plan.json'
@@ -149,7 +159,8 @@ def review(job, output, model_call=None, request_id=None):
         raise ValueError('MATERIAL_REVIEW_TRANSPORT_FAILED')
     if (transport.get('responseSha256')!=digest(folder/'draft.json') or
             any(digest(folder/name)!=value for name,value in bound.items()) or
-            digest(raw)!=receipt['rawSha256'] or digest(reference)!=detail['referenceSha256']):
+            digest(raw)!=receipt['rawSha256'] or digest(reference)!=detail['referenceSha256'] or
+            digest(processed)!=gate['materialSha256']):
         raise ValueError('MATERIAL_REVIEW_INPUT_CHANGED')
     answer=read(folder/'draft.json');Draft202012Validator(SCHEMA).validate(answer)
     assessment=classify(answer,[asset])
