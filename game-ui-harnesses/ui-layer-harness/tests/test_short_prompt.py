@@ -26,6 +26,7 @@ class ShortPromptTests(unittest.TestCase):
         self.assertIn('Tiny resource icon',underlay)
         self.assertIn('Translucent dialogue panel',underlay)
         self.assertIn('Keep already visible underlay details in place',underlay)
+        self.assertIn('single-character pictogram',underlay)
         self.assertIn('Change only separately exported foreground regions and ordinary text',underlay)
         self.assertNotIn('withinMaterial',underlay)
         self.assertLess(len(underlay),1000)
@@ -36,6 +37,23 @@ class ShortPromptTests(unittest.TestCase):
         self.assertIn('crop box is not the illustration silhouette',portrait)
         self.assertNotIn('Do not cut out the person',portrait)
         self.assertNotIn('internal scene/background',portrait)
+
+    def test_owned_letter_shaped_icon_survives_empty_preserve_text(self):
+        material=dict(id='toolbar',label='Game toolbar',role='foreground',
+                      bboxNorm=[0,.9,1,1],preserveText=[])
+        visual=dict(backgroundMode='scene-only',textPolicy='remove-business-text',
+                    materials=[material],objects=[
+                        dict(id='surface',materialId='toolbar',kind='panel',
+                             label='Toolbar surface',bboxNorm=material['bboxNorm']),
+                        dict(id='info',materialId='toolbar',kind='icon',
+                             label='Information pictogram shaped like i',bboxNorm=[.9,.91,.95,.99])])
+        prompt=build(visual,'toolbar',[1065,594])
+        self.assertIn('preserveText list: []',prompt)
+        self.assertIn('Keep a single-character pictogram that forms an explicitly owned icon',prompt)
+        self.assertIn('does not retain adjacent words or numeric values',prompt)
+        self.assertIn('Remove written labels, words and numeric values',prompt)
+        visual['objects'].pop()
+        self.assertNotIn('single-character pictogram',build(visual,'toolbar',[1065,594]))
 
     def test_one_icon_with_anchored_decorative_text_keeps_the_text_in_compact_prompt(self):
         from ai_ui_layers.short_prompt import is_compact_labeled_icon
@@ -215,6 +233,11 @@ class ShortPromptTests(unittest.TestCase):
         self.assertIn('Preserve any genuine original openings',prompt)
         self.assertNotIn('Keep grouped shapes separate',prompt)
         self.assertNotIn('no shared backing',prompt)
+        plan['objects'].append(dict(id='panel-symbol',materialId='asset-panel',
+                                    kind='icon',label='Information pictogram',bboxNorm=None))
+        prompt=build(plan,'asset-panel',[1600,900])
+        self.assertIn('Remove written labels, words and numeric values',prompt)
+        self.assertIn('single-character pictogram',prompt)
     def test_artwork_ratio_uses_reference_pixel_aspect_not_normalized_box(self):
         from ai_ui_layers.compile_visual import HARNESS
         from ai_ui_layers.evaluate import read

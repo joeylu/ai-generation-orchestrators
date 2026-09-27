@@ -19,6 +19,14 @@ OWNERSHIP_SCOPE = ('Reference boxes locate artwork; they do not assign every enc
                    'Retain only the named owner, not the surrounding assembled control. '
                    'Foreign artwork exclusions override generic decoration preservation. ')
 
+ICON_PICTOGRAMS = ('Keep a single-character pictogram that forms an explicitly owned icon. '
+                   'It is graphic artwork, not a label; this does not retain adjacent words or numeric values. ')
+
+
+def icon_pictograms(visual, material):
+    return ICON_PICTOGRAMS if any(o['materialId']==material['id'] and o.get('kind')=='icon'
+                                   for o in visual['objects']) else ''
+
 
 def object_content(visual, material):
     """Keep anchored decoration identity without passing control layout labels."""
@@ -104,17 +112,21 @@ def build(visual, asset_id, reference_size=None):
             prompt+='Remove all UI surfaces and controls; reconstruct the scene behind them from visible scene evidence. '
         return (prompt+'Remove ordinary labels and numbers except this exact preserveText list: '
                 +json.dumps(material['preserveText'],ensure_ascii=False)+'. '
+                +icon_pictograms(visual,material)+
                 'Output a full opaque image at the reference aspect ratio.')
     owned = object_content(visual,material)
     if carries_foreground(visual,material):
         return carrier_prompt(visual,material,owned,reference_size)
+    icon_note=icon_pictograms(visual,material)
     target = json.dumps({'material': material['label'], 'bboxNorm': material['bboxNorm'],
                          'retain': owned}, ensure_ascii=False)
     prompt = ('Use the full reference image. Extract only the following artwork: ' + target + '. '
               'Preserve its owned shape, proportions, internal spacing, colors and observed details; do not redesign. '
-              'Remove all lettering and numbers except this exact preserveText list: '
+              'Remove '+('written labels, words and numeric values' if icon_note else 'all lettering and numbers')+
+              ' except this exact preserveText list: '
               +json.dumps(material['preserveText'],ensure_ascii=False)+'. '
               'The list overrides text visible in the reference or mentioned in object descriptions. '
+              +icon_note+
               'Retain listed decorative lettering exactly as visible. Do not remove its glyphs. '
               'No program will redraw missing artwork. '+TEXT_REMOVAL_LAYOUT)
     excluded=exclusions(visual,material)
@@ -201,6 +213,7 @@ def compact_icon_prompt(target, reference_size, preserve_text=None):
 
 def carrier_prompt(visual, material, owned, reference_size):
     """A carrier is one continuous owned surface, never a board of disconnected cutouts."""
+    icon_note=icon_pictograms(visual,material)
     contract={'keepOnly':owned,'removeCompletely':exclusions(visual,material)}
     prompt=('Use the full reference image to produce ONE clean backing-panel asset: '+material['label']+'. '
             'Its reference region is '+json.dumps(material['bboxNorm'])+'. '
@@ -215,9 +228,11 @@ def carrier_prompt(visual, material, owned, reference_size):
             'Preserve only this panel\'s owned contours, colors, texture and fixed decorations at their original positions. '
             'Do not shorten the panel or close up the empty space left by removed children. ')
     prompt+=layout_constraints(visual,material,reference_size)+FOREGROUND_FIDELITY
-    prompt+=('Remove lettering and numbers except this exact preserveText list: '
+    prompt+=('Remove '+('written labels, words and numeric values' if icon_note else 'lettering and numbers')+
+             ' except this exact preserveText list: '
              +json.dumps(material['preserveText'],ensure_ascii=False)+'. '
-             'This list overrides wording in object descriptions; preserve listed glyphs. '+TEXT_REMOVAL_LAYOUT+
+             'This list overrides wording in object descriptions; preserve listed glyphs. '
+             +icon_note+TEXT_REMOVAL_LAYOUT+
              'Output one transparent PNG: transparency outside the complete panel silhouette, '
              'clear padding beyond every outer contour. Preserve any genuine original openings; '
              'removing a child must never create a new opening. No other UI or scene. No program will redraw missing artwork.')
