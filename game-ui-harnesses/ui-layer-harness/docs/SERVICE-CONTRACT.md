@@ -262,9 +262,11 @@ review's own plan. Explicit child revisions apply the same derived blockers to
 parent eligibility, permitted patch scope and final freeze; an empty top-level
 `issues` list cannot override an unmatched small-material quote.
 The component observation includes visible shape, color and surface marks before
-the reviewer assigns an object name. A color-diverse small crop may be attached
-once more as a deterministic enlarged original-image detail; it is review
-evidence, never a generated layer or program-drawn replacement.
+the reviewer assigns an object name. A color-diverse crop among the first 12
+detailed small materials is attached once more as a deterministic enlarged
+original-image detail. If none meets the color threshold, the smallest crop is
+used so gray or pale pixel marks still get a close-up. It is review evidence,
+never a generated layer or program-drawn replacement.
 For each observed small part, a nonempty `planEvidenceQuote` must cover its
 distinctive visible colors and marks, not merely name the overall part. An
 incomplete quote is reported as a missing-description finding for the existing

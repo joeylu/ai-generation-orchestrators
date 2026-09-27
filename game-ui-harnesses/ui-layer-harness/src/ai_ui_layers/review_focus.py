@@ -59,8 +59,8 @@ def make_small_material_focus(reference, plan, output, limit=12):
                   imageSha256=pages[0]['imageSha256'],pages=pages,
                   items=items[:limit],boundaryOnlyItems=items[limit:],
                   display='Each item: original context with magenta candidate boundary on left, unmarked candidate crop on right; independent nearest-neighbor fits. Context pixels do not change ownership. Labels, boxes and margins are diagnostic only.')
-    # A single enlarged crop preserves tiny multicolor markings that can be
-    # lost when the contact sheet is downsampled by a vision transport.
+    # Keep the existing multicolor detail choice. If no crop clears that bar,
+    # enlarge the smallest one: gray/pale pixel marks do not count as hues.
     candidates=[]
     for mid,box in selected[:limit]:
         crop=source.crop(tuple(box));bins=[0]*12
@@ -72,13 +72,15 @@ def make_small_material_focus(reference, plan, output, limit=12):
         diversity=sum(count>=threshold for count in bins)
         candidates.append((diversity,mid,box))
     diversity,mid,box=max(candidates)
-    if diversity>=4:
-        crop=source.crop(tuple(box))
-        detail=ImageOps.contain(crop,(512,512),fit_resampling(crop.size,(512,512)))
-        detail_path=output/'coverage-color-detail.png';detail.save(detail_path)
-        metadata['detail']=dict(file=detail_path.name,materialId=mid,sourceBox=box,
-                                imageSha256=digest(detail_path),
-                                display='Same original crop enlarged without smoothing; no visual content added.')
+    if diversity<4:
+        mid,box=min(selected[:limit],key=lambda row:(
+            (row[1][2]-row[1][0])*(row[1][3]-row[1][1]),row[0]))
+    crop=source.crop(tuple(box))
+    detail=ImageOps.contain(crop,(512,512),fit_resampling(crop.size,(512,512)))
+    detail_path=output/'coverage-color-detail.png';detail.save(detail_path)
+    metadata['detail']=dict(file=detail_path.name,materialId=mid,sourceBox=box,
+                            imageSha256=digest(detail_path),
+                            display='Same original crop enlarged without smoothing; no visual content added.')
     save(output/'coverage-small-materials.json',metadata)
     return metadata
 

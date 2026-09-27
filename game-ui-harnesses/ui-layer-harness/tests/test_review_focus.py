@@ -51,6 +51,29 @@ class ReviewFocusTests(unittest.TestCase):
                     ('#e02020','#e0a020','#20c030','#20b0d0','#3040c0','#d020b0')}
                 self.assertTrue({color for _,color in detail.getcolors(detail.width*detail.height)} <= expected)
 
+    def test_tiniest_gray_icon_keeps_one_pixel_highlight_in_bound_detail(self):
+        from ai_ui_layers.evaluate import digest
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'source.png'
+            image=Image.new('RGB',(400,400),(18,18,18));draw=ImageDraw.Draw(image)
+            for index,color in enumerate(('#e02020','#e0a020','#20c030')):
+                draw.rectangle((100+index*8,100,107+index*8,149),fill=color)
+            draw.rectangle((200,200,215,215),fill=(70,70,70))
+            draw.point((204,203),fill=(245,243,230))
+            image.save(source)
+            plan={'materials':[
+                {'id':'large-colorful','role':'foreground','bboxNorm':[.25,.25,.375,.375]},
+                {'id':'tiny-gray','role':'foreground','bboxNorm':[.5,.5,.54,.54]}]}
+            focus=make_small_material_focus(source,plan,root)
+            self.assertEqual(focus['detail']['materialId'],'tiny-gray')
+            detail_path=root/focus['detail']['file']
+            self.assertEqual(focus['detail']['imageSha256'],digest(detail_path))
+            with Image.open(detail_path) as detail:
+                self.assertEqual(detail.size,(512,512))
+                self.assertEqual(detail.getpixel(((204-200)*32+16,(203-200)*32+16)),(245,243,230))
+                self.assertEqual({color for _,color in detail.getcolors(detail.width*detail.height)},
+                                 {(70,70,70),(245,243,230)})
+
     def test_overflow_small_materials_keep_boundary_evidence_and_block_clipped_crop(self):
         from ai_ui_layers.evaluate import digest
         with tempfile.TemporaryDirectory() as tmp:
