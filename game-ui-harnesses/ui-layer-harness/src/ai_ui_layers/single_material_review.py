@@ -11,6 +11,7 @@ from .experimental_executor import load_job, status, verified
 from .extract_sheets import review_entries
 from .postprocess_visual import process
 from .sheet_review_policy import SCHEMA, PROMPT, classify
+from .review_image import fit_resampling
 
 
 def comparison(reference, generated, output):
@@ -32,8 +33,8 @@ def comparison(reference, generated, output):
                             min(y+tile,pane_h)-1),fill=(shade,shade,shade,255))
     for i,image in enumerate((original,created)):
         scale=min((pane_w-32)/image.width,(pane_h-32)/image.height)
-        image=image.resize((max(1,round(image.width*scale)),max(1,round(image.height*scale))),
-                           Image.Resampling.LANCZOS)
+        size=(max(1,round(image.width*scale)),max(1,round(image.height*scale)))
+        image=image.resize(size,fit_resampling(image.size,size))
         x=i*pane_w+(pane_w-image.width)//2
         y=(pane_h-image.height)//2
         canvas.alpha_composite(image,(x,y))
@@ -67,7 +68,8 @@ def review_prompt(asset, visual):
             'the received raw generated material. Image 3 places the original on the '
             'left and the generated visible artwork over a checkerboard on the right; '
             'the checkerboard reveals alpha and is not generated artwork. Each pane '
-            'is fitted independently for inspection, not measurement. The reference crop may '
+            'is fitted independently for inspection, not measurement; enlarged source pixels '
+            'are shown without smoothing. The reference crop may '
             'contain scene pixels, removed business text and artwork assigned to other '
             'materials. Each entry owns only its listed objects. '
             'excludedForeignArtwork belongs to other materials even when visible '

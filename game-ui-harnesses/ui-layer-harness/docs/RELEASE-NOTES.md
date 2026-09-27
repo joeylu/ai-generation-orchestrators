@@ -3,6 +3,7 @@
 ## Unreleased rendering-style review evidence
 
 - A one-sheet Minetest inventory diagnostic used the existing short sheet prompt and passed the exact-prompt, alpha, grid and sheet-identity gates, extracting six separate icons. The visual reviewer reported only a minor yellow fringe on a wood block, while close comparison also showed smoother, more polished icon rendering than the pixel-stepped reference. The shared sheet/single-material review prompt now explicitly checks rendering texture and edge treatment; this changes future review evidence, not old receipts or their decisions. The diagnostic is not a complete UI delivery or human visual acceptance.
+- Close-up review images now enlarge small reference and generated pixels with nearest-neighbor sampling; reductions still use Lanczos. This prevents the review attachment itself from smoothing source pixel steps before a sheet or single-material visual check. It changes display evidence for new reviews only, not the received PNG, extraction, severity policy or any old review decision.
 
 ## Unreleased visible-scene preservation
 

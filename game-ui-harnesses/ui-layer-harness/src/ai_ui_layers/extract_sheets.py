@@ -13,6 +13,7 @@ from .automatic_registration import observation_image, call_model
 from .sheet_pixels import prepare, axis_cuts
 from .short_prompt import exclusions
 from .sheet_review_policy import SCHEMA as REVIEW_SCHEMA, PROMPT as REVIEW_PROMPT, classify
+from .review_image import fit_resampling
 
 
 def review_entries(visual, material_ids):
@@ -39,7 +40,8 @@ def detail_comparison(snapshot, sheet, row, boxes, output):
                 pair = (original.convert('RGBA'), generated_cell.crop(content_box))
                 sizes = [list(image.size) for image in pair]
                 for column, image in enumerate(pair):
-                    view = ImageOps.contain(image, (width - 40, height - 32), Image.Resampling.LANCZOS)
+                    pane = (width - 40, height - 32)
+                    view = ImageOps.contain(image, pane, fit_resampling(image.size, pane))
                     x = column * width + (width - view.width) // 2
                     y = index * height + (height - view.height) // 2
                     board.paste(view, (x, y), view)
@@ -49,7 +51,7 @@ def detail_comparison(snapshot, sheet, row, boxes, output):
     board.save(output/'detail-compare.png')
     save(output/'detail-compare.json', dict(kind='ui_sheet_detail_comparison_v1',
          rows=records, left='frozen reference crop', right='received material cell',
-         display='generated alpha support cropped at 8; independent uniform fit per pane; display scale is not geometry evidence',
+         display='generated alpha support cropped at 8; independent uniform fit per pane; nearest when enlarged, Lanczos when reduced; display scale is not geometry evidence',
          imageSha256=digest(output/'detail-compare.png')))
 
 
@@ -177,7 +179,8 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
                 'Image 3 shows each frozen reference crop beside its generated cell, in material order: '
                 'reference on the left and generated on the right. Generated transparent padding was '
                 'excluded for this close-up. Each pane was resized uniformly and '
-                'independently for visibility; compare contour aspect and internal layout, not display size. '
+                'independently for visibility; enlarged source pixels are shown without smoothing. '
+                'Compare contour aspect and internal layout, not display size. '
                 'For every material, inspect the surface outline, corner shape and line weight at this '
                 'close scale. A stronger border or newly beveled corner is a finding even when the '
                 'icon and progress fill are correct. Reference crops may contain removed business text, '
