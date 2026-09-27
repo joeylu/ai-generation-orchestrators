@@ -22,6 +22,15 @@ class GenerateSessionPromptTests(unittest.TestCase):
         self.assertIn('no full reference attachment',message)
         self.assertNotIn('Image 1 is the full reference',message)
 
+    def test_session_wrapper_sets_tool_background_mode_without_changing_frozen_prompt(self):
+        args=dict(prompt='Exact frozen foreground prompt.',referenced_image_paths=['reference.png'])
+        foreground=build_session_prompt(args,'full-only',True)
+        background=build_session_prompt(args,'full-only',False)
+        self.assertIn('transparent_background to true',foreground)
+        self.assertIn('transparent_background to false',background)
+        self.assertTrue(foreground.endswith('\n'+args['prompt']))
+        self.assertTrue(background.endswith('\n'+args['prompt']))
+
     def test_serial_requests_keep_separate_session_evidence(self):
         class FakeProcess:
             returncode=0
@@ -30,6 +39,10 @@ class GenerateSessionPromptTests(unittest.TestCase):
             def communicate(self, data, timeout):return (None,None)
         with tempfile.TemporaryDirectory() as tmp:
             job=Path(tmp)
+            snapshot=job/'snapshot';snapshot.mkdir()
+            (snapshot/'execution-plan.candidate.json').write_text(json.dumps(dict(assets=[
+                dict(id='asset-0',output_mode='opaque_canvas'),
+                dict(id='asset-1',output_mode='keyed_component')])),encoding='utf-8')
             requests=[dict(asset=f'asset-{i}',submissionDigest=f'digest-{i}',
                            arguments=dict(prompt='Exact prompt',referenced_image_paths=[str(job/'reference.png')]))
                       for i in range(2)]
@@ -46,6 +59,7 @@ class GenerateSessionPromptTests(unittest.TestCase):
                 folder=job/'generation-sessions'/f'digest-{i}'
                 self.assertEqual(json.loads((folder/'tool-request.json').read_text())['asset'],f'asset-{i}')
                 self.assertEqual(json.loads((folder/'session-result.json').read_text())['submissionDigest'],f'digest-{i}')
+                self.assertEqual(json.loads((folder/'dispatch.json').read_text())['transparentBackground'],bool(i))
 
     def test_nonzero_cli_exit_marks_reserved_request_terminal(self):
         class FailedProcess:
@@ -55,6 +69,9 @@ class GenerateSessionPromptTests(unittest.TestCase):
             def communicate(self, data, timeout):return (None,None)
         with tempfile.TemporaryDirectory() as tmp:
             job=Path(tmp).resolve()
+            snapshot=job/'snapshot';snapshot.mkdir()
+            (snapshot/'execution-plan.candidate.json').write_text(json.dumps(dict(assets=[
+                dict(id='asset',output_mode='keyed_component')])),encoding='utf-8')
             request=dict(asset='asset',submissionDigest='digest',arguments=dict(
                 prompt='Exact prompt',referenced_image_paths=[str(job/'reference.png')]))
             argv=['codex','--ephemeral','--output-schema','schema.json','--image','old.png',

@@ -11,6 +11,16 @@ from ai_ui_layers import collect_session
 
 
 class CollectSessionTests(unittest.TestCase):
+    def test_literal_tool_background_mode_must_be_explicit_and_unique(self):
+        self.assertTrue(collect_session.literal_transparency(
+            'tools.image_gen__imagegen({transparent_background: true})'))
+        self.assertFalse(collect_session.literal_transparency(
+            'tools.image_gen__imagegen({"transparent_background": false})'))
+        for code in ('tools.image_gen__imagegen({prompt: "x"})',
+                     'tools.image_gen__imagegen({transparent_background: true, transparent_background: false})'):
+            with self.subTest(code=code),self.assertRaisesRegex(ValueError,'TRANSPARENCY_MODE_UNVERIFIED'):
+                collect_session.literal_transparency(code)
+
     def test_literal_prompt_accepts_static_string_raw_with_unicode(self):
         prompt='深蓝半透明底板\n保留细边与透明度'
         code='tools.image_gen__imagegen({prompt: String.raw`'+prompt+'`, num_last_images_to_include: 1})'
@@ -39,9 +49,10 @@ class CollectSessionTests(unittest.TestCase):
             (folder/'tool-request.json').write_text(json.dumps(dict(
                 asset=asset,submissionDigest=submission,materialIds=['a','b'],
                 arguments=dict(prompt='Exact prompt',referenced_image_paths=['reference.png']))),encoding='utf-8')
+            (folder/'dispatch.json').write_text(json.dumps(dict(transparentBackground=True)),encoding='utf-8')
             log=home/'sessions'/f'{sid}.jsonl';log.parent.mkdir(parents=True)
             log.write_text(json.dumps(dict(payload=dict(type='custom_tool_call',input=(
-                'tools.image_gen__imagegen({prompt: "Exact prompt", num_last_images_to_include: 1})'))))+'\n',encoding='utf-8')
+                'tools.image_gen__imagegen({prompt: "Exact prompt", num_last_images_to_include: 1, transparent_background: true})'))))+'\n',encoding='utf-8')
             generated=home/'generated_images'/sid/'output.png';generated.parent.mkdir(parents=True)
             Image.new('RGBA',(64,64),(0,0,0,0)).save(generated)
             pending=dict(status='awaiting_result',requests={asset:'awaiting_result_no_resubmit'})
@@ -54,6 +65,15 @@ class CollectSessionTests(unittest.TestCase):
             self.assertEqual(result['asset'],asset)
             self.assertEqual(result['postprocess'],'deferred_to_sheet_extraction')
             self.assertEqual(result['issues'],[])
+            self.assertTrue(json.loads((folder/'image-call-audit.json').read_text())['transparentBackgroundVerified'])
+            log.write_text(json.dumps(dict(payload=dict(type='custom_tool_call',input=(
+                'tools.image_gen__imagegen({prompt: "Exact prompt", num_last_images_to_include: 1, transparent_background: false})'))))+'\n',encoding='utf-8')
+            with patch.object(collect_session,'status',return_value=pending), \
+                 patch.object(collect_session,'verified',return_value={'digest':submission}), \
+                 patch.object(collect_session,'receive') as receive:
+                with self.assertRaisesRegex(ValueError,'TRANSPARENCY_MODE_CHANGED'):
+                    collect_session.collect(job,home)
+            receive.assert_not_called()
 
     def test_received_sheet_with_static_string_raw_uses_existing_receipt_path(self):
         with tempfile.TemporaryDirectory() as tmp:

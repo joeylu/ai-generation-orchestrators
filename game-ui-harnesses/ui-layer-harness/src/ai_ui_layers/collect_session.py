@@ -27,6 +27,12 @@ def literal_prompt(code):
     raise ValueError('UNSUPPORTED_PROMPT_ENCODING')
 
 
+def literal_transparency(code):
+    values=re.findall(r'(?<![\w])["\']?transparent_background["\']?\s*:\s*(true|false)\b',code)
+    if len(values)!=1:raise ValueError('TRANSPARENCY_MODE_UNVERIFIED')
+    return values[0]=='true'
+
+
 def collect(job, codex_home):
     job=Path(job);home=Path(codex_home)
     current=status(job)
@@ -48,6 +54,11 @@ def collect(job, codex_home):
     if len(calls)!=1 or calls[0]['input'].count('tools.image_gen__imagegen(')!=1:raise ValueError('IMAGE_CALL_COUNT')
     code=calls[0]['input']
     prompt=literal_prompt(code)
+    dispatch=read(folder/'dispatch.json') if (folder/'dispatch.json').exists() else {}
+    if 'transparentBackground' in dispatch:
+        expected_transparency=dispatch['transparentBackground']
+        if type(expected_transparency) is not bool or literal_transparency(code)!=expected_transparency:
+            raise ValueError('TRANSPARENCY_MODE_CHANGED')
     request=read(folder/'tool-request.json')
     if request['asset']!=pending[0] or request['submissionDigest']!=submission['digest']:
         raise ValueError('SESSION_REQUEST_MISMATCH')
@@ -58,7 +69,8 @@ def collect(job, codex_home):
     images=list((home/'generated_images'/sid).glob('*.png'))
     if len(images)!=1:raise ValueError('AMBIGUOUS_OUTPUT')
     save(folder/'image-call-audit.json',{'observedImageCalls':1,'exactPromptMatch':prompt==expected,'promptMatchIgnoringTrailingNewline':True,
-         'sessionId':sid,'sourceSha256':digest(images[0])})
+         'sessionId':sid,'sourceSha256':digest(images[0]),
+         'transparentBackgroundVerified':dispatch.get('transparentBackground') if 'transparentBackground' in dispatch else None})
     received=receive(job,result['submissionDigest'],images[0])
     asset=request['asset'];raw=job/'attempts'/asset/'raw.png'
     response={'asset':asset,'job':str(job),'raw':str(raw),'sessionSeconds':result['elapsedSeconds'],

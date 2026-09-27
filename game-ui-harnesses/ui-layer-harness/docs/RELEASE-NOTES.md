@@ -1,5 +1,10 @@
 # Release notes
 
+## Unreleased explicit image transparency mode
+
+- A received menu logo had a painted checkerboard instead of transparent pixels. Its prompt requested transparent PNG, but the Codex CLI image call omitted the image tool's `transparent_background` parameter. New foreground and sheet sessions explicitly request `true`; full-scene background sessions request `false` without changing frozen image prompts.
+- The session receipt now checks the actual image tool call against that output mode before accepting a new request's image. Existing session evidence without this dispatch field remains readable. The strict key/alpha and padding gates still block invalid media; the failed logo is not retried or promoted.
+
 ## Unreleased dense-plan and foreground extraction prompts
 
 - Planning prompts now keep bounded material labels short and place distinct visible details in object records. M2 may accept coverage across those records, while its existing coverage audit and two-repair limit remain blocking. A landscape dialogue sample first stopped on repeated omissions and truncated 200-character labels; a fresh planning run reached M3 after two reviewed repairs, with no generation submitted.

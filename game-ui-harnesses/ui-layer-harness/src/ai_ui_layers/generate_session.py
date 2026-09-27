@@ -9,11 +9,11 @@ import tempfile
 import time
 
 from .codex_call import command, CLI_MODEL, CLI_EFFORT
-from .evaluate import save, digest
+from .evaluate import read, save, digest
 from .experimental_executor import next_request, fail, load_job
 
 
-def build_session_prompt(arguments, reference_mode='full-and-crop'):
+def build_session_prompt(arguments, reference_mode='full-and-crop', transparent_background=None):
     if reference_mode=='sheet-crops-only':
         reference_instruction='The attached images are the exact source crops in sheet-cell order; there is no full reference attachment. '
     elif reference_mode=='crop-only':
@@ -22,9 +22,13 @@ def build_session_prompt(arguments, reference_mode='full-and-crop'):
         reference_instruction='The only attached image is the original full reference. '
     else:
         reference_instruction='Image 1 is the full reference; image 2 is the exact material crop. '
+    transparency_instruction = ('' if transparent_background is None else
+        'Set the image tool parameter transparent_background to '+
+        ('true' if transparent_background else 'false')+
+        '; do not rely on the prompt alone for the output background mode. ')
     return ('You are executing exactly one already approved image-generation request. '
             'Use the built-in image generation tool once with the exact prompt below and all attached images. '
-            +reference_instruction+
+            +reference_instruction+transparency_instruction+
             'Do not replan, rewrite or enhance the image prompt. Do not use shell, web, agents or external APIs. '
             'Do not retry the image call after error or uncertainty. If unavailable, report that and stop. '
             'After success report the generated local image path or tool artifact identifier. '
@@ -39,7 +43,15 @@ def run(job):
     save(folder/'tool-request.json',request)
     arguments=request['arguments']
     config,_=load_job(job)
-    prompt=build_session_prompt(arguments,config['referenceMode'])
+    if 'materialIds' in request:
+        transparent_background=True
+    else:
+        assets=read(job/'snapshot/execution-plan.candidate.json')['assets']
+        matched=[asset for asset in assets if asset['id']==request['asset']]
+        if len(matched)!=1 or matched[0]['output_mode'] not in ('opaque_canvas','keyed_component'):
+            raise ValueError('UNKNOWN_OUTPUT_MODE')
+        transparent_background=matched[0]['output_mode']=='keyed_component'
+    prompt=build_session_prompt(arguments,config['referenceMode'],transparent_background)
     (folder/'session-prompt.txt').write_text(prompt,encoding='utf-8')
     before=time.perf_counter()
     with tempfile.TemporaryDirectory(prefix='ui-image-session-') as cwd:
@@ -50,6 +62,7 @@ def run(job):
         args[args.index('features.image_generation=false')]='features.image_generation=true'
         save(folder/'dispatch.json',{'startedAt':datetime.now(timezone.utc).isoformat(),
              'submissionDigest':request['submissionDigest'],'promptSha256':digest(folder/'session-prompt.txt'),
+             'transparentBackground':transparent_background,
              'automaticResubmissions':0,'persistentSession':True})
         with (folder/'events.jsonl').open('xb') as out,(folder/'stderr.log').open('xb') as err:
             process=subprocess.Popen(args,stdin=subprocess.PIPE,stdout=out,stderr=err,cwd=cwd)
