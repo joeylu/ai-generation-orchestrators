@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased rendering-style review evidence
+
+- A one-sheet Minetest inventory diagnostic used the existing short sheet prompt and passed the exact-prompt, alpha, grid and sheet-identity gates, extracting six separate icons. The visual reviewer reported only a minor yellow fringe on a wood block, while close comparison also showed smoother, more polished icon rendering than the pixel-stepped reference. The shared sheet/single-material review prompt now explicitly checks rendering texture and edge treatment; this changes future review evidence, not old receipts or their decisions. The diagnostic is not a complete UI delivery or human visual acceptance.
+
 ## Unreleased visible-scene preservation
 
 - New `scene-only` background prompts now explicitly keep already visible scene details in place while filling regions hidden by removed UI. This is a short generic constraint prompted by a menu sample whose generated background shifted and brightened a visible repeating pattern. It does not promise deterministic pixel preservation, alter older frozen requests, or waive background and composite visual review.

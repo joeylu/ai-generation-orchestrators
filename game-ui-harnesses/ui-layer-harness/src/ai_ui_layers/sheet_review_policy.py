@@ -26,6 +26,8 @@ PROMPT = (
     'is advisory for this static-composite review, without an exact-percentage requirement. '
     'All other categories use not-applicable for both states. Magnitude is minor, major or '
     'uncertain. Use style for brightness/glow/line-weight differences with artwork intact. '
+    'Compare rendering texture and edge treatment at close scale; a smoother, more beveled '
+    'or more polished redraw than the reference is a style finding even when identity matches. '
     'Use geometry for actual contour distortion and layout for internal graphic displacement. '
     'Before asserting either, establish owned outlines in both images and describe the '
     'boundary evidence. BboxNorm only locates artwork; it is not a measured contour. '
