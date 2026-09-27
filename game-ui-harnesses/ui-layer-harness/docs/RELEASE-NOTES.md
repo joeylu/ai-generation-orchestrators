@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased read-only repeated-slot source audit
+
+- An optional offline diagnostic now requires two pixel-identical empty slots, a flat interior and exact occupied-frame matches before reporting small-icon crop omissions or a candidate for later visual review. It reports uncertain fill, frame overlap and inner-edge ownership separately. All results state that source alpha is underdetermined; no cutout, plan repair, package or generation request is produced. The existing strict DAG and frozen jobs are unchanged.
+
 ## Unreleased dense small-material boundary coverage
 
 - Planning reviews previously attached only the first 12 small-material close-ups; later icons had no per-material boundary observation. New M2/rereviews page every compact small crop into bound context/candidate images, including narrow icons while excluding long strips. The first 12 retain detailed part/quote checks, while later crops require a compact boundary audit; clipped or uncertain contours use the existing geometry blocker and two-repair limit. Enlarged color-detail evidence also preserves source pixel steps. This adds review image input but no planning or generation calls. It does not infer a contour, alter frozen runs, or guarantee that a vision model notices every one-pixel omission.

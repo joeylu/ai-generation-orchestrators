@@ -55,6 +55,7 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 版本变化见 [发布说明](docs/RELEASE-NOTES.md)。
 相似样本的通用防错规则和验证边界见 [视觉保障](docs/VISUAL-SAFEGUARDS.md)。
 多份已接收变体的确定性恢复与待验收打包见 [变体恢复合同](docs/REVIEW-REQUIRED-VARIANTS.md)。
+重复平底槽位的小图标可先运行只读[原像素候选检查](docs/SOURCE-SLOT-AUDIT.md)，核对裁框与模板证据；它不提取图层，也不改变规划或质量门。
 单份完整已接收作业也可用 `finish-variants --received-job JOB --job-digest DIGEST`
 自动完成确定性切板、预览、来源重放及待验收打包；原严格 DAG 的视觉阻断不会被改写。
 新任务可选 `--generation-mode sheets`，将多份独立素材同板生成后提取，见
