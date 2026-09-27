@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from jsonschema import Draft202012Validator
 
 from .automatic_registration import call_model, observation_image
@@ -23,6 +23,13 @@ def comparison(reference, generated, output):
     created=created.crop(support)
     pane_w,pane_h=720,300
     canvas=Image.new('RGBA',(pane_w*2,pane_h),(29,37,47,255))
+    draw=ImageDraw.Draw(canvas)
+    tile=24
+    for y in range(0,pane_h,tile):
+        for x in range(0,pane_w,tile):
+            shade=190 if (x//tile+y//tile)%2 else 235
+            draw.rectangle((pane_w+x,y,pane_w+min(x+tile,pane_w)-1,
+                            min(y+tile,pane_h)-1),fill=(shade,shade,shade,255))
     for i,image in enumerate((original,created)):
         scale=min((pane_w-32)/image.width,(pane_h-32)/image.height)
         image=image.resize((max(1,round(image.width*scale)),max(1,round(image.height*scale))),
@@ -33,7 +40,7 @@ def comparison(reference, generated, output):
     canvas.convert('RGB').save(output)
     return dict(referenceSha256=digest(reference),generatedSha256=digest(generated),
                 generatedSupportBox=list(support),displayPane=[pane_w,pane_h],
-                policy='two-independent-uniform-display-fits-not-geometry-measurement')
+                policy='two-independent-uniform-display-fits-right-checkerboard-not-geometry-measurement')
 
 
 def finalize_failed_transport(output):
@@ -58,8 +65,9 @@ def review_prompt(asset, visual):
     entries=review_entries(visual,[asset])
     return ('Compare image 1, the original rectangular reference crop, against image 2, '
             'the received raw generated material. Image 3 places the original on the '
-            'left and the generated visible artwork on the right; each pane is fitted '
-            'independently for inspection, not measurement. The reference crop may '
+            'left and the generated visible artwork over a checkerboard on the right; '
+            'the checkerboard reveals alpha and is not generated artwork. Each pane '
+            'is fitted independently for inspection, not measurement. The reference crop may '
             'contain scene pixels, removed business text and artwork assigned to other '
             'materials. Each entry owns only its listed objects. '
             'excludedForeignArtwork belongs to other materials even when visible '

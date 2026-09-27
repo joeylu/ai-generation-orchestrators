@@ -7,7 +7,7 @@ import test_compile_visual
 from ai_ui_layers.evaluate import save
 from ai_ui_layers.experimental_executor import prepare, authorize, next_request, receive
 from ai_ui_layers.freeze_visual import freeze
-from ai_ui_layers.single_material_review import review, review_prompt
+from ai_ui_layers.single_material_review import comparison, review, review_prompt
 from ai_ui_layers.single_material_review import finalize_failed_transport
 
 
@@ -24,6 +24,23 @@ class SingleMaterialReviewTests(unittest.TestCase):
         self.assertIn('child outline',prompt)
         self.assertIn('outer border',prompt)
         self.assertIn('do not demand its outline or contents be restored',prompt)
+
+    def test_comparison_checkerboard_reveals_material_alpha(self):
+        reference=self.root/'reference-panel.png'
+        translucent=self.root/'translucent-panel.png'
+        opaque=self.root/'opaque-panel.png'
+        Image.new('RGBA',(300,300),(90,110,130,255)).save(reference)
+        Image.new('RGBA',(300,300),(0,0,0,128)).save(translucent)
+        Image.new('RGBA',(300,300),(0,0,0,255)).save(opaque)
+        translucent_preview=self.root/'translucent-compare.png'
+        opaque_preview=self.root/'opaque-compare.png'
+        report=comparison(reference,translucent,translucent_preview)
+        comparison(reference,opaque,opaque_preview)
+        self.assertIn('right-checkerboard',report['policy'])
+        with Image.open(translucent_preview) as image:
+            self.assertNotEqual(image.getpixel((960,40)),image.getpixel((984,40)))
+        with Image.open(opaque_preview) as image:
+            self.assertEqual(image.getpixel((960,40)),image.getpixel((984,40)))
 
     def setUp(self):
         test_compile_visual.VisualCompileTests.setUp(self)
@@ -45,6 +62,7 @@ class SingleMaterialReviewTests(unittest.TestCase):
             prompt=(folder/'prompt.md').read_text(encoding='utf-8')
             self.assertIn('excludedForeignArtwork',prompt)
             self.assertIn('Each entry owns only its listed objects',prompt)
+            self.assertIn('checkerboard reveals alpha',prompt)
             self.assertIn('Expected materialIds: asset-coin-a',prompt)
             save(folder/'draft.json',dict(materialIds=['asset-coin-a'],findings=[dict(
                 materialId='asset-coin-a',category='geometry',referenceState='not-applicable',
