@@ -265,6 +265,11 @@ The component observation includes visible shape, color and surface marks before
 the reviewer assigns an object name. A color-diverse small crop may be attached
 once more as a deterministic enlarged original-image detail; it is review
 evidence, never a generated layer or program-drawn replacement.
+For each observed small part, a nonempty `planEvidenceQuote` must cover its
+distinctive visible colors and marks, not merely name the overall part. An
+incomplete quote is reported as a missing-description finding for the existing
+bounded repair path; the program still checks only exact quote presence, so
+the model's semantic judgment remains subject to visual review.
 
 New small-material evidence pairs expanded original context with the unmarked
 candidate crop. Its magenta boundary is diagnostic; nearby pixels do not change

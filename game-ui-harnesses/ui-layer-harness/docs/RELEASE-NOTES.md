@@ -7,6 +7,7 @@
 ## Unreleased dense small-material boundary coverage
 
 - Planning reviews previously attached only the first 12 small-material close-ups; later icons had no per-material boundary observation. New M2/rereviews page every compact small crop into bound context/candidate images, including narrow icons while excluding long strips. The first 12 retain detailed part/quote checks, while later crops require a compact boundary audit; clipped or uncertain contours use the existing geometry blocker and two-repair limit. Enlarged color-detail evidence also preserves source pixel steps. This adds review image input but no planning or generation calls. It does not infer a contour, alter frozen runs, or guarantee that a vision model notices every one-pixel omission.
+- A portrait inventory review exposed a late small-icon omission: the reviewer saw a pale tip/highlight pixel but treated a label naming only the main colors as sufficient evidence. The same concise M2/rereview instruction now requires `planEvidenceQuote` to cover the observed part's distinctive color pixels and marks, or remain empty for the existing semantic repair blocker. It adds no calls, changes no severity or repair limit, and cannot guarantee model perception.
 
 ## Unreleased rendering-style review evidence
 
