@@ -109,7 +109,8 @@ def build(visual, asset_id, reference_size=None):
                      +json.dumps(excluded,ensure_ascii=False)+'. '
                      'Complete their occluded areas from visible underlay evidence; do not brighten the underlay. ')
         else:
-            prompt+='Remove all UI surfaces and controls; reconstruct the scene behind them from visible scene evidence. '
+            prompt+=('Remove all UI surfaces and controls; reconstruct the scene behind them from visible scene evidence. '
+                     'Keep already visible scene details in place, including their shape, position and tone. ')
         return (prompt+'Remove ordinary labels and numbers except this exact preserveText list: '
                 +json.dumps(material['preserveText'],ensure_ascii=False)+'. '
                 +icon_pictograms(visual,material)+

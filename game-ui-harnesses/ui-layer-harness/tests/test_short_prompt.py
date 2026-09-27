@@ -4,6 +4,22 @@ from ai_ui_layers.short_prompt import build,exclusions,carries_foreground,object
 
 
 class ShortPromptTests(unittest.TestCase):
+    def test_scene_only_preserves_visible_background_outside_removed_ui(self):
+        background=dict(id='scene',label='Game scene',role='background',
+                        bboxNorm=[0,0,1,1],preserveText=[])
+        overlay=dict(id='menu',label='Menu panel',role='foreground',
+                     bboxNorm=[.2,.2,.8,.8],preserveText=[])
+        visual=dict(backgroundMode='scene-only',textPolicy='remove-business-text',
+                    materials=[background,overlay],objects=[
+                        dict(id='landscape',materialId='scene',kind='background',
+                             label='Visible landscape',bboxNorm=None)])
+        prompt=build(visual,'scene',[1000,600])
+        self.assertIn('reconstruct the scene behind them',prompt)
+        self.assertIn('Keep already visible scene details in place',prompt)
+        self.assertIn('shape, position and tone',prompt)
+        self.assertIn('Remove ordinary labels and numbers',prompt)
+        self.assertLess(len(prompt),650)
+
     def test_underlay_and_free_standing_portrait_do_not_bake_crop_background(self):
         materials=[dict(id='underlay',label='Forest game screen',role='background',
                         bboxNorm=[0,0,1,1],zOrder=0,preserveText=[]),

@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased visible-scene preservation
+
+- New `scene-only` background prompts now explicitly keep already visible scene details in place while filling regions hidden by removed UI. This is a short generic constraint prompted by a menu sample whose generated background shifted and brightened a visible repeating pattern. It does not promise deterministic pixel preservation, alter older frozen requests, or waive background and composite visual review.
+
 ## Unreleased opaque-underlay diagnostic review
 
 - The optional single-material `review-material` action now uses the opaque background gate for a frozen background request. Previously it treated every request as a transparent foreground and stopped on a valid opaque underlay before visual comparison. Foreground alpha/key checks are unchanged.
