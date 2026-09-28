@@ -30,6 +30,27 @@ BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包
                    '仅文字撑大的可避免边界仍须收紧；去字效果与完整轮廓仍须生成后审查或验收。\n')
 
 
+def prior_findings(root, name):
+    if name not in ('rereview','rereview2'):raise ValueError('REREVIEW_STAGE_REQUIRED')
+    root=Path(root)
+    if (root/'revision.json').exists():
+        review=root/'parent-review/draft.json';source=root/'source-plan.json'
+    else:
+        review=root/('m2/draft.json' if name=='rereview' else 'rereview/draft.json')
+        source=root/('m1/draft.json' if name=='rereview' else 'repair/candidate.json')
+    # Derive against the plan actually reviewed, never the repaired candidate.
+    blockers,warnings=split(read(review),read(source))
+    return dict(kind='ui_planning_prior_findings_v1',sourcePlanSha256=digest(source),
+                reviewSha256=digest(review),blockers=blockers,warnings=warnings)
+
+
+def rereview_context(plan, findings):
+    compact=lambda value:json.dumps(value,ensure_ascii=False,separators=(',',':'))
+    return ('\n先核销上轮问题；仍检查完整候选。新增阻断必须给原图证据，不能只换措辞重复问题。上轮待核销问题：'
+            +compact({key:findings[key] for key in ('blockers','warnings')})
+            +'\n检查修补后的完整候选，本次仅复审：\n'+compact(plan))
+
+
 def runtime_files():
     files=list(Path(__file__).parent.glob('*.py'))+list((HARNESS/'src').rglob('*.py'))
     files += [BASE/'schemas/visual-plan.schema.json',BASE/'prompts/visual-plan.md',BASE/'prompts/visual-review.md']
@@ -231,9 +252,9 @@ class Dag:
         save(p/'schema.json',schema)
         prompt=BOX_TEXT_GUIDANCE+build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan))
         if name.startswith('rereview'):
-            prior=self.root/('parent-review' if (self.root/'revision.json').exists() else 'm2' if name=='rereview' else 'rereview')/'draft.json'
-            prompt+='\n先核销上轮问题；仍检查完整候选。新增阻断必须给原图证据，不能只换措辞重复问题。上轮问题：'+json.dumps(read(prior),ensure_ascii=False)
-            prompt+='\n检查修补后的完整候选，本次仅复审：\n'+json.dumps(plan,ensure_ascii=False)
+            findings=prior_findings(self.root,name)
+            save(p/'prior-findings.json',findings)
+            prompt+=rereview_context(plan,findings)
         if small_focus:
             prompt=('小素材附件每项左侧为原图上下文（粉框标候选裁片），右侧为无标记裁片；两侧独立等比放大。'
                     '先核对完整自有轮廓是否被框截断，boundary.status 填 complete/clipped/uncertain，evidence 说明原图依据；裁片外像素不自动属于此素材。'
@@ -258,6 +279,7 @@ class Dag:
             prompt=('先核对下列局部证据：近边固定装饰的完整轮廓，或重复对齐卡片各自闭合边框的真实四边与归属。局部附件左半是干净原图、右半是同坐标标框叠图；若有同行高度候选边，它们只是寻找轮廓的搜索点，不是自动改框坐标。区分卡片自身闭合边框与相邻容器的分隔线，只按可见连接判断；对齐比较本身不是缺陷，也不要因其他小告警跳过这一检查：'+json.dumps(focus,ensure_ascii=False)+'\n'+prompt)
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
         names=['schema.json','review-source.md','review-overlay.png','prompt.md']
+        if name.startswith('rereview'):names.append('prior-findings.json')
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small_focus:names+=['coverage-small-materials.json']+[row['file'] for row in small_focus['pages']]
         if small_focus and small_focus.get('detail'):names.append(small_focus['detail']['file'])
@@ -288,10 +310,7 @@ class Dag:
             save(p/'result.json',{'sameSessionVerified':True,'sessionId':sid,'reviewSha256':digest(p/'draft.json'),
                  'seconds':receipt['elapsedSeconds'],'issueCount':len(answer['issues']),'automaticRetry':False})
             if blockers:
-                previous=self.root/('parent-review' if (self.root/'revision.json').exists() else 'm2' if name=='rereview' else 'rereview')/'draft.json'
-                previous_plan=(self.root/'source-plan.json' if (self.root/'revision.json').exists()
-                               else self.root/('m1/draft.json' if name=='rereview' else 'repair/candidate.json'))
-                repeated=signatures(blockers)&signatures(split(read(previous),read(previous_plan))[0])
+                repeated=signatures(blockers)&signatures(findings['blockers'])
                 if name=='rereview2' or repeated or (self.root/'revision.json').exists() or self.config.get('maximumRepairs',1)<2:
                     raise ValueError('REREVIEW_UNRESOLVED')
 

@@ -1,5 +1,21 @@
 # Release notes
 
+## Unreleased compact rereview history
+
+- Rereviews carry every prior blocker and cosmetic warning derived by the existing
+  review policy, rather than repeating the complete prior successful observations.
+  Findings are evaluated against the plan that was actually reviewed; text newly
+  added by a repair cannot erase a prior missing-description finding. First and
+  second rereviews and explicit revision children retain their own source binding.
+- The full current candidate uses lossless compact JSON. Original images, overlays,
+  focus attachments, schemas, same-session continuity, the two-repair limit and
+  all quality gates remain unchanged. Full prior reviews stay local; a hash-bound
+  findings record is verified as a rereview input and retained in frozen evidence.
+- Offline fixtures cover derived coverage, detailed and overflow boundary findings,
+  warnings, invalid prior quotes, both repair rounds, revision children and tamper
+  rejection. Reduced input size does not demonstrate better model fidelity or
+  convergence. Existing pinned runs and terminal jobs are not rewritten or replayed.
+
 ## Unreleased frozen image arguments transport
 
 - A sheet attempt lost the final closing delimiter while the CLI model retyped
@@ -17,6 +33,9 @@
   doubles, covering long Unicode/quotes/delimiters, altered inputs and no-resubmit
   failure paths. Real CLI generation and visual fidelity remain unverified. No
   media request, setup download, user configuration change or tag is part of this fix.
+- Windows fixture paths now resolve temporary-directory aliases before comparison,
+  matching the deterministic producer's canonical path. Strict equality and receipt
+  gates are unchanged.
 
 ## Unreleased default generation sheets
 
