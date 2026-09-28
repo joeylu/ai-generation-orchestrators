@@ -15,7 +15,7 @@ from .evaluate import read, save, digest, check_relations
 from .freeze_visual import freeze, inspect
 from .local_patch import patch_schema, merge_patch
 from .review_focus import make_focus, make_small_material_focus
-from .planning_review_policy import split, signatures, REGIONS
+from .planning_review_policy import split, signatures, REGIONS, audit_rows
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review
 
 BASE=HARNESS/'planning-harness'
@@ -217,6 +217,7 @@ class Dag:
         properties={'issues':{'type':'array','items':issue_schema},
                     'coverageAudit':{'type':'array','minItems':len(REGIONS),
                                      'maxItems':len(REGIONS),'items':coverage_schema}}
+        definitions={}
         if small_focus:
             part_schema={'type':'object','additionalProperties':False,
                 'required':['visiblePart','observedAppearance','planEvidenceQuote','suggestedChange'],
@@ -225,30 +226,30 @@ class Dag:
                               'planEvidenceQuote':{'type':'string'},
                               'suggestedChange':{'type':'string','minLength':1}}}
             material_schema={'type':'object','additionalProperties':False,
-                'required':['materialId','parts','boundary'],
-                'properties':{'materialId':{'type':'string','enum':[
-                    row['materialId'] for row in small_focus['items']]},
-                    'boundary':{'type':'object','additionalProperties':False,
+                'required':['parts','boundary'],
+                'properties':{'boundary':{'type':'object','additionalProperties':False,
                         'required':['status','evidence'],'properties':{
                             'status':{'type':'string','enum':['complete','clipped','uncertain']},
                             'evidence':{'type':'string','minLength':1}}},
                     'parts':{'type':'array','minItems':1,'items':part_schema}}}
             required.append('smallMaterialAudit')
-            properties['smallMaterialAudit']={'type':'array',
-                'minItems':len(small_focus['items']),'maxItems':len(small_focus['items']),
-                'items':material_schema}
+            definitions['smallMaterialAuditEntry']=material_schema
+            properties['smallMaterialAudit']={'type':'object','additionalProperties':False,
+                'required':[row['materialId'] for row in small_focus['items']],
+                'properties':{row['materialId']:{'$ref':'#/$defs/smallMaterialAuditEntry'}
+                              for row in small_focus['items']}}
             if small_focus['boundaryOnlyItems']:
                 required.append('smallBoundaryAudit')
-                properties['smallBoundaryAudit']={'type':'array',
-                    'minItems':len(small_focus['boundaryOnlyItems']),
-                    'maxItems':len(small_focus['boundaryOnlyItems']),
-                    'items':{'type':'object','additionalProperties':False,
-                        'required':['materialId','boundary'],
-                        'properties':{'materialId':{'type':'string','enum':[
-                            row['materialId'] for row in small_focus['boundaryOnlyItems']]},
-                            'boundary':material_schema['properties']['boundary']}}}
+                definitions['smallBoundaryAuditEntry']={'type':'object','additionalProperties':False,
+                    'required':['boundary'],
+                    'properties':{'boundary':material_schema['properties']['boundary']}}
+                properties['smallBoundaryAudit']={'type':'object','additionalProperties':False,
+                    'required':[row['materialId'] for row in small_focus['boundaryOnlyItems']],
+                    'properties':{row['materialId']:{'$ref':'#/$defs/smallBoundaryAuditEntry'}
+                                  for row in small_focus['boundaryOnlyItems']}}
         schema={'type':'object','additionalProperties':False,'required':required,
                 'properties':properties}
+        if definitions:schema['$defs']=definitions
         save(p/'schema.json',schema)
         prompt=BOX_TEXT_GUIDANCE+build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan))
         if name.startswith('rereview'):
@@ -258,7 +259,7 @@ class Dag:
         if small_focus:
             prompt=('小素材附件每项左侧为原图上下文（粉框标候选裁片），右侧为无标记裁片；两侧独立等比放大。'
                     '先核对完整自有轮廓是否被框截断，boundary.status 填 complete/clipped/uncertain，evidence 说明原图依据；裁片外像素不自动属于此素材。'
-                    '按第一页的每个 materialId 填 smallMaterialAudit，'
+                    'smallMaterialAudit 以第一页的 materialId 为键逐项填写，'
                     '先只按原图逐一列出图标内每个可辨认的组成部分，并在 observedAppearance 写清外形、颜色、浅色高光、暗色细点、'
                     '表面印记或“无可辨印记”；小型附属道具和被部分遮挡的部分也要列出，不能因物体名称不确定而省略局部明暗点纹。'
                     '每个 visiblePart 的 planEvidenceQuote 必须逐字摘自该素材或其对象的现有 label，'
@@ -268,7 +269,7 @@ class Dag:
                     '程序会将空引文或不存在的引文转为修补阻断。不能用整体名称冒充内部部件的证据。'
                     '框内场景或底板仍按原归属，不自动算作图标内容；不要把诊断标签或暗色边距当作原图内容。'+prompt)
             if small_focus['boundaryOnlyItems']:
-                prompt=('其余小素材也附在后续页；对每个 materialId 填 smallBoundaryAudit，'
+                prompt=('其余小素材也附在后续页；smallBoundaryAudit 以 materialId 为键逐项填写，'
                         '只核对上下文中的完整自有轮廓是否被候选框截断，clipped 或 uncertain 必须说明原图依据。'+prompt)
             if small_focus.get('detail'):
                 detail=small_focus['detail']
@@ -290,11 +291,11 @@ class Dag:
         else:bound.update(candidateSha256=digest(plan_path),patchSha256=digest(plan_path.parent/'draft.json'))
         save(p/'request.json',bound);receipt=self.call(p)
         answer=read(p/'draft.json');known={o['id'] for k in ('materials','objects') for o in plan[k]}
-        if small_focus and ({row['materialId'] for row in answer['smallMaterialAudit']} !=
+        if small_focus and ({row['materialId'] for row in audit_rows(answer,'smallMaterialAudit')} !=
                             {row['materialId'] for row in small_focus['items']}):
             raise ValueError('SMALL_MATERIAL_AUDIT_IDS_REQUIRED')
         if small_focus and small_focus['boundaryOnlyItems'] and (
-                {row['materialId'] for row in answer['smallBoundaryAudit']} !=
+                {row['materialId'] for row in audit_rows(answer,'smallBoundaryAudit')} !=
                 {row['materialId'] for row in small_focus['boundaryOnlyItems']}):
             raise ValueError('SMALL_BOUNDARY_AUDIT_IDS_REQUIRED')
         blockers,warnings=split(answer,plan)

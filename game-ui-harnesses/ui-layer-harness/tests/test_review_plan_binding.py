@@ -16,7 +16,7 @@ import test_planning_convergence
 def invalid_quote(folder, description='Unrecorded attached emblem'):
     answer = read(folder/'draft.json')
     answer['issues'] = []
-    part = answer['smallMaterialAudit'][0]['parts'][0]
+    part = next(iter(answer['smallMaterialAudit'].values()))['parts'][0]
     part.update(visiblePart=description, observedAppearance='Small colored emblem',
                 planEvidenceQuote='This text does not occur in the reviewed plan.')
     (folder/'draft.json').write_text(json.dumps(answer), encoding='utf-8')
@@ -74,7 +74,7 @@ class ReviewPlanBindingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'REREVIEW_UNRESOLVED'):
             Dag(self.root, call).execute()
         child = revise(self.root, self.root.parent/'child', 'Explicit fixture revision')
-        owner = read(self.root/'rereview/draft.json')['smallMaterialAudit'][0]['materialId']
+        owner = next(iter(read(self.root/'rereview/draft.json')['smallMaterialAudit']))
         def model(folder, sid, first):
             self.assertFalse(first)
             if folder.name == 'repair':

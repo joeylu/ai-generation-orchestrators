@@ -9,6 +9,26 @@ from ai_ui_layers.planning_review_policy import split
 
 
 class ReviewFocusTests(unittest.TestCase):
+    def test_larger_early_slot_faces_cannot_displace_smaller_late_symbols(self):
+        import copy
+        from ai_ui_layers.evaluate import digest
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'source.png'
+            Image.new('RGB',(1000,1000),(40,40,40)).save(source);source_sha=digest(source)
+            faces=[dict(id=f'face-{i}',role='foreground',bboxNorm=[.1,.1,.18,.18]) for i in range(12)]
+            symbols=[dict(id=f'symbol-{i}',role='foreground',bboxNorm=[.2,.2,.22+i/1000,.22]) for i in range(13)]
+            plan=dict(materials=faces+list(reversed(symbols)));before=copy.deepcopy(plan)
+            first=root/'first';first.mkdir();focus=make_small_material_focus(source,plan,first)
+            self.assertEqual([row['materialId'] for row in focus['items']],
+                             [f'symbol-{i}' for i in range(12)])
+            self.assertEqual({row['materialId'] for row in focus['boundaryOnlyItems']},
+                             {'symbol-12'}|{f'face-{i}' for i in range(12)})
+            self.assertEqual(sum(len(page['materialIds']) for page in focus['pages']),25)
+            self.assertEqual(plan,before);self.assertEqual(digest(source),source_sha)
+            second=root/'second';second.mkdir()
+            reordered=make_small_material_focus(source,dict(materials=symbols+faces),second)
+            self.assertEqual(focus['items'],reordered['items'])
+
     def test_small_crop_context_exposes_omitted_contour_without_changing_plan(self):
         import copy
         from ai_ui_layers.evaluate import digest
@@ -114,12 +134,14 @@ class ReviewFocusTests(unittest.TestCase):
         from ai_ui_layers.evaluate import digest
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);m1=root/'m1';m2=root/'m2';m1.mkdir();m2.mkdir()
-            source=m1/'reference.png';image=Image.new('RGB',(480,240),(25,25,25))
+            # Binary-exact normalized bounds keep equal-area crops equal after
+            # outward pixel rounding, so this fixture tests the overflow page.
+            source=m1/'reference.png';image=Image.new('RGB',(512,256),(25,25,25))
             materials=[]
             for index in range(13):
                 x=20+(index%7)*60;y=30+(index//7)*70
                 materials.append(dict(id=f'icon-{index}',role='foreground',
-                                      bboxNorm=[x/480,y/240,(x+20)/480,(y+20)/240]))
+                                      bboxNorm=[x/512,y/256,(x+20)/512,(y+20)/256]))
             ImageDraw.Draw(image).rectangle((320,96,339,101),fill=(250,220,10))
             image.save(source)
             focus=make_small_material_focus(source,dict(materials=materials),m2)

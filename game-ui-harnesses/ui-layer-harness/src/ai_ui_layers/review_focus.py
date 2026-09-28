@@ -25,6 +25,10 @@ def make_small_material_focus(reference, plan, output, limit=12):
         if 0<area<=width*height*.025 and min(size)>=8 and max(size)/min(size)<=4:
             selected.append((material['id'],box))
     if not selected:return None
+    # Spend the bounded component-audit budget on the smallest crops first.
+    # Larger slot faces must not displace tiny artwork just by plan order;
+    # every remaining crop still receives its boundary audit on later pages.
+    selected.sort(key=lambda row:(row[1][2]-row[1][0])*(row[1][3]-row[1][1]))
     cell_w,cell_h=512,256
     items=[];pages=[]
     for page_index,start in enumerate(range(0,len(selected),limit)):

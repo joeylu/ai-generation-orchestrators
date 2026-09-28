@@ -269,8 +269,21 @@ freeze verifies both chains and preserves both rounds' evidence.
 
 When a planning review has small foreground-material crops, M2 and every
 rereview receive paged, fingerprint-bound context/crop evidence for all of them.
-The first 12 receive component and boundary audits; every remaining small crop
+Eligible crops are ordered by ascending original-pixel area (plan order breaks
+ties), so early larger slot faces cannot displace smaller artwork from the
+bounded detailed review. The first 12 receive component and boundary audits; every remaining small crop
 receives a boundary-only audit rather than silently dropping out of review.
+New M2/rereview responses use objects keyed by the exact required material IDs
+for `smallMaterialAudit` and `smallBoundaryAudit`. The attached schema requires
+each key and forbids extra keys; values contain component/boundary evidence,
+without another `materialId`. Shared `$defs`/`$ref` entries avoid repeating the
+full evidence schema for every key. Duplicate JSON keys fail parsing. Missing, extra
+or colliding IDs cannot be filled, removed or inferred to repair a response.
+Existing array records remain readable by the review policy with their duplicate
+and quote gates intact, but new model responses must satisfy the keyed schema.
+Raw responses and receipts remain unchanged; programs derive the same blockers
+directly from either evidence format. Pinned historical runs require their
+original runtime and cannot resume or inherit authorization under this change.
 Each detailed visible component records a literal quote from its owning material
 or object description, or an empty quote and a local correction. Missing or
 nonmatching quotes become semantic repair blockers. This is internal planning

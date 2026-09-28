@@ -37,13 +37,13 @@ class RereviewPromptTests(unittest.TestCase):
         def call(folder,sid,first):
             fake(folder,sid,first)
             if folder.name=='m2':
-                answer=read(folder/'draft.json');owner=answer['smallMaterialAudit'][0]['materialId']
+                answer=read(folder/'draft.json');owner=next(iter(answer['smallMaterialAudit']))
                 answer['issues']=[dict(code='DESCRIPTION_WORDING',category='cosmetic',ids=[owner],
                     description='A minor label wording issue.',suggestedChange='Optional wording adjustment.')]
                 for row in answer['coverageAudit']:row['observedArtwork']=observations
                 answer['coverageAudit'][2]['missingFromPlan']=[dict(artwork='Pale corner ornament',
                     suggestedOwnerId='asset-panel',suggestedChange='Describe the corner ornament.')]
-                item=answer['smallMaterialAudit'][0]
+                item=answer['smallMaterialAudit'][owner]
                 item['boundary']=dict(status='clipped',evidence='Upper pale tip extends outside candidate.')
                 item['parts'][0].update(visiblePart='Pale attached tip',observedAppearance='White tip and dark dot',
                     planEvidenceQuote='',suggestedChange='Record the tip and dark dot.')
@@ -81,8 +81,8 @@ class RereviewPromptTests(unittest.TestCase):
         def call(folder,sid,first):
             fake(folder,sid,first)
             if folder.name=='m2':
-                answer=read(folder/'draft.json');item=answer['smallMaterialAudit'][0]
-                owner['id']=item['materialId'];item['parts'][0]['planEvidenceQuote']=quote
+                answer=read(folder/'draft.json');owner['id']=next(iter(answer['smallMaterialAudit']))
+                item=answer['smallMaterialAudit'][owner['id']];item['parts'][0]['planEvidenceQuote']=quote
                 replace_answer(folder,answer)
             if folder.name=='repair':
                 answer=read(folder/'draft.json');source=read(self.root/'m1/draft.json')

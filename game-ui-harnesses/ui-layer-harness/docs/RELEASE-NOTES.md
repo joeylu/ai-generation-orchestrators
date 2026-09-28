@@ -1,5 +1,21 @@
 # Release notes
 
+## Unreleased exact-ID planning audits
+
+- New detailed and overflow boundary audits use required material IDs as JSON
+  object keys. This prevents one repeated array ID from occupying a missing
+  material's review slot. The schema rejects missing/extra keys; duplicate JSON
+  keys, cross-audit collisions, invalid quotes and clipped/uncertain contours
+  still fail or enter the existing bounded repair path as appropriate.
+- The existing 12-item detailed review budget selects the smallest eligible
+  source-pixel crops first, retaining plan order for equal areas. All remaining
+  crops keep boundary evidence on later pages. No material is merged, inferred,
+  omitted or reclassified, and source pixels and plan bounds stay unchanged.
+- Offline fixtures cover the duplicate/missing-ID failure, immutable raw receipts,
+  legacy array rejection/reading, repair/freeze gates and slot-face priority.
+  Real model impact remains unvalidated. Old terminal runs stay terminal; no
+  additional call, automatic replay, authorization reuse or release tag is added.
+
 ## Unreleased consolidated planning instructions
 
 - Shared M1/M2 instructions group repeated contour, ownership, state, decoration

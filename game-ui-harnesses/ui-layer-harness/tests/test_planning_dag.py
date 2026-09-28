@@ -20,25 +20,25 @@ def coverage():
 
 def small_audit(folder):
     metadata=folder/'coverage-small-materials.json'
-    if not metadata.exists():return []
+    if not metadata.exists():return {}
     source=folder.parent/'m1/draft.json'
     if not source.exists():source=folder.parent/'source-plan.json'
     materials={row['id']:row for row in read(source)['materials']}
-    return [dict(materialId=item['materialId'],
+    return {item['materialId']:dict(
         boundary=dict(status='complete',evidence='Fixture contour is inside the candidate.'),parts=[dict(
         visiblePart=materials[item['materialId']]['label'],
         observedAppearance='Fixture shape and color, no distinct surface marks',
         planEvidenceQuote=materials[item['materialId']]['label'],
         suggestedChange='Clarify this visible part in the owner description.')])
-        for item in read(metadata)['items']]
+        for item in read(metadata)['items']}
 
 
 def small_boundary_audit(folder):
     metadata=folder/'coverage-small-materials.json'
-    if not metadata.exists():return []
-    return [dict(materialId=item['materialId'],
+    if not metadata.exists():return {}
+    return {item['materialId']:dict(
         boundary=dict(status='complete',evidence='Fixture contour is inside the candidate.'))
-        for item in read(metadata).get('boundaryOnlyItems',[])]
+        for item in read(metadata).get('boundaryOnlyItems',[])}
 
 class FakeModel:
     def __init__(self,repair=False,unresolved=False,mismatch=False):
@@ -106,7 +106,7 @@ class DagTests(unittest.TestCase):
         self.assertIn('smallBoundaryAudit',read(self.root/'m2/schema.json')['required'])
         answer=read(self.root/'m2/draft.json')
         self.assertEqual(len(answer['smallBoundaryAudit']),len(focus['boundaryOnlyItems']))
-        answer['smallBoundaryAudit'][0]['boundary']=dict(status='clipped',
+        next(iter(answer['smallBoundaryAudit'].values()))['boundary']=dict(status='clipped',
             evidence='The owned icon continues above its crop.')
         self.assertTrue(any(issue['code']=='SMALL_MATERIAL_BOUNDARY_REVIEW'
                             for issue in split(answer,plan)[0]))

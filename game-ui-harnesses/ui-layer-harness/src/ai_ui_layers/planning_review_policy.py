@@ -4,6 +4,19 @@ REGIONS = tuple(f'{vertical}-{horizontal}' for vertical in ('top','middle','bott
                 for horizontal in ('left','center','right'))
 
 
+def audit_rows(review, field):
+    """Read exact-ID keyed audits; retain legacy arrays without repairing them."""
+    value=review.get(field,[])
+    if isinstance(value,list):return value
+    if not isinstance(value,dict):raise ValueError('INVALID_SMALL_AUDIT_FORMAT')
+    rows=[]
+    for material_id,row in value.items():
+        if not isinstance(row,dict) or 'materialId' in row:
+            raise ValueError('KEYED_AUDIT_ID_MUST_BE_KEY')
+        rows.append(dict(row,materialId=material_id))
+    return rows
+
+
 def split(review, plan=None):
     blockers, warnings = [], []
     issues=list(review['issues'])
@@ -18,7 +31,7 @@ def split(review, plan=None):
                     description=row['region']+': '+missing['artwork'],
                     suggestedChange=missing['suggestedChange']))
     if 'smallMaterialAudit' in review:
-        rows=review['smallMaterialAudit']
+        rows=audit_rows(review,'smallMaterialAudit')
         ids=[row['materialId'] for row in rows]
         if len(ids)!=len(set(ids)):
             raise ValueError('DUPLICATE_SMALL_MATERIAL_AUDIT')
@@ -39,9 +52,9 @@ def split(review, plan=None):
                         ids=[owner],description=owner+': '+part['visiblePart']+'; '+part['observedAppearance'],
                         suggestedChange=part['suggestedChange']))
     if 'smallBoundaryAudit' in review:
-        rows=review['smallBoundaryAudit']
+        rows=audit_rows(review,'smallBoundaryAudit')
         ids=[row['materialId'] for row in rows]
-        detailed={row['materialId'] for row in review.get('smallMaterialAudit',[])}
+        detailed={row['materialId'] for row in audit_rows(review,'smallMaterialAudit')}
         if len(ids)!=len(set(ids)) or detailed.intersection(ids):
             raise ValueError('DUPLICATE_SMALL_BOUNDARY_AUDIT')
         for row in rows:

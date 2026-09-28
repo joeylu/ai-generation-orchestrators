@@ -27,7 +27,7 @@ class SmallBoundaryReviewTests(unittest.TestCase):
             base(folder,sid,first)
             if folder.name in ('m2','rereview'):
                 answer=read(folder/'draft.json')
-                answer['smallMaterialAudit'][0]['boundary']=dict(
+                next(iter(answer['smallMaterialAudit'].values()))['boundary']=dict(
                     status='clipped',evidence='The owned top contour extends above the candidate.')
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
@@ -46,7 +46,7 @@ class SmallBoundaryReviewTests(unittest.TestCase):
             base(folder,sid,first)
             if folder.name=='m2':
                 answer=read(folder/'draft.json')
-                del answer['smallMaterialAudit'][0]['boundary']
+                del next(iter(answer['smallMaterialAudit'].values()))['boundary']
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
