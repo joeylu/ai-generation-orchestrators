@@ -104,7 +104,7 @@ class ConvergenceTests(unittest.TestCase):
         from test_delivery_dag import DeliveryTests
         parent=self.root.parent;viewer=parent/'viewer';viewer.mkdir()
         (viewer/'viewer.html').write_text('<html></html>');(viewer/'viewer.js').write_text('void 0;')
-        self.run=delivery.init(parent/'input.png',parent/'delivery',viewer)
+        self.run=delivery.init(parent/'input.png',parent/'delivery',viewer,generation_mode='single')
         base=self.model()
         def model(folder,sid,first):
             base(folder,sid,first)

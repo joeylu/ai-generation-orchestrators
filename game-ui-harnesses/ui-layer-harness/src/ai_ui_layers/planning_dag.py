@@ -20,6 +20,7 @@ from .session_review import invoke, resume_command, session_id, build_review_pro
 
 BASE=HARNESS/'planning-harness'
 REPO=Path(__file__).resolve().parents[4]
+DEFAULT_GENERATION_MODE='sheets'
 GRAPH={'m1':[], 'check':['m1'], 'm2':['check'], 'repair':['m2'],
        'repair_check':['repair'], 'rereview':['repair_check'],
        'repair2':['rereview'], 'repair_check2':['repair2'], 'rereview2':['repair_check2'],
@@ -62,7 +63,7 @@ def read_notes(path):
     return data
 
 
-def init(image, root, max_calls=128, generation_mode="single", planning_notes=None):
+def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None):
     notes=read_notes(planning_notes)
     root=Path(root).resolve();image=Path(image)
     with Image.open(image) as im:

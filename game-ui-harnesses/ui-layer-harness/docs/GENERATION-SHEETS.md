@@ -1,10 +1,14 @@
-# Generation sheets (opt-in preview)
+# Generation sheets (preview)
 
 Delivery materials and generation requests are separate identities. A material
 keeps its own ownership, visible state, target geometry and final PNG. A sheet is
 one provider request containing several materials, never one merged UI layer.
 
-Use `run --generation-mode sheets` for a new job. The default remains `single`.
+New `run` jobs default to `sheets`. Use `--generation-mode single` explicitly
+when each material needs its own image request or the host cannot handle sheets.
+New planning and delivery initializers use the same default. Existing configs
+retain their recorded mode; historical configs without a mode remain `single`.
+Offline `freeze-reviewed` retains the source mode unless explicitly regrouped.
 `--max-calls` limits actual image requests in either mode, not final layer count.
 No existing frozen job, approval or receipt can be converted in place.
 

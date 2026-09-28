@@ -58,8 +58,9 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 重复平底槽位的小图标可先运行只读[原像素候选检查](docs/SOURCE-SLOT-AUDIT.md)，核对裁框与模板证据；它不提取图层，也不改变规划或质量门。
 单份完整已接收作业也可用 `finish-variants --received-job JOB --job-digest DIGEST`
 自动完成确定性切板、预览、来源重放及待验收打包；原严格 DAG 的视觉阻断不会被改写。
-新任务可选 `--generation-mode sheets`，将多份独立素材同板生成后提取，见
-[素材板合同](docs/GENERATION-SHEETS.md)。默认 single 与最终图层包保持兼容。
+新任务默认 `sheets`，将兼容的独立素材同板生成后逐份提取，见
+[素材板合同](docs/GENERATION-SHEETS.md)。需要逐素材生成时显式传 `--generation-mode single`。
+最终图层仍各自独立；旧任务沿用其冻结模式，不因新默认值改变。
 用户确认并经 M2 复核的宽卡片/面板框可用显式[横向框体适配](docs/HORIZONTAL-FRAME-SLICE.md)，
 四角保持等比，仅缩放无固定细节的中段；默认素材仍保持原比例。
 Docker 项目负责服务封装；Web 消费该服务 API 和公开图层包；本仓库不规定 HTTP 路由。

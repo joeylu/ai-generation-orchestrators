@@ -128,7 +128,7 @@ class SheetDeliveryTests(unittest.TestCase):
         image=self.root/'reference.png';Image.new('RGB',(1000,1000)).save(image)
         viewer=self.root/'viewer';viewer.mkdir()
         (viewer/'viewer.html').write_text('<html></html>');(viewer/'viewer.js').write_text('void 0;')
-        self.run=delivery.init(image,self.root/'run',viewer,max_calls=4,generation_mode='sheets')
+        self.run=delivery.init(image,self.root/'run',viewer,max_calls=4)
         self.calls=0
         self.dag=delivery.DeliveryDag(self.run,FakeModel(),sheet_model=self.review)
         self.dag.execute();self.job=self.run/'generation'

@@ -19,8 +19,10 @@
 ui-layers 还需要 `--viewer BUILT_VIEWER_DIR`，包含 viewer.html/viewer.js。
 输入为 EXIF 方向 1 的 PNG；每个任务新建目录；不得复用其他用户目录。
 N 为生图请求上限 1..128，不是所有规划调用的 token/费用上限。
-可选 `--generation-mode single|sheets`（默认 single）；sheets 下 N 为生图请求上限，
+可选 `--generation-mode single|sheets`（新任务默认 sheets）；N 为生图请求上限，
 一张板只算一次请求，最终素材数可更多。只用于新任务，不能修改旧任务模式。
+宿主须按请求 ID 和 materialIds 接收合板回执；只支持逐素材请求的宿主须显式传 single。
+已有配置保留其原模式；缺少模式字段的历史记录仍按 single 解释。
 详见 [素材板合同](GENERATION-SHEETS.md)。
 新 run 可选 `--planning-notes UTF8_FILE`（非空、最多 16 KiB），传入用户确认的拆分约束。
 内容按字节快照并绑定输入摘要，传入 M1、M2、修补及复审，不作为模型观察结论或质量豁免。

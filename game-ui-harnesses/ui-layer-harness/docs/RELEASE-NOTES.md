@@ -1,5 +1,22 @@
 # Release notes
 
+## Unreleased default generation sheets
+
+- New public `run` jobs and planning/delivery initializers default to `sheets`,
+  using the existing compatible-material grouping, review and extraction path.
+  Explicit `--generation-mode single` retains one image request per material.
+  Final material identities, state, geometry and independent layers are unchanged;
+  no grouping policy, transparency gate, visual gate or retry limit is relaxed.
+- Existing configs keep their recorded mode; the fallback for historical records
+  without a mode remains `single`. Offline refreezing retains the source mode
+  unless explicitly regrouped. Old frozen snapshots and authorizations are not
+  converted, and pinned runs still require their original code.
+- Offline fixtures cover the public default, explicit overrides, grouped request
+  counts, legacy fallback, idempotent resume and the default sheet delivery path.
+  Hosts that only accept singleton requests must explicitly choose `single`.
+  This changes the new-run default, not evidence of real-image fidelity. No tag
+  is published and no generation request is submitted by this change.
+
 ## Unreleased unmarked small-material context detail
 
 - A portrait-inventory M2 review marked a ring crop complete even though it omitted two rows of a pale highlight. The existing extra detail only enlarged the candidate crop, and the contact-sheet boundary crossed an omitted row. The same one extra detail now enlarges unmarked original context and binds both its source extent and the proposed candidate box. Review and repair retain nearby source pixels as evidence without changing ownership, bounds or generation references. No additional image, model call or quality-gate exception is added. Offline fixtures reproduce the cropped and marked-edge blind spot and check unchanged source pixels and plan; model effectiveness remains unvalidated, and old pinned runs remain unchanged.
@@ -327,8 +344,8 @@ CLI and `ui_layer_composition_v1` are unchanged.
   Ambiguous/missing seams and visual issues still block. Old frozen jobs require
   their original runtime; final composition and existing CLI remain compatible.
   Errors stop without repeated image or review calls. No visual content is drawn.
-- Add non-dispatchable `preview-groups` for verified snapshots. Existing default single
-  mode, state names and final composition format remain; opt-in hosts must handle
+- Add non-dispatchable `preview-groups` for verified snapshots. At introduction the default single
+  mode, state names and final composition format remained; opt-in hosts must handle
   request-to-material mappings. Real sheet generation is not yet visually validated.
 
 ## Unreleased planning and registration safeguards

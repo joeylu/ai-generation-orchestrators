@@ -28,7 +28,7 @@ def runtime_files():
     return files
 
 
-def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode='single', planning_notes=None):
+def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None):
     notes=planning.read_notes(planning_notes)
     root = Path(root).resolve(); image = Path(image)
     if target not in ('frozen', 'ui-layers'): raise ValueError('DELIVERY_TARGET')
@@ -189,7 +189,8 @@ def main():
     p.add_argument('--output', required=True); p.add_argument('--image'); p.add_argument('--viewer')
     p.add_argument('--target', choices=['frozen','ui-layers'], default='ui-layers')
     p.add_argument('--max-calls', type=int, default=12)
-    p.add_argument('--generation-mode', choices=['single','sheets'], default='single')
+    p.add_argument('--generation-mode', choices=['single','sheets'], default=planning.DEFAULT_GENERATION_MODE,
+                   help='Generation layout for new runs (default: sheets); single uses one request per material')
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
