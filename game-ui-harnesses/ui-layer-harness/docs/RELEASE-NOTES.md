@@ -1,5 +1,21 @@
 # Release notes
 
+## Unreleased consolidated planning instructions
+
+- Shared M1/M2 instructions group repeated contour, ownership, state, decoration
+  and text explanations by responsibility. M1 creates the plan; M2/rereview inspect
+  it and report observations/issues; repair instructions stay outside review.
+  Field and enum syntax comes from the unchanged attached schema. Visual decisions
+  and uncertainty still need explicit source evidence.
+- [Rule coverage](PROMPT-RULE-COVERAGE.md) maps the previous instruction groups to
+  the consolidated sections. Defaults, state/content exceptions, icon anchors,
+  exact text permission, semitransparent separation and both adaptation eligibility
+  paragraphs are retained. No sample-specific rule or new option is added.
+- Offline checks verify stage selection and existing schema/session/evidence,
+  bounded repair and freeze gates. Reduced input characters do not establish
+  model fidelity or convergence; real-model validation remains separate. Old pinned
+  runs, frozen jobs and authorizations are unchanged, with no automatic replay.
+
 ## Unreleased explicit review stage
 
 - The shared review source placed adaptation eligibility and repeated-card contour
