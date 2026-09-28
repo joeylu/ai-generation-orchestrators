@@ -14,6 +14,7 @@ from ai_ui_layers.evaluate import digest
 
 class FrozenRelayCollectionTests(unittest.TestCase):
     def fixture(self, root, sheet=True, transparency=True):
+        root=root.resolve()  # Match the official producer's canonical paths.
         job=root/'job';home=root/'home';asset='synthetic-sheet' if sheet else 'synthetic-material'
         submission='synthetic-submission';sid='synthetic-session'
         snapshot=job/'snapshot';snapshot.mkdir(parents=True)

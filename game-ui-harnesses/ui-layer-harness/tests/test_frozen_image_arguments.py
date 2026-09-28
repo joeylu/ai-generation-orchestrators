@@ -104,7 +104,7 @@ class FrozenArgumentsTests(unittest.TestCase):
     @unittest.skipUnless(tomllib,'TOML parser check needs Python 3.11+; relay process supports 3.10')
     def test_invocation_config_is_valid_toml_with_literal_paths(self):
         with tempfile.TemporaryDirectory(prefix='relay 空格 ') as tmp:
-            folder=Path(tmp)
+            folder=Path(tmp).resolve()  # Windows TEMP may contain an 8.3 alias.
             value=tomllib.loads(relay_config(folder,'a'*64))['mcp_servers']['ui_layer_frozen']
             self.assertEqual(value['command'],sys.executable)
             self.assertEqual(value['args'][-3:],[str(folder/'frozen-image-arguments.json'),'--sha256','a'*64])
