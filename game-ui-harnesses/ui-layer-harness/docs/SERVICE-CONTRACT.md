@@ -127,6 +127,12 @@ Docker/Web 无强制迁移，采用此入口的宿主需展示独立恢复状态
 `arguments.prompt`、`arguments.referenced_image_paths` 是宿主生图输入。
 宿主自行映射提供商参数，保留原提示词和参考图；路径是执行环境本地路径，不直接发给 Web。
 每个 next 后必须有对应 receive/fail；响应丢失时先查状态，不再次 next/重新生图。
+可选本地 Codex CLI 生图适配器把 `next` 参数编成有摘要的只读数据，经本次调用的
+stdio MCP 工具和固定 JavaScript 直接传给内置生图工具，模型不重抄提示词。
+接收前核验原冻结来源、参数文件、单次读取记录、转发代码、参考数量及透明度模式；
+读取或转发失败不能降级为文本重抄、自动重投或提升旧失败记录。
+该工具只读取当前预留请求，不接受路径或覆盖参数，不联网、不生成媒体；
+用户/项目配置和登录方式不变。旧会话保留原字面量回执核验，新适配器仍需真实作业验证。
 素材板请求的 asset 是请求 ID，附加 materialIds/grid；宿主仍原样提交 arguments，
 不能把该 ID 当最终图层 ID。授权 maximumCalls 是请求数，status 的 materialCount 是素材数。
 素材板回执接收后，resume 在 raw_complete 节点逐板执行只读语义核对与确定性提取，

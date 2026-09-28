@@ -154,18 +154,23 @@ def next_request(job):
         submission=record(folder/'submission.json',{'asset':asset,'authorizationDigest':auth['digest'],
             'requestDigest':body_digest(row),'nonce':secrets.token_hex(16),'createdAt':time.time(),
             'evidenceBasis':'One invocation intent reserved; not proof of a provider call.'})
-        snapshot=(job/'snapshot').resolve()
-        prompt_path=job/'prompt-variant.txt' if 'promptVariant' in config else snapshot/row['prompt']
-        mode=config.get('referenceMode','full-and-crop')
-        references=([str(snapshot/'materials'/mid/'reference-crop.png') for mid in row['materialIds']]
-                    if mode=='sheet-crops-only' else
-                    [str(snapshot/row['crop'])] if mode=='crop-only' else [str(snapshot/row['reference'])])
-        if mode=='full-and-crop':references.append(str(snapshot/row['crop']))
         return {'asset':asset,'submissionDigest':submission['digest'],
                 **({'materialIds':row['materialIds'],'grid':row['grid']} if row.get('kind')=='sheet' else {}),
-                'arguments':{'prompt':prompt_path.read_text(encoding='utf-8').rstrip('\n'),
-                             'referenced_image_paths':references},
+                'arguments':frozen_request_arguments(job,config,row),
                 'automaticRetries':0}
+
+
+def frozen_request_arguments(job, config, row):
+    """Replay immutable input selection without reserving or submitting a call."""
+    snapshot=(Path(job)/'snapshot').resolve()
+    prompt_path=Path(job)/'prompt-variant.txt' if 'promptVariant' in config else snapshot/row['prompt']
+    mode=config.get('referenceMode','full-and-crop')
+    references=([str(snapshot/'materials'/mid/'reference-crop.png') for mid in row['materialIds']]
+                if mode=='sheet-crops-only' else
+                [str(snapshot/row['crop'])] if mode=='crop-only' else [str(snapshot/row['reference'])])
+    if mode=='full-and-crop':references.append(str(snapshot/row['crop']))
+    return {'prompt':prompt_path.read_text(encoding='utf-8').rstrip('\n'),
+            'referenced_image_paths':references}
 
 
 def receive(job, submission_digest, source):

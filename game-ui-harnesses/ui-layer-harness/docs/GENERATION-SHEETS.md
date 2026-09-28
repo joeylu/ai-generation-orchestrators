@@ -321,6 +321,30 @@ cannot relay frozen prompt bytes reliably. This changes transport only: the
 snapshot, reference selection, request and receipt fingerprints, sheet identity
 review, material quality gates, and `ui_layer_composition_v1` remain unchanged.
 
+The optional local CLI image adapter now supplies a hash-pinned argument object
+through an invocation-only stdio MCP tool. The tool accepts no path or override,
+returns the current reserved prompt, attached-image count and explicit background
+mode once, and writes a program-owned read record before returning. It uses no
+network, model or generation capability. User/project configuration and CLI login
+are unchanged; shell, web and agent tools remain disabled in the image session.
+
+One fixed JavaScript program forwards the returned `structuredContent` directly
+to the existing built-in image tool. The model no longer transcribes the image
+prompt. Receipt collection accepts only that program's token sequence (whitespace
+outside tokens is allowed), verifies its producer source and payload hashes, the
+read record, and the arguments replayed from the frozen source. Changed data,
+extra exec calls, missing structured content or unknown transport fail closed;
+there is no automatic fallback to prompt transcription or new submission.
+Historical literal-call evidence keeps its existing prompt/transparency checks,
+including rejection of a missing closing delimiter. Old failed requests remain
+terminal and need a new frozen job and fresh authorization for any new compute.
+
+Offline coverage includes a real local stdio process and the fixed JavaScript
+with in-memory tools, using synthetic long Unicode prompts, quotes and delimiters.
+It verifies data transfer and refusal of altered evidence; it does not prove that
+a real CLI session invokes this bridge correctly or that generated art is faithful.
+Actual generation/review/extraction still require separately authorized validation.
+
 The optional experimental `review-sheet --request-id ID` operation can inspect
 one explicitly selected sheet from a complete received job, retaining identical
 receipt/hash and visual gates. Omitting the ID retains the one-request-job

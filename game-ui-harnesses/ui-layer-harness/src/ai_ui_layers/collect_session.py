@@ -4,8 +4,46 @@ import json
 import re
 from pathlib import Path
 from .evaluate import read,save,digest
-from .experimental_executor import receive, status, verified
+from .experimental_executor import receive, status, verified, load_job, frozen_request_arguments
 from .postprocess_visual import process
+from . import frozen_image_arguments as frozen_args
+
+
+def audit_relay(job, folder, request, dispatch, events, code):
+    # No expression evaluation or permissive JS parsing: one known data flow only.
+    exec_calls=[e['payload'] for e in events
+                if e.get('payload',{}).get('type')=='custom_tool_call'
+                and e['payload'].get('name') in ('exec','functions.exec')]
+    if len(exec_calls)!=1 or not frozen_args.is_relay_code(code):
+        raise ValueError('FROZEN_RELAY_CODE_CHANGED')
+    if digest(folder/'tool-request.json')!=dispatch['toolRequestSha256']:
+        raise ValueError('SESSION_REQUEST_CHANGED')
+    config,index=load_job(job)
+    row=index.get(request['asset'])
+    if row is None or request['arguments']!=frozen_request_arguments(job,config,row):
+        raise ValueError('SESSION_REQUEST_MISMATCH')
+    if row.get('kind')=='sheet':
+        if request.get('materialIds')!=row['materialIds']:
+            raise ValueError('SESSION_REQUEST_MISMATCH')
+        transparency=True
+    else:
+        matched=[a for a in read(job/'snapshot/execution-plan.candidate.json')['assets'] if a['id']==request['asset']]
+        if len(matched)!=1 or matched[0]['output_mode'] not in ('opaque_canvas','keyed_component'):
+            raise ValueError('UNKNOWN_OUTPUT_MODE')
+        transparency=matched[0]['output_mode']=='keyed_component'
+    if type(dispatch['transparentBackground']) is not bool or dispatch['transparentBackground']!=transparency:
+        raise ValueError('TRANSPARENCY_MODE_CHANGED')
+    payload=frozen_args.load_payload(folder/'frozen-image-arguments.json',dispatch['imageArgumentsSha256'])
+    expected=frozen_args.tool_arguments(request,transparency)
+    if payload['submissionDigest']!=request['submissionDigest'] or payload['arguments']!=expected:
+        raise ValueError('FROZEN_ARGUMENTS_MISMATCH')
+    issued=read(folder/'frozen-arguments-read.json')
+    if issued!=dict(kind=frozen_args.TRANSPORT,submissionDigest=request['submissionDigest'],
+                    payloadSha256=dispatch['imageArgumentsSha256'],argumentsSha256=frozen_args.fingerprint(expected)):
+        raise ValueError('FROZEN_ARGUMENTS_READ_UNVERIFIED')
+    if digest(Path(frozen_args.__file__))!=dispatch['argumentServerSha256']:
+        raise ValueError('FROZEN_ARGUMENT_SERVER_CHANGED')
+    return expected['prompt'],transparency
 
 
 def literal_prompt(code):
@@ -53,24 +91,34 @@ def collect(job, codex_home):
            and 'tools.image_gen__imagegen(' in e['payload'].get('input','')]
     if len(calls)!=1 or calls[0]['input'].count('tools.image_gen__imagegen(')!=1:raise ValueError('IMAGE_CALL_COUNT')
     code=calls[0]['input']
-    prompt=literal_prompt(code)
     dispatch=read(folder/'dispatch.json') if (folder/'dispatch.json').exists() else {}
-    if 'transparentBackground' in dispatch:
-        expected_transparency=dispatch['transparentBackground']
-        if type(expected_transparency) is not bool or literal_transparency(code)!=expected_transparency:
-            raise ValueError('TRANSPARENCY_MODE_CHANGED')
     request=read(folder/'tool-request.json')
     if request['asset']!=pending[0] or request['submissionDigest']!=submission['digest']:
         raise ValueError('SESSION_REQUEST_MISMATCH')
     expected=request['arguments']['prompt']
-    if prompt.rstrip('\n')!=expected.rstrip('\n'):raise ValueError('PROMPT_CHANGED')
-    count=len(request['arguments']['referenced_image_paths'])
-    if not re.search(r'num_last_images_to_include:\s*'+str(count)+r'\b',code):raise ValueError('REFERENCE_COUNT')
+    if dispatch.get('argumentTransport')==frozen_args.TRANSPORT:
+        prompt,transparency=audit_relay(job,folder,request,dispatch,events,code)
+    elif ('argumentTransport' in dispatch or (folder/'frozen-image-arguments.json').exists()
+          or (folder/'frozen-arguments-read.json').exists()):
+        raise ValueError('UNSUPPORTED_ARGUMENT_TRANSPORT')
+    else:
+        prompt=literal_prompt(code)
+        if 'transparentBackground' in dispatch:
+            expected_transparency=dispatch['transparentBackground']
+            if type(expected_transparency) is not bool or literal_transparency(code)!=expected_transparency:
+                raise ValueError('TRANSPARENCY_MODE_CHANGED')
+        if prompt.rstrip('\n')!=expected.rstrip('\n'):raise ValueError('PROMPT_CHANGED')
+        count=len(request['arguments']['referenced_image_paths'])
+        if not re.search(r'num_last_images_to_include:\s*'+str(count)+r'\b',code):raise ValueError('REFERENCE_COUNT')
+        transparency=dispatch.get('transparentBackground')
     images=list((home/'generated_images'/sid).glob('*.png'))
     if len(images)!=1:raise ValueError('AMBIGUOUS_OUTPUT')
-    save(folder/'image-call-audit.json',{'observedImageCalls':1,'exactPromptMatch':prompt==expected,'promptMatchIgnoringTrailingNewline':True,
-         'sessionId':sid,'sourceSha256':digest(images[0]),
-         'transparentBackgroundVerified':dispatch.get('transparentBackground') if 'transparentBackground' in dispatch else None})
+    audit={'observedImageCalls':1,'exactPromptMatch':prompt==expected,'promptMatchIgnoringTrailingNewline':True,
+           'sessionId':sid,'sourceSha256':digest(images[0]),'transparentBackgroundVerified':transparency}
+    if dispatch.get('argumentTransport')==frozen_args.TRANSPORT:
+        audit.update(argumentTransport=frozen_args.TRANSPORT,
+                     argumentsSha256=frozen_args.fingerprint(frozen_args.tool_arguments(request,transparency)))
+    save(folder/'image-call-audit.json',audit)
     received=receive(job,result['submissionDigest'],images[0])
     asset=request['asset'];raw=job/'attempts'/asset/'raw.png'
     response={'asset':asset,'job':str(job),'raw':str(raw),'sessionSeconds':result['elapsedSeconds'],

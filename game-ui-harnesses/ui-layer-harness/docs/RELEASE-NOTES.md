@@ -1,5 +1,23 @@
 # Release notes
 
+## Unreleased frozen image arguments transport
+
+- A sheet attempt lost the final closing delimiter while the CLI model retyped
+  the frozen prompt; the existing receipt gate correctly stopped it. The optional
+  CLI image adapter now obtains the unchanged prompt, attached-reference count
+  and explicit transparency flag from a hash-pinned local stdio tool, then forwards
+  its structured object with one fixed JavaScript program. The tool reads only the
+  reserved request once; it cannot select files, override inputs or generate media.
+- Receipt collection binds the program, producer, payload and read record to the
+  original frozen inputs before accepting the PNG. It rejects changed evidence,
+  extra exec calls and missing/unknown transports without falling back to text
+  transcription. Historical literal-call audits and terminal failed jobs remain
+  unchanged; generation authorization, quality gates and composition v1 are intact.
+- Offline tests use synthetic data, a real local stdio process and JavaScript tool
+  doubles, covering long Unicode/quotes/delimiters, altered inputs and no-resubmit
+  failure paths. Real CLI generation and visual fidelity remain unverified. No
+  media request, setup download, user configuration change or tag is part of this fix.
+
 ## Unreleased default generation sheets
 
 - New public `run` jobs and planning/delivery initializers default to `sheets`,

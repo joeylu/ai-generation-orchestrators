@@ -123,11 +123,14 @@ force another planning run. Missing controls, wrong ownership, substantial crop
 loss, or a distorted parent aspect remain planning blockers. Do not mark raw
 generation or recomposition visually accepted before inspecting those outputs.
 
-The CLI image-session envelope ends with the frozen image prompt itself; it has
-no closing delimiter for the model to accidentally forward into the image tool.
-Audit the actual tool-call prompt against the frozen request before receiving a
-PNG. Any extra marker or other prompt difference is terminal for that reserved
-submission, even if the image looks usable; never retry it automatically.
+New optional CLI image sessions forward a program-produced frozen argument object
+through a local data-only tool and fixed JavaScript, instead of asking the model
+to retype the image prompt. Verify the frozen source, producer/payload hashes,
+single read record and exact permitted program before receiving a PNG. Historical
+literal-call sessions retain their existing prompt audit. Any prompt or unverified
+transport difference is terminal for that reserved submission, even if the image
+looks usable; never retry it automatically. This transport change needs real-run
+validation and does not address visual redraw, missing artwork or extraction errors.
 
 A toggleable checkmark is state evidence, not an integrated functional symbol.
 An unused state material may indicate a wrongly assigned object: review ownership

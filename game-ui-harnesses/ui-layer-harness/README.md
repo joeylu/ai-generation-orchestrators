@@ -48,6 +48,10 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 以及自己的生图调用能力；桌面工具不会自动进入容器。新任务的 Codex CLI session
 统一配置为 `gpt-6-luna` / `xhigh`，见适配器代码。旧冻结任务按其原运行时指纹处理。
 不要将本地登录凭证、会话目录或样本加入分发制品。
+可选 CLI 生图适配器通过本次调用临时配置的本地参数读取工具转发冻结参数，
+模型无需重抄长提示词；接收前仍验证参数、读取记录和固定转发代码。
+它不改变生图授权或失败后禁止重投的规则，也不表示真实生图链路已验收，见
+[精确参数转发](docs/GENERATION-SHEETS.md#exact-image-call-transport)。
 
 ## 接入合同
 
