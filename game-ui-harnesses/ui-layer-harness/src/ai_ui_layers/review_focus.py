@@ -40,7 +40,8 @@ def make_small_material_focus(reference, plan, output, limit=12):
             context_box=[max(0,left-margin),max(0,top-margin),
                          min(width,right+margin),min(height,bottom+margin)]
             context=source.crop(tuple(context_box))
-            # Mark the candidate boundary outside its pixels, never erase a contour.
+            # Mark outside candidate pixels; the unmarked detail below retains
+            # original evidence even where an owned contour extends past them.
             ImageDraw.Draw(context).rectangle((left-context_box[0]-1,top-context_box[1]-1,
                 right-context_box[0],bottom-context_box[1]),outline=(255,70,210),width=1)
             for column,crop in enumerate((context,source.crop(tuple(box)))):
@@ -75,12 +76,13 @@ def make_small_material_focus(reference, plan, output, limit=12):
     if diversity<4:
         mid,box=min(selected[:limit],key=lambda row:(
             (row[1][2]-row[1][0])*(row[1][3]-row[1][1]),row[0]))
-    crop=source.crop(tuple(box))
+    context_box=next(row['contextBox'] for row in items[:limit] if row['materialId']==mid)
+    crop=source.crop(tuple(context_box))
     detail=ImageOps.contain(crop,(512,512),fit_resampling(crop.size,(512,512)))
     detail_path=output/'coverage-color-detail.png';detail.save(detail_path)
-    metadata['detail']=dict(file=detail_path.name,materialId=mid,sourceBox=box,
+    metadata['detail']=dict(file=detail_path.name,materialId=mid,sourceBox=context_box,candidateBox=box,
                             imageSha256=digest(detail_path),
-                            display='Same original crop enlarged without smoothing; no visual content added.')
+                            display='Unmarked original context enlarged; candidateBox records the proposed crop, not a mask. Context pixels keep their original ownership; no visual content added.')
     save(output/'coverage-small-materials.json',metadata)
     return metadata
 

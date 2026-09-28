@@ -267,8 +267,13 @@ These local light and dark details must not be reduced to a main-color label.
 A color-diverse crop among the first 12
 detailed small materials is attached once more as a deterministic enlarged
 original-image detail. If none meets the color threshold, the smallest crop is
-used so gray or pale pixel marks still get a close-up. It is review evidence,
-never a generated layer or program-drawn replacement.
+used so gray or pale pixel marks still get a close-up. This one detail image uses
+unmarked original context rather than the candidate crop, retaining source pixels
+outside an incorrect bound and under the contact sheet's diagnostic line. Its
+`sourceBox` and separate `candidateBox` use original pixel coordinates and are
+bound with the image digest. Context pixels do not change ownership; no bounds
+are expanded automatically. It is review evidence, never a generated layer or
+program-drawn replacement. No additional image or model call is added.
 For each observed small part, a nonempty `planEvidenceQuote` must cover its
 distinctive visible colors, highlights and marks, not merely name the overall part. An
 incomplete quote is reported as a missing-description finding for the existing

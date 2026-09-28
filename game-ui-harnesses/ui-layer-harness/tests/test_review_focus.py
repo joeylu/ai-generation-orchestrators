@@ -68,11 +68,47 @@ class ReviewFocusTests(unittest.TestCase):
             self.assertEqual(focus['detail']['materialId'],'tiny-gray')
             detail_path=root/focus['detail']['file']
             self.assertEqual(focus['detail']['imageSha256'],digest(detail_path))
+            context_box=focus['detail']['sourceBox']
+            self.assertEqual(focus['detail']['candidateBox'],[200,200,216,216])
             with Image.open(detail_path) as detail:
                 self.assertEqual(detail.size,(512,512))
-                self.assertEqual(detail.getpixel(((204-200)*32+16,(203-200)*32+16)),(245,243,230))
+                sx=detail.width/(context_box[2]-context_box[0])
+                sy=detail.height/(context_box[3]-context_box[1])
+                sample=(int((204.5-context_box[0])*sx),int((203.5-context_box[1])*sy))
+                self.assertEqual(detail.getpixel(sample),(245,243,230))
                 self.assertEqual({color for _,color in detail.getcolors(detail.width*detail.height)},
-                                 {(70,70,70),(245,243,230)})
+                                 {(18,18,18),(70,70,70),(245,243,230)})
+
+    def test_small_detail_exposes_unmarked_highlight_above_candidate_crop(self):
+        import copy
+        from ai_ui_layers.evaluate import digest
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'source.png'
+            image=Image.new('RGB',(160,160),(18,18,18));draw=ImageDraw.Draw(image)
+            draw.rectangle((60,60,80,80),fill=(45,105,65))
+            # Two pale rows lie outside the candidate; its diagnostic line
+            # would overwrite one of them in the marked context sheet.
+            draw.rectangle((68,59,72,63),fill=(245,245,240))
+            image.save(source);source_sha=digest(source)
+            plan={'materials':[{'id':'small-icon','role':'foreground',
+                                'bboxNorm':[60/160,61/160,81/160,81/160]}]}
+            original=copy.deepcopy(plan)
+            focus=make_small_material_focus(source,plan,root)
+            context_box=focus['detail']['sourceBox']
+            self.assertLessEqual(context_box[1],59)
+            self.assertEqual(focus['detail']['candidateBox'],[60,61,81,81])
+            detail_path=root/focus['detail']['file']
+            self.assertEqual(focus['detail']['imageSha256'],digest(detail_path))
+            with Image.open(detail_path) as detail:
+                sx=detail.width/(context_box[2]-context_box[0])
+                sy=detail.height/(context_box[3]-context_box[1])
+                for y in (59,60,61):
+                    sample=(int((70.5-context_box[0])*sx),int((y+.5-context_box[1])*sy))
+                    self.assertEqual(detail.getpixel(sample),(245,245,240))
+                colors={color for _,color in detail.getcolors(detail.width*detail.height)}
+                self.assertNotIn((255,70,210),colors)
+            self.assertEqual(plan,original)
+            self.assertEqual(digest(source),source_sha)
 
     def test_overflow_small_materials_keep_boundary_evidence_and_block_clipped_crop(self):
         from ai_ui_layers.evaluate import digest

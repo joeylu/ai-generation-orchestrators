@@ -1,8 +1,13 @@
 # Release notes
 
+## Unreleased unmarked small-material context detail
+
+- A portrait-inventory M2 review marked a ring crop complete even though it omitted two rows of a pale highlight. The existing extra detail only enlarged the candidate crop, and the contact-sheet boundary crossed an omitted row. The same one extra detail now enlarges unmarked original context and binds both its source extent and the proposed candidate box. Review and repair retain nearby source pixels as evidence without changing ownership, bounds or generation references. No additional image, model call or quality-gate exception is added. Offline fixtures reproduce the cropped and marked-edge blind spot and check unchanged source pixels and plan; model effectiveness remains unvalidated, and old pinned runs remain unchanged.
+
 ## Unreleased small-material light and dark detail guidance
 
-- A new portrait-inventory review and its first rereview omitted a clearly visible pale highlight from one ring's component observations, even while detecting another ring's incorrect color. The existing component-observation sentence now explicitly includes pale highlights and dark pixel details, and its evidence quote must cover those observed highlights. Detail attachments use neutral wording rather than limiting attention to colored marks. No sample-specific identity, new image, model call, schema or quality-gate exception is added; the model still owns observation accuracy, and the new wording has not yet been validated in a model run. Existing pinned runs remain unchanged.
+- A new portrait-inventory review and its first rereview omitted a clearly visible pale highlight from one ring's component observations, even while detecting another ring's incorrect color. The existing component-observation sentence now explicitly includes pale highlights and dark pixel details, and its evidence quote must cover those observed highlights. Detail attachments use neutral wording rather than limiting attention to colored marks. No sample-specific identity, new image, model call, schema or quality-gate exception is added; existing pinned runs remain unchanged.
+- A follow-up model run observed a wand-head highlight in M2 and a ring highlight and dark center dot in rereview, routing them through the existing bounded repairs. It still missed another ring's highlight and incorrectly marked a clipped crop complete. These broader observations do not demonstrate a complete safeguard or isolate the wording's effect; no generation or visual delivery is inferred from those findings.
 
 ## Unreleased graphic-envelope versus text-mask guidance
 

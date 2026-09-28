@@ -249,8 +249,9 @@ class Dag:
                 prompt=('其余小素材也附在后续页；对每个 materialId 填 smallBoundaryAudit，'
                         '只核对上下文中的完整自有轮廓是否被候选框截断，clipped 或 uncertain 必须说明原图依据。'+prompt)
             if small_focus.get('detail'):
-                prompt=('另附 '+small_focus['detail']['materialId']+' 的原图局部细节放大，'
-                        '先检查各部件内部的明暗点纹和印记；它只提供更多观察像素，不改变归属。'+prompt)
+                detail=small_focus['detail']
+                prompt=('另附 '+detail['materialId']+' 的无标记原图上下文放大，原图像素范围 '+str(detail['sourceBox'])+
+                        '，候选框 '+str(detail['candidateBox'])+'。核对候选框内外的完整自有轮廓及明暗点纹；邻近像素不改变归属。'+prompt)
         if focus:
             save(p/'focus-meta.json',focus)
             prompt=('先核对下列局部证据：近边固定装饰的完整轮廓，或重复对齐卡片各自闭合边框的真实四边与归属。局部附件左半是干净原图、右半是同坐标标框叠图；若有同行高度候选边，它们只是寻找轮廓的搜索点，不是自动改框坐标。区分卡片自身闭合边框与相邻容器的分隔线，只按可见连接判断；对齐比较本身不是缺陷，也不要因其他小告警跳过这一检查：'+json.dumps(focus,ensure_ascii=False)+'\n'+prompt)
@@ -337,7 +338,7 @@ class Dag:
         if focus:prompt+='\n上一轮边界局部证据继续随附件提供：'+json.dumps(focus,ensure_ascii=False)
         if small_focus:
             prompt+='\n上一轮小素材原图放大证据继续随附件提供。'
-            if detail:prompt+=' 局部细节放大对应 '+detail['materialId']+'。'
+            if detail:prompt+=' 无标记原图上下文放大对应 '+detail['materialId']+'，邻近像素不改变归属。'
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
         names=['schema.json','prompt.md','review-overlay.png','source-context.json']
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
