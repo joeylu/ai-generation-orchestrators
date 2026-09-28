@@ -237,10 +237,10 @@ class Dag:
             prompt=('小素材附件每项左侧为原图上下文（粉框标候选裁片），右侧为无标记裁片；两侧独立等比放大。'
                     '先核对完整自有轮廓是否被框截断，boundary.status 填 complete/clipped/uncertain，evidence 说明原图依据；裁片外像素不自动属于此素材。'
                     '按第一页的每个 materialId 填 smallMaterialAudit，'
-                    '先只按原图逐一列出图标内每个可辨认的组成部分，并在 observedAppearance 写清外形、颜色、'
-                    '表面印记或“无可辨印记”；小型附属道具和被部分遮挡的部分也要列出，不能因物体名称不确定而省略彩色点纹。'
+                    '先只按原图逐一列出图标内每个可辨认的组成部分，并在 observedAppearance 写清外形、颜色、浅色高光、暗色细点、'
+                    '表面印记或“无可辨印记”；小型附属道具和被部分遮挡的部分也要列出，不能因物体名称不确定而省略局部明暗点纹。'
                     '每个 visiblePart 的 planEvidenceQuote 必须逐字摘自该素材或其对象的现有 label，'
-                    '且覆盖 observedAppearance 中该部件的显著色点和印记；只写部件名称或部分颜色不算覆盖。'
+                    '且覆盖 observedAppearance 中该部件的显著色点、高光和印记；只写部件名称或部分颜色不算覆盖。'
                     '没有对应描述就填空字符串，并给出局部 suggestedChange，'
                     '已覆盖的部件 suggestedChange 填“无需修改”；'
                     '程序会将空引文或不存在的引文转为修补阻断。不能用整体名称冒充内部部件的证据。'
@@ -249,8 +249,8 @@ class Dag:
                 prompt=('其余小素材也附在后续页；对每个 materialId 填 smallBoundaryAudit，'
                         '只核对上下文中的完整自有轮廓是否被候选框截断，clipped 或 uncertain 必须说明原图依据。'+prompt)
             if small_focus.get('detail'):
-                prompt=('另附 '+small_focus['detail']['materialId']+' 的原图彩色局部放大，'
-                        '先检查各部件内部的色点和印记；它只提供更多观察像素，不改变归属。'+prompt)
+                prompt=('另附 '+small_focus['detail']['materialId']+' 的原图局部细节放大，'
+                        '先检查各部件内部的明暗点纹和印记；它只提供更多观察像素，不改变归属。'+prompt)
         if focus:
             save(p/'focus-meta.json',focus)
             prompt=('先核对下列局部证据：近边固定装饰的完整轮廓，或重复对齐卡片各自闭合边框的真实四边与归属。局部附件左半是干净原图、右半是同坐标标框叠图；若有同行高度候选边，它们只是寻找轮廓的搜索点，不是自动改框坐标。区分卡片自身闭合边框与相邻容器的分隔线，只按可见连接判断；对齐比较本身不是缺陷，也不要因其他小告警跳过这一检查：'+json.dumps(focus,ensure_ascii=False)+'\n'+prompt)
@@ -337,7 +337,7 @@ class Dag:
         if focus:prompt+='\n上一轮边界局部证据继续随附件提供：'+json.dumps(focus,ensure_ascii=False)
         if small_focus:
             prompt+='\n上一轮小素材原图放大证据继续随附件提供。'
-            if detail:prompt+=' 彩色局部放大对应 '+detail['materialId']+'。'
+            if detail:prompt+=' 局部细节放大对应 '+detail['materialId']+'。'
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
         names=['schema.json','prompt.md','review-overlay.png','source-context.json']
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]

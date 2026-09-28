@@ -1,8 +1,13 @@
 # Release notes
 
+## Unreleased small-material light and dark detail guidance
+
+- A new portrait-inventory review and its first rereview omitted a clearly visible pale highlight from one ring's component observations, even while detecting another ring's incorrect color. The existing component-observation sentence now explicitly includes pale highlights and dark pixel details, and its evidence quote must cover those observed highlights. Detail attachments use neutral wording rather than limiting attention to colored marks. No sample-specific identity, new image, model call, schema or quality-gate exception is added; the model still owns observation accuracy, and the new wording has not yet been validated in a model run. Existing pinned runs remain unchanged.
+
 ## Unreleased graphic-envelope versus text-mask guidance
 
-- A new portrait-inventory planning run caught a ring highlight in its first review, but stopped at the second repair because it could not tighten lower-tool auxiliary rectangles to exclude adjacent numbers without clipping the tools. No final rereview, freeze, generation or delivery was produced. The new concise M2/repair guidance distinguishes axis-aligned graphic envelopes from text-removal masks: unavoidable text in their internal gaps alone is not a reason to shrink them. External-label padding still needs correction, necessary locators remain required, and actual text removal and contour fidelity still need post-generation review. No gate, severity, repair cap, old result or authorization changes; the clarification has not yet been validated in a new model run.
+- A new portrait-inventory planning run caught a ring highlight in its first review, but stopped at the second repair because it could not tighten lower-tool auxiliary rectangles to exclude adjacent numbers without clipping the tools. No final rereview, freeze, generation or delivery was produced. The new concise M2/repair guidance distinguishes axis-aligned graphic envelopes from text-removal masks: unavoidable text in their internal gaps alone is not a reason to shrink them. External-label padding still needs correction, necessary locators remain required, and actual text removal and contour fidelity still need post-generation review. No gate, severity, repair cap, old result or authorization changes.
+- A follow-up run on the same reference reached freeze after two bounded repairs and six planning calls, without the lower-tool text conflict. Its M1 plan differed, so this is not isolated proof of the guidance's effect. Review still missed a pale icon highlight; no generation, layer extraction or visual delivery was performed.
 
 ## Unreleased read-only repeated-slot source audit
 

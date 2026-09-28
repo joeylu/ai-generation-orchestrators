@@ -261,14 +261,16 @@ plan, including each repaired candidate. Repeated-finding checks use the prior
 review's own plan. Explicit child revisions apply the same derived blockers to
 parent eligibility, permitted patch scope and final freeze; an empty top-level
 `issues` list cannot override an unmatched small-material quote.
-The component observation includes visible shape, color and surface marks before
-the reviewer assigns an object name. A color-diverse crop among the first 12
+The component observation includes visible shape, color, pale highlights, dark
+pixel details and surface marks before the reviewer assigns an object name.
+These local light and dark details must not be reduced to a main-color label.
+A color-diverse crop among the first 12
 detailed small materials is attached once more as a deterministic enlarged
 original-image detail. If none meets the color threshold, the smallest crop is
 used so gray or pale pixel marks still get a close-up. It is review evidence,
 never a generated layer or program-drawn replacement.
 For each observed small part, a nonempty `planEvidenceQuote` must cover its
-distinctive visible colors and marks, not merely name the overall part. An
+distinctive visible colors, highlights and marks, not merely name the overall part. An
 incomplete quote is reported as a missing-description finding for the existing
 bounded repair path; the program still checks only exact quote presence, so
 the model's semantic judgment remains subject to visual review.
