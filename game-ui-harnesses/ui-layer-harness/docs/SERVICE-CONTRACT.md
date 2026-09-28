@@ -282,6 +282,14 @@ same bounded repair path. No bounds are automatically changed. This changes the
 runtime fingerprint for new runs only, not public CLI/status/composition fields.
 Additional pages increase review image input but do not add planning calls.
 
+Review and repair prompts distinguish axis-aligned graphic envelopes from text
+removal masks. Ordinary glyphs in unavoidable gaps inside a correct material or
+auxiliary-object envelope alone do not justify shrinking it and clipping artwork.
+Avoidable bounds expanded by external labels still need correction, and required
+internal locators must not be cleared to evade review. Actual text removal and
+complete contours still require post-generation review or visual acceptance.
+This clarifies planning evidence; no blocker code, severity or repair limit changes.
+
 Planning category `cosmetic` is advisory only with code `MINOR_COLOR_TONE` or
 `DESCRIPTION_WORDING`. Unknown cosmetic codes fail closed. Missing/duplicate
 artwork, ownership/state changes, substantial wrong colors and clipping remain

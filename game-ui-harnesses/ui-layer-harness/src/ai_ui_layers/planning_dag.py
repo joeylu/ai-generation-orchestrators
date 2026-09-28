@@ -24,6 +24,9 @@ GRAPH={'m1':[], 'check':['m1'], 'm2':['check'], 'repair':['m2'],
        'repair_check':['repair'], 'rereview':['repair_check'],
        'repair2':['rereview'], 'repair_check2':['repair2'], 'rereview2':['repair_check2'],
        'freeze':['m2','rereview','rereview2']}
+BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包围框，不是去字遮罩。'
+                   '轮廓极值内不可避免的空隙含普通文字，不单独作为缩框依据；不得为避字截断图形，必要内部定位框不得置空。'
+                   '仅文字撑大的可避免边界仍须收紧；去字效果与完整轮廓仍须生成后审查或验收。\n')
 
 
 def runtime_files():
@@ -225,7 +228,7 @@ class Dag:
         schema={'type':'object','additionalProperties':False,'required':required,
                 'properties':properties}
         save(p/'schema.json',schema)
-        prompt=build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan))
+        prompt=BOX_TEXT_GUIDANCE+build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan))
         if name.startswith('rereview'):
             prior=self.root/('parent-review' if (self.root/'revision.json').exists() else 'm2' if name=='rereview' else 'rereview')/'draft.json'
             prompt+='\n先核销上轮问题；仍检查完整候选。新增阻断必须给原图证据，不能只换措辞重复问题。上轮问题：'+json.dumps(read(prior),ensure_ascii=False)
@@ -316,7 +319,7 @@ class Dag:
                 {'file':small_metadata['file']}])]
             for name in ['coverage-small-materials.json',*small_files,*([detail['file']] if detail else [])]:
                 (p/name).write_bytes((review_dir/name).read_bytes())
-        prompt=('继续同一会话，按 M2 与程序问题仅修补一次，不重写整个计划、不调用工具。'
+        prompt=BOX_TEXT_GUIDANCE+('继续同一会话，按 M2 与程序问题仅修补一次，不重写整个计划、不调用工具。'
                 'materials/objects.upsert 为新增或替换的完整记录，remove 为删除 ID，保留无关记录。'
                 'unknowns/backgroundMode/textPolicy 为 null 时沿用，preserveText 在对应素材记录内修订。'
                 '对 UNASSIGNED_VISIBLE_ARTWORK，先核对原图；确有遗漏时补齐所属材料与对象的可见内容描述，必要时新增对象或材料，不靠缩框或改 unknowns 掩盖。'

@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased graphic-envelope versus text-mask guidance
+
+- A new portrait-inventory planning run caught a ring highlight in its first review, but stopped at the second repair because it could not tighten lower-tool auxiliary rectangles to exclude adjacent numbers without clipping the tools. No final rereview, freeze, generation or delivery was produced. The new concise M2/repair guidance distinguishes axis-aligned graphic envelopes from text-removal masks: unavoidable text in their internal gaps alone is not a reason to shrink them. External-label padding still needs correction, necessary locators remain required, and actual text removal and contour fidelity still need post-generation review. No gate, severity, repair cap, old result or authorization changes; the clarification has not yet been validated in a new model run.
+
 ## Unreleased read-only repeated-slot source audit
 
 - An optional offline diagnostic now requires two pixel-identical empty slots, a flat interior and exact occupied-frame matches before reporting small-icon crop omissions or a candidate for later visual review. It reports uncertain fill, frame overlap and inner-edge ownership separately. All results state that source alpha is underdetermined; no cutout, plan repair, package or generation request is produced. The existing strict DAG and frozen jobs are unchanged.
