@@ -1,5 +1,22 @@
 # Release notes
 
+## Unreleased terminal transport diagnostics
+
+- New CLI failures retain the existing stopped state and nonzero exit, and add
+  `failureDetails` for the optional CLI adapter's transport failures. Planning
+  status adds `modelCallFailures` keyed by stage. Safe codes distinguish the
+  recorded timeout, process start, invalid event stream, CLI exit, missing final
+  receipt and unexpected model events; bounded numeric facts exclude raw messages,
+  paths, session IDs and endpoints. Recovered notices alone do not imply failure.
+- Timeout or interrupted JSONL parsing now retains a program-written terminal
+  receipt and the unchanged raw stream. Invalid events still fail closed. The
+  existing 900-second limit, same session, model, instructions, call ceiling and
+  no-resubmit policy remain unchanged; these diagnostics do not infer a timeout's
+  root cause or improve model fidelity by themselves.
+- Offline process doubles cover truncated timeout receipts, start failures,
+  recovery, safe public output and blocked replay. Existing pinned runs require
+  their original runtime; no old receipt, authorization or release tag is changed.
+
 ## Unreleased exact-ID planning audits
 
 - New detailed and overflow boundary audits use required material IDs as JSON

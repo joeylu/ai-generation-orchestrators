@@ -5,6 +5,18 @@
 退出码 0 表示命令完成或正常等待，不等于视觉通过；非零表示本次命令失败。
 不直接调用内部 Python 函数，内部 M1/M2 文件不作为 Web 合同。
 
+可选 CLI 适配器的新传输失败响应附加 `failureDetails`；规划 status 可附加
+`modelCallFailures`，按 M1/M2/修补/复审阶段名称索引同一诊断对象。
+`failureCode` 区分 TIMEOUT_NO_RETRY、PROCESS_START_FAILED、INVALID_MODEL_EVENTS、
+CLI_EXIT_FAILED、NO_FINAL_MODEL_RECEIPT、UNEXPECTED_MODEL_EVENTS；未知传输原因
+统一为 TRANSPORT_OR_ISOLATION_FAILURE，不输出原始消息。诊断还可含已记录的
+elapsedSeconds、timeoutSeconds、exitCode、turnCompleted 和 transportNotices。
+字段只暴露类型核验后的数字和布尔值，不含路径、会话、端点或 stderr。
+已恢复的连接通知本身不算失败；超时仅说明未在截止前取得有效完成回执，不证明根因。
+原状态名、非零退出、900 秒上限和失败后禁止重投不变。
+半条或无效事件流仍阻断，保留原始字节并写失败回执，不截断或修复日志。
+本补充仅作用于新固定运行时；旧任务与授权保持原样，不用新代码恢复旧失败任务。
+
 ## 输入与任务寿命
 
 简单滑块等素材可由用户确认后在新规划中声明 `adaptationPolicy: simple-strip`；

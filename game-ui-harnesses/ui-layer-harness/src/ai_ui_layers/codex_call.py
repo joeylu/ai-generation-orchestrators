@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -100,6 +101,31 @@ def inspect_events(path):
                 violations.append('unexpected_item:'+kind)
     return {'eventCounts': counts, 'usage': usage, 'turnCompleted': completed,
             'unexpectedEvents': sorted(set(violations)), 'transportNotices':transport_notices}
+
+
+def transport_failure_details(receipt):
+    """Expose bounded facts, never raw CLI messages, paths or an inferred cause."""
+    failure=receipt.get('failure')
+    if failure in ('TIMEOUT_NO_RETRY','PROCESS_START_FAILED','INVALID_MODEL_EVENTS'):
+        code=failure
+    elif failure:
+        code='TRANSPORT_OR_ISOLATION_FAILURE'
+    elif receipt.get('unexpectedEvents'):
+        code='UNEXPECTED_MODEL_EVENTS'
+    elif receipt.get('exitCode')!=0:
+        code='CLI_EXIT_FAILED'
+    elif receipt.get('turnCompleted') is not True:
+        code='NO_FINAL_MODEL_RECEIPT'
+    else:
+        return None
+    result={'failureCode':code,'turnCompleted':receipt.get('turnCompleted') is True}
+    for key in ('exitCode','transportNotices','timeoutSeconds'):
+        value=receipt.get(key)
+        if type(value) is int and (key=='exitCode' or value>=0):result[key]=value
+    seconds=receipt.get('elapsedSeconds')
+    if type(seconds) in (int,float) and math.isfinite(seconds) and seconds>=0:
+        result['elapsedSeconds']=seconds
+    return result
 
 
 def main():

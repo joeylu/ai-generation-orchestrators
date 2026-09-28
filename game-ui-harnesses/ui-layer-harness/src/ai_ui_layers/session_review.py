@@ -10,7 +10,7 @@ import time
 import uuid
 
 from jsonschema import Draft202012Validator
-from .codex_call import command, inspect_events, save, sha, transport_schema, CLI_MODEL, CLI_EFFORT
+from .codex_call import command, inspect_events, save, sha, transport_schema, transport_failure_details, CLI_MODEL, CLI_EFFORT
 from .evaluate import read, check_relations, render
 from .local_patch import patch_schema, merge_patch
 
@@ -41,23 +41,37 @@ def resume_command(exe, folder, cwd, sid):
             '--output-last-message', str(folder/'draft.json'), sid, '-']
 
 
+class TransportFailure(ValueError):
+    def __init__(self, receipt):
+        super().__init__('TRANSPORT_OR_ISOLATION_FAILURE')
+        self.details=transport_failure_details(receipt)
+
+
 def invoke(args, folder, cwd, prompt):
     start = datetime.now(timezone.utc).isoformat(); before = time.perf_counter()
     save(folder/'dispatch.json', {'startedAt':start})
-    result = {'startedAt':start, 'productionReady':False,'humanVisualAcceptance':False}
+    result = {'startedAt':start, 'productionReady':False,'humanVisualAcceptance':False,'timeoutSeconds':900}
     with (folder/'events.jsonl').open('xb') as events, (folder/'stderr.log').open('xb') as errors:
-        process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=events, stderr=errors, cwd=cwd)
         try:
-            process.communicate(prompt.encode('utf-8'), timeout=900)
-        except subprocess.TimeoutExpired:
-            process.kill(); process.communicate(); result['failure']='TIMEOUT_NO_RETRY'
-        result['exitCode']=process.returncode
+            process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=events, stderr=errors, cwd=cwd)
+        except OSError:
+            result.update(failure='PROCESS_START_FAILED',exitCode=None)
+        else:
+            try:
+                process.communicate(prompt.encode('utf-8'), timeout=900)
+            except subprocess.TimeoutExpired:
+                process.kill(); process.communicate(); result['failure']='TIMEOUT_NO_RETRY'
+            result['exitCode']=process.returncode
     result.update(elapsedSeconds=time.perf_counter()-before, finishedAt=datetime.now(timezone.utc).isoformat())
-    result.update(inspect_events(folder/'events.jsonl'))
+    try:
+        result.update(inspect_events(folder/'events.jsonl'))
+    except (ValueError,TypeError,AttributeError):
+        # A killed stream can end mid-record. Preserve its bytes and fail closed.
+        result.setdefault('failure','INVALID_MODEL_EVENTS')
+        result.update(turnCompleted=False,unexpectedEvents=['invalid_event_log'])
     if (folder/'draft.json').exists(): result['responseSha256']=sha(folder/'draft.json')
     save(folder/'transport.json',result)
-    if result.get('failure') or result['exitCode'] or not result['turnCompleted'] or result['unexpectedEvents']:
-        raise ValueError('TRANSPORT_OR_ISOLATION_FAILURE')
+    if transport_failure_details(result):raise TransportFailure(result)
     return result
 
 

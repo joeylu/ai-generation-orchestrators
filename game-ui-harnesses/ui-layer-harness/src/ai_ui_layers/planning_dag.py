@@ -9,14 +9,14 @@ import tempfile
 import time
 from jsonschema import Draft202012Validator
 from PIL import Image
-from .codex_call import command, transport_schema, CLI_MODEL, CLI_EFFORT
+from .codex_call import command, transport_schema, transport_failure_details, CLI_MODEL, CLI_EFFORT
 from .compile_visual import HARNESS
 from .evaluate import read, save, digest, check_relations
 from .freeze_visual import freeze, inspect
 from .local_patch import patch_schema, merge_patch
 from .review_focus import make_focus, make_small_material_focus
 from .planning_review_policy import split, signatures, REGIONS, audit_rows
-from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review
+from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure
 
 BASE=HARNESS/'planning-harness'
 REPO=Path(__file__).resolve().parents[4]
@@ -144,8 +144,10 @@ class Dag:
                 'outputs':{k:v for k,v in after.items() if before.get(k)!=v}})
             print(json.dumps({'node':name,'status':'completed','seconds':time.perf_counter()-start}),flush=True)
         except Exception as exc:
-            save(state/'failed.json',{'node':name,'seconds':time.perf_counter()-start,
-                 'error':type(exc).__name__+': '+str(exc),'automaticRetry':False})
+            record={'node':name,'seconds':time.perf_counter()-start,
+                    'error':type(exc).__name__+': '+str(exc),'automaticRetry':False}
+            if isinstance(exc,TransportFailure):record['failureDetails']=exc.details
+            save(state/'failed.json',record)
             raise
 
     def folder(self,name):
@@ -414,6 +416,8 @@ class Dag:
         records=[read(p) for p in (self.root/'.dag').glob('*/done.json')]
         model_times={name:read(self.root/name/'transport.json')['elapsedSeconds']
                      for name in ('m1','m2','repair','rereview','repair2','rereview2') if (self.root/name/'transport.json').exists()}
+        model_failures={name:details for name in model_times
+                        if (details:=transport_failure_details(read(self.root/name/'transport.json')))}
         result={'kind':'ui_planning_dag_status_v1','status':'frozen' if completed else 'incomplete','nodes':nodes,
                 'failures':{p.parent.name:read(p)['error'] for p in (self.root/'.dag').glob('*/failed.json')},
                 'nodeSeconds':{r['node']:r['seconds'] for r in records},'mediaGenerationCalls':0,
@@ -423,6 +427,7 @@ class Dag:
                 'humanVisualAcceptance':False,'automaticRetries':0,'runtimeAndInputsVerified':True,
                 'interventionTracking':'Pinned inputs/code and checkpoint integrity; external use of the model session is not independently audited.'}
         result['reviewWarnings']={name:split(read(self.root/name/'draft.json'))[1] for name in ('m2','rereview','rereview2') if (self.root/name/'draft.json').exists()}
+        if model_failures:result['modelCallFailures']=model_failures
         if completed:result['snapshotDigest']=inspect(self.root/'frozen')['digest']
         return result
 
@@ -437,7 +442,9 @@ def main():
     dag=Dag(a.output)
     try:result=dag.status() if a.action=='status' else dag.execute()
     except Exception as exc:
-        print(json.dumps({'status':'stopped','reason':str(exc),'automaticRetry':False},ensure_ascii=False));raise SystemExit(1)
+        result={'status':'stopped','reason':str(exc),'automaticRetry':False}
+        if isinstance(exc,TransportFailure):result['failureDetails']=exc.details
+        print(json.dumps(result,ensure_ascii=False));raise SystemExit(1)
     print(json.dumps(result,ensure_ascii=False,indent=2))
 
 

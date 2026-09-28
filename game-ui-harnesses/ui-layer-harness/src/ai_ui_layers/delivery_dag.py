@@ -14,6 +14,7 @@ from .layer_package import build, sources_from_preview, validate_archive
 from .extract_sheets import extract
 from .adapt_strip import adapt_materials
 from .review_single_job import run as review_single_job
+from .session_review import TransportFailure
 
 GRAPH = {'planning': [], 'prepare': ['planning'], 'raw_complete': ['prepare'],
          'registration': ['raw_complete'], 'package': ['registration']}
@@ -292,7 +293,9 @@ def main():
                 else: result = exchange.fail(job,a.submission_digest,a.reason)
         print(json.dumps(result,ensure_ascii=False,indent=2))
     except Exception as exc:
-        print(json.dumps(dict(status='stopped',reason=str(exc),automaticRetry=False),ensure_ascii=False))
+        result=dict(status='stopped',reason=str(exc),automaticRetry=False)
+        if isinstance(exc,TransportFailure):result['failureDetails']=exc.details
+        print(json.dumps(result,ensure_ascii=False))
         raise SystemExit(1)
 
 
