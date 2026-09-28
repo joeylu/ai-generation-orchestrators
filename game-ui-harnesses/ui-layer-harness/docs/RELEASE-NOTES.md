@@ -1,5 +1,20 @@
 # Release notes
 
+## Unreleased explicit review stage
+
+- The shared review source placed adaptation eligibility and repeated-card contour
+  attribution after its repair section, so heading-based selection omitted those
+  rules from M2 and rereview. Existing paragraphs now move unchanged into one
+  explicitly marked review stage; repair instructions remain outside it.
+- The review builder reads that stage without its markers and rejects malformed,
+  duplicate, reversed, empty or mixed repair boundaries before dispatch. Historical
+  unmarked sources retain heading selection; pinned old runs are not rewritten.
+  The full plan, image evidence, schemas, quality gates and call limits are unchanged.
+- Offline fixtures reproduce the omitted rules and verify complete stage delivery
+  in M2 and rereview, repair exclusion and boundary failure. This fixes stage
+  selection rather than reducing instruction text; it adds no new semantic rule,
+  model call or retry. Real model impact remains unvalidated.
+
 ## Unreleased compact rereview history
 
 - Rereviews carry every prior blocker and cosmetic warning derived by the existing

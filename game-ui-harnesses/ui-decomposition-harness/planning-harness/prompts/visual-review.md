@@ -7,6 +7,8 @@
 
 ## 第一步：检查
 
+<!-- ui-review-checks:begin -->
+
 围绕当前计划检查重要素材是否漏掉、是否错误合并或过度拆分、框是否明显裁掉
 目标及其固定突出装饰、层级是否违反可见遮挡。遵循 M1 的控件、内容和可见状态边界原则。
 先把干净原图按三行三列逐区核对。按 top/middle/bottom × left/center/right 的顺序，
@@ -83,6 +85,12 @@ cosmetic 仅限 MINOR_COLOR_TONE（不改变身份/状态的轻微色调差异�
 宿主保留原计划并记录实际检查结果；结构通过本身不代表视觉检查通过。
 程序问题由程序绑定源摘要；不能凭空推测用户另有独立编辑要求。
 
+Material adaptationPolicy defaults to preserve. With explicit user permission, simple-strip applies only to a plain one-decoration thumb/fill/line without lettering or attached ornaments and target long/short ratio at least 4. Horizontal-frame-slice applies only to a wide card/panel frame (width/height at least 3) owning one frame object plus optional bounded end decorations, whose middle contains only stretchable paper/straight border; reject fixed symbols, portraits, integrated buttons, center decoration or retained lettering crossing the middle. Verify eligibility visually, including the likely slice boundaries; uncertainty stays preserve. Resampling never repairs missing detail or converts a failed raw review into a pass.
+
+核对重复卡片比例时，先定位各自闭合边框的可见连接；规划框是定位范围，不等于实测轮廓。报告比例问题须指出上下左右边界，区分周边留白、邻属容器分隔线和附着装饰；框与真实归属不一致应归因为规划/定位问题，不直接判为生成变形。
+
+<!-- ui-review-checks:end -->
+
 ## 第二步：仅在存在需修订的问题时
 
 宿主提供当前源计划、明确问题及相关局部图（如需局部图，必须附原图坐标映射）。
@@ -91,7 +99,3 @@ cosmetic 仅限 MINOR_COLOR_TONE（不改变身份/状态的轻微色调差异�
 的完整新计划，校验引用和层级并复核受影响区域。不得自动把修改成功当作验收成功。
 
 复核记录由程序绑定原图、目标、源与新计划指纹及证据，模型不编造回执或哈希。
-
-Material adaptationPolicy defaults to preserve. With explicit user permission, simple-strip applies only to a plain one-decoration thumb/fill/line without lettering or attached ornaments and target long/short ratio at least 4. Horizontal-frame-slice applies only to a wide card/panel frame (width/height at least 3) owning one frame object plus optional bounded end decorations, whose middle contains only stretchable paper/straight border; reject fixed symbols, portraits, integrated buttons, center decoration or retained lettering crossing the middle. Verify eligibility visually, including the likely slice boundaries; uncertainty stays preserve. Resampling never repairs missing detail or converts a failed raw review into a pass.
-
-核对重复卡片比例时，先定位各自闭合边框的可见连接；规划框是定位范围，不等于实测轮廓。报告比例问题须指出上下左右边界，区分周边留白、邻属容器分隔线和附着装饰；框与真实归属不一致应归因为规划/定位问题，不直接判为生成变形。

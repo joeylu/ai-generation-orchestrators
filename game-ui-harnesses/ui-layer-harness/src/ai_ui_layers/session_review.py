@@ -63,7 +63,17 @@ def invoke(args, folder, cwd, prompt):
 
 def build_review_prompt(source, issues):
     # One maintained source for review rules; do not dispatch repair-stage instructions.
-    checks = source.split('## 第一步：检查', 1)[1].split('## 第二步', 1)[0].strip()
+    begin='<!-- ui-review-checks:begin -->';end='<!-- ui-review-checks:end -->'
+    if '<!-- ui-review-checks:' in source:
+        if (source.count('<!-- ui-review-checks:')!=2 or source.count(begin)!=1 or
+                source.count(end)!=1 or source.index(begin)>source.index(end)):
+            raise ValueError('REVIEW_STAGE_BOUNDARY_REQUIRED')
+        checks=source.split(begin,1)[1].split(end,1)[0].strip()
+        if not checks or '## 第二步' in checks:
+            raise ValueError('REVIEW_STAGE_BOUNDARY_INVALID')
+    else:
+        # Retain the historical heading contract for unmarked sources.
+        checks=source.split('## 第一步：检查',1)[1].split('## 第二步',1)[0].strip()
     return ('继续上一轮 M1 的同一份计划，仅执行 M2 问题检查，不执行修补。'
             '原图、拆分目标、规划规则和计划沿用会话历史。'
             '附件为干净完整原图（如提供）和区域叠图；先看原图再用叠图定位，编号和框线不是图形边缘。'
