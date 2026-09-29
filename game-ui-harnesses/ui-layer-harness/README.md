@@ -66,6 +66,9 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 [素材板合同](docs/GENERATION-SHEETS.md)。需要逐素材生成时显式传 `--generation-mode single`。
 新任务可显式传 `--generation-reference context-crops`，使用有指纹的外扩局部参考和对应生成提示词；背景仍用整图，合板最多四份素材。缺省仍为 `full`，旧快照和授权不转换。见[局部参考合同](docs/CONTEXT-REFERENCES.md)。
 最终图层仍各自独立；旧任务沿用其冻结模式，不因新默认值改变。
+背景局部修正可先离线冻结显式编辑区与混合权重，再将同画布不透明候选合成到该区域；
+保护区原像素必须完全不变。它不识别遮挡、不生图、不解除旧任务阻断，结果仍待视觉审查，
+见[背景区域合同](docs/BACKGROUND-REGIONS.md)。
 用户确认并经 M2 复核的宽卡片/面板框可用显式[横向框体适配](docs/HORIZONTAL-FRAME-SLICE.md)，
 四角保持等比，仅缩放无固定细节的中段；默认素材仍保持原比例。
 Docker 项目负责服务封装；Web 消费该服务 API 和公开图层包；本仓库不规定 HTTP 路由。

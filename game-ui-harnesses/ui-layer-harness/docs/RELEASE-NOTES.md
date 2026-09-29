@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased explicit background regions
+
+- Add optional offline freezing, inspection and application of explicit background
+  edit regions and proposal weights. Protected original pixels remain bit-exact;
+  same-canvas opaque inputs, color profiles, region semantics and hashes are
+  validated. No region is inferred from material boxes.
+- Retain original and proposal bytes and produce a candidate pending visual
+  review. No model/image call, implicit feathering, old-DAG promotion or packaging
+  is introduced. Existing generation authorization and stop rules stay intact.
+- Offline fixtures cover weighted composition and invalid/tampered inputs; real
+  region coverage, seams and background fidelity still require visual acceptance.
+  See [the region contract](BACKGROUND-REGIONS.md). No release tag is created.
+
 ## Unreleased compact planning and frozen context references
 
 - Consolidate M1/M2 wording while preserving visual ownership, state, contour,

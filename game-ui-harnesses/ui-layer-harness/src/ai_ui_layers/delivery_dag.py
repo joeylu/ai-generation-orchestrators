@@ -180,8 +180,16 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','next','receive','fail','preview-groups','freeze-reviewed','finish-received','finish-bundle','finish-variants','adjust-opacity'])
+    p.add_argument('action', choices=['run','resume','status','authorize','next','receive','fail','preview-groups','freeze-reviewed','finish-received','finish-bundle','finish-variants','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
     p.add_argument('--source-sha256')
+    p.add_argument('--edit-mask',help='Explicit binary L PNG allowed-edit region; not inferred from material boxes')
+    p.add_argument('--edit-mask-sha256')
+    p.add_argument('--blend-mask',help='Explicit L PNG proposal weights; zero outside the allowed-edit region')
+    p.add_argument('--blend-mask-sha256')
+    p.add_argument('--background-mode',choices=['scene-only','preserve-underlay'])
+    p.add_argument('--text-policy',choices=['remove-business-text'])
+    p.add_argument('--region-plan',help='Frozen background region directory for deterministic proposal application')
+    p.add_argument('--region-digest',help='Expected background region plan digest')
     p.add_argument('--opacity',type=float,help='Explicit multiplier for existing alpha, greater than 0 and at most 1')
     p.add_argument('--received-job',help='Complete received image job for explicit postprocessing or review-required variant packaging')
     p.add_argument('--received-source',action='append',help='For finish-bundle: ASSET=RECEIVED_JOB, repeated once per frozen singleton request')
@@ -206,6 +214,25 @@ def main():
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.action=='freeze-background-region':
+            required=('source','source_sha256','edit_mask','edit_mask_sha256','blend_mask','blend_mask_sha256','background_mode','text_policy','reason')
+            if any(not getattr(a,key) for key in required):
+                p.error('source and mask paths/SHA-256, --background-mode, --text-policy and --reason required')
+            from .background_region import freeze as freeze_region
+            result=freeze_region(a.source,a.source_sha256,a.edit_mask,a.edit_mask_sha256,
+                                 a.blend_mask,a.blend_mask_sha256,a.output,a.background_mode,a.text_policy,a.reason)
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
+        if a.action=='inspect-background-region':
+            if not a.region_digest:p.error('--region-digest required; --output identifies the frozen region directory')
+            from .background_region import inspect as inspect_region
+            result=inspect_region(a.output,a.region_digest)
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
+        if a.action=='apply-background-region':
+            if not all((a.region_plan,a.region_digest,a.source,a.source_sha256)):
+                p.error('--region-plan, --region-digest, --source and --source-sha256 required')
+            from .background_region import apply as apply_region
+            result=apply_region(a.region_plan,a.region_digest,a.source,a.source_sha256,a.output)
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action=='adjust-opacity':
             if not a.source or not a.source_sha256 or a.opacity is None or not a.reason:
                 p.error('--source, --source-sha256, --opacity and --reason required')

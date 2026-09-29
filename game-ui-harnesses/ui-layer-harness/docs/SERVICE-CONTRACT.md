@@ -93,6 +93,16 @@ evidence 文句把阻断改为成功。先从干净原图清点重复组全部�
 
 ## CLI 操作
 
+### 显式背景编辑区域
+
+可选离线命令 `freeze-background-region` 冻结原图、二值许可区、连续混合权重及其摘要；
+`inspect-background-region` 只读重验；`apply-background-region` 将同尺寸不透明候选应用到
+许可区，保护区逐像素保持不变。区域由调用方明确提供，不从素材 bbox 推断真实遮挡。
+无新模型、生图、自动扩边/羽化/调色、定位或打包，不改变旧 DAG 或质量门。
+候选仅为 `candidate_pending_visual_review`，仍需检查接缝、范围覆盖、残留 UI/阴影及背景连续性。
+详细参数与证据见 [背景区域合同](BACKGROUND-REGIONS.md)。现有命令、状态和 composition v1 不变；
+Docker/Web 无强制迁移，采用可选命令的宿主须区别候选与交付，不将离线图像输入冒称生图回执。
+
 ### 单素材生成后的审查门
 
 新 `single` 任务收齐回执后，在 `raw_complete` 节点内先对全部原始素材做技术检查，
