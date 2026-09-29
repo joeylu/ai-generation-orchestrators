@@ -15,6 +15,7 @@ from .evaluate import read, save, digest, check_relations
 from .freeze_visual import freeze, inspect
 from .local_patch import patch_schema, merge_patch
 from .review_focus import make_focus, make_small_material_focus
+from .sequence_focus import make_sequence_focus
 from .planning_review_policy import split, signatures, REGIONS, audit_rows
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure
 
@@ -200,6 +201,7 @@ class Dag:
         (p/'review-source.md').write_bytes((self.inputs/'visual-review.md').read_bytes())
         focus=make_focus(self.root/'m1/reference.png',p/'review-overlay.png',plan,p)
         small_focus=make_small_material_focus(self.root/'m1/reference.png',plan,p)
+        sequence_focus=make_sequence_focus(self.root/'m1/reference.png',plan,p)
         issue_schema={'type':'object','additionalProperties':False,
             'required':['code','category','ids','description','suggestedChange'],
             'properties':{'code':{'type':'string'},'category':{'type':'string','enum':['semantic','geometry','cosmetic']},
@@ -284,6 +286,7 @@ class Dag:
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small_focus:names+=['coverage-small-materials.json']+[row['file'] for row in small_focus['pages']]
         if small_focus and small_focus.get('detail'):names.append(small_focus['detail']['file'])
+        if sequence_focus:names+=['coverage-sequence-source.json']+[row['file'] for row in sequence_focus['pages']]
         bound={'sessionId':sid,'originalImageResent':True,
                'originalReferenceSha256':digest(self.root/'m1/reference.png'),
                'inputs':{n:digest(p/n) for n in names}}
@@ -341,6 +344,11 @@ class Dag:
                 {'file':small_metadata['file']}])]
             for name in ['coverage-small-materials.json',*small_files,*([detail['file']] if detail else [])]:
                 (p/name).write_bytes((review_dir/name).read_bytes())
+        sequence_metadata=review_dir/'coverage-sequence-source.json'
+        sequence_files=[]
+        if sequence_metadata.exists():
+            sequence_files=['coverage-sequence-source.json']+[row['file'] for row in read(sequence_metadata)['pages']]
+            for filename in sequence_files:(p/filename).write_bytes((review_dir/filename).read_bytes())
         prompt=BOX_TEXT_GUIDANCE+('继续同一会话，按 M2 与程序问题仅修补一次，不重写整个计划、不调用工具。'
                 'materials/objects.upsert 为新增或替换的完整记录，remove 为删除 ID，保留无关记录。'
                 'unknowns/backgroundMode/textPolicy 为 null 时沿用，preserveText 在对应素材记录内修订。'
@@ -361,7 +369,7 @@ class Dag:
             prompt+='\n上一轮小素材原图放大证据继续随附件提供。'
             if detail:prompt+=' 无标记原图上下文放大对应 '+detail['materialId']+'，邻近像素不改变归属。'
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
-        names=['schema.json','prompt.md','review-overlay.png','source-context.json']
+        names=['schema.json','prompt.md','review-overlay.png','source-context.json',*sequence_files]
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small_focus:names+=['coverage-small-materials.json',*small_files]
         if small_focus and detail:names.append(detail['file'])

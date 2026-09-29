@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased continuous source sequence evidence
+
+- New planning reviews attach up to two clean, continuous source corridors for
+  geometrically aligned small foreground materials. Overlapping segments retain
+  gaps and both ends of the source axis, including pixels outside planned crops.
+  Geometry selects diagnostic context; it does not count, assign, extract or
+  repair visible instances automatically.
+- Evidence images and metadata are fingerprint-bound and forwarded unchanged
+  to the existing repair stages. Prompts, response schemas, severity policies,
+  call ceilings and terminal no-resubmit behavior are unchanged.
+- Offline fixtures cover missing end artwork with matching plan counts,
+  horizontal and vertical layouts, stable ordering, bounded evidence and DAG
+  forwarding/tampering. They do not prove real-model coverage or delivery success.
+
 ## Unreleased visible-boundary planning guidance
 
 - New planning/review instructions distinguish source-canvas clipping from

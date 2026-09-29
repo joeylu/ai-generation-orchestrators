@@ -297,6 +297,19 @@ freeze verifies both chains and preserves both rounds' evidence.
 
 When a planning review has small foreground-material crops, M2 and every
 rereview receive paged, fingerprint-bound context/crop evidence for all of them.
+
+Aligned small foreground-material groups also receive up to two continuous,
+unmarked source-corridor boards. The corridor spans the complete source axis;
+bounded overlapping segments retain gaps and source-axis ends rather than
+stopping at the first or last planned crop. Only coordinate labels are drawn
+outside source pixels. Metadata binds the reference, corridor, segments and
+image digests; repair receives identical evidence bytes. Geometry chooses
+context, not visible-instance count or ownership, and cannot detect arbitrary
+unplanned groups. Existing coverage review must still check all visible units.
+These boards add review image input without new prompt rules, response fields,
+model calls, generation permission or gate exemptions. Old immutable runs
+continue to require their original runtime.
+
 Eligible crops are ordered by ascending original-pixel area (plan order breaks
 ties), so early larger slot faces cannot displace smaller artwork from the
 bounded detailed review. The first 12 receive component and boundary audits; every remaining small crop
