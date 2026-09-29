@@ -1,5 +1,21 @@
 # Release notes
 
+## Unreleased visible-boundary planning guidance
+
+- New planning/review instructions distinguish source-canvas clipping from
+  additional loss caused by a candidate crop. Only visible owned contours
+  are audited; hidden or out-of-canvas artwork is not invented. Touching a
+  source edge does not exempt actual loss on another crop edge. Clipped and
+  uncertain responses still block; no evidence-text filtering is added.
+- Review starts with all visible instances of a repeated group, including
+  its ends, before checking existing IDs. Material labels summarize identity;
+  existing owned-object labels carry details in complete short sentences.
+  The 200-character limit and the single background remain unchanged.
+- Offline doubles cover source-edge evidence, actual crop loss, unresolved
+  omitted instances, owned detail compilation and foreign-quote rejection.
+  This does not establish real model adherence or visual delivery success.
+  Schemas, review policy, call limits and old immutable runs are unchanged.
+
 ## Unreleased exact description compaction
 
 - New foreground and sheet prompts omit a material summary only when an already

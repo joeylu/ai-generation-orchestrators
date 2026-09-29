@@ -259,24 +259,22 @@ class Dag:
             save(p/'prior-findings.json',findings)
             prompt+=rereview_context(plan,findings)
         if small_focus:
-            prompt=('小素材附件每项左侧为原图上下文（粉框标候选裁片），右侧为无标记裁片；两侧独立等比放大。'
-                    '先核对完整自有轮廓是否被框截断，boundary.status 填 complete/clipped/uncertain，evidence 说明原图依据；裁片外像素不自动属于此素材。'
-                    'smallMaterialAudit 以第一页的 materialId 为键逐项填写，'
-                    '先只按原图逐一列出图标内每个可辨认的组成部分，并在 observedAppearance 写清外形、颜色、浅色高光、暗色细点、'
-                    '表面印记或“无可辨印记”；小型附属道具和被部分遮挡的部分也要列出，不能因物体名称不确定而省略局部明暗点纹。'
-                    '每个 visiblePart 的 planEvidenceQuote 必须逐字摘自该素材或其对象的现有 label，'
-                    '且覆盖 observedAppearance 中该部件的显著色点、高光和印记；只写部件名称或部分颜色不算覆盖。'
-                    '没有对应描述就填空字符串，并给出局部 suggestedChange，'
-                    '已覆盖的部件 suggestedChange 填“无需修改”；'
-                    '程序会将空引文或不存在的引文转为修补阻断。不能用整体名称冒充内部部件的证据。'
-                    '框内场景或底板仍按原归属，不自动算作图标内容；不要把诊断标签或暗色边距当作原图内容。'+prompt)
+            prompt=('小素材附件：左为带粉色候选框的原图上下文，右为无标记裁片，各自等比放大。'
+                    '诊断标签、边距不是原图；场景、底板及框外像素不改变原归属。'
+                    'smallMaterialAudit 按第一页 materialId 逐项填写。'
+                    'boundary.status 判断候选框是否额外丢失原图可见自有轮廓：complete=全保留，clipped=漏可见部分，uncertain=无法确认；evidence 分清原图边缘与裁片边缘，不推测画外内容。'
+                    '只按原图逐一列每个可辨部件，包括附属道具、部分遮挡和名称不确定的部分；'
+                    'observedAppearance 写形状、颜色、浅色高光、暗色细点、表面印记或“无可辨印记”，不遗漏局部明暗点纹。'
+                    'planEvidenceQuote 逐字引自所属素材或对象的现有 label，须覆盖该部件的显著色点、高光和印记；'
+                    '部件名、部分颜色或整体名不足以证明覆盖。'
+                    '无对应描述填空引文并给局部 suggestedChange，已覆盖填“无需修改”；空或非原文引文仍触发修补阻断。'+prompt)
             if small_focus['boundaryOnlyItems']:
-                prompt=('其余小素材也附在后续页；smallBoundaryAudit 以 materialId 为键逐项填写，'
-                        '只核对上下文中的完整自有轮廓是否被候选框截断，clipped 或 uncertain 必须说明原图依据。'+prompt)
+                prompt=('后续页的 smallBoundaryAudit 按 materialId 逐项只做同一轮廓截断检查；'
+                        'clipped/uncertain 须给原图依据。'+prompt)
             if small_focus.get('detail'):
                 detail=small_focus['detail']
                 prompt=('另附 '+detail['materialId']+' 的无标记原图上下文放大，原图像素范围 '+str(detail['sourceBox'])+
-                        '，候选框 '+str(detail['candidateBox'])+'。核对候选框内外的完整自有轮廓及明暗点纹；邻近像素不改变归属。'+prompt)
+                        '，候选框 '+str(detail['candidateBox'])+'；核对框内外完整自有轮廓及明暗点纹。'+prompt)
         if focus:
             save(p/'focus-meta.json',focus)
             prompt=('先核对下列局部证据：近边固定装饰的完整轮廓，或重复对齐卡片各自闭合边框的真实四边与归属。局部附件左半是干净原图、右半是同坐标标框叠图；若有同行高度候选边，它们只是寻找轮廓的搜索点，不是自动改框坐标。区分卡片自身闭合边框与相邻容器的分隔线，只按可见连接判断；对齐比较本身不是缺陷，也不要因其他小告警跳过这一检查：'+json.dumps(focus,ensure_ascii=False)+'\n'+prompt)
@@ -348,7 +346,7 @@ class Dag:
                 'unknowns/backgroundMode/textPolicy 为 null 时沿用，preserveText 在对应素材记录内修订。'
                 '对 UNASSIGNED_VISIBLE_ARTWORK，先核对原图；确有遗漏时补齐所属材料与对象的可见内容描述，必要时新增对象或材料，不靠缩框或改 unknowns 掩盖。'
                 '补充描述时保留旧 label 中未被问题否定的场景、图形和颜色，复查完整改写结果，不输出截断词或乱码。'
-                '单条 label 上限 200 字符；若细节放不下，新增同素材对象承载描述，或按独立视觉单元拆素材，不截断句子，也不在素材与对象 label 中重复清单。'
+                '单条 label 上限 200 字符；素材 label 概述身份，对象 label 分别承载具体细节，背景细节对象仍归同一背景且不新增 kind=background。用完整短句、不重复清单；仅为独立视觉单元拆素材，不因描述长度拆图。'
                 '先对照干净原图核对受影响素材、相邻素材及完整对象组的四边极值与唯一归属；M2 的 suggestedChange 是待验证建议，不是只修所提一边或照抄坐标。'
                 '固定装饰不因新增记录就必须加辅助框；只有需要局部定位时提供，已有必要定位框不得为消除告警改成 null。'
                 '非 null 框须覆盖名称所指完整图形及延伸，父素材框覆盖不能抵消辅助框截断。'
