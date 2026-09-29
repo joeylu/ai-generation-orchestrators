@@ -1,5 +1,24 @@
 # Release notes
 
+## Unreleased compact planning and frozen context references
+
+- Consolidate M1/M2 wording while preserving visual ownership, state, contour,
+  text, uncertainty, evidence and adaptation rules. The explicit M2 review boundary
+  and the repair section remain intact. See [the rule audit](PLANNING-COMPACTION-AUDIT.md).
+- Add an opt-in context-crop generation route with fingerprint-bound expansion,
+  per-attachment local coordinates and deterministic concise prompts. Original
+  material bounds, target dimensions, placement and review crops remain unchanged;
+  backgrounds retain the full reference. A separate grouping policy caps these
+  sheets at four materials without merging their final layer identities.
+- Preserve owned object appearance descriptions alongside positional anchors;
+  deterministic preflight reconstructs the reference evidence and frozen request.
+  Context jobs reject prompt/reference overrides and keep one-use authorization,
+  existing visual/technical gates and terminal no-resubmit behavior.
+- Default full-reference jobs, public composition format and historical immutable
+  runs retain their contracts. New runtime fingerprints require new jobs. Offline
+  fixtures validate contracts only; real fidelity remains separately assessed.
+  No model grouping call, deployment or release tag is introduced.
+
 ## Unreleased continuous source sequence evidence
 
 - New planning reviews attach up to two clean, continuous source corridors for

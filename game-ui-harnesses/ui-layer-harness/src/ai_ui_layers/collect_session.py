@@ -22,6 +22,9 @@ def audit_relay(job, folder, request, dispatch, events, code):
     row=index.get(request['asset'])
     if row is None or request['arguments']!=frozen_request_arguments(job,config,row):
         raise ValueError('SESSION_REQUEST_MISMATCH')
+    if config.get('generationReference')=='context-crops' and (
+            request.get('generationReference')!='context-crops' or request.get('references')!=row['references']):
+        raise ValueError('SESSION_CONTEXT_REFERENCES_MISMATCH')
     if row.get('kind')=='sheet':
         if request.get('materialIds')!=row['materialIds']:
             raise ValueError('SESSION_REQUEST_MISMATCH')

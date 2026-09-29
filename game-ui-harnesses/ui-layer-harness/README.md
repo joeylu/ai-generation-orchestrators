@@ -64,6 +64,7 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 自动完成确定性切板、预览、来源重放及待验收打包；原严格 DAG 的视觉阻断不会被改写。
 新任务默认 `sheets`，将兼容的独立素材同板生成后逐份提取，见
 [素材板合同](docs/GENERATION-SHEETS.md)。需要逐素材生成时显式传 `--generation-mode single`。
+新任务可显式传 `--generation-reference context-crops`，使用有指纹的外扩局部参考和对应生成提示词；背景仍用整图，合板最多四份素材。缺省仍为 `full`，旧快照和授权不转换。见[局部参考合同](docs/CONTEXT-REFERENCES.md)。
 最终图层仍各自独立；旧任务沿用其冻结模式，不因新默认值改变。
 用户确认并经 M2 复核的宽卡片/面板框可用显式[横向框体适配](docs/HORIZONTAL-FRAME-SLICE.md)，
 四角保持等比，仅缩放无固定细节的中段；默认素材仍保持原比例。

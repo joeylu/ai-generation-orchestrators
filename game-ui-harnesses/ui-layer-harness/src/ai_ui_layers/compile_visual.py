@@ -19,13 +19,16 @@ from ai_ui_decomposition.batch import _prompt
 
 PROMPT_V2 = 'visual-material-prompt-v2:\n'
 PROMPT_V3 = 'visual-material-prompt-v3:\n'
+from .context_references import PROMPT_PREFIX, validate_mode
 
 def render_prompt(asset):
     # Historical immutable snapshots retain their original legacy rendering.
-    return asset['prompt'] if asset['prompt'].startswith((PROMPT_V2,PROMPT_V3)) else _prompt(asset)
+    if asset['prompt'].startswith(PROMPT_PREFIX):return asset['prompt'][len(PROMPT_PREFIX):]
+    return asset['prompt'] if asset['prompt'].startswith((PROMPT_V2,PROMPT_V3,PROMPT_PREFIX)) else _prompt(asset)
 
 
-def compile_plan(visual, size, source_sha, plan_id='visual-candidate'):
+def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generation_reference='full'):
+    validate_mode(generation_reference)
     if visual['kind'] != 'ui_visual_plan_v5':
         raise ValueError('V5_REQUIRED')
     if check_relations(visual):
@@ -87,6 +90,9 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate'):
                 text_policy=TEXT_POLICY, granularity=GRANULARITY, assets=assets, nodes=nodes,
                 groups=[dict(id='artwork', children=[n['id'] for n in nodes])],
                 document=dict(name=plan_id, format='png_zip'), delivery_policy='unreviewed_draft')
+    if generation_reference=='context-crops':
+        from .context_references import prompt as context_prompt
+        for asset in assets:asset['prompt']=PROMPT_PREFIX+context_prompt(visual,plan,[asset['id']])
     return plan, placements
 
 
@@ -151,7 +157,8 @@ def verify_run(run, *, _allow_issues=False):
     return visual
 
 
-def compile_run(run, output, max_calls=128, generation_mode="single"):
+def compile_run(run, output, max_calls=128, generation_mode="single", generation_reference="full"):
+    validate_mode(generation_reference)
     started = time.perf_counter(); run=Path(run); output=Path(output)
     if max_calls < 1:
         raise ValueError('INVALID_CALL_LIMIT')
@@ -163,9 +170,9 @@ def compile_run(run, output, max_calls=128, generation_mode="single"):
         if image.getexif().get(274, 1) != 1:
             raise ValueError('NONIDENTITY_COORDINATE_MAPPING')
         image.load(); picture=image.convert('RGBA')
-    plan, placements = compile_plan(visual, picture.size, before)
-    from .generation_groups import build_groups
-    groups=build_groups(visual,plan) if generation_mode=='sheets' else None
+    plan, placements = compile_plan(visual, picture.size, before, generation_reference=generation_reference)
+    from .generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY
+    groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY) if generation_mode=='sheets' else None
     calls=groups['plannedCalls'] if groups else len(plan['assets'])
     if calls>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
     output.mkdir(parents=True, exist_ok=False)
@@ -186,6 +193,9 @@ def compile_run(run, output, max_calls=128, generation_mode="single"):
                           'cropSha256':digest(folder/'reference-crop.png'),
                           'prompt':(folder/'prompt.txt').relative_to(output).as_posix(),
                           'promptSha256':digest(folder/'prompt.txt')})
+    if generation_reference=='context-crops':
+        from .context_references import materialize
+        save(output/'generation-references.json',materialize(output,plan,picture))
     blockers=[{'code':'LEGACY_VISIBLE_SUPPORT_MISSING', 'ids':[a['id'] for a in plan['assets'] if a['role']!='background'],
                'reason':'No measured/reference-observed foreground_support with reference-fit-v1; crop estimates cannot substitute.'},
               {'code':'LEGACY_COVERAGE_EVIDENCE_MISSING',
@@ -202,6 +212,7 @@ def compile_run(run, output, max_calls=128, generation_mode="single"):
             'sourceImageSha256':before,'candidateSha256':digest(output/'execution-plan.candidate.json'),
             'legacyStructureValidation':summary,'materialCount':len(plan['assets']),
             'layerCount':len(plan['nodes']),'plannedCalls':calls,'maximumCalls':max_calls,
+            **({'generationReference':'context-crops'} if generation_reference=='context-crops' else {}),
             'generationCalls':0,'freezeExecuted':False,'productionReady':False,'humanVisualAcceptance':False,
             'blockers':blockers,'artifacts':artifacts,'elapsedSeconds':time.perf_counter()-started}
     save(output/'compile-report.json', report)
@@ -212,6 +223,8 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run',required=True);parser.add_argument('--output',required=True)
     parser.add_argument('--max-calls',type=int,default=128)
+    parser.add_argument('--generation-mode',choices=['single','sheets'],default='single')
+    parser.add_argument('--generation-reference',choices=['full','context-crops'],default='full')
     opts=parser.parse_args()
-    result=compile_run(opts.run,opts.output,opts.max_calls)
+    result=compile_run(opts.run,opts.output,opts.max_calls,opts.generation_mode,opts.generation_reference)
     print(json.dumps({k:result[k] for k in ('status','materialCount','plannedCalls','elapsedSeconds','blockers')},ensure_ascii=False))

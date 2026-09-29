@@ -6,7 +6,7 @@ from .freeze_visual import freeze
 from .planning_dag import locked
 
 
-def freeze_reviewed(source, output, max_calls, generation_mode=None):
+def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_reference=None):
     source=Path(source).resolve();output=Path(output).resolve()
     if not 1 <= max_calls <= 128:raise ValueError('CALL_LIMIT')
     if output.exists() or output.is_relative_to(source) or source.is_relative_to(output):
@@ -14,6 +14,9 @@ def freeze_reviewed(source, output, max_calls, generation_mode=None):
     with locked(source):
         config=read(source/'.dag/config.json')
         original_mode=config.get('generationMode','single')
+        original_reference=config.get('generationReference','full')
+        from .context_references import validate_mode
+        effective_reference=validate_mode(generation_reference or original_reference)
         if generation_mode is not None and generation_mode not in ('single','sheets'):
             raise ValueError('GENERATION_MODE')
         effective_mode=generation_mode or original_mode
@@ -33,7 +36,8 @@ def freeze_reviewed(source, output, max_calls, generation_mode=None):
                 if digest(target)!=expected:raise ValueError('COMPLETED_OUTPUT_CHANGED:'+name)
         # This is a new offline artifact, not resume under a changed runtime.
         # freeze verifies model receipts, candidate/patch lineage and empty review.
-        snapshot=freeze(source,output,max_calls,effective_mode)
+        snapshot=freeze(source,output,max_calls,effective_mode,effective_reference)
     return {**{k:snapshot[k] for k in ('status','digest','materialCount','plannedCalls','maximumCalls','elapsedSeconds')},
             'modelCalls':0,'generationCalls':0,'originalDagPromoted':False,
-            'sourceGenerationMode':original_mode,'generationMode':effective_mode}
+            'sourceGenerationMode':original_mode,'generationMode':effective_mode,
+            'sourceGenerationReference':original_reference,'generationReference':effective_reference}

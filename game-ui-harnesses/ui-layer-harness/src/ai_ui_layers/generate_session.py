@@ -16,7 +16,10 @@ from . import frozen_image_arguments as frozen_args
 
 
 def build_session_prompt(arguments, reference_mode='full-and-crop', transparent_background=None):
-    if reference_mode=='sheet-crops-only':
+    if reference_mode=='context-crops':
+        reference_instruction=('The attached images are the frozen generation references in referenceIndex order. '
+            'Foreground references are expanded context crops; a background request uses the full reference. ')
+    elif reference_mode=='sheet-crops-only':
         reference_instruction='The attached images are the exact source crops in sheet-cell order; there is no full reference attachment. '
     elif reference_mode=='crop-only':
         reference_instruction='The only attached image is the exact material crop. '

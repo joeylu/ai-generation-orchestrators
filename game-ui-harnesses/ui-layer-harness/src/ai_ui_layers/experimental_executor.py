@@ -37,10 +37,15 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     checked=preflight(snapshot,expected_digest);manifest=inspect(snapshot,expected_digest)
     all_rows=read(snapshot/'requests.json')['requests']
     grouped=read(snapshot/'requests.json')['kind']=='ui_visual_requests_preview_v2'
+    context=manifest.get('generationReference')=='context-crops'
+    if context and (reference_mode not in (None,'context-crops') or prompt_override is not None):
+        raise ValueError('FROZEN_CONTEXT_REFERENCE_REQUIRED')
+    if not context and reference_mode=='context-crops':raise ValueError('CONTEXT_SNAPSHOT_REQUIRED')
+    if context:reference_mode='context-crops'
     if reference_mode is None:
         compiled=read(snapshot/'execution-plan.candidate.json')['assets']
         reference_mode='full-only' if grouped or all(a['prompt'].startswith('visual-material-prompt-v3:\n') for a in compiled) else 'full-and-crop'
-    if reference_mode not in ('full-and-crop','full-only','crop-only','sheet-crops-only'):raise ValueError('REFERENCE_MODE')
+    if reference_mode not in ('full-and-crop','full-only','crop-only','sheet-crops-only','context-crops'):raise ValueError('REFERENCE_MODE')
     known={r['asset'] for r in all_rows};selected=assets or [r['asset'] for r in all_rows]
     if len(selected)!=len(set(selected)) or not set(selected)<=known:
         raise ValueError('INVALID_ASSET_SELECTION')
@@ -53,7 +58,7 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
             Path(mid).name!=mid or not (snapshot/'materials'/mid/'reference-crop.png').is_file()
             for mid in mids):
             raise ValueError('SINGLE_SHEET_CROPS_VARIANT_REQUIRED')
-    elif reference_mode=='crop-only' or (grouped and reference_mode!='full-only'):
+    elif reference_mode=='crop-only' or (grouped and reference_mode not in ('full-only','context-crops')):
         if (len(selected)!=1 or prompt_override is None or
             next(r for r in all_rows if r['asset']==selected[0]).get('kind')=='sheet'):
             raise ValueError('SINGLE_MATERIAL_REFERENCE_VARIANT_REQUIRED')
@@ -78,6 +83,7 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         'policy':'independent-visual-plan-v5-v1','referenceMode':reference_mode,'assets':selected,'maximumCalls':len(selected),
         'automaticRetries':0,'inputChecks':checked['inputChecks'],'createdAt':time.time(),
         'scope':'Raw image acquisition only; old brief evidence is not claimed. Postprocessing and visual acceptance are separate.',
+        **({'generationReference':'context-crops'} if context else {}),
         **({'generationMode':'sheets','materialCount':sum(len(r.get('materialIds',[r['asset']])) for r in all_rows if r['asset'] in selected)} if grouped else {}),**variant})
 
 
@@ -85,7 +91,13 @@ def load_job(job):
     config=verified(job/'job.json')
     if config.get('kind')!='ui_experimental_image_job_v1':raise ValueError('JOB_KIND')
     inspect(job/'snapshot',config['snapshotDigest'])
-    rows=read(job/'snapshot/requests.json')['requests']
+    requests=read(job/'snapshot/requests.json');rows=requests['requests']
+    if requests.get('generationReference')=='context-crops':
+        if (config.get('generationReference')!='context-crops' or config.get('referenceMode')!='context-crops'
+                or 'promptVariant' in config):raise ValueError('FROZEN_CONTEXT_REFERENCE_REQUIRED')
+        preflight(job/'snapshot',config['snapshotDigest'])
+    elif config.get('generationReference')=='context-crops' or config.get('referenceMode')=='context-crops':
+        raise ValueError('CONTEXT_SNAPSHOT_REQUIRED')
     index={r['asset']:r for r in rows}
     if not set(config['assets'])<=index.keys():raise ValueError('JOB_ASSETS')
     if 'promptVariant' in config:
@@ -140,6 +152,7 @@ def status(job):
             'assignedCalls':sum(v!='prepared' for v in values),'requests':states,
             **({'generationMode':'sheets','materialCount':config['materialCount'],
                 'requestMaterials':{k:index[k].get('materialIds',[k]) for k in config['assets']}} if config.get('generationMode')=='sheets' else {}),
+            **({'generationReference':'context-crops'} if config.get('generationReference')=='context-crops' else {}),
             'postprocessing':'not_run','humanVisualAcceptance':False}
 
 
@@ -156,6 +169,8 @@ def next_request(job):
             'evidenceBasis':'One invocation intent reserved; not proof of a provider call.'})
         return {'asset':asset,'submissionDigest':submission['digest'],
                 **({'materialIds':row['materialIds'],'grid':row['grid']} if row.get('kind')=='sheet' else {}),
+                **({'generationReference':'context-crops','references':row['references']}
+                   if config.get('generationReference')=='context-crops' else {}),
                 'arguments':frozen_request_arguments(job,config,row),
                 'automaticRetries':0}
 
@@ -165,7 +180,8 @@ def frozen_request_arguments(job, config, row):
     snapshot=(Path(job)/'snapshot').resolve()
     prompt_path=Path(job)/'prompt-variant.txt' if 'promptVariant' in config else snapshot/row['prompt']
     mode=config.get('referenceMode','full-and-crop')
-    references=([str(snapshot/'materials'/mid/'reference-crop.png') for mid in row['materialIds']]
+    references=([str(snapshot/item['reference']) for item in row['references']] if mode=='context-crops' else
+                [str(snapshot/'materials'/mid/'reference-crop.png') for mid in row['materialIds']]
                 if mode=='sheet-crops-only' else
                 [str(snapshot/row['crop'])] if mode=='crop-only' else [str(snapshot/row['reference'])])
     if mode=='full-and-crop':references.append(str(snapshot/row['crop']))
@@ -245,8 +261,8 @@ if __name__=='__main__':
     p=sub.add_parser('prepare');p.add_argument('--snapshot',required=True);p.add_argument('--expected-digest',required=True)
     p.add_argument('--output',required=True);p.add_argument('--asset',action='append')
     p.add_argument('--prompt-override',help='UTF-8 prompt variant for one selected request in a new job')
-    p.add_argument('--reference-mode',choices=['full-only','full-and-crop','crop-only','sheet-crops-only'],
-                   help='Explicit isolated reference experiment; default sheets use full-only')
+    p.add_argument('--reference-mode',choices=['full-only','full-and-crop','crop-only','sheet-crops-only','context-crops'],
+                   help='Explicit isolated reference experiment; context-crops requires an immutable context-crops snapshot')
     for name in ('status','authorize','next','receive','fail','review-sheet','review-material'):
         p=sub.add_parser(name);p.add_argument('--job',required=True)
         if name in ('review-sheet','review-material'):

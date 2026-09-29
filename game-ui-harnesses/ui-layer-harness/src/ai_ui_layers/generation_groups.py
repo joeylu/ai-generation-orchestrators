@@ -20,6 +20,8 @@ def family(visual, asset):
 GROUP_POLICIES={'compatible-size-and-kind-grid-v1':1.5,
                 'compatible-size-and-kind-grid-v2':1.2}
 DEFAULT_GROUP_POLICY='compatible-size-and-kind-grid-v1'
+CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v1'
+GROUP_POLICIES[CONTEXT_GROUP_POLICY]=1.5
 
 
 def compatible(left, right, max_aspect):
@@ -37,7 +39,7 @@ def build_groups(visual, plan, policy=DEFAULT_GROUP_POLICY):
         first=pending.pop(0);members=[first];kind=family(visual,first)
         if kind:
             for other in list(pending):
-                if len(members)==6:break
+                if len(members)==(4 if policy==CONTEXT_GROUP_POLICY else 6):break
                 if family(visual,other)==kind and all(compatible(a,other,max_aspect) for a in members):
                     members.append(other);pending.remove(other)
         ids=[a['id'] for a in members]
@@ -146,17 +148,22 @@ def preview(snapshot, expected_digest, output):
     preflight(snapshot,expected_digest)
     path=snapshot/'evidence/revised-visual-plan.json'
     visual=read(path if path.exists() else snapshot/'evidence/m1-draft.json')
-    plan=read(snapshot/'execution-plan.candidate.json');groups=build_groups(visual,plan)
+    plan=read(snapshot/'execution-plan.candidate.json')
+    policy=read(snapshot/'generation-groups.json')['policy'] if (snapshot/'generation-groups.json').exists() else DEFAULT_GROUP_POLICY
+    groups=build_groups(visual,plan,policy)
+    context=read(snapshot/'snapshot.json').get('generationReference')=='context-crops'
     output.mkdir(parents=True,exist_ok=False)
     prompts={}
     for group in groups['groups']:
         if group['mode']=='sheet':
-            path=output/(group['id']+'.txt');path.write_text(sheet_prompt(visual,plan,group)+'\n',encoding='utf-8')
+            path=output/(group['id']+'.txt');from .context_references import prompt as context_prompt
+            path.write_text((context_prompt(visual,plan,group['materialIds'],group) if context else sheet_prompt(visual,plan,group))+'\n',encoding='utf-8')
             prompts[path.name]=digest(path)
     inspect(snapshot,expected_digest)
     result=dict(kind='ui_generation_group_preview_v1',snapshotDigest=expected_digest,
         status='preview_only_new_run_required',materialCount=groups['materialCount'],
         plannedCalls=groups['plannedCalls'],groups=groups['groups'],promptSha256=prompts,
-        generationCalls=0,humanVisualAcceptance=False)
+        generationCalls=0,humanVisualAcceptance=False,
+        **({'generationReference':'context-crops'} if context else {}))
     save(output/'grouping-preview.json',result)
     return result

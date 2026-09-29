@@ -33,12 +33,17 @@ def inspect_sources(snapshot, expected_digest, selection, require_all=False, all
         if asset not in config['assets'] or states[asset] != 'raw_received':
             raise ValueError('SOURCE_NOT_RECEIVED:'+asset)
         reference_mode = config.get('referenceMode')
-        if reference_mode not in ('full-only', 'crop-only'):
+        if reference_mode not in ('full-only', 'crop-only', 'context-crops'):
             raise ValueError('REFERENCE_MODE_MISMATCH:'+asset)
         source_row, target_row = rows[asset], targets[asset]
         if source_row != target_row:
             raise ValueError('REQUEST_MISMATCH:'+asset)
         source_snapshot = job/'snapshot'
+        if reference_mode=='context-crops':
+            if target_row.get('generationReference')!='context-crops':raise ValueError('REFERENCE_MODE_MISMATCH:'+asset)
+            for item in target_row['references']:
+                if digest(source_snapshot/item['reference'])!=digest(snapshot/item['reference']):
+                    raise ValueError('CONTEXT_REFERENCE_MISMATCH:'+asset)
         for field in ('reference', 'crop'):
             if field in target_row and digest(source_snapshot/source_row[field]) != digest(snapshot/target_row[field]):
                 raise ValueError(field.upper()+'_MISMATCH:'+asset)
@@ -96,6 +101,7 @@ def inspect_sources(snapshot, expected_digest, selection, require_all=False, all
                             promptMode='approved_variant' if prompt_changed else 'frozen',
                             promptVariantSha256=variant_sha if prompt_changed else None,
                             referenceMode=reference_mode,
+                            **({'generationReferences':target_row['references']} if reference_mode=='context-crops' else {}),
                             referenceSha256=digest(source_snapshot/source_row['reference']),
                             **({'cropSha256':digest(source_snapshot/source_row['crop'])}
                                if 'crop' in source_row else {}),

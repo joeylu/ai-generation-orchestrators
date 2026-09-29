@@ -85,7 +85,9 @@ def read_notes(path):
     return data
 
 
-def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None):
+def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference='full'):
+    from .context_references import validate_mode
+    validate_mode(generation_reference)
     notes=read_notes(planning_notes)
     root=Path(root).resolve();image=Path(image)
     with Image.open(image) as im:
@@ -99,7 +101,7 @@ def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, pl
         (inputs/name).write_bytes(source.read_bytes())
     if notes is not None:(inputs/'planning-notes.txt').write_bytes(notes)
     save(root/'.dag/config.json',{'kind':'ui_planning_dag_v1','runtime':runtime_files(),
-         'inputs':{p.name:digest(p) for p in inputs.iterdir()},'maxCalls':max_calls,'generationMode':generation_mode,
+         'inputs':{p.name:digest(p) for p in inputs.iterdir()},'maxCalls':max_calls,'generationMode':generation_mode,'generationReference':generation_reference,
          'model':CLI_MODEL,'effort':CLI_EFFORT,'graph':GRAPH,'maximumRepairs':2,'mediaGenerationCalls':0})
     save(root/'.dag/config-digest.json',{'sha256':digest(root/'.dag/config.json')})
     return root
@@ -405,7 +407,7 @@ class Dag:
                     self.node('repair2',lambda:self.repair(self.root/'repair/candidate.json',self.root/'rereview','repair2'))
                     self.node('repair_check2',lambda:self.repair_check(self.root/'repair/candidate.json','repair2'))
                     self.node('rereview2',lambda:self.review('rereview2',self.root/'repair2/candidate.json',self.root/'repair2/preview/materials-overlay.png'))
-            self.node('freeze',lambda:freeze(self.root,self.root/'frozen',self.config['maxCalls'],self.config.get('generationMode','single')))
+            self.node('freeze',lambda:freeze(self.root,self.root/'frozen',self.config['maxCalls'],self.config.get('generationMode','single'),self.config.get('generationReference','full')))
             return self.status()
 
     def status(self):
@@ -441,10 +443,12 @@ class Dag:
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['run','resume','status'])
     p.add_argument('--output',required=True);p.add_argument('--image');p.add_argument('--max-calls',type=int,default=128)
+    p.add_argument('--generation-mode',choices=['single','sheets'],default=DEFAULT_GENERATION_MODE)
+    p.add_argument('--generation-reference',choices=['full','context-crops'],default='full')
     a=p.parse_args()
     if a.action=='run':
         if not a.image:p.error('--image is required for run')
-        init(a.image,a.output,a.max_calls)
+        init(a.image,a.output,a.max_calls,a.generation_mode,generation_reference=a.generation_reference)
     dag=Dag(a.output)
     try:result=dag.status() if a.action=='status' else dag.execute()
     except Exception as exc:

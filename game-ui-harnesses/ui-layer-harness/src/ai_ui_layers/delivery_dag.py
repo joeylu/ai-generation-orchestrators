@@ -29,7 +29,9 @@ def runtime_files():
     return files
 
 
-def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None):
+def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference='full'):
+    from .context_references import validate_mode
+    validate_mode(generation_reference)
     notes=planning.read_notes(planning_notes)
     root = Path(root).resolve(); image = Path(image)
     if target not in ('frozen', 'ui-layers'): raise ValueError('DELIVERY_TARGET')
@@ -51,7 +53,7 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
         (root/'.dag/inputs/planning-notes.txt').write_bytes(notes)
         inputs['planning-notes.txt']=Path(planning_notes)
     save(root/'.dag/config.json', dict(kind='ui_delivery_dag_v1', target=target, graph=GRAPH,
-         maxCalls=max_calls, generationMode=generation_mode, runtime=runtime_files(),
+         maxCalls=max_calls, generationMode=generation_mode, generationReference=generation_reference, runtime=runtime_files(),
          inputs={name:digest(root/'.dag/inputs'/name) for name in inputs}))
     save(root/'.dag/config-digest.json', dict(sha256=digest(root/'.dag/config.json')))
     return root
@@ -108,7 +110,8 @@ class DeliveryDag(planning.Dag):
             if not (self.root/'.dag/planning/done.json').exists():
                 planroot = self.root/'planning'
                 if not planroot.exists(): planning.init(self.inputs/'reference.png', planroot, self.config['maxCalls'],self.config.get('generationMode','single'),
-                    self.inputs/'planning-notes.txt' if 'planning-notes.txt' in self.config['inputs'] else None)
+                    self.inputs/'planning-notes.txt' if 'planning-notes.txt' in self.config['inputs'] else None,
+                    self.config.get('generationReference','full'))
                 planning.Dag(planroot, self.model).execute()
                 self.node('planning', lambda: save(self.root/'planning-result.json',
                           planning.Dag(planroot, self.model).status()))
@@ -144,6 +147,7 @@ class DeliveryDag(planning.Dag):
                       status='incomplete', automaticRetries=0, humanVisualAcceptance=False,
                       mediaDriver='explicit-host-exchange',
                       generationMode=self.config.get('generationMode','single'),
+                      generationReference=self.config.get('generationReference','full'),
                       nodeSeconds={p.parent.name:read(p)['seconds'] for p in (self.root/'.dag').glob('*/done.json')},
                       failures={p.parent.name:read(p)['error'] for p in (self.root/'.dag').glob('*/failed.json')})
         if (self.root/'planning/.dag/config.json').exists():
@@ -192,6 +196,8 @@ def main():
     p.add_argument('--max-calls', type=int, default=12)
     p.add_argument('--generation-mode', choices=['single','sheets'], default=planning.DEFAULT_GENERATION_MODE,
                    help='Generation layout for new runs (default: sheets); single uses one request per material')
+    p.add_argument('--generation-reference',choices=['full','context-crops'],
+                   help='For new runs or freeze-reviewed: frozen generation references (default: full)')
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
@@ -266,7 +272,7 @@ def main():
         if a.action=='freeze-reviewed':
             if not a.planning_run:p.error('--planning-run required')
             from .refreeze import freeze_reviewed
-            result=freeze_reviewed(a.planning_run,a.output,a.max_calls,a.regroup_generation_mode)
+            result=freeze_reviewed(a.planning_run,a.output,a.max_calls,a.regroup_generation_mode,a.generation_reference)
             print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action=='preview-groups':
             if not a.snapshot or not a.snapshot_digest:p.error('--snapshot and --snapshot-digest required')
@@ -275,8 +281,9 @@ def main():
             print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action == 'run':
             if not a.image: p.error('--image required')
-            init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes)
+            init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes,a.generation_reference or 'full')
         if a.planning_notes and a.action!='run':p.error('--planning-notes is only valid for a new run')
+        if a.generation_reference is not None and a.action!='run':p.error('--generation-reference is only valid for a new run or freeze-reviewed')
         dag = DeliveryDag(a.output); dag.verify(); job = dag.root/'generation'
         if a.action in ('run','resume'):
             with redirect_stdout(sys.stderr): result = dag.execute()

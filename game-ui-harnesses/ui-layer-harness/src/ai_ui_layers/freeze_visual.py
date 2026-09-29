@@ -14,14 +14,14 @@ def body_digest(value):
                                     ensure_ascii=False,allow_nan=False).encode('utf-8')).hexdigest()
 
 
-def freeze(run, output, max_calls, generation_mode="single"):
+def freeze(run, output, max_calls, generation_mode="single", generation_reference="full"):
     started=time.perf_counter();run=Path(run);output=Path(output)
     visual=verify_run(run)
     plan_path,review_path=selected_paths(run)
     if visual['unknowns']:
         raise ValueError('UNRESOLVED_UNKNOWNS')
     # Rebuild from bound inputs rather than accepting editable compiled candidates.
-    report=compile_run(run, output, max_calls, generation_mode)
+    report=compile_run(run, output, max_calls, generation_mode, generation_reference)
     if verify_run(run)!=visual or digest(plan_path)!=report['sourcePlanSha256']:
         raise ValueError('INPUT_CHANGED_DURING_FREEZE')
     evidence=output/'evidence';evidence.mkdir()
@@ -55,17 +55,25 @@ def freeze(run, output, max_calls, generation_mode="single"):
     request_kind='ui_visual_requests_preview_v1'
     if generation_mode=='sheets':
         from .generation_groups import sheet_prompt
+        from .context_references import prompt as context_prompt
         singles={r['asset']:r for r in requests};requests=[]
         for group in read(output/'generation-groups.json')['groups']:
             if group['mode']=='single':
                 requests.append(singles[group['id']]);continue
             folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
-            prompt=folder/'prompt.txt';prompt.write_text(sheet_prompt(visual,plan,group)+'\n',encoding='utf-8')
+            prompt=folder/'prompt.txt';prompt.write_text((context_prompt(visual,plan,group['materialIds'],group) if generation_reference=='context-crops' else sheet_prompt(visual,plan,group))+'\n',encoding='utf-8')
             requests.append(dict(asset=group['id'],kind='sheet',materialIds=group['materialIds'],grid=group['grid'],
                 reference='reference.png',prompt=prompt.relative_to(output).as_posix(),outputSize=group['outputSize'],
                 plannedCalls=1,automaticRetries=0))
         request_kind='ui_visual_requests_preview_v2'
-    save(output/'requests.json',{'kind':request_kind,'dispatchEnabled':False,'requests':requests})
+    if generation_reference=='context-crops':
+        from .context_references import request_references
+        references=read(output/'generation-references.json')
+        for row in requests:
+            row.update(generationReference=generation_reference,
+                       references=request_references(references,row.get('materialIds',[row['asset']])))
+    save(output/'requests.json',{'kind':request_kind,'dispatchEnabled':False,'requests':requests,
+         **({'generationReference':generation_reference} if generation_reference=='context-crops' else {})})
     files={p.relative_to(output).as_posix():digest(p) for p in sorted(output.rglob('*')) if p.is_file()}
     snapshot={'kind':'ui_visual_frozen_experiment_v1','policy':'visual-plan-v5-experiment-v1',
               'status':'frozen_experimental_snapshot','executable':False,
@@ -77,6 +85,7 @@ def freeze(run, output, max_calls, generation_mode="single"):
                         'v5 schema and relationships','legacy plan structure','explicit call limit',
                         'deterministic crops and prompts','artifact hashes'],
               'elapsedSeconds':time.perf_counter()-started,'files':files}
+    if generation_reference=='context-crops':snapshot['generationReference']=generation_reference
     snapshot['digest']=body_digest(snapshot)
     save(output/'snapshot.json',snapshot)
     inspect(output,snapshot['digest'])
@@ -104,8 +113,10 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run');parser.add_argument('--output',required=True)
     parser.add_argument('--max-calls',type=int,default=128)
+    parser.add_argument('--generation-mode',choices=['single','sheets'],default='single')
+    parser.add_argument('--generation-reference',choices=['full','context-crops'],default='full')
     parser.add_argument('--inspect',action='store_true');parser.add_argument('--expected-digest')
     args=parser.parse_args()
     if not args.inspect and not args.run:parser.error('--run is required to freeze')
-    result=inspect(args.output,args.expected_digest) if args.inspect else freeze(args.run,args.output,args.max_calls)
+    result=inspect(args.output,args.expected_digest) if args.inspect else freeze(args.run,args.output,args.max_calls,args.generation_mode,args.generation_reference)
     print(json.dumps({k:result[k] for k in ('status','materialCount','plannedCalls','executable','elapsedSeconds','digest')},ensure_ascii=False))
