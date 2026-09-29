@@ -3,7 +3,7 @@ import hashlib
 import json
 import math
 
-from .short_prompt import FOREGROUND_FIDELITY, TEXT_REMOVAL_LAYOUT, LOCAL_LAYOUT, OWNERSHIP_SCOPE, object_content, exclusions
+from .short_prompt import FOREGROUND_FIDELITY, TEXT_REMOVAL_LAYOUT, LOCAL_LAYOUT, OWNERSHIP_SCOPE, object_content, exclusions, material_summary
 
 
 def family(visual, asset):
@@ -58,7 +58,7 @@ def build_groups(visual, plan, policy=DEFAULT_GROUP_POLICY):
                 materialCount=len(plan['assets']),plannedCalls=len(groups),groups=groups)
 
 
-def sheet_prompt(visual, plan, group, *, legacy_without_attached_props=False):
+def sheet_prompt(visual, plan, group, *, legacy_without_attached_props=False, legacy_repeated_descriptions=False):
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
     entries=[];foreign={};foreign_keys={}
     for i,key in enumerate(group['materialIds']):
@@ -69,9 +69,11 @@ def sheet_prompt(visual, plan, group, *, legacy_without_attached_props=False):
             if signature not in foreign_keys:
                 ref='foreign-'+str(len(foreign));foreign_keys[signature]=ref;foreign[ref]=item
             excluded.append(foreign_keys[signature])
-        entries.append(dict(cellIndex=i,materialId=key,artwork=m['label'],referenceBox=m['bboxNorm'],
+        retained=object_content(visual,m)
+        summary={'artwork':m['label']} if legacy_repeated_descriptions else material_summary(m,retained,'artwork')
+        entries.append(dict(cellIndex=i,materialId=key,**summary,referenceBox=m['bboxNorm'],
             referencePixelSize=[w,h],preserveText=m.get('preserveText',[]),
-            retain=object_content(visual,m),excludeReferences=excluded))
+            retain=retained,excludeReferences=excluded))
     detail='integrated symbols and observed state' if legacy_without_attached_props else 'integrated symbols, small attached props and observed state'
     return ('Use the full reference image to generate ONE transparent RGBA asset sheet. '
             f'Canvas aspect {group["outputSize"][0]}:{group["outputSize"][1]}; equal-cell grid '

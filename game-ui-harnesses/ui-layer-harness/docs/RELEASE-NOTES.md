@@ -1,5 +1,22 @@
 # Release notes
 
+## Unreleased exact description compaction
+
+- New foreground and sheet prompts omit a material summary only when an already
+  rendered owned-object description contains exactly the same label. Background
+  prompts keep their summary and omit identical entries from the detail list.
+  Different wording, object records, instances, geometry, state, text permissions
+  and foreign-artwork exclusions remain unchanged. Raw M1/M2 plans and evidence
+  quotes are not rewritten; review coverage and quality gates do not shrink.
+- Sheet preflight verifies the current rendering or either exact historical
+  rendering, with frozen checksums still required. It does not accept arbitrary
+  prompt shortening. Existing snapshots and single-use authorizations stay bound
+  to their original bytes; runtime mismatch still blocks DAG continuation.
+- Offline fixtures cover repeated summaries, distinct states, local anchors,
+  unchanged unique details, historical compilation and tampering rejection.
+  Reduced character counts do not establish token savings, lower latency or
+  improved visual fidelity. No new model call, media job or release tag is added.
+
 ## Unreleased terminal transport diagnostics
 
 - New CLI failures retain the existing stopped state and nonzero exit, and add

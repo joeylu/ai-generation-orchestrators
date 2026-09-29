@@ -47,6 +47,13 @@ def object_content(visual, material):
     return result
 
 
+def material_summary(material, retained, field='material'):
+    """Omit a summary only when an already rendered object says exactly the same."""
+    if any(part.get('artwork') == material['label'] for part in retained):
+        return {}
+    return {field: material['label']}
+
+
 def layout_constraints(visual, material, reference_size):
     """Compile existing plan geometry; never infer missing object anchors."""
     if reference_size is None:return LOCAL_LAYOUT
@@ -97,7 +104,7 @@ def build(visual, asset_id, reference_size=None):
         return atomic_prompt(visual,material,reference_size)
     if material['role']=='background':
         details=list(dict.fromkeys(o['label'] for o in visual['objects']
-                                   if o['materialId']==asset_id))
+                                   if o['materialId']==asset_id and o['label']!=material['label']))
         prompt=('Use the full reference image. Make this full opaque underlay at its original layout: '
                 +material['label']+'. Retain these visible details: '
                 +json.dumps(details,ensure_ascii=False)+'. ')
@@ -119,7 +126,7 @@ def build(visual, asset_id, reference_size=None):
     if carries_foreground(visual,material):
         return carrier_prompt(visual,material,owned,reference_size)
     icon_note=icon_pictograms(visual,material)
-    target = json.dumps({'material': material['label'], 'bboxNorm': material['bboxNorm'],
+    target = json.dumps({**material_summary(material, owned), 'bboxNorm': material['bboxNorm'],
                          'retain': owned}, ensure_ascii=False)
     prompt = ('Use the full reference image. Extract only the following artwork: ' + target + '. '
               'Preserve its owned shape, proportions, internal spacing, colors and observed details; do not redesign. '
@@ -216,7 +223,9 @@ def carrier_prompt(visual, material, owned, reference_size):
     """A carrier is one continuous owned surface, never a board of disconnected cutouts."""
     icon_note=icon_pictograms(visual,material)
     contract={'keepOnly':owned,'removeCompletely':exclusions(visual,material)}
-    prompt=('Use the full reference image to produce ONE clean backing-panel asset: '+material['label']+'. '
+    summary=material_summary(material,owned)
+    description=': '+summary['material'] if summary else ''
+    prompt=('Use the full reference image to produce ONE clean backing-panel asset'+description+'. '
             'Its reference region is '+json.dumps(material['bboxNorm'])+'. '
             'Artwork ownership (removal takes precedence over generic requests to preserve decoration): '
             +json.dumps(contract,ensure_ascii=False)+'. '

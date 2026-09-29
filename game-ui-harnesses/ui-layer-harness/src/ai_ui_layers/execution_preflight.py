@@ -48,7 +48,9 @@ def preflight(folder, expected_digest):
                 if row!=expected or row['prompt'] not in snapshot['files']:raise ValueError('GROUP_REQUEST_MISMATCH')
                 compiled=(folder/row['prompt']).read_text(encoding='utf-8')
                 allowed=(sheet_prompt(visual,plan,group)+'\n',
-                         sheet_prompt(visual,plan,group,legacy_without_attached_props=True)+'\n')
+                         sheet_prompt(visual,plan,group,legacy_repeated_descriptions=True)+'\n',
+                         sheet_prompt(visual,plan,group,legacy_repeated_descriptions=True,
+                                      legacy_without_attached_props=True)+'\n')
                 if compiled not in allowed:
                     raise ValueError('PROMPT_COMPILER_MISMATCH')
             elif row.get('kind') or 'materialIds' in row:
