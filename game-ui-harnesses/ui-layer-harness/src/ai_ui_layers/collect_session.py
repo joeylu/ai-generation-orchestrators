@@ -25,6 +25,10 @@ def audit_relay(job, folder, request, dispatch, events, code):
     if config.get('generationReference')=='context-crops' and (
             request.get('generationReference')!='context-crops' or request.get('references')!=row['references']):
         raise ValueError('SESSION_CONTEXT_REFERENCES_MISMATCH')
+    if config.get('referenceMode')=='sheet-layout-board' and (
+            request.get('generationReference')!='sheet-layout-board' or
+            request.get('sheetLayoutReference')!=config['sheetLayoutReference'] or 'references' in request):
+        raise ValueError('SESSION_SHEET_LAYOUT_MISMATCH')
     if row.get('kind')=='sheet':
         if request.get('materialIds')!=row['materialIds']:
             raise ValueError('SESSION_REQUEST_MISMATCH')
@@ -95,6 +99,8 @@ def collect(job, codex_home):
     if len(calls)!=1 or calls[0]['input'].count('tools.image_gen__imagegen(')!=1:raise ValueError('IMAGE_CALL_COUNT')
     code=calls[0]['input']
     dispatch=read(folder/'dispatch.json') if (folder/'dispatch.json').exists() else {}
+    if current.get('generationReference')=='sheet-layout-board' and dispatch.get('argumentTransport')!=frozen_args.TRANSPORT:
+        raise ValueError('SHEET_LAYOUT_EXACT_TRANSPORT_REQUIRED')
     request=read(folder/'tool-request.json')
     if request['asset']!=pending[0] or request['submissionDigest']!=submission['digest']:
         raise ValueError('SESSION_REQUEST_MISMATCH')

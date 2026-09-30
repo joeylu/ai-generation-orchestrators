@@ -66,6 +66,7 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 [素材板合同](docs/GENERATION-SHEETS.md)。需要逐素材生成时显式传 `--generation-mode single`。
 新任务可显式传 `--generation-reference context-crops`，使用有指纹的外扩局部参考和对应生成提示词；背景仍用整图，合板最多四份素材。缺省仍为 `full`，旧快照和授权不转换。见[局部参考合同](docs/CONTEXT-REFERENCES.md)。
 最终图层仍各自独立；旧任务沿用其冻结模式，不因新默认值改变。
+内部独立交换另有可选[原裁片布局参考板实验](docs/SHEET-LAYOUT-REFERENCE.md)：从局部参考快照派生单张合板作业，以统一整数比例排版原裁片。它需要新摘要授权，不改变公开入口或质量门，真实比例保真尚待验证。
 背景局部修正可先离线冻结显式编辑区与混合权重，再将同画布不透明候选合成到该区域；
 保护区原像素必须完全不变。它不识别遮挡、不生图、不解除旧任务阻断，结果仍待视觉审查，
 见[背景区域合同](docs/BACKGROUND-REGIONS.md)。

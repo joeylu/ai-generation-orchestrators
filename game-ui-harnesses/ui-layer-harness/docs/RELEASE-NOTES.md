@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased source-layout board experiment
+
+- Add an explicit independent one-sheet job using a deterministic board of
+  original context crops at one common integer scale. The compiler preserves
+  ownership, state, text and exclusion evidence in board coordinates.
+- Rebuild the board, metadata and prompt during validation; exact relay and
+  collection bind the single attachment to a fresh job authorization. Parent
+  snapshots, default generation, quality gates and terminal states stay intact.
+- This is an input-strategy experiment, not established visual improvement or a
+  public service API change. See [the contract](SHEET-LAYOUT-REFERENCE.md).
+  No release tag is created.
+
 ## Unreleased explicit background regions
 
 - Add optional offline freezing, inspection and application of explicit background

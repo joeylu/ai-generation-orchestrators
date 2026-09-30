@@ -103,7 +103,10 @@ A context snapshot requires a new job digest and fresh bound compute approval.
 Old full-reference authorizations or receipts cannot authorize its different
 requests. `prepare` follows the frozen reference mode and refuses prompt or
 reference overrides on a context snapshot. An isolated comparison that changes
-those parameters must start from a new reviewed snapshot.
+those parameters must start from a new reviewed snapshot, except the explicit
+deterministic [source-layout board experiment](SHEET-LAYOUT-REFERENCE.md). That
+mode derives a separately authorized one-sheet job and keeps the parent snapshot
+unchanged; it does not accept arbitrary prompt or reference substitution.
 
 `next` reserves exactly one request and returns the ordered frozen crop paths.
 The generation session attaches those exact images, reads the hash-pinned prompt
