@@ -35,6 +35,9 @@ BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包
 def prior_findings(root, name):
     if name not in ('rereview','rereview2'):raise ValueError('REREVIEW_STAGE_REQUIRED')
     root=Path(root)
+    if (root/'revision.json').exists() and read(root/'revision.json').get('kind')=='ui_rejected_frozen_crop_revision_v1':
+        from .revise_frozen_crop import rejection_findings
+        return rejection_findings(root)
     if (root/'revision.json').exists():
         review=root/'parent-review/draft.json';source=root/'source-plan.json'
     else:
@@ -48,9 +51,11 @@ def prior_findings(root, name):
 
 def rereview_context(plan, findings):
     compact=lambda value:json.dumps(value,ensure_ascii=False,separators=(',',':'))
+    external=('\n独立显式拒收证据（不是上一轮模型问题）：'+compact(findings['explicitRejectionFindings'])
+              if findings.get('explicitRejectionFindings') else '')
     return ('\n先核销上轮问题；仍检查完整候选。新增阻断必须给原图证据，不能只换措辞重复问题。上轮待核销问题：'
             +compact({key:findings[key] for key in ('blockers','warnings')})
-            +'\n检查修补后的完整候选，本次仅复审：\n'+compact(plan))
+            +external+'\n检查修补后的完整候选，本次仅复审：\n'+compact(plan))
 
 
 def runtime_files():

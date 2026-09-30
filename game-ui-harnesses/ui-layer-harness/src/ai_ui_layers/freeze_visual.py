@@ -17,6 +17,13 @@ def body_digest(value):
 def freeze(run, output, max_calls, generation_mode="single", generation_reference="full",
            context_prompt_version='v3'):
     started=time.perf_counter();run=Path(run);output=Path(output)
+    revision=read(run/'revision.json') if (run/'revision.json').exists() else None
+    if revision and revision.get('kind')=='ui_rejected_frozen_crop_revision_v1':
+        config=read(run/'.dag/config.json')
+        if (max_calls!=config['maxCalls'] or generation_mode!=config['generationMode'] or
+                generation_reference!=config['generationReference'] or
+                context_prompt_version!=config['contextPromptVersion']):
+            raise ValueError('FROZEN_CROP_GENERATION_POLICY_CHANGED')
     visual=verify_run(run)
     plan_path,review_path=selected_paths(run)
     if visual['unknowns']:
@@ -32,9 +39,15 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     for stage,names in stages:
         for name in names:
             (evidence/(stage+'-'+name)).write_bytes((run/stage/name).read_bytes())
-    if (run/'revision.json').exists():
-        lineage=read(run/'revision.json')
-        save(evidence/'revision-lineage.json',{k:v for k,v in lineage.items() if k!='parent'})
+    if revision:
+        if revision['kind']=='ui_rejected_frozen_crop_revision_v1':
+            save(evidence/'revision-lineage.json',{key:revision[key] for key in (
+                'kind','parentSnapshotDigest','sourcePlanSha256','parentReviewSha256',
+                'referenceSha256','rejectionSha256','contextPromptVersion',
+                'maximumRepairs','mediaGenerationCalls')})
+            (evidence/'rejection.json').write_bytes((run/'rejection.json').read_bytes())
+        else:
+            save(evidence/'revision-lineage.json',{k:v for k,v in revision.items() if k!='parent'})
         for source,name in [('source-plan.json','parent-candidate.json'),
                             ('parent-review/draft.json','parent-review.json'),
                             ('m1/schema.json','m1-schema.json')]:

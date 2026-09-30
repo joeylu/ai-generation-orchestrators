@@ -180,7 +180,7 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','next','receive','fail','preview-groups','freeze-reviewed','finish-received','finish-bundle','finish-variants','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('action', choices=['run','resume','status','authorize','next','receive','fail','preview-groups','freeze-reviewed','revise-frozen-crops','finish-received','finish-bundle','finish-variants','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
     p.add_argument('--source-sha256')
     p.add_argument('--edit-mask',help='Explicit binary L PNG allowed-edit region; not inferred from material boxes')
     p.add_argument('--edit-mask-sha256')
@@ -199,6 +199,7 @@ def main():
     p.add_argument('--jobs-root',help='Directory of received variant jobs for exact-source discovery')
     p.add_argument('--issues-file',help='Optional UTF-8 JSON array of known visual differences')
     p.add_argument('--planning-run',help='Completed reviewed planning directory for offline freezing')
+    p.add_argument('--rejection',help='For revise-frozen-crops: explicit frozen-parent crop rejection JSON')
     p.add_argument('--output', required=True); p.add_argument('--image'); p.add_argument('--viewer')
     p.add_argument('--target', choices=['frozen','ui-layers'], default='ui-layers')
     p.add_argument('--max-calls', type=int, default=12)
@@ -214,6 +215,12 @@ def main():
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.action=='revise-frozen-crops':
+            if not a.planning_run or not a.rejection:p.error('--planning-run and --rejection required')
+            from .revise_frozen_crop import init as init_crop_revision, FrozenCropDag
+            with redirect_stdout(sys.stderr):
+                result=FrozenCropDag(init_crop_revision(a.planning_run,a.output,a.rejection)).execute()
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action=='freeze-background-region':
             required=('source','source_sha256','edit_mask','edit_mask_sha256','blend_mask','blend_mask_sha256','background_mode','text_policy','reason')
             if any(not getattr(a,key) for key in required):

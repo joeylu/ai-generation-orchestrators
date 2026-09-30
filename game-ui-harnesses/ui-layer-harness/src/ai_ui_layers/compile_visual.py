@@ -109,7 +109,13 @@ def selected_paths(run):
 
 def verify_run(run, *, _allow_issues=False):
     if (run/'revision.json').exists():
-        from .revise_plan import verify_revision
+        kind=read(run/'revision.json').get('kind')
+        if kind=='ui_explicit_plan_revision_v1':
+            from .revise_plan import verify_revision
+        elif kind=='ui_rejected_frozen_crop_revision_v1':
+            from .revise_frozen_crop import verify_revision
+        else:
+            raise ValueError('UNKNOWN_REVISION_KIND')
         return verify_revision(run, allow_issues=_allow_issues)
     request = read(run/'request.json'); result = read(run/'result.json')
     for name in ('reference.png', 'prompt.md', 'schema.json'):

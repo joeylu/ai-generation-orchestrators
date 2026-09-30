@@ -1,5 +1,20 @@
 # Release notes
 
+## Unreleased bounded rejected-frozen crop revision
+
+- `revise-frozen-crops` starts an independent job from a verified frozen planning
+  snapshot and explicit, digest-bound source observations. It preserves the parent
+  candidate, actual review and terminal state; rejection is feedback, not a forged
+  model blocker or permission to edit old records.
+- A new persistent Codex session performs one crop patch and one full review.
+  Only selected existing foreground-material bounds may change; descriptions,
+  ownership, objects, policies, counts and IDs remain fixed. Invalid scope, uncertain
+  receipt or unresolved review stops without another repair or resubmission.
+- Successful review creates a newly compiled snapshot with inherited generation
+  mode/reference mode/context prompt version/request limit. It does not generate media, promote the parent
+  or imply human acceptance. Existing failed-parent revision remains unchanged.
+  Offline fixtures establish contract enforcement, not real-model crop accuracy.
+
 ## Unreleased unobscured small-material boundary evidence
 
 - Small-material contact sheets now retain unmarked original context for every
