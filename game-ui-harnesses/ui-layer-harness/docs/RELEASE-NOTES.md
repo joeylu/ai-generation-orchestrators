@@ -1,5 +1,16 @@
 # Release notes
 
+## Unreleased visual-policy review schema compatibility fix
+
+- Explicit-policy M2 output schemas use a required nullable deferredAppearance
+  field instead of conditional allOf/if/then/else constructs rejected by the CLI
+  service. Existing program checks still require nonempty text for reference-bound
+  and null for other statuses. Dynamic explicit-policy schemas now pass through
+  the existing transport-subset check before a call.
+- The real S3 job at the prior fixed version ended with schema rejection and no
+  review or snapshot. This fix does not replay that job or establish better visual
+  coverage. Legacy no-policy schema construction remains unchanged.
+
 ## Unreleased explicit visual evidence policy
 
 - New runs may bind an explicit policy file for text-complete or bound-reference

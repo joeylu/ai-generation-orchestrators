@@ -72,9 +72,13 @@ class VisualPolicyTests(unittest.TestCase):
             if folder.name not in ('m2', 'rereview', 'rereview2'):
                 return
             answer = read(folder / 'draft.json')
+            has_deferred = ('deferredAppearance' in read(folder / 'schema.json')
+                            ['$defs']['smallMaterialAuditEntry']['properties']['parts']['items']['properties'])
             for row in answer['smallMaterialAudit'].values():
                 for part in row['parts']:
                     part['descriptionStatus'] = 'consistent'
+                    if has_deferred:
+                        part['deferredAppearance'] = None
             if reference_bound:
                 first_row = next(iter(answer['smallMaterialAudit'].values()))
                 first_part = first_row['parts'][0]

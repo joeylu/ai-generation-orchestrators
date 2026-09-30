@@ -257,13 +257,11 @@ class Dag:
                               'planEvidenceQuote':{'type':'string'},
                               'descriptionStatus':{'type':'string','enum':list(DESCRIPTION_STATUSES)},
                               'suggestedChange':{'type':'string','minLength':1}}}
-            if policy is not None and policy['appearanceEvidence']=='bound-reference':
-                part_schema['properties']['descriptionStatus']['enum'].append('reference-bound')
-                part_schema['properties']['deferredAppearance']={'type':'string','minLength':1}
-                part_schema['allOf']=[
-                    {'if':{'properties':{'descriptionStatus':{'const':'reference-bound'}}},
-                     'then':{'required':['deferredAppearance']},
-                     'else':{'not':{'required':['deferredAppearance']}}}]
+            if policy is not None:
+                if policy['appearanceEvidence']=='bound-reference':
+                    part_schema['properties']['descriptionStatus']['enum'].append('reference-bound')
+                part_schema['properties']['deferredAppearance']={'type':['string','null']}
+                part_schema['required'].append('deferredAppearance')
             material_schema={'type':'object','additionalProperties':False,
                 'required':['parts','boundary'],
                 'properties':{'boundary':{'type':'object','additionalProperties':False,
@@ -289,6 +287,7 @@ class Dag:
         schema={'type':'object','additionalProperties':False,'required':required,
                 'properties':properties}
         if definitions:schema['$defs']=definitions
+        if policy is not None:schema=transport_schema(schema)
         save(p/'schema.json',schema)
         prompt=BOX_TEXT_GUIDANCE+build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan))
         if name.startswith('rereview'):
@@ -324,6 +323,7 @@ class Dag:
                                   '整体名、类别术语或部分颜色不能替代结构、身份、状态、连接及显著高光、渐变和印记；仅细微表面可明确交给绑定原图，不用观察替模糊引文补足结构。')
         if policy is not None:
             prompt+=planning_guidance(policy)
+            prompt+='smallMaterialAudit 每个 part 必填 deferredAppearance；只有 reference-bound 填非空字符串，其余状态填 null。\n'
             if policy['appearanceEvidence']=='bound-reference':
                 prompt+=('reference-bound 仅用于所属逐字引文已证明结构、身份、数量、状态及连接关系，'
                          '剩余细微表面由本次绑定原图承接；填写非空 deferredAppearance 说明具体延期表面。'

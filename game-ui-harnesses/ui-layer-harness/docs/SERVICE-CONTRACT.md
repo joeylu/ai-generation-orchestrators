@@ -88,6 +88,9 @@ Docker/Web 无迁移要求。既有运行受运行时指纹保护，不在原目
 `bound-reference` 仍要求所属短描述覆盖结构、身份、数量、状态、连接和显著材质；
 只有细微表面可由绑定参考承载。对应小素材 schema 增加 `reference-bound` 状态，须附
 非空 `deferredAppearance`，且 `planEvidenceQuote` 仍须是所属记录的非空逐字子串。
+新显式策略的传输 schema 不使用条件组合关键字：`deferredAppearance` 必填且可为 null，
+仅 reference-bound 允许并要求非空字符串，其余状态填 null；关联判据由程序 split 核验，
+不会因 schema 改为可空而豁免。动态 M2 schema 保存前须经过已有传输子集检查。
 程序记录 `REFERENCE_BOUND_APPEARANCE` 警告；missing/conflicting/uncertain、非法引文、
 可见缺件、归属、九区覆盖及 clipped/uncertain 轮廓仍阻断。该状态是模型的明确断言，
 程序不从文字推断其视觉真实性；真实输出仍需对照参考复审。
