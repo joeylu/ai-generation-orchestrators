@@ -67,9 +67,46 @@ M1/M2 固定模板按规划与检查职责集中表达通用规则，字段/枚�
 仅影响新任务的内部模型输入/输出；CLI、状态名及 `ui_layer_composition_v1` 不变，
 Docker/Web 无迁移要求。既有运行受运行时指纹保护，不在原目录用新代码续跑。
 
+### 显式视觉策略
+
+仅新 `run` 可选 `--visual-policy FILE`；不提供文件时保留既有提示词、字段和判据。
+文件是非空、最多 4096 字节的 UTF-8 JSON，必须精确包含下列四个字段，不补默认值：
+
+```json
+{"kind":"ui_visual_policy_v1","appearanceEvidence":"bound-reference","minorColor":"record","shadow":"optional"}
+```
+
+`appearanceEvidence` 可为 `text-complete` 或 `bound-reference`；后者仅支持
+`context-crops` 新规划。`minorColor` 为 `strict|record`，`shadow` 为
+`preserve|optional`。示例中的容差必须由使用者明确选择，不能推断为所有任务默认值。
+初始化在建目录、调用模型之前核验输入；原始字节及 SHA-256 绑定配置，M1/M2/修补/复审
+请求使用同一摘要。冻结保存 `visual-policy.json` 并在 snapshot、requests 和编译报告
+绑定 `visualPolicySha256`；预检重建提示词，不能靠重算文件哈希替换策略或指令。
+生成作业及同尺度参考板继承该摘要，不接受提示词覆盖或删掉参考的裁片变体。
+显式修订仅继承父策略，旧失败作业不因此重审或提升。
+
+`bound-reference` 仍要求所属短描述覆盖结构、身份、数量、状态、连接和显著材质；
+只有细微表面可由绑定参考承载。对应小素材 schema 增加 `reference-bound` 状态，须附
+非空 `deferredAppearance`，且 `planEvidenceQuote` 仍须是所属记录的非空逐字子串。
+程序记录 `REFERENCE_BOUND_APPEARANCE` 警告；missing/conflicting/uncertain、非法引文、
+可见缺件、归属、九区覆盖及 clipped/uncertain 轮廓仍阻断。该状态是模型的明确断言，
+程序不从文字推断其视觉真实性；真实输出仍需对照参考复审。
+
+生成提示词继续要求移除普通业务文字、保持比例及真透明 alpha。显式输出审查
+额外逐条填 `styleAspect: color-tone|shadow|other`：仅清晰归属的 minor 色调可在
+`record` 下记录，仅孤立柔影可在 `optional` 下记录。major、uncertain、缺件、
+裁切、错状态/归属、描边、高光、显著渐变或材质损失均不豁免；阴影可选不改变规划
+裁框检查。显式策略下 `styleAspect=other` 的样式差异保守阻断，不能代替明确的色调或
+阴影归因。轻微色差和柔影记录仍进入输出警告，不能冒充逐像素复原。
+
+目前显式策略支持独立单素材复审与选定合板复审；完整 mixed 请求若含 singleton，
+提取入口会在调用前以 `VISUAL_POLICY_SINGLE_REVIEW_ROUTE_REQUIRED` 停止，须分别建立
+真实复审证据，不能通过旧的 singleton 直通路径交付。此限制不变更历史无策略任务。
+离线验证仅证明策略传播和门禁；实际模型遵循、生成保真及最终回拼尚需单独实验验收。
+
 ### 可见轮廓、实例覆盖与短标签
 
-新运行的小素材部件审查在逐字引文之外必填 `descriptionStatus`：consistent、missing、
+未选择上述 bound-reference 策略的新运行，小素材部件审查在逐字引文之外必填 `descriptionStatus`：consistent、missing、
 conflicting、uncertain，范围沿用现有最多 12 项详细聚焦素材，其余小素材仅查轮廓；
 全图仍由九区覆盖与 issues 审查。引文只证明出处；模型仍须对照原图核对数量、形状、连接/间隙及显著
 外观，等价措辞可判 consistent，不能用审查自己的观察补足模糊计划。有效引文下的其余
@@ -427,7 +464,8 @@ outside an incorrect bound and under the contact sheet's diagnostic line. Its
 bound with the image digest. Context pixels do not change ownership; no bounds
 are expanded automatically. It is review evidence, never a generated layer or
 program-drawn replacement. No additional image or model call is added.
-For each observed small part, a nonempty `planEvidenceQuote` must cover its
+Without the explicit bound-reference policy above, for each observed small part,
+a nonempty `planEvidenceQuote` must cover its
 distinctive visible colors, highlights and marks, not merely name the overall part. An
 incomplete quote is reported as a missing-description finding for the existing
 bounded repair path; the program still checks only exact quote presence, so
@@ -468,13 +506,15 @@ internal locators must not be cleared to evade review. Actual text removal and
 complete contours still require post-generation review or visual acceptance.
 This clarifies planning evidence; no blocker code, severity or repair limit changes.
 
-Planning category `cosmetic` is advisory only with code `MINOR_COLOR_TONE` or
+Under the historical policy, planning category `cosmetic` is advisory only with code `MINOR_COLOR_TONE` or
 `DESCRIPTION_WORDING`. Unknown cosmetic codes fail closed. Missing/duplicate
 artwork, ownership/state changes, substantial wrong colors and clipping remain
 semantic/geometry blockers. Structural issues and unknowns remain blockers.
 Legacy semantic/geometry responses remain conservative. The model still owns
 observation accuracy; classifying a serious defect as cosmetic is not made safe
 by a code alone and remains a real-world validation risk.
+An explicit `minorColor=strict` policy retains `MINOR_COLOR_TONE` as a blocker;
+it does not reinterpret archived warnings.
 
 The final warning list and review hash are frozen in planning-warnings.json and
 included in package review notes. No human acceptance is inferred. CLI action and

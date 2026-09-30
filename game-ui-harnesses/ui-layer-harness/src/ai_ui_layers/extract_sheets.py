@@ -12,8 +12,9 @@ from .freeze_visual import inspect
 from .automatic_registration import observation_image, call_model
 from .sheet_pixels import prepare, axis_cuts
 from .short_prompt import exclusions
-from .sheet_review_policy import SCHEMA as REVIEW_SCHEMA, PROMPT as REVIEW_PROMPT, classify
+from .sheet_review_policy import PROMPT as REVIEW_PROMPT, classify, schema_for
 from .review_image import fit_resampling
+from .visual_policy import snapshot_policy, output_review_guidance
 
 
 def review_entries(visual, material_ids):
@@ -125,13 +126,17 @@ def cells(image, row, actual_gaps=False):
 
 
 def extract(snapshot, expected_digest, sources, output, model_call=None, selected_request=None):
-    snapshot=Path(snapshot).resolve();inspect(snapshot,expected_digest)
+    snapshot=Path(snapshot).resolve();manifest=inspect(snapshot,expected_digest)
+    visual_policy=snapshot_policy(snapshot,manifest)
+    policy_sha=manifest['visualPolicySha256'] if visual_policy is not None else None
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=False)
     rows=read(snapshot/'requests.json')['requests']
     if selected_request is not None:
         selected=[row for row in rows if row['asset']==selected_request and row.get('kind')=='sheet']
         if len(selected)!=1:raise ValueError('SHEET_SELECTION_REQUIRED')
         rows=selected
+    if visual_policy is not None and any(row.get('kind')!='sheet' for row in rows):
+        raise ValueError('VISUAL_POLICY_SINGLE_REVIEW_ROUTE_REQUIRED')
     if set(sources)!={r['asset'] for r in rows}:raise ValueError('SHEET_REQUEST_COVERAGE')
     visual_path=snapshot/'evidence/revised-visual-plan.json'
     visual=read(visual_path if visual_path.exists() else snapshot/'evidence/m1-draft.json')
@@ -148,7 +153,7 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
                 'evidence':dict(type='string',minLength=1),
                 'suggestion':dict(type='string',minLength=1)}))})
     # New model requests require warnings; legacy adapters may omit them, never downgrade issues.
-    request_schema=REVIEW_SCHEMA
+    request_schema=schema_for(visual_policy)
     try:
         checked={};prepared={};preparation={}
         sizes={a['id']:a['output_size'] for a in read(snapshot/'execution-plan.candidate.json')['assets']}
@@ -201,7 +206,9 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
                 'Grid is row-major, zero-based. Return observed materialIds in cell order '
                 'only when identifiable; do not merely echo the assignment. Unused cells must be empty. '
                 'Cell boxes are half-open pixels in image 2; use observation mappings. '
-                + REVIEW_PROMPT + '\n'+json.dumps(dict(grid=row['grid'],sourceBoxes=review_boxes,observationMapping=mappings,entries=entries),ensure_ascii=False))
+                + REVIEW_PROMPT +
+                (output_review_guidance(visual_policy) if visual_policy is not None else '')+
+                '\n'+json.dumps(dict(grid=row['grid'],sourceBoxes=review_boxes,observationMapping=mappings,entries=entries),ensure_ascii=False))
             (folder/'prompt.md').write_text(prompt,encoding='utf-8')
             inputs={n:digest(folder/n) for n in ('reference.png','generated.png','detail-compare.png',
                                                  'detail-compare.json','schema.json','prompt.md',
@@ -210,7 +217,8 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
             adapted_hash=digest(adapted_evidence) if adapted_evidence else None
             save(folder/'request.json',dict(inputs=inputs,sourceSha256=originals[key],
                  preparedSha256=prepared_hash,reviewSourceSha256=review_hash,
-                 adaptedEvidenceSha256=adapted_hash,materialIds=row['materialIds']))
+                 adaptedEvidenceSha256=adapted_hash,materialIds=row['materialIds'],
+                 **({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
             print(json.dumps(dict(stage='sheet-review',request=key)),flush=True)
             calls+=1;transport=(model_call or call_model)(folder)
             if transport.get('exitCode')!=0 or not transport.get('turnCompleted') or transport.get('unexpectedEvents') or transport.get('failure'):
@@ -225,15 +233,18 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
                 raise ValueError('SHEET_INPUT_CHANGED')
             answer=read(folder/'draft.json')
             if 'findings' in answer:
-                assessment=classify(answer,row['materialIds'])
+                assessment=classify(answer,row['materialIds'],visual_policy)
                 save(folder/'assessment.json',dict(assessment,policy='sheet-observation-severity-v1',
-                     reviewSha256=digest(folder/'draft.json'),humanVisualAcceptance=False))
+                     reviewSha256=digest(folder/'draft.json'),humanVisualAcceptance=False,
+                     **({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
                 decisions.extend(dict(d,requestId=key,reviewSha256=digest(folder/'draft.json'))
                                  for d in assessment['decisions'])
                 answer=dict(materialIds=answer['materialIds'],issues=assessment['blockers'],
                             warnings=assessment['warnings'])
             else:
                 # Legacy adapters are conservative: their textual issues always block.
+                if visual_policy is not None:
+                    raise ValueError('VISUAL_POLICY_REVIEW_SCHEMA_REQUIRED')
                 Draft202012Validator(schema).validate(answer)
             for warning in answer.get('warnings',[]):
                 if warning['materialId'] not in row['materialIds']:raise ValueError('SHEET_WARNING_MATERIAL_MISMATCH')

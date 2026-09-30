@@ -18,7 +18,12 @@ def audit_rows(review, field):
     return rows
 
 
-def split(review, plan=None):
+def split(review, plan=None, visual_policy=None):
+    if visual_policy is not None:
+        from .visual_policy import validate
+        validate(visual_policy)
+    reference_bound=(visual_policy is not None and
+                     visual_policy['appearanceEvidence']=='bound-reference')
     blockers, warnings = [], []
     issues=list(review['issues'])
     if 'coverageAudit' in review:
@@ -48,13 +53,24 @@ def split(review, plan=None):
                 if item['materialId']==owner]
             for part in row['parts']:
                 status=part.get('descriptionStatus')
-                if 'descriptionStatus' in part and status not in DESCRIPTION_STATUSES:
+                allowed_statuses=DESCRIPTION_STATUSES+(('reference-bound',) if reference_bound else ())
+                if 'descriptionStatus' in part and status not in allowed_statuses:
                     raise ValueError('INVALID_SMALL_DESCRIPTION_STATUS')
+                deferred=part.get('deferredAppearance')
+                if status=='reference-bound':
+                    if not isinstance(deferred,str) or not deferred.strip():
+                        raise ValueError('REFERENCE_BOUND_APPEARANCE_EVIDENCE_REQUIRED')
+                elif deferred is not None:
+                    raise ValueError('UNEXPECTED_DEFERRED_APPEARANCE')
                 quote=part['planEvidenceQuote']
                 if not quote or (plan is not None and not any(quote in label for label in descriptions)):
                     issues.append(dict(code='UNDESCRIBED_SMALL_MATERIAL_PART',category='semantic',
                         ids=[owner],description=owner+': '+part['visiblePart']+'; '+part['observedAppearance'],
                         suggestedChange=part['suggestedChange']))
+                elif status=='reference-bound':
+                    warnings.append(dict(code='REFERENCE_BOUND_APPEARANCE',category='cosmetic',
+                        ids=[owner],description=owner+': '+part['visiblePart']+'; '+deferred,
+                        deferredAppearance=deferred,suggestedChange=part['suggestedChange']))
                 elif status is not None and status!='consistent':
                     # A literal quote proves provenance, not semantic fidelity.
                     # Historical reviews without this field keep their bound policy.
@@ -77,7 +93,11 @@ def split(review, plan=None):
         if issue['category'] == 'cosmetic':
             if issue['code'] not in COSMETIC_CODES:
                 raise ValueError('UNKNOWN_COSMETIC_REVIEW_CODE')
-            warnings.append(issue)
+            if (visual_policy is not None and visual_policy['minorColor']=='strict' and
+                    issue['code']=='MINOR_COLOR_TONE'):
+                blockers.append(issue)
+            else:
+                warnings.append(issue)
         else:
             blockers.append(issue)
     return blockers, warnings

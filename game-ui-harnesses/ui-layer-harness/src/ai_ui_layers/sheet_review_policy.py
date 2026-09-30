@@ -1,4 +1,5 @@
 """Deterministic severity for new sheet observations; never reinterpret archived reviews."""
+import copy
 from jsonschema import Draft202012Validator
 
 STATES = ['not-applicable', 'empty', 'partial', 'near-full', 'full', 'unknown']
@@ -40,8 +41,21 @@ PROMPT = (
 )
 
 
-def classify(answer, material_ids):
-    Draft202012Validator(SCHEMA).validate(answer)
+def schema_for(visual_policy):
+    """Require explicit style attribution only for newly policy-bound reviews."""
+    if visual_policy is None:
+        return SCHEMA
+    from .visual_policy import validate
+    validate(visual_policy)
+    schema=copy.deepcopy(SCHEMA)
+    finding=schema['properties']['findings']['items']
+    finding['required'].append('styleAspect')
+    finding['properties']['styleAspect']=dict(type='string',enum=['color-tone','shadow','other'])
+    return schema
+
+
+def classify(answer, material_ids, visual_policy=None):
+    Draft202012Validator(schema_for(visual_policy)).validate(answer)
     if answer['materialIds'] != material_ids:
         raise ValueError('SHEET_IDENTITY_MISMATCH')
     warnings, blockers, decisions = [], [], []
@@ -53,15 +67,26 @@ def classify(answer, material_ids):
         if (category == 'progress' and 'not-applicable' in states or
                 category != 'progress' and states != {'not-applicable'}):
             raise ValueError('SHEET_FINDING_STATE_CATEGORY_MISMATCH')
+        if visual_policy is not None and category!='style' and finding['styleAspect']!='other':
+            raise ValueError('SHEET_STYLE_ASPECT_CATEGORY_MISMATCH')
         advisory = False
         attribution = 'visual-discrepancy'
         if finding['ownership'] == 'ambiguous':
             attribution = 'planning-or-localization-unresolved'
+        elif visual_policy is not None and finding['magnitude']!='minor':
+            # The opt-in policy never converts major or uncertain observations
+            # into warnings, including progress and style observations.
+            pass
         elif category == 'progress' and 'unknown' not in states:
             advisory = (states <= {'full', 'near-full'} or
                         len(states) == 1 and finding['magnitude'] == 'minor')
         elif category == 'style':
-            advisory = finding['magnitude'] == 'minor'
+            if visual_policy is None:
+                advisory = finding['magnitude'] == 'minor'
+            elif finding['magnitude']=='minor':
+                aspect=finding['styleAspect']
+                advisory=(aspect=='color-tone' and visual_policy['minorColor']=='record' or
+                          aspect=='shadow' and visual_policy['shadow']=='optional')
         decision = dict(finding, severity='warning' if advisory else 'blocking', attribution=attribution)
         decisions.append(decision)
         if advisory:

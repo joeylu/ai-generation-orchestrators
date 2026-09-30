@@ -10,6 +10,7 @@ from PIL import Image
 
 from .evaluate import read, save, digest, pixel_box, check_relations, draw_order
 from .short_prompt import carries_foreground
+from .visual_policy import validate as validate_visual_policy, planning_policy, generation_guidance
 
 HARNESS = Path(__file__).resolve().parents[4]/'game-ui-harnesses/ui-decomposition-harness'
 sys.path.insert(0, str(HARNESS/'src'))
@@ -29,8 +30,12 @@ def render_prompt(asset):
 
 
 def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generation_reference='full',
-                 context_prompt_version='v3'):
+                 context_prompt_version='v3', visual_policy=None):
     validate_mode(generation_reference)
+    if visual_policy is not None:
+        validate_visual_policy(visual_policy)
+        if visual_policy['appearanceEvidence']=='bound-reference' and generation_reference!='context-crops':
+            raise ValueError('BOUND_REFERENCE_REQUIRES_CONTEXT_CROPS')
     if visual['kind'] != 'ui_visual_plan_v5':
         raise ValueError('V5_REQUIRED')
     if check_relations(visual):
@@ -98,6 +103,8 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
         prefix={'v1':PROMPT_PREFIX_V1,'v2':PROMPT_PREFIX_V2,'v3':PROMPT_PREFIX_V3}[context_prompt_version]
         for asset in assets:
             asset['prompt']=prefix+context_prompt(visual,plan,[asset['id']],version=context_prompt_version)
+    if visual_policy is not None:
+        for asset in assets:asset['prompt']+=generation_guidance(visual_policy)
     return plan, placements
 
 
@@ -108,6 +115,8 @@ def selected_paths(run):
 
 
 def verify_run(run, *, _allow_issues=False):
+    run=Path(run)
+    policy=planning_policy(run)
     if (run/'revision.json').exists():
         kind=read(run/'revision.json').get('kind')
         if kind=='ui_explicit_plan_revision_v1':
@@ -163,7 +172,7 @@ def verify_run(run, *, _allow_issues=False):
         source=run/repair_name/'candidate.json'
     from .planning_review_policy import split
     visual = read(selected_paths(run)[0])
-    if split(review,visual)[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
+    if split(review,visual,visual_policy=policy)[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
     Draft202012Validator(read(run/'m1/schema.json')).validate(visual)
     return visual
 
@@ -176,6 +185,7 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     if max_calls < 1:
         raise ValueError('INVALID_CALL_LIMIT')
     visual = verify_run(run)
+    policy=planning_policy(run)
     plan_path,review_path=selected_paths(run)
     if generation_mode not in ('single','sheets'):raise ValueError('GENERATION_MODE')
     source = run/'m1/reference.png'; before=digest(source)
@@ -185,12 +195,14 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
         image.load(); picture=image.convert('RGBA')
     plan, placements = compile_plan(visual, picture.size, before,
                                     generation_reference=generation_reference,
-                                    context_prompt_version=context_prompt_version)
+                                    context_prompt_version=context_prompt_version,visual_policy=policy)
     from .generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY
     groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY) if generation_mode=='sheets' else None
     calls=groups['plannedCalls'] if groups else len(plan['assets'])
     if calls>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
     output.mkdir(parents=True, exist_ok=False)
+    if policy is not None:
+        (output/'visual-policy.json').write_bytes((run/'.dag/inputs/visual-policy.json').read_bytes())
     if groups:save(output/'generation-groups.json',groups)
     (output/'reference.png').write_bytes(source.read_bytes())
     if digest(output/'reference.png') != before:
@@ -231,6 +243,8 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
             **({'contextPromptVersion':context_prompt_version} if generation_reference=='context-crops' and context_prompt_version!='v1' else {}),
             'generationCalls':0,'freezeExecuted':False,'productionReady':False,'humanVisualAcceptance':False,
             'blockers':blockers,'artifacts':artifacts,'elapsedSeconds':time.perf_counter()-started}
+    if policy is not None:
+        report['visualPolicySha256']=digest(output/'visual-policy.json')
     save(output/'compile-report.json', report)
     return report
 

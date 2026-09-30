@@ -1,5 +1,21 @@
 # Release notes
 
+## Unreleased explicit visual evidence policy
+
+- New runs may bind an explicit policy file for text-complete or bound-reference
+  appearance evidence, strict/record minor color, and preserve/optional isolated
+  soft shadow. Bound-reference retains structural descriptions, literal owner
+  quotes and explicit deferred-appearance warnings; missing, conflicting and
+  uncertain parts still block. It requires bound context references.
+- The exact policy bytes follow planning, revision, freeze, compiler, source-layout
+  board and image-job preparation. Preflight rebuilds policy-bearing prompts.
+  Output review records targeted color/shadow findings while retaining major,
+  uncertain, ownership, clipping and artwork gates. Explicit-policy mixed requests
+  with singleton rows stop until separate review routing is established.
+- The option does not rewrite or promote old runs, change grouping, submit media,
+  publish a tag or establish model fidelity. Real generation and reassembly require
+  their own frozen authorization and visual acceptance.
+
 ## Unreleased object-locator rule scope
 
 - M1, review and repair share a concise distinction between material crops and

@@ -8,11 +8,13 @@ from PIL import Image
 from .freeze_visual import inspect
 from .compile_visual import validate, render_prompt
 from .evaluate import read
+from .visual_policy import snapshot_policy, generation_guidance
 
 
 def preflight(folder, expected_digest):
     started=time.perf_counter();folder=Path(folder)
     snapshot=inspect(folder,expected_digest)
+    policy=snapshot_policy(folder,snapshot)
     if (folder/'surface-details.json').exists() and read(folder/'surface-details.json'):
         raise ValueError('RETIRED_DRAWING_PLAN_REQUIRES_REPLAN')
     required={'execution-plan.candidate.json','reference.png','requests.json'}
@@ -20,6 +22,10 @@ def preflight(folder, expected_digest):
         raise ValueError('UNBOUND_EXECUTION_INPUT')
     plan=read(folder/'execution-plan.candidate.json');validate(plan,source_base=folder)
     requests=read(folder/'requests.json')
+    if requests.get('visualPolicySha256')!=snapshot.get('visualPolicySha256'):
+        raise ValueError('VISUAL_POLICY_REQUEST_MISMATCH')
+    if policy is not None and read(folder/'compile-report.json').get('visualPolicySha256')!=snapshot['visualPolicySha256']:
+        raise ValueError('VISUAL_POLICY_COMPILER_MISMATCH')
     if requests.get('kind') not in ('ui_visual_requests_preview_v1','ui_visual_requests_preview_v2') or requests.get('dispatchEnabled') is not False:
         raise ValueError('REQUEST_PREVIEW_REQUIRED')
     rows=requests['requests'];assets=plan['assets']
@@ -38,6 +44,8 @@ def preflight(folder, expected_digest):
         reference=source.convert('RGBA')
     context_document=None
     context_prompt_version=snapshot.get('contextPromptVersion','v1')
+    if policy is not None and policy['appearanceEvidence']=='bound-reference' and not context:
+        raise ValueError('BOUND_REFERENCE_REQUIRES_CONTEXT_CROPS')
     if context:
         if context_prompt_version not in ('v1','v2','v3'):
             raise ValueError('CONTEXT_PROMPT_VERSION')
@@ -51,7 +59,7 @@ def preflight(folder, expected_digest):
         if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
         visual=read(visual_path)
         rebuilt,_=compile_plan(visual,reference.size,digest(folder/'reference.png'),plan['id'],
-                               'context-crops',context_prompt_version=context_prompt_version)
+                               'context-crops',context_prompt_version=context_prompt_version,visual_policy=policy)
         if rebuilt!=plan:raise ValueError('CONTEXT_PLAN_COMPILER_MISMATCH')
         context_document=verify_context(folder,plan,snapshot,reference)
     elif ('generation-references.json' in snapshot['files'] or
@@ -61,6 +69,13 @@ def preflight(folder, expected_digest):
                                       'visual-material-context-prompt-v3:\n')) for a in assets) or
           any('generationReference' in row or 'references' in row for row in rows)):
         raise ValueError('CONTEXT_REFERENCE_MODE_MISMATCH')
+    if policy is not None and not context:
+        from .compile_visual import compile_plan
+        from .evaluate import digest
+        visual_path=folder/'evidence/revised-visual-plan.json'
+        if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
+        rebuilt,_=compile_plan(read(visual_path),reference.size,digest(folder/'reference.png'),plan['id'],visual_policy=policy)
+        if rebuilt!=plan:raise ValueError('VISUAL_POLICY_PLAN_COMPILER_MISMATCH')
     if grouped:
         from .generation_groups import build_groups, sheet_prompt, CONTEXT_GROUP_POLICY
         visual_path=folder/'evidence/revised-visual-plan.json'
@@ -89,6 +104,7 @@ def preflight(folder, expected_digest):
                                       legacy_without_attached_props=True)+'\n')
                 if context:allowed=(context_prompt(visual,plan,group['materialIds'],group,
                                                    version=context_prompt_version)+'\n',)
+                if policy is not None:allowed=tuple(p[:-1]+generation_guidance(policy)+'\n' for p in allowed)
                 if compiled not in allowed:
                     raise ValueError('PROMPT_COMPILER_MISMATCH')
             elif row.get('kind') or 'materialIds' in row:

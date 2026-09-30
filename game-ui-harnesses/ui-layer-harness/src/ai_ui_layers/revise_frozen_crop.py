@@ -18,6 +18,7 @@ from .planning_review_policy import split
 from .review_focus import make_focus, make_small_material_focus
 from .sequence_focus import make_sequence_focus
 from .session_review import session_id, render_for_review
+from .visual_policy import planning_policy, snapshot_policy, planning_guidance, INPUT_NAME
 
 
 KIND='ui_rejected_frozen_crop_revision_v1'
@@ -60,6 +61,8 @@ def _verify_parent_state(source):
             if digest(_safe_file(source,name))!=sha:raise ValueError('PARENT_OUTPUT_CHANGED')
     if not (source/'.dag/freeze/done.json').exists():raise ValueError('FROZEN_PARENT_REQUIRED')
     snapshot=inspect(source/'frozen')
+    if planning_policy(source)!=snapshot_policy(source/'frozen',snapshot):
+        raise ValueError('PARENT_VISUAL_POLICY_CHANGED')
     if snapshot.get('generationReference','full')!=config.get('generationReference','full'):
         raise ValueError('PARENT_GENERATION_POLICY_CHANGED')
     # An old fixed runtime is read-only evidence: verify its recorded outputs,
@@ -119,9 +122,11 @@ def init(source, output, rejection_path):
     _validate_rejection(rejection,snapshot,reference,plan)
     parent_files=_parent_file_digests(source)
     notes=source/'.dag/inputs/planning-notes.txt'
+    policy=planning_policy(source)
     planning.init(reference,output,config['maxCalls'],config.get('generationMode','single'),
                   notes if notes.exists() else None,
-                  generation_reference=config.get('generationReference','full'))
+                  generation_reference=config.get('generationReference','full'),
+                  visual_policy=source/'.dag/inputs'/INPUT_NAME if policy is not None else None)
     child_config=read(output/'.dag/config.json')
     child_config.update(graph=GRAPH,maximumRepairs=1,
                         contextPromptVersion=_context_prompt_version(snapshot))
@@ -179,6 +184,11 @@ def check_inputs(root):
     for name,sha in revision['parentFiles'].items():
         if digest(_safe_file(source,name))!=sha:raise ValueError('PARENT_EVIDENCE_CHANGED')
     parent_config,snapshot,plan_path,review_path=_verify_parent_state(source)
+    if (config['inputs'].get(INPUT_NAME)!=parent_config['inputs'].get(INPUT_NAME) or
+            config['inputs'].get(INPUT_NAME)!=snapshot.get('visualPolicySha256')):
+        raise ValueError('REVISION_VISUAL_POLICY_CHANGED')
+    if planning_policy(root)!=snapshot_policy(source/'frozen',snapshot):
+        raise ValueError('REVISION_VISUAL_POLICY_CHANGED')
     if (snapshot['digest']!=revision['parentSnapshotDigest'] or
             digest(plan_path)!=revision['sourcePlanSha256'] or
             digest(review_path)!=revision['parentReviewSha256'] or
@@ -292,7 +302,7 @@ def verify_revision(root, allow_issues=False):
         raise ValueError('REVISION_REVIEW_CHANGED')
     if read(review/'prior-findings.json')!=rejection_findings(root):
         raise ValueError('REVISION_PRIOR_FINDINGS_CHANGED')
-    blockers,warnings=split(read(review/'draft.json'),candidate)
+    blockers,warnings=split(read(review/'draft.json'),candidate,planning_policy(root))
     assessment=read(review/'assessment.json')
     if (assessment['blockers']!=blockers or assessment['warnings']!=warnings or
             assessment['reviewSha256']!=digest(review/'draft.json')):
@@ -328,6 +338,7 @@ class FrozenCropDag(planning.Dag):
 
     def repair(self):
         root=self.root;p=self.folder('repair');source=root/'source-plan.json'
+        policy=planning_policy(root)
         plan=read(source);rejection=read(root/'rejection.json')
         source_sha=digest(source)
         (p/'reference.png').write_bytes((root/'m1/reference.png').read_bytes())
@@ -357,16 +368,18 @@ class FrozenCropDag(planning.Dag):
         if small:prompt+='\n小素材同坐标原图/裁片证据：'+json.dumps(small,ensure_ascii=False)
         if focus:prompt+='\n局部边界证据：'+json.dumps(focus,ensure_ascii=False)
         if sequence:prompt+='\n序列原图证据：'+json.dumps(sequence,ensure_ascii=False)
-        (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
+        (p/'prompt.md').write_text(prompt+planning_guidance(policy)+self.user_context(),encoding='utf-8')
         names=['reference.png','schema.json','prompt.md','source-context.json','review-overlay.png']
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small:names+=['coverage-small-materials.json']+[row['file'] for row in small['pages']]
         if small and small.get('detail'):names.append(small['detail']['file'])
         if sequence:names+=['coverage-sequence-source.json']+[row['file'] for row in sequence['pages']]
-        save(p/'request.json',dict(newSession=True,sourcePlanSha256=source_sha,
+        request=dict(newSession=True,sourcePlanSha256=source_sha,
              rejectionSha256=digest(root/'rejection.json'),
              originalReferenceSha256=digest(p/'reference.png'),
-             inputs={name:digest(p/name) for name in names}))
+             inputs={name:digest(p/name) for name in names})
+        if policy is not None:request['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
+        save(p/'request.json',request)
         self.call(p,first=True)
         if read(root/'session.json')['sessionId']==read(Path(read(root/'revision.json')['parent'])/'session.json')['sessionId']:
             raise ValueError('PARENT_SESSION_REUSED')

@@ -11,6 +11,7 @@ from PIL import Image
 from . import context_references
 from .evaluate import read
 from .execution_preflight import preflight
+from .visual_policy import snapshot_policy, generation_guidance
 
 
 KIND = 'ui_sheet_layout_reference_v1'
@@ -75,6 +76,7 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
         raise ValueError('SHEET_LAYOUT_PROMPT_VERSION')
     snapshot = Path(snapshot)
     manifest, visual, plan = _frozen(snapshot, row)
+    policy=snapshot_policy(snapshot,manifest)
     width, height = row['outputSize']
     columns, rows = row['grid']
     if columns * rows < len(row['materialIds']) or min(width, height, columns, rows) < 1:
@@ -129,6 +131,7 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
                     grid=row['grid'], outputSize=row['outputSize'],
                     background=list(NEUTRAL_GRAY), materialIds=row['materialIds'],
                     integerScale=scale, cells=metadata_cells)
+    if policy is not None:metadata['visualPolicySha256']=manifest['visualPolicySha256']
     materials = {m['id']: m for m in visual['materials']}
     assets = {a['id']: a for a in plan['assets']}
     entries = []
@@ -182,6 +185,7 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
     if prompt_version == 'v2':
         from .ownership_actions import board_prompt
         prompt = board_prompt(entries, (width, height), (columns, rows))
+    if policy is not None:prompt=prompt.rstrip('\n')+generation_guidance(policy)+'\n'
     buffer = io.BytesIO()
     board.save(buffer, format='PNG')
     return metadata, buffer.getvalue(), prompt
@@ -192,6 +196,7 @@ def _descriptor(metadata, board_bytes, prompt, prompt_version='v1'):
     return dict(kind=KIND, mode=MODE, snapshotDigest=metadata['snapshotDigest'],
                 requestAsset=metadata['requestAsset'], board=BOARD, metadata=METADATA,
                 prompt=PROMPT, sha256={name: _sha(payload) for name, payload in payloads.items()},
+                **({'visualPolicySha256':metadata['visualPolicySha256']} if 'visualPolicySha256' in metadata else {}),
                 **({'promptVersion': prompt_version} if prompt_version != 'v1' else {}))
 
 

@@ -10,8 +10,9 @@ from .evaluate import read, save, digest
 from .experimental_executor import load_job, status, verified
 from .extract_sheets import review_entries
 from .postprocess_visual import process
-from .sheet_review_policy import SCHEMA, PROMPT, classify
+from .sheet_review_policy import PROMPT, classify, schema_for
 from .review_image import fit_resampling
+from .visual_policy import snapshot_policy, output_review_guidance
 
 
 def comparison(reference, generated, output, processed=None):
@@ -68,7 +69,7 @@ def finalize_failed_transport(output):
     return result
 
 
-def review_prompt(asset, visual):
+def review_prompt(asset, visual, visual_policy=None):
     entries=review_entries(visual,[asset])
     return ('Compare image 1, the original rectangular reference crop, against image 2, '
             'the received raw generated material. Image 3 places the original on the left, '
@@ -92,10 +93,11 @@ def review_prompt(asset, visual):
             'different occupancy of the reference crop and raw canvas is not a contour error. '
             'Report a visible raw proportion error before target fitting, and report any '
             'texture damage introduced by the target-size fit. No tools or fixes. '+PROMPT+
+            (output_review_guidance(visual_policy) if visual_policy is not None else '')+
             '\nExpected materialIds: '+asset+'. Entries: '+json.dumps(entries,ensure_ascii=False))
 
 
-def background_review_prompt(asset, visual):
+def background_review_prompt(asset, visual, visual_policy=None):
     entries=review_entries(visual,[asset])
     return ('Compare image 1, the original full reference, with image 2, the generated opaque underlay. '
             'Image 3 shows the reference, raw underlay and deterministic target-size fit in three '
@@ -105,12 +107,17 @@ def background_review_prompt(asset, visual):
             'Inspect visible background pattern, structure, colors and placement, and confirm the output stays opaque. '
             'Report changed visible artwork, not the absence of separately owned UI or ordinary text. '
             'No tools or fixes. '+PROMPT+
+            (output_review_guidance(visual_policy) if visual_policy is not None else '')+
             '\nExpected materialIds: '+asset+'. Entries: '+json.dumps(entries,ensure_ascii=False))
 
 
 def review(job, output, model_call=None, request_id=None):
     job=Path(job);output=Path(output)
     config,index=load_job(job)
+    snapshot=job/'snapshot'
+    manifest=read(snapshot/'snapshot.json')
+    visual_policy=snapshot_policy(snapshot,manifest)
+    policy_sha=manifest['visualPolicySha256'] if visual_policy is not None else None
     if status(job)['status']!='raw_complete' or (request_id is None and len(config['assets'])!=1):
         raise ValueError('ONE_RECEIVED_MATERIAL_REQUIRED')
     asset=request_id or config['assets'][0]
@@ -137,10 +144,10 @@ def review(job, output, model_call=None, request_id=None):
     processed=output/'processed/material.png'
     detail=comparison(reference,raw,folder/'detail-compare.png',processed)
     save(folder/'detail-compare.json',detail)
-    save(folder/'schema.json',SCHEMA)
+    save(folder/'schema.json',schema_for(visual_policy))
     visual_path=job/'snapshot/evidence/revised-visual-plan.json'
     visual=read(visual_path if visual_path.is_file() else job/'snapshot/evidence/m1-draft.json')
-    prompt=(background_review_prompt if background else review_prompt)(asset,visual)
+    prompt=(background_review_prompt if background else review_prompt)(asset,visual,visual_policy)
     (folder/'prompt.md').write_text(prompt,encoding='utf-8')
     names=('reference.png','generated.png','detail-compare.png','detail-compare.json',
            'schema.json','prompt.md')
@@ -148,7 +155,8 @@ def review(job, output, model_call=None, request_id=None):
     save(folder/'request.json',dict(kind='ui_single_material_review_v1',materialId=asset,
          jobDigest=config['digest'],submissionDigest=receipt['submissionDigest'],
          rawSha256=receipt['rawSha256'],referenceSha256=digest(reference),inputs=bound,
-         modelCallsMaximum=1,automaticRetry=False))
+         modelCallsMaximum=1,automaticRetry=False,
+         **({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
     try:
         transport=(model_call or call_model)(folder)
     except ValueError:
@@ -162,10 +170,11 @@ def review(job, output, model_call=None, request_id=None):
             digest(raw)!=receipt['rawSha256'] or digest(reference)!=detail['referenceSha256'] or
             digest(processed)!=gate['materialSha256']):
         raise ValueError('MATERIAL_REVIEW_INPUT_CHANGED')
-    answer=read(folder/'draft.json');Draft202012Validator(SCHEMA).validate(answer)
-    assessment=classify(answer,[asset])
+    answer=read(folder/'draft.json');Draft202012Validator(schema_for(visual_policy)).validate(answer)
+    assessment=classify(answer,[asset],visual_policy)
     save(folder/'assessment.json',dict(assessment,policy='sheet-observation-severity-v1',
-                                      reviewSha256=digest(folder/'draft.json'),humanVisualAcceptance=False))
+                                      reviewSha256=digest(folder/'draft.json'),humanVisualAcceptance=False,
+                                      **({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
     result=dict(status='blocked_no_retry' if assessment['blockers'] else 'reviewed_pending_visual_acceptance',
                 materialId=asset,rawSha256=receipt['rawSha256'],processedSha256=gate['materialSha256'],
                 reviewSha256=digest(folder/'draft.json'),modelCalls=1,

@@ -15,6 +15,7 @@ from .extract_sheets import extract
 from .adapt_strip import adapt_materials
 from .review_single_job import run as review_single_job
 from .session_review import TransportFailure
+from .visual_policy import load_input, input_policy
 
 GRAPH = {'planning': [], 'prepare': ['planning'], 'raw_complete': ['prepare'],
          'registration': ['raw_complete'], 'package': ['registration']}
@@ -29,10 +30,16 @@ def runtime_files():
     return files
 
 
-def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=planning.DEFAULT_GENERATION_REFERENCE):
+def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=planning.DEFAULT_GENERATION_REFERENCE, visual_policy=None):
     from .context_references import validate_mode
     validate_mode(generation_reference)
     notes=planning.read_notes(planning_notes)
+    policy_bytes=load_input(visual_policy)
+    if policy_bytes is not None:
+        from .visual_policy import validate
+        policy=validate(json.loads(policy_bytes.decode('utf-8-sig')))
+        if policy['appearanceEvidence']=='bound-reference' and generation_reference!='context-crops':
+            raise ValueError('BOUND_REFERENCE_REQUIRES_CONTEXT_CROPS')
     root = Path(root).resolve(); image = Path(image)
     if target not in ('frozen', 'ui-layers'): raise ValueError('DELIVERY_TARGET')
     if not 1 <= max_calls <= 128: raise ValueError('CALL_LIMIT')
@@ -52,6 +59,9 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
     if notes is not None:
         (root/'.dag/inputs/planning-notes.txt').write_bytes(notes)
         inputs['planning-notes.txt']=Path(planning_notes)
+    if policy_bytes is not None:
+        (root/'.dag/inputs/visual-policy.json').write_bytes(policy_bytes)
+        inputs['visual-policy.json']=Path(visual_policy)
     save(root/'.dag/config.json', dict(kind='ui_delivery_dag_v1', target=target, graph=GRAPH,
          maxCalls=max_calls, generationMode=generation_mode, generationReference=generation_reference, runtime=runtime_files(),
          inputs={name:digest(root/'.dag/inputs'/name) for name in inputs}))
@@ -72,11 +82,14 @@ class DeliveryDag(planning.Dag):
         if self.config['runtime'] != runtime_files(): raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
         for name, expected in self.config['inputs'].items():
             if digest(self.inputs/name) != expected: raise ValueError('INPUT_CHANGED')
+        input_policy(self.inputs,self.config)
         for done in (self.root/'.dag').glob('*/done.json'):
             for name, expected in read(done)['outputs'].items():
                 if digest(self.root/name) != expected: raise ValueError('COMPLETED_OUTPUT_CHANGED:'+name)
         if (self.root/'planning/.dag/config.json').exists():
             planning.Dag(self.root/'planning', self.model).verify()
+            if read(self.root/'planning/.dag/config.json')['inputs'].get('visual-policy.json')!=self.config['inputs'].get('visual-policy.json'):
+                raise ValueError('VISUAL_POLICY_NESTED_RUN_MISMATCH')
         if (self.root/'raw-receipts.json').exists():
             for name, expected in read(self.root/'raw-receipts.json').items():
                 if digest(self.root/'generation'/name) != expected: raise ValueError('RAW_RECEIPT_CHANGED')
@@ -111,7 +124,8 @@ class DeliveryDag(planning.Dag):
                 planroot = self.root/'planning'
                 if not planroot.exists(): planning.init(self.inputs/'reference.png', planroot, self.config['maxCalls'],self.config.get('generationMode','single'),
                     self.inputs/'planning-notes.txt' if 'planning-notes.txt' in self.config['inputs'] else None,
-                    self.config.get('generationReference','full'))
+                    self.config.get('generationReference','full'),
+                    self.inputs/'visual-policy.json' if 'visual-policy.json' in self.config['inputs'] else None)
                 planning.Dag(planroot, self.model).execute()
                 self.node('planning', lambda: save(self.root/'planning-result.json',
                           planning.Dag(planroot, self.model).status()))
@@ -210,11 +224,13 @@ def main():
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
+    p.add_argument('--visual-policy',help='Explicit visual evidence and tolerance JSON, frozen only for a new run')
     p.add_argument('--snapshot');p.add_argument('--snapshot-digest')
     p.add_argument('--job-digest'); p.add_argument('--approval'); p.add_argument('--submission-digest')
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.visual_policy and a.action!='run':p.error('--visual-policy is only valid for a new run')
         if a.action=='revise-frozen-crops':
             if not a.planning_run or not a.rejection:p.error('--planning-run and --rejection required')
             from .revise_frozen_crop import init as init_crop_revision, FrozenCropDag
@@ -315,7 +331,7 @@ def main():
             print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action == 'run':
             if not a.image: p.error('--image required')
-            init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes,a.generation_reference or planning.DEFAULT_GENERATION_REFERENCE)
+            init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes,a.generation_reference or planning.DEFAULT_GENERATION_REFERENCE,a.visual_policy)
         if a.planning_notes and a.action!='run':p.error('--planning-notes is only valid for a new run')
         if a.generation_reference is not None and a.action!='run':p.error('--generation-reference is only valid for a new run or freeze-reviewed')
         dag = DeliveryDag(a.output); dag.verify(); job = dag.root/'generation'

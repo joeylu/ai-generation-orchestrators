@@ -18,6 +18,7 @@ from .review_focus import make_focus, make_small_material_focus
 from .sequence_focus import make_sequence_focus
 from .planning_review_policy import split, signatures, REGIONS, DESCRIPTION_STATUSES, audit_rows
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure
+from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME
 
 BASE=HARNESS/'planning-harness'
 REPO=Path(__file__).resolve().parents[4]
@@ -48,7 +49,7 @@ def prior_findings(root, name):
         review=root/('m2/draft.json' if name=='rereview' else 'rereview/draft.json')
         source=root/('m1/draft.json' if name=='rereview' else 'repair/candidate.json')
     # Derive against the plan actually reviewed, never the repaired candidate.
-    blockers,warnings=split(read(review),read(source))
+    blockers,warnings=split(read(review),read(source),planning_policy(root))
     return dict(kind='ui_planning_prior_findings_v1',sourcePlanSha256=digest(source),
                 reviewSha256=digest(review),blockers=blockers,warnings=warnings)
 
@@ -95,9 +96,14 @@ def read_notes(path):
     return data
 
 
-def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=DEFAULT_GENERATION_REFERENCE):
+def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=DEFAULT_GENERATION_REFERENCE, visual_policy=None):
     from .context_references import validate_mode
     validate_mode(generation_reference)
+    policy_bytes=load_input(visual_policy)
+    if policy_bytes is not None:
+        policy=json.loads(policy_bytes.decode('utf-8-sig'))
+        if policy['appearanceEvidence']=='bound-reference' and generation_reference!='context-crops':
+            raise ValueError('BOUND_REFERENCE_CONTEXT_CROPS_REQUIRED')
     notes=read_notes(planning_notes)
     root=Path(root).resolve();image=Path(image)
     with Image.open(image) as im:
@@ -110,6 +116,7 @@ def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, pl
                         ('visual-review.md',BASE/'prompts/visual-review.md'),('storage-schema.json',BASE/'schemas/visual-plan.schema.json')]:
         (inputs/name).write_bytes(source.read_bytes())
     if notes is not None:(inputs/'planning-notes.txt').write_bytes(notes)
+    if policy_bytes is not None:(inputs/INPUT_NAME).write_bytes(policy_bytes)
     save(root/'.dag/config.json',{'kind':'ui_planning_dag_v1','runtime':runtime_files(),
          'inputs':{p.name:digest(p) for p in inputs.iterdir()},'maxCalls':max_calls,'generationMode':generation_mode,'generationReference':generation_reference,
          'model':CLI_MODEL,'effort':CLI_EFFORT,'graph':GRAPH,'maximumRepairs':2,'mediaGenerationCalls':0})
@@ -136,6 +143,7 @@ class Dag:
         if self.config['runtime']!=runtime_files():raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
         for name,value in self.config['inputs'].items():
             if digest(self.inputs/name)!=value:raise ValueError('INPUT_CHANGED')
+        planning_policy(self.root)
         for done in (self.root/'.dag').glob('*/done.json'):
             for name,value in read(done)['outputs'].items():
                 if digest(self.root/name)!=value:raise ValueError('COMPLETED_OUTPUT_CHANGED:'+name)
@@ -186,6 +194,7 @@ class Dag:
 
     def m1(self):
         p=self.folder('m1')
+        policy=planning_policy(self.root)
         for name,source in [('reference.png','reference.png'),('prompt.md','visual-plan.md')]:
             (p/name).write_bytes((self.inputs/source).read_bytes())
         with Image.open(p/'reference.png') as reference:
@@ -196,10 +205,14 @@ class Dag:
                  '全画布背景框不证明其他可见图形已被覆盖；有明确边界的界面覆盖区按视觉单元判断素材归属，'
                  '不能用背景全框代替覆盖检查。短标签放不下的可见细节分给多个对象，描述须完整；'
                  '类别名称不能代替部件数量、连接关系和真实间隙，按可见结构描述，不用不确定术语补全。\n\n')
-        (p/'prompt.md').write_text(context+(p/'prompt.md').read_text(encoding='utf-8-sig')+self.user_context(),encoding='utf-8')
+        (p/'prompt.md').write_text(context+(p/'prompt.md').read_text(encoding='utf-8-sig')+
+                                   planning_guidance(policy)+self.user_context(),encoding='utf-8')
         save(p/'schema.json',transport_schema(read(self.inputs/'storage-schema.json')))
-        save(self.root/'request.json',{'inputs':{n:digest(p/n) for n in ('reference.png','prompt.md','schema.json')},
-             'model':self.config['model'],'effort':self.config['effort'],'mediaGenerationCalls':0,'maximumRepairs':self.config.get('maximumRepairs',1)})
+        request={'inputs':{n:digest(p/n) for n in ('reference.png','prompt.md','schema.json')},
+                 'model':self.config['model'],'effort':self.config['effort'],'mediaGenerationCalls':0,
+                 'maximumRepairs':self.config.get('maximumRepairs',1)}
+        if policy is not None:request['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
+        save(self.root/'request.json',request)
         self.call(p,True)
         Draft202012Validator(read(self.inputs/'storage-schema.json')).validate(read(p/'draft.json'))
 
@@ -210,6 +223,7 @@ class Dag:
 
     def review(self,name,plan_path,overlay):
         p=self.folder(name);sid=read(self.root/'session.json')['sessionId'];plan=read(plan_path)
+        policy=planning_policy(self.root)
         (p/'review-overlay.png').write_bytes(overlay.read_bytes())
         (p/'review-source.md').write_bytes((self.inputs/'visual-review.md').read_bytes())
         focus=make_focus(self.root/'m1/reference.png',p/'review-overlay.png',plan,p)
@@ -243,6 +257,13 @@ class Dag:
                               'planEvidenceQuote':{'type':'string'},
                               'descriptionStatus':{'type':'string','enum':list(DESCRIPTION_STATUSES)},
                               'suggestedChange':{'type':'string','minLength':1}}}
+            if policy is not None and policy['appearanceEvidence']=='bound-reference':
+                part_schema['properties']['descriptionStatus']['enum'].append('reference-bound')
+                part_schema['properties']['deferredAppearance']={'type':'string','minLength':1}
+                part_schema['allOf']=[
+                    {'if':{'properties':{'descriptionStatus':{'const':'reference-bound'}}},
+                     'then':{'required':['deferredAppearance']},
+                     'else':{'not':{'required':['deferredAppearance']}}}]
             material_schema={'type':'object','additionalProperties':False,
                 'required':['parts','boundary'],
                 'properties':{'boundary':{'type':'object','additionalProperties':False,
@@ -296,6 +317,17 @@ class Dag:
         if focus:
             save(p/'focus-meta.json',focus)
             prompt=('先核对下列局部证据：近边固定装饰的完整轮廓，或重复对齐卡片各自闭合边框的真实四边与归属。局部附件左半是干净原图、右半是同坐标标框叠图；若有同行高度候选边，它们只是寻找轮廓的搜索点，不是自动改框坐标。区分卡片自身闭合边框与相邻容器的分隔线，只按可见连接判断；对齐比较本身不是缺陷，也不要因其他小告警跳过这一检查：'+json.dumps(focus,ensure_ascii=False)+'\n'+prompt)
+        if policy is not None and policy['appearanceEvidence']=='bound-reference':
+            prompt=prompt.replace('空/非原文引文或非 consistent 均阻断；不要把结构疑问降级为措辞告警。',
+                                  '空/非原文引文或 missing/conflicting/uncertain 均阻断；合格 reference-bound 只记录警告，结构疑问不得降级。')
+            prompt=prompt.replace('整体名、类别术语或部分颜色不能替代结构、色点、高光和印记；不要用自己的观察替模糊引文补足描述。',
+                                  '整体名、类别术语或部分颜色不能替代结构、身份、状态、连接及显著高光、渐变和印记；仅细微表面可明确交给绑定原图，不用观察替模糊引文补足结构。')
+        if policy is not None:
+            prompt+=planning_guidance(policy)
+            if policy['appearanceEvidence']=='bound-reference':
+                prompt+=('reference-bound 仅用于所属逐字引文已证明结构、身份、数量、状态及连接关系，'
+                         '剩余细微表面由本次绑定原图承接；填写非空 deferredAppearance 说明具体延期表面。'
+                         '缺失/矛盾/不确定仍填对应状态，不借此跳过轮廓、归属或引文。\n')
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
         names=['schema.json','review-source.md','review-overlay.png','prompt.md']
         if name.startswith('rereview'):names.append('prior-findings.json')
@@ -308,6 +340,7 @@ class Dag:
                'inputs':{n:digest(p/n) for n in names}}
         if name=='m2':bound['sourcePlanSha256']=digest(plan_path)
         else:bound.update(candidateSha256=digest(plan_path),patchSha256=digest(plan_path.parent/'draft.json'))
+        if policy is not None:bound['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
         save(p/'request.json',bound);receipt=self.call(p)
         answer=read(p/'draft.json');known={o['id'] for k in ('materials','objects') for o in plan[k]}
         if small_focus and ({row['materialId'] for row in audit_rows(answer,'smallMaterialAudit')} !=
@@ -317,7 +350,7 @@ class Dag:
                 {row['materialId'] for row in audit_rows(answer,'smallBoundaryAudit')} !=
                 {row['materialId'] for row in small_focus['boundaryOnlyItems']}):
             raise ValueError('SMALL_BOUNDARY_AUDIT_IDS_REQUIRED')
-        blockers,warnings=split(answer,plan)
+        blockers,warnings=split(answer,plan,policy)
         if any(set(i['ids'])-known for i in blockers+warnings):raise ValueError('UNKNOWN_REVIEW_IDS')
         save(p/'assessment.json',dict(blockers=blockers,warnings=warnings,reviewSha256=digest(p/'draft.json')))
         if name=='m2':
@@ -337,7 +370,8 @@ class Dag:
     def repair(self, source=None, review_dir=None, name='repair'):
         p=self.folder(name);source=source or self.root/'m1/draft.json';source_sha=digest(source)
         review_dir=review_dir or self.root/'m2'
-        plan=read(source);issues=dict(issues=split(read(review_dir/'draft.json'),plan)[0])
+        policy=planning_policy(self.root)
+        plan=read(source);issues=dict(issues=split(read(review_dir/'draft.json'),plan,policy)[0])
         program_issues=check_relations(plan)
         ids={key for issue in issues['issues'] for key in issue['ids']}
         ids.update(key for issue in program_issues for key in issue.get('materialIds',[]))
@@ -384,14 +418,16 @@ class Dag:
         if small_focus:
             prompt+='\n上一轮小素材原图放大证据继续随附件提供。'
             if detail:prompt+=' 无标记原图上下文放大对应 '+detail['materialId']+'，邻近像素不改变归属。'
-        (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
+        (p/'prompt.md').write_text(prompt+planning_guidance(policy)+self.user_context(),encoding='utf-8')
         names=['schema.json','prompt.md','review-overlay.png','source-context.json',*sequence_files]
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small_focus:names+=['coverage-small-materials.json',*small_files]
         if small_focus and detail:names.append(detail['file'])
-        save(p/'request.json',{'sessionId':read(self.root/'session.json')['sessionId'],'sourcePlanSha256':source_sha,
+        request={'sessionId':read(self.root/'session.json')['sessionId'],'sourcePlanSha256':source_sha,
              'originalImageResent':True,'originalReferenceSha256':digest(self.root/'m1/reference.png'),
-             'reviewSha256':digest(review_dir/'draft.json'),'inputs':{n:digest(p/n) for n in names}})
+             'reviewSha256':digest(review_dir/'draft.json'),'inputs':{n:digest(p/n) for n in names}}
+        if policy is not None:request['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
+        save(p/'request.json',request)
         self.call(p)
 
     def repair_check(self, source=None, name='repair', allow_program_issues=False):
@@ -411,12 +447,13 @@ class Dag:
             self.node('m1',self.m1);self.node('check',self.check)
             self.node('m2',lambda:self.review('m2',self.root/'m1/draft.json',self.root/'m1/preview/materials-overlay.png'))
             initial_plan=read(self.root/'m1/draft.json')
-            needs=bool(split(read(self.root/'m2/draft.json'),initial_plan)[0] or read(self.root/'m1/program-check.json')['issues'] or initial_plan['unknowns'])
+            policy=planning_policy(self.root)
+            needs=bool(split(read(self.root/'m2/draft.json'),initial_plan,policy)[0] or read(self.root/'m1/program-check.json')['issues'] or initial_plan['unknowns'])
             if needs:
                 self.node('repair',self.repair)
                 self.node('repair_check',lambda:self.repair_check(allow_program_issues=True))
                 self.node('rereview',lambda:self.review('rereview',self.root/'repair/candidate.json',self.root/'repair/preview/materials-overlay.png'))
-                if (split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'))[0] or
+                if (split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'),policy)[0] or
                         read(self.root/'repair/report.json')['programIssues']):
                     self.node('repair2',lambda:self.repair(self.root/'repair/candidate.json',self.root/'rereview','repair2'))
                     self.node('repair_check2',lambda:self.repair_check(self.root/'repair/candidate.json','repair2'))
@@ -448,7 +485,16 @@ class Dag:
                 'driver':read(self.root/'.dag/execution.json')['driver'] if (self.root/'.dag/execution.json').exists() else 'not-started',
                 'humanVisualAcceptance':False,'automaticRetries':0,'runtimeAndInputsVerified':True,
                 'interventionTracking':'Pinned inputs/code and checkpoint integrity; external use of the model session is not independently audited.'}
-        result['reviewWarnings']={name:split(read(self.root/name/'draft.json'))[1] for name in ('m2','rereview','rereview2') if (self.root/name/'draft.json').exists()}
+        policy=planning_policy(self.root)
+        if policy is None:
+            result['reviewWarnings']={name:split(read(self.root/name/'draft.json'))[1]
+                for name in ('m2','rereview','rereview2') if (self.root/name/'draft.json').exists()}
+        else:
+            sources={'m2':'m1/draft.json','rereview':'repair/candidate.json',
+                     'rereview2':'repair2/candidate.json'}
+            result['reviewWarnings']={name:split(read(self.root/name/'draft.json'),
+                                      read(self.root/sources[name]),policy)[1]
+                for name in sources if (self.root/name/'draft.json').exists()}
         if model_failures:result['modelCallFailures']=model_failures
         if completed:result['snapshotDigest']=inspect(self.root/'frozen')['digest']
         return result
@@ -459,10 +505,14 @@ def main():
     p.add_argument('--output',required=True);p.add_argument('--image');p.add_argument('--max-calls',type=int,default=128)
     p.add_argument('--generation-mode',choices=['single','sheets'],default=DEFAULT_GENERATION_MODE)
     p.add_argument('--generation-reference',choices=['full','context-crops'],default=DEFAULT_GENERATION_REFERENCE)
+    p.add_argument('--visual-policy',help='New-run explicit visual evidence policy JSON')
     a=p.parse_args()
+    if a.visual_policy is not None and a.action!='run':
+        p.error('--visual-policy is only accepted for a new run')
     if a.action=='run':
         if not a.image:p.error('--image is required for run')
-        init(a.image,a.output,a.max_calls,a.generation_mode,generation_reference=a.generation_reference)
+        init(a.image,a.output,a.max_calls,a.generation_mode,
+             generation_reference=a.generation_reference,visual_policy=a.visual_policy)
     dag=Dag(a.output)
     try:result=dag.status() if a.action=='status' else dag.execute()
     except Exception as exc:

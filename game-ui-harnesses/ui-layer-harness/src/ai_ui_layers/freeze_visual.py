@@ -7,6 +7,7 @@ import time
 
 from .compile_visual import compile_run, verify_run, selected_paths
 from .evaluate import read, save, digest
+from .visual_policy import planning_policy, snapshot_policy, generation_guidance
 
 
 def body_digest(value):
@@ -25,6 +26,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
                 context_prompt_version!=config['contextPromptVersion']):
             raise ValueError('FROZEN_CROP_GENERATION_POLICY_CHANGED')
     visual=verify_run(run)
+    policy=planning_policy(run)
     plan_path,review_path=selected_paths(run)
     if visual['unknowns']:
         raise ValueError('UNRESOLVED_UNKNOWNS')
@@ -60,7 +62,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     if digest(plan_path)!=report['sourcePlanSha256'] or digest(review_path)!=report['reviewSha256']:
         raise ValueError('EVIDENCE_CHANGED_DURING_FREEZE')
     from .planning_review_policy import split
-    save(output/'planning-warnings.json',dict(warnings=split(read(review_path))[1],reviewSha256=digest(review_path)))
+    save(output/'planning-warnings.json',dict(warnings=split(read(review_path),visual if policy is not None else None,visual_policy=policy)[1],reviewSha256=digest(review_path)))
     plan=read(output/'execution-plan.candidate.json')
     requests=[]
     for asset,item in zip(plan['assets'],report['artifacts']):
@@ -78,7 +80,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
             folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
             prompt=folder/'prompt.txt';prompt.write_text((context_prompt(visual,plan,group['materialIds'],group,
                     version=context_prompt_version) if generation_reference=='context-crops' else
-                    sheet_prompt(visual,plan,group))+'\n',encoding='utf-8')
+                    sheet_prompt(visual,plan,group))+generation_guidance(policy)+'\n',encoding='utf-8')
             requests.append(dict(asset=group['id'],kind='sheet',materialIds=group['materialIds'],grid=group['grid'],
                 reference='reference.png',prompt=prompt.relative_to(output).as_posix(),outputSize=group['outputSize'],
                 plannedCalls=1,automaticRetries=0))
@@ -90,6 +92,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
             row.update(generationReference=generation_reference,
                        references=request_references(references,row.get('materialIds',[row['asset']])))
     save(output/'requests.json',{'kind':request_kind,'dispatchEnabled':False,'requests':requests,
+         **({'visualPolicySha256':report['visualPolicySha256']} if policy is not None else {}),
          **({'generationReference':generation_reference} if generation_reference=='context-crops' else {})})
     files={p.relative_to(output).as_posix():digest(p) for p in sorted(output.rglob('*')) if p.is_file()}
     snapshot={'kind':'ui_visual_frozen_experiment_v1','policy':'visual-plan-v5-experiment-v1',
@@ -105,6 +108,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     if generation_reference=='context-crops':
         snapshot['generationReference']=generation_reference
         if context_prompt_version!='v1':snapshot['contextPromptVersion']=context_prompt_version
+    if policy is not None:snapshot['visualPolicySha256']=report['visualPolicySha256']
     snapshot['digest']=body_digest(snapshot)
     save(output/'snapshot.json',snapshot)
     inspect(output,snapshot['digest'])
@@ -125,6 +129,7 @@ def inspect(folder, expected_digest=None):
             raise ValueError('SNAPSHOT_PATH_ESCAPE')
         if not target.is_file() or digest(target)!=sha:
             raise ValueError('ARTIFACT_CHANGED:'+name)
+    snapshot_policy(folder,snapshot)
     return snapshot
 
 
