@@ -404,9 +404,17 @@ incomplete quote is reported as a missing-description finding for the existing
 bounded repair path; the program still checks only exact quote presence, so
 the model's semantic judgment remains subject to visual review.
 
-New small-material evidence pairs expanded original context with the unmarked
-candidate crop. Its magenta boundary is diagnostic; nearby pixels do not change
-ownership. Internal adapters must return `boundary.status` as
+New small-material evidence pairs unmarked expanded original context with the
+candidate crop at its original offset in an equally fitted coordinate viewport.
+The crop viewport's neutral surround is diagnostic, not source pixels or alpha;
+no boundary line overwrites the context, including the first excluded row/column.
+Metadata binds both display boxes and their common source viewport; crop bounds
+are half-open and remain unchanged. Nearby pixels do not change ownership, and
+the bounded 768x384 cells use integer nearest-neighbor scaling when context fits,
+otherwise a reduced fit can lose fine pixels and does not prove completeness. This applies to every small
+material, including boundary-only overflow pages; the extra detail choice and
+image/call counts are unchanged. Historical evidence is not rewritten. Internal
+adapters must return `boundary.status` as
 `complete|clipped|uncertain` and nonempty `boundary.evidence` for each small
 material, including boundary-only overflow pages. Clipped or uncertain owned contours produce geometry blockers in the
 same bounded repair path. No bounds are automatically changed. This changes the

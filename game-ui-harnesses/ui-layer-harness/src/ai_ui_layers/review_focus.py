@@ -29,7 +29,7 @@ def make_small_material_focus(reference, plan, output, limit=12):
     # Larger slot faces must not displace tiny artwork just by plan order;
     # every remaining crop still receives its boundary audit on later pages.
     selected.sort(key=lambda row:(row[1][2]-row[1][0])*(row[1][3]-row[1][1]))
-    cell_w,cell_h=512,256
+    cell_w,cell_h=768,384
     items=[];pages=[]
     for page_index,start in enumerate(range(0,len(selected),limit)):
         page=selected[start:start+limit]
@@ -44,18 +44,26 @@ def make_small_material_focus(reference, plan, output, limit=12):
             context_box=[max(0,left-margin),max(0,top-margin),
                          min(width,right+margin),min(height,bottom+margin)]
             context=source.crop(tuple(context_box))
-            # Mark outside candidate pixels; the unmarked detail below retains
-            # original evidence even where an owned contour extends past them.
-            ImageDraw.Draw(context).rectangle((left-context_box[0]-1,top-context_box[1]-1,
-                right-context_box[0],bottom-context_box[1]),outline=(255,70,210),width=1)
-            for column,crop in enumerate((context,source.crop(tuple(box)))):
-                enlarged=ImageOps.contain(crop,(cell_w//2-16,cell_h-52),Image.Resampling.NEAREST)
+            # Keep every source pixel visible, including excluded edge pixels.
+            # Both panels share the original coordinate viewport and fit; the
+            # right panel's neutral area is diagnostic, never source artwork.
+            candidate=Image.new('RGB',context.size,(31,38,47))
+            candidate.paste(source.crop(tuple(box)),(left-context_box[0],top-context_box[1]))
+            displays=[]
+            for column,crop in enumerate((context,candidate)):
+                viewport=(cell_w//2-16,cell_h-52)
+                scale=min(viewport[0]//crop.width,viewport[1]//crop.height)
+                enlarged=(crop.resize((crop.width*scale,crop.height*scale),Image.Resampling.NEAREST)
+                          if scale>=1 else ImageOps.contain(crop,viewport,Image.Resampling.NEAREST))
                 px=x+column*(cell_w//2)+(cell_w//2-enlarged.width)//2
                 py=y+44+(cell_h-52-enlarged.height)//2
                 board.paste(enlarged,(px,py))
+                displays.append([px,py,px+enlarged.width,py+enlarged.height])
                 draw.text((x+column*(cell_w//2)+8,y+24),
-                          'CONTEXT / magenta crop box' if column==0 else 'CANDIDATE CROP',fill=(245,245,245))
-            items.append(dict(materialId=mid,sourceBox=box,contextBox=context_box))
+                          'ORIGINAL CONTEXT' if column==0 else 'CROP / SAME COORDINATES',fill=(245,245,245))
+            items.append(dict(materialId=mid,sourceBox=box,contextBox=context_box,
+                              displaySourceBox=context_box,contextDisplayBox=displays[0],
+                              candidateViewportDisplayBox=displays[1]))
             page_ids.append(mid)
         filename='coverage-small-materials.png' if page_index==0 else f'coverage-small-materials-{page_index+1:02}.png'
         image_path=output/filename;board.save(image_path)
@@ -63,7 +71,7 @@ def make_small_material_focus(reference, plan, output, limit=12):
     metadata=dict(kind='ui_m2_small_material_focus_v1',file=pages[0]['file'],
                   imageSha256=pages[0]['imageSha256'],pages=pages,
                   items=items[:limit],boundaryOnlyItems=items[limit:],
-                  display='Each item: original context with magenta candidate boundary on left, unmarked candidate crop on right; independent nearest-neighbor fits. Context pixels do not change ownership. Labels, boxes and margins are diagnostic only.')
+                  display='Each item: unmarked original context on left; candidate crop at its original offset on a neutral diagnostic viewport on right. Both use the same source viewport and nearest-neighbor fit; no drawn boundary overwrites source pixels. Neutral pixels are not source artwork or alpha. Context pixels do not change ownership; bounds are half-open. Labels and margins are diagnostic only; fitted views are not a proof of pixel completeness.')
     # Keep the existing multicolor detail choice. If no crop clears that bar,
     # enlarge the smallest one: gray/pale pixel marks do not count as hues.
     candidates=[]

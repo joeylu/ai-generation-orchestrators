@@ -266,8 +266,8 @@ class Dag:
             save(p/'prior-findings.json',findings)
             prompt+=rereview_context(plan,findings)
         if small_focus:
-            prompt=('小素材附件：左为带粉色候选框的原图上下文，右为无标记裁片，各自等比放大。'
-                    '诊断标签、边距不是原图；场景、底板及框外像素不改变原归属。'
+            prompt=('小素材附件：左为无标记原图上下文，右为裁片按原偏移放在相同坐标、相同比例的中性诊断视窗上。'
+                    '中性区不是原图或 alpha；裁框为半开区间，右/下界不包含。诊断标签、边距不属于原图，上下文不改变归属。'
                     'smallMaterialAudit 按第一页 materialId 逐项填写。'
                     'boundary.status 判断候选框是否额外丢失原图可见自有轮廓：complete=全保留，clipped=漏可见部分，uncertain=无法确认；evidence 分清原图边缘与裁片边缘，不推测画外内容。'
                     '只按原图逐一列每个可辨部件，包括附属道具、部分遮挡和名称不确定的部分；'

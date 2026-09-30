@@ -8,7 +8,90 @@ from ai_ui_layers.session_review import resume_command
 from ai_ui_layers.planning_review_policy import split
 
 
+def displayed_pixel(context_box, display_box, source_xy):
+    """Sample the center of one source pixel in an equally scaled context viewport."""
+    left,top,right,bottom=context_box
+    x,y,xx,yy=display_box
+    source_x,source_y=source_xy
+    return (x+int((source_x+.5-left)*(xx-x)/(right-left)),
+            y+int((source_y+.5-top)*(yy-y)/(bottom-top)))
+
+
 class ReviewFocusTests(unittest.TestCase):
+    def test_small_focus_shows_all_four_excluded_edges_without_painting_source(self):
+        import copy
+        from ai_ui_layers.evaluate import digest
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'source.png'
+            image=Image.new('RGB',(200,200),(80,90,100));draw=ImageDraw.Draw(image)
+            # A 20x20 candidate on a larger canvas qualifies for small focus.
+            draw.rectangle((60,60,79,79),fill=(22,110,170))
+            excluded={(59,70):(230,20,30),(70,59):(20,220,40),
+                      (80,70):(20,40,230),(70,80):(230,210,20),
+                      (59,59):(210,30,210),(80,80):(30,210,210)}
+            for xy,color in excluded.items():draw.point(xy,fill=color)
+            included=((60,70),(70,60),(79,70),(70,79),(70,70))
+            image.save(source);source_sha=digest(source)
+            plan={'materials':[{'id':'mark','role':'foreground',
+                                'bboxNorm':[60/200,60/200,80/200,80/200]}]}
+            before=copy.deepcopy(plan)
+            focus=make_small_material_focus(source,plan,root)
+            item=focus['items'][0]
+            self.assertEqual(item['sourceBox'],[60,60,80,80])
+            self.assertEqual(item['displaySourceBox'],item['contextBox'])
+            left=item['contextDisplayBox'];right=item['candidateViewportDisplayBox']
+            self.assertEqual((left[2]-left[0],left[3]-left[1]),
+                             (right[2]-right[0],right[3]-right[1]))
+            with Image.open(root/focus['file']) as board:
+                for xy,color in excluded.items():
+                    self.assertEqual(board.getpixel(displayed_pixel(item['contextBox'],left,xy)),color)
+                    self.assertEqual(board.getpixel(displayed_pixel(item['contextBox'],right,xy)),
+                                     (31,38,47))
+                for xy in included:
+                    a=displayed_pixel(item['contextBox'],left,xy)
+                    b=displayed_pixel(item['contextBox'],right,xy)
+                    self.assertEqual((b[0]-right[0],b[1]-right[1]),
+                                     (a[0]-left[0],a[1]-left[1]))
+                    self.assertEqual(board.getpixel(a),image.getpixel(xy))
+                    self.assertEqual(board.getpixel(b),image.getpixel(xy))
+            self.assertEqual(plan,before)
+            self.assertEqual(digest(source),source_sha)
+
+    def test_overflow_second_page_keeps_non_detail_one_column_edge(self):
+        import copy
+        from ai_ui_layers.evaluate import digest
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'source.png'
+            image=Image.new('RGB',(200,200),(65,75,85));draw=ImageDraw.Draw(image)
+            materials=[]
+            for index in range(13):
+                x=20+(index%4)*40;y=20+(index//4)*40
+                draw.rectangle((x,y,x+9,y+9),fill=(25,95,175))
+                materials.append(dict(id=f'icon-{index}',role='foreground',
+                    bboxNorm=[x/200,y/200,(x+10)/200,(y+10)/200]))
+            outside=(19,145);draw.point(outside,fill=(245,215,15))
+            image.save(source);source_sha=digest(source)
+            plan={'materials':materials};before=copy.deepcopy(plan)
+            focus=make_small_material_focus(source,plan,root)
+            self.assertEqual(len(focus['pages']),2)
+            self.assertEqual(focus['pages'][1]['materialIds'],['icon-12'])
+            self.assertNotEqual(focus['detail']['materialId'],'icon-12')
+            item=focus['boundaryOnlyItems'][0]
+            self.assertEqual(item['materialId'],'icon-12')
+            self.assertEqual(item['sourceBox'],[20,140,30,150])
+            self.assertEqual(item['displaySourceBox'],item['contextBox'])
+            with Image.open(root/focus['pages'][1]['file']) as board:
+                self.assertEqual(board.getpixel(displayed_pixel(
+                    item['contextBox'],item['contextDisplayBox'],outside)),(245,215,15))
+                self.assertEqual(board.getpixel(displayed_pixel(
+                    item['contextBox'],item['candidateViewportDisplayBox'],outside)),(31,38,47))
+                inside=(20,145)
+                self.assertEqual(board.getpixel(displayed_pixel(
+                    item['contextBox'],item['candidateViewportDisplayBox'],inside)),
+                    image.getpixel(inside))
+            self.assertEqual(plan,before)
+            self.assertEqual(digest(source),source_sha)
+
     def test_larger_early_slot_faces_cannot_displace_smaller_late_symbols(self):
         import copy
         from ai_ui_layers.evaluate import digest

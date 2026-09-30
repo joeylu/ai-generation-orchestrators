@@ -1,5 +1,20 @@
 # Release notes
 
+## Unreleased unobscured small-material boundary evidence
+
+- Small-material contact sheets now retain unmarked original context for every
+  material. Previously a magenta boundary could overwrite the first excluded
+  pixel row or column, while only one selected material had extra unmarked detail.
+- The candidate crop uses its original offset in the same coordinate viewport
+  and nearest-neighbor fit. Neutral surround is diagnostic, never source artwork
+  or alpha. Display mapping is bound in metadata; source crop bounds are unchanged.
+  Bounded 768x384 cells use integer scaling when context fits; oversized contexts
+  still require reduced display and cannot establish exact pixel completeness.
+- Overflow boundary pages use the same representation. Image count, review schema,
+  quality gates, bounded repair, grouping and authorization rules are unchanged.
+  Offline evidence checks do not prove improved model perception or generation
+  fidelity. No old run is rewritten, retried or promoted; no tag is published.
+
 ## Unreleased small-material description consistency
 
 - New planning reviews require an explicit per-part `descriptionStatus` in addition
