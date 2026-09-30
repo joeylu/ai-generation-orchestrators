@@ -16,13 +16,14 @@ class PublicCliTests(unittest.TestCase):
         from ai_ui_layers.evaluate import read
         from test_planning_dag import FakeModel
         real_dag=delivery_dag.DeliveryDag
-        for mode,expected in ((None,'sheets'),('sheets','sheets'),('single','single')):
-            with self.subTest(mode=mode),tempfile.TemporaryDirectory() as tmp:
+        for mode,expected,reference in ((None,'sheets',None),('sheets','sheets',None),('single','single',None),(None,'sheets','full')):
+            with self.subTest(mode=mode,reference=reference),tempfile.TemporaryDirectory() as tmp:
                 root=Path(tmp);run=root/'run'
                 Image.new('RGB',(1000,1000)).save(root/'reference.png')
                 argv=['ui_layer.py','run','--image',str(root/'reference.png'),
                       '--output',str(run),'--target','frozen','--max-calls','5']
                 if mode is not None:argv+=['--generation-mode',mode]
+                if reference is not None:argv+=['--generation-reference',reference]
                 model=FakeModel();out,err=io.StringIO(),io.StringIO()
                 with patch.object(sys,'argv',argv), \
                      patch.object(delivery_dag,'DeliveryDag',side_effect=lambda output:real_dag(output,model)), \
@@ -31,9 +32,11 @@ class PublicCliTests(unittest.TestCase):
                 result=json.loads(out.getvalue())
                 self.assertEqual(result['status'],'frozen')
                 self.assertEqual(read(run/'.dag/config.json')['generationMode'],expected)
+                self.assertEqual(read(run/'.dag/config.json')['generationReference'],reference or 'context-crops')
                 self.assertEqual(read(run/'planning/.dag/config.json')['generationMode'],expected)
                 requests=read(run/'planning/frozen/requests.json')
                 snapshot=read(run/'planning/frozen/snapshot.json')
+                self.assertEqual(snapshot.get('generationReference','full'),reference or 'context-crops')
                 if expected=='sheets':
                     self.assertEqual(requests['kind'],'ui_visual_requests_preview_v2')
                     self.assertLess(len(requests['requests']),snapshot['materialCount'])
@@ -53,9 +56,10 @@ class PublicCliTests(unittest.TestCase):
         for legacy in (False,True):
             with self.subTest(legacy=legacy),tempfile.TemporaryDirectory() as tmp:
                 root=Path(tmp);Image.new('RGB',(1000,1000)).save(root/'reference.png')
-                run=delivery_dag.init(root/'reference.png',root/'run',target='frozen',generation_mode='single')
+                run=delivery_dag.init(root/'reference.png',root/'run',target='frozen',generation_mode='single',generation_reference='full')
                 if legacy:
                     config=run/'.dag/config.json';body=read(config);del body['generationMode']
+                    del body['generationReference']
                     config.write_text(json.dumps(body),encoding='utf-8')
                     (run/'.dag/config-digest.json').write_text(json.dumps(dict(sha256=digest(config))),encoding='utf-8')
                 before=digest(run/'.dag/config.json')
@@ -63,6 +67,7 @@ class PublicCliTests(unittest.TestCase):
                 self.assertEqual(result['status'],'frozen')
                 self.assertEqual(digest(run/'.dag/config.json'),before)
                 self.assertEqual(read(run/'planning/.dag/config.json')['generationMode'],'single')
+                self.assertEqual(read(run/'planning/.dag/config.json')['generationReference'],'full')
                 requests=read(run/'planning/frozen/requests.json')
                 self.assertEqual(requests['kind'],'ui_visual_requests_preview_v1')
                 self.assertEqual(len(requests['requests']),5)
@@ -79,6 +84,7 @@ class PublicCliTests(unittest.TestCase):
             result=planning_dag.Dag(run,FakeModel()).execute()
             self.assertEqual(result['status'],'frozen')
             self.assertEqual(read(run/'.dag/config.json')['generationMode'],'sheets')
+            self.assertEqual(read(run/'.dag/config.json')['generationReference'],'context-crops')
             self.assertEqual(read(run/'frozen/requests.json')['kind'],'ui_visual_requests_preview_v2')
 
     def test_progress_is_stderr_and_stdout_is_one_json(self):

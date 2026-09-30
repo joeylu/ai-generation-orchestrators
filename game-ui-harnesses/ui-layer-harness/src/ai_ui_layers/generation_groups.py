@@ -151,13 +151,16 @@ def preview(snapshot, expected_digest, output):
     plan=read(snapshot/'execution-plan.candidate.json')
     policy=read(snapshot/'generation-groups.json')['policy'] if (snapshot/'generation-groups.json').exists() else DEFAULT_GROUP_POLICY
     groups=build_groups(visual,plan,policy)
-    context=read(snapshot/'snapshot.json').get('generationReference')=='context-crops'
+    manifest=read(snapshot/'snapshot.json')
+    context=manifest.get('generationReference')=='context-crops'
+    context_prompt_version=manifest.get('contextPromptVersion','v1')
     output.mkdir(parents=True,exist_ok=False)
     prompts={}
     for group in groups['groups']:
         if group['mode']=='sheet':
             path=output/(group['id']+'.txt');from .context_references import prompt as context_prompt
-            path.write_text((context_prompt(visual,plan,group['materialIds'],group) if context else sheet_prompt(visual,plan,group))+'\n',encoding='utf-8')
+            path.write_text((context_prompt(visual,plan,group['materialIds'],group,
+                    version=context_prompt_version) if context else sheet_prompt(visual,plan,group))+'\n',encoding='utf-8')
             prompts[path.name]=digest(path)
     inspect(snapshot,expected_digest)
     result=dict(kind='ui_generation_group_preview_v1',snapshotDigest=expected_digest,

@@ -1,5 +1,20 @@
 # Release notes
 
+## Unreleased context defaults and prompt scope
+
+- New public runs and planning initialization default to expanded context crops;
+  explicit `full`, historical missing-field defaults, and inherited reference
+  mode during `freeze-reviewed` retain their previous meaning.
+- New versioned context prompts remove irrelevant sheet instructions from single
+  materials and consolidate common requirements, retaining owned appearances,
+  positions, states, text exceptions, foreign exclusions and alpha requirements.
+  Historical v1 frozen prompts retain exact validation; no old job is converted.
+- Document planning regions, reference context, measured visible support and
+  placement transforms separately. No sample-specific segmentation, automatic
+  source-box repair, grouping model call or relaxation of review gates is added.
+- These are compiler/default changes, not proof of multi-sample visual fidelity.
+  No release tag is created.
+
 ## Unreleased source-layout board experiment
 
 - Add an explicit independent one-sheet job using a deterministic board of

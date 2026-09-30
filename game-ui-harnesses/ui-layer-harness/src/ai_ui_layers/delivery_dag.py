@@ -29,7 +29,7 @@ def runtime_files():
     return files
 
 
-def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference='full'):
+def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=planning.DEFAULT_GENERATION_REFERENCE):
     from .context_references import validate_mode
     validate_mode(generation_reference)
     notes=planning.read_notes(planning_notes)
@@ -205,7 +205,7 @@ def main():
     p.add_argument('--generation-mode', choices=['single','sheets'], default=planning.DEFAULT_GENERATION_MODE,
                    help='Generation layout for new runs (default: sheets); single uses one request per material')
     p.add_argument('--generation-reference',choices=['full','context-crops'],
-                   help='For new runs or freeze-reviewed: frozen generation references (default: full)')
+                   help='New runs default to context-crops; freeze-reviewed inherits the source mode')
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
@@ -308,7 +308,7 @@ def main():
             print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action == 'run':
             if not a.image: p.error('--image required')
-            init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes,a.generation_reference or 'full')
+            init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes,a.generation_reference or planning.DEFAULT_GENERATION_REFERENCE)
         if a.planning_notes and a.action!='run':p.error('--planning-notes is only valid for a new run')
         if a.generation_reference is not None and a.action!='run':p.error('--generation-reference is only valid for a new run or freeze-reviewed')
         dag = DeliveryDag(a.output); dag.verify(); job = dag.root/'generation'

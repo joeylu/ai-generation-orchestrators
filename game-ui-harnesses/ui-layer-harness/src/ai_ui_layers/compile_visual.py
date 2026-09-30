@@ -19,15 +19,17 @@ from ai_ui_decomposition.batch import _prompt
 
 PROMPT_V2 = 'visual-material-prompt-v2:\n'
 PROMPT_V3 = 'visual-material-prompt-v3:\n'
-from .context_references import PROMPT_PREFIX, validate_mode
+from .context_references import PROMPT_PREFIXES, PROMPT_PREFIX_V2, validate_mode
 
 def render_prompt(asset):
     # Historical immutable snapshots retain their original legacy rendering.
-    if asset['prompt'].startswith(PROMPT_PREFIX):return asset['prompt'][len(PROMPT_PREFIX):]
-    return asset['prompt'] if asset['prompt'].startswith((PROMPT_V2,PROMPT_V3,PROMPT_PREFIX)) else _prompt(asset)
+    for prefix in PROMPT_PREFIXES:
+        if asset['prompt'].startswith(prefix):return asset['prompt'][len(prefix):]
+    return asset['prompt'] if asset['prompt'].startswith((PROMPT_V2,PROMPT_V3)) else _prompt(asset)
 
 
-def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generation_reference='full'):
+def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generation_reference='full',
+                 context_prompt_version='v2'):
     validate_mode(generation_reference)
     if visual['kind'] != 'ui_visual_plan_v5':
         raise ValueError('V5_REQUIRED')
@@ -91,8 +93,11 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
                 groups=[dict(id='artwork', children=[n['id'] for n in nodes])],
                 document=dict(name=plan_id, format='png_zip'), delivery_policy='unreviewed_draft')
     if generation_reference=='context-crops':
-        from .context_references import prompt as context_prompt
-        for asset in assets:asset['prompt']=PROMPT_PREFIX+context_prompt(visual,plan,[asset['id']])
+        from .context_references import PROMPT_PREFIX_V1, prompt as context_prompt
+        if context_prompt_version not in ('v1','v2'):raise ValueError('CONTEXT_PROMPT_VERSION')
+        prefix=PROMPT_PREFIX_V1 if context_prompt_version=='v1' else PROMPT_PREFIX_V2
+        for asset in assets:
+            asset['prompt']=prefix+context_prompt(visual,plan,[asset['id']],version=context_prompt_version)
     return plan, placements
 
 
@@ -157,8 +162,10 @@ def verify_run(run, *, _allow_issues=False):
     return visual
 
 
-def compile_run(run, output, max_calls=128, generation_mode="single", generation_reference="full"):
+def compile_run(run, output, max_calls=128, generation_mode="single", generation_reference="full",
+                context_prompt_version='v2'):
     validate_mode(generation_reference)
+    if context_prompt_version not in ('v1','v2'):raise ValueError('CONTEXT_PROMPT_VERSION')
     started = time.perf_counter(); run=Path(run); output=Path(output)
     if max_calls < 1:
         raise ValueError('INVALID_CALL_LIMIT')
@@ -170,7 +177,9 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
         if image.getexif().get(274, 1) != 1:
             raise ValueError('NONIDENTITY_COORDINATE_MAPPING')
         image.load(); picture=image.convert('RGBA')
-    plan, placements = compile_plan(visual, picture.size, before, generation_reference=generation_reference)
+    plan, placements = compile_plan(visual, picture.size, before,
+                                    generation_reference=generation_reference,
+                                    context_prompt_version=context_prompt_version)
     from .generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY
     groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY) if generation_mode=='sheets' else None
     calls=groups['plannedCalls'] if groups else len(plan['assets'])
@@ -213,6 +222,7 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
             'legacyStructureValidation':summary,'materialCount':len(plan['assets']),
             'layerCount':len(plan['nodes']),'plannedCalls':calls,'maximumCalls':max_calls,
             **({'generationReference':'context-crops'} if generation_reference=='context-crops' else {}),
+            **({'contextPromptVersion':'v2'} if generation_reference=='context-crops' and context_prompt_version=='v2' else {}),
             'generationCalls':0,'freezeExecuted':False,'productionReady':False,'humanVisualAcceptance':False,
             'blockers':blockers,'artifacts':artifacts,'elapsedSeconds':time.perf_counter()-started}
     save(output/'compile-report.json', report)

@@ -1,8 +1,11 @@
-# Frozen context references (opt-in experiment)
+# Frozen context references
 
 `--generation-reference context-crops` compiles foreground generation requests
-from deterministic expanded crops. `full` remains the default; historical
-snapshots without this field keep their full-reference behavior. This is an
+from deterministic expanded crops. New public runs and planning initialization
+default to `context-crops`; explicit `full` remains available. Historical
+configs and snapshots without this field keep their full-reference behavior.
+Low-level compile/freeze defaults remain unchanged, and `freeze-reviewed`
+inherits the source mode unless explicitly overridden. This is an
 input and prompt experiment, not evidence of visual acceptance or fidelity.
 
 ```text
@@ -52,6 +55,23 @@ ownership mask or automatic bounding-box repair. If it reveals that the reviewed
 box omitted artwork, a separately reviewed revised plan and fresh snapshot are
 required. Do not silently enlarge delivery or infer missing artwork.
 
+### Distinct coordinate meanings
+
+| Evidence | Meaning | Must not be treated as |
+| --- | --- | --- |
+| `sourceRegion`, `output_size`, prompt `artworkPixelSize` | Reviewed planning region and declared target dimensions | Measured alpha silhouette or required raw generation canvas |
+| `cropRegion`, `referenceSize`, local `targetBox` | Expanded reference context and location of the planning region within it | Ownership mask or enlarged final artwork |
+| Generated visible support | Measured bounds under a stated alpha criterion, including how shadows are treated | Automatically corrected planning bounds |
+| Final placement transform | Scale, offset and adaptation applied after generation | Evidence that geometry or visual fidelity passed |
+
+A PNG's transparent margin is not part of its artwork body. Registration must
+review visible support and relative layout instead of stretching the whole PNG
+canvas to a planning box. A source screenshot is usually opaque; a sample's color
+threshold may be useful diagnostic evidence but is not a general segmentation
+rule. These distinctions clarify existing evidence, not new schema fields or
+an automatic source-bounds repair. Preserve raw output, transformed output and
+the actual measurement/transform evidence; existing review gates still apply.
+
 ## Independent materials and concise prompts
 
 The explicit `compatible-size-and-kind-context-grid-v1` policy uses the existing
@@ -78,9 +98,10 @@ continuous alpha and translucent surfaces, and transparent margins on every side
 It forbids filling removed text space with enlarged or recentered artwork. The
 internal compiler version marker is not sent in the image prompt.
 
-Offline character counts illustrate the tradeoff; these are not token counts or
-provider measurements. On `visual-plan-scoped.json` at 1000 by 1000, current full
-request arguments versus context arguments are:
+The following historical v1 character counts illustrate the tradeoff; these are
+not token counts, provider measurements or measurements of the new v2 compiler.
+On `visual-plan-scoped.json` at 1000 by 1000, full request arguments versus v1
+context arguments were:
 
 | Request | Full characters | Context characters | Change |
 | --- | ---: | ---: | ---: |
@@ -88,6 +109,14 @@ request arguments versus context arguments are:
 | Panel | 3027 | 2296 | -24.1% |
 | Button | 2499 | 1802 | -27.9% |
 | Two-coin sheet | 2600 | 2266 | -12.8% |
+
+New context snapshots bind `contextPromptVersion: v2` in the snapshot and
+compile report. Version 2 consolidates common instructions and omits sheet-only
+instructions for single materials; the complete ownership entries remain.
+Missing version metadata means historical v1, whose exact rendering is retained
+for validation and group previews. Changing or mixing versions requires a newly
+compiled snapshot, never an override to an existing frozen request. Prompt length
+depends on the plan and does not establish token cost or visual fidelity.
 
 The background's 27-character difference is only removal of the historical
 compiler marker; its background instruction is unchanged. A separate four-card

@@ -22,6 +22,7 @@ from .session_review import invoke, resume_command, session_id, build_review_pro
 BASE=HARNESS/'planning-harness'
 REPO=Path(__file__).resolve().parents[4]
 DEFAULT_GENERATION_MODE='sheets'
+DEFAULT_GENERATION_REFERENCE='context-crops'
 GRAPH={'m1':[], 'check':['m1'], 'm2':['check'], 'repair':['m2'],
        'repair_check':['repair'], 'rereview':['repair_check'],
        'repair2':['rereview'], 'repair_check2':['repair2'], 'rereview2':['repair_check2'],
@@ -85,7 +86,7 @@ def read_notes(path):
     return data
 
 
-def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference='full'):
+def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=DEFAULT_GENERATION_REFERENCE):
     from .context_references import validate_mode
     validate_mode(generation_reference)
     notes=read_notes(planning_notes)
@@ -444,7 +445,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['run','resume','status'])
     p.add_argument('--output',required=True);p.add_argument('--image');p.add_argument('--max-calls',type=int,default=128)
     p.add_argument('--generation-mode',choices=['single','sheets'],default=DEFAULT_GENERATION_MODE)
-    p.add_argument('--generation-reference',choices=['full','context-crops'],default='full')
+    p.add_argument('--generation-reference',choices=['full','context-crops'],default=DEFAULT_GENERATION_REFERENCE)
     a=p.parse_args()
     if a.action=='run':
         if not a.image:p.error('--image is required for run')

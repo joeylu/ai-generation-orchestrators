@@ -47,6 +47,11 @@ class ContextReferencesTests(unittest.TestCase):
         folder=self.root/name;manifest=freeze(self.run,folder,16,mode,reference)
         return folder,manifest
 
+    def legacy_frozen(self,name='legacy-context'):
+        folder=self.root/name
+        manifest=freeze(self.run,folder,16,'sheets','context-crops',context_prompt_version='v1')
+        return folder,manifest
+
     def resign(self,folder):
         manifest=read(folder/'snapshot.json')
         for name in manifest['files']:manifest['files'][name]=digest(folder/name)
@@ -123,6 +128,65 @@ class ContextReferencesTests(unittest.TestCase):
         self.assertEqual(part['withinMaterial'],[.5,.5,1.0,1.0])
         self.assertEqual([e['materialId'] for e in data],row['materialIds'])
         self.assertEqual([r['referenceIndex'] for r in row['references']],[1,2])
+
+    def test_new_context_prompt_is_versioned_and_legacy_snapshot_stays_v1(self):
+        old,old_manifest=self.legacy_frozen()
+        new,new_manifest=self.frozen(name='new-context')
+        self.assertNotIn('contextPromptVersion',old_manifest)
+        self.assertEqual(new_manifest['contextPromptVersion'],'v2')
+        self.assertEqual(preflight(old,old_manifest['digest'])['inputChecks'],'passed')
+        self.assertEqual(preflight(new,new_manifest['digest'])['inputChecks'],'passed')
+        old_plan=read(old/'execution-plan.candidate.json')
+        new_plan=read(new/'execution-plan.candidate.json')
+        self.assertTrue(all(a['prompt'].startswith(context.PROMPT_PREFIX_V1) for a in old_plan['assets']))
+        self.assertTrue(all(a['prompt'].startswith(context.PROMPT_PREFIX_V2) for a in new_plan['assets']))
+        old_sheet=next(r for r in read(old/'requests.json')['requests'] if r.get('kind')=='sheet')
+        new_sheet=next(r for r in read(new/'requests.json')['requests'] if r.get('kind')=='sheet')
+        # These are historical d7 prompt bytes from this fixed fixture, not
+        # another call to the v1 renderer under test.
+        self.assertEqual(digest(old/'materials/asset-panel/prompt.txt'),
+                         'ab67b1c41c8a295e6477e53bd4d49b928454fba201965894c130d2faae686808')
+        self.assertEqual(digest(old/old_sheet['prompt']),
+                         '327db8028fc12cf1fe7ba87a4914fd413c3dbfd1235a70854f29d682a6bbfa44')
+        old_text=(old/old_sheet['prompt']).read_text(encoding='utf-8')
+        new_text=(new/new_sheet['prompt']).read_text(encoding='utf-8')
+        self.assertLess(len(new_text),len(old_text))
+        self.assertIn('cellIndex is 0-based',new_text)
+        self.assertIn('withinMaterial=(centerX,centerY,width,height)',new_text)
+        self.assertIn('canvas aspect',new_text)
+        self.assertIn('artworkPixelSize is planned crop size',new_text)
+        self.assertIn('without underlying scene',new_text)
+        self.assertNotIn('For sheets',context.prompt(self.visual,new_plan,
+            [new_plan['assets'][1]['id']]))
+
+    def test_context_group_preview_uses_frozen_prompt_version(self):
+        from ai_ui_layers.generation_groups import preview
+        for name,folder,manifest in (
+            ('old-preview',*self.legacy_frozen()),
+            ('new-preview',*self.frozen(name='new-snapshot')),
+        ):
+            output=self.root/name
+            preview(folder,manifest['digest'],output)
+            for row in read(folder/'requests.json')['requests']:
+                if row.get('kind')=='sheet':
+                    self.assertEqual((output/(row['asset']+'.txt')).read_bytes(),
+                                     (folder/row['prompt']).read_bytes())
+
+    def test_rehashed_context_version_removal_and_cross_version_prompt_fail(self):
+        folder,_=self.frozen()
+        manifest=read(folder/'snapshot.json');manifest.pop('contextPromptVersion')
+        report=read(folder/'compile-report.json');report.pop('contextPromptVersion')
+        save(folder/'compile-report.json',report);save(folder/'snapshot.json',manifest)
+        with self.assertRaisesRegex(ValueError,'CONTEXT_PLAN_COMPILER_MISMATCH'):
+            preflight(folder,self.resign(folder))
+        old,_=self.legacy_frozen()
+        rows=read(old/'requests.json')['requests']
+        sheet=next(r for r in rows if r.get('kind')=='sheet')
+        replacement=self.frozen(name='v2-source')[0]
+        other=next(r for r in read(replacement/'requests.json')['requests'] if r.get('kind')=='sheet')
+        (old/sheet['prompt']).write_bytes((replacement/other['prompt']).read_bytes())
+        with self.assertRaisesRegex(ValueError,'PROMPT_COMPILER_MISMATCH'):
+            preflight(old,self.resign(old))
 
     def test_preflight_recomputes_rehashed_crop_and_metadata(self):
         folder,_=self.frozen();refs=read(folder/'generation-references.json')

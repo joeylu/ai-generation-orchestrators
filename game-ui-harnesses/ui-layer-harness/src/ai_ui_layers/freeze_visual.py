@@ -14,14 +14,16 @@ def body_digest(value):
                                     ensure_ascii=False,allow_nan=False).encode('utf-8')).hexdigest()
 
 
-def freeze(run, output, max_calls, generation_mode="single", generation_reference="full"):
+def freeze(run, output, max_calls, generation_mode="single", generation_reference="full",
+           context_prompt_version='v2'):
     started=time.perf_counter();run=Path(run);output=Path(output)
     visual=verify_run(run)
     plan_path,review_path=selected_paths(run)
     if visual['unknowns']:
         raise ValueError('UNRESOLVED_UNKNOWNS')
     # Rebuild from bound inputs rather than accepting editable compiled candidates.
-    report=compile_run(run, output, max_calls, generation_mode, generation_reference)
+    report=compile_run(run, output, max_calls, generation_mode, generation_reference,
+                       context_prompt_version)
     if verify_run(run)!=visual or digest(plan_path)!=report['sourcePlanSha256']:
         raise ValueError('INPUT_CHANGED_DURING_FREEZE')
     evidence=output/'evidence';evidence.mkdir()
@@ -61,7 +63,9 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
             if group['mode']=='single':
                 requests.append(singles[group['id']]);continue
             folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
-            prompt=folder/'prompt.txt';prompt.write_text((context_prompt(visual,plan,group['materialIds'],group) if generation_reference=='context-crops' else sheet_prompt(visual,plan,group))+'\n',encoding='utf-8')
+            prompt=folder/'prompt.txt';prompt.write_text((context_prompt(visual,plan,group['materialIds'],group,
+                    version=context_prompt_version) if generation_reference=='context-crops' else
+                    sheet_prompt(visual,plan,group))+'\n',encoding='utf-8')
             requests.append(dict(asset=group['id'],kind='sheet',materialIds=group['materialIds'],grid=group['grid'],
                 reference='reference.png',prompt=prompt.relative_to(output).as_posix(),outputSize=group['outputSize'],
                 plannedCalls=1,automaticRetries=0))
@@ -85,7 +89,9 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
                         'v5 schema and relationships','legacy plan structure','explicit call limit',
                         'deterministic crops and prompts','artifact hashes'],
               'elapsedSeconds':time.perf_counter()-started,'files':files}
-    if generation_reference=='context-crops':snapshot['generationReference']=generation_reference
+    if generation_reference=='context-crops':
+        snapshot['generationReference']=generation_reference
+        if context_prompt_version=='v2':snapshot['contextPromptVersion']='v2'
     snapshot['digest']=body_digest(snapshot)
     save(output/'snapshot.json',snapshot)
     inspect(output,snapshot['digest'])

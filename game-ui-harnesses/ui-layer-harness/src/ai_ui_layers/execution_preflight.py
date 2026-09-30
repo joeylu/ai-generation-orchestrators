@@ -37,18 +37,27 @@ def preflight(folder, expected_digest):
     with Image.open(folder/'reference.png') as source:
         reference=source.convert('RGBA')
     context_document=None
+    context_prompt_version=snapshot.get('contextPromptVersion','v1')
     if context:
+        if context_prompt_version not in ('v1','v2'):
+            raise ValueError('CONTEXT_PROMPT_VERSION')
+        report=read(folder/'compile-report.json')
+        if report.get('contextPromptVersion', 'v1')!=context_prompt_version:
+            raise ValueError('CONTEXT_PROMPT_VERSION_MISMATCH')
         from .context_references import verify as verify_context, request_references, prompt as context_prompt
         from .compile_visual import compile_plan
         from .evaluate import digest
         visual_path=folder/'evidence/revised-visual-plan.json'
         if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
         visual=read(visual_path)
-        rebuilt,_=compile_plan(visual,reference.size,digest(folder/'reference.png'),plan['id'],'context-crops')
+        rebuilt,_=compile_plan(visual,reference.size,digest(folder/'reference.png'),plan['id'],
+                               'context-crops',context_prompt_version=context_prompt_version)
         if rebuilt!=plan:raise ValueError('CONTEXT_PLAN_COMPILER_MISMATCH')
         context_document=verify_context(folder,plan,snapshot,reference)
     elif ('generation-references.json' in snapshot['files'] or
-          any(a['prompt'].startswith('visual-material-context-prompt-v1:\n') for a in assets) or
+          'contextPromptVersion' in snapshot or
+          any(a['prompt'].startswith(('visual-material-context-prompt-v1:\n',
+                                      'visual-material-context-prompt-v2:\n')) for a in assets) or
           any('generationReference' in row or 'references' in row for row in rows)):
         raise ValueError('CONTEXT_REFERENCE_MODE_MISMATCH')
     if grouped:
@@ -77,7 +86,8 @@ def preflight(folder, expected_digest):
                          sheet_prompt(visual,plan,group,legacy_repeated_descriptions=True)+'\n',
                          sheet_prompt(visual,plan,group,legacy_repeated_descriptions=True,
                                       legacy_without_attached_props=True)+'\n')
-                if context:allowed=(context_prompt(visual,plan,group['materialIds'],group)+'\n',)
+                if context:allowed=(context_prompt(visual,plan,group['materialIds'],group,
+                                                   version=context_prompt_version)+'\n',)
                 if compiled not in allowed:
                     raise ValueError('PROMPT_COMPILER_MISMATCH')
             elif row.get('kind') or 'materialIds' in row:
