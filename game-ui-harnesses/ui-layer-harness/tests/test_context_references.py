@@ -43,8 +43,9 @@ class ContextReferencesTests(unittest.TestCase):
         result=read(self.run/'result.json');result['sourcePlanSha256']=digest(self.run/'m1/draft.json')
         save(self.run/'result.json',result)
 
-    def frozen(self,mode='sheets',reference='context-crops',name='frozen'):
-        folder=self.root/name;manifest=freeze(self.run,folder,16,mode,reference)
+    def frozen(self,mode='sheets',reference='context-crops',name='frozen',version='v3'):
+        folder=self.root/name;manifest=freeze(self.run,folder,16,mode,reference,
+                                              context_prompt_version=version)
         return folder,manifest
 
     def legacy_frozen(self,name='legacy-context'):
@@ -131,15 +132,20 @@ class ContextReferencesTests(unittest.TestCase):
 
     def test_new_context_prompt_is_versioned_and_legacy_snapshot_stays_v1(self):
         old,old_manifest=self.legacy_frozen()
+        v2,v2_manifest=self.frozen(name='v2-context',version='v2')
         new,new_manifest=self.frozen(name='new-context')
         self.assertNotIn('contextPromptVersion',old_manifest)
-        self.assertEqual(new_manifest['contextPromptVersion'],'v2')
+        self.assertEqual(v2_manifest['contextPromptVersion'],'v2')
+        self.assertEqual(new_manifest['contextPromptVersion'],'v3')
         self.assertEqual(preflight(old,old_manifest['digest'])['inputChecks'],'passed')
+        self.assertEqual(preflight(v2,v2_manifest['digest'])['inputChecks'],'passed')
         self.assertEqual(preflight(new,new_manifest['digest'])['inputChecks'],'passed')
         old_plan=read(old/'execution-plan.candidate.json')
+        v2_plan=read(v2/'execution-plan.candidate.json')
         new_plan=read(new/'execution-plan.candidate.json')
         self.assertTrue(all(a['prompt'].startswith(context.PROMPT_PREFIX_V1) for a in old_plan['assets']))
-        self.assertTrue(all(a['prompt'].startswith(context.PROMPT_PREFIX_V2) for a in new_plan['assets']))
+        self.assertTrue(all(a['prompt'].startswith(context.PROMPT_PREFIX_V2) for a in v2_plan['assets']))
+        self.assertTrue(all(a['prompt'].startswith(context.PROMPT_PREFIX_V3) for a in new_plan['assets']))
         old_sheet=next(r for r in read(old/'requests.json')['requests'] if r.get('kind')=='sheet')
         new_sheet=next(r for r in read(new/'requests.json')['requests'] if r.get('kind')=='sheet')
         # These are historical d7 prompt bytes from this fixed fixture, not
@@ -159,10 +165,41 @@ class ContextReferencesTests(unittest.TestCase):
         self.assertNotIn('For sheets',context.prompt(self.visual,new_plan,
             [new_plan['assets'][1]['id']]))
 
+    def test_v3_fills_foreign_footprints_on_owned_card_without_reclassifying_it(self):
+        row=dict(id='row',role='foreground',label='Pale rounded row card with a note icon',
+                 bboxNorm=[.1,.1,.9,.4],preserveText=[],zOrder=1)
+        slider=dict(id='slider',role='foreground',label='Independent green slider and thumb',
+                    bboxNorm=[.55,.2,.8,.3],preserveText=[],zOrder=2)
+        visual=dict(backgroundMode='scene-only',textPolicy='remove-business-text',
+                    materials=[row,slider],objects=[
+                        dict(id='row-card',materialId='row',kind='card',label='Pale rounded card'),
+                        dict(id='note',materialId='row',kind='icon',label='Dark music note',
+                             bboxNorm=[.15,.15,.22,.3]),
+                        dict(id='slider-track',materialId='slider',kind='control',label='Green slider')])
+        plan=dict(canvas=[1000,1000],assets=[
+            dict(id='row',role='important_component',source_region=[100,100,900,400],
+                 output_size=[800,300]),
+            dict(id='slider',role='important_component',source_region=[550,200,800,300],
+                 output_size=[250,100])])
+        v2=context.prompt(visual,plan,['row'],version='v2')
+        v3=context.prompt(visual,plan,['row'],version='v3')
+        self.assertNotIn('When foreign exclusions cover an owned surface',v2)
+        self.assertIn('When foreign exclusions cover an owned surface',v3)
+        self.assertIn('retain genuine gaps and original translucency',v3)
+        self.assertEqual(v3.replace('When foreign exclusions cover an owned surface, continue that owned surface '
+            'through their footprints, not transparent holes or placeholders; retain genuine gaps and original '
+            'translucency. ',''),v2)
+        entry=json.loads(v3.split('Entries: ',1)[1])[0]
+        self.assertEqual(entry['surface'],'owned-artwork')
+        self.assertEqual([part['id'] for part in entry['parts']],['row-card','note'])
+        self.assertEqual(len(entry['exclude']),1)
+        self.assertEqual(entry['exclude'][0]['material'],slider['label'])
+
     def test_context_group_preview_uses_frozen_prompt_version(self):
         from ai_ui_layers.generation_groups import preview
         for name,folder,manifest in (
             ('old-preview',*self.legacy_frozen()),
+            ('v2-preview',*self.frozen(name='v2-snapshot',version='v2')),
             ('new-preview',*self.frozen(name='new-snapshot')),
         ):
             output=self.root/name
@@ -179,10 +216,16 @@ class ContextReferencesTests(unittest.TestCase):
         save(folder/'compile-report.json',report);save(folder/'snapshot.json',manifest)
         with self.assertRaisesRegex(ValueError,'CONTEXT_PLAN_COMPILER_MISMATCH'):
             preflight(folder,self.resign(folder))
+        downgrade,_=self.frozen(name='v3-to-v2')
+        manifest=read(downgrade/'snapshot.json');manifest['contextPromptVersion']='v2'
+        report=read(downgrade/'compile-report.json');report['contextPromptVersion']='v2'
+        save(downgrade/'compile-report.json',report);save(downgrade/'snapshot.json',manifest)
+        with self.assertRaisesRegex(ValueError,'CONTEXT_PLAN_COMPILER_MISMATCH'):
+            preflight(downgrade,self.resign(downgrade))
         old,_=self.legacy_frozen()
         rows=read(old/'requests.json')['requests']
         sheet=next(r for r in rows if r.get('kind')=='sheet')
-        replacement=self.frozen(name='v2-source')[0]
+        replacement=self.frozen(name='v3-source')[0]
         other=next(r for r in read(replacement/'requests.json')['requests'] if r.get('kind')=='sheet')
         (old/sheet['prompt']).write_bytes((replacement/other['prompt']).read_bytes())
         with self.assertRaisesRegex(ValueError,'PROMPT_COMPILER_MISMATCH'):

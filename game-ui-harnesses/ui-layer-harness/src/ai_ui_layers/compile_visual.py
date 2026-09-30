@@ -19,7 +19,7 @@ from ai_ui_decomposition.batch import _prompt
 
 PROMPT_V2 = 'visual-material-prompt-v2:\n'
 PROMPT_V3 = 'visual-material-prompt-v3:\n'
-from .context_references import PROMPT_PREFIXES, PROMPT_PREFIX_V2, validate_mode
+from .context_references import PROMPT_PREFIXES, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, validate_mode
 
 def render_prompt(asset):
     # Historical immutable snapshots retain their original legacy rendering.
@@ -29,7 +29,7 @@ def render_prompt(asset):
 
 
 def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generation_reference='full',
-                 context_prompt_version='v2'):
+                 context_prompt_version='v3'):
     validate_mode(generation_reference)
     if visual['kind'] != 'ui_visual_plan_v5':
         raise ValueError('V5_REQUIRED')
@@ -94,8 +94,8 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
                 document=dict(name=plan_id, format='png_zip'), delivery_policy='unreviewed_draft')
     if generation_reference=='context-crops':
         from .context_references import PROMPT_PREFIX_V1, prompt as context_prompt
-        if context_prompt_version not in ('v1','v2'):raise ValueError('CONTEXT_PROMPT_VERSION')
-        prefix=PROMPT_PREFIX_V1 if context_prompt_version=='v1' else PROMPT_PREFIX_V2
+        if context_prompt_version not in ('v1','v2','v3'):raise ValueError('CONTEXT_PROMPT_VERSION')
+        prefix={'v1':PROMPT_PREFIX_V1,'v2':PROMPT_PREFIX_V2,'v3':PROMPT_PREFIX_V3}[context_prompt_version]
         for asset in assets:
             asset['prompt']=prefix+context_prompt(visual,plan,[asset['id']],version=context_prompt_version)
     return plan, placements
@@ -163,9 +163,9 @@ def verify_run(run, *, _allow_issues=False):
 
 
 def compile_run(run, output, max_calls=128, generation_mode="single", generation_reference="full",
-                context_prompt_version='v2'):
+                context_prompt_version='v3'):
     validate_mode(generation_reference)
-    if context_prompt_version not in ('v1','v2'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if context_prompt_version not in ('v1','v2','v3'):raise ValueError('CONTEXT_PROMPT_VERSION')
     started = time.perf_counter(); run=Path(run); output=Path(output)
     if max_calls < 1:
         raise ValueError('INVALID_CALL_LIMIT')
@@ -222,7 +222,7 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
             'legacyStructureValidation':summary,'materialCount':len(plan['assets']),
             'layerCount':len(plan['nodes']),'plannedCalls':calls,'maximumCalls':max_calls,
             **({'generationReference':'context-crops'} if generation_reference=='context-crops' else {}),
-            **({'contextPromptVersion':'v2'} if generation_reference=='context-crops' and context_prompt_version=='v2' else {}),
+            **({'contextPromptVersion':context_prompt_version} if generation_reference=='context-crops' and context_prompt_version!='v1' else {}),
             'generationCalls':0,'freezeExecuted':False,'productionReady':False,'humanVisualAcceptance':False,
             'blockers':blockers,'artifacts':artifacts,'elapsedSeconds':time.perf_counter()-started}
     save(output/'compile-report.json', report)

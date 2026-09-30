@@ -1,5 +1,16 @@
 # Release notes
 
+## Unreleased foreign-occlusion surface rule
+
+- Context prompt v3 requires continuation of any owned surface exposed by removal
+  of a foreign object. Previously that instruction applied only to materials
+  classified as continuous panels, leaving cards underspecified.
+- Preserve genuine openings and translucency. Ownership, classification, bounds,
+  fitting and quality gates do not change. Exact v1/v2 prompts remain valid for
+  their immutable snapshots; only newly compiled context inputs default to v3.
+- Offline coverage does not establish real generation compliance. No release
+  tag is created.
+
 ## Unreleased context defaults and prompt scope
 
 - New public runs and planning initialization default to expanded context crops;

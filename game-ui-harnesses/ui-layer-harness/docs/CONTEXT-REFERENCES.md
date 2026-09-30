@@ -110,10 +110,15 @@ context arguments were:
 | Button | 2499 | 1802 | -27.9% |
 | Two-coin sheet | 2600 | 2266 | -12.8% |
 
-New context snapshots bind `contextPromptVersion: v2` in the snapshot and
+New context snapshots bind `contextPromptVersion: v3` in the snapshot and
 compile report. Version 2 consolidates common instructions and omits sheet-only
 instructions for single materials; the complete ownership entries remain.
-Missing version metadata means historical v1, whose exact rendering is retained
+Version 3 additionally states that removing a foreign object covering an owned
+surface must continue that owned surface, rather than leave a hole or placeholder.
+This applies to cards and other owned surfaces too, not only panel-classified
+materials. Genuine openings and original translucency remain preserved; no
+ownership, geometry, surface classification or placement is inferred or changed.
+Missing version metadata means historical v1. Exact v1 and v2 rendering is retained
 for validation and group previews. Changing or mixing versions requires a newly
 compiled snapshot, never an override to an existing frozen request. Prompt length
 depends on the plan and does not establish token cost or visual fidelity.

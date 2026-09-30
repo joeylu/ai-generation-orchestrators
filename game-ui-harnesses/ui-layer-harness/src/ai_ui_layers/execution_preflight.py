@@ -39,7 +39,7 @@ def preflight(folder, expected_digest):
     context_document=None
     context_prompt_version=snapshot.get('contextPromptVersion','v1')
     if context:
-        if context_prompt_version not in ('v1','v2'):
+        if context_prompt_version not in ('v1','v2','v3'):
             raise ValueError('CONTEXT_PROMPT_VERSION')
         report=read(folder/'compile-report.json')
         if report.get('contextPromptVersion', 'v1')!=context_prompt_version:
@@ -57,7 +57,8 @@ def preflight(folder, expected_digest):
     elif ('generation-references.json' in snapshot['files'] or
           'contextPromptVersion' in snapshot or
           any(a['prompt'].startswith(('visual-material-context-prompt-v1:\n',
-                                      'visual-material-context-prompt-v2:\n')) for a in assets) or
+                                      'visual-material-context-prompt-v2:\n',
+                                      'visual-material-context-prompt-v3:\n')) for a in assets) or
           any('generationReference' in row or 'references' in row for row in rows)):
         raise ValueError('CONTEXT_REFERENCE_MODE_MISMATCH')
     if grouped:

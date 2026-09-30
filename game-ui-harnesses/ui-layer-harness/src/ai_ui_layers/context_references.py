@@ -13,7 +13,8 @@ POLICY = 'material-context-expand-v1'
 GROUP_POLICY = 'compatible-size-and-kind-context-grid-v1'
 PROMPT_PREFIX_V1 = 'visual-material-context-prompt-v1:\n'
 PROMPT_PREFIX_V2 = 'visual-material-context-prompt-v2:\n'
-PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2)
+PROMPT_PREFIX_V3 = 'visual-material-context-prompt-v3:\n'
+PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3)
 # Historical callers and frozen plans used this name for v1.
 PROMPT_PREFIX = PROMPT_PREFIX_V1
 
@@ -114,9 +115,9 @@ def entry(visual, material, asset, reference, size, index):
         surface='continuous-panel' if carries_foreground(visual,material) else 'owned-artwork')
 
 
-def prompt(visual, plan, material_ids, group=None, version='v2'):
+def prompt(visual, plan, material_ids, group=None, version='v3'):
     """Compile frozen plan data once, with no LLM rewriting or extra grouping call."""
-    if version not in ('v1','v2'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if version not in ('v1','v2','v3'):raise ValueError('CONTEXT_PROMPT_VERSION')
     if visual.get('backgroundMode') not in ('scene-only','preserve-underlay') or visual.get('textPolicy')!='remove-business-text':
         raise ValueError('EXPLICIT_SCOPE_REQUIRED')
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
@@ -132,7 +133,7 @@ def prompt(visual, plan, material_ids, group=None, version='v2'):
     surface=('For continuous-panel, fill removed foreign footprints with matching panel surface, never holes or '
              'empty frames; preserve genuine openings and surface translucency. ' if
              any(item['surface']=='continuous-panel' for item in entries) else '')
-    if version=='v2':
+    if version in ('v2','v3'):
         layout=(f'Grid {group["grid"][0]} columns by {group["grid"][1]} rows, row-major; canvas aspect '
                 f'{group["outputSize"][0]}:{group["outputSize"][1]}. One assigned material per cell; '
                 'unused cells empty. cellIndex is 0-based. ' if group else
@@ -141,7 +142,7 @@ def prompt(visual, plan, material_ids, group=None, version='v2'):
         v2_surface=('Continuous panels fill excluded footprints with panel surface, no holes/ghosts; '
                     'retain genuine openings/translucency. ' if
                     any(item['surface']=='continuous-panel' for item in entries) else '')
-        return ('Use context crops in 1-based referenceIndex order. '+layout+
+        result=('Use context crops in 1-based referenceIndex order. '+layout+
                 'targetBox/referenceBox are local normalized locators, not masks; outside targetBox is context. '
                 'artworkPixelSize is planned crop size, not alpha bounds or placement. parts identify ownership; '
                 'withinMaterial=(centerX,centerY,width,height) fractions before padding. Preserve observed state, '
@@ -155,6 +156,10 @@ def prompt(visual, plan, material_ids, group=None, version='v2'):
                 'sides without stretch. No redesign, added borders/glow/shared backing/bridges/grid labels/other '
                 'UI/scene. No program restores missing artwork. Entries: '+
                 json.dumps(entries,ensure_ascii=False,separators=(',',':')))
+        if version=='v2':return result
+        rule=('When foreign exclusions cover an owned surface, continue that owned surface through their '
+              'footprints, not transparent holes or placeholders; retain genuine gaps and original translucency. ')
+        return result.replace('Entries: ',rule+'Entries: ',1)
     return ('Copy the listed owned artwork from attached context crops in 1-based referenceIndex order. '
             +layout+'cellIndex is 0-based. targetBox and referenceBox are normalized local coordinates in that '
             'attachment. Boxes locate owners, not masks; outside targetBox is context, not extra output. '

@@ -15,7 +15,7 @@ def body_digest(value):
 
 
 def freeze(run, output, max_calls, generation_mode="single", generation_reference="full",
-           context_prompt_version='v2'):
+           context_prompt_version='v3'):
     started=time.perf_counter();run=Path(run);output=Path(output)
     visual=verify_run(run)
     plan_path,review_path=selected_paths(run)
@@ -91,7 +91,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
               'elapsedSeconds':time.perf_counter()-started,'files':files}
     if generation_reference=='context-crops':
         snapshot['generationReference']=generation_reference
-        if context_prompt_version=='v2':snapshot['contextPromptVersion']='v2'
+        if context_prompt_version!='v1':snapshot['contextPromptVersion']=context_prompt_version
     snapshot['digest']=body_digest(snapshot)
     save(output/'snapshot.json',snapshot)
     inspect(output,snapshot['digest'])
