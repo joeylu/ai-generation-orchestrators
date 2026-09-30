@@ -38,6 +38,22 @@ foreign context, and preserve contours, proportions and continuous transparency.
 It accepts no arbitrary prompt override. Prompt length is measured rather than
 assumed to be shorter.
 
+Newly prepared board jobs use prompt version `v2`: each cell places its KEEP,
+REMOVE, AFTER REMOVAL, exact text exceptions and LOCATION instructions together.
+Only KEEP artwork inherits reference geometry; foreign exclusions take precedence
+over copying the assembled reference. Removal includes the original per-object
+descriptions, including repeated instances, without semantic summarization.
+Exposed owned surfaces continue through removed footprints, while genuine gaps
+and translucency remain. A parent panel's exclusion box is a locator, never a
+mask that erases the assigned artwork.
+
+The job's board descriptor binds `promptVersion: v2`. Historical descriptors
+without that field rebuild the exact original `v1` prompt. Validation rejects
+unknown versions, version substitution and changed action instructions even if
+stored hashes are recomputed. Board pixels, metadata, grouping and target sizes
+are identical across the two versions. Existing context prompt versions remain
+unchanged. Shorter wording or explicit actions are not proof of model compliance.
+
 The board changes only generation input. Original target crops, material IDs,
 output dimensions, placement, grouping and review evidence stay frozen. Context
 is not an ownership mask, and this mode cannot repair an incorrect reviewed box.

@@ -54,7 +54,7 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     if layout:
         if len(selected)!=1:raise ValueError('SINGLE_SHEET_LAYOUT_REQUIRED')
         from .sheet_layout_reference import build
-        build(snapshot,next(r for r in all_rows if r['asset']==selected[0]))
+        build(snapshot,next(r for r in all_rows if r['asset']==selected[0]),prompt_version='v2')
     elif reference_mode=='sheet-crops-only':
         if len(selected)!=1 or prompt_override is None:
             raise ValueError('SINGLE_SHEET_CROPS_VARIANT_REQUIRED')

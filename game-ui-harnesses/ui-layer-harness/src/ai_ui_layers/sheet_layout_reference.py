@@ -69,8 +69,10 @@ def _frozen(snapshot, row):
     return manifest, read(visual_path), read(snapshot / 'execution-plan.candidate.json')
 
 
-def build(snapshot: Path, row: dict) -> tuple[dict, bytes, str]:
+def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, bytes, str]:
     """Rebuild canonical metadata, PNG and prompt entirely from a frozen snapshot."""
+    if prompt_version not in ('v1', 'v2'):
+        raise ValueError('SHEET_LAYOUT_PROMPT_VERSION')
     snapshot = Path(snapshot)
     manifest, visual, plan = _frozen(snapshot, row)
     width, height = row['outputSize']
@@ -133,7 +135,8 @@ def build(snapshot: Path, row: dict) -> tuple[dict, bytes, str]:
     for i, (reference, item) in enumerate(zip(row['references'], metadata_cells)):
         key = reference['materialId']
         entry = context_references.entry(visual, materials[key], assets[key], reference,
-                                         plan['canvas'], i)
+                                         plan['canvas'], i,
+                                         include_exclusion_details=prompt_version == 'v2')
         placement = item['boardCropBox'][:2]
         crop_size = [*reference['referenceSize'], scale]
         entry['referenceIndex'] = 1
@@ -176,23 +179,27 @@ def build(snapshot: Path, row: dict) -> tuple[dict, bytes, str]:
         '10% fully transparent margin within each cell. No shared backing, bridges, grid marks, labels, new borders, '
         'glow, added decoration or invented artwork. Entries: ' +
         json.dumps(entries, ensure_ascii=False, separators=(',', ':')) + '\n')
+    if prompt_version == 'v2':
+        from .ownership_actions import board_prompt
+        prompt = board_prompt(entries, (width, height), (columns, rows))
     buffer = io.BytesIO()
     board.save(buffer, format='PNG')
     return metadata, buffer.getvalue(), prompt
 
 
-def _descriptor(metadata, board_bytes, prompt):
+def _descriptor(metadata, board_bytes, prompt, prompt_version='v1'):
     payloads = {BOARD: board_bytes, METADATA: _bytes(metadata), PROMPT: prompt.encode('utf-8')}
     return dict(kind=KIND, mode=MODE, snapshotDigest=metadata['snapshotDigest'],
                 requestAsset=metadata['requestAsset'], board=BOARD, metadata=METADATA,
-                prompt=PROMPT, sha256={name: _sha(payload) for name, payload in payloads.items()})
+                prompt=PROMPT, sha256={name: _sha(payload) for name, payload in payloads.items()},
+                **({'promptVersion': prompt_version} if prompt_version != 'v1' else {}))
 
 
-def materialize(job: Path, snapshot: Path, row: dict) -> dict:
+def materialize(job: Path, snapshot: Path, row: dict, *, prompt_version='v2') -> dict:
     """Write one fresh, fixed-path board without touching the frozen snapshot."""
     job = Path(job)
-    metadata, board_bytes, prompt = build(snapshot, row)
-    descriptor = _descriptor(metadata, board_bytes, prompt)
+    metadata, board_bytes, prompt = build(snapshot, row, prompt_version=prompt_version)
+    descriptor = _descriptor(metadata, board_bytes, prompt, prompt_version)
     folder = job / ROOT
     folder.mkdir(exist_ok=False)
     (job / BOARD).write_bytes(board_bytes)
@@ -204,8 +211,11 @@ def materialize(job: Path, snapshot: Path, row: dict) -> dict:
 def verify(job: Path, snapshot: Path, row: dict, descriptor: dict) -> None:
     """Compare canonical bytes, including PNG pixels and prompt, not stored hashes alone."""
     job = Path(job)
-    metadata, board_bytes, prompt = build(snapshot, row)
-    expected = _descriptor(metadata, board_bytes, prompt)
+    if not isinstance(descriptor, dict):
+        raise ValueError('SHEET_LAYOUT_DESCRIPTOR_CHANGED')
+    prompt_version = descriptor.get('promptVersion', 'v1')
+    metadata, board_bytes, prompt = build(snapshot, row, prompt_version=prompt_version)
+    expected = _descriptor(metadata, board_bytes, prompt, prompt_version)
     if descriptor != expected:
         raise ValueError('SHEET_LAYOUT_DESCRIPTOR_CHANGED')
     folder = job / ROOT

@@ -91,7 +91,7 @@ def local_box(box, reference, size):
             round((r*width-x)/w,8),round((b*height-y)/h,8)]
 
 
-def entry(visual, material, asset, reference, size, index):
+def entry(visual, material, asset, reference, size, index, *, include_exclusion_details=False):
     l,t,r,b=material['bboxNorm'];parts=[]
     for obj in visual['objects']:
         if obj['materialId']!=material['id']:continue
@@ -106,8 +106,13 @@ def entry(visual, material, asset, reference, size, index):
     # Include foreign units visible in the context rim too, without assigning them.
     x,y,rr,bb=reference['cropRegion'];width,height=size
     scope={**material,'bboxNorm':[x/width,y/height,rr/width,bb/height]}
+    foreign=exclusions(visual,scope)
     removed=[dict(material=item['material'],referenceBox=local_box(item['referenceBox'],reference,size))
-             for item in exclusions(visual,scope)]
+             for item in foreign]
+    if include_exclusion_details:
+        for removed_item, source in zip(removed, foreign):
+            # Preserve every object description, including repeated independent instances.
+            removed_item['excludeArtwork']=list(source['excludeArtwork'])
     summary={} if any(part['appearance']==material['label'] for part in parts) else {'artwork':material['label']}
     return dict(referenceIndex=index+1,cellIndex=index,materialId=material['id'],**summary,
         targetBox=reference['targetBoxNorm'],artworkPixelSize=asset['output_size'],

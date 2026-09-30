@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased board ownership actions
+
+- Newly prepared source-layout board jobs use a versioned per-cell KEEP/REMOVE/
+  AFTER REMOVAL prompt, carrying foreign object details and exact text exceptions.
+  Geometry preservation applies to retained artwork; removed coverage continues
+  the owned surface while preserving genuine openings and translucency.
+- Historical board descriptors rebuild exact v1 content. New v2 descriptors bind
+  the compiler version and reject changed actions or version substitution. Board
+  pixels, grouping, target geometry and context prompt versions do not change.
+- Offline validation establishes faithful compilation and immutable input checks,
+  not improved generation fidelity. Existing review, authorization, session and
+  no-resubmit rules remain. No release tag is created.
+
 ## Unreleased foreign-occlusion surface rule
 
 - Context prompt v3 requires continuation of any owned surface exposed by removal
