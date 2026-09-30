@@ -29,6 +29,7 @@ def small_audit(folder):
         visiblePart=materials[item['materialId']]['label'],
         observedAppearance='Fixture shape and color, no distinct surface marks',
         planEvidenceQuote=materials[item['materialId']]['label'],
+        descriptionStatus='consistent',
         suggestedChange='Clarify this visible part in the owner description.')])
         for item in read(metadata)['items']}
 

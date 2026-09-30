@@ -16,7 +16,7 @@ from .freeze_visual import freeze, inspect
 from .local_patch import patch_schema, merge_patch
 from .review_focus import make_focus, make_small_material_focus
 from .sequence_focus import make_sequence_focus
-from .planning_review_policy import split, signatures, REGIONS, audit_rows
+from .planning_review_policy import split, signatures, REGIONS, DESCRIPTION_STATUSES, audit_rows
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure
 
 BASE=HARNESS/'planning-harness'
@@ -185,7 +185,8 @@ class Dag:
                  'bboxNorm 的 x 除以完整画布宽、y 除以完整画布高；'
                  '不要使用界面显示尺寸、假定方形画布或附加留白作为分母。'
                  '全画布背景框不证明其他可见图形已被覆盖；有明确边界的界面覆盖区按视觉单元判断素材归属，'
-                 '不能用背景全框代替覆盖检查。短标签放不下的可见细节分给多个对象，描述须完整。\n\n')
+                 '不能用背景全框代替覆盖检查。短标签放不下的可见细节分给多个对象，描述须完整；'
+                 '类别名称不能代替部件数量、连接关系和真实间隙，按可见结构描述，不用不确定术语补全。\n\n')
         (p/'prompt.md').write_text(context+(p/'prompt.md').read_text(encoding='utf-8-sig')+self.user_context(),encoding='utf-8')
         save(p/'schema.json',transport_schema(read(self.inputs/'storage-schema.json')))
         save(self.root/'request.json',{'inputs':{n:digest(p/n) for n in ('reference.png','prompt.md','schema.json')},
@@ -227,10 +228,11 @@ class Dag:
         definitions={}
         if small_focus:
             part_schema={'type':'object','additionalProperties':False,
-                'required':['visiblePart','observedAppearance','planEvidenceQuote','suggestedChange'],
+                'required':['visiblePart','observedAppearance','planEvidenceQuote','descriptionStatus','suggestedChange'],
                 'properties':{'visiblePart':{'type':'string','minLength':1},
                               'observedAppearance':{'type':'string','minLength':1},
                               'planEvidenceQuote':{'type':'string'},
+                              'descriptionStatus':{'type':'string','enum':list(DESCRIPTION_STATUSES)},
                               'suggestedChange':{'type':'string','minLength':1}}}
             material_schema={'type':'object','additionalProperties':False,
                 'required':['parts','boundary'],
@@ -270,9 +272,11 @@ class Dag:
                     'boundary.status 判断候选框是否额外丢失原图可见自有轮廓：complete=全保留，clipped=漏可见部分，uncertain=无法确认；evidence 分清原图边缘与裁片边缘，不推测画外内容。'
                     '只按原图逐一列每个可辨部件，包括附属道具、部分遮挡和名称不确定的部分；'
                     'observedAppearance 写形状、颜色、浅色高光、暗色细点、表面印记或“无可辨印记”，不遗漏局部明暗点纹。'
-                    'planEvidenceQuote 逐字引自所属素材或对象的现有 label，须覆盖该部件的显著色点、高光和印记；'
-                    '部件名、部分颜色或整体名不足以证明覆盖。'
-                    '无对应描述填空引文并给局部 suggestedChange，已覆盖填“无需修改”；空或非原文引文仍触发修补阻断。'+prompt)
+                    'planEvidenceQuote 逐字引自所属素材或对象 label，只证明出处；descriptionStatus 判断观察与描述是否一致：'
+                    'consistent=数量、形状、连接/间隙及显著外观一致，等价措辞允许；missing=缺少，conflicting=矛盾，uncertain=无法确认。'
+                    '整体名、类别术语或部分颜色不能替代结构、色点、高光和印记；不要用自己的观察替模糊引文补足描述。'
+                    '缺少描述填空引文；非 consistent 给局部 suggestedChange，consistent 填“无需修改”。'
+                    '空/非原文引文或非 consistent 均阻断；不要把结构疑问降级为措辞告警。'+prompt)
             if small_focus['boundaryOnlyItems']:
                 prompt=('后续页的 smallBoundaryAudit 按 materialId 逐项只做同一轮廓截断检查；'
                         'clipped/uncertain 须给原图依据。'+prompt)

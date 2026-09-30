@@ -1,5 +1,22 @@
 # Release notes
 
+## Unreleased small-material description consistency
+
+- New planning reviews require an explicit per-part `descriptionStatus` in addition
+  to a literal owner-label quote. The model must compare observed count, shape,
+  connections, gaps and distinguishing appearance with the plan; equivalent wording
+  remains valid, while a broad category name cannot supply missing structure.
+- A valid quote with a missing, conflicting or uncertain assessment now produces
+  a semantic blocker. Existing bounded repair, repeated-finding stop, session and
+  freeze rules remain unchanged. The program does not infer visual semantics from
+  keywords. Legacy bound reviews without the field keep their existing interpretation.
+- Offline regressions verify the gate, not real-model observation or generation
+  fidelity. No image calls, new tags or changes to grouping thresholds are included.
+- Per-part checks retain the existing focus limit of 12 detailed small materials;
+  overflow entries retain boundary checks and whole-plan coverage/issues still apply.
+  Repeated-finding signatures retain reviewer wording, so paraphrases may evade an
+  exact repeat match; the two-repair ceiling and unresolved freeze gate still apply.
+
 ## Unreleased board ownership actions
 
 - Newly prepared source-layout board jobs use a versioned per-cell KEEP/REMOVE/

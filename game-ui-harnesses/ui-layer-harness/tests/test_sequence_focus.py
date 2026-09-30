@@ -110,7 +110,8 @@ class SequenceFocusTests(unittest.TestCase):
                         for region in REGIONS],smallMaterialAudit={row['materialId']:dict(
                             boundary=dict(status='complete',evidence='Fixture owned contour retained'),parts=[dict(
                             visiblePart='Fixture symbol',observedAppearance='Fixture contrast, no distinct marks',
-                            planEvidenceQuote=labels[row['materialId']],suggestedChange='No change')]) for row in metadata['items']})
+                            planEvidenceQuote=labels[row['materialId']],descriptionStatus='consistent',
+                            suggestedChange='No change')]) for row in metadata['items']})
                 else:
                     clarified=copy.deepcopy(plan['materials'][1]);clarified['label']+=' with a contrasting edge'
                     answer=dict(sourcePlanSha256=digest(folder.parent/'m1/draft.json'),materials=dict(upsert=[clarified],remove=[]),

@@ -2,6 +2,7 @@
 COSMETIC_CODES = {'MINOR_COLOR_TONE', 'DESCRIPTION_WORDING'}
 REGIONS = tuple(f'{vertical}-{horizontal}' for vertical in ('top','middle','bottom')
                 for horizontal in ('left','center','right'))
+DESCRIPTION_STATUSES = ('consistent', 'missing', 'conflicting', 'uncertain')
 
 
 def audit_rows(review, field):
@@ -46,9 +47,18 @@ def split(review, plan=None):
                 if item['id']==owner]+[item['label'] for item in plan['objects']
                 if item['materialId']==owner]
             for part in row['parts']:
+                status=part.get('descriptionStatus')
+                if 'descriptionStatus' in part and status not in DESCRIPTION_STATUSES:
+                    raise ValueError('INVALID_SMALL_DESCRIPTION_STATUS')
                 quote=part['planEvidenceQuote']
                 if not quote or (plan is not None and not any(quote in label for label in descriptions)):
                     issues.append(dict(code='UNDESCRIBED_SMALL_MATERIAL_PART',category='semantic',
+                        ids=[owner],description=owner+': '+part['visiblePart']+'; '+part['observedAppearance'],
+                        suggestedChange=part['suggestedChange']))
+                elif status is not None and status!='consistent':
+                    # A literal quote proves provenance, not semantic fidelity.
+                    # Historical reviews without this field keep their bound policy.
+                    issues.append(dict(code='SMALL_MATERIAL_DESCRIPTION_REVIEW',category='semantic',
                         ids=[owner],description=owner+': '+part['visiblePart']+'; '+part['observedAppearance'],
                         suggestedChange=part['suggestedChange']))
     if 'smallBoundaryAudit' in review:
@@ -76,5 +86,6 @@ def split(review, plan=None):
 def signatures(issues):
     return {(i['code'], tuple(sorted(i['ids'])),
              i['description'] if i['code'] in ('UNASSIGNED_VISIBLE_ARTWORK',
-                                               'UNDESCRIBED_SMALL_MATERIAL_PART') else None)
+                                               'UNDESCRIBED_SMALL_MATERIAL_PART',
+                                               'SMALL_MATERIAL_DESCRIPTION_REVIEW') else None)
             for i in issues}
