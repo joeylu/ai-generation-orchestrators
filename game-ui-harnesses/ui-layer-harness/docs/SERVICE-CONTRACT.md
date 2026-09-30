@@ -450,6 +450,16 @@ same bounded repair path. No bounds are automatically changed. This changes the
 runtime fingerprint for new runs only, not public CLI/status/composition fields.
 Additional pages increase review image input but do not add planning calls.
 
+M1, review and repair share the same object-locator scope: material bounds own
+crop, size and placement; object bounds are optional auxiliary locators, defaulting
+to null. The two mandatory cases are separate controls within one material and
+integrated retained icons beside removed text within that same control material.
+An independently separated icon does not require an extra object box merely
+because external text is adjacent; any other location ambiguity needs original-image
+evidence. Required internal locators remain required, and provided boxes must cover
+their full referenced artwork within the owner. No geometry issue is automatically
+ignored or downgraded because a box is null. Historical evidence is unchanged.
+
 Review and repair prompts distinguish axis-aligned graphic envelopes from text
 removal masks. Ordinary glyphs in unavoidable gaps inside a correct material or
 auxiliary-object envelope alone do not justify shrinking it and clipping artwork.

@@ -28,7 +28,11 @@ GRAPH={'m1':[], 'check':['m1'], 'm2':['check'], 'repair':['m2'],
        'repair2':['rereview'], 'repair_check2':['repair2'], 'rereview2':['repair_check2'],
        'freeze':['m2','rereview','rereview2']}
 BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包围框，不是去字遮罩。'
-                   '轮廓极值内不可避免的空隙含普通文字，不单独作为缩框依据；不得为避字截断图形，必要内部定位框不得置空。'
+                   '素材框决定裁片、尺寸与归位；对象框仅作辅助定位，默认 null。'
+                   '两项同素材例外必须非 null：同素材内分离控件各自的完整图形；同素材去字控件内与文字并排的集成功能图标。'
+                   '已独立成素材的图标不因邻接外部文字自动要求对象框；若仍有定位歧义，须给原图依据，不以 null 本身为缺陷。'
+                   '非 null 对象框须完整覆盖所指图形且位于所属素材内，必要内部定位框不得置空。'
+                   '轮廓极值内不可避免的空隙含普通文字，不单独作为缩框依据；不得为避字截断图形。'
                    '仅文字撑大的可避免边界仍须收紧；去字效果与完整轮廓仍须生成后审查或验收。\n')
 
 
@@ -186,7 +190,7 @@ class Dag:
             (p/name).write_bytes((self.inputs/source).read_bytes())
         with Image.open(p/'reference.png') as reference:
             width,height=reference.size
-        context=(f'参考图原始画布：width={width}, height={height} 像素。'
+        context=(BOX_TEXT_GUIDANCE+f'参考图原始画布：width={width}, height={height} 像素。'
                  'bboxNorm 的 x 除以完整画布宽、y 除以完整画布高；'
                  '不要使用界面显示尺寸、假定方形画布或附加留白作为分母。'
                  '全画布背景框不证明其他可见图形已被覆盖；有明确边界的界面覆盖区按视觉单元判断素材归属，'

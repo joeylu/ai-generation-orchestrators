@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased object-locator rule scope
+
+- M1, review and repair share a concise distinction between material crops and
+  optional object locators. Non-null locators remain required for separate controls
+  inside one material and integrated icons beside removed text in that same control
+  material. An independently separated icon does not need an extra locator merely
+  because an external caption is adjacent; other visible location ambiguity still
+  requires original-image evidence.
+- Geometry findings, coverage, boundaries and description gates are unchanged.
+  No reported blocker is automatically removed, and historical failed runs are
+  neither rewritten nor promoted. Offline fixtures verify instruction transmission
+  and unchanged gating, not model judgment or visual acceptance.
+
 ## Unreleased bounded rejected-frozen crop revision
 
 - `revise-frozen-crops` starts an independent job from a verified frozen planning
