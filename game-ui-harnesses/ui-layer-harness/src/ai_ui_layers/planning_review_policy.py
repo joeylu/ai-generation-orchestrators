@@ -1,7 +1,7 @@
 """Conservative planning-review severity; legacy semantic/geometry issues stay blocking."""
+from .coverage_review import REGIONS, coverage_findings
+
 COSMETIC_CODES = {'MINOR_COLOR_TONE', 'DESCRIPTION_WORDING'}
-REGIONS = tuple(f'{vertical}-{horizontal}' for vertical in ('top','middle','bottom')
-                for horizontal in ('left','center','right'))
 DESCRIPTION_STATUSES = ('consistent', 'missing', 'conflicting', 'uncertain')
 
 
@@ -26,16 +26,7 @@ def split(review, plan=None, visual_policy=None):
                      visual_policy['appearanceEvidence']=='bound-reference')
     blockers, warnings = [], []
     issues=list(review['issues'])
-    if 'coverageAudit' in review:
-        regions=review['coverageAudit']
-        if len(regions)!=len(REGIONS) or {row['region'] for row in regions}!=set(REGIONS):
-            raise ValueError('COVERAGE_REGIONS_REQUIRED')
-        for row in regions:
-            for missing in row['missingFromPlan']:
-                issues.append(dict(code='UNASSIGNED_VISIBLE_ARTWORK',category='semantic',
-                    ids=[missing['suggestedOwnerId']],
-                    description=row['region']+': '+missing['artwork'],
-                    suggestedChange=missing['suggestedChange']))
+    issues.extend(coverage_findings(review,plan,visual_policy))
     if 'smallMaterialAudit' in review:
         rows=audit_rows(review,'smallMaterialAudit')
         ids=[row['materialId'] for row in rows]

@@ -10,7 +10,7 @@ from ai_ui_layers.sequence_focus import make_sequence_focus
 from ai_ui_layers.review_image import fit_resampling
 from ai_ui_layers.planning_dag import init, Dag
 from ai_ui_layers.session_review import resume_command
-from ai_ui_layers.planning_review_policy import REGIONS
+from test_planning_dag import coverage
 
 SID='12345678-1234-1234-1234-123456789abc'
 
@@ -105,9 +105,8 @@ class SequenceFocusTests(unittest.TestCase):
                     issue=dict(code='fixture_detail',category='semantic',ids=['unit-0'],
                         description='Fixture contrast is omitted',suggestedChange='Clarify the color')
                     labels={row['id']:row['label'] for row in plan['materials']}
-                    answer=dict(issues=[issue] if folder.name=='m2' else [],coverageAudit=[
-                        dict(region=region,observedArtwork='Fixture source artwork',missingFromPlan=[])
-                        for region in REGIONS],smallMaterialAudit={row['materialId']:dict(
+                    answer=dict(issues=[issue] if folder.name=='m2' else [],coverageAudit=coverage(plan),
+                        smallMaterialAudit={row['materialId']:dict(
                             boundary=dict(status='complete',evidence='Fixture owned contour retained'),parts=[dict(
                             visiblePart='Fixture symbol',observedAppearance='Fixture contrast, no distinct marks',
                             planEvidenceQuote=labels[row['materialId']],descriptionStatus='consistent',

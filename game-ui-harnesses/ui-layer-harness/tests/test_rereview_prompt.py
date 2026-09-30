@@ -40,9 +40,9 @@ class RereviewPromptTests(unittest.TestCase):
                 answer=read(folder/'draft.json');owner=next(iter(answer['smallMaterialAudit']))
                 answer['issues']=[dict(code='DESCRIPTION_WORDING',category='cosmetic',ids=[owner],
                     description='A minor label wording issue.',suggestedChange='Optional wording adjustment.')]
-                for row in answer['coverageAudit']:row['observedArtwork']=observations
-                answer['coverageAudit'][2]['missingFromPlan']=[dict(artwork='Pale corner ornament',
-                    suggestedOwnerId='asset-panel',suggestedChange='Describe the corner ornament.')]
+                for row in answer['coverageAudit']:row['observedArtwork'][0]['evidence']=observations
+                answer['coverageAudit'][2]['observedArtwork'].append(test_planning_dag.missing_artwork(
+                    'Pale corner ornament','asset-panel','Describe the corner ornament.'))
                 item=answer['smallMaterialAudit'][owner]
                 item['boundary']=dict(status='clipped',evidence='Upper pale tip extends outside candidate.')
                 item['parts'][0].update(visiblePart='Pale attached tip',observedAppearance='White tip and dark dot',

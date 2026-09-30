@@ -17,6 +17,7 @@ from .local_patch import patch_schema, merge_patch
 from .review_focus import make_focus, make_small_material_focus
 from .sequence_focus import make_sequence_focus
 from .planning_review_policy import split, signatures, REGIONS, DESCRIPTION_STATUSES, audit_rows
+from .coverage_review import coverage_schema
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure
 from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME
 
@@ -35,6 +36,26 @@ BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包
                    '非 null 对象框须完整覆盖所指图形且位于所属素材内，必要内部定位框不得置空。'
                    '轮廓极值内不可避免的空隙含普通文字，不单独作为缩框依据；不得为避字截断图形。'
                    '仅文字撑大的可避免边界仍须收紧；去字效果与完整轮廓仍须生成后审查或验收。\n')
+
+COVERAGE_GUIDANCE=('coverageAudit 按九区逐项清点：observedArtwork 是图形条目数组，先看干净原图再对照计划，'
+    '重复实例及文字旁图形分别列项，不只遍历已有 ID。空区填 [] 和非空 emptyRegionEvidence；非空区该字段填 null。'
+    'covered 须有真实 materialId、可选同属 objectId，planEvidenceQuote 逐字引自指定对象 label，'
+    '未指定对象则引所属素材 label；引文须确实描述本项结构，泛称面板或 bbox 包含不能证明覆盖。'
+    '缺失用 missing、不明用 uncertain，suggestedChange 非空；未知归属填 null，不编 ID。'
+    'business-text 须绑定无保留字许可的素材，artwork 写原图完整文字实例的逐字内容；保留字/图形符号另项核对；'
+    'optional-shadow 只在显式允许时用于所属孤立柔影，描边/高光/实体不能排除。'
+    '每项 evidence 给原图位置及依据；covered 引文非空，其余引文填 null，非问题建议填 null。'
+    '不输出旧 missingFromPlan；程序逐项派生阻断，复审仍清点全图。')
+
+
+def itemized_coverage_prompt(prompt):
+    lines=prompt.splitlines(keepends=True)
+    matches=[index for index,line in enumerate(lines) if line.startswith('coverageAudit 按')]
+    if len(matches)>1:raise ValueError('DUPLICATE_COVERAGE_GUIDANCE')
+    if matches:
+        lines[matches[0]]=COVERAGE_GUIDANCE+'\n'
+        return ''.join(lines)
+    return COVERAGE_GUIDANCE+'\n'+prompt
 
 
 def prior_findings(root, name):
@@ -234,20 +255,10 @@ class Dag:
             'properties':{'code':{'type':'string'},'category':{'type':'string','enum':['semantic','geometry','cosmetic']},
                           'ids':{'type':'array','items':{'type':'string'}},'description':{'type':'string'},
                           'suggestedChange':{'type':'string'}}}
-        missing_schema={'type':'object','additionalProperties':False,
-            'required':['artwork','suggestedOwnerId','suggestedChange'],
-            'properties':{'artwork':{'type':'string','minLength':1},
-                          'suggestedOwnerId':{'type':'string','minLength':1},
-                          'suggestedChange':{'type':'string','minLength':1}}}
-        coverage_schema={'type':'object','additionalProperties':False,
-            'required':['region','observedArtwork','missingFromPlan'],
-            'properties':{'region':{'type':'string','enum':list(REGIONS)},
-                          'observedArtwork':{'type':'string','minLength':1},
-                          'missingFromPlan':{'type':'array','items':missing_schema}}}
         required=['issues','coverageAudit']
         properties={'issues':{'type':'array','items':issue_schema},
                     'coverageAudit':{'type':'array','minItems':len(REGIONS),
-                                     'maxItems':len(REGIONS),'items':coverage_schema}}
+                                     'maxItems':len(REGIONS),'items':coverage_schema()}}
         definitions={}
         if small_focus:
             part_schema={'type':'object','additionalProperties':False,
@@ -289,7 +300,8 @@ class Dag:
         if definitions:schema['$defs']=definitions
         if policy is not None:schema=transport_schema(schema)
         save(p/'schema.json',schema)
-        prompt=BOX_TEXT_GUIDANCE+build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan))
+        prompt=BOX_TEXT_GUIDANCE+itemized_coverage_prompt(build_review_prompt(
+            (p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan)))
         if name.startswith('rereview'):
             findings=prior_findings(self.root,name)
             save(p/'prior-findings.json',findings)
@@ -486,12 +498,16 @@ class Dag:
                 'humanVisualAcceptance':False,'automaticRetries':0,'runtimeAndInputsVerified':True,
                 'interventionTracking':'Pinned inputs/code and checkpoint integrity; external use of the model session is not independently audited.'}
         policy=planning_policy(self.root)
+        sources={'m2':'m1/draft.json','rereview':'repair/candidate.json',
+                 'rereview2':'repair2/candidate.json'}
         if policy is None:
-            result['reviewWarnings']={name:split(read(self.root/name/'draft.json'))[1]
-                for name in ('m2','rereview','rereview2') if (self.root/name/'draft.json').exists()}
+            result['reviewWarnings']={}
+            for name,path in sources.items():
+                if not (self.root/name/'draft.json').exists():continue
+                review=read(self.root/name/'draft.json')
+                itemized=any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[]))
+                result['reviewWarnings'][name]=split(review,read(self.root/path) if itemized else None)[1]
         else:
-            sources={'m2':'m1/draft.json','rereview':'repair/candidate.json',
-                     'rereview2':'repair2/candidate.json'}
             result['reviewWarnings']={name:split(read(self.root/name/'draft.json'),
                                       read(self.root/sources[name]),policy)[1]
                 for name in sources if (self.root/name/'draft.json').exists()}

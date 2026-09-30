@@ -62,7 +62,10 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     if digest(plan_path)!=report['sourcePlanSha256'] or digest(review_path)!=report['reviewSha256']:
         raise ValueError('EVIDENCE_CHANGED_DURING_FREEZE')
     from .planning_review_policy import split
-    save(output/'planning-warnings.json',dict(warnings=split(read(review_path),visual if policy is not None else None,visual_policy=policy)[1],reviewSha256=digest(review_path)))
+    review=read(review_path)
+    itemized=any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[]))
+    save(output/'planning-warnings.json',dict(warnings=split(review,
+        visual if policy is not None or itemized else None,visual_policy=policy)[1],reviewSha256=digest(review_path)))
     plan=read(output/'execution-plan.candidate.json')
     requests=[]
     for asset,item in zip(plan['assets'],report['artifacts']):

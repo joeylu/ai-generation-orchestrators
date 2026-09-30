@@ -8,7 +8,7 @@ from ai_ui_layers.compile_visual import HARNESS, compile_plan
 from ai_ui_layers.evaluate import read, digest, check_relations
 from ai_ui_layers.planning_dag import Dag
 from ai_ui_layers.planning_review_policy import split
-from test_planning_dag import FakeModel
+from test_planning_dag import FakeModel, missing_artwork
 import test_planning_dag
 
 
@@ -95,9 +95,9 @@ class VisiblePlanningEvidenceTests(unittest.TestCase):
                 return
             answer = read(folder/'draft.json')
             answer['issues'] = []
-            answer['coverageAudit'][8]['missingFromPlan'] = [dict(
-                artwork='A separate green glyph at the lower end of the list has no owned object; the backing alone is not its owner.',
-                suggestedOwnerId='asset-panel', suggestedChange='Add the missing visible instance with its own content ownership.')]
+            answer['coverageAudit'][8]['observedArtwork'].append(missing_artwork(
+                'A separate green glyph at the lower end of the list has no owned object; the backing alone is not its owner.',
+                'asset-panel', 'Add the missing visible instance with its own content ownership.'))
             self.response(folder, answer)
         with self.assertRaisesRegex(ValueError, 'REREVIEW_UNRESOLVED'):
             Dag(self.root, model).execute()

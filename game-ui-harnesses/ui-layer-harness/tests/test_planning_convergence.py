@@ -5,7 +5,7 @@ from PIL import Image
 from ai_ui_layers.planning_dag import init,Dag
 from ai_ui_layers.compile_visual import verify_run
 from ai_ui_layers.evaluate import read,save,digest
-from test_planning_dag import FakeModel,SID,coverage,small_audit
+from test_planning_dag import FakeModel,SID,coverage,missing_artwork,small_audit
 
 class ConvergenceTests(unittest.TestCase):
     def setUp(self):
@@ -25,7 +25,9 @@ class ConvergenceTests(unittest.TestCase):
                     issues=[dict(code=('INVALID' if bad else 'MINOR_COLOR_TONE') if cosmetic else code,
                         category='cosmetic' if cosmetic else 'semantic',ids=['asset-panel'],
                         description='Visible evidence for this discrepancy.',suggestedChange='Clarify affected description.')]
-                answer=dict(issues=issues,coverageAudit=coverage(),smallMaterialAudit=small_audit(folder))
+                source=folder.parent/({'m2':'m1/draft.json','rereview':'repair/candidate.json',
+                    'rereview2':'repair2/candidate.json'}[folder.name])
+                answer=dict(issues=issues,coverageAudit=coverage(read(source)),smallMaterialAudit=small_audit(folder))
             else:
                 source=folder.parent/('repair/candidate.json' if folder.name=='repair2' else 'm1/draft.json')
                 panel=copy.deepcopy(read(source)['materials'][1]);panel['label']+=' corrected'
@@ -60,9 +62,8 @@ class ConvergenceTests(unittest.TestCase):
             if folder.name in ('m2','rereview'):
                 answer=read(folder/'draft.json');answer['issues']=[]
                 artwork='flying figure' if folder.name=='m2' else 'small attached palette'
-                answer['coverageAudit'][2]['missingFromPlan']=[dict(
-                    artwork=artwork,suggestedOwnerId='asset-panel',
-                    suggestedChange='Add the observed artwork to the owned description.')]
+                answer['coverageAudit'][2]['observedArtwork'].append(missing_artwork(
+                    artwork,'asset-panel','Add the observed artwork to the owned description.'))
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
@@ -76,9 +77,8 @@ class ConvergenceTests(unittest.TestCase):
             base(folder,sid,first)
             if folder.name in ('m2','rereview'):
                 answer=read(folder/'draft.json');answer['issues']=[]
-                answer['coverageAudit'][2]['missingFromPlan']=[dict(
-                    artwork='same missing figure',suggestedOwnerId='asset-panel',
-                    suggestedChange='Restore the same missing figure.')]
+                answer['coverageAudit'][2]['observedArtwork'].append(missing_artwork(
+                    'same missing figure','asset-panel','Restore the same missing figure.'))
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
@@ -111,7 +111,8 @@ class ConvergenceTests(unittest.TestCase):
             if folder.name=='rereview2':
                 answer=dict(issues=[dict(code='MINOR_COLOR_TONE',category='cosmetic',ids=['asset-panel'],
                     description='Slight tone difference only.',suggestedChange='Optional tone adjustment.')],
-                    coverageAudit=coverage(),smallMaterialAudit=small_audit(folder))
+                    coverageAudit=coverage(read(folder.parent/'repair2/candidate.json')),
+                    smallMaterialAudit=small_audit(folder))
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')

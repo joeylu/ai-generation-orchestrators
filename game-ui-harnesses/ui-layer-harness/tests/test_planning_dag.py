@@ -13,9 +13,20 @@ from ai_ui_layers.planning_review_policy import REGIONS, split
 SID='12345678-1234-1234-1234-123456789abc'
 
 
-def coverage():
-    return [dict(region=region,observedArtwork='Fixture scene and controls',missingFromPlan=[])
-            for region in REGIONS]
+def coverage(plan=None):
+    plan=plan or read(HARNESS/'planning-harness/examples/visual-plan-scoped.json')
+    owner=plan['materials'][0]
+    return [dict(region=region,observedArtwork=[dict(
+        artwork='Fixture scene artwork',disposition='covered',materialId=owner['id'],
+        objectId=None,planEvidenceQuote=owner['label'],
+        evidence='Fixture observation is owned by the scene material.',suggestedChange=None)],
+        emptyRegionEvidence=None) for region in REGIONS]
+
+
+def missing_artwork(artwork,owner='asset-panel',change='Describe the observed artwork in its owner.'):
+    return dict(artwork=artwork,disposition='missing',materialId=owner,objectId=None,
+                planEvidenceQuote=None,evidence='Fixture source shows this separate visible artwork.',
+                suggestedChange=change)
 
 
 def small_audit(folder):
@@ -51,8 +62,9 @@ class FakeModel:
         elif folder.name in ('m2','rereview'):
             issue={'code':'missing_detail','category':'semantic','ids':['asset-panel'],
                    'description':'fixture finding','suggestedChange':'clarify panel label'}
+            source=folder.parent/('repair/candidate.json' if folder.name=='rereview' else 'm1/draft.json')
             answer={'issues':[issue] if (folder.name=='m2' and self.repair) or (folder.name=='rereview' and self.unresolved) else [],
-                    'coverageAudit':coverage(),'smallMaterialAudit':small_audit(folder)}
+                    'coverageAudit':coverage(read(source)),'smallMaterialAudit':small_audit(folder)}
             boundary=small_boundary_audit(folder)
             if boundary:answer['smallBoundaryAudit']=boundary
         else:
@@ -163,7 +175,8 @@ class DagTests(unittest.TestCase):
                         if m['role']=='background'),bboxNorm=[.2,.2,.3,.3])],remove=[]),
                     unknowns=None,backgroundMode=None,textPolicy=None,unresolvedIssues=[])
             elif folder.name=='rereview2':
-                answer=dict(issues=[],coverageAudit=coverage(),smallMaterialAudit=small_audit(folder))
+                answer=dict(issues=[],coverageAudit=coverage(read(folder.parent/'repair2/candidate.json')),
+                            smallMaterialAudit=small_audit(folder))
             else:return
             (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
             receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
@@ -183,10 +196,9 @@ class DagTests(unittest.TestCase):
             fake(folder,sid,first)
             if folder.name=='m2':
                 answer=read(folder/'draft.json')
-                answer['coverageAudit'][2]['missingFromPlan']=[dict(
-                    artwork='Visible flying character and star trail absent from scene description',
-                    suggestedOwnerId='asset-scene',
-                    suggestedChange='Add the flying character and trail to the scene material and object descriptions.')]
+                answer['coverageAudit'][2]['observedArtwork'].append(missing_artwork(
+                    'Visible flying character and star trail absent from scene description',
+                    'asset-scene','Add the flying character and trail to the scene material and object descriptions.'))
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
             elif folder.name=='repair':
                 seen['context']=read(folder/'source-context.json')
@@ -205,7 +217,8 @@ class DagTests(unittest.TestCase):
         self.assertEqual(read(self.root/'m2/draft.json')['issues'],[])
         self.assertEqual(seen['context']['materials'][0]['id'],'asset-scene')
         self.assertIn('flying character',read(self.root/'repair/candidate.json')['materials'][0]['label'])
-        self.assertEqual(read(self.root/'rereview/draft.json')['coverageAudit'][2]['missingFromPlan'],[])
+        self.assertFalse(any(item['disposition']=='missing' for item in
+            read(self.root/'rereview/draft.json')['coverageAudit'][2]['observedArtwork']))
 
     def test_missing_coverage_audit_cannot_freeze(self):
         fake=FakeModel()

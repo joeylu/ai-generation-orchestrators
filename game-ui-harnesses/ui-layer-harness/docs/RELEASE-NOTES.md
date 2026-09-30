@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased itemized artwork ownership review
+
+- New fixed-runtime M2 and rereviews replace free region prose with individual
+  artwork dispositions, owner IDs and literal owner evidence. Missing or uncertain
+  items block even without a known owner. Empty regions require source evidence;
+  text removal and optional isolated shadows have explicit policy checks.
+- Historical reviews retain their original reading rules. New model schemas reject
+  the historical free-text format; old failed jobs are not resumed or promoted.
+  The maintained shared planning files remain untouched; the layer runtime replaces
+  only its coverage instructions and leaves the other review dimensions intact.
+- Program checks establish record and evidence integrity, not semantic fidelity or
+  a complete source inventory. Independent visual acceptance is still required.
+  This change does not add calls, change grouping, generate media or publish a tag.
+
 ## Unreleased visual-policy review schema compatibility fix
 
 - Explicit-policy M2 output schemas use a required nullable deferredAppearance

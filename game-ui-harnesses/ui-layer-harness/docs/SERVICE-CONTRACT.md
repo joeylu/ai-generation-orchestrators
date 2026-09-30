@@ -55,8 +55,21 @@ M1/M2 固定模板按规划与检查职责集中表达通用规则，字段/枚�
 适配资格和重复卡片比例仍是原有检查规则，不能因文档位置而遗漏。
 标记残缺、重复、倒置、空范围或混入第二步修补标题会在调用前阻断；
 历史无标记模板保留原标题截取方式，旧固定运行不会改写或重放。
-新规划的 M2/复审还须逐区提交九宫格可见图形覆盖审查。标为“原图可见、计划未描述”的图形
-由程序转为 semantic 阻断并进入原有最多两轮局部修补；小前景素材附一张有摘要的原图
+新固定运行时的 M2/复审须逐区提交九宫格可见图形覆盖审查；`observedArtwork` 改为逐项数组，
+每项包含 artwork、disposition、materialId、objectId、planEvidenceQuote、evidence、suggestedChange。
+disposition 为 covered、missing、uncertain、business-text 或 optional-shadow。
+covered 必须绑定已有素材和可选的同属对象，非空逐字引文来自指定对象 label，未指定对象时来自素材 label；
+引文只证明来源，模型仍须确认其描述本项结构，不得用框包含或泛称主体替代图形记录。
+missing/uncertain 即 semantic 阻断，未知归属可以为 null，不能编造 ID。business-text 仅限删除策略允许的
+普通业务文字，须绑定已有素材，artwork 写完整文字实例的逐字内容。当前同素材有非空 preserveText 时
+保守拒绝 business-text 排除：自由描述不能证明文字身份，混合保留字/业务字的素材仍有误拒限制，
+不能通过空归属或模糊文字放行；归属不明走 uncertain。
+不豁免保留文字或邻接图形；optional-shadow 仅限显式允许的所属孤立柔影。
+非问题建议及非 covered 引文填 null。空区域必须给非空 emptyRegionEvidence；非空区域该字段为 null。
+新 schema 不接受旧 missingFromPlan 或自由观察文本，程序读取历史审查时仍保留旧判据；新旧九区不得混用。
+字段使用 nullable 基础类型，关联判据由程序核验，不增加条件组合关键字或模型调用。
+标为“原图可见、计划未描述”的图形由程序转为 semantic 阻断并进入原有最多两轮局部修补；
+小前景素材附一张有摘要的原图
 放大对照，供检查附属细节。缺失覆盖审查记录不能冻结；复审仍检查完整候选。
 新复审的历史输入只携带上一轮待核销的全部阻断和轻微告警，不重复已通过的详细观察。
 程序按上一轮实际审查的计划派生遗漏、裁框和小素材描述问题，不能用新候选提前消除旧问题。
