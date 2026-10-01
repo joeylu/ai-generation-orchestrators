@@ -50,7 +50,7 @@ class RereviewPromptTests(unittest.TestCase):
                     focused,'clipped','Upper pale tip extends outside candidate.',
                     test_planning_dag.outside_pixel(focused))
                 item['parts'][0].update(visiblePart='Pale attached tip',observedAppearance='White tip and dark dot',
-                    planEvidenceQuote='',suggestedChange='Record the tip and dark dot.')
+                    planEvidenceId=None,suggestedChange='Record the tip and dark dot.')
                 replace_answer(folder,answer);before['review']=copy.deepcopy(answer)
             if folder.name=='rereview':
                 prompt=(folder/'prompt.md').read_text(encoding='utf-8')
@@ -86,7 +86,7 @@ class RereviewPromptTests(unittest.TestCase):
             fake(folder,sid,first)
             if folder.name=='m2':
                 answer=read(folder/'draft.json');owner['id']=next(iter(answer['smallMaterialAudit']))
-                item=answer['smallMaterialAudit'][owner['id']];item['parts'][0]['planEvidenceQuote']=quote
+                item=answer['smallMaterialAudit'][owner['id']];item['parts'][0]['planEvidenceId']=None
                 replace_answer(folder,answer)
             if folder.name=='repair':
                 answer=read(folder/'draft.json');source=read(self.root/'m1/draft.json')
@@ -96,7 +96,8 @@ class RereviewPromptTests(unittest.TestCase):
                 replace_answer(folder,answer)
             if folder.name=='rereview':
                 prior=read(self.root/'m2/draft.json');candidate=read(self.root/'repair/candidate.json')
-                self.assertEqual(split(prior,candidate)[0],[])
+                with self.assertRaisesRegex(ValueError,'PLAN_EVIDENCE_DIGEST_MISMATCH'):
+                    split(prior,candidate)
                 findings=json_after((folder/'prompt.md').read_text(encoding='utf-8'),FINDINGS_MARKER)
                 self.assertEqual(findings['blockers'],split(prior,read(self.root/'m1/draft.json'))[0])
                 self.assertEqual(findings['blockers'][0]['code'],'UNDESCRIBED_SMALL_MATERIAL_PART')

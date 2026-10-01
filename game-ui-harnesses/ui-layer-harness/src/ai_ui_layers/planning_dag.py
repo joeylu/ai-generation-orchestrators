@@ -16,9 +16,9 @@ from .freeze_visual import freeze, inspect
 from .local_patch import patch_schema, merge_patch
 from .review_focus import make_focus, make_small_material_focus
 from .sequence_focus import make_sequence_focus
-from .planning_review_policy import split, signatures, REGIONS, DESCRIPTION_STATUSES, audit_rows
-from .boundary_evidence import schema as boundary_schema, guidance as boundary_guidance, validate_boundaries
-from .coverage_review import coverage_schema
+from .planning_review_policy import split, signatures, audit_rows
+from .boundary_evidence import guidance as boundary_guidance, validate_boundaries
+from .review_evidence import build_catalog, build_review_schema
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure
 from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME
 
@@ -40,12 +40,13 @@ BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包
 
 COVERAGE_GUIDANCE=('coverageAudit 按九区逐项清点：observedArtwork 是图形条目数组，先看干净原图再对照计划，'
     '重复实例及文字旁图形分别列项，不只遍历已有 ID。空区填 [] 和非空 emptyRegionEvidence；非空区该字段填 null。'
-    'covered 须有真实 materialId、可选同属 objectId，planEvidenceQuote 逐字引自指定对象 label，'
-    '未指定对象则引所属素材 label；引文须确实描述本项结构，泛称面板或 bbox 包含不能证明覆盖。'
+    'covered 须有真实 materialId、可选同属 objectId，planEvidenceId 从本轮目录选择：'
+    '指定对象时选对应 o: 对象 ID，否则选对应 m: 素材 ID；所属原文仍须确实描述本项结构，'
+    '泛称面板或 bbox 包含不能证明覆盖，编号也不代替视觉判断。'
     '缺失用 missing、不明用 uncertain，suggestedChange 非空；未知归属填 null，不编 ID。'
     'business-text 须绑定无保留字许可的素材，artwork 写原图完整文字实例的逐字内容；保留字/图形符号另项核对；'
     'optional-shadow 只在显式允许时用于所属孤立柔影，描边/高光/实体不能排除。'
-    '每项 evidence 给原图位置及依据；covered 引文非空，其余引文填 null，非问题建议填 null。'
+    '每项 evidence 给原图位置及依据；covered 选所属 planEvidenceId，其余填 null，非问题建议填 null。'
     '不输出旧 missingFromPlan；程序逐项派生阻断，复审仍清点全图。')
 
 
@@ -245,61 +246,21 @@ class Dag:
 
     def review(self,name,plan_path,overlay):
         p=self.folder(name);sid=read(self.root/'session.json')['sessionId'];plan=read(plan_path)
+        catalog=build_catalog(plan);save(p/'plan-evidence-catalog.json',catalog)
         policy=planning_policy(self.root)
         (p/'review-overlay.png').write_bytes(overlay.read_bytes())
         (p/'review-source.md').write_bytes((self.inputs/'visual-review.md').read_bytes())
         focus=make_focus(self.root/'m1/reference.png',p/'review-overlay.png',plan,p)
         small_focus=make_small_material_focus(self.root/'m1/reference.png',plan,p)
         sequence_focus=make_sequence_focus(self.root/'m1/reference.png',plan,p)
-        issue_schema={'type':'object','additionalProperties':False,
-            'required':['code','category','ids','description','suggestedChange'],
-            'properties':{'code':{'type':'string'},'category':{'type':'string','enum':['semantic','geometry','cosmetic']},
-                          'ids':{'type':'array','items':{'type':'string'}},'description':{'type':'string'},
-                          'suggestedChange':{'type':'string'}}}
-        required=['issues','coverageAudit']
-        properties={'issues':{'type':'array','items':issue_schema},
-                    'coverageAudit':{'type':'array','minItems':len(REGIONS),
-                                     'maxItems':len(REGIONS),'items':coverage_schema()}}
-        definitions={}
-        if small_focus:
-            part_schema={'type':'object','additionalProperties':False,
-                'required':['visiblePart','observedAppearance','planEvidenceQuote','descriptionStatus','suggestedChange'],
-                'properties':{'visiblePart':{'type':'string','minLength':1},
-                              'observedAppearance':{'type':'string','minLength':1},
-                              'planEvidenceQuote':{'type':'string'},
-                              'descriptionStatus':{'type':'string','enum':list(DESCRIPTION_STATUSES)},
-                              'suggestedChange':{'type':'string','minLength':1}}}
-            if policy is not None:
-                if policy['appearanceEvidence']=='bound-reference':
-                    part_schema['properties']['descriptionStatus']['enum'].append('reference-bound')
-                part_schema['properties']['deferredAppearance']={'type':['string','null']}
-                part_schema['required'].append('deferredAppearance')
-            material_schema={'type':'object','additionalProperties':False,
-                'required':['parts','boundary'],
-                'properties':{'boundary':boundary_schema(),
-                    'parts':{'type':'array','minItems':1,'items':part_schema}}}
-            required.append('smallMaterialAudit')
-            definitions['smallMaterialAuditEntry']=material_schema
-            properties['smallMaterialAudit']={'type':'object','additionalProperties':False,
-                'required':[row['materialId'] for row in small_focus['items']],
-                'properties':{row['materialId']:{'$ref':'#/$defs/smallMaterialAuditEntry'}
-                              for row in small_focus['items']}}
-            if small_focus['boundaryOnlyItems']:
-                required.append('smallBoundaryAudit')
-                definitions['smallBoundaryAuditEntry']={'type':'object','additionalProperties':False,
-                    'required':['boundary'],
-                    'properties':{'boundary':material_schema['properties']['boundary']}}
-                properties['smallBoundaryAudit']={'type':'object','additionalProperties':False,
-                    'required':[row['materialId'] for row in small_focus['boundaryOnlyItems']],
-                    'properties':{row['materialId']:{'$ref':'#/$defs/smallBoundaryAuditEntry'}
-                                  for row in small_focus['boundaryOnlyItems']}}
-        schema={'type':'object','additionalProperties':False,'required':required,
-                'properties':properties}
-        if definitions:schema['$defs']=definitions
-        if policy is not None:schema=transport_schema(schema)
-        save(p/'schema.json',schema)
-        prompt=BOX_TEXT_GUIDANCE+itemized_coverage_prompt(build_review_prompt(
-            (p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan)))
+        save(p/'schema.json',build_review_schema(catalog,small_focus,policy))
+        review_checks=build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),
+                                          check_relations(plan))
+        copied_quote='证据逐字引用所属素材/对象 label；'
+        if review_checks.count(copied_quote)>1:raise ValueError('DUPLICATE_REVIEW_QUOTE_GUIDANCE')
+        review_checks=review_checks.replace(copied_quote,
+            '证据从本轮计划目录选择所属 planEvidenceId，由程序还原该所属记录原文；',1)
+        prompt=BOX_TEXT_GUIDANCE+itemized_coverage_prompt(review_checks)
         if name.startswith('rereview'):
             findings=prior_findings(self.root,name)
             save(p/'prior-findings.json',findings)
@@ -311,11 +272,12 @@ class Dag:
                     'boundary.status 判断候选框是否额外丢失原图可见自有轮廓：complete=全保留，clipped=漏可见部分，uncertain=无法确认；evidence 分清原图边缘与裁片边缘，不推测画外内容。'
                     '只按原图逐一列每个可辨部件，包括附属道具、部分遮挡和名称不确定的部分；'
                     'observedAppearance 写形状、颜色、浅色高光、暗色细点、表面印记或“无可辨印记”，不遗漏局部明暗点纹。'
-                    'planEvidenceQuote 逐字引自所属素材或对象 label，只证明出处；descriptionStatus 判断观察与描述是否一致：'
+                    'planEvidenceId 从本轮目录选所属素材 m: 或同属对象 o: 的编号；没有真实描述依据填 null，不能拼接或猜测标签。'
+                    '编号只证明出处，不代替观察；descriptionStatus 判断观察与描述是否一致：'
                     'consistent=数量、形状、连接/间隙及显著外观一致，等价措辞允许；missing=缺少，conflicting=矛盾，uncertain=无法确认。'
-                    '整体名、类别术语或部分颜色不能替代结构、色点、高光和印记；不要用自己的观察替模糊引文补足描述。'
-                    '缺少描述填空引文；非 consistent 给局部 suggestedChange，consistent 填“无需修改”。'
-                    '空/非原文引文或非 consistent 均阻断；不要把结构疑问降级为措辞告警。'+prompt)
+                    '整体名、类别术语或部分颜色不能替代结构、色点、高光和印记；不要用自己的观察替模糊的所属描述补足结构。'
+                    '缺少描述依据填 null 编号；非 consistent 给局部 suggestedChange，consistent 填“无需修改”。'
+                    '空/错属编号或非 consistent 均阻断；不要把结构疑问降级为措辞告警。'+prompt)
             if small_focus['boundaryOnlyItems']:
                 prompt=('后续页的 smallBoundaryAudit 按 materialId 逐项只做同一轮廓截断检查；'
                         'clipped/uncertain 须给原图依据。'+prompt)
@@ -328,19 +290,22 @@ class Dag:
             save(p/'focus-meta.json',focus)
             prompt=('先核对下列局部证据：近边固定装饰的完整轮廓，或重复对齐卡片各自闭合边框的真实四边与归属。局部附件左半是干净原图、右半是同坐标标框叠图；若有同行高度候选边，它们只是寻找轮廓的搜索点，不是自动改框坐标。区分卡片自身闭合边框与相邻容器的分隔线，只按可见连接判断；对齐比较本身不是缺陷，也不要因其他小告警跳过这一检查：'+json.dumps(focus,ensure_ascii=False)+'\n'+prompt)
         if policy is not None and policy['appearanceEvidence']=='bound-reference':
-            prompt=prompt.replace('空/非原文引文或非 consistent 均阻断；不要把结构疑问降级为措辞告警。',
-                                  '空/非原文引文或 missing/conflicting/uncertain 均阻断；合格 reference-bound 只记录警告，结构疑问不得降级。')
-            prompt=prompt.replace('整体名、类别术语或部分颜色不能替代结构、色点、高光和印记；不要用自己的观察替模糊引文补足描述。',
-                                  '整体名、类别术语或部分颜色不能替代结构、身份、状态、连接及显著高光、渐变和印记；仅细微表面可明确交给绑定原图，不用观察替模糊引文补足结构。')
+            prompt=prompt.replace('空/错属编号或非 consistent 均阻断；不要把结构疑问降级为措辞告警。',
+                                  '空/错属编号或 missing/conflicting/uncertain 均阻断；合格 reference-bound 只记录警告，结构疑问不得降级。')
+            prompt=prompt.replace('整体名、类别术语或部分颜色不能替代结构、色点、高光和印记；不要用自己的观察替模糊的所属描述补足结构。',
+                                  '整体名、类别术语或部分颜色不能替代结构、身份、状态、连接及显著高光、渐变和印记；仅细微表面可明确交给绑定原图，不用观察替模糊的所属描述补足结构。')
         if policy is not None:
             prompt+=planning_guidance(policy)
             prompt+='smallMaterialAudit 每个 part 必填 deferredAppearance；只有 reference-bound 填非空字符串，其余状态填 null。\n'
             if policy['appearanceEvidence']=='bound-reference':
-                prompt+=('reference-bound 仅用于所属逐字引文已证明结构、身份、数量、状态及连接关系，'
+                prompt+=('reference-bound 仅用于所选所属描述已证明结构、身份、数量、状态及连接关系，'
                          '剩余细微表面由本次绑定原图承接；填写非空 deferredAppearance 说明具体延期表面。'
-                         '缺失/矛盾/不确定仍填对应状态，不借此跳过轮廓、归属或引文。\n')
+                         '缺失/矛盾/不确定仍填对应状态，不借此跳过轮廓、归属或描述核对。\n')
+        prompt+=('\n本轮计划证据目录（摘要必须回填 planEvidenceCatalogDigest；仅按所属 ID 选择，'
+                 '不得复制、拼接或改写 label；仍须独立对原图判断是否描述所见）：'
+                 +json.dumps(catalog,ensure_ascii=False,separators=(',',':'))+'\n')
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
-        names=['schema.json','review-source.md','review-overlay.png','prompt.md']
+        names=['schema.json','review-source.md','review-overlay.png','prompt.md','plan-evidence-catalog.json']
         if name.startswith('rereview'):names.append('prior-findings.json')
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small_focus:names+=['coverage-small-materials.json']+[row['file'] for row in small_focus['pages']]

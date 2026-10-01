@@ -25,7 +25,7 @@ def coverage(plan=None):
 
 def missing_artwork(artwork,owner='asset-panel',change='Describe the observed artwork in its owner.'):
     return dict(artwork=artwork,disposition='missing',materialId=owner,objectId=None,
-                planEvidenceQuote=None,evidence='Fixture source shows this separate visible artwork.',
+                planEvidenceId=None,evidence='Fixture source shows this separate visible artwork.',
                 suggestedChange=change)
 
 
@@ -47,7 +47,9 @@ def outside_pixel(item):
 def small_audit(folder):
     metadata=folder/'coverage-small-materials.json'
     if not metadata.exists():return {}
-    source=folder.parent/'m1/draft.json'
+    source=(folder.parent/'repair2/candidate.json' if folder.name=='rereview2' else
+            folder.parent/'repair/candidate.json' if folder.name=='rereview' else
+            folder.parent/'m1/draft.json')
     if not source.exists():source=folder.parent/'source-plan.json'
     materials={row['id']:row for row in read(source)['materials']}
     return {item['materialId']:dict(
@@ -66,6 +68,32 @@ def small_boundary_audit(folder):
     return {item['materialId']:dict(
         boundary=boundary_for(item))
         for item in read(metadata).get('boundaryOnlyItems',[])}
+
+
+def bound_review(folder,answer):
+    """Emit IDs from the catalog supplied to this offline model test double."""
+    path=folder/'plan-evidence-catalog.json'
+    if not path.exists():return answer
+    catalog=read(path)
+    answer['planEvidenceCatalogDigest']=catalog['digest']
+    by_owner={}
+    for entry in catalog['entries']:
+        by_owner.setdefault(entry['materialId'],[]).append(entry)
+    for region in answer.get('coverageAudit',[]):
+        for artwork in region['observedArtwork']:
+            if 'planEvidenceQuote' not in artwork:continue
+            artwork.pop('planEvidenceQuote',None)
+            artwork['planEvidenceId']=(
+                ('o:'+artwork['objectId'] if artwork['objectId'] is not None
+                 else 'm:'+artwork['materialId'])
+                if artwork['disposition']=='covered' else None)
+    for material_id,item in answer.get('smallMaterialAudit',{}).items():
+        for part in item['parts']:
+            if 'planEvidenceQuote' not in part:continue
+            quote=part.pop('planEvidenceQuote',None)
+            part['planEvidenceId']=next((entry['id'] for entry in by_owner.get(material_id,[])
+                                         if entry['label']==quote),None)
+    return answer
 
 class FakeModel:
     def __init__(self,repair=False,unresolved=False,mismatch=False):
@@ -86,6 +114,8 @@ class FakeModel:
             source=read(folder.parent/'m1/draft.json');panel=copy.deepcopy(next(m for m in source['materials'] if m['id']=='asset-panel'));panel['label']+=' fixed'
             answer={'sourcePlanSha256':digest(folder.parent/'m1/draft.json'),'materials':{'upsert':[panel],'remove':[]},
                     'objects':{'upsert':[],'remove':[]},'unknowns':None,'backgroundMode':None,'textPolicy':None,'unresolvedIssues':[]}
+        if folder.name in ('m2','rereview','rereview2'):
+            answer=bound_review(folder,answer)
         save(folder/'draft.json',answer)
         observed='12345678-1234-1234-1234-123456789abd' if self.mismatch and not first else SID
         (folder/'events.jsonl').write_text(json.dumps({'type':'thread.started','thread_id':observed}))
@@ -191,8 +221,8 @@ class DagTests(unittest.TestCase):
                         if m['role']=='background'),bboxNorm=[.2,.2,.3,.3])],remove=[]),
                     unknowns=None,backgroundMode=None,textPolicy=None,unresolvedIssues=[])
             elif folder.name=='rereview2':
-                answer=dict(issues=[],coverageAudit=coverage(read(folder.parent/'repair2/candidate.json')),
-                            smallMaterialAudit=small_audit(folder))
+                answer=bound_review(folder,dict(issues=[],coverageAudit=coverage(read(folder.parent/'repair2/candidate.json')),
+                            smallMaterialAudit=small_audit(folder)))
             else:return
             (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
             receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')

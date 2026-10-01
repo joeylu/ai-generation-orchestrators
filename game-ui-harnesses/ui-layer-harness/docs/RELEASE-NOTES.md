@@ -1,5 +1,20 @@
 # Release notes
 
+## Unreleased numbered planning-review provenance
+
+- New M2 and rereviews select owner evidence IDs from a program-built catalog
+  bound to the entire current candidate. The program resolves the exact original
+  label in memory; raw model responses and receipts remain unchanged.
+- Unknown, wrong-owner, mixed-format and stale-catalog references are rejected.
+  Compile/freeze and both revision entry points rebuild and verify the catalog,
+  complete review schema and required small-material selection; rehashed removal
+  of coverage, focused audits or nested semantic/boundary fields cannot skip checks.
+  historical quotation reviews keep their original rules.
+- Valid provenance does not establish semantic or visual completeness. Existing
+  missing/conflicting/uncertain, boundary, ownership and final acceptance gates
+  remain in force. This adds no calls, does not resume old jobs, and establishes
+  neither shorter total prompts nor a successful real recomposition or release.
+
 ## Unreleased source-pixel boundary evidence binding
 
 - New small-material boundary reviews echo the exact program-provided half-open

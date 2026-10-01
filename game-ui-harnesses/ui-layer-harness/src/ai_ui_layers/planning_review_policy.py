@@ -1,5 +1,6 @@
 """Conservative planning-review severity; legacy semantic/geometry issues stay blocking."""
 from .coverage_review import REGIONS, coverage_findings
+from .review_evidence import resolve_review
 
 COSMETIC_CODES = {'MINOR_COLOR_TONE', 'DESCRIPTION_WORDING'}
 DESCRIPTION_STATUSES = ('consistent', 'missing', 'conflicting', 'uncertain')
@@ -19,6 +20,7 @@ def audit_rows(review, field):
 
 
 def split(review, plan=None, visual_policy=None):
+    review=resolve_review(review,plan)
     if visual_policy is not None:
         from .visual_policy import validate
         validate(visual_policy)

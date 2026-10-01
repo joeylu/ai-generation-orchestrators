@@ -5,7 +5,7 @@ from PIL import Image
 from ai_ui_layers.planning_dag import init,Dag
 from ai_ui_layers.compile_visual import verify_run
 from ai_ui_layers.evaluate import read,save,digest
-from test_planning_dag import FakeModel,SID,coverage,missing_artwork,small_audit
+from test_planning_dag import FakeModel,SID,bound_review,coverage,missing_artwork,small_audit
 
 class ConvergenceTests(unittest.TestCase):
     def setUp(self):
@@ -33,6 +33,8 @@ class ConvergenceTests(unittest.TestCase):
                 panel=copy.deepcopy(read(source)['materials'][1]);panel['label']+=' corrected'
                 answer=dict(sourcePlanSha256=digest(source),materials=dict(upsert=[panel],remove=[]),
                     objects=dict(upsert=[],remove=[]),unknowns=None,backgroundMode=None,textPolicy=None,unresolvedIssues=[])
+            if folder.name in ('m2','rereview','rereview2'):
+                answer=bound_review(folder,answer)
             save(folder/'draft.json',answer)
             (folder/'events.jsonl').write_text(json.dumps(dict(type='thread.started',thread_id=SID)))
             save(folder/'transport.json',dict(exitCode=0,turnCompleted=True,unexpectedEvents=[],responseSha256=digest(folder/'draft.json'),elapsedSeconds=.01))
@@ -64,7 +66,7 @@ class ConvergenceTests(unittest.TestCase):
                 artwork='flying figure' if folder.name=='m2' else 'small attached palette'
                 answer['coverageAudit'][2]['observedArtwork'].append(missing_artwork(
                     artwork,'asset-panel','Add the observed artwork to the owned description.'))
-                (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
+                (folder/'draft.json').write_text(json.dumps(bound_review(folder,answer)),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
         result=Dag(self.root,model).execute()
@@ -79,7 +81,7 @@ class ConvergenceTests(unittest.TestCase):
                 answer=read(folder/'draft.json');answer['issues']=[]
                 answer['coverageAudit'][2]['observedArtwork'].append(missing_artwork(
                     'same missing figure','asset-panel','Restore the same missing figure.'))
-                (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
+                (folder/'draft.json').write_text(json.dumps(bound_review(folder,answer)),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
         with self.assertRaisesRegex(ValueError,'REREVIEW_UNRESOLVED'):
@@ -113,7 +115,7 @@ class ConvergenceTests(unittest.TestCase):
                     description='Slight tone difference only.',suggestedChange='Optional tone adjustment.')],
                     coverageAudit=coverage(read(folder.parent/'repair2/candidate.json')),
                     smallMaterialAudit=small_audit(folder))
-                (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
+                (folder/'draft.json').write_text(json.dumps(bound_review(folder,answer)),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
         self.review_calls=[]

@@ -114,6 +114,45 @@ def selected_paths(run):
     return run/'m1/draft.json',run/'m2/draft.json'
 
 
+def verify_plan_evidence(folder, review, bound, visual):
+    """Rebuild new provenance catalogs without upgrading historical reviews."""
+    from .review_evidence import (build_catalog, build_review_schema,
+                                  expected_small_material_ids, resolve_review)
+    schema=read(folder/'schema.json')
+    marker='planEvidenceCatalogDigest';name='plan-evidence-catalog.json'
+    if marker not in schema.get('properties',{}):
+        if marker in review or name in bound['inputs']:
+            raise ValueError('PLAN_EVIDENCE_SCHEMA_MARKER_REQUIRED')
+        return
+    catalog=build_catalog(visual)
+    if name not in bound['inputs']:
+        raise ValueError('PLAN_EVIDENCE_CATALOG_INPUT_REQUIRED')
+    for filename,expected in bound['inputs'].items():
+        if digest(folder/filename)!=expected:
+            raise ValueError('PLAN_EVIDENCE_REVIEW_INPUT_CHANGED')
+    if read(folder/name)!=catalog:
+        raise ValueError('PLAN_EVIDENCE_CATALOG_PLAN_MISMATCH')
+    with Image.open(folder.parent/'m1/reference.png') as image:
+        width,height=image.size
+    selected=expected_small_material_ids(visual,width,height)
+    focus_name='coverage-small-materials.json'
+    if selected:
+        if focus_name not in bound['inputs'] or not (folder/focus_name).is_file():
+            raise ValueError('PLAN_EVIDENCE_FOCUS_REQUIRED')
+        focus=read(folder/focus_name)
+        items=focus['items'];overflow=focus['boundaryOnlyItems']
+        if (len(items)!=min(12,len(selected)) or
+                [row['materialId'] for row in items+overflow]!=selected):
+            raise ValueError('PLAN_EVIDENCE_FOCUS_PLAN_MISMATCH')
+    else:
+        if focus_name in bound['inputs'] or (folder/focus_name).exists():
+            raise ValueError('PLAN_EVIDENCE_UNEXPECTED_FOCUS')
+        focus=None
+    if schema!=build_review_schema(catalog,focus,planning_policy(folder.parent)):
+        raise ValueError('PLAN_EVIDENCE_SCHEMA_MISMATCH')
+    resolve_review(review,visual)
+
+
 def verify_boundary_evidence(folder, review, bound, visual, reference):
     """Recheck new coordinate evidence at offline compile/freeze entry points."""
     from .boundary_evidence import uses_bound_schema, validate_boundaries
@@ -170,6 +209,7 @@ def verify_run(run, *, _allow_issues=False):
             raise ValueError('M2_INPUT_CHANGED')
     review = read(run/'m2/draft.json')
     Draft202012Validator(read(run/'m2/schema.json')).validate(review)
+    verify_plan_evidence(run/'m2',review,review_request,read(run/'m1/draft.json'))
     verify_boundary_evidence(run/'m2',review,review_request,
                              read(run/'m1/draft.json'),run/'m1/reference.png')
     if result['unknownIssueIds'] or not result['sameSessionVerified']:
@@ -199,6 +239,7 @@ def verify_run(run, *, _allow_issues=False):
             raise ValueError('REREVIEW_CHANGED')
         if session_id(rr/'events.jsonl')!=result['sessionId']:raise ValueError('SESSION_CHANGED')
         review=read(rr/'draft.json');Draft202012Validator(read(rr/'schema.json')).validate(review)
+        verify_plan_evidence(rr,review,bound,read(run/repair_name/'candidate.json'))
         verify_boundary_evidence(rr,review,bound,read(run/repair_name/'candidate.json'),
                                  run/'m1/reference.png')
         source=run/repair_name/'candidate.json'

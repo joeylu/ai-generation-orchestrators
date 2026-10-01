@@ -10,7 +10,7 @@ from ai_ui_layers.sequence_focus import make_sequence_focus
 from ai_ui_layers.review_image import fit_resampling
 from ai_ui_layers.planning_dag import init, Dag
 from ai_ui_layers.session_review import resume_command
-from test_planning_dag import boundary_for, coverage
+from test_planning_dag import bound_review, boundary_for, coverage
 
 SID='12345678-1234-1234-1234-123456789abc'
 
@@ -115,6 +115,8 @@ class SequenceFocusTests(unittest.TestCase):
                     clarified=copy.deepcopy(plan['materials'][1]);clarified['label']+=' with a contrasting edge'
                     answer=dict(sourcePlanSha256=digest(folder.parent/'m1/draft.json'),materials=dict(upsert=[clarified],remove=[]),
                         objects=dict(upsert=[],remove=[]),unknowns=None,backgroundMode=None,textPolicy=None,unresolvedIssues=[])
+                if folder.name in ('m2','rereview'):
+                    answer=bound_review(folder,answer)
                 save(folder/'draft.json',answer)
                 (folder/'events.jsonl').write_text(json.dumps(dict(type='thread.started',thread_id=SID)),encoding='utf-8')
                 save(folder/'transport.json',dict(exitCode=0,turnCompleted=True,unexpectedEvents=[],

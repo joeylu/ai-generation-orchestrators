@@ -38,6 +38,8 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     evidence=output/'evidence';evidence.mkdir()
     stages=[] if (run/'revision.json').exists() else [('m1',['draft.json','schema.json','prompt.md']),
                         ('m2',['draft.json','schema.json','prompt.md','request.json','review-source.md','review-overlay.png'])]
+    if not revision and (run/'m2/plan-evidence-catalog.json').exists():
+        stages[1][1].append('plan-evidence-catalog.json')
     for stage,names in stages:
         for name in names:
             (evidence/(stage+'-'+name)).write_bytes((run/stage/name).read_bytes())

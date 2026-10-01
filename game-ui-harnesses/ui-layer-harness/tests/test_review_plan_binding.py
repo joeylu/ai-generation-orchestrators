@@ -13,12 +13,12 @@ import test_planning_dag
 import test_planning_convergence
 
 
-def invalid_quote(folder, description='Unrecorded attached emblem'):
+def missing_evidence(folder, description='Unrecorded attached emblem'):
     answer = read(folder/'draft.json')
     answer['issues'] = []
     part = next(iter(answer['smallMaterialAudit'].values()))['parts'][0]
     part.update(visiblePart=description, observedAppearance='Small colored emblem',
-                planEvidenceQuote='This text does not occur in the reviewed plan.')
+                planEvidenceId=None)
     (folder/'draft.json').write_text(json.dumps(answer), encoding='utf-8')
     receipt = read(folder/'transport.json')
     receipt['responseSha256'] = digest(folder/'draft.json')
@@ -34,10 +34,10 @@ class ReviewPlanBindingTests(unittest.TestCase):
         def call(folder, sid, first):
             base(folder, sid, first)
             if folder.name in stages:
-                invalid_quote(folder)
+                missing_evidence(folder)
         return base, call
 
-    def test_m2_invalid_nonempty_quote_enters_repair(self):
+    def test_m2_missing_evidence_enters_repair(self):
         base, call = self.model({'m2'})
         result = Dag(self.root, call).execute()
         self.assertEqual(result['status'], 'frozen')
@@ -45,7 +45,7 @@ class ReviewPlanBindingTests(unittest.TestCase):
         self.assertIn('UNDESCRIBED_SMALL_MATERIAL_PART',
                       (self.root/'repair/prompt.md').read_text(encoding='utf-8'))
 
-    def test_same_invalid_quote_after_repair_stops_without_second_repair(self):
+    def test_same_missing_evidence_after_repair_stops_without_second_repair(self):
         base, call = self.model({'m2','rereview'})
         dag = Dag(self.root, call)
         with self.assertRaisesRegex(ValueError, 'REREVIEW_UNRESOLVED'):
@@ -56,7 +56,7 @@ class ReviewPlanBindingTests(unittest.TestCase):
             dag.execute()
         self.assertEqual(len(base.calls), 4)
 
-    def test_direct_freeze_rechecks_quote_against_plan(self):
+    def test_direct_freeze_rechecks_evidence_against_plan(self):
         _, call = self.model({'m2'})
         dag = Dag(self.root, call)
         dag.node('m1', dag.m1)
@@ -90,7 +90,7 @@ class ReviewPlanBindingTests(unittest.TestCase):
                     responseSha256=digest(folder/'draft.json'), elapsedSeconds=.01))
             else:
                 FakeModel()(folder, sid, first)
-                invalid_quote(folder)
+                missing_evidence(folder)
         dag = RevisionDag(child, model)
         with self.assertRaisesRegex(ValueError, 'REREVIEW_UNRESOLVED'):
             dag.execute()
@@ -104,12 +104,12 @@ class RereviewPlanBindingTests(unittest.TestCase):
     def setUp(self):
         test_planning_convergence.ConvergenceTests.setUp(self)
 
-    def test_new_invalid_quote_in_rereview_uses_second_bounded_repair(self):
+    def test_new_missing_evidence_in_rereview_uses_second_bounded_repair(self):
         base = test_planning_convergence.ConvergenceTests.model(self)
         def call(folder, sid, first):
             base(folder, sid, first)
             if folder.name == 'rereview':
-                invalid_quote(folder)
+                missing_evidence(folder)
         self.assertEqual(Dag(self.root, call).execute()['status'], 'frozen')
         self.assertEqual(self.calls, ['m1','m2','repair','rereview','repair2','rereview2'])
 

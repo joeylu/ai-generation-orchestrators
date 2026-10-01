@@ -26,7 +26,7 @@ from ai_ui_layers.planning_dag import Dag, init as planning_init
 from ai_ui_layers.revise_frozen_crop import (
     FrozenCropDag, check_inputs, init as revise_crop, verify_revision,
 )
-from test_planning_dag import FakeModel, SID as PARENT_SID, coverage, small_audit, small_boundary_audit
+from test_planning_dag import FakeModel, SID as PARENT_SID, bound_review, coverage, small_audit, small_boundary_audit
 
 
 CHILD_SID = 'abcdef01-1234-1234-1234-123456789abc'
@@ -109,6 +109,7 @@ class FrozenCropRevisionTests(unittest.TestCase):
                     answer['issues'] = [dict(code='CROP_STILL_CLIPPED', category='geometry',
                         ids=[OWNER], description='The same source pixel remains outside.',
                         suggestedChange='Inspect the visible right edge.')]
+                answer=bound_review(folder,answer)
             save(folder/'draft.json', answer)
             (folder/'events.jsonl').write_text(json.dumps(dict(
                 type='thread.started', thread_id=CHILD_SID)), encoding='utf-8')

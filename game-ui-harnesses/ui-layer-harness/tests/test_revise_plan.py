@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from PIL import Image
-from test_planning_dag import FakeModel, SID, coverage, small_audit
+from test_planning_dag import FakeModel, SID, bound_review, coverage, small_audit
 from ai_ui_layers.planning_dag import init, Dag
 from ai_ui_layers.revise_plan import init as revise, RevisionDag
 from ai_ui_layers.compile_visual import verify_run
@@ -30,7 +30,8 @@ class RevisionTests(unittest.TestCase):
             panel=copy.deepcopy(read(source)['materials'][1]);panel['label']+=' revised'
             answer=dict(sourcePlanSha256=digest(source),materials={'upsert':[panel],'remove':[]},
                         objects={'upsert':[],'remove':[]},unknowns=None,backgroundMode=None,textPolicy=None,unresolvedIssues=[])
-        else:answer={'issues':[],'coverageAudit':coverage(),'smallMaterialAudit':small_audit(folder)}
+        else:answer=bound_review(folder,{'issues':[],'coverageAudit':coverage(),
+                                       'smallMaterialAudit':small_audit(folder)})
         save(folder/'draft.json',answer)
         (folder/'events.jsonl').write_text(json.dumps({'type':'thread.started','thread_id':sid}))
         save(folder/'transport.json',dict(exitCode=0,turnCompleted=True,unexpectedEvents=[],
@@ -62,7 +63,9 @@ class RevisionTests(unittest.TestCase):
         def unresolved(folder,sid,first):
             self.model(folder,sid,first)
             if folder.name=='rereview':
-                (folder/'draft.json').write_bytes((self.parent/'rereview/draft.json').read_bytes())
+                answer=read(folder/'draft.json')
+                next(iter(answer['smallMaterialAudit'].values()))['parts'][0]['descriptionStatus']='conflicting'
+                (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt))
         with self.assertRaisesRegex(ValueError,'REREVIEW_UNRESOLVED'):RevisionDag(root,unresolved).execute()
