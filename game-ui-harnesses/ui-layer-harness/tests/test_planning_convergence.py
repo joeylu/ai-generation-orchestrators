@@ -1,6 +1,7 @@
 import _bootstrap
 import copy,json,tempfile,unittest
 from pathlib import Path
+from jsonschema import ValidationError
 from PIL import Image
 from ai_ui_layers.planning_dag import init,Dag
 from ai_ui_layers.compile_visual import verify_run
@@ -96,7 +97,7 @@ class ConvergenceTests(unittest.TestCase):
         self.assertTrue(result['reviewWarnings']['m2'])
 
     def test_invalid_cosmetic_code_fails_closed(self):
-        with self.assertRaisesRegex(ValueError,'UNKNOWN_COSMETIC'):Dag(self.root,self.model(cosmetic=True,bad=True)).execute()
+        with self.assertRaises(ValidationError):Dag(self.root,self.model(cosmetic=True,bad=True)).execute()
         self.assertEqual(len(self.calls),2);self.assertFalse((self.root/'frozen').exists())
 
     def test_two_repairs_then_authorized_fixture_delivery_keeps_warning(self):

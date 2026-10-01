@@ -1,5 +1,22 @@
 # Release notes
 
+## Unreleased typed planning-review responsibilities
+
+- New `typed-review-v3` responses separate each region's graphical observations
+  from its required `businessText` list. Business lettering names its material
+  and source evidence without a graphical object or provenance slot. The program
+  derives the existing exclusion entries in memory and applies the same owner,
+  remove-business-text and retained-lettering checks.
+- Blocking semantic/geometry issues remain in `issues`; the required
+  `cosmeticIssues` list has schema-constrained existing cosmetic codes. The
+  program restores cosmetic categories in memory, preserving existing severity.
+  Small-material parts observe graphics; business lettering belongs to the
+  region's text list. No heuristic classifies text or dismisses a missing part.
+- Raw responses remain unchanged. Canonical offline verification dispatches the
+  stored protocol and rejects missing or weakened lists/enums. Historical
+  quotation, catalog-ID and derived-coverage protocols retain their rules. This
+  adds no calls or visual acceptance and does not resume failed jobs.
+
 ## Unreleased derived coverage provenance
 
 - New `coverage-owner-v2` reviews omit the redundant coverage evidence ID.

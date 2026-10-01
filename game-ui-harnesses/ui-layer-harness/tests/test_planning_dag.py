@@ -76,14 +76,31 @@ def bound_review(folder,answer):
     if not path.exists():return answer
     catalog=read(path)
     answer['planEvidenceCatalogDigest']=catalog['digest']
-    owner_protocol='planEvidenceProtocol' in read(folder/'schema.json').get('properties',{})
-    if owner_protocol:answer['planEvidenceProtocol']='coverage-owner-v2'
+    protocol_schema=read(folder/'schema.json').get('properties',{}).get('planEvidenceProtocol')
+    protocol=protocol_schema['enum'][0] if protocol_schema else None
+    if protocol:answer['planEvidenceProtocol']=protocol
+    if protocol=='typed-review-v3' and 'issues' in answer:
+        cosmetic=answer.setdefault('cosmeticIssues',[])
+        retained=[]
+        for issue in answer['issues']:
+            if issue.get('category')=='cosmetic':
+                cosmetic.append({key:value for key,value in issue.items() if key!='category'})
+            else:retained.append(issue)
+        answer['issues']=retained
     by_owner={}
     for entry in catalog['entries']:
         by_owner.setdefault(entry['materialId'],[]).append(entry)
     for region in answer.get('coverageAudit',[]):
+        if protocol=='typed-review-v3':
+            business=region.setdefault('businessText',[])
+            graphics=[]
+            for artwork in region['observedArtwork']:
+                if artwork.get('disposition')=='business-text':
+                    business.append({key:artwork[key] for key in ('artwork','materialId','evidence')})
+                else:graphics.append(artwork)
+            region['observedArtwork']=graphics
         for artwork in region['observedArtwork']:
-            if owner_protocol:
+            if protocol:
                 artwork.pop('planEvidenceQuote',None)
                 artwork.pop('planEvidenceId',None)
                 continue

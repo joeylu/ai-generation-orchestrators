@@ -55,20 +55,25 @@ M1/M2 固定模板按规划与检查职责集中表达通用规则，字段/枚�
 适配资格和重复卡片比例仍是原有检查规则，不能因文档位置而遗漏。
 标记残缺、重复、倒置、空范围或混入第二步修补标题会在调用前阻断；
 历史无标记模板保留原标题截取方式，旧固定运行不会改写或重放。
-新固定运行时的 M2/复审须逐区提交九宫格可见图形覆盖审查；`observedArtwork` 改为逐项数组，
+新固定运行时的 M2/复审须逐区提交九宫格可见图形覆盖审查。`typed-review-v3` 每区必填
+`observedArtwork` 图形数组、`businessText` 业务文字数组及 emptyRegionEvidence；无对应内容填 []。
+`observedArtwork` 的 disposition 仅 covered、missing、uncertain、optional-shadow，
 每项包含 artwork、disposition、materialId、objectId、evidence、suggestedChange；
-`coverage-owner-v2` 不再让模型重复填写覆盖项的证据编号或引文。
+`typed-review-v3` 与 `coverage-owner-v2` 不让模型重复填写覆盖项的证据编号或引文。
 历史编号格式含 planEvidenceId，逐字引文格式含 planEvidenceQuote，读取规则不转换。
-disposition 为 covered、missing、uncertain、business-text 或 optional-shadow。
+历史混合数组格式的 disposition 还包括 business-text，仍按原协议读取。
 covered 必须绑定已有素材和可选的同属对象，程序从当前目录解析指定对象，未指定对象时解析素材；
 程序还原该记录的原始 label。来源只证明出处，模型仍须确认其描述本项结构，
 不得用有效归属、框包含或泛称主体替代图形记录。
-missing/uncertain 即 semantic 阻断，未知归属可以为 null，不能编造 ID。business-text 仅限删除策略允许的
+missing/uncertain 即 semantic 阻断，未知归属可以为 null，不能编造 ID。新 businessText 条目只含
+artwork、materialId、evidence：完整原文、已知所属素材和原图依据均非空；没有 objectId、
+disposition、建议、引文或编号字段。程序在内存中派生 business-text、null 对象／引文／建议，
+再进入原文字排除判据。business-text 仅限删除策略允许的
 普通业务文字，须绑定已有素材，artwork 写完整文字实例的逐字内容。当前同素材有非空 preserveText 时
 保守拒绝 business-text 排除：自由描述不能证明文字身份，混合保留字/业务字的素材仍有误拒限制，
 不能通过空归属或模糊文字放行；归属不明走 uncertain。
 不豁免保留文字或邻接图形；optional-shadow 仅限显式允许的所属孤立柔影。
-非问题建议填 null。空区域必须给非空 emptyRegionEvidence；非空区域该字段为 null。
+非问题建议填 null。两个数组都为空的区域必须给非空 emptyRegionEvidence；任一非空则该字段为 null。
 历史编号协议中非 covered 的 planEvidenceId 仍须 null，不自动修正旧响应。
 新 schema 不接受旧 missingFromPlan 或自由观察文本，程序读取历史审查时仍保留旧判据；新旧九区不得混用。
 字段使用 nullable 基础类型，关联判据由程序核验，不增加条件组合关键字或模型调用。
@@ -91,7 +96,7 @@ Docker/Web 无迁移要求。既有运行受运行时指纹保护，不在原目
 素材编号为 `m:<materialId>`，对象编号为 `o:<objectId>`；记录保留 materialId、objectId 和原始 label。
 目录作为带哈希的本轮请求输入，并进入冻结证据。修补后的复审重建目录，不能借旧摘要沿用新候选。
 
-新模型原始响应必填 `planEvidenceProtocol: coverage-owner-v2` 和 `planEvidenceCatalogDigest`，
+新模型原始响应必填 `planEvidenceProtocol: typed-review-v3` 和 `planEvidenceCatalogDigest`，
 后者等于当前目录摘要。覆盖项没有 planEvidenceId 或 planEvidenceQuote；程序根据已必填的
 materialId/objectId 解析 covered 的原文，未知素材、未知对象或对象错属立即拒绝。
 非 covered 在内存中派生 null 引文，仍按原处置、归属、文字许可和不确定性规则评估。
@@ -104,6 +109,14 @@ materialId/objectId 解析 covered 的原文，未知素材、未知对象或对
 仅重算文件哈希不能替换目录或候选。历史没有协议字段的编号 v1 记录仍要求精确匹配的覆盖编号，
 非 covered 的编号仍须 null；无编号标记的逐字引文记录继续按原规则读取，
 不自动升级或修正。该变化不增加模型调用、不重启旧失败作业，不改变 session 或单次冻结作业授权。
+
+新 v3 必填 issues 和 cosmeticIssues 两个数组。issues 只接受 semantic/geometry 分类；
+cosmeticIssues 不填写 category，code 只接受 MINOR_COLOR_TONE 或 DESCRIPTION_WORDING，
+其余字段仍为 ids、description、suggestedChange。程序在内存中补 cosmetic 分类再合并评估，
+不自动降低语义、几何、显著外观问题的级别，minorColor=strict 仍按原规则阻断。
+小素材 parts 只观察图形结构和外观；普通业务文字列入所属九区的 businessText，不作为无出处的图形部件。
+所有新列表和枚举由完整 schema 核验，不能删列表来省略审查。v2 仍使用原混合数组和原 issues，
+不自动升级旧审查，旧失败不改判。
 
 程序派生出处和小部件编号只减少自由抄写及重复身份字段，不证明原文足以描述观察，不自动判 consistent 或 complete。
 数量、身份、状态、归属、连接、显著外观、裁切、不确定性和最终视觉审查仍由原质量门处理。

@@ -38,7 +38,7 @@ class RereviewPromptTests(unittest.TestCase):
             fake(folder,sid,first)
             if folder.name=='m2':
                 answer=read(folder/'draft.json');owner=next(iter(answer['smallMaterialAudit']))
-                answer['issues']=[dict(code='DESCRIPTION_WORDING',category='cosmetic',ids=[owner],
+                answer['cosmeticIssues']=[dict(code='DESCRIPTION_WORDING',ids=[owner],
                     description='A minor label wording issue.',suggestedChange='Optional wording adjustment.')]
                 for row in answer['coverageAudit']:row['observedArtwork'][0]['evidence']=observations
                 answer['coverageAudit'][2]['observedArtwork'].append(test_planning_dag.missing_artwork(

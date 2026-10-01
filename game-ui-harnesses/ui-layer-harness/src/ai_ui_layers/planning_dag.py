@@ -38,15 +38,18 @@ BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包
                    '轮廓极值内不可避免的空隙含普通文字，不单独作为缩框依据；不得为避字截断图形。'
                    '仅文字撑大的可避免边界仍须收紧；去字效果与完整轮廓仍须生成后审查或验收。\n')
 
-COVERAGE_GUIDANCE=('coverageAudit 按九区逐项清点：observedArtwork 是图形条目数组，先看干净原图再对照计划，'
-    '重复实例及文字旁图形分别列项，不只遍历已有 ID。空区填 [] 和非空 emptyRegionEvidence；非空区该字段填 null。'
+COVERAGE_GUIDANCE=('coverageAudit 按九区逐项清点：observedArtwork 只列保留图形，businessText 只列待删除普通业务文字；'
+    '先看干净原图再对照计划，重复实例及文字旁图形分别列项，不只遍历已有 ID。'
+    '两数组都空才填非空 emptyRegionEvidence；任一非空时该字段填 null。'
     'covered 须有真实 materialId、可选同属 objectId；程序据此从本轮目录还原所属原文并核对对象归属。'
-    '覆盖项不填写 planEvidenceId 或 planEvidenceQuote；所属原文仍须确实描述本项结构，'
+    'observedArtwork 不填写 planEvidenceId 或 planEvidenceQuote；所属原文仍须确实描述本项结构，'
     '泛称面板或 bbox 包含不能证明覆盖，归属也不代替视觉判断。'
     '缺失用 missing、不明用 uncertain，suggestedChange 非空；未知归属填 null。'
-    'business-text 须绑定无保留字许可的素材，artwork 写原图完整文字实例的逐字内容；保留字/图形符号另项核对；'
+    'businessText 每项仅写原图完整文字实例的 artwork、所属 materialId 和原图 evidence，不填图形 objectId；'
+    '须绑定无保留字许可的素材；保留字/图形符号另作图形核对。'
     'optional-shadow 只在显式允许时用于所属孤立柔影，描边/高光/实体不能排除。'
     '每项 evidence 给原图位置及依据；非问题建议填 null。'
+    '顶层 issues 只列 semantic/geometry；cosmeticIssues 只用 schema 允许的 code，结构、状态与连接问题不降为 cosmetic。'
     '不输出旧 missingFromPlan；程序逐项派生阻断，复审仍清点全图。')
 
 
@@ -270,7 +273,8 @@ class Dag:
                     '中性区不是原图或 alpha；裁框为半开区间，右/下界不包含。诊断标签、边距不属于原图，上下文不改变归属。'
                     'smallMaterialAudit 按第一页 materialId 逐项填写。'
                     'boundary.status 判断候选框是否额外丢失原图可见自有轮廓：complete=全保留，clipped=漏可见部分，uncertain=无法确认；evidence 分清原图边缘与裁片边缘，不推测画外内容。'
-                    '只按原图逐一列每个可辨部件，包括附属道具、部分遮挡和名称不确定的部分；'
+                    '只按原图逐一列每个可辨保留图形部件，包括附属道具、部分遮挡和名称不确定的部分；'
+                    '普通业务文字只填各区 businessText，不列入 smallMaterialAudit.parts。'
                     'observedAppearance 写形状、颜色、浅色高光、暗色细点、表面印记或“无可辨印记”，不遗漏局部明暗点纹。'
                     'planEvidenceId 从本轮目录选所属素材 m: 或同属对象 o: 的编号；没有真实描述依据填 null，不能拼接或猜测标签。'
                     '编号只证明出处，不代替观察；descriptionStatus 判断观察与描述是否一致：'
@@ -301,7 +305,7 @@ class Dag:
                 prompt+=('reference-bound 仅用于所选所属描述已证明结构、身份、数量、状态及连接关系，'
                          '剩余细微表面由本次绑定原图承接；填写非空 deferredAppearance 说明具体延期表面。'
                          '缺失/矛盾/不确定仍填对应状态，不借此跳过轮廓、归属或描述核对。\n')
-        prompt+=('\n本轮计划证据目录（摘要必须回填 planEvidenceCatalogDigest，协议填 coverage-owner-v2；'
+        prompt+=('\n本轮计划证据目录（摘要必须回填 planEvidenceCatalogDigest，协议填 typed-review-v3；'
                  '覆盖项由 materialId/objectId 定位，小素材 parts 才选择所属 planEvidenceId；'
                  '不得复制、拼接或改写 label；仍须独立对原图判断是否描述所见）：'
                  +json.dumps(catalog,ensure_ascii=False,separators=(',',':'))+'\n')
@@ -339,7 +343,9 @@ class Dag:
                  'm3Executed':False,'productionReady':False,'humanVisualAcceptance':False})
         else:
             save(p/'result.json',{'sameSessionVerified':True,'sessionId':sid,'reviewSha256':digest(p/'draft.json'),
-                 'seconds':receipt['elapsedSeconds'],'issueCount':len(answer['issues']),'automaticRetry':False})
+                 'seconds':receipt['elapsedSeconds'],
+                 'issueCount':len(answer['issues'])+len(answer['cosmeticIssues']),
+                 'automaticRetry':False})
             if blockers:
                 repeated=signatures(blockers)&signatures(findings['blockers'])
                 if name=='rereview2' or repeated or (self.root/'revision.json').exists() or self.config.get('maximumRepairs',1)<2:
