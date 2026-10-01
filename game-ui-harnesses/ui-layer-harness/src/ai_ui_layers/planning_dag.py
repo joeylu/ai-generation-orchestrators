@@ -40,13 +40,13 @@ BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包
 
 COVERAGE_GUIDANCE=('coverageAudit 按九区逐项清点：observedArtwork 是图形条目数组，先看干净原图再对照计划，'
     '重复实例及文字旁图形分别列项，不只遍历已有 ID。空区填 [] 和非空 emptyRegionEvidence；非空区该字段填 null。'
-    'covered 须有真实 materialId、可选同属 objectId，planEvidenceId 从本轮目录选择：'
-    '指定对象时选对应 o: 对象 ID，否则选对应 m: 素材 ID；所属原文仍须确实描述本项结构，'
-    '泛称面板或 bbox 包含不能证明覆盖，编号也不代替视觉判断。'
-    '缺失用 missing、不明用 uncertain，suggestedChange 非空；未知归属填 null，不编 ID。'
+    'covered 须有真实 materialId、可选同属 objectId；程序据此从本轮目录还原所属原文并核对对象归属。'
+    '覆盖项不填写 planEvidenceId 或 planEvidenceQuote；所属原文仍须确实描述本项结构，'
+    '泛称面板或 bbox 包含不能证明覆盖，归属也不代替视觉判断。'
+    '缺失用 missing、不明用 uncertain，suggestedChange 非空；未知归属填 null。'
     'business-text 须绑定无保留字许可的素材，artwork 写原图完整文字实例的逐字内容；保留字/图形符号另项核对；'
     'optional-shadow 只在显式允许时用于所属孤立柔影，描边/高光/实体不能排除。'
-    '每项 evidence 给原图位置及依据；covered 选所属 planEvidenceId，其余填 null，非问题建议填 null。'
+    '每项 evidence 给原图位置及依据；非问题建议填 null。'
     '不输出旧 missingFromPlan；程序逐项派生阻断，复审仍清点全图。')
 
 
@@ -259,7 +259,7 @@ class Dag:
         copied_quote='证据逐字引用所属素材/对象 label；'
         if review_checks.count(copied_quote)>1:raise ValueError('DUPLICATE_REVIEW_QUOTE_GUIDANCE')
         review_checks=review_checks.replace(copied_quote,
-            '证据从本轮计划目录选择所属 planEvidenceId，由程序还原该所属记录原文；',1)
+            '覆盖项由程序按 materialId/objectId 还原本轮计划目录原文；小素材部件另选所属 planEvidenceId；',1)
         prompt=BOX_TEXT_GUIDANCE+itemized_coverage_prompt(review_checks)
         if name.startswith('rereview'):
             findings=prior_findings(self.root,name)
@@ -301,7 +301,8 @@ class Dag:
                 prompt+=('reference-bound 仅用于所选所属描述已证明结构、身份、数量、状态及连接关系，'
                          '剩余细微表面由本次绑定原图承接；填写非空 deferredAppearance 说明具体延期表面。'
                          '缺失/矛盾/不确定仍填对应状态，不借此跳过轮廓、归属或描述核对。\n')
-        prompt+=('\n本轮计划证据目录（摘要必须回填 planEvidenceCatalogDigest；仅按所属 ID 选择，'
+        prompt+=('\n本轮计划证据目录（摘要必须回填 planEvidenceCatalogDigest，协议填 coverage-owner-v2；'
+                 '覆盖项由 materialId/objectId 定位，小素材 parts 才选择所属 planEvidenceId；'
                  '不得复制、拼接或改写 label；仍须独立对原图判断是否描述所见）：'
                  +json.dumps(catalog,ensure_ascii=False,separators=(',',':'))+'\n')
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')

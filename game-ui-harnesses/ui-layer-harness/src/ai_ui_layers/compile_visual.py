@@ -117,13 +117,19 @@ def selected_paths(run):
 def verify_plan_evidence(folder, review, bound, visual):
     """Rebuild new provenance catalogs without upgrading historical reviews."""
     from .review_evidence import (build_catalog, build_review_schema,
-                                  expected_small_material_ids, resolve_review)
+                                  expected_small_material_ids, resolve_review,
+                                  PROTOCOL_V1, PROTOCOL_V2)
     schema=read(folder/'schema.json')
     marker='planEvidenceCatalogDigest';name='plan-evidence-catalog.json'
     if marker not in schema.get('properties',{}):
-        if marker in review or name in bound['inputs']:
+        if (marker in review or 'planEvidenceProtocol' in review or
+                'planEvidenceProtocol' in schema.get('properties',{}) or name in bound['inputs']):
             raise ValueError('PLAN_EVIDENCE_SCHEMA_MARKER_REQUIRED')
         return
+    v2='planEvidenceProtocol' in schema.get('properties',{})
+    if v2!=(('planEvidenceProtocol' in review)) or (
+            v2 and review['planEvidenceProtocol']!=PROTOCOL_V2):
+        raise ValueError('PLAN_EVIDENCE_PROTOCOL_MISMATCH')
     catalog=build_catalog(visual)
     if name not in bound['inputs']:
         raise ValueError('PLAN_EVIDENCE_CATALOG_INPUT_REQUIRED')
@@ -148,7 +154,8 @@ def verify_plan_evidence(folder, review, bound, visual):
         if focus_name in bound['inputs'] or (folder/focus_name).exists():
             raise ValueError('PLAN_EVIDENCE_UNEXPECTED_FOCUS')
         focus=None
-    if schema!=build_review_schema(catalog,focus,planning_policy(folder.parent)):
+    protocol=PROTOCOL_V2 if v2 else PROTOCOL_V1
+    if schema!=build_review_schema(catalog,focus,planning_policy(folder.parent),protocol):
         raise ValueError('PLAN_EVIDENCE_SCHEMA_MISMATCH')
     resolve_review(review,visual)
 

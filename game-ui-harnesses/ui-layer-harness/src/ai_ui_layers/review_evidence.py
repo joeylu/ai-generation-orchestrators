@@ -5,6 +5,8 @@ import json
 
 
 CATALOG_KIND='ui_plan_evidence_catalog_v1'
+PROTOCOL_V1='catalog-id-v1'
+PROTOCOL_V2='coverage-owner-v2'
 
 
 def _sha(value):
@@ -29,8 +31,10 @@ def build_catalog(plan):
     return dict(body,digest=_sha(body))
 
 
-def bind_schema(schema,catalog):
+def bind_schema(schema,catalog,protocol=PROTOCOL_V1):
     """Replace copied quotations with a nullable, catalog-bound owner ID."""
+    if protocol not in (PROTOCOL_V1,PROTOCOL_V2):
+        raise ValueError('PLAN_EVIDENCE_PROTOCOL_UNKNOWN')
     result=copy.deepcopy(schema)
     ids=[row['id'] for row in catalog['entries']]
     if len(ids)!=len(set(ids)):
@@ -64,11 +68,19 @@ def bind_schema(schema,catalog):
     result['properties']['planEvidenceCatalogDigest']={
         'type':'string','enum':[catalog['digest']]}
     result['required'].append('planEvidenceCatalogDigest')
+    if protocol==PROTOCOL_V2:
+        if 'planEvidenceProtocol' in result['properties']:
+            raise ValueError('PLAN_EVIDENCE_SCHEMA_ALREADY_BOUND')
+        result['properties']['planEvidenceProtocol']={
+            'type':'string','enum':[PROTOCOL_V2]}
+        result['required'].append('planEvidenceProtocol')
     return result
 
 
-def build_review_schema(catalog,small_focus,policy):
+def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V2):
     """The one schema builder for new M2 and rereview transport and verification."""
+    if protocol not in (PROTOCOL_V1,PROTOCOL_V2):
+        raise ValueError('PLAN_EVIDENCE_PROTOCOL_UNKNOWN')
     from .boundary_evidence import schema as boundary_schema
     from .codex_call import transport_schema
     from .coverage_review import REGIONS, coverage_schema
@@ -79,10 +91,15 @@ def build_review_schema(catalog,small_focus,policy):
         'properties':{'code':{'type':'string'},'category':{'type':'string','enum':['semantic','geometry','cosmetic']},
                       'ids':{'type':'array','items':{'type':'string'}},'description':{'type':'string'},
                       'suggestedChange':{'type':'string'}}}
+    coverage=coverage_schema()
+    if protocol==PROTOCOL_V2:
+        entry=coverage['properties']['observedArtwork']['items']
+        entry['properties'].pop('planEvidenceQuote')
+        entry['required'].remove('planEvidenceQuote')
     required=['issues','coverageAudit']
     properties={'issues':{'type':'array','items':issue_schema},
                 'coverageAudit':{'type':'array','minItems':len(REGIONS),
-                                 'maxItems':len(REGIONS),'items':coverage_schema()}}
+                                 'maxItems':len(REGIONS),'items':coverage}}
     definitions={}
     if small_focus:
         part_schema={'type':'object','additionalProperties':False,
@@ -119,7 +136,7 @@ def build_review_schema(catalog,small_focus,policy):
     result={'type':'object','additionalProperties':False,'required':required,
             'properties':properties}
     if definitions:result['$defs']=definitions
-    result=bind_schema(result,catalog)
+    result=bind_schema(result,catalog,protocol)
     return transport_schema(result) if policy is not None else result
 
 
@@ -160,36 +177,50 @@ def resolve_review(review,plan):
     if not isinstance(review,dict):raise ValueError('PLAN_EVIDENCE_REVIEW_FORMAT')
     marked='planEvidenceCatalogDigest' in review
     if not marked:
-        if _contains_key(review,'planEvidenceId'):
+        if _contains_key(review,'planEvidenceId') or 'planEvidenceProtocol' in review:
             raise ValueError('PLAN_EVIDENCE_MARKER_REQUIRED')
         return copy.deepcopy(review)
+    protocol=review.get('planEvidenceProtocol',PROTOCOL_V1)
+    if protocol not in (PROTOCOL_V1,PROTOCOL_V2) or (
+            protocol==PROTOCOL_V1 and 'planEvidenceProtocol' in review):
+        raise ValueError('PLAN_EVIDENCE_PROTOCOL_UNKNOWN')
     if _contains_key(review,'planEvidenceQuote'):
         raise ValueError('PLAN_EVIDENCE_MIXED_FORMAT')
     if plan is None:raise ValueError('PLAN_EVIDENCE_PLAN_REQUIRED')
     catalog=build_catalog(plan)
     if review['planEvidenceCatalogDigest']!=catalog['digest']:
         raise ValueError('PLAN_EVIDENCE_DIGEST_MISMATCH')
+    if protocol==PROTOCOL_V2 and 'coverageAudit' not in review:
+        raise ValueError('PLAN_EVIDENCE_COVERAGE_REQUIRED')
     owners={row['id']:row for row in catalog['entries']}
     materials={row['id'] for row in plan['materials']}
     result=copy.deepcopy(review)
     result.pop('planEvidenceCatalogDigest')
+    result.pop('planEvidenceProtocol',None)
     for region in result.get('coverageAudit',[]):
         if not isinstance(region,dict) or not isinstance(region.get('observedArtwork'),list):
             raise ValueError('PLAN_EVIDENCE_COVERAGE_FORMAT')
         for entry in region['observedArtwork']:
-            evidence_id=_take_id(entry,owners)
+            if not isinstance(entry,dict):
+                raise ValueError('PLAN_EVIDENCE_COVERAGE_FORMAT')
+            if protocol==PROTOCOL_V1:
+                evidence_id=_take_id(entry,owners)
+            elif 'planEvidenceId' in entry:
+                raise ValueError('PLAN_EVIDENCE_MIXED_FORMAT')
             if entry.get('disposition')=='covered':
                 material_id=entry.get('materialId');object_id=entry.get('objectId')
                 expected=('o:'+object_id if isinstance(object_id,str) else
                           'm:'+material_id if isinstance(material_id,str) else None)
-                if evidence_id is None or evidence_id!=expected:
+                if expected is None or (protocol==PROTOCOL_V1 and evidence_id!=expected):
                     raise ValueError('PLAN_EVIDENCE_OWNER_MISMATCH')
-                owner=owners[evidence_id]
+                owner=owners.get(expected)
+                if owner is None:
+                    raise ValueError('PLAN_EVIDENCE_OWNER_MISMATCH')
                 if owner['materialId']!=material_id or owner['objectId']!=object_id:
                     raise ValueError('PLAN_EVIDENCE_OWNER_MISMATCH')
                 entry['planEvidenceQuote']=owner['label']
             else:
-                if evidence_id is not None:
+                if protocol==PROTOCOL_V1 and evidence_id is not None:
                     raise ValueError('PLAN_EVIDENCE_NONCOVERED_ID')
                 entry['planEvidenceQuote']=None
     audit=result.get('smallMaterialAudit',{})

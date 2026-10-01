@@ -60,6 +60,7 @@ class ReviewStageContractTests(unittest.TestCase):
                 self.assertIn('Material adaptationPolicy defaults to preserve.',prompt)
                 self.assertIn('核对重复卡片比例时',prompt)
                 self.assertIn('全部四边覆盖完整自有可见轮廓',prompt)
+                self.assertIn('覆盖项由程序按 materialId/objectId 还原本轮计划目录原文；小素材部件另选所属 planEvidenceId；',prompt)
                 self.assertIn('planEvidenceId',prompt)
                 self.assertNotIn('证据逐字引用所属素材/对象 label',prompt)
                 self.assertNotIn('宿主提供当前源计划、明确问题',prompt)

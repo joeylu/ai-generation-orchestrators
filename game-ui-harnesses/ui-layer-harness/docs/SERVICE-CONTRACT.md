@@ -56,18 +56,20 @@ M1/M2 固定模板按规划与检查职责集中表达通用规则，字段/枚�
 标记残缺、重复、倒置、空范围或混入第二步修补标题会在调用前阻断；
 历史无标记模板保留原标题截取方式，旧固定运行不会改写或重放。
 新固定运行时的 M2/复审须逐区提交九宫格可见图形覆盖审查；`observedArtwork` 改为逐项数组，
-每项包含 artwork、disposition、materialId、objectId、planEvidenceId、evidence、suggestedChange；
-历史逐字引文格式的对应字段为 planEvidenceQuote，读取规则不转换。
+每项包含 artwork、disposition、materialId、objectId、evidence、suggestedChange；
+`coverage-owner-v2` 不再让模型重复填写覆盖项的证据编号或引文。
+历史编号格式含 planEvidenceId，逐字引文格式含 planEvidenceQuote，读取规则不转换。
 disposition 为 covered、missing、uncertain、business-text 或 optional-shadow。
-covered 必须绑定已有素材和可选的同属对象，编号来自本轮目录的指定对象，未指定对象时来自素材；
+covered 必须绑定已有素材和可选的同属对象，程序从当前目录解析指定对象，未指定对象时解析素材；
 程序还原该记录的原始 label。来源只证明出处，模型仍须确认其描述本项结构，
-不得用有效编号、框包含或泛称主体替代图形记录。
+不得用有效归属、框包含或泛称主体替代图形记录。
 missing/uncertain 即 semantic 阻断，未知归属可以为 null，不能编造 ID。business-text 仅限删除策略允许的
 普通业务文字，须绑定已有素材，artwork 写完整文字实例的逐字内容。当前同素材有非空 preserveText 时
 保守拒绝 business-text 排除：自由描述不能证明文字身份，混合保留字/业务字的素材仍有误拒限制，
 不能通过空归属或模糊文字放行；归属不明走 uncertain。
 不豁免保留文字或邻接图形；optional-shadow 仅限显式允许的所属孤立柔影。
-非问题建议及非 covered 的 planEvidenceId 填 null。空区域必须给非空 emptyRegionEvidence；非空区域该字段为 null。
+非问题建议填 null。空区域必须给非空 emptyRegionEvidence；非空区域该字段为 null。
+历史编号协议中非 covered 的 planEvidenceId 仍须 null，不自动修正旧响应。
 新 schema 不接受旧 missingFromPlan 或自由观察文本，程序读取历史审查时仍保留旧判据；新旧九区不得混用。
 字段使用 nullable 基础类型，关联判据由程序核验，不增加条件组合关键字或模型调用。
 标为“原图可见、计划未描述”的图形由程序转为 semantic 阻断并进入原有最多两轮局部修补；
@@ -89,19 +91,21 @@ Docker/Web 无迁移要求。既有运行受运行时指纹保护，不在原目
 素材编号为 `m:<materialId>`，对象编号为 `o:<objectId>`；记录保留 materialId、objectId 和原始 label。
 目录作为带哈希的本轮请求输入，并进入冻结证据。修补后的复审重建目录，不能借旧摘要沿用新候选。
 
-模型原始响应必填 `planEvidenceCatalogDigest`，等于当前目录摘要；来源字段统一为
-`planEvidenceId`，只能是目录编号或 null，不再输出自由复制的 planEvidenceQuote。
-covered 的编号必须精确对应指定 objectId（并归属 materialId），否则对应 materialId；
-missing/uncertain/business-text/optional-shadow 的编号必须 null。小素材 part 的编号只能来自该素材
+新模型原始响应必填 `planEvidenceProtocol: coverage-owner-v2` 和 `planEvidenceCatalogDigest`，
+后者等于当前目录摘要。覆盖项没有 planEvidenceId 或 planEvidenceQuote；程序根据已必填的
+materialId/objectId 解析 covered 的原文，未知素材、未知对象或对象错属立即拒绝。
+非 covered 在内存中派生 null 引文，仍按原处置、归属、文字许可和不确定性规则评估。
+小素材 part 仍填 `planEvidenceId`，只能是目录编号或 null，来源只能来自该素材
 或同属对象；无描述依据填 null，仍产生原有未描述部件阻断。未知、错属、混合格式或旧目录摘要立即拒绝。
 
 程序仅在内存中用编号还原对应原文后进入既有判据，不改写 raw draft、回执、状态或计划。
 编译、冻结及两条规划修订入口根据当前候选重建目录和完整审查 schema，重验文件、请求哈希、摘要与编号枚举；
 小素材清单由当前计划和原图尺寸独立重算，不能删除焦点输入、九区审查、小素材语义或轮廓必填字段来跳过核验。
-仅重算文件哈希不能替换目录或候选。历史没有编号标记的逐字引文记录继续按原规则读取，
+仅重算文件哈希不能替换目录或候选。历史没有协议字段的编号 v1 记录仍要求精确匹配的覆盖编号，
+非 covered 的编号仍须 null；无编号标记的逐字引文记录继续按原规则读取，
 不自动升级或修正。该变化不增加模型调用、不重启旧失败作业，不改变 session 或单次冻结作业授权。
 
-编号只减少自由抄写与拼接原文的格式负担，不证明原文足以描述观察，不自动判 consistent 或 complete。
+程序派生出处和小部件编号只减少自由抄写及重复身份字段，不证明原文足以描述观察，不自动判 consistent 或 complete。
 数量、身份、状态、归属、连接、显著外观、裁切、不确定性和最终视觉审查仍由原质量门处理。
 目录可能增加输入长度；不能据此宣称提示词整体变短、视觉规划更好或真实回拼已通过。
 

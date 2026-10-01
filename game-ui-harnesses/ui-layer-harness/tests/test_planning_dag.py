@@ -25,7 +25,7 @@ def coverage(plan=None):
 
 def missing_artwork(artwork,owner='asset-panel',change='Describe the observed artwork in its owner.'):
     return dict(artwork=artwork,disposition='missing',materialId=owner,objectId=None,
-                planEvidenceId=None,evidence='Fixture source shows this separate visible artwork.',
+                evidence='Fixture source shows this separate visible artwork.',
                 suggestedChange=change)
 
 
@@ -71,16 +71,22 @@ def small_boundary_audit(folder):
 
 
 def bound_review(folder,answer):
-    """Emit IDs from the catalog supplied to this offline model test double."""
+    """Follow the stored review schema in this offline model test double."""
     path=folder/'plan-evidence-catalog.json'
     if not path.exists():return answer
     catalog=read(path)
     answer['planEvidenceCatalogDigest']=catalog['digest']
+    owner_protocol='planEvidenceProtocol' in read(folder/'schema.json').get('properties',{})
+    if owner_protocol:answer['planEvidenceProtocol']='coverage-owner-v2'
     by_owner={}
     for entry in catalog['entries']:
         by_owner.setdefault(entry['materialId'],[]).append(entry)
     for region in answer.get('coverageAudit',[]):
         for artwork in region['observedArtwork']:
+            if owner_protocol:
+                artwork.pop('planEvidenceQuote',None)
+                artwork.pop('planEvidenceId',None)
+                continue
             if 'planEvidenceQuote' not in artwork:continue
             artwork.pop('planEvidenceQuote',None)
             artwork['planEvidenceId']=(

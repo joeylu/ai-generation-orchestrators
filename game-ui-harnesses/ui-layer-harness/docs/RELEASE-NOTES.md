@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased derived coverage provenance
+
+- New `coverage-owner-v2` reviews omit the redundant coverage evidence ID.
+  The program resolves covered source labels from the already required material
+  and optional object IDs against the current candidate catalog; small-part
+  evidence IDs remain. Unknown or mismatched owners still fail.
+- Raw responses remain immutable. Offline verification rebuilds the exact schema
+  for the stored protocol. Historical numbered and quotation protocols retain
+  their original rules, including their failed terminal decisions.
+- This reduces duplicate identity fields only. Semantic, contour, ownership,
+  text-policy, session and generation authorization gates remain in force. It
+  adds no calls and establishes no real recomposition or visual acceptance.
+
 ## Unreleased numbered planning-review provenance
 
 - New M2 and rereviews select owner evidence IDs from a program-built catalog

@@ -8,11 +8,13 @@ import unittest
 from jsonschema import Draft202012Validator, ValidationError
 
 from ai_ui_layers.compile_visual import verify_run
+from ai_ui_layers.coverage_review import REGIONS
 from ai_ui_layers.evaluate import digest, read
 from ai_ui_layers.freeze_visual import freeze
 from ai_ui_layers.planning_dag import Dag
 from ai_ui_layers.planning_review_policy import split
-from ai_ui_layers.review_evidence import build_catalog, bind_schema, resolve_review
+from ai_ui_layers.review_evidence import (PROTOCOL_V1, build_catalog, bind_schema,
+                                          build_review_schema, resolve_review)
 from test_planning_dag import FakeModel
 import test_planning_dag
 
@@ -37,6 +39,13 @@ def fixture_review(plan=None):
             visiblePart='silver inset',observedAppearance='Silver inset on blue frame',
             planEvidenceId='m:panel',descriptionStatus='consistent',
             suggestedChange='No change.')])})
+
+
+def fixture_review_v2(plan=None):
+    review=fixture_review(plan)
+    review['planEvidenceProtocol']='coverage-owner-v2'
+    review['coverageAudit'][0]['observedArtwork'][0].pop('planEvidenceId')
+    return review
 
 
 def overwrite_response(folder, answer):
@@ -76,7 +85,7 @@ class ReviewEvidenceUnitTests(unittest.TestCase):
         original=dict(type='object',required=['coverageAudit'],properties={
             'coverageAudit':{'type':'array','items':quoted}})
         before=copy.deepcopy(original)
-        bound=bind_schema(original,self.catalog)
+        bound=bind_schema(original,self.catalog,PROTOCOL_V1)
         self.assertEqual(original,before)
         self.assertIn('planEvidenceCatalogDigest',bound['required'])
         entry=bound['properties']['coverageAudit']['items']
@@ -102,6 +111,67 @@ class ReviewEvidenceUnitTests(unittest.TestCase):
         self.assertEqual(resolved['smallMaterialAudit']['panel']['parts'][0]['planEvidenceQuote'],
                          'Blue frame with silver inset')
         self.assertNotIn('planEvidenceId',str(resolved))
+
+    def test_owner_protocol_derives_covered_label_without_model_evidence_id(self):
+        raw=fixture_review_v2(self.plan)
+        raw['coverageAudit'][0]['observedArtwork'].append(dict(
+            disposition='business-text',materialId='panel',objectId=None))
+        before=copy.deepcopy(raw)
+        resolved=resolve_review(raw,self.plan)
+        self.assertEqual(raw,before)
+        self.assertNotIn('planEvidenceProtocol',resolved)
+        self.assertEqual(resolved['coverageAudit'][0]['observedArtwork'][0]['planEvidenceQuote'],
+                         'Silver trim beside the frame')
+        self.assertIsNone(resolved['coverageAudit'][0]['observedArtwork'][1]['planEvidenceQuote'])
+        self.assertEqual(resolved['smallMaterialAudit']['panel']['parts'][0]['planEvidenceQuote'],
+                         'Blue frame with silver inset')
+
+    def test_owner_protocol_rejects_unknown_or_cross_material_coverage_owner(self):
+        variants=[
+            ('unknown material',dict(materialId='absent',objectId=None)),
+            ('unknown object',dict(materialId='panel',objectId='absent')),
+            ('object in another material',dict(materialId='badge',objectId='trim')),
+        ]
+        for name,change in variants:
+            with self.subTest(name=name):
+                raw=fixture_review_v2(self.plan)
+                raw['coverageAudit'][0]['observedArtwork'][0].update(change)
+                with self.assertRaisesRegex(ValueError,'PLAN_EVIDENCE'):
+                    resolve_review(raw,self.plan)
+
+    def test_owner_protocol_rejects_mixed_fields_marker_and_stale_catalog(self):
+        changes=[
+            ('coverage ID',lambda r:r['coverageAudit'][0]['observedArtwork'][0].update(
+                planEvidenceId='o:trim')),
+            ('coverage quote',lambda r:r['coverageAudit'][0]['observedArtwork'][0].update(
+                planEvidenceQuote='Silver trim beside the frame')),
+            ('missing protocol',lambda r:r.pop('planEvidenceProtocol')),
+            ('wrong protocol',lambda r:r.update(planEvidenceProtocol='unrecognized')),
+            ('old digest',lambda r:r.update(planEvidenceCatalogDigest='0'*64)),
+        ]
+        for name,change in changes:
+            with self.subTest(name=name):
+                raw=fixture_review_v2(self.plan);change(raw)
+                with self.assertRaisesRegex(ValueError,'PLAN_EVIDENCE'):
+                    resolve_review(raw,self.plan)
+
+    def test_owner_protocol_does_not_clear_description_or_boundary_blockers(self):
+        for status,boundary_status,code in (
+            ('missing','complete','SMALL_MATERIAL_DESCRIPTION_REVIEW'),
+            ('conflicting','complete','SMALL_MATERIAL_DESCRIPTION_REVIEW'),
+            ('consistent','clipped','SMALL_MATERIAL_BOUNDARY_REVIEW')):
+            with self.subTest(status=status,boundary=boundary_status):
+                raw=fixture_review_v2(self.plan)
+                artwork=raw['coverageAudit'][0]['observedArtwork'][0]
+                artwork.update(artwork='Fixture visible trim',
+                               evidence='Observed on source.',suggestedChange=None)
+                raw['coverageAudit']=[dict(region=region,
+                    observedArtwork=[copy.deepcopy(artwork)],emptyRegionEvidence=None)
+                    for region in REGIONS]
+                raw['smallMaterialAudit']['panel']['parts'][0]['descriptionStatus']=status
+                raw['smallMaterialAudit']['panel']['boundary']['status']=boundary_status
+                blockers,_=split(raw,self.plan)
+                self.assertIn(code,[finding['code'] for finding in blockers])
 
     def test_wrong_owner_unknown_and_spliced_ids_fail_closed(self):
         variants=[
@@ -200,6 +270,18 @@ class ReviewEvidenceDagTests(unittest.TestCase):
             freeze(self.root,destination,8)
         self.assertFalse(destination.exists())
 
+    def _assert_invalid_v2_raw_rejected(self, label):
+        def rejected(action):
+            try:action()
+            except ValidationError:return
+            except ValueError as error:
+                self.assertRegex(str(error),r'^PLAN_EVIDENCE_')
+            else:self.fail('Malformed v2 review was accepted')
+        rejected(lambda:verify_run(self.root))
+        destination=self.root.parent/('invalid-v2-'+label+'-freeze')
+        rejected(lambda:freeze(self.root,destination,8))
+        self.assertFalse(destination.exists())
+
     def test_generated_review_binds_catalog_request_and_preserves_raw_ids(self):
         result=Dag(self.root,FakeModel()).execute()
         self.assertEqual(result['status'],'frozen')
@@ -215,15 +297,22 @@ class ReviewEvidenceDagTests(unittest.TestCase):
         self.assertEqual(snapshot['files']['evidence/m2-plan-evidence-catalog.json'],digest(frozen_catalog))
         raw=read(folder/'draft.json')
         self.assertEqual(raw['planEvidenceCatalogDigest'],catalog['digest'])
-        self.assertIn('planEvidenceId',raw['coverageAudit'][0]['observedArtwork'][0])
+        self.assertEqual(raw['planEvidenceProtocol'],'coverage-owner-v2')
+        self.assertNotIn('planEvidenceId',raw['coverageAudit'][0]['observedArtwork'][0])
         self.assertNotIn('planEvidenceQuote',raw['coverageAudit'][0]['observedArtwork'][0])
         self.assertIn('planEvidenceId',next(iter(raw['smallMaterialAudit'].values()))['parts'][0])
-        validator=Draft202012Validator(read(folder/'schema.json'))
+        schema=read(folder/'schema.json')
+        self.assertEqual(schema,build_review_schema(catalog,
+                         read(folder/'coverage-small-materials.json'),None))
+        coverage_entry=schema['properties']['coverageAudit']['items']['properties']['observedArtwork']['items']
+        self.assertNotIn('planEvidenceId',coverage_entry['properties'])
+        self.assertNotIn('planEvidenceQuote',coverage_entry['properties'])
+        validator=Draft202012Validator(schema)
         validator.validate(raw)
-        for omitted in ('planEvidenceCatalogDigest','planEvidenceId'):
+        for omitted in ('planEvidenceCatalogDigest','planEvidenceProtocol','planEvidenceId'):
             changed=copy.deepcopy(raw)
             if omitted=='planEvidenceId':
-                changed['coverageAudit'][0]['observedArtwork'][0].pop(omitted)
+                next(iter(changed['smallMaterialAudit'].values()))['parts'][0].pop(omitted)
             else:
                 changed.pop(omitted)
             with self.subTest(omitted=omitted),self.assertRaises(ValidationError):
@@ -233,6 +322,26 @@ class ReviewEvidenceDagTests(unittest.TestCase):
         self.assertEqual(raw,before)
         self.assertEqual(read(folder/'draft.json'),before)
         self.assertEqual(verify_run(self.root),plan)
+
+    def test_business_text_without_coverage_evidence_id_can_freeze(self):
+        base=FakeModel()
+        def model(folder,sid,first):
+            base(folder,sid,first)
+            if folder.name=='m2':
+                raw=read(folder/'draft.json')
+                artwork=raw['coverageAudit'][0]['observedArtwork'][0]
+                artwork.update(artwork='Fixture business lettering',
+                               disposition='business-text',materialId='asset-panel',
+                               objectId=None,suggestedChange=None)
+                self.assertNotIn('planEvidenceId',artwork)
+                self.assertNotIn('planEvidenceQuote',artwork)
+                overwrite_response(folder,raw)
+        result=Dag(self.root,model).execute()
+        self.assertEqual(result['status'],'frozen')
+        raw=read(self.root/'m2/draft.json')
+        self.assertNotIn('planEvidenceId',raw['coverageAudit'][0]['observedArtwork'][0])
+        self.assertEqual(raw['coverageAudit'][0]['observedArtwork'][0]['disposition'],'business-text')
+        self.assertEqual(verify_run(self.root),read(self.root/'m1/draft.json'))
 
     def test_wrong_owner_id_stops_before_assessment_repair_or_freeze(self):
         base=FakeModel()
@@ -251,6 +360,23 @@ class ReviewEvidenceDagTests(unittest.TestCase):
         self.assertFalse((self.root/'repair').exists())
         self.assertFalse((self.root/'frozen').exists())
 
+    def test_covered_object_from_another_material_stops_before_assessment(self):
+        base=FakeModel()
+        def model(folder,sid,first):
+            base(folder,sid,first)
+            if folder.name=='m2':
+                raw=read(folder/'draft.json')
+                artwork=raw['coverageAudit'][0]['observedArtwork'][0]
+                artwork.update(materialId='asset-panel',objectId='scene')
+                self.assertNotIn('planEvidenceId',artwork)
+                overwrite_response(folder,raw)
+        with self.assertRaisesRegex(ValueError,'PLAN_EVIDENCE_OWNER_MISMATCH'):
+            Dag(self.root,model).execute()
+        self.assertEqual([name for name,_ in base.calls],['m1','m2'])
+        self.assertFalse((self.root/'m2/assessment.json').exists())
+        self.assertFalse((self.root/'repair').exists())
+        self.assertFalse((self.root/'frozen').exists())
+
     def test_repair_rereview_catalog_tracks_current_candidate(self):
         Dag(self.root,FakeModel(repair=True)).execute()
         first=read(self.root/'m2/plan-evidence-catalog.json')
@@ -260,9 +386,53 @@ class ReviewEvidenceDagTests(unittest.TestCase):
         self.assertNotEqual(first['digest'],second['digest'])
         self.assertEqual(read(self.root/'m2/draft.json')['planEvidenceCatalogDigest'],first['digest'])
         self.assertEqual(read(self.root/'rereview/draft.json')['planEvidenceCatalogDigest'],second['digest'])
+        self.assertEqual(read(self.root/'m2/draft.json')['planEvidenceProtocol'],'coverage-owner-v2')
+        self.assertEqual(read(self.root/'rereview/draft.json')['planEvidenceProtocol'],'coverage-owner-v2')
         self.assertEqual(read(self.root/'rereview/request.json')['inputs']['plan-evidence-catalog.json'],
                          digest(self.root/'rereview/plan-evidence-catalog.json'))
         self.assertEqual(verify_run(self.root),read(self.root/'repair/candidate.json'))
+
+    def test_historical_catalog_id_review_still_verifies_and_freezes(self):
+        Dag(self.root,FakeModel()).execute()
+        folder=self.root/'m2';plan=read(self.root/'m1/draft.json')
+        catalog=read(folder/'plan-evidence-catalog.json')
+        focus=read(folder/'coverage-small-materials.json')
+        legacy_schema=build_review_schema(catalog,focus,None,PROTOCOL_V1)
+        self.assertNotIn('planEvidenceProtocol',legacy_schema['properties'])
+        entry=legacy_schema['properties']['coverageAudit']['items']['properties']['observedArtwork']['items']
+        self.assertIn('planEvidenceId',entry['required'])
+        raw=read(folder/'draft.json');raw.pop('planEvidenceProtocol')
+        for region in raw['coverageAudit']:
+            for artwork in region['observedArtwork']:
+                artwork['planEvidenceId']=(
+                    ('o:'+artwork['objectId'] if artwork['objectId'] is not None
+                     else 'm:'+artwork['materialId'])
+                    if artwork['disposition']=='covered' else None)
+        Draft202012Validator(legacy_schema).validate(raw)
+        self._rewrite_m2_review_contract(legacy_schema,raw)
+        self.assertEqual(verify_run(self.root),plan)
+        destination=self.root.parent/'historical-catalog-freeze'
+        freeze(self.root,destination,8)
+        self.assertTrue((destination/'snapshot.json').is_file())
+        self.assertEqual(read(destination/'evidence/m2-draft.json'),raw)
+
+    def test_offline_verify_rejects_v2_protocol_and_coverage_field_mixture(self):
+        Dag(self.root,FakeModel()).execute()
+        folder=self.root/'m2'
+        paths=[folder/name for name in ('schema.json','draft.json','transport.json',
+                                       'request.json','assessment.json')]+[self.root/'result.json']
+        baseline={path:path.read_bytes() for path in paths}
+        for label in ('missing-protocol','coverage-id','coverage-quote','stale-digest'):
+            with self.subTest(label=label):
+                for path,content in baseline.items():path.write_bytes(content)
+                schema=read(folder/'schema.json');raw=read(folder/'draft.json')
+                artwork=raw['coverageAudit'][0]['observedArtwork'][0]
+                if label=='missing-protocol':raw.pop('planEvidenceProtocol')
+                elif label=='coverage-id':artwork['planEvidenceId']='m:'+artwork['materialId']
+                elif label=='coverage-quote':artwork['planEvidenceQuote']='forged copied label'
+                else:raw['planEvidenceCatalogDigest']='0'*64
+                self._rewrite_m2_review_contract(schema,raw)
+                self._assert_invalid_v2_raw_rejected(label)
 
     def test_offline_verify_rejects_catalog_tamper_even_with_updated_request_hash(self):
         Dag(self.root,FakeModel()).execute()
