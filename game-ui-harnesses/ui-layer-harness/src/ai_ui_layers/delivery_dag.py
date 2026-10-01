@@ -223,6 +223,8 @@ def main():
                    help='New runs default to context-crops; freeze-reviewed inherits the source mode')
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
+    p.add_argument('--context-prompt-version',choices=['v1','v2','v3','v4'],
+                   help='For freeze-reviewed only: opt into a newly frozen context prompt version')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
     p.add_argument('--visual-policy',help='Explicit visual evidence and tolerance JSON, frozen only for a new run')
     p.add_argument('--snapshot');p.add_argument('--snapshot-digest')
@@ -230,6 +232,8 @@ def main():
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.context_prompt_version is not None and a.action!='freeze-reviewed':
+            p.error('--context-prompt-version is only valid for freeze-reviewed')
         if a.visual_policy and a.action!='run':p.error('--visual-policy is only valid for a new run')
         if a.action=='revise-frozen-crops':
             if not a.planning_run or not a.rejection:p.error('--planning-run and --rejection required')
@@ -322,7 +326,8 @@ def main():
         if a.action=='freeze-reviewed':
             if not a.planning_run:p.error('--planning-run required')
             from .refreeze import freeze_reviewed
-            result=freeze_reviewed(a.planning_run,a.output,a.max_calls,a.regroup_generation_mode,a.generation_reference)
+            result=freeze_reviewed(a.planning_run,a.output,a.max_calls,a.regroup_generation_mode,
+                                   a.generation_reference,a.context_prompt_version)
             print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action=='preview-groups':
             if not a.snapshot or not a.snapshot_digest:p.error('--snapshot and --snapshot-digest required')

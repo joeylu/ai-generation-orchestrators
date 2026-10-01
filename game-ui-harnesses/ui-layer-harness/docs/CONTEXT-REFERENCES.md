@@ -123,6 +123,23 @@ for validation and group previews. Changing or mixing versions requires a newly
 compiled snapshot, never an override to an existing frozen request. Prompt length
 depends on the plan and does not establish token cost or visual fidelity.
 
+Version 4 is opt-in for a fresh offline freeze from completed reviewed planning:
+`freeze-reviewed --planning-run RUN --output NEW_SNAPSHOT --max-calls 16
+--generation-reference context-crops --context-prompt-version v4`. The ordinary
+default remains v3; omitting the option while refreezing an existing context
+snapshot inherits its version. A rejected-crop child keeps its parent version.
+Version 4 lists owned objects as `keepOnly` using their IDs, kinds, appearance
+and available local anchors; it omits the material's broader summary label when
+owned objects supply the identity.
+Foreign objects retain separate IDs, short appearance labels and available local
+locators, including repeated instances. Their original material z-order gives
+`underlay`, `overlay` or `same-depth` removal instructions. An underlay is removed
+outside owned contours and never copied as backing. An overlay is removed while
+only an owned surface actually behind it is continued. Same-depth foreign work
+is excluded without inventing hidden owned artwork. Genuine gaps and translucency
+remain. Target boxes, output dimensions, context expansion and placement do not
+change; preflight rebuilds and checks the exact frozen v4 prompt.
+
 The background's 27-character difference is only removal of the historical
 compiler marker; its background instruction is unchanged. A separate four-card
 fixture with long distinct boxed card/icon/illustration descriptions yields

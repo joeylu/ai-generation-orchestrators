@@ -14,7 +14,8 @@ GROUP_POLICY = 'compatible-size-and-kind-context-grid-v1'
 PROMPT_PREFIX_V1 = 'visual-material-context-prompt-v1:\n'
 PROMPT_PREFIX_V2 = 'visual-material-context-prompt-v2:\n'
 PROMPT_PREFIX_V3 = 'visual-material-context-prompt-v3:\n'
-PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3)
+PROMPT_PREFIX_V4 = 'visual-material-context-prompt-v4:\n'
+PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4)
 # Historical callers and frozen plans used this name for v1.
 PROMPT_PREFIX = PROMPT_PREFIX_V1
 
@@ -120,9 +121,37 @@ def entry(visual, material, asset, reference, size, index, *, include_exclusion_
         surface='continuous-panel' if carries_foreground(visual,material) else 'owned-artwork')
 
 
+def action_entry(visual, material, asset, reference, size, index):
+    """v4 ownership actions from reviewed z order; boxes remain locators, not masks."""
+    own=entry(visual,material,asset,reference,size,index)
+    if own['parts']:
+        own.pop('artwork',None)  # Object appearance is the keep identity.
+    own['keepOnly']=own.pop('parts')
+    own['zOrder']=material['zOrder']
+    x,y,r,b=reference['cropRegion'];width,height=size
+    foreign=[]
+    for other in visual['materials']:
+        if other['id']==material['id'] or other['role']=='background':continue
+        ll,tt,rr,bb=other['bboxNorm']
+        if max(x/width,ll)>=min(r/width,rr) or max(y/height,tt)>=min(b/height,bb):continue
+        relation=('underlay' if other['zOrder']<material['zOrder'] else
+                  'overlay' if other['zOrder']>material['zOrder'] else 'same-depth')
+        members=[]
+        for obj in visual['objects']:
+            if obj['materialId']!=other['id']:continue
+            item=dict(id=obj['id'],appearance=obj['label'])
+            if obj.get('bboxNorm') is not None:
+                item['referenceBox']=local_box(obj['bboxNorm'],reference,size)
+            members.append(item)
+        foreign.append(dict(materialId=other['id'],relation=relation,
+                            referenceBox=local_box(other['bboxNorm'],reference,size),members=members))
+    own['exclude']=foreign
+    return own
+
+
 def prompt(visual, plan, material_ids, group=None, version='v3'):
     """Compile frozen plan data once, with no LLM rewriting or extra grouping call."""
-    if version not in ('v1','v2','v3'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if version not in ('v1','v2','v3','v4'):raise ValueError('CONTEXT_PROMPT_VERSION')
     if visual.get('backgroundMode') not in ('scene-only','preserve-underlay') or visual.get('textPolicy')!='remove-business-text':
         raise ValueError('EXPLICIT_SCOPE_REQUIRED')
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
@@ -130,8 +159,29 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     if len(material_ids)==1 and assets[material_ids[0]]['role']=='background':
         return full_prompt(visual,material_ids[0],plan['canvas'])
     if not 1<=len(material_ids)<=4:raise ValueError('CONTEXT_REFERENCE_LIMIT')
-    entries=[entry(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i)
+    builder=action_entry if version=='v4' else entry
+    entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i)
              for i,key in enumerate(material_ids)]
+    if version=='v4':
+        layout=(f'Grid {group["grid"][0]}x{group["grid"][1]} row-major, canvas '
+                f'{group["outputSize"][0]}:{group["outputSize"][1]}; one material per cell, unused cells empty. '
+                if group else 'One complete material. ')
+        scale='Use one common uniform scale across cells. ' if group else ''
+        return ('Use context crops by 1-based referenceIndex. '+layout+
+                'keepOnly lists owned parts; exclude lists foreign members. targetBox/referenceBox are local '
+                'normalized locators, not masks; outside targetBox is context. artworkPixelSize is target '
+                'crop size, not alpha bounds; withinMaterial=(centerX,centerY,width,height) before padding. '
+                'Keep owned parts, observed state, count, full contours, color, texture, ornaments, original '
+                'proportions and offsets at one uniform scale; do not recenter or enlarge. '+scale+
+                'Underlay: remove outside owned contours, never copy backing. Overlay: remove and continue '
+                'only owned surface actually behind it, without punching holes or filling true openings. '
+                'Same-depth: exclude without inventing hidden owned art. Remove ordinary letters/numbers '
+                'except exact preserveText; keep owned single-character icon pictograms. Clear glyphs into '
+                'owned surface, leave text space empty and other parts fixed. Output PNG with continuous '
+                'alpha outside owned contours and real gaps; preserve true holes and translucency, no scene. '
+                'Keep 10% fully transparent margin on all sides without stretch. No new style, backing, '
+                'bridges or other UI; no downstream restoration. Entries: '+
+                json.dumps(entries,ensure_ascii=False,separators=(',',':')))
     layout=(f'Grid {group["grid"][0]} columns by {group["grid"][1]} rows, row-major; '
             f'canvas aspect {group["outputSize"][0]}:{group["outputSize"][1]}. Exactly one assigned material per cell; '
             'unused cells stay empty. ' if group else 'Produce one complete assigned material. ')

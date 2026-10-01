@@ -6,7 +6,8 @@ from .freeze_visual import freeze
 from .planning_dag import locked
 
 
-def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_reference=None):
+def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_reference=None,
+                    context_prompt_version=None):
     source=Path(source).resolve();output=Path(output).resolve()
     if not 1 <= max_calls <= 128:raise ValueError('CALL_LIMIT')
     if output.exists() or output.is_relative_to(source) or source.is_relative_to(output):
@@ -34,9 +35,22 @@ def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_
                 target=(source/name).resolve()
                 if not target.is_relative_to(source):raise ValueError('EVIDENCE_PATH_ESCAPE')
                 if digest(target)!=expected:raise ValueError('COMPLETED_OUTPUT_CHANGED:'+name)
+        if context_prompt_version is None:
+            if 'contextPromptVersion' in config:
+                context_prompt_version=config['contextPromptVersion']
+            elif (source/'frozen/snapshot.json').is_file():
+                from .freeze_visual import inspect
+                parent=inspect(source/'frozen')
+                context_prompt_version=(parent.get('contextPromptVersion','v1') if
+                                        parent.get('generationReference')=='context-crops' else 'v3')
+            else:
+                context_prompt_version='v3'
+        if context_prompt_version not in ('v1','v2','v3','v4'):
+            raise ValueError('CONTEXT_PROMPT_VERSION')
         # This is a new offline artifact, not resume under a changed runtime.
         # freeze verifies model receipts, candidate/patch lineage and empty review.
-        snapshot=freeze(source,output,max_calls,effective_mode,effective_reference)
+        snapshot=freeze(source,output,max_calls,effective_mode,effective_reference,
+                        context_prompt_version)
     return {**{k:snapshot[k] for k in ('status','digest','materialCount','plannedCalls','maximumCalls','elapsedSeconds')},
             'modelCalls':0,'generationCalls':0,'originalDagPromoted':False,
             'sourceGenerationMode':original_mode,'generationMode':effective_mode,
