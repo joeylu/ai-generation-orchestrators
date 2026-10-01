@@ -24,7 +24,7 @@ def preview(config_path, output):
         raise ValueError('RETIRED_DRAWING_PLAN_REQUIRES_REPLAN')
     ids={p['id'] for p in placements}
     if not set(config['materials']) <= ids:raise ValueError('UNKNOWN_MATERIAL')
-    from .body_registration import checked_inputs, process as place_body
+    from .body_registration import POLICY_SUPPORT, checked_inputs, process as place_body
     foreground_ids={key for key in config['materials'] if assets[key]['role']!='background'}
     body_overrides=checked_inputs(config,placements,foreground_ids)
     frame_overrides=config.get('frameBoundsMaterials',[])
@@ -50,7 +50,8 @@ def preview(config_path, output):
         raw=Path(config['materials'][key]);folder=output/key
         if key in body_overrides:
             report=place_body(raw,snapshot/'reference.png',body_overrides[key],row['sourceRegion'],
-                              key,config['snapshotDigest'],folder)
+                              key,config['snapshotDigest'],folder,
+                              policy=config['registrationPolicy'])
         elif key in overrides:
             expected=[o['id'] for o in visual['objects'] if o['materialId']==key]
             report=place(raw,snapshot/'reference.png',overrides[key],row['sourceRegion'],expected,folder)
@@ -63,7 +64,9 @@ def preview(config_path, output):
         records.append({'id':key,'source':str(raw),'sourceSha256':digest(raw),
                         'xy':row['xy'],'report':report})
         if report['status']=='blocked':continue
-        with Image.open(folder/'material.png') as im:canvas.alpha_composite(im,tuple(row['xy']))
+        xy=(report['fitting']['layerCanvasRegion'][:2]
+            if key in body_overrides and config['registrationPolicy']==POLICY_SUPPORT else row['xy'])
+        with Image.open(folder/'material.png') as im:canvas.alpha_composite(im,tuple(xy))
     canvas.save(output/'partial-transparent.png')
     w,h=canvas.size
     checker=Image.new('RGBA',(w,h),(224,224,224,255));draw=ImageDraw.Draw(checker)
@@ -80,7 +83,9 @@ def preview(config_path, output):
             'frameBoundsOverrides':frame_overrides,
             'generationCalls':0,'humanVisualAcceptance':False,'records':records,
             'scope':'Only supplied materials; absent layers remain absent, never overlaid on the original.',
-            'registration':('Explicit whole-material body observations; crop regions only retain layer canvases.' if body_overrides else
+            'registration':('Explicit whole-material body observations; ownership remains frozen while full alpha determines the support canvas.'
+                if body_overrides and config['registrationPolicy']==POLICY_SUPPORT else
+                'Explicit whole-material body observations; crop regions only retain layer canvases.' if body_overrides else
                 'Explicit per-object boxes where supplied; declared frame bounds for carrier fits; remaining materials use approximate centered contain.')}
     save(output/'report.json',report)
     return report

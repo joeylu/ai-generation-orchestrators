@@ -149,8 +149,8 @@ def run(config_path, output, model_call=None, selected=None):
     placements={p['id']:p for p in read(snapshot/'placements.json')['materials']}
     if not set(config['materials'])<=set(placements):raise ValueError('UNKNOWN_MATERIAL')
     if config.get('partPlacements'):raise ValueError('AUTOMATIC_ENTRY_REJECTS_MANUAL_PLACEMENTS')
-    from .body_registration import checked_inputs, POLICY as BODY_POLICY
-    body_mode=config.get('registrationPolicy')==BODY_POLICY
+    from .body_registration import checked_inputs, POLICY as BODY_POLICY, POLICY_SUPPORT
+    body_mode=config.get('registrationPolicy') in (BODY_POLICY, POLICY_SUPPORT)
     foreground_ids={m['id'] for m in visual['materials'] if m['id'] in config['materials'] and m['role']=='foreground'}
     body_overrides=checked_inputs(config,placements,foreground_ids)
     eligible=candidates(visual)

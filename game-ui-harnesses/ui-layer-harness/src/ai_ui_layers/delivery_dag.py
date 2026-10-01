@@ -16,9 +16,12 @@ from .adapt_strip import adapt_materials
 from .review_single_job import run as review_single_job
 from .session_review import TransportFailure
 from .visual_policy import load_input, input_policy
+from . import body_observation as body
 
 GRAPH = {'planning': [], 'prepare': ['planning'], 'raw_complete': ['prepare'],
          'registration': ['raw_complete'], 'package': ['registration']}
+BODY_GRAPH = {**GRAPH, 'body_prepare': ['raw_complete'],
+              'body_observation': ['body_prepare'], 'registration': ['body_observation']}
 
 
 def runtime_files():
@@ -30,9 +33,20 @@ def runtime_files():
     return files
 
 
-def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=planning.DEFAULT_GENERATION_REFERENCE, visual_policy=None):
+def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=planning.DEFAULT_GENERATION_REFERENCE, visual_policy=None,
+         context_prompt_version=None, registration_policy=body.POLICY, max_body_calls=body.DEFAULT_MAX_CALLS):
     from .context_references import validate_mode
     validate_mode(generation_reference)
+    if generation_reference == 'context-crops':
+        context_prompt_version = context_prompt_version or 'v7'
+        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7'):
+            raise ValueError('CONTEXT_PROMPT_VERSION')
+    elif context_prompt_version is not None:
+        raise ValueError('CONTEXT_PROMPT_REQUIRES_CONTEXT_CROPS')
+    if registration_policy not in ('legacy-region-fit', body.POLICY):
+        raise ValueError('DELIVERY_REGISTRATION_POLICY')
+    if type(max_body_calls) is not int or not 1 <= max_body_calls <= 128:
+        raise ValueError('BODY_CALL_LIMIT')
     notes=planning.read_notes(planning_notes)
     policy_bytes=load_input(visual_policy)
     if policy_bytes is not None:
@@ -62,24 +76,37 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
     if policy_bytes is not None:
         (root/'.dag/inputs/visual-policy.json').write_bytes(policy_bytes)
         inputs['visual-policy.json']=Path(visual_policy)
-    save(root/'.dag/config.json', dict(kind='ui_delivery_dag_v1', target=target, graph=GRAPH,
+    save(root/'.dag/config.json', dict(kind='ui_delivery_dag_v1', target=target,
+         graph=BODY_GRAPH if registration_policy == body.POLICY else GRAPH,
          maxCalls=max_calls, generationMode=generation_mode, generationReference=generation_reference, runtime=runtime_files(),
+         registrationPolicy=registration_policy, maximumBodyCalls=max_body_calls,
+         **({'contextPromptVersion':context_prompt_version} if context_prompt_version is not None else {}),
          inputs={name:digest(root/'.dag/inputs'/name) for name in inputs}))
     save(root/'.dag/config-digest.json', dict(sha256=digest(root/'.dag/config.json')))
     return root
 
 
 class DeliveryDag(planning.Dag):
-    def __init__(self, root, model=planning.live_model, registration_model=None, sheet_model=None, material_model=None):
+    def __init__(self, root, model=planning.live_model, registration_model=None, sheet_model=None, material_model=None, body_model=None):
         super().__init__(root, model)
         self.registration_model = registration_model
         self.sheet_model = sheet_model
         self.material_model = material_model
+        self.body_model = body_model
 
     def verify(self):
         if digest(self.root/'.dag/config.json') != read(self.root/'.dag/config-digest.json')['sha256']:
             raise ValueError('CONFIG_CHANGED')
         if self.config['runtime'] != runtime_files(): raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
+        version = self.config.get('contextPromptVersion')
+        if version is not None and (self.config.get('generationReference') != 'context-crops' or
+                version not in ('v1','v2','v3','v4','v5','v6','v7')):
+            raise ValueError('CONTEXT_PROMPT_VERSION')
+        policy = self.config.get('registrationPolicy', 'legacy-region-fit')
+        if policy not in ('legacy-region-fit', body.POLICY):
+            raise ValueError('DELIVERY_REGISTRATION_POLICY')
+        if policy == body.POLICY and self.config['graph'] != BODY_GRAPH:
+            raise ValueError('BODY_GRAPH_MISMATCH')
         for name, expected in self.config['inputs'].items():
             if digest(self.inputs/name) != expected: raise ValueError('INPUT_CHANGED')
         input_policy(self.inputs,self.config)
@@ -90,6 +117,10 @@ class DeliveryDag(planning.Dag):
             planning.Dag(self.root/'planning', self.model).verify()
             if read(self.root/'planning/.dag/config.json')['inputs'].get('visual-policy.json')!=self.config['inputs'].get('visual-policy.json'):
                 raise ValueError('VISUAL_POLICY_NESTED_RUN_MISMATCH')
+            nested = read(self.root/'planning/.dag/config.json')
+            if (nested.get('generationReference','full') != self.config.get('generationReference','full') or
+                    nested.get('contextPromptVersion','v3') != self.config.get('contextPromptVersion','v3')):
+                raise ValueError('CONTEXT_PROMPT_NESTED_RUN_MISMATCH')
         if (self.root/'raw-receipts.json').exists():
             for name, expected in read(self.root/'raw-receipts.json').items():
                 if digest(self.root/'generation'/name) != expected: raise ValueError('RAW_RECEIPT_CHANGED')
@@ -116,6 +147,12 @@ class DeliveryDag(planning.Dag):
         # Bind exchange receipts as well as raw bytes; later mutation cannot silently change provenance.
         save(self.root/'raw-receipts.json', receipts)
 
+    def prepare_generation(self):
+        snapshot = self.root/'planning/frozen'
+        if self.config.get('registrationPolicy') == body.POLICY:
+            body.validate_budget(snapshot, self.config['maximumBodyCalls'])
+        return exchange.prepare(snapshot, inspect(snapshot)['digest'], self.root/'generation')
+
     def execute(self):
         with planning.locked(self.root):
             self.verify()
@@ -125,17 +162,26 @@ class DeliveryDag(planning.Dag):
                 if not planroot.exists(): planning.init(self.inputs/'reference.png', planroot, self.config['maxCalls'],self.config.get('generationMode','single'),
                     self.inputs/'planning-notes.txt' if 'planning-notes.txt' in self.config['inputs'] else None,
                     self.config.get('generationReference','full'),
-                    self.inputs/'visual-policy.json' if 'visual-policy.json' in self.config['inputs'] else None)
+                    self.inputs/'visual-policy.json' if 'visual-policy.json' in self.config['inputs'] else None,
+                    self.config.get('contextPromptVersion','v3') if self.config.get('generationReference')=='context-crops' else None)
                 planning.Dag(planroot, self.model).execute()
                 self.node('planning', lambda: save(self.root/'planning-result.json',
                           planning.Dag(planroot, self.model).status()))
             if self.config['target'] == 'frozen': return self.status()
             snapshot = self.root/'planning/frozen'
-            self.node('prepare', lambda: exchange.prepare(snapshot, inspect(snapshot)['digest'], self.root/'generation'))
+            self.node('prepare', self.prepare_generation)
             current = exchange.status(self.root/'generation')
             if current['status'] != 'raw_complete': return self.status()
             self.node('raw_complete', self.collect_raw)
-            self.node('registration', lambda: register(self.root/'registration-input.json',
+            registration_input = self.root/'registration-input.json'
+            if self.config.get('registrationPolicy') == body.POLICY:
+                body_job = self.root/'body-observation'
+                self.node('body_prepare', lambda: body.prepare(registration_input, body_job, self.config['maximumBodyCalls']))
+                if body.status(body_job)['status'] == 'awaiting_body_authorization':
+                    return self.status()
+                registration_input = self.root/'body-registration-input.json'
+                self.node('body_observation', lambda: body.execute(body_job, registration_input, self.body_model))
+            self.node('registration', lambda: register(registration_input,
                       self.root/'registration', model_call=self.registration_model))
             self.node('package', lambda: build(self.root/'generation/snapshot',
                       sources_from_preview(self.root/'generation/snapshot', self.root/'registration/preview',
@@ -153,7 +199,7 @@ class DeliveryDag(planning.Dag):
     def status(self):
         self.verify()
         nodes = {}
-        for name in GRAPH:
+        for name in self.config['graph']:
             state = self.root/'.dag'/name
             nodes[name] = ('completed' if (state/'done.json').exists() else 'failed' if (state/'failed.json').exists()
                            else 'interrupted_or_running' if state.exists() else 'pending')
@@ -162,6 +208,9 @@ class DeliveryDag(planning.Dag):
                       mediaDriver='explicit-host-exchange',
                       generationMode=self.config.get('generationMode','single'),
                       generationReference=self.config.get('generationReference','full'),
+                      **({'contextPromptVersion':self.config.get('contextPromptVersion','v3')} if
+                          self.config.get('generationReference')=='context-crops' else {}),
+                      registrationPolicy=self.config.get('registrationPolicy','legacy-region-fit'),
                       nodeSeconds={p.parent.name:read(p)['seconds'] for p in (self.root/'.dag').glob('*/done.json')},
                       failures={p.parent.name:read(p)['error'] for p in (self.root/'.dag').glob('*/failed.json')})
         if (self.root/'planning/.dag/config.json').exists():
@@ -182,6 +231,10 @@ class DeliveryDag(planning.Dag):
             result['adaptation']=read(self.root/'adaptation/result.json')
         if (self.root/'material-review/result.json').exists():
             result['materialReview']=read(self.root/'material-review/result.json')
+        if (self.root/'body-observation/job.json').exists():
+            result['bodyObservation'] = body.status(self.root/'body-observation')
+            if result['bodyObservation']['status'] == 'awaiting_body_authorization':
+                result['status'] = 'awaiting_body_authorization'
         if self.config['target'] == 'frozen' and nodes['planning'] == 'completed': result['status'] = 'frozen'
         if nodes['package'] == 'completed':
             result['package'] = validate_archive(self.root/'delivery/ui-layers.zip')
@@ -194,8 +247,8 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','next','receive','fail','register-materials','preview-groups','freeze-reviewed','revise-frozen-crops','finish-received','finish-bundle','finish-variants','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
-    p.add_argument('--config',help='For register-materials: bound reference-body-v1 offline registration config')
+    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','revise-frozen-crops','finish-received','finish-bundle','finish-variants','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('--config',help='For register-materials: bound explicit body registration config')
     p.add_argument('--source-sha256')
     p.add_argument('--edit-mask',help='Explicit binary L PNG allowed-edit region; not inferred from material boxes')
     p.add_argument('--edit-mask-sha256')
@@ -225,7 +278,11 @@ def main():
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
     p.add_argument('--context-prompt-version',choices=['v1','v2','v3','v4','v5','v6','v7'],
-                   help='For freeze-reviewed only: opt into a newly frozen context prompt version')
+                   help='For new run or freeze-reviewed: frozen context prompt version; new context runs default to v7')
+    p.add_argument('--registration-policy',choices=['legacy-region-fit',body.POLICY],
+                   help='For new runs: default reference-body-auto-v1; historical runs retain their old policy')
+    p.add_argument('--max-body-calls',type=int,
+                   help='For new runs: maximum one body observation per foreground, default cap 12')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
     p.add_argument('--visual-policy',help='Explicit visual evidence and tolerance JSON, frozen only for a new run')
     p.add_argument('--snapshot');p.add_argument('--snapshot-digest')
@@ -236,14 +293,16 @@ def main():
         if a.config and a.action!='register-materials':p.error('--config is only valid for register-materials')
         if a.action=='register-materials':
             if not a.config:p.error('--config required')
-            from .body_registration import POLICY as BODY_POLICY
-            if read(Path(a.config)).get('registrationPolicy')!=BODY_POLICY:
+            from .body_registration import POLICY as BODY_POLICY, POLICY_SUPPORT
+            if read(Path(a.config)).get('registrationPolicy') not in (BODY_POLICY, POLICY_SUPPORT):
                 raise ValueError('EXPLICIT_BODY_POLICY_REQUIRED')
             with redirect_stdout(sys.stderr):
                 result=register(a.config,a.output,selected=[])
             print(json.dumps(result,ensure_ascii=False,indent=2));return
-        if a.context_prompt_version is not None and a.action!='freeze-reviewed':
-            p.error('--context-prompt-version is only valid for freeze-reviewed')
+        if a.context_prompt_version is not None and a.action not in ('run','freeze-reviewed'):
+            p.error('--context-prompt-version is only valid for run or freeze-reviewed')
+        if (a.registration_policy is not None or a.max_body_calls is not None) and a.action!='run':
+            p.error('--registration-policy and --max-body-calls are only valid for a new run')
         if a.visual_policy and a.action!='run':p.error('--visual-policy is only valid for a new run')
         if a.action=='revise-frozen-crops':
             if not a.planning_run or not a.rejection:p.error('--planning-run and --rejection required')
@@ -346,7 +405,9 @@ def main():
             print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action == 'run':
             if not a.image: p.error('--image required')
-            init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes,a.generation_reference or planning.DEFAULT_GENERATION_REFERENCE,a.visual_policy)
+            init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes,a.generation_reference or planning.DEFAULT_GENERATION_REFERENCE,a.visual_policy,
+                 a.context_prompt_version,a.registration_policy or body.POLICY,
+                 a.max_body_calls if a.max_body_calls is not None else body.DEFAULT_MAX_CALLS)
         if a.planning_notes and a.action!='run':p.error('--planning-notes is only valid for a new run')
         if a.generation_reference is not None and a.action!='run':p.error('--generation-reference is only valid for a new run or freeze-reviewed')
         dag = DeliveryDag(a.output); dag.verify(); job = dag.root/'generation'
@@ -356,10 +417,11 @@ def main():
         else:
             with planning.locked(dag.root):
                 dag.verify()
-                required = {'authorize':['job_digest','approval'], 'next':[],
+                required = {'authorize':['job_digest','approval'], 'authorize-body':['job_digest','approval'], 'next':[],
                             'receive':['submission_digest','source'], 'fail':['submission_digest','reason']}[a.action]
                 if any(not getattr(a,k) for k in required): p.error('missing exchange arguments')
                 if a.action == 'authorize': result = exchange.authorize(job,a.job_digest,a.approval)
+                elif a.action == 'authorize-body': result = body.authorize(dag.root/'body-observation',a.job_digest,a.approval)
                 elif a.action == 'next': result = exchange.next_request(job)
                 elif a.action == 'receive': result = exchange.receive(job,a.submission_digest,a.source)
                 else: result = exchange.fail(job,a.submission_digest,a.reason)

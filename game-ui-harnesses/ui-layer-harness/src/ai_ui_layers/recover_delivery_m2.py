@@ -4,6 +4,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 from . import delivery_dag as delivery
 from . import planning_dag as planning
+from . import body_observation as body
 from .evaluate import read, save, digest
 from .session_review import session_id
 from .codex_call import CLI_MODEL, CLI_EFFORT
@@ -36,8 +37,26 @@ def recover(source, output, reason):
     Draft202012Validator(read(old/'m1/schema.json')).validate(read(old/'m1/draft.json'))
     evidence={p.relative_to(source).as_posix():digest(p) for p in source.rglob('*') if p.is_file() and p.name!='lock'}
     config=read(source/'.dag/config.json')
-    root=delivery.init(source/'.dag/inputs/reference.png',output,source/'.dag/inputs',config['target'],config['maxCalls'])
-    new=planning.init(root/'.dag/inputs/reference.png',root/'planning',config['maxCalls'])
+    generation_mode=config.get('generationMode','single')
+    generation_reference=config.get('generationReference','full')
+    context_version=(config.get('contextPromptVersion','v3')
+                     if generation_reference=='context-crops' else None)
+    if (old_config.get('generationMode','single')!=generation_mode or
+            old_config.get('generationReference','full')!=generation_reference or
+            (generation_reference=='context-crops' and
+             old_config.get('contextPromptVersion','v3')!=context_version)):
+        raise ValueError('RECOVERY_GENERATION_POLICY_MISMATCH')
+    old_inputs=source/'.dag/inputs'
+    notes=old_inputs/'planning-notes.txt' if 'planning-notes.txt' in config['inputs'] else None
+    visual_policy=old_inputs/'visual-policy.json' if 'visual-policy.json' in config['inputs'] else None
+    root=delivery.init(old_inputs/'reference.png',output,old_inputs,config['target'],config['maxCalls'],
+                       generation_mode,notes,generation_reference,visual_policy,context_version,
+                       config.get('registrationPolicy','legacy-region-fit'),
+                       config.get('maximumBodyCalls',body.DEFAULT_MAX_CALLS))
+    new=planning.init(root/'.dag/inputs/reference.png',root/'planning',config['maxCalls'],
+                      generation_mode,root/'.dag/inputs/planning-notes.txt' if notes else None,
+                      generation_reference,root/'.dag/inputs/visual-policy.json' if visual_policy else None,
+                      context_version)
     # Do not silently apply changed prompts/schema to a reused M1 answer.
     current=read(new/'.dag/config.json')
     if current['inputs']!=read(old/'.dag/config.json')['inputs']: raise ValueError('PLANNING_INPUTS_CHANGED')

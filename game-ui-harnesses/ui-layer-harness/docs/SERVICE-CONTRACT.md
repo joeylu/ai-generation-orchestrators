@@ -6,12 +6,30 @@
 不直接调用内部 Python 函数，内部 M1/M2 文件不作为 Web 合同。
 
 可选离线主体定位入口为 `register-materials --config CONFIG.json --output NEW_DIR`。
-配置必须显式选择 `reference-body-v1`，绑定冻结快照和每份前景的原图／生成图主体观察合同；
-具体字段及边界见 [BODY-REGISTRATION.md](BODY-REGISTRATION.md)。素材裁片仅作归属边界和
-输出画布，不再作可见主体缩放目标。证据缺失、比例不符或变换截断非零 alpha 时停止，
+配置必须显式选择 `reference-body-v1` 或 `reference-body-support-v1`，绑定冻结快照和
+每份前景的原图／生成图主体观察合同；具体字段及边界见 [BODY-REGISTRATION.md](BODY-REGISTRATION.md)。
+素材裁片仅作归属边界，不再作可见主体缩放目标；前者沿用裁片画布，后者在原图范围内
+派生保存全部 alpha 支持的画布。证据缺失、比例不符或相应策略的画布截断非零 alpha 时停止，
 不回退旧 contain/frame-bounds，不调用模型或生图。该入口不修改旧作业和质量门；
-输出仍待视觉验收。现有自动 DAG 与未选此策略的历史入口保留近似裁片适配行为，
-不能宣称已有参考主体测量；新的自动主体定位调用尚未实现，需独立冻结预算和授权。
+输出仍待视觉验收。未选此策略的历史入口保留近似裁片适配行为，不能宣称已有参考主体测量。
+新 `run` 的自动主体观察与支持画布策略见 [BODY-REGISTRATION.md](BODY-REGISTRATION.md)：
+真实素材收到后另行冻结摘要和一次调用预算，等待授权再观察，不复用生图或旧作业授权。
+
+新 `context-crops` run 默认冻结 `contextPromptVersion: v7`，可显式传
+`--context-prompt-version v1|v2|v3|v4|v5|v6|v7`；根与嵌套规划版本必须一致。
+`full` 拒绝显式 context 版本；历史配置缺版本仍按 v3 冻结，旧 snapshot 字节不转换，
+`freeze-reviewed`、显式恢复和修订继承原策略。
+
+新交付 run 默认 `registrationPolicy: reference-body-auto-v1`，
+`maximumBodyCalls` 默认 12，可通过新任务参数 `--max-body-calls N` 明确设为 1..128。
+实际每份前景最多 1 次，背景不调用；前景数超过预算在生图 job 创建前停止。
+实际生成、提取、适配、既有视觉审查完成后，`body_prepare` 冻结完整输入，
+状态为 `awaiting_body_authorization`。`authorize-body` 需要 `--job-digest` 和非空 `--approval`，
+只记录已取得的宿主授权，不代替平台的对外发送审批；随后 `resume` 执行 `body_observation`。
+该观察使用一个新的持久 Codex CLI session，后续素材复用同 session，每次核对 thread ID。
+输出 uncertain/not-whole、无效或不确定回执、主体或 alpha 技术检查失败即停止，不重投或修补。
+全部观察成功后配置转为 `reference-body-support-v1`，归位不追加模型调用，包仍为
+`delivered_pending_visual_review`。可在新 run 显式选择 `legacy-region-fit`；不提供自动失败回退。
 
 可选 CLI 适配器的新传输失败响应附加 `failureDetails`；规划 status 可附加
 `modelCallFailures`，按 M1/M2/修补/复审阶段名称索引同一诊断对象。
@@ -352,6 +370,7 @@ Docker/Web 无强制迁移，采用此入口的宿主需展示独立恢复状态
 | status | --output RUN | 读取状态，不推测成功 |
 | resume | --output RUN | 继续尚未执行节点；不自动重试不确定请求 |
 | authorize | --output RUN --job-digest DIGEST --approval TEXT | 记录用户对冻结摘要的真实授权 |
+| authorize-body | --output RUN --job-digest DIGEST --approval TEXT | 记录实际素材主体观察 job 的单次授权，不复用生图摘要 |
 | next | --output RUN | 预留一次请求，返回 asset、submissionDigest、arguments |
 | receive | --output RUN --submission-digest DIGEST --source PNG | 校验并接收真实生图结果 |
 | fail | --output RUN --submission-digest DIGEST --reason TEXT | 记录失败或不确定结果，禁止自动重发 |
@@ -383,6 +402,7 @@ failures、automaticRetries=0、humanVisualAcceptance=false。planning/generatio
 | incomplete | 展示阶段；无运行进程且没有不确定调用时可 resume |
 | frozen | 仅规划目标完成 |
 | awaiting_authorization | 展示 generation.jobDigest 和 maximumCalls，等待用户授权 |
+| awaiting_body_authorization | 展示 bodyObservation.jobDigest、maximumCalls 和冻结输入，取得对应授权后 resume |
 | ready | 可 next 取一份生图请求 |
 | awaiting_result | 已预留请求，等待对应结果；不可重新派发 |
 | raw_complete | 可 resume 进入定位与打包 |

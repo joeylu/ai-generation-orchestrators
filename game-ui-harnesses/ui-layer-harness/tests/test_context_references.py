@@ -339,7 +339,7 @@ class ContextReferencesTests(unittest.TestCase):
         (viewer/'viewer.html').write_text('<html></html>')
         (viewer/'viewer.js').write_text('void 0;')
         self.run=delivery.init(self.run/'m1/reference.png',self.root/'delivery-run',viewer,
-                              max_calls=16,generation_reference='context-crops')
+                              max_calls=16,generation_reference='context-crops',registration_policy='legacy-region-fit')
         self.calls=0
         self.dag=delivery.DeliveryDag(self.run,FakeModel(),sheet_model=lambda folder:
             test_sheet_delivery.SheetDeliveryTests.review(self,folder))

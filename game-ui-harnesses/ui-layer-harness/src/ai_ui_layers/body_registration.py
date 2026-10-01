@@ -4,9 +4,11 @@ import math
 import numpy as np
 from PIL import Image
 from .evaluate import read, save, digest
+from .freeze_visual import body_digest
 from .postprocess_visual import assess
 
 POLICY = 'reference-body-v1'
+POLICY_SUPPORT = 'reference-body-support-v1'
 KIND = 'ui_whole_body_registration_v1'
 
 
@@ -22,7 +24,7 @@ def _box(value, size):
 def checked_inputs(config, placements, foreground_ids):
     """New mode has exact evidence coverage; absence never selects legacy fitting."""
     policy = config.get('registrationPolicy', 'legacy-region-fit')
-    if policy not in ('legacy-region-fit', POLICY):
+    if policy not in ('legacy-region-fit', POLICY, POLICY_SUPPORT):
         raise ValueError('UNKNOWN_REGISTRATION_POLICY')
     entries = config.get('wholePlacements', {})
     if not isinstance(entries, dict):
@@ -46,8 +48,10 @@ def checked_inputs(config, placements, foreground_ids):
     return result
 
 
-def process(source, reference, entry, region, material_id, snapshot_digest, output):
+def process(source, reference, entry, region, material_id, snapshot_digest, output, policy=POLICY):
     """Apply one observed body mapping to every existing RGBA pixel, never repaint."""
+    if policy not in (POLICY, POLICY_SUPPORT):
+        raise ValueError('UNKNOWN_REGISTRATION_POLICY')
     source, reference, output = Path(source), Path(reference), Path(output)
     path = Path(entry['path'])
     contract_sha = digest(path)
@@ -118,20 +122,64 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
     xy=[shift[i]-region[i] for i in (0,1)]
     out_size = [region[2]-region[0], region[3]-region[1]]
     theoretical=[content_box[i]*scale+xy[i%2] for i in range(4)]
-    if theoretical[0]<0 or theoretical[1]<0 or theoretical[2]>out_size[0] or theoretical[3]>out_size[1]:
+    if policy == POLICY and (theoretical[0]<0 or theoretical[1]<0 or theoretical[2]>out_size[0] or theoretical[3]>out_size[1]):
         raise ValueError('BODY_TRANSFORM_WOULD_CLIP_ALPHA')
     # One inverse mapping for both axes: no independent raster-size rounding.
     # Sample beyond the intended canvas to detect interpolation spill before cropping.
     padding=math.ceil(2*scale)+2
-    expanded=[v+2*padding for v in out_size]
+    if policy == POLICY_SUPPORT:
+        # Render the bounded transformed support in reference coordinates.
+        # A guard band detects interpolation spill beyond that support or the reference.
+        absolute=[theoretical[i]+region[i%2] for i in range(4)]
+        if (absolute[0]<0 or absolute[1]<0 or absolute[2]>reference_size[0]
+                or absolute[3]>reference_size[1]):
+            raise ValueError('BODY_TRANSFORM_WOULD_CLIP_REFERENCE')
+        candidate=[min(region[0],math.floor(absolute[0])),
+                   min(region[1],math.floor(absolute[1])),
+                   max(region[2],math.ceil(absolute[2])),
+                   max(region[3],math.ceil(absolute[3]))]
+        expanded=[candidate[2]-candidate[0]+2*padding,
+                  candidate[3]-candidate[1]+2*padding]
+        coefficients=(1/scale,0,(candidate[0]-shift[0]-padding)/scale,
+                      0,1/scale,(candidate[1]-shift[1]-padding)/scale)
+    else:
+        expanded=[v+2*padding for v in out_size]
+        coefficients=(1/scale,0,(-xy[0]-padding)/scale,0,1/scale,(-xy[1]-padding)/scale)
     if expanded[0]*expanded[1]>16_777_216:raise ValueError('BODY_TRANSFORM_PIXEL_LIMIT')
-    coefficients=(1/scale,0,(-xy[0]-padding)/scale,0,1/scale,(-xy[1]-padding)/scale)
     rendered=raw.transform(tuple(expanded),Image.Transform.AFFINE,coefficients,Image.Resampling.BICUBIC)
     visible=rendered.getchannel('A').getbbox()
-    if (visible is None or visible[0]<padding or visible[1]<padding
-            or visible[2]>out_size[0]+padding or visible[3]>out_size[1]+padding):
-        raise ValueError('BODY_TRANSFORM_WOULD_CLIP_ALPHA')
-    canvas=rendered.crop((padding,padding,out_size[0]+padding,out_size[1]+padding))
+    if policy == POLICY_SUPPORT:
+        if visible is None:
+            raise ValueError('BODY_TRANSFORM_WOULD_CLIP_REFERENCE')
+        visible_absolute=[visible[i]+candidate[i%2]-padding for i in range(4)]
+        if (visible_absolute[0]<0 or visible_absolute[1]<0
+                or visible_absolute[2]>reference_size[0]
+                or visible_absolute[3]>reference_size[1]):
+            raise ValueError('BODY_TRANSFORM_WOULD_CLIP_REFERENCE')
+        # Include the complete alpha support and the original ownership area.
+        # The latter remains the authoritative home of the observed target body.
+        layer_region=[min(candidate[0],visible_absolute[0]),
+                      min(candidate[1],visible_absolute[1]),
+                      max(candidate[2],visible_absolute[2]),
+                      max(candidate[3],visible_absolute[3])]
+        if (layer_region[0]<0 or layer_region[1]<0 or layer_region[2]>reference_size[0]
+                or layer_region[3]>reference_size[1]):
+            raise ValueError('BODY_TRANSFORM_WOULD_CLIP_REFERENCE')
+        canvas=rendered.crop((layer_region[0]-candidate[0]+padding,
+                              layer_region[1]-candidate[1]+padding,
+                              layer_region[2]-candidate[0]+padding,
+                              layer_region[3]-candidate[1]+padding))
+        out_size=[layer_region[2]-layer_region[0],layer_region[3]-layer_region[1]]
+        xy=[shift[i]-layer_region[i] for i in (0,1)]
+        theoretical=[content_box[i]*scale+xy[i%2] for i in range(4)]
+        # Express the reported inverse map in the saved PNG's local coordinates.
+        coefficients=(1/scale,0,(-xy[0]-padding)/scale,0,1/scale,(-xy[1]-padding)/scale)
+    else:
+        if (visible is None or visible[0]<padding or visible[1]<padding
+                or visible[2]>out_size[0]+padding or visible[3]>out_size[1]+padding):
+            raise ValueError('BODY_TRANSFORM_WOULD_CLIP_ALPHA')
+        layer_region=region
+        canvas=rendered.crop((padding,padding,out_size[0]+padding,out_size[1]+padding))
     pixels = np.array(canvas)
     pixels[pixels[:,:,3] == 0, :3] = 0
     canvas = Image.fromarray(pixels, 'RGBA')
@@ -148,8 +196,8 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
         placementContractSha256=contract_sha, bodyContract=contract,
         bodyContractSha256=digest(output/'body-contract.json'),
         targetSize=out_size, materialSha256=digest(output/'material.png'),
-        fitting=dict(mode=POLICY, sourceBodyBox=body, targetBodyBox=target,
-                     layerCanvasRegion=region, sourceFullAlphaBox=list(content_box),
+        fitting=dict(mode=policy, sourceBodyBox=body, targetBodyBox=target,
+                     layerCanvasRegion=layer_region, sourceFullAlphaBox=list(content_box),
                      uniformScale=scale, rasterScaleXY=[scale,scale], offsetInRegion=xy,
                      inverseAffine=list(coefficients), samplingPadding=padding,
                      sourceFullAlphaTheoreticalBoxInRegion=theoretical,
@@ -157,5 +205,8 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
                      referenceRegistration='explicit bound visual body observations, not crop fitting',
                      alphaPolicy='preserve all nonzero-alpha support; no threshold clipping; zero hidden RGB'),
         generationCalls=0, modelCalls=0, humanVisualAcceptance=False)
+    if policy == POLICY_SUPPORT:
+        report['fitting']['ownershipRegion']=region
+        report['bodyContractCanonicalDigest']=body_digest(contract)
     save(output/'report.json', report)
     return report

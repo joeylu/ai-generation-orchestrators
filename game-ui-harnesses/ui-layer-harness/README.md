@@ -4,9 +4,11 @@
 本入口从本地实验链路收口，保留旧 `ai-ui-decomposition` / `ai-ui-assets` 命令及行为。
 它不是旧包 0.5.0 的新模式，也不是组件化交付；普通业务文字被移除。
 
-已有主体定位证据时，可用 [`register-materials`](docs/BODY-REGISTRATION.md) 将参考裁片范围
-与可见主体的尺寸／锚点分开；这是显式离线策略，不新增模型调用，也不改写旧冻结作业。
-默认自动归位仍是近似裁片适配，不能视作实测参考主体定位。
+新 `run` 默认以 v7 编译局部参考提示词，并使用 `reference-body-auto-v1`：
+素材接收及既有审查完成后，冻结主体观察请求，取得对应摘要的授权才执行，随后归位并打包。
+主体确定尺寸与锚点，完整 alpha 支持确定 PNG 存储画布；扩展只允许在原图画布内。
+输出仍待视觉验收，不代表生成模型已可靠还原。旧作业不转换，历史缺省仍为近似裁片适配。
+已有主体证据也可用离线 [`register-materials`](docs/BODY-REGISTRATION.md)，无新增模型调用。
 
 ## 目录
 
@@ -69,6 +71,13 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 新任务默认 `sheets`，将兼容的独立素材同板生成后逐份提取，见
 [素材板合同](docs/GENERATION-SHEETS.md)。需要逐素材生成时显式传 `--generation-mode single`。
 新 `run` 默认 `--generation-reference context-crops`，使用有指纹的外扩局部参考和对应生成提示词；背景仍用整图，合板最多四份素材。可显式选择 `full`；旧配置缺省仍解释为 `full`，旧快照和授权不转换，`freeze-reviewed` 缺省继承源模式。见[局部参考合同](docs/CONTEXT-REFERENCES.md)。
+
+新局部参考任务默认 `--context-prompt-version v7`；复杂素材与合板仍使用 v7 的 v6 安全回退。
+可显式选历史版本；`full` 不接受该参数。`--registration-policy legacy-region-fit` 可显式选旧归位策略，
+不允许失败后自动降级。默认 `--max-body-calls 12`，每份前景最多一次观察，超过上限在生图前停止。
+等待主体授权时，状态提供 `bodyObservation.jobDigest`；用
+`authorize-body --output RUN --job-digest DIGEST --approval TEXT` 记录宿主取得的对应授权，
+再 `resume --output RUN`。生图授权不包含这份后来才冻结的观察输入，不得复用其摘要。
 
 新任务可用 `--visual-policy FILE` 明确外观证据与容差：短标签锁定结构、身份、数量、状态、连接及显著外观，`bound-reference` 仅让绑定局部参考承载细微表面。策略可分别选择轻微色差仅记录、孤立柔影可选；实体轮廓、描边、缺件、错归属、比例、裁切和透明度仍须审查。文件随规划、冻结、生成和输出审查绑定，旧任务不转换。详见[显式视觉策略](docs/SERVICE-CONTRACT.md#显式视觉策略)。离线检查不证明真实生图或回拼质量。
 最终图层仍各自独立；旧任务沿用其冻结模式，不因新默认值改变。

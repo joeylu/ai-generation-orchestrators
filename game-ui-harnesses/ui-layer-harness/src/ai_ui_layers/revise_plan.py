@@ -44,10 +44,13 @@ def init(source, output, reason):
     config=read(source/'.dag/config.json')
     policy=planning_policy(source)
     notes=source/'.dag/inputs/planning-notes.txt'
-    options=({'generation_reference':config.get('generationReference','full'),
-              'visual_policy':source/'.dag/inputs'/INPUT_NAME} if policy is not None else {})
+    generation_reference=config.get('generationReference','full')
+    context_version=(config.get('contextPromptVersion','v3')
+                     if generation_reference=='context-crops' else None)
     planning.init(source/'m1/reference.png',output,config['maxCalls'],config.get('generationMode','single'),
-                  notes if notes.exists() else None,**options)
+                  notes if notes.exists() else None,generation_reference,
+                  source/'.dag/inputs'/INPUT_NAME if policy is not None else None,
+                  context_version)
     (output/'m1').mkdir();(output/'parent-review').mkdir()
     for name in ('reference.png','schema.json'):
         (output/'m1'/name).write_bytes((source/'m1'/name).read_bytes())
@@ -79,6 +82,12 @@ def check_inputs(root):
         raise ValueError('REVISION_VISUAL_POLICY_CHANGED')
     if planning_policy(root)!=planning_policy(source):
         raise ValueError('REVISION_VISUAL_POLICY_CHANGED')
+    parent=read(source/'.dag/config.json');child=read(root/'.dag/config.json')
+    if (child.get('generationMode','single')!=parent.get('generationMode','single') or
+            child.get('generationReference','full')!=parent.get('generationReference','full') or
+            (parent.get('generationReference','full')=='context-crops' and
+             child.get('contextPromptVersion','v3')!=parent.get('contextPromptVersion','v3'))):
+        raise ValueError('REVISION_GENERATION_POLICY_CHANGED')
 
 
 def verify_revision(root, allow_issues=False):
@@ -144,12 +153,9 @@ class RevisionDag(planning.Dag):
             self.node('repair_check',lambda:self.repair_check(self.root/'source-plan.json'))
             self.node('rereview',lambda:self.review('rereview',self.root/'repair/candidate.json',
                                                   self.root/'repair/preview/materials-overlay.png'))
-            policy=planning_policy(self.root)
-            if policy is None:
-                self.node('freeze',lambda:freeze(self.root,self.root/'frozen',self.config['maxCalls'],self.config['generationMode']))
-            else:
-                self.node('freeze',lambda:freeze(self.root,self.root/'frozen',self.config['maxCalls'],
-                                                self.config['generationMode'],self.config['generationReference']))
+            self.node('freeze',lambda:freeze(self.root,self.root/'frozen',self.config['maxCalls'],
+                                            self.config['generationMode'],self.config.get('generationReference','full'),
+                                            self.config.get('contextPromptVersion','v3')))
             return {'status':'frozen','snapshotDigest':read(self.root/'frozen/snapshot.json')['digest'],
                     'mediaGenerationCalls':0,'automaticRetry':False,'humanVisualAcceptance':False}
 

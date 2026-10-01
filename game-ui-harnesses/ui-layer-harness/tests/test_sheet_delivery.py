@@ -130,7 +130,8 @@ class SheetDeliveryTests(unittest.TestCase):
         (viewer/'viewer.html').write_text('<html></html>');(viewer/'viewer.js').write_text('void 0;')
         # This fixture covers historical full-reference templates and explicit
         # prompt variants; context snapshots intentionally reject overrides.
-        self.run=delivery.init(image,self.root/'run',viewer,max_calls=4,generation_reference='full')
+        self.run=delivery.init(image,self.root/'run',viewer,max_calls=4,generation_reference='full',
+                               registration_policy='legacy-region-fit')
         self.calls=0
         self.dag=delivery.DeliveryDag(self.run,FakeModel(),sheet_model=self.review)
         self.dag.execute();self.job=self.run/'generation'
@@ -214,7 +215,8 @@ class SheetDeliveryTests(unittest.TestCase):
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(__import__('json').dumps(receipt),encoding='utf-8')
         image=self.root/'reference.png';viewer=self.root/'viewer'
-        run=delivery.init(image,self.root/'frame-run',viewer,max_calls=4,generation_mode='sheets')
+        run=delivery.init(image,self.root/'frame-run',viewer,max_calls=4,generation_mode='sheets',
+                          registration_policy='legacy-region-fit')
         seen=[]
         def review(folder):
             request=read(folder/'request.json')

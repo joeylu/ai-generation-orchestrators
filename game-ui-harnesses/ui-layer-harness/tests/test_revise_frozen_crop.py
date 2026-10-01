@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw
 from jsonschema import ValidationError
 
 from ai_ui_layers.compile_visual import verify_run
-from ai_ui_layers import delivery_dag, planning_dag, revise_frozen_crop
+from ai_ui_layers import delivery_dag, revise_frozen_crop
 from ai_ui_layers.evaluate import digest, read, save
 from ai_ui_layers.execution_preflight import preflight
 from ai_ui_layers.freeze_visual import freeze
@@ -139,6 +139,34 @@ class FrozenCropRevisionTests(unittest.TestCase):
         self.assertEqual(fingerprints(self.parent), self.parent_files)
         self.assertFalse(result.get('humanVisualAcceptance', False))
 
+    def test_full_reference_parent_crop_revision_freezes_with_bound_internal_v3(self):
+        source=self.base/'source.png'
+        full_parent=planning_init(source,self.base/'full-parent',12,
+                                  generation_mode='sheets',generation_reference='full')
+        full_result=Dag(full_parent,FakeModel()).execute()
+        self.assertEqual(full_result['status'],'frozen')
+        self.parent,self.parent_result=full_parent,full_result
+        self.parent_files=fingerprints(full_parent)
+        self.write_rejection([dict(materialId=OWNER,
+                                   sourceEvidence='Fixture pixel at x=750 lies beyond the half-open crop.')])
+        root=self.child('full-child')
+        config=read(root/'.dag/config.json')
+        self.assertEqual(config['generationReference'],'full')
+        self.assertEqual(config['contextPromptVersion'],'v3')
+        self.assertEqual(read(root/'revision.json')['contextPromptVersion'],'v3')
+        result=FrozenCropDag(root,self.model()).execute()
+        self.assertEqual(result['status'],'frozen')
+        self.assertEqual(self.calls,[('repair',None,True),('rereview',CHILD_SID,False)])
+        snapshot=read(root/'frozen/snapshot.json')
+        self.assertNotIn('generationReference',snapshot)
+        self.assertNotIn('contextPromptVersion',snapshot)
+        self.assertEqual(preflight(root/'frozen',result['snapshotDigest'])['inputChecks'],'passed')
+        self.assertEqual(fingerprints(full_parent),self.parent_files)
+        rejected=self.base/'full-explicit-context'
+        with self.assertRaisesRegex(ValueError,'CONTEXT_PROMPT_REQUIRES_CONTEXT_CROPS'):
+            planning_init(source,rejected,12,generation_reference='full',context_prompt_version='v3')
+        self.assertFalse(rejected.exists())
+
     def test_rejection_requires_unique_existing_foreground_with_evidence(self):
         cases = dict(empty=[], foreign=[dict(materialId='not-in-plan', sourceEvidence='Visible edge.')],
                      background=[dict(materialId='asset-scene', sourceEvidence='Visible edge.')],
@@ -258,15 +286,12 @@ class FrozenCropRevisionTests(unittest.TestCase):
         self.assertEqual(fingerprints(self.parent), self.parent_files)
 
     def test_legacy_context_prompt_version_is_inherited_and_cannot_be_overridden(self):
-        actual_freeze = planning_dag.freeze
         for version in ('v1', 'v2'):
             with self.subTest(version=version):
                 parent = planning_init(self.base/'source.png', self.base/('parent-'+version),
-                    12, generation_mode='sheets', generation_reference='context-crops')
-                def legacy_freeze(*args, **kwargs):
-                    return actual_freeze(*args, **kwargs, context_prompt_version=version)
-                with mock_patch.object(planning_dag, 'freeze', legacy_freeze):
-                    result = Dag(parent, FakeModel()).execute()
+                    12, generation_mode='sheets', generation_reference='context-crops',
+                    context_prompt_version=version)
+                result = Dag(parent, FakeModel()).execute()
                 self.parent, self.parent_result = parent, result
                 self.parent_files = fingerprints(parent)
                 self.write_rejection([dict(materialId=OWNER, sourceEvidence='Excluded fixture pixel.')])
@@ -307,7 +332,8 @@ class FrozenCropRevisionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'REVISION_STAGES_INCOMPLETE'):
             verify_revision(root)
         with self.assertRaisesRegex(ValueError, 'REVISION_STAGES_INCOMPLETE'):
-            freeze(root, self.base/'direct-freeze', 12, 'sheets', 'context-crops')
+            freeze(root, self.base/'direct-freeze', 12, 'sheets', 'context-crops',
+                   context_prompt_version=read(root/'.dag/config.json')['contextPromptVersion'])
         self.assertFalse((self.base/'direct-freeze').exists())
         self.assertEqual(len(self.calls), 2)
 
@@ -324,14 +350,16 @@ class FrozenCropRevisionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify_revision(root)
         with self.assertRaises(ValueError):
-            freeze(root, self.base/'scope-direct-freeze', 12, 'sheets', 'context-crops')
+            freeze(root, self.base/'scope-direct-freeze', 12, 'sheets', 'context-crops',
+                   context_prompt_version=read(root/'.dag/config.json')['contextPromptVersion'])
         (root/'repair/draft.json').write_text(json.dumps(original_patch), encoding='utf-8')
         receipt['responseSha256'] = '0'*64
         (root/'repair/transport.json').write_text(json.dumps(receipt), encoding='utf-8')
         with self.assertRaises(ValueError):
             verify_revision(root)
         with self.assertRaises(ValueError):
-            freeze(root, self.base/'receipt-direct-freeze', 12, 'sheets', 'context-crops')
+            freeze(root, self.base/'receipt-direct-freeze', 12, 'sheets', 'context-crops',
+                   context_prompt_version=read(root/'.dag/config.json')['contextPromptVersion'])
         self.assertEqual(len(self.calls), 2)
 
 

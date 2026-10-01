@@ -1,5 +1,63 @@
 # Separate crop geometry from visible body registration
 
+## New-run automatic route
+
+New delivery `run` defaults to `reference-body-auto-v1`; new local-reference
+planning defaults to frozen v7 prompts. Generation remains an explicit serial
+host exchange. Body observations are a separate post-generation compute scope:
+the actual original, generated PNGs, full-reference and material-crop attachments,
+prompts, schema, mappings, model and per-material budget are frozen before calls.
+The configured body cap defaults to 12 (explicit `--max-body-calls N`, 1..128).
+Each foreground requires at most one observation, with no background call.
+The foreground count is checked before preparing the image job, so insufficient
+budget cannot spend image compute first.
+
+After extraction/adaptation and existing material reviews, `body_prepare` creates
+this immutable observation job. Status exposes `awaiting_body_authorization` and
+`bodyObservation.jobDigest`. The host must obtain applicable explicit authorization
+for these exact inputs, CLI destination, maximum calls and stopping conditions;
+an image-generation approval does not authorize this later job. Record it using:
+
+```
+python game-ui-harnesses/ui-layer-harness/ui_layer.py authorize-body --output RUN --job-digest DIGEST --approval TEXT
+python game-ui-harnesses/ui-layer-harness/ui_layer.py resume --output RUN
+```
+
+The first observation opens a new persistent Codex CLI session; subsequent
+foreground observations resume it and verify the same session ID. Existing tool
+isolation remains enabled. Each attempt is reserved before invocation. Invalid,
+uncertain, not-whole or changed evidence and technical body/alpha failures stop
+before the next call. Interrupted or failed jobs cannot be resubmitted. Observed
+boxes are mapped back to original source coordinates and frozen as typed body
+contracts; they are observer assertions, not proof of visual fidelity.
+
+Successful observations feed `reference-body-support-v1` registration with zero
+additional localization calls. The original material region retains ownership:
+the target body must remain inside it, and the generated body must include all
+alpha>=128 artwork. One uniform transform preserves internal details and holes.
+The independent PNG storage canvas is the union of this ownership region, the
+transformed full nonzero-alpha bounds and actual interpolation support. Thus a
+faint edge or remote alpha island does not enlarge the body or get discarded.
+This canvas may extend within the frozen original screenshot only; theoretical
+or actual support beyond the reference canvas still blocks. No threshold cleanup,
+automatic crop revision, stretching or fallback is introduced. Resampling can
+quantize very small alpha to zero; no alpha threshold deliberately removes it.
+
+The preview reports both ownership and derived canvas. Packaging obtains PNG
+dimensions/coordinates from fingerprinted, scoped registration and preview
+reports, validates the source support and output support, and recomposes the exact
+PNG pixels. Variant replay applies the same policy and derived geometry. Output
+is still `delivered_pending_visual_review`, with `humanVisualAcceptance: false`.
+Wholly translucent, ambiguous/occluded or independently anchored multipart
+subjects can block this route; they are not silently sent to legacy fitting.
+
+Only new runs select this default. `--registration-policy legacy-region-fit`
+explicitly requests the historical route; missing historical policy fields retain
+it. Existing jobs, authorizations and failed states are never converted. The
+offline `reference-body-v1` route below retains its fixed-canvas behavior.
+
+## Historical offline policy
+
 `reference-body-v1` is an explicit offline registration policy. It applies one
 uniform scale and translation to a whole generated RGBA material. It does not
 infer source-image segmentation, generate artwork, call a model, accept visual
@@ -13,10 +71,9 @@ space, glow and shadow. They are not measured visible body bounds. Expanded
 output dimensions. `reference-body-v1` uses the planning crop only as the final
 layer canvas and ownership limit. It never fits the visible body to that crop.
 
-The existing default whole-material fit remains an approximate legacy path.
-This new policy is opt-in, not yet an automatic reference-body measurement
-service. A future automatic measurement call needs its own frozen inputs,
-budget and applicable authorization; none is silently added here.
+Historical whole-material fitting remains an approximate legacy path. This
+offline policy is opt-in and model-free. Automatic observations are supplied
+only by the separately authorized new-run route above.
 
 ## Offline callable route
 

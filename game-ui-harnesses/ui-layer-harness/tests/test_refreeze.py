@@ -16,6 +16,12 @@ class RefreezeTests(unittest.TestCase):
         self.root=Path(tmp.name)
         image=self.root/'reference.png';Image.new('RGB',(1000,1000)).save(image)
         self.run=init(image,self.root/'run',1,generation_mode='sheets')
+        # These inherited fixtures model a pre-version-field planning run.
+        # New-run defaults are covered separately in test_run_prompt_version.
+        path=self.run/'.dag/config.json';config=read(path)
+        config.pop('contextPromptVersion',None)
+        path.write_text(json.dumps(config),encoding='utf-8')
+        (self.run/'.dag/config-digest.json').write_text(json.dumps({'sha256':digest(path)}),encoding='utf-8')
         self.model=FakeModel()
         with self.assertRaisesRegex(ValueError,'CALL_LIMIT_EXCEEDED'):
             Dag(self.run,self.model).execute()

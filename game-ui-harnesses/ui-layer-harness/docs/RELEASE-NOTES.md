@@ -1,5 +1,24 @@
 # Release notes
 
+## Unreleased new-run automatic body registration
+
+- New context-reference runs freeze v7 prompts by default, with an explicit
+  version option on `run`; historical missing fields retain v3. Nested planning,
+  recovery, revision and freeze keep the bound version. Full-reference runs
+  reject explicit context versions.
+- New delivery runs default to `reference-body-auto-v1`. Before generation,
+  the foreground count must fit the frozen body-call cap (default 12). Actual
+  received sources are then frozen into a separate observation job; it waits
+  for its own single-use digest authorization. One new persistent Codex session
+  observes each foreground once. Uncertainty or failure stops without retry.
+- Observed bodies determine one uniform placement; `reference-body-support-v1`
+  preserves complete alpha support in a derived PNG canvas within the original
+  reference canvas. Ownership and body coordinates stay frozen. Package and
+  received-variant replay derive geometry from bound reports, never bare overrides.
+- Existing raw/visual gates, planning sessions, media authorization and historical
+  `reference-body-v1` clipping behavior remain. No old failed job is promoted;
+  offline test doubles prove routing, not real generated visual fidelity.
+
 ## Unreleased explicit whole-material body registration
 
 - `register-materials` adds the opt-in offline `reference-body-v1` route. Bound
@@ -19,7 +38,8 @@
   one unambiguous whole owned object, retaining reviewed labels, explicit text
   exceptions, overlay continuation, underlay removal and transparency constraints.
 - Layout-sensitive or ambiguous materials and sheets keep exact v6 instructions;
-  default v3, historical versions, crop geometry, grouping and quality gates remain.
+  direct historical freeze default v3, historical versions, crop geometry,
+  grouping and quality gates remain; new runs use v7 as described above.
   This adds no model call, authorization reuse or visual acceptance, and does not
   change old frozen jobs. Real generation fidelity requires separate verification.
 

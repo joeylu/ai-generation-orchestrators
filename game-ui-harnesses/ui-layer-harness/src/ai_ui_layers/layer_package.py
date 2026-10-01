@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import zipfile
@@ -9,9 +10,69 @@ from PIL import Image,ImageChops
 from jsonschema import Draft202012Validator
 from .compile_visual import HARNESS
 from .evaluate import read,save,digest
-from .freeze_visual import inspect
+from .freeze_visual import inspect, body_digest
+from .body_registration import POLICY_SUPPORT
 
 SCHEMA=HARNESS/'planning-harness/schemas/layer-composition.schema.json'
+
+
+def support_canvas_region(report, placement, snapshot_digest, material_id, reference_sha, reference_size):
+    """Read support geometry only from a scoped body result, never a source override."""
+    fitting=report.get('fitting',{})
+    if fitting.get('mode')!=POLICY_SUPPORT:
+        raise ValueError('SUPPORT_POLICY_REQUIRED')
+    if (report.get('snapshotDigest')!=snapshot_digest or report.get('materialId')!=material_id
+            or report.get('referenceSha256')!=reference_sha):
+        raise ValueError('SUPPORT_REPORT_SCOPE_MISMATCH')
+    owner=placement['sourceRegion'];region=fitting.get('layerCanvasRegion')
+    if fitting.get('ownershipRegion')!=owner or placement['xy']!=owner[:2]:
+        raise ValueError('SUPPORT_OWNERSHIP_MISMATCH')
+    if (not isinstance(region,list) or len(region)!=4 or any(type(v) is not int for v in region)):
+        raise ValueError('SUPPORT_CANVAS_REGION_INVALID')
+    l,t,r,b=region
+    if (not 0<=l<=owner[0]<owner[2]<=r<=reference_size[0]
+            or not 0<=t<=owner[1]<owner[3]<=b<=reference_size[1]):
+        raise ValueError('SUPPORT_CANVAS_OUTSIDE_REFERENCE')
+    if report.get('targetSize')!=[r-l,b-t]:
+        raise ValueError('SUPPORT_CANVAS_SIZE_MISMATCH')
+    body=fitting.get('targetBodyBox')
+    if (not isinstance(body,list) or len(body)!=4 or any(type(v) is not int for v in body)
+            or not owner[0]<=body[0]<body[2]<=owner[2]
+            or not owner[1]<=body[1]<body[3]<=owner[3]):
+        raise ValueError('SUPPORT_TARGET_BODY_OUTSIDE_OWNER')
+    contract=report.get('bodyContract',{})
+    if (contract.get('snapshotDigest')!=snapshot_digest or contract.get('materialId')!=material_id
+            or contract.get('referenceSha256')!=reference_sha
+            or contract.get('sourceSha256')!=report.get('sourceSha256')
+            or contract.get('targetBodyBox')!=body
+            or body_digest(contract)!=report.get('bodyContractCanonicalDigest')):
+        raise ValueError('SUPPORT_CONTRACT_SCOPE_MISMATCH')
+    source_body=fitting.get('sourceBodyBox')
+    full_alpha=fitting.get('sourceFullAlphaBox')
+    alpha_box=fitting.get('transformedAlphaBox')
+    if (contract.get('sourceBodyBox')!=source_body or
+            any(not isinstance(box,list) or len(box)!=4 or any(type(v) is not int for v in box)
+                for box in (source_body,full_alpha,alpha_box))):
+        raise ValueError('SUPPORT_GEOMETRY_INVALID')
+    scale=fitting.get('uniformScale')
+    if type(scale) not in (int,float) or not math.isfinite(scale) or scale<=0:
+        raise ValueError('SUPPORT_GEOMETRY_INVALID')
+    bw,bh=source_body[2]-source_body[0],source_body[3]-source_body[1]
+    if bw<=0 or bh<=0 or scale!=min((body[2]-body[0])/bw,(body[3]-body[1])/bh):
+        raise ValueError('SUPPORT_GEOMETRY_INVALID')
+    shift=[(body[i]+body[i+2])/2-((source_body[i]+source_body[i+2])/2)*scale
+           for i in (0,1)]
+    relative=[shift[i]-owner[i] for i in (0,1)]
+    theoretical=[full_alpha[i]*scale+relative[i%2]+owner[i%2] for i in range(4)]
+    absolute_alpha=[alpha_box[i]+region[i%2] for i in range(4)]
+    expected=[min(owner[0],math.floor(theoretical[0]),absolute_alpha[0]),
+              min(owner[1],math.floor(theoretical[1]),absolute_alpha[1]),
+              max(owner[2],math.ceil(theoretical[2]),absolute_alpha[2]),
+              max(owner[3],math.ceil(theoretical[3]),absolute_alpha[3])]
+    if region!=expected or any(not 0<=alpha_box[i]<alpha_box[i+2]<=report['targetSize'][i]
+                               for i in (0,1)):
+        raise ValueError('SUPPORT_GEOMETRY_MISMATCH')
+    return region
 
 
 def portable_text(value):
@@ -69,7 +130,10 @@ def sources_from_preview(snapshot, preview, warnings=()):
     snapshot=Path(snapshot).resolve();preview=Path(preview).resolve()
     frozen=inspect(snapshot);report=read(preview/'report.json')
     if report['snapshotDigest']!=frozen['digest']:raise ValueError('PREVIEW_SNAPSHOT_MISMATCH')
-    known={p['id'] for p in read(snapshot/'placements.json')['materials']};sources={}
+    placements={p['id']:p for p in read(snapshot/'placements.json')['materials']}
+    known=set(placements);sources={}
+    reference_sha=digest(snapshot/'reference.png')
+    with Image.open(snapshot/'reference.png') as im:reference_size=im.size
     for row in report['records']:
         key=row['id']
         if key not in known or key in sources:raise ValueError('PREVIEW_LAYER_SET')
@@ -77,7 +141,31 @@ def sources_from_preview(snapshot, preview, warnings=()):
         if not path.is_relative_to(preview):raise ValueError('PREVIEW_PATH')
         if row['report']['status']!='processed_pending_visual_review':raise ValueError('PREVIEW_BLOCKED')
         if digest(path)!=row['report']['materialSha256']:raise ValueError('PREVIEW_MATERIAL_CHANGED')
-        sources[key]=dict(path=str(path),sha256=digest(path))
+        value=dict(path=str(path),sha256=digest(path))
+        if row['report'].get('fitting',{}).get('mode')==POLICY_SUPPORT:
+            if report.get('registrationPolicy')!=POLICY_SUPPORT:
+                raise ValueError('SUPPORT_PREVIEW_POLICY_MISMATCH')
+            if read(preview/key/'report.json')!=row['report']:
+                raise ValueError('SUPPORT_PREVIEW_REPORT_MISMATCH')
+            if row['xy']!=placements[key]['xy'] or digest(Path(row['source']))!=row['sourceSha256']:
+                raise ValueError('SUPPORT_PREVIEW_SOURCE_CHANGED')
+            if row['report'].get('sourceSha256')!=row['sourceSha256']:
+                raise ValueError('SUPPORT_REPORT_SCOPE_MISMATCH')
+            region=support_canvas_region(row['report'],placements[key],frozen['digest'],key,
+                                         reference_sha,reference_size)
+            with Image.open(row['source']) as raw:
+                if list(raw.convert('RGBA').getchannel('A').getbbox())!=row['report']['fitting']['sourceFullAlphaBox']:
+                    raise ValueError('SUPPORT_SOURCE_ALPHA_MISMATCH')
+            with Image.open(path) as im:
+                if (im.size!=(region[2]-region[0],region[3]-region[1])
+                        or list(im.convert('RGBA').getchannel('A').getbbox())!=
+                           row['report']['fitting']['transformedAlphaBox']):
+                    raise ValueError('SUPPORT_PNG_GEOMETRY')
+            value.update(reportPath=str((preview/key/'report.json').resolve()),
+                         reportSha256=digest(preview/key/'report.json'),
+                         previewReportPath=str((preview/'report.json').resolve()),
+                         previewReportSha256=digest(preview/'report.json'))
+        sources[key]=value
     if set(sources)!=known:raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
     issues=['该回拼尚待视觉验收；自动处理成功不代表与参考图完全一致。']
     for warning in warnings:
@@ -110,8 +198,47 @@ def build(snapshot, sources_path, output, viewer):
     layers=[]
     for i,p in enumerate(placements):
         m=materials[p['id']]
+        source=sources[p['id']]
+        region=p['sourceRegion']
+        if any(k in source for k in ('reportPath','reportSha256','previewReportPath','previewReportSha256')):
+            report_path=Path(source['reportPath']).resolve()
+            if report_path!=Path(source['path']).resolve().parent/'report.json':
+                raise ValueError('SUPPORT_REPORT_PATH')
+            preview_report_path=Path(source['previewReportPath']).resolve()
+            if preview_report_path!=report_path.parent.parent/'report.json':
+                raise ValueError('SUPPORT_PREVIEW_REPORT_PATH')
+            if digest(preview_report_path)!=source['previewReportSha256']:
+                raise ValueError('SUPPORT_PREVIEW_REPORT_CHANGED')
+            preview_report=read(preview_report_path)
+            if (preview_report.get('snapshotDigest')!=frozen['digest']
+                    or preview_report.get('registrationPolicy')!=POLICY_SUPPORT):
+                raise ValueError('SUPPORT_PREVIEW_POLICY_MISMATCH')
+            if digest(report_path)!=source['reportSha256']:
+                raise ValueError('SUPPORT_REPORT_CHANGED')
+            report=read(report_path)
+            matching=[row for row in preview_report['records'] if row['id']==p['id']]
+            if len(matching)!=1 or matching[0]['report']!=report or matching[0]['xy']!=p['xy']:
+                raise ValueError('SUPPORT_PREVIEW_REPORT_MISMATCH')
+            if (digest(Path(matching[0]['source']))!=matching[0]['sourceSha256']
+                    or matching[0]['sourceSha256']!=report.get('sourceSha256')):
+                raise ValueError('SUPPORT_PREVIEW_SOURCE_CHANGED')
+            if report.get('materialSha256')!=source['sha256']:
+                raise ValueError('SUPPORT_REPORT_MATERIAL_MISMATCH')
+            region=support_canvas_region(report,p,frozen['digest'],p['id'],
+                                         digest(snapshot/'reference.png'),(width,height))
+            with Image.open(matching[0]['source']) as raw:
+                if list(raw.convert('RGBA').getchannel('A').getbbox())!=report['fitting']['sourceFullAlphaBox']:
+                    raise ValueError('SUPPORT_SOURCE_ALPHA_MISMATCH')
+            with Image.open(source['path']) as im:
+                if (im.size!=(region[2]-region[0],region[3]-region[1])
+                        or list(im.convert('RGBA').getchannel('A').getbbox())!=
+                           report['fitting']['transformedAlphaBox']):
+                    raise ValueError('SUPPORT_PNG_GEOMETRY')
         layers.append(dict(id=m['id'],name=m['label'],role=m['role'],path=f'layers/layer-{i+1:03}.png',
-                           x=p['xy'][0],y=p['xy'][1],width=p['outputSize'][0],height=p['outputSize'][1],visible=True))
+                           x=region[0] if 'reportPath' in source else p['xy'][0],
+                           y=region[1] if 'reportPath' in source else p['xy'][1],
+                           width=region[2]-region[0] if 'reportPath' in source else p['outputSize'][0],
+                           height=region[3]-region[1] if 'reportPath' in source else p['outputSize'][1],visible=True))
     composition=dict(kind='ui_layer_composition_v1',canvas=dict(width=width,height=height),coordinates='top-left-pixels',
                      order='array-back-to-front',textPolicy=visual['textPolicy'],backgroundMode=visual['backgroundMode'],
                      reference='reference.png',preview='preview.png',layers=layers)

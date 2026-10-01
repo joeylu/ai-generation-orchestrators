@@ -15,7 +15,8 @@ from .sheet_pixels import prepare
 from .adapt_strip import adapt as adapt_strip
 from .adapt_frame import adapt as adapt_frame
 from .postprocess_visual import process
-from .layer_package import write_package, check_composition
+from .layer_package import write_package, check_composition, support_canvas_region
+from .body_registration import POLICY, POLICY_SUPPORT
 
 
 def received(job, key, reference_sha):
@@ -52,7 +53,7 @@ def replay(entry, row, placement, role, reference_sha, output):
         source=output/'adaptation/adapted.png';lineage['adaptation']=report
     if digest(source)!=row['sourceSha256']:raise ValueError('DERIVATION_REPLAY_MISMATCH')
     fitting_mode=row['report'].get('fitting',{}).get('mode')
-    if fitting_mode=='reference-body-v1':
+    if fitting_mode in (POLICY, POLICY_SUPPORT):
         from .body_registration import process as process_body
         from .evaluate import save
         contract_path=output/'body-contract.json'
@@ -61,12 +62,15 @@ def replay(entry, row, placement, role, reference_sha, output):
             raise ValueError('BODY_CONTRACT_REPLAY_MISMATCH')
         result=process_body(source,job/'snapshot/reference.png',
             dict(path=str(contract_path),sha256=digest(contract_path)),placement['sourceRegion'],
-            row['id'],row['report']['snapshotDigest'],output/'processed')
+            row['id'],row['report']['snapshotDigest'],output/'processed',policy=fitting_mode)
     else:
         mode='frame-bounds' if fitting_mode=='frame-bounds' else 'contain'
         result=process(source,placement['outputSize'],output/'processed',background=role=='background',fit_mode=mode)
     if result['status']!='processed_pending_visual_review':raise ValueError('MATERIAL_GATE_FAILED')
     if result['materialSha256']!=row['report']['materialSha256']:raise ValueError('MATERIAL_REPLAY_MISMATCH')
+    if fitting_mode==POLICY_SUPPORT and (result['fitting']!=row['report']['fitting']
+            or result['targetSize']!=row['report']['targetSize']):
+        raise ValueError('SUPPORT_GEOMETRY_REPLAY_MISMATCH')
     lineage['processing']=result
     return output/'processed/material.png',lineage
 
@@ -120,7 +124,10 @@ def build_selection(spec_path, output, viewer, acceptance=None):
             if visual['textPolicy']!=spec['textPolicy'] or visual['backgroundMode']!=spec['backgroundMode']:
                 raise ValueError('POLICY_MISMATCH')
             material=next(m for m in visual['materials'] if m['id']==mid)
-            if row['report'].get('fitting',{}).get('mode')=='reference-body-v1':
+            fitting_mode=row['report'].get('fitting',{}).get('mode')
+            if fitting_mode==POLICY_SUPPORT and report.get('registrationPolicy')!=POLICY_SUPPORT:
+                raise ValueError('SUPPORT_PREVIEW_POLICY_MISMATCH')
+            if fitting_mode in (POLICY, POLICY_SUPPORT):
                 if row['report'].get('snapshotDigest')!=frozen['digest'] or row['report'].get('materialId')!=mid:
                     raise ValueError('BODY_PREVIEW_SCOPE_MISMATCH')
             path=preview/mid/'material.png'
@@ -128,8 +135,12 @@ def build_selection(spec_path, output, viewer, acceptance=None):
                 raise ValueError('PREVIEW_MATERIAL_CHANGED')
             replayed,evidence=replay(entry,row,placement,material['role'],reference_sha,Path(tmp)/str(i))
             sources[mid]=dict(path=str(replayed),sha256=digest(replayed))
+            region=(support_canvas_region(row['report'],placement,frozen['digest'],mid,
+                                          reference_sha,(width,height)) if fitting_mode==POLICY_SUPPORT else None)
             layers.append(dict(id=mid,name=material['label'],role=material['role'],path=f'layers/layer-{i+1:03}.png',
-                x=row['xy'][0],y=row['xy'][1],width=placement['outputSize'][0],height=placement['outputSize'][1],visible=True))
+                x=region[0] if region else row['xy'][0],y=region[1] if region else row['xy'][1],
+                width=region[2]-region[0] if region else placement['outputSize'][0],
+                height=region[3]-region[1] if region else placement['outputSize'][1],visible=True))
             lineage.append(dict(materialId=mid,targetSnapshotDigest=frozen['digest'],**evidence))
             bound.update({str(path):digest(path),str(report_path):digest(report_path)})
         composition=dict(kind='ui_layer_composition_v1',canvas=dict(width=width,height=height),coordinates='top-left-pixels',

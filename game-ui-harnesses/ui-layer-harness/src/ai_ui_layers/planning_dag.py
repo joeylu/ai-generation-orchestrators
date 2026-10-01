@@ -26,6 +26,9 @@ BASE=HARNESS/'planning-harness'
 REPO=Path(__file__).resolve().parents[4]
 DEFAULT_GENERATION_MODE='sheets'
 DEFAULT_GENERATION_REFERENCE='context-crops'
+DEFAULT_CONTEXT_PROMPT_VERSION='v7'
+LEGACY_CONTEXT_PROMPT_VERSION='v3'
+CONTEXT_PROMPT_VERSIONS=('v1','v2','v3','v4','v5','v6','v7')
 GRAPH={'m1':[], 'check':['m1'], 'm2':['check'], 'repair':['m2'],
        'repair_check':['repair'], 'rereview':['repair_check'],
        'repair2':['rereview'], 'repair_check2':['repair2'], 'rereview2':['repair_check2'],
@@ -122,9 +125,16 @@ def read_notes(path):
     return data
 
 
-def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=DEFAULT_GENERATION_REFERENCE, visual_policy=None):
+def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=DEFAULT_GENERATION_REFERENCE, visual_policy=None, context_prompt_version=None):
     from .context_references import validate_mode
     validate_mode(generation_reference)
+    if generation_reference!='context-crops' and context_prompt_version is not None:
+        raise ValueError('CONTEXT_PROMPT_REQUIRES_CONTEXT_CROPS')
+    if generation_reference=='context-crops':
+        context_prompt_version=(DEFAULT_CONTEXT_PROMPT_VERSION if context_prompt_version is None
+                                else context_prompt_version)
+        if context_prompt_version not in CONTEXT_PROMPT_VERSIONS:
+            raise ValueError('CONTEXT_PROMPT_VERSION')
     policy_bytes=load_input(visual_policy)
     if policy_bytes is not None:
         policy=json.loads(policy_bytes.decode('utf-8-sig'))
@@ -145,6 +155,7 @@ def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, pl
     if policy_bytes is not None:(inputs/INPUT_NAME).write_bytes(policy_bytes)
     save(root/'.dag/config.json',{'kind':'ui_planning_dag_v1','runtime':runtime_files(),
          'inputs':{p.name:digest(p) for p in inputs.iterdir()},'maxCalls':max_calls,'generationMode':generation_mode,'generationReference':generation_reference,
+         **({'contextPromptVersion':context_prompt_version} if context_prompt_version is not None else {}),
          'model':CLI_MODEL,'effort':CLI_EFFORT,'graph':GRAPH,'maximumRepairs':2,'mediaGenerationCalls':0})
     save(root/'.dag/config-digest.json',{'sha256':digest(root/'.dag/config.json')})
     return root
@@ -167,8 +178,30 @@ class Dag:
         if digest(self.root/'.dag/config.json')!=read(self.root/'.dag/config-digest.json')['sha256']:
             raise ValueError('CONFIG_CHANGED')
         if self.config['runtime']!=runtime_files():raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
+        version=self.config.get('contextPromptVersion')
+        reference=self.config.get('generationReference','full')
+        if version is not None:
+            if version not in CONTEXT_PROMPT_VERSIONS:raise ValueError('CONTEXT_PROMPT_VERSION')
+            if reference!='context-crops':
+                # Earlier frozen-crop revisions pin a redundant v3 on full-reference
+                # children. Accept it only with that revision's bound internal record.
+                revision_path=self.root/'revision.json'
+                internal_full_crop=False
+                if reference=='full' and version=='v3' and revision_path.is_file():
+                    revision=read(revision_path)
+                    if digest(revision_path)!=read(self.root/'revision-digest.json')['sha256']:
+                        raise ValueError('REVISION_CHANGED')
+                    internal_full_crop=(revision.get('kind')=='ui_rejected_frozen_crop_revision_v1'
+                                        and revision.get('contextPromptVersion')=='v3')
+                if not internal_full_crop:raise ValueError('CONTEXT_PROMPT_REQUIRES_CONTEXT_CROPS')
         for name,value in self.config['inputs'].items():
             if digest(self.inputs/name)!=value:raise ValueError('INPUT_CHANGED')
+        if version is not None and reference=='context-crops' and (self.root/'frozen/snapshot.json').is_file():
+            frozen=inspect(self.root/'frozen')
+            compiled=read(self.root/'frozen/compile-report.json')
+            if (frozen.get('contextPromptVersion','v1')!=version or
+                    compiled.get('contextPromptVersion','v1')!=version):
+                raise ValueError('FROZEN_CONTEXT_PROMPT_VERSION_MISMATCH')
         planning_policy(self.root)
         for done in (self.root/'.dag').glob('*/done.json'):
             for name,value in read(done)['outputs'].items():
@@ -442,7 +475,9 @@ class Dag:
                     self.node('repair2',lambda:self.repair(self.root/'repair/candidate.json',self.root/'rereview','repair2'))
                     self.node('repair_check2',lambda:self.repair_check(self.root/'repair/candidate.json','repair2'))
                     self.node('rereview2',lambda:self.review('rereview2',self.root/'repair2/candidate.json',self.root/'repair2/preview/materials-overlay.png'))
-            self.node('freeze',lambda:freeze(self.root,self.root/'frozen',self.config['maxCalls'],self.config.get('generationMode','single'),self.config.get('generationReference','full')))
+            self.node('freeze',lambda:freeze(self.root,self.root/'frozen',self.config['maxCalls'],
+                self.config.get('generationMode','single'),self.config.get('generationReference','full'),
+                self.config.get('contextPromptVersion',LEGACY_CONTEXT_PROMPT_VERSION)))
             return self.status()
 
     def status(self):
@@ -469,6 +504,8 @@ class Dag:
                 'driver':read(self.root/'.dag/execution.json')['driver'] if (self.root/'.dag/execution.json').exists() else 'not-started',
                 'humanVisualAcceptance':False,'automaticRetries':0,'runtimeAndInputsVerified':True,
                 'interventionTracking':'Pinned inputs/code and checkpoint integrity; external use of the model session is not independently audited.'}
+        if self.config.get('generationReference','full')=='context-crops':
+            result['contextPromptVersion']=self.config.get('contextPromptVersion',LEGACY_CONTEXT_PROMPT_VERSION)
         policy=planning_policy(self.root)
         sources={'m2':'m1/draft.json','rereview':'repair/candidate.json',
                  'rereview2':'repair2/candidate.json'}
@@ -493,14 +530,19 @@ def main():
     p.add_argument('--output',required=True);p.add_argument('--image');p.add_argument('--max-calls',type=int,default=128)
     p.add_argument('--generation-mode',choices=['single','sheets'],default=DEFAULT_GENERATION_MODE)
     p.add_argument('--generation-reference',choices=['full','context-crops'],default=DEFAULT_GENERATION_REFERENCE)
+    p.add_argument('--context-prompt-version',choices=CONTEXT_PROMPT_VERSIONS,
+                   help='New context-crops run: default v7; explicit versions are frozen in the run config')
     p.add_argument('--visual-policy',help='New-run explicit visual evidence policy JSON')
     a=p.parse_args()
     if a.visual_policy is not None and a.action!='run':
         p.error('--visual-policy is only accepted for a new run')
+    if a.context_prompt_version is not None and a.action!='run':
+        p.error('--context-prompt-version is only accepted for a new run')
     if a.action=='run':
         if not a.image:p.error('--image is required for run')
         init(a.image,a.output,a.max_calls,a.generation_mode,
-             generation_reference=a.generation_reference,visual_policy=a.visual_policy)
+             generation_reference=a.generation_reference,visual_policy=a.visual_policy,
+             context_prompt_version=a.context_prompt_version)
     dag=Dag(a.output)
     try:result=dag.status() if a.action=='status' else dag.execute()
     except Exception as exc:

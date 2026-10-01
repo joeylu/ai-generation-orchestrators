@@ -20,7 +20,8 @@ class DeliveryTests(unittest.TestCase):
         self.viewer = self.root/'viewer'; self.viewer.mkdir()
         (self.viewer/'viewer.html').write_text('<html></html>')
         (self.viewer/'viewer.js').write_text('void 0;')
-        self.run = delivery.init(self.image,self.root/'run',self.viewer,generation_mode='single')
+        self.run = delivery.init(self.image,self.root/'run',self.viewer,generation_mode='single',
+                                 registration_policy='legacy-region-fit')
         self.model = FakeModel(); self.dag = delivery.DeliveryDag(self.run,self.model)
         self.review_calls=[]
         mock_review=patch('ai_ui_layers.single_material_review.call_model',
@@ -244,7 +245,8 @@ class DeliveryTests(unittest.TestCase):
 
     def test_planning_checkpoint_can_continue_in_nested_dag(self):
         from ai_ui_layers import planning_dag
-        plan=planning_dag.init(self.run/'.dag/inputs/reference.png',self.run/'planning',12,generation_mode='single')
+        plan=planning_dag.init(self.run/'.dag/inputs/reference.png',self.run/'planning',12,generation_mode='single',
+                              context_prompt_version=self.dag.config['contextPromptVersion'])
         nested=planning_dag.Dag(plan,self.model)
         nested.node('m1',nested.m1)
         self.assertEqual(self.dag.execute()['status'],'awaiting_authorization')
