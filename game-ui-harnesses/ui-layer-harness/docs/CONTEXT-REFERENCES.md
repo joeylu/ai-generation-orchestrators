@@ -140,6 +140,17 @@ is excluded without inventing hidden owned artwork. Genuine gaps and translucenc
 remain. Target boxes, output dimensions, context expansion and placement do not
 change; preflight rebuilds and checks the exact frozen v4 prompt.
 
+Version 5 is another explicit fresh-freeze option (`--context-prompt-version v5`).
+It states a positive independent-material reconstruction task in prose rather
+than sending the action-entry JSON. It keeps every owned/foreign occurrence,
+available local object anchors, observed state and text permissions. Overlay
+removal asks to continue the owned surface behind it; genuine owned openings
+and translucency remain. Underlays and same-depth foreign objects are excluded.
+Reference pixels, expansion, placement, alpha requirements and preflight
+reconstruction are unchanged. Defaults and historical v1-v4 prompts retain
+their original rendering. A shorter task is experimental and does not
+establish model compliance, visual fidelity or accepted recomposition.
+
 The background's 27-character difference is only removal of the historical
 compiler marker; its background instruction is unchanged. A separate four-card
 fixture with long distinct boxed card/icon/illustration descriptions yields

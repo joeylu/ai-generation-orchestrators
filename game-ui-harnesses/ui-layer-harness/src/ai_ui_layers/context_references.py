@@ -15,7 +15,8 @@ PROMPT_PREFIX_V1 = 'visual-material-context-prompt-v1:\n'
 PROMPT_PREFIX_V2 = 'visual-material-context-prompt-v2:\n'
 PROMPT_PREFIX_V3 = 'visual-material-context-prompt-v3:\n'
 PROMPT_PREFIX_V4 = 'visual-material-context-prompt-v4:\n'
-PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4)
+PROMPT_PREFIX_V5 = 'visual-material-context-prompt-v5:\n'
+PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5)
 # Historical callers and frozen plans used this name for v1.
 PROMPT_PREFIX = PROMPT_PREFIX_V1
 
@@ -149,9 +150,58 @@ def action_entry(visual, material, asset, reference, size, index):
     return own
 
 
+def reconstruct_prompt(entries, group):
+    """v5: a positive drawing task; reviewed identities and locators stay bound."""
+    def parts(rows):
+        result=[]
+        for index,row in enumerate(rows,1):
+            detail=str(index)+': '+row['appearance']
+            if 'kind' in row:detail+=' ('+row['kind']+')'
+            if 'referenceBox' in row:detail+=' at '+json.dumps(row['referenceBox'],separators=(',',':'))
+            if 'withinMaterial' in row:detail+=' within '+json.dumps(row['withinMaterial'],separators=(',',':'))
+            result.append(detail)
+        return '; '.join(result)
+    def foreign(entry,relation):
+        rows=[]
+        for item in entry['exclude']:
+            if item['relation']!=relation:continue
+            box=item['referenceBox']
+            for member in item['members']:
+                value=dict(member)
+                if 'referenceBox' not in value:
+                    if box[0]<=0 and box[1]<=0 and box[2]>=1 and box[3]>=1:
+                        value['appearance']+=' (across reference)'
+                    else:value['referenceBox']=box
+                rows.append(value)
+        return parts(rows)
+    task='Reconstruct one complete independent owned material from this UI reference. '
+    if group:
+        task+=(f'Grid {group["grid"][0]}x{group["grid"][1]}, row-major, canvas '
+               f'{group["outputSize"][0]}:{group["outputSize"][1]}; one material per cell, unused cells empty. '
+               'Use one common uniform scale across cells. ')
+    for entry in entries:
+        task+=(f'Reference {entry["referenceIndex"]}, cell {entry["cellIndex"]}: owned parts: '+
+               (parts(entry['keepOnly']) or entry.get('artwork',''))+'. ')
+        overlays=foreign(entry,'overlay');underlays=foreign(entry,'underlay');peers=foreign(entry,'same-depth')
+        if overlays:
+            task+='Continue only existing owned surface actually hidden by these overlays: '+overlays+'. Removal must leave no artificial holes, recesses or ghosts. '
+        if underlays:task+='Exclude foreign underlays: '+underlays+'. '
+        if peers:task+='Exclude same-depth foreign parts: '+peers+'; do not invent hidden owned art. '
+        task+=('Crop '+json.dumps(entry['artworkPixelSize'],separators=(',',':'))+
+               ', targetBox '+json.dumps(entry['targetBox'],separators=(',',':'))+
+               '; preserveText '+json.dumps(entry['preserveText'],ensure_ascii=False,separators=(',',':'))+'. ')
+    return (task+'Keep all owned parts, original state/count/contours/proportions/color/texture/ornaments and '
+            'reference highlights/gradients. Keep offsets, no recentering/enlargement/redesign. '
+            'Boxes=local normalized locators, not masks; within=(centerX,centerY,width,height) before padding; '
+            'crop size differs from alpha bounds. Remove ordinary letters/numbers except preserveText; keep owned '
+            'single-character icon pictograms. Fill glyphs with owned surface; text space empty, other parts fixed. '
+            'Retain genuine owned holes/translucency, not scene. PNG: continuous alpha outside owned contours, 10% '
+            'fully transparent margin each side, uniform scale, no stretch. No added UI/backing/borders/glow/bridges.')
+
+
 def prompt(visual, plan, material_ids, group=None, version='v3'):
     """Compile frozen plan data once, with no LLM rewriting or extra grouping call."""
-    if version not in ('v1','v2','v3','v4'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if version not in ('v1','v2','v3','v4','v5'):raise ValueError('CONTEXT_PROMPT_VERSION')
     if visual.get('backgroundMode') not in ('scene-only','preserve-underlay') or visual.get('textPolicy')!='remove-business-text':
         raise ValueError('EXPLICIT_SCOPE_REQUIRED')
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
@@ -159,9 +209,10 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     if len(material_ids)==1 and assets[material_ids[0]]['role']=='background':
         return full_prompt(visual,material_ids[0],plan['canvas'])
     if not 1<=len(material_ids)<=4:raise ValueError('CONTEXT_REFERENCE_LIMIT')
-    builder=action_entry if version=='v4' else entry
+    builder=action_entry if version in ('v4','v5') else entry
     entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i)
              for i,key in enumerate(material_ids)]
+    if version=='v5':return reconstruct_prompt(entries,group)
     if version=='v4':
         layout=(f'Grid {group["grid"][0]}x{group["grid"][1]} row-major, canvas '
                 f'{group["outputSize"][0]}:{group["outputSize"][1]}; one material per cell, unused cells empty. '
