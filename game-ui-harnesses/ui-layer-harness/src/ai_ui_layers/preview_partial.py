@@ -24,6 +24,9 @@ def preview(config_path, output):
         raise ValueError('RETIRED_DRAWING_PLAN_REQUIRES_REPLAN')
     ids={p['id'] for p in placements}
     if not set(config['materials']) <= ids:raise ValueError('UNKNOWN_MATERIAL')
+    from .body_registration import checked_inputs, process as place_body
+    foreground_ids={key for key in config['materials'] if assets[key]['role']!='background'}
+    body_overrides=checked_inputs(config,placements,foreground_ids)
     frame_overrides=config.get('frameBoundsMaterials',[])
     if not isinstance(frame_overrides,list) or len(frame_overrides)!=len(set(frame_overrides)):
         raise ValueError('INVALID_FRAME_OVERRIDES')
@@ -45,12 +48,15 @@ def preview(config_path, output):
         key=row['id']
         if key not in config['materials']:continue
         raw=Path(config['materials'][key]);folder=output/key
-        if key in overrides:
+        if key in body_overrides:
+            report=place_body(raw,snapshot/'reference.png',body_overrides[key],row['sourceRegion'],
+                              key,config['snapshotDigest'],folder)
+        elif key in overrides:
             expected=[o['id'] for o in visual['objects'] if o['materialId']==key]
             report=place(raw,snapshot/'reference.png',overrides[key],row['sourceRegion'],expected,folder)
         else:report=process(raw,row['outputSize'],folder,background=assets[key]['role']=='background',
                             fit_mode='frame-bounds' if key in frame_overrides or key in integrated else row.get('fitMode','contain'))
-        if key in integrated:
+        if key in integrated and key not in body_overrides:
             report['registrationPolicy']={'mode':'whole-material-frame-bounds','outerObjectId':integrated[key],
                 'basis':'one card/button with bounded owned details; explicit outer box equals material region or null auxiliary box uses declared material bounds; no measured reference silhouette',
                 'internalRepositioning':False}
@@ -70,10 +76,12 @@ def preview(config_path, output):
     comparison.paste(reference,(0,0));comparison.paste(checker.convert('RGB'),(w,0))
     comparison.save(output/'reference-vs-partial.png')
     report={'kind':'partial-placement-preview-v1','snapshotDigest':config['snapshotDigest'],
+            'registrationPolicy':config.get('registrationPolicy','legacy-region-fit'),
             'frameBoundsOverrides':frame_overrides,
             'generationCalls':0,'humanVisualAcceptance':False,'records':records,
             'scope':'Only supplied materials; absent layers remain absent, never overlaid on the original.',
-            'registration':'Explicit per-object boxes where supplied; declared frame bounds for carrier fits; remaining materials use approximate centered contain.'}
+            'registration':('Explicit whole-material body observations; crop regions only retain layer canvases.' if body_overrides else
+                'Explicit per-object boxes where supplied; declared frame bounds for carrier fits; remaining materials use approximate centered contain.')}
     save(output/'report.json',report)
     return report
 

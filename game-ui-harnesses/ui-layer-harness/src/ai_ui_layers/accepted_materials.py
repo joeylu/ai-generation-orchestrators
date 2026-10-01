@@ -51,8 +51,20 @@ def replay(entry, row, placement, role, reference_sha, output):
         report=fn(source,digest(source),*placement['outputSize'],output/'adaptation',policy=policy)
         source=output/'adaptation/adapted.png';lineage['adaptation']=report
     if digest(source)!=row['sourceSha256']:raise ValueError('DERIVATION_REPLAY_MISMATCH')
-    mode='frame-bounds' if row['report'].get('fitting',{}).get('mode')=='frame-bounds' else 'contain'
-    result=process(source,placement['outputSize'],output/'processed',background=role=='background',fit_mode=mode)
+    fitting_mode=row['report'].get('fitting',{}).get('mode')
+    if fitting_mode=='reference-body-v1':
+        from .body_registration import process as process_body
+        from .evaluate import save
+        contract_path=output/'body-contract.json'
+        save(contract_path,row['report']['bodyContract'])
+        if digest(contract_path)!=row['report']['bodyContractSha256']:
+            raise ValueError('BODY_CONTRACT_REPLAY_MISMATCH')
+        result=process_body(source,job/'snapshot/reference.png',
+            dict(path=str(contract_path),sha256=digest(contract_path)),placement['sourceRegion'],
+            row['id'],row['report']['snapshotDigest'],output/'processed')
+    else:
+        mode='frame-bounds' if fitting_mode=='frame-bounds' else 'contain'
+        result=process(source,placement['outputSize'],output/'processed',background=role=='background',fit_mode=mode)
     if result['status']!='processed_pending_visual_review':raise ValueError('MATERIAL_GATE_FAILED')
     if result['materialSha256']!=row['report']['materialSha256']:raise ValueError('MATERIAL_REPLAY_MISMATCH')
     lineage['processing']=result
@@ -108,6 +120,9 @@ def build_selection(spec_path, output, viewer, acceptance=None):
             if visual['textPolicy']!=spec['textPolicy'] or visual['backgroundMode']!=spec['backgroundMode']:
                 raise ValueError('POLICY_MISMATCH')
             material=next(m for m in visual['materials'] if m['id']==mid)
+            if row['report'].get('fitting',{}).get('mode')=='reference-body-v1':
+                if row['report'].get('snapshotDigest')!=frozen['digest'] or row['report'].get('materialId')!=mid:
+                    raise ValueError('BODY_PREVIEW_SCOPE_MISMATCH')
             path=preview/mid/'material.png'
             if digest(path)!=row['report']['materialSha256'] or digest(Path(row['source']))!=row['sourceSha256']:
                 raise ValueError('PREVIEW_MATERIAL_CHANGED')

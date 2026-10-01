@@ -194,7 +194,8 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','next','receive','fail','preview-groups','freeze-reviewed','revise-frozen-crops','finish-received','finish-bundle','finish-variants','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('action', choices=['run','resume','status','authorize','next','receive','fail','register-materials','preview-groups','freeze-reviewed','revise-frozen-crops','finish-received','finish-bundle','finish-variants','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('--config',help='For register-materials: bound reference-body-v1 offline registration config')
     p.add_argument('--source-sha256')
     p.add_argument('--edit-mask',help='Explicit binary L PNG allowed-edit region; not inferred from material boxes')
     p.add_argument('--edit-mask-sha256')
@@ -232,6 +233,15 @@ def main():
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.config and a.action!='register-materials':p.error('--config is only valid for register-materials')
+        if a.action=='register-materials':
+            if not a.config:p.error('--config required')
+            from .body_registration import POLICY as BODY_POLICY
+            if read(Path(a.config)).get('registrationPolicy')!=BODY_POLICY:
+                raise ValueError('EXPLICIT_BODY_POLICY_REQUIRED')
+            with redirect_stdout(sys.stderr):
+                result=register(a.config,a.output,selected=[])
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.context_prompt_version is not None and a.action!='freeze-reviewed':
             p.error('--context-prompt-version is only valid for freeze-reviewed')
         if a.visual_policy and a.action!='run':p.error('--visual-policy is only valid for a new run')

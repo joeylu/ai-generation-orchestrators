@@ -1,0 +1,161 @@
+"""Explicit whole-material body registration, independent of reference crop size."""
+from pathlib import Path
+import math
+import numpy as np
+from PIL import Image
+from .evaluate import read, save, digest
+from .postprocess_visual import assess
+
+POLICY = 'reference-body-v1'
+KIND = 'ui_whole_body_registration_v1'
+
+
+def _box(value, size):
+    if not isinstance(value, list) or len(value) != 4 or any(type(v) is not int for v in value):
+        raise ValueError('INTEGER_BODY_BOX_REQUIRED')
+    l, t, r, b = value
+    if not 0 <= l < r <= size[0] or not 0 <= t < b <= size[1]:
+        raise ValueError('BODY_BOX_OUT_OF_BOUNDS')
+    return value
+
+
+def checked_inputs(config, placements, foreground_ids):
+    """New mode has exact evidence coverage; absence never selects legacy fitting."""
+    policy = config.get('registrationPolicy', 'legacy-region-fit')
+    if policy not in ('legacy-region-fit', POLICY):
+        raise ValueError('UNKNOWN_REGISTRATION_POLICY')
+    entries = config.get('wholePlacements', {})
+    if not isinstance(entries, dict):
+        raise ValueError('WHOLE_PLACEMENTS_OBJECT_REQUIRED')
+    if policy == 'legacy-region-fit':
+        if entries:
+            raise ValueError('BODY_POLICY_REQUIRED')
+        return {}
+    if config.get('partPlacements') or config.get('frameBoundsMaterials'):
+        raise ValueError('BODY_POLICY_CONFLICTING_OVERRIDES')
+    if set(entries) != set(foreground_ids):
+        raise ValueError('COMPLETE_BODY_EVIDENCE_REQUIRED')
+    result = {}
+    for mid, entry in entries.items():
+        if not isinstance(entry, dict) or set(entry) != {'path', 'sha256'}:
+            raise ValueError('BOUND_BODY_CONTRACT_REQUIRED')
+        path = Path(entry['path'])
+        if digest(path) != entry['sha256']:
+            raise ValueError('BODY_CONTRACT_CHANGED')
+        result[mid] = dict(path=str(path.resolve()), sha256=entry['sha256'])
+    return result
+
+
+def process(source, reference, entry, region, material_id, snapshot_digest, output):
+    """Apply one observed body mapping to every existing RGBA pixel, never repaint."""
+    source, reference, output = Path(source), Path(reference), Path(output)
+    path = Path(entry['path'])
+    contract_sha = digest(path)
+    if contract_sha != entry['sha256']:
+        raise ValueError('BODY_CONTRACT_CHANGED')
+    contract = read(path)
+    fields = {'kind', 'snapshotDigest', 'materialId', 'sourceSha256', 'referenceSha256',
+              'sourceBodyBox', 'targetBodyBox', 'evidence', 'issues'}
+    if not isinstance(contract, dict) or set(contract) != fields or contract['kind'] != KIND:
+        raise ValueError('BODY_CONTRACT_KIND_OR_FIELDS')
+    if contract['snapshotDigest'] != snapshot_digest or contract['materialId'] != material_id:
+        raise ValueError('BODY_CONTRACT_SCOPE_MISMATCH')
+    source_sha, reference_sha = digest(source), digest(reference)
+    if contract['sourceSha256'] != source_sha or contract['referenceSha256'] != reference_sha:
+        raise ValueError('BODY_INPUT_CHANGED')
+    evidence = contract['evidence']
+    if (not isinstance(evidence, dict) or set(evidence) != {'path', 'sha256', 'basis'}
+            or not isinstance(evidence['basis'], str) or not evidence['basis'].strip()):
+        raise ValueError('BODY_OBSERVATION_EVIDENCE_REQUIRED')
+    evidence_path = Path(evidence['path'])
+    if digest(evidence_path) != evidence['sha256']:
+        raise ValueError('BODY_OBSERVATION_CHANGED')
+    if not isinstance(contract['issues'], list) or contract['issues']:
+        raise ValueError('BODY_OBSERVATION_UNRESOLVED')
+    observation=read(evidence_path)
+    observation_fields={'kind','snapshotDigest','materialId','sourceSha256','referenceSha256',
+                        'sourceBodyBox','targetBodyBox','boundaryStatus','issues'}
+    if not isinstance(observation,dict) or set(observation)!=observation_fields or observation['kind']!='ui_body_observation_v1':
+        raise ValueError('BODY_OBSERVATION_FORMAT')
+    for name in ('snapshotDigest','materialId','sourceSha256','referenceSha256','sourceBodyBox','targetBodyBox'):
+        if observation[name]!=contract[name]:raise ValueError('BODY_OBSERVATION_SCOPE_MISMATCH')
+    if observation['boundaryStatus']!='complete' or observation['issues']!=[]:
+        raise ValueError('BODY_OBSERVATION_UNRESOLVED')
+    with Image.open(source) as im:
+        raw = im.convert('RGBA')
+    with Image.open(reference) as im:
+        reference_size = im.size
+    region = _box(region, reference_size)
+    target = _box(contract['targetBodyBox'], reference_size)
+    body = _box(contract['sourceBodyBox'], raw.size)
+    if not region[0] <= target[0] < target[2] <= region[2] or not region[1] <= target[1] < target[3] <= region[3]:
+        raise ValueError('TARGET_BODY_OUTSIDE_MATERIAL')
+    target_size = [target[2]-target[0], target[3]-target[1]]
+    report = assess(raw, target_size)
+    if report['keyEvidence']['route'] != 'native-alpha-preserved':
+        raise ValueError('BODY_REGISTRATION_REQUIRES_NATIVE_ALPHA')
+    if report['issues']:
+        raise ValueError('BODY_RAW_GATE_FAILED:'+','.join(report['issues']))
+    if not raw.crop(body).getchannel('A').getbbox():
+        raise ValueError('EMPTY_SOURCE_BODY')
+    # A whole-body anchor cannot select only an internal icon and silently
+    # enlarge its backing. Dense artwork outside it requires explicit review;
+    # wholly translucent subjects need another registration policy.
+    core=raw.getchannel('A').point(lambda a:255 if a>=128 else 0).getbbox()
+    if core is None:
+        raise ValueError('BODY_CORE_NOT_OBSERVABLE')
+    if not (body[0]<=core[0] and body[1]<=core[1] and core[2]<=body[2] and core[3]<=body[3]):
+        raise ValueError('SOURCE_BODY_OMITS_DENSE_ARTWORK')
+    bw, bh = body[2]-body[0], body[3]-body[1]
+    scale = min(target_size[0]/bw, target_size[1]/bh)
+    # Only integer coordinate quantization, not an appearance tolerance or stretch.
+    if abs(bw*scale-target_size[0]) > 1 or abs(bh*scale-target_size[1]) > 1:
+        raise ValueError('BODY_PROPORTIONS_DIFFER')
+    content_box = raw.getchannel('A').getbbox()  # Preserve ALL nonzero alpha, including faint shadows.
+    target_center = [(target[0]+target[2])/2, (target[1]+target[3])/2]
+    body_center = [(body[0]+body[2])/2, (body[1]+body[3])/2]
+    shift=[target_center[i]-body_center[i]*scale for i in (0,1)]
+    xy=[shift[i]-region[i] for i in (0,1)]
+    out_size = [region[2]-region[0], region[3]-region[1]]
+    theoretical=[content_box[i]*scale+xy[i%2] for i in range(4)]
+    if theoretical[0]<0 or theoretical[1]<0 or theoretical[2]>out_size[0] or theoretical[3]>out_size[1]:
+        raise ValueError('BODY_TRANSFORM_WOULD_CLIP_ALPHA')
+    # One inverse mapping for both axes: no independent raster-size rounding.
+    # Sample beyond the intended canvas to detect interpolation spill before cropping.
+    padding=math.ceil(2*scale)+2
+    expanded=[v+2*padding for v in out_size]
+    if expanded[0]*expanded[1]>16_777_216:raise ValueError('BODY_TRANSFORM_PIXEL_LIMIT')
+    coefficients=(1/scale,0,(-xy[0]-padding)/scale,0,1/scale,(-xy[1]-padding)/scale)
+    rendered=raw.transform(tuple(expanded),Image.Transform.AFFINE,coefficients,Image.Resampling.BICUBIC)
+    visible=rendered.getchannel('A').getbbox()
+    if (visible is None or visible[0]<padding or visible[1]<padding
+            or visible[2]>out_size[0]+padding or visible[3]>out_size[1]+padding):
+        raise ValueError('BODY_TRANSFORM_WOULD_CLIP_ALPHA')
+    canvas=rendered.crop((padding,padding,out_size[0]+padding,out_size[1]+padding))
+    pixels = np.array(canvas)
+    pixels[pixels[:,:,3] == 0, :3] = 0
+    canvas = Image.fromarray(pixels, 'RGBA')
+    if (digest(source) != source_sha or digest(reference) != reference_sha
+            or digest(path) != contract_sha or digest(evidence_path) != evidence['sha256']):
+        raise ValueError('BODY_INPUT_CHANGED_DURING_TRANSFORM')
+    output.mkdir(parents=True, exist_ok=False)
+    canvas.save(output/'material.png')
+    # Bound document, not a mutable external path, permits deterministic receipt replay.
+    save(output/'body-contract.json', contract)
+    report.update(kind='ui_body_registration_result_v1', status='processed_pending_visual_review',
+        sourceSha256=source_sha, referenceSha256=reference_sha,
+        snapshotDigest=snapshot_digest, materialId=material_id,
+        placementContractSha256=contract_sha, bodyContract=contract,
+        bodyContractSha256=digest(output/'body-contract.json'),
+        targetSize=out_size, materialSha256=digest(output/'material.png'),
+        fitting=dict(mode=POLICY, sourceBodyBox=body, targetBodyBox=target,
+                     layerCanvasRegion=region, sourceFullAlphaBox=list(content_box),
+                     uniformScale=scale, rasterScaleXY=[scale,scale], offsetInRegion=xy,
+                     inverseAffine=list(coefficients), samplingPadding=padding,
+                     sourceFullAlphaTheoreticalBoxInRegion=theoretical,
+                     transformedAlphaBox=list(canvas.getchannel('A').getbbox()),
+                     referenceRegistration='explicit bound visual body observations, not crop fitting',
+                     alphaPolicy='preserve all nonzero-alpha support; no threshold clipping; zero hidden RGB'),
+        generationCalls=0, modelCalls=0, humanVisualAcceptance=False)
+    save(output/'report.json', report)
+    return report

@@ -5,6 +5,14 @@
 退出码 0 表示命令完成或正常等待，不等于视觉通过；非零表示本次命令失败。
 不直接调用内部 Python 函数，内部 M1/M2 文件不作为 Web 合同。
 
+可选离线主体定位入口为 `register-materials --config CONFIG.json --output NEW_DIR`。
+配置必须显式选择 `reference-body-v1`，绑定冻结快照和每份前景的原图／生成图主体观察合同；
+具体字段及边界见 [BODY-REGISTRATION.md](BODY-REGISTRATION.md)。素材裁片仅作归属边界和
+输出画布，不再作可见主体缩放目标。证据缺失、比例不符或变换截断非零 alpha 时停止，
+不回退旧 contain/frame-bounds，不调用模型或生图。该入口不修改旧作业和质量门；
+输出仍待视觉验收。现有自动 DAG 与未选此策略的历史入口保留近似裁片适配行为，
+不能宣称已有参考主体测量；新的自动主体定位调用尚未实现，需独立冻结预算和授权。
+
 可选 CLI 适配器的新传输失败响应附加 `failureDetails`；规划 status 可附加
 `modelCallFailures`，按 M1/M2/修补/复审阶段名称索引同一诊断对象。
 `failureCode` 区分 TIMEOUT_NO_RETRY、PROCESS_START_FAILED、INVALID_MODEL_EVENTS、

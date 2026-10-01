@@ -149,8 +149,13 @@ def run(config_path, output, model_call=None, selected=None):
     placements={p['id']:p for p in read(snapshot/'placements.json')['materials']}
     if not set(config['materials'])<=set(placements):raise ValueError('UNKNOWN_MATERIAL')
     if config.get('partPlacements'):raise ValueError('AUTOMATIC_ENTRY_REJECTS_MANUAL_PLACEMENTS')
+    from .body_registration import checked_inputs, POLICY as BODY_POLICY
+    body_mode=config.get('registrationPolicy')==BODY_POLICY
+    foreground_ids={m['id'] for m in visual['materials'] if m['id'] in config['materials'] and m['role']=='foreground'}
+    body_overrides=checked_inputs(config,placements,foreground_ids)
     eligible=candidates(visual)
-    selected=[k for k in eligible if k in config['materials']] if selected is None else selected
+    selected=([] if body_mode else [k for k in eligible if k in config['materials']]) if selected is None else selected
+    if body_mode and selected:raise ValueError('BODY_POLICY_NO_IMPLICIT_MODEL_LOCALIZATION')
     if len(selected)!=len(set(selected)) or not set(selected)<=set(eligible)&set(config['materials']):
         raise ValueError('INVALID_REGISTRATION_SELECTION')
     output.mkdir(parents=True,exist_ok=False)
@@ -158,10 +163,12 @@ def run(config_path, output, model_call=None, selected=None):
     config['snapshot']=str(snapshot)
     reference=snapshot/'reference.png'
     inputs={'reference':digest(reference),**{k:digest(Path(v)) for k,v in config['materials'].items()}}
-    driver='codex-cli' if model_call is None else getattr(model_call,'driver','injected-test-double')
-    whole=[dict(materialId=m['id'],outerObjectId=integrated_surface(visual,m),mode='whole-material-frame-bounds')
+    driver='explicit-body-evidence' if body_mode else ('codex-cli' if model_call is None else getattr(model_call,'driver','injected-test-double'))
+    whole=[] if body_mode else [dict(materialId=m['id'],outerObjectId=integrated_surface(visual,m),mode='whole-material-frame-bounds')
            for m in visual['materials'] if m['id'] in config['materials'] and integrated_surface(visual,m) is not None]
     save(output/'request.json',dict(config=config,selected=selected,integratedSurfaces=whole,inputs=inputs,
+         configSha256=digest(Path(config_path)),
+         registrationPolicy=config.get('registrationPolicy','legacy-region-fit'),
          driver=driver,generationCalls=0,automaticResubmissions=0))
     config['partPlacements']={};calls=0;reports=[]
     try:
@@ -171,6 +178,7 @@ def run(config_path, output, model_call=None, selected=None):
         integrated={r['materialId'] for r in whole}
         raw_checks=[]
         for key,source in config['materials'].items():
+            if key in body_overrides:continue  # Body preview owns raw gates; never pre-fit to crop.
             if key in selected:continue
             row=placements[key]
             checked=process(Path(source),row['outputSize'],output/'raw-preflight'/key,

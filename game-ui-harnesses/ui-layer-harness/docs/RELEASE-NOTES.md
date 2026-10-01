@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased explicit whole-material body registration
+
+- `register-materials` adds the opt-in offline `reference-body-v1` route. Bound
+  original/generated body observations determine one uniform scale and offset;
+  reference crops retain ownership and layer canvas responsibility only.
+- Missing evidence, incompatible body proportions, changed hashes, raw alpha
+  failures or transformed-alpha clipping stop without region-fit fallback.
+  Soft edges, shadows and owned details transform together. Output remains
+  review-required; existing received-variant replay can reproduce this fitting.
+- No automatic body measurement/model call is added. Historical snapshots and
+  the existing automatic DAG keep approximate legacy fitting. This change does
+  not claim a visual fix for previous samples or a completed automatic pipeline.
+
 ## Unreleased opt-in short single-material actions
 
 - Fresh context freezes can select v7: concise Chinese keep/remove actions for
