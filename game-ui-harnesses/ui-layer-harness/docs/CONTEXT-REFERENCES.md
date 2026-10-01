@@ -151,6 +151,15 @@ reconstruction are unchanged. Defaults and historical v1-v4 prompts retain
 their original rendering. A shorter task is experimental and does not
 establish model compliance, visual fidelity or accepted recomposition.
 
+Version 6 is an explicit fresh-freeze option (`--context-prompt-version v6`).
+It changes only the overlay action in v5's prose: first remove each listed foreign
+overlay, then continue only the owned surface actually hidden behind it, without
+artificial holes or recessed edges. Genuine owned openings and translucency,
+all owned/foreign occurrences, local anchors, state, text permissions, underlay
+and same-depth exclusions remain as in v5. Reference pixels, crop geometry,
+placement and preflight binding are unchanged. Defaults remain v3 and frozen
+v1-v5 prompts retain their original rendering.
+
 The background's 27-character difference is only removal of the historical
 compiler marker; its background instruction is unchanged. A separate four-card
 fixture with long distinct boxed card/icon/illustration descriptions yields

@@ -223,7 +223,7 @@ def main():
                    help='New runs default to context-crops; freeze-reviewed inherits the source mode')
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
-    p.add_argument('--context-prompt-version',choices=['v1','v2','v3','v4','v5'],
+    p.add_argument('--context-prompt-version',choices=['v1','v2','v3','v4','v5','v6'],
                    help='For freeze-reviewed only: opt into a newly frozen context prompt version')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
     p.add_argument('--visual-policy',help='Explicit visual evidence and tolerance JSON, frozen only for a new run')

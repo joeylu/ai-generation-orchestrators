@@ -16,7 +16,8 @@ PROMPT_PREFIX_V2 = 'visual-material-context-prompt-v2:\n'
 PROMPT_PREFIX_V3 = 'visual-material-context-prompt-v3:\n'
 PROMPT_PREFIX_V4 = 'visual-material-context-prompt-v4:\n'
 PROMPT_PREFIX_V5 = 'visual-material-context-prompt-v5:\n'
-PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5)
+PROMPT_PREFIX_V6 = 'visual-material-context-prompt-v6:\n'
+PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6)
 # Historical callers and frozen plans used this name for v1.
 PROMPT_PREFIX = PROMPT_PREFIX_V1
 
@@ -150,7 +151,7 @@ def action_entry(visual, material, asset, reference, size, index):
     return own
 
 
-def reconstruct_prompt(entries, group):
+def reconstruct_prompt(entries, group, *, version='v5'):
     """v5: a positive drawing task; reviewed identities and locators stay bound."""
     def parts(rows):
         result=[]
@@ -184,7 +185,10 @@ def reconstruct_prompt(entries, group):
                (parts(entry['keepOnly']) or entry.get('artwork',''))+'. ')
         overlays=foreign(entry,'overlay');underlays=foreign(entry,'underlay');peers=foreign(entry,'same-depth')
         if overlays:
-            task+='Continue only existing owned surface actually hidden by these overlays: '+overlays+'. Removal must leave no artificial holes, recesses or ghosts. '
+            if version=='v6':
+                task+='Remove these foreign overlays: '+overlays+'. Continue only existing owned surface actually hidden by these overlays; leave no artificial holes, recesses or ghosts. '
+            else:
+                task+='Continue only existing owned surface actually hidden by these overlays: '+overlays+'. Removal must leave no artificial holes, recesses or ghosts. '
         if underlays:task+='Exclude foreign underlays: '+underlays+'. '
         if peers:task+='Exclude same-depth foreign parts: '+peers+'; do not invent hidden owned art. '
         task+=('Crop '+json.dumps(entry['artworkPixelSize'],separators=(',',':'))+
@@ -201,7 +205,7 @@ def reconstruct_prompt(entries, group):
 
 def prompt(visual, plan, material_ids, group=None, version='v3'):
     """Compile frozen plan data once, with no LLM rewriting or extra grouping call."""
-    if version not in ('v1','v2','v3','v4','v5'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if version not in ('v1','v2','v3','v4','v5','v6'):raise ValueError('CONTEXT_PROMPT_VERSION')
     if visual.get('backgroundMode') not in ('scene-only','preserve-underlay') or visual.get('textPolicy')!='remove-business-text':
         raise ValueError('EXPLICIT_SCOPE_REQUIRED')
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
@@ -209,10 +213,10 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     if len(material_ids)==1 and assets[material_ids[0]]['role']=='background':
         return full_prompt(visual,material_ids[0],plan['canvas'])
     if not 1<=len(material_ids)<=4:raise ValueError('CONTEXT_REFERENCE_LIMIT')
-    builder=action_entry if version in ('v4','v5') else entry
+    builder=action_entry if version in ('v4','v5','v6') else entry
     entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i)
              for i,key in enumerate(material_ids)]
-    if version=='v5':return reconstruct_prompt(entries,group)
+    if version in ('v5','v6'):return reconstruct_prompt(entries,group,version=version)
     if version=='v4':
         layout=(f'Grid {group["grid"][0]}x{group["grid"][1]} row-major, canvas '
                 f'{group["outputSize"][0]}:{group["outputSize"][1]}; one material per cell, unused cells empty. '
