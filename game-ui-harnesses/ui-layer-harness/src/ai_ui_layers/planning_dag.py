@@ -17,6 +17,7 @@ from .local_patch import patch_schema, merge_patch
 from .review_focus import make_focus, make_small_material_focus
 from .sequence_focus import make_sequence_focus
 from .planning_review_policy import split, signatures, REGIONS, DESCRIPTION_STATUSES, audit_rows
+from .boundary_evidence import schema as boundary_schema, guidance as boundary_guidance, validate_boundaries
 from .coverage_review import coverage_schema
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure
 from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME
@@ -275,10 +276,7 @@ class Dag:
                 part_schema['required'].append('deferredAppearance')
             material_schema={'type':'object','additionalProperties':False,
                 'required':['parts','boundary'],
-                'properties':{'boundary':{'type':'object','additionalProperties':False,
-                        'required':['status','evidence'],'properties':{
-                            'status':{'type':'string','enum':['complete','clipped','uncertain']},
-                            'evidence':{'type':'string','minLength':1}}},
+                'properties':{'boundary':boundary_schema(),
                     'parts':{'type':'array','minItems':1,'items':part_schema}}}
             required.append('smallMaterialAudit')
             definitions['smallMaterialAuditEntry']=material_schema
@@ -325,6 +323,7 @@ class Dag:
                 detail=small_focus['detail']
                 prompt=('另附 '+detail['materialId']+' 的无标记原图上下文放大，原图像素范围 '+str(detail['sourceBox'])+
                         '，候选框 '+str(detail['candidateBox'])+'；核对框内外完整自有轮廓及明暗点纹。'+prompt)
+            prompt=boundary_guidance(small_focus)+prompt
         if focus:
             save(p/'focus-meta.json',focus)
             prompt=('先核对下列局部证据：近边固定装饰的完整轮廓，或重复对齐卡片各自闭合边框的真实四边与归属。局部附件左半是干净原图、右半是同坐标标框叠图；若有同行高度候选边，它们只是寻找轮廓的搜索点，不是自动改框坐标。区分卡片自身闭合边框与相邻容器的分隔线，只按可见连接判断；对齐比较本身不是缺陷，也不要因其他小告警跳过这一检查：'+json.dumps(focus,ensure_ascii=False)+'\n'+prompt)
@@ -362,6 +361,7 @@ class Dag:
                 {row['materialId'] for row in audit_rows(answer,'smallBoundaryAudit')} !=
                 {row['materialId'] for row in small_focus['boundaryOnlyItems']}):
             raise ValueError('SMALL_BOUNDARY_AUDIT_IDS_REQUIRED')
+        if small_focus:validate_boundaries(answer,small_focus)
         blockers,warnings=split(answer,plan,policy)
         if any(set(i['ids'])-known for i in blockers+warnings):raise ValueError('UNKNOWN_REVIEW_IDS')
         save(p/'assessment.json',dict(blockers=blockers,warnings=warnings,reviewSha256=digest(p/'draft.json')))

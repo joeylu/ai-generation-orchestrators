@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased source-pixel boundary evidence binding
+
+- New small-material boundary reviews echo the exact program-provided half-open
+  source crop. A clipped verdict must identify an original-context pixel outside
+  that crop; complete and uncertain verdicts carry a null omitted-pixel field.
+- Contradictory coordinates stop before repair. Compile, freeze and explicit
+  revision verification recheck the bound evidence against the current candidate;
+  invalid evidence is never changed into a complete verdict.
+- Historical stored schemas retain their original rules. Calls, persistent
+  sessions, quality gates and the public composition contract stay unchanged.
+  This does not establish pixel ownership, visual completeness, model compliance
+  or successful recomposition, and does not resume old failed jobs or publish a tag.
+
 ## Unreleased itemized artwork ownership review
 
 - New fixed-runtime M2 and rereviews replace free region prose with individual

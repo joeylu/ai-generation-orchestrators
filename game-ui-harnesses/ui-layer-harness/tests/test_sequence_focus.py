@@ -10,7 +10,7 @@ from ai_ui_layers.sequence_focus import make_sequence_focus
 from ai_ui_layers.review_image import fit_resampling
 from ai_ui_layers.planning_dag import init, Dag
 from ai_ui_layers.session_review import resume_command
-from test_planning_dag import coverage
+from test_planning_dag import boundary_for, coverage
 
 SID='12345678-1234-1234-1234-123456789abc'
 
@@ -107,7 +107,7 @@ class SequenceFocusTests(unittest.TestCase):
                     labels={row['id']:row['label'] for row in plan['materials']}
                     answer=dict(issues=[issue] if folder.name=='m2' else [],coverageAudit=coverage(plan),
                         smallMaterialAudit={row['materialId']:dict(
-                            boundary=dict(status='complete',evidence='Fixture owned contour retained'),parts=[dict(
+                            boundary=boundary_for(row,evidence='Fixture owned contour retained'),parts=[dict(
                             visiblePart='Fixture symbol',observedAppearance='Fixture contrast, no distinct marks',
                             planEvidenceQuote=labels[row['materialId']],descriptionStatus='consistent',
                             suggestedChange='No change')]) for row in metadata['items']})

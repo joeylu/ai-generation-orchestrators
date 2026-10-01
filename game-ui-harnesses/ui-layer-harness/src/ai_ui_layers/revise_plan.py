@@ -108,6 +108,9 @@ def verify_revision(root, allow_issues=False):
     bound=read(review/'request.json')
     if bound['candidateSha256']!=digest(repair/'candidate.json') or bound['patchSha256']!=digest(repair/'draft.json'):
         raise ValueError('REVISION_REVIEW_MISMATCH')
+    from .compile_visual import verify_boundary_evidence
+    verify_boundary_evidence(review,read(review/'draft.json'),bound,candidate,
+                             root/'m1/reference.png')
     if split(read(review/'draft.json'),candidate,policy)[0] and not allow_issues:raise ValueError('M2_UNRESOLVED')
     return candidate
 

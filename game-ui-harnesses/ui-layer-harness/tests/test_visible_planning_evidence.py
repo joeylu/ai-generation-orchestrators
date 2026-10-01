@@ -8,7 +8,7 @@ from ai_ui_layers.compile_visual import HARNESS, compile_plan
 from ai_ui_layers.evaluate import read, digest, check_relations
 from ai_ui_layers.planning_dag import Dag
 from ai_ui_layers.planning_review_policy import split
-from test_planning_dag import FakeModel, missing_artwork
+from test_planning_dag import FakeModel, boundary_for, missing_artwork
 import test_planning_dag
 
 
@@ -47,7 +47,11 @@ class VisiblePlanningEvidenceTests(unittest.TestCase):
                 evidence = ('The source is cut by its left canvas edge; the crop retains all visible green pixels.'
                     if status == 'complete' else
                     'The crop starts at the source left edge but loses the visible right half of the green square.')
-                answer['smallMaterialAudit']['edge-glyph']['boundary'] = dict(status=status, evidence=evidence)
+                focus = read(folder/'coverage-small-materials.json')
+                item = next(row for row in focus['items'] if row['materialId']=='edge-glyph')
+                omitted = [item['sourceBox'][2],220] if status=='clipped' else None
+                answer['smallMaterialAudit']['edge-glyph']['boundary'] = boundary_for(
+                    item,status,evidence,omitted)
             else:
                 return
             self.response(folder, answer)

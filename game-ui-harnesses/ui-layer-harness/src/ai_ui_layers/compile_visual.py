@@ -114,6 +114,34 @@ def selected_paths(run):
     return run/'m1/draft.json',run/'m2/draft.json'
 
 
+def verify_boundary_evidence(folder, review, bound, visual, reference):
+    """Recheck new coordinate evidence at offline compile/freeze entry points."""
+    from .boundary_evidence import uses_bound_schema, validate_boundaries
+    if not uses_bound_schema(read(folder/'schema.json')):return
+    name='coverage-small-materials.json'
+    if name not in bound['inputs']:
+        raise ValueError('SMALL_BOUNDARY_FOCUS_INPUT_REQUIRED')
+    for filename,expected in bound['inputs'].items():
+        if digest(folder/filename)!=expected:
+            raise ValueError('SMALL_BOUNDARY_REVIEW_INPUT_CHANGED')
+    focus=read(folder/name)
+    with Image.open(reference) as image:width,height=image.size
+    owners={row['id']:row for row in visual['materials']}
+    for row in focus['items']+focus['boundaryOnlyItems']:
+        owner=owners.get(row['materialId'])
+        if owner is None or owner['role']!='foreground':
+            raise ValueError('SMALL_BOUNDARY_FOCUS_OWNER_MISMATCH')
+        box=pixel_box(owner['bboxNorm'],width,height)
+        if row['sourceBox']!=box:
+            raise ValueError('SMALL_BOUNDARY_FOCUS_PLAN_MISMATCH')
+        margin=max(16,(max(box[2]-box[0],box[3]-box[1])+1)//2)
+        context=[max(0,box[0]-margin),max(0,box[1]-margin),
+                 min(width,box[2]+margin),min(height,box[3]+margin)]
+        if row['contextBox']!=context:
+            raise ValueError('SMALL_BOUNDARY_CONTEXT_PLAN_MISMATCH')
+    validate_boundaries(review,focus)
+
+
 def verify_run(run, *, _allow_issues=False):
     run=Path(run)
     policy=planning_policy(run)
@@ -142,6 +170,8 @@ def verify_run(run, *, _allow_issues=False):
             raise ValueError('M2_INPUT_CHANGED')
     review = read(run/'m2/draft.json')
     Draft202012Validator(read(run/'m2/schema.json')).validate(review)
+    verify_boundary_evidence(run/'m2',review,review_request,
+                             read(run/'m1/draft.json'),run/'m1/reference.png')
     if result['unknownIssueIds'] or not result['sameSessionVerified']:
         raise ValueError('M2_UNRESOLVED')
     source=run/'m1/draft.json'
@@ -169,6 +199,8 @@ def verify_run(run, *, _allow_issues=False):
             raise ValueError('REREVIEW_CHANGED')
         if session_id(rr/'events.jsonl')!=result['sessionId']:raise ValueError('SESSION_CHANGED')
         review=read(rr/'draft.json');Draft202012Validator(read(rr/'schema.json')).validate(review)
+        verify_boundary_evidence(rr,review,bound,read(run/repair_name/'candidate.json'),
+                                 run/'m1/reference.png')
         source=run/repair_name/'candidate.json'
     from .planning_review_policy import split
     visual = read(selected_paths(run)[0])

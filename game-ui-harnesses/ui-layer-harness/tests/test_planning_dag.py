@@ -29,6 +29,21 @@ def missing_artwork(artwork,owner='asset-panel',change='Describe the observed ar
                 suggestedChange=change)
 
 
+def boundary_for(item,status='complete',evidence='Fixture contour is inside the candidate.',point=None):
+    return dict(status=status,evidence=evidence,sourceBox=item['sourceBox'],
+                omittedSourcePixel=point)
+
+
+def outside_pixel(item):
+    left,top,right,bottom=item['sourceBox']
+    c_left,c_top,c_right,c_bottom=item['contextBox']
+    if c_left<left:return [left-1,top]
+    if c_top<top:return [left,top-1]
+    if right<c_right:return [right,top]
+    if bottom<c_bottom:return [left,bottom]
+    raise AssertionError('Fixture has no original pixel outside its crop')
+
+
 def small_audit(folder):
     metadata=folder/'coverage-small-materials.json'
     if not metadata.exists():return {}
@@ -36,7 +51,7 @@ def small_audit(folder):
     if not source.exists():source=folder.parent/'source-plan.json'
     materials={row['id']:row for row in read(source)['materials']}
     return {item['materialId']:dict(
-        boundary=dict(status='complete',evidence='Fixture contour is inside the candidate.'),parts=[dict(
+        boundary=boundary_for(item),parts=[dict(
         visiblePart=materials[item['materialId']]['label'],
         observedAppearance='Fixture shape and color, no distinct surface marks',
         planEvidenceQuote=materials[item['materialId']]['label'],
@@ -49,7 +64,7 @@ def small_boundary_audit(folder):
     metadata=folder/'coverage-small-materials.json'
     if not metadata.exists():return {}
     return {item['materialId']:dict(
-        boundary=dict(status='complete',evidence='Fixture contour is inside the candidate.'))
+        boundary=boundary_for(item))
         for item in read(metadata).get('boundaryOnlyItems',[])}
 
 class FakeModel:
@@ -119,8 +134,9 @@ class DagTests(unittest.TestCase):
         self.assertIn('smallBoundaryAudit',read(self.root/'m2/schema.json')['required'])
         answer=read(self.root/'m2/draft.json')
         self.assertEqual(len(answer['smallBoundaryAudit']),len(focus['boundaryOnlyItems']))
-        next(iter(answer['smallBoundaryAudit'].values()))['boundary']=dict(status='clipped',
-            evidence='The owned icon continues above its crop.')
+        item=focus['boundaryOnlyItems'][0]
+        answer['smallBoundaryAudit'][item['materialId']]['boundary']=boundary_for(
+            item,'clipped','The owned icon continues outside its crop.',outside_pixel(item))
         self.assertTrue(any(issue['code']=='SMALL_MATERIAL_BOUNDARY_REVIEW'
                             for issue in split(answer,plan)[0]))
 

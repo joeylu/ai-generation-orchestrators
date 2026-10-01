@@ -44,7 +44,11 @@ class RereviewPromptTests(unittest.TestCase):
                 answer['coverageAudit'][2]['observedArtwork'].append(test_planning_dag.missing_artwork(
                     'Pale corner ornament','asset-panel','Describe the corner ornament.'))
                 item=answer['smallMaterialAudit'][owner]
-                item['boundary']=dict(status='clipped',evidence='Upper pale tip extends outside candidate.')
+                focus=read(folder/'coverage-small-materials.json')
+                focused=next(row for row in focus['items'] if row['materialId']==owner)
+                item['boundary']=test_planning_dag.boundary_for(
+                    focused,'clipped','Upper pale tip extends outside candidate.',
+                    test_planning_dag.outside_pixel(focused))
                 item['parts'][0].update(visiblePart='Pale attached tip',observedAppearance='White tip and dark dot',
                     planEvidenceQuote='',suggestedChange='Record the tip and dark dot.')
                 replace_answer(folder,answer);before['review']=copy.deepcopy(answer)

@@ -302,6 +302,9 @@ def verify_revision(root, allow_issues=False):
         raise ValueError('REVISION_REVIEW_CHANGED')
     if read(review/'prior-findings.json')!=rejection_findings(root):
         raise ValueError('REVISION_PRIOR_FINDINGS_CHANGED')
+    from .compile_visual import verify_boundary_evidence
+    verify_boundary_evidence(review,read(review/'draft.json'),review_request,candidate,
+                             root/'m1/reference.png')
     blockers,warnings=split(read(review/'draft.json'),candidate,planning_policy(root))
     assessment=read(review/'assessment.json')
     if (assessment['blockers']!=blockers or assessment['warnings']!=warnings or

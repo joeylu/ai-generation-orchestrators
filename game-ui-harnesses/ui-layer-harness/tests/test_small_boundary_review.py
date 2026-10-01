@@ -5,7 +5,7 @@ import unittest
 from ai_ui_layers.evaluate import read, digest
 from ai_ui_layers.planning_dag import Dag
 from ai_ui_layers.planning_review_policy import split
-from test_planning_dag import FakeModel
+from test_planning_dag import FakeModel, boundary_for, outside_pixel
 import test_planning_dag
 
 
@@ -27,8 +27,10 @@ class SmallBoundaryReviewTests(unittest.TestCase):
             base(folder,sid,first)
             if folder.name in ('m2','rereview'):
                 answer=read(folder/'draft.json')
-                next(iter(answer['smallMaterialAudit'].values()))['boundary']=dict(
-                    status='clipped',evidence='The owned top contour extends above the candidate.')
+                focus=read(folder/'coverage-small-materials.json')
+                item=focus['items'][0]
+                answer['smallMaterialAudit'][item['materialId']]['boundary']=boundary_for(
+                    item,'clipped','The owned contour extends outside the candidate.',outside_pixel(item))
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
                 (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')
