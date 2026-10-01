@@ -17,7 +17,8 @@ PROMPT_PREFIX_V3 = 'visual-material-context-prompt-v3:\n'
 PROMPT_PREFIX_V4 = 'visual-material-context-prompt-v4:\n'
 PROMPT_PREFIX_V5 = 'visual-material-context-prompt-v5:\n'
 PROMPT_PREFIX_V6 = 'visual-material-context-prompt-v6:\n'
-PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6)
+PROMPT_PREFIX_V7 = 'visual-material-context-prompt-v7:\n'
+PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7)
 # Historical callers and frozen plans used this name for v1.
 PROMPT_PREFIX = PROMPT_PREFIX_V1
 
@@ -205,7 +206,7 @@ def reconstruct_prompt(entries, group, *, version='v5'):
 
 def prompt(visual, plan, material_ids, group=None, version='v3'):
     """Compile frozen plan data once, with no LLM rewriting or extra grouping call."""
-    if version not in ('v1','v2','v3','v4','v5','v6'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if version not in ('v1','v2','v3','v4','v5','v6','v7'):raise ValueError('CONTEXT_PROMPT_VERSION')
     if visual.get('backgroundMode') not in ('scene-only','preserve-underlay') or visual.get('textPolicy')!='remove-business-text':
         raise ValueError('EXPLICIT_SCOPE_REQUIRED')
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
@@ -213,9 +214,13 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     if len(material_ids)==1 and assets[material_ids[0]]['role']=='background':
         return full_prompt(visual,material_ids[0],plan['canvas'])
     if not 1<=len(material_ids)<=4:raise ValueError('CONTEXT_REFERENCE_LIMIT')
-    builder=action_entry if version in ('v4','v5','v6') else entry
+    builder=action_entry if version in ('v4','v5','v6','v7') else entry
     entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i)
              for i,key in enumerate(material_ids)]
+    if version=='v7':
+        from .context_short_actions import build
+        short=build(visual,materials[material_ids[0]],entries,group)
+        return short if short is not None else reconstruct_prompt(entries,group,version='v6')
     if version in ('v5','v6'):return reconstruct_prompt(entries,group,version=version)
     if version=='v4':
         layout=(f'Grid {group["grid"][0]}x{group["grid"][1]} row-major, canvas '

@@ -1,5 +1,15 @@
 # Release notes
 
+## Unreleased opt-in short single-material actions
+
+- Fresh context freezes can select v7: concise Chinese keep/remove actions for
+  one unambiguous whole owned object, retaining reviewed labels, explicit text
+  exceptions, overlay continuation, underlay removal and transparency constraints.
+- Layout-sensitive or ambiguous materials and sheets keep exact v6 instructions;
+  default v3, historical versions, crop geometry, grouping and quality gates remain.
+  This adds no model call, authorization reuse or visual acceptance, and does not
+  change old frozen jobs. Real generation fidelity requires separate verification.
+
 ## Unreleased typed planning-review responsibilities
 
 - New `typed-review-v3` responses separate each region's graphical observations

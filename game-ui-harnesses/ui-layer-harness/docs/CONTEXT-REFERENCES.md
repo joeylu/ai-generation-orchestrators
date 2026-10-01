@@ -170,6 +170,23 @@ a length target.
 
 ## Authorization, exact transport and quality gates
 
+Version 7 is opt-in for a fresh freeze (`--context-prompt-version v7`). It uses
+short Chinese keep/remove instructions for one unambiguous whole material with
+one owned object. Its reviewed material and object labels remain verbatim;
+foreign overlays are removed and only the existing hidden owned surface is
+continued, while foreign underlays are removed. Exact retained lettering,
+ordinary-text removal, state, proportions, true openings, continuous alpha and
+transparent margins remain explicit. No labels are truncated to meet a length cap.
+
+Sheets, multiple owned or foreign objects, internal object offsets, same-depth foreign work,
+logos, repeated foreign descriptions and ambiguous same-label owners retain the exact
+v6 layout instructions. Background rendering is unchanged. This conservative
+selection is deterministic; it does not infer ownership or request a model to
+rewrite prompts. Snapshot metadata still says v7 for both short and fallback
+requests, and preflight rebuilds the exact selected text. Default v3 and historical
+v1–v6 bytes are unchanged. Prompt brevity is not a fidelity guarantee; a successful
+single host study does not establish general performance.
+
 A context snapshot requires a new job digest and fresh bound compute approval.
 Old full-reference authorizations or receipts cannot authorize its different
 requests. `prepare` follows the frozen reference mode and refuses prompt or

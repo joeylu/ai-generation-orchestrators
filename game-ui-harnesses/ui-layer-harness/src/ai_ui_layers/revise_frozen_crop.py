@@ -81,7 +81,7 @@ def _verify_parent_state(source):
 def _context_prompt_version(snapshot):
     version=(snapshot.get('contextPromptVersion','v1')
              if snapshot.get('generationReference','full')=='context-crops' else 'v3')
-    if version not in ('v1','v2','v3','v4','v5','v6'):raise ValueError('PARENT_CONTEXT_PROMPT_VERSION_INVALID')
+    if version not in ('v1','v2','v3','v4','v5','v6','v7'):raise ValueError('PARENT_CONTEXT_PROMPT_VERSION_INVALID')
     return version
 
 
