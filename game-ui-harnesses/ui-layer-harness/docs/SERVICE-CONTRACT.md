@@ -184,9 +184,15 @@ cosmeticIssues 不填写 category，code 只接受 MINOR_COLOR_TONE 或 DESCRIPT
 裁框检查。显式策略下 `styleAspect=other` 的样式差异保守阻断，不能代替明确的色调或
 阴影归因。轻微色差和柔影记录仍进入输出警告，不能冒充逐像素复原。
 
-目前显式策略支持独立单素材复审与选定合板复审；完整 mixed 请求若含 singleton，
-提取入口会在调用前以 `VISUAL_POLICY_SINGLE_REVIEW_ROUTE_REQUIRED` 停止，须分别建立
-真实复审证据，不能通过旧的 singleton 直通路径交付。此限制不变更历史无策略任务。
+显式策略的完整 mixed 请求中，每个 singleton 经真实 `single_material_review`：
+先重放相同冻结 snapshot 的作业、授权、提交和接收回执，核对 raw SHA-256，再按
+background／foreground 技术门禁准备比较图；每项最多一次只读模型调用，合板继续
+独立复审。新自动 DAG 与 `finish-received` 传入真实收到的作业。程序提取入口需显式
+提供 `received_jobs`；只有 PNG 或缺少真实回执时仍以
+`VISUAL_POLICY_SINGLE_REVIEW_ROUTE_REQUIRED` 停止，不创建替代作业或回执。
+singleton 的阻断、无效响应、运输失败及输入／回执变更终止整次提取，不自动重试；
+警告与判定摘要进入提取记录。通过时仍为待人工视觉验收，原 raw 保留用于后续归位。
+历史无策略任务沿用既有路径；选定合板复审无需提供 singleton 作业。
 离线验证仅证明策略传播和门禁；实际模型遵循、生成保真及最终回拼尚需单独实验验收。
 
 ### 可见轮廓、实例覆盖与短标签

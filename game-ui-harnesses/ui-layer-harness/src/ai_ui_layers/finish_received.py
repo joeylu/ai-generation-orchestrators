@@ -39,7 +39,8 @@ def finish(job, expected_digest, output, viewer):
         started = time.time(); stage = 'extract'; times = {}; t = started
         try:
             sources = {k: str(job/'attempts'/k/'raw.png') for k in current['requests']}
-            result = extract(snapshot, sha, sources, output/'extraction')
+            result = extract(snapshot, sha, sources, output/'extraction',
+                             received_jobs={key:job for key in current['requests']})
             times[stage] = time.time()-t
             stage = 'adapt'; t = time.time()
             sources = adapt_materials(snapshot, result['materials'], output/'adaptation', result.get('adaptations', {}))

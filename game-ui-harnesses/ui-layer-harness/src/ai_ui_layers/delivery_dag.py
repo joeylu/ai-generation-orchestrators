@@ -135,7 +135,9 @@ class DeliveryDag(planning.Dag):
         sources={key:str(job/'attempts'/key/'raw.png') for key in current['requests']}
         pre_adapted={}
         if self.config.get('generationMode')=='sheets':
-            extraction=extract(snapshot,inspect(snapshot)['digest'],sources,self.root/'extraction',self.sheet_model)
+            extraction=extract(snapshot,inspect(snapshot)['digest'],sources,self.root/'extraction',self.sheet_model,
+                               received_jobs={key:job for key in current['requests']},
+                               material_model=self.material_model)
             sources=extraction['materials'];pre_adapted=extraction.get('adaptations',{})
         else:
             review_single_job(job,self.root/'material-review',self.material_model)

@@ -178,7 +178,7 @@ def review(job, output, model_call=None, request_id=None):
     result=dict(status='blocked_no_retry' if assessment['blockers'] else 'reviewed_pending_visual_acceptance',
                 materialId=asset,rawSha256=receipt['rawSha256'],processedSha256=gate['materialSha256'],
                 reviewSha256=digest(folder/'draft.json'),modelCalls=1,
-                blockers=assessment['blockers'],warnings=assessment['warnings'],
+                blockers=assessment['blockers'],warnings=assessment['warnings'],decisions=assessment['decisions'],
                 humanVisualAcceptance=False,originalDagPromoted=False)
     save(output/'result.json',result)
     return result

@@ -125,7 +125,8 @@ def cells(image, row, actual_gaps=False):
     return bounds
 
 
-def extract(snapshot, expected_digest, sources, output, model_call=None, selected_request=None):
+def extract(snapshot, expected_digest, sources, output, model_call=None, selected_request=None,
+            received_jobs=None, material_model=None):
     snapshot=Path(snapshot).resolve();manifest=inspect(snapshot,expected_digest)
     visual_policy=snapshot_policy(snapshot,manifest)
     policy_sha=manifest['visualPolicySha256'] if visual_policy is not None else None
@@ -135,8 +136,6 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
         selected=[row for row in rows if row['asset']==selected_request and row.get('kind')=='sheet']
         if len(selected)!=1:raise ValueError('SHEET_SELECTION_REQUIRED')
         rows=selected
-    if visual_policy is not None and any(row.get('kind')!='sheet' for row in rows):
-        raise ValueError('VISUAL_POLICY_SINGLE_REVIEW_ROUTE_REQUIRED')
     if set(sources)!={r['asset'] for r in rows}:raise ValueError('SHEET_REQUEST_COVERAGE')
     visual_path=snapshot/'evidence/revised-visual-plan.json'
     visual=read(visual_path if visual_path.exists() else snapshot/'evidence/m1-draft.json')
@@ -155,6 +154,32 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
     # New model requests require warnings; legacy adapters may omit them, never downgrade issues.
     request_schema=schema_for(visual_policy)
     try:
+        # A PNG alone is not evidence of an authorized received singleton. Replay
+        # the real producer's immutable job/authorization/submission/receipt chain.
+        singleton_jobs={};receipt_files={}
+        if visual_policy is not None:
+            from .experimental_executor import load_job, status, verified
+            singles=[row for row in rows if row.get('kind')!='sheet']
+            if singles and (received_jobs is None or
+                    not {row['asset'] for row in singles} <= set(received_jobs)):
+                raise ValueError('VISUAL_POLICY_SINGLE_REVIEW_ROUTE_REQUIRED')
+            for row in singles:
+                key=row['asset'];job=Path(received_jobs[key]).resolve()
+                config,index=load_job(job)
+                if (config['snapshotDigest']!=expected_digest or key not in config['assets'] or
+                        index[key]!=row or status(job)['status']!='raw_complete'):
+                    raise ValueError('SINGLETON_RECEIVED_JOB_MISMATCH')
+                receipt=verified(job/'attempts'/key/'received.json')
+                if digest(job/'attempts'/key/'raw.png')!=originals[key] or receipt['rawSha256']!=originals[key]:
+                    raise ValueError('SINGLETON_RECEIVED_SOURCE_MISMATCH')
+                singleton_jobs[key]=job
+                for path in job.rglob('*'):
+                    if path.is_file() and path.name!='exchange.lock':receipt_files[path]=digest(path)
+        def review_single(folder):
+            nonlocal calls
+            from .single_material_review import call_model as default_material_model
+            calls+=1
+            return (material_model or default_material_model)(folder)
         checked={};prepared={};preparation={}
         sizes={a['id']:a['output_size'] for a in read(snapshot/'execution-plan.candidate.json')['assets']}
         (output/'prepared').mkdir()
@@ -166,7 +191,27 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
         save(output/'cell-preflight.json',dict(sourceSha256=originals,preparation=preparation,cells=checked))
         for row in rows:
             key=row['asset'];source=Path(sources[key])
-            if row.get('kind')!='sheet':materials[key]=str(source);continue
+            if row.get('kind')!='sheet':
+                if visual_policy is not None:
+                    from .single_material_review import review
+                    folder=output/key
+                    result=review(singleton_jobs[key],folder,review_single,request_id=key)
+                    if result['status']!='reviewed_pending_visual_acceptance':
+                        raise ValueError('SINGLETON_VISUAL_REVIEW_BLOCKED: '+json.dumps(result,ensure_ascii=False))
+                    if any(digest(path)!=sha for path,sha in receipt_files.items()):
+                        raise ValueError('SINGLETON_RECEIPT_CHANGED')
+                    review_sha=result['reviewSha256']
+                    warnings.extend(dict(w,requestId=key,reviewSha256=review_sha)
+                                    for w in result.get('warnings',[]))
+                    decisions.extend(dict(d,requestId=key,reviewSha256=review_sha)
+                                     for d in result.get('decisions',[]))
+                    receipt=verified(singleton_jobs[key]/'attempts'/key/'received.json')
+                    reports.append(dict(materialId=key,requestId=key,sourceSha256=originals[key],
+                        outputSha256=originals[key],reviewSha256=review_sha,
+                        jobDigest=verified(singleton_jobs[key]/'job.json')['digest'],
+                        submissionDigest=receipt['submissionDigest'],receiptSha256=digest(
+                            singleton_jobs[key]/'attempts'/key/'received.json')))
+                materials[key]=str(source.resolve());continue
             source=prepared[key];prepared_hash=digest(source)
             review_source,review_boxes,frame_reports,cell_hashes = _review_variant(
                 row,source,checked[key],visual,sizes,output)
@@ -271,6 +316,7 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
         if set(materials)!=expected:raise ValueError('SHEET_MATERIAL_COVERAGE')
         if any(digest(Path(v))!=originals[k] for k,v in sources.items()):raise ValueError('SHEET_INPUT_CHANGED')
         if any(digest(v)!=preparation[k]['preparedSha256'] for k,v in prepared.items()):raise ValueError('SHEET_INPUT_CHANGED')
+        if any(digest(path)!=sha for path,sha in receipt_files.items()):raise ValueError('SINGLETON_RECEIPT_CHANGED')
         inspect(snapshot,expected_digest)
         result=dict(status='extracted_pending_material_validation' if selected_request is None else
                     'selected_sheet_extracted_pending_material_validation',materials=materials,

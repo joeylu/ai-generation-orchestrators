@@ -137,7 +137,11 @@
   board and image-job preparation. Preflight rebuilds policy-bearing prompts.
   Output review records targeted color/shadow findings while retaining major,
   uncertain, ownership, clipping and artwork gates. Explicit-policy mixed requests
-  with singleton rows stop until separate review routing is established.
+  route each singleton through its receipt-bound single-material technical and
+  visual review, with one read-only model call maximum per singleton. The automatic
+  DAG and finish-received pass actual received jobs; PNG-only inputs still fail
+  closed. Transport failures, changed receipts and blocking findings terminate
+  extraction without retry, while recorded warnings remain bound to their review.
 - The option does not rewrite or promote old runs, change grouping, submit media,
   publish a tag or establish model fidelity. Real generation and reassembly require
   their own frozen authorization and visual acceptance.
