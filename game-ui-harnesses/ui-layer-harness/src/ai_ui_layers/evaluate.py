@@ -122,9 +122,13 @@ def check_relations(plan):
     return issues
 
 
-def draw_order(plan, source_sha256):
+def draw_order(plan, source_sha256, relation_evidence=None, reference_sha=None):
     """Derived unique indices; never change the source plan or resolve ambiguous overlaps."""
-    if check_relations(plan):
+    issues=check_relations(plan)
+    if relation_evidence is not None:
+        from .relation_review import validate_assessment
+        issues=validate_assessment(plan,reference_sha,relation_evidence)
+    if issues:
         raise ValueError('UNRESOLVED_PLAN_RELATIONS')
     ordered = sorted(plan['materials'], key=lambda row:(row['zOrder'], row['id']))
     return {'kind':'ui_derived_draw_order_v1', 'sourcePlanSha256':source_sha256,
@@ -134,7 +138,7 @@ def draw_order(plan, source_sha256):
                          for i,row in enumerate(ordered)]}
 
 
-def evaluate(run, output):
+def evaluate(run, output, relation_evidence=None):
     started = time.perf_counter()
     run, output = Path(run), Path(output)
     output.mkdir(parents=True, exist_ok=False)
@@ -163,13 +167,18 @@ def evaluate(run, output):
                             for e in Draft202012Validator(schema).iter_errors(plan)]
         if not result['issues']:
             result['issues'] = check_relations(plan)
+            if relation_evidence is not None:
+                from .relation_review import validate_assessment
+                result['issues']=validate_assessment(plan,digest(run/'reference.png'),relation_evidence)
+                result['relationEvidenceStatus']='candidate-and-reference-bound; alpha not measured'
         result.update(requestToPersistenceSeconds=seconds, timingScope=request['timingScope'],
                       responseSha256=receipt['responseSha256'], responseBytes=receipt['responseBytes'])
         if not result['issues']:
             result.update(status='structure_passed', materialCount=len(plan['materials']), objectCount=len(plan['objects']),
                           textRegionCount=len(plan.get('textRegions', [])), unknownCount=len(plan['unknowns']))
             render(run/'reference.png', plan, output)
-            save(output/'draw-order.json', draw_order(plan, receipt['responseSha256']))
+            save(output/'draw-order.json', draw_order(plan, receipt['responseSha256'],
+                 relation_evidence,digest(run/'reference.png')))
     except (ValueError, KeyError, TypeError, OSError) as exc:
         result['issues'].append({'code': str(exc) if type(exc) is ValueError and str(exc).isupper() else 'INVALID_INPUT'})
     result['evaluationSeconds'] = time.perf_counter()-started
@@ -225,7 +234,8 @@ def render(reference, plan, output):
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run',required=True);parser.add_argument('--output',required=True)
+    parser.add_argument('--relation-evidence',help='Optional derived candidate/reference-bound pair assessment; does not replace full visual review')
     args=parser.parse_args()
-    report=evaluate(args.run,args.output)
+    report=evaluate(args.run,args.output,read(Path(args.relation_evidence)) if args.relation_evidence else None)
     print(json.dumps(report,ensure_ascii=False))
     raise SystemExit(0 if report['status']=='structure_passed' else 1)

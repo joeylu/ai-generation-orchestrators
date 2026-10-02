@@ -34,8 +34,7 @@ class ConvergenceTests(unittest.TestCase):
                 panel=copy.deepcopy(read(source)['materials'][1]);panel['label']+=' corrected'
                 answer=dict(sourcePlanSha256=digest(source),materials=dict(upsert=[panel],remove=[]),
                     objects=dict(upsert=[],remove=[]),unknowns=None,backgroundMode=None,textPolicy=None,unresolvedIssues=[])
-            if folder.name in ('m2','rereview','rereview2'):
-                answer=bound_review(folder,answer)
+            answer=bound_review(folder,answer)
             save(folder/'draft.json',answer)
             (folder/'events.jsonl').write_text(json.dumps(dict(type='thread.started',thread_id=SID)))
             save(folder/'transport.json',dict(exitCode=0,turnCompleted=True,unexpectedEvents=[],responseSha256=digest(folder/'draft.json'),elapsedSeconds=.01))

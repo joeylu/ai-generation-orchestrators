@@ -261,7 +261,7 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','revise-frozen-crops','finish-received','finish-bundle','finish-variants','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
     p.add_argument('--config',help='For register-materials: bound explicit body registration config')
     p.add_argument('--source-sha256')
     p.add_argument('--edit-mask',help='Explicit binary L PNG allowed-edit region; not inferred from material boxes')
@@ -276,7 +276,7 @@ def main():
     p.add_argument('--received-job',help='Complete received image job for explicit postprocessing or review-required variant packaging')
     p.add_argument('--received-source',action='append',help='For finish-bundle: ASSET=RECEIVED_JOB, repeated once per frozen singleton request')
     p.add_argument('--accepted-prompt-variant',action='append',help='For finish-bundle: ASSET=SHA256 explicitly approved prompt variant')
-    p.add_argument('--selection',help='Complete received variant selection for receipt replay and review-required packaging')
+    p.add_argument('--selection',help='Received variant selection or explicit package-derived layer revision selection')
     p.add_argument('--preview',help='Complete processed candidate preview for automatic received-variant discovery')
     p.add_argument('--jobs-root',help='Directory of received variant jobs for exact-source discovery')
     p.add_argument('--issues-file',help='Optional UTF-8 JSON array of known visual differences')
@@ -310,6 +310,14 @@ def main():
         if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)) and a.action!='run':
             p.error('--planning-model, --planning-effort and --planning-timeout are only valid for a new run')
         if a.config and a.action!='register-materials':p.error('--config is only valid for register-materials')
+        if a.action=='revise-package':
+            if not a.selection or not a.viewer:p.error('--selection and --viewer required')
+            if any(token.split('=',1)[0] not in ('--selection','--output','--viewer')
+                   for token in sys.argv[1:] if token.startswith('--')):
+                p.error('revise-package only accepts a bound --selection, --output and --viewer')
+            from .package_revision import revise
+            result=revise(a.selection,a.output,a.viewer)
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action=='register-materials':
             if not a.config:p.error('--config required')
             from .body_registration import POLICY as BODY_POLICY, POLICY_SUPPORT

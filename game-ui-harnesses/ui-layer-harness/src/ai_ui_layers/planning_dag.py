@@ -20,6 +20,8 @@ from .sequence_focus import make_sequence_focus
 from .planning_review_policy import split, signatures, audit_rows
 from .boundary_evidence import guidance as boundary_guidance, validate_boundaries
 from .review_evidence import build_catalog, build_review_schema
+from . import relation_review
+from .planning_normalization import m1_plan_path, provider_schema, derive, POLICY as NORMALIZATION_POLICY
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure, validate_timeout
 from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME
 
@@ -77,9 +79,11 @@ def prior_findings(root, name):
         review=root/'parent-review/draft.json';source=root/'source-plan.json'
     else:
         review=root/('m2/draft.json' if name=='rereview' else 'rereview/draft.json')
-        source=root/('m1/draft.json' if name=='rereview' else 'repair/candidate.json')
+        source=m1_plan_path(root) if name=='rereview' else root/'repair/candidate.json'
     # Derive against the plan actually reviewed, never the repaired candidate.
-    blockers,warnings=split(read(review),read(source),planning_policy(root))
+    review_root=Path(read(root/'revision.json')['parent']) if review.parent.name=='parent-review' else root
+    review_config=read(review_root/'.dag/config.json') if (review_root/'.dag/config.json').exists() else {}
+    blockers,warnings=split(read(review),read(source),planning_policy(review_root),review_config.get('coverageTextPolicy'))
     return dict(kind='ui_planning_prior_findings_v1',sourcePlanSha256=digest(source),
                 reviewSha256=digest(review),blockers=blockers,warnings=warnings)
 
@@ -167,6 +171,7 @@ def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, pl
     save(root/'.dag/config.json',{'kind':'ui_planning_dag_v1','runtime':runtime_files(),
          'inputs':{p.name:digest(p) for p in inputs.iterdir()},'maxCalls':max_calls,'generationMode':generation_mode,'generationReference':generation_reference,
          **({'contextPromptVersion':context_prompt_version} if context_prompt_version is not None else {}),
+         'relationReviewPolicy':relation_review.POLICY,'normalizationPolicy':NORMALIZATION_POLICY,'coverageTextPolicy':'exact-fragments-v1',
          'model':planning_model,'effort':planning_effort,'timeoutSeconds':planning_timeout,
          'graph':GRAPH,'maximumRepairs':2,'mediaGenerationCalls':0})
     save(root/'.dag/config-digest.json',{'sha256':digest(root/'.dag/config.json')})
@@ -221,6 +226,10 @@ class Dag:
                     compiled.get('contextPromptVersion','v1')!=version):
                 raise ValueError('FROZEN_CONTEXT_PROMPT_VERSION_MISMATCH')
         planning_policy(self.root)
+        relation_review.policy(self.root)
+        from .planning_normalization import validate_policy
+        validate_policy(self.config.get('normalizationPolicy'))
+        if self.config.get('coverageTextPolicy') not in (None,'exact-fragments-v1'):raise ValueError('COVERAGE_TEXT_POLICY_UNKNOWN')
         for done in (self.root/'.dag').glob('*/done.json'):
             for name,value in read(done)['outputs'].items():
                 if digest(self.root/name)!=value:raise ValueError('COMPLETED_OUTPUT_CHANGED:'+name)
@@ -284,7 +293,7 @@ class Dag:
                  '类别名称不能代替部件数量、连接关系和真实间隙，按可见结构描述，不用不确定术语补全。\n\n')
         (p/'prompt.md').write_text(context+(p/'prompt.md').read_text(encoding='utf-8-sig')+
                                    planning_guidance(policy)+self.user_context(),encoding='utf-8')
-        save(p/'schema.json',transport_schema(read(self.inputs/'storage-schema.json')))
+        save(p/'schema.json',transport_schema(provider_schema(read(self.inputs/'storage-schema.json'),self.config.get('normalizationPolicy'))))
         request={'inputs':{n:digest(p/n) for n in ('reference.png','prompt.md','schema.json')},
                  'model':self.config['model'],'effort':self.config['effort'],
                  'timeoutSeconds':self.config.get('timeoutSeconds',900),'mediaGenerationCalls':0,
@@ -292,10 +301,10 @@ class Dag:
         if policy is not None:request['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
         save(self.root/'request.json',request)
         self.call(p,True)
-        Draft202012Validator(read(self.inputs/'storage-schema.json')).validate(read(p/'draft.json'))
+        derive(p,self.inputs/'storage-schema.json',self.config.get('normalizationPolicy'))
 
     def check(self):
-        p=self.root/'m1';plan=read(p/'draft.json')
+        p=self.root/'m1';plan=read(m1_plan_path(self.root))
         save(p/'program-check.json',{'issues':check_relations(plan)})
         render_for_review(p/'reference.png',plan,p/'preview')
 
@@ -308,7 +317,13 @@ class Dag:
         focus=make_focus(self.root/'m1/reference.png',p/'review-overlay.png',plan,p)
         small_focus=make_small_material_focus(self.root/'m1/reference.png',plan,p)
         sequence_focus=make_sequence_focus(self.root/'m1/reference.png',plan,p)
-        save(p/'schema.json',build_review_schema(catalog,small_focus,policy))
+        schema=build_review_schema(catalog,small_focus,policy,coverage_text_policy=self.config.get('coverageTextPolicy'))
+        relations=None
+        if relation_review.policy(self.root):
+            relations=relation_review.catalog(plan,digest(self.root/'m1/reference.png'))
+            save(p/relation_review.NAME,relations)
+            schema=relation_review.bind_schema(schema,relations)
+        save(p/'schema.json',schema)
         review_checks=build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),
                                           check_relations(plan))
         copied_quote='证据逐字引用所属素材/对象 label；'
@@ -357,12 +372,18 @@ class Dag:
                 prompt+=('reference-bound 仅用于所选所属描述已证明结构、身份、数量、状态及连接关系，'
                          '剩余细微表面由本次绑定原图承接；填写非空 deferredAppearance 说明具体延期表面。'
                          '缺失/矛盾/不确定仍填对应状态，不借此跳过轮廓、归属或描述核对。\n')
+        if self.config.get('coverageTextPolicy'):
+            prompt=prompt.replace('须绑定无保留字许可的素材；保留字/图形符号另作图形核对。',
+                                  '待删textFragments不可与该素材或scene的保留字许可重合；保留字/图形符号另作图形核对。')
+            prompt+=('\n业务字精确片段合同：businessText每项必填textFragments，按原图写真实待删字串（可逐段），不得把图形符号写作文字；保留装饰字仍列observedArtwork。同素材可同时有待删业务字与获准装饰字，但待删片段不能与该素材或scene的preserveText重合。\n')
         prompt+=('\n本轮计划证据目录（摘要必须回填 planEvidenceCatalogDigest，协议填 typed-review-v3；'
                  '覆盖项由 materialId/objectId 定位，小素材 parts 才选择所属 planEvidenceId；'
                  '不得复制、拼接或改写 label；仍须独立对原图判断是否描述所见）：'
                  +json.dumps(catalog,ensure_ascii=False,separators=(',',':'))+'\n')
+        if relations is not None:prompt+=relation_review.guidance(relations)
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
         names=['schema.json','review-source.md','review-overlay.png','prompt.md','plan-evidence-catalog.json']
+        if relations is not None:names.append(relation_review.NAME)
         if name.startswith('rereview'):names.append('prior-findings.json')
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small_focus:names+=['coverage-small-materials.json']+[row['file'] for row in small_focus['pages']]
@@ -384,13 +405,17 @@ class Dag:
                 {row['materialId'] for row in small_focus['boundaryOnlyItems']}):
             raise ValueError('SMALL_BOUNDARY_AUDIT_IDS_REQUIRED')
         if small_focus:validate_boundaries(answer,small_focus)
-        blockers,warnings=split(answer,plan,policy)
+        blockers,warnings=split(answer,plan,policy,self.config.get('coverageTextPolicy'))
+        if relations is not None:
+            assessment=relation_review.assess(plan,relations['referenceSha256'],answer)
+            save(p/'relation-assessment.json',assessment)
+            blockers+=self.relation_blockers(assessment['blockers'])
         if any(set(i['ids'])-known for i in blockers+warnings):raise ValueError('UNKNOWN_REVIEW_IDS')
         save(p/'assessment.json',dict(blockers=blockers,warnings=warnings,reviewSha256=digest(p/'draft.json')))
         if name=='m2':
             first=read(self.root/'m1/transport.json')
             save(self.root/'result.json',{'sameSessionVerified':True,'sessionId':sid,'unknownIssueIds':[],
-                 'sourcePlanSha256':digest(plan_path),'reviewSha256':digest(p/'draft.json'),
+                 'sourcePlanSha256':digest(self.root/'m1/draft.json'),'derivedSourcePlanSha256':digest(plan_path),'reviewSha256':digest(p/'draft.json'),
                  'm1Seconds':first['elapsedSeconds'],'m2Seconds':receipt['elapsedSeconds'],
                  'm3Executed':False,'productionReady':False,'humanVisualAcceptance':False})
         else:
@@ -404,11 +429,13 @@ class Dag:
                     raise ValueError('REREVIEW_UNRESOLVED')
 
     def repair(self, source=None, review_dir=None, name='repair'):
-        p=self.folder(name);source=source or self.root/'m1/draft.json';source_sha=digest(source)
+        p=self.folder(name);source=source or m1_plan_path(self.root);source_sha=digest(source)
         review_dir=review_dir or self.root/'m2'
         policy=planning_policy(self.root)
-        plan=read(source);issues=dict(issues=split(read(review_dir/'draft.json'),plan,policy)[0])
-        program_issues=check_relations(plan)
+        review_root=Path(read(self.root/'revision.json')['parent']) if review_dir.name=='parent-review' else self.root
+        review_config=read(review_root/'.dag/config.json') if (review_root/'.dag/config.json').exists() else {}
+        plan=read(source);issues=dict(issues=split(read(review_dir/'draft.json'),plan,planning_policy(review_root),review_config.get('coverageTextPolicy'))[0])
+        program_issues=self.reviewed_relations(plan,review_dir)
         ids={key for issue in issues['issues'] for key in issue['ids']}
         ids.update(key for issue in program_issues for key in issue.get('materialIds',[]))
         ids.update(issue['id'] for issue in program_issues if 'id' in issue)
@@ -416,7 +443,9 @@ class Dag:
         context=dict(materials=[m for m in plan['materials'] if m['id'] in owners],
                      objects=[o for o in plan['objects'] if o['materialId'] in owners])
         save(p/'source-context.json',context)
-        save(p/'schema.json',transport_schema(patch_schema(read(self.root/'m1/schema.json'),source_sha)))
+        relation_catalog=relation_review.catalog(plan,digest(self.root/'m1/reference.png')) if relation_review.policy(self.root) else None
+        if relation_catalog is not None:save(p/relation_review.NAME,relation_catalog)
+        save(p/'schema.json',transport_schema(patch_schema(read(self.inputs/'storage-schema.json'),source_sha,relation_catalog)))
         (p/'review-overlay.png').write_bytes((review_dir/'review-overlay.png').read_bytes())
         focus=read(review_dir/'focus-meta.json') if (review_dir/'focus-meta.json').exists() else []
         if focus:
@@ -450,12 +479,17 @@ class Dag:
                 '\n受影响的原始素材及全部所属对象（未改写）：'+json.dumps(context,ensure_ascii=False)+
                 '\nM2问题：'+json.dumps(issues,ensure_ascii=False)+
                 '\n程序问题：'+json.dumps({'issues':program_issues},ensure_ascii=False))
+        if relation_catalog is not None:
+            prompt+=relation_review.guidance(relation_catalog).replace('relationReview','relationRepair')
+            prompt+=('\n逐对关系修补：上轮真实派生关系证据 '+json.dumps(read(review_dir/'relation-assessment.json') if (review_dir/'relation-assessment.json').exists() else {'status':'no prior pair evidence; all raw hints require fresh review'},ensure_ascii=False)+
+                     '。只修真实遮挡、归属或错框；正确AABB交叉不能缩框或任意改深度。保留pairId逐对解释未解决项于unresolvedIssues；空patch不能自行核销uncertain。修改后的candidate必须经下一轮绑定原图的逐对复审。')
         if focus:prompt+='\n上一轮边界局部证据继续随附件提供：'+json.dumps(focus,ensure_ascii=False)
         if small_focus:
             prompt+='\n上一轮小素材原图放大证据继续随附件提供。'
             if detail:prompt+=' 无标记原图上下文放大对应 '+detail['materialId']+'，邻近像素不改变归属。'
         (p/'prompt.md').write_text(prompt+planning_guidance(policy)+self.user_context(),encoding='utf-8')
         names=['schema.json','prompt.md','review-overlay.png','source-context.json',*sequence_files]
+        if relation_catalog is not None:names.append(relation_review.NAME)
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small_focus:names+=['coverage-small-materials.json',*small_files]
         if small_focus and detail:names.append(detail['file'])
@@ -467,30 +501,41 @@ class Dag:
         self.call(p)
 
     def repair_check(self, source=None, name='repair', allow_program_issues=False):
-        p=self.root/name;source=source or self.root/'m1/draft.json'
-        plan,report=merge_patch(source,read(p/'draft.json'),read(self.root/'m1/schema.json'),digest(source))
+        p=self.root/name;source=source or m1_plan_path(self.root)
+        relation_catalog=relation_review.catalog(read(source),digest(self.root/'m1/reference.png')) if relation_review.policy(self.root) else None
+        plan,report=merge_patch(source,read(p/'draft.json'),read(self.inputs/'storage-schema.json'),digest(source),relation_catalog)
         report['remainingUnknowns']=plan['unknowns']
         save(p/'candidate.json',plan);save(p/'report.json',report)
         if (report['unresolvedIssues'] or plan['unknowns'] or
-                (report['programIssues'] and not allow_program_issues)):
+                (report['programIssues'] and not allow_program_issues and
+                 (not relation_review.policy(self.root) or any(i['code']!='SAME_LAYER_OVERLAP_REVIEW' for i in report['programIssues'])))):
             raise ValueError('REPAIR_UNRESOLVED')
         render_for_review(self.root/'m1/reference.png',plan,p/'preview')
+
+    @staticmethod
+    def relation_blockers(issues):
+        return [dict(code=i['code'],category='geometry',ids=i.get('materialIds',[i['id']] if 'id' in i else []),
+                     description=json.dumps(i,ensure_ascii=False),suggestedChange='Resolve against the original reference.') for i in issues]
+
+    def reviewed_relations(self, plan, folder):
+        if not relation_review.policy(self.root) or folder.name=='parent-review':return check_relations(plan)
+        return relation_review.verify_stage(self.root,folder,plan)['blockers']
 
     def execute(self):
         with locked(self.root):
             if not (self.root/'.dag/execution.json').exists():
                 save(self.root/'.dag/execution.json',{'driver':'codex-cli' if self.model is live_model else 'injected-test-double'})
             self.node('m1',self.m1);self.node('check',self.check)
-            self.node('m2',lambda:self.review('m2',self.root/'m1/draft.json',self.root/'m1/preview/materials-overlay.png'))
-            initial_plan=read(self.root/'m1/draft.json')
+            self.node('m2',lambda:self.review('m2',m1_plan_path(self.root),self.root/'m1/preview/materials-overlay.png'))
+            initial_plan=read(m1_plan_path(self.root))
             policy=planning_policy(self.root)
-            needs=bool(split(read(self.root/'m2/draft.json'),initial_plan,policy)[0] or read(self.root/'m1/program-check.json')['issues'] or initial_plan['unknowns'])
+            needs=bool(split(read(self.root/'m2/draft.json'),initial_plan,policy,self.config.get('coverageTextPolicy'))[0] or self.reviewed_relations(initial_plan,self.root/'m2') or initial_plan['unknowns'])
             if needs:
                 self.node('repair',self.repair)
                 self.node('repair_check',lambda:self.repair_check(allow_program_issues=True))
                 self.node('rereview',lambda:self.review('rereview',self.root/'repair/candidate.json',self.root/'repair/preview/materials-overlay.png'))
-                if (split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'),policy)[0] or
-                        read(self.root/'repair/report.json')['programIssues']):
+                if (split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'),policy,self.config.get('coverageTextPolicy'))[0] or
+                        self.reviewed_relations(read(self.root/'repair/candidate.json'),self.root/'rereview')):
                     self.node('repair2',lambda:self.repair(self.root/'repair/candidate.json',self.root/'rereview','repair2'))
                     self.node('repair_check2',lambda:self.repair_check(self.root/'repair/candidate.json','repair2'))
                     self.node('rereview2',lambda:self.review('rereview2',self.root/'repair2/candidate.json',self.root/'repair2/preview/materials-overlay.png'))
@@ -526,7 +571,7 @@ class Dag:
         if self.config.get('generationReference','full')=='context-crops':
             result['contextPromptVersion']=self.config.get('contextPromptVersion',LEGACY_CONTEXT_PROMPT_VERSION)
         policy=planning_policy(self.root)
-        sources={'m2':'m1/draft.json','rereview':'repair/candidate.json',
+        sources={'m2':'m1/normalized-plan.json' if self.config.get('normalizationPolicy') else 'm1/draft.json','rereview':'repair/candidate.json',
                  'rereview2':'repair2/candidate.json'}
         if policy is None:
             result['reviewWarnings']={}
@@ -534,10 +579,10 @@ class Dag:
                 if not (self.root/name/'draft.json').exists():continue
                 review=read(self.root/name/'draft.json')
                 itemized=any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[]))
-                result['reviewWarnings'][name]=split(review,read(self.root/path) if itemized else None)[1]
+                result['reviewWarnings'][name]=split(review,read(self.root/path) if itemized else None,coverage_text_policy=self.config.get('coverageTextPolicy'))[1]
         else:
             result['reviewWarnings']={name:split(read(self.root/name/'draft.json'),
-                                      read(self.root/sources[name]),policy)[1]
+                                      read(self.root/sources[name]),policy,self.config.get('coverageTextPolicy'))[1]
                 for name in sources if (self.root/name/'draft.json').exists()}
         if model_failures:result['modelCallFailures']=model_failures
         if completed:result['snapshotDigest']=inspect(self.root/'frozen')['digest']

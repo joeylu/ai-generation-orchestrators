@@ -15,6 +15,12 @@ def preflight(folder, expected_digest):
     started=time.perf_counter();folder=Path(folder)
     snapshot=inspect(folder,expected_digest)
     policy=snapshot_policy(folder,snapshot)
+    from .relation_review import frozen_evidence
+    relations=None
+    if snapshot.get('relationReviewPolicy'):
+        visual_path=folder/'evidence/revised-visual-plan.json'
+        if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
+        relations=frozen_evidence(folder,snapshot,read(visual_path))
     if (folder/'surface-details.json').exists() and read(folder/'surface-details.json'):
         raise ValueError('RETIRED_DRAWING_PLAN_REQUIRES_REPLAN')
     required={'execution-plan.candidate.json','reference.png','requests.json'}
@@ -59,7 +65,7 @@ def preflight(folder, expected_digest):
         if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
         visual=read(visual_path)
         rebuilt,_=compile_plan(visual,reference.size,digest(folder/'reference.png'),plan['id'],
-                               'context-crops',context_prompt_version=context_prompt_version,visual_policy=policy)
+                               'context-crops',context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations)
         if rebuilt!=plan:raise ValueError('CONTEXT_PLAN_COMPILER_MISMATCH')
         context_document=verify_context(folder,plan,snapshot,reference)
     elif ('generation-references.json' in snapshot['files'] or
@@ -78,7 +84,7 @@ def preflight(folder, expected_digest):
         from .evaluate import digest
         visual_path=folder/'evidence/revised-visual-plan.json'
         if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
-        rebuilt,_=compile_plan(read(visual_path),reference.size,digest(folder/'reference.png'),plan['id'],visual_policy=policy)
+        rebuilt,_=compile_plan(read(visual_path),reference.size,digest(folder/'reference.png'),plan['id'],visual_policy=policy,relation_evidence=relations)
         if rebuilt!=plan:raise ValueError('VISUAL_POLICY_PLAN_COMPILER_MISMATCH')
     if grouped:
         from .generation_groups import build_groups, sheet_prompt, CONTEXT_GROUP_POLICY

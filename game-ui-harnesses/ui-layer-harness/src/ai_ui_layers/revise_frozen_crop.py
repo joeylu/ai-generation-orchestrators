@@ -233,8 +233,14 @@ def check_scope(root, candidate=None):
                 for key in ('backgroundMode','textPolicy'))):
         raise ValueError('FROZEN_CROP_SCOPE_CHANGED')
     if candidate is None:
-        candidate,_=merge_patch(root/'source-plan.json',patch,read(root/'m1/schema.json'),
-                                digest(root/'source-plan.json'))
+        from . import relation_review
+        config=read(root/'.dag/config.json')
+        relations=(relation_review.catalog(source,digest(root/'m1/reference.png'))
+                   if relation_review.policy(root) else None)
+        schema=(root/'.dag/inputs/storage-schema.json'
+                if config.get('normalizationPolicy') is not None else root/'m1/schema.json')
+        candidate,_=merge_patch(root/'source-plan.json',patch,read(schema),
+                                digest(root/'source-plan.json'),relations)
     if any(candidate[key]!=source[key] for key in source if key!='materials'):
         raise ValueError('FROZEN_CROP_SCOPE_CHANGED')
     if len(candidate['materials'])!=len(source['materials']):
@@ -284,10 +290,18 @@ def verify_revision(root, allow_issues=False):
             repair_request['rejectionSha256']!=revision['rejectionSha256'] or
             repair_request['originalReferenceSha256']!=revision['referenceSha256']):
         raise ValueError('REVISION_REPAIR_SOURCE_CHANGED')
+    from . import relation_review
+    config=read(root/'.dag/config.json')
+    relations=(relation_review.catalog(read(root/'source-plan.json'),digest(root/'m1/reference.png'))
+               if config.get('relationReviewPolicy')==relation_review.POLICY else None)
+    strict_schema=(root/'.dag/inputs/storage-schema.json'
+                   if config.get('normalizationPolicy') is not None else root/'m1/schema.json')
     candidate,report=merge_patch(root/'source-plan.json',read(repair/'draft.json'),
-                                 read(root/'m1/schema.json'),revision['sourcePlanSha256'])
+                                 read(strict_schema),revision['sourcePlanSha256'],relations)
     check_scope(root,candidate)
-    if (candidate!=read(repair/'candidate.json') or report['programIssues'] or
+    hard_issues=[issue for issue in report['programIssues']
+                 if relations is None or issue['code']!='SAME_LAYER_OVERLAP_REVIEW']
+    if (candidate!=read(repair/'candidate.json') or hard_issues or
             report['unresolvedIssues'] or candidate['unknowns']):
         raise ValueError('REVISION_INVALID_PATCH')
     if dict(report,remainingUnknowns=candidate['unknowns'])!=read(repair/'report.json'):
@@ -306,7 +320,11 @@ def verify_revision(root, allow_issues=False):
     verify_plan_evidence(review,read(review/'draft.json'),review_request,candidate)
     verify_boundary_evidence(review,read(review/'draft.json'),review_request,candidate,
                              root/'m1/reference.png')
-    blockers,warnings=split(read(review/'draft.json'),candidate,planning_policy(root))
+    blockers,warnings=split(read(review/'draft.json'),candidate,planning_policy(root),
+                           read(root/'.dag/config.json').get('coverageTextPolicy'))
+    if relation_review.policy(root):
+        relation_assessment=relation_review.verify_stage(root,review,candidate)
+        blockers+=planning.Dag.relation_blockers(relation_assessment['blockers'])
     assessment=read(review/'assessment.json')
     if (assessment['blockers']!=blockers or assessment['warnings']!=warnings or
             assessment['reviewSha256']!=digest(review/'draft.json')):
@@ -346,8 +364,14 @@ class FrozenCropDag(planning.Dag):
         plan=read(source);rejection=read(root/'rejection.json')
         source_sha=digest(source)
         (p/'reference.png').write_bytes((root/'m1/reference.png').read_bytes())
+        from . import relation_review
+        relations=(relation_review.catalog(plan,digest(root/'m1/reference.png'))
+                   if relation_review.policy(root) else None)
+        if relations is not None:save(p/relation_review.NAME,relations)
+        strict_schema=(self.inputs/'storage-schema.json'
+                       if self.config.get('normalizationPolicy') is not None else root/'m1/schema.json')
         save(p/'schema.json',planning.transport_schema(
-            patch_schema(read(root/'m1/schema.json'),source_sha)))
+            patch_schema(read(strict_schema),source_sha,relations)))
         save(p/'source-context.json',dict(materials=[m for m in plan['materials']
             if m['id'] in {row['materialId'] for row in rejection['findings']}],
             objects=[o for o in plan['objects'] if o['materialId'] in
@@ -372,8 +396,12 @@ class FrozenCropDag(planning.Dag):
         if small:prompt+='\n小素材同坐标原图/裁片证据：'+json.dumps(small,ensure_ascii=False)
         if focus:prompt+='\n局部边界证据：'+json.dumps(focus,ensure_ascii=False)
         if sequence:prompt+='\n序列原图证据：'+json.dumps(sequence,ensure_ascii=False)
+        if relations is not None:
+            prompt+=relation_review.guidance(relations).replace('relationReview','relationRepair')
+            prompt+='\n只说明源计划逐对关系；候选关系仍必须在下一轮独立复审，不能用修补说明免除候选关系门。\n'
         (p/'prompt.md').write_text(prompt+planning_guidance(policy)+self.user_context(),encoding='utf-8')
         names=['reference.png','schema.json','prompt.md','source-context.json','review-overlay.png']
+        if relations is not None:names.append(relation_review.NAME)
         if focus:names+=['focus-meta.json']+[row['file'] for row in focus]
         if small:names+=['coverage-small-materials.json']+[row['file'] for row in small['pages']]
         if small and small.get('detail'):names.append(small['detail']['file'])

@@ -104,6 +104,11 @@ class RereviewPromptTests(unittest.TestCase):
         self.assertEqual(Dag(self.root,call).execute()['status'],'frozen')
 
     def test_overflow_boundary_findings_are_neither_truncated_nor_deduplicated(self):
+        # This fabricated history tests finding cardinality, without a model receipt.
+        # Keep its historical raw-plan contract instead of declaring normalization.
+        config=self.root/'.dag/config.json';value=read(config);value.pop('normalizationPolicy',None)
+        config.write_text(json.dumps(value),encoding='utf-8')
+        (self.root/'.dag/config-digest.json').write_text(json.dumps(dict(sha256=digest(config))),encoding='utf-8')
         (self.root/'m1').mkdir();(self.root/'m2').mkdir()
         plan=dict(materials=[],objects=[])
         review=dict(issues=[],smallBoundaryAudit=[dict(materialId=f'icon-{i}',

@@ -4,7 +4,7 @@ from jsonschema import Draft202012Validator
 from .evaluate import read, digest, check_relations
 
 
-def patch_schema(plan_schema, source_sha):
+def patch_schema(plan_schema, source_sha, relation_catalog=None):
     props = {'sourcePlanSha256': {'type': 'string', 'const': source_sha}}
     for field in ('materials', 'objects'):
         if field not in plan_schema['properties']:continue
@@ -19,14 +19,27 @@ def patch_schema(plan_schema, source_sha):
     for field in ('backgroundMode','textPolicy'):
         if field in plan_schema['properties']:
             props[field] = {'anyOf':[copy.deepcopy(plan_schema['properties'][field]),{'type':'null'}]}
-    return {'type': 'object', 'additionalProperties': False,
+    result={'type': 'object', 'additionalProperties': False,
             'required': required, 'properties': props}
+    if relation_catalog is not None:
+        from .relation_review import bind_schema
+        bound=bind_schema({'properties':{},'required':[]},relation_catalog)
+        result['properties']['relationRepair']=bound['properties']['relationReview']
+        result['required'].append('relationRepair')
+    return result
 
 
-def merge_patch(source, patch, schema, expected_sha):
+def merge_patch(source, patch, schema, expected_sha, relation_catalog=None):
     if digest(source) != expected_sha:
         raise ValueError('SOURCE_CHANGED')
-    Draft202012Validator(patch_schema(schema, expected_sha)).validate(patch)
+    Draft202012Validator(patch_schema(schema, expected_sha, relation_catalog)).validate(patch)
+    if relation_catalog is not None:
+        from .relation_review import catalog, assess
+        original=read(source)
+        if relation_catalog!=catalog(original,relation_catalog['referenceSha256']):
+            raise ValueError('RELATION_PATCH_SOURCE_CHANGED')
+        # This is source-pair repair reasoning. It cannot discharge candidate relations.
+        assess(original,relation_catalog['referenceSha256'],{'relationReview':patch['relationRepair']})
     plan = read(source)
     changed = {}
     for field in ('materials', 'objects'):

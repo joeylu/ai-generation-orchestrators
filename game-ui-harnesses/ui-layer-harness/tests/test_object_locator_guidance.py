@@ -6,6 +6,7 @@ import unittest
 from ai_ui_layers.evaluate import read, digest
 from ai_ui_layers.freeze_visual import freeze
 from ai_ui_layers.planning_dag import Dag
+from ai_ui_layers.planning_normalization import m1_plan_path
 import test_planning_dag
 
 
@@ -61,7 +62,7 @@ class ObjectLocatorGuidanceTests(unittest.TestCase):
             self.bind_answer(folder,answer)
         dag=Dag(self.root,observed)
         dag.m1();dag.check()
-        dag.review('m2',self.root/'m1/draft.json',self.root/'m1/preview/materials-overlay.png')
+        dag.review('m2',m1_plan_path(self.root),self.root/'m1/preview/materials-overlay.png')
         assessment=read(self.root/'m2/assessment.json')
         self.assertEqual(assessment['blockers'][0]['code'],'INTEGRATED_ICON_LOCATOR_MISSING')
         self.assertEqual(assessment['blockers'][0]['category'],'geometry')

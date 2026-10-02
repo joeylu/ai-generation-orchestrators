@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from PIL import Image
 from ai_ui_layers.planning_dag import init,Dag
+from ai_ui_layers.planning_normalization import m1_plan_path
 from ai_ui_layers.compile_visual import HARNESS
 from ai_ui_layers.evaluate import read,save,digest
 from ai_ui_layers.planning_review_policy import REGIONS, split
@@ -72,9 +73,18 @@ def small_boundary_audit(folder):
 
 def bound_review(folder,answer):
     """Follow the stored review schema in this offline model test double."""
+    relation=folder/'relation-catalog.json'
+    if relation.exists() and folder.name in ('repair','repair2'):
+        rows=read(relation)
+        if not rows['pairs']:answer['relationRepair']=dict(catalogDigest=rows['digest'],candidateDigest=rows['candidateDigest'],referenceSha256=rows['referenceSha256'],pairs={})
     path=folder/'plan-evidence-catalog.json'
     if not path.exists():return answer
     catalog=read(path)
+    relation=folder/'relation-catalog.json'
+    if relation.exists():
+        rows=read(relation)
+        if not rows['pairs']:
+            answer['relationReview']=dict(catalogDigest=rows['digest'],candidateDigest=rows['candidateDigest'],referenceSha256=rows['referenceSha256'],pairs={})
     answer['planEvidenceCatalogDigest']=catalog['digest']
     protocol_schema=read(folder/'schema.json').get('properties',{}).get('planEvidenceProtocol')
     protocol=protocol_schema['enum'][0] if protocol_schema else None
@@ -134,11 +144,10 @@ class FakeModel:
             boundary=small_boundary_audit(folder)
             if boundary:answer['smallBoundaryAudit']=boundary
         else:
-            source=read(folder.parent/'m1/draft.json');panel=copy.deepcopy(next(m for m in source['materials'] if m['id']=='asset-panel'));panel['label']+=' fixed'
-            answer={'sourcePlanSha256':digest(folder.parent/'m1/draft.json'),'materials':{'upsert':[panel],'remove':[]},
+            source=read(m1_plan_path(folder.parent));panel=copy.deepcopy(next(m for m in source['materials'] if m['id']=='asset-panel'));panel['label']+=' fixed'
+            answer={'sourcePlanSha256':digest(m1_plan_path(folder.parent)),'materials':{'upsert':[panel],'remove':[]},
                     'objects':{'upsert':[],'remove':[]},'unknowns':None,'backgroundMode':None,'textPolicy':None,'unresolvedIssues':[]}
-        if folder.name in ('m2','rereview','rereview2'):
-            answer=bound_review(folder,answer)
+        answer=bound_review(folder,answer)
         save(folder/'draft.json',answer)
         observed='12345678-1234-1234-1234-123456789abd' if self.mismatch and not first else SID
         (folder/'events.jsonl').write_text(json.dumps({'type':'thread.started','thread_id':observed}))
@@ -247,6 +256,7 @@ class DagTests(unittest.TestCase):
                 answer=bound_review(folder,dict(issues=[],coverageAudit=coverage(read(folder.parent/'repair2/candidate.json')),
                             smallMaterialAudit=small_audit(folder)))
             else:return
+            answer=bound_review(folder,answer)
             (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
             receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
             (folder/'transport.json').write_text(json.dumps(receipt),encoding='utf-8')

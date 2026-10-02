@@ -30,6 +30,7 @@ class RevisionTests(unittest.TestCase):
             panel=copy.deepcopy(read(source)['materials'][1]);panel['label']+=' revised'
             answer=dict(sourcePlanSha256=digest(source),materials={'upsert':[panel],'remove':[]},
                         objects={'upsert':[],'remove':[]},unknowns=None,backgroundMode=None,textPolicy=None,unresolvedIssues=[])
+            answer=bound_review(folder,answer)
         else:answer=bound_review(folder,{'issues':[],'coverageAudit':coverage(),
                                        'smallMaterialAudit':small_audit(folder)})
         save(folder/'draft.json',answer)

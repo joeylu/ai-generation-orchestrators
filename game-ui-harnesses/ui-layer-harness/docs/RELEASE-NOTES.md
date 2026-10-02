@@ -1,5 +1,23 @@
 # Release notes
 
+## Unreleased candidate revision and planning evidence contracts
+
+- `revise-package` creates a separate offline candidate from an exact existing ZIP.
+  Untouched layers retain their bytes and placements; replacement foregrounds must
+  replay received requests from the same frozen snapshot and full body support.
+  Package-derived retained sources remain unverified provider lineage, inherited
+  review issues remain visible, and no old DAG or whole-image acceptance is promoted.
+- Fresh planning configurations select candidate/reference-bound pair review.
+  Only complete non-occluding source evidence resolves its own same-depth AABB hint;
+  occlusion, ownership uncertainty and other relationship errors remain blockers.
+  Repairs cannot transfer source judgments to a changed candidate.
+- Fresh coverage reviews identify excluded business lettering separately from
+  retained decorative lettering. Exact duplicate preserve-text permissions produce
+  receipt-bound derived plans validated against the unchanged strict storage schema.
+  Raw replies, transport receipts and historical jobs remain immutable.
+- Offline fixture regressions verify these contracts. They do not establish actual
+  generated fidelity or completion of any sample's automatic delivery chain.
+
 ## Unreleased new-run automatic body registration
 
 - New context-reference runs freeze v7 prompts by default, with an explicit

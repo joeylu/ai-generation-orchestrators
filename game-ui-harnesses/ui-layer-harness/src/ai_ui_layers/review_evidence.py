@@ -78,13 +78,13 @@ def bind_schema(schema,catalog,protocol=PROTOCOL_V1):
     return result
 
 
-def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3):
+def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3,coverage_text_policy=None):
     """The one schema builder for new M2 and rereview transport and verification."""
     if protocol not in (PROTOCOL_V1,PROTOCOL_V2,PROTOCOL_V3):
         raise ValueError('PLAN_EVIDENCE_PROTOCOL_UNKNOWN')
     from .boundary_evidence import schema as boundary_schema
     from .codex_call import transport_schema
-    from .coverage_review import REGIONS, coverage_schema
+    from .coverage_review import REGIONS, coverage_schema, validate_text_policy
     from .planning_review_policy import COSMETIC_CODES, DESCRIPTION_STATUSES
 
     issue_schema={'type':'object','additionalProperties':False,
@@ -92,6 +92,11 @@ def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3):
         'properties':{'code':{'type':'string'},'category':{'type':'string','enum':['semantic','geometry','cosmetic']},
                       'ids':{'type':'array','items':{'type':'string'}},'description':{'type':'string'},
                       'suggestedChange':{'type':'string'}}}
+    validate_text_policy(coverage_text_policy)
+    if coverage_text_policy is not None and protocol != PROTOCOL_V3:
+        raise ValueError('COVERAGE_TEXT_POLICY_REQUIRES_TYPED_REVIEW')
+    # This transport has a separate business lane; resolved entries carry the
+    # explicit fragments later, while graphic entries get a null license field.
     coverage=coverage_schema()
     if protocol in (PROTOCOL_V2,PROTOCOL_V3):
         entry=coverage['properties']['observedArtwork']['items']
@@ -107,6 +112,11 @@ def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3):
             'properties':{'artwork':{'type':'string','minLength':1},
                           'materialId':{'type':'string','minLength':1},
                           'evidence':{'type':'string','minLength':1}}}
+        if coverage_text_policy is not None:
+            business['required'].append('textFragments')
+            business['properties']['textFragments']={'type':'array','minItems':1,
+                'maxItems':64,'uniqueItems':True,
+                'items':{'type':'string','minLength':1,'maxLength':200}}
         coverage['properties']['businessText']={'type':'array','items':business}
         coverage['required'].append('businessText')
     required=['issues','coverageAudit']
@@ -157,7 +167,7 @@ def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3):
             'properties':properties}
     if definitions:result['$defs']=definitions
     result=bind_schema(result,catalog,protocol)
-    return transport_schema(result) if policy is not None else result
+    return transport_schema(result) if policy is not None or coverage_text_policy is not None else result
 
 
 def expected_small_material_ids(plan,width,height):
@@ -192,8 +202,10 @@ def _take_id(entry,owners):
     return evidence_id
 
 
-def resolve_review(review,plan):
+def resolve_review(review,plan,coverage_text_policy=None):
     """Resolve current-plan labels in memory; leave stored model output untouched."""
+    from .coverage_review import validate_text_policy
+    validate_text_policy(coverage_text_policy)
     if not isinstance(review,dict):raise ValueError('PLAN_EVIDENCE_REVIEW_FORMAT')
     marked='planEvidenceCatalogDigest' in review
     if not marked:
@@ -202,6 +214,8 @@ def resolve_review(review,plan):
             raise ValueError('PLAN_EVIDENCE_MARKER_REQUIRED')
         return copy.deepcopy(review)
     protocol=review.get('planEvidenceProtocol',PROTOCOL_V1)
+    if coverage_text_policy is not None and protocol != PROTOCOL_V3:
+        raise ValueError('COVERAGE_TEXT_POLICY_REQUIRES_TYPED_REVIEW')
     if protocol not in (PROTOCOL_V1,PROTOCOL_V2,PROTOCOL_V3) or (
             protocol==PROTOCOL_V1 and 'planEvidenceProtocol' in review):
         raise ValueError('PLAN_EVIDENCE_PROTOCOL_UNKNOWN')
@@ -267,10 +281,14 @@ def resolve_review(review,plan):
                 if protocol==PROTOCOL_V1 and evidence_id is not None:
                     raise ValueError('PLAN_EVIDENCE_NONCOVERED_ID')
                 entry['planEvidenceQuote']=None
+            if coverage_text_policy is not None:
+                entry['businessText']=None
         if protocol==PROTOCOL_V3:
             for business in region.pop('businessText'):
+                keys={'artwork','materialId','evidence'}
+                if coverage_text_policy is not None:keys.add('textFragments')
                 if (not isinstance(business,dict) or
-                        set(business)!={'artwork','materialId','evidence'}):
+                        set(business)!=keys):
                     raise ValueError('PLAN_EVIDENCE_BUSINESS_TEXT_FORMAT')
                 if (not isinstance(business['artwork'],str) or not business['artwork'].strip() or
                         not isinstance(business['evidence'],str) or not business['evidence'].strip()):
@@ -278,8 +296,11 @@ def resolve_review(review,plan):
                 if (not isinstance(business['materialId'],str) or
                         business['materialId'] not in materials):
                     raise ValueError('PLAN_EVIDENCE_OWNER_MISMATCH')
-                region['observedArtwork'].append(dict(business,disposition='business-text',
-                    objectId=None,planEvidenceQuote=None,suggestedChange=None))
+                entry=dict(business,disposition='business-text',objectId=None,
+                           planEvidenceQuote=None,suggestedChange=None)
+                if coverage_text_policy is not None:
+                    entry['businessText']=entry.pop('textFragments')
+                region['observedArtwork'].append(entry)
     audit=result.get('smallMaterialAudit',{})
     if isinstance(audit,dict):
         rows=((material_id,row) for material_id,row in audit.items())

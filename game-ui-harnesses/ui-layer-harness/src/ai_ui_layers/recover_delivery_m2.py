@@ -8,6 +8,7 @@ from . import body_observation as body
 from .evaluate import read, save, digest
 from .session_review import session_id
 from .codex_call import CLI_MODEL, CLI_EFFORT
+from .planning_normalization import verified_plan_path, PLAN_NAME, REPORT_NAME
 
 
 def recover(source, output, reason):
@@ -35,6 +36,10 @@ def recover(source, output, reason):
     if receipt['responseSha256']!=digest(old/'m1/draft.json'): raise ValueError('M1_CHANGED')
     if read(old/'session.json')['sessionId']!=session_id(old/'m1/events.jsonl'): raise ValueError('SESSION_CHANGED')
     Draft202012Validator(read(old/'m1/schema.json')).validate(read(old/'m1/draft.json'))
+    normalization=old_config.get('normalizationPolicy')
+    # A completed M1 retains its original contract. A new runtime cannot upgrade
+    # an archived raw answer or invent an unrecorded normalized derivative.
+    verified_plan_path(old/'m1',old/'.dag/inputs/storage-schema.json',normalization)
     evidence={p.relative_to(source).as_posix():digest(p) for p in source.rglob('*') if p.is_file() and p.name!='lock'}
     config=read(source/'.dag/config.json')
     generation_mode=config.get('generationMode','single')
@@ -59,12 +64,28 @@ def recover(source, output, reason):
                       context_version)
     # Do not silently apply changed prompts/schema to a reused M1 answer.
     current=read(new/'.dag/config.json')
-    if current['inputs']!=read(old/'.dag/config.json')['inputs']: raise ValueError('PLANNING_INPUTS_CHANGED')
+    for name in old_config['inputs']:
+        if name in ('.','..') or Path(name).name!=name or '/' in name or '\\' in name:
+            raise ValueError('PLANNING_INPUT_PATH_UNSAFE')
+        (new/'.dag/inputs'/name).write_bytes((old/'.dag/inputs'/name).read_bytes())
+    current['inputs']=dict(old_config['inputs'])
+    for key in ('normalizationPolicy','coverageTextPolicy','relationReviewPolicy'):
+        if key in old_config:current[key]=old_config[key]
+        else:current.pop(key,None)
+    # These are fresh deterministic checkpoint files, before any imported node.
+    import json
+    (new/'.dag/config.json').write_text(json.dumps(current,ensure_ascii=False,indent=2),encoding='utf-8')
+    (new/'.dag/config-digest.json').write_text(json.dumps(
+        {'sha256':digest(new/'.dag/config.json')}),encoding='utf-8')
     def import_m1():
         (new/'m1').mkdir()
         for name in ('draft.json','schema.json','prompt.md','reference.png','transport.json','events.jsonl','dispatch.json','stderr.log'):
             p=old/'m1'/name
             if p.exists(): (new/'m1'/name).write_bytes(p.read_bytes())
+        if normalization is not None:
+            for name in (PLAN_NAME,REPORT_NAME):
+                (new/'m1'/name).write_bytes((old/'m1'/name).read_bytes())
+        verified_plan_path(new/'m1',new/'.dag/inputs/storage-schema.json',normalization)
         for name in ('session.json','request.json'): (new/name).write_bytes((old/name).read_bytes())
         save(new/'m1-reuse.json',dict(kind='verified_completed_m1_reuse_v1',reason=reason,
              source=str(source),sourceFiles=evidence,newModelCalls=0,sourceElapsedSeconds=receipt['elapsedSeconds'],

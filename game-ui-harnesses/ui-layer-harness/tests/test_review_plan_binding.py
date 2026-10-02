@@ -82,9 +82,9 @@ class ReviewPlanBindingTests(unittest.TestCase):
                 source = child/'source-plan.json'
                 material = next(m for m in read(source)['materials'] if m['id'] == owner)
                 material['label'] += ' revised'
-                save(folder/'draft.json', dict(sourcePlanSha256=digest(source),
+                save(folder/'draft.json', test_planning_dag.bound_review(folder, dict(sourcePlanSha256=digest(source),
                     materials=dict(upsert=[material], remove=[]), objects=dict(upsert=[], remove=[]),
-                    unknowns=None, backgroundMode=None, textPolicy=None, unresolvedIssues=[]))
+                    unknowns=None, backgroundMode=None, textPolicy=None, unresolvedIssues=[])))
                 (folder/'events.jsonl').write_text(json.dumps(dict(type='thread.started', thread_id=sid)))
                 save(folder/'transport.json', dict(exitCode=0, turnCompleted=True, unexpectedEvents=[],
                     responseSha256=digest(folder/'draft.json'), elapsedSeconds=.01))

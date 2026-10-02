@@ -266,6 +266,16 @@ promptVersion 时逐字重建 v1；新 descriptor 绑定 v2，重验拒绝改版
 
 ## CLI 操作
 
+### 已有候选包的离线图层修订
+
+`revise-package --selection SELECTION.json --output NEW_DIR --viewer VIEWER`
+绑定既有标准 ZIP 的精确摘要，仅替换由真实回执重放的 support 前景层。
+原包须通过 PNG、alpha、摘要和原预览逐像素重拼；未替换层的字节、身份、顺序及坐标
+保持不变，原 review 问题完整继承。替换坐标只取自核验后的支持画布报告，不接受手填。
+结果为 `candidate_revision_pending_visual_review`，只声明替换层回执重放，
+`sourceReceiptReplayPassed=false`；旧层是 package-derived 来源，不升级其生成谱系。
+生图/模型均零，不恢复旧作业或声明新自动链路通过。见 [候选包修订合同](PACKAGE-REVISION.md)。
+
 ### 已冻结规划的显式裁框拒收修订
 
 `revise-frozen-crops --planning-run PARENT_PLANNING --rejection REJECTION.json --output NEW_DIR`

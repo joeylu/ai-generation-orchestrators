@@ -30,7 +30,8 @@ def verify_parent(source):
         raise ValueError('FAILED_REREVIEW_REQUIRED')
     if (source/'frozen').exists():raise ValueError('UNFROZEN_PARENT_REQUIRED')
     verify_run(source,_allow_issues=True)
-    if not split(read(source/'rereview/draft.json'),read(selected_paths(source)[0]),policy)[0]:
+    if not split(read(source/'rereview/draft.json'),read(selected_paths(source)[0]),policy,
+                 config.get('coverageTextPolicy'))[0]:
         raise ValueError('PARENT_ISSUES_REQUIRED')
 
 
@@ -107,12 +108,20 @@ def verify_revision(root, allow_issues=False):
             raise ValueError('REVISION_REFERENCE_CHANGED')
         Draft202012Validator(read(folder/'schema.json')).validate(read(folder/'draft.json'))
     source=root/'source-plan.json';repair=root/'repair';review=root/'rereview'
+    config=read(root/'.dag/config.json')
     check_scope(root)
     bound=read(repair/'request.json')
     if bound['sourcePlanSha256']!=digest(source) or bound['reviewSha256']!=digest(root/'parent-review/draft.json'):
         raise ValueError('REVISION_SOURCE_CHANGED')
-    candidate,report=merge_patch(source,read(repair/'draft.json'),read(root/'m1/schema.json'),digest(source))
-    if candidate!=read(repair/'candidate.json') or report['programIssues'] or report['unresolvedIssues'] or candidate['unknowns']:
+    from . import relation_review
+    relations=(relation_review.catalog(read(source),digest(root/'m1/reference.png'))
+               if config.get('relationReviewPolicy')==relation_review.POLICY else None)
+    strict_schema=(root/'.dag/inputs/storage-schema.json'
+                   if config.get('normalizationPolicy') is not None else root/'m1/schema.json')
+    candidate,report=merge_patch(source,read(repair/'draft.json'),read(strict_schema),digest(source),relations)
+    hard_issues=[issue for issue in report['programIssues']
+                 if relations is None or issue['code']!='SAME_LAYER_OVERLAP_REVIEW']
+    if candidate!=read(repair/'candidate.json') or hard_issues or report['unresolvedIssues'] or candidate['unknowns']:
         raise ValueError('REVISION_INVALID_PATCH')
     bound=read(review/'request.json')
     if bound['candidateSha256']!=digest(repair/'candidate.json') or bound['patchSha256']!=digest(repair/'draft.json'):
@@ -121,13 +130,23 @@ def verify_revision(root, allow_issues=False):
     verify_plan_evidence(review,read(review/'draft.json'),bound,candidate)
     verify_boundary_evidence(review,read(review/'draft.json'),bound,candidate,
                              root/'m1/reference.png')
-    if split(read(review/'draft.json'),candidate,policy)[0] and not allow_issues:raise ValueError('M2_UNRESOLVED')
+    blockers,warnings=split(read(review/'draft.json'),candidate,policy,config.get('coverageTextPolicy'))
+    if relation_review.policy(root):
+        evidence=relation_review.verify_stage(root,review,candidate)
+        blockers+=planning.Dag.relation_blockers(evidence['blockers'])
+        assessment=read(review/'assessment.json')
+        if assessment!=dict(blockers=blockers,warnings=warnings,reviewSha256=digest(review/'draft.json')):
+            raise ValueError('REVISION_ASSESSMENT_CHANGED')
+    if blockers and not allow_issues:raise ValueError('M2_UNRESOLVED')
     return candidate
 
 
 def check_scope(root):
     plan=read(root/'source-plan.json');patch=read(root/'repair/draft.json')
-    ids={key for issue in split(read(root/'parent-review/draft.json'),plan,planning_policy(root))[0]
+    parent=Path(read(root/'revision.json')['parent'])
+    parent_config=read(parent/'.dag/config.json')
+    ids={key for issue in split(read(root/'parent-review/draft.json'),plan,planning_policy(parent),
+                               parent_config.get('coverageTextPolicy'))[0]
          for key in issue['ids']}
     owners=ids|{o['materialId'] for o in plan['objects'] if o['id'] in ids}
     allowed={'materials':{m['id'] for m in plan['materials'] if m['id'] in owners},

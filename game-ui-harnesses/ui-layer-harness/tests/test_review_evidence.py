@@ -364,6 +364,11 @@ class ReviewEvidenceUnitTests(unittest.TestCase):
 class ReviewEvidenceDagTests(unittest.TestCase):
     def setUp(self):
         test_planning_dag.DagTests.setUp(self)
+        # This suite covers historical review protocols; new relation/text contracts have separate fixtures.
+        config=read(self.root/'.dag/config.json')
+        for field in ('relationReviewPolicy','normalizationPolicy','coverageTextPolicy'):config.pop(field,None)
+        (self.root/'.dag/config.json').write_text(json.dumps(config),encoding='utf-8')
+        (self.root/'.dag/config-digest.json').write_text(json.dumps({'sha256':digest(self.root/'.dag/config.json')}),encoding='utf-8')
 
     def _rewrite_m2_review_contract(self, schema, raw, *, omit_focus_input=False):
         """Keep receipt hashes coherent so only the weakened contract can reject."""

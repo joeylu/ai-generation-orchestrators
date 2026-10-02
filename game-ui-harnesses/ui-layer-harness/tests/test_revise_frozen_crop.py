@@ -94,6 +94,7 @@ class FrozenCropRevisionTests(unittest.TestCase):
                 answer = self.patch(folder.parent)
                 if mutate_patch is not None:
                     mutate_patch(answer, read(folder.parent/'source-plan.json'))
+                answer=bound_review(folder,answer)
             else:
                 self.assertEqual(folder.name, 'rereview')
                 self.assertFalse(first)

@@ -9,6 +9,12 @@
 主体确定尺寸与锚点，完整 alpha 支持确定 PNG 存储画布；扩展只允许在原图画布内。
 输出仍待视觉验收，不代表生成模型已可靠还原。旧作业不转换，历史缺省仍为近似裁片适配。
 已有主体证据也可用离线 [`register-materials`](docs/BODY-REGISTRATION.md)，无新增模型调用。
+已有候选包可经 [`revise-package`](docs/PACKAGE-REVISION.md) 保留原层字节并重放明确替换的前景；
+这是待审候选修订，完整旧来源未验证、旧 DAG 状态不提升。
+
+新规划配置冻结逐对 [关系复审](docs/RELATION-REVIEW-V1.md) 及 [文字合同](docs/planning-text-contracts-v1.md)：
+同层包围框交叉须有原图轮廓与归属证据，待删业务字与获准装饰字分别记录，精确重复留字许可另存去重计划。
+原始模型答复和回执保持不变；缺少新字段的历史作业继续其原合同。
 
 ## 目录
 
@@ -52,7 +58,8 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 
 入口为源码分发，尚不提供独立 wheel。服务必须安装并配置可用的 Codex CLI 规划/定位适配器，
 以及自己的生图调用能力；桌面工具不会自动进入容器。新任务的 Codex CLI session
-统一配置为 `gpt-6-luna` / `xhigh`，见适配器代码。旧冻结任务按其原运行时指纹处理。
+默认配置为 `gpt-6-luna` / `xhigh`；新 `run` 可显式冻结 `--planning-model`、`--planning-effort`、
+`--planning-timeout`，见适配器合同。旧冻结任务按其原运行时指纹处理。
 不要将本地登录凭证、会话目录或样本加入分发制品。
 可选 CLI 生图适配器通过本次调用临时配置的本地参数读取工具转发冻结参数，
 模型无需重抄长提示词；接收前仍验证参数、读取记录和固定转发代码。

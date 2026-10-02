@@ -38,6 +38,8 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     evidence=output/'evidence';evidence.mkdir()
     stages=[] if (run/'revision.json').exists() else [('m1',['draft.json','schema.json','prompt.md']),
                         ('m2',['draft.json','schema.json','prompt.md','request.json','review-source.md','review-overlay.png'])]
+    if not revision and report.get('relationReviewPolicy'):
+        stages[1][1].extend(['relation-catalog.json','relation-assessment.json','transport.json'])
     if not revision and (run/'m2/plan-evidence-catalog.json').exists():
         stages[1][1].append('plan-evidence-catalog.json')
     for stage,names in stages:
@@ -56,7 +58,12 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
                             ('parent-review/draft.json','parent-review.json'),
                             ('m1/schema.json','m1-schema.json')]:
             (evidence/name).write_bytes((run/source).read_bytes())
-    if plan_path!=run/'m1/draft.json':
+    if (run/'m1/normalized-plan.json').exists():
+        for name in ('normalized-plan.json','normalization-report.json','transport.json'):
+            (evidence/('m1-'+name)).write_bytes((run/'m1'/name).read_bytes())
+        if plan_path==run/'m1/normalized-plan.json':
+            (evidence/'revised-visual-plan.json').write_bytes(plan_path.read_bytes())
+    if plan_path not in (run/'m1/draft.json',run/'m1/normalized-plan.json'):
         for stage in ('repair','rereview','repair2','rereview2'):
             for path in (run/stage).glob('*'):
                 if path.is_file():(evidence/(stage+'-'+path.name)).write_bytes(path.read_bytes())
@@ -67,7 +74,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     review=read(review_path)
     itemized=any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[]))
     save(output/'planning-warnings.json',dict(warnings=split(review,
-        visual if policy is not None or itemized else None,visual_policy=policy)[1],reviewSha256=digest(review_path)))
+        visual if policy is not None or itemized else None,visual_policy=policy,coverage_text_policy=read(run/'.dag/config.json').get('coverageTextPolicy') if (run/'.dag/config.json').exists() else None)[1],reviewSha256=digest(review_path)))
     plan=read(output/'execution-plan.candidate.json')
     requests=[]
     for asset,item in zip(plan['assets'],report['artifacts']):
@@ -114,6 +121,9 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
         snapshot['generationReference']=generation_reference
         if context_prompt_version!='v1':snapshot['contextPromptVersion']=context_prompt_version
     if policy is not None:snapshot['visualPolicySha256']=report['visualPolicySha256']
+    if report.get('relationReviewPolicy'):
+        snapshot.update(relationReviewPolicy=report['relationReviewPolicy'],relationReviewStage=report['relationReviewStage'],
+                        relationAssessmentSha256=report['relationAssessmentSha256'])
     snapshot['digest']=body_digest(snapshot)
     save(output/'snapshot.json',snapshot)
     inspect(output,snapshot['digest'])
@@ -135,6 +145,13 @@ def inspect(folder, expected_digest=None):
         if not target.is_file() or digest(target)!=sha:
             raise ValueError('ARTIFACT_CHANGED:'+name)
     snapshot_policy(folder,snapshot)
+    if snapshot.get('relationReviewPolicy'):
+        from .relation_review import frozen_evidence
+        visual_path=folder/'evidence/revised-visual-plan.json'
+        if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
+        if 'relation-assessment.json' not in snapshot['files'] or digest(folder/'relation-assessment.json')!=snapshot.get('relationAssessmentSha256'):
+            raise ValueError('RELATION_ASSESSMENT_CHANGED')
+        frozen_evidence(folder,snapshot,read(visual_path))
     return snapshot
 
 

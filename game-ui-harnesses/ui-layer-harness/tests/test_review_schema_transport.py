@@ -120,7 +120,7 @@ class ReviewSchemaTransportTests(unittest.TestCase):
         part = schema['$defs']['smallMaterialAuditEntry']['properties']['parts']['items']
         self.assertNotIn('deferredAppearance', part['properties'])
         self.assertNotIn('deferredAppearance', part['required'])
-        self.assertEqual(schema['$defs']['smallMaterialAuditEntry']['required'], ['parts','boundary'])
+        self.assertEqual(set(schema['$defs']['smallMaterialAuditEntry']['required']), {'parts','boundary'})
 
 
 if __name__ == '__main__':

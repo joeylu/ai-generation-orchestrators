@@ -10,6 +10,8 @@ from PIL import Image
 
 from .evaluate import read, save, digest, pixel_box, check_relations, draw_order
 from .short_prompt import carries_foreground
+from . import relation_review
+from .planning_normalization import m1_plan_path
 from .visual_policy import validate as validate_visual_policy, planning_policy, generation_guidance
 
 HARNESS = Path(__file__).resolve().parents[4]/'game-ui-harnesses/ui-decomposition-harness'
@@ -30,7 +32,7 @@ def render_prompt(asset):
 
 
 def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generation_reference='full',
-                 context_prompt_version='v3', visual_policy=None):
+                 context_prompt_version='v3', visual_policy=None, relation_evidence=None):
     validate_mode(generation_reference)
     if visual_policy is not None:
         validate_visual_policy(visual_policy)
@@ -38,7 +40,10 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
             raise ValueError('BOUND_REFERENCE_REQUIRES_CONTEXT_CROPS')
     if visual['kind'] != 'ui_visual_plan_v5':
         raise ValueError('V5_REQUIRED')
-    if check_relations(visual):
+    issues=check_relations(visual)
+    if relation_evidence is not None:
+        issues=relation_review.validate_assessment(visual,source_sha,relation_evidence)
+    if issues:
         raise ValueError('UNRESOLVED_PLAN_RELATIONS')
     if len(visual['materials']) > 128:
         raise ValueError('LEGACY_ASSET_LIMIT')
@@ -112,7 +117,7 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
 def selected_paths(run):
     if (run/'repair2').exists():return run/'repair2/candidate.json',run/'rereview2/draft.json'
     if (run/'repair').exists():return run/'repair/candidate.json',run/'rereview/draft.json'
-    return run/'m1/draft.json',run/'m2/draft.json'
+    return m1_plan_path(run),run/'m2/draft.json'
 
 
 def verify_plan_evidence(folder, review, bound, visual):
@@ -163,9 +168,13 @@ def verify_plan_evidence(folder, review, bound, visual):
         if focus_name in bound['inputs'] or (folder/focus_name).exists():
             raise ValueError('PLAN_EVIDENCE_UNEXPECTED_FOCUS')
         focus=None
-    if schema!=build_review_schema(catalog,focus,planning_policy(folder.parent),protocol):
+    config=read(folder.parent/'.dag/config.json') if (folder.parent/'.dag/config.json').exists() else {}
+    expected_schema=build_review_schema(catalog,focus,planning_policy(folder.parent),protocol,config.get('coverageTextPolicy'))
+    if relation_review.policy(folder.parent):
+        expected_schema=relation_review.bind_schema(expected_schema,relation_review.catalog(visual,digest(folder.parent/'m1/reference.png')))
+    if schema!=expected_schema:
         raise ValueError('PLAN_EVIDENCE_SCHEMA_MISMATCH')
-    resolve_review(review,visual)
+    resolve_review(review,visual,config.get('coverageTextPolicy'))
 
 
 def verify_boundary_evidence(folder, review, bound, visual, reference):
@@ -199,6 +208,7 @@ def verify_boundary_evidence(folder, review, bound, visual, reference):
 def verify_run(run, *, _allow_issues=False):
     run=Path(run)
     policy=planning_policy(run)
+    config=read(run/'.dag/config.json') if (run/'.dag/config.json').exists() else {}
     if (run/'revision.json').exists():
         kind=read(run/'revision.json').get('kind')
         if kind=='ui_explicit_plan_revision_v1':
@@ -207,7 +217,11 @@ def verify_run(run, *, _allow_issues=False):
             from .revise_frozen_crop import verify_revision
         else:
             raise ValueError('UNKNOWN_REVISION_KIND')
-        return verify_revision(run, allow_issues=_allow_issues)
+        visual=verify_revision(run, allow_issues=_allow_issues)
+        if relation_review.policy(run):
+            evidence=relation_review.verify_stage(run,selected_paths(run)[1].parent,visual)
+            if evidence['blockers'] and not _allow_issues:raise ValueError('UNRESOLVED_PLAN_RELATIONS')
+        return visual
     request = read(run/'request.json'); result = read(run/'result.json')
     for name in ('reference.png', 'prompt.md', 'schema.json'):
         if digest(run/'m1'/name) != request['inputs'][name]:
@@ -217,28 +231,42 @@ def verify_run(run, *, _allow_issues=False):
     if digest(run/'m2/draft.json') != result['reviewSha256']:
         raise ValueError('REVIEW_CHANGED')
     review_request = read(run/'m2/request.json')
-    if review_request['sourcePlanSha256'] != result['sourcePlanSha256']:
+    if review_request['sourcePlanSha256'] != digest(m1_plan_path(run)):
+        raise ValueError('REVIEW_PLAN_MISMATCH')
+    if config.get('normalizationPolicy') and result.get('derivedSourcePlanSha256')!=digest(m1_plan_path(run)):
         raise ValueError('REVIEW_PLAN_MISMATCH')
     for name in ('prompt.md','schema.json','review-overlay.png','review-source.md'):
         if digest(run/'m2'/name) != review_request['inputs'][name]:
             raise ValueError('M2_INPUT_CHANGED')
     review = read(run/'m2/draft.json')
     Draft202012Validator(read(run/'m2/schema.json')).validate(review)
-    verify_plan_evidence(run/'m2',review,review_request,read(run/'m1/draft.json'))
+    verify_plan_evidence(run/'m2',review,review_request,read(m1_plan_path(run)))
+    if relation_review.policy(run):relation_review.verify_stage(run,run/'m2',read(m1_plan_path(run)))
     verify_boundary_evidence(run/'m2',review,review_request,
-                             read(run/'m1/draft.json'),run/'m1/reference.png')
+                             read(m1_plan_path(run)),run/'m1/reference.png')
     if result['unknownIssueIds'] or not result['sameSessionVerified']:
         raise ValueError('M2_UNRESOLVED')
-    source=run/'m1/draft.json'
+    source=m1_plan_path(run)
     for repair_name,review_name in [('repair','rereview'),('repair2','rereview2')]:
         if not (run/repair_name).exists():continue
         from .local_patch import merge_patch
         from .session_review import session_id
         if not (run/review_name/'result.json').exists():raise ValueError('REPAIRED_CANDIDATE_REQUIRES_NEW_REVIEW')
-        merged,patch_report=merge_patch(source,read(run/repair_name/'draft.json'),read(run/'m1/schema.json'),digest(source))
+        relation_catalog=relation_review.catalog(read(source),digest(run/'m1/reference.png')) if relation_review.policy(run) else None
+        if relation_catalog is not None:
+            patch_bound=read(run/repair_name/'request.json')
+            if (patch_bound['inputs'].get(relation_review.NAME)!=digest(run/repair_name/relation_review.NAME) or
+                    read(run/repair_name/relation_review.NAME)!=relation_catalog or
+                    patch_bound.get('sourcePlanSha256')!=digest(source) or
+                    patch_bound.get('originalReferenceSha256')!=relation_catalog['referenceSha256']):
+                raise ValueError('RELATION_PATCH_INPUT_CHANGED')
+            patch_transport=read(run/repair_name/'transport.json')
+            if patch_transport.get('responseSha256')!=digest(run/repair_name/'draft.json') or patch_transport.get('exitCode')!=0 or patch_transport.get('turnCompleted') is not True:
+                raise ValueError('RELATION_PATCH_RECEIPT_INVALID')
+        merged,patch_report=merge_patch(source,read(run/repair_name/'draft.json'),read(run/'.dag/inputs/storage-schema.json') if config.get('normalizationPolicy') else read(run/'m1/schema.json'),digest(source),relation_catalog)
         intermediate_program_issues = (repair_name=='repair' and (run/'repair2').exists())
         if (merged!=read(run/repair_name/'candidate.json') or
-                (patch_report['programIssues'] and not intermediate_program_issues) or
+                (patch_report['programIssues'] and not intermediate_program_issues and not relation_review.policy(run)) or
                 patch_report['unresolvedIssues']):
             raise ValueError('INVALID_REPAIR')
         rr=run/review_name;bound=read(rr/'request.json');receipt=read(rr/'result.json')
@@ -257,11 +285,15 @@ def verify_run(run, *, _allow_issues=False):
         verify_plan_evidence(rr,review,bound,read(run/repair_name/'candidate.json'))
         verify_boundary_evidence(rr,review,bound,read(run/repair_name/'candidate.json'),
                                  run/'m1/reference.png')
+        if relation_review.policy(run):relation_review.verify_stage(run,rr,read(run/repair_name/'candidate.json'))
         source=run/repair_name/'candidate.json'
     from .planning_review_policy import split
     visual = read(selected_paths(run)[0])
-    if split(review,visual,visual_policy=policy)[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
-    Draft202012Validator(read(run/'m1/schema.json')).validate(visual)
+    if split(review,visual,visual_policy=policy,coverage_text_policy=config.get('coverageTextPolicy'))[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
+    Draft202012Validator(read(run/'.dag/inputs/storage-schema.json') if config.get('normalizationPolicy') else read(run/'m1/schema.json')).validate(visual)
+    if relation_review.policy(run) and not _allow_issues:
+        evidence=relation_review.verify_stage(run,selected_paths(run)[1].parent,visual)
+        if evidence['blockers']:raise ValueError('UNRESOLVED_PLAN_RELATIONS')
     return visual
 
 
@@ -281,9 +313,10 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
         if image.getexif().get(274, 1) != 1:
             raise ValueError('NONIDENTITY_COORDINATE_MAPPING')
         image.load(); picture=image.convert('RGBA')
+    relations=(relation_review.verify_stage(run,review_path.parent,visual) if relation_review.policy(run) else None)
     plan, placements = compile_plan(visual, picture.size, before,
                                     generation_reference=generation_reference,
-                                    context_prompt_version=context_prompt_version,visual_policy=policy)
+                                    context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations)
     from .generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY
     groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY) if generation_mode=='sheets' else None
     calls=groups['plannedCalls'] if groups else len(plan['assets'])
@@ -291,6 +324,7 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     output.mkdir(parents=True, exist_ok=False)
     if policy is not None:
         (output/'visual-policy.json').write_bytes((run/'.dag/inputs/visual-policy.json').read_bytes())
+    if relations is not None:save(output/'relation-assessment.json',relations)
     if groups:save(output/'generation-groups.json',groups)
     (output/'reference.png').write_bytes(source.read_bytes())
     if digest(output/'reference.png') != before:
@@ -298,7 +332,7 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     summary = validate(plan, source_base=output)
     save(output/'execution-plan.candidate.json', plan)
     save(output/'placements.json', {'basis':'declared material regions, no alpha measurement', 'materials':placements})
-    save(output/'draw-order.json', draw_order(visual, digest(plan_path)))
+    save(output/'draw-order.json', draw_order(visual, digest(plan_path),relations,before))
     artifacts=[]
     for asset in plan['assets']:
         folder=output/'materials'/asset['id'];folder.mkdir(parents=True)
@@ -331,6 +365,8 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
             **({'contextPromptVersion':context_prompt_version} if generation_reference=='context-crops' and context_prompt_version!='v1' else {}),
             'generationCalls':0,'freezeExecuted':False,'productionReady':False,'humanVisualAcceptance':False,
             'blockers':blockers,'artifacts':artifacts,'elapsedSeconds':time.perf_counter()-started}
+    if relations is not None:
+        report.update(relationReviewPolicy=relation_review.POLICY,relationReviewStage=review_path.parent.name,relationAssessmentSha256=digest(output/'relation-assessment.json'))
     if policy is not None:
         report['visualPolicySha256']=digest(output/'visual-policy.json')
     save(output/'compile-report.json', report)

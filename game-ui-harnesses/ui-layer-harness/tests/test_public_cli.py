@@ -123,7 +123,17 @@ class PublicCliTests(unittest.TestCase):
             root=Path(tmp)
             Image.new('RGBA',(40,40),'navy').save(root/'reference.png')
             delivery_dag.init(root/'reference.png',root/'run',target='frozen')
-            result=subprocess.run([sys.executable,str(entry),'status','--output',str(root/'run')],
+            # Propagate the suite's fixed shared source to the child interpreter;
+            # importing its dirty checkout would test a different runtime fingerprint.
+            from ai_ui_layers import planning_dag, compile_visual
+            script=("import sys,runpy;from pathlib import Path;"
+                f"sys.path.insert(0,{str(entry.parent/'src')!r});"
+                "from ai_ui_layers import compile_visual,planning_dag;"
+                f"compile_visual.HARNESS=Path({str(compile_visual.HARNESS)!r});"
+                f"planning_dag.HARNESS=Path({str(planning_dag.HARNESS)!r});"
+                f"planning_dag.BASE=Path({str(planning_dag.BASE)!r});"
+                f"sys.argv=[{str(entry)!r}]+sys.argv[1:];runpy.run_path({str(entry)!r},run_name='__main__')")
+            result=subprocess.run([sys.executable,'-c',script,'status','--output',str(root/'run')],
                                   cwd=root,capture_output=True,text=True,encoding='utf-8')
             self.assertEqual(result.returncode,0,result.stderr+result.stdout)
             self.assertEqual(json.loads(result.stdout)['status'],'incomplete')
