@@ -64,11 +64,13 @@ COVERAGE_LANES_GUIDANCE=('coverageAudit 按九区逐项清点，使用四个独�
     'optionalShadowArtwork 只列显式容差允许的所属孤立柔影；businessText 只列待删普通业务文字。'
     '先看干净原图，再逐项对照本轮计划，重复实例及文字旁图形分别列项。'
     '四列表均空才填非空 emptyRegionEvidence，任一非空时填 null。'
-    'coveredArtwork 和 optionalShadowArtwork 不填 disposition、suggestedChange 或 planEvidenceId，必须绑定真实 materialId、可选同属 objectId。'
+    'coveredArtwork 和 optionalShadowArtwork 不填 disposition、suggestedChange 或 planEvidenceId，必须绑定真实 materialId；'
+    '只有 coveredArtwork 可填同属 objectId，optionalShadowArtwork 的 objectId 必须 null。'
     '有裁框、层级、结构或描述修订需求的图形必须列入 unresolvedArtwork，不能同时声称已覆盖；未知归属填 null。'
     '程序按 materialId/objectId 还原本轮目录原文，泛称面板或 bbox 包含不能证明覆盖，编号不代替原图观察。'
     'businessText 每项写原图真实待删文字实例、所属 materialId 和 evidence，不填图形 objectId；保留装饰字列图形列表。'
-    'optionalShadowArtwork 不包括描边、高光或实体；每项 evidence 给原图位置及依据。'
+    'optionalShadowArtwork 只绑定所属 materialId，objectId 必须填 null，不能用按钮/面板主体对象代指柔影；'
+    '不包括描边、高光或实体，每项 evidence 给原图位置及孤立柔影依据；主体附带柔影不影响主体另列 coveredArtwork。'
     '顶层 issues 只列 semantic/geometry；cosmeticIssues 只用 schema 允许的 code，不把结构问题降为 cosmetic。'
     '不输出 observedArtwork、missingFromPlan 或 planEvidenceQuote；程序确定性解码列表后仍严格校验归属、覆盖及修补。')
 

@@ -92,7 +92,9 @@ M1/M2 固定模板按规划与检查职责集中表达通用规则，字段/枚�
 新规划配置显式冻结 `reviewEvidenceProtocol: typed-review-v4`，M2/复审逐区提交九宫格可见图形审查。
 每区必填 `coveredArtwork`、`unresolvedArtwork`、`optionalShadowArtwork`、`businessText` 四列表及
 `emptyRegionEvidence`。已覆盖与可选柔影条目只含 artwork、materialId、objectId、evidence，
-schema 禁止 disposition 和 suggestedChange；已有素材归属必须非空。待修订条目还含
+schema 禁止 disposition 和 suggestedChange；已有素材归属必须非空。可选柔影只绑定所属
+materialId，objectId 必须为 null，不能用按钮/面板主体对象代指柔影；其主体仍须另列覆盖记录。
+显式可选柔影策略与不豁免实体描边/高光的校验保持不变。待修订条目还含
 disposition（仅 missing/uncertain）及非空 suggestedChange，未知归属可为 null。
 有裁框、层级或描述修订需求的条目必须放入待修订列表，不能同时声称完整覆盖。
 程序仅在内存中按所属列表确定性补处置、null 建议或原修订建议，再进入相同覆盖、归属及修补质量门。

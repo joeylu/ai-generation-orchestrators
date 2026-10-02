@@ -125,7 +125,7 @@ class CoverageLaneTests(unittest.TestCase):
 
     def test_shadow_and_business_lanes_keep_existing_policy_gates(self):
         changed=copy.deepcopy(self.raw);region=changed['coverageAudit'][1]
-        entry=region['coveredArtwork'].pop();entry['objectId']='shadow'
+        entry=region['coveredArtwork'].pop();entry['objectId']=None
         region['optionalShadowArtwork'].append(entry)
         with self.assertRaisesRegex(ValueError,'COVERAGE_OPTIONAL_SHADOW_UNSUPPORTED'):
             split(changed,self.plan)
@@ -136,6 +136,23 @@ class CoverageLaneTests(unittest.TestCase):
             split(changed,self.plan,coverage_text_policy='exact-fragments-v1')
         region['businessText'][0]['textFragments']=['SALE']
         self.assertEqual(split(changed,self.plan,coverage_text_policy='exact-fragments-v1'),([],[]))
+
+    def test_optional_shadow_is_material_scoped_and_cannot_reference_main_object(self):
+        from ai_ui_layers.visual_policy import validate as validate_policy
+        policy={'kind':'ui_visual_policy_v1','appearanceEvidence':'bound-reference',
+                'minorColor':'record','shadow':'optional'}
+        validate_policy(policy)
+        changed=copy.deepcopy(self.raw);region=changed['coverageAudit'][1]
+        entry=region['coveredArtwork'].pop()
+        entry.update(artwork='Separate soft shadow outside the figure contour',objectId=None,
+                     evidence='A diffuse isolated shadow fades outside the synthetic figure; the solid contour is covered separately.')
+        region['optionalShadowArtwork'].append(entry)
+        self.validator.validate(changed)
+        self.assertEqual(split(changed,self.plan,visual_policy=policy),([],[]))
+        for oid in ('head','shadow'):
+            entry['objectId']=oid
+            with self.assertRaises(ValidationError):self.validator.validate(changed)
+            with self.assertRaises(ValidationError):split(changed,self.plan,visual_policy=policy)
 
 
 if __name__=='__main__':unittest.main()

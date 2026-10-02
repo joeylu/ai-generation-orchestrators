@@ -5,6 +5,10 @@
 - Fresh planning configurations select `typed-review-v4`. Separate covered,
   unresolved, optional shadow and business lettering arrays prevent a covered
   claim from also carrying a revision suggestion in the transport schema.
+- Optional shadow exclusions bind a material owner with a null object ID;
+  solid button/panel objects cannot stand in for a shadow. The explicit optional
+  policy and solid-contour checks remain required. Earlier pinned V4 runs retain
+  their original runtime and receipts.
 - Unresolved source evidence and suggestions remain blockers and enter the
   existing bounded repair/rereview path. Exact owner, catalog, region, lettering,
   boundary and appearance gates remain mandatory; raw receipts are never rewritten.

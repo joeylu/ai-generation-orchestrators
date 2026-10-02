@@ -34,6 +34,10 @@ def _coverage_lanes_schema(coverage):
                 entry['properties'].pop(field)
                 entry['required'].remove(field)
             entry['properties']['materialId']={'type':'string','minLength':1}
+            if lane=='optionalShadowArtwork':
+                # An attached soft shadow is excluded at its material owner;
+                # a button/panel object cannot be used as the shadow object.
+                entry['properties']['objectId']={'type':'null'}
         result['properties'][lane]={'type':'array','items':entry}
         result['required'].append(lane)
     return result
