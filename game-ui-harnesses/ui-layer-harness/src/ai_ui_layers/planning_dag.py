@@ -42,7 +42,10 @@ BOX_TEXT_GUIDANCE=('素材框与对象辅助框都是保留图形的轴对齐包
                    '已独立成素材的图标不因邻接外部文字自动要求对象框；若仍有定位歧义，须给原图依据，不以 null 本身为缺陷。'
                    '非 null 对象框须完整覆盖所指图形且位于所属素材内，必要内部定位框不得置空。'
                    '轮廓极值内不可避免的空隙含普通文字，不单独作为缩框依据；不得为避字截断图形。'
-                   '仅文字撑大的可避免边界仍须收紧；去字效果与完整轮廓仍须生成后审查或验收。\n')
+                   '仅文字撑大的可避免边界仍须收紧；去字效果与完整轮廓仍须生成后审查或验收。'
+                   'static-composite 只规划当前可见外观；状态指原图可观察的选中标记、勾号、亮条、槽/填充和控件表面差异，描述真实颜色与结构。'
+                   '有明确可见证据才使用启用/禁用等名称；截图不能判断点击是否有效等不可见业务行为时，不推断，也不作为本次视觉拆分的 unknowns 或 unresolvedIssues。'
+                   '可见图形、边界、数量、遮挡、归属、层级或用户明确要求的输出状态仍有疑问时，保留 unknowns 并阻断；不得借此范围说明清除真实视觉疑问。\n')
 
 COVERAGE_GUIDANCE=('coverageAudit 按九区逐项清点：observedArtwork 只列保留图形，businessText 只列待删除普通业务文字；'
     '先看干净原图再对照计划，重复实例及文字旁图形分别列项，不只遍历已有 ID。'
@@ -487,6 +490,8 @@ class Dag:
             for filename in sequence_files:(p/filename).write_bytes((review_dir/filename).read_bytes())
         prompt=BOX_TEXT_GUIDANCE+('继续同一会话，按 M2 与程序问题仅修补一次，不重写整个计划、不调用工具。'
                 'materials/objects.upsert 为新增或替换的完整记录，remove 为删除 ID，保留无关记录。'
+                'materials.upsert 和 objects.upsert 各自每个 ID 最多一条完整记录；同 ID 来自多条问题的修改先合并为唯一最终完整记录，保留未被问题否定的内容。'
+                '不存在 first/last 条覆盖规则；不以截断或拼接标签掩盖描述不足，不提交同 ID 的冲突版本。remove 不重复且不与 upsert 同 ID；无法形成一致完整记录时写 unresolvedIssues，程序仍拒绝重复 ID。'
                 'unknowns/backgroundMode/textPolicy 为 null 时沿用，preserveText 在对应素材记录内修订。'
                 '对 UNASSIGNED_VISIBLE_ARTWORK，先核对原图；确有遗漏时补齐所属材料与对象的可见内容描述，必要时新增对象或材料，不靠缩框或改 unknowns 掩盖。'
                 '补充描述时保留旧 label 中未被问题否定的场景、图形和颜色，复查完整改写结果，不输出截断词或乱码。'

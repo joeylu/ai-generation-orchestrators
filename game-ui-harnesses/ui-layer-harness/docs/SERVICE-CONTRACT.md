@@ -530,6 +530,22 @@ fresh explicit review, not an in-place resume under changed code.
 
 ### Bounded planning convergence
 
+New planning prompts consistently limit `static-composite` to the current visible
+appearance. State means observable selection marks, checks, highlights, fill and
+control surfaces; screenshot evidence does not establish whether a click executes
+business logic. Such unobservable behavior is not a visual-planning unknown.
+Uncertainty about visible artwork, bounds, count, occlusion, ownership, layering or
+explicitly requested output states still blocks. The unknowns and unresolved-issue
+gates remain unchanged; historical unknowns and failed runs are not cleared.
+
+Both repair rounds require one complete upsert record per material or object ID.
+Changes from multiple findings must form that one complete record; there is no
+first-record or last-record override. Duplicate IDs remain a program error. This
+clarifies the existing array protocol, without introducing a keyed patch protocol,
+automatic deduplication or another model call. These prompt changes alter the
+runtime fingerprint for new runs only; existing pinned runs keep their original
+prompts and cannot resume under this version.
+
 New planning DAGs allow at most two local patch/review pairs (M1 + M2 + up to
 four patch/review calls: six planning model calls total). The first pair keeps
 `repair`, `repair_check`, `rereview`; an optional second pair uses `repair2`,
