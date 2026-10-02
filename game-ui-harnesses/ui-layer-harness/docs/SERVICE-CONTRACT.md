@@ -5,6 +5,14 @@
 退出码 0 表示命令完成或正常等待，不等于视觉通过；非零表示本次命令失败。
 不直接调用内部 Python 函数，内部 M1/M2 文件不作为 Web 合同。
 
+新 `run` 可显式传 `--planning-model MODEL --planning-effort EFFORT
+--planning-timeout SECONDS`。默认仍为 `gpt-6-luna`、`xhigh`、900 秒；timeout
+必须为 1..86400 的整数。参数绑定根与嵌套规划配置摘要，M1、M2 与所有修补／复审
+使用相同模型、effort 和每次 timeout，并保持原同会话核验。仅影响规划调用，不改变
+生图、素材审查、定位或主体观察参数。非新 run 拒绝这些覆盖参数；历史配置缺 timeout
+仍按 900 秒解释，运行时指纹校验和失败后禁止重投不变。超时诊断记录实际冻结上限；
+不会恢复旧超时任务或沿用其调用授权。
+
 可选离线主体定位入口为 `register-materials --config CONFIG.json --output NEW_DIR`。
 配置必须显式选择 `reference-body-v1` 或 `reference-body-support-v1`，绑定冻结快照和
 每份前景的原图／生成图主体观察合同；具体字段及边界见 [BODY-REGISTRATION.md](BODY-REGISTRATION.md)。

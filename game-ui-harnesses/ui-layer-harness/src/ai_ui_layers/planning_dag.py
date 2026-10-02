@@ -3,6 +3,7 @@ import argparse
 from contextlib import contextmanager
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import tempfile
@@ -19,7 +20,7 @@ from .sequence_focus import make_sequence_focus
 from .planning_review_policy import split, signatures, audit_rows
 from .boundary_evidence import guidance as boundary_guidance, validate_boundaries
 from .review_evidence import build_catalog, build_review_schema
-from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure
+from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure, validate_timeout
 from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME
 
 BASE=HARNESS/'planning-harness'
@@ -125,7 +126,17 @@ def read_notes(path):
     return data
 
 
-def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=DEFAULT_GENERATION_REFERENCE, visual_policy=None, context_prompt_version=None):
+def validate_model_settings(model, effort, timeout):
+    if not isinstance(model, str) or re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}', model) is None:
+        raise ValueError('PLANNING_MODEL')
+    if effort not in ('none','minimal','low','medium','high','xhigh','max','ultra'):
+        raise ValueError('PLANNING_EFFORT')
+    validate_timeout(timeout)
+
+
+def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=DEFAULT_GENERATION_REFERENCE, visual_policy=None, context_prompt_version=None,
+         planning_model=CLI_MODEL, planning_effort=CLI_EFFORT, planning_timeout=900):
+    validate_model_settings(planning_model, planning_effort, planning_timeout)
     from .context_references import validate_mode
     validate_mode(generation_reference)
     if generation_reference!='context-crops' and context_prompt_version is not None:
@@ -156,17 +167,22 @@ def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, pl
     save(root/'.dag/config.json',{'kind':'ui_planning_dag_v1','runtime':runtime_files(),
          'inputs':{p.name:digest(p) for p in inputs.iterdir()},'maxCalls':max_calls,'generationMode':generation_mode,'generationReference':generation_reference,
          **({'contextPromptVersion':context_prompt_version} if context_prompt_version is not None else {}),
-         'model':CLI_MODEL,'effort':CLI_EFFORT,'graph':GRAPH,'maximumRepairs':2,'mediaGenerationCalls':0})
+         'model':planning_model,'effort':planning_effort,'timeoutSeconds':planning_timeout,
+         'graph':GRAPH,'maximumRepairs':2,'mediaGenerationCalls':0})
     save(root/'.dag/config-digest.json',{'sha256':digest(root/'.dag/config.json')})
     return root
 
 
 def live_model(folder, sid, first):
+    config=read(folder.parent/'.dag/config.json')
+    model=config.get('model',CLI_MODEL);effort=config.get('effort',CLI_EFFORT)
+    timeout=config.get('timeoutSeconds',900)
+    validate_model_settings(model, effort, timeout)
     with tempfile.TemporaryDirectory(prefix='ui-planning-dag-') as cwd:
         if first:
-            args=command(shutil.which('codex'),folder,Path(cwd),CLI_MODEL,CLI_EFFORT);args.remove('--ephemeral')
-        else:args=resume_command(shutil.which('codex'),folder,Path(cwd),sid)
-        return invoke(args,folder,cwd,(folder/'prompt.md').read_text(encoding='utf-8'))
+            args=command(shutil.which('codex'),folder,Path(cwd),model,effort);args.remove('--ephemeral')
+        else:args=resume_command(shutil.which('codex'),folder,Path(cwd),sid,model,effort)
+        return invoke(args,folder,cwd,(folder/'prompt.md').read_text(encoding='utf-8'),timeout=timeout)
 
 
 class Dag:
@@ -175,6 +191,8 @@ class Dag:
         self.inputs=self.root/'.dag/inputs'
 
     def verify(self):
+        validate_model_settings(self.config.get('model',CLI_MODEL), self.config.get('effort',CLI_EFFORT),
+                                self.config.get('timeoutSeconds',900))
         if digest(self.root/'.dag/config.json')!=read(self.root/'.dag/config-digest.json')['sha256']:
             raise ValueError('CONFIG_CHANGED')
         if self.config['runtime']!=runtime_files():raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
@@ -268,7 +286,8 @@ class Dag:
                                    planning_guidance(policy)+self.user_context(),encoding='utf-8')
         save(p/'schema.json',transport_schema(read(self.inputs/'storage-schema.json')))
         request={'inputs':{n:digest(p/n) for n in ('reference.png','prompt.md','schema.json')},
-                 'model':self.config['model'],'effort':self.config['effort'],'mediaGenerationCalls':0,
+                 'model':self.config['model'],'effort':self.config['effort'],
+                 'timeoutSeconds':self.config.get('timeoutSeconds',900),'mediaGenerationCalls':0,
                  'maximumRepairs':self.config.get('maximumRepairs',1)}
         if policy is not None:request['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
         save(self.root/'request.json',request)
@@ -533,7 +552,12 @@ def main():
     p.add_argument('--context-prompt-version',choices=CONTEXT_PROMPT_VERSIONS,
                    help='New context-crops run: default v7; explicit versions are frozen in the run config')
     p.add_argument('--visual-policy',help='New-run explicit visual evidence policy JSON')
+    p.add_argument('--planning-model')
+    p.add_argument('--planning-effort')
+    p.add_argument('--planning-timeout',type=int)
     a=p.parse_args()
+    if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)) and a.action!='run':
+        p.error('planning model settings are only accepted for a new run')
     if a.visual_policy is not None and a.action!='run':
         p.error('--visual-policy is only accepted for a new run')
     if a.context_prompt_version is not None and a.action!='run':
@@ -542,7 +566,10 @@ def main():
         if not a.image:p.error('--image is required for run')
         init(a.image,a.output,a.max_calls,a.generation_mode,
              generation_reference=a.generation_reference,visual_policy=a.visual_policy,
-             context_prompt_version=a.context_prompt_version)
+             context_prompt_version=a.context_prompt_version,
+             planning_model=a.planning_model if a.planning_model is not None else CLI_MODEL,
+             planning_effort=a.planning_effort if a.planning_effort is not None else CLI_EFFORT,
+             planning_timeout=a.planning_timeout if a.planning_timeout is not None else 900)
     dag=Dag(a.output)
     try:result=dag.status() if a.action=='status' else dag.execute()
     except Exception as exc:

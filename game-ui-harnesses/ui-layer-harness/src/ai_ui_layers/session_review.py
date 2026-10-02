@@ -23,8 +23,8 @@ def session_id(events):
     return ids.pop()
 
 
-def resume_command(exe, folder, cwd, sid):
-    base = command(exe, folder, cwd, CLI_MODEL, CLI_EFFORT)
+def resume_command(exe, folder, cwd, sid, model=CLI_MODEL, effort=CLI_EFFORT):
+    base = command(exe, folder, cwd, model, effort)
     configs = []
     for i, arg in enumerate(base):
         if arg == '-c': configs.extend(['-c', base[i+1]])
@@ -34,7 +34,7 @@ def resume_command(exe, folder, cwd, sid):
         1 if p.name.startswith('coverage-small-materials-') else 2,p.name))
     images=([reference] if reference.is_file() else [])+[folder/'review-overlay.png']+sorted(folder.glob('focus-*.png'))+coverage
     return [exe, 'exec', 'resume', '--strict-config', '--ignore-user-config',
-            '--skip-git-repo-check', '--model',CLI_MODEL,'--json',
+            '--skip-git-repo-check', '--model',model,'--json',
             '-c','sandbox_mode="read-only"', *configs,
             '--image', ','.join(str(p) for p in images),
             '--output-schema', str(folder/'schema.json'),
@@ -47,10 +47,17 @@ class TransportFailure(ValueError):
         self.details=transport_failure_details(receipt)
 
 
-def invoke(args, folder, cwd, prompt):
+def validate_timeout(timeout):
+    if type(timeout) is not int or not 1 <= timeout <= 86400:
+        raise ValueError('MODEL_TIMEOUT_SECONDS')
+    return timeout
+
+
+def invoke(args, folder, cwd, prompt, timeout=900):
+    validate_timeout(timeout)
     start = datetime.now(timezone.utc).isoformat(); before = time.perf_counter()
     save(folder/'dispatch.json', {'startedAt':start})
-    result = {'startedAt':start, 'productionReady':False,'humanVisualAcceptance':False,'timeoutSeconds':900}
+    result = {'startedAt':start, 'productionReady':False,'humanVisualAcceptance':False,'timeoutSeconds':timeout}
     with (folder/'events.jsonl').open('xb') as events, (folder/'stderr.log').open('xb') as errors:
         try:
             process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=events, stderr=errors, cwd=cwd)
@@ -58,7 +65,7 @@ def invoke(args, folder, cwd, prompt):
             result.update(failure='PROCESS_START_FAILED',exitCode=None)
         else:
             try:
-                process.communicate(prompt.encode('utf-8'), timeout=900)
+                process.communicate(prompt.encode('utf-8'), timeout=timeout)
             except subprocess.TimeoutExpired:
                 process.kill(); process.communicate(); result['failure']='TIMEOUT_NO_RETRY'
             result['exitCode']=process.returncode

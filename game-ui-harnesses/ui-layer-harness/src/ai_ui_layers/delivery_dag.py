@@ -34,7 +34,9 @@ def runtime_files():
 
 
 def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=planning.DEFAULT_GENERATION_REFERENCE, visual_policy=None,
-         context_prompt_version=None, registration_policy=body.POLICY, max_body_calls=body.DEFAULT_MAX_CALLS):
+         context_prompt_version=None, registration_policy=body.POLICY, max_body_calls=body.DEFAULT_MAX_CALLS,
+         planning_model=planning.CLI_MODEL, planning_effort=planning.CLI_EFFORT, planning_timeout=900):
+    planning.validate_model_settings(planning_model, planning_effort, planning_timeout)
     from .context_references import validate_mode
     validate_mode(generation_reference)
     if generation_reference == 'context-crops':
@@ -80,6 +82,7 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
          graph=BODY_GRAPH if registration_policy == body.POLICY else GRAPH,
          maxCalls=max_calls, generationMode=generation_mode, generationReference=generation_reference, runtime=runtime_files(),
          registrationPolicy=registration_policy, maximumBodyCalls=max_body_calls,
+         planningModel=planning_model, planningEffort=planning_effort, planningTimeoutSeconds=planning_timeout,
          **({'contextPromptVersion':context_prompt_version} if context_prompt_version is not None else {}),
          inputs={name:digest(root/'.dag/inputs'/name) for name in inputs}))
     save(root/'.dag/config-digest.json', dict(sha256=digest(root/'.dag/config.json')))
@@ -95,6 +98,8 @@ class DeliveryDag(planning.Dag):
         self.body_model = body_model
 
     def verify(self):
+        planning.validate_model_settings(self.config.get('planningModel',planning.CLI_MODEL),
+            self.config.get('planningEffort',planning.CLI_EFFORT),self.config.get('planningTimeoutSeconds',900))
         if digest(self.root/'.dag/config.json') != read(self.root/'.dag/config-digest.json')['sha256']:
             raise ValueError('CONFIG_CHANGED')
         if self.config['runtime'] != runtime_files(): raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
@@ -118,6 +123,10 @@ class DeliveryDag(planning.Dag):
             if read(self.root/'planning/.dag/config.json')['inputs'].get('visual-policy.json')!=self.config['inputs'].get('visual-policy.json'):
                 raise ValueError('VISUAL_POLICY_NESTED_RUN_MISMATCH')
             nested = read(self.root/'planning/.dag/config.json')
+            if (nested.get('model',planning.CLI_MODEL),nested.get('effort',planning.CLI_EFFORT),nested.get('timeoutSeconds',900)) != (
+                    self.config.get('planningModel',planning.CLI_MODEL),self.config.get('planningEffort',planning.CLI_EFFORT),
+                    self.config.get('planningTimeoutSeconds',900)):
+                raise ValueError('PLANNING_MODEL_NESTED_RUN_MISMATCH')
             if (nested.get('generationReference','full') != self.config.get('generationReference','full') or
                     nested.get('contextPromptVersion','v3') != self.config.get('contextPromptVersion','v3')):
                 raise ValueError('CONTEXT_PROMPT_NESTED_RUN_MISMATCH')
@@ -165,7 +174,10 @@ class DeliveryDag(planning.Dag):
                     self.inputs/'planning-notes.txt' if 'planning-notes.txt' in self.config['inputs'] else None,
                     self.config.get('generationReference','full'),
                     self.inputs/'visual-policy.json' if 'visual-policy.json' in self.config['inputs'] else None,
-                    self.config.get('contextPromptVersion','v3') if self.config.get('generationReference')=='context-crops' else None)
+                    self.config.get('contextPromptVersion','v3') if self.config.get('generationReference')=='context-crops' else None,
+                    planning_model=self.config.get('planningModel',planning.CLI_MODEL),
+                    planning_effort=self.config.get('planningEffort',planning.CLI_EFFORT),
+                    planning_timeout=self.config.get('planningTimeoutSeconds',900))
                 planning.Dag(planroot, self.model).execute()
                 self.node('planning', lambda: save(self.root/'planning-result.json',
                           planning.Dag(planroot, self.model).status()))
@@ -273,6 +285,9 @@ def main():
     p.add_argument('--output', required=True); p.add_argument('--image'); p.add_argument('--viewer')
     p.add_argument('--target', choices=['frozen','ui-layers'], default='ui-layers')
     p.add_argument('--max-calls', type=int, default=12)
+    p.add_argument('--planning-model',help='New-run planning model, frozen for every planning turn')
+    p.add_argument('--planning-effort',help='New-run planning reasoning effort')
+    p.add_argument('--planning-timeout',type=int,help='New-run per-planning-call timeout in seconds (1..86400)')
     p.add_argument('--generation-mode', choices=['single','sheets'], default=planning.DEFAULT_GENERATION_MODE,
                    help='Generation layout for new runs (default: sheets); single uses one request per material')
     p.add_argument('--generation-reference',choices=['full','context-crops'],
@@ -292,6 +307,8 @@ def main():
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)) and a.action!='run':
+            p.error('--planning-model, --planning-effort and --planning-timeout are only valid for a new run')
         if a.config and a.action!='register-materials':p.error('--config is only valid for register-materials')
         if a.action=='register-materials':
             if not a.config:p.error('--config required')
@@ -409,7 +426,10 @@ def main():
             if not a.image: p.error('--image required')
             init(a.image,a.output,a.viewer,a.target,a.max_calls,a.generation_mode,a.planning_notes,a.generation_reference or planning.DEFAULT_GENERATION_REFERENCE,a.visual_policy,
                  a.context_prompt_version,a.registration_policy or body.POLICY,
-                 a.max_body_calls if a.max_body_calls is not None else body.DEFAULT_MAX_CALLS)
+                 a.max_body_calls if a.max_body_calls is not None else body.DEFAULT_MAX_CALLS,
+                 planning_model=a.planning_model if a.planning_model is not None else planning.CLI_MODEL,
+                 planning_effort=a.planning_effort if a.planning_effort is not None else planning.CLI_EFFORT,
+                 planning_timeout=a.planning_timeout if a.planning_timeout is not None else 900)
         if a.planning_notes and a.action!='run':p.error('--planning-notes is only valid for a new run')
         if a.generation_reference is not None and a.action!='run':p.error('--generation-reference is only valid for a new run or freeze-reviewed')
         dag = DeliveryDag(a.output); dag.verify(); job = dag.root/'generation'
