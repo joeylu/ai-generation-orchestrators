@@ -89,7 +89,18 @@ M1/M2 固定模板按规划与检查职责集中表达通用规则，字段/枚�
 适配资格和重复卡片比例仍是原有检查规则，不能因文档位置而遗漏。
 标记残缺、重复、倒置、空范围或混入第二步修补标题会在调用前阻断；
 历史无标记模板保留原标题截取方式，旧固定运行不会改写或重放。
-新固定运行时的 M2/复审须逐区提交九宫格可见图形覆盖审查。`typed-review-v3` 每区必填
+新规划配置显式冻结 `reviewEvidenceProtocol: typed-review-v4`，M2/复审逐区提交九宫格可见图形审查。
+每区必填 `coveredArtwork`、`unresolvedArtwork`、`optionalShadowArtwork`、`businessText` 四列表及
+`emptyRegionEvidence`。已覆盖与可选柔影条目只含 artwork、materialId、objectId、evidence，
+schema 禁止 disposition 和 suggestedChange；已有素材归属必须非空。待修订条目还含
+disposition（仅 missing/uncertain）及非空 suggestedChange，未知归属可为 null。
+有裁框、层级或描述修订需求的条目必须放入待修订列表，不能同时声称完整覆盖。
+程序仅在内存中按所属列表确定性补处置、null 建议或原修订建议，再进入相同覆盖、归属及修补质量门。
+四列表均空才允许非空 emptyRegionEvidence；否则为 null。原始模型答复及回执保持不变。
+这不接受或修正旧失败响应，不增加调用次数，不豁免实际图形问题。
+
+历史无选择器的规划配置仍使用 V3；编译/冻结重建时，V4 必须有配置选择器，显式选择器与
+响应及 schema 协议不一致即拒绝。历史 `typed-review-v3` 每区必填
 `observedArtwork` 图形数组、`businessText` 业务文字数组及 emptyRegionEvidence；无对应内容填 []。
 `observedArtwork` 的 disposition 仅 covered、missing、uncertain、optional-shadow，
 每项包含 artwork、disposition、materialId、objectId、evidence、suggestedChange；
@@ -130,7 +141,7 @@ Docker/Web 无迁移要求。既有运行受运行时指纹保护，不在原目
 素材编号为 `m:<materialId>`，对象编号为 `o:<objectId>`；记录保留 materialId、objectId 和原始 label。
 目录作为带哈希的本轮请求输入，并进入冻结证据。修补后的复审重建目录，不能借旧摘要沿用新候选。
 
-新模型原始响应必填 `planEvidenceProtocol: typed-review-v3` 和 `planEvidenceCatalogDigest`，
+新模型原始响应必填冻结配置选择的 `planEvidenceProtocol`（新配置为 `typed-review-v4`）和 `planEvidenceCatalogDigest`，
 后者等于当前目录摘要。覆盖项没有 planEvidenceId 或 planEvidenceQuote；程序根据已必填的
 materialId/objectId 解析 covered 的原文，未知素材、未知对象或对象错属立即拒绝。
 非 covered 在内存中派生 null 引文，仍按原处置、归属、文字许可和不确定性规则评估。

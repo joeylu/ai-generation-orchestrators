@@ -89,7 +89,7 @@ def bound_review(folder,answer):
     protocol_schema=read(folder/'schema.json').get('properties',{}).get('planEvidenceProtocol')
     protocol=protocol_schema['enum'][0] if protocol_schema else None
     if protocol:answer['planEvidenceProtocol']=protocol
-    if protocol=='typed-review-v3' and 'issues' in answer:
+    if protocol in ('typed-review-v3','typed-review-v4') and 'issues' in answer:
         cosmetic=answer.setdefault('cosmeticIssues',[])
         retained=[]
         for issue in answer['issues']:
@@ -101,7 +101,9 @@ def bound_review(folder,answer):
     for entry in catalog['entries']:
         by_owner.setdefault(entry['materialId'],[]).append(entry)
     for region in answer.get('coverageAudit',[]):
-        if protocol=='typed-review-v3':
+        if protocol=='typed-review-v4' and 'observedArtwork' not in region:
+            continue
+        if protocol in ('typed-review-v3','typed-review-v4'):
             business=region.setdefault('businessText',[])
             graphics=[]
             for artwork in region['observedArtwork']:
@@ -120,6 +122,16 @@ def bound_review(folder,answer):
                 ('o:'+artwork['objectId'] if artwork['objectId'] is not None
                  else 'm:'+artwork['materialId'])
                 if artwork['disposition']=='covered' else None)
+        if protocol=='typed-review-v4':
+            lanes={'coveredArtwork':[],'unresolvedArtwork':[],'optionalShadowArtwork':[]}
+            for artwork in region.pop('observedArtwork'):
+                state=artwork['disposition']
+                if state in ('covered','optional-shadow'):
+                    key='coveredArtwork' if state=='covered' else 'optionalShadowArtwork'
+                    lanes[key].append({name:artwork[name] for name in ('artwork','materialId','objectId','evidence')})
+                else:
+                    lanes['unresolvedArtwork'].append(artwork)
+            region.update(lanes)
     for material_id,item in answer.get('smallMaterialAudit',{}).items():
         for part in item['parts']:
             if 'planEvidenceQuote' not in part:continue
@@ -275,7 +287,7 @@ class DagTests(unittest.TestCase):
             fake(folder,sid,first)
             if folder.name=='m2':
                 answer=read(folder/'draft.json')
-                answer['coverageAudit'][2]['observedArtwork'].append(missing_artwork(
+                answer['coverageAudit'][2]['unresolvedArtwork'].append(missing_artwork(
                     'Visible flying character and star trail absent from scene description',
                     'asset-scene','Add the flying character and trail to the scene material and object descriptions.'))
                 (folder/'draft.json').write_text(json.dumps(answer),encoding='utf-8')
@@ -296,8 +308,7 @@ class DagTests(unittest.TestCase):
         self.assertEqual(read(self.root/'m2/draft.json')['issues'],[])
         self.assertEqual(seen['context']['materials'][0]['id'],'asset-scene')
         self.assertIn('flying character',read(self.root/'repair/candidate.json')['materials'][0]['label'])
-        self.assertFalse(any(item['disposition']=='missing' for item in
-            read(self.root/'rereview/draft.json')['coverageAudit'][2]['observedArtwork']))
+        self.assertEqual(read(self.root/'rereview/draft.json')['coverageAudit'][2]['unresolvedArtwork'],[])
 
     def test_missing_coverage_audit_cannot_freeze(self):
         fake=FakeModel()

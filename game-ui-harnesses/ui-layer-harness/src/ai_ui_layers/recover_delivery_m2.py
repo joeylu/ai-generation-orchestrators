@@ -69,7 +69,7 @@ def recover(source, output, reason):
             raise ValueError('PLANNING_INPUT_PATH_UNSAFE')
         (new/'.dag/inputs'/name).write_bytes((old/'.dag/inputs'/name).read_bytes())
     current['inputs']=dict(old_config['inputs'])
-    for key in ('normalizationPolicy','coverageTextPolicy','relationReviewPolicy'):
+    for key in ('normalizationPolicy','coverageTextPolicy','relationReviewPolicy','reviewEvidenceProtocol'):
         if key in old_config:current[key]=old_config[key]
         else:current.pop(key,None)
     # These are fresh deterministic checkpoint files, before any imported node.

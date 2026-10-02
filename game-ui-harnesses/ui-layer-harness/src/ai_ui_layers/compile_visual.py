@@ -124,10 +124,15 @@ def verify_plan_evidence(folder, review, bound, visual):
     """Rebuild new provenance catalogs without upgrading historical reviews."""
     from .review_evidence import (build_catalog, build_review_schema,
                                   expected_small_material_ids, resolve_review,
-                                  PROTOCOL_V1, PROTOCOL_V2, PROTOCOL_V3)
+                                  PROTOCOL_V1, PROTOCOL_V2, PROTOCOL_V3, PROTOCOL_V4,
+                                  configured_protocol)
+    config=read(folder.parent/'.dag/config.json') if (folder.parent/'.dag/config.json').exists() else {}
+    selected_protocol=configured_protocol(config)
     schema=read(folder/'schema.json')
     marker='planEvidenceCatalogDigest';name='plan-evidence-catalog.json'
     if marker not in schema.get('properties',{}):
+        if 'reviewEvidenceProtocol' in config:
+            raise ValueError('REVIEW_EVIDENCE_PROTOCOL_MISMATCH')
         if (marker in review or 'planEvidenceProtocol' in review or
                 'planEvidenceProtocol' in schema.get('properties',{}) or name in bound['inputs']):
             raise ValueError('PLAN_EVIDENCE_SCHEMA_MARKER_REQUIRED')
@@ -139,8 +144,13 @@ def verify_plan_evidence(folder, review, bound, visual):
         protocol=PROTOCOL_V2
     elif stored_protocol=={'type':'string','enum':[PROTOCOL_V3]}:
         protocol=PROTOCOL_V3
+    elif stored_protocol=={'type':'string','enum':[PROTOCOL_V4]}:
+        protocol=PROTOCOL_V4
     else:
         raise ValueError('PLAN_EVIDENCE_PROTOCOL_SCHEMA_MISMATCH')
+    if ('reviewEvidenceProtocol' in config and protocol!=selected_protocol) or (
+            protocol==PROTOCOL_V4 and 'reviewEvidenceProtocol' not in config):
+        raise ValueError('REVIEW_EVIDENCE_PROTOCOL_MISMATCH')
     if (protocol==PROTOCOL_V1 and 'planEvidenceProtocol' in review) or (
             protocol!=PROTOCOL_V1 and review.get('planEvidenceProtocol')!=protocol):
         raise ValueError('PLAN_EVIDENCE_PROTOCOL_MISMATCH')
@@ -168,7 +178,6 @@ def verify_plan_evidence(folder, review, bound, visual):
         if focus_name in bound['inputs'] or (folder/focus_name).exists():
             raise ValueError('PLAN_EVIDENCE_UNEXPECTED_FOCUS')
         focus=None
-    config=read(folder.parent/'.dag/config.json') if (folder.parent/'.dag/config.json').exists() else {}
     expected_schema=build_review_schema(catalog,focus,planning_policy(folder.parent),protocol,config.get('coverageTextPolicy'))
     if relation_review.policy(folder.parent):
         expected_schema=relation_review.bind_schema(expected_schema,relation_review.catalog(visual,digest(folder.parent/'m1/reference.png')))

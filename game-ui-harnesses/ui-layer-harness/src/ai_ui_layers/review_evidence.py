@@ -8,6 +8,35 @@ CATALOG_KIND='ui_plan_evidence_catalog_v1'
 PROTOCOL_V1='catalog-id-v1'
 PROTOCOL_V2='coverage-owner-v2'
 PROTOCOL_V3='typed-review-v3'
+PROTOCOL_V4='typed-review-v4'
+
+
+def configured_protocol(config):
+    """Keep unmarked historical configs on V3; require an explicit V4 choice."""
+    protocol=config.get('reviewEvidenceProtocol',PROTOCOL_V3)
+    if protocol not in (PROTOCOL_V3,PROTOCOL_V4):
+        raise ValueError('REVIEW_EVIDENCE_PROTOCOL_UNKNOWN')
+    return protocol
+
+
+def _coverage_lanes_schema(coverage):
+    """Make incompatible coverage states unrepresentable in the V4 transport."""
+    result=copy.deepcopy(coverage)
+    graphic=result['properties'].pop('observedArtwork')['items']
+    result['required'].remove('observedArtwork')
+    for lane in ('coveredArtwork','unresolvedArtwork','optionalShadowArtwork'):
+        entry=copy.deepcopy(graphic)
+        if lane=='unresolvedArtwork':
+            entry['properties']['disposition']['enum']=['missing','uncertain']
+            entry['properties']['suggestedChange']={'type':'string','minLength':1}
+        else:
+            for field in ('disposition','suggestedChange'):
+                entry['properties'].pop(field)
+                entry['required'].remove(field)
+            entry['properties']['materialId']={'type':'string','minLength':1}
+        result['properties'][lane]={'type':'array','items':entry}
+        result['required'].append(lane)
+    return result
 
 
 def _sha(value):
@@ -34,7 +63,7 @@ def build_catalog(plan):
 
 def bind_schema(schema,catalog,protocol=PROTOCOL_V1):
     """Replace copied quotations with a nullable, catalog-bound owner ID."""
-    if protocol not in (PROTOCOL_V1,PROTOCOL_V2,PROTOCOL_V3):
+    if protocol not in (PROTOCOL_V1,PROTOCOL_V2,PROTOCOL_V3,PROTOCOL_V4):
         raise ValueError('PLAN_EVIDENCE_PROTOCOL_UNKNOWN')
     result=copy.deepcopy(schema)
     ids=[row['id'] for row in catalog['entries']]
@@ -69,7 +98,7 @@ def bind_schema(schema,catalog,protocol=PROTOCOL_V1):
     result['properties']['planEvidenceCatalogDigest']={
         'type':'string','enum':[catalog['digest']]}
     result['required'].append('planEvidenceCatalogDigest')
-    if protocol in (PROTOCOL_V2,PROTOCOL_V3):
+    if protocol in (PROTOCOL_V2,PROTOCOL_V3,PROTOCOL_V4):
         if 'planEvidenceProtocol' in result['properties']:
             raise ValueError('PLAN_EVIDENCE_SCHEMA_ALREADY_BOUND')
         result['properties']['planEvidenceProtocol']={
@@ -80,7 +109,7 @@ def bind_schema(schema,catalog,protocol=PROTOCOL_V1):
 
 def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3,coverage_text_policy=None):
     """The one schema builder for new M2 and rereview transport and verification."""
-    if protocol not in (PROTOCOL_V1,PROTOCOL_V2,PROTOCOL_V3):
+    if protocol not in (PROTOCOL_V1,PROTOCOL_V2,PROTOCOL_V3,PROTOCOL_V4):
         raise ValueError('PLAN_EVIDENCE_PROTOCOL_UNKNOWN')
     from .boundary_evidence import schema as boundary_schema
     from .codex_call import transport_schema
@@ -93,16 +122,16 @@ def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3,coverage
                       'ids':{'type':'array','items':{'type':'string'}},'description':{'type':'string'},
                       'suggestedChange':{'type':'string'}}}
     validate_text_policy(coverage_text_policy)
-    if coverage_text_policy is not None and protocol != PROTOCOL_V3:
+    if coverage_text_policy is not None and protocol not in (PROTOCOL_V3,PROTOCOL_V4):
         raise ValueError('COVERAGE_TEXT_POLICY_REQUIRES_TYPED_REVIEW')
     # This transport has a separate business lane; resolved entries carry the
     # explicit fragments later, while graphic entries get a null license field.
     coverage=coverage_schema()
-    if protocol in (PROTOCOL_V2,PROTOCOL_V3):
+    if protocol in (PROTOCOL_V2,PROTOCOL_V3,PROTOCOL_V4):
         entry=coverage['properties']['observedArtwork']['items']
         entry['properties'].pop('planEvidenceQuote')
         entry['required'].remove('planEvidenceQuote')
-    if protocol==PROTOCOL_V3:
+    if protocol in (PROTOCOL_V3,PROTOCOL_V4):
         issue_schema['properties']['category']['enum']=['semantic','geometry']
         graphic=coverage['properties']['observedArtwork']['items']
         graphic['properties']['disposition']['enum']=[
@@ -119,11 +148,13 @@ def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3,coverage
                 'items':{'type':'string','minLength':1,'maxLength':200}}
         coverage['properties']['businessText']={'type':'array','items':business}
         coverage['required'].append('businessText')
+    if protocol==PROTOCOL_V4:
+        coverage=_coverage_lanes_schema(coverage)
     required=['issues','coverageAudit']
     properties={'issues':{'type':'array','items':issue_schema},
                 'coverageAudit':{'type':'array','minItems':len(REGIONS),
                                  'maxItems':len(REGIONS),'items':coverage}}
-    if protocol==PROTOCOL_V3:
+    if protocol in (PROTOCOL_V3,PROTOCOL_V4):
         cosmetic=copy.deepcopy(issue_schema)
         cosmetic['properties'].pop('category')
         cosmetic['required'].remove('category')
@@ -210,17 +241,22 @@ def resolve_review(review,plan,coverage_text_policy=None):
     marked='planEvidenceCatalogDigest' in review
     if not marked:
         if (_contains_key(review,'planEvidenceId') or 'planEvidenceProtocol' in review or
-                'cosmeticIssues' in review or _contains_key(review,'businessText')):
+                'cosmeticIssues' in review or _contains_key(review,'businessText') or
+                any(_contains_key(review,lane) for lane in
+                    ('coveredArtwork','unresolvedArtwork','optionalShadowArtwork'))):
             raise ValueError('PLAN_EVIDENCE_MARKER_REQUIRED')
         return copy.deepcopy(review)
     protocol=review.get('planEvidenceProtocol',PROTOCOL_V1)
-    if coverage_text_policy is not None and protocol != PROTOCOL_V3:
+    if coverage_text_policy is not None and protocol not in (PROTOCOL_V3,PROTOCOL_V4):
         raise ValueError('COVERAGE_TEXT_POLICY_REQUIRES_TYPED_REVIEW')
-    if protocol not in (PROTOCOL_V1,PROTOCOL_V2,PROTOCOL_V3) or (
+    if protocol not in (PROTOCOL_V1,PROTOCOL_V2,PROTOCOL_V3,PROTOCOL_V4) or (
             protocol==PROTOCOL_V1 and 'planEvidenceProtocol' in review):
         raise ValueError('PLAN_EVIDENCE_PROTOCOL_UNKNOWN')
-    if protocol!=PROTOCOL_V3 and (
+    if protocol not in (PROTOCOL_V3,PROTOCOL_V4) and (
             'cosmeticIssues' in review or _contains_key(review,'businessText')):
+        raise ValueError('PLAN_EVIDENCE_MIXED_FORMAT')
+    if protocol!=PROTOCOL_V4 and any(_contains_key(review,lane) for lane in
+            ('coveredArtwork','unresolvedArtwork','optionalShadowArtwork')):
         raise ValueError('PLAN_EVIDENCE_MIXED_FORMAT')
     if _contains_key(review,'planEvidenceQuote'):
         raise ValueError('PLAN_EVIDENCE_MIXED_FORMAT')
@@ -228,9 +264,9 @@ def resolve_review(review,plan,coverage_text_policy=None):
     catalog=build_catalog(plan)
     if review['planEvidenceCatalogDigest']!=catalog['digest']:
         raise ValueError('PLAN_EVIDENCE_DIGEST_MISMATCH')
-    if protocol in (PROTOCOL_V2,PROTOCOL_V3) and 'coverageAudit' not in review:
+    if protocol in (PROTOCOL_V2,PROTOCOL_V3,PROTOCOL_V4) and 'coverageAudit' not in review:
         raise ValueError('PLAN_EVIDENCE_COVERAGE_REQUIRED')
-    if protocol==PROTOCOL_V3:
+    if protocol in (PROTOCOL_V3,PROTOCOL_V4):
         from .planning_review_policy import COSMETIC_CODES
         cosmetics=review.get('cosmeticIssues')
         if not isinstance(review.get('issues'),list) or not isinstance(cosmetics,list):
@@ -245,16 +281,47 @@ def resolve_review(review,plan,coverage_text_policy=None):
             raise ValueError('PLAN_EVIDENCE_COSMETIC_LANE_FORMAT')
     owners={row['id']:row for row in catalog['entries']}
     materials={row['id'] for row in plan['materials']}
+    objects={row['id']:row for row in plan['objects']}
     result=copy.deepcopy(review)
     result.pop('planEvidenceCatalogDigest')
     result.pop('planEvidenceProtocol',None)
-    if protocol==PROTOCOL_V3:
+    if protocol in (PROTOCOL_V3,PROTOCOL_V4):
         result['issues'].extend(dict(issue,category='cosmetic')
                                 for issue in result.pop('cosmeticIssues'))
+    if protocol==PROTOCOL_V4:
+        from jsonschema import Draft202012Validator
+        from .coverage_review import REGIONS
+        regions=result['coverageAudit']
+        if (not isinstance(regions,list) or len(regions)!=len(REGIONS) or
+                {row.get('region') for row in regions if isinstance(row,dict)}!=set(REGIONS)):
+            raise ValueError('COVERAGE_REGIONS_REQUIRED')
+        region_schema=build_review_schema(catalog,None,None,PROTOCOL_V4,
+            coverage_text_policy)['properties']['coverageAudit']['items']
+        validator=Draft202012Validator(region_schema)
+        for region in regions:
+            validator.validate(region)
+            artwork=[]
+            for lane,state in (('coveredArtwork','covered'),('unresolvedArtwork',None),
+                               ('optionalShadowArtwork','optional-shadow')):
+                for entry in region.pop(lane):
+                    if not entry['artwork'].strip() or not entry['evidence'].strip():
+                        raise ValueError('COVERAGE_ARTWORK_EVIDENCE_REQUIRED')
+                    if state is not None:
+                        entry.update(disposition=state,suggestedChange=None)
+                    elif not entry['suggestedChange'].strip():
+                        raise ValueError('COVERAGE_CHANGE_REQUIRED')
+                    artwork.append(entry)
+            has_entries=bool(artwork or region['businessText'])
+            empty=region['emptyRegionEvidence']
+            if has_entries and empty is not None:
+                raise ValueError('COVERAGE_NONEMPTY_REGION_HAS_EMPTY_EVIDENCE')
+            if not has_entries and (not isinstance(empty,str) or not empty.strip()):
+                raise ValueError('COVERAGE_EMPTY_REGION_EVIDENCE_REQUIRED')
+            region['observedArtwork']=artwork
     for region in result.get('coverageAudit',[]):
         if not isinstance(region,dict) or not isinstance(region.get('observedArtwork'),list):
             raise ValueError('PLAN_EVIDENCE_COVERAGE_FORMAT')
-        if protocol==PROTOCOL_V3 and not isinstance(region.get('businessText'),list):
+        if protocol in (PROTOCOL_V3,PROTOCOL_V4) and not isinstance(region.get('businessText'),list):
             raise ValueError('PLAN_EVIDENCE_BUSINESS_TEXT_REQUIRED')
         for entry in region['observedArtwork']:
             if not isinstance(entry,dict):
@@ -263,8 +330,14 @@ def resolve_review(review,plan,coverage_text_policy=None):
                 evidence_id=_take_id(entry,owners)
             elif 'planEvidenceId' in entry:
                 raise ValueError('PLAN_EVIDENCE_MIXED_FORMAT')
-            if protocol==PROTOCOL_V3 and entry.get('disposition')=='business-text':
+            if protocol in (PROTOCOL_V3,PROTOCOL_V4) and entry.get('disposition')=='business-text':
                 raise ValueError('PLAN_EVIDENCE_MIXED_FORMAT')
+            if protocol==PROTOCOL_V4:
+                mid,oid=entry['materialId'],entry['objectId']
+                if ((mid is not None and mid not in materials) or
+                        (oid is not None and oid not in objects) or
+                        (mid is not None and oid is not None and objects[oid]['materialId']!=mid)):
+                    raise ValueError('PLAN_EVIDENCE_OWNER_MISMATCH')
             if entry.get('disposition')=='covered':
                 material_id=entry.get('materialId');object_id=entry.get('objectId')
                 expected=('o:'+object_id if isinstance(object_id,str) else
@@ -283,7 +356,7 @@ def resolve_review(review,plan,coverage_text_policy=None):
                 entry['planEvidenceQuote']=None
             if coverage_text_policy is not None:
                 entry['businessText']=None
-        if protocol==PROTOCOL_V3:
+        if protocol in (PROTOCOL_V3,PROTOCOL_V4):
             for business in region.pop('businessText'):
                 keys={'artwork','materialId','evidence'}
                 if coverage_text_policy is not None:keys.add('textFragments')

@@ -64,7 +64,7 @@ class ConvergenceTests(unittest.TestCase):
             if folder.name in ('m2','rereview'):
                 answer=read(folder/'draft.json');answer['issues']=[]
                 artwork='flying figure' if folder.name=='m2' else 'small attached palette'
-                answer['coverageAudit'][2]['observedArtwork'].append(missing_artwork(
+                answer['coverageAudit'][2]['unresolvedArtwork'].append(missing_artwork(
                     artwork,'asset-panel','Add the observed artwork to the owned description.'))
                 (folder/'draft.json').write_text(json.dumps(bound_review(folder,answer)),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')
@@ -79,7 +79,7 @@ class ConvergenceTests(unittest.TestCase):
             base(folder,sid,first)
             if folder.name in ('m2','rereview'):
                 answer=read(folder/'draft.json');answer['issues']=[]
-                answer['coverageAudit'][2]['observedArtwork'].append(missing_artwork(
+                answer['coverageAudit'][2]['unresolvedArtwork'].append(missing_artwork(
                     'same missing figure','asset-panel','Restore the same missing figure.'))
                 (folder/'draft.json').write_text(json.dumps(bound_review(folder,answer)),encoding='utf-8')
                 receipt=read(folder/'transport.json');receipt['responseSha256']=digest(folder/'draft.json')

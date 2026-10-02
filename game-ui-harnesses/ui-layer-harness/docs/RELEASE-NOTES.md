@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased explicit coverage state lanes
+
+- Fresh planning configurations select `typed-review-v4`. Separate covered,
+  unresolved, optional shadow and business lettering arrays prevent a covered
+  claim from also carrying a revision suggestion in the transport schema.
+- Unresolved source evidence and suggestions remain blockers and enter the
+  existing bounded repair/rereview path. Exact owner, catalog, region, lettering,
+  boundary and appearance gates remain mandatory; raw receipts are never rewritten.
+- Compile/freeze verify the configured protocol and rebuild the full schema.
+  Historical unmarked configurations retain V3; earlier V1/V2/V3 formats and
+  explicitly reused M1 contracts retain their original behavior.
+- Offline regressions verify routing and replay integrity. Real generated fidelity
+  still requires a fresh authorized job and visual review.
+
 ## Unreleased candidate revision and planning evidence contracts
 
 - `revise-package` creates a separate offline candidate from an exact existing ZIP.

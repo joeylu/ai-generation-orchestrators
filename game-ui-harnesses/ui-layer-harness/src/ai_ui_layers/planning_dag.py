@@ -19,7 +19,7 @@ from .review_focus import make_focus, make_small_material_focus
 from .sequence_focus import make_sequence_focus
 from .planning_review_policy import split, signatures, audit_rows
 from .boundary_evidence import guidance as boundary_guidance, validate_boundaries
-from .review_evidence import build_catalog, build_review_schema
+from .review_evidence import build_catalog, build_review_schema, configured_protocol, PROTOCOL_V3, PROTOCOL_V4
 from . import relation_review
 from .planning_normalization import m1_plan_path, provider_schema, derive, POLICY as NORMALIZATION_POLICY
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure, validate_timeout
@@ -59,14 +59,29 @@ COVERAGE_GUIDANCE=('coverageAudit 按九区逐项清点：observedArtwork 只列
     '不输出旧 missingFromPlan；程序逐项派生阻断，复审仍清点全图。')
 
 
-def itemized_coverage_prompt(prompt):
+COVERAGE_LANES_GUIDANCE=('coverageAudit 按九区逐项清点，使用四个独立列表：'
+    'coveredArtwork 只列所属描述确实完整覆盖的图形；unresolvedArtwork 列 missing/uncertain 图形及非空 suggestedChange；'
+    'optionalShadowArtwork 只列显式容差允许的所属孤立柔影；businessText 只列待删普通业务文字。'
+    '先看干净原图，再逐项对照本轮计划，重复实例及文字旁图形分别列项。'
+    '四列表均空才填非空 emptyRegionEvidence，任一非空时填 null。'
+    'coveredArtwork 和 optionalShadowArtwork 不填 disposition、suggestedChange 或 planEvidenceId，必须绑定真实 materialId、可选同属 objectId。'
+    '有裁框、层级、结构或描述修订需求的图形必须列入 unresolvedArtwork，不能同时声称已覆盖；未知归属填 null。'
+    '程序按 materialId/objectId 还原本轮目录原文，泛称面板或 bbox 包含不能证明覆盖，编号不代替原图观察。'
+    'businessText 每项写原图真实待删文字实例、所属 materialId 和 evidence，不填图形 objectId；保留装饰字列图形列表。'
+    'optionalShadowArtwork 不包括描边、高光或实体；每项 evidence 给原图位置及依据。'
+    '顶层 issues 只列 semantic/geometry；cosmeticIssues 只用 schema 允许的 code，不把结构问题降为 cosmetic。'
+    '不输出 observedArtwork、missingFromPlan 或 planEvidenceQuote；程序确定性解码列表后仍严格校验归属、覆盖及修补。')
+
+
+def itemized_coverage_prompt(prompt, protocol=PROTOCOL_V3):
+    guidance=COVERAGE_LANES_GUIDANCE if protocol==PROTOCOL_V4 else COVERAGE_GUIDANCE
     lines=prompt.splitlines(keepends=True)
     matches=[index for index,line in enumerate(lines) if line.startswith('coverageAudit 按')]
     if len(matches)>1:raise ValueError('DUPLICATE_COVERAGE_GUIDANCE')
     if matches:
-        lines[matches[0]]=COVERAGE_GUIDANCE+'\n'
+        lines[matches[0]]=guidance+'\n'
         return ''.join(lines)
-    return COVERAGE_GUIDANCE+'\n'+prompt
+    return guidance+'\n'+prompt
 
 
 def prior_findings(root, name):
@@ -172,6 +187,7 @@ def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, pl
          'inputs':{p.name:digest(p) for p in inputs.iterdir()},'maxCalls':max_calls,'generationMode':generation_mode,'generationReference':generation_reference,
          **({'contextPromptVersion':context_prompt_version} if context_prompt_version is not None else {}),
          'relationReviewPolicy':relation_review.POLICY,'normalizationPolicy':NORMALIZATION_POLICY,'coverageTextPolicy':'exact-fragments-v1',
+         'reviewEvidenceProtocol':PROTOCOL_V4,
          'model':planning_model,'effort':planning_effort,'timeoutSeconds':planning_timeout,
          'graph':GRAPH,'maximumRepairs':2,'mediaGenerationCalls':0})
     save(root/'.dag/config-digest.json',{'sha256':digest(root/'.dag/config.json')})
@@ -230,6 +246,7 @@ class Dag:
         from .planning_normalization import validate_policy
         validate_policy(self.config.get('normalizationPolicy'))
         if self.config.get('coverageTextPolicy') not in (None,'exact-fragments-v1'):raise ValueError('COVERAGE_TEXT_POLICY_UNKNOWN')
+        configured_protocol(self.config)
         for done in (self.root/'.dag').glob('*/done.json'):
             for name,value in read(done)['outputs'].items():
                 if digest(self.root/name)!=value:raise ValueError('COMPLETED_OUTPUT_CHANGED:'+name)
@@ -317,7 +334,8 @@ class Dag:
         focus=make_focus(self.root/'m1/reference.png',p/'review-overlay.png',plan,p)
         small_focus=make_small_material_focus(self.root/'m1/reference.png',plan,p)
         sequence_focus=make_sequence_focus(self.root/'m1/reference.png',plan,p)
-        schema=build_review_schema(catalog,small_focus,policy,coverage_text_policy=self.config.get('coverageTextPolicy'))
+        protocol=configured_protocol(self.config)
+        schema=build_review_schema(catalog,small_focus,policy,protocol,coverage_text_policy=self.config.get('coverageTextPolicy'))
         relations=None
         if relation_review.policy(self.root):
             relations=relation_review.catalog(plan,digest(self.root/'m1/reference.png'))
@@ -330,7 +348,7 @@ class Dag:
         if review_checks.count(copied_quote)>1:raise ValueError('DUPLICATE_REVIEW_QUOTE_GUIDANCE')
         review_checks=review_checks.replace(copied_quote,
             '覆盖项由程序按 materialId/objectId 还原本轮计划目录原文；小素材部件另选所属 planEvidenceId；',1)
-        prompt=BOX_TEXT_GUIDANCE+itemized_coverage_prompt(review_checks)
+        prompt=BOX_TEXT_GUIDANCE+itemized_coverage_prompt(review_checks,protocol)
         if name.startswith('rereview'):
             findings=prior_findings(self.root,name)
             save(p/'prior-findings.json',findings)
@@ -375,8 +393,9 @@ class Dag:
         if self.config.get('coverageTextPolicy'):
             prompt=prompt.replace('须绑定无保留字许可的素材；保留字/图形符号另作图形核对。',
                                   '待删textFragments不可与该素材或scene的保留字许可重合；保留字/图形符号另作图形核对。')
-            prompt+=('\n业务字精确片段合同：businessText每项必填textFragments，按原图写真实待删字串（可逐段），不得把图形符号写作文字；保留装饰字仍列observedArtwork。同素材可同时有待删业务字与获准装饰字，但待删片段不能与该素材或scene的preserveText重合。\n')
-        prompt+=('\n本轮计划证据目录（摘要必须回填 planEvidenceCatalogDigest，协议填 typed-review-v3；'
+            graphic_lists='coveredArtwork 或 unresolvedArtwork' if protocol==PROTOCOL_V4 else 'observedArtwork'
+            prompt+=('\n业务字精确片段合同：businessText每项必填textFragments，按原图写真实待删字串（可逐段），不得把图形符号写作文字；保留装饰字仍列'+graphic_lists+'。同素材可同时有待删业务字与获准装饰字，但待删片段不能与该素材或scene的preserveText重合。\n')
+        prompt+=('\n本轮计划证据目录（摘要必须回填 planEvidenceCatalogDigest，协议填 '+protocol+'；'
                  '覆盖项由 materialId/objectId 定位，小素材 parts 才选择所属 planEvidenceId；'
                  '不得复制、拼接或改写 label；仍须独立对原图判断是否描述所见）：'
                  +json.dumps(catalog,ensure_ascii=False,separators=(',',':'))+'\n')
@@ -578,7 +597,8 @@ class Dag:
             for name,path in sources.items():
                 if not (self.root/name/'draft.json').exists():continue
                 review=read(self.root/name/'draft.json')
-                itemized=any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[]))
+                itemized=('planEvidenceCatalogDigest' in review or
+                          any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[])))
                 result['reviewWarnings'][name]=split(review,read(self.root/path) if itemized else None,coverage_text_policy=self.config.get('coverageTextPolicy'))[1]
         else:
             result['reviewWarnings']={name:split(read(self.root/name/'draft.json'),

@@ -366,7 +366,7 @@ class ReviewEvidenceDagTests(unittest.TestCase):
         test_planning_dag.DagTests.setUp(self)
         # This suite covers historical review protocols; new relation/text contracts have separate fixtures.
         config=read(self.root/'.dag/config.json')
-        for field in ('relationReviewPolicy','normalizationPolicy','coverageTextPolicy'):config.pop(field,None)
+        for field in ('relationReviewPolicy','normalizationPolicy','coverageTextPolicy','reviewEvidenceProtocol'):config.pop(field,None)
         (self.root/'.dag/config.json').write_text(json.dumps(config),encoding='utf-8')
         (self.root/'.dag/config-digest.json').write_text(json.dumps({'sha256':digest(self.root/'.dag/config.json')}),encoding='utf-8')
 

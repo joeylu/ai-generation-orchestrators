@@ -19,7 +19,7 @@ class RecoveryTests(unittest.TestCase):
         def legacy_init(*args,**kwargs):
             root=actual_init(*args,**kwargs)
             path=root/'.dag/config.json';config=read(path)
-            for key in ('normalizationPolicy','coverageTextPolicy','relationReviewPolicy'):
+            for key in ('normalizationPolicy','coverageTextPolicy','relationReviewPolicy','reviewEvidenceProtocol'):
                 config.pop(key,None)
             storage=root/'.dag/inputs/storage-schema.json'
             schema=read(storage);schema['title']='Archived fixture storage contract'
@@ -56,7 +56,7 @@ class RecoveryTests(unittest.TestCase):
         old=self.run/'planning'
         new=recover(self.run,self.root/'recovered-legacy','User authorizes new review after interruption')/'planning'
         config=read(new/'.dag/config.json')
-        for key in ('normalizationPolicy','coverageTextPolicy','relationReviewPolicy'):
+        for key in ('normalizationPolicy','coverageTextPolicy','relationReviewPolicy','reviewEvidenceProtocol'):
             self.assertNotIn(key,config)
         self.assertEqual((new/'m1/schema.json').read_bytes(),(old/'m1/schema.json').read_bytes())
         self.assertEqual((new/'.dag/inputs/storage-schema.json').read_bytes(),
