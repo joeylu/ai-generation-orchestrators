@@ -237,6 +237,48 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
         review=read(self.root/'candidate-output/delivery/package/review.json')
         self.assertTrue(any('SAME_LAYER_OVERLAP_REVIEW' in issue for issue in review['issues']))
 
+    def test_measured_candidate_contract_and_zip_recomposition(self):
+        import io
+        import zipfile
+        from ai_ui_layers.layer_package import composite
+        snapshot=self.job/'snapshot';jobs={key:self.job for key in read(self.job/'job.json')['assets']}
+        before=host.files(self.job)
+        frozen=host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'measured',
+                                      registration_policy=host.CANDIDATE_MEASURED)
+        contract=read(self.root/'measured/candidate.json')
+        self.assertEqual(contract['registrationPolicy'],host.CANDIDATE_MEASURED)
+        result=host.deliver_candidate(self.root/'measured',frozen['candidateDigest'],jobs,
+                                      self.root/'measured-output',self.root/'viewer')
+        self.assertEqual(result['registrationPolicy'],host.CANDIDATE_MEASURED)
+        self.assertEqual(result['status'],'pending-human-review');self.assertEqual(before,host.files(self.job))
+        for row in result['geometry']:
+            if row['materialId']=='asset-scene':continue
+            self.assertEqual(row['appliedAdaptationPolicy'],host.CANDIDATE_MEASURED)
+            self.assertTrue(row['sourceUnthresholded']);self.assertFalse(row['alphaSupportClipped'])
+            self.assertFalse(row['observedBody']);self.assertFalse(row['humanVisualAcceptance'])
+            with Image.open(self.root/'measured-output/materials'/(row['materialId']+'.png')) as layer:
+                bounds=layer.getchannel('A').getbbox()
+                self.assertGreaterEqual(bounds[0],2);self.assertGreaterEqual(bounds[1],2)
+                self.assertLessEqual(bounds[2],layer.width-2);self.assertLessEqual(bounds[3],layer.height-2)
+        package=self.root/'measured-output/delivery/package'
+        replay=composite(package,read(package/'composition.json'))
+        with zipfile.ZipFile(self.root/'measured-output/delivery/ui-layers.zip') as archive:
+            self.assertEqual(archive.read('composition.json'),(package/'composition.json').read_bytes())
+            with Image.open(io.BytesIO(archive.read('preview.png'))) as preview:
+                self.assertEqual(preview.convert('RGBA').tobytes(),replay.tobytes())
+            for layer in read(package/'composition.json')['layers']:
+                self.assertEqual(archive.read(layer['path']),(package/layer['path']).read_bytes())
+        contract['registrationPolicy']=host.CANDIDATE_FIT;save(self.root/'changed-measured-policy.json',contract)
+        (self.root/'measured/candidate.json').write_bytes((self.root/'changed-measured-policy.json').read_bytes())
+        with self.assertRaisesRegex(ValueError,'RECORD_CHANGED'):
+            host.deliver_candidate(self.root/'measured',frozen['candidateDigest'],jobs,
+                                   self.root/'tampered-output',self.root/'viewer')
+        default=host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'default')
+        self.assertEqual(read(self.root/'default/candidate.json')['registrationPolicy'],host.CANDIDATE_FIT)
+        with self.assertRaisesRegex(ValueError,'CANDIDATE_REGISTRATION_POLICY'):
+            host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'invalid',
+                                   registration_policy='invented-policy')
+
     def test_candidate_background_uniform_padding_and_nonzero_alpha_guard(self):
         snapshot=self.job/'snapshot';manifest=read(snapshot/'snapshot.json')
         row=next(r for r in read(snapshot/'requests.json')['requests'] if r.get('kind')!='sheet' and r['asset']!='asset-scene')
@@ -464,6 +506,65 @@ class CandidateSingletonSubstitutionTests(unittest.TestCase):
         prompt=(singles/coin['prompt']).read_text(encoding='utf-8')
         self.assertIn('tiny-print',prompt);self.assertIn('visual-material-context-prompt-v7',read(singles/'execution-plan.candidate.json')['assets'][0]['prompt'])
         self.assertFalse(b['newM2ReviewPerformed']);self.assertFalse(b['newTextureReviewPerformed'])
+
+
+class MeasuredAlphaSupportTests(unittest.TestCase):
+    def quantity(self):
+        image=Image.new('RGBA',(2180,760));draw=ImageDraw.Draw(image)
+        draw.rectangle((60,171,2109,539),fill=(60,70,80,230))
+        draw.rectangle((60,540,2109,692),fill=(60,70,80,7))
+        image.putpixel((56,167),(11,21,31,1));image.putpixel((2116,692),(41,51,61,1))
+        return image
+
+    def test_measured_body_is_not_shrunk_by_faint_extension_and_source_is_unchanged(self):
+        image=self.quantity();before=image.tobytes();owner=[100,100,436,161]
+        canvas,region,report=host.measured_alpha_support(image,owner,(600,300))
+        self.assertEqual(report['sourceFullAlphaBox'],[56,167,2117,693])
+        self.assertEqual(report['sourceMeasuredAlphaBox'],[60,171,2110,540])
+        self.assertGreater(report['actualScale'],.16);self.assertEqual(report['actualScale'],report['desiredScale'])
+        self.assertGreater(region[3],owner[3]);self.assertGreater(canvas.height,61)
+        self.assertEqual(image.tobytes(),before);self.assertTrue(report['sourceUnthresholded'])
+        self.assertFalse(report['observedBody']);self.assertFalse(report['humanVisualAcceptance'])
+        self.assertFalse(report['resampledAlphaValuesAreSourcePixelExact'])
+        self.assertGreater(report['actualRenderedSupportBox'][3],owner[3])
+
+    def test_reference_boundary_uses_minimum_translation_before_scale_reduction(self):
+        image=self.quantity();owner=[100,180,436,241]
+        canvas,region,report=host.measured_alpha_support(image,owner,(600,250))
+        self.assertEqual(report['actualScale'],report['desiredScale'])
+        self.assertEqual(report['translationDeviations'][0],0)
+        self.assertLess(report['translationDeviations'][1],0)
+        expected=250-2-report['actualScale']*(report['sourceFullAlphaBox'][3]+2)
+        self.assertAlmostEqual(report['actualTranslation'][1],expected)
+        self.assertLessEqual(region[3],250);self.assertFalse(report['alphaSupportClipped'])
+
+    def test_support_larger_than_reference_reduces_one_uniform_scale(self):
+        image=Image.new('RGBA',(200,100));draw=ImageDraw.Draw(image)
+        draw.rectangle((1,1,198,98),fill=(30,40,50,1));draw.rectangle((80,40,99,59),fill=(60,70,80,230))
+        before=image.tobytes();canvas,region,report=host.measured_alpha_support(image,[25,25,75,75],(100,100))
+        self.assertLess(report['actualScale'],report['desiredScale'])
+        self.assertGreater(report['scaleReduction'],0)
+        self.assertEqual(report['inverseAffine'][0],report['inverseAffine'][4])
+        self.assertTrue(0<=region[0]<region[2]<=100 and 0<=region[1]<region[3]<=100)
+        self.assertEqual(image.tobytes(),before)
+
+    def test_completely_faint_alpha_falls_back_to_full_support(self):
+        image=Image.new('RGBA',(120,80));ImageDraw.Draw(image).rectangle((10,10,109,69),fill=(30,40,50,7))
+        canvas,region,report=host.measured_alpha_support(image,[10,10,110,70],(140,100))
+        self.assertIsNone(report['sourceMeasuredAlphaBox']);self.assertEqual(report['measurementFallback'],'full-alpha-box')
+        self.assertEqual(report['sourcePlacementBox'],[10,10,110,70]);self.assertTrue(report['sourceUnthresholded'])
+        self.assertIsNotNone(canvas.getchannel('A').getbbox())
+
+    def test_all_measured_components_contribute_without_largest_component_selection(self):
+        image=Image.new('RGBA',(160,100));draw=ImageDraw.Draw(image)
+        draw.rectangle((10,10,39,39),fill=(50,60,70,230));draw.rectangle((120,70,139,89),fill=(80,90,100,40))
+        canvas,region,report=host.measured_alpha_support(image,[20,20,150,100],(200,140))
+        self.assertEqual(report['sourceMeasuredAlphaBox'],[10,10,140,90])
+        self.assertEqual(report['sourcePlacementBox'],[10,10,140,90])
+        self.assertEqual(report['measurementThreshold'],8)
+        pixels=__import__('numpy').array(canvas)
+        self.assertTrue((pixels[:,:,3]>0).any())
+        self.assertTrue((pixels[pixels[:,:,3]==0,:3]==0).all())
 
 
 class CandidateSheetSplitTests(unittest.TestCase):

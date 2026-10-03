@@ -7,6 +7,8 @@
 显式候选整包路径使用 `prepare-candidate-delivery --snapshot SNAPSHOT --snapshot-digest SHA256
 --output NEW_CANDIDATE` 冻结 `deferred-visual-review-v1` 与 `uniform-alpha-contain-v1`、
 完整快照与当前公共运行时指纹。它不授权生图，也不修改默认严格审查路径。
+可显式传 `--candidate-registration-policy measured-alpha-support-v1` 冻结独立候选归位策略；
+默认仍为 `uniform-alpha-contain-v1`，交付时不能改变已经冻结的选择。
 若修补候选尚未得到新 M2，可先使用 `freeze-candidate-plan --candidate PLAN.json
 --image REFERENCE.png --source-sha256 REFERENCE_SHA256 --contract-dir FIXED_FAD597A0_CONTRACT
 --max-calls N --output NEW_SNAPSHOT`。程序检查固定公开 schema 字节、来源、未知项、引用、
@@ -50,10 +52,23 @@ guard 资格由原源外周像素事实决定，不受上述两种原异常的�
 sourceBoundaryAlphaPresent、sourcePixelPartitionExact=true、samplingGuard=2、alphaQualityAccepted=false。
 这是保留已有弱支持的显式候选画布扩展，不证明原严格 alpha 质量通过，也不能恢复原生成图中
 已被裁掉或缺失的实体内容；旧原图、作业和候选策略目录不改写。
-每份前景以完整非零 alpha 支持框作等比缩放，居中放入原归属框；只清零 alpha=0 的 RGB，
+默认 uniform-alpha-contain-v1 每份前景以完整非零 alpha 支持框作等比缩放，居中放入原归属框；只清零 alpha=0 的 RGB，
 不删除 alpha=1。desired/actual 尺寸、偏差、统一比例与没有主体观察的事实写入报告。
 双侧源透明采样 guard=4 像素、输出 guard=2 像素，实际采样后检查透明边界与完整非零支持框，
 不足以容纳 guard 的小目标或实际 alpha 触边会阻断，绝不以声称未裁断代替检查。
+显式 measured-alpha-support-v1 仅用全部 alpha≥8 像素的共同外接框测量源几何，
+不选最大连通部件；如果没有 alpha≥8，确定性回退完整非零 alpha 框。测量阈值只参与框计算，
+原始 RGBA 不作阈值清理或掩膜，全部非零源支持与 RGBA 使用同一个均匀 affine 三次采样。
+目标是原声明 ownership 框，不是观察到的 reference 主体。先将测量框等比居中 fit 到目标，
+若完整支持越出 reference，优先作到安全可行区间的最小平移；支持连同采样 guard 大于 reference 时，
+降低同一个统一比例后再作最小平移。输出画布取实际完整采样支持加2像素透明 guard 与 ownership 框的并集，
+允许扩展 ownership，但必须完整处于 reference 内。源 guard=2、reference 安全 guard=2，
+程序检查实际渲染支持，并重拼裁出的画布与完整渲染 RGBA bytes 一致后才发布。
+报告记录 sourceFullAlphaBox、sourceMeasuredAlphaBox、measurementThreshold=8、fallback、
+desiredScale/actualScale、translationDeviations、实际支持/画布框、sourceUnthresholded=true、
+sourcePixelsUnchanged=true、observedBody=false、humanVisualAcceptance=false。
+缩放后的八位 alpha 数值会受采样和量化影响，resampledAlphaValuesAreSourcePixelExact=false；
+保留原源 bytes/摘要与未阈值化输入，不声称缩放结果逐像素等于原源，或严格主体/alpha 质量已通过。
 背景也只等比缩放，比例不同时显式复制边缘像素补齐不透明画布，报告 backgroundEdgePadding；
 这种候选适配不等于原像素画布相等或严格主体归位通过。原始来源 PNG 与回执留在原 job，
 导出记录绑定原图/回执/提交摘要，公开包不包含私有 job 路径。

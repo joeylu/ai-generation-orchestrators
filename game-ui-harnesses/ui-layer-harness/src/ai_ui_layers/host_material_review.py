@@ -279,6 +279,58 @@ CANDIDATE_FIT = 'uniform-alpha-contain-v1'
 CANDIDATE_SPLIT = 'unique-nearest-frozen-grid-zero-alpha-seams-v1'
 CANDIDATE_BOUNDARY = 'preserve-faint-source-boundary-guard-v1'
 CANDIDATE_SUBSTITUTION = 'complete-sheet-fresh-singletons-v1'
+CANDIDATE_MEASURED = 'measured-alpha-support-v1'
+
+
+def measured_alpha_support(image, owner, reference_size):
+    """Geometry-only alpha measurement; render all original RGBA with one affine."""
+    import numpy as np
+    raw=image.convert('RGBA');before=raw.tobytes();alpha=raw.getchannel('A');full=alpha.getbbox()
+    if full is None:raise ValueError('EMPTY_LAYER')
+    measured=alpha.point(lambda value:255 if value>=8 else 0).getbbox()
+    fallback=measured is None;body=full if fallback else measured
+    width,height=reference_size
+    if min(width,height)<=4 or not 0<=owner[0]<owner[2]<=width or not 0<=owner[1]<owner[3]<=height:
+        raise ValueError('CANDIDATE_SUPPORT_REFERENCE_GEOMETRY')
+    desired=min((owner[2]-owner[0])/(body[2]-body[0]),(owner[3]-owner[1])/(body[3]-body[1]))
+    # Reserve two source pixels for cubic interpolation and two destination pixels.
+    scale=min(desired,(width-4)/(full[2]-full[0]+4),(height-4)/(full[3]-full[1]+4))
+    center=[(owner[i]+owner[i+2])/2 for i in (0,1)]
+    desired_shift=[center[i]-(body[i]+body[i+2])/2*scale for i in (0,1)]
+    lower=[2-scale*(full[i]-2) for i in (0,1)]
+    upper=[reference_size[i]-2-scale*(full[i+2]+2) for i in (0,1)]
+    if any(lower[i]>upper[i]+1e-9 for i in (0,1)):raise ValueError('CANDIDATE_SUPPORT_NO_SAFE_AFFINE')
+    shift=[min(max(desired_shift[i],lower[i]),max(lower[i],upper[i])) for i in (0,1)]
+    expanded=(width+4,height+4)
+    if expanded[0]*expanded[1]>18_000_000:raise ValueError('CANDIDATE_SUPPORT_PIXEL_LIMIT')
+    source_guard=Image.new('RGBA',(raw.width+4,raw.height+4));source_guard.paste(raw,(2,2))
+    coefficients=(1/scale,0,(-shift[0]-2)/scale+2,0,1/scale,(-shift[1]-2)/scale+2)
+    rendered=source_guard.transform(expanded,Image.Transform.AFFINE,coefficients,Image.Resampling.BICUBIC)
+    pixels=np.array(rendered);pixels[pixels[:,:,3]==0,:3]=0;rendered=Image.fromarray(pixels)
+    visible=rendered.getchannel('A').getbbox()
+    if visible is None or visible[0]<2 or visible[1]<2 or visible[2]>width+2 or visible[3]>height+2:
+        raise ValueError('CANDIDATE_SUPPORT_WOULD_CLIP_REFERENCE')
+    actual=[visible[i]-2 for i in range(4)]
+    if actual[0]<2 or actual[1]<2 or actual[2]>width-2 or actual[3]>height-2:
+        raise ValueError('CANDIDATE_SUPPORT_OUTPUT_GUARD_FAILED')
+    region=[min(owner[0],actual[0]-2),min(owner[1],actual[1]-2),max(owner[2],actual[2]+2),max(owner[3],actual[3]+2)]
+    canvas=rendered.crop((region[0]+2,region[1]+2,region[2]+2,region[3]+2))
+    if raw.tobytes()!=before:raise ValueError('CANDIDATE_SOURCE_CHANGED_DURING_SUPPORT_FIT')
+    # Publishing the union must retain every actually rendered nonzero alpha pixel.
+    replay=Image.new('RGBA',expanded);replay.paste(canvas,(region[0]+2,region[1]+2))
+    if replay.tobytes()!=rendered.tobytes():raise ValueError('CANDIDATE_SUPPORT_CROP_CHANGED_RENDER')
+    actual_body=[body[i]*scale+shift[i%2] for i in range(4)]
+    geometry=dict(sourceFullAlphaBox=list(full),sourceMeasuredAlphaBox=list(measured) if measured else None,
+        sourcePlacementBox=list(body),measurementThreshold=8,measurementFallback='full-alpha-box' if fallback else None,
+        sourceUnthresholded=True,measurementIsGeometryOnly=True,desiredScale=desired,actualScale=scale,
+        uniformScale=scale,scaleReduction=desired-scale,desiredTranslationAtActualScale=desired_shift,
+        actualTranslation=shift,translationDeviations=[shift[i]-desired_shift[i] for i in (0,1)],
+        desiredTargetBox=owner,actualMeasuredPlacementBox=actual_body,layerCanvasRegion=region,
+        actualRenderedSupportBox=actual,sourceTransparentSamplingGuard=2,outputTransparentSamplingGuard=2,
+        inverseAffine=list(coefficients),observedBody=False,humanVisualAcceptance=False,
+        alphaSupportClipped=False,sourcePixelsUnchanged=True,resampledAlphaValuesAreSourcePixelExact=False,
+        alphaPolicy='Unthresholded source RGBA; uniform cubic resampling; zero RGB at alpha zero; no canvas clipping.')
+    return canvas,region,geometry
 
 
 def candidate_sheet_cells(image, row):
@@ -468,16 +520,17 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
     return manifest
 
 
-def prepare_candidate(snapshot, expected_digest, output):
+def prepare_candidate(snapshot, expected_digest, output,registration_policy=CANDIDATE_FIT):
     """Freeze an explicit candidate-only contract; never authorize generation."""
     snapshot=Path(snapshot).resolve();output=Path(output).resolve()
     manifest=inspect(snapshot,expected_digest)
+    if registration_policy not in (CANDIDATE_FIT,CANDIDATE_MEASURED):raise ValueError('CANDIDATE_REGISTRATION_POLICY')
     if output.exists() or output.is_relative_to(snapshot):raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
     output.mkdir(parents=True)
     from .experimental_executor import record
     result=record(output/'candidate.json',dict(kind='ui_deferred_visual_delivery_v1',
         snapshot=str(snapshot),snapshotDigest=manifest['digest'],snapshotFiles=files(snapshot),
-        runtime=runtime_files(),visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=CANDIDATE_FIT,
+        runtime=runtime_files(),visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=registration_policy,
         candidateSheetSplitPolicy=CANDIDATE_SPLIT,
         candidateSourceBoundaryPolicy=CANDIDATE_BOUNDARY,
         candidateMaterialSubstitutionPolicy=CANDIDATE_SUBSTITUTION,
@@ -495,7 +548,7 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
     candidate=Path(candidate).resolve();output=Path(output).resolve()
     contract=verified(candidate/'candidate.json')
     if (contract['digest']!=candidate_digest or contract['kind']!='ui_deferred_visual_delivery_v1'
-            or contract['visualReviewPolicy']!=CANDIDATE_POLICY or contract['registrationPolicy']!=CANDIDATE_FIT
+            or contract['visualReviewPolicy']!=CANDIDATE_POLICY or contract['registrationPolicy'] not in (CANDIDATE_FIT,CANDIDATE_MEASURED)
             or contract.get('candidateSheetSplitPolicy')!=CANDIDATE_SPLIT
             or contract.get('candidateSourceBoundaryPolicy')!=CANDIDATE_BOUNDARY
             or contract.get('candidateMaterialSubstitutionPolicy')!=CANDIDATE_SUBSTITUTION
@@ -616,6 +669,16 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
             if alpha.getextrema()!=(255,255):raise ValueError('BACKGROUND_ALPHA')
             box=(0,0,image.width,image.height)
         elif alpha.getextrema()[0]!=0:raise ValueError('CANDIDATE_NATIVE_ALPHA_REQUIRED')
+        if contract['registrationPolicy']==CANDIDATE_MEASURED and owned[mid]['role']!='background':
+            canvas,layer_region,measured_geometry=measured_alpha_support(image,region,(width,height))
+            path=output/'materials'/(mid+'.png');canvas.save(path)
+            package_sources[mid]=dict(path=str(path),sha256=digest(path))
+            layers.append(dict(id=mid,name=owned[mid]['label'],role=owned[mid]['role'],
+                path=f'layers/layer-{index+1:03}.png',x=layer_region[0],y=layer_region[1],
+                width=canvas.width,height=canvas.height,visible=True))
+            geometry.append(dict(materialId=mid,ownershipRegion=region,appliedAdaptationPolicy=CANDIDATE_MEASURED,
+                materialSha256=digest(path),declaredAdaptationPolicy=owned[mid].get('adaptationPolicy','preserve'),**measured_geometry))
+            continue
         crop=image.crop(box);background=owned[mid]['role']=='background'
         if not background:
             if min(tw,th)<=4:raise ValueError('CANDIDATE_TARGET_TOO_SMALL_FOR_ALPHA_GUARD')
@@ -657,7 +720,9 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
         coordinates='top-left-pixels',order='array-back-to-front',textPolicy=visual['textPolicy'],
         backgroundMode=visual['backgroundMode'],reference='reference.png',preview='preview.png',layers=layers)
     issues=['Candidate only: intermediate visual review deferred; final whole-image human acceptance required.',
-            'Uniform alpha-support fit uses ownership regions, without observed reference-body geometry.']
+            ('Uniform alpha-support fit uses ownership regions, without observed reference-body geometry.'
+             if contract['registrationPolicy']==CANDIDATE_FIT else
+             'Candidate registration policy: '+contract['registrationPolicy']+'; ownership targets have no observed reference-body geometry.')]
     issues.extend('Deferred planning finding: '+json.dumps(f,ensure_ascii=False,sort_keys=True)
                   for f in read(snapshot/'snapshot.json').get('planningVisualFindings',[]))
     issues.extend('Placement candidate: '+json.dumps(g,ensure_ascii=False,sort_keys=True) for g in geometry)
@@ -665,7 +730,7 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
     issues.extend('Fresh singleton substitution: '+json.dumps(s,ensure_ascii=False,sort_keys=True) for s in substitutions)
     issues.extend('Preserved visual findings: '+json.dumps(e,ensure_ascii=False,sort_keys=True) for e in evidence)
     result=write_package(snapshot/'reference.png',composition,package_sources,output/'delivery',viewer,issues)
-    result.update(status='pending-human-review',visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=CANDIDATE_FIT,
+    result.update(status='pending-human-review',visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=contract['registrationPolicy'],
         candidateDigest=candidate_digest,snapshotDigest=contract['snapshotDigest'],modelCalls=0,generationCalls=0,
         humanVisualAcceptance=False,originalDagPromoted=False,sourceBindings=bindings,
         geometry=geometry,visualEvidence=evidence,sheetSplits=sheet_splits,materialSubstitutions=substitutions)

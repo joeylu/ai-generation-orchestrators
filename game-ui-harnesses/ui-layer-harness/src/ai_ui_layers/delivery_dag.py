@@ -324,6 +324,8 @@ def main():
                    help='For new run or freeze-reviewed: frozen context prompt version; new context runs default to v7')
     p.add_argument('--registration-policy',choices=['legacy-region-fit',body.POLICY],
                    help='For new runs: default reference-body-auto-v1; historical runs retain their old policy')
+    p.add_argument('--candidate-registration-policy',choices=['uniform-alpha-contain-v1','measured-alpha-support-v1'],
+                   help='Explicit frozen candidate-only registration; default full alpha contain')
     p.add_argument('--max-body-calls',type=int,
                    help='For new runs: maximum one body observation per foreground, default cap 12')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
@@ -339,10 +341,12 @@ def main():
             p.error('--prior-texture-review is only valid for freeze-candidate-plan')
         if a.received_material and a.action!='deliver-candidate-layers':
             p.error('--received-material is only valid for deliver-candidate-layers')
+        if a.candidate_registration_policy and a.action!='prepare-candidate-delivery':
+            p.error('--candidate-registration-policy is only valid for prepare-candidate-delivery')
         if a.action in ('freeze-candidate-plan','prepare-candidate-delivery','deliver-candidate-layers'):
             from . import host_material_review as candidate_delivery
             allowed=({'--candidate','--image','--source-sha256','--contract-dir','--max-calls','--output','--visual-policy','--visual-textures','--prior-texture-review','--generation-mode'} if a.action=='freeze-candidate-plan'
-                     else {'--snapshot','--snapshot-digest','--output'} if a.action=='prepare-candidate-delivery'
+                     else {'--snapshot','--snapshot-digest','--output','--candidate-registration-policy'} if a.action=='prepare-candidate-delivery'
                      else {'--candidate','--job-digest','--received-source','--received-material','--review-run','--output','--viewer'})
             if any(token.split('=',1)[0] not in allowed for token in sys.argv[1:] if token.startswith('--')):
                 p.error('candidate delivery accepts only its explicitly bound inputs')
@@ -353,7 +357,8 @@ def main():
                     a.visual_policy,a.visual_textures,a.prior_texture_review,a.generation_mode)
             elif a.action=='prepare-candidate-delivery':
                 if not a.snapshot or not a.snapshot_digest:p.error('--snapshot and --snapshot-digest required')
-                result=candidate_delivery.prepare_candidate(a.snapshot,a.snapshot_digest,a.output)
+                result=candidate_delivery.prepare_candidate(a.snapshot,a.snapshot_digest,a.output,
+                    a.candidate_registration_policy or 'uniform-alpha-contain-v1')
             else:
                 if not a.candidate or not a.job_digest or not a.viewer or not a.received_source:
                     p.error('--candidate, --job-digest, --viewer and --received-source required')
