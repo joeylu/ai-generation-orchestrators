@@ -112,14 +112,19 @@ def background_review_prompt(asset, visual, visual_policy=None):
             '\nExpected materialIds: '+asset+'. Entries: '+json.dumps(entries,ensure_ascii=False))
 
 
-def review(job, output, model_call=None, request_id=None):
+def prepare_review(job, output, request_id=None, *, received_request_only=False):
+    """Prepare attachments; host-only explicit selection permits a partial received batch."""
     job=Path(job);output=Path(output)
     config,index=load_job(job)
     snapshot=job/'snapshot'
     manifest=read(snapshot/'snapshot.json')
     visual_policy=snapshot_policy(snapshot,manifest)
     policy_sha=manifest['visualPolicySha256'] if visual_policy is not None else None
-    if status(job)['status']!='raw_complete' or (request_id is None and len(config['assets'])!=1):
+    current=status(job)
+    if received_request_only:
+        if request_id is None or current['requests'].get(request_id)!='raw_received':
+            raise ValueError('ONE_RECEIVED_MATERIAL_REQUIRED')
+    elif current['status']!='raw_complete' or (request_id is None and len(config['assets'])!=1):
         raise ValueError('ONE_RECEIVED_MATERIAL_REQUIRED')
     asset=request_id or config['assets'][0]
     if asset not in config['assets'] or index[asset].get('kind')=='sheet':
@@ -164,6 +169,22 @@ def review(job, output, model_call=None, request_id=None):
          rawSha256=receipt['rawSha256'],referenceSha256=digest(reference),inputs=bound,
          modelCallsMaximum=1,automaticRetry=False,
          **texture_metadata,**({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
+    return dict(status="awaiting_host_review", materialId=asset, gate=gate)
+
+
+def review(job, output, model_call=None, request_id=None):
+    prepared=prepare_review(job,output,request_id)
+    if prepared["status"]=="blocked_no_retry":return prepared
+    job=Path(job);output=Path(output);folder=output/"review"
+    config,index=load_job(job);asset=prepared["materialId"];row=index[asset]
+    raw=job/"attempts"/asset/"raw.png";reference=job/"snapshot"/row["crop"]
+    receipt=verified(job/"attempts"/asset/"received.json")
+    snapshot=job/"snapshot";manifest=read(snapshot/"snapshot.json")
+    visual_policy=snapshot_policy(snapshot,manifest);policy_sha=manifest.get("visualPolicySha256")
+    texture_doc=visual_textures.snapshot_input(snapshot,manifest)
+    texture_metadata={key:manifest[key] for key in ("visualTexturePolicy","visualTexturesSha256","visualTextureBindingsSha256") if key in manifest}
+    bound=read(folder/"request.json")["inputs"];detail=read(folder/"detail-compare.json")
+    gate=prepared["gate"];processed=output/"processed/material.png"
     try:
         transport=(model_call or call_model)(folder)
     except ValueError:

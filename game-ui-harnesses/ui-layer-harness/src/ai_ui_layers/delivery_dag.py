@@ -272,7 +272,12 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','prepare-host-review','receive-host-review','status-host-review','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','prepare-host-review','receive-host-review','status-host-review','prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('--review-registry',help='Independent shared registry for single-use received-request reviews')
+    p.add_argument('--material-author',action='append',help='Opaque actual generated-material author identity')
+    p.add_argument('--request-id',help='Actual received generation request ID')
+    p.add_argument('--review-run',action='append',help='Complete passed host output review, once per frozen request')
+    p.add_argument('--extraction',help='Complete deterministic reviewed extraction output')
     p.add_argument('--candidate',help='Explicit offline v5 candidate seed for host review')
     p.add_argument('--contract-dir',help='Planning contract directory to snapshot for host review')
     p.add_argument('--response',help='External JSON response for the prepared host review')
@@ -328,6 +333,35 @@ def main():
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.action in ('prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output'):
+            from . import host_material_review as output_review
+            allowed={
+                'prepare-output-review':{'--output','--received-job','--request-id','--material-author','--review-registry'},
+                'receive-output-review':{'--output','--response','--request-sha256','--response-sha256','--host-attestation','--dispatch-evidence','--return-evidence'},
+                'extract-reviewed-output':{'--output','--snapshot','--snapshot-digest','--review-run'},
+                'package-reviewed-output':{'--output','--extraction','--preview','--viewer'}}[a.action]
+            if any(token.split('=',1)[0] not in allowed for token in sys.argv[1:] if token.startswith('--')):
+                p.error('output review accepts only its explicitly bound action inputs')
+            if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)):
+                p.error('output host exchange does not accept CLI model settings')
+            if a.action=='prepare-output-review':
+                if not all((a.received_job,a.request_id,a.material_author,a.review_registry)):
+                    p.error('--received-job, --request-id, --material-author and --review-registry required')
+                result=output_review.prepare(a.received_job,a.request_id,a.output,
+                    material_authors=a.material_author,review_registry=a.review_registry)
+            elif a.action=='receive-output-review':
+                if not all((a.response,a.request_sha256,a.response_sha256,a.host_attestation,a.dispatch_evidence,a.return_evidence)):
+                    p.error('external response, both digests, host attestation and dispatch/return evidence required')
+                result=output_review.receive(a.output,a.response,a.request_sha256,response_sha256=a.response_sha256,
+                    host_attestation=a.host_attestation,dispatch_evidence=a.dispatch_evidence,return_evidence=a.return_evidence)
+            elif a.action=='extract-reviewed-output':
+                if not all((a.snapshot,a.snapshot_digest,a.review_run)):
+                    p.error('--snapshot, --snapshot-digest and --review-run required')
+                result=output_review.extract(a.snapshot,a.snapshot_digest,a.review_run,a.output)
+            else:
+                if not all((a.extraction,a.preview,a.viewer)):p.error('--extraction, --preview and --viewer required')
+                result=output_review.package(a.extraction,a.preview,a.output,a.viewer)
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.action in ('prepare-host-review','receive-host-review','status-host-review'):
             if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)):
                 p.error('host review does not accept CLI planning model settings')

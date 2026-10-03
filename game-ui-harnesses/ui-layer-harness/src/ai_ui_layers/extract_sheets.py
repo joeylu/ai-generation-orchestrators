@@ -221,56 +221,9 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
             adaptations.update(frame_reports)
             review_hash=digest(review_source)
             folder=output/key;folder.mkdir()
-            mappings=dict(reference=observation_image(snapshot/'reference.png',folder/'reference.png'),
-                          generated=observation_image(review_source,folder/'generated.png'))
-            detail_comparison(snapshot,review_source,row,review_boxes,folder)
-            save(folder/'observation-mapping.json',mappings);save(folder/'schema.json',request_schema)
-            entries=review_entries(visual,row['materialIds'])
-            adapted_note=('For frame-sliced cells, inspect protected end ornaments, '
-                          'both middle-band seams and paper/border continuity. ' if frame_reports else '')
-            prompt=('Compare image 1 (complete original UI) with image 2 (generated sheet, after any explicitly frozen deterministic frame adaptation). '
-                'Image 3 shows each frozen reference crop beside its generated cell, in material order: '
-                'reference on the left and generated on the right. Generated transparent padding was '
-                'excluded for this close-up. Each pane was resized uniformly and '
-                'independently for visibility; enlarged source pixels are shown without smoothing. '
-                'Compare contour aspect and internal layout, not display size. '
-                'For every material, inspect the surface outline, corner shape and line weight at this '
-                'close scale. A stronger border or newly beveled corner is a finding even when the '
-                'icon and progress fill are correct. Reference crops may contain removed business text, '
-                'scene pixels or foreign artwork; apply the ownership and text rules below. '
-                + adapted_note +
-                'No tools. Verify every assigned cell contains exactly its assigned material: correct '
-                'identity, observed state, complete silhouette, relative proportions, integrated details, '
-                'and material ownership. Each entry owns only its listed objects. '
-                'excludedForeignArtwork belongs to other materials even when visible inside its reference box; '
-                'its absence is required, not a missing-detail error. Its presence is foreign contamination. '
-                'Retain all owned graphics; these exclusions do not excuse distorted geometry or lost owned details. '
-                'Also verify text policy and absence of duplicate artwork. The frozen text policy is '
-                'remove-business-text: ordinary labels and numbers visible only in image 1 are intentionally '
-                'removed from image 2. Do not report those missing glyphs as issues; require only each '
-                'entry\'s exact preserveText, if any. Judge proportions from the visible artwork contour and '
-                'internal motifs, not from removed glyphs or the rectangular crop. Transparent padding and '
-                'placement within a grid cell are irrelevant; compare geometry inside each artwork assembly. '
-                'Grid is row-major, zero-based. Return observed materialIds in cell order '
-                'only when identifiable; do not merely echo the assignment. Unused cells must be empty. '
-                'Cell boxes are half-open pixels in image 2; use observation mappings. '
-                + REVIEW_PROMPT +
-                (output_review_guidance(visual_policy) if visual_policy is not None else '')+
-                '\n'+json.dumps(dict(grid=row['grid'],sourceBoxes=review_boxes,observationMapping=mappings,entries=entries),ensure_ascii=False))
-            if texture_doc is not None:
-                bindings=visual_textures.snapshot_bindings(snapshot,manifest,visual)
-                prompt+=visual_textures.generation_guidance(texture_doc,bindings,row['materialIds'],visual,context=row.get('references'),group=row)
-                prompt+='\nReview these approved visual textures as shapes, not OCR. Missing marks, invented lettering, changed ink/count/layout/proportions, uncertain preservation or damaged protected artwork block acceptance. Ordinary text removal does not apply to approved shapes. Raw/cell evidence: '+json.dumps(dict(rawSha256=digest(source),cells=checked[key],reviewCells=review_boxes,request=row),ensure_ascii=False)
-            (folder/'prompt.md').write_text(prompt,encoding='utf-8')
-            inputs={n:digest(folder/n) for n in ('reference.png','generated.png','detail-compare.png',
-                                                 'detail-compare.json','schema.json','prompt.md',
-                                                 'observation-mapping.json')}
-            adapted_evidence=(output/'adapted'/key/'evidence.json') if frame_reports else None
-            adapted_hash=digest(adapted_evidence) if adapted_evidence else None
-            save(folder/'request.json',dict(inputs=inputs,sourceSha256=originals[key],
-                 preparedSha256=prepared_hash,reviewSourceSha256=review_hash,
-                 adaptedEvidenceSha256=adapted_hash,materialIds=row['materialIds'],
-                 **texture_metadata,**({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
+            inputs,adapted_evidence,adapted_hash=prepare_sheet_review(
+                snapshot,manifest,row,visual,source,prepared_hash,review_source,review_boxes,
+                frame_reports,checked,originals,output,folder)
             print(json.dumps(dict(stage='sheet-review',request=key)),flush=True)
             calls+=1;transport=(model_call or call_model)(folder)
             if transport.get('exitCode')!=0 or not transport.get('turnCompleted') or transport.get('unexpectedEvents') or transport.get('failure'):
@@ -336,3 +289,62 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
         raise
     save(output/'result.json',result)
     return result
+
+
+def prepare_sheet_review(snapshot, manifest, row, visual, source, prepared_hash, review_source, review_boxes, frame_reports, checked, originals, output, folder):
+    visual_policy=snapshot_policy(snapshot,manifest)
+    policy_sha=manifest.get("visualPolicySha256")
+    texture_doc=visual_textures.snapshot_input(snapshot,manifest)
+    texture_metadata={key:manifest[key] for key in ("visualTexturePolicy","visualTexturesSha256","visualTextureBindingsSha256") if key in manifest}
+    request_schema=schema_for(visual_policy);key=row["asset"];review_hash=digest(review_source)
+    mappings=dict(reference=observation_image(snapshot/'reference.png',folder/'reference.png'),
+                  generated=observation_image(review_source,folder/'generated.png'))
+    detail_comparison(snapshot,review_source,row,review_boxes,folder)
+    save(folder/'observation-mapping.json',mappings);save(folder/'schema.json',request_schema)
+    entries=review_entries(visual,row['materialIds'])
+    adapted_note=('For frame-sliced cells, inspect protected end ornaments, '
+                  'both middle-band seams and paper/border continuity. ' if frame_reports else '')
+    prompt=('Compare image 1 (complete original UI) with image 2 (generated sheet, after any explicitly frozen deterministic frame adaptation). '
+        'Image 3 shows each frozen reference crop beside its generated cell, in material order: '
+        'reference on the left and generated on the right. Generated transparent padding was '
+        'excluded for this close-up. Each pane was resized uniformly and '
+        'independently for visibility; enlarged source pixels are shown without smoothing. '
+        'Compare contour aspect and internal layout, not display size. '
+        'For every material, inspect the surface outline, corner shape and line weight at this '
+        'close scale. A stronger border or newly beveled corner is a finding even when the '
+        'icon and progress fill are correct. Reference crops may contain removed business text, '
+        'scene pixels or foreign artwork; apply the ownership and text rules below. '
+        + adapted_note +
+        'No tools. Verify every assigned cell contains exactly its assigned material: correct '
+        'identity, observed state, complete silhouette, relative proportions, integrated details, '
+        'and material ownership. Each entry owns only its listed objects. '
+        'excludedForeignArtwork belongs to other materials even when visible inside its reference box; '
+        'its absence is required, not a missing-detail error. Its presence is foreign contamination. '
+        'Retain all owned graphics; these exclusions do not excuse distorted geometry or lost owned details. '
+        'Also verify text policy and absence of duplicate artwork. The frozen text policy is '
+        'remove-business-text: ordinary labels and numbers visible only in image 1 are intentionally '
+        'removed from image 2. Do not report those missing glyphs as issues; require only each '
+        'entry\'s exact preserveText, if any. Judge proportions from the visible artwork contour and '
+        'internal motifs, not from removed glyphs or the rectangular crop. Transparent padding and '
+        'placement within a grid cell are irrelevant; compare geometry inside each artwork assembly. '
+        'Grid is row-major, zero-based. Return observed materialIds in cell order '
+        'only when identifiable; do not merely echo the assignment. Unused cells must be empty. '
+        'Cell boxes are half-open pixels in image 2; use observation mappings. '
+        + REVIEW_PROMPT +
+        (output_review_guidance(visual_policy) if visual_policy is not None else '')+
+        '\n'+json.dumps(dict(grid=row['grid'],sourceBoxes=review_boxes,observationMapping=mappings,entries=entries),ensure_ascii=False))
+    if texture_doc is not None:
+        bindings=visual_textures.snapshot_bindings(snapshot,manifest,visual)
+        prompt+=visual_textures.generation_guidance(texture_doc,bindings,row['materialIds'],visual,context=row.get('references'),group=row)
+        prompt+='\nReview these approved visual textures as shapes, not OCR. Missing marks, invented lettering, changed ink/count/layout/proportions, uncertain preservation or damaged protected artwork block acceptance. Ordinary text removal does not apply to approved shapes. Raw/cell evidence: '+json.dumps(dict(rawSha256=digest(source),cells=checked[key],reviewCells=review_boxes,request=row),ensure_ascii=False)
+    (folder/'prompt.md').write_text(prompt,encoding='utf-8')
+    inputs={n:digest(folder/n) for n in ('reference.png','generated.png','detail-compare.png',
+                                         'detail-compare.json','schema.json','prompt.md',
+                                         'observation-mapping.json')}
+    adapted_evidence=(output/'adapted'/key/'evidence.json') if frame_reports else None
+    adapted_hash=digest(adapted_evidence) if adapted_evidence else None
+    save(folder/'request.json',dict(inputs=inputs,sourceSha256=originals[key],
+         preparedSha256=prepared_hash,reviewSourceSha256=review_hash,
+         adaptedEvidenceSha256=adapted_hash,materialIds=row['materialIds'],
+         **texture_metadata,**({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
+    return inputs, adapted_evidence, adapted_hash

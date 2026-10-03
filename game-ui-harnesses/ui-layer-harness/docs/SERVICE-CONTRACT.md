@@ -723,3 +723,82 @@ status names and composition v1 are unchanged. Consumers must tolerate additive
 planning nodes, reviewWarnings and the optional frozen evidence file, accept the
 new review category in internal adapters, and explicitly budget up to six planning
 calls for new runs. No Docker/Web code or deployment is introduced.
+
+## Actual received output: independent host review
+
+The public CLI also supports a separate material exchange. It never launches Codex
+CLI or a model and does not resume, upgrade or modify the planning runtime or the
+received image job. A frozen host planning snapshot from an older runtime can be
+inspected and consumed as immutable evidence; each new output review binds its
+own installed runtime fingerprints. Freeze that new runtime before preparing
+reviews. Changing it requires a new authorized scope, not replay of a failed call.
+
+```
+python game-ui-harnesses/ui-layer-harness/ui_layer.py prepare-output-review --received-job JOB --request-id ID --output NEW_REVIEW --material-author AUTHOR --review-registry REGISTRY
+python game-ui-harnesses/ui-layer-harness/ui_layer.py receive-output-review --output NEW_REVIEW --response EXTERNAL.json --request-sha256 REQUEST_SHA --response-sha256 RESPONSE_SHA --host-attestation ATTESTATION.json --dispatch-evidence DISPATCH_FILE --return-evidence RETURN_FILE
+python game-ui-harnesses/ui-layer-harness/ui_layer.py extract-reviewed-output --snapshot FROZEN --snapshot-digest SNAPSHOT_SHA --review-run REVIEW_1 --review-run REVIEW_2 --output NEW_EXTRACTION
+python game-ui-harnesses/ui-layer-harness/ui_layer.py package-reviewed-output --extraction NEW_EXTRACTION --preview SUPPORT_PREVIEW --viewer BUILT_VIEWER --output NEW_PACKAGE
+```
+
+Repeat `--material-author` for all actual generated-material authors. Opaque author
+and reviewer identities are explicit host declarations. The independent reviewer
+must differ from every author. The host freezes one shared `--review-registry` for
+this authorized received-job scope; exclusive reservation binds job, request and
+submission identity before preparation. A reserved request cannot be prepared
+again in that registry, including after interruption or failure. This enforces
+single use within that registry; it does not prove global uniqueness across copied
+registries. Hosts must not change registries to evade a failed review.
+
+Host preparation accepts an explicitly selected `raw_received` request before
+the rest of its batch has been generated. Review it and stop on any blocker
+before requesting the next image; a later request adds its own immutable files
+and does not change the already bound review evidence. The historical CLI
+material review retains its complete-batch `raw_complete` prerequisite.
+
+Preparation validates the real experimental executor receipt/submission/
+authorization chain, frozen source, PNG dimensions and alpha. Single materials use
+the existing deterministic material gate, original reference crop, actual raw PNG
+and raw/processed comparison. Sheets reuse alpha preparation, actual-gap cuts,
+empty placeholder and unclipped cell gates, explicit frame adaptation and the
+existing original/cell detail comparison and complete prompt. Owned artwork,
+foreign exclusions, exact preserved text and protected visual textures retain
+all existing rules. All prepared files, original producer files, actual ordered
+material IDs, policy schema and reservation are hashed. Preparation makes zero
+model calls. Each host dispatch has a one-call maximum and no automatic retry.
+
+The external attestation must contain exactly:
+`kind: ui_host_output_review_attestation_v1`, `requestSha256`, `responseSha256`,
+`rawSha256`, `submissionDigest`, `materialAuthors`, `reviewerId`,
+`hostAssertedModelResponse: true`, `notProviderReceipt: true`,
+`notCryptographicallyPlatformVerified: true`, `dispatchEvidenceSha256`,
+`returnEvidenceSha256`. Digests must match the prepared request, raw receipt,
+response and actual host dispatch/return observation files; dispatch and return
+must differ. Response and evidence files must be outside the review directory.
+Receive seals their original bytes before JSON/schema/provenance validation.
+Duplicate JSON keys, incorrect IDs/order, invalid schema or assertion failures are
+terminal `indeterminate_review_no_retry`; repeat receive is forbidden. Findings
+are classified by the same existing severity policy; visual blockers remain
+`blocked_no_retry`. A passed review is only `reviewed_pending_visual_acceptance`,
+with `modelCalls: 1`, `humanVisualAcceptance: false`. The sealed exchange says
+`host-attested-model-response`, `notProviderReceipt: true` and
+`notCryptographicallyPlatformVerified: true`; it has no CLI transport/events or
+model-session assertion. These are content fingerprints and host declarations,
+not authenticated platform receipts. Private host evidence is excluded from the
+public PNG/ZIP package.
+
+Extraction requires exactly one successful review for every frozen generation
+request, preserving each raw/receipt identity and the complete material set.
+It produces the existing `materials`, `adaptations`, `records`, `warnings` and
+`decisions` fields, then runs the existing deterministic `adapt_materials` policy
+internally. `rawMaterials` records extracted sources; `materials` contains the
+actual final adapted PNGs, with all adapter files/reports and final PNG hashes
+bound. No extra visual/model call occurs. Separate explicit body observations
+must inspect these final PNGs and supply the existing body contract to
+`register-materials` with `reference-body-support-v1`; this exchange does not
+claim automatic CLI body observations. Pass its `preview` directory to packaging.
+Packaging revalidates the complete review set and extraction, deterministically
+recomputes adapter outputs for comparison, requires registration source hashes
+to match the final reviewed/adapted PNGs and uses existing
+`sources_from_preview`/`build` validation. The package remains pending human
+visual acceptance. Arbitrary external processed PNGs, incomplete reviews or
+hand-authored sources/manifests cannot be substituted through this route.
