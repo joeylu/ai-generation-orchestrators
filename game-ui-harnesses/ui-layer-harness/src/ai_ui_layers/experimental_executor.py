@@ -39,7 +39,9 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     checked=preflight(snapshot,expected_digest);manifest=inspect(snapshot,expected_digest)
     policy=snapshot_policy(snapshot,manifest)
     texture_doc=textures.snapshot_input(snapshot,manifest)
-    if texture_doc is not None and (prompt_override is not None or reference_mode not in (None,'full-only','full-and-crop','context-crops')):
+    texture_board=(manifest.get('policy')=='deferred-visual-candidate-plan-v1' and reference_mode=='sheet-layout-board')
+    if texture_doc is not None and (prompt_override is not None or
+            (reference_mode not in (None,'full-only','full-and-crop','context-crops') and not texture_board)):
         raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
     if policy is not None and (prompt_override is not None or reference_mode in ('crop-only','sheet-crops-only')):
         raise ValueError('FROZEN_VISUAL_POLICY_REFERENCE_REQUIRED')
@@ -115,7 +117,9 @@ def load_job(job):
     if any(config.get(key)!=manifest.get(key) for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')):
         raise ValueError('VISUAL_TEXTURE_JOB_MISMATCH')
     if texture_doc is not None:
-        if 'promptVariant' in config or config.get('referenceMode') not in ('full-only','full-and-crop','context-crops'):
+        texture_board=(manifest.get('policy')=='deferred-visual-candidate-plan-v1'
+                       and config.get('referenceMode')=='sheet-layout-board')
+        if 'promptVariant' in config or (config.get('referenceMode') not in ('full-only','full-and-crop','context-crops') and not texture_board):
             raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
         preflight(job/'snapshot',config['snapshotDigest'])
     if config.get('visualPolicySha256')!=manifest.get('visualPolicySha256'):

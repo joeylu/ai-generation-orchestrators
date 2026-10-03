@@ -192,5 +192,115 @@ class SheetLayoutReferenceTests(unittest.TestCase):
                 board.build(self.snapshot, tiny)
 
 
+class CandidateTextureBoardTests(unittest.TestCase):
+    """Fixture-only source binding and exchange; no external model or image tool."""
+    def setUp(self):
+        import test_visual_texture_pipeline as fixture
+        from ai_ui_layers.host_material_review import freeze_candidate_plan
+        fixture.VisualTexturePipelineTests.setUp(self)
+        self.strict=fixture.VisualTexturePipelineTests.frozen(self,'strict-textures')
+        visual=self.strict/'evidence/revised-visual-plan.json'
+        if not visual.exists():visual=self.strict/'evidence/m1-draft.json'
+        self.snapshot=self.base/'candidate-textures'
+        self.manifest=freeze_candidate_plan(visual,self.source,digest(self.source),HARNESS/'planning-harness',
+            self.snapshot,16,visual_textures=self.input,
+            prior_texture_review=self.strict/'evidence/visual-texture-final-review.json')
+        self.row=next(r for r in read(self.snapshot/'requests.json')['requests'] if r.get('kind')=='sheet')
+
+    def test_candidate_texture_mapping_is_integer_owned_and_uses_board_coordinates(self):
+        metadata,png,prompt=board.build(self.snapshot,self.row,prompt_version='v2')
+        self.assertFalse(metadata['newTextureReviewPerformed']);self.assertTrue(metadata['planningReviewDeferred'])
+        self.assertEqual(metadata['originalReferenceSha256'],digest(self.source))
+        for key in ('visualTexturesSha256','visualTextureBindingsSha256'):
+            self.assertEqual(metadata[key],self.manifest[key])
+        region=metadata['textureRegions'][0]
+        self.assertEqual(region['regionId'],'tiny-print');self.assertEqual(region['materialId'],'asset-coin-a')
+        self.assertEqual(region['objectId'],'coin-a');self.assertEqual(region['sourceBox'],[715,265,725,275])
+        cell=next(c for c in metadata['cells'] if c['materialId']==region['materialId'])
+        mapped=[cell['boardCropBox'][i%2]+(region['sourceBox'][i]-cell['cropRegion'][i%2])*cell['integerScale'] for i in range(4)]
+        self.assertEqual(region['boardBox'],mapped)
+        self.assertEqual(region['boardBoxNorm'],board._norm(mapped,self.row['outputSize']))
+        with Image.open(__import__('io').BytesIO(png)) as image,Image.open(self.source) as original:
+            expected=original.convert('RGBA').crop(region['sourceBox']).resize(
+                (10*cell['integerScale'],10*cell['integerScale']),Image.Resampling.NEAREST)
+            self.assertEqual(image.crop(mapped).tobytes(),expected.tobytes())
+        appended=prompt.split('Texture regions: ',1)[1]
+        self.assertNotIn('sourceBox',appended);self.assertNotIn('contextBox',appended)
+        self.assertIn('preserveText',prompt);self.assertIn('Do not infer or guess',prompt)
+        self.assertEqual(board.build(self.snapshot,self.row,prompt_version='v2'),(metadata,png,prompt))
+
+    def test_strict_texture_snapshot_still_rejects_layout_board(self):
+        from ai_ui_layers import experimental_executor as exchange
+        strict_row=next(r for r in read(self.strict/'requests.json')['requests'] if r.get('kind')=='sheet')
+        with self.assertRaisesRegex(ValueError,'VISUAL_TEXTURE_VARIANTS_UNSUPPORTED'):
+            board.build(self.strict,strict_row,prompt_version='v2')
+        with self.assertRaisesRegex(ValueError,'VISUAL_TEXTURE_VARIANTS_UNSUPPORTED'):
+            exchange.prepare(self.strict,read(self.strict/'snapshot.json')['digest'],self.base/'strict-board',
+                             [strict_row['asset']],reference_mode='sheet-layout-board')
+        self.assertFalse((self.base/'strict-board').exists())
+
+    def test_candidate_board_real_fixture_receipt_needs_its_own_authorization(self):
+        from ai_ui_layers import experimental_executor as exchange
+        job=self.base/'new-board-job'
+        config=exchange.prepare(self.snapshot,self.manifest['digest'],job,[self.row['asset']],reference_mode='sheet-layout-board')
+        self.assertEqual(config['maximumCalls'],1);self.assertEqual(config['automaticRetries'],0)
+        self.assertFalse((job/'authorization.json').exists())
+        self.assertEqual(exchange.load_job(job)[0],config)
+        with self.assertRaisesRegex(ValueError,'NOT_READY_NO_RESUBMIT'):exchange.next_request(job)
+        exchange.authorize(job,config['digest'],'offline fixture independent authorization')
+        request=exchange.next_request(job)
+        self.assertEqual(len(request['arguments']['referenced_image_paths']),1)
+        columns,rows=request['grid'];image=Image.new('RGBA',(columns*100,rows*100))
+        draw=ImageDraw.Draw(image)
+        for i in range(len(request['materialIds'])):
+            x=i%columns*100;y=i//columns*100;draw.rectangle((x+20,y+20,x+79,y+79),fill=(50,60,70,255))
+        raw=self.base/'fixture-return.png';image.save(raw)
+        receipt=exchange.receive(job,request['submissionDigest'],raw)
+        self.assertEqual(exchange.status(job)['status'],'raw_complete')
+        self.assertFalse(receipt['alphaQualityAccepted']);self.assertFalse(receipt['humanVisualAcceptance'])
+        self.assertFalse(self.manifest['newM2ReviewPerformed'])
+        with self.assertRaisesRegex(ValueError,'NOT_READY_NO_RESUBMIT'):exchange.next_request(job)
+
+    def test_rehashed_board_texture_mapping_is_not_a_canonical_mapping(self):
+        job=self.base/'map-job';job.mkdir();descriptor=board.materialize(job,self.snapshot,self.row)
+        value=read(job/board.METADATA);value['textureRegions'][0]['boardBoxNorm'][0]+=.01
+        (job/board.METADATA).write_bytes(board._bytes(value))
+        forged=copy.deepcopy(descriptor);forged['sha256'][board.METADATA]=digest(job/board.METADATA)
+        with self.assertRaisesRegex(ValueError,'SHEET_LAYOUT_DESCRIPTOR_CHANGED'):board.verify(job,self.snapshot,self.row,forged)
+        with self.assertRaisesRegex(ValueError,'SHEET_LAYOUT_ARTIFACT_CHANGED'):board.verify(job,self.snapshot,self.row,descriptor)
+
+    def test_texture_region_outside_context_is_rejected_before_mapping(self):
+        from ai_ui_layers import visual_textures
+        visual=read(self.snapshot/'evidence/revised-visual-plan.json')
+        bindings=visual_textures.snapshot_bindings(self.snapshot,self.manifest,visual)
+        bad=copy.deepcopy(bindings);bad['regions'][0]['sourceBox']=[0,0,10,10]
+        with mock.patch.object(board,'snapshot_bindings',return_value=bad):
+            with self.assertRaisesRegex(ValueError,'SHEET_LAYOUT_TEXTURE_OUTSIDE_CONTEXT'):
+                board.build(self.snapshot,self.row,prompt_version='v2')
+
+    def test_rehashed_texture_binding_cannot_override_the_frozen_source_region(self):
+        from ai_ui_layers.freeze_visual import body_digest
+        path=self.snapshot/'visual-texture-bindings.json';bindings=read(path)
+        bindings['regions'][0]['sourceBox'][0]+=1;save(path,bindings)
+        manifest=read(self.snapshot/'snapshot.json');manifest['files']['visual-texture-bindings.json']=digest(path)
+        manifest['visualTextureBindingsSha256']=digest(path)
+        manifest['digest']=body_digest({k:v for k,v in manifest.items() if k!='digest'})
+        save(self.snapshot/'snapshot.json',manifest)
+        with self.assertRaisesRegex(ValueError,'VISUAL_TEXTURE_BINDINGS_CHANGED'):
+            board.build(self.snapshot,self.row,prompt_version='v2')
+
+    def test_rehashed_context_crop_cannot_override_original_reference_pixels(self):
+        from ai_ui_layers.freeze_visual import body_digest
+        path=self.snapshot/self.row['references'][0]['reference']
+        with Image.open(path) as original:image=original.convert('RGBA')
+        image.putpixel((0,0),(151,152,153,255));image.save(path)
+        manifest=read(self.snapshot/'snapshot.json')
+        manifest['files'][path.relative_to(self.snapshot).as_posix()]=digest(path)
+        manifest['digest']=body_digest({k:v for k,v in manifest.items() if k!='digest'})
+        save(self.snapshot/'snapshot.json',manifest)
+        with self.assertRaisesRegex(ValueError,'CONTEXT_REFERENCE_MISMATCH'):
+            board.build(self.snapshot,self.row,prompt_version='v2')
+
+
 if __name__ == '__main__':
     unittest.main()

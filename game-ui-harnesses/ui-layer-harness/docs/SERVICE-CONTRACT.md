@@ -376,6 +376,19 @@ evidence 文句把阻断改为成功。先从干净原图清点重复组全部�
 撑满规划框来证明比例正确。原图不透明时，颜色阈值只能作为有适用范围的诊断证据，
 不能把单样本颜色判据固化为通用分割，也不能自动改框或跳过视觉审查。
 
+显式 policy=deferred-visual-candidate-plan-v1 的候选纹理快照现在也可派生
+`sheet-layout-board`，原严格纹理快照仍返回 VISUAL_TEXTURE_VARIANTS_UNSUPPORTED。
+仅单张已冻结 sheet、单个新 job、一次独立授权调用；不能覆盖 prompt 或复用旧授权重投。
+程序读取已验证的纹理输入与来源绑定，每项所选素材的纹理 sourceBox 必须完全位于该素材
+context cropRegion 中，再按整数比例与 boardCropBox 唯一映射到 boardBoxNorm。
+metadata 绑定原 reference SHA-256、visualTexturesSha256、visualTextureBindingsSha256、
+regionId/materialId/objectId、原 sourceBox 与映射像素/归一化框；只输出所选素材已绑定的区域。
+ownership actions v2 之后附加这些纹理的整板归一化定位与数量、布局、墨迹保真要求，
+沿用已许可 preserveText，删除其他普通业务文字，不猜 OCR 字串、不借原 context 坐标作为整板定位。
+新 M2/纹理视觉审查仍未执行；这不宣称旧或新素材通过视觉验收。
+build/verify 重演完整 metadata、PNG 与 prompt canonical bytes；绑定、原裁片或映射被修改时拒绝，
+即使重新计算存储摘要也不能替代原来源像素/区域和确定性映射。准备/核验均无模型或媒体调用。
+
 内部独立交换可显式从该快照派生一份 `sheet-layout-board` 单板实验作业：程序统一比例
 排列原裁片，编译板上坐标和编辑要求，并绑定新作业摘要；不接受任意提示词覆盖。
 这是新授权的独立输入实验，父快照、旧失败状态、最终素材尺寸和审查门保持不变。

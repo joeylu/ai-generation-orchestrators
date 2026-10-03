@@ -12,7 +12,7 @@ from . import context_references
 from .evaluate import read
 from .execution_preflight import preflight
 from .visual_policy import snapshot_policy, generation_guidance
-from .visual_textures import snapshot_input
+from .visual_textures import snapshot_input, snapshot_bindings
 
 
 KIND = 'ui_sheet_layout_reference_v1'
@@ -77,8 +77,13 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
         raise ValueError('SHEET_LAYOUT_PROMPT_VERSION')
     snapshot = Path(snapshot)
     manifest, visual, plan = _frozen(snapshot, row)
-    if snapshot_input(snapshot,manifest) is not None:
-        raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
+    texture_doc=snapshot_input(snapshot,manifest)
+    texture_bindings=None
+    if texture_doc is not None:
+        if manifest.get('policy')!='deferred-visual-candidate-plan-v1':
+            raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
+        if prompt_version!='v2':raise ValueError('TEXTURE_SHEET_LAYOUT_PROMPT_V2_REQUIRED')
+        texture_bindings=snapshot_bindings(snapshot,manifest,visual)
     policy=snapshot_policy(snapshot,manifest)
     width, height = row['outputSize']
     columns, rows = row['grid']
@@ -135,6 +140,32 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
                     background=list(NEUTRAL_GRAY), materialIds=row['materialIds'],
                     integerScale=scale, cells=metadata_cells)
     if policy is not None:metadata['visualPolicySha256']=manifest['visualPolicySha256']
+    texture_regions=[]
+    if texture_doc is not None:
+        source_sha=_sha((snapshot/'reference.png').read_bytes())
+        if (texture_doc['referenceSha256']!=source_sha
+                or texture_bindings['referenceSha256']!=source_sha):
+            raise ValueError('SHEET_LAYOUT_TEXTURE_SOURCE_MISMATCH')
+        owned_cells={cell['materialId']:cell for cell in metadata_cells}
+        for region in texture_bindings['regions']:
+            cell=owned_cells.get(region['materialId'])
+            if cell is None:continue
+            crop=cell['cropRegion'];box=region['sourceBox']
+            if (cell['originalSourceSha256']!=source_sha or
+                    not crop[0]<=box[0]<box[2]<=crop[2] or not crop[1]<=box[1]<box[3]<=crop[3]):
+                raise ValueError('SHEET_LAYOUT_TEXTURE_OUTSIDE_CONTEXT')
+            board_box=[cell['boardCropBox'][i%2]+(box[i]-crop[i%2])*cell['integerScale'] for i in range(4)]
+            placement=cell['boardCropBox']
+            if not (placement[0]<=board_box[0]<board_box[2]<=placement[2]
+                    and placement[1]<=board_box[1]<board_box[3]<=placement[3]):
+                raise ValueError('SHEET_LAYOUT_TEXTURE_BOARD_BOUNDS')
+            texture_regions.append(dict(regionId=region['id'],materialId=region['materialId'],
+                objectId=region['objectId'],sourceBox=box,boardBox=board_box,boardBoxNorm=_norm(board_box,(width,height)),
+                appearance=region['appearance'],protectedArtwork=region['protectedArtwork']))
+        metadata.update(textureMappingPolicy='source-bound-integer-board-textures-v1',
+            originalReferenceSha256=source_sha,visualTexturesSha256=manifest['visualTexturesSha256'],
+            visualTextureBindingsSha256=manifest['visualTextureBindingsSha256'],textureRegions=texture_regions,
+            newTextureReviewPerformed=False,planningReviewDeferred=True)
     materials = {m['id']: m for m in visual['materials']}
     assets = {a['id']: a for a in plan['assets']}
     entries = []
@@ -189,6 +220,18 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
         from .ownership_actions import board_prompt
         prompt = board_prompt(entries, (width, height), (columns, rows))
     if policy is not None:prompt=prompt.rstrip('\n')+generation_guidance(policy)+'\n'
+    if texture_doc is not None:
+        prompt=prompt.rstrip('\n')+'\nSource-bound raster textures on this board only: '
+        prompt+=('Each boardBoxNorm is normalized to the entire attached layout board, not original context coordinates. '
+                 'Preserve the assigned material/object marks inside each locator: exact count, relative layout, '
+                 'ink shapes, color and raster appearance. Do not infer or guess unreadable letters with OCR. '
+                 'Only these owned texture regions are licensed; never copy marks from another cell. '
+                 'Existing exact preserveText lettering licenses remain in force; remove ordinary business '
+                 'letters and numbers elsewhere under the ownership actions. These coordinates identify '
+                 'appearance evidence, not masks or a new visual-review approval. Texture regions: ')
+        prompt_regions=[{key:region[key] for key in ('regionId','materialId','objectId','boardBoxNorm',
+                        'appearance','protectedArtwork')} for region in texture_regions]
+        prompt+=json.dumps(prompt_regions,ensure_ascii=False,separators=(',',':'))+'\n'
     buffer = io.BytesIO()
     board.save(buffer, format='PNG')
     return metadata, buffer.getvalue(), prompt
@@ -200,6 +243,8 @@ def _descriptor(metadata, board_bytes, prompt, prompt_version='v1'):
                 requestAsset=metadata['requestAsset'], board=BOARD, metadata=METADATA,
                 prompt=PROMPT, sha256={name: _sha(payload) for name, payload in payloads.items()},
                 **({'visualPolicySha256':metadata['visualPolicySha256']} if 'visualPolicySha256' in metadata else {}),
+                **({key:metadata[key] for key in ('textureMappingPolicy','originalReferenceSha256',
+                    'visualTexturesSha256','visualTextureBindingsSha256')} if 'textureMappingPolicy' in metadata else {}),
                 **({'promptVersion': prompt_version} if prompt_version != 'v1' else {}))
 
 
