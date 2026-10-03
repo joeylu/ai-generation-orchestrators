@@ -424,6 +424,30 @@ class CandidateSheetSplitTests(unittest.TestCase):
             host.candidate_sheet_cells(image,row)
         self.assertEqual(image.tobytes(),before)
 
+    def test_ambiguous_bands_and_faint_source_boundary_preserve_both_facts(self):
+        image,row=self.picture();image.putpixel((0,0),(11,21,31,1));before=image.tobytes()
+        with self.assertRaisesRegex(ValueError,'^SHEET_AMBIGUOUS_EMPTY_BANDS$'):
+            host.cells(image,row,actual_gaps=True)
+        boxes,report=host.candidate_sheet_cells(image,row)
+        self.assertEqual(report['strictExtractionIssue'],'SHEET_AMBIGUOUS_EMPTY_BANDS')
+        self.assertEqual(report['samplingGuard'],2)
+        self.assertEqual(report['rawOuterBoundaryNonzeroAlphaCount'],1)
+        self.assertEqual(report['rawOuterBoundaryNonzeroAlphaMaximum'],1)
+        self.assertTrue(report['sourcePixelPartitionExact']);self.assertFalse(report['alphaQualityAccepted'])
+        reconstructed=Image.new('RGBA',image.size)
+        for box in boxes:
+            guarded=host.candidate_cell(image,box,report);w,h=box[2]-box[0],box[3]-box[1]
+            reconstructed.paste(guarded.crop((2,2,w+2,h+2)),box[:2])
+        self.assertEqual(reconstructed.tobytes(),before);self.assertEqual(image.tobytes(),before)
+
+    def test_ambiguous_bands_do_not_hide_nonfaint_source_boundary(self):
+        image,row=self.picture();image.putpixel((0,0),(11,21,31,2));before=image.tobytes()
+        with self.assertRaisesRegex(ValueError,'^SHEET_AMBIGUOUS_EMPTY_BANDS$'):
+            host.cells(image,row,actual_gaps=True)
+        with self.assertRaisesRegex(ValueError,'SHEET_AMBIGUOUS_EMPTY_BANDS: CANDIDATE_SOURCE_OUTER_ALPHA_NOT_FAINT'):
+            host.candidate_sheet_cells(image,row)
+        self.assertEqual(image.tobytes(),before)
+
     def test_faint_source_boundary_never_waives_nonzero_internal_seam(self):
         image,row=self.boundary_picture()
         ImageDraw.Draw(image).line((75,50,125,50),fill=(11,21,31,1));before=image.tobytes()

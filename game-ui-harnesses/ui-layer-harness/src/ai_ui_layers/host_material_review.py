@@ -294,10 +294,11 @@ def candidate_sheet_cells(image, row):
     outer=np.zeros(alpha.shape,dtype=bool);outer[0,:]=outer[-1,:]=True;outer[:,0]=outer[:,-1]=True
     outer_count=int(np.count_nonzero(alpha[outer]));outer_max=int(alpha[outer].max())
     sampling_guard=0
-    if strict_issue=='SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY':
-        if outer_count==0 or outer_max>1:
-            raise ValueError(strict_issue+': CANDIDATE_SOURCE_OUTER_ALPHA_NOT_FAINT')
+    if outer_count:
+        if outer_max>1:raise ValueError(strict_issue+': CANDIDATE_SOURCE_OUTER_ALPHA_NOT_FAINT')
         sampling_guard=2
+    elif strict_issue=='SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY':
+        raise ValueError(strict_issue+': CANDIDATE_SOURCE_OUTER_ALPHA_NOT_FAINT')
     def cuts(count,axis):
         length=alpha.shape[axis];occupied=np.any(alpha!=0,axis=1-axis);result=[0]
         for i in range(1,count):

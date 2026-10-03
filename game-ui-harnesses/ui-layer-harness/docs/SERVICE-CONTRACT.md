@@ -38,8 +38,9 @@ snapshotDigest 与 request 原值。旧 scene 只有原快照摘要和原请求�
 标明 allSourcePixelsRetained=true、reconstructionPixelExact=true，并绑定源/重拼像素摘要。
 这仅是显式候选提取，原严格空带歧义及待人工整图验收的事实不会改成通过。
 新候选还显式冻结 candidateSourceBoundaryPolicy=preserve-faint-source-boundary-guard-v1。
-仅原严格异常为 SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY，且原图真正外周存在非零 alpha、
+仅原严格异常属于 SHEET_AMBIGUOUS_EMPTY_BANDS 或 SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY，且原图真正外周存在非零 alpha、
 所有外周非零 alpha 都≤1 时，才可保留这些弱像素并给每个原裁片四周增加2像素透明 guard。
+guard 资格由原源外周像素事实决定，不受上述两种原异常的抛出先后影响；strictExtractionIssue 保留实际先发生的原异常。
 任何外周 alpha≥2 仍阻断；内部切线仍须原搜索范围内唯一最近的双侧整行/列完全 alpha=0，
 空余单元有任何非零 alpha 仍阻断。只允许原图真正外边缘弱 alpha 通过新增画布保留，
 不删除、阈值化或改变任何原 RGBA 值；guard 内原裁片与原片逐像素复核，整源划分重拼保持 exact。
