@@ -89,11 +89,17 @@ def verify_stage(root, folder, plan):
         raise ValueError('RELATION_REFERENCE_CHANGED')
     for name, sha in request['inputs'].items():
         if digest(folder/name)!=sha:raise ValueError('RELATION_REVIEW_INPUT_CHANGED')
-    transport=read(folder/'transport.json')
-    if (transport.get('failure') or transport.get('unexpectedEvents') or
-            transport.get('exitCode') != 0 or transport.get('turnCompleted') is not True or
-            transport.get('responseSha256')!=digest(folder/'draft.json')):
-        raise ValueError('RELATION_REVIEW_RECEIPT_INVALID')
+    config=read(root/'.dag/config.json') if (root/'.dag/config.json').exists() else {}
+    if config.get('planningDriver')=='host-model-exchange-v1':
+        from .host_review import verify_exchange, verify_prepared
+        verify_prepared(root)
+        verify_exchange(read(folder/'exchange-provenance.json'),folder/'request.json',folder/'draft.json')
+    else:
+        transport=read(folder/'transport.json')
+        if (transport.get('failure') or transport.get('unexpectedEvents') or
+                transport.get('exitCode') != 0 or transport.get('turnCompleted') is not True or
+                transport.get('responseSha256')!=digest(folder/'draft.json')):
+            raise ValueError('RELATION_REVIEW_RECEIPT_INVALID')
     evidence=assess(plan,expected['referenceSha256'],review)
     if read(folder/'relation-assessment.json')!=evidence:
         raise ValueError('RELATION_ASSESSMENT_CHANGED')
@@ -111,16 +117,24 @@ def frozen_evidence(folder, snapshot, plan):
     review=read(folder/'evidence'/(stage+'-draft.json'))
     prefix=folder/'evidence'/stage
     request=read(Path(str(prefix)+'-request.json'))
-    transport=read(Path(str(prefix)+'-transport.json'))
     stored_catalog=Path(str(prefix)+'-'+NAME)
     if (read(stored_catalog)!=catalog(plan,digest(folder/'reference.png')) or
             request.get('originalReferenceSha256')!=digest(folder/'reference.png') or
             request['inputs'].get(NAME)!=digest(stored_catalog)):
         raise ValueError('RELATION_FROZEN_CATALOG_MISMATCH')
-    if (transport.get('exitCode')!=0 or transport.get('turnCompleted') is not True or
-            transport.get('failure') or transport.get('unexpectedEvents') or
-            transport.get('responseSha256')!=digest(Path(str(prefix)+'-draft.json'))):
-        raise ValueError('RELATION_FROZEN_RECEIPT_INVALID')
+    if snapshot.get('planningDriver')=='host-model-exchange-v1':
+        from .host_review import verify_exchange
+        verify_exchange(read(Path(str(prefix)+'-exchange-provenance.json')),
+                        Path(str(prefix)+'-request.json'),Path(str(prefix)+'-draft.json'),
+                        Path(str(prefix)+'-host-attestation.json'),
+                        Path(str(prefix)+'-host-dispatch-evidence.bin'),
+                        Path(str(prefix)+'-host-return-evidence.bin'))
+    else:
+        transport=read(Path(str(prefix)+'-transport.json'))
+        if (transport.get('exitCode')!=0 or transport.get('turnCompleted') is not True or
+                transport.get('failure') or transport.get('unexpectedEvents') or
+                transport.get('responseSha256')!=digest(Path(str(prefix)+'-draft.json'))):
+            raise ValueError('RELATION_FROZEN_RECEIPT_INVALID')
     if evidence!=assess(plan,digest(folder/'reference.png'),review):
         raise ValueError('RELATION_FROZEN_REVIEW_MISMATCH')
     if evidence['blockers']:raise ValueError('UNRESOLVED_PLAN_RELATIONS')

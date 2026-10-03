@@ -230,6 +230,9 @@ def verify_run(run, *, _allow_issues=False):
     policy=planning_policy(run)
     texture_doc=visual_textures.planning_input(run)
     config=read(run/'.dag/config.json') if (run/'.dag/config.json').exists() else {}
+    if config.get('planningDriver')=='host-model-exchange-v1':
+        from .host_review import verify_run as verify_host_run
+        return verify_host_run(run,allow_issues=_allow_issues)
     if (run/'revision.json').exists():
         if texture_doc is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
         kind=read(run/'revision.json').get('kind')

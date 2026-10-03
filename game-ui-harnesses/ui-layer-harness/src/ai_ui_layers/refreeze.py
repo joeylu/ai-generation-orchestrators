@@ -10,7 +10,8 @@ from .planning_dag import locked
 def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_reference=None,
                     context_prompt_version=None):
     source=Path(source).resolve();output=Path(output).resolve()
-    if planning_input(source) is not None:raise ValueError('VISUAL_TEXTURE_REFREEZE_UNSUPPORTED')
+    host_exchange=read(source/'.dag/config.json').get('planningDriver')=='host-model-exchange-v1'
+    if not host_exchange and planning_input(source) is not None:raise ValueError('VISUAL_TEXTURE_REFREEZE_UNSUPPORTED')
     if not 1 <= max_calls <= 128:raise ValueError('CALL_LIMIT')
     if output.exists() or output.is_relative_to(source) or source.is_relative_to(output):
         raise ValueError('FRESH_SEPARATE_OUTPUT_REQUIRED')
@@ -27,7 +28,10 @@ def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_
             raise ValueError('CONFIG_CHANGED')
         for name,expected in config['inputs'].items():
             if digest(source/'.dag/inputs'/name)!=expected:raise ValueError('INPUT_CHANGED')
-        required=['m1','check','m2']
+        if host_exchange:
+            from .host_review import verify_run
+            verify_run(source)
+        required=[] if host_exchange else ['m1','check','m2']
         if (source/'repair').exists():required+=['repair','repair_check','rereview']
         for node in required:
             if not (source/'.dag'/node/'done.json').is_file():

@@ -5,6 +5,50 @@
 退出码 0 表示命令完成或正常等待，不等于视觉通过；非零表示本次命令失败。
 不直接调用内部 Python 函数，内部 M1/M2 文件不作为 Web 合同。
 
+离线候选可通过 `prepare-host-review --candidate PLAN.json --image REFERENCE.png
+--contract-dir PLANNING_CONTRACT_DIR --output NEW_RUN --max-calls 128` 准备独立完整复审。
+必须传 `--seed-author OPAQUE_ID`，多个候选作者须重复该参数；这些 ID 是抽象来源标识，
+不得填文件路径、凭据或私有服务地址。
+可附加 `--planning-notes`、`--visual-policy`、`--visual-textures`。输入候选必须满足
+v5 存储 schema；非空 unknowns 可准备供审查，但冻结仍阻断。合同目录中的 schema 与
+两份规划／审查 prompt 仅接受固定共享合同 fad597a0 的公开字节指纹并按字节快照，
+不得通过外部弱 schema 放宽 v5 验证；运行时公共程序代码指纹也绑定配置。仅生成确定性
+附件，默认冻结 sheets、context-crops、v7、typed-review-v4 与 exact-fragments-v1。
+候选明确标记 offline seed，既不调用模型，也不声称原 M1 运行成功。
+
+宿主读取返回的 `requestSha256`、`m1/reference.png` 与 `m2` 全部请求附件，独立调用
+模型并在运行目录之外保存真实 JSON 响应，再执行 `receive-host-review --output NEW_RUN
+--response RESPONSE.json --request-sha256 SHA256 [--response-sha256 SHA256]`。
+receive 还必须提供 `--host-attestation ATTESTATION.json --dispatch-evidence DISPATCH_FILE
+--return-evidence RETURN_FILE`。attestation 严格包含 kind=`ui_host_review_attestation_v1`、
+requestSha256、responseSha256、seedSha256、candidateAuthors、reviewerId、
+hostAssertedModelResponse=true、notCryptographicallyPlatformVerified=true、
+dispatchEvidenceSha256、returnEvidenceSha256。作者列表必须与准备请求一致，reviewerId
+不得属于作者列表；摘要须匹配请求、响应、候选和宿主实际派发／返回观察文件。
+派发与返回指纹必须不同。私有规划运行与冻结快照原样封存派发和返回证据，并重验内容摘要；
+这些文件可能含宿主运行上下文，不能作为公开 release 示例或公开素材交付包。现有素材
+packager 的公开 PNG/ZIP 结构不包含规划原始证据。来源仍只是宿主声明。
+非法声明同样封存失败，不能用任意外部 JSON 自动取得模型来源断言。程序按完整
+schema、四列表覆盖、所属原文、边界坐标、逐对关系与纹理审查合同重新校验并保存
+assessment。缺项／格式非法响应封存失败，禁止再次 receive 或改写输出；有真实问题的
+完整响应可接收，但 blockers、关系阻断和 unknowns 不会被清空，冻结仍拒绝。
+代码版本或快照输入变化必须新建运行。
+
+证据使用 `exchange-provenance.json`，明确标记 host-attested-model-response、
+notProviderReceipt=true、cliSessionAsserted=false；它是宿主声明及内容指纹，
+没有平台认证或模型会话验证能力。程序不会创建 transport.json、events.jsonl 或
+sameSessionVerified 断言。该来源声明不是加密验证的平台证明；程序验证的是宿主声明
+与提交内容的一致性。`freeze-reviewed --planning-run NEW_RUN --output NEW_SNAPSHOT
+--max-calls 128` 从有效、完整、无阻断的新复审生成真正冻结快照，保留全部审查附件和
+输入指纹并支持已完整复审的纹理合同；inspect 重验冻结证据。原 CLI 规划门保持原要求，
+其含纹理旧运行仍不支持 offline refreeze。以上动作均无媒体生成或自动重投；后续生图
+继续使用现有确定性 executor 的独立授权合同。
+
+`status-host-review --output NEW_RUN` 只读核验运行与输入。尚未收回应答时返回
+awaiting_host_review；封存的非法回应返回 review_receive_failed 和原失败记录，不再解析
+无效 raw JSON；有效回应复算后返回 review_blocked 或 ready_to_freeze。所有状态均不调用模型。
+host 入口拒绝 CLI-only model/effort/timeout、context 版本和生成策略覆盖，不默默忽略这些设置。
+
 新 `run` 可显式传 `--planning-model MODEL --planning-effort EFFORT
 --planning-timeout SECONDS`。默认仍为 `gpt-6-luna`、`xhigh`、900 秒；timeout
 必须为 1..86400 的整数。参数绑定根与嵌套规划配置摘要，M1、M2 与所有修补／复审

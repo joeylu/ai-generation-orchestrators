@@ -272,7 +272,16 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','prepare-host-review','receive-host-review','status-host-review','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('--candidate',help='Explicit offline v5 candidate seed for host review')
+    p.add_argument('--contract-dir',help='Planning contract directory to snapshot for host review')
+    p.add_argument('--response',help='External JSON response for the prepared host review')
+    p.add_argument('--request-sha256',help='Exact prepared host review request digest')
+    p.add_argument('--response-sha256',help='Optional external response digest')
+    p.add_argument('--seed-author',action='append',help='Opaque offline candidate author ID, repeat for all authors')
+    p.add_argument('--host-attestation',help='Explicit host provenance attestation JSON for external model review')
+    p.add_argument('--dispatch-evidence',help='Actual host dispatch evidence file to fingerprint')
+    p.add_argument('--return-evidence',help='Actual host return evidence file to fingerprint')
     p.add_argument('--config',help='For register-materials: bound explicit body registration config')
     p.add_argument('--source-sha256')
     p.add_argument('--edit-mask',help='Explicit binary L PNG allowed-edit region; not inferred from material boxes')
@@ -319,6 +328,32 @@ def main():
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.action in ('prepare-host-review','receive-host-review','status-host-review'):
+            if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)):
+                p.error('host review does not accept CLI planning model settings')
+            if a.context_prompt_version is not None:
+                p.error('host review preparation freezes context prompt v7; no override accepted')
+            if a.generation_reference is not None or a.regroup_generation_mode is not None or a.generation_mode!='sheets':
+                p.error('host review preparation freezes sheets and context-crops; no override accepted')
+        if a.action=='status-host-review':
+            from .host_review import status
+            print(json.dumps(status(Path(a.output)),ensure_ascii=False,indent=2));return
+        if a.action=='prepare-host-review':
+            if not all((a.candidate,a.image,a.contract_dir,a.seed_author)):
+                p.error('--candidate, --image, --contract-dir and --seed-author required')
+            from .host_review import prepare
+            result=prepare(a.candidate,a.image,a.output,a.contract_dir,
+                seed_author=a.seed_author,planning_notes=a.planning_notes,visual_policy=a.visual_policy,
+                visual_textures=a.visual_textures,max_calls=a.max_calls)
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
+        if a.action=='receive-host-review':
+            if not all((a.response,a.request_sha256,a.host_attestation,a.dispatch_evidence,a.return_evidence)):
+                p.error('--response, --request-sha256, --host-attestation, --dispatch-evidence and --return-evidence required')
+            from .host_review import receive
+            result=receive(a.output,a.response,a.request_sha256,response_sha256=a.response_sha256,
+                           host_attestation=a.host_attestation,dispatch_evidence=a.dispatch_evidence,
+                           return_evidence=a.return_evidence)
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.visual_textures is not None and a.action!='run':
             p.error('--visual-textures is only valid for a new run')
         if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)) and a.action!='run':

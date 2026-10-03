@@ -20,6 +20,8 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
            context_prompt_version='v3'):
     started=time.perf_counter();run=Path(run);output=Path(output)
     revision=read(run/'revision.json') if (run/'revision.json').exists() else None
+    config=read(run/'.dag/config.json') if (run/'.dag/config.json').exists() else {}
+    host_exchange=config.get('planningDriver')=='host-model-exchange-v1'
     if revision and revision.get('kind')=='ui_rejected_frozen_crop_revision_v1':
         config=read(run/'.dag/config.json')
         if (max_calls!=config['maxCalls'] or generation_mode!=config['generationMode'] or
@@ -43,12 +45,29 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     stages=[] if (run/'revision.json').exists() else [('m1',['draft.json','schema.json','prompt.md']),
                         ('m2',['draft.json','schema.json','prompt.md','request.json','review-source.md','review-overlay.png'])]
     if not revision and report.get('relationReviewPolicy'):
-        stages[1][1].extend(['relation-catalog.json','relation-assessment.json','transport.json'])
+        stages[1][1].extend(['relation-catalog.json','relation-assessment.json',
+                            'exchange-provenance.json' if host_exchange else 'transport.json'])
     if not revision and (run/'m2/plan-evidence-catalog.json').exists():
         stages[1][1].append('plan-evidence-catalog.json')
     for stage,names in stages:
         for name in names:
             (evidence/(stage+'-'+name)).write_bytes((run/stage/name).read_bytes())
+    if host_exchange:
+        (evidence/'m2-host-attestation.json').write_bytes((run/'m2/host-attestation.json').read_bytes())
+        for name in ('host-dispatch-evidence.bin','host-return-evidence.bin'):
+            (evidence/('m2-'+name)).write_bytes((run/'m2'/name).read_bytes())
+        (evidence/'m1-seed.json').write_bytes((run/'m1/seed.json').read_bytes())
+        (evidence/'host-review-config.json').write_bytes((run/'.dag/config.json').read_bytes())
+        # Preserve every reviewed attachment and the immutable preparation ledger.
+        for name in read(run/'m2/request.json')['inputs']:
+            (evidence/('m2-'+name)).write_bytes((run/'m2'/name).read_bytes())
+        (evidence/'host-review-preparation.json').write_bytes((run/'.dag/exchange-preparation.json').read_bytes())
+        for name in read(run/'.dag/exchange-preparation.json')['files']:
+            target=evidence/'prepared'/name
+            target.parent.mkdir(parents=True,exist_ok=True)
+            target.write_bytes((run/name).read_bytes())
+        for path in (run/'.dag/inputs').iterdir():
+            (evidence/('host-input-'+path.name)).write_bytes(path.read_bytes())
     if revision:
         if revision['kind']=='ui_rejected_frozen_crop_revision_v1':
             save(evidence/'revision-lineage.json',{key:revision[key] for key in (
@@ -133,6 +152,11 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
         snapshot.update(relationReviewPolicy=report['relationReviewPolicy'],relationReviewStage=report['relationReviewStage'],
                         relationAssessmentSha256=report['relationAssessmentSha256'])
     snapshot.update(texture_metadata)
+    if host_exchange:
+        snapshot.update(planningDriver='host-model-exchange-v1',
+            responseOrigin='host-attested-model-response',notProviderReceipt=True,
+            cliSessionAsserted=False,notCryptographicallyPlatformVerified=True,
+            offlineCandidateSeed=True)
     snapshot['digest']=body_digest(snapshot)
     save(output/'snapshot.json',snapshot)
     inspect(output,snapshot['digest'])
@@ -175,6 +199,9 @@ def inspect(folder, expected_digest=None):
         if 'relation-assessment.json' not in snapshot['files'] or digest(folder/'relation-assessment.json')!=snapshot.get('relationAssessmentSha256'):
             raise ValueError('RELATION_ASSESSMENT_CHANGED')
         frozen_evidence(folder,snapshot,read(visual_path))
+    if snapshot.get('planningDriver')=='host-model-exchange-v1':
+        from .host_review import verify_frozen
+        verify_frozen(folder,snapshot,read(visual_path))
     return snapshot
 
 
