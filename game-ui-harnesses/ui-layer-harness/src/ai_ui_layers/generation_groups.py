@@ -152,6 +152,8 @@ def preview(snapshot, expected_digest, output):
     policy=read(snapshot/'generation-groups.json')['policy'] if (snapshot/'generation-groups.json').exists() else DEFAULT_GROUP_POLICY
     groups=build_groups(visual,plan,policy)
     manifest=read(snapshot/'snapshot.json')
+    from .visual_textures import snapshot_input
+    if snapshot_input(snapshot,manifest) is not None:raise ValueError('VISUAL_TEXTURE_GROUP_PREVIEW_UNSUPPORTED')
     context=manifest.get('generationReference')=='context-crops'
     context_prompt_version=manifest.get('contextPromptVersion','v1')
     output.mkdir(parents=True,exist_ok=False)

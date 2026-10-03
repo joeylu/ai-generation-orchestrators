@@ -15,6 +15,7 @@ from .short_prompt import exclusions
 from .sheet_review_policy import PROMPT as REVIEW_PROMPT, classify, schema_for
 from .review_image import fit_resampling
 from .visual_policy import snapshot_policy, output_review_guidance
+from . import visual_textures
 
 
 def review_entries(visual, material_ids):
@@ -130,6 +131,8 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
     snapshot=Path(snapshot).resolve();manifest=inspect(snapshot,expected_digest)
     visual_policy=snapshot_policy(snapshot,manifest)
     policy_sha=manifest['visualPolicySha256'] if visual_policy is not None else None
+    texture_doc=visual_textures.snapshot_input(snapshot,manifest)
+    texture_metadata={key:manifest[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256') if key in manifest}
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=False)
     rows=read(snapshot/'requests.json')['requests']
     if selected_request is not None:
@@ -157,7 +160,7 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
         # A PNG alone is not evidence of an authorized received singleton. Replay
         # the real producer's immutable job/authorization/submission/receipt chain.
         singleton_jobs={};receipt_files={}
-        if visual_policy is not None:
+        if visual_policy is not None or texture_doc is not None:
             from .experimental_executor import load_job, status, verified
             singles=[row for row in rows if row.get('kind')!='sheet']
             if singles and (received_jobs is None or
@@ -192,7 +195,7 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
         for row in rows:
             key=row['asset'];source=Path(sources[key])
             if row.get('kind')!='sheet':
-                if visual_policy is not None:
+                if visual_policy is not None or texture_doc is not None:
                     from .single_material_review import review
                     folder=output/key
                     result=review(singleton_jobs[key],folder,review_single,request_id=key)
@@ -254,6 +257,10 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
                 + REVIEW_PROMPT +
                 (output_review_guidance(visual_policy) if visual_policy is not None else '')+
                 '\n'+json.dumps(dict(grid=row['grid'],sourceBoxes=review_boxes,observationMapping=mappings,entries=entries),ensure_ascii=False))
+            if texture_doc is not None:
+                bindings=visual_textures.snapshot_bindings(snapshot,manifest,visual)
+                prompt+=visual_textures.generation_guidance(texture_doc,bindings,row['materialIds'],visual,context=row.get('references'),group=row)
+                prompt+='\nReview these approved visual textures as shapes, not OCR. Missing marks, invented lettering, changed ink/count/layout/proportions, uncertain preservation or damaged protected artwork block acceptance. Ordinary text removal does not apply to approved shapes. Raw/cell evidence: '+json.dumps(dict(rawSha256=digest(source),cells=checked[key],reviewCells=review_boxes,request=row),ensure_ascii=False)
             (folder/'prompt.md').write_text(prompt,encoding='utf-8')
             inputs={n:digest(folder/n) for n in ('reference.png','generated.png','detail-compare.png',
                                                  'detail-compare.json','schema.json','prompt.md',
@@ -263,7 +270,7 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
             save(folder/'request.json',dict(inputs=inputs,sourceSha256=originals[key],
                  preparedSha256=prepared_hash,reviewSourceSha256=review_hash,
                  adaptedEvidenceSha256=adapted_hash,materialIds=row['materialIds'],
-                 **({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
+                 **texture_metadata,**({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
             print(json.dumps(dict(stage='sheet-review',request=key)),flush=True)
             calls+=1;transport=(model_call or call_model)(folder)
             if transport.get('exitCode')!=0 or not transport.get('turnCompleted') or transport.get('unexpectedEvents') or transport.get('failure'):
@@ -281,14 +288,14 @@ def extract(snapshot, expected_digest, sources, output, model_call=None, selecte
                 assessment=classify(answer,row['materialIds'],visual_policy)
                 save(folder/'assessment.json',dict(assessment,policy='sheet-observation-severity-v1',
                      reviewSha256=digest(folder/'draft.json'),humanVisualAcceptance=False,
-                     **({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
+                     **texture_metadata,**({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
                 decisions.extend(dict(d,requestId=key,reviewSha256=digest(folder/'draft.json'))
                                  for d in assessment['decisions'])
                 answer=dict(materialIds=answer['materialIds'],issues=assessment['blockers'],
                             warnings=assessment['warnings'])
             else:
                 # Legacy adapters are conservative: their textual issues always block.
-                if visual_policy is not None:
+                if visual_policy is not None or texture_doc is not None:
                     raise ValueError('VISUAL_POLICY_REVIEW_SCHEMA_REQUIRED')
                 Draft202012Validator(schema).validate(answer)
             for warning in answer.get('warnings',[]):

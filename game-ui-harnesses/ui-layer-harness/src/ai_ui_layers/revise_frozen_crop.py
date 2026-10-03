@@ -2,6 +2,7 @@
 import copy
 import json
 from pathlib import Path, PurePosixPath
+from .visual_textures import planning_input, snapshot_input
 import re
 import shutil
 import tempfile
@@ -50,6 +51,7 @@ def _safe_file(base, name):
 
 def _verify_parent_state(source):
     source=Path(source).resolve()
+    if planning_input(source) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
     config=read(source/'.dag/config.json')
     if digest(source/'.dag/config.json')!=read(source/'.dag/config-digest.json')['sha256']:
         raise ValueError('PARENT_CONFIG_CHANGED')
@@ -61,6 +63,7 @@ def _verify_parent_state(source):
             if digest(_safe_file(source,name))!=sha:raise ValueError('PARENT_OUTPUT_CHANGED')
     if not (source/'.dag/freeze/done.json').exists():raise ValueError('FROZEN_PARENT_REQUIRED')
     snapshot=inspect(source/'frozen')
+    if snapshot_input(source/'frozen',snapshot) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
     if planning_policy(source)!=snapshot_policy(source/'frozen',snapshot):
         raise ValueError('PARENT_VISUAL_POLICY_CHANGED')
     if snapshot.get('generationReference','full')!=config.get('generationReference','full'):
@@ -154,6 +157,7 @@ def init(source, output, rejection_path):
 
 
 def check_inputs(root):
+    if planning_input(root) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
     root=Path(root).resolve()
     revision=read(root/'revision.json')
     if revision.get('kind')!=KIND:raise ValueError('UNKNOWN_REVISION_KIND')
@@ -222,7 +226,11 @@ def rejection_findings(root):
 
 
 def check_scope(root, candidate=None):
-    root=Path(root).resolve();source=read(root/'source-plan.json')
+    if planning_input(root) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
+    root=Path(root).resolve()
+    parent=Path(read(root/'revision.json')['parent'])
+    if planning_input(parent) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
+    source=read(root/'source-plan.json')
     patch=read(root/'repair/draft.json')
     selected={row['materialId'] for row in read(root/'rejection.json')['findings']}
     if (patch['materials']['remove'] or patch['objects']['upsert'] or patch['objects']['remove'] or
@@ -321,7 +329,7 @@ def verify_revision(root, allow_issues=False):
     verify_boundary_evidence(review,read(review/'draft.json'),review_request,candidate,
                              root/'m1/reference.png')
     blockers,warnings=split(read(review/'draft.json'),candidate,planning_policy(root),
-                           read(root/'.dag/config.json').get('coverageTextPolicy'))
+                           read(root/'.dag/config.json').get('coverageTextPolicy'),planning_input(root))
     if relation_review.policy(root):
         relation_assessment=relation_review.verify_stage(root,review,candidate)
         blockers+=planning.Dag.relation_blockers(relation_assessment['blockers'])

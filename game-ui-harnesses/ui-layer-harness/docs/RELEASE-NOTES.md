@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased source-bound visual textures
+
+- Fresh runs may explicitly bind small unreadable microprints as visual artwork
+  through `--visual-textures`. Source fingerprints, finite region limits and
+  confirmed material/object ownership are mandatory; no OCR guess is introduced.
+- Planning, final review, compiled prompts, local references, sheets and actual
+  material reviews preserve the same selected ink/layout requirements. Replay
+  verifies both frozen bindings and their final review lineage.
+- Historical jobs remain unchanged. Revisions and experimental prompt/group
+  variants reject this new policy until their propagation is implemented.
+- Offline regressions check contract propagation and tamper rejection. Actual
+  generated texture fidelity and assembled layers still need visual acceptance.
+
 ## Unreleased explicit coverage state lanes
 
 - Fresh planning configurations select `typed-review-v4`. Separate covered,

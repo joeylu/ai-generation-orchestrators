@@ -24,6 +24,7 @@ from . import relation_review
 from .planning_normalization import m1_plan_path, provider_schema, derive, POLICY as NORMALIZATION_POLICY
 from .session_review import invoke, resume_command, session_id, build_review_prompt, render_for_review, TransportFailure, validate_timeout
 from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME
+from . import visual_textures as textures
 
 BASE=HARNESS/'planning-harness'
 REPO=Path(__file__).resolve().parents[4]
@@ -103,7 +104,7 @@ def prior_findings(root, name):
     # Derive against the plan actually reviewed, never the repaired candidate.
     review_root=Path(read(root/'revision.json')['parent']) if review.parent.name=='parent-review' else root
     review_config=read(review_root/'.dag/config.json') if (review_root/'.dag/config.json').exists() else {}
-    blockers,warnings=split(read(review),read(source),planning_policy(review_root),review_config.get('coverageTextPolicy'))
+    blockers,warnings=split(read(review),read(source),planning_policy(review_root),review_config.get('coverageTextPolicy'),textures.planning_input(review_root))
     return dict(kind='ui_planning_prior_findings_v1',sourcePlanSha256=digest(source),
                 reviewSha256=digest(review),blockers=blockers,warnings=warnings)
 
@@ -159,7 +160,7 @@ def validate_model_settings(model, effort, timeout):
 
 
 def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=DEFAULT_GENERATION_REFERENCE, visual_policy=None, context_prompt_version=None,
-         planning_model=CLI_MODEL, planning_effort=CLI_EFFORT, planning_timeout=900):
+         planning_model=CLI_MODEL, planning_effort=CLI_EFFORT, planning_timeout=900, visual_textures=None):
     validate_model_settings(planning_model, planning_effort, planning_timeout)
     from .context_references import validate_mode
     validate_mode(generation_reference)
@@ -176,6 +177,7 @@ def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, pl
         if policy['appearanceEvidence']=='bound-reference' and generation_reference!='context-crops':
             raise ValueError('BOUND_REFERENCE_CONTEXT_CROPS_REQUIRED')
     notes=read_notes(planning_notes)
+    texture_bytes=textures.load_input(visual_textures,image)
     root=Path(root).resolve();image=Path(image)
     with Image.open(image) as im:
         if im.format!='PNG' or im.getexif().get(274,1)!=1:raise ValueError('PNG_WITH_REFERENCE_COORDINATES_REQUIRED')
@@ -188,11 +190,13 @@ def init(image, root, max_calls=128, generation_mode=DEFAULT_GENERATION_MODE, pl
         (inputs/name).write_bytes(source.read_bytes())
     if notes is not None:(inputs/'planning-notes.txt').write_bytes(notes)
     if policy_bytes is not None:(inputs/INPUT_NAME).write_bytes(policy_bytes)
+    if texture_bytes is not None:(inputs/textures.INPUT_NAME).write_bytes(texture_bytes)
     save(root/'.dag/config.json',{'kind':'ui_planning_dag_v1','runtime':runtime_files(),
          'inputs':{p.name:digest(p) for p in inputs.iterdir()},'maxCalls':max_calls,'generationMode':generation_mode,'generationReference':generation_reference,
          **({'contextPromptVersion':context_prompt_version} if context_prompt_version is not None else {}),
          'relationReviewPolicy':relation_review.POLICY,'normalizationPolicy':NORMALIZATION_POLICY,'coverageTextPolicy':'exact-fragments-v1',
          'reviewEvidenceProtocol':PROTOCOL_V4,
+         **({'visualTexturePolicy':textures.POLICY} if texture_bytes is not None else {}),
          'model':planning_model,'effort':planning_effort,'timeoutSeconds':planning_timeout,
          'graph':GRAPH,'maximumRepairs':2,'mediaGenerationCalls':0})
     save(root/'.dag/config-digest.json',{'sha256':digest(root/'.dag/config.json')})
@@ -247,6 +251,7 @@ class Dag:
                     compiled.get('contextPromptVersion','v1')!=version):
                 raise ValueError('FROZEN_CONTEXT_PROMPT_VERSION_MISMATCH')
         planning_policy(self.root)
+        textures.planning_input(self.root)
         relation_review.policy(self.root)
         from .planning_normalization import validate_policy
         validate_policy(self.config.get('normalizationPolicy'))
@@ -296,9 +301,13 @@ class Dag:
         return receipt
 
     def user_context(self):
-        if 'planning-notes.txt' not in self.config['inputs']:return ''
+        texture_guidance=textures.guidance(textures.planning_input(self.root))
+        if 'planning-notes.txt' not in self.config['inputs']:return texture_guidance
         return ('\n用户确认的拆分要求（这是目标约束，不是模型观察结论；不代替几何、归属和质量检查）：\n'
-                +(self.inputs/'planning-notes.txt').read_text(encoding='utf-8-sig')+'\n')
+                +(self.inputs/'planning-notes.txt').read_text(encoding='utf-8-sig')+'\n'+texture_guidance)
+
+    def review_split(self,review,plan):
+        return split(review,plan,planning_policy(self.root),self.config.get('coverageTextPolicy'),textures.planning_input(self.root))
 
     def m1(self):
         p=self.folder('m1')
@@ -321,6 +330,7 @@ class Dag:
                  'timeoutSeconds':self.config.get('timeoutSeconds',900),'mediaGenerationCalls':0,
                  'maximumRepairs':self.config.get('maximumRepairs',1)}
         if policy is not None:request['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
+        if textures.INPUT_NAME in self.config['inputs']:request['visualTexturesSha256']=self.config['inputs'][textures.INPUT_NAME]
         save(self.root/'request.json',request)
         self.call(p,True)
         derive(p,self.inputs/'storage-schema.json',self.config.get('normalizationPolicy'))
@@ -341,6 +351,7 @@ class Dag:
         sequence_focus=make_sequence_focus(self.root/'m1/reference.png',plan,p)
         protocol=configured_protocol(self.config)
         schema=build_review_schema(catalog,small_focus,policy,protocol,coverage_text_policy=self.config.get('coverageTextPolicy'))
+        schema=textures.bind_review_schema(schema,textures.planning_input(self.root),plan)
         relations=None
         if relation_review.policy(self.root):
             relations=relation_review.catalog(plan,digest(self.root/'m1/reference.png'))
@@ -419,6 +430,7 @@ class Dag:
         if name=='m2':bound['sourcePlanSha256']=digest(plan_path)
         else:bound.update(candidateSha256=digest(plan_path),patchSha256=digest(plan_path.parent/'draft.json'))
         if policy is not None:bound['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
+        if textures.INPUT_NAME in self.config['inputs']:bound['visualTexturesSha256']=self.config['inputs'][textures.INPUT_NAME]
         save(p/'request.json',bound);receipt=self.call(p)
         answer=read(p/'draft.json');known={o['id'] for k in ('materials','objects') for o in plan[k]}
         if small_focus and ({row['materialId'] for row in audit_rows(answer,'smallMaterialAudit')} !=
@@ -429,7 +441,7 @@ class Dag:
                 {row['materialId'] for row in small_focus['boundaryOnlyItems']}):
             raise ValueError('SMALL_BOUNDARY_AUDIT_IDS_REQUIRED')
         if small_focus:validate_boundaries(answer,small_focus)
-        blockers,warnings=split(answer,plan,policy,self.config.get('coverageTextPolicy'))
+        blockers,warnings=self.review_split(answer,plan)
         if relations is not None:
             assessment=relation_review.assess(plan,relations['referenceSha256'],answer)
             save(p/'relation-assessment.json',assessment)
@@ -458,7 +470,7 @@ class Dag:
         policy=planning_policy(self.root)
         review_root=Path(read(self.root/'revision.json')['parent']) if review_dir.name=='parent-review' else self.root
         review_config=read(review_root/'.dag/config.json') if (review_root/'.dag/config.json').exists() else {}
-        plan=read(source);issues=dict(issues=split(read(review_dir/'draft.json'),plan,planning_policy(review_root),review_config.get('coverageTextPolicy'))[0])
+        plan=read(source);issues=dict(issues=split(read(review_dir/'draft.json'),plan,planning_policy(review_root),review_config.get('coverageTextPolicy'),textures.planning_input(review_root))[0])
         program_issues=self.reviewed_relations(plan,review_dir)
         ids={key for issue in issues['issues'] for key in issue['ids']}
         ids.update(key for issue in program_issues for key in issue.get('materialIds',[]))
@@ -523,6 +535,7 @@ class Dag:
              'originalImageResent':True,'originalReferenceSha256':digest(self.root/'m1/reference.png'),
              'reviewSha256':digest(review_dir/'draft.json'),'inputs':{n:digest(p/n) for n in names}}
         if policy is not None:request['visualPolicySha256']=self.config['inputs'][INPUT_NAME]
+        if textures.INPUT_NAME in self.config['inputs']:request['visualTexturesSha256']=self.config['inputs'][textures.INPUT_NAME]
         save(p/'request.json',request)
         self.call(p)
 
@@ -555,12 +568,12 @@ class Dag:
             self.node('m2',lambda:self.review('m2',m1_plan_path(self.root),self.root/'m1/preview/materials-overlay.png'))
             initial_plan=read(m1_plan_path(self.root))
             policy=planning_policy(self.root)
-            needs=bool(split(read(self.root/'m2/draft.json'),initial_plan,policy,self.config.get('coverageTextPolicy'))[0] or self.reviewed_relations(initial_plan,self.root/'m2') or initial_plan['unknowns'])
+            needs=bool(self.review_split(read(self.root/'m2/draft.json'),initial_plan)[0] or self.reviewed_relations(initial_plan,self.root/'m2') or initial_plan['unknowns'])
             if needs:
                 self.node('repair',self.repair)
                 self.node('repair_check',lambda:self.repair_check(allow_program_issues=True))
                 self.node('rereview',lambda:self.review('rereview',self.root/'repair/candidate.json',self.root/'repair/preview/materials-overlay.png'))
-                if (split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'),policy,self.config.get('coverageTextPolicy'))[0] or
+                if (self.review_split(read(self.root/'rereview/draft.json'),read(self.root/'repair/candidate.json'))[0] or
                         self.reviewed_relations(read(self.root/'repair/candidate.json'),self.root/'rereview')):
                     self.node('repair2',lambda:self.repair(self.root/'repair/candidate.json',self.root/'rereview','repair2'))
                     self.node('repair_check2',lambda:self.repair_check(self.root/'repair/candidate.json','repair2'))
@@ -606,10 +619,10 @@ class Dag:
                 review=read(self.root/name/'draft.json')
                 itemized=('planEvidenceCatalogDigest' in review or
                           any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[])))
-                result['reviewWarnings'][name]=split(review,read(self.root/path) if itemized else None,coverage_text_policy=self.config.get('coverageTextPolicy'))[1]
+                result['reviewWarnings'][name]=split(review,read(self.root/path) if itemized else None,coverage_text_policy=self.config.get('coverageTextPolicy'),visual_textures=textures.planning_input(self.root))[1]
         else:
             result['reviewWarnings']={name:split(read(self.root/name/'draft.json'),
-                                      read(self.root/sources[name]),policy,self.config.get('coverageTextPolicy'))[1]
+                                      read(self.root/sources[name]),policy,self.config.get('coverageTextPolicy'),textures.planning_input(self.root))[1]
                 for name in sources if (self.root/name/'draft.json').exists()}
         if model_failures:result['modelCallFailures']=model_failures
         if completed:result['snapshotDigest']=inspect(self.root/'frozen')['digest']
@@ -624,6 +637,7 @@ def main():
     p.add_argument('--context-prompt-version',choices=CONTEXT_PROMPT_VERSIONS,
                    help='New context-crops run: default v7; explicit versions are frozen in the run config')
     p.add_argument('--visual-policy',help='New-run explicit visual evidence policy JSON')
+    p.add_argument('--visual-textures',help='New-run source-bound visual texture preservation regions JSON')
     p.add_argument('--planning-model')
     p.add_argument('--planning-effort')
     p.add_argument('--planning-timeout',type=int)
@@ -632,6 +646,8 @@ def main():
         p.error('planning model settings are only accepted for a new run')
     if a.visual_policy is not None and a.action!='run':
         p.error('--visual-policy is only accepted for a new run')
+    if a.visual_textures is not None and a.action!='run':
+        p.error('--visual-textures is only accepted for a new run')
     if a.context_prompt_version is not None and a.action!='run':
         p.error('--context-prompt-version is only accepted for a new run')
     if a.action=='run':
@@ -641,7 +657,8 @@ def main():
              context_prompt_version=a.context_prompt_version,
              planning_model=a.planning_model if a.planning_model is not None else CLI_MODEL,
              planning_effort=a.planning_effort if a.planning_effort is not None else CLI_EFFORT,
-             planning_timeout=a.planning_timeout if a.planning_timeout is not None else 900)
+             planning_timeout=a.planning_timeout if a.planning_timeout is not None else 900,
+             visual_textures=a.visual_textures)
     dag=Dag(a.output)
     try:result=dag.status() if a.action=='status' else dag.execute()
     except Exception as exc:

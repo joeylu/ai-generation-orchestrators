@@ -12,6 +12,7 @@ from . import context_references
 from .evaluate import read
 from .execution_preflight import preflight
 from .visual_policy import snapshot_policy, generation_guidance
+from .visual_textures import snapshot_input
 
 
 KIND = 'ui_sheet_layout_reference_v1'
@@ -76,6 +77,8 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
         raise ValueError('SHEET_LAYOUT_PROMPT_VERSION')
     snapshot = Path(snapshot)
     manifest, visual, plan = _frozen(snapshot, row)
+    if snapshot_input(snapshot,manifest) is not None:
+        raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
     policy=snapshot_policy(snapshot,manifest)
     width, height = row['outputSize']
     columns, rows = row['grid']

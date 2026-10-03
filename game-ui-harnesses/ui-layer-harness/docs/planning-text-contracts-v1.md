@@ -45,3 +45,55 @@ are never rewritten. Downstream planning must use `verified_plan_path` and pin t
 returned derived file digest. The reader recomputes the derivation and validates
 both report and plan. Legacy jobs return the strictly validated raw draft path.
 Normalization is not a new compute authorization or a failed-job recovery mechanism.
+
+## Source-bound visual textures
+
+A fresh run may select `--visual-textures REGIONS.json`. This optional input treats
+explicitly identified, unreadable microprints as visible artwork: preserve their
+ink shapes, density, spacing, orientation and placement without inventing a
+transcription or adding a brand. Readable lettering outside these regions retains
+the existing exact text contract. This policy does not remove unknowns about
+ownership, contours, layer structure or other visual evidence.
+
+The input has exactly these fields:
+
+```json
+{
+  "kind": "ui_visual_texture_regions_v1",
+  "referenceSha256": "<64 lowercase hexadecimal characters>",
+  "canvas": [1024, 1024],
+  "regions": [{
+    "id": "small-print",
+    "sourceBox": [200, 300, 220, 310],
+    "appearance": "Two short rows of pale, glyph-like ink marks.",
+    "protectedArtwork": "Preserve the label substrate and surrounding contour."
+  }]
+}
+```
+
+Coordinates are integer half-open original-image LTRB bounds. There must be 1..32
+unique, nonoverlapping regions, each at most 1% of the canvas and together at most
+5%. Appearance and protected-artwork descriptions are nonempty and at most 1000
+characters each. The deterministic reader verifies the original PNG dimensions
+and SHA-256 before creating a run. It does not edit source pixels or derive OCR.
+
+The input bytes and `visualTexturePolicy: source-bound-visual-textures-v1` are
+pinned in both delivery and planning configurations and each model request. M2
+and every rereview supply `visualTextureAudit`, keyed by exactly the input region
+IDs. Each entry contains `status` (`confirmed` or `uncertain`), `materialId`,
+`objectId`, `sourceEvidence` and `preservationEvidence`. A confirmed entry must
+identify a real material and object with matching ownership and an object box
+containing the whole region. Uncertainty remains a blocker.
+
+Compile/freeze derive `visual-texture-bindings.json` from the final verified review,
+then bind it and the input into the snapshot. Generation and material-review
+prompts carry the visible preservation requirements only for their actual owners,
+including local-reference coordinates for crops and sheet cells. Snapshot replay
+checks both fingerprints and the final review lineage. Business-text removal,
+alpha, containment, relationship and package gates remain in force.
+
+This first version supports fresh default-chain runs only. Revision/refreeze and
+experimental prompt/group variants reject texture-policy jobs before creating a
+derived job. Historical jobs and raw receipts are unchanged; selecting this input
+does not authorize any external model or image request. Offline fixture tests
+establish contract integrity, not visual fidelity of generated textures.

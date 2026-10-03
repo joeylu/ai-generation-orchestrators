@@ -11,9 +11,11 @@ from .session_review import session_id
 from .freeze_visual import freeze
 from .planning_review_policy import split
 from .visual_policy import planning_policy, INPUT_NAME
+from .visual_textures import planning_input
 
 
 def verify_parent(source):
+    if planning_input(source) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
     config=read(source/'.dag/config.json')
     policy=planning_policy(source)
     if digest(source/'.dag/config.json')!=read(source/'.dag/config-digest.json')['sha256']:
@@ -31,7 +33,7 @@ def verify_parent(source):
     if (source/'frozen').exists():raise ValueError('UNFROZEN_PARENT_REQUIRED')
     verify_run(source,_allow_issues=True)
     if not split(read(source/'rereview/draft.json'),read(selected_paths(source)[0]),policy,
-                 config.get('coverageTextPolicy'))[0]:
+                 config.get('coverageTextPolicy'),planning_input(source))[0]:
         raise ValueError('PARENT_ISSUES_REQUIRED')
 
 
@@ -70,12 +72,14 @@ def init(source, output, reason):
 
 
 def check_inputs(root):
+    if planning_input(root) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
     if digest(root/'revision.json')!=read(root/'revision-digest.json')['sha256']:
         raise ValueError('REVISION_CHANGED')
     record=read(root/'revision.json')
     for name,sha in record['inputs'].items():
         if digest(root/name)!=sha:raise ValueError('REVISION_INPUT_CHANGED')
     source=Path(record['parent'])
+    if planning_input(source) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
     for name,sha in record['parentFiles'].items():
         if digest(source/name)!=sha:raise ValueError('PARENT_EVIDENCE_CHANGED')
     if (read(root/'.dag/config.json')['inputs'].get(INPUT_NAME) !=
@@ -130,7 +134,7 @@ def verify_revision(root, allow_issues=False):
     verify_plan_evidence(review,read(review/'draft.json'),bound,candidate)
     verify_boundary_evidence(review,read(review/'draft.json'),bound,candidate,
                              root/'m1/reference.png')
-    blockers,warnings=split(read(review/'draft.json'),candidate,policy,config.get('coverageTextPolicy'))
+    blockers,warnings=split(read(review/'draft.json'),candidate,policy,config.get('coverageTextPolicy'),planning_input(root))
     if relation_review.policy(root):
         evidence=relation_review.verify_stage(root,review,candidate)
         blockers+=planning.Dag.relation_blockers(evidence['blockers'])
@@ -142,11 +146,13 @@ def verify_revision(root, allow_issues=False):
 
 
 def check_scope(root):
+    if planning_input(root) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
     plan=read(root/'source-plan.json');patch=read(root/'repair/draft.json')
     parent=Path(read(root/'revision.json')['parent'])
+    if planning_input(parent) is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
     parent_config=read(parent/'.dag/config.json')
     ids={key for issue in split(read(root/'parent-review/draft.json'),plan,planning_policy(parent),
-                               parent_config.get('coverageTextPolicy'))[0]
+                               parent_config.get('coverageTextPolicy'),planning_input(parent))[0]
          for key in issue['ids']}
     owners=ids|{o['materialId'] for o in plan['objects'] if o['id'] in ids}
     allowed={'materials':{m['id'] for m in plan['materials'] if m['id'] in owners},

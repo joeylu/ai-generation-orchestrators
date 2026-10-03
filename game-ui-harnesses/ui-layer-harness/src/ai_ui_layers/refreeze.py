@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from .evaluate import read, digest
+from .visual_textures import planning_input
 from .freeze_visual import freeze
 from .planning_dag import locked
 
@@ -9,6 +10,7 @@ from .planning_dag import locked
 def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_reference=None,
                     context_prompt_version=None):
     source=Path(source).resolve();output=Path(output).resolve()
+    if planning_input(source) is not None:raise ValueError('VISUAL_TEXTURE_REFREEZE_UNSUPPORTED')
     if not 1 <= max_calls <= 128:raise ValueError('CALL_LIMIT')
     if output.exists() or output.is_relative_to(source) or source.is_relative_to(output):
         raise ValueError('FRESH_SEPARATE_OUTPUT_REQUIRED')

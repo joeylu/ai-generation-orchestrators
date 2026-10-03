@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from PIL import Image
 from . import planning_dag as planning
+from . import visual_textures as textures
 from . import experimental_executor as exchange
 from .automatic_registration import run as register
 from .evaluate import read, save, digest
@@ -35,7 +36,7 @@ def runtime_files():
 
 def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_mode=planning.DEFAULT_GENERATION_MODE, planning_notes=None, generation_reference=planning.DEFAULT_GENERATION_REFERENCE, visual_policy=None,
          context_prompt_version=None, registration_policy=body.POLICY, max_body_calls=body.DEFAULT_MAX_CALLS,
-         planning_model=planning.CLI_MODEL, planning_effort=planning.CLI_EFFORT, planning_timeout=900):
+         planning_model=planning.CLI_MODEL, planning_effort=planning.CLI_EFFORT, planning_timeout=900, visual_textures=None):
     planning.validate_model_settings(planning_model, planning_effort, planning_timeout)
     from .context_references import validate_mode
     validate_mode(generation_reference)
@@ -51,6 +52,7 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
         raise ValueError('BODY_CALL_LIMIT')
     notes=planning.read_notes(planning_notes)
     policy_bytes=load_input(visual_policy)
+    texture_bytes=textures.load_input(visual_textures,image)
     if policy_bytes is not None:
         from .visual_policy import validate
         policy=validate(json.loads(policy_bytes.decode('utf-8-sig')))
@@ -78,11 +80,15 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
     if policy_bytes is not None:
         (root/'.dag/inputs/visual-policy.json').write_bytes(policy_bytes)
         inputs['visual-policy.json']=Path(visual_policy)
+    if texture_bytes is not None:
+        (root/'.dag/inputs'/textures.INPUT_NAME).write_bytes(texture_bytes)
+        inputs[textures.INPUT_NAME]=Path(visual_textures)
     save(root/'.dag/config.json', dict(kind='ui_delivery_dag_v1', target=target,
          graph=BODY_GRAPH if registration_policy == body.POLICY else GRAPH,
          maxCalls=max_calls, generationMode=generation_mode, generationReference=generation_reference, runtime=runtime_files(),
          registrationPolicy=registration_policy, maximumBodyCalls=max_body_calls,
          planningModel=planning_model, planningEffort=planning_effort, planningTimeoutSeconds=planning_timeout,
+         **({'visualTexturePolicy':textures.POLICY} if texture_bytes is not None else {}),
          **({'contextPromptVersion':context_prompt_version} if context_prompt_version is not None else {}),
          inputs={name:digest(root/'.dag/inputs'/name) for name in inputs}))
     save(root/'.dag/config-digest.json', dict(sha256=digest(root/'.dag/config.json')))
@@ -115,6 +121,7 @@ class DeliveryDag(planning.Dag):
         for name, expected in self.config['inputs'].items():
             if digest(self.inputs/name) != expected: raise ValueError('INPUT_CHANGED')
         input_policy(self.inputs,self.config)
+        textures.read_input(self.inputs,self.config)
         for done in (self.root/'.dag').glob('*/done.json'):
             for name, expected in read(done)['outputs'].items():
                 if digest(self.root/name) != expected: raise ValueError('COMPLETED_OUTPUT_CHANGED:'+name)
@@ -123,6 +130,9 @@ class DeliveryDag(planning.Dag):
             if read(self.root/'planning/.dag/config.json')['inputs'].get('visual-policy.json')!=self.config['inputs'].get('visual-policy.json'):
                 raise ValueError('VISUAL_POLICY_NESTED_RUN_MISMATCH')
             nested = read(self.root/'planning/.dag/config.json')
+            if (nested.get('visualTexturePolicy')!=self.config.get('visualTexturePolicy') or
+                    nested['inputs'].get(textures.INPUT_NAME)!=self.config['inputs'].get(textures.INPUT_NAME)):
+                raise ValueError('VISUAL_TEXTURE_NESTED_RUN_MISMATCH')
             if (nested.get('model',planning.CLI_MODEL),nested.get('effort',planning.CLI_EFFORT),nested.get('timeoutSeconds',900)) != (
                     self.config.get('planningModel',planning.CLI_MODEL),self.config.get('planningEffort',planning.CLI_EFFORT),
                     self.config.get('planningTimeoutSeconds',900)):
@@ -177,7 +187,8 @@ class DeliveryDag(planning.Dag):
                     self.config.get('contextPromptVersion','v3') if self.config.get('generationReference')=='context-crops' else None,
                     planning_model=self.config.get('planningModel',planning.CLI_MODEL),
                     planning_effort=self.config.get('planningEffort',planning.CLI_EFFORT),
-                    planning_timeout=self.config.get('planningTimeoutSeconds',900))
+                    planning_timeout=self.config.get('planningTimeoutSeconds',900),
+                    visual_textures=self.inputs/textures.INPUT_NAME if textures.INPUT_NAME in self.config['inputs'] else None)
                 planning.Dag(planroot, self.model).execute()
                 self.node('planning', lambda: save(self.root/'planning-result.json',
                           planning.Dag(planroot, self.model).status()))
@@ -302,11 +313,14 @@ def main():
                    help='For new runs: maximum one body observation per foreground, default cap 12')
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
     p.add_argument('--visual-policy',help='Explicit visual evidence and tolerance JSON, frozen only for a new run')
+    p.add_argument('--visual-textures',help='Source-bound visual texture preservation regions JSON, new run only')
     p.add_argument('--snapshot');p.add_argument('--snapshot-digest')
     p.add_argument('--job-digest'); p.add_argument('--approval'); p.add_argument('--submission-digest')
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.visual_textures is not None and a.action!='run':
+            p.error('--visual-textures is only valid for a new run')
         if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)) and a.action!='run':
             p.error('--planning-model, --planning-effort and --planning-timeout are only valid for a new run')
         if a.config and a.action!='register-materials':p.error('--config is only valid for register-materials')
@@ -437,7 +451,8 @@ def main():
                  a.max_body_calls if a.max_body_calls is not None else body.DEFAULT_MAX_CALLS,
                  planning_model=a.planning_model if a.planning_model is not None else planning.CLI_MODEL,
                  planning_effort=a.planning_effort if a.planning_effort is not None else planning.CLI_EFFORT,
-                 planning_timeout=a.planning_timeout if a.planning_timeout is not None else 900)
+                 planning_timeout=a.planning_timeout if a.planning_timeout is not None else 900,
+                 **({'visual_textures':a.visual_textures} if a.visual_textures is not None else {}))
         if a.planning_notes and a.action!='run':p.error('--planning-notes is only valid for a new run')
         if a.generation_reference is not None and a.action!='run':p.error('--generation-reference is only valid for a new run or freeze-reviewed')
         dag = DeliveryDag(a.output); dag.verify(); job = dag.root/'generation'

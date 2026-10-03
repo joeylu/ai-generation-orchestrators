@@ -13,6 +13,7 @@ from .postprocess_visual import process
 from .sheet_review_policy import PROMPT, classify, schema_for
 from .review_image import fit_resampling
 from .visual_policy import snapshot_policy, output_review_guidance
+from . import visual_textures
 
 
 def comparison(reference, generated, output, processed=None):
@@ -147,7 +148,13 @@ def review(job, output, model_call=None, request_id=None):
     save(folder/'schema.json',schema_for(visual_policy))
     visual_path=job/'snapshot/evidence/revised-visual-plan.json'
     visual=read(visual_path if visual_path.is_file() else job/'snapshot/evidence/m1-draft.json')
+    texture_doc=visual_textures.snapshot_input(snapshot,manifest)
+    texture_bindings=visual_textures.snapshot_bindings(snapshot,manifest,visual)
+    texture_metadata={key:manifest[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256') if key in manifest}
     prompt=(background_review_prompt if background else review_prompt)(asset,visual,visual_policy)
+    if texture_doc is not None:
+        prompt+=visual_textures.generation_guidance(texture_doc,texture_bindings,[asset],visual,context=row.get('references'))
+        prompt+='\nReview protected texture shapes against source appearance, including ink, count, layout and proportions. Their removal, invented lettering, uncertain preservation or damaged protected artwork blocks acceptance. Ordinary text removal does not apply to these approved shapes. Actual review metadata: '+json.dumps(dict(materialId=asset,rawSha256=receipt['rawSha256'],sourceRegion=row['sourceRegion'],comparison=detail),ensure_ascii=False)
     (folder/'prompt.md').write_text(prompt,encoding='utf-8')
     names=('reference.png','generated.png','detail-compare.png','detail-compare.json',
            'schema.json','prompt.md')
@@ -156,7 +163,7 @@ def review(job, output, model_call=None, request_id=None):
          jobDigest=config['digest'],submissionDigest=receipt['submissionDigest'],
          rawSha256=receipt['rawSha256'],referenceSha256=digest(reference),inputs=bound,
          modelCallsMaximum=1,automaticRetry=False,
-         **({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
+         **texture_metadata,**({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
     try:
         transport=(model_call or call_model)(folder)
     except ValueError:
@@ -170,11 +177,14 @@ def review(job, output, model_call=None, request_id=None):
             digest(raw)!=receipt['rawSha256'] or digest(reference)!=detail['referenceSha256'] or
             digest(processed)!=gate['materialSha256']):
         raise ValueError('MATERIAL_REVIEW_INPUT_CHANGED')
+    if texture_doc is not None:
+        from .freeze_visual import inspect
+        inspect(snapshot,manifest['digest'])
     answer=read(folder/'draft.json');Draft202012Validator(schema_for(visual_policy)).validate(answer)
     assessment=classify(answer,[asset],visual_policy)
     save(folder/'assessment.json',dict(assessment,policy='sheet-observation-severity-v1',
                                       reviewSha256=digest(folder/'draft.json'),humanVisualAcceptance=False,
-                                      **({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
+                                      **texture_metadata,**({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
     result=dict(status='blocked_no_retry' if assessment['blockers'] else 'reviewed_pending_visual_acceptance',
                 materialId=asset,rawSha256=receipt['rawSha256'],processedSha256=gate['materialSha256'],
                 reviewSha256=digest(folder/'draft.json'),modelCalls=1,

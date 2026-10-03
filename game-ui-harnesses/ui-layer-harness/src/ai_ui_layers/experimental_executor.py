@@ -12,6 +12,7 @@ from .evaluate import read, save, digest
 from .freeze_visual import inspect, body_digest
 from .execution_preflight import preflight
 from .visual_policy import snapshot_policy
+from . import visual_textures as textures
 
 
 def record(path, body):
@@ -37,6 +38,9 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     snapshot=Path(snapshot);output=Path(output)
     checked=preflight(snapshot,expected_digest);manifest=inspect(snapshot,expected_digest)
     policy=snapshot_policy(snapshot,manifest)
+    texture_doc=textures.snapshot_input(snapshot,manifest)
+    if texture_doc is not None and (prompt_override is not None or reference_mode not in (None,'full-only','full-and-crop','context-crops')):
+        raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
     if policy is not None and (prompt_override is not None or reference_mode in ('crop-only','sheet-crops-only')):
         raise ValueError('FROZEN_VISUAL_POLICY_REFERENCE_REQUIRED')
     all_rows=read(snapshot/'requests.json')['requests']
@@ -97,6 +101,7 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         'automaticRetries':0,'inputChecks':checked['inputChecks'],'createdAt':time.time(),
         'scope':'Raw image acquisition only; old brief evidence is not claimed. Postprocessing and visual acceptance are separate.',
         **({'visualPolicySha256':manifest['visualPolicySha256']} if policy is not None else {}),
+        **({key:manifest[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')} if texture_doc is not None else {}),
         **({'generationReference':'sheet-layout-board' if layout else 'context-crops'} if context else {}),
         **({'generationMode':'sheets','materialCount':sum(len(r.get('materialIds',[r['asset']])) for r in all_rows if r['asset'] in selected)} if grouped else {}),**variant})
 
@@ -106,6 +111,13 @@ def load_job(job):
     if config.get('kind')!='ui_experimental_image_job_v1':raise ValueError('JOB_KIND')
     manifest=inspect(job/'snapshot',config['snapshotDigest'])
     policy=snapshot_policy(job/'snapshot',manifest)
+    texture_doc=textures.snapshot_input(job/'snapshot',manifest)
+    if any(config.get(key)!=manifest.get(key) for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')):
+        raise ValueError('VISUAL_TEXTURE_JOB_MISMATCH')
+    if texture_doc is not None:
+        if 'promptVariant' in config or config.get('referenceMode') not in ('full-only','full-and-crop','context-crops'):
+            raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
+        preflight(job/'snapshot',config['snapshotDigest'])
     if config.get('visualPolicySha256')!=manifest.get('visualPolicySha256'):
         raise ValueError('VISUAL_POLICY_JOB_MISMATCH')
     if policy is not None:

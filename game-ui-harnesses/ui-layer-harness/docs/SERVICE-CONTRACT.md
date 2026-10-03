@@ -53,6 +53,13 @@ elapsedSeconds、timeoutSeconds、exitCode、turnCompleted 和 transportNotices�
 
 ## 输入与任务寿命
 
+新 `run` 可选 `--visual-textures REGIONS.json`，按[视觉纹理合同](planning-text-contracts-v1.md#source-bound-visual-textures)
+冻结原图中明确指认的少量微小印记。仅保留可见墨迹形状与布局，不要求猜出无法读清的字串；
+已读清及其他业务字继续原文字规则。输入须绑定 PNG 的 SHA-256、画布与非重叠整数裁框；
+M2/复审核对素材及对象归属，冻结、局部参考、合板与实际素材复审传递同一保留要求。
+非新 run 拒绝该参数，修订、refreeze 和实验提示词/分组变体暂拒绝该策略。
+输入方向确认不代替实际模型、生图或主体观察的摘要授权，也不改变已有未知项、视觉质量门或旧回执。
+
 简单滑块等素材可由用户确认后在新规划中声明 `adaptationPolicy: simple-strip`；
 经 M2 复核的宽卡片/面板框可声明 `horizontal-frame-slice`，仅缩放中段并保护两端装饰。
 默认或缺省为 `preserve`。DAG 在 raw_complete 阶段按冻结目标尺寸适配，保留原图、

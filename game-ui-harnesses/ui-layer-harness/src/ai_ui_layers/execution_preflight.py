@@ -8,6 +8,7 @@ from PIL import Image
 from .freeze_visual import inspect
 from .compile_visual import validate, render_prompt
 from .evaluate import read
+from . import visual_textures
 from .visual_policy import snapshot_policy, generation_guidance
 
 
@@ -15,6 +16,10 @@ def preflight(folder, expected_digest):
     started=time.perf_counter();folder=Path(folder)
     snapshot=inspect(folder,expected_digest)
     policy=snapshot_policy(folder,snapshot)
+    texture_doc=visual_textures.snapshot_input(folder,snapshot)
+    visual_path=folder/'evidence/revised-visual-plan.json'
+    if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
+    texture_bindings=visual_textures.snapshot_bindings(folder,snapshot,read(visual_path) if texture_doc is not None else None)
     from .relation_review import frozen_evidence
     relations=None
     if snapshot.get('relationReviewPolicy'):
@@ -65,7 +70,7 @@ def preflight(folder, expected_digest):
         if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
         visual=read(visual_path)
         rebuilt,_=compile_plan(visual,reference.size,digest(folder/'reference.png'),plan['id'],
-                               'context-crops',context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations)
+                               'context-crops',context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations,texture_doc=texture_doc,texture_bindings=texture_bindings)
         if rebuilt!=plan:raise ValueError('CONTEXT_PLAN_COMPILER_MISMATCH')
         context_document=verify_context(folder,plan,snapshot,reference)
     elif ('generation-references.json' in snapshot['files'] or
@@ -79,12 +84,12 @@ def preflight(folder, expected_digest):
                                       'visual-material-context-prompt-v7:\n')) for a in assets) or
           any('generationReference' in row or 'references' in row for row in rows)):
         raise ValueError('CONTEXT_REFERENCE_MODE_MISMATCH')
-    if policy is not None and not context:
+    if (policy is not None or texture_doc is not None) and not context:
         from .compile_visual import compile_plan
         from .evaluate import digest
         visual_path=folder/'evidence/revised-visual-plan.json'
         if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
-        rebuilt,_=compile_plan(read(visual_path),reference.size,digest(folder/'reference.png'),plan['id'],visual_policy=policy,relation_evidence=relations)
+        rebuilt,_=compile_plan(read(visual_path),reference.size,digest(folder/'reference.png'),plan['id'],visual_policy=policy,relation_evidence=relations,texture_doc=texture_doc,texture_bindings=texture_bindings)
         if rebuilt!=plan:raise ValueError('VISUAL_POLICY_PLAN_COMPILER_MISMATCH')
     if grouped:
         from .generation_groups import build_groups, sheet_prompt, CONTEXT_GROUP_POLICY
@@ -115,6 +120,9 @@ def preflight(folder, expected_digest):
                 if context:allowed=(context_prompt(visual,plan,group['materialIds'],group,
                                                    version=context_prompt_version)+'\n',)
                 if policy is not None:allowed=tuple(p[:-1]+generation_guidance(policy)+'\n' for p in allowed)
+                if texture_doc is not None:
+                    suffix=visual_textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,context=request_references(context_document,group['materialIds']) if context else None,group=group)
+                    allowed=tuple(p[:-1]+suffix+'\n' for p in allowed)
                 if compiled not in allowed:
                     raise ValueError('PROMPT_COMPILER_MISMATCH')
             elif row.get('kind') or 'materialIds' in row:

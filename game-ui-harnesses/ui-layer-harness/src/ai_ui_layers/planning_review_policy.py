@@ -19,7 +19,9 @@ def audit_rows(review, field):
     return rows
 
 
-def split(review, plan=None, visual_policy=None, coverage_text_policy=None):
+def split(review, plan=None, visual_policy=None, coverage_text_policy=None, visual_textures=None):
+    from .visual_textures import assess
+    texture_blockers, _ = assess(visual_textures, plan, review)
     review=resolve_review(review,plan,coverage_text_policy)
     if visual_policy is not None:
         from .visual_policy import validate
@@ -27,7 +29,7 @@ def split(review, plan=None, visual_policy=None, coverage_text_policy=None):
     reference_bound=(visual_policy is not None and
                      visual_policy['appearanceEvidence']=='bound-reference')
     blockers, warnings = [], []
-    issues=list(review['issues'])
+    issues=list(review['issues'])+texture_blockers
     issues.extend(coverage_findings(review,plan,visual_policy,coverage_text_policy))
     if 'smallMaterialAudit' in review:
         rows=audit_rows(review,'smallMaterialAudit')

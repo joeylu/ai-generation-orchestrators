@@ -10,7 +10,7 @@ from PIL import Image
 
 from .evaluate import read, save, digest, pixel_box, check_relations, draw_order
 from .short_prompt import carries_foreground
-from . import relation_review
+from . import relation_review, visual_textures
 from .planning_normalization import m1_plan_path
 from .visual_policy import validate as validate_visual_policy, planning_policy, generation_guidance
 
@@ -32,8 +32,12 @@ def render_prompt(asset):
 
 
 def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generation_reference='full',
-                 context_prompt_version='v3', visual_policy=None, relation_evidence=None):
+                 context_prompt_version='v3', visual_policy=None, relation_evidence=None, texture_doc=None, texture_bindings=None):
     validate_mode(generation_reference)
+    if texture_doc is not None:
+        visual_textures.validate(texture_doc)
+        if texture_doc['referenceSha256']!=source_sha or texture_doc['canvas']!=list(size):
+            raise ValueError('VISUAL_TEXTURE_COMPILER_SOURCE_MISMATCH')
     if visual_policy is not None:
         validate_visual_policy(visual_policy)
         if visual_policy['appearanceEvidence']=='bound-reference' and generation_reference!='context-crops':
@@ -111,6 +115,12 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
             asset['prompt']=prefix+context_prompt(visual,plan,[asset['id']],version=context_prompt_version)
     if visual_policy is not None:
         for asset in assets:asset['prompt']+=generation_guidance(visual_policy)
+    visual_textures.validate_bindings(texture_doc,visual,texture_bindings)
+    if texture_doc is not None:
+        from .context_references import geometry
+        for asset in assets:
+            context=[dict(geometry(asset,size),referenceIndex=1)] if generation_reference=='context-crops' else None
+            asset['prompt']+=visual_textures.generation_guidance(texture_doc,texture_bindings,[asset['id']],visual,context=context)
     return plan, placements
 
 
@@ -179,6 +189,7 @@ def verify_plan_evidence(folder, review, bound, visual):
             raise ValueError('PLAN_EVIDENCE_UNEXPECTED_FOCUS')
         focus=None
     expected_schema=build_review_schema(catalog,focus,planning_policy(folder.parent),protocol,config.get('coverageTextPolicy'))
+    expected_schema=visual_textures.bind_review_schema(expected_schema,visual_textures.planning_input(folder.parent),visual)
     if relation_review.policy(folder.parent):
         expected_schema=relation_review.bind_schema(expected_schema,relation_review.catalog(visual,digest(folder.parent/'m1/reference.png')))
     if schema!=expected_schema:
@@ -217,8 +228,10 @@ def verify_boundary_evidence(folder, review, bound, visual, reference):
 def verify_run(run, *, _allow_issues=False):
     run=Path(run)
     policy=planning_policy(run)
+    texture_doc=visual_textures.planning_input(run)
     config=read(run/'.dag/config.json') if (run/'.dag/config.json').exists() else {}
     if (run/'revision.json').exists():
+        if texture_doc is not None:raise ValueError('VISUAL_TEXTURE_REVISION_UNSUPPORTED')
         kind=read(run/'revision.json').get('kind')
         if kind=='ui_explicit_plan_revision_v1':
             from .revise_plan import verify_revision
@@ -298,7 +311,7 @@ def verify_run(run, *, _allow_issues=False):
         source=run/repair_name/'candidate.json'
     from .planning_review_policy import split
     visual = read(selected_paths(run)[0])
-    if split(review,visual,visual_policy=policy,coverage_text_policy=config.get('coverageTextPolicy'))[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
+    if split(review,visual,visual_policy=policy,coverage_text_policy=config.get('coverageTextPolicy'),visual_textures=texture_doc)[0] and not _allow_issues:raise ValueError('M2_UNRESOLVED')
     Draft202012Validator(read(run/'.dag/inputs/storage-schema.json') if config.get('normalizationPolicy') else read(run/'m1/schema.json')).validate(visual)
     if relation_review.policy(run) and not _allow_issues:
         evidence=relation_review.verify_stage(run,selected_paths(run)[1].parent,visual)
@@ -316,6 +329,11 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     visual = verify_run(run)
     policy=planning_policy(run)
     plan_path,review_path=selected_paths(run)
+    texture_doc=visual_textures.planning_input(run)
+    texture_bindings=None
+    if texture_doc is not None:
+        blockers,texture_bindings=visual_textures.assess(texture_doc,visual,read(review_path))
+        if blockers:raise ValueError('VISUAL_TEXTURE_REVIEW_UNRESOLVED')
     if generation_mode not in ('single','sheets'):raise ValueError('GENERATION_MODE')
     source = run/'m1/reference.png'; before=digest(source)
     with Image.open(source) as image:
@@ -325,7 +343,7 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     relations=(relation_review.verify_stage(run,review_path.parent,visual) if relation_review.policy(run) else None)
     plan, placements = compile_plan(visual, picture.size, before,
                                     generation_reference=generation_reference,
-                                    context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations)
+                                    context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations,texture_doc=texture_doc,texture_bindings=texture_bindings)
     from .generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY
     groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY) if generation_mode=='sheets' else None
     calls=groups['plannedCalls'] if groups else len(plan['assets'])
@@ -333,6 +351,9 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     output.mkdir(parents=True, exist_ok=False)
     if policy is not None:
         (output/'visual-policy.json').write_bytes((run/'.dag/inputs/visual-policy.json').read_bytes())
+    if texture_doc is not None:
+        (output/'visual-textures.json').write_bytes((run/'.dag/inputs/visual-textures.json').read_bytes())
+        save(output/'visual-texture-bindings.json',texture_bindings)
     if relations is not None:save(output/'relation-assessment.json',relations)
     if groups:save(output/'generation-groups.json',groups)
     (output/'reference.png').write_bytes(source.read_bytes())
@@ -378,6 +399,8 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
         report.update(relationReviewPolicy=relation_review.POLICY,relationReviewStage=review_path.parent.name,relationAssessmentSha256=digest(output/'relation-assessment.json'))
     if policy is not None:
         report['visualPolicySha256']=digest(output/'visual-policy.json')
+    if texture_doc is not None:
+        report.update(visualTexturePolicy=visual_textures.POLICY,visualTexturesSha256=digest(output/'visual-textures.json'),visualTextureBindingsSha256=digest(output/'visual-texture-bindings.json'))
     save(output/'compile-report.json', report)
     return report
 

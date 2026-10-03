@@ -7,6 +7,7 @@ import time
 
 from .compile_visual import compile_run, verify_run, selected_paths
 from .evaluate import read, save, digest
+from . import visual_textures
 from .visual_policy import planning_policy, snapshot_policy, generation_guidance
 
 
@@ -27,6 +28,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
             raise ValueError('FROZEN_CROP_GENERATION_POLICY_CHANGED')
     visual=verify_run(run)
     policy=planning_policy(run)
+    texture_doc=visual_textures.planning_input(run)
     plan_path,review_path=selected_paths(run)
     if visual['unknowns']:
         raise ValueError('UNRESOLVED_UNKNOWNS')
@@ -36,6 +38,8 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     if verify_run(run)!=visual or digest(plan_path)!=report['sourcePlanSha256']:
         raise ValueError('INPUT_CHANGED_DURING_FREEZE')
     evidence=output/'evidence';evidence.mkdir()
+    if texture_doc is not None:
+        (evidence/'visual-texture-final-review.json').write_bytes(review_path.read_bytes())
     stages=[] if (run/'revision.json').exists() else [('m1',['draft.json','schema.json','prompt.md']),
                         ('m2',['draft.json','schema.json','prompt.md','request.json','review-source.md','review-overlay.png'])]
     if not revision and report.get('relationReviewPolicy'):
@@ -75,8 +79,10 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     itemized=('planEvidenceCatalogDigest' in review or
               any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[])))
     save(output/'planning-warnings.json',dict(warnings=split(review,
-        visual if policy is not None or itemized else None,visual_policy=policy,coverage_text_policy=read(run/'.dag/config.json').get('coverageTextPolicy') if (run/'.dag/config.json').exists() else None)[1],reviewSha256=digest(review_path)))
+        visual if policy is not None or itemized or texture_doc is not None else None,visual_policy=policy,coverage_text_policy=read(run/'.dag/config.json').get('coverageTextPolicy') if (run/'.dag/config.json').exists() else None,visual_textures=texture_doc)[1],reviewSha256=digest(review_path)))
     plan=read(output/'execution-plan.candidate.json')
+    texture_bindings=read(output/'visual-texture-bindings.json') if texture_doc is not None else None
+    context_document=read(output/'generation-references.json') if generation_reference=='context-crops' else None
     requests=[]
     for asset,item in zip(plan['assets'],report['artifacts']):
         requests.append({'asset':asset['id'],'reference':'reference.png','crop':item['crop'],
@@ -85,7 +91,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     request_kind='ui_visual_requests_preview_v1'
     if generation_mode=='sheets':
         from .generation_groups import sheet_prompt
-        from .context_references import prompt as context_prompt
+        from .context_references import prompt as context_prompt, request_references
         singles={r['asset']:r for r in requests};requests=[]
         for group in read(output/'generation-groups.json')['groups']:
             if group['mode']=='single':
@@ -93,7 +99,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
             folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
             prompt=folder/'prompt.txt';prompt.write_text((context_prompt(visual,plan,group['materialIds'],group,
                     version=context_prompt_version) if generation_reference=='context-crops' else
-                    sheet_prompt(visual,plan,group))+generation_guidance(policy)+'\n',encoding='utf-8')
+                    sheet_prompt(visual,plan,group))+generation_guidance(policy)+visual_textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,context=request_references(context_document,group['materialIds']) if context_document is not None else None,group=group)+'\n',encoding='utf-8')
             requests.append(dict(asset=group['id'],kind='sheet',materialIds=group['materialIds'],grid=group['grid'],
                 reference='reference.png',prompt=prompt.relative_to(output).as_posix(),outputSize=group['outputSize'],
                 plannedCalls=1,automaticRetries=0))
@@ -104,7 +110,8 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
         for row in requests:
             row.update(generationReference=generation_reference,
                        references=request_references(references,row.get('materialIds',[row['asset']])))
-    save(output/'requests.json',{'kind':request_kind,'dispatchEnabled':False,'requests':requests,
+    texture_metadata={key:report[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256') if key in report}
+    save(output/'requests.json',{'kind':request_kind,'dispatchEnabled':False,'requests':requests,**texture_metadata,
          **({'visualPolicySha256':report['visualPolicySha256']} if policy is not None else {}),
          **({'generationReference':generation_reference} if generation_reference=='context-crops' else {})})
     files={p.relative_to(output).as_posix():digest(p) for p in sorted(output.rglob('*')) if p.is_file()}
@@ -125,6 +132,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     if report.get('relationReviewPolicy'):
         snapshot.update(relationReviewPolicy=report['relationReviewPolicy'],relationReviewStage=report['relationReviewStage'],
                         relationAssessmentSha256=report['relationAssessmentSha256'])
+    snapshot.update(texture_metadata)
     snapshot['digest']=body_digest(snapshot)
     save(output/'snapshot.json',snapshot)
     inspect(output,snapshot['digest'])
@@ -146,6 +154,20 @@ def inspect(folder, expected_digest=None):
         if not target.is_file() or digest(target)!=sha:
             raise ValueError('ARTIFACT_CHANGED:'+name)
     snapshot_policy(folder,snapshot)
+    texture_doc=visual_textures.snapshot_input(folder,snapshot)
+    visual_path=folder/'evidence/revised-visual-plan.json'
+    if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
+    bindings=visual_textures.snapshot_bindings(folder,snapshot,read(visual_path) if texture_doc is not None else None)
+    if texture_doc is not None:
+        review_name='evidence/visual-texture-final-review.json'
+        if review_name not in snapshot['files'] or snapshot['files'][review_name]!=snapshot['reviewSha256']:
+            raise ValueError('VISUAL_TEXTURE_FINAL_REVIEW_UNBOUND')
+        blockers,expected=visual_textures.assess(texture_doc,read(visual_path),read(folder/review_name))
+        if blockers or bindings!=expected:raise ValueError('VISUAL_TEXTURE_FINAL_REVIEW_MISMATCH')
+    for name in ('requests.json','compile-report.json'):
+        metadata=read(folder/name)
+        if any(metadata.get(key)!=snapshot.get(key) for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')):
+            raise ValueError('VISUAL_TEXTURE_METADATA_MISMATCH')
     if snapshot.get('relationReviewPolicy'):
         from .relation_review import frozen_evidence
         visual_path=folder/'evidence/revised-visual-plan.json'
