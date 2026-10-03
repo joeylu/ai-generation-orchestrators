@@ -277,6 +277,27 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
                                   self.root/'candidate-output',self.root/'viewer')
         self.assertEqual(raised.exception.failed_request_ids,[key])
 
+    def test_candidate_ambiguous_safe_sheet_split_survives_complete_zip_delivery(self):
+        snapshot=self.job/'snapshot';manifest=read(snapshot/'snapshot.json');key=self.sheets[0]
+        job=self.root/'new-ambiguous-sheet';config=exchange.prepare(snapshot,manifest['digest'],job,[key])
+        exchange.authorize(job,config['digest'],'fixture new candidate source')
+        submission=exchange.next_request(job);raw=self.root/'ambiguous-native.png'
+        with Image.open(self.job/'attempts'/key/'raw.png') as original:image=original.convert('RGBA')
+        image.putpixel((image.width//2-5,image.height//2),(11,21,31,1));image.save(raw)
+        source_before=raw.read_bytes();exchange.receive(job,submission['submissionDigest'],raw)
+        frozen=host.prepare_candidate(snapshot,manifest['digest'],self.root/'candidate')
+        jobs={k:job if k==key else self.job for k in read(self.job/'job.json')['assets']}
+        result=host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,
+                                      self.root/'candidate-output',self.root/'viewer')
+        split=next(row for row in result['sheetSplits'] if row['requestId']==key)
+        self.assertEqual(split['candidateSheetSplitPolicy'],host.CANDIDATE_SPLIT)
+        self.assertEqual(split['strictExtractionIssue'],'SHEET_AMBIGUOUS_EMPTY_BANDS')
+        self.assertTrue(split['reconstructionPixelExact']);self.assertEqual(raw.read_bytes(),source_before)
+        self.assertEqual(result['status'],'pending-human-review')
+        review=read(self.root/'candidate-output/delivery/package/review.json')
+        self.assertTrue(any(host.CANDIDATE_SPLIT in issue and 'SHEET_AMBIGUOUS_EMPTY_BANDS' in issue
+                            for issue in review['issues']))
+
     def test_candidate_keeps_blocked_review_findings_and_strict_terminal(self):
         key=self.sheets[0];folder=self.prepare(key);ids=read(folder/'request.json')['materialIds']
         finding=dict(materialId=ids[0],category='uncertain',referenceState='not-applicable',
@@ -308,6 +329,107 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
         config.write_bytes((self.root/'changed-policy.json').read_bytes())
         with self.assertRaisesRegex(ValueError,'RECORD_CHANGED'):
             host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,self.root/'changed-policy',self.root/'viewer')
+
+
+class CandidateSheetSplitTests(unittest.TestCase):
+    """No model calls: all nonzero alpha and all RGBA partition pixels survive."""
+    def picture(self):
+        image=Image.new('RGBA',(200,100));draw=ImageDraw.Draw(image)
+        draw.rectangle((20,20,75,79),fill=(50,60,70,230))
+        draw.rectangle((125,20,180,79),fill=(70,80,90,255))
+        image.putpixel((90,40),(21,31,41,1));image.putpixel((110,40),(51,61,71,1))
+        return image,dict(grid=[2,1],materialIds=['left','right'])
+
+    def verify_partition(self,image,row,expected_cut):
+        with self.assertRaisesRegex(ValueError,'^SHEET_AMBIGUOUS_EMPTY_BANDS$'):
+            host.cells(image,row,actual_gaps=True)
+        boxes,report=host.candidate_sheet_cells(image,row)
+        self.assertEqual(report['strictExtractionIssue'],'SHEET_AMBIGUOUS_EMPTY_BANDS')
+        self.assertEqual(report['candidateSheetSplitPolicy'],host.CANDIDATE_SPLIT)
+        self.assertEqual(report['xCuts'],[0,expected_cut,200])
+        self.assertTrue(report['allSourcePixelsRetained']);self.assertTrue(report['reconstructionPixelExact'])
+        self.assertEqual(report['sourceRgbaPixelsSha256'],report['reconstructedRgbaPixelsSha256'])
+        rebuilt=Image.new('RGBA',image.size)
+        for box in boxes:rebuilt.paste(image.crop(box),box[:2])
+        self.assertEqual(rebuilt.tobytes(),image.tobytes())
+        self.assertEqual(rebuilt.getpixel((90,40)),(21,31,41,1))
+        self.assertEqual(rebuilt.getpixel((110,40)),(51,61,71,1))
+
+    def test_ambiguous_bands_use_transparent_nominal_and_keep_alpha_one(self):
+        image,row=self.picture();self.verify_partition(image,row,100)
+
+    def test_nontransparent_nominal_uses_unique_nearest_without_cutting_alpha(self):
+        image,row=self.picture()
+        for x in (99,100,101):image.putpixel((x,40),(101,111,121,1))
+        self.verify_partition(image,row,98)
+
+    def test_nearest_transparent_cut_tie_stops(self):
+        image,row=self.picture()
+        for x in (99,100):image.putpixel((x,40),(101,111,121,1))
+        before=image.tobytes()
+        with self.assertRaisesRegex(ValueError,'CANDIDATE_NEAREST_SEAM_TIE'):
+            host.candidate_sheet_cells(image,row)
+        self.assertEqual(image.tobytes(),before)
+
+    def test_no_transparent_seam_in_frozen_search_range_stops(self):
+        image=Image.new('RGBA',(200,200));draw=ImageDraw.Draw(image)
+        for x in (20,125):
+            for y in (20,125):draw.rectangle((x,y,x+55,y+54),fill=(50,60,70,255))
+        for x in (90,110):image.putpixel((x,40),(21,31,41,1))
+        draw.line((20,75,20,125),fill=(50,60,70,1))
+        before=image.tobytes()
+        with self.assertRaisesRegex(ValueError,'CANDIDATE_NO_TRANSPARENT_SEAM'):
+            host.candidate_sheet_cells(image,dict(grid=[2,2],materialIds=['a','b','c','d']))
+        self.assertEqual(image.tobytes(),before)
+
+    def test_strict_success_is_preferred_and_other_failure_is_not_reinterpreted(self):
+        image,row=self.picture();image.putpixel((90,40),(0,0,0,0));image.putpixel((110,40),(0,0,0,0))
+        strict=host.cells(image,row,actual_gaps=True);boxes,report=host.candidate_sheet_cells(image,row)
+        self.assertEqual(boxes,strict);self.assertIsNone(report['strictExtractionIssue'])
+        image=Image.new('RGBA',(200,100),(50,60,70,255))
+        with self.assertRaisesRegex(ValueError,'^SHEET_NATIVE_ALPHA_REQUIRED$'):
+            host.candidate_sheet_cells(image,row)
+
+    def boundary_picture(self,alpha=1):
+        image,row=self.picture()
+        for x in (90,110):image.putpixel((x,40),(0,0,0,0))
+        image.putpixel((0,0),(11,21,31,alpha));image.putpixel((199,99),(41,51,61,alpha))
+        return image,row
+
+    def test_faint_true_source_boundary_gets_guard_and_exact_pixel_partition(self):
+        image,row=self.boundary_picture();before=image.tobytes()
+        with self.assertRaisesRegex(ValueError,'^SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY$'):
+            host.cells(image,row,actual_gaps=True)
+        boxes,report=host.candidate_sheet_cells(image,row)
+        self.assertEqual(report['strictExtractionIssue'],'SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY')
+        self.assertEqual(report['rawOuterBoundaryNonzeroAlphaCount'],2)
+        self.assertEqual(report['rawOuterBoundaryNonzeroAlphaMaximum'],1)
+        self.assertTrue(report['sourceBoundaryAlphaPresent']);self.assertTrue(report['sourcePixelPartitionExact'])
+        self.assertEqual(report['samplingGuard'],2);self.assertFalse(report['alphaQualityAccepted'])
+        reconstructed=Image.new('RGBA',image.size)
+        for box in boxes:
+            cell=host.candidate_cell(image,box,report);w,h=box[2]-box[0],box[3]-box[1]
+            self.assertEqual(cell.size,(w+4,h+4))
+            self.assertEqual(cell.getchannel('A').getextrema()[0],0)
+            content=cell.crop((2,2,w+2,h+2))
+            self.assertEqual(content.tobytes(),image.crop(box).tobytes())
+            reconstructed.paste(content,box[:2])
+        self.assertEqual(reconstructed.tobytes(),before);self.assertEqual(image.tobytes(),before)
+        self.assertEqual(reconstructed.getpixel((0,0)),(11,21,31,1))
+        self.assertEqual(reconstructed.getpixel((199,99)),(41,51,61,1))
+
+    def test_nonfaint_source_boundary_is_not_padded_into_a_pass(self):
+        image,row=self.boundary_picture(alpha=2);before=image.tobytes()
+        with self.assertRaisesRegex(ValueError,'CANDIDATE_SOURCE_OUTER_ALPHA_NOT_FAINT'):
+            host.candidate_sheet_cells(image,row)
+        self.assertEqual(image.tobytes(),before)
+
+    def test_faint_source_boundary_never_waives_nonzero_internal_seam(self):
+        image,row=self.boundary_picture()
+        ImageDraw.Draw(image).line((75,50,125,50),fill=(11,21,31,1));before=image.tobytes()
+        with self.assertRaisesRegex(ValueError,'CANDIDATE_NO_TRANSPARENT_SEAM'):
+            host.candidate_sheet_cells(image,row)
+        self.assertEqual(image.tobytes(),before)
 
 
 class HostStripTests(HostEvidence,unittest.TestCase):

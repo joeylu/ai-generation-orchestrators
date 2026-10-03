@@ -276,6 +276,93 @@ def package(extraction, preview, output, viewer):
 
 CANDIDATE_POLICY = 'deferred-visual-review-v1'
 CANDIDATE_FIT = 'uniform-alpha-contain-v1'
+CANDIDATE_SPLIT = 'unique-nearest-frozen-grid-zero-alpha-seams-v1'
+CANDIDATE_BOUNDARY = 'preserve-faint-source-boundary-guard-v1'
+
+
+def candidate_sheet_cells(image, row):
+    """Prefer strict gaps; ambiguous bands require a unique nearest transparent cut."""
+    try:
+        boxes=cells(image,row,actual_gaps=True)
+        return boxes,dict(candidateSheetSplitPolicy='strict-unique-empty-band-v1',
+                          strictExtractionIssue=None,allSourcePixelsRetained=True)
+    except ValueError as exc:
+        strict_issue=str(exc)
+        if strict_issue not in ('SHEET_AMBIGUOUS_EMPTY_BANDS','SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY'):raise
+    import numpy as np
+    alpha=np.asarray(image.getchannel('A'));columns,rows=row['grid']
+    outer=np.zeros(alpha.shape,dtype=bool);outer[0,:]=outer[-1,:]=True;outer[:,0]=outer[:,-1]=True
+    outer_count=int(np.count_nonzero(alpha[outer]));outer_max=int(alpha[outer].max())
+    sampling_guard=0
+    if strict_issue=='SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY':
+        if outer_count==0 or outer_max>1:
+            raise ValueError(strict_issue+': CANDIDATE_SOURCE_OUTER_ALPHA_NOT_FAINT')
+        sampling_guard=2
+    def cuts(count,axis):
+        length=alpha.shape[axis];occupied=np.any(alpha!=0,axis=1-axis);result=[0]
+        for i in range(1,count):
+            center=i*length//count;radius=max(2,length//count//4)
+            lo,hi=max(1,center-radius),min(length-1,center+radius)
+            bands=[];start=None
+            for pos in range(lo,hi+1):
+                if not occupied[pos]:
+                    if start is None:start=pos
+                elif start is not None:
+                    if pos-start>=2:bands.append((start,pos))
+                    start=None
+            if start is not None and hi+1-start>=2:bands.append((start,hi+1))
+            possible=[min(max(center,left+1),right-1) for left,right in bands]
+            if not possible:raise ValueError(strict_issue+': CANDIDATE_NO_TRANSPARENT_SEAM')
+            distance=min(abs(cut-center) for cut in possible)
+            nearest=[cut for cut in possible if abs(cut-center)==distance]
+            if len(nearest)!=1:raise ValueError(strict_issue+': CANDIDATE_NEAREST_SEAM_TIE')
+            cut=nearest[0]
+            if occupied[cut-1] or occupied[cut]:raise ValueError('CANDIDATE_NONZERO_ALPHA_SEAM')
+            result.append(cut)
+        return result+[length]
+    xs=cuts(columns,1);ys=cuts(rows,0);boxes=[]
+    # Same cell gates as strict extraction, using only verified zero-alpha cuts.
+    for i in range(columns*rows):
+        x=i%columns;y=i//columns;box=[xs[x],ys[y],xs[x+1],ys[y+1]]
+        l,t,r,b=box;a=alpha[t:b,l:r]
+        if min(r-l,b-t)<32:raise ValueError('SHEET_CELL_TOO_SMALL')
+        if i>=len(row['materialIds']):
+            if a.any():raise ValueError('SHEET_UNUSED_CELL_NOT_EMPTY')
+            continue
+        if not (a>=8).any():raise ValueError('SHEET_MISSING_MATERIAL')
+        for edge,is_source_outer in ((a[0,:],t==0),(a[-1,:],b==image.height),
+                                      (a[:,0],l==0),(a[:,-1],r==image.width)):
+            if edge.any() and not (sampling_guard and is_source_outer and int(edge.max())<=1):
+                raise ValueError('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY')
+        boxes.append(box)
+    original=image.convert('RGBA');rebuilt=Image.new('RGBA',original.size);partition=[]
+    for y in range(rows):
+        for x in range(columns):
+            box=[xs[x],ys[y],xs[x+1],ys[y+1]];partition.append(box)
+            rebuilt.paste(original.crop(box),box[:2])
+    if rebuilt.tobytes()!=original.tobytes():raise ValueError('CANDIDATE_SHEET_PIXEL_PARTITION_MISMATCH')
+    import hashlib
+    return boxes,dict(candidateSheetSplitPolicy=CANDIDATE_SPLIT,
+        strictExtractionIssue=strict_issue,allSourcePixelsRetained=True,
+        reconstructionPixelExact=True,sourcePixelPartitionExact=True,partitionBoxes=partition,
+        sourceBoundaryPolicy=CANDIDATE_BOUNDARY if sampling_guard else None,samplingGuard=sampling_guard,
+        rawOuterBoundaryNonzeroAlphaCount=outer_count,rawOuterBoundaryNonzeroAlphaMaximum=outer_max,
+        sourceBoundaryAlphaPresent=outer_count>0,alphaQualityAccepted=False,
+        xCuts=xs,yCuts=ys,maximumSeamDisplacementFraction=0.25,
+        sourceRgbaPixelsSha256=hashlib.sha256(original.tobytes()).hexdigest(),
+        reconstructedRgbaPixelsSha256=hashlib.sha256(rebuilt.tobytes()).hexdigest())
+
+
+def candidate_cell(image, box, split):
+    """Retain exact original RGBA values inside explicit transparent cell padding."""
+    cell=image.crop(box).convert('RGBA');guard=split.get('samplingGuard',0)
+    if guard:
+        padded=Image.new('RGBA',(cell.width+2*guard,cell.height+2*guard))
+        padded.paste(cell,(guard,guard))
+        if padded.crop((guard,guard,guard+cell.width,guard+cell.height)).tobytes()!=cell.tobytes():
+            raise ValueError('CANDIDATE_CELL_GUARD_CHANGED_SOURCE')
+        return padded
+    return cell
 
 
 def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, output, max_calls,
@@ -388,6 +475,8 @@ def prepare_candidate(snapshot, expected_digest, output):
     result=record(output/'candidate.json',dict(kind='ui_deferred_visual_delivery_v1',
         snapshot=str(snapshot),snapshotDigest=manifest['digest'],snapshotFiles=files(snapshot),
         runtime=runtime_files(),visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=CANDIDATE_FIT,
+        candidateSheetSplitPolicy=CANDIDATE_SPLIT,
+        candidateSourceBoundaryPolicy=CANDIDATE_BOUNDARY,
         modelCallsMaximum=0,humanVisualAcceptance=False,originalDagPromoted=False,
         scope='Candidate export only; visual review deferred to final whole-image human acceptance.'))
     return dict(status='candidate_policy_frozen',candidateDigest=result['digest'],
@@ -403,6 +492,8 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
     contract=verified(candidate/'candidate.json')
     if (contract['digest']!=candidate_digest or contract['kind']!='ui_deferred_visual_delivery_v1'
             or contract['visualReviewPolicy']!=CANDIDATE_POLICY or contract['registrationPolicy']!=CANDIDATE_FIT
+            or contract.get('candidateSheetSplitPolicy')!=CANDIDATE_SPLIT
+            or contract.get('candidateSourceBoundaryPolicy')!=CANDIDATE_BOUNDARY
             or contract['runtime']!=runtime_files()):raise ValueError('CANDIDATE_CONTRACT_CHANGED')
     snapshot=Path(contract['snapshot']);_bound_files(snapshot,contract['snapshotFiles'])
     inspect(snapshot,contract['snapshotDigest'])
@@ -414,7 +505,7 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
     placements=sorted(read(snapshot/'placements.json')['materials'],key=lambda p:p['drawIndex'])
     if {p['id'] for p in placements}!=set(owned):raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
     if len({p['drawIndex'] for p in placements})!=len(placements):raise ValueError('AMBIGUOUS_ORDER')
-    sources={};bindings=[];evidence=[]
+    sources={};bindings=[];evidence=[];sheet_splits=[]
     for row in rows:
         key=row['asset'];job=Path(received_jobs[key]).resolve()
         try:config,actual,receipt,raw=source(job,key)
@@ -429,11 +520,12 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
             image.load()
             if row.get('kind')=='sheet':
                 # All nonzero alpha participates in seam and support checks; no alpha floor.
-                try:boxes=cells(image,row,actual_gaps=True)
+                try:boxes,split=candidate_sheet_cells(image,row)
                 except ValueError as exc:
                     exc.failed_request_ids=[key]
                     raise
-                for mid,box in zip(row['materialIds'],boxes):sources[mid]=image.crop(box).convert('RGBA')
+                sheet_splits.append(dict(requestId=key,sourceSha256=receipt['rawSha256'],**split))
+                for mid,box in zip(row['materialIds'],boxes):sources[mid]=candidate_cell(image,box,split)
             else:sources[key]=image.convert('RGBA')
     if set(sources)!=set(owned):raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
     # Existing review evidence is read and bound, including blocked terminal findings.
@@ -515,11 +607,12 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
     issues.extend('Deferred planning finding: '+json.dumps(f,ensure_ascii=False,sort_keys=True)
                   for f in read(snapshot/'snapshot.json').get('planningVisualFindings',[]))
     issues.extend('Placement candidate: '+json.dumps(g,ensure_ascii=False,sort_keys=True) for g in geometry)
+    issues.extend('Candidate sheet split: '+json.dumps(s,ensure_ascii=False,sort_keys=True) for s in sheet_splits)
     issues.extend('Preserved visual findings: '+json.dumps(e,ensure_ascii=False,sort_keys=True) for e in evidence)
     result=write_package(snapshot/'reference.png',composition,package_sources,output/'delivery',viewer,issues)
     result.update(status='pending-human-review',visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=CANDIDATE_FIT,
         candidateDigest=candidate_digest,snapshotDigest=contract['snapshotDigest'],modelCalls=0,generationCalls=0,
         humanVisualAcceptance=False,originalDagPromoted=False,sourceBindings=bindings,
-        geometry=geometry,visualEvidence=evidence)
+        geometry=geometry,visualEvidence=evidence,sheetSplits=sheet_splits)
     save(output/'result.json',result)
     return result

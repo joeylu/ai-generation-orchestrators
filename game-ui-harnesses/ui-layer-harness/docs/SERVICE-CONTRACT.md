@@ -26,6 +26,27 @@ snapshotDigest 与 request 原值。旧 scene 只有原快照摘要和原请求�
 候选提取没有模型调用、不声明审查通过、不观察主体；合板非零 alpha 的透明分隔、
 空单元、原生 alpha、路径、图层几何、完整集合、校验和及 ZIP 门仍阻断。
 分隔/回执失败返回 `failedRequestIds`，不自动重投。
+新候选冻结 `candidateSheetSplitPolicy=unique-nearest-frozen-grid-zero-alpha-seams-v1`。
+先尝试原严格 cells/actual_gaps；仅原异常恰为 SHEET_AMBIGUOUS_EMPTY_BANDS 时，
+可在原 axis_cuts 的名义位置±单元宽/高四分之一搜索范围内枚举至少连续两像素完全透明的空带。
+每空带候选切线两侧整行/整列都必须 alpha=0，选距冻结名义切线最近且位置唯一的切线；
+名义切线本身安全就优先，最近距离并列或没有安全空带仍失败。
+不以非零 alpha 阈值清理噪点、不截断非零切线、不自选范围外边界；所有其余原生 alpha、
+单元尺寸、非空素材、空余单元及边缘检查保持。程序按全部容量单元划分原 RGBA，
+验证每个源像素恰好归入一个单元、整片像素重拼与原片 bytes 完全相同。
+候选报告保留 strictExtractionIssue=SHEET_AMBIGUOUS_EMPTY_BANDS、实际切线与完整划分框，
+标明 allSourcePixelsRetained=true、reconstructionPixelExact=true，并绑定源/重拼像素摘要。
+这仅是显式候选提取，原严格空带歧义及待人工整图验收的事实不会改成通过。
+新候选还显式冻结 candidateSourceBoundaryPolicy=preserve-faint-source-boundary-guard-v1。
+仅原严格异常为 SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY，且原图真正外周存在非零 alpha、
+所有外周非零 alpha 都≤1 时，才可保留这些弱像素并给每个原裁片四周增加2像素透明 guard。
+任何外周 alpha≥2 仍阻断；内部切线仍须原搜索范围内唯一最近的双侧整行/列完全 alpha=0，
+空余单元有任何非零 alpha 仍阻断。只允许原图真正外边缘弱 alpha 通过新增画布保留，
+不删除、阈值化或改变任何原 RGBA 值；guard 内原裁片与原片逐像素复核，整源划分重拼保持 exact。
+报告保留原 strictExtractionIssue、rawOuterBoundaryNonzeroAlphaCount/Maximum、
+sourceBoundaryAlphaPresent、sourcePixelPartitionExact=true、samplingGuard=2、alphaQualityAccepted=false。
+这是保留已有弱支持的显式候选画布扩展，不证明原严格 alpha 质量通过，也不能恢复原生成图中
+已被裁掉或缺失的实体内容；旧原图、作业和候选策略目录不改写。
 每份前景以完整非零 alpha 支持框作等比缩放，居中放入原归属框；只清零 alpha=0 的 RGB，
 不删除 alpha=1。desired/actual 尺寸、偏差、统一比例与没有主体观察的事实写入报告。
 双侧源透明采样 guard=4 像素、输出 guard=2 像素，实际采样后检查透明边界与完整非零支持框，
