@@ -243,18 +243,17 @@ class HostStripTests(HostEvidence,unittest.TestCase):
 
 class HostFrozenTests(HostEvidence,unittest.TestCase):
     def test_old_host_snapshot_inspects_without_upgrading_planning_runtime(self):
-        import hashlib,io,os,subprocess,tarfile
+        import hashlib
         from test_host_review import HostReviewTests
         from ai_ui_layers import host_review
         from ai_ui_layers.freeze_visual import inspect
         fixture=HostReviewTests('test_external_review_freezes_and_inspects_without_provider_receipts')
         fixture.setUp();self.addCleanup(fixture.doCleanups)
-        repository=Path(__file__).resolve().parents[3]
-        archive=subprocess.check_output([os.environ.get('UI_HOST_TEST_GIT','git'),
-            '-C',str(repository),'archive','9c72f719','game-ui-harnesses/ui-layer-harness/src','game-ui-harnesses/ui-decomposition-harness/src'])
-        with tarfile.open(fileobj=io.BytesIO(archive)) as stream:
-            old_runtime={member.name:hashlib.sha256(stream.extractfile(member).read()).hexdigest()
-                         for member in stream.getmembers() if member.isfile() and member.name.endswith('.py')}
+        # Explicit previous-install fingerprint test double, not historical source code.
+        # Keep the complete runtime map and vary one file fingerprint deterministically.
+        old_runtime=dict(host_review.runtime_files())
+        previous_file=next(iter(sorted(old_runtime)))
+        old_runtime[previous_file]=hashlib.sha256(b'fixture previous-install program bytes').hexdigest()
         with patch.object(host_review,'runtime_files',return_value=old_runtime):
             fixture.prepare();fixture.receive();frozen=fixture.freeze()
         self.assertNotEqual(old_runtime,host_review.runtime_files())
