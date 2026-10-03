@@ -272,7 +272,7 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','prepare-host-review','receive-host-review','status-host-review','prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','prepare-host-review','receive-host-review','status-host-review','prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output','freeze-candidate-plan','prepare-candidate-delivery','deliver-candidate-layers','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
     p.add_argument('--review-registry',help='Independent shared registry for single-use received-request reviews')
     p.add_argument('--material-author',action='append',help='Opaque actual generated-material author identity')
     p.add_argument('--request-id',help='Actual received generation request ID')
@@ -328,11 +328,40 @@ def main():
     p.add_argument('--planning-notes',help='UTF-8 user-confirmed planning constraints, frozen for a new run')
     p.add_argument('--visual-policy',help='Explicit visual evidence and tolerance JSON, frozen only for a new run')
     p.add_argument('--visual-textures',help='Source-bound visual texture preservation regions JSON, new run only')
+    p.add_argument('--prior-texture-review',help='For freeze-candidate-plan: prior source-binding audit, never a new M2 review')
     p.add_argument('--snapshot');p.add_argument('--snapshot-digest')
     p.add_argument('--job-digest'); p.add_argument('--approval'); p.add_argument('--submission-digest')
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.prior_texture_review and a.action!='freeze-candidate-plan':
+            p.error('--prior-texture-review is only valid for freeze-candidate-plan')
+        if a.action in ('freeze-candidate-plan','prepare-candidate-delivery','deliver-candidate-layers'):
+            from . import host_material_review as candidate_delivery
+            allowed=({'--candidate','--image','--source-sha256','--contract-dir','--max-calls','--output','--visual-policy','--visual-textures','--prior-texture-review'} if a.action=='freeze-candidate-plan'
+                     else {'--snapshot','--snapshot-digest','--output'} if a.action=='prepare-candidate-delivery'
+                     else {'--candidate','--job-digest','--received-source','--review-run','--output','--viewer'})
+            if any(token.split('=',1)[0] not in allowed for token in sys.argv[1:] if token.startswith('--')):
+                p.error('candidate delivery accepts only its explicitly bound inputs')
+            if a.action=='freeze-candidate-plan':
+                if not all((a.candidate,a.image,a.source_sha256,a.contract_dir)):
+                    p.error('--candidate, --image, --source-sha256 and --contract-dir required')
+                result=candidate_delivery.freeze_candidate_plan(a.candidate,a.image,a.source_sha256,a.contract_dir,a.output,a.max_calls,
+                    a.visual_policy,a.visual_textures,a.prior_texture_review)
+            elif a.action=='prepare-candidate-delivery':
+                if not a.snapshot or not a.snapshot_digest:p.error('--snapshot and --snapshot-digest required')
+                result=candidate_delivery.prepare_candidate(a.snapshot,a.snapshot_digest,a.output)
+            else:
+                if not a.candidate or not a.job_digest or not a.viewer or not a.received_source:
+                    p.error('--candidate, --job-digest, --viewer and --received-source required')
+                received={}
+                for entry in a.received_source:
+                    if '=' not in entry:p.error('--received-source requires REQUEST=JOB')
+                    key,value=entry.split('=',1)
+                    if key in received:p.error('duplicate received request')
+                    received[key]=value
+                result=candidate_delivery.deliver_candidate(a.candidate,a.job_digest,received,a.output,a.viewer,a.review_run or [])
+            print(json.dumps(result,ensure_ascii=False));return
         if a.action in ('prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output'):
             from . import host_material_review as output_review
             allowed={
@@ -542,6 +571,7 @@ def main():
         print(json.dumps(result,ensure_ascii=False,indent=2))
     except Exception as exc:
         result=dict(status='stopped',reason=str(exc),automaticRetry=False)
+        if hasattr(exc,'failed_request_ids'):result['failedRequestIds']=exc.failed_request_ids
         if isinstance(exc,TransportFailure):result['failureDetails']=exc.details
         print(json.dumps(result,ensure_ascii=False))
         raise SystemExit(1)

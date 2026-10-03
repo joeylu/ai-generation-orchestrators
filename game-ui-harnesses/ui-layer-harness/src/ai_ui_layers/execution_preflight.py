@@ -70,7 +70,8 @@ def preflight(folder, expected_digest):
         if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
         visual=read(visual_path)
         rebuilt,_=compile_plan(visual,reference.size,digest(folder/'reference.png'),plan['id'],
-                               'context-crops',context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations,texture_doc=texture_doc,texture_bindings=texture_bindings)
+                               'context-crops',context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations,texture_doc=texture_doc,texture_bindings=texture_bindings,
+                               planning_review_deferred=snapshot.get('policy')=='deferred-visual-candidate-plan-v1')
         if rebuilt!=plan:raise ValueError('CONTEXT_PLAN_COMPILER_MISMATCH')
         context_document=verify_context(folder,plan,snapshot,reference)
     elif ('generation-references.json' in snapshot['files'] or

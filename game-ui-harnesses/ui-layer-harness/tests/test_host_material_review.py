@@ -183,6 +183,132 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
             host.receive(**self.response(folder,dict(materialIds=list(reversed(ids)),findings=[])))
         self.assertEqual(read(folder/'result.json')['status'],'indeterminate_review_no_retry')
 
+    def test_candidate_exports_all_receipts_without_reviews_or_body_observations(self):
+        import zipfile
+        before=host.files(self.job);snapshot=self.job/'snapshot'
+        frozen=host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'candidate')
+        jobs={key:self.job for key in read(self.job/'job.json')['assets']}
+        result=host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,
+                                      self.root/'candidate-output',self.root/'viewer')
+        self.assertEqual(result['status'],'pending-human-review')
+        self.assertEqual(result['modelCalls'],0);self.assertEqual(self.calls,0)
+        self.assertFalse(result['humanVisualAcceptance']);self.assertFalse(result['originalDagPromoted'])
+        self.assertEqual(result['layerCount'],5);self.assertEqual(before,host.files(self.job))
+        with zipfile.ZipFile(self.root/'candidate-output/delivery/ui-layers.zip') as archive:
+            review=json.loads(archive.read('review.json'))
+            self.assertEqual(review['status'],'review-required')
+            self.assertFalse(review['humanVisualAcceptance'])
+            self.assertTrue(any('intermediate visual review deferred' in issue for issue in review['issues']))
+        for row in result['geometry']:
+            self.assertFalse(row['observedBody']);self.assertFalse(row['alphaSupportClipped'])
+            if row['materialId']!='asset-scene':
+                self.assertEqual(row['outputTransparentSamplingGuard'],2)
+                with Image.open(self.root/'candidate-output/materials'/(row['materialId']+'.png')) as image:
+                    bounds=image.getchannel('A').getbbox()
+                    self.assertTrue(0<bounds[0]<bounds[2]<image.width)
+                    self.assertTrue(0<bounds[1]<bounds[3]<image.height)
+
+    def test_candidate_plan_freezes_overlap_findings_without_claiming_m2_and_delivers(self):
+        import os
+        from ai_ui_layers.compile_visual import HARNESS,compile_plan
+        from ai_ui_layers.freeze_visual import inspect
+        snapshot=self.job/'snapshot'
+        visual=read(snapshot/'evidence/m1-draft.json')
+        foreground=[m for m in visual['materials'] if m['role']=='foreground']
+        foreground[1]['zOrder']=foreground[0]['zOrder']
+        foreground[1]['bboxNorm']=list(foreground[0]['bboxNorm'])
+        with self.assertRaisesRegex(ValueError,'UNRESOLVED_PLAN_RELATIONS'):
+            compile_plan(visual,[1000,1000],digest(snapshot/'reference.png'))
+        seed=self.root/'candidate-plan.json';save(seed,visual)
+        new_snapshot=self.root/'candidate-snapshot'
+        manifest=host.freeze_candidate_plan(seed,snapshot/'reference.png',digest(snapshot/'reference.png'),
+            Path(os.environ.get('UI_LAYER_TEST_CONTRACT_DIR',str(HARNESS/'planning-harness'))),new_snapshot,8)
+        self.assertFalse(manifest['newM2ReviewPerformed']);self.assertTrue(manifest['planningReviewDeferred'])
+        self.assertTrue(manifest['planningVisualFindings'])
+        self.assertFalse((new_snapshot/'evidence/m2-draft.json').exists())
+        inspect(new_snapshot,manifest['digest'])
+        self.job=self.root/'new-candidate-job';exchange.prepare(new_snapshot,manifest['digest'],self.job)
+        SheetDeliveryTests.media(self)
+        frozen=host.prepare_candidate(new_snapshot,manifest['digest'],self.root/'candidate')
+        jobs={key:self.job for key in read(self.job/'job.json')['assets']}
+        result=host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,
+                                      self.root/'candidate-output',self.root/'viewer')
+        self.assertEqual(result['status'],'pending-human-review');self.assertEqual(result['modelCalls'],0)
+        review=read(self.root/'candidate-output/delivery/package/review.json')
+        self.assertTrue(any('SAME_LAYER_OVERLAP_REVIEW' in issue for issue in review['issues']))
+
+    def test_candidate_background_uniform_padding_and_nonzero_alpha_guard(self):
+        snapshot=self.job/'snapshot';manifest=read(snapshot/'snapshot.json')
+        row=next(r for r in read(snapshot/'requests.json')['requests'] if r.get('kind')!='sheet' and r['asset']!='asset-scene')
+        replacements={}
+        for key in ('asset-scene',row['asset']):
+            job=self.root/('replace-'+key);config=exchange.prepare(snapshot,manifest['digest'],job,[key])
+            exchange.authorize(job,config['digest'],'fixture independent new scope')
+            submission=exchange.next_request(job);raw=self.root/(key+'-new.png')
+            if key=='asset-scene':Image.new('RGB',(240,232),(40,50,60)).save(raw)
+            else:
+                image=Image.new('RGBA',(240,240));ImageDraw.Draw(image).rectangle((30,30,210,210),fill=(50,70,90,230))
+                image.putpixel((1,1),(40,60,80,1));image.save(raw)
+            exchange.receive(job,submission['submissionDigest'],raw);replacements[key]=job
+        frozen=host.prepare_candidate(snapshot,manifest['digest'],self.root/'candidate')
+        jobs={key:replacements.get(key,self.job) for key in read(self.job/'job.json')['assets']}
+        result=host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,
+                                      self.root/'candidate-output',self.root/'viewer')
+        scene=next(g for g in result['geometry'] if g['materialId']=='asset-scene')
+        self.assertTrue(scene['backgroundEdgePadding'])
+        foreground=next(g for g in result['geometry'] if g['materialId']==row['asset'])
+        self.assertEqual(foreground['sourceFullAlphaBox'][:2],[1,1])
+        self.assertFalse(foreground['alphaSupportClipped'])
+
+    def test_candidate_native_alpha_and_sheet_seams_remain_technical_gates(self):
+        snapshot=self.job/'snapshot';manifest=read(snapshot/'snapshot.json')
+        key=self.sheets[0];job=self.root/'bad-sheet';config=exchange.prepare(snapshot,manifest['digest'],job,[key])
+        exchange.authorize(job,config['digest'],'fixture new bad technical source')
+        submission=exchange.next_request(job);raw=self.root/'bad-native.png'
+        with Image.open(self.job/'attempts'/key/'raw.png') as original:
+            image=original.convert('RGBA')
+        ImageDraw.Draw(image).line((1,image.height//2,image.width-2,image.height//2),fill=(50,70,90,255))
+        image.save(raw)
+        exchange.receive(job,submission['submissionDigest'],raw)
+        frozen=host.prepare_candidate(snapshot,manifest['digest'],self.root/'candidate')
+        jobs={k:job if k==key else self.job for k in read(self.job/'job.json')['assets']}
+        with self.assertRaisesRegex(ValueError,'SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY') as raised:
+            host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,
+                                  self.root/'candidate-output',self.root/'viewer')
+        self.assertEqual(raised.exception.failed_request_ids,[key])
+
+    def test_candidate_keeps_blocked_review_findings_and_strict_terminal(self):
+        key=self.sheets[0];folder=self.prepare(key);ids=read(folder/'request.json')['materialIds']
+        finding=dict(materialId=ids[0],category='uncertain',referenceState='not-applicable',
+            generatedState='not-applicable',magnitude='uncertain',ownership='ambiguous',
+            evidence='Fixture corner unresolved.',suggestion='Inspect final composition.')
+        host.receive(**self.response(folder,dict(materialIds=ids,findings=[finding])))
+        old=host.files(folder);snapshot=self.job/'snapshot'
+        frozen=host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'candidate')
+        jobs={key:self.job for key in read(self.job/'job.json')['assets']}
+        result=host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,
+            self.root/'candidate-output',self.root/'viewer',[folder])
+        self.assertEqual(result['visualEvidence'][0]['status'],'blocked_no_retry')
+        self.assertEqual(result['visualEvidence'][0]['findings'],[finding])
+        self.assertEqual(old,host.files(folder))
+        with self.assertRaisesRegex(ValueError,'OUTPUT_REVIEW_NOT_PASSED'):host.verify_run(folder)
+
+    def test_candidate_cannot_ignore_missing_receipt_changed_raw_or_policy(self):
+        snapshot=self.job/'snapshot'
+        frozen=host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'candidate')
+        jobs={key:self.job for key in read(self.job/'job.json')['assets']}
+        with self.assertRaisesRegex(ValueError,'COMPLETE_RECEIVED_REQUEST_SET'):
+            host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],{},self.root/'missing',self.root/'viewer')
+        raw=self.job/'attempts'/self.sheets[0]/'raw.png';old=raw.read_bytes();raw.write_bytes(old+b'changed')
+        with self.assertRaisesRegex(ValueError,'RESULT_CHANGED'):
+            host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,self.root/'changed',self.root/'viewer')
+        raw.write_bytes(old)
+        config=self.root/'candidate/candidate.json';body=read(config);body['registrationPolicy']='legacy-region-fit'
+        save(self.root/'changed-policy.json',body)
+        config.write_bytes((self.root/'changed-policy.json').read_bytes())
+        with self.assertRaisesRegex(ValueError,'RECORD_CHANGED'):
+            host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,self.root/'changed-policy',self.root/'viewer')
+
 
 class HostStripTests(HostEvidence,unittest.TestCase):
     def setUp(self):

@@ -3,6 +3,42 @@
 唯一公开入口：`python game-ui-harnesses/ui-layer-harness/ui_layer.py`。
 每次命令 stdout 输出一个 JSON（`--help`/`--version` 除外），过程信息写 stderr。
 退出码 0 表示命令完成或正常等待，不等于视觉通过；非零表示本次命令失败。
+
+显式候选整包路径使用 `prepare-candidate-delivery --snapshot SNAPSHOT --snapshot-digest SHA256
+--output NEW_CANDIDATE` 冻结 `deferred-visual-review-v1` 与 `uniform-alpha-contain-v1`、
+完整快照与当前公共运行时指纹。它不授权生图，也不修改默认严格审查路径。
+若修补候选尚未得到新 M2，可先使用 `freeze-candidate-plan --candidate PLAN.json
+--image REFERENCE.png --source-sha256 REFERENCE_SHA256 --contract-dir FIXED_FAD597A0_CONTRACT
+--max-calls N --output NEW_SNAPSHOT`。程序检查固定公开 schema 字节、来源、未知项、引用、
+几何关系及有限调用预算，再调用原确定性编译/分组/参考生产程序冻结 sheets/context-crops/v7。
+仅 SAME_LAYER_OVERLAP_REVIEW 且 requires=M2 的声明框视觉提示可明确留待人工整图检查；
+它们原值进入 planningVisualFindings 与交付 review.json，未知引用和其他关系错误仍阻断。
+snapshot 显式 policy=deferred-visual-candidate-plan-v1、planningReviewDeferred=true、
+newM2ReviewPerformed=false，无伪造新 M2 结果。默认编译仍拒绝这些未审关系。
+可传 --visual-policy；有纹理区域时同时传 --visual-textures 与 --prior-texture-review：
+旧实际来源绑定审查的 bytes、摘要和区域归属重新核验并保留，明确只是调用方提供的历史区域审查，
+newTextureReviewPerformed=false，不声称新候选已完成 M2。区域所属 ID/框变化导致原审查不适用则拒绝。
+随后 `deliver-candidate-layers --candidate NEW_CANDIDATE --job-digest CANDIDATE_DIGEST
+--received-source REQUEST_ID=RECEIVED_JOB [...] --output NEW_EXPORT --viewer BUILT_VIEWER`
+必须覆盖冻结请求全集；每份实际收到的图片仍严格重验授权、submission、receipt、原图摘要、
+snapshotDigest 与 request 原值。旧 scene 只有原快照摘要和原请求完全相同才可复用；
+不能为不同快照伪造新生成回执。原 job、审查终态、失败记录和授权均保持封存。
+候选提取没有模型调用、不声明审查通过、不观察主体；合板非零 alpha 的透明分隔、
+空单元、原生 alpha、路径、图层几何、完整集合、校验和及 ZIP 门仍阻断。
+分隔/回执失败返回 `failedRequestIds`，不自动重投。
+每份前景以完整非零 alpha 支持框作等比缩放，居中放入原归属框；只清零 alpha=0 的 RGB，
+不删除 alpha=1。desired/actual 尺寸、偏差、统一比例与没有主体观察的事实写入报告。
+双侧源透明采样 guard=4 像素、输出 guard=2 像素，实际采样后检查透明边界与完整非零支持框，
+不足以容纳 guard 的小目标或实际 alpha 触边会阻断，绝不以声称未裁断代替检查。
+背景也只等比缩放，比例不同时显式复制边缘像素补齐不透明画布，报告 backgroundEdgePadding；
+这种候选适配不等于原像素画布相等或严格主体归位通过。原始来源 PNG 与回执留在原 job，
+导出记录绑定原图/回执/提交摘要，公开包不包含私有 job 路径。
+可重复 `--review-run REVIEW_DIR` 保留同来源的既有完整真实素材审查 findings，
+包括 blocked_no_retry；重验来源与响应，不将阻断改成通过。全部实际 findings 和几何报告
+进入 ZIP 的 review.json，最终状态为 `pending-human-review`，humanVisualAcceptance=false、
+originalDagPromoted=false，包内仍为 review-required。导出位于 NEW_EXPORT/delivery/ui-layers.zip，
+回拼为 NEW_EXPORT/delivery/package/preview.png。新候选导出不是旧失败作业恢复，
+严格路径仍要求原有素材复审与主体证据，不自动选择此策略。
 不直接调用内部 Python 函数，内部 M1/M2 文件不作为 Web 合同。
 
 离线候选可通过 `prepare-host-review --candidate PLAN.json --image REFERENCE.png

@@ -32,7 +32,8 @@ def render_prompt(asset):
 
 
 def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generation_reference='full',
-                 context_prompt_version='v3', visual_policy=None, relation_evidence=None, texture_doc=None, texture_bindings=None):
+                 context_prompt_version='v3', visual_policy=None, relation_evidence=None, texture_doc=None, texture_bindings=None,
+                 planning_review_deferred=False):
     validate_mode(generation_reference)
     if texture_doc is not None:
         visual_textures.validate(texture_doc)
@@ -47,6 +48,10 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
     issues=check_relations(visual)
     if relation_evidence is not None:
         issues=relation_review.validate_assessment(visual,source_sha,relation_evidence)
+    if planning_review_deferred:
+        if relation_evidence is not None:raise ValueError('DEFERRED_REVIEW_CANNOT_CLAIM_ASSESSMENT')
+        issues=[issue for issue in issues if not (issue.get('code')=='SAME_LAYER_OVERLAP_REVIEW'
+                                                and issue.get('requires')=='M2')]
     if issues:
         raise ValueError('UNRESOLVED_PLAN_RELATIONS')
     if len(visual['materials']) > 128:

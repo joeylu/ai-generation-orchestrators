@@ -2,6 +2,8 @@
 from pathlib import Path
 import shutil
 import tempfile
+import math
+import json
 from PIL import Image
 from jsonschema import Draft202012Validator
 
@@ -270,3 +272,254 @@ def package(extraction, preview, output, viewer):
         if row['sourceSha256']!=result['finalMaterialSha256'][mid]:
             raise ValueError('PREVIEW_REVIEWED_SOURCE_MISMATCH')
     return build(snapshot,sources_from_preview(snapshot,preview,result['warnings']),output,viewer)
+
+
+CANDIDATE_POLICY = 'deferred-visual-review-v1'
+CANDIDATE_FIT = 'uniform-alpha-contain-v1'
+
+
+def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, output, max_calls,
+                          visual_policy=None, visual_textures=None, prior_texture_review=None):
+    """Schema-checked deterministic candidate snapshot, explicitly without M2 approval."""
+    from .host_review import CONTRACT_DIGESTS
+    from .compile_visual import compile_plan, render_prompt, validate
+    from .generation_groups import build_groups, CONTEXT_GROUP_POLICY
+    from .context_references import materialize, request_references, prompt
+    from .execution_preflight import preflight
+    from .visual_policy import load_input, generation_guidance
+    from . import visual_textures as textures
+    plan_path=Path(plan_path).resolve();reference=Path(reference).resolve();output=Path(output).resolve()
+    schema_path=Path(contract_dir)/'schemas/visual-plan.schema.json'
+    if digest(schema_path)!=CONTRACT_DIGESTS['schemas/visual-plan.schema.json']:
+        raise ValueError('FIXED_PUBLIC_SCHEMA_REQUIRED')
+    visual=read(plan_path);Draft202012Validator(read(schema_path)).validate(visual)
+    if visual['unknowns']:raise ValueError('UNRESOLVED_UNKNOWNS')
+    if type(max_calls) is not int or not 1<=max_calls<=128:raise ValueError('CALL_LIMIT_REQUIRED')
+    source_sha=digest(reference);plan_sha=digest(plan_path)
+    if source_sha!=reference_sha256:raise ValueError('REFERENCE_CHANGED')
+    with Image.open(reference) as image:
+        image.load()
+        if image.format!='PNG' or image.getexif().get(274,1)!=1:raise ValueError('REFERENCE_PNG_REQUIRED')
+        picture=image.convert('RGBA')
+    policy_bytes=load_input(visual_policy);policy=read(Path(visual_policy)) if policy_bytes is not None else None
+    texture_bytes=textures.load_input(visual_textures,reference) if visual_textures is not None else None
+    texture_doc=read(Path(visual_textures)) if texture_bytes is not None else None
+    texture_review=read(Path(prior_texture_review)) if prior_texture_review is not None else None
+    if (texture_doc is None)!=(texture_review is None):raise ValueError('PRIOR_TEXTURE_BINDING_REVIEW_REQUIRED')
+    texture_blockers,texture_bindings=textures.assess(texture_doc,visual,texture_review or {})
+    if texture_blockers:raise ValueError('SOURCE_TEXTURE_BINDING_INVALID')
+    from .evaluate import check_relations
+    planning_findings=check_relations(visual)
+    plan,placements=compile_plan(visual,picture.size,source_sha,generation_reference='context-crops',context_prompt_version='v7',
+                                 planning_review_deferred=True,visual_policy=policy,texture_doc=texture_doc,texture_bindings=texture_bindings)
+    groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY)
+    if groups['plannedCalls']>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
+    output.mkdir(parents=True,exist_ok=False);(output/'evidence').mkdir()
+    metadata={}
+    if policy_bytes is not None:
+        (output/'visual-policy.json').write_bytes(policy_bytes);metadata['visualPolicySha256']=digest(output/'visual-policy.json')
+    if texture_doc is not None:
+        (output/'visual-textures.json').write_bytes(texture_bytes)
+        save(output/'visual-texture-bindings.json',texture_bindings)
+        (output/'evidence/visual-texture-final-review.json').write_bytes(Path(prior_texture_review).read_bytes())
+        metadata.update(visualTexturePolicy=textures.POLICY,visualTexturesSha256=digest(output/'visual-textures.json'),
+            visualTextureBindingsSha256=digest(output/'visual-texture-bindings.json'))
+    (output/'reference.png').write_bytes(reference.read_bytes())
+    (output/'evidence/revised-visual-plan.json').write_bytes(plan_path.read_bytes())
+    (output/'evidence/visual-plan.schema.json').write_bytes(schema_path.read_bytes())
+    if digest(output/'reference.png')!=source_sha or digest(output/'evidence/revised-visual-plan.json')!=plan_sha:
+        raise ValueError('CANDIDATE_SOURCE_CHANGED')
+    validate(plan,source_base=output)
+    save(output/'execution-plan.candidate.json',plan)
+    save(output/'placements.json',dict(basis='candidate declared ownership regions; no body observations',materials=placements))
+    save(output/'generation-groups.json',groups)
+    singles={}
+    for asset in plan['assets']:
+        folder=output/'materials'/asset['id'];folder.mkdir(parents=True)
+        picture.crop(asset['source_region']).save(folder/'reference-crop.png')
+        (folder/'prompt.txt').write_text(render_prompt(asset)+'\n',encoding='utf-8')
+        singles[asset['id']]=dict(asset=asset['id'],reference='reference.png',
+            crop=(folder/'reference-crop.png').relative_to(output).as_posix(),
+            prompt=(folder/'prompt.txt').relative_to(output).as_posix(),sourceRegion=asset['source_region'],
+            outputSize=asset['output_size'],plannedCalls=1,automaticRetries=0)
+    references=materialize(output,plan,picture);save(output/'generation-references.json',references)
+    rows=[]
+    for group in groups['groups']:
+        if group['mode']=='single':row=singles[group['id']]
+        else:
+            folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
+            (folder/'prompt.txt').write_text(prompt(visual,plan,group['materialIds'],group,version='v7')+
+                generation_guidance(policy)+textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,
+                    context=request_references(references,group['materialIds']),group=group)+'\n',encoding='utf-8')
+            row=dict(asset=group['id'],kind='sheet',materialIds=group['materialIds'],grid=group['grid'],
+                reference='reference.png',prompt=(folder/'prompt.txt').relative_to(output).as_posix(),
+                outputSize=group['outputSize'],plannedCalls=1,automaticRetries=0)
+        row.update(generationReference='context-crops',references=request_references(references,row.get('materialIds',[row['asset']])))
+        rows.append(row)
+    save(output/'requests.json',dict(kind='ui_visual_requests_preview_v2',dispatchEnabled=False,
+                                   generationReference='context-crops',requests=rows,**metadata))
+    save(output/'compile-report.json',dict(contextPromptVersion='v7',planningReviewDeferred=True,
+        sourcePlanSha256=plan_sha,referenceSha256=source_sha,visualReviewPolicy=CANDIDATE_POLICY,
+        planningVisualFindings=planning_findings,**metadata))
+    manifest=dict(kind='ui_visual_frozen_experiment_v1',policy='deferred-visual-candidate-plan-v1',
+        status='frozen_experimental_snapshot',executable=False,productionReady=False,humanVisualAcceptance=False,
+        planningReviewDeferred=True,newM2ReviewPerformed=False,visualReviewPolicy=CANDIDATE_POLICY,
+        planningVisualFindings=planning_findings,
+        generationMode='sheets',generationReference='context-crops',contextPromptVersion='v7',
+        generationCalls=0,materialCount=len(plan['assets']),plannedCalls=len(rows),maximumCalls=max_calls,
+        sourcePlanSha256=plan_sha,referenceSha256=source_sha,legacyCompatibilityBlockers=[
+            dict(code='PLANNING_REVIEW_DEFERRED',reason='Candidate only; no M2 visual approval or body observation.')],
+        files=files(output),**metadata)
+    if texture_doc is not None:
+        manifest.update(reviewSha256=digest(output/'evidence/visual-texture-final-review.json'),
+            textureReviewOrigin='caller-supplied-prior-source-binding-review',newTextureReviewPerformed=False)
+    manifest['digest']=body_digest(manifest);save(output/'snapshot.json',manifest)
+    inspect(output,manifest['digest']);preflight(output,manifest['digest'])
+    return manifest
+
+
+def prepare_candidate(snapshot, expected_digest, output):
+    """Freeze an explicit candidate-only contract; never authorize generation."""
+    snapshot=Path(snapshot).resolve();output=Path(output).resolve()
+    manifest=inspect(snapshot,expected_digest)
+    if output.exists() or output.is_relative_to(snapshot):raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
+    output.mkdir(parents=True)
+    from .experimental_executor import record
+    result=record(output/'candidate.json',dict(kind='ui_deferred_visual_delivery_v1',
+        snapshot=str(snapshot),snapshotDigest=manifest['digest'],snapshotFiles=files(snapshot),
+        runtime=runtime_files(),visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=CANDIDATE_FIT,
+        modelCallsMaximum=0,humanVisualAcceptance=False,originalDagPromoted=False,
+        scope='Candidate export only; visual review deferred to final whole-image human acceptance.'))
+    return dict(status='candidate_policy_frozen',candidateDigest=result['digest'],
+                modelCalls=0,humanVisualAcceptance=False)
+
+
+def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer, review_runs=()):
+    """Derive a complete candidate from actual receipts, without claiming visual passes."""
+    import numpy as np
+    import re
+    from .layer_package import write_package
+    candidate=Path(candidate).resolve();output=Path(output).resolve()
+    contract=verified(candidate/'candidate.json')
+    if (contract['digest']!=candidate_digest or contract['kind']!='ui_deferred_visual_delivery_v1'
+            or contract['visualReviewPolicy']!=CANDIDATE_POLICY or contract['registrationPolicy']!=CANDIDATE_FIT
+            or contract['runtime']!=runtime_files()):raise ValueError('CANDIDATE_CONTRACT_CHANGED')
+    snapshot=Path(contract['snapshot']);_bound_files(snapshot,contract['snapshotFiles'])
+    inspect(snapshot,contract['snapshotDigest'])
+    rows=read(snapshot/'requests.json')['requests']
+    if set(received_jobs)!={row['asset'] for row in rows}:raise ValueError('COMPLETE_RECEIVED_REQUEST_SET_REQUIRED')
+    visual_path=snapshot/'evidence/revised-visual-plan.json'
+    visual=read(visual_path if visual_path.exists() else snapshot/'evidence/m1-draft.json')
+    owned={m['id']:m for m in visual['materials']}
+    placements=sorted(read(snapshot/'placements.json')['materials'],key=lambda p:p['drawIndex'])
+    if {p['id'] for p in placements}!=set(owned):raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
+    if len({p['drawIndex'] for p in placements})!=len(placements):raise ValueError('AMBIGUOUS_ORDER')
+    sources={};bindings=[];evidence=[]
+    for row in rows:
+        key=row['asset'];job=Path(received_jobs[key]).resolve()
+        try:config,actual,receipt,raw=source(job,key)
+        except ValueError as exc:
+            exc.failed_request_ids=[key]
+            raise
+        if config['snapshotDigest']!=contract['snapshotDigest'] or actual!=row:
+            raise ValueError('CANDIDATE_RECEIVED_SOURCE_SCOPE_MISMATCH')
+        bindings.append(dict(requestId=key,jobDigest=config['digest'],submissionDigest=receipt['submissionDigest'],
+                             rawSha256=receipt['rawSha256'],receiptSha256=digest(job/'attempts'/key/'received.json')))
+        with Image.open(raw) as image:
+            image.load()
+            if row.get('kind')=='sheet':
+                # All nonzero alpha participates in seam and support checks; no alpha floor.
+                try:boxes=cells(image,row,actual_gaps=True)
+                except ValueError as exc:
+                    exc.failed_request_ids=[key]
+                    raise
+                for mid,box in zip(row['materialIds'],boxes):sources[mid]=image.crop(box).convert('RGBA')
+            else:sources[key]=image.convert('RGBA')
+    if set(sources)!=set(owned):raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
+    # Existing review evidence is read and bound, including blocked terminal findings.
+    # It does not become a passed review and never changes the old review directory.
+    for root in review_runs:
+        root=Path(root).resolve();request,policy=verify_prepared(root)
+        if request['snapshotDigest']!=contract['snapshotDigest']:raise ValueError('OUTPUT_REVIEW_SNAPSHOT_MISMATCH')
+        result=read(root/'result.json')
+        if result['status'] not in ('blocked_no_retry','reviewed_pending_visual_acceptance'):
+            raise ValueError('COMPLETE_VISUAL_FINDINGS_REQUIRED')
+        _bound_files(root/'review',result['outputs'])
+        if read(root/'review/exchange-provenance.json')!=provenance(root,request):raise ValueError('OUTPUT_PROVENANCE_CHANGED')
+        if {k:v for k,v in result.items() if k!='outputs'}!=assess(root,request,policy):raise ValueError('OUTPUT_ASSESSMENT_CHANGED')
+        matching=[b for b in bindings if b['requestId']==request['requestId']]
+        if (len(matching)!=1 or matching[0]['rawSha256']!=request['rawSha256']
+                or matching[0]['submissionDigest']!=request['submissionDigest']):raise ValueError('VISUAL_FINDINGS_SOURCE_MISMATCH')
+        evidence.append(dict(requestId=request['requestId'],status=result['status'],
+            resultSha256=digest(root/'result.json'),reviewSha256=result['reviewSha256'],
+            findings=read(root/'review/draft.json')['findings']))
+    for mid in owned:
+        if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,127}',mid) is None:raise ValueError('CANDIDATE_MATERIAL_PATH')
+    if output.exists() or output.is_relative_to(candidate) or output.is_relative_to(snapshot) or any(
+            output.is_relative_to(Path(job).resolve()) for job in received_jobs.values()):
+        raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
+    output.mkdir(parents=True);(output/'materials').mkdir()
+    with Image.open(snapshot/'reference.png') as reference:width,height=reference.size
+    layers=[];package_sources={};geometry=[]
+    for index,p in enumerate(placements):
+        mid=p['id'];image=sources[mid];alpha=image.getchannel('A');box=alpha.getbbox()
+        if box is None:raise ValueError('EMPTY_LAYER')
+        region=p['sourceRegion'];tw,th=region[2]-region[0],region[3]-region[1]
+        if tw<=0 or th<=0:raise ValueError('CANDIDATE_TARGET_GEOMETRY')
+        if owned[mid]['role']=='background':
+            if alpha.getextrema()!=(255,255):raise ValueError('BACKGROUND_ALPHA')
+            box=(0,0,image.width,image.height)
+        elif alpha.getextrema()[0]!=0:raise ValueError('CANDIDATE_NATIVE_ALPHA_REQUIRED')
+        crop=image.crop(box);background=owned[mid]['role']=='background'
+        if not background:
+            if min(tw,th)<=4:raise ValueError('CANDIDATE_TARGET_TOO_SMALL_FOR_ALPHA_GUARD')
+            crop=Image.fromarray(np.pad(np.array(crop),((4,4),(4,4),(0,0)),mode='constant'))
+        scale=min(tw/crop.width,th/crop.height) if background else min((tw-4)/crop.width,(th-4)/crop.height)
+        # One affine scale on both axes; the full alpha support fits inside the owner.
+        rw=min(tw,math.ceil(crop.width*scale)+(0 if background else 4))
+        rh=min(th,math.ceil(crop.height*scale)+(0 if background else 4))
+        if background:
+            crop=Image.fromarray(np.pad(np.array(crop),((2,2),(2,2),(0,0)),mode='edge'))
+        translation=2 if background else -2/scale
+        fitted=crop.transform((rw,rh),Image.Transform.AFFINE,(1/scale,0,translation,0,1/scale,translation),
+                              resample=Image.Resampling.BICUBIC)
+        pixels=np.array(fitted);pixels[pixels[:,:,3]==0]=0
+        if not background and (pixels[0,:,3].any() or pixels[-1,:,3].any() or pixels[:,0,3].any() or pixels[:,-1,3].any()):
+            raise ValueError('CANDIDATE_ALPHA_GUARD_FAILED')
+        fitted=Image.fromarray(pixels)
+        if fitted.getchannel('A').getbbox() is None:raise ValueError('EMPTY_LAYER')
+        canvas=Image.new('RGBA',(tw,th));offset=((tw-rw)//2,(th-rh)//2)
+        canvas.paste(fitted,offset)
+        background_pad=owned[mid]['role']=='background' and (rw!=tw or rh!=th)
+        if background_pad:
+            canvas=Image.fromarray(np.pad(pixels,((offset[1],th-rh-offset[1]),
+                (offset[0],tw-rw-offset[0]),(0,0)),mode='edge'))
+        path=output/'materials'/(mid+'.png');canvas.save(path)
+        package_sources[mid]=dict(path=str(path),sha256=digest(path))
+        layers.append(dict(id=mid,name=owned[mid]['label'],role=owned[mid]['role'],
+            path=f'layers/layer-{index+1:03}.png',x=region[0],y=region[1],width=tw,height=th,visible=True))
+        geometry.append(dict(materialId=mid,sourceFullAlphaBox=list(box),ownershipRegion=region,
+            uniformScale=scale,desiredSize=[tw,th],actualSupportSize=[rw,rh],offset=list(offset),
+            placementDeviation=[tw-rw,th-rh],observedBody=False,alphaSupportClipped=False,
+            backgroundEdgePadding=background_pad,
+            sourceTransparentSamplingGuard=0 if background else 4,
+            outputTransparentSamplingGuard=0 if background else 2,
+            actualRenderedSupportBox=list(canvas.getchannel('A').getbbox()),
+            declaredAdaptationPolicy=owned[mid].get('adaptationPolicy','preserve'),
+            appliedAdaptationPolicy=CANDIDATE_FIT,materialSha256=digest(path)))
+    composition=dict(kind='ui_layer_composition_v1',canvas=dict(width=width,height=height),
+        coordinates='top-left-pixels',order='array-back-to-front',textPolicy=visual['textPolicy'],
+        backgroundMode=visual['backgroundMode'],reference='reference.png',preview='preview.png',layers=layers)
+    issues=['Candidate only: intermediate visual review deferred; final whole-image human acceptance required.',
+            'Uniform alpha-support fit uses ownership regions, without observed reference-body geometry.']
+    issues.extend('Deferred planning finding: '+json.dumps(f,ensure_ascii=False,sort_keys=True)
+                  for f in read(snapshot/'snapshot.json').get('planningVisualFindings',[]))
+    issues.extend('Placement candidate: '+json.dumps(g,ensure_ascii=False,sort_keys=True) for g in geometry)
+    issues.extend('Preserved visual findings: '+json.dumps(e,ensure_ascii=False,sort_keys=True) for e in evidence)
+    result=write_package(snapshot/'reference.png',composition,package_sources,output/'delivery',viewer,issues)
+    result.update(status='pending-human-review',visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=CANDIDATE_FIT,
+        candidateDigest=candidate_digest,snapshotDigest=contract['snapshotDigest'],modelCalls=0,generationCalls=0,
+        humanVisualAcceptance=False,originalDagPromoted=False,sourceBindings=bindings,
+        geometry=geometry,visualEvidence=evidence)
+    save(output/'result.json',result)
+    return result
