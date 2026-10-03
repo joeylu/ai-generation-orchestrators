@@ -15,6 +15,8 @@
 它们原值进入 planningVisualFindings 与交付 review.json，未知引用和其他关系错误仍阻断。
 snapshot 显式 policy=deferred-visual-candidate-plan-v1、planningReviewDeferred=true、
 newM2ReviewPerformed=false，无伪造新 M2 结果。默认编译仍拒绝这些未审关系。
+该候选冻结可显式选择 --generation-mode single|sheets，默认 sheets；single 继续使用同一原计划、
+参考、视觉策略、纹理绑定、context-crops/v7 与确定性资产/归位结构，只改变生成请求分组。
 可传 --visual-policy；有纹理区域时同时传 --visual-textures 与 --prior-texture-review：
 旧实际来源绑定审查的 bytes、摘要和区域归属重新核验并保留，明确只是调用方提供的历史区域审查，
 newTextureReviewPerformed=false，不声称新候选已完成 M2。区域所属 ID/框变化导致原审查不适用则拒绝。
@@ -61,6 +63,19 @@ sourceBoundaryAlphaPresent、sourcePixelPartitionExact=true、samplingGuard=2、
 originalDagPromoted=false，包内仍为 review-required。导出位于 NEW_EXPORT/delivery/ui-layers.zip，
 回拼为 NEW_EXPORT/delivery/package/preview.png。新候选导出不是旧失败作业恢复，
 严格路径仍要求原有素材复审与主体证据，不自动选择此策略。
+
+候选导出显式冻结 candidateMaterialSubstitutionPolicy=complete-sheet-fresh-singletons-v1。
+可重复 `deliver-candidate-layers --received-material MATERIAL_ID=FRESH_SINGLETON_JOB`，
+只允许完整替换一个原 sheet 的全部 materialIds；部分替换、重复 MID 或替换原 singleton 均拒绝。
+原 --received-source 仍须覆盖请求全集，原 sheet 的实际授权、提交、receipt、raw 摘要和请求值仍验证，
+并对原片只读记录严格提取的实际失败原因；替换不把该失败改成成功，也不恢复或重投旧作业。
+每份新来源必须是独立新 job、一次调用预算、单 MID、真实收到的原生 PNG 及独立摘要授权/回执，
+其快照明确是新 candidate single，sourcePlanSha256、referenceSha256、视觉策略/纹理/绑定摘要、
+完整编译资产结构、placements 和 context references 都与原 candidate sheets 保持一致。
+请求分组可以改变，但不能借其他计划/参考的任意图片替代；未授权、未收到、回执或请求改动均拒绝。
+原 sheet 严格失败、原来源链、新单图来源链与完整替代关系进入报告和 ZIP review.json，
+originalSheetDelivered=false，原 alpha 像素继续按完整支持与透明采样 guard 等比归位，
+不阈值清理或裁切弱 alpha。最终仍 pending-human-review，不声称新 M2、主体观察或视觉通过。
 不直接调用内部 Python 函数，内部 M1/M2 文件不作为 Web 合同。
 
 离线候选可通过 `prepare-host-review --candidate PLAN.json --image REFERENCE.png

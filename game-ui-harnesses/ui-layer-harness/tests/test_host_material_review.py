@@ -331,6 +331,141 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
             host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,self.root/'changed-policy',self.root/'viewer')
 
 
+class CandidateSingletonSubstitutionTests(unittest.TestCase):
+    """Complete-sheet replacement uses fresh real fixture authorizations and receipts."""
+    def setUp(self):
+        from ai_ui_layers.compile_visual import HARNESS
+        VisualCompileTests.setUp(self)
+        self.contract=HARNESS/'planning-harness'
+        self.visual=read(self.contract/'examples/visual-plan-scoped.json');self.visual['unknowns']=[]
+        self.seed=self.root/'seed.json';save(self.seed,self.visual);self.reference=self.run/'m1/reference.png'
+        self.sheet_snapshot=self.root/'sheet-snapshot'
+        self.manifest=host.freeze_candidate_plan(self.seed,self.reference,digest(self.reference),self.contract,self.sheet_snapshot,16)
+        self.job=self.root/'original-sheet-job';config=exchange.prepare(self.sheet_snapshot,self.manifest['digest'],self.job)
+        exchange.authorize(self.job,config['digest'],'fixture original bounded sheet scope')
+        while exchange.status(self.job)['status']=='ready':
+            request=exchange.next_request(self.job)
+            if 'materialIds' in request:
+                columns,rows=request['grid'];image=Image.new('RGBA',(columns*100,rows*100));draw=ImageDraw.Draw(image)
+                for i in range(len(request['materialIds'])):
+                    x=i%columns*100;y=i//columns*100;draw.rectangle((x+15,y+15,x+84,y+84),fill=(50,60,70,255))
+                draw.line((1,image.height//2,image.width-2,image.height//2),fill=(50,60,70,255))
+            elif request['asset']=='asset-scene':image=Image.new('RGB',(240,240),(50,60,70))
+            else:
+                image=Image.new('RGBA',(240,240));ImageDraw.Draw(image).rectangle((20,20,219,219),fill=(50,60,70,255))
+            raw=self.root/'raw-fixture.png';image.save(raw);exchange.receive(self.job,request['submissionDigest'],raw)
+        self.sheet=next(row for row in read(self.sheet_snapshot/'requests.json')['requests'] if row.get('kind')=='sheet')
+        self.single_snapshot=self.root/'single-snapshot'
+        self.single_manifest=host.freeze_candidate_plan(self.seed,self.reference,digest(self.reference),self.contract,
+            self.single_snapshot,16,generation_mode='single')
+        self.replacements=self.new_jobs(self.single_snapshot,'replacement')
+        frozen=host.prepare_candidate(self.sheet_snapshot,self.manifest['digest'],self.root/'candidate')
+        self.candidate_digest=frozen['candidateDigest']
+        self.received={key:self.job for key in read(self.job/'job.json')['assets']}
+        self.viewer=self.root/'viewer';self.viewer.mkdir()
+        (self.viewer/'viewer.html').write_text('<html></html>');(self.viewer/'viewer.js').write_text('void 0;')
+
+    def new_jobs(self,snapshot,prefix,authorize=True):
+        manifest=read(snapshot/'snapshot.json');result={}
+        for mid in self.sheet['materialIds']:
+            job=self.root/(prefix+'-'+mid);config=exchange.prepare(snapshot,manifest['digest'],job,[mid])
+            result[mid]=job
+            if not authorize:continue
+            exchange.authorize(job,config['digest'],'fixture one fresh singleton authorization')
+            request=exchange.next_request(job);raw=self.root/(prefix+'-'+mid+'.png')
+            image=Image.new('RGBA',(240,240));ImageDraw.Draw(image).rectangle((20,20,219,219),fill=(70,80,90,230))
+            image.putpixel((2,3),(11,21,31,1));image.save(raw);exchange.receive(job,request['submissionDigest'],raw)
+        return result
+
+    def deliver(self,materials,name='delivered'):
+        return host.deliver_candidate(self.root/'candidate',self.candidate_digest,self.received,self.root/name,
+                                      self.viewer,received_materials=materials)
+
+    def test_complete_fresh_singletons_replace_failed_sheet_and_preserve_original_terminal(self):
+        before=host.files(self.job)
+        with Image.open(self.job/'attempts'/self.sheet['asset']/'raw.png') as image:
+            with self.assertRaisesRegex(ValueError,'SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY'):
+                host.cells(image,self.sheet,actual_gaps=True)
+        result=self.deliver(self.replacements)
+        self.assertEqual(result['status'],'pending-human-review');self.assertEqual(result['modelCalls'],0)
+        self.assertFalse(result['humanVisualAcceptance']);self.assertFalse(result['originalDagPromoted'])
+        substitution=result['materialSubstitutions'][0]
+        self.assertFalse(substitution['originalSheetExtractionPassed']);self.assertFalse(substitution['originalSheetDelivered'])
+        self.assertEqual(substitution['strictExtractionIssue'],'SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY')
+        self.assertEqual(substitution['materialIds'],self.sheet['materialIds'])
+        self.assertEqual(len(substitution['replacementSources']),len(self.replacements))
+        for binding in substitution['replacementSources']:
+            self.assertEqual(binding['snapshotDigest'],self.single_manifest['digest'])
+            self.assertNotEqual(binding['snapshotDigest'],self.manifest['digest'])
+            self.assertEqual(exchange.status(self.replacements[binding['materialId']])['assignedCalls'],1)
+        self.assertEqual(before,host.files(self.job))
+        self.assertTrue((self.root/'delivered/delivery/ui-layers.zip').is_file())
+        review=read(self.root/'delivered/delivery/package/review.json')
+        self.assertTrue(any('Fresh singleton substitution' in issue and 'SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY' in issue for issue in review['issues']))
+        self.assertEqual(self.single_manifest['generationMode'],'single');self.assertFalse(self.single_manifest['newM2ReviewPerformed'])
+
+    def test_partial_sheet_original_singleton_and_unreceived_material_are_rejected(self):
+        first=self.sheet['materialIds'][0]
+        with self.assertRaisesRegex(ValueError,'COMPLETE_SHEET_SUBSTITUTION_REQUIRED'):
+            self.deliver({first:self.replacements[first]},'partial')
+        singleton=next(row['asset'] for row in read(self.sheet_snapshot/'requests.json')['requests'] if row.get('kind')!='sheet')
+        with self.assertRaisesRegex(ValueError,'ONLY_COMPLETE_SHEET_MATERIAL_SUBSTITUTIONS_ALLOWED'):
+            self.deliver({singleton:self.job},'original-singleton')
+        unreceived=self.new_jobs(self.single_snapshot,'unreceived',authorize=False)
+        with self.assertRaisesRegex(ValueError,'RECEIVED_REQUEST_REQUIRED'):
+            self.deliver(unreceived,'unreceived')
+
+    def test_changed_reference_plan_and_policy_are_not_cross_snapshot_substitutions(self):
+        from ai_ui_layers.visual_policy import FIELDS
+        changed_reference=self.root/'changed-reference.png';Image.new('RGB',(1000,1000),(90,80,70)).save(changed_reference)
+        changed_plan=self.root/'changed-plan.json';visual=read(self.seed);visual['materials'][0]['label']+=' changed';save(changed_plan,visual)
+        policy=self.root/'changed-policy.json';save(policy,{field:values[0] for field,values in FIELDS.items()})
+        for name,seed,reference,kwargs in (('reference',self.seed,changed_reference,{}),
+                ('plan',changed_plan,self.reference,{}),('policy',self.seed,self.reference,dict(visual_policy=policy))):
+            snapshot=self.root/('changed-'+name+'-snapshot')
+            host.freeze_candidate_plan(seed,reference,digest(reference),self.contract,snapshot,16,generation_mode='single',**kwargs)
+            jobs=self.new_jobs(snapshot,'changed-'+name)
+            with self.assertRaisesRegex(ValueError,'SUBSTITUTION_SOURCE_PLAN_OR_POLICY_CHANGED|SUBSTITUTION_REFERENCE_CHANGED'):
+                self.deliver(jobs,'changed-'+name+'-output')
+
+    def test_changed_singleton_row_and_duplicate_cli_mid_are_rejected(self):
+        first=self.sheet['materialIds'][0];job=self.replacements[first]
+        requests=read(job/'snapshot/requests.json');requests['requests'][0]['outputSize'][0]+=1
+        with (job/'snapshot/requests.json').open('w',encoding='utf-8') as stream:json.dump(requests,stream)
+        with self.assertRaisesRegex(ValueError,'ARTIFACT_CHANGED'):
+            self.deliver(self.replacements,'changed-row')
+        from ai_ui_layers.delivery_dag import main
+        args=['ui_layer.py','deliver-candidate-layers','--candidate','unused','--job-digest','unused',
+            '--received-source','sheet=unused','--received-material','mid=one','--received-material','mid=two',
+            '--output','unused','--viewer','unused']
+        with patch('sys.argv',args),self.assertRaises(SystemExit):main()
+
+    def test_single_mode_preserves_v7_texture_policy_prompts_and_exact_asset_structure(self):
+        from ai_ui_layers.visual_policy import FIELDS
+        import test_visual_texture_pipeline as fixture
+        sample=fixture.VisualTexturePipelineTests();sample.setUp();self.addCleanup(sample.doCleanups)
+        strict=sample.frozen('source-texture-review')
+        visual=strict/'evidence/revised-visual-plan.json'
+        if not visual.exists():visual=strict/'evidence/m1-draft.json'
+        policy=self.root/'texture-policy.json';save(policy,{field:values[0] for field,values in FIELDS.items()})
+        kwargs=dict(visual_policy=policy,visual_textures=sample.input,
+                    prior_texture_review=strict/'evidence/visual-texture-final-review.json')
+        sheets=self.root/'texture-sheets';singles=self.root/'texture-singles'
+        a=host.freeze_candidate_plan(visual,sample.source,digest(sample.source),self.contract,sheets,16,**kwargs)
+        b=host.freeze_candidate_plan(visual,sample.source,digest(sample.source),self.contract,singles,16,generation_mode='single',**kwargs)
+        self.assertEqual(read(sheets/'execution-plan.candidate.json'),read(singles/'execution-plan.candidate.json'))
+        self.assertEqual(read(sheets/'placements.json'),read(singles/'placements.json'))
+        for field in ('sourcePlanSha256','referenceSha256','visualPolicySha256','visualTexturesSha256','visualTextureBindingsSha256'):
+            self.assertEqual(a[field],b[field])
+        requests=read(singles/'requests.json')
+        self.assertEqual(requests['kind'],'ui_visual_requests_preview_v1')
+        self.assertTrue(all(row.get('kind')!='sheet' and 'materialIds' not in row for row in requests['requests']))
+        coin=next(row for row in requests['requests'] if row['asset']=='asset-coin-a')
+        prompt=(singles/coin['prompt']).read_text(encoding='utf-8')
+        self.assertIn('tiny-print',prompt);self.assertIn('visual-material-context-prompt-v7',read(singles/'execution-plan.candidate.json')['assets'][0]['prompt'])
+        self.assertFalse(b['newM2ReviewPerformed']);self.assertFalse(b['newTextureReviewPerformed'])
+
+
 class CandidateSheetSplitTests(unittest.TestCase):
     """No model calls: all nonzero alpha and all RGBA partition pixels survive."""
     def picture(self):

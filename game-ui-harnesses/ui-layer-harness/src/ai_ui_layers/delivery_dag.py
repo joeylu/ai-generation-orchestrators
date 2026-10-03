@@ -300,6 +300,7 @@ def main():
     p.add_argument('--opacity',type=float,help='Explicit multiplier for existing alpha, greater than 0 and at most 1')
     p.add_argument('--received-job',help='Complete received image job for explicit postprocessing or review-required variant packaging')
     p.add_argument('--received-source',action='append',help='For finish-bundle: ASSET=RECEIVED_JOB, repeated once per frozen singleton request')
+    p.add_argument('--received-material',action='append',help='For deliver-candidate-layers: MID=FRESH_SINGLETON_JOB, complete-sheet substitutions only')
     p.add_argument('--accepted-prompt-variant',action='append',help='For finish-bundle: ASSET=SHA256 explicitly approved prompt variant')
     p.add_argument('--selection',help='Received variant selection or explicit package-derived layer revision selection')
     p.add_argument('--preview',help='Complete processed candidate preview for automatic received-variant discovery')
@@ -336,18 +337,20 @@ def main():
     try:
         if a.prior_texture_review and a.action!='freeze-candidate-plan':
             p.error('--prior-texture-review is only valid for freeze-candidate-plan')
+        if a.received_material and a.action!='deliver-candidate-layers':
+            p.error('--received-material is only valid for deliver-candidate-layers')
         if a.action in ('freeze-candidate-plan','prepare-candidate-delivery','deliver-candidate-layers'):
             from . import host_material_review as candidate_delivery
-            allowed=({'--candidate','--image','--source-sha256','--contract-dir','--max-calls','--output','--visual-policy','--visual-textures','--prior-texture-review'} if a.action=='freeze-candidate-plan'
+            allowed=({'--candidate','--image','--source-sha256','--contract-dir','--max-calls','--output','--visual-policy','--visual-textures','--prior-texture-review','--generation-mode'} if a.action=='freeze-candidate-plan'
                      else {'--snapshot','--snapshot-digest','--output'} if a.action=='prepare-candidate-delivery'
-                     else {'--candidate','--job-digest','--received-source','--review-run','--output','--viewer'})
+                     else {'--candidate','--job-digest','--received-source','--received-material','--review-run','--output','--viewer'})
             if any(token.split('=',1)[0] not in allowed for token in sys.argv[1:] if token.startswith('--')):
                 p.error('candidate delivery accepts only its explicitly bound inputs')
             if a.action=='freeze-candidate-plan':
                 if not all((a.candidate,a.image,a.source_sha256,a.contract_dir)):
                     p.error('--candidate, --image, --source-sha256 and --contract-dir required')
                 result=candidate_delivery.freeze_candidate_plan(a.candidate,a.image,a.source_sha256,a.contract_dir,a.output,a.max_calls,
-                    a.visual_policy,a.visual_textures,a.prior_texture_review)
+                    a.visual_policy,a.visual_textures,a.prior_texture_review,a.generation_mode)
             elif a.action=='prepare-candidate-delivery':
                 if not a.snapshot or not a.snapshot_digest:p.error('--snapshot and --snapshot-digest required')
                 result=candidate_delivery.prepare_candidate(a.snapshot,a.snapshot_digest,a.output)
@@ -360,7 +363,13 @@ def main():
                     key,value=entry.split('=',1)
                     if key in received:p.error('duplicate received request')
                     received[key]=value
-                result=candidate_delivery.deliver_candidate(a.candidate,a.job_digest,received,a.output,a.viewer,a.review_run or [])
+                materials={}
+                for entry in a.received_material or []:
+                    if '=' not in entry:p.error('--received-material requires MID=JOB')
+                    key,value=entry.split('=',1)
+                    if key in materials:p.error('duplicate received material')
+                    materials[key]=value
+                result=candidate_delivery.deliver_candidate(a.candidate,a.job_digest,received,a.output,a.viewer,a.review_run or [],materials)
             print(json.dumps(result,ensure_ascii=False));return
         if a.action in ('prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output'):
             from . import host_material_review as output_review

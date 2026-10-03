@@ -278,6 +278,7 @@ CANDIDATE_POLICY = 'deferred-visual-review-v1'
 CANDIDATE_FIT = 'uniform-alpha-contain-v1'
 CANDIDATE_SPLIT = 'unique-nearest-frozen-grid-zero-alpha-seams-v1'
 CANDIDATE_BOUNDARY = 'preserve-faint-source-boundary-guard-v1'
+CANDIDATE_SUBSTITUTION = 'complete-sheet-fresh-singletons-v1'
 
 
 def candidate_sheet_cells(image, row):
@@ -367,7 +368,7 @@ def candidate_cell(image, box, split):
 
 
 def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, output, max_calls,
-                          visual_policy=None, visual_textures=None, prior_texture_review=None):
+                          visual_policy=None, visual_textures=None, prior_texture_review=None,generation_mode='sheets'):
     """Schema-checked deterministic candidate snapshot, explicitly without M2 approval."""
     from .host_review import CONTRACT_DIGESTS
     from .compile_visual import compile_plan, render_prompt, validate
@@ -383,6 +384,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
     visual=read(plan_path);Draft202012Validator(read(schema_path)).validate(visual)
     if visual['unknowns']:raise ValueError('UNRESOLVED_UNKNOWNS')
     if type(max_calls) is not int or not 1<=max_calls<=128:raise ValueError('CALL_LIMIT_REQUIRED')
+    if generation_mode not in ('single','sheets'):raise ValueError('GENERATION_MODE')
     source_sha=digest(reference);plan_sha=digest(plan_path)
     if source_sha!=reference_sha256:raise ValueError('REFERENCE_CHANGED')
     with Image.open(reference) as image:
@@ -400,8 +402,8 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
     planning_findings=check_relations(visual)
     plan,placements=compile_plan(visual,picture.size,source_sha,generation_reference='context-crops',context_prompt_version='v7',
                                  planning_review_deferred=True,visual_policy=policy,texture_doc=texture_doc,texture_bindings=texture_bindings)
-    groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY)
-    if groups['plannedCalls']>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
+    groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY) if generation_mode=='sheets' else None
+    if (groups['plannedCalls'] if groups else len(plan['assets']))>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
     output.mkdir(parents=True,exist_ok=False);(output/'evidence').mkdir()
     metadata={}
     if policy_bytes is not None:
@@ -420,7 +422,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
     validate(plan,source_base=output)
     save(output/'execution-plan.candidate.json',plan)
     save(output/'placements.json',dict(basis='candidate declared ownership regions; no body observations',materials=placements))
-    save(output/'generation-groups.json',groups)
+    if groups:save(output/'generation-groups.json',groups)
     singles={}
     for asset in plan['assets']:
         folder=output/'materials'/asset['id'];folder.mkdir(parents=True)
@@ -432,7 +434,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
             outputSize=asset['output_size'],plannedCalls=1,automaticRetries=0)
     references=materialize(output,plan,picture);save(output/'generation-references.json',references)
     rows=[]
-    for group in groups['groups']:
+    for group in (groups['groups'] if groups else [dict(id=asset['id'],mode='single') for asset in plan['assets']]):
         if group['mode']=='single':row=singles[group['id']]
         else:
             folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
@@ -444,7 +446,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
                 outputSize=group['outputSize'],plannedCalls=1,automaticRetries=0)
         row.update(generationReference='context-crops',references=request_references(references,row.get('materialIds',[row['asset']])))
         rows.append(row)
-    save(output/'requests.json',dict(kind='ui_visual_requests_preview_v2',dispatchEnabled=False,
+    save(output/'requests.json',dict(kind='ui_visual_requests_preview_v2' if groups else 'ui_visual_requests_preview_v1',dispatchEnabled=False,
                                    generationReference='context-crops',requests=rows,**metadata))
     save(output/'compile-report.json',dict(contextPromptVersion='v7',planningReviewDeferred=True,
         sourcePlanSha256=plan_sha,referenceSha256=source_sha,visualReviewPolicy=CANDIDATE_POLICY,
@@ -453,7 +455,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
         status='frozen_experimental_snapshot',executable=False,productionReady=False,humanVisualAcceptance=False,
         planningReviewDeferred=True,newM2ReviewPerformed=False,visualReviewPolicy=CANDIDATE_POLICY,
         planningVisualFindings=planning_findings,
-        generationMode='sheets',generationReference='context-crops',contextPromptVersion='v7',
+        generationMode=generation_mode,generationReference='context-crops',contextPromptVersion='v7',
         generationCalls=0,materialCount=len(plan['assets']),plannedCalls=len(rows),maximumCalls=max_calls,
         sourcePlanSha256=plan_sha,referenceSha256=source_sha,legacyCompatibilityBlockers=[
             dict(code='PLANNING_REVIEW_DEFERRED',reason='Candidate only; no M2 visual approval or body observation.')],
@@ -478,13 +480,14 @@ def prepare_candidate(snapshot, expected_digest, output):
         runtime=runtime_files(),visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=CANDIDATE_FIT,
         candidateSheetSplitPolicy=CANDIDATE_SPLIT,
         candidateSourceBoundaryPolicy=CANDIDATE_BOUNDARY,
+        candidateMaterialSubstitutionPolicy=CANDIDATE_SUBSTITUTION,
         modelCallsMaximum=0,humanVisualAcceptance=False,originalDagPromoted=False,
         scope='Candidate export only; visual review deferred to final whole-image human acceptance.'))
     return dict(status='candidate_policy_frozen',candidateDigest=result['digest'],
                 modelCalls=0,humanVisualAcceptance=False)
 
 
-def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer, review_runs=()):
+def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer, review_runs=(),received_materials=None):
     """Derive a complete candidate from actual receipts, without claiming visual passes."""
     import numpy as np
     import re
@@ -495,9 +498,10 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
             or contract['visualReviewPolicy']!=CANDIDATE_POLICY or contract['registrationPolicy']!=CANDIDATE_FIT
             or contract.get('candidateSheetSplitPolicy')!=CANDIDATE_SPLIT
             or contract.get('candidateSourceBoundaryPolicy')!=CANDIDATE_BOUNDARY
+            or contract.get('candidateMaterialSubstitutionPolicy')!=CANDIDATE_SUBSTITUTION
             or contract['runtime']!=runtime_files()):raise ValueError('CANDIDATE_CONTRACT_CHANGED')
     snapshot=Path(contract['snapshot']);_bound_files(snapshot,contract['snapshotFiles'])
-    inspect(snapshot,contract['snapshotDigest'])
+    original_manifest=inspect(snapshot,contract['snapshotDigest'])
     rows=read(snapshot/'requests.json')['requests']
     if set(received_jobs)!={row['asset'] for row in rows}:raise ValueError('COMPLETE_RECEIVED_REQUEST_SET_REQUIRED')
     visual_path=snapshot/'evidence/revised-visual-plan.json'
@@ -506,7 +510,17 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
     placements=sorted(read(snapshot/'placements.json')['materials'],key=lambda p:p['drawIndex'])
     if {p['id'] for p in placements}!=set(owned):raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
     if len({p['drawIndex'] for p in placements})!=len(placements):raise ValueError('AMBIGUOUS_ORDER')
-    sources={};bindings=[];evidence=[];sheet_splits=[]
+    if received_materials is not None and type(received_materials) is not dict:
+        raise ValueError('RECEIVED_MATERIAL_MAP_REQUIRED')
+    received_materials=dict(received_materials or {})
+    replaceable={mid for row in rows if row.get('kind')=='sheet' for mid in row['materialIds']}
+    if not set(received_materials)<=replaceable:raise ValueError('ONLY_COMPLETE_SHEET_MATERIAL_SUBSTITUTIONS_ALLOWED')
+    for row in rows:
+        mids=set(row.get('materialIds',[]));selected=mids&set(received_materials)
+        if selected and selected!=mids:raise ValueError('COMPLETE_SHEET_SUBSTITUTION_REQUIRED')
+    if received_materials and original_manifest.get('policy')!='deferred-visual-candidate-plan-v1':
+        raise ValueError('CANDIDATE_SNAPSHOT_REQUIRED_FOR_SUBSTITUTIONS')
+    sources={};bindings=[];evidence=[];sheet_splits=[];substitutions=[]
     for row in rows:
         key=row['asset'];job=Path(received_jobs[key]).resolve()
         try:config,actual,receipt,raw=source(job,key)
@@ -520,6 +534,45 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
         with Image.open(raw) as image:
             image.load()
             if row.get('kind')=='sheet':
+                if set(row['materialIds'])<=set(received_materials):
+                    issue=None
+                    try:cells(image,row,actual_gaps=True)
+                    except ValueError as exc:issue=str(exc)
+                    replacement_bindings=[]
+                    for mid in row['materialIds']:
+                        new_job=Path(received_materials[mid]).resolve()
+                        new_config,new_row,new_receipt,new_raw=source(new_job,mid)
+                        new_snapshot=new_job/'snapshot';new_manifest=inspect(new_snapshot,new_config['snapshotDigest'])
+                        if (new_job==job or new_config['assets']!=[mid] or new_config['maximumCalls']!=1
+                                or new_row.get('kind')=='sheet' or new_row['asset']!=mid
+                                or new_manifest.get('policy')!='deferred-visual-candidate-plan-v1'
+                                or new_manifest.get('generationMode')!='single'
+                                or new_config.get('referenceMode')!='context-crops' or 'promptVariant' in new_config):
+                            raise ValueError('FRESH_CANDIDATE_SINGLETON_RECEIPT_REQUIRED')
+                        for field in ('sourcePlanSha256','referenceSha256','visualPolicySha256','visualTexturePolicy',
+                                      'visualTexturesSha256','visualTextureBindingsSha256'):
+                            if new_manifest.get(field)!=original_manifest.get(field):
+                                raise ValueError('SUBSTITUTION_SOURCE_PLAN_OR_POLICY_CHANGED')
+                        if (digest(new_snapshot/'evidence/revised-visual-plan.json')!=new_manifest['sourcePlanSha256']
+                                or digest(visual_path)!=original_manifest['sourcePlanSha256']):
+                            raise ValueError('SUBSTITUTION_SOURCE_PLAN_FINGERPRINT_CHANGED')
+                        if digest(new_snapshot/'reference.png')!=digest(snapshot/'reference.png'):
+                            raise ValueError('SUBSTITUTION_REFERENCE_CHANGED')
+                        for name in ('execution-plan.candidate.json','placements.json','generation-references.json'):
+                            if read(new_snapshot/name)!=read(snapshot/name):
+                                raise ValueError('SUBSTITUTION_COMPILED_STRUCTURE_CHANGED')
+                        from .execution_preflight import preflight
+                        preflight(new_snapshot,new_manifest['digest'])
+                        binding=dict(materialId=mid,requestId=mid,replacedRequestId=key,jobDigest=new_config['digest'],
+                            snapshotDigest=new_manifest['digest'],submissionDigest=new_receipt['submissionDigest'],
+                            rawSha256=new_receipt['rawSha256'],receiptSha256=digest(new_job/'attempts'/mid/'received.json'))
+                        replacement_bindings.append(binding);bindings.append(binding)
+                        with Image.open(new_raw) as material:sources[mid]=material.convert('RGBA')
+                    substitutions.append(dict(requestId=key,materialIds=row['materialIds'],policy=CANDIDATE_SUBSTITUTION,
+                        strictExtractionIssue=issue,originalSheetExtractionPassed=issue is None,
+                        originalSheetDelivered=False,originalSourceSha256=receipt['rawSha256'],
+                        originalSubmissionDigest=receipt['submissionDigest'],replacementSources=replacement_bindings))
+                    continue
                 # All nonzero alpha participates in seam and support checks; no alpha floor.
                 try:boxes,split=candidate_sheet_cells(image,row)
                 except ValueError as exc:
@@ -549,7 +602,7 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
     for mid in owned:
         if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,127}',mid) is None:raise ValueError('CANDIDATE_MATERIAL_PATH')
     if output.exists() or output.is_relative_to(candidate) or output.is_relative_to(snapshot) or any(
-            output.is_relative_to(Path(job).resolve()) for job in received_jobs.values()):
+            output.is_relative_to(Path(job).resolve()) for job in [*received_jobs.values(),*received_materials.values()]):
         raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
     output.mkdir(parents=True);(output/'materials').mkdir()
     with Image.open(snapshot/'reference.png') as reference:width,height=reference.size
@@ -609,11 +662,12 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
                   for f in read(snapshot/'snapshot.json').get('planningVisualFindings',[]))
     issues.extend('Placement candidate: '+json.dumps(g,ensure_ascii=False,sort_keys=True) for g in geometry)
     issues.extend('Candidate sheet split: '+json.dumps(s,ensure_ascii=False,sort_keys=True) for s in sheet_splits)
+    issues.extend('Fresh singleton substitution: '+json.dumps(s,ensure_ascii=False,sort_keys=True) for s in substitutions)
     issues.extend('Preserved visual findings: '+json.dumps(e,ensure_ascii=False,sort_keys=True) for e in evidence)
     result=write_package(snapshot/'reference.png',composition,package_sources,output/'delivery',viewer,issues)
     result.update(status='pending-human-review',visualReviewPolicy=CANDIDATE_POLICY,registrationPolicy=CANDIDATE_FIT,
         candidateDigest=candidate_digest,snapshotDigest=contract['snapshotDigest'],modelCalls=0,generationCalls=0,
         humanVisualAcceptance=False,originalDagPromoted=False,sourceBindings=bindings,
-        geometry=geometry,visualEvidence=evidence,sheetSplits=sheet_splits)
+        geometry=geometry,visualEvidence=evidence,sheetSplits=sheet_splits,materialSubstitutions=substitutions)
     save(output/'result.json',result)
     return result
