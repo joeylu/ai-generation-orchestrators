@@ -1370,4 +1370,1824 @@ Added explicit List.props.itemContents ownership of direct Image/Text by stable 
 
 - 2026-09-17: Skyport isolated-r005 independent consumer acceptance: isolated official import and actual Studio input/save/reopen/ZIP/CLI reimport passed (1 test, 2.9m). List parent background observed without duplicate panel; all original payload entries retained byte-for-byte. Reference blocked with 5 Input unknowns and45 unverified scopes; human_visual_acceptance=false. Evidence: work/ui-component-harness/skyport-r005-independent-20260917-r001/验收报告.md. No consumer code changes.
 
-- 2026-09-21: UI layer preview release isolation: added standalone Pixi layer viewer and bounded generic ZIP reader; legacy decomposition importer defaults unchanged. Executed 10 layer/import tests, TypeScript noEmit and viewer build successfully on Windows. No fresh browser, Linux, provider or Docker acceptance is claimed for this release.
+- 2026-09-17: Skyport selected-row repair consumer acceptance: 1493 real-input linkage checks, 37 state/interaction records, 11 Studio input/save/reopen/export/CLI/Studio checks and isolated official CLI import passed. Reference remains blocked by five original Input unknowns; original/state bytes and mapping unchanged. No consumer code changes. Evidence: work/ui-decomposition/skyport-supplies-live-20260916-r001/visual-repair-20260917-r001/list-selected-repair-20260917-r003/integration-r001/验收报告.md. Draft SHA-256 c615b20f45a9283c2792f2b07511b7e79d74425497e4c6e4acd7b01204c13855; human_visual_acceptance=false.
+
+- 2026-09-17: Skyport selected-row r003 independent consumer audit: isolated SHA-256 c615b20f45a9283c2792f2b07511b7e79d74425497e4c6e4acd7b01204c13855 and official import passed. Build and 2 actual Edge/Studio tests passed (full real-input/save/reopen/export/CLI/Studio roundtrip; quantity upper bound 9 and all four sorts). Original non-manifest members byte-preserved. Selected-row appearance follows selection; empty results reveal parent without residual rows. Reference blocked with 5 unknowns / 45 unverified scopes; typography/coin differences remain, human_visual_acceptance=false. No consumer code patch or commit. Evidence: work/ui-component-harness/skyport-selected-r003-independent-20260917-r001/验收报告.md. Preview4317.
+
+### 2026-09-20 Expedition PNG ZIP consumer compatibility probe
+
+- Re-ran `test_assets_component_bridge`: 1 passed; synthetic offline fixture only.
+- Actual isolated Expedition full-recovery ZIP SHA-256 `c01f1952b55177bc3bcfe4c5ca0e33e7121c887ffdff099d1177dc296db6f991`: consumer authenticated all 27 layers; official `assets-build` and `validate` passed for an explicitly authored two-Button compatibility target (layer-26, layer-27). Bound PNG bytes were identical. Missing binding and overwrite rejected.
+- Evidence: `work/ui-decomposition/expedition-full-recovery-20260920-r001/consumer-check-r001/` (check.mjs, target.json, built.json). The binding.json is intentionally mutated to a missing-binding negative case by the test; it is not a production binding.
+- No generation, browser/Studio interaction, full Expedition semantic build or reference comparison performed. Runtime acceptance remains not_run. This establishes ZIP/build compatibility only.
+
+### 2026-09-20 Expedition full consumer readiness check
+
+Full historical semantic target + current isolated PNG ZIP partial-binding probe rejected by official assets-build with COMPONENT_LAYER_GEOMETRY_MISMATCH (search). Inventory additionally lacks complementary tab states, Select popup, separate quantity controls and CheckBox box/mark needed by old bindings. No full build or Studio acceptance claimed; no generation or bypass. Evidence: work/ui-decomposition/expedition-full-recovery-20260920-r001/consumer-full-check-r001/report.md and build-result.json. Earlier two-Button probe remains scoped compatibility evidence.
+
+- 2026-09-20: Expedition PNG c01f1952…db6f991 consumer adaptation remains BLOCKED on three alternate Tabs skins (217x74 each). New geometry, authenticated historical popup/checkbox reuse, official zero-generation quantity/row composition-crop pipeline and all-except-Tabs component build completed. Build and actual Edge scoped input/bundle reopen/CLI validation passed; final four-item selection checks avoid price/check overlap. Full semantic candidate retained but official assets-build rejects missing Tabs coverage; full business linkage and complete handoff ZIP roundtrip NOT_RUN. No runtime source changes, no generation, no commit; human_visual_acceptance=false. Evidence: work/ui-component-harness/expedition-png-adaptation-20260920-r001/适配报告.md.
+
+- 2026-09-20: Expedition full PNG + three Tabs supplements integrated with unchanged full semantic target (quantity1–99, retain on selection, three sorts). Original native-alpha quantity/row regions now flow through generic authenticated material_regions derivation (3 offline regressions, zero generation), replacing rejected opaque preview crops. Full official assets-build/component-handoff and isolated CLI import passed. Added generic legacy handoff persistence and saved runtime1.1 using existing runtime_bundle restrictions; original semantic/binding/decomposition bytes preserved, missing reference remains explicit. Consumer559 tests and build passed; final Edge/Studio2 tests passed357.7s including real input, bounds/prices/filter/category/sort/row ownership/events, save/reopen/ZIP/CLI/Studio reimport. Official visual comparison BLOCKED MISSING_REFERENCE_EVIDENCE; human_visual_acceptance=false. Runtime-only draft SHA dcbc85e6bead0d66637dc04d4c7313423ebacf729e94d0fa0ea48d9e2d166a0d. Evidence work/ui-component-harness/expedition-full-adaptation-20260920-r004/验收报告.md; failure traces retained (one previous JSON summary overwritten by reporter-path collision, disclosed in report). tony; other task edits preserved; no commit/push.
+### 2026-09-20 Single ZIP assets v2 consumer
+
+- Agreed on producer-owned assets-package-v2 doc SHA256 `443e3cca1f1d0397c8db7dcd88eb209019000025ebbad4e887664f5bfaa812ef` and schema `82146c987207fe53c8675adcde5258b4dd93f6bb01b458e24ad5591370cdfbe7`; no competing schema.
+- Implemented explicit legacy/v2 dispatch, full inventory/digest/size/mapping/layer-fact checks and decoded alpha visible bounds. Supplemental intake is allowed; standalone appearance binding/build rejects until deterministic base merge.
+- Implemented offline assets-intake/assets-plan and source-bound reviewed-observation compilation, explicit user requirements/semantic/binding gaps. Three-input assets-build remains compatible. V2 Studio/CLI builds preserve exact material archive through bundle0.3 and existing runtime1.1 export; old Studio partial binding behavior retained.
+- Final build and 586 offline tests passed. One Edge/Studio test passed: default before input, real mouse/key events, save/reopen, ZIP export, official CLI import/export and Studio reimport. Source ZIP bytes retained, model calls zero. Failures preserved: initial test syntax error; first two keyboard-focus assumptions; stale existing CLI expectation of bundle0.1 corrected to0.3 with archive digest/byte assertions.
+- Producer minimal, legacy, supplemental and merged fixtures authenticated. Final isolated Expedition r002 SHA256 `4a2df5796b3c7c5dbd607f058bdee553840907f835d67d81dad133ae509d2dc6` authenticated with30 layers and original/mapping. Only the new ZIP was used for observations/candidate binding plan; no historical target/binding. Missing user business and component/state decisions remain needs_input. Reference acceptance BLOCKED/MISSING_REFERENCE_EVIDENCE; Expedition whole-page interaction/model cold-start NOT_RUN; human_visual_acceptance=false.
+- Evidence and actual segmented timings: `work/ui-component-harness/single-zip-consumer-20260920-r001/交付报告.md`. Continued tony, preserved existing changes, no commit/push/generation/private service.
+
+### 2026-09-20 New-ZIP-only local demo follow-up
+
+Shared Tabs content visibility now aggregates active references to each unique child; public contract clarified, independent actual-browser regression passed. Targeted25 tests passed; initial TypeScript narrowing failure preserved, corrected final build-r002 passed. New-source static default and authorized neutral business real-input/JSON-save/reopen/CLI tests passed separately. Authenticated deterministic38-layer candidate validates7 bound controls; strict full-artwork build remains blocked on Select popup and separate CheckBox box/mark. Partial artwork preview open/screenshot passed, not full interaction acceptance. No historical target/binding/assets, generation, commit or human visual approval. No full-suite rerun in this follow-up. Evidence and actual timings: work/ui-component-harness/expedition-cold-demo-20260920-r001/验收报告.md.
+
+### 2026-09-20 Expedition new-source41-layer full artwork acceptance
+
+Official producer41-layer draft SHA b9c8d6ea078340960ac9c87748424e5a2a30365bb0c75f313741ff7f70fdedf6 authenticated and strict full-artwork compiler/export passed. Default checked before interaction. Actual approved business assertions, JSON save/reopen, Studio ZIP, CLI import/export and exact source ZIP preservation completed; composite test timed out at final Studio import (180s total limit, failure retained). Scoped resume on that exact CLI ZIP passed final Studio import, quantity/check state persistence and popup3 options; no expensive prior segments rerun. Technical chain complete through combined evidence, not a single all-green run. Human visual acceptance false; no exact font/pixel match claimed. No consumer generation, historical asset reuse, runtime changes or commit. Evidence/timings: work/ui-component-harness/expedition-full-skin-20260920-r001/验收报告.md.
+
+- Follow-up visual audit found authored target omitted five coin sprites and retained neutral dark purchase text. candidate-r002 restores source coins with per-item ownership, separates price/check geometry, restores observed pale purchase label. Strict compile20.132s and scoped browser1 test106.750s passed (default, selection, sorting, save/reopen, ZIP source identity, CLI/Studio import, ownership/color persistence). Existing r001 failures and evidence preserved; no runtime change, no new generation. Latest artifacts and screenshots in the same full-skin report; human_visual_acceptance remains false.
+
+### 2026-09-21 Independent UI layer package and Pixi viewer
+
+Added an isolated local viewer for producer ui_layer_composition_v1 and ui_layers_package_v1; no component/state/business contract required. Producer experiment verifies frozen inputs, copies registered PNGs, composites from the same placement contract, and emits a closed SHA-256 inventory. Independent build entry: scripts/build-layer-viewer.mjs. Contract and usage: repository-relative experiments/ui-planning-m1/LAYER-PACKAGE.md.
+
+93 Python experiment tests, 30 targeted TypeScript tests, TypeScript check and standalone build passed. Actual local Edge browser tested ZIP import, layer visibility/solo, original/composite/overlay, zoom, mobile, exact PNG and ZIP download roundtrip, invalid ZIP clearing stale state and valid reopen. No page errors or external requests. Initial r001 archive ordering failure retained; ASCII ordering fixed, final r003 browser passed. Final package contains 9 layers, 1536x1024, 11997917 bytes; SHA-256 51a5d4b0dd4b9bccea98b396772dcabcdba3f46406251feffeb4081b19162cc6.
+
+Evidence: work/ui-planning-experiment/layer-viewer-browser-20260921-r003/result.json and screenshots; package: work/ui-planning-experiment/create-hero-layer-package-20260921-r003/. This turn made zero generation/model calls. Reused sample includes prior human-assisted planning/registration; not proof of unattended reference-to-delivery. Business text removed, known redraw differences remain, humanVisualAcceptance=false. Original production decomposition chain unchanged; no commit/push.
+
+### 2026-09-21 Reward revised layer-package viewer acceptance
+
+Producer experiment added conservative whole-surface routing for one card/button enclosing all same-material localized details. Original failed DAG retained; separate revised offline processing made zero model/generation calls. 107 experiment tests passed, 16.167s. Six-layer draft ZIP SHA-256 e18021929579b1acc393e1887346025493e5dce7a1a0ad4f71bf08197f0fef7b, 7684054 bytes, preserves known panel duplication and nonuniform progress fitting warnings. humanVisualAcceptance=false; not first-pass unattended success.
+
+Actual local Edge viewer tested six-layer import, visibility/solo, original/overlay/composite, PNG/ZIP exact download roundtrip, zoom, mobile, corrupt ZIP clearing and valid reopen. No page errors/external requests. Evidence: work/ui-planning-experiment/reward-viewer-browser-20260921-r001/result.json and screenshots. Package: work/ui-planning-experiment/reward-layers-revised-20260921-r001/. Viewer/runtime consumer unchanged. No commit/push.
+
+### 2026-10-02 Direct UI layer-package component consumer
+
+- Added offline `layer-intake` and `layer-build` for `ui_layers_package_v1`, separate from decomposition/assets ZIPs. Build requires a complete explicit v0.2 component document, exact image-pointer bindings and an accounted unused-layer list. Button events carry component IDs; game actions are wired later and are not a build input. No type, text, font size, placement or state is inferred from a layer name. All 16 existing node contracts remain available through the same v0.2 validator and PixiJS runtime.
+- Added source-bound bundle 0.4 with exact ZIP bytes and canonical plan digest. Reload/export revalidates ZIP inventory, bytes, plan, component structure and resources; existing runtime value state remains editable. Studio and workbench export retain the attachment.
+- At initial intake, the supplied six-layer 1672×941 ZIP passed with SHA-256 `ceb3ab68667969bc3b76e6fd040247a5dbb973bad1875b885c6ac1b96bb0e184`. The ZIP itself still has no business text geometry/font properties or visual acceptance. Upstream warnings include panel resampling, close crop ratio and skipped planning visual review. The later source-bound component candidate is recorded below.
+- Synthetic offline fixture: CLI intake/build/validate and negative stale/tampered mapping and cross-handoff tests passed; build and full offline suite 593/593 passed before removing the unnecessary game-action-ID requirement. One actual Edge/Studio browser test passed: render, real Button activation, export/reopen, exact source identity, zero model requests. Human visual acceptance remains false; no media generation, commit or deployment.
+
+### 2026-10-02 Supplied six-layer ZIP component candidate
+
+- Removed the premature requirement for game action IDs after user clarification. Button component IDs and `activate` events suffice for UI rendering and input acceptance; game behavior is wired later. The public plan contract, intake report, skill documentation and synthetic fixture were updated. Final build, 593/593 offline tests and one isolated Edge synthetic browser test passed after this correction.
+- Read-only ZIP intake authenticated SHA-256 `ceb3ab68667969bc3b76e6fd040247a5dbb973bad1875b885c6ac1b96bb0e184`, 1672×941 and six PNG layers. Reference text observed as PAUSED, RESUME, RESTART, QUIT with a raster X. Bright reference glyph bounds were measured in manually reviewed regions and retained in local work evidence.
+- Authored a source-bound candidate v0.2 tree with one background Image, one Panel, four Buttons and all six layer bindings. Explicit provisional Segoe UI Black sizes 77/46/44/43 px and enabled preview state are recorded in the plan; neither is asserted as source metadata or human visual acceptance. `layer-build` and official `inspect` passed; bundle 0.4 contains exact source ZIP and plan digest.
+- Actual local Edge/Studio accepted all four pointer activations once, exported a bundle whose embedded ZIP hashes to the original digest, and reopened it ready with the same plan digest. No page errors or external network requests. Upstream panel-resampling and close-crop warnings remain, system-font portability is unresolved, game actions were not run, and visual acceptance is false. Evidence: `work/ui-component-harness/layer-package-real-20261002-r001/` including the candidate plan, bundle, reference measurement, final screenshot and browser result. No media generation, commit or deployment.
+
+- 2026-10-02 follow-up: User explicitly accepted the current candidate's local visual appearance. This does not change the original layer ZIP's upstream review flag or validate game actions, animation, or font fallback on other devices. Production static preview at `http://127.0.0.1:4173/` imported `component-bundle.segoe-r003.json` through Studio's saved-plan file input. Real browser rechecked all four Button activations, saved and reopened Bundle 0.4, exact embedded source SHA-256 and plan digest, with zero page errors/external requests. Evidence: `work/ui-component-harness/layer-package-real-20261002-r001/production-preview-browser-result.json` and revised `验收报告.md`.
+
+- 2026-10-02 direct Studio layer ZIP intake: Added separate `ui_layers_package_v1` ZIP and explicit component-plan JSON inputs plus local **生成 Bundle 并预览** action. The browser uses the same deterministic intake/compiler as CLI; no semantic inference or provider call. Build and two targeted synthetic browser tests passed, including source-bound export/reopen and stale-plan rejection clearing the prior preview. Actual supplied six-layer ZIP plus reviewed plan was imported through the new page controls; Bundle 0.4 rendered, exported and reopened with exact source SHA-256 `ceb3ab68667969bc3b76e6fd040247a5dbb973bad1875b885c6ac1b96bb0e184` and plan SHA-256 `dc0ed0b2f0e22425430e4fb7b698baae9707d9f53f96b671454ad746b0092a5a`; zero page errors/external requests. Evidence: `work/ui-component-harness/layer-package-real-20261002-r001/direct-layer-zip-browser-result.json` and screenshot. No media generation, commit or deployment.
+
+- 2026-10-02 automatic layer-plan DAG: Added provider-neutral `intake → observation → plan → compile` orchestration with one configured reference-image observation, zero automatic retries, exact ZIP/reference/observation hashes, conservative Panel/Button-to-layer matching and disclosed provisional typography. Studio now offers **识图生成方案草稿并预览** and validated plan JSON download. Automatic source-bound Bundle remains `vision-proposed` / `draft_pending_visual_review`; unmatched layers are static with explicit issues, unresolved observations block and clear the old preview. Build, 6 targeted offline unit tests and 3 targeted browser tests passed using model doubles. Actual six-layer ZIP plus an offline observation derived from the previously reviewed candidate produced 6/6 bindings, Image/Panel/4 Buttons and Bundle 0.4 with exact source ZIP SHA. The real ZIP was also imported via the new browser auto control with a local response double: one request, plan/Bundle downloads, no page errors or external requests. No live provider call was made for this change, so real model observation quality remains unverified. Evidence: `work/ui-component-harness/layer-package-real-20261002-r001/auto-dag-offline-result.json`, `auto-dag-browser-result.json` and screenshot. No media generation, commit or deployment.
+
+- 2026-10-02 Codex session takeover (supersedes the preceding automatic vision route): Replaced the layer DAG with `intake → session-plan → validate → compile`. Studio's **Codex 生成组件方案并预览** sends the exact ZIP to same-origin `/api/ui-layer-plan`; the server reauthenticates it and a local optional CLI adapter attaches reference/composite/all layer images plus public contracts for all 16 node types. No MCP vision/get_task stage, observation matching, proportional font rules, tool calls, automatic retry or review promotion. Codex proposes the complete tree, states, text, typography and bindings; deterministic programs own source binding, validation, canonical proposal evidence, Bundle 0.4 and local execution receipts. Each node and critical semantic/state/text field must have portable observed/inferred/policy evidence. Nonempty business text must be observed; missing evidence, stale inputs, private path notes, tool events and unresolved output block. Original reviewed and legacy vision-proposed bundles remain valid. Build passed; full offline suite passed 603/603, followed by final 14/14 targeted tests after additional portable-note checks; four browser tests passed with response/process doubles, including zero vision requests, source-bound export/reopen, failed replacement cleanup and missing-login ZIP preservation. Local `codex login status` returned `Not logged in`. Actual supplied ZIP (SHA-256 `ceb3ab68667969bc3b76e6fd040247a5dbb973bad1875b885c6ac1b96bb0e184`, six layers, 1672×941) reached native loopback preflight and returned `SESSION_NOT_AUTHENTICATED`, with zero new session directories or model dispatch. Evidence: ignored `.tmp/codex-session-unit-r001.log`, `.tmp/codex-session-build-r001.log` and `work/ui-component-harness/layer-package-real-20261002-r001/codex-native-preflight-result.json`. Local preview restarted on port 4173 with the new bridge. Real Codex planning quality and human acceptance of its future output remain NOT_RUN pending CLI login. No media generation, commit or deployment.
+
+- 2026-10-02 native Codex planning after user login: The signed-in local CLI completed one persistent planning turn for the supplied six-layer ZIP. The adapter initially rejected four bounded WebSocket reconnection notices and one HTTPS fallback despite a completed tool-free turn. Added strict allowance for these specific transport notices; duplicate/unbounded notices, unknown errors, additional sessions and failed/tool turns remain blocked. Added deterministic collection that authenticates the saved prompt/schema/images/digests and exact final-message/output correspondence, without a process launch. Original blocked receipts and raw response remain unchanged. Collected the same native response into a fresh directory: 6/6 bindings, Container/Image/Panel/four Buttons, 55 decision findings, three review issues, Bundle 0.4; canonical proposal SHA-256 `c938fa573608be4adaf668dd4717d692c802d28e0c5681839760298a50299a17`, plan SHA-256 `85fc64ba6332174f4f0b6469997a4a1f7de531ed31fb8c6e297d592de902f2ec`. Initial browser import, four activations and save/reopen passed technically with zero provider requests, but visual inspection found the PAUSED heading replaced by an ellipsis and left-aligned button text. **Native draft visual acceptance failed; no automatic replacement planning invocation.** Added actual-font render inspection and a model-plan gate in Studio/workbench: implicit label/title truncation tears down the preview and disables exports. Planning instructions now specify left-edge label placement, minimum line height and explicit Button alignment, with per-line decision evidence. Build passed, final targeted offline suite 16/16 and browser suite 5/5 passed using doubles; a separate offline replay of this saved native proposal and Bundle both returned `LAYER_PLAN_TEXT_OVERFLOW: pause-panel.label`, ready=false, exports disabled, zero model dispatches and no page errors. Evidence: `work/ui-component-harness/layer-package-real-20261002-r001/codex-live-r001/`, `codex-live-r001-collected/`, `codex-live-r001-render-check/browser-result.json`, and ignored `.tmp/codex-session-build-r002.log`, `.tmp/codex-session-unit-r003.log`, `.tmp/codex-session-browser-r002.log`. Preview restarted on loopback port 4173; GET bridge status configured=true, busy=false. Earlier human approval still applies only to segoe-r003. No media generation, commit or deployment.
+
+- 2026-10-02 user-approved automatic corrections: User explicitly permitted at most three corrections. Updated this Harness's agent contract for the layer ZIP route and implemented one initial turn plus up to three corrections in the same verified Codex session. Each completed response is independently validated/compiled and checked by isolated local Pixi rendering; repairable contract/resource/evidence errors and text overflow feed back into an explicit session resume, with original reference and failed render image when available. Unknown errors, unresolved semantics, source mismatch, failed/incomplete transport, cancellation and renderer infrastructure errors remain terminal. Fixed maximum is three, no fifth turn, no latest-session selection, no automatic transport resubmission. Root/per-turn immutable receipts authenticate every response, feedback and render image/report; deterministic collection supports the complete correction chain with zero model calls. API v2 returns only final proposal and portable execution counts; Studio reports actual corrections and keeps human approval pending. Browser render checks block external/API requests and tear down on abort/timeout. Build passed (`.tmp/codex-corrections-build-r002.log`); targeted offline suite 19/19 passed including budget exhaustion, same-session enforcement, one contract/resource correction, cancellation and no resubmission of terminal errors (`.tmp/codex-corrections-unit-r005.log`). Browser suite 6/6 passed (`.tmp/codex-corrections-browser-r001.log`): one HTTP request, four process-double turns, three real local render failures then a passing full label, preview and actual activation; all four render checks made zero forbidden requests. Native CLI resume argument parsing was checked read-only using `--help`. Current bridge GET reports version 2.0, configured=true, busy=false, maxCorrections=3. No new live model invocation was made for this implementation; original native draft and its failed visual acceptance remain unchanged. Live native correction quality is NOT_RUN. No media generation, commit or deployment.
+
+### 2026-10-02 Immediate layer ZIP preview
+
+Studio now shows authenticated preview.png in the existing Pixi canvas as 交付包预览 after successful ZIP intake. It stays visible during manual plan selection and automatic planning; a passing component build replaces it. Export, motion presets, comparison and appearance targeting stay unavailable until component checks pass. Invalid replacements, generation errors and reset tear down the preview.
+
+Build passed (.tmp/layer-import-preview-build-r001.log). Browser run covered seven cases: six passed initially; the missing-login test submitted a disabled plan input before image mounting completed. A wait for the user-visible enabled input fixed that test, and its isolated rerun passed (.tmp/layer-import-preview-browser-r001.log and r002.log). New regression checks distinctive preview compositor pixels, zero API requests on intake, mobile fit, disabled export, invalid ZIP clearing and reset. Existing manual/automatic tests verify retention, replacement by one component canvas, source-bound export and correction/error gates.
+
+The supplied six-layer ZIP loaded a static 1672x941 preview, with export disabled, zero page errors and no API requests. An extra screenshot diagnostic did not meet its ad hoc 98% sample threshold: 97.26% matched within three RGB levels at native size. Earlier enlarged capture clipping was corrected in the checking script. Failed diagnostic receipts remain in ignored .tmp/layer-import-real-preview-result-r002.json through r005.json; exact pixel equivalence and human visual acceptance are not claimed. No live model call, service restart, commit or deployment.
+
+### 2026-10-02 Frozen layer ZIP consumer adaptations
+
+Consumer planning now receives an explicit immutable-source policy. Source-bound
+plan 1.0 supports declared Image.region crops, corrected parent child paint order
+and real procedural controls for missing raster parts. Native plans require an
+adaptations array; legacy plans may omit it. Deterministic validation checks crop
+bounds, node/source identity, declarations and explicit-policy evidence at
+/props/region, /children and /props/style. Bundle 0.4 preserves original source
+ZIP/resource bytes and the canonical adaptation plan across export/reopen. The
+runtime uses existing contracts; no images are generated or replaced.
+
+Final build passed (.tmp/layer-adaptation-build-r004.log). Earlier targeted 23/23
+tests passed (r003); final scoped 19/19 passed (r004), including unfinished Draft
+completion in the same verified session and genuine Unresolved remaining
+terminal. Nine actual-browser tests passed with planning/process doubles
+(.tmp/layer-adaptation-browser-r001.log). After the final order-evidence and error
+wording changes, the two affected tests passed again (r002): retained source
+crops, card-before-fish visibility, progress at 0/12-of-16/full, source identity
+through Bundle export/reopen, portable failure reasons and disabled exports.
+Full suite was not rerun. Tests made no provider requests.
+
+Separate user-requested native verification authenticated the latest frozen
+38-layer 1024x1536 ZIP, SHA-256
+0faf3d60cf0853980f2f1ceb7b742a8752ebd363645f16e24f4dfcc63fa64f92.
+It completed one tool-free Codex turn and returned terminal
+LAYER_PLANNING_UNRESOLVED: the model reported unfinished bindings, controls and
+decision findings rather than a missing semantic fact. No plan, compile or render
+check was produced; corrections=0, modelTurns=1, transportRetries=0, visual
+acceptance=false. The earlier failed attempt and this new terminal receipt were
+preserved without modification. Evidence:
+work/ui-component-harness/layer-adaptation-native-20261002-r001/response.json and
+审计与验证报告.md; private session evidence stays in ignored local storage.
+
+The prompt was subsequently tightened: known-semantics unfinished construction
+must use Draft and fail ordinary contract checks, allowing completion within the
+already approved three-correction limit. Concrete missing required semantics
+remain Unresolved. Studio displays the exact portable reasons as 组件方案未完成,
+retains the checked ZIP and disables component output; it does not presume that
+upstream must edit the package. The post-tightening native behavior has not been
+rerun. This is tested consumer capability, not a successful automatic delivery
+for the 38-layer source. No media generation, commit or deployment.
+
+### 2026-10-02 Structured planning outcome and shared correction budget
+
+Native response 1.1 now requires reason/missingInputs. Deterministic programs
+recognize construction-incomplete as a repairable completeness error even when
+status is Unresolved. Required semantic gaps must supply concrete portable
+subject/kind/detail entries. Complete drafts, incomplete work and genuine missing
+inputs have distinct checked payloads; no free-text reason guessing. Construction
+completion shares the same maximum three corrections with contract/render errors.
+Exhaustion preserves the portable last construction diagnostic and checked ZIP;
+partial output remains unavailable. Version 1.0 records remain readable and their
+unclassified Unresolved stays terminal. Run receipts bind response version and
+exact schema; old correction prompts are reconstructed unchanged.
+
+Build passed (.tmp/layer-outcome-build-r001.log); final targeted 26/26 tests passed
+(.tmp/layer-outcome-unit-r002.log). Browser group passed 9/9 (r001): one request
+and four same-session process-double turns combine incomplete construction, two
+actual font-render failures and a passing complete draft using exactly three
+corrections. One added exhaustion/diagnostic/source-retention browser test passed
+separately (r002). Tests made zero provider calls. Deterministic collection of the
+earlier successful native version 1.0 response also passed with modelDispatches=0
+(.tmp/layer-outcome-legacy-collection-r001.json). Full suite was not rerun.
+
+An independently requested native preflight for the real 38-layer ZIP returned
+SESSION_NOT_AUTHENTICATED before any session/model dispatch. Read-only diagnosis
+confirmed login status succeeds with normal host permissions but is invisible to
+the restricted shell token. Local-only preview was restarted with permission to
+read the existing login; no logout or new login flow was used. Original blocked
+preflight evidence remains under
+work/ui-component-harness/layer-adaptation-native-20261002-r002/.
+Native response-1.1 verification then started in a fresh directory using the same
+exact source ZIP and fixed correction limit. Its terminal result will be recorded
+below; current implementation/test evidence alone does not claim native success.
+
+- Native terminal outcome: response 1.1 correctly identified construction-incomplete
+  despite status=Unresolved, recorded a repairable check and explicitly resumed
+  the same verified session. The verification script's generic Node fetch then
+  hit its independent five-minute headers timeout, disconnected and cancelled
+  the in-progress first correction. Producer receipt is SESSION_ABORTED_NO_RETRY,
+  modelTurns=2, corrections=1 (dispatched; that correction did not complete),
+  transportRetries=0, one completed check, no plan/Bundle/render output. Original
+  records remain unchanged under
+  work/ui-component-harness/layer-adaptation-native-20261002-r003/ and ignored
+  session storage. This confirms native classification/continuation, not complete
+  native delivery.
+- Added the explicit Node loopback client with a whole-run deadline instead of
+  fetch's unrelated headers timeout. It sends exactly one request and bounds the
+  source/response, cancellation and timeout; no automatic transport retries.
+  Final combined targeted suite passed 28/28 (.tmp/layer-outcome-unit-r003.log),
+  followed by 2/2 client checks after the response grace-period adjustment
+  (.tmp/layer-outcome-client-r001.log). Tests use only fixture HTTP servers.
+- The cancelled/unfinished model turn requires a new user decision before a
+  fresh native dispatch, as required by this Harness's AGENTS.md. The repaired
+  runner is prepared; it has not been launched without that decision. No new
+  media generation, commit or deployment.
+
+### 2026-10-03 Confirmed native rerun and prompt transport failure detection
+
+User explicitly confirmed one new native run of the unchanged 38-layer ZIP,
+SHA-256 0faf3d60cf0853980f2f1ceb7b742a8752ebd363645f16e24f4dfcc63fa64f92.
+Existing host CLI login passed read-only preflight. The fresh Node HTTP client
+kept the request alive from 01:43:08 to 02:01:28 Asia/Shanghai, avoiding the prior
+five-minute fetch cancellation. Initial response completed at 01:46:28 with
+version 1.1, status Unresolved, reason construction-incomplete and empty missing
+inputs; no plan or findings. Deterministic validation marked it repairable and
+resumed the same verified session for correction 1.
+
+Correction 1 emitted bounded connection timeouts, HTTPS fallback and then
+response-body decoding/stream-disconnection notices. No completed response or
+draft was received within 15 minutes. The untouched execution receipt is terminal
+SESSION_TIMEOUT_NO_RETRY: modelTurns=2 and corrections=1 count dispatches, only
+the initial turn completed, transportRetries=0 counts Harness resubmissions.
+CLI internal notices are recorded separately. No compile/render or human review
+ran and no Bundle was produced. This proves structured classification and client
+waiting behavior, not complete native planning/delivery. Evidence:
+work/ui-component-harness/layer-adaptation-native-20261003-r001/response.json and
+执行与诊断报告.md; private per-turn records remain ignored and unchanged.
+
+Follow-up added live stdout-event checks to stop forbidden/duplicate transport
+notices and unknown/tool events promptly, preserving split UTF-8 and raw evidence.
+Final session/completed-response checks remain authoritative; allowed bounded
+notices plus one HTTPS fallback are still accepted only with a completed turn.
+No new native request followed the incomplete transport attempt. The saved actual
+event stream replayed against a process double terminates at event 8 as
+SESSION_TRANSPORT_FAILED_NO_RETRY, one process stop and zero model dispatches
+(transport-replay.json); the original timeout receipt remains unchanged.
+
+Final build passed (.tmp/layer-transport-build-20261003-r001.log); 29/29 targeted
+offline tests passed (unit-r001), including immediate event termination, UTF-8,
+single-process behavior, three-correction limit and terminal failure handling.
+Two affected actual-browser tests passed (browser-r001), showing concrete timeout
+or transport messages and clearing a previously valid preview/export after one
+failed request. Tests used fixtures/doubles with zero provider calls. Full suite
+and a native run of the new live event guard were not performed. Local-only
+preview is refreshed; no commit, deployment, media generation or human acceptance.
+
+### 2026-10-03 User-requested subagent planning simulation
+
+User reported native Codex CLI quota exhausted and explicitly requested a subagent
+simulation. One subagent inspected the authenticated reference, preview and all
+38 source images, then authored a complete response 1.1. This simulation used
+read-only tools; it does not verify native tool-free planner isolation. Native CLI
+dispatches were zero and all previous native failure receipts remain unchanged.
+
+The existing runLayerAutoDag validation/compiler and checkLayerPlanRender passed
+on initial proposal: 81 nodes, 552 findings, 53 bindings, 28 disclosed adaptations
+and four specifically unused duplicate pond images. Zero corrections followed
+the initial proposal; the maximum permitted correction budget remains three.
+Bundle uses seven visually supported component types, not all sixteen by force.
+Source ZIP SHA-256 remains
+0faf3d60cf0853980f2f1ceb7b742a8752ebd363645f16e24f4dfcc63fa64f92.
+
+Actual local Studio verification passed: imported the generated Bundle, activated
+all twelve Buttons with the mouse, selected all four pond Tabs, changed the real
+ProgressBar to zero/full and observed different pixels. Clicked the actual export
+button, downloaded/reopened the saved Bundle and revalidated state, original ZIP
+bytes and source-plan SHA. No API/external request or page error occurred.
+Evidence: work/ui-component-harness/layer-subagent-simulation-20261003-r001/
+proposal-0.json, round-0/check.json, round-0/render.json, browser-result.json and
+模拟验证报告.md. Local deterministic helper scripts remain ignored under .tmp/.
+
+Result remains draft_pending_visual_review, humanVisualAcceptance=false. System
+font/layout proposals and upstream raster differences need review; the mountain
+pond's baked gold border remains fixed and actual selection uses text color.
+Buttons emit local events without invented game actions or unseen destination
+pages. No runtime fallback, native success, human approval, media generation,
+commit or deployment is claimed by this simulation.
+
+### 2026-10-03 Recover Bundle import from an outdated open page
+
+User's actual tab still ran studio-BEBbya-I.js. Read-only inspection exposed
+TypeError: Failed to fetch dynamically imported module for the replaced
+layer-component-CSKA-fLy.js. The generic damaged/unsupported Bundle message
+masked this page-resource error. The same unchanged 28,845,147-byte Bundle
+imported successfully in fresh default and SwiftShader Edge contexts at the
+user's URL and a narrow viewport, with no page/API/external errors.
+
+Studio now identifies deferred JS/CSS loading failures and offers explicit
+page-refresh guidance/button. No automatic navigation or planning resubmission.
+Build passed (.tmp/simulation-import-stale-build-r001.log). One actual built-
+preview browser regression passed (.tmp/simulation-import-stale-browser-r001.log):
+block a deferred module, see the resource message/disabled export, refresh and
+reimport successfully, with zero provider requests. Hashed-preview regression
+is skipped in the development-server mode where this failure mechanism differs.
+
+Refreshed the user's original in-app tab and reimported the same Bundle through
+its real file chooser. Current entry studio-DtWcR-0m.js; actual canvas visible,
+saved-plan status shown, export enabled and error hidden. Evidence remains under
+work/ui-component-harness/layer-subagent-simulation-20261003-r001/import-diagnosis-r001/
+including the current-tab screenshot and 导入恢复说明.md. Source/archive/plan and
+earlier receipts unchanged; no CLI/model/media dispatch or visual approval.
+
+### 2026-10-03 User-approved visual revision of the simulation draft
+
+User confirmed continuing the proposed visual fixes. Locally authored revisions
+reuse only authenticated regions from the unchanged 38-layer source ZIP: fill the
+plaque English gap, move baked metric icons using original blank paper/crops,
+separate title/badge, improve card labels and rounded progress corners. Pond
+images keep native geometry via supported raster icon parts; real Tabs now show
+the current observed pond name without invented pages or actions.
+
+Revision 1 failed native Tabs cell-height constraints; its receipt and proposal
+remain preserved. Revision 2 passed contract/compiler/render and local browser
+input/export, but actual text measurement found a two-pixel name/count overlap
+on Mountain Pond. Revision 3 fixes spacing and reduces paper-label cover areas
+based on rendered glyph widths. No native CLI/model-provider/media generation
+or public runtime/contract changes occurred during these local plan revisions.
+
+Final revision passed existing runLayerAutoDag and checkLayerPlanRender. Actual
+Studio browser checks passed: twelve Button mouse activations, all four choices
+with only the selected feedback text visible, real progress zero/full pixels and
+values, actual export/reopen preserving ZIP bytes and source-plan SHA. Final
+geometry helper reads/validates actual nested rendered-text bounds; all four
+metric text/icon pairs do not overlap and every pond name/count gap is four pixels.
+The intermediate helper had read the wrong bounds shape; corrected final evidence
+is authoritative, previous records remain untouched. No page/API/external error.
+
+Source ZIP SHA-256 remains
+0faf3d60cf0853980f2f1ceb7b742a8752ebd363645f16e24f4dfcc63fa64f92.
+Final plan SHA-256:
+004ae93a58b00ada03ace90b842b92f18758a0df9659634d5d2180a914cf038f.
+Imported revision-3/component-bundle.json into the user's original in-app tab:
+canvas visible, export enabled, error hidden. Evidence is under
+work/ui-component-harness/layer-visual-refinement-20261003-r001/, including
+all proposals/checks, layout-measurements.json, 视觉修订说明.md and final
+revision-3/browser-result.json/current-studio.jpg. Ninety-five nodes, seven types,
+thirty-nine disclosed adaptations. Status remains draft_pending_visual_review;
+font/source-art/texture differences and the fixed baked mountain gold border
+remain disclosed. No human visual acceptance, commit, release or deployment.
+
+### 2026-10-03 Integrate declared layout measurements into automatic corrections
+
+User approved moving the visual revision lessons into planning and deterministic
+render checks. Added source-bound layoutChecks 1.0 to the optional plan extension:
+explicit directional separations with finite minimum canvas gaps, plus portable
+review explanations covering every unpaired nonempty Text. New native proposals
+must supply the declaration; historic plans/Bundles and run receipts remain
+readable without gaining a measured-spacing claim. Canonical plan digests include
+the declaration. Model-proposed labels remain observed contract data, not game
+actions or substituted text.
+
+The neutral checker measures actual nested glyph rectangles and Image target
+rectangles. It can precisely select one unique existing built-in Button, Panel,
+Dialog or Tabs label/title, needed because this source's pond names are Tabs
+labels rather than independent Text nodes. Missing/duplicate/nonfinite evidence
+fails terminally. Hidden pairs are explicitly skipped. The render adapter emits
+portable gap issues, actual/required gaps, rectangles and PNG evidence to the
+same verified session's existing shared three-correction budget. Previously
+validated relations cannot be removed, redirected or weakened; measured targets
+cannot be hidden to bypass failure. Failed hiding reports and all completed
+drafts/checks remain preserved. Collection revalidates policies and measurements
+without model dispatch; older correction prompts and receipts keep their scope.
+
+Planning prompt now covers restricted source-paper patches, cropped metric icons,
+child order, full glyph spacing, common Tabs geometry retaining original icon
+dimensions, disclosed fixed highlights and removal of all baked progress state.
+These prompt requirements do not constitute automatic pixel-semantic validation
+or human acceptance. Checks cover declared relations in the loaded state, not
+every interaction state, all typography or unpaired spacing. Studio rejects
+layout failures with a concrete message, clears previous successful output and
+displays unpaired Text explanations among review items.
+
+Final build passed (.tmp/layer-layout-build-20261003-r002.log). Final targeted
+offline suite passed 36/36 (.tmp/layer-layout-unit-20261003-r004.log), including
+strict policy/coverage validation, actual nested bounds, a two-pixel overlap,
+owned-label selection, ambiguous/invalid measurements, immutable source/digest
+checks and historical compatibility. The first suite exposed missing declarations
+in the all-sixteen-types gallery fixture; its coverage was corrected and the
+failed output retained. Three final actual-browser tests passed (browser-r003):
+one request/four process-double turns use actual Pixi measurements to reject
+lowered gaps or hidden targets, then pass at correction 3; export/reopen retains
+source and checks. Invalid Bundle import clears successful preview/export. Three
+existing affected browser cases also passed in browser-r001 (legacy Bundle
+roundtrip, implicit label overflow and mixed three-correction budget). All tests
+used synthetic fixtures/doubles, zero native/model-provider/media dispatches.
+
+Local replay of the actual immutable 38-layer source added eleven explicit
+relations to copies of earlier proposals, preserving all old evidence. Old draft
+fails: Mountain Pond name/count gap -2px; the other three are 3px against their
+declared 4px requirement. Corrected draft passes all eleven, including four exact
+4px pond gaps, metric icon/text pairs, caption/value pairs and the built-in title
+versus badge. Twenty-six other Texts have explicit unpaired scope explanations.
+Evidence: work/ui-component-harness/layer-layout-rules-verification-20261003-r001/
+result.json and each case's proposal/component-plan/render.json/render.png.
+Only the passing corrected case published a Bundle file. Source SHA-256 remains
+0faf3d60cf0853980f2f1ceb7b742a8752ebd363645f16e24f4dfcc63fa64f92;
+new plan SHA-256 is
+e3789dfb43f463d9318c650e6a9aa1ae2817c0546107bc38db195ba37668fc49.
+This is local declared-policy replay, not a new native planning run.
+
+Restarted the idle authorized loopback preview to load the current backend rules;
+read-only bridge status is configured=true, busy=false, maxCorrections=3. Reloaded
+the user's existing tab and imported the passing source-bound Bundle. Actual
+entry studio-CcuIXqW1.js, canvas visible, status 可以预览与导出, export enabled and
+error hidden; current-studio.jpg is saved in the same evidence directory. Login
+was not changed and no planning request was submitted. Native full-chain proof
+and human visual acceptance remain pending; no commit, release or deployment.
+
+### 2026-10-03 Eleven-layer real sample and resource-path diagnostics
+
+New user ZIP SHA-256
+3eb36c50a1c7bcea9843d8186964476576bab47bb66d8eb84c23a03fad8bc4d6
+passed authenticated intake and the existing CLI: 6,066,664 bytes, 1672x941,
+11 layers. Preview was shown first; reference labels are SHOP, 250, 30, 50,
+20, three BUY labels and BACK. Thirteen PNGs decoded in an actual local browser.
+Static Pixi intake, narrow viewport, export refusal before a plan, corrupt
+replacement cleanup, reimport and reset passed with no provider/API calls.
+Original ZIP and copied source bytes remain identical. Source coins are lowered
+and mostly hidden behind BUY artwork; enlarged item art and other source-raster
+differences require explicit adaptations and human review.
+
+One explicitly authorized native request dispatched three turns in one verified
+session. Initial construction-incomplete output completed; correction 1 produced
+a 31-node proposal but image fields used layer IDs, and adaptation validation
+rejected it. Correction 2 suffered timeout notices, HTTPS fallback and a new
+stream-disconnection reconnect notice; live event guard terminated it as
+SESSION_TRANSPORT_FAILED_NO_RETRY. Two turns completed; modelTurns=3 and
+corrections=2 count dispatches, transport resubmissions=0. No render or Bundle,
+sample component interaction or export ran. No quota failure was observed.
+Original receipts and all old work remain untouched. Evidence:
+work/ui-component-harness/layer-real-sample-20261003-r001/.
+
+Fixed ambiguous planning wording and generic feedback: image values must be
+authenticated layers[].path; IDs remain binding/adaptation identifiers. Rejected
+resource aliases now produce portable exact field pointers and required paths,
+preserving existing error codes and all source/layout gates. Original failed
+proposal replay remains rejected with 25 field diagnostics and no byte changes.
+Build passed; 38 targeted offline tests passed, including three new regressions
+for crop/Button aliases and same-session diagnostic/collection behavior. Fifteen
+affected browser fixture tests passed with doubles and zero native/provider
+dispatches. Historic Bundles remain compatible; these fixture results are not
+real-sample component acceptance. Idle local preview was restarted for the fix.
+
+After this terminal outcome the user explicitly requested a new real CLI run
+and reported restored quota. A fresh source-bound execution spec and one-use
+request are prepared under layer-real-sample-20261003-r002, with corrected
+prompt and a new session. This does not resume the failed request. Subsequent
+evidence will be recorded separately; no subagent simulation was authorized or
+started. Human visual acceptance remains false; no commit/release/deployment,
+game-engine or business-action integration, or new artwork generation occurred.
+
+### 2026-10-03 Fresh authorized native execution terminates on transport
+
+After the user's explicit new CLI instruction, dispatched one independent native
+request with corrected resource-path wording under
+work/ui-component-harness/layer-real-sample-20261003-r002/. Execution spec SHA-256:
+0b2f0b6ca8b962b8d016e1ffadd10e893dea50a7a302ba8c70fbd7cc3e63c077.
+Initial construction-incomplete turn completed with readable semantics; same-
+session correction 1 did not complete. The live guard stopped timeout notices,
+WebSocket-to-HTTPS fallback and a new response-stream decoding/disconnection
+notice as SESSION_TRANSPORT_FAILED_NO_RETRY (HTTP 502). Two turns dispatched,
+one completed, one correction dispatched, zero Harness transport resubmissions.
+No quota failure was observed. No Bundle, component render, real-sample control
+interaction, enabled-state or export/reopen acceptance was produced. No simulation
+or additional native request ran; earlier failure receipts remain unchanged.
+
+Program verified the original source ZIP, all copied drafts/checks and original
+terminal result fingerprints. Result SHA-256:
+6d4d1e1b30866e6aa799bf6980ab1a2e239ab891f6b8b16575fca1b327d18a0e.
+Deterministic collection refused this failed session without changing its receipt.
+Actual Edge/Pixi replay of the saved HTTP 502 response passed: exact source bytes
+in the intercepted browser POST, failed preview/ready cleared, both exports and
+resubmit disabled, direct export refused, reimport restored static preview only.
+The recorded-response replay had zero model/native submissions, page errors or
+external requests; it does not establish a successful native planning chain.
+Evidence is in r002/native/ and terminal-browser-replay/; full source differences,
+passed gates and blocked acceptance items are in 真实样本测试报告.md. The source
+coins remain partly occluded in upstream preview; enlarged item art, font/state
+art gaps and upstream warnings still require declared adaptation and human review.
+Human visual acceptance remains false. No deployment, game/business integration,
+new artwork generation, commit or release occurred; existing local work remains.
+
+### 2026-10-03 User-authorized subagent simulated sample acceptance
+
+User explicitly requested subagent substitution after the two terminal native
+transport failures. Started one simulated planner for the same authenticated
+11-layer ZIP; no failed CLI request was resumed or resubmitted. Independent
+work directory: work/ui-component-harness/layer-subagent-sample-20261003-r001/.
+SIMULATED-SUBAGENT remains in summary, requirements, planning issues and document
+identity; all verification receipts mark nativeFullChainPassed=false. Original
+source bytes and both prior failure evidence fingerprints remain unchanged.
+
+Complete initial proposal has 32 nodes, 27 bindings covering all 11 layers,
+192 portable findings, 18 disclosed adaptations and 16 source-bound layout
+relations, all requiring at least 4 canvas pixels. No planning correction was
+needed. Existing deterministic DAG validation/compile and actual Edge/Pixi
+render passed every relation, with no hidden skips or implicit text truncation;
+smallest measured gap is 9.141700404858284px. BUY/BACK use exact built-in text
+selectors; standalone SHOP is the one explicitly unpaired Text. Frozen card art
+is adapted using declared blank-paper regions and aspect-preserving item/coin
+crops; no resource bytes are changed or new raster images introduced.
+
+Existing layer-build/validate CLI passed; its Bundle object equals the DAG
+Bundle. Actual sample browser acceptance passed four mouse activations, four
+Enter activations and four Space activations. Each of four Buttons passed
+disabled visual change, mouse refusal, Tab skipping, held-Enter cancellation
+and reenable activation. Studio and workbench actual downloads/reimports passed;
+normalized Studio initial/reopened PNG bytes match. Workbench export restores
+the source enabled states. All four Bundle objects retain exact original ZIP,
+plan and all 11 PNG bytes/hashes. Verification has zero planning/model/API or
+external submissions, forbidden requests or page errors. These are actual
+deterministic/render/interaction checks after simulated planning, not evidence
+that the native CLI planning route passed.
+
+First acceptance attempt is preserved: its test wait called getDocument during
+workbench loading and failed TREE_NOT_LOADED. Corrected the validation script's
+shared import/reimport wait to require export readiness and the target root before
+reading the document; full acceptance-r002 passed without changing sample plan
+or core runtime. The previously fixed generic resource-path diagnostics and
+their 38 offline/15 browser fixture tests retain their separate r001 evidence.
+Source SHA-256 remains
+3eb36c50a1c7bcea9843d8186964476576bab47bb66d8eb84c23a03fad8bc4d6;
+plan SHA-256 is
+edbc4c6ff2a7aa540906eca0936f8bb986a85b0e4a03c27c11fabbfce0a48284.
+See final-verification.json, drafts/turn-0/, simulation/, acceptance-r002/ and
+模拟规划样本测试报告.md for hashes, exports and screenshots. Human review remains
+required for Arial typography versus rounded outlined reference lettering,
+source frame/card/capsule differences, paper seams, crops and procedural states.
+No human visual acceptance, game/action binding, new media generation, deployment,
+commit or release; all earlier local work is preserved.
+
+### 2026-10-03 User feedback on the simulated preview
+
+After viewing the simulated Pixi preview and disclosed differences, user said
+“问题不是很大”. Recorded that feedback separately in the simulated sample's
+用户视觉反馈.md. Retain the current plan as the validation baseline and do not
+revise visuals on this feedback alone. This is limited feedback on the current
+preview, not an expanded approval of all states or formal delivery. Source/plan,
+Bundle, program receipts and both native failure records remain unchanged; no new
+CLI model execution is authorized or dispatched by this feedback.
+
+### 2026-10-03 Read-only native CLI transport diagnosis and local Studio recovery
+
+User requested “排查下”. Inspected host CLI 0.160.0, local ChatGPT login status,
+actual Harness flags, sanitized user transport settings, Windows proxy state,
+and both native executions' five original stdout/stderr traces. Zero new model
+dispatches. All five turns report WebSocket timeouts and HTTPS fallback; three
+complete after fallback, two fail decoding the incomplete HTTPS response stream.
+Longest turn is about 518s, below the 900s Harness timeout. No historical quota
+error was observed; quota and next-request availability remain unverified.
+
+Current explicit direct unauthenticated HEAD probes to two public OpenAI URLs
+time out at about 8s. The existing loopback HTTP proxy completes TLS and returns
+403/401. Windows user proxy is enabled; initial inspection process has no proxy
+environment. Proxy/transport routing is the leading hypothesis, not proof of the
+historical CLI route or the exact WebSocket/SSE disconnection cause. CLI reports
+the old responses_websockets feature switches as removed; no old switch,
+provider replacement, global config change or retry/timeout weakening applied.
+
+Studio had stopped listening at 4173. Restored the existing local preview with
+process-scoped HTTP/HTTPS/ALL_PROXY and loopback NO_PROXY; read-only planning GET
+returns configured=true, busy=false, maxCorrections=3. This does not verify an
+authenticated model stream. Original source/prompt/schema and both terminal
+result hashes remain unchanged; no new sample session was created. Five offline
+historical-event process-double replays pass the existing live guard, accepting
+completed turns and stopping incomplete disconnects without actual subprocess
+or model dispatch. Runtime code and transport gates are unchanged.
+
+Evidence: work/ui-component-harness/cli-transport-diagnostics-20261003-r001/,
+including CLI传输排查报告.md, network/status/guard/recovery JSON, and a reviewed
+local-only startup script. Frozen candidate for a fresh independent proxy trial
+is unexecuted and explicitly unauthorized; candidate digest:
+d7cf5962f9d039053fdf59ba4d182bae142fa2d77960cbd20ee07a30bc5ea2e2.
+A new human compute decision is required before that trial; never reuse the
+failed native sessions or consumed execution locks. Simulated Bundle acceptance
+and limited user visual feedback remain separately recorded. No deployment,
+publication, game actions, new media, commit, or change to earlier local work.
+
+### 2026-10-03 Freshly authorized native CLI proxy trial passes the real sample chain
+
+User explicitly said “授权” after reviewing the frozen process-proxy trial.
+Bound that fresh single-use authorization to candidate SHA-256
+d7cf5962f9d039053fdf59ba4d182bae142fa2d77960cbd20ee07a30bc5ea2e2.
+Frozen candidate bytes retain their original pre-authorization fields; a separate
+authorization.json records the new human decision and a new native-dispatch-lock
+consumes it. Independent directory: work/ui-component-harness/
+layer-real-sample-20261003-r003/. Source ZIP/original, prompt/schema, CLI 0.160.0,
+local ChatGPT login, reviewed proxy and idle API rechecked before dispatch.
+
+One new native request/session, initial completed construction-incomplete turn,
+then one same-session correction produces a complete valid plan. Two model turns
+complete, zero reconnect/HTTPS fallback notices and zero Harness transport
+resubmissions. Existing DAG/contract/binding/adaptation validation, deterministic
+collection, compilation and actual Edge/Pixi render pass. No old failed session
+is resumed and no gate is bypassed. The successful long turn under the explicit
+process proxy supports the prior transport hypothesis without establishing a
+permanent network guarantee or a specific service-side transport protocol.
+
+Native plan has 29 nodes, 23 bindings covering all 11 layers, 159 findings,
+13 disclosed crop/order adaptations, 14 layout relations and no unpaired Text.
+Every rendered relation passes without hidden skips; smallest actual gap is
+7.754px. Source ZIP and all resource PNG bytes remain unchanged. Existing
+layer-build/validate CLI passes and its Bundle equals the DAG Bundle. Plan SHA:
+9ba2f9029af9bf3db9f6523195fb777f2d000f4af217c7b4a99ddc0236c2b904.
+Original native result SHA:
+28c2a1a91980fbd8b221d71773d51650eddf7357bd1f76fbd91cb5ed41d50970.
+
+Actual browser acceptance passes four mouse, four Enter and four Space
+activations, plus five disabled/reenabled behavior checks for each of four
+Buttons. Studio/workbench actual downloads and reopen pass; source, plan, all
+11 resources and exported Bundle objects equal the originals. Normalized Studio
+initial/reopened PNG bytes match. Acceptance blocks model APIs and external
+traffic; zero model dispatches, forbidden requests or page errors during tests.
+final-verification.json records nativeFullChainPassed=true and separately
+humanVisualAcceptance=false. Prior two terminal result fingerprints remain
+unchanged; simulated planning and limited feedback records remain independent.
+
+No new core defect was exposed by this trial; runtime code, gates and the sample
+plan were not manually altered. Existing generic resource-path and transport
+regression evidence remains preserved. See 真实CLI代理实测报告.md and 视觉复核.md:
+system-font typography, outlines/shadows, frozen frame/capsule differences,
+paper seams/crops and state visuals require human review. The capsule coin is
+still baked into an Image and has no separate coin/value spacing relation;
+declared Text coverage does not prove all image/text adjacency measurements.
+No game/business binding, new media, deployment, publication, commit or release.
+
+### 2026-10-03 Numeric glyph clipping: generic renderer fix and preserved-sample replay
+
+User identified clipped trailing zeroes in the real r003 render. Reproduction
+shows a generic Pixi 8.20.1 text raster defect on the English check page: the
+OffscreenCanvas measurement inherits page language, while detached raster canvases
+inherit a different language/font fallback. For 44px bold "30", measurement/frame
+is 48.941px/49px but actual draw advance is 54.270px and ink reaches 53.135px;
+105 painted pixels fall outside the texture frame. At 38px "250", the actual
+70.304px advance exceeds both the 64px frame and pooled canvas. The previous
+layout gate shares the undersized metrics and therefore missed this defect.
+
+Added a shared renderer preparation that sets standard canvas language through
+Pixi's DOMAdapter before canvas/context creation and clears unused canvas/metric
+caches. It does not change source resources, text, component layout, thresholds,
+checks or visibility. The new real-browser regression checks independent raster
+advance/ink, texture-frame size and alpha pixels for 30/50/20/250 in English and
+Chinese pages. Before the fix, English fails (required >=55px, observed 49px);
+after the fix both languages pass with matching measure/draw and zero outside
+pixels. Build passes. Affected browser suite passes 29 tests with one built-only
+skip; built preview passes 11 tests including that case and legacy v0.1's 14
+probes. There are 40 distinct passing browser tests; final numeric cases pass 2/2.
+
+Replayed the unchanged native r003 Bundle through the existing deterministic
+renderer on the built preview. All 14 layout relations pass; the corrected
+English screenshot visibly contains complete zeroes. Fresh acceptance-r002
+passes four mouse, four Enter and four Space activations, all 20 disabled/state
+checks, actual Studio/workbench downloads and reopen, equal normalized Studio
+PNG bytes, source ZIP/resource/plan/Bundle identity, and no API/external traffic.
+No model dispatch or authorization reuse occurred. Programmatic verification
+confirms all 64 original evidence files and all three native result fingerprints
+remain unchanged. Historical success receipts retain their original scope; the
+earlier report's "no text overflow" wording did not establish complete rasterized
+glyphs and is superseded by this correction and its new evidence.
+
+Evidence: work/ui-component-harness/text-raster-clipping-20261003-r001/
+数字裁切修复报告.md, post-fix-verification.json, numeric-raster-{en,zh-CN}.png,
+regression-before/after/final and affected/built logs, and native-replay/ with
+byte-identical Bundle and new render receipts. Original sample adds an independent
+数字裁切后续修正说明.md linking this correction. System-font typography, missing
+reference outlines/shadows, frozen-art adaptation differences and state artwork
+still require human review; humanVisualAcceptance=false. Existing local edits
+are preserved; no game binding, image generation, deployment or publication.
+
+### 2026-10-03 Post-fix visual review prepared
+
+In response to the user's next-step question, compared the authenticated reference
+with the corrected real r003 screenshot and prepared 修复后视觉复核.md in that
+sample directory. It links the current render and acceptance-r002 state evidence,
+and identifies typography, frozen-art boundaries, crop/patch and unmeasured
+capsule adjacency items. Current digits appear complete; prior clipping receipts
+remain preserved. No new user visual decision is inferred: humanVisualAcceptance
+remains false. No model execution, source/plan change or additional test run.
+
+### 2026-10-03 User accepts the corrected native sample; sample testing closed
+
+After the post-fix visual review and its listed differences were presented, the
+user directly replied “我没啥问题”. Recorded acceptance of the current corrected
+native r003 sample and disclosed visual differences in a fresh
+layer-real-sample-20261003-r003/visual-acceptance-r001/human-decision.json and
+样本收尾记录.md. This is a direct human decision, with archive, plan, Bundle,
+reference, corrected render and review/evidence fingerprints attached; it is not
+a claim of pixel-exact reproduction or broader component/device coverage.
+
+The deterministic recorder verified all 95 files in the original native and
+renderer-fix evidence inventories before and after writing the separate decision
+and its inventory. Existing execution receipts and historical
+humanVisualAcceptance=false flags remain unchanged; the new record establishes
+current humanVisualAcceptance=true. Existing technical validation remains pass.
+No new model execution, plan/resource changes, tests, commit or publication.
+This UI component real-sample test is complete; additional real samples with
+Tabs, scrolling lists or dialogs would extend the present coverage.
+
+### 2026-10-03 User-requested complex UI reference generated for upstream delivery
+
+User explicitly requested one new reference image to run through the layer
+delivery workflow themselves. Used the built-in image_gen tool and saved its
+unaltered PNG in work/ui-component-harness/layer-complex-reference-20261003-r001/
+reference.png, together with the exact prompt and 参考图说明.md. The reference has
+three Tabs, four named item rows, a scrollbar, an open details Dialog and a
+quantity stepper initially showing 0. Inspected visible labels, digits and
+separation; copied output bytes match the generated original. This user-requested
+reference generation is independent of the completed native sample and automated
+Harness tests. No Codex planning or frozen layer delivery occurred here; await
+the user's new ZIP before source authentication or component acceptance. The
+note explicitly forbids guessing unseen row data and identifies missing font,
+hidden-tab and state artwork for later source-bound validation.
+
+### 2026-10-03 New complex real ZIP authenticated; native execution awaiting fresh authorization
+
+User provided ui-layers-package (5).zip and asked to try it. Independent sample
+directory: work/ui-component-harness/layer-real-sample-20261003-r004/. ZIP is
+7,802,114 bytes, SHA-256 fa2c8f196c43805e2c243294b278c561f4604ac74347675e1f369b8e867d896a;
+1672x941, 35 layers and 43 members. Existing package/library and layer-intake CLI
+validate all paths, inventory hashes, geometry and review-required metadata.
+Reference bytes equal the user-requested generated reference. Displayed the
+authenticated package preview before component planning.
+
+Actual Edge decodes all 37 PNGs; all 35 layer alpha images are nonempty. Saved
+layer sheet and alpha facts. Browser layer composition vs preview has max channel
+difference 2 and mean absolute channel difference 0.1073, recorded as decoder/
+composition rounding rather than exact equality or visual approval. Actual Studio
+ZIP import shows the static Pixi preview, leaves component/export unavailable,
+and has zero blocked API/external requests and page errors. No model dispatch.
+
+Identified readable reference labels and values, candidate control roles,
+35 reusable materials, 17 upstream review warnings, duplicate baked shell/tab/
+paper state risks, and missing fonts/hidden-tab/state artwork. File names and
+package text are data; package viewer code was not executed. No invisible rows,
+game actions or full component plan were invented. See 离线预检与执行准备.md.
+
+CLI 0.160.0 host-side read-only login check passes; restricted-process false
+result is preserved separately. Desktop ordinary usage is currently allowed;
+this is not a CLI success guarantee. Studio is configured/idle and the reviewed
+host proxy is unchanged. Frozen new execution spec SHA-256:
+1d6bd8540d166408b423dc2389bb242fb3abe8aa21727fc79f807529bd83575b.
+Await explicit authorization applicable to this new ZIP before one fresh native
+request and up to three completed-turn corrections in the same session.
+Terminal conditions retain zero resubmission. Current component plan, Bundle,
+interactive acceptance and human visual approval are not yet executed.
+
+### 2026-10-03 Authorized complex sample native correction times out; attempt terminal
+
+User explicitly replied “授权本次真实 CLI 执行” for the frozen r004 execution spec
+1d6bd8540d166408b423dc2389bb242fb3abe8aa21727fc79f807529bd83575b.
+Recorded fresh authorization and consumed it for exactly one native request on
+the authenticated 35-layer archive. Two model turns were dispatched in the same
+verified session. Initial planning completed with Unresolved /
+construction-incomplete and no missing inputs; the full tree, bindings and
+layout evidence were not constructed. Its draft/check and the correction feedback
+remain preserved. The first correction did not complete and reached the existing
+900-second timeout: HTTP 502, SESSION_TIMEOUT_NO_RETRY, status blocked,
+execution=null. Original result SHA-256:
+97b6262c8e9e18973b0a11f482925099f82f7f59ff9ce1fe34c1d5c8357f5e58.
+
+Correction events contain four CLI reconnect notices (2/5 through 5/5). Harness
+transport resubmissions remain zero. The precise cause of the unfinished turn
+is not established; do not attribute it to quota, complexity or a specific route.
+No request was retried or resumed. Source/reference bytes remain equal. The
+read-only collector rejects this failed session with SESSION_COLLECTION_SOURCE_STALE;
+no valid plan or Bundle exists, and Studio busy=false after termination.
+
+Executed 23 passing offline terminal-gate tests and one passing browser timeout
+presentation test using fixtures/process doubles/local HTTP only. These are gate
+regressions, not new-sample component interaction acceptance. Full contract,
+layout, compilation/render, mouse/keyboard/state and Bundle export/reopen tests
+remain unexecuted because the native plan failed. No general runtime defect has
+been proved; no checks, spacing, timeout or measured targets were weakened.
+
+Programmatic verification confirms all 158 protected files across the new
+preflight, old native sample, text-raster fix and old independent human decision
+inventories are unchanged; old terminal-result fingerprints also remain unchanged.
+Kept the new failed receipt intact and did not substitute simulation or old
+successful output. Report and terminal-verification.json are saved under
+work/ui-component-harness/layer-real-sample-20261003-r004/; the report is
+本次真实CLI超时报告.md. New full-chain and human visual acceptance remain false.
+Existing source preview border/state risks and missing font/hidden-content/state
+artwork remain disclosed. No game binding, image generation, deployment,
+publication or further model dispatch. Fresh execution or simulation requires
+a separate new decision; current authorization is consumed.
+
+### 2026-10-03 User-authorized complex sample subagent simulation passes deterministic UI acceptance
+
+User directly requested “先用subagent来代替cli”. Created a separate
+work/ui-component-harness/layer-complex-simulated-20261003-r001/ record, with fresh
+simulation authorization and byte-identical source ZIP/frozen input. One subagent
+produced the full structured simulated proposal and one correction. Initial
+TAB_ITEM_CANVAS_MISMATCH was preserved: ALL's 311px native cell mismatched its
+authenticated 314x85 template. The correction uses 314px and retains all 26
+layout relations, endpoints, axes, minimum gaps and initial target visibility.
+
+Existing parse/strict source-bound DAG/compiler, public CLI validate and actual
+local Pixi render pass. Final plan has 51 nodes, 45 bindings, 12 adaptations and
+358 evidence findings. All 35 layers are accounted for; 34 resources are used,
+with the baked-selection tab_all explicitly unused and still preserved in the
+exact ZIP. Plan SHA-256:
+04a4c097fe03862e44f00f0406c7d63bbb3b974918ab51464a98b8b80f767b1d.
+Bundle SHA-256:
+c004140cfa7cbed4dd8d9f9297aca6bbe506dafbac2a940a1862cceb39ebf121.
+
+Actual final Edge acceptance-r005 passes ten mouse/Enter/Space Button activations,
+three Tab choices plus keyboard navigation, wheel/content-drag/keyboard scrolling,
+real Input edit 0->17 and persisted export/reopen 17 followed by restored 0,
+twelve disable/reenable checks plus one public-control Dialog close/open record,
+and actual Studio/workbench downloads and reopen. Source ZIP, plan and all 34
+resource bytes remain equal across all three exports. Initial/restored/reopened
+normalized Studio PNG bytes match. Initial/open restored/reopened layout measures
+all 26 relations; Tab states legitimately close the modal proposal and measure
+22 relations, explicitly skipping four hidden Dialog relations. No API/external
+traffic or page errors. Buttons have standalone activate events; quantity,
+Dialog-close, filtering and game-action linkages are not claimed.
+
+Preserved acceptance-r001 through r004 automation failures and diagnostics.
+Two stable-wait timeouts did not reproduce persistent geometry movement: 90
+recorded frames have identical canvas bounds. Other failures were waiting for a
+nonexistent old canvas on first import and reading getDocument before tree load.
+Strengthened new-canvas/readiness synchronization and measured DOM geometry in
+the acceptance runner; full r005 passes with all substantive assertions retained.
+No public runtime defect was established, so no runtime/gate change or redundant
+regression test was added. No layout weakening or image modification occurred.
+
+Programmatic final verification confirms 172 protected prior evidence files are
+unchanged, including complete r004 terminal evidence. The r004 native failure
+remains SESSION_TIMEOUT_NO_RETRY with original fingerprint
+97b6262c8e9e18973b0a11f482925099f82f7f59ff9ce1fe34c1d5c8357f5e58.
+Report: 模拟组件交付验证报告.md; verification.json and new evidence inventory
+save source/resource hashes, draft/render checks, actual interaction and scripts.
+Current result is technical-pass-pending-human-review, planningMode
+simulated-subagent, nativeFullChainPassed=false, humanVisualAcceptance=false.
+Font/outline, active-tab appearance, 12px viewport/longer thumb, paper/crop seams,
+modal/edit-capacity proposals and shared unknown category content remain disclosed.
+No Codex CLI/provider dispatch, image generation, game binding, deployment or
+publication; this does not establish native automatic planning success.
+
+### 2026-10-04 User-visible browser preview with independent font compatibility proposal
+
+User requested opening the current simulated sample in the browser. The original
+Bundle was rejected by the in-app browser with TEXT_OVERFLOW on collection-title;
+its earlier Edge acceptance and original bytes remain intact. Exact browser font
+fallback/measurement cause is not fully established. The same authorized simulated
+subagent supplied correction two, declaring Arial for all 51 node styles while
+preserving font sizes, line heights, layouts, bindings, adaptations and all 26
+layout relations. Existing strict compiler and actual Edge Pixi render pass all
+26 initial checks. The independent Bundle then imported successfully into the
+visible in-app Studio; the full component canvas, title and numeric 0 are visible,
+and the page shows preview/export readiness. The tab is retained for the user.
+
+Saved screenshot, full accessibility state, deterministic identity/protection
+verification, runner sources, report and separate inventory under
+work/ui-component-harness/layer-complex-simulated-20261003-r001/
+preview-compat-turn-2/browser-preview-20261004-r001/. New Bundle SHA-256:
+dbdda73e16dd1eb5d68abc7e5b342fb2223ca29ef4d8d53cd38a8a2c1da65f5c.
+Programmatic verification confirms the original Bundle and 286 protected evidence
+files are unchanged, with exact source ZIP/reference/34 resource bytes preserved.
+
+This in-app browser check covers initial import and visible preview. Full
+mouse/keyboard/state/export-reopen acceptance remains scoped to the original
+font proposal; it was not rerun or claimed for this compatibility variant.
+Arial remains a disclosed consumer typography proposal requiring visual review.
+The restore path currently does not show package reference evidence in the sidebar;
+the authenticated reference remains in the source ZIP and saved sample files.
+Simulation now totals three planning turns and two corrections; no new native
+CLI/provider dispatch, runtime change, game binding, image generation or
+publication. The native SESSION_TIMEOUT_NO_RETRY conclusion and unconfirmed
+human visual acceptance remain unchanged.
+
+### 2026-10-04 Current visible preview interaction limitation diagnosed
+
+User reported inability to interact. Current compatible Bundle opens a modal
+Dialog with a transparent backdrop, blocking background Tabs/list/BACK. Its
+close/cancel/OK and +/- Buttons only emit standalone activation events; the
+proposal has no Dialog-open/Input-value linkage, and Studio records events
+without supplying such behavior. Earlier acceptance-r005 closed the Dialog via
+the public control API before background tests and asserted Button events, not
+a complete user-facing workflow. Preserve that distinction in acceptance claims.
+
+Actual in-app browser mouse focus and keyboard input changed 0 to 7 visibly;
+clicking + and X left value 7 and the Dialog open. Saved screenshot and full
+accessibility state in preview-compat-turn-2/interaction-diagnostic-20261004-r001,
+with a diagnostic report. Restored 0 through keyboard input and retained the tab.
+An initial textbox selector timed out; actual numeric input exposes a stepper.
+No Bundle/runtime/gate change or new model dispatch occurred. UI-internal
+linkage remains a proposal/preview completeness gap, without game-action binding.
+
+### 2026-10-04 Interactive UI delivery scope corrected and verified
+
+The user clarified that the current chain must deliver UI interaction. Earlier
+standalone activate-event checks and control-API Dialog setup were insufficient
+for that claim. Close/cancel/details selection and numeric stepping now belong
+to the generic portable Button interaction contract, independently of game
+integration. Fresh native runs require every Button declaration and complete
+actual-pointer evidence, recorded by a version marker; old Bundles/runs remain
+compatible. Missing declarations and reachable UI-path failures share the existing
+three-correction budget; source/login/cancellation/transport terminals still stop.
+
+The same authorized simulated subagent used its third and final correction for
+the 35-layer ZIP. All 51 layouts, Arial/font sizes/line heights, 45 bindings,
+12 adaptations, source resources and 26 layout relations remain unchanged from
+the second correction. Ten Button declarations plus their explicit evidence were
+added. DETAILS copies the observed row name/image and opens the Dialog;
+X/CANCEL/OK close it; +/- step the Input within disclosed UI edit-capacity bounds.
+BACK has an explicit external reason. No business route, purchase or game action
+was invented. Simulation totals four turns/three corrections; no further model
+turn occurred during deterministic reverification.
+
+Actual render reset exposed a generic Image texture lifetime error. Redraw now
+acquires its next reference before releasing the old one, and keeps declared copy
+sources/frozen targets available for repeated choices. The first turn-3 blocked
+check and local render diagnostic remain intact; fresh strict render/interaction
+receipts are stored separately. No receipt was repaired or failed gate bypassed.
+
+Executed evidence: build passes; 48 targeted offline regressions pass; the new
+mouse/Tab/Enter/Space/boundary/repeated-choice/export-reopen browser test passes;
+all three existing same-session/layout-evasion browser regressions pass. The actual
+sample passes 26 initial layout checks and nine internal Button pointer checks
+(minus at zero is disabled). Its full Studio workflow uses actual mouse/keyboard,
+three Tabs, wheel/Home/End, four detail choices and three close paths, without
+control-API state setup. Actual download then refreshed reimport restores SHIELD,
+quantity 9 and Dialog open. Canonical screenshots match exactly after real outside
+clicks clear transient Input focus. The source ZIP/reference and 34 resource bytes
+remain identical. All 303 existing inventoried evidence files remain unchanged.
+
+The visible in-app browser now contains the interactive Bundle. Actual + changes
+0 to 1, X closes the Dialog, GEAR changes selection and SHIELD DETAILS opens the
+corresponding name/image. The tab is retained showing SHIELD/quantity 1. Browser
+upload of the approximately 16 MB Bundle was slow; this is separate from native
+model compute. Preserve prior automation errors, including wrong test selector,
+pointer/keyboard-focus assumption, large Buffer difference-output memory failure,
+and three connection-refused checks before local preview service restart. Their
+corrected fresh checks pass; no model request was resubmitted.
+
+Artifacts, scripts, implementation snapshots, screenshots, failures, Bundle,
+checksummed inventory and Chinese report are in
+work/ui-component-harness/layer-complex-simulated-20261003-r001/interactive-turn-3/.
+Generic regression/diagnostic logs are in
+work/ui-component-harness/ui-interactions-20261004-r001/.
+Bundle SHA-256: 061f1e7cee9bdffd91db38fbddf93145a26f494e7cdd56da6956fd203a27ee90.
+Plan SHA-256: bff6ec7bf0fc19c47e58c8aa04cbc5ee522211406e1d80350d86d223339f35ef.
+
+Arial and procedural surfaces, crop seams, 12px shorter viewport/longer thumb,
+disabled-minus appearance, enlarged/stretch row icons in detail view, shared
+unknown category content and missing restored sidebar reference evidence remain
+disclosed visual-review items. Numeric 0..9999 is an explicit four-digit editing
+proposal, not inventory. Technical pass does not set human visual acceptance.
+Planning mode remains simulated-subagent, nativeFullChainPassed=false and
+humanVisualAcceptance=false. The original native SESSION_TIMEOUT_NO_RETRY result
+and bytes are unchanged. No native/provider dispatch, image generation, game
+binding, deployment or publication occurred.
+
+### 2026-10-04 Native Codex CLI connectivity preflight
+
+The user requested a fresh CLI connectivity check. The installed native CLI is
+0.160.0. Local `login status` exits 1 with the bounded category `not-logged-in`;
+the harness authentication preflight also reports unauthenticated. The desktop
+account usage tool separately allows ordinary usage (33 percent consumed), which
+does not establish the CLI authentication state or model connectivity.
+
+Stop before any model dispatch because login is a terminal preflight condition.
+No previous sample request/session was resumed or resubmitted. Model connectivity
+remains unverified, and the simulated delivery/native-chain conclusions remain
+unchanged. Redacted, programmatically generated local diagnostic evidence is in
+work/ui-component-harness/codex-cli-connectivity-preflight-20261004-r001/.
+Credential contents were not read or copied; no authentication settings changed.
+
+### 2026-10-04 CLI authentication status corrected for execution environment
+
+The user requested a device-login link/code and then a login-status check.
+The login user-code request initially failed in the restricted execution
+environment; the permitted login environment obtained the device authorization.
+The latest local status check in the restricted environment still exits 1,
+but the same check in the actual login execution environment exits 0 and reports
+ChatGPT authentication. The earlier broad statement that the CLI was not logged
+in was therefore unsupported by the isolated check; retain its evidence and this
+explicit correction. The exact cause of environment-dependent credential access
+has not been diagnosed, and no claim is made about when authentication changed.
+
+The current actual-environment CLI is authenticated. Model connectivity remains
+unverified; no model request or historical sample replay occurred. Fresh redacted
+status evidence is in
+work/ui-component-harness/codex-cli-connectivity-preflight-20261004-r002/.
+No logout was executed. Credential values and the one-time device code are not
+stored in repository diagnostics.
+
+### 2026-10-04 User-authorized minimal native CLI connectivity probe terminated
+
+The user explicitly requested actual connectivity testing. In the actual login
+execution environment, native CLI 0.160.0 passes authentication and launches one
+fresh ephemeral read-only CLI process requesting only CODEX_CONNECTIVITY_OK.
+Tools, web search and project-document loading are disabled; no sample ZIP is
+submitted and no historical session is resumed. Probe plan SHA-256:
+3f178d5fb90a41d006dc99c481ab8af6b06626c847b19635f82ec3638e2827b9.
+
+The process emits thread.started and turn.started, but no model response or
+completed turn. After 31.128 seconds the native CLI reports stream disconnected,
+request timed out and a planned sampling retry in 201ms. The diagnostic wrapper
+immediately terminates the process on that first observed transport error.
+No second CLI process or automatic resubmission occurs. Provider acceptance and
+any internal transport submission are not independently established by this log;
+preserve the terminal result without retrying. Login passes; model connectivity
+does not pass this probe. A timeout alone does not diagnose quota, account or
+network/service root cause. Local skill-load warnings are retained separately.
+
+Programmatically generated redacted evidence and the Chinese report are in
+work/ui-component-harness/codex-cli-connectivity-probe-20261004-r001/.
+The result is transport-or-login-error-no-retry with SIGTERM, zero completed turns
+and no response. The existing simulated component delivery remains unchanged;
+nativeFullChainPassed stays false. No image generation, game integration,
+deployment or publication occurred.
+
+### 2026-10-04 Read-only network diagnosis and fresh proxy probe prepared
+
+After the user asked how to proceed, actual-environment network metadata and
+anonymous public-site HEAD requests were checked without any model dispatch.
+Windows system proxy is enabled at a loopback port 7890, but HTTP_PROXY,
+HTTPS_PROXY and ALL_PROXY are absent from the CLI process environment.
+The user config specifies gpt-6.1-sol without a custom provider/base URL; the
+previous minimal probe deliberately ignored user config, like the harness route.
+
+All three public hosts resolve in DNS. Inherited-environment and direct HEAD
+requests to auth.openai.com, chatgpt.com and api.openai.com time out at about six
+seconds. Explicit use of the observed system loopback proxy completes TLS and
+receives HTTP 403 from the first two hosts in about 0.7/1.7 seconds. The API host
+completes TLS but times out awaiting HTTP response at 12 seconds. Anonymous HTTP
+403 demonstrates an HTTPS response only, not model/authentication acceptance.
+The CLI client's use of Windows proxy settings is not independently established;
+this is a concrete route difference, not a proven final root cause or fix.
+
+A fresh minimal request with child-only explicit HTTP/HTTPS proxy variables is
+fully prepared but not executed, awaiting the fresh decision required by the
+user's terminal transport/no-automatic-retry instruction. Prior fixed prompt,
+tool isolation and read-only policy stay the same. Plan SHA-256:
+77b77d2ba497afe3472ad02ebfaba73f77d226b24331ee05b230a588441980bc.
+Prepared script/plan/prompt hashes and syntax pass verification; a negative
+authorization guard check stops before dispatch and creates no run receipt.
+
+Actual redacted network evidence and report are under
+work/ui-component-harness/codex-cli-network-diagnostic-20261004-r001/.
+Frozen pending inputs/run instructions are under
+work/ui-component-harness/codex-cli-connectivity-probe-20261004-r002/.
+No model request, logout, global configuration change or historical sample replay
+occurred during this diagnosis. Prior failed native evidence is preserved.
+
+### 2026-10-04 Fresh user-authorized proxy-route CLI connectivity passes
+
+The user explicitly authorized the prepared proxy-route connectivity request
+bound to plan SHA-256
+77b77d2ba497afe3472ad02ebfaba73f77d226b24331ee05b230a588441980bc.
+Frozen script, plan and prompt hashes were verified before execution. In the
+actual login execution environment, native CLI 0.160.0 authenticates and starts
+one fresh ephemeral read-only CLI process. Only this diagnostic shell and its
+child CLI receive HTTP_PROXY/HTTPS_PROXY for the observed loopback port 7890.
+The fixed prompt and tool isolation remain as in the earlier probe.
+
+Executed result: exit 0, one started turn, one completed turn, actual model reply
+CODEX_CONNECTIVITY_OK, elapsed 8.322 seconds. The program validates completed
+events plus exact model response to produce passed. No automatic resubmission or
+historical sample replay occurs. Explicit proxy routing enables this minimal
+request to finish; one pass does not establish persistent stability or uniquely
+prove all earlier timeout causes. Local skill-load warnings remain diagnostic.
+
+New actual evidence and report are in
+work/ui-component-harness/codex-cli-connectivity-probe-20261004-r002/.
+Prior frozen preparation and failed request evidence remain intact. No global
+proxy/authentication configuration or Studio runtime configuration changed.
+No sample ZIP was submitted, so full native component planning/compile/render/
+interaction acceptance remains unverified; existing delivery mode stays
+simulated-subagent and nativeFullChainPassed=false. No image generation, game
+binding, deployment or publication occurred.
+
+### 2026-10-04 Fresh native 35-layer sample run started after user authorization
+
+After the successful proxy probe, the user sent a new authorization, interpreted
+and announced as continuing the current 35-layer sample with a fresh native CLI
+component run. Exact ZIP SHA-256 remains
+fa2c8f196c43805e2c243294b278c561f4604ac74347675e1f369b8e867d896a;
+reference SHA-256 is
+0b6d71fe11f7b4a3378bdcc2b51af9e1c5aba4ad465ae391491ed7f5964540ff.
+Source ZIP, all 43 package members and the preview/reference are reauthenticated.
+The 17 upstream review warnings remain disclosed. No filename-derived business
+semantics or game-action integration is introduced.
+
+Fresh execution plan SHA-256:
+b3827236817724258b65cf7455336d5cd780b5be93207ef5395db839ea65bf00.
+Input prompt/schema, runner and relevant runtime contracts are fingerprinted;
+the new authorization is reserved once before dispatch. CLI processes receive
+explicit child-only loopback proxy variables and --no-daemon; initial/resumed
+turns keep tool isolation, source/adaptation/layout/Button-interaction gates.
+At most three completed-error corrections share the same verified session.
+The local wrapper stops at the first observed transport error, and never
+replays historical failures. Existing compiled local renderer endpoints respond.
+
+Initial native turn completed with version 1.1 construction-incomplete and no
+missing semantic inputs: the model acknowledges readable text/roles but has not
+submitted the full tree, bindings, adaptations/findings/layout relations.
+Deterministic validation records a repairable completeness error and begins
+correction 1 in that verified session. This start record does not assert a passing
+plan, Bundle or full native chain. All initial/ongoing records are retained under
+work/ui-component-harness/layer-complex-native-20261004-r001/.
+
+Local preparation initially misinterpreted an older inventory's pathBase and
+stopped before any model invocation. Its corrected file-root handling verifies
+264 protected historical evidence entries and reuses only byte-identical prepared
+files. That local preparation diagnostic is retained. A separate actual-input
+acceptance runner is prepared for the native result; it has not yet been executed.
+
+### 2026-10-04 Fresh native sample terminated during correction 1
+
+The new 35-layer native run terminates as SESSION_TRANSPORT_FAILED_NO_RETRY.
+Initial turn completed with construction-incomplete, null planJson and no
+missing semantic inputs; deterministic validation saved a repairable receipt.
+Correction 1 used the same verified session but produced no draft or completed
+turn. After approximately nine minutes its CLI log reports model-catalog refresh
+request timeout and a TLS peer closing without close_notify. The wrapper stops
+on the first observed stream error before starting any later correction.
+Total elapsed 644455 ms; two model processes, one completed initial
+turn, zero completed corrections and zero automatic resubmissions. Preserve the
+terminal outcome; no retry is authorized by this result.
+
+Verified unchanged: source ZIP, all 43 authenticated package members and 264
+protected historical evidence entries. No complete component plan or Bundle was
+produced, so contract/layout/binding/adaptation gates, Pixi rendering, actual
+input and export-reopen were not executed for this new native run. The prepared
+acceptance runner is not acceptance evidence. No pass receipt was edited.
+Short proxy connectivity passed earlier; this full sample's connection failed.
+Network/endpoint-side attribution remains unproven; do not label this quota
+exhaustion or claim nativeFullChainPassed. New visual differences cannot be
+measured without a new render; upstream 17 warnings and human review remain.
+
+Drafts, native diagnostics, source files, verified evidence inventory and Chinese
+report are under work/ui-component-harness/layer-complex-native-20261004-r001/.
+The previous failed native records and simulated interactive delivery are intact.
+No game integration, new image generation, global proxy/auth change, deployment
+or publication occurred.
+
+### 2026-10-04 CLI config/session diagnosis and strict live transport guard
+
+The user asked to continue diagnosis after comparing ordinary CLI usage with the
+Harness. No new sampling request or historical replay occurred. Allowlisted
+actual-user config is gpt-6.1-sol/xhigh; the prior sample used ignored personal
+config and no explicit model/effort, so its actual model is still unproven.
+Retained evidence verifies the expected/observed correction session, source
+identity and equal child proxy forwarding. Catalog refresh timeout precedes
+sampling disconnect by 5468 ms; retained evidence lacks network request/first/
+last-byte times. Do not attribute the full waiting period to model computation.
+
+Native doctor via observed child-only proxy exits 0 with warnings. Provider HTTP
+reachability (405) and Responses WebSocket handshake (101) pass. This is no model
+request and proves neither stable long streams nor full sample acceptance. Local
+configuration/index/MCP warnings are retained without speculative root cause or
+configuration/database repair. Secondary redaction excludes credentials, URLs,
+query strings, host paths and thread IDs. No logout, installation or global
+network/config edits.
+
+Generic adapter invocations now use --no-daemon and terminate on the first
+observed live reconnect/fallback/error event or stderr sampling transport/login
+warning, including split UTF-8/ASCII chunks. A failure cannot start a later
+correction. Historical completed receipt collection remains offline/compatible.
+New io-timing.json measures CLI pipes/events only, never network first-byte or
+idle timing. Build and 27 targeted offline regressions pass; new coverage
+reproduces stderr-only transport interruption during same-session correction.
+139 recent protected evidence entries stay byte-identical.
+
+Evidence: work/ui-component-harness/codex-cli-session-diagnostic-20261004-r001/.
+A frozen two-turn minimal native diagnostic is prepared separately under
+work/ui-component-harness/codex-cli-session-probe-20261004-r001/, plan SHA-256
+82a6df238acb407e05053038240f38020cd4767b10cfa00739f776eee6b5f27d. It aligns explicit model/effort,
+uses one fresh session plus one verified-ID resume, no images/sample or historical
+replay, and 120-second per-turn deadline. New explicit model authorization is
+required before execution. A minimal pass would not imply long-stream or native
+component acceptance. nativeFullChainPassed remains false; prior simulated
+interactive delivery and all failed native evidence remain intact.
+
+### 2026-10-04 User-authorized fresh two-turn native CLI session probe passes
+
+The user explicitly authorized the frozen two-turn diagnostic plan
+82a6df238acb407e05053038240f38020cd4767b10cfa00739f776eee6b5f27d. Plan, binary/version,
+source and fixed prompt/schema fingerprints verify before one single-use
+authorization reservation. Actual gpt-6.1-sol/xhigh child-only proxy invocations
+use --ignore-user-config, --no-daemon and disabled tools. No sample or historical
+session is submitted. The second request starts only after the first completed
+turn passes exact fixed-response checks, resuming that verified session ID.
+
+Executed: two native processes and two completed turns, initial 15131 ms,
+resume 9090 ms, total 24263 ms. The second actual response recalls
+the preceding marker. Complete events equal the saved responses; zero observed
+transport notices, zero Harness resubmissions and zero historical replays.
+139 prior protected evidence entries plus 11 preceding diagnosis entries
+remain byte-identical. Program-generated result/verification, raw private events
+and secondary-redacted derivatives are retained under
+work/ui-component-harness/codex-cli-session-probe-20261004-r001/.
+
+This establishes current minimal CLI request and verified-ID resume availability,
+not long-stream stability or causation of the previous TLS failure. No 35-layer
+component proposal/compile/render/input/export acceptance was attempted;
+nativeFullChainPassed=false. Previous native terminal records and simulated
+interactive Bundle are unchanged. No global configuration/login edits, image
+generation, game integration, deployment or publication. This two-turn
+authorization is consumed; it does not authorize a full sample rerun.
+
+### 2026-10-04 User-requested fresh native 35-layer rerun with explicit model starts
+
+After the minimal two-turn probe passes, the user explicitly requests a current-
+sample rerun. This is announced as a fresh 35-layer run with gpt-6.1-sol/xhigh and
+the verified child-only proxy, never an automatic replay of a failed session.
+New immutable plan SHA-256:
+b4591d2559ce5d074334c99b9cb88c1ab21da1db6db911b9827c4c1c24e62be1.
+Source ZIP remains fa2c8f196c43805e2c243294b278c561f4604ac74347675e1f369b8e867d896a;
+43 members, 35 layers and all 17 intake review warnings are reauthenticated.
+421 historical evidence entries verify unchanged. The saved package preview is
+shown before model dispatch. CLI version/binary, prompt/schema, contracts and
+runner are frozen; one single-use authorization binds the user's new instruction.
+
+Initial planning starts under a new session in
+work/ui-component-harness/layer-complex-native-20261004-r002/. The existing
+deterministic adapter owns contract/layout/binding/adaptation checks, compile
+and actual Pixi render feedback, with at most three completed-error corrections
+in that verified session. First observed transport/login/cancellation/source or
+required-semantics failure is terminal. This is a start record, not a passing
+plan/Bundle/interaction claim. No global config/auth edits, new image generation,
+game integration, deployment or publication.
+
+### 2026-10-04 Explicit-model native sample rerun ends: blocked
+
+Program evidence under work/ui-component-harness/layer-complex-native-20261004-r002/
+verifies immutable plan b4591d2559ce5d074334c99b9cb88c1ab21da1db6db911b9827c4c1c24e62be1,
+unchanged source ZIP, 43 exact package members and 421 protected historical
+entries. Requested gpt-6.1-sol/xhigh, one fresh verified session, 1 native
+processes, 0 completed turns, elapsed 900996 ms, zero Harness
+transport resubmissions. Outcome blocked; failure SESSION_TIMEOUT_NO_RETRY.
+Component plan/Bundle produced=false; contract/bindings/adaptation/layout/
+compile/Pixi render passed=false; actual input and export/reopen passed=false.
+nativeFullChainPassed=false; humanVisualAcceptance=false. Preserve all
+rounds/drafts/feedback/raw private events, secondary-redacted diagnostics and
+actual rendering/acceptance evidence when reached. No historical request replay,
+global config/auth edits, game binding, image generation, deployment or publication.
+Upstream 17 warnings remain disclosed.
+
+The initial CLI pipe trace has only thread.started/turn.started, zero agent
+messages/reasoning items and no completed turn. Model-catalog refresh timeout
+occurs around 13m40s, then the local 15-minute deadline ends the process. Unlike
+the prior failure, this attempt reports no observed sampling-disconnect/TLS
+close_notify notice. Provider acceptance and network first-byte timing remain
+unknown; do not call the entire waiting period model computation. This is a
+terminal timeout and does not authorize automatic model resubmission.
+
+### 2026-10-04 Offline request-stage diagnosis finds retained reasoning progress
+
+No model request, historical replay, credential read, login/global config change
+or game/image/deployment work occurs. Bundled CLI model metadata exports offline
+in 103 ms and includes gpt-6.1-sol and medium/xhigh efforts. Local
+debug prompt-input constructs all 37 images in 5476 ms; decoded image
+bytes match source fingerprints. It uses a short diagnostic prompt, whose exact
+text hash does not match the wrapped model input; it does not test the full
+sample prompt. The exact failed current thread's own rollout separately verifies
+all 37 images and the complete 53210-byte stdin prompt against the frozen plan.
+
+Supplemental evidence corrects the interpretation of exec stdout silence:
+that rollout contains 30 Reasoning item-completed events from about 29.5 seconds
+to 648.8 seconds, although exec stdout contains no reasoning items. Only event
+metadata is inspected; raw reasoning content is not read or reported. Thus no
+stdout progress does not prove the model never started. There is no final
+assistant response/completed turn, and the later catalog timeout is not
+established as the root cause. Network first-byte/provider acceptance timing
+and cause of missing final completion remain unresolved.
+
+421 protected prior entries plus 116 latest failed-run entries remain
+byte-identical. Evidence and program verification:
+work/ui-component-harness/codex-cli-request-stage-diagnostic-20261004-r001/.
+SESSION_TIMEOUT_NO_RETRY and nativeFullChainPassed=false remain unchanged.
+A reduced-effort fresh sample plan may be prepared; it requires new explicit
+authorization and must preserve all component/interaction/layout gates.
+
+### 2026-10-04 Fresh medium-effort 35-layer plan prepared, not executed
+
+New plan f15d8e67cd36106609bbd8e56fa56730e08b4afc159033214e499748b53d2ae3 is prepared under
+work/ui-component-harness/layer-complex-native-20261004-r003/. gpt-6.1-sol
+reasoning effort changes from xhigh to medium; the source ZIP, all 37 attached
+images, complete prompt, schema, contracts/layout/interaction gates, same-session
+three-correction maximum and 15-minute per-turn terminal deadline stay identical.
+Only three allowlisted preparation/execution/acceptance helpers are reused; no
+old output, session, authorization, receipt or Bundle is copied.
+
+546 existing evidence entries verify unchanged. The runner without a
+new authorization token deterministically refuses before dispatch. Zero model
+requests; no native acceptance claimed. New explicit authorization is required
+after the previous terminal timeout. Reducing effort is an unverified runtime
+choice to reduce planning latency, not an established timeout fix.
+
+### 2026-10-04 User-authorized medium native 35-layer execution starts
+
+The user explicitly authorizes this medium run after reviewing frozen plan
+f15d8e67cd36106609bbd8e56fa56730e08b4afc159033214e499748b53d2ae3. Single-use reservation
+verifies that digest before dispatch. gpt-6.1-sol/medium uses a new session and
+child-only proxy. 546 prior evidence entries and the same source/prompt/
+37 images/contracts/layout/interaction gates reauthenticate. The package preview
+is shown before dispatch. One initial planning turn starts under
+work/ui-component-harness/layer-complex-native-20261004-r003/. At most three
+checked corrections may follow completed repairable errors in that verified
+session; transport/login/cancel/timeout/source/required semantics are terminal.
+This records a start, not a passing plan or Bundle.
+
+### 2026-10-04 Explicit-model native sample rerun ends: blocked
+
+Program evidence under work/ui-component-harness/layer-complex-native-20261004-r003/
+verifies immutable plan f15d8e67cd36106609bbd8e56fa56730e08b4afc159033214e499748b53d2ae3,
+unchanged source ZIP, 43 exact package members and 546 protected historical
+entries. Requested gpt-6.1-sol/medium, one fresh verified session, 2 native
+processes, 1 completed turns, elapsed 459641 ms, zero Harness
+transport resubmissions. Outcome blocked; failure SESSION_TRANSPORT_FAILED_NO_RETRY.
+Component plan/Bundle produced=false; contract/bindings/adaptation/layout/
+compile/Pixi render passed=false; actual input and export/reopen passed=false.
+nativeFullChainPassed=false; humanVisualAcceptance=false. Preserve all
+rounds/drafts/feedback/raw private events, secondary-redacted diagnostics and
+actual rendering/acceptance evidence when reached. No historical request replay,
+global config/auth edits, game binding, image generation, deployment or publication.
+Upstream 17 warnings remain disclosed.
+
+The initial turn completes in 103155 ms (process 105725 ms) with version 1.1
+Unresolved/construction-incomplete and no planJson. Same-session correction 1
+reports sampling stream disconnection at about 353055 ms: TLS peer closes
+without close_notify. The first notice triggers terminal teardown; no later
+correction/Harness resubmission occurs. No catalog timeout or explicit quota
+error is observed. Which network hop closed and any internal CLI retry timing
+remain unknown. Current CLI process count verifies zero. Contract/render/input/
+export gates were not reached, rather than executed and failed. Recorded local
+progress metadata preserves five reasoning item-completed events; no raw
+reasoning text is exported. New model execution requires a new user decision.
+
+### 2026-10-04 User-authorized medium native 35-layer execution starts
+
+The user explicitly authorizes this medium run after reviewing frozen plan
+f15d8e67cd36106609bbd8e56fa56730e08b4afc159033214e499748b53d2ae3. Single-use reservation
+verifies that digest before dispatch. gpt-6.1-sol/medium uses a new session and
+child-only proxy. 683 prior evidence entries and the same source/prompt/
+37 images/contracts/layout/interaction gates reauthenticate. The package preview
+is shown before dispatch. One initial planning turn starts under
+work/ui-component-harness/layer-complex-native-20261004-r004/. At most three
+checked corrections may follow completed repairable errors in that verified
+session; transport/login/cancel/timeout/source/required semantics are terminal.
+This records a start, not a passing plan or Bundle.
+
+### 2026-10-04 Explicit-model native sample rerun ends: blocked
+
+Program evidence under work/ui-component-harness/layer-complex-native-20261004-r004/
+verifies immutable plan f15d8e67cd36106609bbd8e56fa56730e08b4afc159033214e499748b53d2ae3,
+unchanged source ZIP, 43 exact package members and 683 protected historical
+entries. Requested gpt-6.1-sol/medium, one fresh verified session, 1 native
+processes, 0 completed turns, elapsed 334331 ms, zero Harness
+transport resubmissions. Outcome blocked; failure SESSION_TRANSPORT_FAILED_NO_RETRY.
+Component plan/Bundle produced=false; contract/bindings/adaptation/layout/
+compile/Pixi render passed=false; actual input and export/reopen passed=false.
+nativeFullChainPassed=false; humanVisualAcceptance=false. Preserve all
+rounds/drafts/feedback/raw private events, secondary-redacted diagnostics and
+actual rendering/acceptance evidence when reached. No historical request replay,
+global config/auth edits, game binding, image generation, deployment or publication.
+Upstream 17 warnings remain disclosed.
+
+Specific failure: idle timeout waiting for websocket. The sole initial turn
+records one reasoning progress event, then the notice follows 300011 ms
+later. No completed turn/draft, contract/render/input/export acceptance is
+reached. No catalog timeout or explicit quota failure is observed. The interval
+is local event timing, not network packet timing; why new progress ceased remains
+unconfirmed. Official docs describe the provider idle setting for SSE and reject
+reserved builtin provider overrides; current builtin ChatGPT WebSocket idle
+tuning has not been verified or changed. No further model request is submitted.
+
+Current transport timing and redacted notices are preserved in transport-diagnostic.json. First observed failure is terminal; no further correction/Harness resubmission. The network hop and internal CLI retry timing are not established. Recorded metadata shows at most 1 reasoning progress items; raw reasoning is not exported. New model execution requires a new user decision.
+
+### 2026-10-04 Subagent-supported technical closeout of current 35-layer sample
+
+The user switches to subagent and asks whether to finish this round before more
+samples. A read-only subagent audits existing final interactive-turn-3 evidence;
+no new planning turn or duplicate browser run is needed. Parent program revalidates
+current Bundle and actual Studio export, exact source ZIP and 34 resources, and
+the exported/reopened canonical PNG pair. 808 existing evidence entries stay
+byte-identical. Of 15 saved implementation snapshots, 13 are identical; only
+the later native CLI adapter and its test differ. Prior 48 offline / 4 browser
+regression passes and complete actual UI workflow retain their original scope.
+
+Current delivery is layer-complex-simulated-20261003-r001/interactive-turn-3/,
+not the root activate-only historic Bundle. Technical sample closeout is eligible
+with simulated-subagent attribution. nativeFullChainPassed=false and
+humanVisualAcceptance=false remain; latest native r004 websocket idle terminal
+is preserved. Fonts, selected tab background, frame seams, procedural fills,
+scroll geometry and enlarged details icon remain visual review items. Disclosed
+unknown categories/BACK destination/OK business action remain UI-only boundaries.
+
+Fresh closeout verification, snapshot comparison, report and inventory:
+work/ui-component-harness/layer-complex-closeout-20261004-r001/. Next samples
+are planned, not executed: settings controls (Switch/CheckBox/RadioGroup/Slider/
+ProgressBar/Select), portrait long Chinese/multiline/numeric boundaries, then
+explicitly different Tabs content/long lists/dialog layering. No native model
+request, image generation, game integration, deployment or publication is added.
+
+### 2026-10-04 User-requested first next-batch reference image produced
+
+After current sample technical closeout, the user asks for reference artwork and
+whether to split the next samples into batches. One built-in imagegen request
+produces an opaque 1536x1024 settings screen, saved without pixel edits under
+work/ui-component-harness/reference-settings-20261004-r001/reference.png.
+Image SHA-256 1b9df45ec7ce0b6d7b4d5be6b2b67173b30d031545151e0655820377c839038c; prompt/plan and
+byte-identical copy evidence are saved alongside. The new explicit image request
+authorizes this reference artwork; no native CLI or component delivery run is
+started. This image is input material, not a passing layer package or Bundle.
+
+First batch visually declares Switch ON/OFF, checked/unchecked CheckBox,
+MEDIUM-selected RadioGroup, Slider 60 in 0..100, ProgressBar 40/100, and closed
+Select LIGHT with three visible declared options. Companion instructions declare
+integer slider step 1 as a UI test proposal and request separable tracks/fills/
+thumbs/selection marks. One image per frozen ZIP is recommended; portrait long
+Chinese and distinct Tabs/list/dialog-layer samples remain future batches, not
+produced. No game actions, extra state artwork, deployment or publication.
+
+### 2026-10-04 Next-batch settings takeover awaits the new layer ZIP
+
+The user requests the settings batch using subagent simulation and explicitly
+defers real Codex CLI retries. Read repository/project contracts, layer-component
+documentation, latest task records and both designated Chinese handoff notes.
+The reference PNG header/dimensions and SHA-256 reverify as 1536x1024,
+1,379,757 bytes and
+1b9df45ec7ce0b6d7b4d5be6b2b67173b30d031545151e0655820377c839038c.
+Viewed the reference; readable labels and initial states match the user's input,
+including explicit Slider step 1 and display-only ProgressBar 40/100.
+
+No new ZIP attachment/path is supplied in this instruction, and the designated
+reference directory contains no ZIP. Stop at awaiting-new-zip: no package preview,
+source provenance/layer separability check, simulated planning session, compile,
+Pixi render, actual-input test or export/reopen is executed. Other existing ZIPs
+are not substituted. Requested simulated-subagent mode does not imply a produced
+plan or a passing sample. Input-bound authorization will be checked after intake.
+
+Read-only reference evidence, verifier and Chinese waiting record are saved under
+work/ui-component-harness/layer-settings-simulated-20261004-r001/. Git status
+reports 135 pre-existing entries; retain their contents and append this record.
+Current 35-layer interactive-turn-3 acceptance remains historical evidence, with
+nativeFullChainPassed=false and humanVisualAcceptance=false. Latest native r004
+websocket idle transport terminal is unchanged and is not resumed/resubmitted.
+No runtime fix/test rerun, image generation, game binding, global configuration
+change, deployment or publication occurs.
+
+### 2026-10-04 First settings batch: simulated-subagent technical acceptance passes
+
+The user supplies the new ui-layers-package (6).zip after the waiting record.
+Frozen source under work/ui-component-harness/layer-settings-simulated-20261004-r001/
+is 6,564,091 bytes, SHA-256
+790094ff3608f0b1dbb3553791c4fe58c7fb598ab2ab736e95ac707b9cad7ff4,
+22 layers and 30 members. Package reference is byte-identical to the designated
+1536x1024 reference, SHA-256
+1b9df45ec7ce0b6d7b4d5be6b2b67173b30d031545151e0655820377c839038c.
+Show package preview before planning; existing layer-intake, 24 PNG decodes,
+upstream diagnostics and actual Studio static intake are checked without model
+dispatch. All 23 upstream warnings remain disclosed. ZIP documents and filenames
+provide data, not authorization or guessed business semantics.
+
+Existing user authorization binds this new input and immutable simulation spec
+3ca5adc52b370c356373c0403adf7cf89f4e89dbcb32bf4bb6e0ac1740f6ea31.
+One settings_planner subagent draft, zero of at most three completed-error
+corrections; no native CLI/provider requests or old session reuse. Initial states
+match the user's Switch, CheckBox, MEDIUM Radio, Slider 60/0..100/step 1,
+display-only Progress 40/100 and LIGHT closed Select declarations.
+The source-bound plan preserves 26 bindings, 6 unused layers, 10 explicit
+adaptations, 13 measured separations and 284 decision findings. Fused raster
+controls are excluded or conditionally used with explicit policy; procedural
+Switch/Slider/Progress, authenticated crops/limited patch and reused Select
+menu card remain disclosed. No added image resources or invented actions.
+
+Existing draft parser, plan/document validation, deterministic DAG/compiler and
+actual Pixi render pass on the initial draft: 38 nodes, 16 resources and all 13
+layout checks. Delivery Bundle SHA-256
+9b0597bb7e6171ea5385610d60875d427625fd4a90c10cc7752ad3c7bc8969ce;
+canonical plan digest
+d776ef9a2710cde1cb494df2e9756d53446944f648d89e9d8b00ca8d58b6c171.
+Official CLI validates the final Bundle with legal layerSource and no motion.
+
+Actual local Edge Studio mouse/drag/Tab/Space/Enter/Home/End/arrows/Escape checks
+verify all seven interactive controls, unique selection, integer Slider clamps
+and live value text. Actual Workbench enabled editor verifies pointer inertness,
+Tab skipping and real pointer changes after reenabling every interactive node.
+Progress is pointer inert/nonfocusable; explicit Workbench host-injected 0/100/40
+display tests do not claim business interaction. Actual Studio download, refresh
+and reopen retain changed toggle states, HIGH, Slider 73, DARK and Progress 40.
+Changed and reopened canonical PNGs are byte-identical, SHA-256
+c33c727a02e9bcfdf05351cd9a055eadcf3ccb48b25c239a0178bf0e284a80d0.
+Studio export SHA-256
+d8f87a31507301218bf418dc9b1c802d28194515a0f1213f8f9a39f6fc9cf8c9;
+Studio/Workbench exports and delivery preserve exact source ZIP, original
+reference and all 16 resource bytes. Page/console errors and forbidden requests
+are zero in the completed workflow; no API state setup drives control changes.
+
+Opening the bottom Select exposes a shared popup placement defect. An independent
+nested 520x300 procedural fixture reproduces cropped menu options. Fix only
+positionPopup in tree-runtime.ts relative to the startup snapshot: keep full
+nominal menu size, prefer below when it fits, otherwise flip above, then clamp
+to canvas. No control/font shrinking, spacing reduction, hidden targets or
+weakened checks. New zoom 1/1.5 regressions and two existing Select icon/roundtrip
+tests pass: four browser tests total; build passes. Preserve the failing fixture.
+An initial nonexistent zoom=2 choice and premature Workbench getDocument
+readiness call are test script errors, retained with traces/screenshots. Repair
+only runner setup/wait; acceptance-r002 verifies completed r001 Studio evidence
+offline and continues only remaining Workbench checks without repeating it.
+
+verification.json reports technical-pass-pending-human-review with explicit
+simulated-subagent attribution. nativeCliDispatches=0,
+nativeFullChainPassed=false and humanVisualAcceptance=false. Dark Arial title,
+procedural switch/slider/progress styling, texture patch, selected tile edges,
+reused popup card and 23 upstream advisories remain human review items. Current
+Codex Studio restores the initial delivery Bundle; its screenshot API is
+unavailable, so report images use the saved current Edge acceptance screenshots.
+
+All drafts, feedback, diagnostics, failed runs, screenshots, exports, final
+delivery/component-bundle.json and Chinese report are retained in this fresh
+sample directory. Read-only audit verifies 261 registered historical files
+unchanged and 60 unrelated preexisting tracked changes unchanged; task notes are
+append-only. Prior 35-layer interactions and 48 offline/4 browser checks remain
+historical, not new settings tests. Native r004 websocket idle terminal remains
+unreplayed. No image generation, game binding, global config edits, deployment
+or publication; portrait Chinese and Tabs/list/dialog batches are not started.
+
+### 2026-10-04 User-requested second-batch portrait Chinese reference produced
+
+After the settings technical acceptance, the user asks for the next reference
+image. One built-in imagegen request produces an opaque 1024x1536 portrait
+screen, preserved without pixel edits under
+work/ui-component-harness/reference-portrait-chinese-20261004-r001/reference.png.
+Image SHA-256 ce77fbebef5e10c7765710b46ae83ca588d5100961a35be37117c86d74aa2114; prompt, immutable
+plan, byte-identical workspace copy and inventory are saved alongside. This new
+explicit request authorizes reference artwork, not a native CLI retry or a new
+component acceptance run. The user reports no issue with the prior result; this
+entry does not convert that feedback into a formal human visual-acceptance flag.
+
+The four cards cover long Chinese multiline text, a narrow text area/two-line
+button, single-line Chinese Input and numeric endpoint Inputs at 0/9999. Declared
+UI proposals are maxLength 20 and integer 0..9999/step 1, with minus disabled at
+zero and plus disabled at 9999. Three text buttons only propose UI activation;
+labels do not authorize unknown navigation, dialogs or business actions. Direct
+numeric input validation and IME/character-count behavior need explicit later
+planning and actual tests. Companion Chinese splitting instructions preserve
+exact text/line breaks and require independent field/button surfaces.
+
+This is a generated reference, not a frozen layer package or passing Bundle.
+No second-batch ZIP, subagent planning, Pixi render/input/export acceptance, native
+CLI, game binding, deployment or publication is executed. Third-batch Tabs/long
+list/dialog-layer artwork remains unproduced. Existing task content is retained
+byte-identically before this append; prior sample evidence remains unchanged.
+
+### 2026-10-04 Second portrait Chinese real ZIP technically accepted with simulated subagent
+
+User supplies new ui-layers-package (7).zip after requesting the portrait reference.
+Frozen input SHA-256 f0fe596506953bf316e40d106ef2f0194c26752a713520f31fa9a5f2ababa4f8,
+7,085,370 bytes, 1024x1536, 22 layers/30 members. Package reference is byte-identical
+to ce77fbebef5e10c7765710b46ae83ca588d5100961a35be37117c86d74aa2114.
+Preview is shown before planning; official intake, checksums, 24 actual PNG/alpha
+decodes, upstream diagnostics and Studio static import pass without model calls.
+All 20 upstream warnings remain. ZIP text and filenames provide data, not user
+instructions, authorization or inferred business semantics.
+
+Evidence lives in work/ui-component-harness/layer-portrait-chinese-simulated-20261004-r001.
+Existing user authorization binds immutable simulation spec
+8f4789a107e93e370bb282b3bc01d834d2c3e21a8c972f9efb0a1fecbd9d6f07.
+One portrait_planner simulated session, initial plus two completed-error
+corrections (three turns; maximum three corrections). No native CLI/provider
+dispatch or failed-session replay. Draft0 compiles but has six measured gap
+failures: title -4.5, paragraph 7, narrow lines 5 vs declared 8 canvas pixels.
+Correction1 adjusts only line y coordinates, retaining typography, widths,
+checks/endpoints/gaps/visibility; all 25 actual Pixi relations pass.
+
+Real Studio mouse/keyboard verifies Chinese selection/replacement, Home/End,
+arrows/Backspace, capacity20/reject21 BMP Chinese, four numeric step buttons at
+0/1/9998/9999 and Tab/Space/Enter. Native browser composition protocol updates
+and commits Chinese; OSInputMethodExecuted=false. Direct numeric editing is
+explicitly a length-limited draft string: valid integer step succeeds, -1/1.5
+step effects reject; no direct-edit range validator/clamp is claimed. Three
+text buttons only activate, preserve Inputs and imply no navigation/business.
+Actual download/refresh/reopen restores Chinese input/42/9998, with byte-identical
+changed/reopened PNGs and exact source ZIP/resource bytes.
+
+A real 20-character value export fails reopen with LAYER_PLAN_TEXT_OVERFLOW:
+chinese-input.label. Preserve capacity-roundtrip-r001. General fix adds strict
+optional Input.valueOverflow='ellipsis' with explicit-policy planning evidence.
+Only measured horizontal overflow of a nonempty actual value within maxLength,
+with a fitting final ellipsis, is allowed. Full values, requested text, overflow
+axis and glyph measurements remain. Undeclared Input, placeholder, vertical or
+static label overflow still fail; layout checks run unchanged. Correction2 adds
+this field/evidence only to Chinese Input; text/fonts/geometry/initial values,
+bindings/adaptations and all 25 relations remain. Final deterministic render
+passes; capacity-roundtrip-r002 actually saves/reopens all 20 BMP characters,
+with byte-identical blurred/reopened PNGs, original ZIP and all 20 resources.
+
+Workbench exposes another shared issue: Input native blur sync replaces tree
+buttons between pointerdown/click, losing selection and targeting the old node.
+Independent regression reproduces it; main.ts now retains unchanged tree button
+identity and refreshes aria-pressed. New regression passes. Actual remaining
+Workbench flow (acceptance-workbench-r003) verifies all ten interactive controls'
+enabled editor, disabled pointer inertness, Tab skipping and reenabling with
+real editing/steps/activation. Pointer targeting uses real wheel scrolling to
+bring clipped portrait controls into view. Preserve r001 runner viewport failure,
+r002 lost-selection product failure, and independent wrong fixture readiness
+r001/product-failing r002/passing r003 reports; no successful receipts are edited.
+
+Four new Input contract/gate tests plus existing layout/tree tests pass (19),
+24 portable DAG/compiler/Bundle tests pass, and four browser regressions pass:
+two Input policy, one native-blur selection, one existing static Button overflow
+gate. Build/type checks and final official CLI validation pass. Existing public
+checks are not deleted or weakened. Browser plugin absent: existing project
+Playwright/Edge validates local Studio and Workbench; no private services.
+
+Final plan: 48 nodes/20 resources/30 bindings/2 unused/14 adaptations/370 findings,
+25 measured relations. Source-bound plan SHA-256
+3bdbe501bba2373790410dd547b146e5cf49d2af7b8c802d27865e96c7d5c0de;
+delivery/component-bundle.json SHA-256
+618d0f980b52957104f81e05ac302ed6788e5f31fdf5b5bb870e778afb218e83.
+Independent preservation report keeps completed same-batch turn1 Studio receipt
+at its original digest; turn2 differs only by Input display policy and receives
+new actual capacity/Workbench checks. Already adequate unaffected interaction
+checks are not repeated. All final source/resource bytes match original ZIP.
+
+Technical status is simulated-subagent, nativeCliDispatches=0,
+nativeFullChainPassed=false, humanVisualAcceptance=false. Chinese report lists
+font/weight/line-spacing differences, narrowed upstream input/tray geometry,
+gold decoration/helper intersections, left-aligned numeric values vs centered
+reference, half-opacity teal disabled buttons vs grey reference and long-value
+ellipsis. Decorations and all 20 upstream warnings require separate human review.
+No Windows native IME, touch/device, grapheme counting or third batch is claimed.
+
+Final report, draft feedback, failures, screenshots, exports and Bundle are
+preserved with implementation snapshots, source fingerprints and inventory.
+Read-only closeout audits preserve prior registered evidence and existing local
+changes; previous task bytes are unchanged before this append. Prior settings/
+35-layer evidence remains historical; native r004 websocket idle failure is not
+replayed. No image generation, game/business binding, global configuration edits,
+commit, deployment or publication in this batch. Third Tabs/list/dialog batch
+remains unstarted.
+
+Closeout baseline audit explicitly finds changes in untracked files under the
+separate game-ui-harnesses/ui-panel-harness project after this run's startup
+snapshot. This run did not write or restore that project. Current bytes are
+preserved and baseline-differences-r001/final.json records both fingerprints.
+Do not claim all repository untracked bytes stayed unchanged. The technical
+sample passes independently; tracked files outside this run's authorized edits,
+registered old sample evidence and the prior tasks prefix still require exact
+byte verification. finish-audit.json discloses external-baseline-differences.
+
+### 2026-10-04 User-requested third Tabs/list/dialog reference produced
+
+After the second portrait Chinese technical test and visible browser preview,
+the user requests the next reference. One built-in imagegen invocation produces
+an opaque 1536x1024 landscape artwork under
+work/ui-component-harness/reference-content-layers-20261004-r001/reference.png.
+Image SHA-256 b1cbba7743d140fd03fc94d73c6d1cd9b01b047df4f9c1433e5616d92fbe4fcf; immutable prompt/plan,
+original-byte workspace copy, generation result and Chinese splitting/test
+instructions are preserved. This is reference generation explicitly requested
+by the user, not a native CLI retry or third-batch component acceptance.
+
+The LIST tab is active, INFO inactive; six of twelve rows are visible at the
+top, ROW 03 selected. Visible fixed captions explicitly list ROW 07..ROW 12
+and SECOND VIEW as the INFO page content, avoiding guessed hidden semantics.
+DETAILS and NOTICE are both open, NOTICE topmost; all title/body/open/close
+labels are readable. Proposed modal blockers are transparent, so input blocking
+must be verified rather than inferred from a dark veil. Opening/closing existing
+windows, child close on parent close, retained tab/list state and focus return
+are explicit local UI proposals without business/game/navigation effects.
+Native Dialog Escape close is not declared as existing behavior.
+
+The actual generated scrollbar thumb is shorter than the requested half-track
+proportion; retain the original image, derive later runtime thumb from measured
+content/viewport and disclose this visual difference. Actual image geometry,
+not approximate prompt coordinates, governs later layer measurement.
+
+No third-batch ZIP has been supplied. No third-batch subagent plan, Pixi render,
+pointer/key/scroll/modal/focus/export acceptance, new Bundle or native CLI is
+executed. nativeFullChainPassed=false, humanVisualAcceptance=false. Existing
+continuous subagent-test authorization will be source-bound and checked when
+the new ZIP arrives; no old ZIP substitute. Prior sample failures and evidence
+remain unchanged. Task notes are append-only; no source/runtime edits,
+deployment, publication, game binding or global configuration changes.
+
+
+### 2026-10-05 Third Tabs/list/dialog ZIP simulated technical closeout
+
+The user supplies the new ui-layers-package (8).zip after the requested third
+reference. This batch starts on 2026-10-04 and completes on 2026-10-05 under
+work/ui-component-harness/layer-content-layers-simulated-20261004-r001.
+Frozen source has 8,528,739 bytes and SHA-256
+c104ba06a7a0b0263b3b216bcc9cb02138cf719d6ac9959ff0883889076f102d.
+The package reference matches the previously supplied third reference byte for
+byte: 1536x1024, SHA-256
+b1cbba7743d140fd03fc94d73c6d1cd9b01b047df4f9c1433e5616d92fbe4fcf.
+Deterministic intake checks 24 layers, 32 members and 26 decoded PNGs, displays
+the package preview before planning, and retains all 31 upstream warnings.
+Package documents are input evidence; existing explicit human authorization
+is bound to the frozen simulation specification and source digest.
+
+One content_layers_planner simulated-subagent session produces one immutable
+initial proposal with zero model corrections. Its 34-node tree has 22 bindings,
+4 explicitly unused layers, 9 adaptations, 277 decision findings, 18 layout
+relations and 20 original resources. Three deterministic checks of the same
+draft preserve the original failures and feedback. Final Bundle SHA-256:
+7665c7705b9f03324a662309bf2eda8c59a1a51076f441b22ebe2956e4e153d4.
+Plan SHA-256:
+aa95935a8019fc493bf6f88fddf21a2db67b5bcac7896ed5096b3e4745a2ba42.
+
+Strict contract/evidence/DAG/compiler and actual Pixi checks pass. Actual mouse
+and keyboard acceptance covers LIST/INFO pages, twelve single-select rows,
+selection revealed by keyboard navigation, wheel/thumb endpoints, independent
+selected marker, transparent top-modal blocking, modal Tab wrapping, all
+declared close/reopen paths and focus return to an actually observed opener.
+Workbench controls verify disabled/enabled mouse behavior for Tabs, List and
+six Buttons; targeted additional keyboard checks complete the lower buttons.
+Real Studio export/download/reload/file-reopen retains INFO, ROW 12, scrollY420
+and closed dialogs. All 20 resources and the source archive remain byte exact;
+canonical PNG before/after reopening is byte exact. No control-API state setup
+is used to synthesize acceptance preconditions.
+
+Generic fixes add explicit independent List/Tabs state templates, separate
+selected marker/text color, top-modal keyboard focus cycling, transient actual
+dialog opener restoration, List selection visibility in ancestor ScrollViews,
+empty native label handling and Graphics-mask geometry measurement. Existing
+strict resource dimensions, default same-canvas policy, nonempty text overflow,
+spacing and layout targets remain enforced. Targeted regression totals are
+33 unit plus 13 browser tests passing, including preserved before-failure
+proofs. The one reference fixture requiring /src passes on a temporary local
+dev server at 4181; that server is stopped and the user Studio at 4173 remains.
+Official CLI delivery validate reports valid=true.
+
+Actual Studio r002 completes modal/list/wheel/thumb interactions and then fails
+on the missing masked paint target. After the public measurement fix, r003
+imports its saved actual observed document and resumes at that failure, checks
+the repaired marker and completes Tabs/export/reopen. Original failures and
+driver readiness/focus/setup failures remain preserved; completed unaffected
+flows are not repeated. The final initial Bundle is opened in the visible
+browser and visible-browser-preview.jpg records the actual Studio view.
+
+Status is technical-pass-pending-human-review, planningMode=simulated-subagent,
+nativeCliDispatches=0, nativeFullChainPassed=false, humanVisualAcceptance=false.
+Human review remains required for fonts/spacing, row width/label placement,
+marker position, independent template scaling, longer calculated scrollbar
+thumb, dialog paper/edge colors and all 31 upstream warnings. Dialog Escape
+closing, OS IME, touch/device behavior and pixel-perfect reproduction are not
+claimed. See 本批Tabs列表双弹窗验证报告.md, verification.json, delivery/,
+finish-audit.json and evidence-inventory.json in the new sample directory.
+
+Prior 35-layer/settings/portrait evidence is historical and audited separately.
+Native r004 websocket idle timeout remains terminal and is not resubmitted or
+resumed. The prior task prefix is byte exact. Existing uncommitted changes are
+preserved; any concurrent changes outside this project are only fingerprinted
+and disclosed by the closeout audit, never restored. This batch performs no
+image generation, game/business binding, external action-ID collection, global
+login/proxy edits, commit, deployment or publication.
+
+The closeout audit observes 36 external baseline differences; current bytes are preserved. See baseline-differences-final.json.
+
+
+### 2026-10-05 Three-batch visual comparison materials opened locally
+
+After the third batch, the user asks why OPEN DETAILS has a white rectangle.
+Read-only source/material inspection identifies the runtime focus ring drawn
+at the full button layout; transparent source margins make it wider than the
+painted button. Dialog close restores the actual opener and invokes the same
+focus-ring path, including mouse-driven closing. No runtime or sample edits
+are made for that explanation.
+
+The user's next-step question is followed by a local visual comparison page at
+work/ui-component-harness/visual-review-20261005-r001/index.html. It pairs the
+three original reference images with the registered delivery/initial.png
+acceptance screenshots, preserving original image bytes and dimensions.
+Registered verification/report files are copied exactly into this fresh
+directory, and the user's focus observation is retained as an additional image.
+Notes summarize already recorded font/material/layout differences, not a new
+acceptance conclusion. All seven displayed PNGs actually decode in the visible
+browser; mouse selection and keyboard ArrowRight/End switch all three panels.
+Actual browser screenshots and browser-check.json preserve these page checks.
+
+The comparison is shown at http://127.0.0.1:4182/ by a read-only loopback server
+allowlisting only the page, seven images and three report downloads. The
+existing component Studio at 4173 remains available. This run does not rerun
+component acceptance, call a model, generate media, retry native CLI, change
+runtime/source code, or overwrite previous technical/failure records.
+All three humanVisualAcceptance and nativeFullChainPassed flags remain false;
+the focus explanation acknowledgement is not treated as blanket visual review.
+Future visual conclusions require separate explicit human feedback. Accepted
+differences can be recorded; requested fixes require affected regressions.
+Prior task bytes remain an exact prefix. Review manifest, read-only page
+checks, full-page screenshot and evidence inventory are saved separately.
+
+
+### 2026-10-05 Fresh Codex CLI connection preflight requires login
+
+The user requests a Codex CLI connection attempt after simulated batch closeout.
+A fresh connectivity-only plan is frozen under
+work/ui-component-harness/codex-connectivity-20261005-r001. Its single proposed
+native prompt requests only CODEX_CONNECTION_OK with no images, UI planning or
+tools; old native r004 is never resumed or resubmitted. This explicit request
+permits a new connection check, not a repeated sample generation or regression
+test contacting a provider.
+
+The installed CLI reports codex-cli 0.160.0. Actual loopback Studio bridge GET
+returns HTTP200, version2.0, configured=true, driver=codex-session, busy=false.
+The actual local CLI login-status process returns exit1 and Not logged in.
+CLI stdout/credentials are discarded by the adapter; a bounded redacted
+diagnostic preserves the exact authentication error without credential data.
+No codex exec dispatch occurs and the fresh single-use authorization remains
+unconsumed. configured=true does not establish login or provider connectivity.
+
+Because the earlier user explicitly prohibited global login/proxy changes,
+the agent stops before starting login. The user then declines login and asks to
+pause connection work and commit the current project version. The pending
+question is resolved, the unconsumed probe authorization is withdrawn, and an
+immutable pause record blocks the saved runner from automatically continuing.
+No login/config/proxy bytes are changed. The old r004 registered evidence is
+byte verified unchanged; all previous full-chain/visual flags remain false.
+The immutable plan, authorization, preflight and blocker report preserve this
+zero-dispatch result. No automatic model retry, sample acceptance, image/media
+generation, game binding, publication, deployment or global configuration edit.
+
+
+### 2026-10-05 User-authorized current UI component version checkpoint
+
+The user pauses native CLI connection and requests committing the current
+version. Scope is the current public ui-component-harness code, contracts,
+documentation and deterministic tests, plus its scoped dist-layers ignore rule.
+Other Harness/experiment changes and private work evidence are excluded and
+preserved. No new branch, release tag, deployment or push is requested.
+
+Submission checks on the full current public implementation: build/typecheck
+PASS, 651 offline unit tests PASS with zero failed/cancelled/skipped, self-test
+PASS and doctor PASS. Existing three-batch actual browser/interaction/export
+evidence and targeted browser regressions remain the recorded evidence; they
+are not repeated or relabeled as freshly executed. Initial unit-count extraction
+only recognized TAP # lines; the immutable original command/log is preserved
+and a separate deterministic summary recognizes Node's actual ℹ counts.
+
+Git diff --check identifies one new blank line at layer-viewer.html EOF. Only
+that final newline is removed, with the original bytes and exact diff retained
+locally; no semantics, whitespace gates or tests are weakened. The checkpoint
+retains all simulated-subagent, nativeFullChainPassed=false and pending human
+visual review boundaries. Fresh CLI preflight found Not logged in, then stopped
+at the user's request; zero native model dispatches and no global login/proxy
+changes. Details and fingerprints remain under
+work/ui-component-harness/version-checkpoint-20261005-r001/ and the separate
+codex-connectivity-20261005-r001/ paused preflight evidence directory.

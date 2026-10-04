@@ -37,7 +37,7 @@ export function referencePaths(reference: any): string[] {
   check(new Set(derived).size === derived.length, 'REFERENCE_DERIVED_DUPLICATE');
   return [reference.original.path, reference.state.path, reference.scope.path, ...derived];
 }
-function imageSize(bytes: Uint8Array): number[] {
+export function imageSize(bytes: Uint8Array): number[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const ascii = (start: number, length: number) => String.fromCharCode(...bytes.slice(start, start + length));
   check(bytes.length >= 24, 'REFERENCE_IMAGE_INVALID');

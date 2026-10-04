@@ -2,10 +2,34 @@
 
 独立的 UI 组件编译与验收工程。局部 UI 图和经过确认的视觉 intent，经明确布局、
 实际资源尺寸和确定性编译，生成引擎无关合同，再由真实 PixiJS 组件在 Web 画布运行。
-用户页通过可选本地 MCP 适配器进行识图；未配置服务时明确阻断，不会默认生成按钮。
+单图入口使用可选本地 MCP 识图适配器；图层 ZIP 自动入口使用下述 Codex session。
 
 正式目录为 `game-ui-harnesses/ui-component-harness/`。它与相邻的
 [UI decomposition](../ui-decomposition-harness/) 分别安装、维护，不绑定游戏初始包。
+
+单素材 ZIP 已支持严格旧/新版导入、`assets-intake` 缺项报告与 `assets-plan`
+确定性规划编译；Agent 仍需提供明确语义和绑定。新版来源随保存/导出保留，
+原图存在不等于参考验收完成。见[单包工作流](docs/assets-intake-v2.md)。
+
+独立 `ui-layers.zip` 可经 `layer-intake → 显式 v0.2 组件方案 → layer-build`
+进入 UiBundle 0.4，再在 Studio/工作台运行；源 ZIP 和方案随包校验。
+图层包本身没有业务文字位置、字号或动作合同。见[图层包接入](docs/layer-component.md)。
+
+上游图层包冻结后，消费侧可用源图区域裁切、明确绘制顺序和程序控件补齐缺失部件。
+适配声明与依据随源 ZIP、方案一起保存；自动草稿仍需人工视觉复核。
+
+本地 Studio 的图层 ZIP 入口支持 **Codex 生成组件方案并预览**：本机已登录的
+Codex CLI session 直接读取参考图、图层和 16 类组件合同，输出完整方案；随后由
+本地程序校验依据、绑定与组件合同，编译 Bundle 0.4。推断的文字排版与初始状态
+会列为待复核项。每轮实际渲染检查；合同、文字溢出或明确间距错误自动反馈给同一 session，
+**首次生成后最多修正 3 次**，仍失败才阻断。登录、超时和未完成请求不会自动重提交。
+这条链路不再经过 MCP 识图。自动结果仍需人工视觉验收。
+
+新方案还需声明 `layoutChecks`：检查实际文字边界与相邻文字/图标的间距，
+支持精确选择 Button/Panel/Dialog/Tabs 的内置文字。未声明相邻关系的 Text
+需解释并列为待复核项；修正不能删除检查、降低间距或隐藏已测量目标。
+旧包仍可打开，但不新增间距已通过的声明。检查范围与格式见
+[布局测量合同](docs/layer-component.md#declared-layout-measurements)。
 
 ## 启动
 
@@ -94,7 +118,7 @@ npm run test:browser
 测试强制软件 WebGL，不调用模型。生产预览测试设置 `UI_HARNESS_PREVIEW=1`。
 已有独立测试服务器时设置 `UI_HARNESS_EXTERNAL_SERVER=1`，测试将不接管该服务的生命周期。
 
-CLI 提供 `run`、`validate`、`inspect`、`compile`、`pack`、`component-handoff`、`unpack`、`self-test`、`doctor`。
+CLI 提供 `run`、`validate`、`inspect`、`compile`、`pack`、`layer-intake`、`layer-build`、`component-handoff`、`unpack`、`self-test`、`doctor`。
 library 导出编译/校验/资源包/动效合同，不导入 DOM 或 PixiJS。`run` 的可选 Playwright
 适配器只连接已另行启动的本地 workbench；npm 安装包不携带 Web 发行物，也不会自动安装浏览器。
 源码目录存在时 runner 只加载 `src/` 图；安装包没有 `src/` 时才加载 `lib/`，不会混用两者。

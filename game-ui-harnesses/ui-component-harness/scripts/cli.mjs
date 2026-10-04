@@ -33,6 +33,10 @@ Local commands:
   pack <document.json> --resource <portable-path>=<file> [--resource ...] --provenance-kind <kind> --provenance-description <text> [--motion <motion.json>] [--motion-system <system.json>] [--output <bundle.json>]
   component-handoff <ui.component-handoff.zip> --output <ui-bundle.json> [--reference-output <reference-evidence.json>]
   assets-build <assets.zip> <target.ui-bundle.json> <appearance-binding.json> --output <ui-bundle.json>
+  assets-intake <assets.zip> [--output <intake.json>]
+  assets-plan <assets.zip> --input <reviewed-planning-input.json> [--output <plan.json>]
+  layer-intake <ui-layers.zip> [--output <intake.json>]
+  layer-build <ui-layers.zip> --plan <explicit-component-plan.json> --output <ui-bundle.json>
   reference-export <saved.ui-bundle.json> --output <new-handoff.zip>
   bind-value-text <handoff.zip> <bindings.json> --output <new-handoff.zip>
   reference-accept <handoff.zip> --output <new-directory>
@@ -237,14 +241,14 @@ async function run() {
   if (command === 'validate') {
     onlyOptions(options, new Set()); if (positionals.length !== 1) fail('validate requires one JSON file');
     const input = await jsonFile(positionals[0]);
-    if (classify(input) === 'bundle') { const bundle = await bundleApi.validateBundle(input); await emit({ valid: true, kind: 'bundle', ...documentSummary(bundle.document), resources: bundle.resources.length, motion: Boolean(bundle.motion), motionSystem: Boolean(bundle.motionSystem) }); }
+    if (classify(input) === 'bundle') { const bundle = await bundleApi.validateBundle(input); await emit({ valid: true, kind: 'bundle', ...documentSummary(bundle.document), resources: bundle.resources.length, motion: Boolean(bundle.motion), motionSystem: Boolean(bundle.motionSystem), layerSource: bundle.layerSource ? { sha256: bundle.layerSource.sha256, planSha256: bundle.layerSource.planSha256, humanVisualAcceptance: false } : undefined }); }
     else { const document = input?.schemaVersion === '0.1' ? legacyApi.validateButton(input) : treeApi.validateDocument(input); await emit({ valid: true, kind: 'document', ...documentSummary(document) }); }
     return;
   }
   if (command === 'inspect') {
     onlyOptions(options, new Set()); if (positionals.length !== 1) fail('inspect requires one JSON file');
     const input = await jsonFile(positionals[0]);
-    if (classify(input) === 'bundle') { const bundle = await bundleApi.validateBundle(input); await emit({ kind: 'bundle', ...documentSummary(bundle.document), resources: bundle.resources.map(resource => ({ id: resource.id, path: resource.path, mime: resource.mime, sha256: resource.sha256 })), provenance: bundle.provenance, motion: bundle.motion ? { id: bundle.motion.id, duration: bundle.motion.duration } : undefined, motionSystem: bundle.motionSystem ? { id: bundle.motionSystem.id, style: bundle.motionSystem.style, bindings: bundle.motionSystem.bindings.length } : undefined }); }
+    if (classify(input) === 'bundle') { const bundle = await bundleApi.validateBundle(input); await emit({ kind: 'bundle', ...documentSummary(bundle.document), resources: bundle.resources.map(resource => ({ id: resource.id, path: resource.path, mime: resource.mime, sha256: resource.sha256 })), provenance: bundle.provenance, motion: bundle.motion ? { id: bundle.motion.id, duration: bundle.motion.duration } : undefined, motionSystem: bundle.motionSystem ? { id: bundle.motionSystem.id, style: bundle.motionSystem.style, bindings: bundle.motionSystem.bindings.length } : undefined, layerSource: bundle.layerSource ? { sha256: bundle.layerSource.sha256, planSha256: bundle.layerSource.planSha256, boundLayers: bundle.layerSource.plan.bindings.length, unusedLayers: bundle.layerSource.plan.unusedLayers.length, humanVisualAcceptance: false } : undefined }); }
     else { const document = input?.schemaVersion === '0.1' ? legacyApi.validateButton(input) : treeApi.validateDocument(input); await emit({ kind: 'document', ...documentSummary(document) }); }
     return;
   }
@@ -271,6 +275,14 @@ async function run() {
     const bundle = await bundleApi.createBundle(await jsonFile(positionals[0]), resources, { kind, description }, motion ? await jsonFile(motion) : undefined, motionSystem ? await jsonFile(motionSystem) : undefined);
     await emit(bundle, one(options, 'output')); return;
   }
+  if (command === 'assets-intake' || command === 'assets-plan') {
+    onlyOptions(options, new Set(command === 'assets-intake' ? ['output'] : ['input', 'output']));
+    if (positionals.length !== 1 || (command === 'assets-plan' && !one(options,'input'))) fail('assets-intake/plan requires one assets ZIP; assets-plan additionally requires --input');
+    const api = await moduleFromDistribution('assets-intake');
+    const bytes = new Uint8Array(await readFile(positionals[0]));
+    const report = command === 'assets-intake' ? await api.intakeAssets(bytes) : await api.planAssets(bytes, await jsonFile(one(options,'input')));
+    await emit(report, one(options,'output')); return;
+  }
   if (command === 'assets-build') {
     onlyOptions(options, new Set(['output']));
     if (positionals.length !== 3 || !one(options, 'output')) fail('assets-build requires <assets.zip> <target.ui-bundle.json> <appearance-binding.json> --output <ui-bundle.json>');
@@ -281,6 +293,18 @@ async function run() {
     process.stderr.write(`${JSON.stringify({ archiveSha256: result.archiveSha256, upstreamReview: result.review,
       runtimeAcceptance: 'not_run', visualComparisonReady: false })}\n`);
     return;
+  }
+  if (command === 'layer-intake' || command === 'layer-build') {
+    onlyOptions(options, new Set(command === 'layer-intake' ? ['output'] : ['plan', 'output']));
+    if (positionals.length !== 1 || (command === 'layer-build' && (!one(options, 'plan') || !one(options, 'output')))) {
+      fail('layer-intake/build requires one ui-layers ZIP; layer-build additionally requires --plan and --output');
+    }
+    const api = await moduleFromDistribution('layer-component');
+    const bytes = new Uint8Array(await readFile(positionals[0]));
+    const result = command === 'layer-intake'
+      ? await api.intakeLayerComponents(bytes)
+      : await api.compileLayerComponents(bytes, await jsonFile(one(options, 'plan')));
+    await emit(result, one(options, 'output')); return;
   }
   if (command === 'component-handoff') {
     onlyOptions(options, new Set(['output', 'reference-output']));
@@ -317,7 +341,7 @@ async function run() {
   }
   if (command === 'doctor') {
     onlyOptions(options, new Set()); if (positionals.length) fail('doctor takes no arguments');
-    await emit({ offline: true, node: process.version, commands: ['run', 'validate', 'inspect', 'compile', 'pack', 'assets-build', 'component-handoff', 'unpack', 'self-test', 'doctor'], providerConfigured: false }); return;
+    await emit({ offline: true, node: process.version, commands: ['run', 'validate', 'inspect', 'compile', 'pack', 'assets-intake', 'assets-plan', 'assets-build', 'layer-intake', 'layer-build', 'component-handoff', 'unpack', 'self-test', 'doctor'], providerConfigured: false }); return;
   }
   fail(`unsupported command: ${command}`);
 }

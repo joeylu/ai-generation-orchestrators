@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { assetsPackageFixture } from './helpers/assets-package-fixture.ts';
+import { referenceSha256 } from '../src/reference-persistence.ts';
+const cli=fileURLToPath(new URL('../scripts/cli.mjs',import.meta.url));
+test('CLI single ZIP intake/plan reports needs_input and refuses overwrite without building',async()=>{
+  const f=await assetsPackageFixture(),root=await mkdtemp(join(tmpdir(),'assets-intake-'));
+  await writeFile(join(root,'assets.zip'),f.bytes);
+  const run=(...args:string[])=>spawnSync(process.execPath,[cli,...args],{cwd:root,encoding:'utf8'});
+  const intake=run('assets-intake','assets.zip','--output','intake.json');assert.equal(intake.status,0,intake.stderr);
+  const report=JSON.parse(await readFile(join(root,'intake.json'),'utf8'));assert.equal(report.sourceEvidence.manifest.schemaVersion,'2.0');
+  const request={kind:'ui-assets-planning-input',schemaVersion:'1.0',archiveSha256:await referenceSha256(f.bytes),requirements:'',basis:'programmatic-fixture',openQuestions:[]};
+  await writeFile(join(root,'request.json'),JSON.stringify(request));
+  const plan=run('assets-plan','assets.zip','--input','request.json','--output','plan.json');assert.equal(plan.status,0,plan.stderr);
+  const planned=JSON.parse(await readFile(join(root,'plan.json'),'utf8'));assert.equal(planned.status,'needs_input');assert.equal(planned.bundle,undefined);
+  assert.notEqual(run('assets-plan','assets.zip','--input','request.json','--output','plan.json').status,0);
+});

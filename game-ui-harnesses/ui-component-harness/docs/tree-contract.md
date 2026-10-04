@@ -20,6 +20,8 @@ The tree has at most 1,000 nodes and a depth of at most 32. Cycles are rejected.
 Only these composite types may have a required `children` array: `Container`,
 `Button`, `ScrollView`, `List`, `Panel`, `Dialog`, and `Tabs`. Children draw in
 array order. A `Tabs` entry's `contentId` must name one direct child.
+Multiple tabs may share that child. It stays visible when any tab referencing
+it is active; later inactive entries must not hide the shared content.
 
 Every `ControlStyle` is explicit:
 
@@ -45,7 +47,7 @@ are no theme or visual defaults.
 | `Button` | `label` (may be empty when child content supplies it), `enabled`, `style`, `children`. |
 | `Switch`, `CheckBox` | `label`, `checked`, `enabled`, `style`. |
 | `RadioGroup`, `Select` | `selectedId` (an option ID or `null`), non-empty `options:[{id,label}]`, `enabled`, `style`. |
-| `Input` | `value`, `placeholder`, `inputType: 'text'|'password'|'email'|'number'`, `readOnly`, positive integer `maxLength`, `enabled`, `style`. The value cannot exceed `maxLength`. |
+| `Input` | `value`, `placeholder`, `inputType: 'text'|'password'|'email'|'number'`, `readOnly`, positive integer `maxLength`, `enabled`, `style`; optional `valueOverflow:'ellipsis'`. The value cannot exceed `maxLength`. |
 | `ProgressBar` | non-negative `value`, positive `max`, `value <= max`, `style`. |
 | `Slider` | finite `min`, `max`, positive `step`, in-range step-aligned `value`, `enabled`, `style`. |
 | `ScrollView` | non-negative `scrollX`, `scrollY` no greater than `max(0, content − viewport)`, positive `contentWidth`, `contentHeight`, `style`, `children`. |
@@ -57,6 +59,15 @@ are no theme or visual defaults.
 All listed fields are required unless marked optional. Empty display strings are
 allowed only where an intentionally visual child can supply the content; IDs,
 labels, resource references, and provenance descriptions cannot be empty.
+
+`Input.valueOverflow:'ellipsis'` explicitly permits a non-empty stored value to
+use horizontal ellipsis in its unfocused display. It preserves the full value
+and `maxLength`; focused text/password editing uses the existing horizontal
+viewport. It never permits a clipped placeholder, vertical overflow, or an
+ellipsis that itself cannot fit. Model-proposed plans must record this as an
+`explicit-policy` finding. Without it, their initial implicit label overflow
+remains an error, including when reopening a bundle. Glyph measurements and
+layout checks still apply to the displayed text.
 
 `source` and `fontSource` use the shared portable resource rule: a portable
 relative POSIX reference (for example `assets/icon.png`) or a complete HTTP(S)
@@ -120,3 +131,16 @@ Select.appearance.optionIcons is optional and versioned; see [Select option icon
 Tabs supports optional boolean props.drawBackground; absent/true retains its
 rectangular background, false reveals the parent through transparent corners/gaps
 without hiding tab art, text or interaction. See [background ownership](tabs-background-v1.md).
+
+List/Tabs optional independent state raster sizing and List selected indicators
+are described in [state templates](state-templates.md). Original resource canvases
+remain exact; normal-template coordinates govern labels, hits and indicators.
+Only an explicit independent policy permits differently sized active templates.
+
+Keyboard Tab and Shift+Tab wrap inside the current top modal Dialog. Actual
+internal Button open effects establish transient opener references; closing
+returns focus to an eligible opener after the close presentation finishes.
+Initial open Dialogs do not invent an opener, and those references are not portable
+saved state. Nonmodal canvas navigation retains its existing exit behavior.
+Keyboard List selection reveals the chosen row in ancestor ScrollViews while
+preserving their bounded scroll ranges. Dialog Escape closing remains undeclared.

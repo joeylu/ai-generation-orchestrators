@@ -14,7 +14,14 @@ import type { ObservationSource, VisionObservation } from './vision-observation.
 import { createSemanticEditor } from './studio-semantic-editor.ts';
 import { createDecompositionPanel } from './studio-decomposition.ts';
 import { assertValidImportedDecomposition, type ImportedDecomposition } from './decomposition-import.ts';
+import { compileImportedAssets } from './component-handoff.ts';
 import { applyAppearanceBinding } from './appearance-apply.ts';
+import { compileLayerComponents, intakeLayerComponents, MAX_LAYER_SOURCE_BYTES, type LayerComponentPlan } from './layer-component.ts';
+import { runLayerAutoDag } from './layer-auto-dag.ts';
+import { requestLayerPlan, type LayerPlanExecution } from './studio-layer-plan.ts';
+import { assertLayerTextRendering } from './layer-preview.ts';
+import { importLayerPackage } from './layer-package.ts';
+import { LayerPlanningDiagnosticError } from './layer-planning-evidence.ts';
 
 type Scheme = 'original' | MotionStyle;
 type Reference = { source: string; width: number; height: number; file: string };
@@ -34,7 +41,9 @@ let semanticObservation: VisionObservation | undefined, semanticSource: Observat
 let semanticEditor: ReturnType<typeof createSemanticEditor> | undefined, semanticEdits = 0;
 let neutralPreview = false;
 let materialPreview = false;
+let layerPackagePreview = false;
 let decompositionPanel: ReturnType<typeof createDecompositionPanel> | undefined;
+let layerArchive: Uint8Array | undefined, layerPlan: LayerComponentPlan | undefined, layerArchiveName = '', layerPlanRevision = 0, layerPlanValidated = false;
 
 function showMissing(missing: readonly MissingSemanticField[] = []) {
   const fieldNames: Record<string, string> = { value: '当前值', inputType: '输入类型', title: '标题', placeholder: '占位文字', checked: '勾选状态', label: '标签', text: '文字', min: '最小值', max: '最大值', open: '打开状态', options: '选项内容', items: '列表内容', selectedId: '选中项', activeId: '当前页', tabs: '页签', 'tabs.contentId': '页签内容' };
@@ -93,7 +102,7 @@ function forgetReference() {
   $('reference-image').removeAttribute('src'); reference = undefined;
 }
 function sync() {
-  const ready = Boolean(bundle && views.length && !busy);
+  const ready = Boolean(bundle && views.length && !busy && !layerPackagePreview);
   document.body.dataset.ready = String(ready); document.body.dataset.busy = String(busy);
   document.body.dataset.reference = String(Boolean(reference));
   $('drop-zone').hidden = Boolean(reference);
@@ -101,7 +110,11 @@ function sync() {
   $('studio-compare').toggleAttribute('disabled', !ready);
   $('studio-compare').setAttribute('aria-pressed', String(compare));
   $('studio-replay').toggleAttribute('disabled', !ready || (selected === 'original' && !bundle?.motion));
-  $('studio-reset').toggleAttribute('disabled', !bundle && !reference && !busy && !lastError);
+  $('studio-reset').toggleAttribute('disabled', !bundle && !reference && !layerArchive && !busy && !lastError);
+  $<HTMLInputElement>('layer-plan').disabled = busy || !layerArchive;
+  $<HTMLButtonElement>('layer-build').disabled = busy || !layerArchive || !layerPlan;
+  $<HTMLButtonElement>('layer-auto').disabled = busy || !layerArchive;
+  $<HTMLButtonElement>('layer-plan-export').disabled = busy || !layerPlanValidated;
   $('studio-stage').hidden = !bundle;
   $('studio-empty').hidden = Boolean(bundle) || busy;
   $('main-preview').hidden = compare; $('comparison-grid').hidden = !compare;
@@ -116,9 +129,12 @@ function sync() {
   $('reference-name').textContent = filename;
   $('reference-meta').textContent = reference ? `${reference.width} × ${reference.height}` : '';
   $('studio-status').textContent = busy ? analysis.status === 'Analyzing' ? '正在识别组件语义…' : '正在准备画布…' : ready ? '可以预览与导出'
+    : analysis.status === 'NeedsInput' ? '方案需要补充输入'
     : analysis.status === 'Unresolved' ? '部分信息尚不确定，暂时无法生成完整方案'
-    : analysis.status === 'Custom-required' ? '这张图需要当前组件库之外的组件' : analysis.status === 'Failed' ? '识图未完成' : '添加一张参考图，开始预览';
-  $('studio-hint').textContent = !ready ? '参考图将发送至已配置的识图服务进行组件分析' : '直接操作画布中的组件，体验当前方案';
+    : analysis.status === 'Custom-required' ? '这张图需要当前组件库之外的组件' : analysis.status === 'Failed' ? /SESSION_|LAYER_/.test(lastError ?? '') ? '组件方案未完成' : '识图未完成' : '添加一张参考图，开始预览';
+  $('studio-hint').textContent = ready ? '直接操作画布中的组件，体验当前方案'
+    : layerArchive ? '图层 ZIP 已在本地校验；选择明确组件方案后生成画布，不会调用识图服务。'
+    : '参考图将发送至已配置的识图服务进行组件分析';
   for (const button of controls<HTMLButtonElement>('#scheme-options [data-scheme], .comparison-title[data-scheme]')) {
     button.setAttribute('aria-pressed', String(button.dataset.scheme === selected)); button.disabled = !ready;
   }
@@ -130,6 +146,11 @@ function sync() {
     $('studio-replay').toggleAttribute('disabled', true);
     for (const button of controls<HTMLButtonElement>('#scheme-options [data-scheme]')) button.disabled = true;
   }
+  if (layerPackagePreview) {
+    $('scheme-name').textContent = '交付包预览';
+    $('studio-status').textContent = busy ? '正在生成组件方案，当前显示交付包预览' : '交付包预览已加载';
+    $('studio-hint').textContent = '显示包内 preview.png；组件方案生成通过后会替换此画布。';
+  }
   decompositionPanel?.refresh();
 }
 function reset() {
@@ -139,18 +160,50 @@ function reset() {
     semanticObservation = undefined; semanticSource = undefined; semanticEditor = undefined; semanticEdits = 0;
     neutralPreview = false;
     materialPreview = false; decompositionPanel?.reset();
+    layerPackagePreview = false;
+    layerArchive = undefined; layerPlan = undefined; layerArchiveName = ''; layerPlanRevision++; layerPlanValidated = false;
+    $<HTMLInputElement>('layer-archive').value = ''; $<HTMLInputElement>('layer-plan').value = '';
+    $('layer-archive-status').textContent = '尚未导入图层交付包。';
+    $('layer-plan-status').textContent = '先导入图层 ZIP。';
+    $('layer-auto-status').textContent = '由本机 Codex session 读取参考图和图层，规划待复核的组件方案。';
+    $('layer-auto-issues').replaceChildren();
     $('semantic-fields').replaceChildren(); showMissing(); $('semantic-feedback').textContent = '';
     $('handoff-review').hidden = true; $('handoff-review').textContent = '';
     $('reference-evidence-panel').replaceChildren();
-    lastError = null; $('studio-error').hidden = true; delete $('studio-error').dataset.errorDetail; sync();
+    lastError = null; $('studio-error').hidden = true; $('reload-studio').hidden = true; delete $('studio-error').dataset.errorDetail; sync();
   }
 }
 function fail(error: unknown, message: string) {
   if (isCancelled(error)) return;
+  let current: unknown = error;
+  let diagnostic: LayerPlanningDiagnosticError['diagnostic'] | undefined;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth++) {
+    if (current instanceof LayerPlanningDiagnosticError) { diagnostic = current.diagnostic; break; }
+    current = current.cause;
+  }
   const cause = error instanceof Error && error.cause instanceof Error ? `; cause: ${error.cause.name}: ${error.cause.message}` : '';
   const reason = (error instanceof Error ? `${error.name}: ${error.message}` : String(error)) + cause;
+  const loginSource = /SESSION_NOT_AUTHENTICATED|SESSION_NOT_CONFIGURED|LAYER_PLANNING_UNRESOLVED|SESSION_CORRECTIONS_EXHAUSTED/.test(reason) ? layerArchive : undefined;
+  const loginSourceName = layerArchiveName;
   try { reset(); } catch (cleanupError) { lastError = `${reason}; cleanup: ${String(cleanupError)}`; }
+  if (loginSource) {
+    layerArchive = loginSource; layerArchiveName = loginSourceName; filename = loginSourceName;
+    $('layer-archive-status').textContent = `已保留校验过的图层 ZIP：${loginSourceName}。`;
+    $('layer-plan-status').textContent = /LAYER_PLANNING_UNRESOLVED|SESSION_CORRECTIONS_EXHAUSTED/.test(reason)
+      ? '源 ZIP 已保留。请查看方案未完成的具体原因，或选择明确的组件方案；当前没有可导出的方案。'
+      : 'Codex 登录或配置完成后可重新点击生成；当前没有可导出的方案。';
+  }
   lastError ??= reason;
+  if (/SESSION_NOT_CONFIGURED/.test(reason)) message = '本机 Codex CLI 尚未配置，请先安装并登录后生成组件方案。';
+  else if (/SESSION_NOT_AUTHENTICATED/.test(reason)) message = '本机 Codex CLI 尚未登录。请在终端执行 codex login，完成登录后重新点击生成方案。';
+  else if (/SESSION_CORRECTIONS_EXHAUSTED/.test(reason)) message = `已完成 3 次自动修正，方案仍未通过检查。${diagnostic ? diagnostic.summary : '所有草稿和错误记录已保留，请查看本地 session 记录。'}`;
+  else if (/SESSION_TIMEOUT_NO_RETRY/.test(reason)) message = 'Codex 单轮运行超过 15 分钟，未收到完整响应，任务已停止。执行记录已保留；该轮未完成，当前没有可导出的方案。';
+  else if (/SESSION_TRANSPORT_FAILED_NO_RETRY/.test(reason)) message = 'Codex 连接或响应流失败，未收到完整响应，任务已停止。执行记录已保留；当前没有可导出的方案。';
+  else if (/SESSION_ABORTED_NO_RETRY/.test(reason)) message = 'Codex 任务已取消，未完成的轮次已停止。执行记录已保留；当前没有可导出的方案。';
+  else if (/LAYER_PLAN_LAYOUT_GAP/.test(reason)) message = '草稿中相邻文字或图标的间距未达到方案要求。请修正布局后再导入。';
+  else if (/LAYER_PLAN_TEXT_OVERFLOW/.test(reason)) message = '草稿的文字区域放不下完整文字。请修改文字布局或字号后再导入。';
+  else if (/LAYER_PLANNING_UNRESOLVED/.test(reason)) message = diagnostic ? `组件方案未完成：${diagnostic.summary}` : '组件方案未完成，请查看本地草稿的具体说明。';
+  else if (/SESSION_|LAYER_PLANNING_|LAYER_PLANNER_|LAYER_AUTO_SESSION_PLAN/.test(reason)) message = 'Codex 方案未完成或出现不可自动修正的错误。请查看本地 session 记录。';
   if (reason.includes('VISION_NOT_CONFIGURED')) message = '识图服务尚未连接，请先配置 MCP 服务。';
   else if (/VISION_|TimeoutError/.test(reason)) message = '识图未完成或结果未通过校验。请检查服务记录；已提交的识图任务可能仍在运行。';
   if (reason.startsWith('Error: STUDIO_VISION_FAILED') && !reason.includes('VISION_NOT_CONFIGURED')) message = '图片已读取，但识图结果未能完整接收或通过校验。请检查识图服务记录。';
@@ -159,18 +212,26 @@ function fail(error: unknown, message: string) {
   if (/VISION_CONTRACT_INVALID|VISION_UNUSED_STYLE|VISION_UNKNOWN_STYLE|VISION_UNKNOWN_PARENT|VISION_MULTIPLE_ROOTS|VISION_TREE_CYCLE/.test(reason)) message = '识图已完成，但组件结构或属性不完整，暂时无法预览。';
   if (reason.startsWith('Error: STUDIO_CONTRACT_FAILED')) message = '识图已完成，但组件方案未通过校验，暂时无法预览。';
   if (reason.startsWith('Error: STUDIO_CANVAS_FAILED')) message = '识图已完成，但当前浏览器未能创建画布。请刷新页面或检查浏览器图形支持。';
+  const pageResourceFailed = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i.test(reason);
+  if (pageResourceFailed) message = '页面程序资源加载失败，当前标签页可能仍在使用更新前的版本。请刷新页面，再重新选择文件。';
+  $('reload-studio').hidden = !pageResourceFailed;
   $('studio-error').dataset.errorDetail = reason;
+  if (diagnostic) $('layer-auto-issues').replaceChildren(...[...diagnostic.issues,
+    ...(diagnostic.missingInputs ?? []).map(item => `待补充：${item.subject} — ${item.detail}`)].map(issue => {
+    const item = document.createElement('li'); item.textContent = issue; return item;
+  }));
   analysis = { status: 'Failed', summary: message };
   $('error-message').textContent = message; $('studio-error').hidden = false; sync();
 }
 function action(work: () => void | Promise<void>, message = '预览暂时无法完成，请重新添加图片后再试。') {
   return () => { Promise.resolve().then(work).catch(error => fail(error, message)); };
 }
-function begin() {
+function begin(preserveLayerPreview = false) {
   $('handoff-review').hidden = true; $('handoff-review').textContent = '';
   generation++; controller.abort(abortError()); controller = new AbortController();
-  busy = true; lastError = null; $('studio-error').hidden = true; delete $('studio-error').dataset.errorDetail;
-  disposeViews(); sync();
+  busy = true; lastError = null; $('studio-error').hidden = true; $('reload-studio').hidden = true; delete $('studio-error').dataset.errorDetail;
+  if (!preserveLayerPreview || !layerPackagePreview) { disposeViews(); layerPackagePreview = false; }
+  sync();
   const ticket = generation, signal = controller.signal;
   return { ticket, signal, check: () => { if (ticket !== generation || signal.aborted) throw abortError(); } };
 }
@@ -253,7 +314,8 @@ async function mount(document: UiDocument, request: ReturnType<typeof begin>) {
         if (!decoded.has(path)) decoded.set(path, decode(resource(path), signal)); return decoded.get(path)!;
       }, async path => new Uint8Array(resource(path).bytes).buffer);
       request.check();
-      preview.canvas.setAttribute('aria-label', `${names[scheme]}方案预览`);
+      assertLayerTextRendering(bundle.layerSource?.plan, preview.inspect());
+      preview.canvas.setAttribute('aria-label', layerPackagePreview ? '交付包 preview.png 预览' : `${names[scheme]}方案预览`);
       preview.setMotionSystem(systemFor(scheme, document));
       const view: View = { scheme, host, preview, resize: new ResizeObserver(() => { if (views.includes(view)) fit(view); }), activations: 0, activationCounts: {}, events: [] };
       if (timelineDocument) view.timeline = new MotionPlayer(timelineDocument, document, preview,
@@ -271,7 +333,7 @@ async function mount(document: UiDocument, request: ReturnType<typeof begin>) {
   request.check(); busy = false; sync(); for (const view of views) fit(view);
 }
 async function selectScheme(scheme: Scheme) {
-  if (!bundle || busy || !schemes.includes(scheme)) return;
+  if (!bundle || busy || layerPackagePreview || !schemes.includes(scheme)) return;
   if (compare) {
     selected = scheme;
     await toggleCompare();
@@ -287,7 +349,7 @@ async function selectScheme(scheme: Scheme) {
   if (scheme !== 'original' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) replay(view);
 }
 async function toggleCompare() {
-  if (!bundle || busy) return;
+  if (!bundle || busy || layerPackagePreview) return;
   const document = currentDocument(); compare = !compare;
   const request = begin();
   try { await mount(document, request); } catch (error) { if (request.ticket === generation) throw error; }
@@ -361,11 +423,117 @@ async function openHandoff(file: File) {
     $('handoff-review').hidden = false;
   } catch (error) { if (request.ticket === generation) throw error; }
 }
+async function openLayerArchive(file: File) {
+  reset(); filename = file.name;
+  const request = begin();
+  try {
+    if (!file.size || file.size > MAX_LAYER_SOURCE_BYTES) throw new Error('LAYER_SOURCE_SIZE_LIMIT');
+    const bytes = new Uint8Array(await file.arrayBuffer()); request.check();
+    const intake = await intakeLayerComponents(bytes); request.check();
+    const pack = await importLayerPackage(bytes); request.check();
+    const preview: ResourceInput = { path: pack.composition.preview, mime: 'image/png', bytes: pack.files.get(pack.composition.preview)! };
+    const document: UiDocument = { schemaVersion: '0.2', id: 'layer-package-preview', canvas: intake.canvas, root: {
+      id: 'layer-package-composite', type: 'Image', layout: { x: 0, y: 0, ...intake.canvas },
+      props: { source: preview.path, fit: 'stretch', drawBackground: false, style: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF', borderWidth: 0, cornerRadius: 0, textColor: '#000000', fontFamily: 'sans-serif', fontSize: 16, fontWeight: 'normal', opacity: 1 } },
+    } };
+    const candidate = await createBundle(document, [preview], { kind: 'user-provided', description: `Static upstream preview.png only. Archive SHA-256: ${intake.archiveSha256}. No component plan or human visual acceptance.` }); request.check();
+    layerArchive = bytes; layerArchiveName = file.name;
+    bundle = candidate; resources = [preview]; layerPackagePreview = true;
+    $('layer-archive-status').textContent = `已校验：${intake.layers.length} 层，${intake.canvas.width} × ${intake.canvas.height}；ZIP SHA-256：${intake.archiveSha256}。上游审核问题 ${intake.reviewIssues.length} 项。`;
+    $('layer-plan-status').textContent = '可自动生成草稿，或选择与此 ZIP 摘要匹配的组件方案 JSON。';
+    analysis = { status: 'Imported', summary: '图层 ZIP 已校验，当前显示包内预览图；可继续生成组件方案。' };
+    await mount(document, request); request.check();
+  } catch (error) { if (request.ticket === generation) throw error; }
+}
+async function autoBuildLayerPreview() {
+  const archive = layerArchive;
+  if (!archive || busy) throw new Error('LAYER_SOURCE_REQUIRED');
+  const request = begin(true);
+  try {
+    layerPlan = undefined; layerPlanValidated = false;
+    analysis = { status: 'Analyzing', summary: 'Codex session 正在读取参考图、图层信息和 16 类组件合同，规划方案草稿…' }; sync();
+    $('layer-auto-status').textContent = 'Codex 正在生成完整方案并检查渲染；发现可修正错误时自动反馈，最多修正 3 次。';
+    $('layer-auto-issues').replaceChildren();
+    let execution: LayerPlanExecution | undefined;
+    const result = await runLayerAutoDag(archive, async planningInput => {
+      request.check();
+      const proposal = await requestLayerPlan(archive, planningInput, request.signal, value => { execution = value; });
+      request.check();
+      return proposal;
+    });
+    request.check();
+    disposeViews(); layerPackagePreview = false;
+    layerPlan = result.plan; layerPlanValidated = true; resources = bundleResources(result.bundle); bundle = result.bundle;
+    originalSystem = result.bundle.motionSystem; selected = 'original'; filename = layerArchiveName;
+    $('layer-auto-status').textContent = `自动 DAG：${result.nodes.map(node => node.stage).join(' → ')}；${execution ? `实际修正 ${execution.corrections}/3 次，渲染检查通过；` : ''}草稿待人工视觉复核，${result.issues.length} 项提示。`;
+    $('layer-auto-issues').replaceChildren(...result.issues.map(issue => {
+      const item = document.createElement('li'); item.textContent = issue; return item;
+    }), ...(result.plan.adaptations ?? []).map(adaptation => {
+      const item = document.createElement('li');
+      const label = { crop: '裁切复用', reorder: '调整遮挡顺序', 'procedural-control': '程序控件替代' }[adaptation.kind];
+      item.textContent = `${label} · ${adaptation.componentId}：${adaptation.reason}`; return item;
+    }), ...(result.plan.layoutChecks?.unpairedText ?? []).map(review => {
+      const item = document.createElement('li'); item.textContent = `间距未声明 · ${review.componentId}：${review.reason}`; return item;
+    }), ...result.plan.planningEvidence!.findings.filter(finding => finding.basis !== 'observed').map(finding => {
+      const item = document.createElement('li'); item.textContent = `${finding.componentId} ${finding.pointer} · ${finding.basis === 'inferred' ? '推断' : '方案策略'}：${finding.note}`; return item;
+    }));
+    $('layer-plan-status').textContent = '已生成与此 ZIP 摘要绑定的方案草稿；可导出 Bundle，视觉与业务行为仍需复核。';
+    analysis = { status: 'Imported', summary: '自动方案草稿已通过严格组件合同与图层绑定校验；尚未通过人工视觉验收。' };
+    await mount(result.bundle.document as UiDocument, request); request.check();
+    await mountReferencePanel($('reference-evidence-panel'), result.bundle, exportSelected, () => activeView()?.preview, () => activeView()?.timeline?.stop());
+  } catch (error) { if (request.ticket === generation) throw error; }
+}
+async function openLayerPlan(file: File) {
+  if (!layerArchive || busy) throw new Error('LAYER_SOURCE_REQUIRED');
+  if (bundle && !layerPackagePreview) {
+    begin(); bundle = undefined; resources = []; originalSystem = undefined; busy = false;
+    $('reference-evidence-panel').replaceChildren();
+    $('layer-auto-status').textContent = '已切换到手动方案；先前的自动草稿预览已清除。';
+    $('layer-auto-issues').replaceChildren();
+    analysis = { status: 'Unresolved', summary: '已选择新方案；重新构建前不会继续显示旧画布。' };
+  }
+  const ticket = generation, archive = layerArchive, revision = ++layerPlanRevision;
+  layerPlan = undefined; layerPlanValidated = false; sync();
+  if (!file.size || file.size > 4 * 1024 * 1024) throw new Error('LAYER_PLAN_SIZE_LIMIT');
+  const contents = await file.text();
+  if (ticket !== generation || archive !== layerArchive || revision !== layerPlanRevision) return;
+  const parsed: unknown = JSON.parse(contents);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('LAYER_PLAN_JSON');
+  layerPlan = parsed as LayerComponentPlan;
+  $('layer-plan-status').textContent = `已选择 ${file.name}；点击生成后校验方案、图层绑定与源 ZIP 摘要。`;
+  sync();
+}
+async function buildLayerPreview() {
+  const archive = layerArchive, plan = layerPlan;
+  if (!archive || !plan || busy) throw new Error('LAYER_SOURCE_AND_PLAN_REQUIRED');
+  const request = begin(true);
+  try {
+    const candidate = await compileLayerComponents(archive, plan); request.check();
+    disposeViews(); layerPackagePreview = false;
+    layerPlanValidated = true;
+    resources = bundleResources(candidate); bundle = candidate; originalSystem = candidate.motionSystem;
+    selected = 'original'; filename = layerArchiveName;
+    analysis = { status: 'Imported', summary: '图层 ZIP、组件方案和绑定已通过校验；已生成可导出的 Bundle 0.4。' };
+    await mount(candidate.document as UiDocument, request); request.check();
+    $('layer-auto-issues').replaceChildren(...(candidate.layerSource?.plan.adaptations ?? []).map(adaptation => {
+      const item = document.createElement('li'); item.textContent = `消费适配 · ${adaptation.componentId}：${adaptation.reason}`; return item;
+    }));
+    await mountReferencePanel($('reference-evidence-panel'), candidate, exportSelected, () => activeView()?.preview, () => activeView()?.timeline?.stop());
+    $('layer-plan-status').textContent = 'Bundle 0.4 已生成并显示。点击右上角“导出”保存方案。';
+  } catch (error) { if (request.ticket === generation) throw error; }
+}
+function downloadLayerPlan() {
+  if (!layerPlan || !layerPlanValidated || busy) throw new Error('LAYER_PLAN_NOT_VALIDATED');
+  const url = URL.createObjectURL(new Blob([JSON.stringify(layerPlan, null, 2) + '\n'], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = url;
+  link.download = `${layerArchiveName.replace(/\.zip$/i, '') || 'ui-layers'}.component-plan.json`;
+  link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 async function exportSelected(): Promise<UiBundle> {
   const view = activeView();
-  if (!bundle || !view || busy) throw new Error('NO_READY_PREVIEW');
+  if (!bundle || !view || busy || layerPackagePreview) throw new Error('NO_READY_PREVIEW');
   const ticket = generation, scheme = selected;
-  const result = await createBundle(view.preview.getDocument(), resources, bundle.provenance, staticImageTimeline(view.preview.getDocument(), bundle.motion), view.preview.getMotionSystem() ?? undefined, bundle.componentHandoff);
+  const result = await createBundle(view.preview.getDocument(), resources, bundle.provenance, staticImageTimeline(view.preview.getDocument(), bundle.motion), view.preview.getMotionSystem() ?? undefined, bundle.componentHandoff, bundle.layerSource);
   if (ticket !== generation || scheme !== selected || busy) throw abortError();
   return validateBundle(result);
 }
@@ -389,7 +557,9 @@ async function previewDecomposition(imported: ImportedDecomposition) {
 async function applyDecompositionAppearance(imported: ImportedDecomposition, appearance: unknown, target: UiBundle) {
   const request = begin();
   try {
-    const next = await applyAppearanceBinding(target, imported, appearance); request.check();
+    const next = imported.assetsPackage
+      ? (await compileImportedAssets(imported, target, appearance)).bundle
+      : await applyAppearanceBinding(target, imported, appearance); request.check();
     resources = bundleResources(next); bundle = next; originalSystem = next.motionSystem;
     materialPreview = false; neutralPreview = false; selected = next.motionSystem?.style ?? 'original'; compare = false;
     semanticObservation = undefined; semanticEditor = undefined; semanticSource = undefined;
@@ -417,12 +587,24 @@ $('open-handoff').addEventListener('change', action(async () => {
   const input = $<HTMLInputElement>('open-handoff'), file = input.files?.[0]; input.value = '';
   if (file) await openHandoff(file);
 }, '交付包导入失败，请检查包摘要、合同及外观绑定。'));
+$('layer-archive').addEventListener('change', action(async () => {
+  const input = $<HTMLInputElement>('layer-archive'), file = input.files?.[0]; input.value = '';
+  if (file) await openLayerArchive(file);
+}, '图层交付 ZIP 未通过校验，请检查包结构、摘要和大小。'));
+$('layer-auto').addEventListener('click', action(autoBuildLayerPreview, 'Codex 组件方案草稿未完成；请检查本地 session 记录与方案校验结果。'));
+$('layer-plan-export').addEventListener('click', action(downloadLayerPlan, '组件方案草稿尚未通过校验。'));
+$('layer-plan').addEventListener('change', action(async () => {
+  const input = $<HTMLInputElement>('layer-plan'), file = input.files?.[0]; input.value = '';
+  if (file) await openLayerPlan(file);
+}, '组件方案 JSON 无法读取，请检查文件格式和大小。'));
+$('layer-build').addEventListener('click', action(buildLayerPreview, '无法生成组件 Bundle：请检查方案与源 ZIP 摘要、图层绑定及组件合同。'));
 for (const button of controls<HTMLButtonElement>('#scheme-options [data-scheme]')) button.addEventListener('click', action(() => selectScheme(button.dataset.scheme as Scheme)));
 $('studio-compare').addEventListener('click', action(toggleCompare));
 $('studio-replay').addEventListener('click', action(() => { if (compare) for (const view of views) replay(view); else replay(); }));
 $('studio-reset').addEventListener('click', action(reset));
 $('studio-export').addEventListener('click', action(download, '导出未完成，请重新打开图片或方案后再试。'));
-$('dismiss-error').addEventListener('click', () => { $('studio-error').hidden = true; delete $('studio-error').dataset.errorDetail; lastError = null; sync(); });
+$('reload-studio').addEventListener('click', () => { window.location.reload(); });
+$('dismiss-error').addEventListener('click', () => { $('studio-error').hidden = true; $('reload-studio').hidden = true; delete $('studio-error').dataset.errorDetail; lastError = null; sync(); });
 for (const dropZone of [$('drop-zone'), $('reference-preview')]) {
   for (const event of ['dragenter', 'dragover']) dropZone.addEventListener(event, event => { event.preventDefault(); dropZone.dataset.dragging = 'true'; });
   for (const event of ['dragleave', 'drop']) dropZone.addEventListener(event, event => { event.preventDefault(); delete dropZone.dataset.dragging; });
@@ -434,7 +616,7 @@ for (const dropZone of [$('drop-zone'), $('reference-preview')]) {
 }
 window.addEventListener('pagehide', () => reset(), { once: true });
 const studio = {
-  snapshot: () => ({ ready: Boolean(bundle && views.length && !busy), busy, scheme: selected, compare, kind: bundle?.document.schemaVersion === '0.2' ? bundle.document.root.type : null, analysis: { ...analysis },
+  snapshot: () => ({ ready: Boolean(bundle && views.length && !busy && !layerPackagePreview), layerPackagePreview, busy, scheme: selected, compare, kind: bundle?.document.schemaVersion === '0.2' ? bundle.document.root.type : null, analysis: { ...analysis },
     filename, resourceCount: resources.length, error: lastError,
     views: views.map(view => ({ scheme: view.scheme, document: view.preview.getDocument(), motionSystem: view.preview.getMotionSystem(),
       inspection: view.preview.inspect(), motionSnapshot: view.preview.inspectMotionSystem(), timelineSnapshot: view.timeline?.snapshot() ?? null, activations: view.activations, activationCounts: { ...view.activationCounts }, events: [...view.events] })) }),
@@ -445,7 +627,7 @@ declare global { interface Window { uiStudio: typeof studio } }
 window.uiStudio = studio;
 decompositionPanel = createDecompositionPanel({
   capture: exportSelected,
-  current: () => !materialPreview && bundle?.document.schemaVersion === '0.2' && views.length && !busy ? currentDocument() : undefined,
+  current: () => !materialPreview && !layerPackagePreview && bundle?.document.schemaVersion === '0.2' && views.length && !busy ? currentDocument() : undefined,
   busy: () => busy,
   preview: previewDecomposition,
   apply: applyDecompositionAppearance,

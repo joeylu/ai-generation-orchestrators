@@ -156,12 +156,15 @@ test('CLI rejects a fully transparent root without writing a blank bundle', asyn
 
 test('CLI consumes the one-file handoff and writes a validated portable bundle', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'ai-ui-component-handoff-cli-'));
-  await writeFile(join(directory, 'handoff.zip'), await outerArchive());
+  const source = await outerArchive();
+  await writeFile(join(directory, 'handoff.zip'), source);
   const result = await runCli(directory, 'component-handoff', 'handoff.zip', '--output', 'ui-bundle.json');
   assert.equal(result.code, 0, result.stderr);
   assert.equal(result.stdout, '');
   const bundle = JSON.parse(await readFile(join(directory, 'ui-bundle.json'), 'utf8'));
-  assert.equal(bundle.bundleVersion, '0.1');
+  assert.equal(bundle.bundleVersion, '0.3');
+  assert.equal(bundle.componentHandoff.sha256, await sha256(source));
+  assert.deepEqual(new Uint8Array(Buffer.from(bundle.componentHandoff.base64, 'base64')), source);
   assert.equal(bundle.document.schemaVersion, '0.2');
   assert.equal(bundle.resources.length, 6);
 });
