@@ -324,7 +324,7 @@ def main():
                    help='For new run or freeze-reviewed: frozen context prompt version; new context runs default to v7')
     p.add_argument('--registration-policy',choices=['legacy-region-fit',body.POLICY],
                    help='For new runs: default reference-body-auto-v1; historical runs retain their old policy')
-    p.add_argument('--candidate-registration-policy',choices=['uniform-alpha-contain-v1','measured-alpha-support-v1'],
+    p.add_argument('--candidate-registration-policy',choices=['uniform-alpha-contain-v1','measured-alpha-support-v1','measured-alpha-anchor-locked-v2'],
                    help='Explicit frozen candidate-only registration; default full alpha contain')
     p.add_argument('--max-body-calls',type=int,
                    help='For new runs: maximum one body observation per foreground, default cap 12')

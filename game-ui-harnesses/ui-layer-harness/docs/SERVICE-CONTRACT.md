@@ -4,6 +4,10 @@
 每次命令 stdout 输出一个 JSON（`--help`/`--version` 除外），过程信息写 stderr。
 退出码 0 表示命令完成或正常等待，不等于视觉通过；非零表示本次命令失败。
 
+新 `prepare-output-review` 冻结 V2 对象所有权目录及必需的逐对象观察，空 findings
+不能代替检查。候选归位另提供显式 `measured-alpha-anchor-locked-v2`，支持画布不可
+推动或缩小主体锚点；正式归位仍须真实主体观察。详见 [所有权及锚点合同](OWNERSHIP-AND-ANCHORS.md)。
+
 显式候选整包路径使用 `prepare-candidate-delivery --snapshot SNAPSHOT --snapshot-digest SHA256
 --output NEW_CANDIDATE` 冻结 `deferred-visual-review-v1` 与 `uniform-alpha-contain-v1`、
 完整快照与当前公共运行时指纹。它不授权生图，也不修改默认严格审查路径。

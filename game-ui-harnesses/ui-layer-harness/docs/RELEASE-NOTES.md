@@ -1,5 +1,20 @@
 # Release notes
 
+## Unreleased output ownership observations and locked candidate anchors
+
+- New host output review V2 binds the compiler-derived complete owned/foreign
+  object catalog. Empty findings cannot replace per-object observations; missing,
+  uncertain or foreign content prevents strict acceptance. Observer declarations
+  do not prove pixel correctness or human acceptance.
+- Explicit `measured-alpha-anchor-locked-v2` candidate registration preserves its
+  proxy scale and position while expanding storage. Incompatible faint support
+  cannot push or shrink a panel to fit the reference. Legacy candidate policies
+  and historical pinned runtimes remain identifiable; strict registration still
+  requires observed bodies.
+- No image generation, automatic cleanup scheduler or new body observation
+  execution adapter is introduced. Offline regressions reproduce duplicate-content
+  acceptance and support-induced drift; real reconstruction needs visual review.
+
 ## Unreleased source-bound visual textures
 
 - Fresh runs may explicitly bind small unreadable microprints as visual artwork

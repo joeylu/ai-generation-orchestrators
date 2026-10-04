@@ -16,6 +16,7 @@ from .sheet_review_policy import classify, schema_for
 from .extract_sheets import cells, _review_variant, prepare_sheet_review
 from .sheet_pixels import prepare as prepare_pixels
 from .single_material_review import prepare_review
+from . import ownership_observation as ownership
 
 
 def files(root):
@@ -88,9 +89,20 @@ def prepare(job, request_id, output, *, material_authors, review_registry):
             extraction=dict(materials=materials,records=records,adaptations=adaptations)
         folder=output/'review';policy=snapshot_policy(snapshot,manifest)
         if read(folder/'schema.json')!=schema_for(policy):raise ValueError('OUTPUT_SCHEMA_MISMATCH')
+        visual_path=snapshot/'evidence/revised-visual-plan.json'
+        visual=read(visual_path if visual_path.exists() else snapshot/'evidence/m1-draft.json')
+        inventory=ownership.inventory(visual,read(snapshot/'execution-plan.candidate.json'),mids)
+        save(folder/'ownership-inventory.json',inventory)
+        # This is still the deterministic preparation transaction; no review
+        # request has been frozen yet. Replace its newly produced base schema.
+        (folder/'schema.json').write_text(json.dumps(ownership.extend_schema(schema_for(policy),inventory),
+            ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+        prompt_path=folder/'prompt.md'
+        prompt_path.write_text(prompt_path.read_text(encoding='utf-8')+'\n'+ownership.review_prompt(inventory)+'\n',encoding='utf-8')
         save(output/'extraction-candidate.json',extraction)
         # Every immutable producer file is pinned, including source crop and raw/receipt chain.
-        request=dict(kind='ui_host_output_review_request_v1',requestId=request_id,materialIds=mids,
+        request=dict(kind='ui_host_output_review_request_v2',requestId=request_id,materialIds=mids,
+            ownershipInventorySha256=digest(folder/'ownership-inventory.json'),
             materialAuthors=authors,job=str(job),jobDigest=config['digest'],snapshotDigest=config['snapshotDigest'],
             submissionDigest=receipt['submissionDigest'],rawSha256=receipt['rawSha256'],
             sourceFiles=files(job),runtime=runtime_files(),reservation=str(reservation),reservationSha256=digest(reservation),
@@ -109,7 +121,7 @@ def prepare(job, request_id, output, *, material_authors, review_registry):
 
 def verify_prepared(output):
     output=Path(output).resolve();request=read(output/'request.json')
-    if request['kind']!='ui_host_output_review_request_v1':raise ValueError('OUTPUT_REVIEW_KIND')
+    if request['kind'] not in ('ui_host_output_review_request_v1','ui_host_output_review_request_v2'):raise ValueError('OUTPUT_REVIEW_KIND')
     if digest(output/'request.json')!=read(output/'preparation.json')['requestSha256']:
         raise ValueError('OUTPUT_REQUEST_CHANGED')
     if request['runtime']!=runtime_files():raise ValueError('RUNTIME_CHANGED_NEW_REVIEW_REQUIRED')
@@ -121,8 +133,17 @@ def verify_prepared(output):
             request['submissionDigest']!=receipt['submissionDigest'] or request['rawSha256']!=digest(raw) or
             request['materialIds']!=row.get('materialIds',[request['requestId']])):
         raise ValueError('OUTPUT_SOURCE_BINDING_CHANGED')
-    policy=snapshot_policy(job/'snapshot',inspect(job/'snapshot',config['snapshotDigest']))
-    if read(output/'review/schema.json')!=schema_for(policy):raise ValueError('OUTPUT_SCHEMA_CHANGED')
+    snapshot=job/'snapshot';policy=snapshot_policy(snapshot,inspect(snapshot,config['snapshotDigest']))
+    expected_schema=schema_for(policy)
+    if request['kind']=='ui_host_output_review_request_v2':
+        visual_path=snapshot/'evidence/revised-visual-plan.json'
+        visual=read(visual_path if visual_path.exists() else snapshot/'evidence/m1-draft.json')
+        expected=ownership.inventory(visual,read(snapshot/'execution-plan.candidate.json'),request['materialIds'])
+        inventory_path=output/'review/ownership-inventory.json'
+        if digest(inventory_path)!=request['ownershipInventorySha256'] or read(inventory_path)!=expected:
+            raise ValueError('OUTPUT_OWNERSHIP_INVENTORY_CHANGED')
+        expected_schema=ownership.extend_schema(expected_schema,expected)
+    if read(output/'review/schema.json')!=expected_schema:raise ValueError('OUTPUT_SCHEMA_CHANGED')
     return request,policy
 
 
@@ -149,11 +170,17 @@ def provenance(output, request):
 def assess(output, request, policy):
     folder=output/'review';answer=read(folder/'draft.json')
     Draft202012Validator(read(folder/'schema.json')).validate(answer)
-    assessment=classify(answer,request['materialIds'],policy)
+    assessment=classify({k:v for k,v in answer.items() if k!='ownershipObservations'},request['materialIds'],policy)
+    ownership_result={}
+    if request['kind']=='ui_host_output_review_request_v2':
+        checked=ownership.assess(read(folder/'ownership-inventory.json'),answer['ownershipObservations'])
+        assessment['blockers'].extend(checked['blockers'])
+        ownership_result=dict(ownershipInventorySha256=request['ownershipInventorySha256'],
+            ownershipDeclarationsOnly=checked['declarationsOnly'],ownershipObservationCoverage='complete')
     return dict(status='blocked_no_retry' if assessment['blockers'] else 'reviewed_pending_visual_acceptance',
                 requestId=request['requestId'],materialIds=request['materialIds'],rawSha256=request['rawSha256'],
                 reviewSha256=digest(folder/'draft.json'),modelCalls=1,humanVisualAcceptance=False,
-                originalDagPromoted=False,automaticRetry=False,**assessment)
+                originalDagPromoted=False,automaticRetry=False,**assessment,**ownership_result)
 
 
 def receive(output, response, request_sha256, *, response_sha256, host_attestation, dispatch_evidence, return_evidence):
@@ -280,9 +307,10 @@ CANDIDATE_SPLIT = 'unique-nearest-frozen-grid-zero-alpha-seams-v1'
 CANDIDATE_BOUNDARY = 'preserve-faint-source-boundary-guard-v1'
 CANDIDATE_SUBSTITUTION = 'complete-sheet-fresh-singletons-v1'
 CANDIDATE_MEASURED = 'measured-alpha-support-v1'
+CANDIDATE_ANCHORED = 'measured-alpha-anchor-locked-v2'
 
 
-def measured_alpha_support(image, owner, reference_size):
+def measured_alpha_support(image, owner, reference_size, *, anchor_locked=False):
     """Geometry-only alpha measurement; render all original RGBA with one affine."""
     import numpy as np
     raw=image.convert('RGBA');before=raw.tobytes();alpha=raw.getchannel('A');full=alpha.getbbox()
@@ -294,13 +322,21 @@ def measured_alpha_support(image, owner, reference_size):
         raise ValueError('CANDIDATE_SUPPORT_REFERENCE_GEOMETRY')
     desired=min((owner[2]-owner[0])/(body[2]-body[0]),(owner[3]-owner[1])/(body[3]-body[1]))
     # Reserve two source pixels for cubic interpolation and two destination pixels.
-    scale=min(desired,(width-4)/(full[2]-full[0]+4),(height-4)/(full[3]-full[1]+4))
+    scale=(desired if anchor_locked else
+           min(desired,(width-4)/(full[2]-full[0]+4),(height-4)/(full[3]-full[1]+4)))
     center=[(owner[i]+owner[i+2])/2 for i in (0,1)]
     desired_shift=[center[i]-(body[i]+body[i+2])/2*scale for i in (0,1)]
     lower=[2-scale*(full[i]-2) for i in (0,1)]
     upper=[reference_size[i]-2-scale*(full[i+2]+2) for i in (0,1)]
-    if any(lower[i]>upper[i]+1e-9 for i in (0,1)):raise ValueError('CANDIDATE_SUPPORT_NO_SAFE_AFFINE')
-    shift=[min(max(desired_shift[i],lower[i]),max(lower[i],upper[i])) for i in (0,1)]
+    if anchor_locked:
+        # Support controls storage only. It must never relocate or shrink the
+        # placement anchor to turn an incompatible source into a fitting one.
+        if any(desired_shift[i]<lower[i]-1e-9 or desired_shift[i]>upper[i]+1e-9 for i in (0,1)):
+            raise ValueError('CANDIDATE_ANCHOR_SUPPORT_OUTSIDE_REFERENCE')
+        shift=list(desired_shift)
+    else:
+        if any(lower[i]>upper[i]+1e-9 for i in (0,1)):raise ValueError('CANDIDATE_SUPPORT_NO_SAFE_AFFINE')
+        shift=[min(max(desired_shift[i],lower[i]),max(lower[i],upper[i])) for i in (0,1)]
     expanded=(width+4,height+4)
     if expanded[0]*expanded[1]>18_000_000:raise ValueError('CANDIDATE_SUPPORT_PIXEL_LIMIT')
     source_guard=Image.new('RGBA',(raw.width+4,raw.height+4));source_guard.paste(raw,(2,2))
@@ -330,6 +366,9 @@ def measured_alpha_support(image, owner, reference_size):
         inverseAffine=list(coefficients),observedBody=False,humanVisualAcceptance=False,
         alphaSupportClipped=False,sourcePixelsUnchanged=True,resampledAlphaValuesAreSourcePixelExact=False,
         alphaPolicy='Unthresholded source RGBA; uniform cubic resampling; zero RGB at alpha zero; no canvas clipping.')
+    if anchor_locked:
+        geometry.update(anchorLocked=True,supportMayAlterPlacement=False,
+                        positionBasis='measured-alpha-proxy-not-observed-body')
     return canvas,region,geometry
 
 
@@ -524,7 +563,7 @@ def prepare_candidate(snapshot, expected_digest, output,registration_policy=CAND
     """Freeze an explicit candidate-only contract; never authorize generation."""
     snapshot=Path(snapshot).resolve();output=Path(output).resolve()
     manifest=inspect(snapshot,expected_digest)
-    if registration_policy not in (CANDIDATE_FIT,CANDIDATE_MEASURED):raise ValueError('CANDIDATE_REGISTRATION_POLICY')
+    if registration_policy not in (CANDIDATE_FIT,CANDIDATE_MEASURED,CANDIDATE_ANCHORED):raise ValueError('CANDIDATE_REGISTRATION_POLICY')
     if output.exists() or output.is_relative_to(snapshot):raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
     output.mkdir(parents=True)
     from .experimental_executor import record
@@ -548,7 +587,7 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
     candidate=Path(candidate).resolve();output=Path(output).resolve()
     contract=verified(candidate/'candidate.json')
     if (contract['digest']!=candidate_digest or contract['kind']!='ui_deferred_visual_delivery_v1'
-            or contract['visualReviewPolicy']!=CANDIDATE_POLICY or contract['registrationPolicy'] not in (CANDIDATE_FIT,CANDIDATE_MEASURED)
+            or contract['visualReviewPolicy']!=CANDIDATE_POLICY or contract['registrationPolicy'] not in (CANDIDATE_FIT,CANDIDATE_MEASURED,CANDIDATE_ANCHORED)
             or contract.get('candidateSheetSplitPolicy')!=CANDIDATE_SPLIT
             or contract.get('candidateSourceBoundaryPolicy')!=CANDIDATE_BOUNDARY
             or contract.get('candidateMaterialSubstitutionPolicy')!=CANDIDATE_SUBSTITUTION
@@ -649,9 +688,16 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
         matching=[b for b in bindings if b['requestId']==request['requestId']]
         if (len(matching)!=1 or matching[0]['rawSha256']!=request['rawSha256']
                 or matching[0]['submissionDigest']!=request['submissionDigest']):raise ValueError('VISUAL_FINDINGS_SOURCE_MISMATCH')
+        answer=read(root/'review/draft.json')
+        observed={}
+        if request['kind']=='ui_host_output_review_request_v2':
+            observed=dict(ownershipObservations=answer['ownershipObservations'],
+                ownershipInventorySha256=request['ownershipInventorySha256'],
+                ownershipDeclarationsOnly=result['ownershipDeclarationsOnly'],
+                blockers=result['blockers'])
         evidence.append(dict(requestId=request['requestId'],status=result['status'],
             resultSha256=digest(root/'result.json'),reviewSha256=result['reviewSha256'],
-            findings=read(root/'review/draft.json')['findings']))
+            findings=answer['findings'],**observed))
     for mid in owned:
         if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,127}',mid) is None:raise ValueError('CANDIDATE_MATERIAL_PATH')
     if output.exists() or output.is_relative_to(candidate) or output.is_relative_to(snapshot) or any(
@@ -669,14 +715,15 @@ def deliver_candidate(candidate, candidate_digest, received_jobs, output, viewer
             if alpha.getextrema()!=(255,255):raise ValueError('BACKGROUND_ALPHA')
             box=(0,0,image.width,image.height)
         elif alpha.getextrema()[0]!=0:raise ValueError('CANDIDATE_NATIVE_ALPHA_REQUIRED')
-        if contract['registrationPolicy']==CANDIDATE_MEASURED and owned[mid]['role']!='background':
-            canvas,layer_region,measured_geometry=measured_alpha_support(image,region,(width,height))
+        if contract['registrationPolicy'] in (CANDIDATE_MEASURED,CANDIDATE_ANCHORED) and owned[mid]['role']!='background':
+            canvas,layer_region,measured_geometry=measured_alpha_support(image,region,(width,height),
+                anchor_locked=contract['registrationPolicy']==CANDIDATE_ANCHORED)
             path=output/'materials'/(mid+'.png');canvas.save(path)
             package_sources[mid]=dict(path=str(path),sha256=digest(path))
             layers.append(dict(id=mid,name=owned[mid]['label'],role=owned[mid]['role'],
                 path=f'layers/layer-{index+1:03}.png',x=layer_region[0],y=layer_region[1],
                 width=canvas.width,height=canvas.height,visible=True))
-            geometry.append(dict(materialId=mid,ownershipRegion=region,appliedAdaptationPolicy=CANDIDATE_MEASURED,
+            geometry.append(dict(materialId=mid,ownershipRegion=region,appliedAdaptationPolicy=contract['registrationPolicy'],
                 materialSha256=digest(path),declaredAdaptationPolicy=owned[mid].get('adaptationPolicy','preserve'),**measured_geometry))
             continue
         crop=image.crop(box);background=owned[mid]['role']=='background'

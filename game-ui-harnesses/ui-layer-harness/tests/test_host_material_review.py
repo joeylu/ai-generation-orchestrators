@@ -26,7 +26,16 @@ class HostEvidence:
     def response(self,folder,answer=None,raw=None,reviewer='fixture-independent-reviewer'):
         request=read(folder/'request.json');base=self.root/(folder.name+'-evidence');base.mkdir()
         response=base/'response.json'
-        if raw is None:save(response,answer or dict(materialIds=request['materialIds'],findings=[]))
+        if raw is None:
+            answer=answer or dict(materialIds=request['materialIds'],findings=[])
+            if request['kind']=='ui_host_output_review_request_v2':
+                inventory=read(folder/'review/ownership-inventory.json')
+                answer=dict(answer)
+                answer.setdefault('ownershipObservations',[dict(materialId=e['materialId'],
+                    owned=[dict(objectId=o['objectId'],state='complete',evidence='Fixture owned artwork complete.') for o in e['owned']],
+                    foreign=[dict(materialId=o['materialId'],objectId=o['objectId'],state='absent',evidence='Fixture foreign artwork absent.') for o in e['foreign']])
+                    for e in inventory['entries']])
+            save(response,answer)
         else:response.write_bytes(raw)
         dispatch=base/'dispatch';dispatch.write_bytes(b'fixture independent host dispatch observation')
         returned=base/'returned';returned.write_bytes(b'fixture actual return observation')
@@ -279,6 +288,20 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
             host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'invalid',
                                    registration_policy='invented-policy')
 
+    def test_anchor_locked_candidate_contract_and_export_keep_proxy_transform(self):
+        snapshot=self.job/'snapshot';jobs={key:self.job for key in read(self.job/'job.json')['assets']}
+        frozen=host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'anchored',
+                                      registration_policy=host.CANDIDATE_ANCHORED)
+        result=host.deliver_candidate(self.root/'anchored',frozen['candidateDigest'],jobs,
+                                      self.root/'anchored-output',self.root/'viewer')
+        self.assertEqual(result['registrationPolicy'],host.CANDIDATE_ANCHORED)
+        for row in result['geometry']:
+            if row['materialId']=='asset-scene':continue
+            self.assertTrue(row['anchorLocked']);self.assertFalse(row['supportMayAlterPlacement'])
+            self.assertEqual(row['translationDeviations'],[0,0])
+            self.assertEqual(row['scaleReduction'],0)
+        self.assertEqual(result['status'],'pending-human-review')
+
     def test_candidate_background_uniform_padding_and_nonzero_alpha_guard(self):
         snapshot=self.job/'snapshot';manifest=read(snapshot/'snapshot.json')
         row=next(r for r in read(snapshot/'requests.json')['requests'] if r.get('kind')!='sheet' and r['asset']!='asset-scene')
@@ -355,6 +378,30 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
         self.assertEqual(result['visualEvidence'][0]['findings'],[finding])
         self.assertEqual(old,host.files(folder))
         with self.assertRaisesRegex(ValueError,'OUTPUT_REVIEW_NOT_PASSED'):host.verify_run(folder)
+
+    def test_candidate_report_keeps_foreign_presence_even_when_findings_empty(self):
+        from test_ownership_observation import complete
+        key=self.sheets[0];folder=self.prepare(key)
+        inventory=read(folder/'review/ownership-inventory.json');observations=complete(inventory)
+        foreign=next(row for row in observations if row['foreign'])['foreign'][0]
+        foreign['state']='present';foreign['evidence']='Fixture parent contains a foreign child.'
+        review_result=host.receive(**self.response(folder,dict(materialIds=inventory['materialIds'],
+            findings=[],ownershipObservations=observations)))
+        self.assertEqual(review_result['status'],'blocked_no_retry')
+        old=host.files(folder);snapshot=self.job/'snapshot'
+        frozen=host.prepare_candidate(snapshot,read(snapshot/'snapshot.json')['digest'],self.root/'candidate')
+        jobs={key:self.job for key in read(self.job/'job.json')['assets']}
+        result=host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,
+            self.root/'candidate-output',self.root/'viewer',[folder])
+        evidence=result['visualEvidence'][0]
+        self.assertEqual(evidence['findings'],[])
+        self.assertEqual(evidence['ownershipObservations'],observations)
+        self.assertEqual(evidence['blockers'],review_result['blockers'])
+        self.assertTrue(evidence['ownershipDeclarationsOnly'])
+        issues=read(self.root/'candidate-output/delivery/package/review.json')['issues']
+        self.assertTrue(any('OWNERSHIP_OBSERVATION_BLOCKED' in issue and foreign['objectId'] in issue
+            for issue in issues))
+        self.assertEqual(old,host.files(folder));self.assertFalse(result['humanVisualAcceptance'])
 
     def test_candidate_cannot_ignore_missing_receipt_changed_raw_or_policy(self):
         snapshot=self.job/'snapshot'
