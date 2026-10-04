@@ -66,6 +66,30 @@ is `pending-human-review`; `fullAutomaticDagPassed`, `strictBodyRegistrationPass
 `observedBody`, and `humanVisualAcceptance` are false. Inherited layer provider
 lineage is not newly verified by this revision.
 
+An optional replacement `placementBasis` can explicitly select
+`verified-body-registration-v1`. It is allowed only for a completed
+`body_registered_pending_visual_review` result whose original observation,
+typed contract, preview report and received PNG have passed the existing strict
+deterministic replay. The revision copies that exact rendered PNG and uses its
+exact support canvas region and fitting geometry. It applies no additional
+alpha-support scale, axis fit or anchor translation. Full nonzero support,
+sampling guards, aspect and reference-boundary gates remain those of the strict
+producer. Uncertain or blocked body results cannot select this option.
+
+The replacement records `bodyRegistrationGatePassed=true` for that successfully
+replayed layer, while its blocked material review remains blocked. Whole-package
+strict registration, automatic DAG completion and human acceptance stay false.
+This option does not invent or change body coordinates. `uniformAxis` and
+`edgeAnchor` remain required selection declarations, but do not alter the
+verified body render in this basis.
+
+Omitted `placementBasis`, or explicit `alpha-support-axis-edge`, retains the
+original candidate behavior. Historical frozen selections and their original
+schema bytes are accepted without migration; omission adds no new geometry or
+review fields to their results. New tests verify exact registered PNG/geometry
+reuse, rejection of unresolved/blocked bodies, observation tampering and legacy
+default replay. No model or service is called by these tests.
+
 Offline fixture tests cover explicit axis/edge geometry, expansion compared
 with containment, nonzero support and soft alpha, boundary rejection, unchanged
 layer bytes and unrelated pixels, receipt/selection tampering, and a falsely

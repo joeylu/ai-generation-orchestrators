@@ -17,11 +17,13 @@ from .accepted_materials import received, replay
 from .evaluate import read, save, digest
 from .experimental_executor import record, verified, load_job
 from .freeze_visual import inspect
-from .layer_package import composite, portable_text, validate_archive, write_package
+from .layer_package import composite, portable_text, support_canvas_region, validate_archive, write_package
 from .package_revision import _png, _bind_tree, _unchanged
 
 KIND='ui_candidate_package_revision_v1'
 POLICY='uniform-axis-edge-anchor-alpha-support-v1'
+ALPHA_BASIS='alpha-support-axis-edge'
+BODY_BASIS='verified-body-registration-v1'
 SHA=dict(type='string',pattern='^[a-f0-9]{64}$')
 FILE=dict(type='object',additionalProperties=False,required=['path','sha256'],
           properties=dict(path=dict(type='string',minLength=1),sha256=SHA))
@@ -40,6 +42,10 @@ SCHEMA=dict(type='object',additionalProperties=False,
     properties=dict(kind=dict(const=KIND),sourceArchive=dict(type='string'),sourceArchiveSha256=SHA,
         replacements=dict(type='array',minItems=1,maxItems=128,items=ENTRY),
         knownDifferences=dict(type='array',minItems=1,maxItems=128,items=dict(type='string',minLength=1))))
+# Keep the historical schema available for immutable selections frozen before
+# the opt-in body placement existed. Missing placementBasis retains old behavior.
+LEGACY_SCHEMA=deepcopy(SCHEMA)
+ENTRY['properties']['placementBasis']=dict(enum=[ALPHA_BASIS,BODY_BASIS])
 
 
 def _file(binding,bound):
@@ -114,8 +120,8 @@ def _body(entry,raw,reference_sha,placement,bound,inventories):
     if status!='body_registered_pending_visual_review' and 'responseSha256' not in result:
         raise ValueError('CANDIDATE_BODY_RESPONSE_BINDING_REQUIRED')
     if status=='body_registered_pending_visual_review':
-        # A successful historical strict result is checked on its own terms;
-        # it is never substituted for the candidate placement below.
+        # A successful historical strict result is checked on its own terms.
+        # Only an explicit placementBasis may select its verified placement.
         root=paths['result'].parent;_bind_tree(root,bound,inventories)
         observation=read(root/'observation.json');contract=read(root/'contract.json')
         for key,expected in dict(materialId=entry['materialId'],snapshotDigest=entry['snapshotDigest'],
@@ -168,6 +174,17 @@ def _preflight(spec,bound,inventories):
         review=_host_review(entry,raw,lineage,bound,inventories)
         body=_body(entry,raw,reference_sha,placement,bound,inventories)
         proofs[mid]=dict(raw=raw,placement=placement,lineage=lineage,hostReview=review,bodyEvidence=body)
+        if entry.get('placementBasis',ALPHA_BASIS)==BODY_BASIS:
+            if body['result']['status']!='body_registered_pending_visual_review':
+                raise ValueError('CANDIDATE_VERIFIED_BODY_PLACEMENT_REQUIRED')
+            preview=Path(entry['bodyEvidence']['result']['path']).resolve().parent/'preview'
+            report=next(r['report'] for r in read(preview/'report.json')['records'] if r['id']==mid)
+            material=preview/mid/'material.png'
+            if digest(material)!=report['materialSha256']:raise ValueError('CANDIDATE_BODY_RENDER_CHANGED')
+            with Image.open(snapshot/'reference.png') as reference:reference_size=reference.size
+            region=support_canvas_region(report,placement,manifest['digest'],mid,reference_sha,reference_size)
+            proofs[mid]['registeredPlacement']=dict(path=material,sha256=digest(material),
+                region=region,geometry=deepcopy(report['fitting']))
     return proofs
 
 
@@ -242,7 +259,7 @@ def revise(frozen,expected_digest,output,viewer):
     config=verified(frozen/'freeze.json')
     if config.get('kind')!=KIND or config.get('policy')!=POLICY or config['digest']!=expected_digest:
         raise ValueError('CANDIDATE_FREEZE_BINDING')
-    if digest(frozen/'selection.json')!=config['selectionSha256'] or digest(frozen/'schema.json')!=config['schemaSha256'] or read(frozen/'schema.json')!=SCHEMA:
+    if digest(frozen/'selection.json')!=config['selectionSha256'] or digest(frozen/'schema.json')!=config['schemaSha256'] or read(frozen/'schema.json') not in (SCHEMA,LEGACY_SCHEMA):
         raise ValueError('CANDIDATE_SELECTION_CHANGED')
     bound=dict(config['verifiedInputs']);inventories={k:set(v) for k,v in config['inventories'].items()}
     _unchanged(bound,inventories);spec=read(frozen/'selection.json')
@@ -270,26 +287,40 @@ def revise(frozen,expected_digest,output,viewer):
             allowed=np.zeros((before.height,before.width),dtype=bool);records=[]
             for index,entry in enumerate(spec['replacements']):
                 mid=entry['materialId'];proof=proofs[mid]
-                image,geometry=transform(proof['raw'],proof['placement']['sourceRegion'],before.size,entry['uniformAxis'],entry['edgeAnchor'])
-                region=geometry['layerCanvasRegion'];path=temp/(str(index)+'.png');image.save(path)
+                if entry.get('placementBasis',ALPHA_BASIS)==BODY_BASIS:
+                    registered=proof['registeredPlacement'];region=registered['region'];geometry=registered['geometry']
+                    path=registered['path']
+                    # Reuse the actual strictly replayed PNG bytes; never apply
+                    # alpha-axis fitting or an extra affine to its body placement.
+                    image=_png(path,dict(layers[mid],width=region[2]-region[0],height=region[3]-region[1]))
+                    if digest(path)!=registered['sha256']:raise ValueError('CANDIDATE_BODY_RENDER_CHANGED')
+                else:
+                    image,geometry=transform(proof['raw'],proof['placement']['sourceRegion'],before.size,entry['uniformAxis'],entry['edgeAnchor'])
+                    region=geometry['layerCanvasRegion'];path=temp/(str(index)+'.png');image.save(path)
                 for box in ([old[mid]['x'],old[mid]['y'],old[mid]['x']+old[mid]['width'],old[mid]['y']+old[mid]['height']],region):
                     allowed[box[1]:box[3],box[0]:box[2]]=True
                 layers[mid].update(x=region[0],y=region[1],width=image.width,height=image.height)
                 sources[mid]=dict(path=str(path),sha256=digest(path))
                 records.append(dict(materialId=mid,geometry=geometry,receipt=proof['lineage'],
-                    hostReview=proof['hostReview'],bodyEvidence=proof['bodyEvidence']))
+                    hostReview=proof['hostReview'],bodyEvidence=proof['bodyEvidence'],
+                    **(dict(placementBasis=BODY_BASIS,bodyRegistrationGatePassed=True)
+                       if entry.get('placementBasis',ALPHA_BASIS)==BODY_BASIS else {})))
             after=Image.new('RGBA',before.size)
             for layer in composition['layers']:
                 with Image.open(sources[layer['id']]['path']) as image:after.alpha_composite(image,(layer['x'],layer['y']))
             if np.any(np.asarray(before)[~allowed]!=np.asarray(after)[~allowed]):raise ValueError('CANDIDATE_UNRELATED_PIXELS_CHANGED')
             inherited=read(original/'review.json')['issues']
             issues=list(inherited)+spec['knownDifferences']+[
-                'Explicit candidate revision: alpha-support axis/edge placement only; no observed-body or strict registration claim.',
+                ('Explicit candidate revision: opted-in layers reuse verified strict body placement; other layers retain alpha-support axis/edge placement. No whole-package strict registration claim.'
+                 if any(r.get('placementBasis')==BODY_BASIS for r in records) else
+                 'Explicit candidate revision: alpha-support axis/edge placement only; no observed-body or strict registration claim.'),
                 'Every blocked host/body result remains unresolved. Whole-image human acceptance is required; no DAG promoted.']
             for row in records:
                 public=dict(materialId=row['materialId'],geometry=row['geometry'],
                     hostResult=row['hostReview']['result'],hostAnswer=row['hostReview']['answer'],
-                    bodyResult=row['bodyEvidence']['result'],bodyAnswer=row['bodyEvidence']['response'])
+                    bodyResult=row['bodyEvidence']['result'],bodyAnswer=row['bodyEvidence']['response'],
+                    **({k:row[k] for k in ('placementBasis','bodyRegistrationGatePassed')}
+                       if 'placementBasis' in row else {}))
                 issues.append('Candidate evidence: '+json.dumps(_portable(public),ensure_ascii=False,sort_keys=True))
             for issue in issues:portable_text(issue)
             _unchanged(bound,inventories)

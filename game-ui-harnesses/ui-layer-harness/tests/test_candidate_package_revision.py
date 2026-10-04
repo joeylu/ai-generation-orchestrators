@@ -2,6 +2,7 @@
 import _bootstrap
 import json
 from pathlib import Path
+import shutil
 import unittest
 from unittest.mock import patch
 
@@ -137,6 +138,72 @@ class CandidatePackageRevisionTests(unittest.TestCase):
         self.selection.write_text(json.dumps(spec),encoding='utf-8')
         with self.assertRaises(Exception):candidate.freeze(self.selection,self.root/'bad-axis')
         self.assertFalse((self.root/'bad-axis').exists())
+
+    def registered_selection(self):
+        body=self.root/'candidate-body-evidence'
+        observation=read(self.root/'observation.json')
+        answer=dict(boundaryStatus='complete',sourceBodyBox=observation['sourceBodyBox'],
+            targetBodyBox=observation['targetBodyBox'],evidence='Fixture observed complete same body.',issues=[])
+        (body/'response.json').write_text(json.dumps(answer),encoding='utf-8')
+        shutil.copyfile(self.root/'observation.json',body/'observation.json')
+        shutil.copyfile(self.root/'body.json',body/'contract.json')
+        shutil.copytree(self.root/'registered/preview',body/'preview')
+        result=dict(status='body_registered_pending_visual_review',
+                    previewReportSha256=digest(body/'preview/report.json'),humanVisualAcceptance=False)
+        (body/'result.json').write_text(json.dumps(result),encoding='utf-8')
+        spec=read(self.selection);entry=spec['replacements'][0]
+        entry['placementBasis']=candidate.BODY_BASIS
+        for key in ('response','result'):entry['bodyEvidence'][key]['sha256']=digest(body/(key+'.json'))
+        self.selection.write_text(json.dumps(spec),encoding='utf-8')
+        return body
+
+    def test_verified_body_basis_exactly_reuses_png_position_and_geometry_with_blocked_review(self):
+        body=self.registered_selection();frozen,config=self.prepare();output=self.root/'registered-candidate'
+        result=candidate.revise(frozen,config['digest'],output,self.viewer)
+        report=next(r['report'] for r in read(body/'preview/report.json')['records'] if r['id']==self.key)
+        layer=next(l for l in read(output/'delivery/package/composition.json')['layers'] if l['id']==self.key)
+        self.assertEqual((output/'delivery/package'/layer['path']).read_bytes(),(body/'preview'/self.key/'material.png').read_bytes())
+        region=report['fitting']['layerCanvasRegion']
+        self.assertEqual([layer['x'],layer['y'],layer['x']+layer['width'],layer['y']+layer['height']],region)
+        replacement=result['replacements'][0]
+        self.assertEqual(replacement['geometry'],report['fitting'])
+        self.assertTrue(replacement['bodyRegistrationGatePassed'])
+        self.assertEqual(replacement['hostReview']['result']['status'],'blocked_no_retry')
+        self.assertEqual(result['status'],'pending-human-review')
+        self.assertFalse(result['strictBodyRegistrationPassed']);self.assertFalse(result['humanVisualAcceptance'])
+
+    def test_uncertain_and_blocked_body_cannot_select_verified_basis(self):
+        spec=read(self.selection);spec['replacements'][0]['placementBasis']=candidate.BODY_BASIS
+        self.selection.write_text(json.dumps(spec),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'VERIFIED_BODY_PLACEMENT_REQUIRED'):
+            candidate.freeze(self.selection,self.root/'uncertain-basis')
+        body=self.root/'candidate-body-evidence';result=read(body/'result.json')
+        result['status']='body_registration_blocked';result['reason']='BODY_ASPECT_MISMATCH'
+        (body/'result.json').write_text(json.dumps(result),encoding='utf-8')
+        spec['replacements'][0]['bodyEvidence']['result']['sha256']=digest(body/'result.json')
+        self.selection.write_text(json.dumps(spec),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'VERIFIED_BODY_PLACEMENT_REQUIRED'):
+            candidate.freeze(self.selection,self.root/'blocked-basis')
+
+    def test_verified_body_observation_tamper_is_rejected_even_before_new_freeze(self):
+        body=self.registered_selection();observation=read(body/'observation.json')
+        observation['sourceBodyBox'][0]+=1
+        (body/'observation.json').write_text(json.dumps(observation),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'REGISTERED_BODY_MISMATCH'):
+            candidate.freeze(self.selection,self.root/'changed-body')
+
+    def test_legacy_frozen_schema_replays_default_without_adding_body_basis(self):
+        frozen,config=self.prepare()
+        (frozen/'schema.json').write_text(json.dumps(candidate.LEGACY_SCHEMA),encoding='utf-8')
+        config.pop('digest');config['schemaSha256']=digest(frozen/'schema.json')
+        from ai_ui_layers.freeze_visual import body_digest
+        config['digest']=body_digest(config)
+        (frozen/'freeze.json').write_text(json.dumps(config),encoding='utf-8')
+        result=candidate.revise(frozen,config['digest'],self.root/'legacy-candidate',self.viewer)
+        row=result['replacements'][0]
+        self.assertNotIn('placementBasis',row)
+        self.assertEqual(row['geometry']['policy'],candidate.POLICY)
+        self.assertFalse(row['geometry']['observedBody'])
 
 
 if __name__=='__main__':unittest.main()
