@@ -1,0 +1,7 @@
+# Independent state rasters and List selection indicator
+
+`List.appearance.templateSizing` and `Tabs.appearance.templateSizing` optionally accept only `"independent"`. Each state retains its exact decoded PNG canvas dimensions and scales to the same destination row/header rectangle. Without this explicit policy, the existing equal-size template checks still apply. Label, hit-area and indicator coordinates use the normal template canvas. Native tab items still require their normal canvas to match their cell; only the active canvas may differ under this policy.
+
+`List.appearance.selectedIndicator` optionally supplies a separate `{image, canvas, layout}` raster. Its layout must fit inside the normal row canvas. The runtime draws it only on selected rows, including selection presentation during motion; it moves when selection changes and shares normal resource teardown. `selectedTextColor` optionally supplies the selected native row label color. Static `itemContents` Text nodes retain their authored styles.
+
+Layer plans require explicit-policy findings at `/props/appearance/templateSizing`, `/props/appearance/selectedIndicator` and `/props/appearance/selectedTextColor` whenever those fields are present. All source resources, decoded dimensions, bindings, crop policy and strict layout measurements remain authenticated. This is deterministic raster reuse, with no new image resources or implicit defaults.

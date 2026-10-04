@@ -636,6 +636,7 @@ export async function validateAppearanceBinding(
   catch { throw new HarnessError('contract', [{ path: '$appearanceBinding', code: 'UNCLONEABLE_INPUT', message: 'must be structured-cloneable JSON data' }]); }
   const document = validateDocument(componentDocument);
   const imported = await assertValidImportedDecomposition(importedDelivery);
+  if (imported.assetsPackage?.manifest.scope.type === 'supplemental') throw new Error('ASSETS_SUPPLEMENT_REQUIRES_MERGE');
   const documentSha256 = await appearanceDocumentSha256(document);
   const validator = new BindingValidator();
   const data = validator.object(candidate, '$appearanceBinding', [

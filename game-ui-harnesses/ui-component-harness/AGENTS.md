@@ -10,7 +10,20 @@ and incremental implementation of the full UI mainline and separate motion layer
   the workbench; rendered components are PixiJS. Input may use an invisible native
   editing/IME bridge while PixiJS owns the visible component.
 - No guessed text, inferred business actions, silent field defaults, placeholder
-  recovery, automatic model retries, or stale successful output after errors.
+  recovery, or stale successful output after errors.
+- Frozen layer ZIPs may be adapted by the consumer using authenticated Image
+  regions, explicitly corrected child draw order and disclosed procedural
+  controls when raster parts are missing. Keep original archive bytes; record
+  each operation and explicit policy evidence in the source-bound plan. This
+  permits no added image resources, guessed required semantics or visual approval.
+- User-approved layer ZIP exception: one initial Codex planning turn may be
+  followed by at most three automatic correction turns in that same verified
+  session, driven by deterministic contract/render errors from completed turns.
+  Version 1.1 construction-incomplete reasons are repairable completeness errors
+  even when status is Unresolved; they share the same three-correction budget.
+  Preserve all drafts and check receipts. Failed/indeterminate transport, login,
+  cancellation, source mismatch and unresolved required semantics are terminal;
+  never resubmit them automatically. Other routes still forbid model retries.
 - Explicitly identify procedural fixtures, reviewed user inputs, and unexecuted
   provider/device checks. User artwork stays local unless redistribution is clear.
 - Motion is a separate validated document referencing existing component IDs.

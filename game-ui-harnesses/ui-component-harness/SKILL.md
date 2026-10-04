@@ -7,9 +7,51 @@ description: Compile explicit UI component intent or documents with local resour
 
 Use this Skill when a user wants a local UI component contract, a resource-backed
 PixiJS component preview, or a portable UI bundle. The runtime is local and
-provider-neutral: it does not perform vision, call a model, or publish a result.
+provider-neutral. Deterministic compilation does not call a model or publish a
+result. The local Studio has an optional Codex CLI session planning adapter for
+layer ZIPs, invoked only by the explicit **Codex 生成组件方案并预览** action.
 
 ## Author the input with the user
+
+Treat a delivered layer ZIP as immutable. The user-approved consumer policy
+allows Image.region crops, reference-corrected child order and explicit real
+procedural controls when raster parts are missing. Current native plans must
+include adaptations; every crop, reordered parent and procedural control needs its declared
+operation and explicit policy evidence. Keep exact source bytes and bindings;
+never add unauthenticated images or invent unreadable required semantics.
+
+For `ui_layers_package_v1`, use `layer-intake` first and follow
+[the direct layer-package workflow](docs/layer-component.md). Author a complete
+v0.2 document and bind every image pointer to an authenticated ZIP layer; account
+for every unused layer. Require explicit semantic text, text bounds/font size
+and initial states. Game action IDs are wired later using component events; they
+are not an input to `layer-build`. Do not derive UI facts from layer IDs or claim
+visual acceptance from a successful build. `layer-build` preserves source ZIP and
+plan in bundle 0.4; retain this attachment during save/export/reopen. For automatic
+drafts, use the local Codex planning DAG after CLI login. It reads source images
+and all 16 contracts directly, with no MCP vision stage. It persists portable
+decision evidence and requires human visual review. The user-approved automatic
+route permits at most three corrections after an initial completed response, in the
+same verified Codex session, driven by deterministic contract/render checks.
+Native response 1.1 uses reason/missingInputs to distinguish unfinished
+construction from required semantic gaps. Construction errors share the same
+three-correction budget even when status is Unresolved. Specific semantic gaps
+and unclassified legacy Unresolved responses remain terminal.
+Preserve every draft and check. Unreadable required text, source mismatch,
+incomplete transport, login, timeout and cancellation remain terminal; do not
+resubmit them. Stop after three unsuccessful corrections. Never promote visual
+approval or weaken a check. CLI `layer-intake`/`layer-build` remain
+deterministic and never dispatch a model.
+
+For a single material ZIP, first use `assets-intake` and follow
+[single-package intake and planning](docs/assets-intake-v2.md). Review the
+authenticated original, mapping and material facts; keep user business text
+separate from visible observations. Author a source-bound observation or target
+and explicit appearance binding for `assets-plan`; it compiles deterministically
+and does not call a model. Report required semantic/state/part inputs separately
+from unverified business outcomes. Never read a prior sample's target or binding
+as a substitute for a requested isolated cold start. Supplemental packages need
+the declared base merge. A material composite is not a runtime default state.
 
 When the user supplies a UI image that is available in the conversation, first
 review it conversationally. Record only visible, supported facts and explicit
@@ -87,6 +129,7 @@ complete command catalog remains in [docs/automation.md](docs/automation.md).
 ## Boundaries
 
 - Use only implemented commands: `run`, `validate`, `inspect`, `compile`,
+  `assets-intake`, `assets-plan`, `assets-build`, `layer-intake`, `layer-build`,
   `pack`, `unpack`, `component-handoff`, `reference-export`, `reference-accept`,
   `self-test`, and `doctor`. For self-contained v2 reference acceptance, follow
   [docs/reference-consumer-v2.md](docs/reference-consumer-v2.md). Preserve bundle

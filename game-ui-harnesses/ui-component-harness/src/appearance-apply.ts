@@ -73,6 +73,7 @@ export async function applyAppearanceBinding(
   bindingInput: unknown,
 ): Promise<UiBundle> {
   const target = await validateBundle(targetInput);
+  if (target.layerSource) fail('$target.layerSource', 'LAYER_SOURCE_TARGET_IMMUTABLE', 'source-bound layer bundle cannot be rebound to a different material package');
   if (target.document.schemaVersion !== '0.2') fail('$target.document', 'UI_DOCUMENT_REQUIRED', 'appearance application requires a v0.2 UI document');
   const imported = await assertValidImportedDecomposition(importedInput);
   const binding = await validateAppearanceBinding(bindingInput, target.document, imported);

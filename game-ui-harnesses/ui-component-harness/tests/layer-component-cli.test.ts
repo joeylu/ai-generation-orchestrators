@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { layerComponentFixture } from './helpers/layer-component-fixture.ts';
+
+test('official CLI intake, build and validation preserve the exact layer ZIP', async () => {
+  const fixture = await layerComponentFixture();
+  const root = await mkdtemp(join(tmpdir(), 'ui-layer-cli-'));
+  const zip = join(root, 'ui-layers.zip'), plan = join(root, 'plan.json'), output = join(root, 'bundle.json');
+  await writeFile(zip, fixture.bytes); await writeFile(plan, JSON.stringify(fixture.plan));
+  const cli = fileURLToPath(new URL('../scripts/cli.mjs', import.meta.url));
+  const run = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
+  const intake = run('layer-intake', zip);
+  assert.equal(intake.status, 0, intake.stderr);
+  assert.equal(JSON.parse(intake.stdout).archiveSha256, fixture.plan.archiveSha256);
+  const built = run('layer-build', zip, '--plan', plan, '--output', output);
+  assert.equal(built.status, 0, built.stderr);
+  const bundle = JSON.parse(await readFile(output, 'utf8'));
+  assert.equal(bundle.bundleVersion, '0.4');
+  assert.deepEqual(Buffer.from(bundle.layerSource.base64, 'base64'), Buffer.from(fixture.bytes));
+  const validated = run('validate', output);
+  assert.equal(validated.status, 0);
+  assert.equal(JSON.parse(validated.stdout).layerSource.sha256, fixture.plan.archiveSha256);
+  assert.equal(JSON.parse(run('inspect', output).stdout).layerSource.boundLayers, 2);
+  assert.notEqual(run('layer-build', zip, '--plan', plan, '--output', output).status, 0);
+});

@@ -59,6 +59,7 @@ export function createDecompositionPanel(hooks: {
       const imported = await importDecompositionZip(bytes); check(); delivery = imported;
       status('decomposition-status', `${imported.canvas.width} × ${imported.canvas.height} · ${imported.layers.length} 个图层 · ${imported.review.humanVisualAcceptance ? '上游声明已人工审核' : '未人工审核的草稿'}。完整性校验通过。`);
       if (imported.review.automatedQa) element('decomposition-status').append(` 自动检查：${imported.review.automatedQa.outcome}（不代替人工验收）。`);
+      if (imported.assetsPackage) element('decomposition-status').append(` 单包 v2 · ${imported.assetsPackage.manifest.scope.type} · 已认证原图与映射；预览仅为素材合成。仍需用户业务需求、组件语义与外观绑定；正式参考验收未建立。${imported.assetsPackage.manifest.scope.type === 'supplemental' ? '补充包须先与指定基础包合并。' : ''}`);
       element('decomposition-layers').replaceChildren(...imported.layers.map(layer => {
         const li = document.createElement('li'); li.textContent = `${layer.id} · ${layer.left}, ${layer.top} · ${layer.width} × ${layer.height}`; return li;
       }));

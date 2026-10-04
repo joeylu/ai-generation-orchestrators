@@ -1,7 +1,7 @@
 import { applyAppearanceBinding } from './appearance-apply.ts';
 import { validateBundle, type UiBundle } from './bundle.ts';
-import { encodeArchive } from './reference-persistence.ts';
-import { DecompositionImportError, importComponentHandoffArchive, importDecompositionZip } from './decomposition-import.ts';
+import { encodeArchive, referenceSha256, zip } from './reference-persistence.ts';
+import { DecompositionImportError, decompositionArchive, importComponentHandoffArchive, importDecompositionZip, type ImportedDecomposition } from './decomposition-import.ts';
 import { walkNodes, type UiNode } from './tree-contract.ts';
 import { restoreRuntimeBundle } from './runtime-bundle.ts';
 
@@ -24,9 +24,7 @@ export async function importAndApplyComponentHandoff(input: Uint8Array): Promise
 /** Same compiler and gates as the CLI, with authenticated source review metadata. */
 export async function importComponentHandoffWithReview(input: Uint8Array) {
   const result = await compileComponentHandoff(input);
-  if (result.referenceEvidence.status === 'complete') {
-    result.bundle = await validateBundle({ ...result.bundle, bundleVersion: '0.3', componentHandoff: { sha256: result.archiveSha256, base64: encodeArchive(input) } });
-  }
+  result.bundle = await validateBundle({ ...result.bundle, bundleVersion: '0.3', componentHandoff: { sha256: result.archiveSha256, base64: encodeArchive(input) } });
   return result;
 }
 
@@ -44,8 +42,31 @@ export async function compileComponentHandoff(input: Uint8Array) {
 /** Build from independent assets plus authored semantics; never infer missing states. */
 export async function compileDecompositionAssets(input: Uint8Array, target: unknown, binding: unknown) {
   const imported = await importDecompositionZip(input);
+  return compileImportedAssets(imported, target, binding);
+}
+
+/** Shared Studio/CLI path. New source evidence survives every save/export. */
+export async function compileImportedAssets(imported: ImportedDecomposition, target: unknown, binding: unknown) {
   const bundle = await applyAppearanceBinding(target, imported, binding);
   validateAppliedComponentCoverage(bundle);
+  if (imported.assetsPackage) {
+    const source = await decompositionArchive(imported);
+    const semantic = await validateBundle(target);
+    if (semantic.componentHandoff) throw new Error('RECURSIVE_COMPONENT_HANDOFF');
+    const encode = (v: unknown) => new TextEncoder().encode(JSON.stringify(v));
+    const semanticBytes = encode(semantic), bindingBytes = encode(binding);
+    const reviewed = imported.review.humanVisualAcceptance;
+    const entries = new Map<string,Uint8Array>([
+      ['decomposition/assets.zip',source], ['component.ui-bundle.json',semanticBytes], ['appearance-binding.json',bindingBytes],
+      ['handoff.json',encode({kind:'ai_ui_component_handoff_v1',status:reviewed?'contracts_packaged_reviewed':'contracts_packaged_unreviewed_draft',
+        decomposition:{path:'decomposition/assets.zip',sha256:imported.archiveSha256},
+        component_bundle:{path:'component.ui-bundle.json',sha256:await referenceSha256(semanticBytes)},
+        appearance_binding:{path:'appearance-binding.json',sha256:await referenceSha256(bindingBytes)},
+        delivery_policy:imported.review.deliveryPolicy,human_visual_acceptance:reviewed})],
+    ]);
+    const result = await importComponentHandoffWithReview(zip(entries));
+    return {bundle:result.bundle,archiveSha256:imported.archiveSha256,review:imported.review};
+  }
   return { bundle, archiveSha256: imported.archiveSha256, review: imported.review };
 }
 

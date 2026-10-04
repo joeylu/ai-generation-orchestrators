@@ -8,6 +8,7 @@
  * compression method are rejected before resource bytes are exposed.
  */
 import type { ResourceInput } from './bundle.ts';
+import { assetsOriginalPath, validateAssetsPackage, type AssetsPackageEvidence } from './assets-package.ts';
 import { validateRuntimeBundle } from './runtime-bundle.ts';
 import { referencePaths, validateReferenceEvidence, type ReferenceEvidence } from './reference-evidence.ts';
 
@@ -66,6 +67,7 @@ export interface ImportedAutomatedQa {
 }
 
 export interface ImportedDecomposition {
+  readonly assetsPackage?: AssetsPackageEvidence;
   readonly archiveSha256: string;
   readonly sceneSha256: string;
   readonly deliveryDigest: string;
@@ -86,9 +88,9 @@ export interface ImportedDecomposition {
 interface ZipMember { name: string; bytes: Uint8Array }
 interface ParsedZip { readonly members: ReadonlyMap<string, ZipMember>; readonly names: readonly string[] }
 
-/** Generic bounded stored-ZIP reader; legacy component parsing stays unchanged. */
+/** Generic stored-ZIP byte reader; does not infer any component/decomposition schema. */
 export function readStoredZipMembers(source: Uint8Array): ReadonlyMap<string, Uint8Array> {
-  const parsed = parseZip(source, MAX_DECOMPOSITION_ARCHIVE_BYTES, 512);
+  const parsed = parseZip(source);
   return new Map([...parsed.members].map(([name, member]) => [name, member.bytes]));
 }
 interface ImportState {
@@ -199,7 +201,7 @@ function crc32(bytes: Uint8Array): number {
   return (value ^ 0xffffffff) >>> 0;
 }
 
-function parseZip(source: Uint8Array, maximumBytes = MAX_DECOMPOSITION_ARCHIVE_BYTES, maximumEntries = MAX_DECOMPOSITION_LAYERS + 4): ParsedZip {
+function parseZip(source: Uint8Array, maximumBytes = MAX_DECOMPOSITION_ARCHIVE_BYTES): ParsedZip {
   if (!(source instanceof Uint8Array) || source.length < 22 || source.length > maximumBytes) fail('ZIP_SIZE_LIMIT');
   const copy = new Uint8Array(source);
   const searchStart = Math.max(0, copy.length - 0xffff - 22);
@@ -212,7 +214,7 @@ function parseZip(source: Uint8Array, maximumBytes = MAX_DECOMPOSITION_ARCHIVE_B
   if (u16(copy, eocd + 4) !== 0 || u16(copy, eocd + 6) !== 0) fail('ZIP_MULTIDISK_FORBIDDEN');
   const entriesOnDisk = u16(copy, eocd + 8); const entries = u16(copy, eocd + 10);
   const centralSize = u32(copy, eocd + 12); const centralOffset = u32(copy, eocd + 16);
-  if (entries !== entriesOnDisk || entries === 0 || entries > maximumEntries) fail('ZIP_ENTRY_LIMIT');
+  if (entries !== entriesOnDisk || entries === 0 || entries > MAX_DECOMPOSITION_LAYERS + 6) fail('ZIP_ENTRY_LIMIT');
   if (entries === 0xffff || centralSize === 0xffffffff || centralOffset === 0xffffffff) fail('ZIP64_CENTRAL_DIRECTORY_UNSUPPORTED');
   if (checkedEnd(centralOffset, centralSize, copy.length) !== eocd) fail('ZIP_CENTRAL_DIRECTORY_INVALID');
 
@@ -490,10 +492,13 @@ export async function importDecompositionZip(input: Uint8Array): Promise<Importe
   // mutable Uint8Array after parsing but before its archive digest is bound.
   const rawArchive = new Uint8Array(input);
   const archive = parseZip(rawArchive);
+  const manifestMember = archive.members.get('manifest.json');
+  const manifest = manifestMember ? readJson(manifestMember, 'ASSETS_MANIFEST_JSON') : undefined;
   const sceneMember = archive.members.get('scene.json'); const deliveryMember = archive.members.get('delivery.json'); const previewMember = archive.members.get('preview.png');
   if (!sceneMember || !deliveryMember || !previewMember) fail('ZIP_REQUIRED_MEMBER_MISSING');
   const sceneRaw = readJson(sceneMember, 'SCENE_JSON_INVALID'); const scene = validateScene(sceneRaw);
   const expected = new Set<string>(['scene.json', 'delivery.json', 'preview.png']);
+  if (manifest) { expected.add('manifest.json'); expected.add(assetsOriginalPath(manifest)); }
   for (const layer of scene.layers) expected.add(layer.path);
   const qaMember = archive.members.get('automated-visual-qa.json'); if (qaMember) expected.add('automated-visual-qa.json');
   const names = [...expected].sort();
@@ -517,8 +522,10 @@ export async function importDecompositionZip(input: Uint8Array): Promise<Importe
     if (await sha256(new TextEncoder().encode(canonicalJson(qaBody))) !== automatedQa.digest) fail('QA_DIGEST');
   }
   const canvas = scene.canvas; const layers = scene.layers;
+  const assetsPackage = manifest && manifestMember ? await validateAssetsPackage(manifest, manifestMember.bytes, archive.members, layers, canvas) : undefined;
   const result: ImportedDecomposition = freeze({
     archiveSha256, sceneSha256, deliveryDigest, canvas, layers,
+    ...(assetsPackage ? { assetsPackage } : {}),
     scene: { canvas, layers }, resources, preview,
     review: { deliveryPolicy: scene.policy, humanVisualAcceptance: scene.policy === 'reviewed', ...(automatedQa ? { automatedQa } : {}) },
   });
@@ -554,8 +561,9 @@ export async function importComponentHandoffArchive(input: Uint8Array): Promise<
   const rawManifest = readJson(manifestMember, 'COMPONENT_HANDOFF_MANIFEST_JSON');
   const v2 = rawManifest.kind === 'ai_ui_component_handoff_v2';
   const v21 = v2 && rawManifest.schemaVersion === '2.1';
+  const v11 = rawManifest.kind === 'ai_ui_component_handoff_v1' && rawManifest.schemaVersion === '1.1';
   const manifest = exactObject(rawManifest,
-    ['kind', 'status', 'decomposition', 'component_bundle', 'appearance_binding', 'delivery_policy', 'human_visual_acceptance', ...(v2 ? ['schemaVersion', 'reference'] : []), ...(v21 ? ['runtime_bundle'] : [])],
+    ['kind', 'status', 'decomposition', 'component_bundle', 'appearance_binding', 'delivery_policy', 'human_visual_acceptance', ...(v2 ? ['schemaVersion', 'reference'] : v11 ? ['schemaVersion'] : []), ...((v21 || v11) ? ['runtime_bundle'] : [])],
     'COMPONENT_HANDOFF_MANIFEST');
   if (!v2 && manifest.kind !== 'ai_ui_component_handoff_v1') fail('COMPONENT_HANDOFF_KIND');
   if (v2 && ((!v21 && manifest.schemaVersion !== '2.0') || manifest.human_visual_acceptance !== false)) fail('REFERENCE_VERSION_OR_ACCEPTANCE');
@@ -575,7 +583,7 @@ export async function importComponentHandoffArchive(input: Uint8Array): Promise<
   if (!/^decomposition\/[a-z][a-z0-9_-]{0,63}(?:\.draft)?\.zip$/.test(decompositionEntry.path)) fail('COMPONENT_HANDOFF_DECOMPOSITION');
   const bundleEntry = entry(manifest.component_bundle, 'component.ui-bundle.json', 'COMPONENT_HANDOFF_BUNDLE');
   const bindingEntry = entry(manifest.appearance_binding, 'appearance-binding.json', 'COMPONENT_HANDOFF_BINDING');
-  const runtimeEntry = v21 ? entry(manifest.runtime_bundle, 'runtime.ui-bundle.json', 'RUNTIME_BUNDLE_ENTRY') : undefined;
+  const runtimeEntry = (v21 || v11) ? entry(manifest.runtime_bundle, 'runtime.ui-bundle.json', 'RUNTIME_BUNDLE_ENTRY') : undefined;
   let referenceNames: string[] = [];
   if (v2) { try { referenceNames = referencePaths(manifest.reference); } catch (error) { fail((error as Error).message); } }
   const names = ['appearance-binding.json', 'component.ui-bundle.json', decompositionEntry.path, 'handoff.json', ...referenceNames, ...(runtimeEntry ? [runtimeEntry.path] : [])].sort();
@@ -591,7 +599,8 @@ export async function importComponentHandoffArchive(input: Uint8Array): Promise<
     || decomposition.review.deliveryPolicy !== policy
     || decomposition.review.humanVisualAcceptance !== accepted) fail('COMPONENT_HANDOFF_DECOMPOSITION_MISMATCH');
   const componentBundle = freeze(readJsonBounded(bundleMember, 'COMPONENT_HANDOFF_BUNDLE_JSON', MAX_COMPONENT_HANDOFF_JSON_BYTES));
-  if (componentBundle.bundleVersion === '0.3' || Object.hasOwn(componentBundle, 'componentHandoff')) fail('RECURSIVE_COMPONENT_HANDOFF');
+  if (componentBundle.bundleVersion === '0.3' || componentBundle.bundleVersion === '0.4'
+    || Object.hasOwn(componentBundle, 'componentHandoff') || Object.hasOwn(componentBundle, 'layerSource')) fail('RECURSIVE_COMPONENT_HANDOFF');
   const appearanceBinding = freeze(readJson(bindingMember, 'COMPONENT_HANDOFF_BINDING_JSON'));
   let runtimeBundle;
   if (runtimeEntry) {
@@ -626,5 +635,12 @@ export async function assertValidImportedDecomposition(value: ImportedDecomposit
     if (await sha256(resource.bytes) !== state.resourceDigests[index]) fail('IMPORTED_RESOURCE_TAMPERED');
   }
   if (await sha256(value.preview.bytes) !== state.previewDigest) fail('IMPORTED_PREVIEW_TAMPERED');
+  if (value.assetsPackage && await sha256(value.assetsPackage.original.bytes) !== value.assetsPackage.manifest.files.find((row: {path:string}) => row.path === value.assetsPackage!.original.path).sha256) fail('IMPORTED_ORIGINAL_TAMPERED');
   return value;
+}
+
+/** Return a fresh copy of authenticated source bytes, never a reconstructed archive. */
+export async function decompositionArchive(value: ImportedDecomposition): Promise<Uint8Array> {
+  await assertValidImportedDecomposition(value);
+  return new Uint8Array(trustedImports.get(value)!.archive);
 }

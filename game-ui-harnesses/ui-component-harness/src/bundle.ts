@@ -5,6 +5,7 @@ import { validateMotion, type MotionDocument } from './motion.ts';
 import { validateMotionSystem, type MotionSystemDocument } from './motion-system.ts';
 import { validateResourceReference, ResourceReferenceError } from './resource-reference.ts';
 import { validateDocument, type UiDocument } from './tree-contract.ts';
+import type { PersistedLayerSource } from './layer-component.ts';
 
 /** These caps make imported browser bundles bounded before any bytes are used. */
 export const MAX_BUNDLE_RESOURCES = 256;
@@ -30,13 +31,14 @@ export interface BundleProvenance {
   description: string;
 }
 export interface UiBundle {
-  bundleVersion: '0.1' | '0.2' | '0.3';
+  bundleVersion: '0.1' | '0.2' | '0.3' | '0.4';
   document: ButtonContract | UiDocument;
   resources: BundleResource[];
   provenance: BundleProvenance;
   motion?: MotionDocument;
   motionSystem?: MotionSystemDocument;
   componentHandoff?: PersistedHandoff;
+  layerSource?: PersistedLayerSource;
 }
 export interface BundleIssue { path: string; code: string; message: string }
 export class BundleError extends Error {
@@ -216,12 +218,14 @@ export async function createBundle(
   motion?: unknown,
   motionSystem?: unknown,
   componentHandoff?: PersistedHandoff,
+  layerSource?: PersistedLayerSource,
 ): Promise<UiBundle> {
+  if (componentHandoff && layerSource) fail('$', 'SOURCE_CONFLICT', '不能同时附着两种上游交付包');
   const validatedDocument = validateDocumentForBundle(document);
   const inputs = inputResources(resources);
   assertRequiredSources(validatedDocument, new Set(inputs.map(sourceMapKey)));
   const output: UiBundle = {
-    bundleVersion: componentHandoff ? '0.3' : motionSystem === undefined ? '0.1' : '0.2',
+    bundleVersion: layerSource ? '0.4' : componentHandoff ? '0.3' : motionSystem === undefined ? '0.1' : '0.2',
     document: validatedDocument,
     resources: await Promise.all(inputs.map(async resource => ({
       id: resource.path,
@@ -241,14 +245,16 @@ export async function createBundle(
     output.motionSystem = validateMotionSystem(motionSystem, validatedDocument);
   }
   if (componentHandoff) output.componentHandoff = componentHandoff;
+  if (layerSource) output.layerSource = layerSource;
   return validateBundle(output);
 }
 
 /** Validate bytes, checksum, path safety, document and optional motion. */
 export async function validateBundle(input: unknown): Promise<UiBundle> {
-  const data = record(input, '$', ['bundleVersion', 'document', 'resources', 'provenance'], ['motion', 'motionSystem', 'componentHandoff']);
-  if (!['0.1', '0.2', '0.3'].includes(data.bundleVersion as string)) fail('$.bundleVersion', 'UNSUPPORTED_VERSION', '仅支持 bundle 0.1 / 0.2 / 0.3');
+  const data = record(input, '$', ['bundleVersion', 'document', 'resources', 'provenance'], ['motion', 'motionSystem', 'componentHandoff', 'layerSource']);
+  if (!['0.1', '0.2', '0.3', '0.4'].includes(data.bundleVersion as string)) fail('$.bundleVersion', 'UNSUPPORTED_VERSION', '仅支持 bundle 0.1 / 0.2 / 0.3 / 0.4');
   if ((data.bundleVersion === '0.3') !== Object.hasOwn(data, 'componentHandoff')) fail('$.componentHandoff', 'BUNDLE_VERSION_REQUIRED', '参考交付附件需要 bundle 0.3');
+  if ((data.bundleVersion === '0.4') !== Object.hasOwn(data, 'layerSource')) fail('$.layerSource', 'BUNDLE_VERSION_REQUIRED', '图层交付附件需要 bundle 0.4');
   if (data.bundleVersion === '0.1' && Object.hasOwn(data, 'motionSystem')) fail('$.motionSystem', 'BUNDLE_VERSION_REQUIRED', '动效体系需要 bundle 0.2');
   if (data.bundleVersion === '0.2' && !Object.hasOwn(data, 'motionSystem')) fail('$.motionSystem', 'REQUIRED', 'bundle 0.2 必须包含动效体系');
   const document = validateDocumentForBundle(data.document);
@@ -294,6 +300,12 @@ export async function validateBundle(input: unknown): Promise<UiBundle> {
   if (data.componentHandoff !== undefined) {
     await validatePersistedHandoff(data.componentHandoff, output);
     output.componentHandoff = structuredClone(data.componentHandoff) as PersistedHandoff;
+  }
+  if (data.layerSource !== undefined) {
+    if (document.schemaVersion !== '0.2') fail('$.layerSource', 'LAYER_SOURCE_REQUIRES_V02', '图层交付附件需要 v0.2 组件文档');
+    const { validatePersistedLayerSource } = await import('./layer-component.ts');
+    await validatePersistedLayerSource(data.layerSource, output);
+    output.layerSource = structuredClone(data.layerSource) as PersistedLayerSource;
   }
   const verified = deepFreeze(output);
   verifiedBundles.add(verified);
