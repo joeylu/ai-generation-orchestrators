@@ -1,0 +1,101 @@
+{
+  "panelSpecVersion": "0.2",
+  "id": "audio-settings-assets",
+  "title": "声音设置",
+  "theme": {
+    "id": "modern-mint-light",
+    "version": "0.1.0"
+  },
+  "canvas": {
+    "width": 960,
+    "height": 640
+  },
+  "layout": {
+    "width": 640,
+    "padding": 32,
+    "gap": 20,
+    "sectionGap": 28,
+    "labelWidth": 160,
+    "rowHeight": 56,
+    "titleHeight": 48,
+    "sectionTitleHeight": 32
+  },
+  "state": [
+    {
+      "id": "volume",
+      "type": "number",
+      "initial": 80,
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "id": "muted",
+      "type": "boolean",
+      "initial": true
+    }
+  ],
+  "sections": [
+    {
+      "id": "audio",
+      "title": "音频偏好",
+      "rows": [
+        {
+          "id": "volume-row",
+          "kind": "slider",
+          "recipe": {
+            "id": "settings.slider",
+            "version": "0.1.0"
+          },
+          "label": "音量",
+          "bind": "volume",
+          "enabled": true,
+          "event": "audio.volumeChanged",
+          "format": {
+            "fractionDigits": 0,
+            "prefix": "",
+            "suffix": "%"
+          }
+        },
+        {
+          "id": "audio-enabled-row",
+          "kind": "switch",
+          "recipe": {
+            "id": "settings.switch",
+            "version": "0.1.0"
+          },
+          "label": "静音",
+          "bind": "muted",
+          "enabled": true,
+          "event": "audio.muteChanged"
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "kind": "programmatic-fixture",
+    "description": "Asset-backed settings acceptance fixture: independent redrawn speaker icon, custom mute icon and nine-slice panel surface.",
+    "assumptions": [
+      "Static row icons identify settings; they do not change with switch state.",
+      "The mute switch starts on for interaction acceptance; volume remains independent.",
+      "Fonts use the browser environment."
+    ]
+  },
+  "assets": {
+    "library": {
+      "id": "modern-mint-assets",
+      "sha256": "c6078f0763c270b31784ad487b8c59bd682e13126a0384ffaa20bf4112a39ee7"
+    },
+    "panelSurface": "game-ui/panel-surface@1.0.0",
+    "rowIcons": [
+      {
+        "rowId": "volume-row",
+        "asset": "modern-mint/texture-ad2392a3924b99c50f8c88cb@0.1.0"
+      },
+      {
+        "rowId": "audio-enabled-row",
+        "asset": "game-ui/mute@1.0.0"
+      }
+    ]
+  }
+}

@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-patch:0.1",
+  "title": "PanelPatch 0.1",
+  "description": "Bounded stable-ID edits bound to one exact PanelSpec digest. Reason is caller-authored context, not proof of intent. No paths, array-index addressing or executable instructions are supported.",
+  "$comment": "Load sibling panel-spec.schema.json under its declared urn:ai-game-assets:panel-spec:0.1 ID. src/patch.mjs applies source-digest checks, JSON-only safety, overlap rules, target existence, add-row binding and final PanelSpec validation atomically. Compilation/catalog acceptance is a separate required step before publication. Duplicate writes to one property are rejected; adding/removing a row reserves the entire row and its paired state. Different properties of an existing row may be edited together. Empty sections are rejected, never removed implicitly. Register PanelSpec 0.3 as well. A button add-row supplies state:null; stateful rows require the matching state definition. Removing a field still referenced by reset-initial is rejected by final validation. This schema permits new shapes, but the source PanelSpec version governs their use. Register PanelSpec 0.4 as well. Text additions also require state:null. Layout may use the 0.4 container form; only a source Spec 0.4 accepts that form or text rows. Empty button labels are only valid in Spec 0.4. Register PanelSpec 0.5. Progress additions require a matching progress state; progress enabled/event edits are forbidden.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "patchVersion",
+    "baseSpecSha256",
+    "reason",
+    "operations"
+  ],
+  "properties": {
+    "patchVersion": {
+      "const": "0.1"
+    },
+    "baseSpecSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "allOf": [
+        {
+          "pattern": "\\S"
+        },
+        {
+          "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/printable"
+        }
+      ]
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/setPanelTitle"
+          },
+          {
+            "$ref": "#/$defs/setTheme"
+          },
+          {
+            "$ref": "#/$defs/setLayout"
+          },
+          {
+            "$ref": "#/$defs/setRowLabel"
+          },
+          {
+            "$ref": "#/$defs/setRowEnabled"
+          },
+          {
+            "$ref": "#/$defs/setButtonLabel"
+          },
+          {
+            "$ref": "#/$defs/setButtonAction"
+          },
+          {
+            "$ref": "#/$defs/setStateInitial"
+          },
+          {
+            "$ref": "#/$defs/addRow"
+          },
+          {
+            "$ref": "#/$defs/removeRow"
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/id"
+    },
+    "setPanelTitle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "title"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-panel-title"
+        },
+        "title": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/text"
+        }
+      }
+    },
+    "setTheme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "theme"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-theme"
+        },
+        "theme": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/reference"
+        }
+      }
+    },
+    "setLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "layout"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-layout"
+        },
+        "layout": {
+          "oneOf": [
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.1#/properties/layout"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.4#/properties/layout"
+            }
+          ]
+        }
+      }
+    },
+    "setRowLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "label"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-row-label"
+        },
+        "rowId": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "oneOf": [
+            {
+              "const": ""
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/text"
+            }
+          ]
+        }
+      }
+    },
+    "setRowEnabled": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "enabled"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-row-enabled"
+        },
+        "rowId": {
+          "$ref": "#/$defs/id"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "setButtonLabel": {
+      "$comment": "Runtime requires an existing Button row. buttonLabel is always nonempty; this is distinct from the optional empty row.label in Spec 0.4.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "buttonLabel"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-button-label"
+        },
+        "rowId": {
+          "$ref": "#/$defs/id"
+        },
+        "buttonLabel": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/text"
+        }
+      }
+    },
+    "setButtonAction": {
+      "$comment": "Runtime requires an existing Button row. Supply the complete declarative action. Final whole-Spec validation enforces unique existing reset state IDs, including same-batch additions; no scripts or implicit scope edits.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "action"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-button-action"
+        },
+        "rowId": {
+          "$ref": "#/$defs/id"
+        },
+        "action": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/action"
+        }
+      }
+    },
+    "setStateInitial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "fieldId",
+        "value"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-state-initial"
+        },
+        "fieldId": {
+          "$ref": "#/$defs/id"
+        },
+        "value": {
+          "type": [
+            "number",
+            "boolean",
+            "string"
+          ]
+        }
+      }
+    },
+    "addRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "sectionId",
+        "afterRowId",
+        "row",
+        "state"
+      ],
+      "properties": {
+        "op": {
+          "const": "add-row"
+        },
+        "sectionId": {
+          "$ref": "#/$defs/id"
+        },
+        "afterRowId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "row": {
+          "oneOf": [
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/sliderRow"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/switchRow"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/selectRow"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/buttonRow"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/textRow"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.5#/$defs/progressRow"
+            }
+          ]
+        },
+        "state": {
+          "oneOf": [
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/numberState"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/booleanState"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/enumState"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.5#/$defs/progressState"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "row": {
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "button",
+                      "text"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "state": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "removeRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId"
+      ],
+      "properties": {
+        "op": {
+          "const": "remove-row"
+        },
+        "rowId": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    }
+  }
+}

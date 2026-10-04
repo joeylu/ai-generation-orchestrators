@@ -1,0 +1,220 @@
+{
+  "proposalVersion": "0.2",
+  "contextSha256": "532f3bd25f3c9a7a804585473ebd15eec98dcd97cc448424aca50b494b719bfd",
+  "spec": {
+    "panelSpecVersion": "0.2",
+    "id": "planned-audio-settings",
+    "title": "声音设置",
+    "theme": {
+      "id": "modern-mint-light",
+      "version": "0.1.0"
+    },
+    "canvas": {
+      "width": 960,
+      "height": 640
+    },
+    "layout": {
+      "width": 640,
+      "padding": 32,
+      "gap": 20,
+      "sectionGap": 28,
+      "labelWidth": 160,
+      "rowHeight": 56,
+      "titleHeight": 48,
+      "sectionTitleHeight": 32
+    },
+    "state": [
+      {
+        "id": "volume",
+        "type": "number",
+        "initial": 80,
+        "min": 0,
+        "max": 100,
+        "step": 1
+      },
+      {
+        "id": "muted",
+        "type": "boolean",
+        "initial": true
+      }
+    ],
+    "sections": [
+      {
+        "id": "audio",
+        "title": "音频偏好",
+        "rows": [
+          {
+            "id": "volume-row",
+            "kind": "slider",
+            "recipe": {
+              "id": "settings.slider",
+              "version": "0.1.0"
+            },
+            "label": "音量",
+            "bind": "volume",
+            "enabled": true,
+            "event": "audio.volumeChanged",
+            "format": {
+              "fractionDigits": 0,
+              "prefix": "",
+              "suffix": "%"
+            }
+          },
+          {
+            "id": "mute-row",
+            "kind": "switch",
+            "recipe": {
+              "id": "settings.switch",
+              "version": "0.1.0"
+            },
+            "label": "静音",
+            "bind": "muted",
+            "enabled": true,
+            "event": "audio.muteChanged"
+          }
+        ]
+      }
+    ],
+    "provenance": {
+      "kind": "agent-authored",
+      "description": "Agent interpretation of the asset-planning example request, using the program-provided asset candidates and exact library snapshot.",
+      "assumptions": [
+        "采用当前浅色薄荷主题的固定间距；具体字体由浏览器环境提供。",
+        "候选排名仅用于选材，语义和视觉仍需用户审阅。"
+      ]
+    },
+    "assets": {
+      "library": {
+        "id": "modern-mint-assets",
+        "sha256": "c6078f0763c270b31784ad487b8c59bd682e13126a0384ffaa20bf4112a39ee7"
+      },
+      "panelSurface": "game-ui/panel-surface@1.0.0",
+      "rowIcons": [
+        {
+          "rowId": "volume-row",
+          "asset": "modern-mint/texture-ad2392a3924b99c50f8c88cb@0.1.0"
+        },
+        {
+          "rowId": "mute-row",
+          "asset": "game-ui/mute@1.0.0"
+        }
+      ]
+    }
+  },
+  "decisions": [
+    {
+      "target": "panel",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 0,
+        "end": 40,
+        "quote": "帮我生成一个浅色薄荷风格的声音设置面板。标题为“声音设置”，分组为“音频偏好”。"
+      }
+    },
+    {
+      "target": "theme",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 6,
+        "end": 12,
+        "quote": "浅色薄荷风格"
+      }
+    },
+    {
+      "target": "canvas",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 233,
+        "end": 244,
+        "quote": "画布为 960×640"
+      }
+    },
+    {
+      "target": "layout",
+      "basis": {
+        "kind": "design-choice",
+        "reason": "面板按请求宽640；以32内边距、20行间距和56行高复用当前固定栈布局，避免文本与控件挤压。"
+      }
+    },
+    {
+      "target": "assets",
+      "basis": {
+        "kind": "design-choice",
+        "reason": "从现代薄荷候选中选择3项；64px背景的12px边距适合当前面板，静音与扬声器分别说明两行用途。"
+      }
+    },
+    {
+      "target": "asset:surface",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 188,
+        "end": 195,
+        "quote": "面板配圆角背景"
+      }
+    },
+    {
+      "target": "asset:row:volume-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 169,
+        "end": 178,
+        "quote": "音量行配扬声器图标"
+      }
+    },
+    {
+      "target": "asset:row:mute-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 179,
+        "end": 187,
+        "quote": "静音行配静音图标"
+      }
+    },
+    {
+      "target": "section:audio",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 30,
+        "end": 39,
+        "quote": "分组为“音频偏好”"
+      }
+    },
+    {
+      "target": "row:volume-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 41,
+        "end": 101,
+        "quote": "音量范围是 0 到 100，步长 1，初值 80，显示整数百分比，提交事件名为 audio.volumeChanged。"
+      }
+    },
+    {
+      "target": "row:mute-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 102,
+        "end": 168,
+        "quote": "静音开关初值为 true，打开表示静音，提交事件名为 audio.muteChanged。两个控件均可操作，音量与静音状态相互独立。"
+      }
+    },
+    {
+      "target": "state:volume",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 41,
+        "end": 101,
+        "quote": "音量范围是 0 到 100，步长 1，初值 80，显示整数百分比，提交事件名为 audio.volumeChanged。"
+      }
+    },
+    {
+      "target": "state:muted",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 102,
+        "end": 168,
+        "quote": "静音开关初值为 true，打开表示静音，提交事件名为 audio.muteChanged。两个控件均可操作，音量与静音状态相互独立。"
+      }
+    }
+  ],
+  "unresolved": []
+}

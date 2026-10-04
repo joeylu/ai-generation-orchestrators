@@ -1,0 +1,287 @@
+{
+  "panelSpecVersion": "0.4",
+  "id": "layout-settings",
+  "title": "游戏设置",
+  "theme": {
+    "id": "modern-mint-light",
+    "version": "0.1.0"
+  },
+  "canvas": {
+    "width": 1000,
+    "height": 720
+  },
+  "layout": {
+    "width": 940,
+    "padding": 24,
+    "gap": 12,
+    "sectionGap": 20,
+    "labelWidth": 72,
+    "rowHeight": 56,
+    "titleHeight": 48,
+    "sectionTitleHeight": 32,
+    "maxHeight": 460,
+    "overflow": "scroll",
+    "body": {
+      "id": "settings-grid",
+      "kind": "grid",
+      "width": "fill",
+      "gap": 20,
+      "align": "start",
+      "minColumnWidth": 340,
+      "children": [
+        {
+          "kind": "section",
+          "sectionId": "audio",
+          "width": "fill"
+        },
+        {
+          "kind": "section",
+          "sectionId": "general",
+          "width": "fill"
+        }
+      ]
+    }
+  },
+  "state": [
+    {
+      "id": "volume",
+      "type": "number",
+      "initial": 70,
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "id": "musicVolume",
+      "type": "number",
+      "initial": 55,
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "id": "sfxVolume",
+      "type": "number",
+      "initial": 60,
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "id": "musicEnabled",
+      "type": "boolean",
+      "initial": true
+    },
+    {
+      "id": "soundEnabled",
+      "type": "boolean",
+      "initial": true
+    },
+    {
+      "id": "quality",
+      "type": "enum",
+      "initial": "balanced",
+      "options": [
+        {
+          "id": "smooth",
+          "label": "流畅"
+        },
+        {
+          "id": "balanced",
+          "label": "均衡"
+        },
+        {
+          "id": "fine",
+          "label": "精致"
+        }
+      ]
+    },
+    {
+      "id": "fullscreen",
+      "type": "boolean",
+      "initial": false
+    },
+    {
+      "id": "vsync",
+      "type": "boolean",
+      "initial": true
+    },
+    {
+      "id": "notifications",
+      "type": "boolean",
+      "initial": true
+    }
+  ],
+  "sections": [
+    {
+      "id": "audio",
+      "title": "音频设置",
+      "rows": [
+        {
+          "id": "volume-row",
+          "kind": "slider",
+          "recipe": {
+            "id": "settings.slider",
+            "version": "0.1.0"
+          },
+          "label": "主音量",
+          "bind": "volume",
+          "enabled": true,
+          "event": "settings.volumeChanged",
+          "format": {
+            "fractionDigits": 0,
+            "prefix": "",
+            "suffix": "%"
+          }
+        },
+        {
+          "id": "music-volume-row",
+          "kind": "slider",
+          "recipe": {
+            "id": "settings.slider",
+            "version": "0.1.0"
+          },
+          "label": "音乐音量",
+          "bind": "musicVolume",
+          "enabled": true,
+          "event": "settings.musicVolumeChanged",
+          "format": {
+            "fractionDigits": 0,
+            "prefix": "",
+            "suffix": "%"
+          }
+        },
+        {
+          "id": "sfx-volume-row",
+          "kind": "slider",
+          "recipe": {
+            "id": "settings.slider",
+            "version": "0.1.0"
+          },
+          "label": "音效音量",
+          "bind": "sfxVolume",
+          "enabled": true,
+          "event": "settings.sfxVolumeChanged",
+          "format": {
+            "fractionDigits": 0,
+            "prefix": "",
+            "suffix": "%"
+          }
+        },
+        {
+          "id": "music-row",
+          "kind": "switch",
+          "recipe": {
+            "id": "settings.switch",
+            "version": "0.1.0"
+          },
+          "label": "背景音乐",
+          "bind": "musicEnabled",
+          "enabled": true,
+          "event": "settings.musicEnabledChanged"
+        },
+        {
+          "id": "sound-row",
+          "kind": "switch",
+          "recipe": {
+            "id": "settings.switch",
+            "version": "0.1.0"
+          },
+          "label": "音效开关",
+          "bind": "soundEnabled",
+          "enabled": true,
+          "event": "settings.soundEnabledChanged"
+        }
+      ]
+    },
+    {
+      "id": "general",
+      "title": "显示与通知",
+      "rows": [
+        {
+          "id": "quality-row",
+          "kind": "select",
+          "recipe": {
+            "id": "settings.select",
+            "version": "0.1.0"
+          },
+          "label": "画质",
+          "bind": "quality",
+          "enabled": true,
+          "event": "settings.qualityChanged"
+        },
+        {
+          "id": "fullscreen-row",
+          "kind": "switch",
+          "recipe": {
+            "id": "settings.switch",
+            "version": "0.1.0"
+          },
+          "label": "全屏",
+          "bind": "fullscreen",
+          "enabled": true,
+          "event": "settings.fullscreenChanged"
+        },
+        {
+          "id": "vsync-row",
+          "kind": "switch",
+          "recipe": {
+            "id": "settings.switch",
+            "version": "0.1.0"
+          },
+          "label": "垂直同步",
+          "bind": "vsync",
+          "enabled": true,
+          "event": "settings.vsyncChanged"
+        },
+        {
+          "id": "notifications-row",
+          "kind": "switch",
+          "recipe": {
+            "id": "settings.switch",
+            "version": "0.1.0"
+          },
+          "label": "消息通知",
+          "bind": "notifications",
+          "enabled": true,
+          "event": "settings.notificationsChanged"
+        },
+        {
+          "id": "reset-row",
+          "kind": "button",
+          "recipe": {
+            "id": "settings.button",
+            "version": "0.1.0"
+          },
+          "label": "",
+          "buttonLabel": "恢复默认设置",
+          "enabled": true,
+          "event": "settings.resetRequested",
+          "action": {
+            "kind": "reset-initial",
+            "fields": [
+              "volume",
+              "musicVolume",
+              "sfxVolume",
+              "musicEnabled",
+              "soundEnabled",
+              "quality",
+              "fullscreen",
+              "vsync",
+              "notifications"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "kind": "programmatic-fixture",
+    "description": "Deterministic layout v1 acceptance fixture; authored sample values are not inferred user requirements.",
+    "assumptions": [
+      "All actions notify the host only; the preview performs no game navigation, saving or persistence.",
+      "Layout uses declared fixed text slots and a system sans-serif font."
+    ]
+  },
+  "assets": null
+}

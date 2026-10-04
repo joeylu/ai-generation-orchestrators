@@ -1,0 +1,117 @@
+{
+  "panelSpecVersion": "0.4",
+  "id": "layout-pause",
+  "title": "暂停",
+  "theme": {
+    "id": "modern-mint-light",
+    "version": "0.1.0"
+  },
+  "canvas": {
+    "width": 960,
+    "height": 720
+  },
+  "layout": {
+    "width": 640,
+    "padding": 24,
+    "gap": 12,
+    "sectionGap": 20,
+    "labelWidth": 72,
+    "rowHeight": 56,
+    "titleHeight": 48,
+    "sectionTitleHeight": 32,
+    "maxHeight": 680,
+    "overflow": "error",
+    "body": {
+      "id": "pause-column",
+      "kind": "column",
+      "width": "fill",
+      "gap": 16,
+      "align": "center",
+      "children": [
+        {
+          "kind": "section",
+          "sectionId": "menu",
+          "width": 360
+        }
+      ]
+    }
+  },
+  "state": [],
+  "sections": [
+    {
+      "id": "menu",
+      "title": "游戏菜单",
+      "rows": [
+        {
+          "id": "resume-row",
+          "kind": "button",
+          "recipe": {
+            "id": "settings.button",
+            "version": "0.1.0"
+          },
+          "label": "",
+          "buttonLabel": "继续游戏",
+          "enabled": true,
+          "event": "game.resumeRequested",
+          "action": {
+            "kind": "emit"
+          }
+        },
+        {
+          "id": "settings-row",
+          "kind": "button",
+          "recipe": {
+            "id": "settings.button",
+            "version": "0.1.0"
+          },
+          "label": "",
+          "buttonLabel": "打开设置",
+          "enabled": true,
+          "event": "game.settingsRequested",
+          "action": {
+            "kind": "emit"
+          }
+        },
+        {
+          "id": "restart-row",
+          "kind": "button",
+          "recipe": {
+            "id": "settings.button",
+            "version": "0.1.0"
+          },
+          "label": "",
+          "buttonLabel": "重新开始",
+          "enabled": true,
+          "event": "game.restartRequested",
+          "action": {
+            "kind": "emit"
+          }
+        },
+        {
+          "id": "quit-row",
+          "kind": "button",
+          "recipe": {
+            "id": "settings.button",
+            "version": "0.1.0"
+          },
+          "label": "",
+          "buttonLabel": "返回主菜单",
+          "enabled": true,
+          "event": "game.menuRequested",
+          "action": {
+            "kind": "emit"
+          }
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "kind": "programmatic-fixture",
+    "description": "Deterministic layout v1 acceptance fixture; authored sample values are not inferred user requirements.",
+    "assumptions": [
+      "All actions notify the host only; the preview performs no game navigation, saving or persistence.",
+      "Layout uses declared fixed text slots and a system sans-serif font."
+    ]
+  },
+  "assets": null
+}

@@ -1,0 +1,152 @@
+{
+  "panelSpecVersion": "0.3",
+  "id": "settings-controls",
+  "title": "设置",
+  "theme": {
+    "id": "modern-mint-light",
+    "version": "0.1.0"
+  },
+  "canvas": {
+    "width": 960,
+    "height": 800
+  },
+  "layout": {
+    "width": 640,
+    "padding": 32,
+    "gap": 16,
+    "sectionGap": 24,
+    "labelWidth": 160,
+    "rowHeight": 56,
+    "titleHeight": 48,
+    "sectionTitleHeight": 32
+  },
+  "state": [
+    {
+      "id": "volume",
+      "type": "number",
+      "initial": 80,
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "id": "muted",
+      "type": "boolean",
+      "initial": true
+    },
+    {
+      "id": "quality",
+      "type": "enum",
+      "initial": "high",
+      "options": [
+        {
+          "id": "low",
+          "label": "低"
+        },
+        {
+          "id": "medium",
+          "label": "中"
+        },
+        {
+          "id": "high",
+          "label": "高"
+        }
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "preferences",
+      "title": "偏好设置",
+      "rows": [
+        {
+          "id": "volume-row",
+          "kind": "slider",
+          "recipe": {
+            "id": "settings.slider",
+            "version": "0.1.0"
+          },
+          "label": "音量",
+          "bind": "volume",
+          "enabled": true,
+          "event": "audio.volumeChanged",
+          "format": {
+            "fractionDigits": 0,
+            "prefix": "",
+            "suffix": "%"
+          }
+        },
+        {
+          "id": "mute-row",
+          "kind": "switch",
+          "recipe": {
+            "id": "settings.switch",
+            "version": "0.1.0"
+          },
+          "label": "静音",
+          "bind": "muted",
+          "enabled": true,
+          "event": "audio.muteChanged"
+        },
+        {
+          "id": "quality-row",
+          "kind": "select",
+          "recipe": {
+            "id": "settings.select",
+            "version": "0.1.0"
+          },
+          "label": "画质",
+          "bind": "quality",
+          "enabled": true,
+          "event": "graphics.qualityChanged"
+        },
+        {
+          "id": "reset-row",
+          "kind": "button",
+          "recipe": {
+            "id": "settings.button",
+            "version": "0.1.0"
+          },
+          "label": "默认设置",
+          "buttonLabel": "恢复默认",
+          "enabled": true,
+          "event": "settings.resetRequested",
+          "action": {
+            "kind": "reset-initial",
+            "fields": [
+              "volume",
+              "muted",
+              "quality"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "kind": "programmatic-fixture",
+    "description": "Settings controls and pinned asset acceptance fixture; no model generation or actual game settings are invoked.",
+    "assumptions": [
+      "Fixed viewport and system sans-serif font are explicit preview choices.",
+      "Mute and volume remain independent. Quality values are symbolic host-facing IDs.",
+      "Reset returns only the declared state fields to their authored initial values; external audio, graphics and persistence remain host responsibilities."
+    ]
+  },
+  "assets": {
+    "library": {
+      "id": "modern-mint-assets",
+      "sha256": "c6078f0763c270b31784ad487b8c59bd682e13126a0384ffaa20bf4112a39ee7"
+    },
+    "panelSurface": "game-ui/panel-surface@1.0.0",
+    "rowIcons": [
+      {
+        "rowId": "volume-row",
+        "asset": "modern-mint/texture-ad2392a3924b99c50f8c88cb@0.1.0"
+      },
+      {
+        "rowId": "mute-row",
+        "asset": "game-ui/mute@1.0.0"
+      }
+    ]
+  }
+}
