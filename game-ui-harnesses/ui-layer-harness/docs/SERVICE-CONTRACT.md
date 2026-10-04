@@ -4,6 +4,10 @@
 每次命令 stdout 输出一个 JSON（`--help`/`--version` 除外），过程信息写 stderr。
 退出码 0 表示命令完成或正常等待，不等于视觉通过；非零表示本次命令失败。
 
+`prepare-material-cleanup` 可冻结一份真实收到的污染素材或合板单元作为新编辑来源，
+绑定原图、归属目录和旧来源回执。准备不调用模型，也不授权生图；新作业最多一次
+请求、零自动重试。旧状态不变，收到清理图仍须复审和主体归位。详见 [清理交换](MATERIAL-CLEANUP.md)。
+
 新 `prepare-output-review` 冻结 V2 对象所有权目录及必需的逐对象观察，空 findings
 不能代替检查。候选归位另提供显式 `measured-alpha-anchor-locked-v2`，支持画布不可
 推动或缩小主体锚点；正式归位仍须真实主体观察。详见 [所有权及锚点合同](OWNERSHIP-AND-ANCHORS.md)。

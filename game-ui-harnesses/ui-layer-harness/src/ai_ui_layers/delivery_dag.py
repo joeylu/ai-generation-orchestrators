@@ -272,7 +272,8 @@ class DeliveryDag(planning.Dag):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','prepare-host-review','receive-host-review','status-host-review','prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output','freeze-candidate-plan','prepare-candidate-delivery','deliver-candidate-layers','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','prepare-host-review','receive-host-review','status-host-review','prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output','prepare-material-cleanup','freeze-candidate-plan','prepare-candidate-delivery','deliver-candidate-layers','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
+    p.add_argument('--material-id',help='For prepare-material-cleanup: exact material owned by the real received source')
     p.add_argument('--review-registry',help='Independent shared registry for single-use received-request reviews')
     p.add_argument('--material-author',action='append',help='Opaque actual generated-material author identity')
     p.add_argument('--request-id',help='Actual received generation request ID')
@@ -337,6 +338,16 @@ def main():
     p.add_argument('--source'); p.add_argument('--reason')
     a = p.parse_args()
     try:
+        if a.material_id and a.action!='prepare-material-cleanup':p.error('--material-id is only valid for prepare-material-cleanup')
+        if a.action=='prepare-material-cleanup':
+            allowed={'--snapshot','--snapshot-digest','--output','--material-id','--received-job','--request-id'}
+            if any(token.split('=',1)[0] not in allowed for token in sys.argv[1:] if token.startswith('--')):
+                p.error('material cleanup accepts only its source-bound preparation inputs')
+            if not all((a.snapshot,a.snapshot_digest,a.material_id,a.received_job)):
+                p.error('--snapshot, --snapshot-digest, --material-id and --received-job required')
+            from .material_cleanup import prepare_cleanup
+            result=prepare_cleanup(a.snapshot,a.snapshot_digest,a.output,a.material_id,a.received_job,a.request_id)
+            print(json.dumps(result,ensure_ascii=False,indent=2));return
         if a.prior_texture_review and a.action!='freeze-candidate-plan':
             p.error('--prior-texture-review is only valid for freeze-candidate-plan')
         if a.received_material and a.action!='deliver-candidate-layers':

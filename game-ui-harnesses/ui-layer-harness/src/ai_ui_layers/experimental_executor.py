@@ -150,6 +150,9 @@ def load_job(job):
         variant=config['promptVariant']
         if config['assets']!=[variant['asset']] or digest(job/'prompt-variant.txt')!=variant['sha256']:
             raise ValueError('PROMPT_VARIANT_CHANGED')
+    if 'cleanup' in config:
+        from .material_cleanup import verify_cleanup
+        verify_cleanup(job,config,index)
     return config,index
 
 
@@ -227,6 +230,12 @@ def next_request(job):
 
 def frozen_request_arguments(job, config, row):
     """Replay immutable input selection without reserving or submitting a call."""
+    if 'cleanup' in config:
+        from .material_cleanup import verify_cleanup
+        verify_cleanup(Path(job),config,{row['asset']:row})
+        return {'prompt':(Path(job)/'cleanup/prompt.txt').read_text(encoding='utf-8').rstrip('\n'),
+                'referenced_image_paths':[str((Path(job)/'cleanup'/name).resolve())
+                                          for name in ('cleanup-source.png','reference-context.png')]}
     snapshot=(Path(job)/'snapshot').resolve()
     prompt_path=Path(job)/'prompt-variant.txt' if 'promptVariant' in config else snapshot/row['prompt']
     mode=config.get('referenceMode','full-and-crop')

@@ -1,5 +1,15 @@
 # Release notes
 
+## Unreleased source-bound material cleanup exchange
+
+- Explicit cleanup preparation freezes an actual received singleton or exact
+  sheet cell, original source lineage, local reference and owned/foreign catalog.
+  Existing host exchange retains one new authorization and one call, without
+  automatic retries or promotion of the old attempt.
+- Preparation and receipt replay are deterministic. Cleanup images still require
+  real visual review and body registration; no automatic cleanup scheduler or
+  model execution adapter is introduced.
+
 ## Unreleased output ownership observations and locked candidate anchors
 
 - New host output review V2 binds the compiler-derived complete owned/foreign
