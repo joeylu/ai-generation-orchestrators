@@ -613,8 +613,11 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       for (const effect of record.node.props.interaction.effects) {
         if (effect.kind === 'dialog-open') {
           const target = record.scope.records.get(effect.targetId);
-          if (effect.open && target?.node.type === 'Dialog' && !target.node.props.open) target.dialogOpener = record;
+          const opening = effect.open && target?.node.type === 'Dialog' && !target.node.props.open;
+          if (opening) target.dialogOpener = record;
           api.setValue(effect.targetId, effect.open);
+          // Focus transfer belongs to this actual opener, not direct state writes.
+          if (opening) setKeyboardFocus([...record.scope.records.values()].find(keyboardEligible));
         }
         else if (effect.kind === 'input-step') {
           const next = nextInputStep(record.scope.document, effect);
@@ -2532,7 +2535,6 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
             record.presentation.dialogScale = getMotionStyle(motionStyle ?? 'corporate').enterScale; record.presentation.dialogAlpha = 0;
           }
           record.redraw?.(); refreshVisibility(record); updateDialogBlocker(record);
-          if (!wasOpen || wasClosing) setKeyboardFocus([...record.scope.records.values()].find(keyboardEligible));
           if (!wasOpen || wasClosing) { runSystemAction(record, 'open'); emit(record, 'open', 'control'); }
         } else {
           record.dialogClosing = (wasOpen || wasClosing) && hasAction(record, 'close'); record.redraw?.(); refreshVisibility(record); updateDialogBlocker(record);

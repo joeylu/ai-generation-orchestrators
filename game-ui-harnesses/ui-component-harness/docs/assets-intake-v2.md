@@ -1,9 +1,11 @@
 # Single-package material intake and Agent planning
 
-Implemented locally and offline. The only material format authority is the
-producer's [assets-package-v2 contract](../../ui-decomposition-harness/docs/assets-package-v2.md)
-and [schema](../../ui-decomposition-harness/references/assets-package-v2.schema.json).
-This consumer does not define a competing material schema.
+Implemented locally and offline. This checkpoint ships the consumer's strict
+v2 validation. The producer's format authorities are the separate upstream
+`assets-package-v2.md` contract and `assets-package-v2.schema.json` schema; those
+documents are not included in this isolated component checkpoint. Review them
+with the producer delivery when checking its package format. This consumer does
+not define a competing material schema.
 
 `importDecompositionZip` explicitly dispatches archives containing `manifest.json`
 to v2. Unsupported kinds/versions fail; they never fall back to legacy. Archives

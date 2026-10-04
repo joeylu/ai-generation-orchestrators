@@ -3191,3 +3191,39 @@ at the user's request; zero native model dispatches and no global login/proxy
 changes. Details and fingerprints remain under
 work/ui-component-harness/version-checkpoint-20261005-r001/ and the separate
 codex-connectivity-20261005-r001/ paused preflight evidence directory.
+
+### 2026-10-05 Isolated checkpoint CI repair
+
+The user authorizes pushing the component checkpoint without other pipelines.
+The isolated branch contains only the component checkpoint over published tony;
+the shared working tree and index remain unchanged. CI run 37221087698 fails:
+four Python matrix jobs identify the same two missing links in this checkpoint's
+assets-intake-v2 documentation; the UI job passes build, unit tests and self-test,
+then records 168 browser passes, two failures and one pre-existing skip.
+
+The keyboard failure is reproduced locally on the exact pushed tree. Direct
+Dialog state writes incorrectly transfer focus to a modal close Button, so the
+next Space closes the modal. Focus transfer now belongs only to actual internal
+Button open effects; direct state writes retain the existing blocked-focus
+teardown and Tab entry. Regression coverage checks blocked keys, held activation,
+actual opener focus, modal containment, focus restoration and close presentation.
+
+The other UI failure is a test reading the strict getDocument getter before
+asynchronous mount finishes. A shared public-inspection readiness helper is used
+by state-template and modal tests, with the original exact document identity and
+paint measurements retained. The mask case explicitly delays real image decode
+and still validates all native row rectangles and the independent marker.
+The material-intake documentation now states that the producer contract/schema
+are separate upstream artifacts absent from this isolated checkpoint; no producer
+files are added or changed and no tests or gates are removed.
+
+Executed after repair: build/typecheck PASS; 17 relevant actual browser tests
+PASS with zero retries/flaky/skips; after the readiness refactor, six affected
+browser cases PASS again; the existing repository-wide document-link regression
+PASS; git diff --check PASS. Browser plugin not available: existing Playwright
+workflow uses local Edge at an isolated localhost port and retains screenshots,
+traces, original CI logs and intermediate failures under the ignored work area.
+No other Harness code, workflow, shared branch/index, global login/proxy setting,
+native Codex model request, image generation or deployment is changed. This is
+deterministic CI repair, with nativeFullChainPassed=false and human visual review
+still pending. New remote CI results are recorded separately after the push.

@@ -138,7 +138,9 @@ remain exact; normal-template coordinates govern labels, hits and indicators.
 Only an explicit independent policy permits differently sized active templates.
 
 Keyboard Tab and Shift+Tab wrap inside the current top modal Dialog. Actual
-internal Button open effects establish transient opener references; closing
+internal Button open effects transfer focus and establish transient opener
+references. Direct Dialog state changes clear blocked component focus without
+activating a modal control; the next Tab enters the current modal. Closing
 returns focus to an eligible opener after the close presentation finishes.
 Initial open Dialogs do not invent an opener, and those references are not portable
 saved state. Nonmodal canvas navigation retains its existing exit behavior.
