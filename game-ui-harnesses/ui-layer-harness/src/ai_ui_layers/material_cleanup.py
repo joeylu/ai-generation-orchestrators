@@ -1,5 +1,6 @@
 """Bounded single-material edit exchange; preparation and replay never call a model."""
 import json
+import re
 from pathlib import Path
 
 from PIL import Image
@@ -10,6 +11,8 @@ from . import ownership_observation as ownership
 
 
 KIND = 'ui_material_cleanup_v1'
+PROMPT_VERSION = 'cleanup-delete-direct-v2'
+LEGACY_PROMPT_VERSION = 'cleanup-catalog-v1'
 SCHEMA = dict(type='object', additionalProperties=False,
     required=['kind','materialId','ownedOnly','removeForeign','sourceSize','contextGeometry','ownershipRegion','preserveText'],
     properties=dict(kind=dict(const=KIND),materialId=dict(type='string',minLength=1),
@@ -90,7 +93,7 @@ def _inputs(snapshot, material_id, cell):
     return result
 
 
-def _prompt(inputs):
+def _prompt_v1(inputs):
     return ('Single-material clean-plate EDIT. Image 1 is the actual contaminated generated material; '
         'image 2 is the original local context reference, not another output to copy. '
         'Return exactly one PNG material on the same '+str(inputs['sourceSize'][0])+' x '+
@@ -111,6 +114,51 @@ def _prompt(inputs):
         'preserveText: '+json.dumps(inputs['preserveText'],ensure_ascii=False)+'\n'
         'ownedOnly: '+json.dumps(inputs['ownedOnly'],ensure_ascii=False,sort_keys=True)+'\n'
         'removeForeign: '+json.dumps(inputs['removeForeign'],ensure_ascii=False,sort_keys=True)+'\n')
+
+
+def _name(identifier):
+    """Readable identifier words, with no inferred appearance or sample vocabulary."""
+    separated=re.sub(r'(?<=[a-z0-9])(?=[A-Z])',' ',identifier)
+    return re.sub(r'[_\-\s]+',' ',separated).strip()
+
+
+def _prompt_v2(inputs):
+    width,height=inputs['sourceSize']
+    lines=[
+        'CLEAN-PLATE EDIT: DELETE the listed foreign objects from image 1.',
+        'Return one PNG containing ONLY the owned objects below. Everything else must be absent.',
+        'For every DELETE entry remove the whole object: body, frame, contents, shadow and text. '
+        'Replace it with the underlying owned surface; do not leave an empty card/frame or cut a new hole.',
+        'removeForeign:',
+    ]
+    # One explicit action for every catalog member. Never repeat foreign appearance
+    # prose (which may itself say "preserve") as a positive drawing instruction.
+    for item in inputs['removeForeign']:
+        lines.append('- DELETE '+_name(item['objectId'])+' ['+item['materialId']+'/'+item['objectId']+'].')
+    lines.extend([
+        'ownedOnly — the ONLY KEEP list:',
+        *['- KEEP '+item['objectId']+': '+item['appearance'] for item in inputs['ownedOnly']],
+        'Image 2 provides ONLY the original shape, aspect ratio and relative layout of these owned objects. '
+        'Do not copy its foreign children, cards, items, icons or buttons into the result.',
+        'Correct an incorrect owned body shape using image 2. Preserve owned texture identity, '
+        'decorations, lighting, holes and their relative layout; do not move decorations independently.',
+        'Remove ordinary business labels and numbers. Text allowed to remain: '+
+            (json.dumps(inputs['preserveText'],ensure_ascii=False) if inputs['preserveText'] else 'NONE')+'.',
+        'Use the same '+str(width)+' x '+str(height)+' pixel canvas. Preserve continuous soft alpha; '
+        'zero RGB where alpha is zero. No added objects, collage or sheet.',
+        'Image 2 ownership targetBox (pixels): '+str(inputs['contextGeometry']['targetBox'])+
+        ' in reference size '+str(inputs['contextGeometry']['referenceSize'])+'. This locates ownership; '
+        'it is not a measured body box and must not be filled or used to stretch artwork.',
+        'Final check: every DELETE object is absent; only the KEEP list remains.',
+    ])
+    return '\n'.join(lines)+'\n'
+
+
+def _prompt(inputs, version=LEGACY_PROMPT_VERSION):
+    """Version dispatch preserves byte-for-byte replay of historical frozen prompts."""
+    if version==LEGACY_PROMPT_VERSION:return _prompt_v1(inputs)
+    if version==PROMPT_VERSION:return _prompt_v2(inputs)
+    raise ValueError('CLEANUP_PROMPT_VERSION')
 
 
 def prepare_cleanup(snapshot, expected_digest, output, material_id, source_job,
@@ -138,8 +186,8 @@ def prepare_cleanup(snapshot, expected_digest, output, material_id, source_job,
         (folder/'reference-context.png').write_bytes(png_bytes(reference.crop(inputs['contextGeometry']['cropRegion'])))
     save(folder/'inputs.json',inputs);save(folder/'schema.json',SCHEMA)
     save(folder/'source-lineage.json',lineage)
-    (folder/'prompt.txt').write_text(_prompt(inputs),encoding='utf-8')
-    binding=dict(kind=KIND,materialId=material_id,sourceJob=str(source_job),
+    (folder/'prompt.txt').write_text(_prompt(inputs,PROMPT_VERSION),encoding='utf-8')
+    binding=dict(kind=KIND,promptVersion=PROMPT_VERSION,materialId=material_id,sourceJob=str(source_job),
         sourceRequestId=request_id,sourceLineageSha256=digest(folder/'source-lineage.json'),
         sourceCellSha256=digest(folder/'cleanup-source.png'),
         files={p.name:digest(p) for p in sorted(folder.iterdir())})
@@ -187,7 +235,8 @@ def verify_cleanup(job, config, index):
             raise ValueError('CLEANUP_CONTEXT_CHANGED')
     if read(folder/'inputs.json')!=inputs or read(folder/'schema.json')!=SCHEMA:
         raise ValueError('CLEANUP_CATALOG_CHANGED')
-    if (folder/'prompt.txt').read_text(encoding='utf-8')!=_prompt(inputs):
+    # Jobs frozen before prompt versioning have the exact historical v1 prompt.
+    if (folder/'prompt.txt').read_text(encoding='utf-8')!=_prompt(inputs,binding.get('promptVersion',LEGACY_PROMPT_VERSION)):
         raise ValueError('CLEANUP_PROMPT_CHANGED')
     return binding
 

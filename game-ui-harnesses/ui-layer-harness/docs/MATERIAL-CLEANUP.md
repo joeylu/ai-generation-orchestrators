@@ -44,3 +44,39 @@ cleanup source.
 Offline regression coverage: `python -m unittest discover -s tests -p
 test_material_cleanup.py`. Fixtures create PNGs and exchange receipts locally;
 they never call generation tools or private services.
+
+## Versioned direct deletion prompts
+
+New preparations bind `cleanup.promptVersion=cleanup-delete-direct-v2` in the
+job digest. Each foreign catalog member produces one direct `DELETE` action
+using readable identifier words and its exact material/object ID. Foreign
+appearance descriptions, relation details and JSON geometry are excluded from
+the model prompt. Some foreign appearance descriptions contain their own
+"preserve" instructions; repeating them in an edit prompt can conflict with the
+intended removal. The full unmodified catalog, including those descriptions
+and locations, remains frozen in `inputs.json` and continues to participate in
+hash and deterministic replay verification.
+
+Owned appearance descriptions form the sole positive `KEEP` list. The original
+context image determines only the owned body shape and relative layout; its
+foreign children must not be copied into the result. Deleting a foreign card
+includes its frame, contents, shadow and text, then reconstructs the underlying
+owned surface. It does not leave an empty card or create a new hole.
+
+Historical jobs with no prompt version retain `cleanup-catalog-v1` replay with
+the original prompt bytes. Explicit v1 bindings also replay that format. Unknown
+versions fail. Preparation always uses v2 for a fresh job; it does not migrate
+an existing job, modify a frozen runtime or resubmit a terminal attempt.
+
+Offline tests verify all foreign members have deletion actions, foreign prose
+cannot become drawing instructions, owned descriptions remain present, a fixed
+historical v1 prompt digest is unchanged, and legacy jobs still replay. They also
+reject catalog tampering and unknown versions. These checks establish compiler
+and exchange behavior; they do not establish a successful visual cleanup.
+
+A small next validation can use one fresh v2 job for one previously failed
+material, sourced from its original received generation job. Inspect that result
+for complete foreign removal and preservation of every owned object before
+considering a second material. The fresh job requires its own bound compute
+authorization and has maximum one call with no automatic retry. A retained
+foreign object remains a failed cleanup and must not enter a replacement package.

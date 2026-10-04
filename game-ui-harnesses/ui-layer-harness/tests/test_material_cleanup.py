@@ -1,6 +1,7 @@
 """Offline receipt fixtures only; no image generation or external services."""
 import _bootstrap
 import json
+import hashlib
 import unittest
 from PIL import Image, ImageDraw
 
@@ -117,6 +118,69 @@ class MaterialCleanupTests(unittest.TestCase):
         self.assertFalse((job/'authorization.json').exists())
         self.assertEqual(ex.status(job)['status'],'awaiting_authorization')
         with patch('sys.argv',args+['--context-prompt-version','v7']),self.assertRaises(SystemExit):main()
+
+    def test_direct_delete_prompt_covers_every_foreign_member_without_appearance_prose(self):
+        job,config=self.prepare()
+        inputs=read(job/'cleanup/inputs.json');prompt=(job/'cleanup/prompt.txt').read_text(encoding='utf-8')
+        self.assertEqual(config['cleanup']['promptVersion'],cleanup.PROMPT_VERSION)
+        self.assertEqual(prompt.count('- DELETE '),len(inputs['removeForeign']))
+        for item in inputs['removeForeign']:
+            self.assertIn('['+item['materialId']+'/'+item['objectId']+']',prompt)
+        for item in inputs['ownedOnly']:
+            self.assertIn('- KEEP '+item['objectId']+': '+item['appearance'],prompt)
+        self.assertIn('Do not copy its foreign children',prompt)
+        altered=json.loads(json.dumps(inputs))
+        for item in altered['removeForeign']:
+            item['appearance']='FOREIGN_APPEARANCE_MUST_NOT_BE_A_DRAWING_INSTRUCTION; preserve shiny details. '*30
+        # Foreign descriptions remain complete in frozen inputs but cannot affect
+        # the new drawing prompt or make it request those visual details.
+        self.assertEqual(cleanup._prompt(altered,cleanup.PROMPT_VERSION),prompt)
+        self.assertLess(len(prompt),len(cleanup._prompt(altered)))
+        self.assertNotIn('FOREIGN_APPEARANCE_MUST_NOT',prompt)
+
+    def test_generic_foreign_identifiers_are_word_split_and_not_sample_specific(self):
+        inputs=dict(sourceSize=[80,60],contextGeometry=dict(targetBox=[1,2,79,58],referenceSize=[80,60]),
+            ownershipRegion=[0,0,80,60],preserveText=[],
+            ownedOnly=[dict(objectId='frame',appearance='owned wood')],
+            removeForeign=[dict(materialId='controlCluster',objectId='confirmButton',appearance='foreign metal'),
+                           dict(materialId='controlCluster',objectId='counter-badge_2',appearance='foreign glass')])
+        prompt=cleanup._prompt(inputs,cleanup.PROMPT_VERSION)
+        self.assertIn('- DELETE confirm Button [controlCluster/confirmButton].',prompt)
+        self.assertIn('- DELETE counter badge 2 [controlCluster/counter-badge_2].',prompt)
+        self.assertNotIn('foreign metal',prompt);self.assertNotIn('foreign glass',prompt)
+
+    def test_historical_prompt_bytes_and_job_without_version_replay(self):
+        inputs=dict(sourceSize=[80,60],contextGeometry=dict(targetBox=[1,2,79,58],referenceSize=[80,60]),
+            ownershipRegion=[0,0,80,60],preserveText=[],
+            ownedOnly=[dict(objectId='frame',appearance='owned wood')],
+            removeForeign=[dict(materialId='child',objectId='child_card',appearance='foreign metal')])
+        self.assertEqual(hashlib.sha256(cleanup._prompt(inputs).encode('utf-8')).hexdigest(),
+                         '6b4edfe6257ea2525e70abe6efeffcee3804d946697b9d7b0e072095319b118a')
+        job,config=self.prepare();real_inputs=read(job/'cleanup/inputs.json')
+        legacy_prompt=cleanup._prompt(real_inputs)
+        # Only this unapproved offline fixture is constructed in the legacy
+        # format; no real frozen job is migrated or rewritten by production.
+        (job/'cleanup/prompt.txt').write_text(legacy_prompt,encoding='utf-8')
+        config={k:v for k,v in config.items() if k!='digest'}
+        config['cleanup'].pop('promptVersion')
+        config['cleanup']['files']['prompt.txt']=digest(job/'cleanup/prompt.txt')
+        from ai_ui_layers.freeze_visual import body_digest
+        config['digest']=body_digest(config)
+        (job/'job.json').write_text(json.dumps(config),encoding='utf-8')
+        loaded,index=ex.load_job(job)
+        self.assertEqual(ex.frozen_request_arguments(job,loaded,index[self.mid])['prompt'],legacy_prompt.rstrip('\n'))
+
+    def test_catalog_tamper_and_unknown_prompt_version_are_rejected(self):
+        job,config=self.prepare();inputs=read(job/'cleanup/inputs.json')
+        inputs['removeForeign'].pop()
+        (job/'cleanup/inputs.json').write_text(json.dumps(inputs),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'CLEANUP_INPUT_CHANGED'):
+            ex.authorize(job,config['digest'],'offline fixture approval')
+        other,other_config=self.prepare('unknown-version')
+        _,index=ex.load_job(other)
+        other_config['cleanup']['promptVersion']='unknown-future-version'
+        with self.assertRaisesRegex(ValueError,'CLEANUP_PROMPT_VERSION'):
+            cleanup.verify_cleanup(other,other_config,index)
 
 
 if __name__=='__main__':unittest.main()
