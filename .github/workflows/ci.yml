@@ -33,6 +33,8 @@ jobs:
       - run: node scripts/build-layer-viewer.mjs
       - run: npm test
       - run: npm run self-test
+      - name: Verify installed component distribution offline
+        run: npm run test:distribution
       # Contract probes import /src modules; npm test also checks the built CLI.
       - name: Run browser acceptance
         env:
@@ -48,6 +50,15 @@ jobs:
         with:
           name: ui-browser-failure-evidence
           path: game-ui-harnesses/ui-component-harness/test-results/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: ui-distribution-failure-evidence
+          path: |
+            game-ui-harnesses/ui-component-harness/.tmp/distribution-*/*.json
+            game-ui-harnesses/ui-component-harness/.tmp/distribution-*/*.log
+            game-ui-harnesses/ui-component-harness/.tmp/distribution-*/*.png
           if-no-files-found: ignore
 
   test:

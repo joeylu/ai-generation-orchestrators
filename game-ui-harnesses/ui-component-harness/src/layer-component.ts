@@ -1,5 +1,6 @@
 /** Bind a reviewed UI layer package to an explicit v0.2 component document. */
 import { createBundle, type UiBundle } from './bundle.ts';
+import { validateBoundLayerSemanticInputs, assertLayerSemanticInputs, type BoundLayerSemanticInputs } from './layer-semantic-inputs.ts';
 import { importLayerPackage, type LayerPackage } from './layer-package.ts';
 import { treeResourceReferences } from './tree-resources.ts';
 import { validateDocument, type UiDocument } from './tree-contract.ts';
@@ -27,6 +28,7 @@ export interface LayerComponentPlan {
   planningEvidence?: LayerPlanningEvidence;
   adaptations?: LayerAdaptation[];
   layoutChecks?: LayerLayoutChecks;
+  semanticInputs?: BoundLayerSemanticInputs;
 }
 export interface PersistedLayerSource { sha256: string; base64: string; planSha256: string; plan: LayerComponentPlan }
 
@@ -83,7 +85,8 @@ export async function validateLayerComponentPlan(input: unknown, sourceSha256: s
   const hasEvidence = !!input && typeof input === 'object' && Object.hasOwn(input, 'planningEvidence');
   const hasAdaptations = !!input && typeof input === 'object' && Object.hasOwn(input, 'adaptations');
   const hasLayoutChecks = !!input && typeof input === 'object' && Object.hasOwn(input, 'layoutChecks');
-  const data = object(input, ['kind', 'version', 'archiveSha256', 'basis', 'requirements', 'document', 'bindings', 'unusedLayers', ...(hasEvidence ? ['planningEvidence'] : []), ...(hasAdaptations ? ['adaptations'] : []), ...(hasLayoutChecks ? ['layoutChecks'] : [])], 'LAYER_PLAN_FIELDS');
+  const hasSemanticInputs = !!input && typeof input === 'object' && Object.hasOwn(input, 'semanticInputs');
+  const data = object(input, ['kind', 'version', 'archiveSha256', 'basis', 'requirements', 'document', 'bindings', 'unusedLayers', ...(hasEvidence ? ['planningEvidence'] : []), ...(hasAdaptations ? ['adaptations'] : []), ...(hasLayoutChecks ? ['layoutChecks'] : []), ...(hasSemanticInputs ? ['semanticInputs'] : [])], 'LAYER_PLAN_FIELDS');
   if (data.kind !== 'ui-layer-component-plan' || data.version !== LAYER_COMPONENT_PLAN_VERSION) fail('LAYER_PLAN_VERSION');
   if (data.archiveSha256 !== sourceSha256) fail('LAYER_PLAN_SOURCE_STALE');
   if (!['agent-reviewed', 'vision-proposed', 'model-proposed', 'programmatic-fixture'].includes(String(data.basis))) fail('LAYER_PLAN_BASIS');
@@ -91,6 +94,8 @@ export async function validateLayerComponentPlan(input: unknown, sourceSha256: s
   if (data.basis === 'model-proposed' && !isPortableLayerPlanningNote(data.requirements, 500)) fail('LAYER_PLAN_REQUIREMENTS');
   const document = validateDocument(data.document);
   const layoutChecks = hasLayoutChecks ? validateLayerLayoutChecks(data.layoutChecks, document) : undefined;
+  const semanticInputs = hasSemanticInputs ? await validateBoundLayerSemanticInputs(data.semanticInputs) : undefined;
+  if (semanticInputs) assertLayerSemanticInputs(semanticInputs, document);
   if (data.basis === 'model-proposed' && !hasEvidence) fail('LAYER_PLAN_EVIDENCE_REQUIRED');
   const planningEvidence = hasEvidence ? validateLayerPlanningEvidence(data.planningEvidence, document) : undefined;
   const layers = new Map(pack.composition.layers.map(layer => [layer.id, layer]));
@@ -138,7 +143,7 @@ export async function validateLayerComponentPlan(input: unknown, sourceSha256: s
   if (accounted.size !== layers.size) fail('LAYER_PLAN_UNACCOUNTED_LAYER');
   return { kind: 'ui-layer-component-plan', version: LAYER_COMPONENT_PLAN_VERSION,
     archiveSha256: sourceSha256, basis: data.basis as LayerComponentPlan['basis'], requirements: data.requirements as string,
-    document, bindings, unusedLayers, ...(planningEvidence ? { planningEvidence } : {}), ...(adaptations ? { adaptations } : {}), ...(layoutChecks ? { layoutChecks } : {}) };
+    document, bindings, unusedLayers, ...(planningEvidence ? { planningEvidence } : {}), ...(adaptations ? { adaptations } : {}), ...(layoutChecks ? { layoutChecks } : {}), ...(semanticInputs ? { semanticInputs } : {}) };
 }
 
 export async function intakeLayerComponents(bytes: Uint8Array) {

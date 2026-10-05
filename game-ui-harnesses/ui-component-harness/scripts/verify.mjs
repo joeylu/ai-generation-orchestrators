@@ -17,7 +17,7 @@ const redact = text => text.replaceAll(root.replaceAll('\\', '/'), '<harness>').
   .replace(/\x1b\[[0-9;]*m/g, '').replaceAll(process.env.USERPROFILE || '/nonexistent-user-home', '<user-home>');
 const commands = [
   ['build', ['run', 'build']], ['unit', ['test']], ['self-test', ['run', 'self-test']],
-  ['doctor', ['run', 'doctor']], ['browser', ['run', 'test:browser']],
+  ['doctor', ['run', 'doctor']], ['distribution', ['run', 'test:distribution']], ['browser', ['run', 'test:browser']],
 ];
 const results = [];
 for (const [name, args] of commands) {
@@ -47,7 +47,7 @@ function fingerprint(directory) {
   }
 }
 for (const directory of ['src', 'tests', 'scripts', 'skills', 'examples', 'docs', 'agents']) fingerprint(resolve(root, directory));
-for (const name of ['package.json', 'package-lock.json', 'playwright.config.ts', 'vite.config.ts', 'index.html', 'workbench.html', 'SKILL.md', 'skill.json'])
+for (const name of ['package.json', 'package-lock.json', 'playwright.config.ts', 'vite.config.ts', 'vite.browser.config.ts', 'tsconfig.lib.json', 'index.html', 'workbench.html', 'reference-acceptance.html', 'layer-plan-check.html', 'SKILL.md', 'skill.json'])
   sources[name] = createHash('sha256').update(readFileSync(resolve(root, name))).digest('hex');
 let browser;
 if (results.some(result => result.name === 'browser')) {

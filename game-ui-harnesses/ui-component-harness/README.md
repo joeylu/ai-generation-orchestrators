@@ -1,8 +1,12 @@
-# UI component Harness · 0.2.0-rc.1
+# UI component Harness · 0.2.0-rc.2
 
 独立的 UI 组件编译与验收工程。局部 UI 图和经过确认的视觉 intent，经明确布局、
 实际资源尺寸和确定性编译，生成引擎无关合同，再由真实 PixiJS 组件在 Web 画布运行。
 单图入口使用可选本地 MCP 识图适配器；图层 ZIP 自动入口使用下述 Codex session。
+
+发布包提供独立 Node、browser、standalone browser、planning 和 render 子入口；
+明确的用户初态/数值可冻结为语义输入，由程序绑定摘要并验证每轮方案。
+见[安装后的运行包合同](docs/consumer-runtime.md)。版本字段本身不代表原生完整链路通过。
 
 正式目录为 `game-ui-harnesses/ui-component-harness/`。它与相邻的
 [UI decomposition](../ui-decomposition-harness/) 分别安装、维护，不绑定游戏初始包。

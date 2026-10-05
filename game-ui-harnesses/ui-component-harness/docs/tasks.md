@@ -3227,3 +3227,50 @@ No other Harness code, workflow, shared branch/index, global login/proxy setting
 native Codex model request, image generation or deployment is changed. This is
 deterministic CI repair, with nativeFullChainPassed=false and human visual review
 still pending. New remote CI results are recorded separately after the push.
+
+### 2026-10-05 Installed consumer runtime and frozen semantic inputs
+
+The user requests upstream gaps to be completed before a Docker-only development
+handoff. Docker will implement its service, then issue the actual API contract
+before Web work starts. Changes use an isolated component branch based on
+4fd4615; shared checkout/index and other Harness code remain untouched.
+
+Package 0.2.0-rc.2 now includes compiled planning/render helpers, the actual check
+page/assets and prompt/type contracts, separate browser/standalone entries, and
+complete HTML/Vite inputs in the source ZIP. A loopback static check host rejects
+API/write/query/foreign-host/path requests and guarantees idempotent shutdown.
+Actual installed rendering exposed a Chromium-unsafe OS-selected port; host
+selection now excludes that range before browser launch, with targeted regression.
+
+Explicit user control facts have a strict bounded public schema and canonical
+digest. DAG and optional planner clone/freeze them before dispatch; the program
+attaches them to validated plans, checks initial values, and persists them in
+Bundle 0.4. Wrong completed drafts use only the existing same-session budget.
+Collection verifies per-run/per-turn bindings and refuses changed or retrofitted
+facts. Historical no-facts plans remain valid. Execution receipt validation is
+engine-neutral and no longer requires a Studio implementation in installed code.
+An equivalent facts object with reordered JSON keys initially failed collection;
+the bound value now uses the digest's canonical representation, preserving exact
+prompt verification and rejecting actual changes while accepting key reordering.
+
+Executed here: build/typecheck PASS; all 658 unit tests PASS with no skips;
+12 affected actual layer-component browser cases PASS with no retries/skips;
+actual npm pack/extract without checkout src PASS for Node import without browser
+globals, prompt discovery, semantic library/CLI compile, self-test and doctor;
+installed Pixi acceptance PASS; standalone SDK actual mouse/Tab/Enter/ArrowRight,
+disabled activation, Switch/Slider states, strict frozen-field refusal and allowed
+state export/reopen PASS; exact source ZIP/PNG bytes and teardown/no outbound
+requests PASS; source ZIP member checksums and extracted build with existing
+locked dev tools PASS. npm run test:distribution retains original failures and
+fresh final evidence and is included in the component CI job.
+
+This execution uses Windows, Node 25.9.0, Edge/software WebGL and procedural
+fixtures/process doubles. It performs zero real model dispatches and no image
+generation, login/proxy change, deployment or consumer-project code change.
+Fresh registry installation, this candidate's remote CI, target Linux/Node 24
+container readiness/native chain and human visual review remain unexecuted.
+The earlier base CI and simulated-subagent sample evidence are historical;
+nativeFullChainPassed=false and humanVisualAcceptance=false. Candidate artifacts
+are development inputs; production still requires an immutable tagged release
+and verified artifact digest. Docker-only handoff/evidence stays in the ignored
+work area, outside the public provider-neutral runtime.

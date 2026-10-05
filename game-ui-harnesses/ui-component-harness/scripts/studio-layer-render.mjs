@@ -11,7 +11,7 @@ export async function checkLayerPlanRender(bundle, { origin, folder, signal, lau
   const timeout = setTimeout(() => { timedOut = true; void browser?.close(); }, 45000);
   try {
     const launch = launchBrowser ?? (async () => {
-      const { chromium } = await import('@playwright/test');
+      const { chromium } = await import('playwright');
       return chromium.launch({ ...(process.platform === 'win32' ? { channel: 'msedge' } : {}), headless: true,
         args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
     });

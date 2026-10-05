@@ -7,5 +7,5 @@
     "rootDir": "src",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/index.ts"]
+  "include": ["src/index.ts", "src/browser.ts"]
 }

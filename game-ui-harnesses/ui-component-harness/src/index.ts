@@ -24,6 +24,8 @@ export * from './assets-intake.ts';
 export * from './layer-package.ts';
 export * from './layer-component.ts';
 export * from './layer-auto-dag.ts';
+export * from './layer-semantic-inputs.ts';
+export * from './layer-plan-execution.ts';
 export * from './layer-planning-evidence.ts';
 export * from './layer-adaptation.ts';
 export * from './layer-preview.ts';

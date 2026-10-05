@@ -17,6 +17,48 @@ const events = [
   { type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 10 } },
 ];
 
+test('frozen user facts survive same-session correction and collection rejects changed external or recorded facts', async () => {
+  const fixture = await layerPlanningFixture(), directory = await mkdtemp(join(tmpdir(), 'semantic-session-test-'));
+  const facts = { version: '1.0', controls: [{ subject: 'PLAY', target: { type: 'Button', label: 'PLAY' }, values: { enabled: true } }] };
+  let calls = 0; const prompts: string[] = [];
+  const spawnProcess = (_exe: string, args: string[]) => {
+    const round = calls++, proposal = structuredClone(fixture.proposal);
+    assert.equal(args.includes('resume'), round === 1);
+    if (round === 1) assert.ok(args.includes(events[0].thread_id!));
+    if (round === 0) (proposal.plan.document.root.children.find(node => node.type === 'Button')!.props as any).enabled = false;
+    const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), kill() { child.emit('close', null); } });
+    let prompt = ''; child.stdin.on('data', part => { prompt += part.toString(); });
+    child.stdin.once('finish', () => {
+      prompts.push(prompt); const { plan, ...envelope } = proposal;
+      const text = JSON.stringify({ ...envelope, planJson: JSON.stringify(plan) });
+      void writeFile(args[args.indexOf('--output-last-message') + 1], text).then(() => {
+        child.stdout.write(events.map(event => JSON.stringify(event.type === 'item.completed' ? { ...event, item: { ...event.item, text } } : event)).join('\n'));
+        child.emit('close', 0);
+      });
+    }); return child;
+  };
+  try {
+    const planner = createCodexLayerPlanner({ executable: process.execPath, env: {}, stateRoot: directory,
+      spawnProcess, checkAuthentication: async () => true, checkRender: async () => fixturePassedRender(fixture.proposal.plan.document) });
+    const result = await planner.planRun(fixture.bytes, { semanticInputs: facts });
+    assert.equal(calls, 2); assert.equal(result.execution.corrections, 1);
+    assert.ok(prompts.every(prompt => prompt.includes('semanticInputs') || prompt.includes('Frozen user semantic inputs')));
+    assert.ok(prompts[1].includes('LAYER_PLAN_SEMANTIC_MISMATCH'));
+    const folder = join(directory, (await readdir(directory))[0]);
+    const collected = await collectCodexLayerPlan(fixture.bytes, folder, { semanticInputs: facts });
+    assert.equal(collected.receipt.semanticInputsSha256.length, 64); assert.equal(collected.receipt.modelDispatches, 0);
+    const reordered = { controls: [{ values: { enabled: true }, target: { label: 'PLAY', type: 'Button' }, subject: 'PLAY' }], version: '1.0' };
+    assert.equal((await collectCodexLayerPlan(fixture.bytes, folder, { semanticInputs: reordered })).receipt.semanticInputsSha256,
+      collected.receipt.semanticInputsSha256);
+    const changed = structuredClone(facts); changed.controls[0].values.enabled = false;
+    await assert.rejects(collectCodexLayerPlan(fixture.bytes, folder, { semanticInputs: changed }), /SOURCE_STALE/);
+    const stored = JSON.parse(await readFile(join(folder, 'semantic-inputs.json'), 'utf8'));
+    stored.value.controls[0].values.enabled = false;
+    await writeFile(join(folder, 'semantic-inputs.json'), JSON.stringify(stored));
+    await assert.rejects(collectCodexLayerPlan(fixture.bytes, folder), /DIGEST/);
+  } finally { assert.equal(dirname(directory), resolve(tmpdir())); await rm(directory, { recursive: true, force: true }); }
+});
+
 test('offline same-session correction receives an exact path diagnostic for a layer ID image reference', async () => {
   const fixture = await layerPlanningFixture();
   const directory = await mkdtemp(join(tmpdir(), 'layer-resource-path-test-'));

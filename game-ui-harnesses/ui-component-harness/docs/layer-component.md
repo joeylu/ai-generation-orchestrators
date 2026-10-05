@@ -285,3 +285,13 @@ visible heading, with its original strict overflow and layout checks. Actual pai
 inspection measures Graphics mask geometry directly because Pixi marks mask
 objects unmeasurable for ordinary container bounds. Masked row/icon/text regions
 stay measurable and clipped; renderer flags and gate targets are unchanged.
+
+## Installed consumer entries and explicit initial facts
+
+Package 0.2.0-rc.2 includes compiled planning/render adapters, an isolated local
+check host, and separate typed/browser standalone entries. Explicit initial user
+facts may be bound to the plan with a canonical digest; every proposed initial
+value is verified before compilation and the original facts survive Bundle 0.4
+state saves. This supplies no missing defaults or execution authorization.
+See [installed runtime contract](consumer-runtime.md) for entry APIs, semantic
+fields, immutable versus saved values, and the actual packed/source regression.
