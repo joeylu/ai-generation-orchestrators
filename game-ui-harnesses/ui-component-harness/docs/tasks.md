@@ -3288,10 +3288,23 @@ The retained trace locates the delay in Image exit: its exact idle wait takes
 Clear completes before the next assertion starts at 45,009 ms, after the shared
 45,000 ms test budget. The original failure diagnostics show a null system/style
 and an idle scheduler. No incorrect clear result is observed. The timer-only
-wait depends on headless software WebGL presenting a native frame; the shared
-wait now observes actual canvas pixels before checking the same exact scheduler
-idle condition, following the existing held-press presentation observation.
-No clock is advanced, motion state written, assertion removed or timeout raised.
+wait depends on headless software WebGL presenting a native frame. Original-code
+Linux diagnostic CI 37321025433 passes the same three cases in 37.3-37.9 seconds;
+the full-run timeout depends on rendering/fixture timing, not a wrong clear value.
+
+The first repair's one locator screenshot still fails in Linux diagnostic CI
+37322891306: it waits 31,365.765 ms before element capture, then times out in
+another capture's element-stability wait. Playwright's element screenshot awaits
+RAF-based stability before invoking native capture. Full CI 37322725618 on that
+intermediate commit is explicitly cancelled after this reproduced failure; its
+cancellation is not a pass. Both original failures and traces are preserved.
+
+The final shared wait captures page pixels on every assertion poll, avoiding
+element stability/scroll waits and requesting actual native presentation until
+the same exact scheduler idle condition holds. It retains configured assertion
+and test budgets. No clock is advanced, motion state written, assertion removed,
+target hidden or timeout raised. The existing endpoint/input/pixel assertions
+serve as regression coverage, including all three styles.
 
 Executed locally: all three original profile endpoint cases pass before repair;
 after repair all 22 motion-system browser cases pass with zero retries/skips,

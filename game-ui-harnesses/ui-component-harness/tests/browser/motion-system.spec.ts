@@ -136,17 +136,16 @@ async function waitForMotion(page: Page): Promise<void> {
 }
 
 async function waitForIdle(page: Page): Promise<void> {
-  // Headless software WebGL may defer a native frame while no compositor
-  // presentation is requested. Observing actual canvas pixels requests that
-  // presentation; it does not advance the clock or complete a motion channel.
-  // Keep the scheduler's exact idle condition and the original test timeout.
-  await page.locator('#canvas-host canvas').screenshot();
-  // A timer-backed condition yields to the native WebGL compositor between
-  // observations; it never advances or replaces the scheduler clock.
-  await page.waitForFunction(() => {
-    const scheduler = (window as any).uiHarness.inspectMotionSystem().scheduler;
+  // Observe native compositor pixels on every poll so headless software WebGL
+  // keeps presenting pending RAF work. A locator screenshot first waits for
+  // RAF-based element stability, which can itself stall before capture starts.
+  // Page capture needs no scrolling/stability wait and changes no motion state
+  // or clock. Preserve exact idle checks and the original assertion/test budgets.
+  await expect.poll(async () => {
+    await page.screenshot();
+    const scheduler = (await inspectSystem(page)).scheduler;
     return scheduler.running === 0 && scheduler.pendingFrame === false;
-  }, undefined, { polling: 100 });
+  }, { intervals: [100] }).toBe(true);
 }
 
 async function nodePoint(page: Page, id: string, xRatio = 0.5, yRatio = 0.5): Promise<{ x: number; y: number; bounds: Bounds; scaleX: number; scaleY: number }> {
