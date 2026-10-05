@@ -113,3 +113,44 @@ Offline fixtures cover add/replace order, atomic missing/unusable children,
 wrong/colliding IDs and parent SHA, cross-wrapper observation reuse, real typed
 native return chains, original coordinates and byte identity, faint alpha outside
 viewport, exact reference identity and deterministic replay. No test generates media.
+
+## Explicit complete-body diagnostic export
+
+Optional selection `reviewMode: "complete-body-diagnostic-v1"` is a separate,
+explicit request to place already sealed actual native components for final visual
+comparison despite unresolved geometry issues. Omitted `reviewMode` preserves the
+default atomic gate: unusable geometry still retains the entire parent operation.
+No existing observation, `geo.assess` result, issue or strict gate is changed.
+
+The user instruction passed to `freeze` must be the actual human authorization
+for this diagnostic review, for example the user's intention to inspect the final
+recomposition and then explain the remaining differences and make a human
+acceptance decision. Do not invent approval text or reinterpret compute permission
+as diagnostic authorization. The mode, instruction SHA and exact proposal are
+frozen together and replayed by the new postprocessing runtime. Generating and
+observing versions remain identifiable through their original sealed chains.
+
+An unusable child can use this path only if its original answer is valid and
+`boundaryStatus == "complete"`, with both genuine complete body boxes, a fully
+verified actual native receipt and complete sealed observation evidence. The
+frozen `maximumResidualPixels` must be at most **4**, and the normal positive
+uniform fit must pass that ceiling. Full support rendering remains mandatory.
+This does not force a larger residual, invalid transform or outside clipping
+through. Uncertain/not-whole answers and unresolved landmark answers cannot use
+this diagnostic override. A failed required child still retains the whole parent
+operation without adding siblings.
+
+A placed unresolved complete child records:
+
+- `status: diagnostic-geometry-candidate`;
+- `reason: complete-visible-body-diagnostic-with-unresolved-issues`;
+- `diagnosticOnly: true` and `originalAssessmentUnchanged: true`;
+- the original false `geometryUsableCandidate`, every `geometryIssues` entry and
+  all material findings, together with actual fit residuals and source SHA.
+
+Proposal, operation and result explicitly retain `reviewMode`, `diagnosticOnly:
+true` and `qualitySuccess: false`; exported review issues state diagnostic use.
+All human/strict/DAG flags remain false. An atomic operation being applied here
+means a diagnostic composition was produced, never that the visual problem was
+fixed or a quality gate passed. Final source/reference/viewport comparison and
+the human decision remain outstanding.

@@ -21,6 +21,7 @@ from . import viewport_geometry_revision as viewport
 KIND='ui_archive_component_selection_v1'
 POLICY='atomic-observed-archive-components-v1'
 STORAGE_POLICY=viewport.POLICY
+DIAGNOSTIC_MODE='complete-body-diagnostic-v1'
 FLAGS=dict(viewport.FLAGS)
 SHA=dict(type='string',pattern='^[0-9a-f]{64}$')
 ID=dict(type='string',pattern='^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$')
@@ -39,7 +40,8 @@ SCHEMA=dict(type='object',additionalProperties=False,
     properties=dict(kind=dict(const=KIND),sourceArchive=dict(type='string',minLength=1),
         sourceArchiveSha256=SHA,fitPolicy=deepcopy(observed.SCHEMA['properties']['fitPolicy']),
         operations=dict(type='array',maxItems=128,items=OPERATION),
-        backgroundUpdates=dict(type='array',minItems=1,maxItems=128,items=BACKGROUND)))
+        backgroundUpdates=dict(type='array',minItems=1,maxItems=128,items=BACKGROUND),
+        reviewMode=dict(enum=[DIAGNOSTIC_MODE])))
 
 
 def _sha(data):
@@ -50,6 +52,8 @@ def _preflight(spec):
     Draft202012Validator(SCHEMA).validate(spec)
     tolerance=spec['fitPolicy']['maximumResidualPixels']
     if not math.isfinite(tolerance):raise ValueError('FINITE_RESIDUAL_POLICY_REQUIRED')
+    if spec.get('reviewMode')==DIAGNOSTIC_MODE and tolerance>4:
+        raise ValueError('DIAGNOSTIC_RESIDUAL_CEILING_MAXIMUM_FOUR_PIXELS')
     loaded=exchange.load_archive(spec['sourceArchive'])
     if loaded['sourceArchiveSha256']!=spec['sourceArchiveSha256']:
         raise ValueError('COMPONENT_REVISION_SOURCE_ARCHIVE_CHANGED')
@@ -173,7 +177,9 @@ def _build(spec,loaded,proofs,temp):
                         ('parentLayerId','parentSha256','componentId','component','scope','sourceArchiveSha256',
                          'innerArchiveSha256','sourceSha256','referenceSha256','sourceSize','referenceSize',
                          'editBinding') if k in request})
-                    if not assessment['geometryUsableCandidate']:
+                    diagnostic=(spec.get('reviewMode')==DIAGNOSTIC_MODE and
+                                not assessment['geometryUsableCandidate'] and answer['boundaryStatus']=='complete')
+                    if not assessment['geometryUsableCandidate'] and not diagnostic:
                         child_row['reason']='unresolved-observed-component-geometry';failures.append(cid)
                     else:
                         try:
@@ -186,6 +192,10 @@ def _build(spec,loaded,proofs,temp):
                             children.append((layer,dict(path=str(path),sha256=digest(path))))
                             child_row.update(status='geometry-candidate',reason='actual-observed-uniform-fit',geometry=geometry,
                                 renderedSha256=digest(path),rawSha256=digest(proof['source']))
+                            if diagnostic:
+                                child_row.update(status='diagnostic-geometry-candidate',
+                                    reason='complete-visible-body-diagnostic-with-unresolved-issues',
+                                    diagnosticOnly=True,originalAssessmentUnchanged=True)
                         except ValueError as exc:child_row['reason']=str(exc);failures.append(cid)
                 child_rows.append(child_row)
             applied=not failures
@@ -198,6 +208,8 @@ def _build(spec,loaded,proofs,temp):
             else:
                 for row in child_rows:row['addedToComposition']=True
             records.append(operation_record)
+            if spec.get('reviewMode')==DIAGNOSTIC_MODE:
+                operation_record.update(reviewMode=DIAGNOSTIC_MODE,diagnosticOnly=True,qualitySuccess=False)
         else:applied=False
         keep_parent=op is None or not applied or op['mode']=='append-children'
         if keep_parent:
@@ -241,6 +253,8 @@ def _build(spec,loaded,proofs,temp):
     proposal=dict(kind=KIND,policy=POLICY,storagePolicy=STORAGE_POLICY,sourceArchiveSha256=loaded['sourceArchiveSha256'],
         innerArchiveSha256=loaded['innerArchiveSha256'],fitPolicy=spec['fitPolicy'],viewport=viewport_info,
         operations=records,backgroundUpdates=background_records,lineage=lineage,unchangedLayers=unchanged,composition=composition,**FLAGS)
+    if spec.get('reviewMode')==DIAGNOSTIC_MODE:
+        proposal.update(reviewMode=DIAGNOSTIC_MODE,diagnosticOnly=True,qualitySuccess=False)
     proposal['proposalDigest']=viewport._canonical(proposal)
     return original,composition,sources,reference,proposal
 
@@ -257,9 +271,11 @@ def freeze(selection,output,actual_user_policy_instruction):
         for name in ('world-preview.png','viewport-preview.png'):shutil.copyfile(temp/name,output/name)
     save(output/'selection.json',spec);save(output/'schema.json',SCHEMA)
     save(output/'proposal.json',proposal)
-    save(output/'policy-authorization.json',dict(kind='ui_archive_component_policy_authorization_v1',policy=POLICY,
+    authorization=dict(kind='ui_archive_component_policy_authorization_v1',policy=POLICY,
         storagePolicy=STORAGE_POLICY,actualUserPolicyInstruction=actual_user_policy_instruction,
-        proposalDigest=proposal['proposalDigest'],sourceArchiveSha256=spec['sourceArchiveSha256']))
+        proposalDigest=proposal['proposalDigest'],sourceArchiveSha256=spec['sourceArchiveSha256'])
+    if spec.get('reviewMode')==DIAGNOSTIC_MODE:authorization.update(reviewMode=DIAGNOSTIC_MODE,diagnosticOnly=True)
+    save(output/'policy-authorization.json',authorization)
     return record(output/'freeze.json',dict(kind=KIND,policy=POLICY,storagePolicy=STORAGE_POLICY,approved=True,
         selectionSha256=digest(output/'selection.json'),schemaSha256=digest(output/'schema.json'),
         authorizationSha256=digest(output/'policy-authorization.json'),proposalSha256=digest(output/'proposal.json'),
@@ -284,6 +300,9 @@ def revise(frozen,expected_digest,output,viewer):
         or authorization.get('proposalDigest')!=config['proposalDigest']):
         raise ValueError('COMPONENT_STRUCTURE_AUTHORIZATION_REQUIRED')
     _unchanged(config);spec=read(frozen/'selection.json');loaded,proofs,_=_preflight(spec)
+    if spec.get('reviewMode')==DIAGNOSTIC_MODE and (
+        authorization.get('reviewMode')!=DIAGNOSTIC_MODE or authorization.get('diagnosticOnly') is not True):
+        raise ValueError('EXPLICIT_COMPLETE_BODY_DIAGNOSTIC_AUTHORIZATION_REQUIRED')
     viewport._fresh(output,[frozen,viewer,*config['files'],*config['inventories'],*config['missingPaths']])
     with tempfile.TemporaryDirectory(prefix='component-revision-') as temporary:
         temp=Path(temporary);original,composition,sources,reference,proposal=_build(spec,loaded,proofs,temp)
@@ -293,6 +312,8 @@ def revise(frozen,expected_digest,output,viewer):
         inherited=json.loads(loaded['files']['review.json'])
         issues=list(inherited['issues'])+['Atomic observed components candidate; strict registration and human acceptance remain false.',
                                        'Viewport contract: '+json.dumps(proposal['viewport'],sort_keys=True)]
+        if spec.get('reviewMode')==DIAGNOSTIC_MODE:
+            issues.append('DIAGNOSTIC ONLY: complete visible bodies placed for final comparison; original geometry issues remain unresolved; no quality success.')
         issues.extend('Component operation: '+json.dumps(observed._public(row),ensure_ascii=False,sort_keys=True) for row in proposal['operations'])
         issues.extend('Background update: '+json.dumps(observed._public(row),ensure_ascii=False,sort_keys=True) for row in proposal['backgroundUpdates'])
         package=write_package(reference,composition,sources,output/'delivery',viewer,issues)
@@ -324,4 +345,6 @@ def revise(frozen,expected_digest,output,viewer):
             innerPackageSha256=package['sha256'],viewportArchiveSha256=wrapper['sha256'],viewportArchiveBytes=wrapper['bytes'],
             companionFiles={n:digest(output/'delivery'/n) for n in ('viewport.json','viewport-preview.png',
                 'original-reference.png','viewport-checksums.json')},provenanceSha256=digest(output/'revision-provenance.json'),**FLAGS)
+        if spec.get('reviewMode')==DIAGNOSTIC_MODE:
+            result.update(reviewMode=DIAGNOSTIC_MODE,diagnosticOnly=True,qualitySuccess=False)
         save(output/'result.json',result);return result

@@ -204,4 +204,81 @@ class ComponentRevisionTests(unittest.TestCase):
             revision.revise(self.root/'out-frozen',config['digest'],self.root/'bad',self.viewer)
 
 
+    def test_explicit_complete_body_diagnostic_keeps_assessment_and_issues_unchanged(self):
+        issues=['Fixture source proportions and letter spacing remain different.']
+        child=self.component('diagnostic-icon',issues=issues)
+        original_assessment=read(Path(child['observationDirectory'])/'result.json')
+        default=self.selection([child],name='default-diagnostic-source')
+        unchanged,_=self.export(default,name='default-diagnostic')
+        self.assertEqual(unchanged['operations'][0]['addedComponentIds'],[])
+        self.assertNotIn('diagnosticOnly',unchanged)
+        spec=read(default);spec.update(reviewMode=revision.DIAGNOSTIC_MODE)
+        spec['fitPolicy']['maximumResidualPixels']=4
+        selection=self.root/'diagnostic-selection.json';save(selection,spec)
+        result,config=self.export(selection,name='diagnostic')
+        row=result['operations'][0]['children'][0]
+        self.assertEqual(result['operations'][0]['addedComponentIds'],['diagnostic-icon'])
+        self.assertEqual(row['status'],'diagnostic-geometry-candidate')
+        self.assertEqual(row['reason'],'complete-visible-body-diagnostic-with-unresolved-issues')
+        self.assertTrue(row['diagnosticOnly']);self.assertTrue(row['originalAssessmentUnchanged'])
+        self.assertFalse(row['assessment']['geometryUsableCandidate'])
+        self.assertEqual(row['assessment']['geometryIssues'],issues)
+        self.assertEqual(row['assessment'],{k:v for k,v in original_assessment.items() if k not in ('files','requestSha256')})
+        self.assertTrue(result['diagnosticOnly']);self.assertFalse(result['qualitySuccess'])
+        self.assertFalse(result['strictBodyRegistrationPassed']);self.assertFalse(result['humanVisualAcceptance'])
+        proposal=read(self.root/'diagnostic-frozen/proposal.json')
+        self.assertEqual(proposal['reviewMode'],revision.DIAGNOSTIC_MODE)
+        replay=revision.revise(self.root/'diagnostic-frozen',config['digest'],self.root/'diagnostic-replay',self.viewer)
+        self.assertEqual(replay['viewportArchiveSha256'],result['viewportArchiveSha256'])
+        self.assertEqual(read(Path(child['observationDirectory'])/'result.json'),original_assessment)
+        response=Path(child['observationDirectory'])/'answer/response.json';response.write_bytes(response.read_bytes()+b' ')
+        with self.assertRaisesRegex(ValueError,'EVIDENCE_TREE_CHANGED'):
+            revision.revise(self.root/'diagnostic-frozen',config['digest'],self.root/'diagnostic-bad',self.viewer)
+
+    def test_diagnostic_residual_above_four_retains_entire_atomic_parent(self):
+        good=self.component('diagnostic-good',issues=['Fixture issue retained.'])
+        bad=self.component('diagnostic-bad',target=[0,0,32,8],issues=['Fixture proportions differ.'])
+        selection=self.selection([good,bad]);spec=read(selection)
+        spec.update(reviewMode=revision.DIAGNOSTIC_MODE);spec['fitPolicy']['maximumResidualPixels']=4
+        selection.unlink();save(selection,spec)
+        result,_=self.export(selection,name='diagnostic-residual')
+        self.assertEqual(result['operations'][0]['addedComponentIds'],[])
+        self.assertEqual(result['operations'][0]['failedChildren'],['diagnostic-bad'])
+        self.assertEqual(result['operations'][0]['children'][1]['reason'],'UNIFORM_FIT_RESIDUAL_EXCEEDED')
+        self.assertFalse(result['operations'][0]['children'][0]['addedToComposition'])
+        spec['fitPolicy']['maximumResidualPixels']=4.01
+        too_wide=self.root/'diagnostic-wide.json';save(too_wide,spec)
+        with self.assertRaisesRegex(ValueError,'MAXIMUM_FOUR_PIXELS'):
+            revision.freeze(too_wide,self.root/'diagnostic-wide','Fixture diagnostic authorization')
+
+    def test_diagnostic_uncertain_and_unresolved_landmarks_never_override_geometry_gate(self):
+        child=self.component('diagnostic-uncertain',issues=['Fixture boundary unavailable.'])
+        job=self.root/'job-diagnostic-uncertain'
+        for boundary in ('uncertain','not-whole','visible-landmarks'):
+            item=self.root/('diagnostic-observation-'+boundary);exchange.prepare_observation(job,item)
+            request=read(item/'request.json');response=self.root/('diagnostic-case-'+boundary+'-response.json')
+            pairs=[] if boundary!='visible-landmarks' else [dict(id=str(i),source=list(p),target=list(p),evidence='Fixture visible point.')
+                for i,p in enumerate([(4,4),(12,4),(4,12)])]
+            save(response,dict(kind='ui_host_geometry_answer_v1',layerId='diagnostic-uncertain',boundaryStatus=boundary,
+                sourceBodyBox=None,targetBodyBox=None,landmarkPairs=pairs,geometryIssues=['Fixture unresolved geometry.'],
+                materialIssues=[],evidence='Fixture observed incomplete boundary.'))
+            dispatch=self.root/('diagnostic-case-'+boundary+'-dispatch.bin');dispatch.write_bytes(b'fixture diagnostic dispatch')
+            returned=self.root/('diagnostic-case-'+boundary+'-return.bin');returned.write_bytes(b'fixture diagnostic return')
+            att=self.root/('diagnostic-case-'+boundary+'-attestation.json');save(att,dict(kind='ui_host_geometry_attestation_v1',
+                requestSha256=digest(item/'request.json'),responseSha256=digest(response),inputsSha256=request['inputsSha256'],
+                reviewerId='fixture-reviewer',materialAuthors=['fixture-author'],hostAssertedModelResponse=True,
+                notProviderReceipt=True,notCryptographicallyPlatformVerified=True,
+                dispatchEvidenceSha256=digest(dispatch),returnEvidenceSha256=digest(returned)))
+            exchange.receive_observation(item,response,host_attestation_path=att,dispatch_evidence_path=dispatch,return_evidence_path=returned)
+            selected=dict(componentId='diagnostic-uncertain',observationDirectory=str(item),
+                requestSha256=digest(item/'request.json'),responseSha256=digest(item/'answer/response.json'))
+            selection=self.selection([selected],name='selection-'+boundary);spec=read(selection)
+            spec.update(reviewMode=revision.DIAGNOSTIC_MODE);spec['fitPolicy']['maximumResidualPixels']=4
+            selection.unlink();save(selection,spec)
+            result,_=self.export(selection,name='out-'+boundary)
+            self.assertEqual(result['operations'][0]['addedComponentIds'],[])
+            self.assertEqual(result['operations'][0]['children'][0]['status'],'unresolved')
+            self.assertEqual(result['operations'][0]['children'][0]['reason'],'unresolved-observed-component-geometry')
+
+
 if __name__=='__main__':unittest.main()
