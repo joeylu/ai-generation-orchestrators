@@ -724,12 +724,15 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     record.motionKeys.clear();
     if (reset) resetPresentation(record);
   }
-  function cancelPresentationTree(record: RuntimeRecord): void {
+  function cancelPresentation(record: RuntimeRecord): void {
     cancelRecordPresentation(record);
     if (record.popupClosing) closePopup(record, undefined, true);
     if (record.dialogClosing) {
       record.dialogClosing = false; updateDialogBlocker(record); refreshVisibility(record);
     }
+  }
+  function cancelPresentationTree(record: RuntimeRecord): void {
+    cancelPresentation(record);
     for (const childId of record.childIds) {
       const child = record.scope.records.get(childId);
       if (child) cancelPresentationTree(child);
@@ -2604,9 +2607,17 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       if (!scope) throw new Error('TREE_NOT_LOADED');
       const validated = input === null ? null : validateMotionSystem(input, scope.document);
       animator.cancelAll();
-      for (const record of scope.records.values()) cancelPresentationTree(record);
-      if (input === null) { motionSystem = null; motionStyle = null; return; }
-      motionSystem = validated; motionStyle = validated!.style;
+      // The registry already contains every descendant. Reset each once and
+      // present only the completed replacement, rather than rendering every
+      // ancestor/descendant reset and flooding software WebGL's frame queue.
+      renderBatchDepth += 1;
+      try {
+        for (const record of scope.records.values()) cancelPresentation(record);
+        motionSystem = validated; motionStyle = validated?.style ?? null;
+      } finally {
+        renderBatchDepth -= 1;
+        if (renderBatchDepth === 0) flushBatchedRender();
+      }
     },
     getMotionSystem(): MotionSystemDocument | null {
       assertAlive(); return motionSystem ? structuredClone(motionSystem) : null;

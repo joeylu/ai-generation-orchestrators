@@ -3275,7 +3275,7 @@ are development inputs; production still requires an immutable tagged release
 and verified artifact digest. Docker-only handoff/evidence stays in the ignored
 work area, outside the public provider-neutral runtime.
 
-### 2026-10-05 Native compositor observation in motion acceptance
+### 2026-10-05 Atomic motion-system replacement and CI diagnosis
 
 CI 37315057284 on f44a5d8 completes six jobs successfully, including all four
 Python matrices, dependency audit and build. The component job passes build,
@@ -3299,18 +3299,38 @@ RAF-based stability before invoking native capture. Full CI 37322725618 on that
 intermediate commit is explicitly cancelled after this reproduced failure; its
 cancellation is not a pass. Both original failures and traces are preserved.
 
-The final shared wait captures page pixels on every assertion poll, avoiding
-element stability/scroll waits and requesting actual native presentation until
-the same exact scheduler idle condition holds. It retains configured assertion
-and test budgets. No clock is advanced, motion state written, assertion removed,
-target hidden or timeout raised. The existing endpoint/input/pixel assertions
-serve as regression coverage, including all three styles.
+The next page-capture experiment also fails in Linux diagnostic CI 37325201624;
+all three cases hit the 7-second predicate budget. It does not fix the underlying
+render queue. These experiments and their local passes remain historical only;
+the original timer-backed wait and unchanged 45-second test budget are restored.
 
-Executed locally: all three original profile endpoint cases pass before repair;
-after repair all 22 motion-system browser cases pass with zero retries/skips,
-including real input, presentation pixels, interruptions, Dialog blocker clear
-and portable Bundle reopen. git diff --check passes. This changes browser test
-observation only; runtime, package artifacts, other Harnesses and shared checkout
-remain unchanged. The original CI trace, derived timings and local reports are
-retained in the ignored work area. New remote CI is recorded separately after
-push. nativeFullChainPassed=false; human visual acceptance remains separate.
+An actual native WebGL probe confirms the runtime defect. The 35-node Gallery
+needs nine native draw calls for one frame, but each system install, replacement
+and clear makes 765 calls: the complete record registry is traversed, while each
+record recursively resets its descendants and repaints the entire canvas.
+The runtime now resets each registered record once and uses the existing render
+batch to present one completed replacement. Validation still precedes mutation;
+channel cancellation, closing popup/Dialog cleanup and canonical reset remain.
+The same probe measures nine calls per operation after repair. This removes the
+85-fold repeated full-frame work instead of trying to force delayed native RAF.
+
+Executed locally: build/typecheck PASS; 31 existing affected actual browser cases
+PASS with zero retries/skips across motion-system, lifecycle, presets and raster
+Tabs; one new native-draw regression PASS after fixing its duplicate-input
+fixture to stay within the binding limit. It checks all three styles, one-frame
+install/reapply/clear, in-flight cancellation, complete canonical node reset and
+rejection without draws/state changes. Original profile endpoints now complete
+in 2.98-3.67 seconds locally, compared with roughly 12 seconds before repair.
+All original endpoint/input/pixel assertions and measurement targets remain.
+
+Installed offline distribution: nine checks PASS, including real Pixi/SDK input,
+export/reopen, exact source/resource bytes, no outbound and extracted source build.
+Two attempts in the C-drive task area fail before checks at directory rename;
+the same verified allowlisted source ZIP runs successfully in the writable work
+area with existing locked tools. No permission/login/proxy configuration changes.
+Original CI traces, intermediate failures, draw probes, fresh package artifacts
+and program reports are retained in ignored work. git diff --check PASS. Changes
+are limited to component runtime, browser regression and this record; other
+Harnesses and the shared checkout/index remain untouched. Final remote CI is
+recorded separately after push. nativeFullChainPassed=false; human visual
+acceptance remains separate, with no model dispatch or deployment in this repair.
