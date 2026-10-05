@@ -152,6 +152,20 @@ def action_entry(visual, material, asset, reference, size, index):
     return own
 
 
+def _sheet_layout(group):
+    columns,rows=group['grid'];width,height=group['outputSize']
+    layout=(f'Grid {columns} columns by {rows} rows, row-major; '
+            f'canvas width {width} px, height {height} px. '
+            'One material per cell; unused cells empty. ')
+    if columns==1 and rows>1:
+        layout+='Stack cells vertically, top to bottom; do not place them side by side. '
+    elif rows==1 and columns>1:
+        layout+='Place cells horizontally, left to right; do not stack them vertically. '
+    else:
+        layout+='Fill each row left to right, then proceed top to bottom. '
+    return layout
+
+
 def reconstruct_prompt(entries, group, *, version='v5'):
     """v5: a positive drawing task; reviewed identities and locators stay bound."""
     def parts(rows):
@@ -178,12 +192,13 @@ def reconstruct_prompt(entries, group, *, version='v5'):
         return parts(rows)
     task='Reconstruct one complete independent owned material from this UI reference. '
     if group:
-        task+=(f'Grid {group["grid"][0]}x{group["grid"][1]}, row-major, canvas '
-               f'{group["outputSize"][0]}:{group["outputSize"][1]}; one material per cell, unused cells empty. '
-               'Use one common uniform scale across cells. ')
+        task+=_sheet_layout(group)+'Use one common uniform scale across cells. '
     for entry in entries:
         task+=(f'Reference {entry["referenceIndex"]}, cell {entry["cellIndex"]}: owned parts: '+
                (parts(entry['keepOnly']) or entry.get('artwork',''))+'. ')
+        if group:
+            columns=group['grid'][0];index=entry['cellIndex']
+            task+=f'Cell {index} uses zero-based column {index%columns}, row {index//columns}. '
         overlays=foreign(entry,'overlay');underlays=foreign(entry,'underlay');peers=foreign(entry,'same-depth')
         if overlays:
             if version=='v6':
@@ -223,9 +238,7 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
         return short if short is not None else reconstruct_prompt(entries,group,version='v6')
     if version in ('v5','v6'):return reconstruct_prompt(entries,group,version=version)
     if version=='v4':
-        layout=(f'Grid {group["grid"][0]}x{group["grid"][1]} row-major, canvas '
-                f'{group["outputSize"][0]}:{group["outputSize"][1]}; one material per cell, unused cells empty. '
-                if group else 'One complete material. ')
+        layout=_sheet_layout(group) if group else 'One complete material. '
         scale='Use one common uniform scale across cells. ' if group else ''
         return ('Use context crops by 1-based referenceIndex. '+layout+
                 'keepOnly lists owned parts; exclude lists foreign members. targetBox/referenceBox are local '
