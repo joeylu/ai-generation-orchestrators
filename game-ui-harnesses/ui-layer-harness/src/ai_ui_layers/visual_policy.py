@@ -6,6 +6,7 @@ from pathlib import Path
 
 KIND = 'ui_visual_policy_v1'
 KIND_V2 = 'ui_visual_policy_v2'
+KIND_V3 = 'ui_visual_policy_v3'
 FIELDS = {
     'kind': (KIND,),
     'appearanceEvidence': ('text-complete', 'bound-reference'),
@@ -13,6 +14,7 @@ FIELDS = {
     'shadow': ('preserve', 'optional'),
 }
 FIELDS_V2 = dict(FIELDS, kind=(KIND_V2,), minorStyle=('strict', 'record'))
+FIELDS_V3 = dict(FIELDS_V2, kind=(KIND_V3,), minorGeometry=('strict', 'record'))
 INPUT_NAME = 'visual-policy.json'
 MODEL_STAGES = ('m2', 'repair', 'rereview', 'repair2', 'rereview2')
 
@@ -21,7 +23,7 @@ def validate(policy):
     """Require the exact public policy shape, without implicit defaults."""
     if not isinstance(policy, dict):
         raise ValueError('INVALID_VISUAL_POLICY_FIELDS')
-    fields = FIELDS_V2 if policy.get('kind') == KIND_V2 else FIELDS
+    fields = {KIND_V2: FIELDS_V2, KIND_V3: FIELDS_V3}.get(policy.get('kind'), FIELDS)
     if set(policy) != set(fields):
         raise ValueError('INVALID_VISUAL_POLICY_FIELDS')
     for field, allowed in fields.items():
@@ -139,7 +141,10 @@ def planning_guidance(policy):
               '孤立可选柔影可不重建；实体轮廓、描边、边界、高光和显著渐变仍须保留。')
     style = ('清晰归属且身份、状态、数量、结构和纹理类型保留的轻微表面渲染差异可记录；'
              '主要或不确定变化仍须修正。' if policy.get('minorStyle') == 'record' else '')
-    return '\n本次显式视觉策略：' + appearance + color + shadow + style + '\n'
+    geometry = ('目标为整体基本还原；完整主体的轻微宽高比例、圆角或外轮廓差异可记录，'
+                '不要求逐像素复刻。缺件、重复、实心裁切、错误归属/状态、内部图形位移、'
+                '明显或不确定变形仍须修正。' if policy.get('minorGeometry') == 'record' else '')
+    return '\n本次显式视觉策略：' + appearance + color + shadow + style + geometry + '\n'
 
 
 def generation_guidance(policy):
@@ -155,7 +160,12 @@ def generation_guidance(policy):
               '孤立柔影可选，实体轮廓、描边、边界、高光与显著渐变仍须保留。')
     style = ('轻微表面渲染差异可记录；身份、状态、数量、结构和纹理类型仍须保留，'
              '不改变主体轮廓、归属或位置。' if policy.get('minorStyle') == 'record' else '')
-    return '\n显式视觉策略：' + appearance + color + shadow + style
+    if policy.get('minorStyle') == 'record' and policy.get('minorGeometry') == 'record':
+        style = '轻微表面渲染差异可记录；保留整体轮廓、归属、位置、身份、状态、数量、结构和纹理类型。'
+    geometry = ('整体基本还原即可；完整主体可有轻微比例或圆角差异，仍尽量贴近参考。'
+                '保留全部独立内容、状态、连接、内部图形相对位置和真透明 alpha；'
+                '不复制、遗漏、裁切或明显改变主体形状。' if policy.get('minorGeometry') == 'record' else '')
+    return '\n显式视觉策略：' + appearance + color + shadow + style + geometry
 
 
 def output_review_guidance(policy):
@@ -171,5 +181,11 @@ def output_review_guidance(policy):
              '主要、无法判断或归属不清的外观变化仍阻断。缺件、重复、实心裁断、轮廓破坏、'
              '错误归属/状态、位移及高光/渐变/材质缺失不得归入轻微样式。'
              if policy.get('minorStyle') == 'record' else '')
+    geometry = ('整体基本还原是本次验收目标。完整、清晰归属且身份/数量/状态/连接保留的'
+                '轻微宽高比例、圆角或完整外轮廓差异，仍填geometry/other、magnitude=minor，'
+                '记录为非阻断；不以肉眼估计像素或2%/5%阈值一票否决。'
+                '明显变形填major；无法判断填uncertain。缺件、重复、实心裁切、错归属/状态、'
+                '内部图形位移或多锚点失配不得降为轻微几何或样式。'
+                if policy.get('minorGeometry') == 'record' else '')
     return ('\n显式输出审查策略：逐项 finding 填 styleAspect=color-tone/shadow/other，非样式问题填 other。'
-            + color + shadow + style + '绑定参考图只承接细微表面，不豁免缺件、错状态、错归属或裁切。')
+            + color + shadow + style + geometry + '绑定参考图只承接细微表面，不豁免缺件、错状态、错归属或裁切。')

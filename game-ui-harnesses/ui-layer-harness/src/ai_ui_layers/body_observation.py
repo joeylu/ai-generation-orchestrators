@@ -271,9 +271,11 @@ def execute(job, output_config, model=None):
                                  'basis': answer['evidence']}})
                 contracts[key] = {'path': str(contract.resolve()), 'sha256': digest(contract)}
                 # Reject invalid body/alpha correspondence before spending the next call.
+                from .visual_policy import snapshot_policy
                 process_body(Path(config['materials'][key]), Path(config['snapshot']) / 'reference.png',
                              contracts[key], region, key, config['snapshotDigest'],
-                             folder / 'registration-check', policy=SUPPORT_POLICY)
+                             folder / 'registration-check', policy=SUPPORT_POLICY,
+                             visual_policy=snapshot_policy(Path(config['snapshot'])))
                 for name in (*FILES, 'submission.json', 'transport.json', 'draft.json', 'events.jsonl', 'observation.json', 'body-contract.json'):
                     path = folder / name
                     outputs[path.relative_to(job).as_posix()] = digest(path)

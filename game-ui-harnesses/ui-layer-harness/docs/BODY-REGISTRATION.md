@@ -58,6 +58,19 @@ offline `reference-body-v1` route below retains its fixed-canvas behavior.
 
 ## Historical offline policy
 
+For new snapshots explicitly selecting `ui_visual_policy_v3` with
+`minorGeometry: record`, minor shape differences are retained as material-review
+warnings. Whole-body placement uses a centered uniform contain transform and
+records fitted-size residuals instead of requiring both dimensions to match
+within one pixel. A symmetric aspect mismatch above 25% with residual above one
+pixel still rejects grossly incompatible anchors; major/uncertain visual findings
+remain blocking even below that coarse guard. All nonzero-alpha support, whole
+dense artwork, holes, source identity and evidence checks remain required.
+The same frozen policy is used during observation checks, preview, packaging and
+source replay. No policy, v1/v2, or v3 `strict` retains the original one-pixel rule.
+This is an opt-in approximate reconstruction policy, not visual acceptance or a
+conversion of archived failed jobs. See [SERVICE-CONTRACT.md](SERVICE-CONTRACT.md).
+
 `reference-body-v1` is an explicit offline registration policy. It applies one
 uniform scale and translation to a whole generated RGBA material. It does not
 infer source-image segmentation, generate artwork, call a model, accept visual

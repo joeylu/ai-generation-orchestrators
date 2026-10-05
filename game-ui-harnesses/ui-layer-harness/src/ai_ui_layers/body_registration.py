@@ -12,6 +12,33 @@ POLICY_SUPPORT = 'reference-body-support-v1'
 KIND = 'ui_whole_body_registration_v1'
 
 
+def fit_body(source_size, target_size, visual_policy=None):
+    """One uniform centered fit; appearance tolerance is explicit and reportable."""
+    if visual_policy is not None:
+        from .visual_policy import validate
+        validate(visual_policy)
+    bw, bh = source_size
+    scale = min(target_size[0] / bw, target_size[1] / bh)
+    residual = [abs(source_size[i] * scale - target_size[i]) for i in (0, 1)]
+    approximate = visual_policy is not None and visual_policy.get('minorGeometry') == 'record'
+    if not approximate:
+        if any(value > 1 for value in residual):
+            raise ValueError('BODY_PROPORTIONS_DIFFER')
+        return scale, None
+    ratio = (bw / bh) / (target_size[0] / target_size[1])
+    difference = max(ratio, 1 / ratio) - 1
+    # A coarse guard against incompatible whole-body anchors, not a pixel-fidelity
+    # target. Genuine material review still blocks major or uncertain distortion.
+    if difference > .25 + 1e-12 and any(value > 1 for value in residual):
+        raise ValueError('BODY_PROPORTIONS_GROSSLY_DIFFER')
+    return scale, dict(kind='ui_approximate_body_fit_v1', visualPolicy=visual_policy,
+        sourceAspect=bw / bh, targetAspect=target_size[0] / target_size[1],
+        symmetricAspectDifference=difference, coarseAspectGuard=.25,
+        fittedBodySize=[bw * scale, bh * scale], sizeDifferencePixels=residual,
+        axisStretch=False, minorShapePolicy='record after independent material review',
+        status='recorded-pending-human-review', humanVisualAcceptance=False)
+
+
 def _box(value, size):
     if not isinstance(value, list) or len(value) != 4 or any(type(v) is not int for v in value):
         raise ValueError('INTEGER_BODY_BOX_REQUIRED')
@@ -48,7 +75,7 @@ def checked_inputs(config, placements, foreground_ids):
     return result
 
 
-def process(source, reference, entry, region, material_id, snapshot_digest, output, policy=POLICY):
+def process(source, reference, entry, region, material_id, snapshot_digest, output, policy=POLICY, visual_policy=None):
     """Apply one observed body mapping to every existing RGBA pixel, never repaint."""
     if policy not in (POLICY, POLICY_SUPPORT):
         raise ValueError('UNKNOWN_REGISTRATION_POLICY')
@@ -111,10 +138,7 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
     if not (body[0]<=core[0] and body[1]<=core[1] and core[2]<=body[2] and core[3]<=body[3]):
         raise ValueError('SOURCE_BODY_OMITS_DENSE_ARTWORK')
     bw, bh = body[2]-body[0], body[3]-body[1]
-    scale = min(target_size[0]/bw, target_size[1]/bh)
-    # Only integer coordinate quantization, not an appearance tolerance or stretch.
-    if abs(bw*scale-target_size[0]) > 1 or abs(bh*scale-target_size[1]) > 1:
-        raise ValueError('BODY_PROPORTIONS_DIFFER')
+    scale, appearance = fit_body([bw, bh], target_size, visual_policy)
     content_box = raw.getchannel('A').getbbox()  # Preserve ALL nonzero alpha, including faint shadows.
     target_center = [(target[0]+target[2])/2, (target[1]+target[3])/2]
     body_center = [(body[0]+body[2])/2, (body[1]+body[3])/2]
@@ -208,5 +232,9 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
     if policy == POLICY_SUPPORT:
         report['fitting']['ownershipRegion']=region
         report['bodyContractCanonicalDigest']=body_digest(contract)
+    if appearance is not None:
+        report['fitting']['appearanceTolerance'] = appearance
+        if any(value > 1 for value in appearance['sizeDifferencePixels']):
+            report['warnings'].append('APPROXIMATE_BODY_PROPORTIONS_RECORDED')
     save(output/'report.json', report)
     return report

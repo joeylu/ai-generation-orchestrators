@@ -317,14 +317,17 @@ def receive(job, submission_digest, response_path, *, host_attestation_path, dis
                 kind=registration.KIND, evidence=dict(path=str((folder / 'observation.json').resolve()),
                 sha256=digest(folder / 'observation.json'), basis=answer['evidence'])))
             entry = dict(path=str((folder / 'body-contract.json').resolve()), sha256=digest(folder / 'body-contract.json'))
+            from .visual_policy import snapshot_policy
+            visual_policy = snapshot_policy(Path(config['snapshot']))
             if config['canvasPolicy'] == EXPANDED_POLICY:
                 from .body_viewport_delivery import validate_contract
                 checked = validate_contract(job / 'requests' / key / 'source-original.png', job / 'reference-original.png',
-                    entry, region, key, config['snapshotDigest'])
+                    entry, region, key, config['snapshotDigest'], visual_policy=visual_policy)
                 save(folder / 'registration-check.json', checked)
             else:
                 registration.process(job / 'requests' / key / 'source-original.png', job / 'reference-original.png',
-                    entry, region, key, config['snapshotDigest'], folder / 'registration-check', policy=body.SUPPORT_POLICY)
+                    entry, region, key, config['snapshotDigest'], folder / 'registration-check', policy=body.SUPPORT_POLICY,
+                    visual_policy=visual_policy)
             load(job)
             return _seal(folder, submission, 'sealed')
         except Exception as exc:

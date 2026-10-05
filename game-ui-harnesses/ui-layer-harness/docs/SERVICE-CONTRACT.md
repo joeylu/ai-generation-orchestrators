@@ -367,6 +367,32 @@ major、uncertain、归属不清、缺件、重复、裁切、轮廓破坏、错
 新摘要授权，不对已冻结作业热更新。v1 的字段、提示词与保守判断保持原有语义，历史失败
 审查不因新策略重新解释或提升。此选项是外观容差，不是新交付的人工视觉验收。
 
+当使用者的目标为整体基本还原，可在新作业显式选择 v3：
+
+```json
+{"kind":"ui_visual_policy_v3","appearanceEvidence":"bound-reference","minorColor":"record","shadow":"optional","minorStyle":"record","minorGeometry":"record"}
+```
+
+v3 精确要求六个字段，新增 `minorGeometry: strict|record`。`record` 将清晰归属的
+`geometry/other + magnitude=minor` 记录为 `minor-geometry-deviation` 警告；包括主体完整、
+身份/数量/状态/连接不变时的轻微宽高比例、圆角或轮廓差异。模型应依据整体可见影响判断，
+不以肉眼估计的像素或 2%/5% 数值决定是否继续。major、uncertain、归属不清、缺件、
+重复、错状态、实心裁切以及 `layout` 内部图形位移仍阻断。模型的 minor 声明不是
+像素测量，完整原始观察和证据进入交付警告，最终人工验收仍待执行。
+
+主体归位从同一冻结 snapshot 读取该策略。仅 v3 `minorGeometry=record` 允许整体
+等比 contain 缩放后的宽高残差超过原来的 1 像素，并在归位证明中记录源/目标比例、
+实际缩放后尺寸及残差。中心按真实主体框对齐；两轴使用同一 scale，不拉伸、不移动内部
+图形、不重绘、不删弱 alpha。对称宽高比差 `max(rSource/rTarget,rTarget/rSource)-1`
+超过 25% 且尺寸残差超过量化的 1 像素时，仍以 `BODY_PROPORTIONS_GROSSLY_DIFFER`
+停止。这是防止主体锚点或整体形状严重失配的粗略护栏，不是视觉精确还原指标；较小
+差异若真实复审判定 major/uncertain 也仍阻断。未选择 v3 record 时沿用 1 像素门槛。
+
+v3 继承原始字节/SHA 绑定、提示词重建、单次新摘要授权及不重投规则。标准 support、
+host 主体交换、完整存储/原尺寸 viewport、离线 preview 和素材来源回放均继承同一
+冻结策略；旧 v1/v2、历史固定运行时、已消费授权和失败作业不改判。不将粗略护栏、
+回拼一致或程序测试称为用户视觉通过。
+
 显式策略的完整 mixed 请求中，每个 singleton 经真实 `single_material_review`：
 先重放相同冻结 snapshot 的作业、授权、提交和接收回执，核对 raw SHA-256，再按
 background／foreground 技术门禁准备比较图；每项最多一次只读模型调用，合板继续

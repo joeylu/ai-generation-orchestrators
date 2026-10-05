@@ -56,18 +56,26 @@ def replay(entry, row, placement, role, reference_sha, output):
     if fitting_mode in (POLICY, POLICY_SUPPORT):
         from .body_registration import process as process_body
         from .evaluate import save
+        from .visual_policy import snapshot_policy
         contract_path=output/'body-contract.json'
         save(contract_path,row['report']['bodyContract'])
         if digest(contract_path)!=row['report']['bodyContractSha256']:
             raise ValueError('BODY_CONTRACT_REPLAY_MISMATCH')
+        # Historical strict body receipts did not require a visual policy for
+        # fitting. Approximate receipts must replay the actual frozen policy.
+        visual_policy = (snapshot_policy(job/'snapshot')
+                         if row['report']['fitting'].get('appearanceTolerance') is not None else None)
         result=process_body(source,job/'snapshot/reference.png',
             dict(path=str(contract_path),sha256=digest(contract_path)),placement['sourceRegion'],
-            row['id'],row['report']['snapshotDigest'],output/'processed',policy=fitting_mode)
+            row['id'],row['report']['snapshotDigest'],output/'processed',policy=fitting_mode,
+            visual_policy=visual_policy)
     else:
         mode='frame-bounds' if fitting_mode=='frame-bounds' else 'contain'
         result=process(source,placement['outputSize'],output/'processed',background=role=='background',fit_mode=mode)
     if result['status']!='processed_pending_visual_review':raise ValueError('MATERIAL_GATE_FAILED')
     if result['materialSha256']!=row['report']['materialSha256']:raise ValueError('MATERIAL_REPLAY_MISMATCH')
+    if fitting_mode in (POLICY, POLICY_SUPPORT) and result['fitting'].get('appearanceTolerance') != row['report']['fitting'].get('appearanceTolerance'):
+        raise ValueError('BODY_APPEARANCE_POLICY_REPLAY_MISMATCH')
     if fitting_mode==POLICY_SUPPORT and (result['fitting']!=row['report']['fitting']
             or result['targetSize']!=row['report']['targetSize']):
         raise ValueError('SUPPORT_GEOMETRY_REPLAY_MISMATCH')

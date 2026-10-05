@@ -13,7 +13,7 @@ from .registration_policy import integrated_surface
 def preview(config_path, output):
     config=read(Path(config_path));output=Path(output)
     if 'surfaceDetails' in config or 'fontPaths' in config:raise ValueError('PROGRAMMATIC_UI_DRAWING_REMOVED')
-    snapshot=Path(config['snapshot']);inspect(snapshot,config['snapshotDigest'])
+    snapshot=Path(config['snapshot']);frozen=inspect(snapshot,config['snapshotDigest'])
     plan=read(snapshot/'execution-plan.candidate.json')
     placements=read(snapshot/'placements.json')['materials']
     assets={a['id']:a for a in plan['assets']}
@@ -27,6 +27,8 @@ def preview(config_path, output):
     from .body_registration import POLICY_SUPPORT, checked_inputs, process as place_body
     foreground_ids={key for key in config['materials'] if assets[key]['role']!='background'}
     body_overrides=checked_inputs(config,placements,foreground_ids)
+    from .visual_policy import snapshot_policy
+    visual_policy=snapshot_policy(snapshot,frozen)
     frame_overrides=config.get('frameBoundsMaterials',[])
     if not isinstance(frame_overrides,list) or len(frame_overrides)!=len(set(frame_overrides)):
         raise ValueError('INVALID_FRAME_OVERRIDES')
@@ -51,7 +53,7 @@ def preview(config_path, output):
         if key in body_overrides:
             report=place_body(raw,snapshot/'reference.png',body_overrides[key],row['sourceRegion'],
                               key,config['snapshotDigest'],folder,
-                              policy=config['registrationPolicy'])
+                              policy=config['registrationPolicy'],visual_policy=visual_policy)
         elif key in overrides:
             expected=[o['id'] for o in visual['objects'] if o['materialId']==key]
             report=place(raw,snapshot/'reference.png',overrides[key],row['sourceRegion'],expected,folder)

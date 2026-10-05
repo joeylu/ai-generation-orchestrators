@@ -14,7 +14,7 @@ import numpy as np
 
 from PIL import Image
 
-from .body_registration import KIND, POLICY, POLICY_SUPPORT, _box, checked_inputs
+from .body_registration import KIND, POLICY, POLICY_SUPPORT, _box, checked_inputs, fit_body
 from .evaluate import digest, read, save
 from .freeze_visual import inspect, body_digest
 from .layer_package import write_package, composite, portable_text, check_composition
@@ -24,7 +24,7 @@ from .viewport_geometry_revision import POLICY as CANVAS_POLICY, transform, _wra
 BACKGROUND_POLICY = 'uniform-whole-canvas-opaque-contain-edgepad-v1'
 
 
-def validate_contract(source, reference, entry, region, material_id, snapshot_digest):
+def validate_contract(source, reference, entry, region, material_id, snapshot_digest, visual_policy=None):
     """Retain strict source/body gates while leaving storage bounds to the caller."""
     source, reference = Path(source), Path(reference)
     path = Path(entry['path'])
@@ -84,16 +84,16 @@ def validate_contract(source, reference, entry, region, material_id, snapshot_di
     if not (body[0] <= core[0] and body[1] <= core[1] and core[2] <= body[2] and core[3] <= body[3]):
         raise ValueError('SOURCE_BODY_OMITS_DENSE_ARTWORK')
     bw, bh = body[2] - body[0], body[3] - body[1]
-    scale = min(target_size[0] / bw, target_size[1] / bh)
-    if abs(bw * scale - target_size[0]) > 1 or abs(bh * scale - target_size[1]) > 1:
-        raise ValueError('BODY_PROPORTIONS_DIFFER')
+    scale, appearance = fit_body([bw, bh], target_size, visual_policy)
     translation = [(target[i] + target[i + 2]) / 2 - (body[i] + body[i + 2]) / 2 * scale for i in (0, 1)]
     if (digest(source) != contract['sourceSha256'] or digest(reference) != contract['referenceSha256']
             or digest(path) != entry['sha256'] or digest(Path(evidence['path'])) != evidence['sha256']):
         raise ValueError('BODY_INPUT_CHANGED_DURING_TRANSFORM')
-    return dict(contract=contract, observation=observation, rawReport=report,
-                geometry=dict(sourceBodyBox=body, targetBodyBox=target,
-                              uniformScale=scale, translation=translation, ownershipRegion=region))
+    geometry = dict(sourceBodyBox=body, targetBodyBox=target,
+                    uniformScale=scale, translation=translation, ownershipRegion=region)
+    if appearance is not None:
+        geometry['appearanceTolerance'] = appearance
+    return dict(contract=contract, observation=observation, rawReport=report, geometry=geometry)
 
 
 def _policy(config):
@@ -168,6 +168,8 @@ def build(config_path, output, viewer, warnings=()):
         raise ValueError('BODY_POLICY_REQUIRED')
     snapshot = Path(config['snapshot']).resolve()
     frozen = inspect(snapshot, config['snapshotDigest'])
+    from .visual_policy import snapshot_policy
+    visual_policy = snapshot_policy(snapshot, frozen)
     path = snapshot / 'evidence/revised-visual-plan.json'
     visual = read(path if path.exists() else snapshot / 'evidence/m1-draft.json')
     rows = read(snapshot / 'placements.json')['materials']
@@ -195,7 +197,8 @@ def build(config_path, output, viewer, warnings=()):
         if row['xy'] != row['sourceRegion'][:2]:
             raise ValueError('BODY_OWNERSHIP_MISMATCH')
         if materials[mid]['role'] == 'foreground':
-            checked[mid] = validate_contract(source, reference, entries[mid], row['sourceRegion'], mid, frozen['digest'])
+            checked[mid] = validate_contract(source, reference, entries[mid], row['sourceRegion'], mid, frozen['digest'],
+                                             visual_policy=visual_policy)
             contract = checked[mid]['contract']
             inputs[Path(entries[mid]['path']).resolve()] = entries[mid]['sha256']
             inputs[Path(contract['evidence']['path']).resolve()] = contract['evidence']['sha256']
@@ -210,6 +213,10 @@ def build(config_path, output, viewer, warnings=()):
     if output.exists() or any(output.is_relative_to(p) or p.is_relative_to(output) for p in [snapshot, viewer, *inputs]):
         raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
     issues = ['该回拼尚待视觉验收；完整图层存储与原图尺寸显示已执行。']
+    for mid, checked_body in checked.items():
+        appearance = checked_body['geometry'].get('appearanceTolerance')
+        if appearance is not None and any(value > 1 for value in appearance['sizeDifferencePixels']):
+            issues.append('[approximate body proportions] ' + mid + ': ' + json.dumps(appearance, sort_keys=True))
     for warning in warnings:
         if isinstance(warning, str):
             issues.append(portable_text(warning))
