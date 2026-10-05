@@ -32,11 +32,13 @@ def _native_alpha(path, role):
 
 
 def freeze(source_archive, layer_id, output, *, purpose, owned, delete, reference_region=None,
-           geometry_intent=None):
+           geometry_intent=None, input_policy=None):
     archive=Path(source_archive).resolve();job=Path(output).resolve()
     validate_archive(archive)
     if geometry_intent is not None and geometry_intent!='reference-visible-structure':
         raise ValueError('EDIT_GEOMETRY_INTENT_INVALID')
+    if input_policy is not None and input_policy!='reference-only-owned-extraction-v1':
+        raise ValueError('EDIT_INPUT_POLICY_INVALID')
     if not isinstance(purpose,str) or not purpose.strip():raise ValueError('EDIT_PURPOSE_REQUIRED')
     for values in (owned,delete):
         if not isinstance(values,list) or not values or any(not isinstance(v,str) or not v.strip() for v in values):
@@ -64,6 +66,7 @@ def freeze(source_archive, layer_id, output, *, purpose, owned, delete, referenc
         with Image.open(job/'reference.png') as image:image.crop(reference_region).save(job/'reference-crop.png')
     args=dict(purpose=purpose,owned=list(owned),delete=list(delete),referenceRegion=reference_region)
     if geometry_intent is not None:args['geometryIntent']=geometry_intent
+    if input_policy is not None:args['inputPolicy']=input_policy
     save(job/'arguments.json',args)
     prompt=('Edit only the actual source.png material using the original reference.png'+
         (' and reference-crop.png' if reference_region is not None else '')+' as visual evidence.\n'+
@@ -111,12 +114,44 @@ def freeze(source_archive, layer_id, output, *, purpose, owned, delete, referenc
             'Do not alpha-crop, force rectangular registration, fit or deform to an ownership rectangle, '+
             'hand-draw or redraw geometry programmatically, hand-edit masks, leave placeholder frames, add children, '+
             'or use a recomposed preview as reference.\n')
+    if input_policy=='reference-only-owned-extraction-v1':
+        prompt=(('Geometry intent: reference-visible-structure.\n' if geometry_intent else '')+
+            'Input policy: reference-only-owned-extraction-v1.\n'+
+            ('Image 1 is reference-crop.png, the primary visible owned-material target; Image 2 is the full '+
+             'original reference.png, its placement and clipping context.\n' if reference_region is not None else
+             'Image 1 is the full original reference.png, the visible owned-material target and context.\n')+
+            'Extract the requested owned material using ONLY these original-reference images. The original '+
+            'visible silhouette, proportions and internal relative layout are the sole geometry target. '+
+            'No old material PNG is supplied to the image tool.\nPurpose: '+purpose+
+            '\nRetain ONLY these owned surfaces/details: '+json.dumps(owned,ensure_ascii=False)+
+            '\nDELETE each listed child and its entire decoration/frame, including empty frames: '+json.dumps(delete,ensure_ascii=False)+
+            '\nFor a parent material remove each explicitly listed child as a complete unit, including its '+
+            'whole child frame. Recover the underlying owned surface naturally; do not bake deleted children '+
+            'into the parent texture or shadow. Preserve exact lettering, wordmarks and decorative text '+
+            'explicitly retained by purpose/owned, including their spelling, appearance and relative layout. '+
+            'Use purpose/owned/delete as the content scope; do not inherit text-removal requirements from '+
+            'historical layer labels or package metadata. Do not invent or rewrite lettering. '+
+            'Reproduce only actually visible fragments and true original-canvas clipping boundaries. '+
+            'Do not infer hidden edges or extend objects beyond the original reference. Ownership rectangles '+
+            'are not body silhouettes. '+
+            ('Keep the background fully opaque and preserve positions of visible physical scene objects. '+
+             'Return one genuine native opaque PNG at original reference aspect ratio '+
+             f'{size[0]}:{size[1]} ({size[0]} by {size[1]} pixels). '
+             if layer['role']=='background' else
+             'Separate the native visible body, genuine reference soft shadow/glow and transparent canvas. '+
+             'Retain only reference-supported soft light outside the body, with no isolated fragments or '+
+             'unrelated halos. Remaining canvas must have alpha exactly zero. Preserve continuous natural '+
+             'edge alpha and genuine faint soft light. Return one genuine native transparent PNG. ')+
+            'Do not alpha-crop, erase weak alpha, force rectangular registration, deform to an ownership '+
+            'rectangle, hand-draw geometry, hand-edit masks, add children or use a recomposed preview.\n')
     (job/'prompt.md').write_text(prompt,encoding='utf-8')
     referenced=[str(job/'source.png'),str(job/'reference.png')]
     if reference_region is not None:referenced.append(str(job/'reference-crop.png'))
     if geometry_intent=='reference-visible-structure':
         referenced=([str(job/'reference-crop.png')] if reference_region is not None else [])+[
             str(job/'reference.png'),str(job/'source.png')]
+    if input_policy=='reference-only-owned-extraction-v1':
+        referenced=([str(job/'reference-crop.png')] if reference_region is not None else [])+[str(job/'reference.png')]
     save(job/'image-gen-arguments.json',dict(prompt=prompt,referenced_image_paths=referenced,
                                           transparent_background=layer['role']!='background'))
     save(job/'schema.json',dict(kind='ui_native_material_edit_return_v1',required=[
@@ -130,6 +165,7 @@ def freeze(source_archive, layer_id, output, *, purpose, owned, delete, referenc
         files=files,maximumCalls=1,automaticRetry=False,humanVisualAcceptance=False,
         strictBodyRegistrationPassed=False,originalDagPromoted=False)
     if geometry_intent is not None:request['geometryIntent']=geometry_intent
+    if input_policy is not None:request['inputPolicy']=input_policy
     request['digest']=_hash(request);save(job/'request.json',request)
     save(job/'preparation.json',dict(requestSha256=digest(job/'request.json')))
     return dict(status='frozen_awaiting_compute_authorization',digest=request['digest'],generationCalls=0)
@@ -151,6 +187,18 @@ def verify_frozen(job):
             not (job/'prompt.md').read_text(encoding='utf-8').startswith(
                 'Geometry intent: reference-visible-structure.\n')):
             raise ValueError('EDIT_GEOMETRY_INTENT_CHANGED')
+    if 'inputPolicy' in request or 'inputPolicy' in request['args']:
+        prompt=(job/'prompt.md').read_text(encoding='utf-8')
+        references=([str(job/'reference-crop.png')] if request['args']['referenceRegion'] is not None else [])+[
+            str(job/'reference.png')]
+        expected=dict(prompt=prompt,referenced_image_paths=references,
+            transparent_background=request['originalLayer']['role']!='background')
+        if (request.get('inputPolicy')!='reference-only-owned-extraction-v1' or
+            request['args'].get('inputPolicy')!=request['inputPolicy'] or
+            read(job/'arguments.json')!=request['args'] or
+            'Input policy: reference-only-owned-extraction-v1.\n' not in prompt or
+            read(job/'image-gen-arguments.json')!=expected):
+            raise ValueError('EDIT_INPUT_POLICY_CHANGED')
     archive=Path(request['sourceArchive']);validate_archive(archive)
     if digest(archive)!=request['sourceArchiveSha256']:raise ValueError('EDIT_SOURCE_ARCHIVE_CHANGED')
     with zipfile.ZipFile(archive) as z:
@@ -184,6 +232,9 @@ def frozen_arguments(job):
     if request.get('geometryIntent')=='reference-visible-structure':
         references=([str(job/'reference-crop.png')] if request['args']['referenceRegion'] is not None else [])+[
             str(job/'reference.png'),str(job/'source.png')]
+    if request.get('inputPolicy')=='reference-only-owned-extraction-v1':
+        references=([str(job/'reference-crop.png')] if request['args']['referenceRegion'] is not None else [])+[
+            str(job/'reference.png')]
     expected=dict(prompt=(job/'prompt.md').read_text(encoding='utf-8'),referenced_image_paths=references,
                   transparent_background=request['originalLayer']['role']!='background')
     if arguments!=expected:raise ValueError('EDIT_FROZEN_IMAGE_ARGUMENTS_CHANGED')

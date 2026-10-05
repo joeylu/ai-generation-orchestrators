@@ -55,6 +55,7 @@ class ArchiveMaterialEditTests(unittest.TestCase):
         self.assertEqual((self.job/'prompt.md').read_bytes(),expected.replace('\n',os.linesep).encode('utf-8'))
         request=edit.verify_frozen(self.job)
         self.assertNotIn('geometryIntent',request)
+        self.assertNotIn('inputPolicy',request)
         self.assertEqual(request['args'],dict(purpose='Remove duplicate children.',
             owned=['outer owned panel and texture'],delete=['all child icons and their empty frames'],
             referenceRegion=[4,6,20,22]))
@@ -265,6 +266,83 @@ class ArchiveMaterialEditTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'TRANSPARENT_ALPHA_REQUIRED'):
             edit.receive(self.job,submission['submissionDigest'],raw,evidence)
         self.assertFalse((self.job/'received.json').exists())
+
+    def reference_only_job(self, name='reference-only', crop=True, geometry_intent=None):
+        job=self.root/name
+        frozen=edit.freeze(self.archive,'panel',job,
+            purpose='Preserve exact QUEST lettering and decorative text; extract parent panel.',
+            owned=['panel texture', 'exact QUEST wordmark and decorative lettering'],
+            delete=['whole child icon frame and its contents'],reference_region=[4,6,20,22] if crop else None,
+            geometry_intent=geometry_intent,input_policy='reference-only-owned-extraction-v1')
+        self.assertEqual(frozen['generationCalls'],0)
+        return job,frozen
+
+    def test_reference_only_input_policy_and_explicit_text_scope(self):
+        for crop,intent in [(True,None),(False,None),(True,'reference-visible-structure')]:
+            job,frozen=self.reference_only_job('reference-only-'+str(crop)+'-'+str(intent),crop,intent)
+            request=edit.verify_frozen(job);arguments=edit.frozen_arguments(job)
+            expected=([str(job/'reference-crop.png')] if crop else [])+[str(job/'reference.png')]
+            self.assertEqual(arguments['referenced_image_paths'],expected)
+            self.assertNotIn(str(job/'source.png'),arguments['referenced_image_paths'])
+            self.assertEqual(request['inputPolicy'],'reference-only-owned-extraction-v1')
+            self.assertEqual(request['args'],read(job/'arguments.json'))
+            self.assertEqual(request['sourceSha256'],digest(job/'source.png'))
+            self.assertEqual((job/'source.png').read_bytes(),(self.job/'source.png').read_bytes())
+            for instruction in ['sole geometry target', 'whole child frame', 'Preserve exact lettering',
+                'exact QUEST wordmark', 'do not inherit text-removal requirements', 'continuous natural',
+                'alpha exactly zero', 'Do not infer hidden edges']:
+                self.assertIn(instruction,arguments['prompt'])
+            self.assertNotIn('Preserve the owned outer silhouette',arguments['prompt'])
+            edit.authorize(job,frozen['digest'],'Fixture reference-only authorization')
+            self.assertEqual(edit.next_request(job)['arguments'],arguments)
+
+    def test_reference_only_frozen_tampering_and_reintroduced_source_rejected(self):
+        job,frozen=self.reference_only_job()
+        edit.authorize(job,frozen['digest'],'Fixture reference-only authorization')
+        for filename in ['arguments.json','request.json','prompt.md']:
+            path=job/filename;original=path.read_bytes()
+            path.write_bytes(original.replace(b'reference-only-owned-extraction-v1',b'source-first'))
+            with self.assertRaisesRegex(ValueError,'EDIT_REQUEST_CHANGED|EDIT_FROZEN_INPUT_CHANGED'):
+                edit.next_request(job)
+            self.assertFalse((job/'submission.json').exists());path.write_bytes(original)
+        arguments=read(job/'image-gen-arguments.json')
+        arguments['referenced_image_paths'].append(str(job/'source.png'))
+        (job/'image-gen-arguments.json').write_text(json.dumps(arguments),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'EDIT_FROZEN_INPUT_CHANGED'):edit.frozen_arguments(job)
+        # A refreshed file hash cannot relax the policy's public exact-input validation.
+        request=read(job/'request.json');request['files']['image-gen-arguments.json']=digest(job/'image-gen-arguments.json')
+        request.pop('digest');request['digest']=edit._hash(request)
+        (job/'request.json').write_text(json.dumps(request),encoding='utf-8')
+        (job/'preparation.json').write_text(json.dumps(dict(requestSha256=digest(job/'request.json'))),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'EDIT_INPUT_POLICY_CHANGED'):edit.verify_frozen(job)
+        self.assertFalse((job/'submission.json').exists())
+
+    def test_reference_only_native_receive_and_source_override_preserve_bytes(self):
+        job,frozen=self.reference_only_job()
+        edit.authorize(job,frozen['digest'],'Fixture reference-only authorization')
+        submission=edit.next_request(job)
+        raw=self.root/'reference-only-return.png';image=Image.new('RGBA',(21,23))
+        image.paste((45,60,80,255),(3,3,18,20));image.putpixel((2,10),(45,60,80,1));image.save(raw)
+        evidence=self.root/'reference-only-evidence.json'
+        save(evidence,dict(kind='ui_native_material_edit_return_v1',
+            submissionDigest=submission['submissionDigest'],returnedSha256=digest(raw),
+            hostObservedNativeReturn=True,notCryptographicallyProviderVerified=True))
+        edit.receive(job,submission['submissionDigest'],raw,evidence)
+        self.assertEqual(edit.verify_received(job)['rawPath'].read_bytes(),raw.read_bytes())
+        prepared=geometry.prepare(self.archive,self.root/'reference-only-observation',['panel'],
+            source_overrides={'panel':job})
+        item=self.root/'reference-only-observation'/prepared['items'][0]['directory']
+        observed=geometry.verify_prepared(item)
+        self.assertEqual(observed['sourceSize'],[21,23])
+        self.assertEqual((item/'source.png').read_bytes(),raw.read_bytes())
+        self.assertEqual(observed['sourceOverride']['kind'],'ui_verified_archive_material_edit_source_v1')
+        self.assertFalse(read(job/'received.json')['humanVisualAcceptance'])
+
+    def test_unknown_input_policy_rejected_before_creating_job(self):
+        job=self.root/'bad-policy'
+        with self.assertRaisesRegex(ValueError,'EDIT_INPUT_POLICY_INVALID'):
+            edit.freeze(self.archive,'panel',job,purpose='Fixture',owned=['panel'],delete=['child'],input_policy='unknown')
+        self.assertFalse(job.exists())
 
 
 if __name__=='__main__':unittest.main()

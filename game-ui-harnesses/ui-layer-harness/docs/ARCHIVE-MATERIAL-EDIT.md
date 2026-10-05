@@ -6,7 +6,7 @@ The host performs the explicitly authorized edit and supplies its real returned
 PNG plus evidence. There is no automatic retry or resubmission.
 
 `freeze(source_archive, layer_id, output, *, purpose, owned, delete,
-reference_region=None, geometry_intent=None)` requires a complete verified layer package and a fresh
+reference_region=None, geometry_intent=None, input_policy=None)` requires a complete verified layer package and a fresh
 directory. `owned` and `delete` are nonempty lists of explicit material details.
 The source is the authentic existing independent archive layer. The reference is
 the full original archive reference, never the preview. An optional integer crop
@@ -57,6 +57,36 @@ structure target, the full original reference as placement/clipping context, and
 the last source image as texture/detail evidence, never the geometry or aspect
 ratio target. `frozen_arguments` validates the exact selected order. The legacy
 default retains its original source-first order.
+
+`input_policy='reference-only-owned-extraction-v1'` freezes an extraction input
+contract in which the image tool receives only original-reference evidence:
+`[reference-crop.png, reference.png]` with a crop, or `[reference.png]` without one.
+The old `source.png` is never included in native `referenced_image_paths` under
+this policy. Its actual bytes, source archive identity, layer metadata and SHA
+remain sealed as provenance and are still verified. `inputPolicy` is frozen in
+the request, its `args`, and `arguments.json`; the exact native arguments and
+prompt remain frozen by the file SHA chain. Verification checks this exact input
+list even if someone refreshes public file hashes. Existing authorization cannot
+be reused after changing the request.
+
+The reference-only prompt makes original visible silhouette, proportions and
+internal relative layout the sole geometry target. It removes each explicitly
+deleted child, its whole frame and contents from the parent, and preserves exact
+lettering, wordmarks and decorative text explicitly retained in `purpose` and
+`owned`. Historical layer labels or package text-removal metadata supply no new
+content instruction. Reference soft shadows and continuous natural alpha are
+preserved; hidden edges are not invented. Backgrounds remain opaque. A conflicting
+explicit keep/delete scope requires author review before freezing; this module
+does not decide text ownership from natural-language lists.
+
+This input policy works independently or with
+`geometry_intent='reference-visible-structure'`. Omitted or `None` input policy
+preserves existing prompt bytes, fields and tool arguments for both legacy and
+geometry-intent jobs. Other policies are rejected. Receive and verified source
+overrides continue to retain native returned bytes, dimensions and alpha without
+fitting, mask editing or silent retries. A valid frozen chain proves identity and
+input scope, not visual quality, exact lettering or correct child removal; those
+remain subject to actual visual review and the unchanged acceptance gates.
 
 `authorize(job, digest_value, actual_user_instruction)` writes a fresh single-use
 authorization bound to the exact request digest. The instruction must be the real
