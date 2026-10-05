@@ -31,9 +31,12 @@ def _native_alpha(path, role):
             raise ValueError('EDIT_NATIVE_TRANSPARENT_ALPHA_REQUIRED')
 
 
-def freeze(source_archive, layer_id, output, *, purpose, owned, delete, reference_region=None):
+def freeze(source_archive, layer_id, output, *, purpose, owned, delete, reference_region=None,
+           geometry_intent=None):
     archive=Path(source_archive).resolve();job=Path(output).resolve()
     validate_archive(archive)
+    if geometry_intent is not None and geometry_intent!='reference-visible-structure':
+        raise ValueError('EDIT_GEOMETRY_INTENT_INVALID')
     if not isinstance(purpose,str) or not purpose.strip():raise ValueError('EDIT_PURPOSE_REQUIRED')
     for values in (owned,delete):
         if not isinstance(values,list) or not values or any(not isinstance(v,str) or not v.strip() for v in values):
@@ -60,6 +63,7 @@ def freeze(source_archive, layer_id, output, *, purpose, owned, delete, referenc
             raise ValueError('REFERENCE_REGION_INVALID')
         with Image.open(job/'reference.png') as image:image.crop(reference_region).save(job/'reference-crop.png')
     args=dict(purpose=purpose,owned=list(owned),delete=list(delete),referenceRegion=reference_region)
+    if geometry_intent is not None:args['geometryIntent']=geometry_intent
     save(job/'arguments.json',args)
     prompt=('Edit only the actual source.png material using the original reference.png'+
         (' and reference-crop.png' if reference_region is not None else '')+' as visual evidence.\n'+
@@ -73,9 +77,46 @@ def freeze(source_archive, layer_id, output, *, purpose, owned, delete, referenc
          'continuous transparent alpha. Return one genuine native transparent PNG with the complete owned material. ')+
         'Do not alpha-crop, fit to an ownership rectangle, redraw geometry programmatically, '+
         'leave placeholder frames, add children, or use a recomposed preview as reference.\n')
+    if geometry_intent=='reference-visible-structure':
+        prompt=('Geometry intent: reference-visible-structure.\n'+
+            ('Image 1 is reference-crop.png, the primary visible structure target. Image 2 is the full '+
+             'original reference.png, providing placement and clipping context. Image 3 is source.png, '+
+             'only owned texture/detail evidence, never the primary geometry or aspect-ratio target.\n'
+             if reference_region is not None else
+             'Image 1 is the full original reference.png, the primary visible structure target and placement '+
+             'and clipping context. Image 2 is source.png, only owned texture/detail evidence, never the '+
+             'primary geometry or aspect-ratio target.\n')+
+            'Edit the actual source.png material using the full original reference.png'+
+            (' and its reference-crop.png local detail' if reference_region is not None else '')+
+            ' as the authority for visible structure. The full original reference determines the visible '+
+            'native body silhouette, proportions and internal relative layout; the local crop supplies detail '+
+            'in that full-reference context. source.png supplies ONLY owned texture and detail material evidence. '+
+            'Replace any confirmed incorrect old silhouette or proportions with the reference-visible structure.\n'+
+            'Purpose: '+purpose+'\nRetain ONLY these owned surfaces/details: '+json.dumps(owned,ensure_ascii=False)+
+            '\nDELETE each listed child and its entire decoration/frame, including empty frames: '+json.dumps(delete,ensure_ascii=False)+
+            '\nRecover the underlying owned surface naturally where deleted children occupied it. '+
+            'Do not bake deleted children into the body texture or shadow. Reproduce only the actually visible '+
+            'fragment and true original-canvas clipping boundary when the reference cuts off an object. '+
+            'Do not infer hidden boundaries or extend the object beyond what the original reference shows. '+
+            'An ownership/sourceRegion rectangle is not the body silhouette or a required bounding rectangle. '+
+            ('Keep the background fully opaque and preserve the positions of visible physical scene objects. '+
+             'Return one genuine native opaque PNG with the complete visible background at original reference '+
+             f'aspect ratio {size[0]}:{size[1]} ({size[0]} by {size[1]} pixels). '
+             if layer['role']=='background' else
+             'Separate the native visible body, its reference-supported soft shadow/glow, and transparent canvas. '+
+             'Outside the body retain only the real soft light visible in the reference; produce no isolated '+
+             'fragments or unrelated halos. All remaining canvas must have alpha exactly zero. Preserve continuous '+
+             'natural alpha at edges and in real soft light; do not erase faint alpha. Return one genuine native '+
+             'transparent PNG with the complete reference-visible owned material. ')+
+            'Do not alpha-crop, force rectangular registration, fit or deform to an ownership rectangle, '+
+            'hand-draw or redraw geometry programmatically, hand-edit masks, leave placeholder frames, add children, '+
+            'or use a recomposed preview as reference.\n')
     (job/'prompt.md').write_text(prompt,encoding='utf-8')
     referenced=[str(job/'source.png'),str(job/'reference.png')]
     if reference_region is not None:referenced.append(str(job/'reference-crop.png'))
+    if geometry_intent=='reference-visible-structure':
+        referenced=([str(job/'reference-crop.png')] if reference_region is not None else [])+[
+            str(job/'reference.png'),str(job/'source.png')]
     save(job/'image-gen-arguments.json',dict(prompt=prompt,referenced_image_paths=referenced,
                                           transparent_background=layer['role']!='background'))
     save(job/'schema.json',dict(kind='ui_native_material_edit_return_v1',required=[
@@ -88,6 +129,7 @@ def freeze(source_archive, layer_id, output, *, purpose, owned, delete, referenc
         sourceSha256=digest(job/'source.png'),referenceSha256=digest(job/'reference.png'),
         files=files,maximumCalls=1,automaticRetry=False,humanVisualAcceptance=False,
         strictBodyRegistrationPassed=False,originalDagPromoted=False)
+    if geometry_intent is not None:request['geometryIntent']=geometry_intent
     request['digest']=_hash(request);save(job/'request.json',request)
     save(job/'preparation.json',dict(requestSha256=digest(job/'request.json')))
     return dict(status='frozen_awaiting_compute_authorization',digest=request['digest'],generationCalls=0)
@@ -102,6 +144,13 @@ def verify_frozen(job):
     for name,sha in request['files'].items():
         path=(job/name).resolve()
         if not path.is_relative_to(job) or digest(path)!=sha:raise ValueError('EDIT_FROZEN_INPUT_CHANGED')
+    if 'geometryIntent' in request or 'geometryIntent' in request['args']:
+        if (request.get('geometryIntent')!='reference-visible-structure' or
+            request['args'].get('geometryIntent')!=request['geometryIntent'] or
+            read(job/'arguments.json')!=request['args'] or
+            not (job/'prompt.md').read_text(encoding='utf-8').startswith(
+                'Geometry intent: reference-visible-structure.\n')):
+            raise ValueError('EDIT_GEOMETRY_INTENT_CHANGED')
     archive=Path(request['sourceArchive']);validate_archive(archive)
     if digest(archive)!=request['sourceArchiveSha256']:raise ValueError('EDIT_SOURCE_ARCHIVE_CHANGED')
     with zipfile.ZipFile(archive) as z:
@@ -132,6 +181,9 @@ def frozen_arguments(job):
     arguments=read(job/'image-gen-arguments.json')
     references=[str(job/'source.png'),str(job/'reference.png')]
     if request['args']['referenceRegion'] is not None:references.append(str(job/'reference-crop.png'))
+    if request.get('geometryIntent')=='reference-visible-structure':
+        references=([str(job/'reference-crop.png')] if request['args']['referenceRegion'] is not None else [])+[
+            str(job/'reference.png'),str(job/'source.png')]
     expected=dict(prompt=(job/'prompt.md').read_text(encoding='utf-8'),referenced_image_paths=references,
                   transparent_background=request['originalLayer']['role']!='background')
     if arguments!=expected:raise ValueError('EDIT_FROZEN_IMAGE_ARGUMENTS_CHANGED')

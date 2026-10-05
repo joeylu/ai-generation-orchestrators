@@ -6,7 +6,7 @@ The host performs the explicitly authorized edit and supplies its real returned
 PNG plus evidence. There is no automatic retry or resubmission.
 
 `freeze(source_archive, layer_id, output, *, purpose, owned, delete,
-reference_region=None)` requires a complete verified layer package and a fresh
+reference_region=None, geometry_intent=None)` requires a complete verified layer package and a fresh
 directory. `owned` and `delete` are nonempty lists of explicit material details.
 The source is the authentic existing independent archive layer. The reference is
 the full original archive reference, never the preview. An optional integer crop
@@ -20,6 +20,44 @@ Foreground returns require nonempty RGBA with native transparency; a background
 return may be RGB or fully opaque RGBA. Raw bytes and dimensions are preserved.
 No alpha cropping, preliminary fitting or programmatic surface drawing occurs.
 
+The optional `geometry_intent='reference-visible-structure'` explicitly changes
+the geometry contract for a source whose silhouette or proportions were confirmed
+incorrect. The full original reference and optional local crop determine the native
+visible body silhouette, proportions and internal relative layout. The source
+supplies owned texture and detail evidence. The prompt requires replacing incorrect
+old geometry, retaining only actually visible fragments and true original-canvas
+clipping boundaries, and never inferring hidden edges or extending off-canvas
+objects. An ownership or `sourceRegion` rectangle does not define the body.
+Listed deleted children and their frames must not become baked body decoration.
+
+For foregrounds, the body, genuine reference-supported soft shadow/glow and empty
+canvas are distinguished explicitly. Only real reference soft light may remain
+outside the body; isolated fragments and unrelated halos are forbidden. Remaining
+canvas must have alpha zero, with natural continuous edges and faint genuine soft
+light preserved. Backgrounds remain opaque and keep visible physical scene objects
+in their reference positions. Neither intent permits hand-drawn geometry, forced
+rectangular registration, mask edits or removal of weak alpha. Receive preserves
+the original returned bytes and dimensions, and does not perform these operations
+or establish human/strict geometry acceptance.
+
+When selected, `geometryIntent` is bound in the request and its `args` and
+`arguments.json`; the exact image tool prompt includes the explicit intent and is
+bound by the frozen file SHA chain. The image tool argument schema remains
+`prompt`, `referenced_image_paths`, `transparent_background`. Omission or explicit
+`None` retains the original prompt bytes and request structure, with no new intent
+fields; old frozen jobs remain valid. Other intent values are rejected. Changing
+intent requires a fresh job and a new digest-bound compute authorization; updating
+public frozen hashes cannot reuse an existing authorization. No call to generation
+is made by freezing, validation or this exchange.
+
+For this intent the exact tool input order is reference-first: with a crop it is
+`[reference-crop.png, reference.png, source.png]`, and without a crop it is
+`[reference.png, source.png]`. The prompt identifies image 1 as the primary visible
+structure target, the full original reference as placement/clipping context, and
+the last source image as texture/detail evidence, never the geometry or aspect
+ratio target. `frozen_arguments` validates the exact selected order. The legacy
+default retains its original source-first order.
+
 `authorize(job, digest_value, actual_user_instruction)` writes a fresh single-use
 authorization bound to the exact request digest. The instruction must be the real
 human authorization, retained as local evidence. A saved host declaration cannot
@@ -29,8 +67,8 @@ input paths are not public examples or publishable manifests.
 `next_request(job)` reserves exactly one intent and returns `submissionDigest`,
 `sourcePath`, `referencePath`, the frozen `prompt`, and `arguments`. The exact
 image tool arguments can also be read with `frozen_arguments(job)`:
-`prompt`, `referenced_image_paths` (source, full original reference, optional
-original-reference crop) and `transparent_background`, false for backgrounds.
+`prompt`, `referenced_image_paths` (the selected intent's exact order described
+above) and `transparent_background`, false for backgrounds.
 Background prompts preserve the original reference aspect ratio. Authorization
 returns `authorizationDigest`, the SHA-256 of the immutable authorization file.
 Submission status is
