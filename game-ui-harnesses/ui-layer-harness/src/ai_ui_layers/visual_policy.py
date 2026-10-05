@@ -5,21 +5,26 @@ from pathlib import Path
 
 
 KIND = 'ui_visual_policy_v1'
+KIND_V2 = 'ui_visual_policy_v2'
 FIELDS = {
     'kind': (KIND,),
     'appearanceEvidence': ('text-complete', 'bound-reference'),
     'minorColor': ('strict', 'record'),
     'shadow': ('preserve', 'optional'),
 }
+FIELDS_V2 = dict(FIELDS, kind=(KIND_V2,), minorStyle=('strict', 'record'))
 INPUT_NAME = 'visual-policy.json'
 MODEL_STAGES = ('m2', 'repair', 'rereview', 'repair2', 'rereview2')
 
 
 def validate(policy):
     """Require the exact public policy shape, without implicit defaults."""
-    if not isinstance(policy, dict) or set(policy) != set(FIELDS):
+    if not isinstance(policy, dict):
         raise ValueError('INVALID_VISUAL_POLICY_FIELDS')
-    for field, allowed in FIELDS.items():
+    fields = FIELDS_V2 if policy.get('kind') == KIND_V2 else FIELDS
+    if set(policy) != set(fields):
+        raise ValueError('INVALID_VISUAL_POLICY_FIELDS')
+    for field, allowed in fields.items():
         if type(policy[field]) is not str or policy[field] not in allowed:
             raise ValueError('INVALID_VISUAL_POLICY_VALUE:' + field)
     return policy
@@ -132,7 +137,9 @@ def planning_guidance(policy):
              '身份、状态、纹理不变的轻微色调偏差可记录；明显错色仍须修正。')
     shadow = ('保留有据阴影。' if policy['shadow'] == 'preserve' else
               '孤立可选柔影可不重建；实体轮廓、描边、边界、高光和显著渐变仍须保留。')
-    return '\n本次显式视觉策略：' + appearance + color + shadow + '\n'
+    style = ('清晰归属且身份、状态、数量、结构和纹理类型保留的轻微表面渲染差异可记录；'
+             '主要或不确定变化仍须修正。' if policy.get('minorStyle') == 'record' else '')
+    return '\n本次显式视觉策略：' + appearance + color + shadow + style + '\n'
 
 
 def generation_guidance(policy):
@@ -146,7 +153,9 @@ def generation_guidance(policy):
              '只容许不改变身份、状态、纹理的轻微色调差异；')
     shadow = ('保留有据阴影。' if policy['shadow'] == 'preserve' else
               '孤立柔影可选，实体轮廓、描边、边界、高光与显著渐变仍须保留。')
-    return '\n显式视觉策略：' + appearance + color + shadow
+    style = ('轻微表面渲染差异可记录；身份、状态、数量、结构和纹理类型仍须保留，'
+             '不改变主体轮廓、归属或位置。' if policy.get('minorStyle') == 'record' else '')
+    return '\n显式视觉策略：' + appearance + color + shadow + style
 
 
 def output_review_guidance(policy):
@@ -157,5 +166,10 @@ def output_review_guidance(policy):
              '仅实体身份、状态与纹理不变的轻微色调差异可记录为非阻断。')
     shadow = ('有据阴影缺失仍须审查。' if policy['shadow'] == 'preserve' else
               '仅孤立可选柔影可不阻断；实体轮廓、描边、边界、高光、显著渐变及材质缺失仍阻断。')
+    style = ('清晰归属、身份/状态/数量/结构/纹理类型完整的轻微表面渲染、细微高光强弱'
+             '或边缘处理差异，填style/other、magnitude=minor并记录为非阻断；'
+             '主要、无法判断或归属不清的外观变化仍阻断。缺件、重复、实心裁断、轮廓破坏、'
+             '错误归属/状态、位移及高光/渐变/材质缺失不得归入轻微样式。'
+             if policy.get('minorStyle') == 'record' else '')
     return ('\n显式输出审查策略：逐项 finding 填 styleAspect=color-tone/shadow/other，非样式问题填 other。'
-            + color + shadow + '绑定参考图只承接细微表面，不豁免缺件、错状态、错归属或裁切。')
+            + color + shadow + style + '绑定参考图只承接细微表面，不豁免缺件、错状态、错归属或裁切。')

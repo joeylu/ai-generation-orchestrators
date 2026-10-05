@@ -352,6 +352,21 @@ cosmeticIssues 不填写 category，code 只接受 MINOR_COLOR_TONE 或 DESCRIPT
 裁框检查。显式策略下 `styleAspect=other` 的样式差异保守阻断，不能代替明确的色调或
 阴影归因。轻微色差和柔影记录仍进入输出警告，不能冒充逐像素复原。
 
+用户明确接受轻微外观偏差时，新作业可使用独立版本的显式策略：
+
+```json
+{"kind":"ui_visual_policy_v2","appearanceEvidence":"bound-reference","minorColor":"record","shadow":"optional","minorStyle":"record"}
+```
+
+v2 必须完整填写上述五个字段，`minorStyle` 为 `strict|record`。`record` 仅将清晰归属、
+`category=style`、`styleAspect=other`、`magnitude=minor` 的轻微表面渲染差异记录为警告，
+例如主体与纹理类型完整时的细微高光强弱、纹理颗粒呈现或边缘处理差异。所有观察、
+证据和建议仍保存并进入交付警告。色差和阴影继续分别受 `minorColor` 与 `shadow` 控制。
+major、uncertain、归属不清、缺件、重复、裁切、轮廓破坏、错误状态/归属、位移及材质缺失
+仍阻断；不能把这些问题归入轻微样式。v2 沿用原始字节与 SHA-256 绑定、提示词重建及
+新摘要授权，不对已冻结作业热更新。v1 的字段、提示词与保守判断保持原有语义，历史失败
+审查不因新策略重新解释或提升。此选项是外观容差，不是新交付的人工视觉验收。
+
 显式策略的完整 mixed 请求中，每个 singleton 经真实 `single_material_review`：
 先重放相同冻结 snapshot 的作业、授权、提交和接收回执，核对 raw SHA-256，再按
 background／foreground 技术门禁准备比较图；每项最多一次只读模型调用，合板继续

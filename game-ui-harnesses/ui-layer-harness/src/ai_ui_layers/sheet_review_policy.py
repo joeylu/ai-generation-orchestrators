@@ -86,7 +86,8 @@ def classify(answer, material_ids, visual_policy=None):
             elif finding['magnitude']=='minor':
                 aspect=finding['styleAspect']
                 advisory=(aspect=='color-tone' and visual_policy['minorColor']=='record' or
-                          aspect=='shadow' and visual_policy['shadow']=='optional')
+                          aspect=='shadow' and visual_policy['shadow']=='optional' or
+                          aspect=='other' and visual_policy.get('minorStyle')=='record')
         decision = dict(finding, severity='warning' if advisory else 'blocking', attribution=attribution)
         decisions.append(decision)
         if advisory:
