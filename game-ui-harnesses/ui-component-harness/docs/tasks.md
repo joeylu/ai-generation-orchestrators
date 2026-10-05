@@ -3274,3 +3274,30 @@ nativeFullChainPassed=false and humanVisualAcceptance=false. Candidate artifacts
 are development inputs; production still requires an immutable tagged release
 and verified artifact digest. Docker-only handoff/evidence stays in the ignored
 work area, outside the public provider-neutral runtime.
+
+### 2026-10-05 Native compositor observation in motion acceptance
+
+CI 37315057284 on f44a5d8 completes six jobs successfully, including all four
+Python matrices, dependency audit and build. The component job passes build,
+658 unit tests, self-test and the installed offline distribution regression,
+then records 170 browser passes, one premium endpoint timeout and one existing
+skip. This is an actual failed CI result, not a native-model acceptance result.
+
+The retained trace locates the delay in Image exit: its exact idle wait takes
+31,012.794 ms and the compositor records a matching 31,120.299 ms frame gap.
+Clear completes before the next assertion starts at 45,009 ms, after the shared
+45,000 ms test budget. The original failure diagnostics show a null system/style
+and an idle scheduler. No incorrect clear result is observed. The timer-only
+wait depends on headless software WebGL presenting a native frame; the shared
+wait now observes actual canvas pixels before checking the same exact scheduler
+idle condition, following the existing held-press presentation observation.
+No clock is advanced, motion state written, assertion removed or timeout raised.
+
+Executed locally: all three original profile endpoint cases pass before repair;
+after repair all 22 motion-system browser cases pass with zero retries/skips,
+including real input, presentation pixels, interruptions, Dialog blocker clear
+and portable Bundle reopen. git diff --check passes. This changes browser test
+observation only; runtime, package artifacts, other Harnesses and shared checkout
+remain unchanged. The original CI trace, derived timings and local reports are
+retained in the ignored work area. New remote CI is recorded separately after
+push. nativeFullChainPassed=false; human visual acceptance remains separate.

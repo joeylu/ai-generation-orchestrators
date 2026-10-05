@@ -136,6 +136,11 @@ async function waitForMotion(page: Page): Promise<void> {
 }
 
 async function waitForIdle(page: Page): Promise<void> {
+  // Headless software WebGL may defer a native frame while no compositor
+  // presentation is requested. Observing actual canvas pixels requests that
+  // presentation; it does not advance the clock or complete a motion channel.
+  // Keep the scheduler's exact idle condition and the original test timeout.
+  await page.locator('#canvas-host canvas').screenshot();
   // A timer-backed condition yields to the native WebGL compositor between
   // observations; it never advances or replaces the scheduler clock.
   await page.waitForFunction(() => {
