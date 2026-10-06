@@ -91,6 +91,90 @@ class ReceivedDiagnosticTests(unittest.TestCase):
             diagnostic.deliver(contract,prepared['diagnosticDigest'],self.base/'must-not-exist',self.viewer)
         self.assertFalse((self.base/'must-not-exist').exists())
 
+    def cleanup_fixture(self,received=True):
+        from ai_ui_layers.material_cleanup import prepare_cleanup
+        mid='asset-panel';job=self.base/'cleanup-source'
+        config=prepare_cleanup(self.job/'snapshot',read(self.job/'job.json')['snapshotDigest'],job,mid,self.job)
+        exchange.authorize(job,config['digest'],'Offline cleanup fixture only.')
+        request=exchange.next_request(job)
+        if received:
+            image=Image.new('RGBA',(160,160));ImageDraw.Draw(image).rectangle((20,15,139,139),fill=(170,80,40,240))
+            raw=self.base/'fixture-cleanup.png';image.save(raw)
+            exchange.receive(job,request['submissionDigest'],raw)
+        return dict(materialId=mid,cleanupJob=str(job),cleanupJobDigest=config['digest'])
+
+    def test_genuine_cleanup_override_keeps_all_sources_protection_reuse_and_false_flags(self):
+        selection=self.cleanup_fixture();cleanup_job=Path(selection['cleanupJob'])
+        before=files(self.run);cleanup_before=files(cleanup_job)
+        contract=self.base/'cleanup-contract'
+        frozen=diagnostic.prepare(self.job,self.job_digest,contract,'Fixture original viewport.',[selection])
+        with self.assertRaisesRegex(ValueError,'DIAGNOSTIC_CLEANUP_FOREGROUND_SINGLETON_REQUIRED'):
+            diagnostic._cleanup_checked(diagnostic._checked(self.job,self.job_digest),[selection,selection])
+        self.assertEqual(read(contract/'diagnostic.json')['kind'],'ui_received_diagnostic_delivery_v2')
+        output=self.base/'cleanup-export'
+        result=diagnostic.deliver(contract,frozen['diagnosticDigest'],output,self.viewer)
+        self.assertEqual(result['layerCount'],len(self.plan['materials']))
+        self.assertEqual(len(result['reuseDerivations']),1)
+        self.assertEqual(result['backgroundProtection']['protectedChangedPixels'],0)
+        self.assertEqual((output/'materials/asset-scene.png').read_bytes(),(output/'protected-background/candidate.png').read_bytes())
+        self.assertEqual(result['cleanupReplacements'][0]['cleanupRawSha256'],digest(cleanup_job/'attempts/asset-panel/raw.png'))
+        geometry=next(g for g in result['geometry'] if g['materialId']=='asset-panel')
+        self.assertEqual(geometry['sourceSha256'],result['cleanupReplacements'][0]['cleanupRawSha256'])
+        for k,v in diagnostic.FLAGS.items():self.assertEqual(result[k],v)
+        validate_viewport_archive(output/'delivery/viewport-ui-layers.zip')
+        with zipfile.ZipFile(output/'diagnostic-sources.zip') as z:
+            self.assertEqual(z.read('cleanup-raw/asset-panel.png'),(cleanup_job/'attempts/asset-panel/raw.png').read_bytes())
+            self.assertEqual(z.read('raw/asset-panel.png'),(self.job/'attempts/asset-panel/raw.png').read_bytes())
+        self.assertEqual(before,files(self.run));self.assertEqual(cleanup_before,files(cleanup_job))
+
+    def test_unreceived_ordinary_background_and_reused_overrides_rejected_before_output(self):
+        pending=self.cleanup_fixture(received=False)
+        with self.assertRaisesRegex(ValueError,'RECEIVED_REQUEST_REQUIRED'):
+            diagnostic.prepare(self.job,self.job_digest,self.base/'pending-contract','Fixture viewport.',[pending])
+        self.assertFalse((self.base/'pending-contract').exists())
+        checked=diagnostic._checked(self.job,self.job_digest)
+        ordinary=dict(materialId='asset-panel',cleanupJob=str(self.job),cleanupJobDigest=self.job_digest)
+        with self.assertRaisesRegex(ValueError,'DIAGNOSTIC_CLEANUP_SOURCE_MISMATCH'):
+            diagnostic._cleanup_checked(checked,[ordinary])
+        for mid in ('asset-scene','asset-coin-a','asset-coin-b'):
+            with self.assertRaisesRegex(ValueError,'DIAGNOSTIC_CLEANUP_FOREGROUND_SINGLETON_REQUIRED'):
+                diagnostic._cleanup_checked(checked,[{**ordinary,'materialId':mid}])
+        exchange.fail(Path(pending['cleanupJob']),exchange.verified(Path(pending['cleanupJob'])/'attempts/asset-panel/submission.json')['digest'],'Offline unknown fixture result')
+        with self.assertRaisesRegex(ValueError,'RECEIVED_REQUEST_REQUIRED'):
+            diagnostic._cleanup_checked(checked,[pending])
+
+    def test_cleanup_override_tamper_and_other_origin_cannot_create_export(self):
+        selection=self.cleanup_fixture();contract=self.base/'tamper-cleanup-contract'
+        import shutil
+        other=self.base/'copied-fixture-origin'
+        # Copy only synthetic temporary receipt fixtures, never a production tree.
+        shutil.copytree(self.job,other)
+        with self.assertRaisesRegex(ValueError,'DIAGNOSTIC_CLEANUP_SOURCE_MISMATCH'):
+            diagnostic.prepare(other,self.job_digest,self.base/'wrong-origin-contract','Fixture viewport.',[selection])
+        self.assertFalse((self.base/'wrong-origin-contract').exists())
+        frozen=diagnostic.prepare(self.job,self.job_digest,contract,'Fixture viewport.',[selection])
+        raw=Path(selection['cleanupJob'])/'attempts/asset-panel/raw.png'
+        raw.write_bytes(raw.read_bytes()+b'changed fixture')
+        with self.assertRaisesRegex(ValueError,'CHANGED'):
+            diagnostic.deliver(contract,frozen['diagnosticDigest'],self.base/'no-tamper-export',self.viewer)
+        self.assertFalse((self.base/'no-tamper-export').exists())
+
+    def test_cleanup_resolved_path_escape_rejected_before_contract_directory(self):
+        selection=self.cleanup_fixture();job=Path(selection['cleanupJob'])
+        linked=job/'extra-proof.txt';external=self.base/'external-proof.txt'
+        linked.write_bytes(b'identical fixture bytes');external.write_bytes(linked.read_bytes())
+        original=Path.resolve
+        def escaped(path,*args,**kwargs):
+            return original(external,*args,**kwargs) if path==linked else original(path,*args,**kwargs)
+        # Model an outside symlink's resolved path without requiring Windows
+        # developer mode or elevated symlink privileges in a regression test.
+        from unittest.mock import patch
+        contract=self.base/'must-not-freeze-escape'
+        with patch.object(Path,'resolve',escaped):
+            with self.assertRaisesRegex(ValueError,'HOST_EVIDENCE_PATH_ESCAPE'):
+                diagnostic.prepare(self.job,self.job_digest,contract,'Fixture viewport.',[selection])
+        self.assertFalse(contract.exists())
+
 
 class ExpandedProxyTests(unittest.TestCase):
     def test_storage_retains_support_without_relocating_proxy_or_claiming_completeness(self):

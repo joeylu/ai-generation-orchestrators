@@ -41,3 +41,24 @@ wrapper is validated independently. `diagnostic-sources.zip` retains the origina
 source and cell evidence, including unowned residual cells. Packaging integrity
 and source identity do not imply visual equivalence, ownership purity or human
 acceptance. No diagnostic result is a review receipt or a strict success.
+
+## Source-bound singleton cleanup replacements
+
+Preparation optionally accepts `--cleanup-jobs SELECTION.json`, a nonempty JSON
+list of `{materialId, cleanupJob, cleanupJobDigest}` records. This creates a fresh
+v2 diagnostic contract. Each selected material must be an original foreground
+singleton and its cleanup job must already have a genuine received PNG. Sheet,
+background, duplicate, reuse prototype and reuse instance selections are rejected.
+An arbitrary PNG or ordinary image-acquisition job is not a cleanup replacement.
+
+Preparation and delivery replay the complete original receipt set and each
+cleanup's source, snapshot, authorization, submission, receipt, raw identity,
+catalog and prompt. The cleanup must edit this exact original job and singleton
+request, with the same snapshot and original raw fingerprint. Every cleanup file
+is additionally frozen by hash; a subsequent change prevents export. Replacement
+occurs before reuse derivation, while all original source files remain retained.
+The source ZIP contains both `raw/` and `cleanup-raw/`. Public replacement evidence
+contains material IDs and artifact hashes; local job paths remain in the private
+contract. Both v1 and v2 retain the same diagnostic flags and pending review
+status, protected background, complete layer set and original viewport. Receiving
+a cleanup still does not establish correct foreign removal or owned preservation.

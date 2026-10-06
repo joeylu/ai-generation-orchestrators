@@ -60,18 +60,75 @@ def _checked(job, expected_digest):
     return job, config, snapshot, manifest, rows, visual, reuse, background, bindings
 
 
-def prepare(job, expected_digest, output, canvas_policy_instruction):
+def _cleanup_checked(checked, selections):
+    """Only genuine singleton edits of this exact original receipt are eligible."""
+    if not isinstance(selections,list) or not selections:
+        raise ValueError('DIAGNOSTIC_CLEANUP_SELECTION_REQUIRED')
+    job,config,snapshot,manifest,rows,visual,reuse,background,bindings=checked
+    by_id={r['asset']:r for r in rows};original={b['requestId']:b for b in bindings}
+    owned={m['id']:m for m in visual['materials']};reused=set()
+    if reuse is not None:
+        for group in reuse['groups']:
+            reused.update([group['prototypeMaterialId'],*group['instanceMaterialIds']])
+    result=[];seen=set()
+    for item in selections:
+        if not isinstance(item,dict) or set(item)!={'materialId','cleanupJob','cleanupJobDigest'}:
+            raise ValueError('DIAGNOSTIC_CLEANUP_SELECTION_FIELDS')
+        if any(not isinstance(item[k],str) or not item[k] for k in item):
+            raise ValueError('DIAGNOSTIC_CLEANUP_SELECTION_FIELDS')
+        mid=item['materialId'];row=by_id.get(mid)
+        if (mid in seen or mid not in owned or mid in reused or owned[mid]['role']=='background' or
+                row is None or row.get('kind')=='sheet' or row.get('materialIds',[mid])!=[mid]):
+            raise ValueError('DIAGNOSTIC_CLEANUP_FOREGROUND_SINGLETON_REQUIRED')
+        seen.add(mid);edit_job=Path(item['cleanupJob']).resolve()
+        actual,edit_row,receipt,raw=source(edit_job,mid)
+        binding=actual.get('cleanup')
+        if (actual['digest']!=item['cleanupJobDigest'] or not isinstance(binding,dict) or
+                actual['snapshotDigest']!=config['snapshotDigest'] or actual['assets']!=[mid] or
+                Path(binding['sourceJob']).resolve()!=job or binding['sourceRequestId']!=mid or
+                binding['materialId']!=mid or edit_row!=row):
+            raise ValueError('DIAGNOSTIC_CLEANUP_SOURCE_MISMATCH')
+        # source() replays load_job/verify_cleanup, including genuine old-source
+        # authorization, source pixels, catalog, context, policy and prompt.
+        lineage=read(edit_job/'cleanup/source-lineage.json')
+        if (lineage['jobDigest']!=config['digest'] or lineage['snapshotDigest']!=manifest['digest'] or
+                lineage['rawSha256']!=original[mid]['rawSha256'] or
+                lineage['submissionDigest']!=original[mid]['submissionDigest']):
+            raise ValueError('DIAGNOSTIC_CLEANUP_SOURCE_MISMATCH')
+        auth=verified(edit_job/'authorization.json')
+        submission=verified(edit_job/'attempts'/mid/'submission.json')
+        if (auth['jobDigest']!=actual['digest'] or auth['snapshotDigest']!=actual['snapshotDigest'] or
+                auth['maximumCalls']!=1 or auth['automaticRetries']!=0 or not auth['approval'].strip() or
+                submission['authorizationDigest']!=auth['digest'] or receipt['submissionDigest']!=submission['digest'] or
+                digest(raw)!=receipt['rawSha256']):
+            raise ValueError('DIAGNOSTIC_CLEANUP_RECEIPT_MISMATCH')
+        bound_files=files(edit_job)
+        _bound_files(edit_job,bound_files)
+        result.append({**item,'cleanupJob':str(edit_job),'cleanupJobFiles':bound_files,
+            'sourceRawSha256':lineage['rawSha256'],'cleanupRawSha256':receipt['rawSha256'],
+            'cleanupReceiptSha256':digest(edit_job/'attempts'/mid/'received.json')})
+    return result
+
+
+def _portable_cleanup(bindings):
+    return [{k:b[k] for k in ('materialId','sourceRawSha256','cleanupRawSha256','cleanupReceiptSha256')}
+            for b in bindings]
+
+
+def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_jobs=None):
     """Freeze a zero-compute diagnostic contract, independently of strict delivery."""
     checked = _checked(job, expected_digest)
     job, config, snapshot, manifest, rows, visual, reuse, background, bindings = checked
+    cleanup_bindings=_cleanup_checked(checked,cleanup_jobs) if cleanup_jobs is not None else []
     if not isinstance(canvas_policy_instruction, str) or not canvas_policy_instruction.strip():
         raise ValueError('EXPLICIT_BOUND_VIEWPORT_POLICY_REQUIRED')
-    output = _fresh(output, [job])
+    output = _fresh(output, [job,*[b['cleanupJob'] for b in cleanup_bindings]])
     output.mkdir(parents=True)
-    value = record(output / 'diagnostic.json', dict(kind='ui_received_diagnostic_delivery_v1',
+    value = record(output / 'diagnostic.json', dict(kind='ui_received_diagnostic_delivery_v2' if cleanup_bindings else 'ui_received_diagnostic_delivery_v1',
         policy=POLICY, geometryPolicy=GEOMETRY_POLICY, receivedJob=str(job),
         receivedJobDigest=expected_digest, receivedJobFiles=files(job),
         snapshotDigest=manifest['digest'], runtime=runtime_files(), sourceBindings=bindings,
+        **({'cleanupBindings':cleanup_bindings} if cleanup_bindings else {}),
         canvasPolicy=viewport.POLICY, canvasPolicyInstruction=canvas_policy_instruction,
         canvasPolicyInstructionSha256=hashlib.sha256(canvas_policy_instruction.encode()).hexdigest(),
         scope='Independent diagnostic only; unresolved sheet, ownership, clipping and visual findings remain unresolved.',
@@ -106,14 +163,20 @@ def _portable_bindings(bindings):
     return [dict(b) for b in bindings]
 
 
-def _sources_archive(output, rows, job, split_records, reuse_records, background_proof):
+def _sources_archive(output, rows, job, split_records, reuse_records, background_proof, cleanup_bindings=()):
     """Preserve every genuine raw file and every cell, including unowned sidecars."""
     root = output / 'source-evidence'
     (root / 'raw').mkdir(parents=True)
     for row in rows:
         shutil.copyfile(job / 'attempts' / row['asset'] / 'raw.png', root / 'raw' / (row['asset']+'.png'))
+    if cleanup_bindings:
+        (root/'cleanup-raw').mkdir()
+        for b in cleanup_bindings:
+            mid=b['materialId']
+            shutil.copyfile(Path(b['cleanupJob'])/'attempts'/mid/'raw.png',root/'cleanup-raw'/(mid+'.png'))
     save(root / 'diagnostic-evidence.json', dict(policy=POLICY, sheetPartitions=split_records,
-        reuseDerivations=reuse_records, backgroundProtection=background_proof, **FLAGS))
+        reuseDerivations=reuse_records, backgroundProtection=background_proof,
+        **({'cleanupReplacements':_portable_cleanup(cleanup_bindings)} if cleanup_bindings else {}),**FLAGS))
     inventory = {p.relative_to(root).as_posix():dict(sha256=digest(p), bytes=p.stat().st_size)
                  for p in sorted(root.rglob('*')) if p.is_file()}
     save(root / 'checksums.json', dict(kind='ui_diagnostic_sources_v1', files=inventory))
@@ -138,7 +201,7 @@ def deliver(contract_dir, expected_digest, output, viewer):
     """Render a new diagnostic artifact, without editing receipts or failed states."""
     contract_dir = Path(contract_dir).resolve()
     contract = verified(contract_dir / 'diagnostic.json')
-    if (contract['digest'] != expected_digest or contract['kind'] != 'ui_received_diagnostic_delivery_v1'
+    if (contract['digest'] != expected_digest or contract['kind'] not in ('ui_received_diagnostic_delivery_v1','ui_received_diagnostic_delivery_v2')
             or contract['policy'] != POLICY or contract['geometryPolicy'] != GEOMETRY_POLICY
             or contract['runtime'] != runtime_files() or contract['canvasPolicy'] != viewport.POLICY
             or contract['canvasPolicyInstructionSha256'] != hashlib.sha256(contract['canvasPolicyInstruction'].encode()).hexdigest()
@@ -150,6 +213,12 @@ def deliver(contract_dir, expected_digest, output, viewer):
     job, config, snapshot, manifest, rows, visual, reuse, background, bindings = checked
     if manifest['digest'] != contract['snapshotDigest'] or bindings != contract['sourceBindings']:
         raise ValueError('DIAGNOSTIC_SOURCE_SCOPE_CHANGED')
+    cleanup_bindings=[]
+    if contract['kind']=='ui_received_diagnostic_delivery_v2':
+        selected=[{k:b[k] for k in ('materialId','cleanupJob','cleanupJobDigest')} for b in contract.get('cleanupBindings',[])]
+        cleanup_bindings=_cleanup_checked(checked,selected)
+        if cleanup_bindings!=contract['cleanupBindings']:raise ValueError('DIAGNOSTIC_CLEANUP_BINDING_CHANGED')
+    elif 'cleanupBindings' in contract:raise ValueError('DIAGNOSTIC_CLEANUP_CONTRACT_VERSION')
     placements = sorted(read(snapshot / 'placements.json')['materials'], key=lambda p:p['drawIndex'])
     owned = {m['id']:m for m in visual['materials']}
     if (len(owned) != len(visual['materials']) or {p['id'] for p in placements} != set(owned)
@@ -158,7 +227,7 @@ def deliver(contract_dir, expected_digest, output, viewer):
     for mid in owned:
         if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,127}', mid) is None:
             raise ValueError('DIAGNOSTIC_MATERIAL_PATH')
-    output = _fresh(output, [contract_dir, job, snapshot])
+    output = _fresh(output, [contract_dir, job, snapshot,*[b['cleanupJob'] for b in cleanup_bindings]])
     output.mkdir(parents=True)
     cuts = output / 'source-evidence/cells'
     cuts.mkdir(parents=True)
@@ -180,6 +249,10 @@ def deliver(contract_dir, expected_digest, output, viewer):
         else:
             sources[key] = str(raw)
             provenance[key] = dict(by_key[key])
+    for b in cleanup_bindings:
+        mid=b['materialId'];sources[mid]=str(Path(b['cleanupJob'])/'attempts'/mid/'raw.png')
+        provenance[mid]=dict(materialId=mid,sourceSha256=b['cleanupRawSha256'],
+                            cleanupReplacesSourceSha256=b['sourceRawSha256'])
     derived = material_reuse.derive(reuse, sources, output / 'reused-cells', provenance)
     sources = derived['materials']
     if set(sources) != set(owned):
@@ -259,12 +332,14 @@ def deliver(contract_dir, expected_digest, output, viewer):
         im.crop(view['worldViewportBox']).save(delivery / 'viewport-preview.png')
     shutil.copyfile(snapshot / 'reference.png', delivery / 'original-reference.png')
     wrapper = viewport._wrapper(delivery)
-    archive = _sources_archive(output, rows, job, splits, derived['records'], bg_proof)
+    archive = _sources_archive(output, rows, job, splits, derived['records'], bg_proof,cleanup_bindings)
     _bound_files(job, contract['receivedJobFiles'])
+    for b in cleanup_bindings:_bound_files(Path(b['cleanupJob']),b['cleanupJobFiles'])
     result.update(status='diagnostic-pending-human-review', policy=POLICY, geometryPolicy=GEOMETRY_POLICY,
         diagnosticDigest=expected_digest, snapshotDigest=manifest['digest'], sourceBindings=_portable_bindings(bindings),
         geometry=geometry, sheetPartitions=splits, reuseDerivations=derived['records'], backgroundProtection=bg_proof,
         viewport=view, viewportArchive=wrapper, sourceArchive=archive, **FLAGS)
+    if cleanup_bindings:result['cleanupReplacements']=_portable_cleanup(cleanup_bindings)
     save(output / 'result.json',result)
     return result
 
@@ -274,14 +349,16 @@ def main():
     p.add_argument('action', choices=['prepare-received-diagnostic','deliver-received-diagnostic'])
     p.add_argument('--received-job'); p.add_argument('--job-digest'); p.add_argument('--contract')
     p.add_argument('--diagnostic-digest'); p.add_argument('--canvas-policy-instruction')
+    p.add_argument('--cleanup-jobs',help='JSON list of source-bound received foreground singleton cleanup selections')
     p.add_argument('--output',required=True); p.add_argument('--viewer')
     a = p.parse_args()
     if a.action == 'prepare-received-diagnostic':
         if not all((a.received_job,a.job_digest,a.canvas_policy_instruction)) or any((a.contract,a.diagnostic_digest,a.viewer)):
             p.error('prepare requires only received-job, job-digest, canvas-policy-instruction and output')
-        result = prepare(a.received_job,a.job_digest,a.output,a.canvas_policy_instruction)
+        result = prepare(a.received_job,a.job_digest,a.output,a.canvas_policy_instruction,
+                         read(Path(a.cleanup_jobs)) if a.cleanup_jobs else None)
     else:
-        if not all((a.contract,a.diagnostic_digest,a.viewer)) or any((a.received_job,a.job_digest,a.canvas_policy_instruction)):
+        if not all((a.contract,a.diagnostic_digest,a.viewer)) or any((a.received_job,a.job_digest,a.canvas_policy_instruction,a.cleanup_jobs)):
             p.error('deliver requires only contract, diagnostic-digest, viewer and output')
         result = deliver(a.contract,a.diagnostic_digest,a.output,a.viewer)
     print(json.dumps(result,ensure_ascii=False))
