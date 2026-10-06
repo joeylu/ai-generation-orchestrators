@@ -6,6 +6,7 @@ import {createBundle,validateBundle,bundleResources} from '../../ui-component-ha
 import {attachPanelSession} from './state.mjs';
 import {attachLayoutSession} from './layout-session.mjs';
 import {attachInputEditor} from './input-editor.mjs';
+import {attachPanelVisuals} from './panel-visuals.mjs';
 import {compilePanel} from './compiler.mjs';
 export const pixiPanelCore={compileTree,validateDocument,createBundle,validateBundle,bundleResources};
 
@@ -13,8 +14,8 @@ function imageFor(resource,signal){return new Promise((resolve,reject)=>{const i
 export async function mountPixiPanelInstance({bundle,state,options,signal,onEvent,onFatal}){
   const container=options.container;if(!(container instanceof HTMLElement)||container.childElementCount)throw new Error('PANEL_HOST_CONTAINER');
   const surface=document.createElement('div');surface.className='panel-instance-surface';surface.style.transformOrigin='top left';container.append(surface);const previousHeight=container.style.height;
-  let runtime,session,layout,observer,detachInput=()=>{},disposed=false;
-  const destroy=()=>{if(disposed)return;disposed=true;const errors=[];for(const action of [()=>observer?.disconnect(),()=>detachInput(),()=>layout?.destroy(),()=>session?.destroy(),()=>runtime?.destroy(),()=>surface.remove(),()=>{container.style.height=previousHeight;}])try{action();}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'PANEL_PIXI_CLEANUP_FAILED');};
+  let runtime,session,layout,observer,detachInput=()=>{},detachVisuals=()=>{},disposed=false;
+  const destroy=()=>{if(disposed)return;disposed=true;const errors=[];for(const action of [()=>observer?.disconnect(),()=>detachVisuals(),()=>detachInput(),()=>layout?.destroy(),()=>session?.destroy(),()=>runtime?.destroy(),()=>surface.remove(),()=>{container.style.height=previousHeight;}])try{action();}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'PANEL_PIXI_CLEANUP_FAILED');};
   const aborted=()=>destroy();signal.addEventListener('abort',aborted,{once:true});
   try{
     signal.throwIfAborted();runtime=await createTreePreview(surface,onFatal);if(disposed||signal.aborted){runtime.destroy();throw new Error('PANEL_HOST_OPEN_CANCELLED');}
@@ -23,6 +24,7 @@ export async function mountPixiPanelInstance({bundle,state,options,signal,onEven
     // progress paint, page visibility and form-dependent button availability.
     const compiled=compilePanel(bundle.spec,bundle.catalog,pixiPanelCore,state,bundle.assetClosure,bundle.compilerVersion);
     await runtime.load(compiled.document,signal,(path,loadSignal)=>{const resource=resources.get(path);if(!resource||resource.mime!=='image/png')throw new Error('PANEL_HOST_RESOURCE');return imageFor(resource,loadSignal);});signal.throwIfAborted();
+    detachVisuals=attachPanelVisuals(bundle,runtime);
     layout=attachLayoutSession(bundle.spec,runtime);session=attachPanelSession(bundle.spec,runtime,onEvent,state);detachInput=attachInputEditor(surface,bundle.spec,runtime,session);
     const resize=()=>{if(disposed)return;const fit=Math.min(1,Math.max(0.1,container.clientWidth/bundle.spec.canvas.width)),zoom=Math.max(0.5,fit);runtime.setZoom(zoom);surface.style.transform=`scale(${fit/zoom})`;surface.style.width=`${bundle.spec.canvas.width*zoom}px`;surface.style.height=`${bundle.spec.canvas.height*zoom}px`;container.style.height=`${bundle.spec.canvas.height*fit}px`;};
     observer=new ResizeObserver(resize);observer.observe(container);resize();

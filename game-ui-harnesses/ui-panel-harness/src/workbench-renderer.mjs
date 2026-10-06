@@ -7,6 +7,7 @@ import { validatePanelBundle } from './panel-bundle.mjs';
 import { attachPanelSession } from './state.mjs';
 import { attachLayoutSession } from './layout-session.mjs';
 import { attachInputEditor } from './input-editor.mjs';
+import { attachPanelVisuals } from './panel-visuals.mjs';
 export const browserCore = Object.freeze({ compileTree, validateDocument, createBundle, validateBundle, bundleResources });
 
 function decode(resource, signal) {
@@ -23,7 +24,7 @@ function decode(resource, signal) {
 }
 export function createWorkbenchRenderer(host, onEvent, onError) {
   let ticket = 0, mounted, pending, disposed = false, interactionLocked = false;
-  const close = item => { if (!item) return; item.controller.abort(); item.detachInputEditor?.(); item.layoutSession?.destroy(); item.session?.destroy(); item.preview?.destroy(); item.element.remove(); };
+  const close = item => { if (!item) return; item.controller.abort(); item.detachVisuals?.(); item.detachInputEditor?.(); item.layoutSession?.destroy(); item.session?.destroy(); item.preview?.destroy(); item.element.remove(); };
   const lock = item => {
     if (!item || item.lockedControls) return;
     item.session?.setInteractionLocked(true);
@@ -57,6 +58,7 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
         });
         if (own !== ticket || !isCurrent()) { close(candidate); return { status: 'STALE' }; }
         if (candidate.failure) throw candidate.failure;
+        candidate.detachVisuals = attachPanelVisuals(bundle, candidate.preview);
         candidate.session = attachPanelSession(bundle.spec, candidate.preview, event => onEvent(event, candidate.session.getState()), bundle.state);
         candidate.detachInputEditor = attachInputEditor(candidate.element, bundle.spec, candidate.preview, candidate.session);
         candidate.layoutSession = attachLayoutSession(bundle.spec, candidate.preview);

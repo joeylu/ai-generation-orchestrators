@@ -85,8 +85,9 @@ export function validateCatalog(value) {
   array(value.recipes, 'catalog.recipes', 1, 256);
   value.themes.forEach((theme, index) => {
     const path = `catalog.themes[${index}]`;
-    object(theme, path, ['id', 'version', 'tokens']);
+    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle']);
     identity(theme, path);
+    if (Object.hasOwn(theme, 'visualStyle') && theme.visualStyle !== 'modern-v1') fail(`${path}.visualStyle`, 'unsupported visual style');
     object(theme.tokens, `${path}.tokens`, TOKEN_KEYS);
     for (const key of COLOR_KEYS) string(theme.tokens[key], `${path}.tokens.${key}`, 7, /^#[0-9a-fA-F]{6}$/);
     string(theme.tokens.fontFamily, `${path}.tokens.fontFamily`, 128);

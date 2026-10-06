@@ -5,7 +5,8 @@
 
 ## 已运行的Studio
 
-本工作区当前地址是`http://127.0.0.1:4197/`，使用`output/panel-studio-panel-title-v1`构建。
+本工作区当前地址是`http://127.0.0.1:4198/`，使用`output/panel-studio-visual-v3`构建。
+新版Modern Mint主题说明及前后对照见[视觉主题](panel-visual-style.md)。旧4197服务和第一版交付记录保留。
 现有服务保留。另开工作区或重启时按下面的命令构建，使用程序打印的地址。
 
 1. 填写需求描述，点击「生成面板」。初值、范围和操作含义要明确；缺少业务信息时逐项回答，再点击生成。
@@ -33,7 +34,7 @@ Vite/Pixi/Playwright等依赖由该相邻Harness的锁定依赖提供；如果�
 
 ```sh
 node --test tests/*.test.mjs
-node scripts/build-workbench.mjs --catalog examples/modern-mint-forms.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-mint-polished.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

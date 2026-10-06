@@ -22,7 +22,7 @@ Codex CLI，以 `gpt-6-luna / xhigh` 生成方案；随后仍通过同一校验�
 从 `ui-panel-harness` 运行，输出目录必须不存在：
 
 ```sh
-node scripts/build-workbench.mjs --catalog examples/modern-mint-forms.catalog.json --output output/my-panel-studio
+node scripts/build-workbench.mjs --catalog examples/modern-mint-polished.catalog.json --output output/my-panel-studio
 ```
 
 上述版本可以使用程序控件；若需要资源检索，附加 `--assets <通用资源库目录>`。
@@ -101,7 +101,7 @@ node scripts/build-workbench.mjs --catalog examples/modern-mint-controls.catalog
 
 ## 验证
 
-当前工作区构建为`output/panel-studio-panel-title-v1/`，本地入口为4197；移到其它工作区时按[启动说明](start-here.md)重新构建并使用实际打印的地址。分页和输入表单能力见[Tabs](panel-tabs.md)与[Input](panel-forms.md)。
+当前工作区构建为`output/panel-studio-visual-v3/`，本地入口为4198；移到其它工作区时按[启动说明](start-here.md)重新构建并使用实际打印的地址。新版主题见[视觉样式](panel-visual-style.md)，分页和输入表单能力见[Tabs](panel-tabs.md)与[Input](panel-forms.md)。
 使用带布局能力的目录和 0.4 设置示例。
 单元/集成测试、旧版浏览器回归及新版布局/工作台的实际验证范围见 [任务证据](tasks.md)。
 调用浏览器回归使用规划替身。用户随后真实 CLI 声音设置草稿已通过公共提案检查并在网页

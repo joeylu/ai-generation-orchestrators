@@ -9,7 +9,7 @@
 在本 Harness 内构建工作台，具体资源参数见 [工作台说明](workbench.md)，然后运行：
 
 ```sh
-node scripts/build-workbench.mjs --catalog examples/modern-mint-forms.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-mint-polished.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

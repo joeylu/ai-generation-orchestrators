@@ -7,7 +7,8 @@
 
 - [使用与启动](docs/start-here.md)：构建Studio、生成、修改、试玩、撤销和下载。
 - [本地第一版交付目录](output/ui-panel-closeout-v1/index.html)：已接受的16类面板、5种同轮组合和10步真实修改，含预览及实际下载ZIP；本地产物不随Git提交。
-- 本工作区当前Studio：`http://127.0.0.1:4197/`。这是运行中的本机地址，其他工作区使用启动命令打印的地址。
+- 本工作区当前Studio：`http://127.0.0.1:4198/`，使用新版Modern Mint主题。其他工作区使用启动命令打印的地址。
+- [视觉主题与前后对照](docs/panel-visual-style.md)：新主题单独版本，旧交付包保持原样。
 - [本版范围及验收](docs/first-version-closeout-2026-10-07.md)，[历史任务和失败记录](docs/tasks.md)。
 
 ## 当前能力
@@ -35,6 +36,7 @@ Studio首页保留需求描述、生成按钮、修改要求和修改按钮；�
 | [16类两轮真实结果](docs/panel-title-stability-results-2026-10-06.md) | 32份真实来源、每轮5种组合、898项浏览器检查、42份实际ZIP离线往返 | 新v2期望显式接受画质grid外的等价单子column；原批31/32及FAIL保持 |
 | [10步真实连续修改](docs/edit-chain-results-2026-10-06.md) | 10/10、123项浏览器检查、10份实际ZIP及逐步/整链撤销 | 实际10次、无重试，仅最新声音来源的固定修改链 |
 | 授权前单元回归 | 727/727 | 测试使用夹具/替身，不提交模型请求 |
+| [视觉主题优化](docs/panel-visual-style.md) | 734项回归、518项浏览器检查、24份实际ZIP离线往返 | 保存的16份真实面板换主题、3份程序夹具及5种组合；本轮新增模型0 |
 | [原生Unity接入](docs/unity-game-integration-acceptance-2026-10-06.md) | 先前隔离环境的UGUI与宿主业务验收 | 不替代上述最新批次的原生验证，普通下载包仍标NOT_RUN |
 
 这些成绩只证明报告中指定的请求、构建和来源。程序夹具、保存结果重放、原生引擎和人工视觉分别记录；历史失败不回填为成功。
@@ -48,7 +50,7 @@ Studio首页保留需求描述、生成按钮、修改要求和修改按钮；�
 ```sh
 node --test tests/*.test.mjs
 node scripts/cli.mjs validate examples/audio-settings.panel.json
-node scripts/build-workbench.mjs --catalog examples/modern-mint-forms.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-mint-polished.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

@@ -68,7 +68,12 @@ export async function createUnityDocument(input, core) {
       regionWidth: region?.width ?? 0, regionHeight: region?.height ?? 0,
       contentWidth: p.contentWidth ?? 0, contentHeight: p.contentHeight ?? 0,
     });
-    for (const child of node.children ?? []) visit(child, node.id);
+    for (const child of node.children ?? []) {
+      // The modern Pixi label is centered from environment glyph measurements.
+      // Native Button already paints node.text at MiddleCenter; keep one label.
+      if (bundle.compilerVersion === '0.7.1' && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
+      visit(child, node.id);
+    }
   }
   visit(bundle.componentBundle.document.root, '');
   const records = new Map((bundle.assetClosure?.records ?? []).map(asset => [asset.sha256, asset]));

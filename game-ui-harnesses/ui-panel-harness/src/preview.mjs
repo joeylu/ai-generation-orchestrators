@@ -7,16 +7,17 @@ import { createPanelBundle, validatePanelBundle, panelBundleAssetInputs } from '
 import { attachPanelSession } from './state.mjs';
 import { attachLayoutSession } from './layout-session.mjs';
 import { attachInputEditor } from './input-editor.mjs';
+import { attachPanelVisuals } from './panel-visuals.mjs';
 
 const core = { compileTree, validateDocument, createBundle, validateBundle, bundleResources };
 const host = document.getElementById('canvas-host'), status = document.getElementById('status');
 const output = document.getElementById('state'), eventOutput = document.getElementById('event');
-let bundle, runtime, session, layoutSession, controller, ticket = 0, unsubscribe = () => {}, detachInputEditor = () => {};
+let bundle, runtime, session, layoutSession, controller, ticket = 0, unsubscribe = () => {}, detachInputEditor = () => {}, detachVisuals = () => {};
 const events = [], componentEvents = [];
 function renderState() { output.textContent = session ? JSON.stringify(session.getState(), null, 2) : ''; }
 function fatal() { status.textContent = '面板加载或交互失败，请检查面板文件。'; status.dataset.state = 'error'; }
 function release() {
-  controller?.abort(); detachInputEditor(); detachInputEditor = () => {}; layoutSession?.destroy(); layoutSession = undefined; session?.destroy(); unsubscribe(); runtime?.destroy();
+  controller?.abort(); detachVisuals(); detachVisuals = () => {}; detachInputEditor(); detachInputEditor = () => {}; layoutSession?.destroy(); layoutSession = undefined; session?.destroy(); unsubscribe(); runtime?.destroy();
   session = undefined; runtime = undefined; controller = undefined; unsubscribe = () => {};
   host.replaceChildren(); document.getElementById('export').disabled = true;
 }
@@ -52,6 +53,7 @@ async function importPanel(input) {
     });
     if (ownTicket !== ticket) { preview.destroy(); return; }
     bundle = checked;
+    detachVisuals = attachPanelVisuals(bundle, preview);
     layoutSession = attachLayoutSession(bundle.spec, preview);
     unsubscribe = preview.subscribe(event => { componentEvents.push(event); if (componentEvents.length > 200) componentEvents.shift(); });
     session = attachPanelSession(bundle.spec, preview, event => {
