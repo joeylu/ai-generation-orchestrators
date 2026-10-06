@@ -12,7 +12,9 @@ if __name__ == '__main__':
     if sys.argv[1:] == ['--version']:
         print(VERSION)
     else:
-        if len(sys.argv)>1 and sys.argv[1] in ('host-run','host-status','host-next','host-authorize','host-receive','host-fail','host-resume'):
+        if len(sys.argv)>1 and sys.argv[1] in ('prepare-received-diagnostic','deliver-received-diagnostic'):
+            from ai_ui_layers.received_diagnostic_delivery import main
+        elif len(sys.argv)>1 and sys.argv[1] in ('host-run','host-status','host-next','host-authorize','host-receive','host-fail','host-resume'):
             from ai_ui_layers.host_delivery import main
         else:
             from ai_ui_layers.delivery_dag import main

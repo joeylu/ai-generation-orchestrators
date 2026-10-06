@@ -1039,3 +1039,10 @@ snapshot digest and actual M2 response SHA. Deferred candidate plans, altered
 snapshots, unreviewed plans and changed input scopes are rejected. Existing failed
 runs and reviews remain terminal and sealed; this does not authorize historical
 raw-image receipt repair or new receipts for old provider calls.
+# Optional received-source diagnostic export
+
+`prepare-received-diagnostic` and `deliver-received-diagnostic` produce an
+independent, zero-compute `diagnostic-pending-human-review` artifact from genuine
+received sources. They preserve unresolved extraction findings and every original
+pixel in separate source evidence; they never change the existing strict/candidate
+gates or promote a failed host DAG. See [the diagnostic delivery contract](RECEIVED-DIAGNOSTIC-DELIVERY.md).

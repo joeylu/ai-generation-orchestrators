@@ -393,10 +393,18 @@ def _material_stage(root,config,keys):
         background_id=bg_region.snapshot_input(root/'frozen',inspect(root/'frozen'))['materialId']
     for key in keys:
         folder=root/'reviews'/key
-        host_material_review.prepare(root/'images',key,folder,material_authors=config['materialAuthors'],
+        prepared=host_material_review.prepare(root/'images',key,folder,material_authors=config['materialAuthors'],
                                      review_registry=root/'review-registry',
                                      **({'background_visual_review_policy':config['backgroundVisualReviewPolicy']}
                                         if key==background_id else {}))
+        if prepared['status']=='blocked_no_retry':
+            reason='HOST_MATERIAL_PREPARATION_BLOCKED:requestId='+key+':reason='+prepared['reason']
+            report=folder/'processed/report.json'
+            if report.is_file():
+                try:issues=read(report).get('issues')
+                except (OSError,ValueError,AttributeError):issues=None
+                if issues:reason+=':issues='+json.dumps(issues,separators=(',',':'))
+            raise ValueError(reason)
         rows.append(dict(requestId=key,requestPath=str(folder/'request.json'),requestSha256=digest(folder/'request.json'),
                          requestDirectory=str(folder/'review'),inputs=_files(folder/'review')))
     scope=root/'scopes/material_review';scope.mkdir()
