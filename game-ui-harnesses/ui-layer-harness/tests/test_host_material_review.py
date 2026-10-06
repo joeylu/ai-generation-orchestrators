@@ -52,6 +52,16 @@ class HostEvidence:
 class HostSingleTests(HostEvidence,unittest.TestCase):
     def setUp(self):SingleMaterialReviewTests.setUp(self)
 
+    def test_nested_request_binds_final_ownership_schema_and_prompt(self):
+        folder=self.prepare('asset-coin-a')
+        nested=read(folder/'review/request.json')
+        self.assertIn('ownership-inventory.json',nested['inputs'])
+        for name,expected in nested['inputs'].items():
+            self.assertEqual(expected,digest(folder/'review'/name),name)
+        self.assertEqual(read(folder/'request.json')['inputs']['review/request.json'],
+                         digest(folder/'review/request.json'))
+        host.receive(**self.response(folder));host.verify_run(folder)
+
     def test_single_pass_no_transport_and_single_use_registry(self):
         before=host.files(self.job);folder=self.prepare('asset-coin-a')
         with self.assertRaises(FileExistsError):self.prepare('asset-coin-a',self.root/'another-review')
@@ -168,6 +178,16 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
         self.review=SheetDeliveryTests.review.__get__(self)
         SheetDeliveryTests.setUp(self)
         SheetDeliveryTests.media(self)
+
+    def test_every_nested_request_binds_final_ownership_attachments(self):
+        for key in read(self.job/'job.json')['assets']:
+            with self.subTest(request=key):
+                folder=self.prepare(key)
+                nested=read(folder/'review/request.json')
+                self.assertIn('ownership-inventory.json',nested['inputs'])
+                for name,expected in nested['inputs'].items():
+                    self.assertEqual(expected,digest(folder/'review'/name),name)
+                host.verify_prepared(folder)
 
     def test_sheet_order_alpha_detail_and_complete_extract(self):
         before=host.files(self.job);folders=[]

@@ -12,6 +12,11 @@
 不能代替检查。候选归位另提供显式 `measured-alpha-anchor-locked-v2`，支持画布不可
 推动或缩小主体锚点；正式归位仍须真实主体观察。详见 [所有权及锚点合同](OWNERSHIP-AND-ANCHORS.md)。
 
+所有权目录扩展 prompt/schema 后，确定性准备程序在同一未冻结事务中重建内层
+`review/request.json` 的输入摘要，并纳入 `ownership-inventory.json`；随后外层请求
+绑定这份最终内层请求及全部实际附件。重验同时检查内外两层，避免保留基础 prompt/schema
+的过期摘要。已冻结的历史作业及固定运行时不原地改写。
+
 显式候选整包路径使用 `prepare-candidate-delivery --snapshot SNAPSHOT --snapshot-digest SHA256
 --output NEW_CANDIDATE` 冻结 `deferred-visual-review-v1` 与 `uniform-alpha-contain-v1`、
 完整快照与当前公共运行时指纹。它不授权生图，也不修改默认严格审查路径。

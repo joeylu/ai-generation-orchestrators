@@ -99,6 +99,14 @@ def prepare(job, request_id, output, *, material_authors, review_registry):
             ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         prompt_path=folder/'prompt.md'
         prompt_path.write_text(prompt_path.read_text(encoding='utf-8')+'\n'+ownership.review_prompt(inventory)+'\n',encoding='utf-8')
+        # Ownership extends producer attachments before this host request is
+        # frozen. Bind the final bytes in the nested request as well; keeping
+        # its base schema/prompt hashes would give the reviewer two conflicting
+        # input inventories even though the outer request is correct.
+        nested_request=read(folder/'request.json')
+        nested_request['inputs']={name:digest(folder/name) for name in nested_request['inputs']}
+        nested_request['inputs']['ownership-inventory.json']=digest(folder/'ownership-inventory.json')
+        (folder/'request.json').write_text(json.dumps(nested_request,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         save(output/'extraction-candidate.json',extraction)
         # Every immutable producer file is pinned, including source crop and raw/receipt chain.
         request=dict(kind='ui_host_output_review_request_v2',requestId=request_id,materialIds=mids,
@@ -128,6 +136,11 @@ def verify_prepared(output):
     if digest(Path(request['reservation']))!=request['reservationSha256']:raise ValueError('RESERVATION_CHANGED')
     if read(Path(request['reservation']))['output']!=str(output):raise ValueError('RESERVATION_OUTPUT_CHANGED')
     _bound_files(output,request['inputs']);job=Path(request['job']);_bound_files(job,request['sourceFiles'])
+    nested_inputs=read(output/'review/request.json')['inputs']
+    if request['kind']=='ui_host_output_review_request_v2' and not {
+            'schema.json','prompt.md','ownership-inventory.json'}<=set(nested_inputs):
+        raise ValueError('OUTPUT_NESTED_REVIEW_INPUTS_MISSING')
+    _bound_files(output/'review',nested_inputs)
     config,row,receipt,raw=source(job,request['requestId'])
     if (request['jobDigest']!=config['digest'] or request['snapshotDigest']!=config['snapshotDigest'] or
             request['submissionDigest']!=receipt['submissionDigest'] or request['rawSha256']!=digest(raw) or
