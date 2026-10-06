@@ -8,6 +8,15 @@ bindings and compiled placements with the source snapshot. This works for a
 panel or an individual child material when its foreign ownership catalog is
 nonempty.
 
+Explicit reuse and protected-background policies and their artifact digests
+must also match the original snapshot. Reuse snapshots still prohibit ordinary
+subset or prompt-variant acquisition jobs. A source-bound cleanup may select one
+original foreground singleton; it cannot select a sheet or background request.
+Its initial record is marked `cleanupRequired` before edit files are written.
+Until the complete source binding and all six frozen files pass replay, loading,
+authorization and dispatch reject the incomplete preparation. This marker is
+retained in the final job digest. Historical complete cleanup jobs remain valid.
+
 The source must be an actual `raw_received` request with a verified original
 authorization, submission and receipt chain. A singleton defaults to
 `source_request_id=material_id`. A sheet requires an explicit source request ID

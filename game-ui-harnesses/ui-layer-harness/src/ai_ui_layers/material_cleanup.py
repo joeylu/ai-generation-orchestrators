@@ -29,7 +29,9 @@ def _visual(snapshot):
 
 def _same_origin(snapshot, manifest, old_snapshot, old_manifest):
     for key in ('sourcePlanSha256','visualPolicySha256','visualTexturePolicy',
-                'visualTexturesSha256','visualTextureBindingsSha256'):
+                'visualTexturesSha256','visualTextureBindingsSha256',
+                'materialReusePolicy','materialReuseSha256','generatedMaterialCount','materialCount',
+                'backgroundRegionPolicy','backgroundRegionDigest','backgroundRegionMaterialId'):
         if manifest.get(key)!=old_manifest.get(key):
             raise ValueError('CLEANUP_SOURCE_PLAN_OR_POLICY_CHANGED')
     if digest(snapshot/'reference.png')!=digest(old_snapshot/'reference.png'):
@@ -178,7 +180,9 @@ def prepare_cleanup(snapshot, expected_digest, output, material_id, source_job,
     if row is None or row.get('kind')=='sheet' or row.get('materialIds',[material_id])!=[material_id]:
         raise ValueError('CLEANUP_SINGLETON_SNAPSHOT_REQUIRED')
     inputs=_inputs(snapshot,material_id,cell)
-    config=ex.prepare(snapshot,expected_digest,output,[material_id])
+    # Mark the initial record unusable before writing edit artifacts. An
+    # interrupted preparation must never become an ordinary acquisition job.
+    config=ex.prepare(snapshot,expected_digest,output,[material_id],_cleanup_material_id=material_id)
     folder=output/'cleanup';folder.mkdir()
     cell.save(folder/'cleanup-source.png')
     from .context_references import png_bytes

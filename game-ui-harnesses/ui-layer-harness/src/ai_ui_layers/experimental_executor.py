@@ -34,8 +34,10 @@ def lock(job):
     finally:handle.close();path.unlink()
 
 
-def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None, reference_mode=None):
+def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None, reference_mode=None,
+            *, _cleanup_material_id=None):
     snapshot=Path(snapshot);output=Path(output)
+    cleanup_reference_override=reference_mode is not None
     checked=preflight(snapshot,expected_digest);manifest=inspect(snapshot,expected_digest)
     policy=snapshot_policy(snapshot,manifest)
     texture_doc=textures.snapshot_input(snapshot,manifest)
@@ -59,7 +61,17 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         reference_mode='full-only' if grouped or all(a['prompt'].startswith('visual-material-prompt-v3:\n') for a in compiled) else 'full-and-crop'
     if reference_mode not in ('full-and-crop','full-only','crop-only','sheet-crops-only','context-crops','sheet-layout-board'):raise ValueError('REFERENCE_MODE')
     known={r['asset'] for r in all_rows};selected=assets or [r['asset'] for r in all_rows]
-    if manifest.get('materialReusePolicy') and (assets is not None or prompt_override is not None or layout):
+    cleanup_required=_cleanup_material_id is not None
+    if cleanup_required:
+        row=next((r for r in all_rows if r['asset']==_cleanup_material_id),None)
+        asset=next((a for a in read(snapshot/'execution-plan.candidate.json')['assets']
+                    if a['id']==_cleanup_material_id),None)
+        if (assets!=[_cleanup_material_id] or row is None or row.get('kind')=='sheet' or
+                row.get('materialIds',[_cleanup_material_id])!=[_cleanup_material_id] or
+                asset is None or asset['role']=='background' or
+                prompt_override is not None or cleanup_reference_override or layout):
+            raise ValueError('CLEANUP_SINGLE_FOREGROUND_REQUEST_REQUIRED')
+    if manifest.get('materialReusePolicy') and not cleanup_required and (assets is not None or prompt_override is not None or layout):
         raise ValueError('REUSE_VARIANTS_UNSUPPORTED')
     if len(selected)!=len(set(selected)) or not set(selected)<=known:
         raise ValueError('INVALID_ASSET_SELECTION')
@@ -104,6 +116,7 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         'policy':'independent-visual-plan-v5-v1','referenceMode':reference_mode,'assets':selected,'maximumCalls':len(selected),
         'automaticRetries':0,'inputChecks':checked['inputChecks'],'createdAt':time.time(),
         'scope':'Raw image acquisition only; old brief evidence is not claimed. Postprocessing and visual acceptance are separate.',
+        **({'cleanupRequired':_cleanup_material_id} if cleanup_required else {}),
         **({'visualPolicySha256':manifest['visualPolicySha256']} if policy is not None else {}),
         **({key:manifest[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')} if texture_doc is not None else {}),
         **({'generationReference':'sheet-layout-board' if layout else 'context-crops'} if context else {}),
@@ -115,6 +128,10 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
 def load_job(job):
     config=verified(job/'job.json')
     if config.get('kind')!='ui_experimental_image_job_v1':raise ValueError('JOB_KIND')
+    if 'cleanupRequired' in config and (not isinstance(config['cleanupRequired'],str) or
+            not config['cleanupRequired'] or not isinstance(config.get('cleanup'),dict) or
+            config['cleanup'].get('materialId')!=config['cleanupRequired']):
+        raise ValueError('CLEANUP_PREPARATION_INCOMPLETE')
     manifest=inspect(job/'snapshot',config['snapshotDigest'])
     for key in ('backgroundRegionPolicy','backgroundRegionDigest','backgroundRegionMaterialId'):
         if config.get(key)!=manifest.get(key):raise ValueError('BG_REGION_JOB_METADATA_CHANGED')
@@ -150,6 +167,10 @@ def load_job(job):
         raise ValueError('CONTEXT_SNAPSHOT_REQUIRED')
     index={r['asset']:r for r in rows}
     if not set(config['assets'])<=index.keys():raise ValueError('JOB_ASSETS')
+    if manifest.get('materialReusePolicy') and 'cleanup' not in config and (
+            config['assets']!=[r['asset'] for r in rows] or
+            'promptVariant' in config or layout):
+        raise ValueError('REUSE_VARIANTS_UNSUPPORTED')
     if layout:
         if len(config['assets'])!=1 or config.get('maximumCalls')!=1 or config.get('automaticRetries')!=0:
             raise ValueError('SINGLE_SHEET_LAYOUT_REQUIRED')

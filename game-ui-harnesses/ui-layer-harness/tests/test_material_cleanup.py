@@ -104,6 +104,29 @@ class MaterialCleanupTests(unittest.TestCase):
         request=ex.next_request(job);ex.fail(job,request['submissionDigest'],'fixture unknown receipt')
         with self.assertRaisesRegex(ValueError,'NOT_READY_NO_RESUBMIT'):ex.next_request(job)
 
+    def test_interrupted_preparation_cannot_authorize_or_dispatch_ordinary_job(self):
+        from unittest.mock import patch
+        job=self.root/'interrupted-cleanup'
+        with patch.object(cleanup,'save',side_effect=OSError('fixture disk interruption')):
+            with self.assertRaisesRegex(OSError,'fixture disk interruption'):
+                cleanup.prepare_cleanup(self.snapshot,self.frozen['digest'],job,self.mid,self.source)
+        config=read(job/'job.json')
+        self.assertEqual(config['cleanupRequired'],self.mid)
+        for action in (lambda:ex.load_job(job),
+                       lambda:ex.authorize(job,config['digest'],'fixture approval'),
+                       lambda:ex.next_request(job)):
+            with self.assertRaisesRegex(ValueError,'CLEANUP_PREPARATION_INCOMPLETE'):action()
+        self.assertFalse((job/'authorization.json').exists())
+        self.assertEqual(list((job/'attempts').iterdir()),[])
+
+    def test_reuse_and_background_policy_changes_are_not_same_origin(self):
+        manifest=read(self.snapshot/'snapshot.json')
+        for key in ('materialReusePolicy','materialReuseSha256','generatedMaterialCount',
+                    'backgroundRegionPolicy','backgroundRegionDigest','backgroundRegionMaterialId'):
+            changed={**manifest,key:'changed fixture policy'}
+            with self.assertRaisesRegex(ValueError,'CLEANUP_SOURCE_PLAN_OR_POLICY_CHANGED'):
+                cleanup._same_origin(self.snapshot,changed,self.snapshot,manifest)
+
     def test_public_cleanup_preparation_has_no_compute_or_authorization(self):
         import io
         from contextlib import redirect_stdout
@@ -181,6 +204,64 @@ class MaterialCleanupTests(unittest.TestCase):
         other_config['cleanup']['promptVersion']='unknown-future-version'
         with self.assertRaisesRegex(ValueError,'CLEANUP_PROMPT_VERSION'):
             cleanup.verify_cleanup(other,other_config,index)
+
+
+class ReusedMaterialCleanupTests(unittest.TestCase):
+    sheet=False
+
+    def setUp(self):
+        from test_reuse_host_delivery import ReusedDeliveryTests
+        ReusedDeliveryTests.setUp(self)
+        ReusedDeliveryTests.planning(self)
+        self.snapshot=self.run/'frozen';self.frozen=read(self.snapshot/'snapshot.json')
+        self.source=self.run/'images';self.mid='asset-panel'
+        config,index=ex.load_job(self.source)
+        backgrounds={a['id'] for a in read(self.snapshot/'execution-plan.candidate.json')['assets']
+                     if a['role']=='background'}
+        ex.authorize(self.source,config['digest'],'offline source fixture approval')
+        while ex.status(self.source)['status']=='ready':
+            request=ex.next_request(self.source);size=index[request['asset']]['outputSize']
+            background=request['asset'] in backgrounds
+            image=Image.new('RGBA',size,(40,80,120,255) if background else (0,0,0,0))
+            draw=ImageDraw.Draw(image);row=index[request['asset']]
+            if row.get('kind')=='sheet':
+                columns,rows=row['grid'];cw,ch=size[0]//columns,size[1]//rows
+                for i in range(len(row['materialIds'])):
+                    x,y=(i%columns)*cw,(i//columns)*ch
+                    draw.rectangle((x+10,y+10,x+cw-11,y+ch-11),fill=(40,80,120,220))
+            else:draw.rectangle((10,10,size[0]-11,size[1]-11),fill=(40,80,120,255 if background else 220))
+            raw=self.base/'source-fixture.png';image.save(raw)
+            ex.receive(self.source,request['submissionDigest'],raw)
+
+    def test_genuine_single_cleanup_preserves_reuse_snapshot_and_source_chain(self):
+        before={p.relative_to(self.source).as_posix():digest(p) for p in self.source.rglob('*') if p.is_file()}
+        job=self.base/'reuse-cleanup'
+        config=cleanup.prepare_cleanup(self.snapshot,self.frozen['digest'],job,self.mid,self.source)
+        self.assertEqual(config['cleanupRequired'],self.mid)
+        self.assertEqual(config['materialReuseSha256'],self.frozen['materialReuseSha256'])
+        self.assertEqual(ex.status(job)['status'],'awaiting_authorization')
+        ex.authorize(job,config['digest'],'offline edit fixture approval')
+        request=ex.next_request(job)
+        ex.receive(job,request['submissionDigest'],self.source/'attempts'/self.mid/'raw.png')
+        self.assertEqual(ex.status(job)['status'],'raw_complete')
+        self.assertEqual(before,{p.relative_to(self.source).as_posix():digest(p) for p in self.source.rglob('*') if p.is_file()})
+
+    def test_ordinary_subset_and_incomplete_cleanup_are_both_unusable(self):
+        with self.assertRaisesRegex(ValueError,'REUSE_VARIANTS_UNSUPPORTED'):
+            ex.prepare(self.snapshot,self.frozen['digest'],self.base/'ordinary-subset',[self.mid])
+        self.assertFalse((self.base/'ordinary-subset').exists())
+        job=self.base/'incomplete-reuse-cleanup'
+        config=ex.prepare(self.snapshot,self.frozen['digest'],job,[self.mid],_cleanup_material_id=self.mid)
+        with self.assertRaisesRegex(ValueError,'CLEANUP_PREPARATION_INCOMPLETE'):
+            ex.authorize(job,config['digest'],'fixture approval')
+        # A forged subset with a newly computed record digest still cannot take
+        # the ordinary acquisition path through load_job.
+        body={k:v for k,v in config.items() if k not in ('digest','cleanupRequired')}
+        from ai_ui_layers.freeze_visual import body_digest
+        (job/'job.json').write_text(json.dumps({**body,'digest':body_digest(body)}),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'REUSE_VARIANTS_UNSUPPORTED'):ex.next_request(job)
+        self.assertFalse((job/'authorization.json').exists())
+        self.assertEqual(list((job/'attempts').iterdir()),[])
 
 
 if __name__=='__main__':unittest.main()
