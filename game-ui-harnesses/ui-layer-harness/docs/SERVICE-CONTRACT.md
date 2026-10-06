@@ -1,5 +1,14 @@
 # UI layer host contract v1 (preview)
 
+## Optional explicit prototype instances
+
+Fresh integrated host configs may bind `materialReuse` before planning review.
+The [prototype contract](MATERIAL-REUSE.md) preserves complete layer identities,
+requires independent equivalence evidence and instance material/body review,
+and filters only real image requests. Copies receive no provider receipt.
+Default behavior, historical frozen jobs and failed gates remain unchanged.
+Fixture coverage does not constitute real generation or visual acceptance.
+
 唯一公开入口：`python game-ui-harnesses/ui-layer-harness/ui_layer.py`。
 每次命令 stdout 输出一个 JSON（`--help`/`--version` 除外），过程信息写 stderr。
 退出码 0 表示命令完成或正常等待，不等于视觉通过；非零表示本次命令失败。

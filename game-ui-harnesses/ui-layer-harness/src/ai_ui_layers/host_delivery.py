@@ -124,7 +124,7 @@ def prepare(config_path, output):
             or source['canvasPolicyInstructionSha256']!=hashlib.sha256(instruction.encode('utf-8')).hexdigest()):
         raise ValueError('EXPLICIT_BOUND_CANVAS_POLICY_REQUIRED')
     root.mkdir(parents=True); inputs=root/'inputs';inputs.mkdir()
-    for key in ('seed','original','planningNotes','visualPolicy','visualTextures'):
+    for key in ('seed','original','planningNotes','visualPolicy','visualTextures','materialReuse'):
         if source.get(key):
             path=Path(source[key]);target=inputs/(key+path.suffix)
             target.write_bytes(path.read_bytes());source[key]=str(target)
@@ -145,7 +145,7 @@ def prepare(config_path, output):
     try:
         host_review.prepare(config['seed'],config['original'],root/'planning',config['contract'],
             seed_author=config['candidateAuthors'], planning_notes=config.get('planningNotes'),
-            visual_policy=config.get('visualPolicy'),visual_textures=config.get('visualTextures'),
+            visual_policy=config.get('visualPolicy'),visual_textures=config.get('visualTextures'),material_reuse=config.get('materialReuse'),
             max_calls=config['maximumImageCalls'])
         _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
     except Exception as exc:
@@ -406,6 +406,8 @@ def resume(run):
                     canvasPolicy=config['canvasPolicy'],canvasPolicyInstruction=config['canvasPolicyInstruction'],
                     canvasPolicyInstructionSha256=config['canvasPolicyInstructionSha256'],backgroundPolicy=config['backgroundPolicy'],
                     maximumCallSeconds=config['maximumModelCallSeconds'],destination=config['bodyDestination'],reviewerId=config['bodyReviewer'])
+                if (root/'frozen/material-reuse.json').exists():
+                    body_config['reviewedReuseExtraction']=dict(path=str(root/'extraction'),sha256=digest(root/'extraction/result.json'))
                 save(root/'body-input.json',body_config)
                 host_body_observation.prepare(root/'body-input.json',root/'body',config['maximumBodyCalls'],
                     model=config['bodyModel'],effort=config['bodyEffort'])

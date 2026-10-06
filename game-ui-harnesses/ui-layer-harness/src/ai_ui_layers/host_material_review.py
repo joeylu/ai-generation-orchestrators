@@ -17,6 +17,7 @@ from .extract_sheets import cells, _review_variant, prepare_sheet_review
 from .sheet_pixels import prepare as prepare_pixels
 from .single_material_review import prepare_review
 from . import ownership_observation as ownership
+from . import material_reuse as reuse, reuse_pipeline, reuse_image_review
 
 
 def files(root):
@@ -45,6 +46,7 @@ def prepare(job, request_id, output, *, material_authors, review_registry):
     for author in authors:_identity(author)
     config,row,receipt,raw=source(job,request_id)
     snapshot=job/'snapshot';manifest=inspect(snapshot,config['snapshotDigest'])
+    reuse_doc=reuse_pipeline.snapshot_input(snapshot,manifest)
     if output.exists() or output.is_relative_to(job):raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
     key=body_digest(dict(jobDigest=config['digest'],requestId=request_id,submissionDigest=receipt['submissionDigest']))
     registry=Path(review_registry).resolve()
@@ -55,7 +57,12 @@ def prepare(job, request_id, output, *, material_authors, review_registry):
     save(reservation,dict(kind='ui_output_review_reservation_v1',output=str(output),jobDigest=config['digest'],
          requestId=request_id,submissionDigest=receipt['submissionDigest'],materialAuthors=authors))
     try:
-        if row.get('kind')!='sheet':
+        if reuse_pipeline.scoped(reuse_doc,row.get('materialIds',[request_id])) is not None:
+            visual_path=snapshot/'evidence/revised-visual-plan.json'
+            visual=read(visual_path if visual_path.exists() else snapshot/'evidence/m1-draft.json')
+            mids,extraction=reuse_image_review.prepare(snapshot,manifest,row,visual,raw,
+                dict(receipt,receiptSha256=digest(job/'attempts'/request_id/'received.json')),config,output,reuse_doc)
+        elif row.get('kind')!='sheet':
             prepared=prepare_review(job,output,request_id,received_request_only=True)
             if prepared['status']=='blocked_no_retry':return prepared
             mids=[request_id]
@@ -144,9 +151,10 @@ def verify_prepared(output):
     config,row,receipt,raw=source(job,request['requestId'])
     if (request['jobDigest']!=config['digest'] or request['snapshotDigest']!=config['snapshotDigest'] or
             request['submissionDigest']!=receipt['submissionDigest'] or request['rawSha256']!=digest(raw) or
-            request['materialIds']!=row.get('materialIds',[request['requestId']])):
+            request['materialIds']!=reuse.expanded_ids(reuse_pipeline.snapshot_input(job/'snapshot',inspect(job/'snapshot',config['snapshotDigest'])),row.get('materialIds',[request['requestId']]))):
         raise ValueError('OUTPUT_SOURCE_BINDING_CHANGED')
     snapshot=job/'snapshot';policy=snapshot_policy(snapshot,inspect(snapshot,config['snapshotDigest']))
+    reuse_image_review.verify(output,row,inspect(snapshot,config['snapshotDigest']),reuse_pipeline.snapshot_input(snapshot,inspect(snapshot,config['snapshotDigest'])))
     expected_schema=schema_for(policy)
     if request['kind']=='ui_host_output_review_request_v2':
         visual_path=snapshot/'evidence/revised-visual-plan.json'

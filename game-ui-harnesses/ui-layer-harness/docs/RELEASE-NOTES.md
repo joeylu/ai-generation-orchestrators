@@ -1,5 +1,15 @@
 # Release notes
 
+## Unreleased explicit prototype instances
+
+- Fresh integrated host jobs can bind a source-hashed `ui_material_reuse_v1`
+  declaration. Independent planning review must confirm each group; generation
+  filters only declared instances and retains all layer identities/placements.
+- Program-owned byte copies preserve native PNG alpha and bind raw/cell/instance
+  provenance. Every instance is material-reviewed and independently body-observed.
+  Portable proof excludes local job/submission identifiers. Default jobs stay
+  unchanged; this preview has no real sample reuse or visual acceptance claim.
+
 ## Unreleased explicit minor internal layout tolerance
 
 - New runs can opt into `ui_visual_policy_v4` with an explicit

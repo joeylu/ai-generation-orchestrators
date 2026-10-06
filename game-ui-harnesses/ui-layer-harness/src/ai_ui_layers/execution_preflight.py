@@ -15,6 +15,8 @@ from .visual_policy import snapshot_policy, generation_guidance
 def preflight(folder, expected_digest):
     started=time.perf_counter();folder=Path(folder)
     snapshot=inspect(folder,expected_digest)
+    from . import material_reuse, reuse_pipeline
+    reuse_doc=reuse_pipeline.snapshot_input(folder,snapshot)
     policy=snapshot_policy(folder,snapshot)
     texture_doc=visual_textures.snapshot_input(folder,snapshot)
     visual_path=folder/'evidence/revised-visual-plan.json'
@@ -100,7 +102,8 @@ def preflight(folder, expected_digest):
         frozen_groups=read(folder/'generation-groups.json')
         if (frozen_groups.get('policy')==CONTEXT_GROUP_POLICY)!=context:
             raise ValueError('CONTEXT_GROUP_POLICY_MISMATCH')
-        visual=read(visual_path);groups=build_groups(visual,plan,frozen_groups.get('policy'))
+        visual=read(visual_path);generation_plan=material_reuse.selected_plan(visual,plan,reuse_doc)
+        groups=build_groups(visual,generation_plan,frozen_groups.get('policy'))
         if frozen_groups!=groups:
             raise ValueError('GENERATION_GROUPS_CHANGED')
         if len(groups['groups'])!=len(rows):raise ValueError('REQUEST_COUNT_MISMATCH')
@@ -129,6 +132,9 @@ def preflight(folder, expected_digest):
             elif row.get('kind') or 'materialIds' in row:
                 raise ValueError('GROUP_REQUEST_MISMATCH')
         covered=[key for row in rows for key in row.get('materialIds',[row['asset']])]
+        if reuse_doc is not None:
+            if snapshot.get('generatedMaterialCount')!=len(covered):raise ValueError('REUSE_GENERATION_COUNT_CHANGED')
+            covered=material_reuse.expanded_ids(reuse_doc,covered)
         if len(covered)!=len(set(covered)) or set(covered)!={a['id'] for a in assets}:
             raise ValueError('MATERIAL_OWNERSHIP_MISMATCH')
     index={a['id']:a for a in assets}

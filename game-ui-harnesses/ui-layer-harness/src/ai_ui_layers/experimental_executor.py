@@ -59,6 +59,8 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         reference_mode='full-only' if grouped or all(a['prompt'].startswith('visual-material-prompt-v3:\n') for a in compiled) else 'full-and-crop'
     if reference_mode not in ('full-and-crop','full-only','crop-only','sheet-crops-only','context-crops','sheet-layout-board'):raise ValueError('REFERENCE_MODE')
     known={r['asset'] for r in all_rows};selected=assets or [r['asset'] for r in all_rows]
+    if manifest.get('materialReusePolicy') and (assets is not None or prompt_override is not None or layout):
+        raise ValueError('REUSE_VARIANTS_UNSUPPORTED')
     if len(selected)!=len(set(selected)) or not set(selected)<=known:
         raise ValueError('INVALID_ASSET_SELECTION')
     if layout:
@@ -105,13 +107,17 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         **({'visualPolicySha256':manifest['visualPolicySha256']} if policy is not None else {}),
         **({key:manifest[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')} if texture_doc is not None else {}),
         **({'generationReference':'sheet-layout-board' if layout else 'context-crops'} if context else {}),
-        **({'generationMode':'sheets','materialCount':sum(len(r.get('materialIds',[r['asset']])) for r in all_rows if r['asset'] in selected)} if grouped else {}),**variant})
+        **({'generationMode':'sheets','materialCount':sum(len(r.get('materialIds',[r['asset']])) for r in all_rows if r['asset'] in selected)} if grouped else {}),
+        **({key:manifest[key] for key in ('materialReusePolicy','materialReuseSha256','generatedMaterialCount','materialCount')} if manifest.get('materialReusePolicy') else {}),**variant})
 
 
 def load_job(job):
     config=verified(job/'job.json')
     if config.get('kind')!='ui_experimental_image_job_v1':raise ValueError('JOB_KIND')
     manifest=inspect(job/'snapshot',config['snapshotDigest'])
+    if manifest.get('materialReusePolicy'):
+        if any(config.get(key)!=manifest.get(key) for key in ('materialReusePolicy','materialReuseSha256','generatedMaterialCount','materialCount')):
+            raise ValueError('REUSE_JOB_METADATA_CHANGED')
     policy=snapshot_policy(job/'snapshot',manifest)
     texture_doc=textures.snapshot_input(job/'snapshot',manifest)
     if any(config.get(key)!=manifest.get(key) for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')):

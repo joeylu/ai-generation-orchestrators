@@ -152,6 +152,8 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
         snapshot.update(relationReviewPolicy=report['relationReviewPolicy'],relationReviewStage=report['relationReviewStage'],
                         relationAssessmentSha256=report['relationAssessmentSha256'])
     snapshot.update(texture_metadata)
+    if 'materialReusePolicy' in report:
+        snapshot.update(**{key:report[key] for key in ('materialReusePolicy','materialReuseSha256','generatedMaterialCount')})
     if host_exchange:
         snapshot.update(planningDriver='host-model-exchange-v1',
             responseOrigin='host-attested-model-response',notProviderReceipt=True,
@@ -202,6 +204,8 @@ def inspect(folder, expected_digest=None):
     if snapshot.get('planningDriver')=='host-model-exchange-v1':
         from .host_review import verify_frozen
         verify_frozen(folder,snapshot,read(visual_path))
+    from .reuse_pipeline import snapshot_input as reuse_input
+    reuse_input(folder,snapshot)
     return snapshot
 
 

@@ -197,6 +197,9 @@ def verify_plan_evidence(folder, review, bound, visual):
     expected_schema=visual_textures.bind_review_schema(expected_schema,visual_textures.planning_input(folder.parent),visual)
     if relation_review.policy(folder.parent):
         expected_schema=relation_review.bind_schema(expected_schema,relation_review.catalog(visual,digest(folder.parent/'m1/reference.png')))
+    if config.get('planningDriver')=='host-model-exchange-v1':
+        from . import material_reuse, reuse_pipeline
+        expected_schema=material_reuse.review_schema(expected_schema,reuse_pipeline.planning_input(folder.parent,visual))
     if schema!=expected_schema:
         raise ValueError('PLAN_EVIDENCE_SCHEMA_MISMATCH')
     resolve_review(review,visual,config.get('coverageTextPolicy'))
@@ -353,7 +356,13 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
                                     generation_reference=generation_reference,
                                     context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations,texture_doc=texture_doc,texture_bindings=texture_bindings)
     from .generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY
-    groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY) if generation_mode=='sheets' else None
+    from . import material_reuse, reuse_pipeline
+    config=read(run/'.dag/config.json') if (run/'.dag/config.json').exists() else {}
+    reuse_doc=reuse_pipeline.planning_input(run,visual) if config.get('planningDriver')=='host-model-exchange-v1' else None
+    if reuse_doc is not None and (generation_mode!='sheets' or generation_reference!='context-crops'):
+        raise ValueError('REUSE_REQUIRES_CONTEXT_SHEETS')
+    generation_plan=material_reuse.selected_plan(visual,plan,reuse_doc)
+    groups=build_groups(visual,generation_plan,CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY) if generation_mode=='sheets' else None
     calls=groups['plannedCalls'] if groups else len(plan['assets'])
     if calls>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
     output.mkdir(parents=True, exist_ok=False)
@@ -364,6 +373,8 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
         save(output/'visual-texture-bindings.json',texture_bindings)
     if relations is not None:save(output/'relation-assessment.json',relations)
     if groups:save(output/'generation-groups.json',groups)
+    if reuse_doc is not None:
+        (output/reuse_pipeline.INPUT_NAME).write_bytes((run/'.dag/inputs'/reuse_pipeline.INPUT_NAME).read_bytes())
     (output/'reference.png').write_bytes(source.read_bytes())
     if digest(output/'reference.png') != before:
         raise ValueError('REFERENCE_CHANGED')
@@ -409,6 +420,9 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
         report['visualPolicySha256']=digest(output/'visual-policy.json')
     if texture_doc is not None:
         report.update(visualTexturePolicy=visual_textures.POLICY,visualTexturesSha256=digest(output/'visual-textures.json'),visualTextureBindingsSha256=digest(output/'visual-texture-bindings.json'))
+    if reuse_doc is not None:
+        report.update(materialReusePolicy=reuse_pipeline.POLICY,materialReuseSha256=digest(output/reuse_pipeline.INPUT_NAME),
+            generatedMaterialCount=len(generation_plan['assets']))
     save(output/'compile-report.json', report)
     return report
 

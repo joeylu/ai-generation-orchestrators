@@ -174,6 +174,21 @@ def build(config_path, output, viewer, warnings=()):
     visual = read(path if path.exists() else snapshot / 'evidence/m1-draft.json')
     rows = read(snapshot / 'placements.json')['materials']
     material_ids = [m['id'] for m in visual['materials']]
+    reuse_records={}
+    if frozen.get('materialReusePolicy'):
+        from .host_material_review import verify_extraction
+        binding=config.get('reviewedReuseExtraction')
+        if not binding or digest(Path(binding['path'])/'result.json')!=binding['sha256']:
+            raise ValueError('REUSE_REVIEWED_EXTRACTION_REQUIRED')
+        verified_snapshot,extraction=verify_extraction(binding['path'])
+        if (inspect(verified_snapshot)['digest']!=frozen['digest'] or extraction['snapshotDigest']!=frozen['digest']
+                or extraction['materials']!=config['materials']):raise ValueError('REUSE_DELIVERY_SOURCE_CHANGED')
+        for row in extraction['records']:
+            if 'prototypeMaterialId' in row:
+                reuse_records[row['materialId']]={key:row[key] for key in (
+                    'prototypeMaterialId','prototypeSourceSha256','reuseContractSha256','reuseMappingSha256',
+                    'derivation','sourceSha256','sourceBox','receiptSha256','reviewSha256')}
+                reuse_records[row['materialId']]['scopedMappingSha256']=reuse_records[row['materialId']].pop('reuseMappingSha256')
     placement_ids = [p['id'] for p in rows]
     if (len(material_ids) != len(set(material_ids)) or len(placement_ids) != len(set(placement_ids))
             or set(config['materials']) != set(material_ids) or set(placement_ids) != set(material_ids)):
@@ -232,6 +247,7 @@ def build(config_path, output, viewer, warnings=()):
         for i, row in enumerate(rows):
             mid = row['id']; material = materials[mid]; source = Path(config['materials'][mid])
             proof = dict(materialId=mid, sourceSha256=inputs[source.resolve()], role=material['role'])
+            if mid in reuse_records:proof['materialReuse']=reuse_records[mid]
             if mid in checked:
                 image, geometry = transform(source, checked[mid]['geometry'])
                 region = geometry['layerCanvasRegion']; stored = temp / f'layer-{i}.png'; image.save(stored)
