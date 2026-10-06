@@ -19,6 +19,16 @@ from .single_material_review import prepare_review
 from . import ownership_observation as ownership
 from . import material_reuse as reuse, reuse_pipeline, reuse_image_review
 
+BACKGROUND_VISUAL_POLICY = 'record-until-final-composite-v1'
+BACKGROUND_DEFERRED_STATUS = 'background_observed_pending_final_composite'
+
+
+def validate_background_visual_policy(value, bound, request_id=None):
+    if value is None:return
+    if (value != BACKGROUND_VISUAL_POLICY or bound is None or
+            request_id is not None and request_id != bound['materialId']):
+        raise ValueError('PROTECTED_BACKGROUND_VISUAL_POLICY_REQUIRED')
+
 
 def files(root):
     return {p.relative_to(root).as_posix():digest(p) for p in sorted(root.rglob('*'))
@@ -39,13 +49,16 @@ def source(job, request_id):
     return config,index[request_id],receipt,raw
 
 
-def prepare(job, request_id, output, *, material_authors, review_registry):
+def prepare(job, request_id, output, *, material_authors, review_registry, background_visual_review_policy=None):
     job=Path(job).resolve();output=Path(output).resolve()
     authors=list(material_authors)
     if not authors or len(authors)!=len(set(authors)):raise ValueError('MATERIAL_AUTHORS_REQUIRED')
     for author in authors:_identity(author)
     config,row,receipt,raw=source(job,request_id)
     snapshot=job/'snapshot';manifest=inspect(snapshot,config['snapshotDigest'])
+    from . import background_region_pipeline as bg_region
+    validate_background_visual_policy(background_visual_review_policy,
+        bg_region.snapshot_input(snapshot,manifest),request_id)
     reuse_doc=reuse_pipeline.snapshot_input(snapshot,manifest)
     if output.exists() or output.is_relative_to(job):raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
     key=body_digest(dict(jobDigest=config['digest'],requestId=request_id,submissionDigest=receipt['submissionDigest']))
@@ -109,6 +122,14 @@ def prepare(job, request_id, output, *, material_authors, review_registry):
             ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         prompt_path=folder/'prompt.md'
         prompt_path.write_text(prompt_path.read_text(encoding='utf-8')+'\n'+ownership.review_prompt(inventory)+'\n',encoding='utf-8')
+        if background_visual_review_policy is not None:
+            prompt_path.write_text(prompt_path.read_text(encoding='utf-8')+
+                '\nThis protected background has an explicit record-until-final-composite policy. '
+                'Report every actual discrepancy and all owned/foreign observations truthfully, '
+                'including missing, present and uncertain states. Do not report complete or absent '
+                'to permit continuation. These background visual observations remain unresolved '
+                'until the full composite is compared with the original; foreground UI may occlude '
+                'background regions. No visibility or acceptance conclusion is asserted now.\n',encoding='utf-8')
         # Ownership extends producer attachments before this host request is
         # frozen. Bind the final bytes in the nested request as well; keeping
         # its base schema/prompt hashes would give the reviewer two conflicting
@@ -126,6 +147,8 @@ def prepare(job, request_id, output, *, material_authors, review_registry):
             sourceFiles=files(job),runtime=runtime_files(),reservation=str(reservation),reservationSha256=digest(reservation),
             inputs=files(output),modelCallsMaximum=1,automaticRetry=False,
             humanVisualAcceptance=False,originalDagPromoted=False)
+        if background_visual_review_policy is not None:
+            request['backgroundVisualReviewPolicy']=background_visual_review_policy
         save(output/'request.json',request)
         save(output/'preparation.json',dict(requestSha256=digest(output/'request.json')))
         verify_prepared(output)
@@ -159,6 +182,7 @@ def verify_prepared(output):
     snapshot=job/'snapshot';policy=snapshot_policy(snapshot,inspect(snapshot,config['snapshotDigest']))
     from . import background_region_pipeline as bg_region
     bg_bound=bg_region.snapshot_input(snapshot,inspect(snapshot,config['snapshotDigest']))
+    validate_background_visual_policy(request.get('backgroundVisualReviewPolicy'),bg_bound,request['requestId'])
     if bg_bound is not None and request['requestId']==bg_bound['materialId']:
         binding=bg_region.verify_candidate(output,snapshot,inspect(snapshot,config['snapshotDigest']),raw,receipt['rawSha256'])
         candidate=read(output/'extraction-candidate.json')
@@ -209,10 +233,22 @@ def assess(output, request, policy):
         assessment['blockers'].extend(checked['blockers'])
         ownership_result=dict(ownershipInventorySha256=request['ownershipInventorySha256'],
             ownershipDeclarationsOnly=checked['declarationsOnly'],ownershipObservationCoverage='complete')
-    return dict(status='blocked_no_retry' if assessment['blockers'] else 'reviewed_pending_visual_acceptance',
+    deferred={}
+    if request.get('backgroundVisualReviewPolicy') is not None:
+        # Classify and validate complete coverage first. Preserve the original
+        # blocking decisions; only their final visual disposition is deferred.
+        findings=dict(policy=request['backgroundVisualReviewPolicy'],
+            findings=answer['findings'],decisions=assessment['decisions'],
+            blockers=assessment['blockers'],ownershipObservations=answer['ownershipObservations'],
+            finalCompositeReviewPending=True,visualReviewPassed=False)
+        deferred=dict(deferredVisualFindings=findings)
+        assessment['warnings'].append(dict(category='deferred-background-visual-review',
+            materialId=request['requestId'],evidence=json.dumps(findings,ensure_ascii=False,sort_keys=True),
+            suggestion='Judge all recorded background observations against the complete final composite and original.'))
+    return dict(status=BACKGROUND_DEFERRED_STATUS if deferred else ('blocked_no_retry' if assessment['blockers'] else 'reviewed_pending_visual_acceptance'),
                 requestId=request['requestId'],materialIds=request['materialIds'],rawSha256=request['rawSha256'],
                 reviewSha256=digest(folder/'draft.json'),modelCalls=1,humanVisualAcceptance=False,
-                originalDagPromoted=False,automaticRetry=False,**assessment,**ownership_result)
+                originalDagPromoted=False,automaticRetry=False,**assessment,**ownership_result,**deferred)
 
 
 def receive(output, response, request_sha256, *, response_sha256, host_attestation, dispatch_evidence, return_evidence):
@@ -243,7 +279,9 @@ def receive(output, response, request_sha256, *, response_sha256, host_attestati
 
 def verify_run(output):
     output=Path(output).resolve();request,policy=verify_prepared(output);result=read(output/'result.json')
-    if result['status']!='reviewed_pending_visual_acceptance':raise ValueError('OUTPUT_REVIEW_NOT_PASSED')
+    allowed=(request.get('backgroundVisualReviewPolicy')==BACKGROUND_VISUAL_POLICY and
+             result['status']==BACKGROUND_DEFERRED_STATUS)
+    if result['status']!='reviewed_pending_visual_acceptance' and not allowed:raise ValueError('OUTPUT_REVIEW_NOT_PASSED')
     _bound_files(output/'review',result['outputs'])
     if read(output/'review/exchange-provenance.json')!=provenance(output,request):raise ValueError('OUTPUT_PROVENANCE_CHANGED')
     if {k:v for k,v in result.items() if k!='outputs'}!=assess(output,request,policy):raise ValueError('OUTPUT_ASSESSMENT_CHANGED')

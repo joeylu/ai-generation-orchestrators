@@ -1080,3 +1080,16 @@ backing correctly omits child cards, icons, progress bars or buttons visible in
 its original rectangular crop. Existing review results remain immutable; a
 corrected review uses a new output directory. The public composition and CLI
 status contracts do not change.
+# Protected background final-composite review opt-in
+
+- Added new-host-only `backgroundVisualReviewPolicy=record-until-final-composite-v1`.
+  Protected-background observations retain original blocking decisions and full
+  owned/foreign evidence, with explicit unresolved status and final package warnings.
+  Real body observation and all technical gates remain active; strict defaults and
+  prior terminal jobs are unchanged.
+- Added exact formally reviewed planning snapshot replay for that opt-in, with full
+  M2/source/current-preflight/capacity verification and allowlist copying into a
+  fresh run. A new image scope needs fresh authorization; no previous media,
+  reservations or image receipts are reused, and no new M2 execution is claimed.
+- Offline fixtures cover complete body/package continuation with deferred findings,
+  truthful final evidence, fresh planning replay, source tamper and invalid scopes.

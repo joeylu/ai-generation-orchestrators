@@ -93,6 +93,32 @@ def _scope(root, config, stage, request, request_dir, key=None):
     return result
 
 
+def _reviewed_snapshot(source):
+    from .freeze_visual import inspect
+    from .execution_preflight import preflight
+    folder=Path(source['reviewedSnapshot']).resolve()
+    manifest=inspect(folder,source['reviewedSnapshotDigest'])
+    if (source.get('backgroundVisualReviewPolicy')!=host_material_review.BACKGROUND_VISUAL_POLICY or
+            source.get('planningNotes') or manifest.get('planningDriver')!='host-model-exchange-v1' or
+            manifest.get('policy')!='visual-plan-v5-experiment-v1' or
+            'generation-groups.json' not in manifest['files'] or manifest.get('generationReference')!='context-crops' or
+            manifest.get('contextPromptVersion')!='v7' or
+            digest(folder/'reference.png')!=digest(Path(source['original'])) or
+            manifest['sourcePlanSha256']!=digest(Path(source['seed'])) or
+            manifest.get('backgroundRegionDigest')!=source.get('backgroundRegionDigest')):
+        raise ValueError('EXACT_PRIOR_REVIEWED_SNAPSHOT_REQUIRED')
+    for key,name in (('visualPolicy','visual-policy.json'),('visualTextures','visual-textures.json'),('materialReuse','material-reuse.json')):
+        if bool(source.get(key))!=(name in manifest['files']) or source.get(key) and digest(Path(source[key]))!=digest(folder/name):
+            raise ValueError('PRIOR_REVIEWED_INPUT_CHANGED')
+    preflight(folder,manifest['digest'])
+    visual=read(folder/'evidence/m1-draft.json')
+    requests=read(folder/'requests.json')['requests']
+    if (len(requests)>source['maximumImageCalls'] or len(requests)>source['maximumMaterialReviews'] or
+            sum(m['role']=='foreground' for m in visual['materials'])>source['maximumBodyCalls']):
+        raise ValueError('FINITE_DOWNSTREAM_CAPACITY_EXCEEDED')
+    return folder,manifest
+
+
 def prepare(config_path, output):
     """Freeze an offline Agent seed, exact model configuration and reviewed inputs."""
     source = read(Path(config_path)); root = Path(output).resolve()
@@ -101,6 +127,12 @@ def prepare(config_path, output):
     if source.get('backgroundRegion'):
         from .background_region import inspect as inspect_region
         inspect_region(source['backgroundRegion'],source['backgroundRegionDigest'])
+    if 'backgroundVisualReviewPolicy' in source:
+        if (source['backgroundVisualReviewPolicy']!=host_material_review.BACKGROUND_VISUAL_POLICY or
+                not source.get('backgroundRegion') or source.get('backgroundPolicy')!=bg_region.POLICY):
+            raise ValueError('PROTECTED_BACKGROUND_VISUAL_POLICY_REQUIRED')
+    if bool(source.get('reviewedSnapshot'))!=bool(source.get('reviewedSnapshotDigest')):
+        raise ValueError('PRIOR_REVIEWED_SNAPSHOT_PAIR_REQUIRED')
     if root.exists(): raise ValueError('FRESH_HOST_RUN_REQUIRED')
     for key,default in (('maximumModelCallSeconds',1800),('maximumImageCallSeconds',900)):
         source.setdefault(key,default)
@@ -128,6 +160,7 @@ def prepare(config_path, output):
     if (source['canvasPolicy']!=POLICY or not isinstance(instruction,str) or not instruction.strip()
             or source['canvasPolicyInstructionSha256']!=hashlib.sha256(instruction.encode('utf-8')).hexdigest()):
         raise ValueError('EXPLICIT_BOUND_CANVAS_POLICY_REQUIRED')
+    prior=_reviewed_snapshot(source) if source.get('reviewedSnapshot') else None
     root.mkdir(parents=True); inputs=root/'inputs';inputs.mkdir()
     for key in ('seed','original','planningNotes','visualPolicy','visualTextures','materialReuse'):
         if source.get(key):
@@ -152,9 +185,24 @@ def prepare(config_path, output):
     elif source.get('backgroundPolicy')!='uniform-whole-canvas-opaque-contain-edgepad-v1':
         raise ValueError('EXPLICIT_BACKGROUND_POLICY_REQUIRED')
     config=record(root/'config.json',dict(source,kind=KIND,runtime=host_review.runtime_files(),
-        planningMode='offline-agent-seed-independent-host-review', m1ModelExecuted=False,
+        planningMode='verified-prior-independent-host-review' if prior else 'offline-agent-seed-independent-host-review', m1ModelExecuted=False,
+        **(dict(newM2ReviewPerformed=False,priorReviewedSnapshotDigest=prior[1]['digest'],priorM2ResponseSha256=prior[1]['reviewSha256']) if prior else {}),
         generationMode='sheets', generationReference='context-crops', contextPromptVersion='v7'))
     try:
+        if prior:
+            from .freeze_visual import inspect
+            from .execution_preflight import preflight
+            frozen=root/'frozen';frozen.mkdir()
+            for name in [*prior[1]['files'],'snapshot.json']:
+                path=Path(name)
+                if path.is_absolute() or '..' in path.parts or not (prior[0]/path).resolve().is_relative_to(prior[0]):
+                    raise ValueError('UNSAFE_PRIOR_SNAPSHOT_PATH')
+                target=frozen/path;target.parent.mkdir(parents=True,exist_ok=True)
+                target.write_bytes((prior[0]/path).read_bytes())
+            inspect(frozen,prior[1]['digest']);preflight(frozen,prior[1]['digest'])
+            experimental_executor.prepare(frozen,prior[1]['digest'],root/'images')
+            _state(root,config,'images');_checkpoint(root)
+            return status(root)
         host_review.prepare(config['seed'],config['original'],root/'planning',config['contract'],
             seed_author=config['candidateAuthors'], planning_notes=config.get('planningNotes'),
             visual_policy=config.get('visualPolicy'),visual_textures=config.get('visualTextures'),material_reuse=config.get('materialReuse'),
@@ -171,11 +219,15 @@ def prepare(config_path, output):
 def status(run):
     root=Path(run).resolve();config,state=_load(root);stage=state['stage']
     result=dict(stage=stage,configDigest=config['digest'],
-        planningMode=config['planningMode'],m1ModelExecuted=False,
+        planningMode=config['planningMode'],m1ModelExecuted=config['m1ModelExecuted'],
         FullAutomationExecutionCompleted=stage=='complete',visualAcceptancePending=True,
         humanVisualAcceptance=False,originalDagPromoted=False,automaticRetries=0,
         notProviderReceipt=True,notCryptographicallyPlatformVerified=True)
     result.update(maximumModelCallSeconds=config['maximumModelCallSeconds'],maximumImageCallSeconds=config['maximumImageCallSeconds'])
+    if 'newM2ReviewPerformed' in config:result['newM2ReviewPerformed']=config['newM2ReviewPerformed']
+    if config.get('backgroundVisualReviewPolicy'):
+        result.update(deferredBackgroundVisualReview=True,
+            backgroundVisualReviewPolicy=config['backgroundVisualReviewPolicy'],finalCompositeVisualAcceptancePending=True)
     if stage in ('planning_review','material_review'):
         scope=root/state['scope']; bound=verified(scope/'scope.json')
         rows=bound.get('requests',[bound])
@@ -294,7 +346,7 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
                     response_sha256=digest(Path(response)),host_attestation=host_attestation,
                     dispatch_evidence=dispatch_evidence,return_evidence=return_evidence)
                 _,review_result=host_material_review.verify_run(root/'reviews'/key)
-                if review_result['status']!='reviewed_pending_visual_acceptance':raise ValueError('HOST_MATERIAL_REVIEW_BLOCKED')
+                if review_result['status'] not in ('reviewed_pending_visual_acceptance',host_material_review.BACKGROUND_DEFERRED_STATUS):raise ValueError('HOST_MATERIAL_REVIEW_BLOCKED')
                 record(scope/(key+'-received.json'),dict(submissionDigest=submission_digest,responseSha256=digest(Path(response))))
             elif stage=='images':experimental_executor.receive(root/'images',submission_digest,response)
             else:
@@ -334,10 +386,17 @@ def fail(run, submission_digest, reason):
 
 def _material_stage(root,config,keys):
     rows=[]
+    background_id=None
+    if config.get('backgroundVisualReviewPolicy'):
+        from . import background_region_pipeline as bg_region
+        from .freeze_visual import inspect
+        background_id=bg_region.snapshot_input(root/'frozen',inspect(root/'frozen'))['materialId']
     for key in keys:
         folder=root/'reviews'/key
         host_material_review.prepare(root/'images',key,folder,material_authors=config['materialAuthors'],
-                                     review_registry=root/'review-registry')
+                                     review_registry=root/'review-registry',
+                                     **({'background_visual_review_policy':config['backgroundVisualReviewPolicy']}
+                                        if key==background_id else {}))
         rows.append(dict(requestId=key,requestPath=str(folder/'request.json'),requestSha256=digest(folder/'request.json'),
                          requestDirectory=str(folder/'review'),inputs=_files(folder/'review')))
     scope=root/'scopes/material_review';scope.mkdir()

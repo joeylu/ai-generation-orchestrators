@@ -64,3 +64,24 @@ resumed, historical receipt reused, or visual success invented.
 
 This integration has offline fixture coverage. A new actual proposal, material
 review and final recomposition are still required to establish sample quality.
+# Optional final-composite visual disposition
+
+An explicitly new host config can set
+`backgroundVisualReviewPolicy="record-until-final-composite-v1"`. This requires
+the existing verified protected-region binding. Actual independent review still
+records all background findings and owned/foreign states truthfully; visual
+blocking decisions remain in the result with unresolved `deferredVisualFindings`.
+The special `background_observed_pending_final_composite` state permits technical
+extraction and real foreground body observation while carrying every observation
+as structured warning evidence into final package `review.json`. Source identity,
+schema and complete inventory coverage, opaque native background, exact protected
+pixels, alpha, geometry and package integrity cannot be deferred. Judge the
+background's visible effect after the full composite; status explicitly keeps
+final composite visual acceptance pending. Default strict review is unchanged.
+
+For the exact same source and seed, this new config may also bind an already
+formally reviewed planning snapshot using `reviewedSnapshot` and
+`reviewedSnapshotDigest`. It revalidates and copies only snapshot evidence, reports
+that no new M2 was performed, and creates a fresh image job requiring new compute
+authorization. It imports no old media or authorization and never alters a prior
+failed state. See SERVICE-CONTRACT.md for the exact input and capacity checks.

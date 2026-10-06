@@ -999,3 +999,43 @@ to match the final reviewed/adapted PNGs and uses existing
 `sources_from_preview`/`build` validation. The package remains pending human
 visual acceptance. Arbitrary external processed PNGs, incomplete reviews or
 hand-authored sources/manifests cannot be substituted through this route.
+# Protected background observations deferred to final composite
+
+New `host-run` configurations may explicitly freeze
+`backgroundVisualReviewPolicy="record-until-final-composite-v1"` only with a
+verified `backgroundRegion` / `backgroundRegionDigest` and
+`backgroundPolicy="exact-source-canvas-protected-region-v1"`. The default remains
+strict. Only the bound background request receives this policy. Foreground
+observations and the real body observation stage retain their existing gates.
+
+The independent background reviewer still reports actual findings and complete
+owned/foreign observations, including missing, present and uncertain states.
+Schema, exact ownership coverage, receipt/source hashes, native alpha, protected
+pixel replay, extraction, geometry and package checks remain mandatory. The
+program first performs the original classification, preserves blocking decisions
+and ownership observations, then records their unresolved visual disposition in
+`deferredVisualFindings`. The explicit review status is
+`background_observed_pending_final_composite`, never a passed visual review.
+Warnings carry the complete structured evidence and review SHA through extraction
+and into the final package's `review.json`. Host status exposes
+`deferredBackgroundVisualReview=true` and
+`finalCompositeVisualAcceptancePending=true`; inspect the full original/material/
+composite comparison before judging visible duplicates or omissions. A technical
+package completion does not settle these observations or assert human acceptance.
+
+This opt-in may additionally supply both `reviewedSnapshot` and
+`reviewedSnapshotDigest`. This reuses only an exact formally frozen, independently
+reviewed planning snapshot (`planningDriver=host-model-exchange-v1`, normal
+`visual-plan-v5-experiment-v1` policy, sheets/context-crops/v7). Full M2 evidence,
+current deterministic preflight, the source seed/reference and optional visual,
+texture/reuse inputs, region digest and all downstream capacities are reverified.
+`planningNotes` is forbidden in this mode. Only the snapshot's bound file allowlist
+and `snapshot.json` are copied to a fresh run and reverified; no source host state,
+image authorization, reservation, raw image or receipt is imported. The new image
+job requires its own fresh authorization. Status honestly declares
+`planningMode=verified-prior-independent-host-review`,
+`newM2ReviewPerformed=false`, and `m1ModelExecuted=false`; config records the prior
+snapshot digest and actual M2 response SHA. Deferred candidate plans, altered
+snapshots, unreviewed plans and changed input scopes are rejected. Existing failed
+runs and reviews remain terminal and sealed; this does not authorize historical
+raw-image receipt repair or new receipts for old provider calls.
