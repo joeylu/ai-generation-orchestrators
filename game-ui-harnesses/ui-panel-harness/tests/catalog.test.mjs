@@ -61,6 +61,21 @@ test('filters are applied before ranking and irrelevant queries never return arb
   assert.throws(() => searchCatalog(catalog, { query: 'volume', kind: 'button' }), /unsupported recipe kind/);
 });
 
+test('colloquial dragging aliases retrieve sliders without confusing host-owned loading or mutating catalog identity', () => {
+  const original = fresh();
+  for (const query of ['能拖的条', '做个滑块', '滑动条', '可以拖动的条', '拖动条']) {
+    assert.equal(searchCatalog(original, { query })[0].recipe.kind, 'slider-row', query);
+    assert.deepEqual(searchCatalog(original, { query, retrievalVersion: '0.1' }), [], query);
+    assert.deepEqual(searchCatalog(original, { query, kind: 'switch-row' }), [], query);
+  }
+  for (const query of ['加载条', '进度条', '显示加载进度', '不要滑块', '不需要能拖的条', '去掉滑动条']) {
+    assert.equal(searchCatalog(original, { query }).some(result => result.recipe.kind === 'slider-row'), false, query);
+  }
+  assert.equal(searchCatalog(original, { query: '不要滑块，但是需要能拖的条' })[0].recipe.kind, 'slider-row');
+  assert.deepEqual(original, catalog);
+  assert.throws(() => searchCatalog(original, { query: '滑块', retrievalVersion: '0.3' }), /unsupported retrieval version/);
+});
+
 test('retrieval order is deterministic across catalog record order and returns independent records', () => {
   const input = fresh();
   const clone = structuredClone(input.recipes[2]);

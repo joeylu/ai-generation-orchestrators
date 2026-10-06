@@ -1,8 +1,10 @@
 import { validatePanelSpec, validatePanelState } from './spec.mjs';
 import { validateCatalog, resolveRecipe, resolveTheme } from './catalog.mjs';
 import { validatePanelAssetClosure, panelAssetPath } from './panel-assets.mjs';
-import { measureFlowLayout } from './flow-layout.mjs';
+import { measureFlowLayout, measureTabbedLayout } from './flow-layout.mjs';
+import { tabPageId } from './tabs.mjs';
 import { progressDisplayValue, progressDisplayMax, progressText, progressValueWidth } from './progress.mjs';
+import { formErrorId, inputError, buttonEnabled } from './forms.mjs';
 
 export const PANEL_COMPILER_VERSION = '0.1.0';
 export const ASSET_PANEL_COMPILER_VERSION = '0.2.0';
@@ -11,6 +13,8 @@ export const LEGACY_FLOW_PANEL_COMPILER_VERSION = '0.4.0';
 export const FLOW_PANEL_COMPILER_VERSION = '0.4.1';
 export const LEGACY_PROGRESS_PANEL_COMPILER_VERSION = '0.5.0';
 export const PROGRESS_PANEL_COMPILER_VERSION = '0.5.1';
+export const TABS_PANEL_COMPILER_VERSION = '0.6.0';
+export const FORMS_PANEL_COMPILER_VERSION = '0.7.0';
 
 export class PanelCompileError extends Error {
   constructor(code, path, message) {
@@ -39,12 +43,14 @@ export function initialPanelState(spec) {
 /** Pure lowering. Renderer-free; core functions are supplied by the host adapter. */
 export function compilePanel(input, catalogInput, core, stateInput, assetClosureInput, compilerVersionInput) {
   const spec = validatePanelSpec(input), catalog = validateCatalog(catalogInput);
-  const progressVersion = spec.panelSpecVersion === '0.5';
+  const formsVersion = spec.panelSpecVersion === '0.7';
+  const tabsVersion = formsVersion || spec.panelSpecVersion === '0.6';
+  const progressVersion = tabsVersion || spec.panelSpecVersion === '0.5';
   const flowVersion = progressVersion || spec.panelSpecVersion === '0.4';
   const controls = flowVersion || spec.panelSpecVersion === '0.3';
-  const compilerVersion = compilerVersionInput ?? (progressVersion ? PROGRESS_PANEL_COMPILER_VERSION : flowVersion ? FLOW_PANEL_COMPILER_VERSION
+  const compilerVersion = compilerVersionInput ?? (formsVersion ? FORMS_PANEL_COMPILER_VERSION : tabsVersion ? TABS_PANEL_COMPILER_VERSION : progressVersion ? PROGRESS_PANEL_COMPILER_VERSION : flowVersion ? FLOW_PANEL_COMPILER_VERSION
     : controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION);
-  const allowedVersions = progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
+  const allowedVersions = formsVersion ? [FORMS_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
     : [controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION];
   if (!allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec');
   const assetClosure = validatePanelAssetClosure(spec, assetClosureInput);
@@ -55,7 +61,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     fail('COMPONENT_CORE_REQUIRED', '$', 'A compatible component compiler must be supplied');
   }
   const state = validatePanelState(spec, stateInput === undefined ? initialPanelState(spec) : stateInput);
-  const flow = flowVersion ? measureFlowLayout(spec) : null;
+  const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec) : flowVersion ? measureFlowLayout(spec) : null;
   const theme = resolveTheme(catalog, spec.theme), t = theme.tokens, l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
   const selected = new Map();
   const select = (ref, kind, width, height) => {
@@ -129,7 +135,17 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       const controlX = fullButton ? 12 + iconOffset : l.labelWidth + l.gap + 12;
       const available = contentWidth - controlX - 12;
       const rowY = l.sectionTitleHeight + l.gap + index * (l.rowHeight + l.gap);
-      if (row.kind === 'slider') {
+      if (row.kind === 'input') {
+        if (available < 160 || l.rowHeight < 48 + textHeight) fail('INPUT_GEOMETRY', '$.layout', 'Input and validation need a readable field and error line');
+        rowChildren.push(node(id, 'Input', { x: controlX, y: 4, width: available, height: 40 }, {
+          value: state[row.bind], placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
+          maxLength: field.maxLength, enabled: row.enabled, valueOverflow: 'ellipsis',
+          style: style(t.surface, { borderWidth: 1, cornerRadius: 6 }),
+        }));
+        for (const [code, message] of [['required', row.validation.requiredMessage], ['min-length', row.validation.minLengthMessage]])
+          rowChildren.push(text(formErrorId(spec.id, row.id, code), message,
+            { x: controlX, y: 48, width: available, height: textHeight }, t.fontSize, '#B22C42'));
+      } else if (row.kind === 'slider') {
         const valueWidth = Math.max(64, t.fontSize * 4), sliderWidth = available - valueWidth - l.gap;
         if (sliderWidth < 96) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Slider needs at least 96 logical pixels after label and value slots');
         rowChildren.push(node(id, 'Slider', { x: controlX, y: 0, width: sliderWidth, height: l.rowHeight }, {
@@ -171,9 +187,10 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         if (row.kind === 'select') {
           // The sibling renderer opens an overlay below the field with a 2px gap.
           // Its default menu uses one max(32, fieldHeight) row per option and never flips.
-          const popupBottom = (flow ? flow.panelY + flow.body.y : (spec.canvas.height - panelHeight) / 2) + sectionY + rowY + controlY
+          const pageFlow = spec.tabs ? flow.pages.find(page => page.id === place.pageId) : null;
+          const popupBottom = (flow ? flow.panelY + flow.body.y + (pageFlow ? flow.pageY : 0) : (spec.canvas.height - panelHeight) / 2) + sectionY + rowY + controlY
             + controlHeight + 2 + Math.max(32, controlHeight) * field.options.length;
-          if (!flow?.scrollable && popupBottom > spec.canvas.height) fail('SELECT_POPUP_OVERFLOW', '$.canvas.height', 'The open Select menu must fit below its field within the canvas');
+          if (!(pageFlow ? pageFlow.contentHeight > pageFlow.viewportHeight : flow?.scrollable) && popupBottom > spec.canvas.height) fail('SELECT_POPUP_OVERFLOW', '$.canvas.height', 'The open Select menu must fit below its field within the canvas');
           rowChildren.push(node(id, 'Select', rect, {
             selectedId: choiceId(spec.id, row.id, state[row.bind]),
             options: field.options.map(option => ({ id: choiceId(spec.id, row.id, option.id), label: option.label })),
@@ -184,7 +201,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           }));
         } else {
           rowChildren.push(node(id, 'Button', rect, {
-            label: row.buttonLabel, enabled: row.enabled,
+            label: row.buttonLabel, enabled: buttonEnabled(spec, row, state),
             style: style(t.accent, { textColor: buttonForeground(t.accent), fontWeight: 'bold', cornerRadius: 6 }),
           }, []));
           actions.push({ nodeId: id, rowId: row.id, event: row.event, enabled: row.enabled, action: row.action });
@@ -193,7 +210,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {
@@ -208,7 +225,23 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       { style: style(t.surface) }, sectionChildren));
     legacySectionY += height + l.sectionGap;
   }
-  if (flow) children.push(node(`${spec.id}.body`, flow.scrollable ? 'ScrollView' : 'Container', flow.body,
+  if (spec.tabs) {
+    const tabs = spec.tabs, id = controlId(spec.id, tabs.id);
+    select(tabs.recipe, 'tabs', flow.body.width, flow.body.height);
+    if (tabs.pages.some(page => [...page.label].length * t.fontSize * 1.1 + 24 > flow.body.width / tabs.pages.length)) fail('TABS_LABEL_WIDTH', '$.tabs.pages', 'Tab labels must fit without shrinking');
+    const pages = flow.pages.map(page => {
+      const ownSections = bodyChildren.filter(child => tabs.pages.find(p => p.id === page.id).sections.some(section => child.id === `${spec.id}.section.${section}`));
+      const scrollable = page.contentHeight > page.viewportHeight;
+      return node(tabPageId(spec.id, page.id), scrollable ? 'ScrollView' : 'Container',
+        { x: 0, y: flow.pageY, width: page.body.width, height: page.viewportHeight },
+        scrollable ? { scrollX: 0, scrollY: 0, contentWidth: page.body.width, contentHeight: page.contentHeight,
+          drawBackground: false, scrollbarVisibility: 'auto', style: style(t.surface) } : { style: style(t.surface) }, ownSections);
+    });
+    children.push(node(id, 'Tabs', flow.body, { activeId: choiceId(spec.id, tabs.id, state[tabs.bind]), enabled: tabs.enabled,
+      drawBackground: false, style: style(t.surface, { borderColor: t.accent }),
+      tabs: tabs.pages.map(page => ({ id: choiceId(spec.id, tabs.id, page.id), label: page.label, contentId: tabPageId(spec.id, page.id) })) }, pages));
+    bindings.push({ nodeId: id, fieldId: tabs.bind, type: 'enum', event: tabs.event });
+  } else if (flow) children.push(node(`${spec.id}.body`, flow.scrollable ? 'ScrollView' : 'Container', flow.body,
     flow.scrollable ? { scrollX: 0, scrollY: 0, contentWidth: flow.body.width, contentHeight: flow.contentHeight,
       drawBackground: false, scrollbarVisibility: 'auto', style: style(t.surface) } : { style: style(t.surface) }, bodyChildren));
   const surface = assets.get(spec.assets?.panelSurface);

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace GameUi.PanelHarness
@@ -11,7 +12,7 @@ namespace GameUi.PanelHarness
     [DisallowMultipleComponent]
     public sealed class PanelController : MonoBehaviour
     {
-        public const string ADAPTER_VERSION = "0.1.2";
+        public const string ADAPTER_VERSION = "0.1.4";
         private const double MAX_TICKS = 1000000;
         private const double DOUBLE_EPSILON = 2.2204460492503131E-16;
         [SerializeField] private PanelDocument document;
@@ -46,7 +47,9 @@ namespace GameUi.PanelHarness
                 PanelControlView sourceView = controlViews[index];
                 PanelControl definition = Array.Find(copy.controls, item => item.nodeId == sourceView.definition.nodeId);
                 views[index] = new PanelControlView { definition = definition, slider = sourceView.slider, toggle = sourceView.toggle,
-                    dropdown = sourceView.dropdown, button = sourceView.button, valueText = sourceView.valueText, progressFill = sourceView.progressFill };
+                    dropdown = sourceView.dropdown, button = sourceView.button, input = sourceView.input, requiredErrorText = sourceView.requiredErrorText, minLengthErrorText = sourceView.minLengthErrorText, valueText = sourceView.valueText, progressFill = sourceView.progressFill,
+                    tabButtons = sourceView.tabButtons == null ? null : (Button[])sourceView.tabButtons.Clone(),
+                    tabPages = sourceView.tabPages == null ? null : (GameObject[])sourceView.tabPages.Clone(), tabActiveColor = sourceView.tabActiveColor, tabIdleColor = sourceView.tabIdleColor };
             }
             configured = false;
             Bind();
@@ -80,10 +83,61 @@ namespace GameUi.PanelHarness
             return Finite(field.max) && field.max > 0 && Finite(value) && value >= 0 && value <= field.max;
         }
 
+        public static bool StringValid(string value, int maximum)
+        {
+            if (value == null || maximum < 1 || maximum > 512 || value.Length > maximum) return false;
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (char.IsControl(c) || c == '\u2028' || c == '\u2029') return false;
+                if (char.IsHighSurrogate(c)) { if (i + 1 >= value.Length || !char.IsLowSurrogate(value[++i])) return false; }
+                else if (char.IsLowSurrogate(c)) return false;
+            }
+            return true;
+        }
+
+        public static bool InputMetadataValid(PanelControl control, PanelField field)
+        {
+            PanelInputValidation rule = control.validation;
+            return StringValid(control.placeholder, 512) && TextUnits(control.placeholder) <= 120
+                && (control.inputType == "text" || control.inputType == "password") && rule != null
+                && rule.minLength >= 0 && rule.minLength <= field.maxLength
+                && StringValid(rule.requiredMessage, 512) && TextUnits(rule.requiredMessage) <= 80 && !string.IsNullOrWhiteSpace(rule.requiredMessage)
+                && StringValid(rule.minLengthMessage, 512) && TextUnits(rule.minLengthMessage) <= 80 && !string.IsNullOrWhiteSpace(rule.minLengthMessage);
+        }
+
+        private static int TextUnits(string value)
+        {
+            int count = 0;
+            foreach (char c in value) if (!char.IsLowSurrogate(c)) count++;
+            return count;
+        }
+
+        public static string InputError(PanelControl control, string value)
+        {
+            int start = 0, end = value.Length;
+            while (start < end && (char.IsWhiteSpace(value[start]) || value[start] == '\uFEFF')) start++;
+            while (end > start && (char.IsWhiteSpace(value[end - 1]) || value[end - 1] == '\uFEFF')) end--;
+            int length = end - start;
+            if (length == 0) return control.validation.required ? "required" : null;
+            return length < control.validation.minLength ? "min-length" : null;
+        }
+
+        private bool SubmitValid(PanelControl control)
+        {
+            if (control.action != "submit") return true;
+            foreach (string fieldId in control.submitFields)
+            {
+                PanelControl input = Array.Find(document.controls, item => item.kind == "input" && item.fieldId == fieldId);
+                if (InputError(input, FIELDS[fieldId].stringValue) != null) return false;
+            }
+            return true;
+        }
+
         private static bool Validate(PanelDocument source, PanelControlView[] controlViews, out string error)
         {
             error = "PANEL_RUNTIME_DOCUMENT";
-            if (source.formatVersion != "0.1" || (source.adapterVersion != "0.1.0" && source.adapterVersion != "0.1.1" && source.adapterVersion != ADAPTER_VERSION) || string.IsNullOrEmpty(source.panelId)
+            if (source.formatVersion != "0.1" || (source.adapterVersion != "0.1.0" && source.adapterVersion != "0.1.1" && source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || string.IsNullOrEmpty(source.panelId)
                 || source.fields == null || source.controls == null || source.fields.Length > 128 || source.controls.Length > 128
                 || controlViews.Length != source.controls.Length) return false;
             Dictionary<string, PanelField> fields = new Dictionary<string, PanelField>(StringComparer.Ordinal);
@@ -99,7 +153,7 @@ namespace GameUi.PanelHarness
                 }
                 else if (field.type == "progress")
                 {
-                    if (source.panelSpecVersion != "0.5" || source.adapterVersion != ADAPTER_VERSION || field.min != 0 || field.step != 0
+                    if ((source.panelSpecVersion != "0.5" && source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7") || (source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || field.min != 0 || field.step != 0
                         || !ProgressValid(field, field.initialNumber) || !ProgressValid(field, field.numberValue)) return false;
                 }
                 else if (field.type == "enum")
@@ -109,6 +163,11 @@ namespace GameUi.PanelHarness
                     foreach (PanelOption option in field.options)
                         if (option == null || string.IsNullOrEmpty(option.id) || string.IsNullOrEmpty(option.label) || !choices.Add(option.id)) return false;
                     if (!ChoiceValid(field, field.initialString) || !ChoiceValid(field, field.stringValue)) return false;
+                }
+                else if (field.type == "string")
+                {
+                    if (source.panelSpecVersion != "0.7" || source.adapterVersion != ADAPTER_VERSION
+                        || !StringValid(field.initialString, field.maxLength) || !StringValid(field.stringValue, field.maxLength)) return false;
                 }
                 else if (field.type != "boolean") return false;
             }
@@ -130,11 +189,20 @@ namespace GameUi.PanelHarness
                 if (view == null) return false;
                 if (control.kind == "button")
                 {
-                    if (view.button == null || (control.action != "emit" && control.action != "reset-initial") || control.resetFields == null) return false;
+                    if (view.button == null || (control.action != "emit" && control.action != "reset-initial" && control.action != "submit") || control.resetFields == null) return false;
                     HashSet<string> resets = new HashSet<string>(StringComparer.Ordinal);
                     foreach (string fieldId in control.resetFields) if (!fields.ContainsKey(fieldId) || !resets.Add(fieldId)) return false;
                     if (control.action == "reset-initial" && resets.Count == 0) return false;
-                    if (control.action == "emit" && resets.Count != 0) return false;
+                    if (control.action != "reset-initial" && resets.Count != 0) return false;
+                    if (control.action == "submit")
+                    {
+                        if (source.panelSpecVersion != "0.7" || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) return false;
+                        HashSet<string> submitted = new HashSet<string>(StringComparer.Ordinal);
+                        foreach (string id in control.submitFields)
+                            if (id == null || !fields.ContainsKey(id) || fields[id].type != "string" || !submitted.Add(id)
+                                || !Array.Exists(source.controls, item => item != null && item.kind == "input" && item.fieldId == id)) return false;
+                    }
+                    else if (control.submitFields != null && control.submitFields.Length != 0) return false;
                 }
                 else
                 {
@@ -152,6 +220,26 @@ namespace GameUi.PanelHarness
                     }
                     else if (control.kind == "switch") { if (field.type != "boolean" || view.toggle == null) return false; }
                     else if (control.kind == "select") { if (field.type != "enum" || view.dropdown == null) return false; }
+                    else if (control.kind == "input")
+                    {
+                        if (field.type != "string" || view.input == null || view.input.textComponent == null || view.input.placeholder == null
+                            || view.requiredErrorText == null || view.minLengthErrorText == null || !InputMetadataValid(control, field)
+                            || view.requiredErrorText.name != control.requiredErrorTextId || view.minLengthErrorText.name != control.minLengthErrorTextId
+                            || view.requiredErrorText.text != control.validation.requiredMessage || view.minLengthErrorText.text != control.validation.minLengthMessage) return false;
+                    }
+                    else if (control.kind == "tabs")
+                    {
+                        if ((source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7") || (source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || field.type != "enum" || field.options.Length < 2
+                            || control.action != "" || control.resetFields == null || control.resetFields.Length != 0
+                            || view.tabButtons == null || view.tabPages == null || control.contentIds == null || view.tabButtons.Length != field.options.Length
+                            || view.tabPages.Length != field.options.Length || control.contentIds.Length != field.options.Length) return false;
+                        HashSet<GameObject> pages = new HashSet<GameObject>();
+                        HashSet<Button> buttons = new HashSet<Button>();
+                        for (int i = 0; i < field.options.Length; i++)
+                            if (view.tabButtons[i] == null || view.tabPages[i] == null || !pages.Add(view.tabPages[i]) || !buttons.Add(view.tabButtons[i])
+                                || view.tabPages[i].name != control.contentIds[i] || view.tabButtons[i].targetGraphic == null
+                                || view.tabPages[i].transform.parent != view.tabButtons[i].transform.parent) return false;
+                    }
                     else return false;
                 }
             }
@@ -205,11 +293,27 @@ namespace GameUi.PanelHarness
                     view.dropdown.onValueChanged.AddListener(listener);
                     DETACH.Add(() => { if (ownedView.dropdown != null) ownedView.dropdown.onValueChanged.RemoveListener(listener); });
                 }
+                else if (view.definition.kind == "input")
+                {
+                    UnityAction<string> listener = value => TextChanged(ownedView, value);
+                    view.input.onValueChanged.AddListener(listener);
+                    DETACH.Add(() => { if (ownedView.input != null) ownedView.input.onValueChanged.RemoveListener(listener); });
+                }
                 else if (view.definition.kind == "button")
                 {
                     UnityAction listener = () => Activate(ownedView.definition.rowId);
                     view.button.onClick.AddListener(listener);
                     DETACH.Add(() => { if (ownedView.button != null) ownedView.button.onClick.RemoveListener(listener); });
+                }
+                else if (view.definition.kind == "tabs")
+                {
+                    for (int i = 0; i < view.tabButtons.Length; i++)
+                    {
+                        int choice = i; Button button = view.tabButtons[i];
+                        UnityAction listener = () => ChoiceChanged(ownedView, choice);
+                        button.onClick.AddListener(listener);
+                        DETACH.Add(() => { if (button != null) button.onClick.RemoveListener(listener); });
+                    }
                 }
             }
         }
@@ -251,6 +355,16 @@ namespace GameUi.PanelHarness
                         view.toggle.interactable = control.enabled;
                         view.toggle.SetIsOnWithoutNotify(field.booleanValue);
                     }
+                    else if (control.kind == "input")
+                    {
+                        view.input.interactable = control.enabled;
+                        view.input.readOnly = control.readOnly;
+                        view.input.characterLimit = field.maxLength;
+                        view.input.SetTextWithoutNotify(field.stringValue);
+                        string issue = InputError(control, field.stringValue);
+                        view.requiredErrorText.gameObject.SetActive(issue == "required");
+                        view.minLengthErrorText.gameObject.SetActive(issue == "min-length");
+                    }
                     else if (control.kind == "select")
                     {
                         view.dropdown.interactable = control.enabled;
@@ -266,7 +380,27 @@ namespace GameUi.PanelHarness
                         view.dropdown.SetValueWithoutNotify(Array.FindIndex(field.options, option => option.id == field.stringValue));
                         view.dropdown.RefreshShownValue();
                     }
-                    else view.button.interactable = control.enabled;
+                    else if (control.kind == "tabs")
+                    {
+                        for (int i = 0; i < field.options.Length; i++)
+                        {
+                            bool active = field.options[i].id == field.stringValue;
+                            if (view.tabPages[i].activeSelf != active)
+                            {
+                                if (!active)
+                                {
+                                    foreach (Dropdown dropdown in view.tabPages[i].GetComponentsInChildren<Dropdown>(true)) dropdown.Hide();
+                                    GameObject selected = EventSystem.current == null ? null : EventSystem.current.currentSelectedGameObject;
+                                    if (selected != null && selected.transform.IsChildOf(view.tabPages[i].transform))
+                                        EventSystem.current.SetSelectedGameObject(null);
+                                }
+                                view.tabPages[i].SetActive(active);
+                            }
+                            view.tabButtons[i].interactable = control.enabled;
+                            view.tabButtons[i].targetGraphic.color = active ? view.tabActiveColor : view.tabIdleColor;
+                        }
+                    }
+                    else view.button.interactable = control.enabled && SubmitValid(control);
                 }
             }
             finally { applying = false; }
@@ -276,7 +410,19 @@ namespace GameUi.PanelHarness
         {
             if (applying || !configured || !isActiveAndEnabled) return false;
             if (!view.definition.enabled) { ApplyViews(); return false; }
+            if (view.definition.kind == "tabs" && !view.tabButtons[0].gameObject.activeInHierarchy) return false;
+            if (view.definition.kind != "tabs" && !ComponentFor(view).gameObject.activeInHierarchy) return false;
             return true;
+        }
+
+        private static Component ComponentFor(PanelControlView view)
+        {
+            if (view.input != null) return view.input;
+            if (view.slider != null) return view.slider;
+            if (view.toggle != null) return view.toggle;
+            if (view.dropdown != null) return view.dropdown;
+            if (view.button != null) return view.button;
+            return view.progressFill;
         }
 
         private void SliderChanged(PanelControlView view, float index)
@@ -309,7 +455,25 @@ namespace GameUi.PanelHarness
             string value = field.options[index].id;
             bool changed = field.stringValue != value;
             field.stringValue = value;
+            if (view.definition.kind == "tabs") ApplyViews();
             if (changed) Raise(view.definition, field);
+        }
+
+        private void TextChanged(PanelControlView view, string value)
+        {
+            if (!AcceptInput(view)) return;
+            PanelField field = FIELDS[view.definition.fieldId];
+            if (view.definition.readOnly || !StringValid(value, field.maxLength)) { ApplyViews(); return; }
+            bool changed = field.stringValue != value;
+            field.stringValue = value; ApplyViews();
+            if (changed) Raise(view.definition, field);
+        }
+
+        public bool SetText(string fieldId, string value)
+        {
+            PanelField field;
+            if (!configured || fieldId == null || !FIELDS.TryGetValue(fieldId, out field) || field.type != "string" || !StringValid(value, field.maxLength)) return Fail("PANEL_STRING_INVALID:" + fieldId);
+            field.stringValue = value; ApplyViews(); LastError = null; return true;
         }
 
         public bool SetNumber(string fieldId, double value)
@@ -349,7 +513,7 @@ namespace GameUi.PanelHarness
                 PanelField field;
                 if (value == null || value.fieldId == null || !seen.Add(value.fieldId) || !FIELDS.TryGetValue(value.fieldId, out field) || value.type != field.type
                     || (field.type == "number" && !NumberValid(field, value.numberValue)) || (field.type == "progress" && !ProgressValid(field, value.numberValue))
-                    || (field.type == "enum" && !ChoiceValid(field, value.stringValue))) return Fail("PANEL_STATE_VALUE");
+                    || (field.type == "enum" && !ChoiceValid(field, value.stringValue)) || (field.type == "string" && !StringValid(value.stringValue, field.maxLength))) return Fail("PANEL_STATE_VALUE");
             }
             foreach (PanelStateValue value in values)
             {
@@ -404,7 +568,7 @@ namespace GameUi.PanelHarness
         public bool Activate(string rowId)
         {
             PanelControlView view;
-            if (!configured || !isActiveAndEnabled || rowId == null || !ROWS.TryGetValue(rowId, out view) || view.definition.kind != "button" || !view.definition.enabled) return Fail("PANEL_ACTION_DISABLED_OR_UNKNOWN:" + rowId);
+            if (!configured || !isActiveAndEnabled || rowId == null || !ROWS.TryGetValue(rowId, out view) || view.definition.kind != "button" || !view.definition.enabled || !view.button.gameObject.activeInHierarchy || !SubmitValid(view.definition)) return Fail("PANEL_ACTION_DISABLED_OR_UNKNOWN:" + rowId);
             PanelControl control = view.definition;
             if (control.action == "reset-initial")
             {
@@ -422,6 +586,14 @@ namespace GameUi.PanelHarness
             return true;
         }
 
+        private Dictionary<string, string> SubmittedValues(PanelControl control)
+        {
+            if (control.action != "submit") return null;
+            Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (string id in control.submitFields) values.Add(id, FIELDS[id].stringValue);
+            return values;
+        }
+
         private void Raise(PanelControl control, PanelField field)
         {
             Action<PanelHostEvent> callback = EventRaised;
@@ -429,7 +601,7 @@ namespace GameUi.PanelHarness
             callback(new PanelHostEvent { Name = control.eventName, RowId = control.rowId, FieldId = field == null ? string.Empty : field.id,
                 Action = field == null ? control.action : string.Empty, ValueType = field == null ? string.Empty : field.type,
                 NumberValue = field == null ? 0 : field.numberValue, BooleanValue = field != null && field.booleanValue,
-                StringValue = field == null ? string.Empty : field.stringValue, State = GetState(), StateJson = GetStateJson() });
+                StringValue = field == null ? string.Empty : field.stringValue, State = GetState(), StateJson = GetStateJson(), Values = SubmittedValues(control) });
         }
     }
 }

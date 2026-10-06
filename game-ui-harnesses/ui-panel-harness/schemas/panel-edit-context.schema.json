@@ -3,7 +3,7 @@
   "$id": "urn:ai-game-assets:panel-edit-context:0.1",
   "title": "Panel Edit Context 0.1",
   "description": "Program-generated immutable context for a bounded edit of one complete PanelSpec. It carries no live play-state snapshot and performs no model invocation.",
-  "$comment": "Register panel-request.schema.json and all four PanelSpec schemas under their declared IDs. src/edit-planning.mjs remains authoritative for JSON-only safety, validation of embedded request/spec/catalog, recomputation of baseSpecSha256 and catalogSha256, and sha256 over the canonical context payload excluding sha256. Schema alone cannot compare or recompute hashes, validate PanelSpec cross-field dependencies, or determine natural-language meaning. Any source Spec/catalog/request change requires a fresh context; pure play-state changes do not. semanticReview is NOT_RUN. Catalog resolution, compilation and actual rendering remain separate required checks. Register PanelSpec 0.5 for determinate progress.",
+  "$comment": "Register panel-request.schema.json and PanelSpec 0.1 through 0.7 schemas under their declared IDs. src/edit-planning.mjs remains authoritative for JSON-only safety, validation of embedded request/spec/catalog, recomputation of baseSpecSha256 and catalogSha256, and sha256 over the canonical context payload excluding sha256. Schema alone cannot compare or recompute hashes, validate PanelSpec cross-field dependencies, or determine natural-language meaning. Any source Spec/catalog/request change requires a fresh context; pure play-state changes do not. semanticReview is NOT_RUN. Catalog resolution, compilation and actual rendering remain separate required checks. Register PanelSpec 0.5 for progress, 0.6 for Tabs, 0.7 for input forms.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -39,6 +39,12 @@
         },
         {
           "$ref": "urn:ai-game-assets:panel-spec:0.5"
+        },
+        {
+          "$ref": "urn:ai-game-assets:panel-spec:0.6"
+        },
+        {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7"
         }
       ]
     },
@@ -88,9 +94,57 @@
                 "set-button-label",
                 "set-button-action"
               ]
+            },
+            {
+              "const": [
+                "set-panel-title",
+                "set-theme",
+                "set-layout",
+                "set-row-label",
+                "set-row-enabled",
+                "set-state-initial",
+                "add-row",
+                "remove-row",
+                "set-button-label",
+                "set-button-action",
+                "set-tab-label",
+                "set-tabs-enabled"
+              ]
+            },
+            {
+              "const": [
+                "set-panel-title",
+                "set-theme",
+                "set-layout",
+                "set-row-label",
+                "set-row-enabled",
+                "set-state-initial",
+                "add-row",
+                "remove-row",
+                "set-button-label",
+                "set-button-action",
+                "set-input-properties"
+              ]
+            },
+            {
+              "const": [
+                "set-panel-title",
+                "set-theme",
+                "set-layout",
+                "set-row-label",
+                "set-row-enabled",
+                "set-state-initial",
+                "add-row",
+                "remove-row",
+                "set-button-label",
+                "set-button-action",
+                "set-tab-label",
+                "set-tabs-enabled",
+                "set-input-properties"
+              ]
             }
           ],
-          "$comment": "New contexts advertise ten operations. Previously exported eight-operation contexts retain their exact capabilities and digest; proposals may use only their advertised operations. No other subsets or orderings are accepted."
+          "$comment": "Eight- and ten-operation legacy contexts retain exact digests. Existing Tabs advertise twelve operations; all edits must be advertised in the source context. Spec 0.7 advertises eleven ordinary or thirteen Tabs form operations."
         },
         "target": {
           "const": "pixi"
@@ -297,7 +351,9 @@
             "select-row",
             "button-row",
             "text-row",
-            "progress-row"
+            "progress-row",
+            "tabs",
+            "input-row"
           ]
         },
         "description": {

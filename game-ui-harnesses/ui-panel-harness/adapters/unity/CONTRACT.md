@@ -130,3 +130,10 @@ The neutral PanelSpec and old bundle capability fields are unchanged. Native
 appearance uses UGUI rasterization and host font metrics; pixel identity with
 Pixi, live browser resize layout, and native exports for other engines are not
 part of this adapter version.
+
+Optional shared game binding lives in GameRuntime, with reference ports in GameExamples.
+It reuses the installed Runtime and HostRuntime; generated panel packages do not include it.
+Bindings pin panel identity, route explicit field/row IDs, silently synchronize complete state,
+and cancel owned commands when disposed. The game owns its business port, persistence,
+audio sources and main-thread scheduling. See docs/unity-game-binding.md for the native
+payload lowering, installation and isolated Play Mode acceptance scope.

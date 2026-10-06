@@ -23,7 +23,7 @@ await writeFile(executable, Buffer.concat([Buffer.from('MZ'), Buffer.from(
 await writeFile(font, 'test fixture; never imported or rendered');
 const packageNames = ['com.unity.ugui', ...['ui', 'imgui', 'uielements', 'physics', 'jsonserialize', 'imageconversion', 'animation']
   .map(name => `com.unity.modules.${name}`)];
-for (const name of packageNames) {
+for (const name of [...packageNames, 'com.unity.modules.audio']) {
   const directory = join(editor, 'Data', 'Resources', 'PackageManager', 'BuiltInPackages', name);
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, 'package.json'), JSON.stringify({ name,
@@ -109,6 +109,17 @@ test('Unity preparation records source replay only after an exact deterministic 
   assert.equal(prepared.panelOutput, `Assets/PanelHarness/Panels/${nativeDocument.panelId}`);
   assert((await lstat(join(prepared.project, 'Assets/PanelHarness/Panels'))).isDirectory());
   await assert.rejects(lstat(join(prepared.project, 'Assets/Generated')), { code: 'ENOENT' });
+});
+
+test('audio acceptance opts into installed builtin AudioModule without changing standard panel dependencies', async () => {
+  const standard = await replayKit(), audio = await replayKit();
+  const ordinary = await prepareUnityValidation({ unity: executable, font, ...standard });
+  const extra = await prepareUnityValidation({ unity: executable, font, ...audio, audio: true });
+  assert.equal(ordinary.report.declaredPackages['com.unity.modules.audio'], undefined);
+  assert.equal(extra.report.declaredPackages['com.unity.modules.audio'], '1.0.0');
+  const manifest = JSON.parse(await readFile(join(extra.project, 'Packages/manifest.json'), 'utf8'));
+  assert.equal(manifest.dependencies['com.unity.modules.audio'], '1.0.0');
+  assert.deepEqual(manifest.scopedRegistries, []);
 });
 
 test('Unity diagnostic redaction removes local paths, URLs, email, license channels and IPv4/IPv6 hosts', () => {

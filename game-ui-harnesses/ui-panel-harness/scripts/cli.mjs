@@ -15,7 +15,7 @@ import { exportUnityKit } from '../src/unity-export-io.mjs';
 
 const usage = `UI Panel Harness 0.1.0 — offline workspace prototype
   node scripts/cli.mjs validate <panel-spec.json>
-  node scripts/cli.mjs catalog --query <text> [--kind slider-row|switch-row|select-row|button-row|panel|section]
+  node scripts/cli.mjs catalog --query <text> [--kind slider-row|switch-row|select-row|button-row|text-row|progress-row|input-row|tabs|panel|section]
   node scripts/cli.mjs compile <panel-spec.json> --output <new-directory> [--state <state.json>]
   node scripts/cli.mjs inspect <panel.bundle.json>
   node scripts/cli.mjs export-unity <panel.bundle.json> --output <new-directory>
@@ -25,7 +25,7 @@ const usage = `UI Panel Harness 0.1.0 — offline workspace prototype
   node scripts/cli.mjs build-plan <planning-context.json> --proposal <proposal.json> --output <new-directory>
   node scripts/cli.mjs patch <panel-spec.json> --patch <patch.json> --output <new-directory> [--catalog <catalog.json>]
 Options: --catalog <catalog.json> for catalog/compile/intake/patch.
-Asset PanelSpec 0.2/0.3/0.4 compile/build-plan/patch: --assets <verified-library-directory> [--sharp-module <installed-module>].
+Asset PanelSpec 0.2 through 0.7 compile/build-plan/patch: --assets <verified-library-directory> [--sharp-module <installed-module>].
 Asset-aware intake: --assets <verified-library-directory> [--asset-style <style>] [--sharp-module <installed-module>].
 Restore uses embedded PNGs and requires no external asset library or Sharp.
 All writes stay inside ui-panel-harness. No server, provider or dependency installation.

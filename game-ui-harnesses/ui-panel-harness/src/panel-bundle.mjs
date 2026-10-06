@@ -1,16 +1,16 @@
 import { validatePanelSpec, snapshotJson } from './spec.mjs';
 import { validateCatalog } from './catalog.mjs';
-import { compilePanel, PANEL_COMPILER_VERSION, ASSET_PANEL_COMPILER_VERSION, CONTROLS_PANEL_COMPILER_VERSION, FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION } from './compiler.mjs';
+import { compilePanel, PANEL_COMPILER_VERSION, ASSET_PANEL_COMPILER_VERSION, CONTROLS_PANEL_COMPILER_VERSION, FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION } from './compiler.mjs';
 import { canonicalJson, digestJson } from './canonical.mjs';
 import { validatePanelAssetInputs } from './panel-assets.mjs';
 
 /** An envelope around the unchanged component bundle, not a new UiBundle version. */
 export async function createPanelBundle(specInput, catalogInput, core, stateInput, assetInput, compilerVersionInput) {
   const spec = validatePanelSpec(specInput), catalog = validateCatalog(catalogInput);
-  const progress = spec.panelSpecVersion === '0.5', flow = progress || spec.panelSpecVersion === '0.4', controls = flow || spec.panelSpecVersion === '0.3';
+  const forms = spec.panelSpecVersion === '0.7', tabbed = forms || spec.panelSpecVersion === '0.6', progress = tabbed || spec.panelSpecVersion === '0.5', flow = progress || spec.panelSpecVersion === '0.4', controls = flow || spec.panelSpecVersion === '0.3';
   const state = stateInput === undefined ? undefined : snapshotJson(stateInput);
   const assets = await validatePanelAssetInputs(spec, assetInput);
-  const compilerVersion = compilerVersionInput ?? (progress ? PROGRESS_PANEL_COMPILER_VERSION : flow ? FLOW_PANEL_COMPILER_VERSION : controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION);
+  const compilerVersion = compilerVersionInput ?? (forms ? FORMS_PANEL_COMPILER_VERSION : tabbed ? TABS_PANEL_COMPILER_VERSION : progress ? PROGRESS_PANEL_COMPILER_VERSION : flow ? FLOW_PANEL_COMPILER_VERSION : controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION);
   const compiled = compilePanel(spec, catalog, core, state, assets.closure, compilerVersion);
   const componentBundle = await core.createBundle(compiled.document, assets.resources, {
     kind: spec.provenance.kind === 'programmatic-fixture' ? 'programmatic-fixture' : 'user-provided',
@@ -19,7 +19,7 @@ export async function createPanelBundle(specInput, catalogInput, core, stateInpu
       : spec.provenance.description,
   });
   const payload = {
-    panelBundleVersion: progress ? '0.5' : flow ? '0.4' : controls ? '0.3' : spec.assets ? '0.2' : '0.1', compilerVersion,
+    panelBundleVersion: forms ? '0.7' : tabbed ? '0.6' : progress ? '0.5' : flow ? '0.4' : controls ? '0.3' : spec.assets ? '0.2' : '0.1', compilerVersion,
     spec, catalog, state: compiled.state, selection: compiled.selection, bindings: compiled.bindings, componentBundle,
     ...(controls ? { actions: compiled.actions } : {}),
     ...(assets.closure ? { assetClosure: assets.closure } : {}),
@@ -37,7 +37,9 @@ export async function validatePanelBundle(input, core) {
     && !(input.panelBundleVersion === '0.2' && input.compilerVersion === ASSET_PANEL_COMPILER_VERSION)
     && !(input.panelBundleVersion === '0.3' && input.compilerVersion === CONTROLS_PANEL_COMPILER_VERSION)
     && !(input.panelBundleVersion === '0.4' && [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION].includes(input.compilerVersion))
-    && !(input.panelBundleVersion === '0.5' && [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION].includes(input.compilerVersion))) throw new Error('PANEL_BUNDLE_VERSION');
+    && !(input.panelBundleVersion === '0.5' && [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION].includes(input.compilerVersion))
+    && !(input.panelBundleVersion === '0.6' && input.compilerVersion === TABS_PANEL_COMPILER_VERSION)
+    && !(input.panelBundleVersion === '0.7' && input.compilerVersion === FORMS_PANEL_COMPILER_VERSION)) throw new Error('PANEL_BUNDLE_VERSION');
   input.componentBundle = await core.validateBundle(input.componentBundle);
   const expected = await createPanelBundle(input.spec, input.catalog, core, input.state, panelBundleAssetInputs(input, core), input.compilerVersion);
   if (canonicalJson(input) !== canonicalJson(expected)) throw new Error('PANEL_BUNDLE_MISMATCH');

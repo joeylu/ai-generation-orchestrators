@@ -95,6 +95,26 @@ test('editing admission freezes the complete source and checks patch evidence in
   assert.equal(calls, 1);
 });
 
+test('explicit no-change editing returns its independently verified report and receipt without applying a patch', async t => {
+  let calls = 0;
+  const context = await createPanelEditContext(spec, catalog, { ...request, text: '保持当前面板完全一样，这次不用修改任何内容。' });
+  const server = await start(t, { editor: async value => {
+    calls++;
+    const proposal = { editProposalVersion: '0.2', contextSha256: value.sha256, patch: null, decisions: [], unresolved: [],
+      noChange: { reason: '本轮明确无需修改。', basis: { kind: 'request-interpretation', start: 0, end: value.request.text.length, quote: value.request.text } } };
+    const report = await checkPanelEditProposal(value, proposal);
+    return { proposal, report, receipt: { codexEditingReceiptVersion: '0.2', model: 'gpt-6-luna', effort: 'xhigh',
+      contextSha256: value.sha256, proposalSha256: report.proposalSha256, status: report.status, failureCode: null,
+      invocationCount: 1, automaticRetries: 0, elapsedMs: 1, usage: null } };
+  } });
+  const input = { requestId: randomUUID(), context }, response = await postEdit(server, input);
+  assert.equal(response.status, 200); const result = await response.json();
+  assert.equal(result.report.status, 'NO_CHANGES'); assert.equal(result.receipt.codexEditingReceiptVersion, '0.2');
+  assert.deepEqual(result.report, await checkPanelEditProposal(context, result.proposal));
+  assert.deepEqual(context.spec, spec); assert.equal(result.proposal.patch, null);
+  await expected(await postEdit(server, input), 409, 'WORKBENCH_SERVER_DUPLICATE'); assert.equal(calls, 1);
+});
+
 test('planner-only test adapters cannot accidentally dispatch a real edit process', async t => {
   const server = await start(t);
   await expected(await postEdit(server), 503, 'WORKBENCH_SERVER_CODEX_UNAVAILABLE');

@@ -117,7 +117,7 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         const proposal = await validatePanelEditProposal(context, input);
         const report = await checkPanelEditProposal(context, proposal);
         if (!isCurrent(ticket)) return stale();
-        if (report.status === 'NEEDS_INPUT') {
+        if (['NEEDS_INPUT', 'NO_CHANGES'].includes(report.status)) {
           edit = { context, proposal, report };
           return getEditSnapshot();
         }

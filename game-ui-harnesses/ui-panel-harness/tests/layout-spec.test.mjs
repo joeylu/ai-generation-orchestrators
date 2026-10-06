@@ -40,7 +40,7 @@ test('0.4 preserves explicit values and isolates nested containers while older s
   assert.deepEqual(validatePanelSpec(base), base);
   const legacy = structuredClone(base); legacy.layout.body = spec.layout.body;
   assert.throws(() => validatePanelSpec(legacy), { code: 'unknown-key' });
-  rejects(s => { s.panelSpecVersion = '0.6'; }, 'unknown-key');
+  rejects(s => { s.panelSpecVersion = '0.6'; }, 'required');
 });
 
 test('layout tree requires every section exactly once, existing references and unique container IDs', () => {
@@ -162,7 +162,7 @@ test('layout catalog adds a discoverable read-only recipe without changing exist
 
 test('new JSON schemas expose layout/text shapes, preserve strict unions and resolve every reference', () => {
   const files = ['panel-spec.schema.json', 'panel-spec-v0.2.schema.json', 'panel-spec-v0.3.schema.json',
-    'panel-spec-v0.4.schema.json', 'panel-spec-v0.5.schema.json', 'panel-request.schema.json', 'panel-patch.schema.json', 'panel-edit-context.schema.json'];
+    'panel-spec-v0.4.schema.json', 'panel-spec-v0.5.schema.json','panel-spec-v0.6.schema.json','panel-spec-v0.7.schema.json', 'panel-request.schema.json', 'panel-patch.schema.json', 'panel-edit-context.schema.json'];
   const schemas = files.map(file => read(`../schemas/${file}`)), registry = new Map(schemas.map(schema => [schema.$id, schema]));
   function visit(value, owner) {
     if (!value || typeof value !== 'object') return;

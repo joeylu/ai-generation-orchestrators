@@ -22,11 +22,12 @@ export function proposalTargets(spec, proposalVersion = '0.1') {
   const checked = validatePanelSpec(spec);
   return ['panel', 'theme', 'canvas', 'layout',
     ...(checked.assets ? ['assets'] : []),
-    ...(checked.assets && ['0.2', '0.3', '0.4', '0.5'].includes(proposalVersion) ? [
+    ...(checked.assets && ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7'].includes(proposalVersion) ? [
       ...(checked.assets.panelSurface ? ['asset:surface'] : []),
       ...checked.assets.rowIcons.map(icon => `asset:row:${icon.rowId}`),
     ] : []),
     ...checked.sections.flatMap(section => [`section:${section.id}`, ...section.rows.map(row => `row:${row.id}`)]),
+    ...(checked.tabs ? ['tabs', ...checked.tabs.pages.map(page => `tab:${page.id}`)] : []),
     ...checked.state.map(field => `state:${field.id}`)];
 }
 
@@ -35,7 +36,7 @@ export async function validatePanelProposal(contextInput, proposalInput) {
   const contextSnapshot = snapshotJson(contextInput), proposal = snapshotJson(proposalInput);
   const context = await validatePlanningContext(contextSnapshot);
   exact(proposal, ['proposalVersion', 'contextSha256', 'spec', 'decisions', 'unresolved'], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5'].includes(proposal.proposalVersion)) fail('PLAN_VERSION', '$.proposalVersion', 'Only proposal 0.1 through 0.5 are supported');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'].includes(proposal.proposalVersion)) fail('PLAN_VERSION', '$.proposalVersion', 'Only proposal 0.1 through 0.5 are supported');
   if (proposal.proposalVersion !== context.planningContextVersion) {
     fail('PLAN_ASSET_CONTEXT_VERSION', '$.proposalVersion', 'Proposal and planning context versions must match');
   }
@@ -55,19 +56,22 @@ export async function validatePanelProposal(contextInput, proposalInput) {
     return proposal;
   }
   const spec = validatePanelSpec(proposal.spec);
-  if (spec.panelSpecVersion === '0.5' && context.planningContextVersion !== '0.5') {
+  if (spec.panelSpecVersion === '0.7' && context.planningContextVersion !== '0.7') fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Forms requires context 0.7');
+  if (spec.panelSpecVersion === '0.6' && !['0.6', '0.7'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Tabs requires context 0.6');
+  if (spec.panelSpecVersion === '0.5' && !['0.5', '0.6', '0.7'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.5 requires planning context 0.5');
   }
-  if (spec.panelSpecVersion === '0.4' && !['0.4', '0.5'].includes(context.planningContextVersion)) {
+  if (spec.panelSpecVersion === '0.4' && !['0.4', '0.5', '0.6', '0.7'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.4 requires planning context 0.4');
   }
-  if (spec.panelSpecVersion === '0.3' && !['0.3', '0.4', '0.5'].includes(context.planningContextVersion)) {
+  if (spec.panelSpecVersion === '0.3' && !['0.3', '0.4', '0.5', '0.6', '0.7'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.3 requires planning context 0.3 or 0.4');
   }
   if (!['agent-authored', 'programmatic-fixture'].includes(spec.provenance.kind)) fail('PLAN_PROVENANCE', '$.spec.provenance.kind', 'Agent proposals must identify their author; user-authored documents use direct compile');
   resolveTheme(context.catalog, spec.theme);
   resolveRecipe(context.catalog, { id: 'settings.panel', version: '0.1.0' }, 'panel');
   resolveRecipe(context.catalog, { id: 'settings.section', version: '0.1.0' }, 'section');
+  if (spec.tabs) resolveRecipe(context.catalog, spec.tabs.recipe, 'tabs');
   for (const section of spec.sections) for (const row of section.rows) {
     resolveRecipe(context.catalog, row.recipe, `${row.kind}-row`);
   }
@@ -106,7 +110,7 @@ export async function validatePanelProposal(contextInput, proposalInput) {
       text(basis.reason, `${path}.basis.reason`, 500);
       // Design choices may style and arrange the panel. Business-bearing targets require
       // a request interpretation; any absent behavior belongs in unresolved questions.
-      if (decision.target.startsWith('state:') || decision.target.startsWith('row:')) fail('PLAN_BUSINESS_ORIGIN', path, 'State and control semantics require request evidence, not an implicit design default');
+      if (decision.target.startsWith('state:') || decision.target.startsWith('row:') || decision.target === 'tabs' || decision.target.startsWith('tab:')) fail('PLAN_BUSINESS_ORIGIN', path, 'State and control semantics require request evidence, not an implicit design default');
     } else fail('PLAN_BASIS', `${path}.basis`, 'Explicit request interpretation or design choice required');
   }
   if (seen.size !== required.size) fail('PLAN_COVERAGE', '$.decisions', 'Every target must state its source');

@@ -20,7 +20,16 @@ export function evaluatePanelSemantics(specInput, expected) {
   check('row-count', rows.length, expected.rows.length);
   const label = row => row.kind === 'button' ? row.buttonLabel : row.label;
   check('row-order-and-labels', rows.map(label), expected.rows.map(row => row.label));
-  check('state-count', spec.state.length, expected.rows.filter(row => ['slider', 'switch', 'select', 'progress'].includes(row.kind)).length);
+  check('state-count', spec.state.length, expected.rows.filter(row => ['slider', 'switch', 'select', 'progress'].includes(row.kind)).length + (expected.tabs ? 1 : 0));
+  if (expected.tabs) {
+    const tabs = spec.tabs, field = spec.state.find(field => field.id === tabs?.bind);
+    check('tabs:enabled', tabs?.enabled ?? null, expected.tabs.enabled);
+    check('tabs:page-labels', tabs?.pages.map(page => page.label) ?? null, expected.tabs.pages.map(page => page.label));
+    check('tabs:state-type', field?.type ?? null, 'enum');
+    check('tabs:initial-label', tabs?.pages.find(page => page.id === field?.initial)?.label ?? null, expected.tabs.initialLabel);
+    check('tabs:page-membership', tabs?.pages.map(page => page.sections.flatMap(id => spec.sections.find(section => section.id === id)?.rows.map(label) ?? [])) ?? null,
+      expected.tabs.pages.map(page => page.rowLabels));
+  }
   for (const wanted of expected.rows) {
     const matches = rows.filter(row => label(row) === wanted.label);
     check(`row:${wanted.label}:unique`, matches.length, 1);
@@ -51,7 +60,17 @@ export function evaluatePanelSemantics(specInput, expected) {
   }
   if (expected.layout) {
     const wanted = expected.layout;
-    check('layout:kind', spec.layout.body?.kind ?? null, wanted.kind);
+    const body = spec.layout.body, child = body?.children?.[0];
+    // A fill-width column containing only a fill-width grid of the requested
+    // sections has identical geometry at every width. This is opt-in for an
+    // expectation that describes group arrangement, never a general alias or
+    // a change to the authored tree. Saved expectations remain exact-root checks.
+    const singleGridWrapper = wanted.allowSingleColumnWrapper === true && wanted.kind === 'grid' && !expected.bodyShape
+      && body?.kind === 'column' && body.width === 'fill' && body.children.length === 1
+      && child.kind === 'grid' && child.width === 'fill' && child.children.length >= 2
+      && child.children.length === spec.sections.length
+      && child.children.every(node => node.kind === 'section' && node.width === 'fill');
+    check('layout:kind', singleGridWrapper ? child.kind : body?.kind ?? null, wanted.kind);
     for (const key of ['width', 'maxHeight', 'overflow']) if (Object.hasOwn(wanted, key)) check(`layout:${key}`, spec.layout[key] ?? null, wanted[key]);
     if (Object.hasOwn(wanted, 'canvasWidth')) check('layout:canvas-width', spec.canvas.width, wanted.canvasWidth);
   }

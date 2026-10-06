@@ -13,6 +13,7 @@ import { verifyAssetLibrary } from '../src/asset-library.mjs';
 import { loadTextureImageAdapter } from '../src/texture-image-adapter.mjs';
 import { canonicalJson, digestBytes, digestJson } from '../src/canonical.mjs';
 import { readJson, createOutputDirectory, writeNewJson, harnessRoot } from '../src/io.mjs';
+import {buildDeliveryRuntime} from './build-delivery-runtime.mjs';
 
 const allowed = ['--catalog', '--output', '--assets', '--sharp-module', '--example-context', '--example-proposal'];
 const fail = code => { throw new Error(code); };
@@ -74,7 +75,9 @@ try {
   const { renderWorkbenchHtml } = await import('../src/workbench-shell.mjs');
   const html = renderWorkbenchHtml(seed);
   if (typeof html !== 'string' || !html.length) fail('WORKBENCH_HTML_REQUIRED');
+  const deliveryRuntime = await buildDeliveryRuntime();
   const result = await build({ configFile: false, root: harnessRoot, publicDir: false, logLevel: 'silent',
+    plugins: [{name:'panel-delivery-runtime',resolveId(id){if(id==='virtual:panel-delivery-runtime')return '\0'+id;},load(id){if(id==='\0virtual:panel-delivery-runtime')return 'export default '+JSON.stringify(deliveryRuntime)+';';}}],
     build: { write: false, target: 'es2022', minify: true, sourcemap: false,
       lib: { entry: fileURLToPath(new URL('../src/workbench.mjs', import.meta.url)), name: 'PanelWorkbench',
         formats: ['iife'], fileName: () => 'workbench.js' },
@@ -90,6 +93,7 @@ try {
     poolSha256: pool?.sha256 ?? null,
     library: pool ? { id: pool.index.id, sha256: pool.index.sha256 } : null,
     recordCount: pool?.index.records.length ?? 0, imageCount: pool?.resources.length ?? 0,
+    deliveryRuntime: {version:deliveryRuntime.version,sha256:deliveryRuntime.sha256},
     sourceReplay: pool ? 'VERIFIED_AT_BUILD' : 'NOT_APPLICABLE', example: exampleEvidence,
     files: await Promise.all(contents.map(async file => ({ path: file.path, bytes: file.bytes.length, sha256: await digestBytes(file.bytes) }))),
     browser: 'NOT_RUN', humanVisualReview: 'NOT_RUN', nativeEngines: 'NOT_RUN',

@@ -2,15 +2,18 @@
 import { snapshotJson, validatePanelSpec } from './spec.mjs';
 import { validatePlanningContext } from './planning-context.mjs';
 import { validatePanelProposal, PanelPlanningError } from './proposal.mjs';
-import { measureFlowLayout } from './flow-layout.mjs';
+import { measureFlowLayout, measureTabbedLayout } from './flow-layout.mjs';
 import { progressValueWidth } from './progress.mjs';
+import { buildCodexQuestionsResponseSchema } from './codex-questions-schema.mjs';
+import { literalReadOnlyLabelPairs, nativeReadOnlyLabelMismatch } from './literal-text-labels.mjs';
 
-const kinds = ['slider', 'switch', 'select', 'button', 'text', 'progress'];
+const kinds = ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'];
 const common = ['id', 'kind', 'label', 'recipeKey', 'sourceQuote', 'icon'];
 const rowKeys = { slider: [...common, 'enabled', 'min', 'max', 'step', 'initial', 'prefix', 'suffix'],
   switch: [...common, 'enabled', 'initial'], select: [...common, 'enabled', 'options', 'initialLabel'],
   button: [...common, 'enabled', 'action', 'resetRows'], text: [...common, 'text'],
-  progress: [...common, 'max', 'initial', 'display', 'fractionDigits'] };
+  progress: [...common, 'max', 'initial', 'display', 'fractionDigits'],
+  input: [...common, 'enabled', 'initial', 'placeholder', 'inputType', 'readOnly', 'maxLength', 'required', 'minLength'] };
 const fail = (code, path) => { throw new PanelPlanningError(code, path, 'Intent must preserve explicit facts and exact request evidence'); };
 const exact = (value, keys, path) => {
   if (!value || Array.isArray(value) || typeof value !== 'object' || Object.keys(value).sort().join('|') !== [...keys].sort().join('|')) fail('INTENT_FIELDS', path);
@@ -20,34 +23,209 @@ const design = reason => ({ kind: 'design-choice', reason });
 const refKey = ref => `${ref.id}@${ref.version}`;
 const str = { type: 'string' }, bool = { type: 'boolean' }, num = { type: 'number' };
 const objectSchema = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
-const arraySchema = items => ({ type: 'array', items });
+const arraySchema = (items, minItems, maxItems) => ({ type: 'array', items, minItems, maxItems });
 const nullable = schema => ({ anyOf: [{ type: 'null' }, schema] });
 
 /** Direct native JSON schema: no encoded JSON string, parallel evidence lists or invented readiness. */
 export function buildPanelIntentResponseSchema(context) {
+  const forms = context.planningContextVersion === '0.7';
+  const programIds = forms;
   const rowIds = Array.from({ length: 128 }, (_, i) => `row${i}`), sectionIds = Array.from({ length: 32 }, (_, i) => `section${i}`);
   const recipes = kind => context.catalog.recipes.filter(recipe => recipe.kind === `${kind}-row`).map(refKey);
   const slots = slot => context.assetRetrieval?.candidates.filter(candidate => candidate.slot === slot).map(candidate => candidate.asset.key) ?? [];
   const asset = slot => ({ type: ['string', 'null'], enum: [null, ...slots(slot)] });
+  // Native 0.7 generation copies one program-owned exact quote. Public saved
+  // intents still use quoteBasis, including valid unique shorter quotations.
+  const quote = forms ? { $ref: '#/$defs/exactRequestQuote' } : str;
   const rows = kinds.filter(kind => recipes(kind).length).map(kind => objectSchema({ kind: { type: 'string', enum: [kind] },
-    id: { type: 'string', enum: rowIds }, label: str, recipeKey: { type: 'string', enum: recipes(kind) }, sourceQuote: str,
+    ...(programIds ? {} : { id: { type: 'string', enum: rowIds } }), label: str, recipeKey: { type: 'string', enum: recipes(kind) }, sourceQuote: quote,
     icon: asset('row-icon'), ...(kind === 'text' ? { text: str } : kind === 'progress' ? {} : { enabled: bool }),
     ...(kind === 'progress' ? { max: num, initial: num, display: { type: 'string', enum: ['percent', 'value'] }, fractionDigits: { type: 'integer', minimum: 0, maximum: 6 } } : {}),
     ...(kind === 'slider' ? { min: num, max: num, step: num, initial: num, prefix: str, suffix: str } : {}),
+    ...(kind === 'input' ? { initial: str, placeholder: str, inputType: { type: 'string', enum: ['text', 'password'] }, readOnly: bool,
+      maxLength: { type: 'integer', minimum: 1, maximum: 512 }, required: bool, minLength: { type: 'integer', minimum: 0, maximum: 512 } } : {}),
     ...(kind === 'switch' ? { initial: bool } : {}),
-    ...(kind === 'select' ? { options: arraySchema(objectSchema({ label: str, initial: bool })) } : {}),
-    ...(kind === 'button' ? { action: { type: 'string', enum: ['emit', 'reset-initial'] }, resetRows: arraySchema({ type: 'string', enum: rowIds }) } : {}) }));
+    ...(kind === 'select' ? { options: arraySchema(objectSchema({ label: str, initial: bool }), 1, 8) } : {}),
+    ...(kind === 'button' ? { action: { type: 'string', enum: forms ? ['emit', 'reset-initial', 'submit'] : ['emit', 'reset-initial'] }, resetRows: arraySchema(programIds ? { type: 'integer', minimum: 0, maximum: 127 } : { type: 'string', enum: rowIds }, 0, 128),
+      ...(forms ? { submitRows: arraySchema({ type: 'integer', minimum: 0, maximum: 127 }, 0, 128) } : {}) } : {}) }));
   const dimensions = nullable({ type: 'integer' });
   const layout = objectSchema({ width: dimensions, canvasWidth: dimensions, canvasHeight: dimensions, maxHeight: dimensions,
     overflow: { type: 'string', enum: ['auto', 'scroll', 'error'] } });
-  return { ...objectSchema({ panelIntentVersion: { type: 'string', enum: [context.planningContextVersion === '0.5' ? '0.4' : '0.3'] },
+  const tabbed = context.catalog.recipes.some(recipe => recipe.kind === 'tabs');
+  const tabBody = objectSchema({ kind: { type: 'string', enum: ['tabs'] }, enabled: bool,
+    sourceQuote: quote, pages: arraySchema(objectSchema({ ...(programIds ? {} : { id: { type: 'string', enum: Array.from({length:8},(_,i)=>`page${i}`) } }),
+      label: str, sourceQuote: quote, initial: bool, body: {$ref:'#/$defs/container'} }), 2, 8) });
+  return { ...objectSchema({ panelIntentVersion: { type: 'string', enum: [forms ? '0.7' : context.planningContextVersion === '0.6' ? '0.5' : context.planningContextVersion === '0.5' ? '0.4' : '0.3'] },
     contextSha256: { type: 'string', enum: [context.sha256] },
     panel: nullable(objectSchema({ id: { type: 'string', enum: [context.request.id] }, title: str,
       themeKey: { type: 'string', enum: context.catalog.themes.map(refKey) }, panelSurface: asset('panel-surface'),
-      layout, body: { $ref: '#/$defs/container' } })),
-    unresolved: arraySchema(objectSchema({ id: str, question: str })) }),
-    $defs: { body: { anyOf: [objectSchema({ kind: { type: 'string', enum: ['section'] }, id: { type: 'string', enum: sectionIds }, title: str, rows: arraySchema({ anyOf: rows }) }),
-      { $ref: '#/$defs/container' }] }, container: objectSchema({ kind: { type: 'string', enum: ['column', 'row', 'grid'] }, children: arraySchema({ $ref: '#/$defs/body' }) }) } };
+      layout, body: tabbed ? { anyOf: [{ $ref: '#/$defs/container' }, tabBody] } : { $ref: '#/$defs/container' } })),
+    unresolved: buildCodexQuestionsResponseSchema() }),
+    $defs: { body: { anyOf: [objectSchema({ kind: { type: 'string', enum: ['section'] }, ...(programIds ? {} : { id: { type: 'string', enum: sectionIds } }), title: str, rows: arraySchema({ anyOf: rows }, 1, 128) }),
+      { $ref: '#/$defs/container' }] }, container: objectSchema({ kind: { type: 'string', enum: ['column', 'row', 'grid'] }, children: arraySchema({ $ref: '#/$defs/body' }, 1, 96) }),
+      ...(forms ? { exactRequestQuote: { type: 'string', enum: [context.request.text] } } : {}) } };
+}
+
+/** Current generation transport: bind source evidence to the validated request,
+ * rather than asking the model to reproduce the same long string on every node.
+ * The older constructor remains available for saved 0.7 schema verification. */
+export function buildNativePanelIntentResponseSchema(context) {
+  const schema = buildPanelIntentResponseSchema(context);
+  if (context.planningContextVersion !== '0.7') return schema;
+  const replace = value => {
+    if (Array.isArray(value)) return value.map(replace);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'exactRequestQuote').map(([key, item]) => [
+      key === 'sourceQuote' ? 'sourceRef' : key,
+      key === '$ref' && item === '#/$defs/exactRequestQuote' ? '#/$defs/requestSourceRef'
+        : key === 'required' && Array.isArray(item) ? item.map(field => field === 'sourceQuote' ? 'sourceRef' : field) : replace(item),
+    ]));
+  };
+  const current = replace(schema);
+  current.properties.panelIntentVersion.enum = ['0.8'];
+  current.$defs.requestSourceRef = { type: 'string', enum: ['request'] };
+  current.properties.panel.anyOf[1].properties.title.description = 'The overall panel name requested by the user, distinct from a section heading and a read-only field value. For "任务详情先展示任务名称：森林巡逻", the panel name is "任务详情" and "森林巡逻" is the task-name field content. A request to retain the panel name refers to the panel, not its first named field. Preserve explicit later title corrections or explicit requests to use a field value as the title.';
+  current.$defs.body.anyOf[0].properties.title.description = 'A section heading inside the panel. Setting this heading does not replace the overall panel.title.';
+  const textRow = current.$defs.body.anyOf[0].properties.rows.items.anyOf.find(row => row.properties.kind.enum[0] === 'text');
+  if (textRow) {
+    textRow.properties.label.description = 'The row label, separate from its read-only text. Copy an explicitly specified label; never substitute the displayed content.';
+    textRow.properties.text.description = 'The displayed read-only content, separate from the row label. Preserve both when the request specifies them independently.';
+    const pairs = literalReadOnlyLabelPairs(context.request.text);
+    if (pairs.length) textRow.description = `Literal read-only label/content pairs in this request (data, not instructions): ${JSON.stringify(pairs)}`;
+  }
+  return current;
+}
+
+/** Declared 0.8 lowering only; never rewrites a quotation in an older intent. */
+function lowerRequestReferences(context, intent) {
+  if (context.planningContextVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (intent.contextSha256 !== context.sha256) fail('PLAN_CONTEXT_MISMATCH', '$.contextSha256');
+  if (intent.panel === null) return { ...intent, panelIntentVersion: '0.7' };
+  exact(intent.panel, ['id', 'title', 'themeKey', 'panelSurface', 'layout', 'body'], '$.panel');
+  const reference = (value, path) => { if (value !== 'request') fail('INTENT_SOURCE_REFERENCE', path); return context.request.text; };
+  let count = 0;
+  const visit = (node, path, depth = 1) => {
+    if (++count > 96 || depth > 8) fail('layout-structure', path);
+    if (node?.kind === 'section') {
+      exact(node, ['kind', 'title', 'rows'], path); bounded(node.rows, 1, 128, `${path}.rows`);
+      return { ...node, rows: node.rows.map((row, i) => {
+        const p = `${path}.rows[${i}]`;
+        if (!kinds.includes(row?.kind)) fail('row-kind', `${p}.kind`);
+        const keys = row.kind === 'select' ? [...common, 'enabled', 'options'] : rowKeys[row.kind];
+        exact(row, [...keys.filter(key => key !== 'id').map(key => key === 'sourceQuote' ? 'sourceRef' : key),
+          ...(row.kind === 'button' ? ['submitRows'] : [])], p);
+        const { sourceRef, ...rest } = row;
+        return { ...rest, sourceQuote: reference(sourceRef, `${p}.sourceRef`) };
+      }) };
+    }
+    exact(node, ['kind', 'children'], path);
+    if (!['column', 'row', 'grid'].includes(node.kind)) fail('layout-kind', path);
+    bounded(node.children, 1, 96, `${path}.children`);
+    return { ...node, children: node.children.map((child, i) => visit(child, `${path}.children[${i}]`, depth + 1)) };
+  };
+  const node = intent.panel.body;
+  let body;
+  if (node?.kind === 'tabs') {
+    exact(node, ['kind', 'enabled', 'sourceRef', 'pages'], '$.panel.body'); bounded(node.pages, 2, 8, '$.panel.body.pages');
+    const { sourceRef, ...rest } = node;
+    body = { ...rest, sourceQuote: reference(sourceRef, '$.panel.body.sourceRef'), pages: node.pages.map((page, i) => {
+      const p = `$.panel.body.pages[${i}]`; exact(page, ['label', 'sourceRef', 'initial', 'body'], p);
+      const { sourceRef, ...rest } = page;
+      return { ...rest, sourceQuote: reference(sourceRef, `${p}.sourceRef`), body: visit(page.body, `${p}.body`) };
+    }) };
+  } else body = visit(node, '$.panel.body');
+  return { ...intent, panelIntentVersion: '0.7', panel: { ...intent.panel, body } };
+}
+
+/** Run after materialization at the current native accepting boundary. Accepted
+ * older 0.7 responses still need exact full quotes; no failed quote is repaired. */
+export function validateNativePanelIntentEvidence(context, intent) {
+  if (intent.panelIntentVersion === '0.8') {
+    validateNativePanelIntentQuotes(context, lowerRequestReferences(context, intent));
+  } else validateNativePanelIntentQuotes(context, intent);
+  if (context.planningContextVersion === '0.7' && intent.panel !== null) {
+    const path = nativeReadOnlyLabelMismatch(context.request.text, intent.panel.body);
+    if (path) fail('INTENT_TEXT_LABEL', path);
+  }
+}
+
+/** Current CLI-only evidence contract. Run after public intent shape validation;
+ * saved/imported intents keep their valid unique-short-quote compatibility. */
+export function validateNativePanelIntentQuotes(context, intent) {
+  if (context.planningContextVersion !== '0.7') return;
+  if (intent.panelIntentVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (intent.panel === null) return;
+  const check = (quote, path) => { if (quote !== context.request.text) fail('INTENT_NATIVE_QUOTE', path); };
+  const visit = (node, path) => {
+    if (node.kind === 'tabs') {
+      check(node.sourceQuote, `${path}.sourceQuote`);
+      node.pages.forEach((page, i) => { check(page.sourceQuote, `${path}.pages[${i}].sourceQuote`); visit(page.body, `${path}.pages[${i}].body`); });
+    } else if (node.kind === 'section') node.rows.forEach((row, i) => check(row.sourceQuote, `${path}.rows[${i}].sourceQuote`));
+    else node.children.forEach((child, i) => visit(child, `${path}.children[${i}]`));
+  };
+  visit(intent.panel.body, '$.panel.body');
+}
+
+/** Intent 0.7 has no authored tree identities. Depth-first ordinals are a declared
+ * transport rule, not repair of an invalid legacy intent or a saved PanelSpec. */
+function lowerOrdinalIntent(intent) {
+  if (intent.panel === null) return { ...intent, panelIntentVersion: '0.6' };
+  exact(intent.panel, ['id', 'title', 'themeKey', 'panelSurface', 'layout', 'body'], '$.panel');
+  let sections = 0, rows = 0, nodes = 0;
+  const references = (values, path) => {
+    bounded(values, 0, 128, path);
+    return values.map((value, i) => {
+      if (!Number.isInteger(value) || value < 0 || value > 127) fail('INTENT_ROW_INDEX', `${path}[${i}]`);
+      return `row${value}`;
+    });
+  };
+  const visit = (node, path, depth = 1) => {
+    if (++nodes > 96 || depth > 8) fail('layout-structure', path);
+    if (node?.kind === 'section') {
+      exact(node, ['kind', 'title', 'rows'], path);
+      if (sections >= 32) fail('INTENT_COUNT', path);
+      bounded(node.rows, 1, 128, `${path}.rows`);
+      return { ...node, id: `section${sections++}`, rows: node.rows.map((row, i) => {
+        const p = `${path}.rows[${i}]`;
+        if (!kinds.includes(row?.kind)) fail('row-kind', `${p}.kind`);
+        const keys = row.kind === 'select' ? [...common, 'enabled', 'options'] : rowKeys[row.kind];
+        exact(row, [...keys.filter(key => key !== 'id'), ...(row.kind === 'button' ? ['submitRows'] : [])], p);
+        if (rows >= 128) fail('INTENT_COUNT', p);
+        return { ...row, id: `row${rows++}`, ...(row.kind === 'button' ? {
+          resetRows: references(row.resetRows, `${p}.resetRows`), submitRows: references(row.submitRows, `${p}.submitRows`),
+        } : {}) };
+      }) };
+    }
+    exact(node, ['kind', 'children'], path);
+    if (!['column', 'row', 'grid'].includes(node.kind)) fail('layout-kind', path);
+    bounded(node.children, 1, 96, `${path}.children`);
+    return { ...node, children: node.children.map((child, i) => visit(child, `${path}.children[${i}]`, depth + 1)) };
+  };
+  const root = intent.panel.body;
+  let body;
+  if (root?.kind === 'tabs') {
+    exact(root, ['kind', 'enabled', 'sourceQuote', 'pages'], '$.panel.body');
+    bounded(root.pages, 2, 8, '$.panel.body.pages');
+    body = { ...root, pages: root.pages.map((page, i) => {
+      const path = `$.panel.body.pages[${i}]`;
+      exact(page, ['label', 'sourceQuote', 'initial', 'body'], path);
+      return { ...page, id: `page${i}`, body: visit(page.body, `${path}.body`) };
+    }) };
+  } else body = visit(root, '$.panel.body');
+  return { ...intent, panelIntentVersion: '0.6', panel: { ...intent.panel, body } };
+}
+
+/** Narrow literal guard: an explicitly named next/numbered row must retain its
+ * "仅" qualifier. Ambiguous prose and independently named unqualified rows are
+ * left to the Agent; this is not a general natural-language label parser. */
+function preserveLiteralQualifier(request, row, path) {
+  const suffix = row.kind === 'switch' ? '开关' : row.kind === 'select' ? '下拉(?:框)?' : null;
+  if (!suffix || /^(?:仅限|仅)/u.test(row.label)) return;
+  const label = row.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefix = '(?:^|[。；;：:，,\\n])\\s*(?:下一行|(?:第[一二三四五六七八九十0-9]+|最后一)行)\\s*[“"「『]?';
+  const end = '[”"」』]?\\s*' + suffix;
+  if (new RegExp(prefix + '(?:仅限|仅)' + label + end, 'u').test(request)
+    && !new RegExp(prefix + label + end, 'u').test(request)) fail('INTENT_LABEL_QUALIFIER', path);
 }
 
 /** Exact unique quotes become UTF-16 spans deterministically. Ambiguity is rejected, never guessed. */
@@ -82,7 +260,7 @@ export function arrangeIntentSpec(spec, settings, theme) {
     const content = row.kind === 'slider' ? 96 + Math.max(64, size * 4) + 12
       : row.kind === 'progress' ? 96 + progressValueWidth(row, fields.get(row.bind), size) + 12
       : row.kind === 'select' ? Math.max(120, ...fields.get(row.bind).options.map(option => conservativeTextWidth(option.label, size) + 56))
-      : row.kind === 'text' ? conservativeTextWidth(row.text, size) + 8 : row.kind === 'switch' ? 76 : Math.max(120, conservativeTextWidth(row.buttonLabel, size) + 32);
+      : row.kind === 'text' ? conservativeTextWidth(row.text, size) + 8 : row.kind === 'input' ? Math.max(200, ...[row.validation.requiredMessage, row.validation.minLengthMessage].map(message => conservativeTextWidth(message, size) + 8)) : row.kind === 'switch' ? 76 : Math.max(120, conservativeTextWidth(row.buttonLabel, size) + 32);
     return (row.kind === 'button' ? 24 : labelWidth + 36) + content;
   }));
   let counter = 0, count = 0;
@@ -100,29 +278,57 @@ export function arrangeIntentSpec(spec, settings, theme) {
     : node.kind === 'column' ? Math.max(...node.children.map(requiredWidth))
     : node.kind === 'grid' ? 2 * Math.max(...node.children.map(requiredWidth)) + 20
     : node.children.reduce((sum, child) => sum + requiredWidth(child), 20 * (node.children.length - 1));
-  const width = settings.width ?? Math.max(640, requiredWidth(body) + 64);
+  const tabWidth = spec.tabs ? Math.max(...spec.tabs.pages.map(page => conservativeTextWidth(page.label, size) + 24)) * spec.tabs.pages.length : 0;
+  const width = settings.width ?? Math.max(640, requiredWidth(body) + 64, tabWidth + 48);
   const maxHeight = settings.maxHeight ?? 560;
-  const popup = Math.max(0, ...spec.state.filter(field => field.type === 'enum').map(field => field.options.length * 40 + 2));
+  const popup = Math.max(0, ...spec.state.filter(field => field.type === 'enum' && field.id !== spec.tabs?.bind).map(field => field.options.length * 40 + 2));
   spec.canvas = { width: settings.canvasWidth ?? Math.min(4096, width + 64), height: settings.canvasHeight ?? Math.max(640, maxHeight + popup * 2 + 96) };
-  spec.layout = { width, padding: 24, gap: 12, sectionGap: 20, labelWidth, rowHeight: Math.max(56, Math.ceil(size * 1.3) + 16),
+  spec.layout = { width, padding: 24, gap: 12, sectionGap: 20, labelWidth, rowHeight: Math.max(rows.some(row => row.kind === 'input') ? 80 : 56, Math.ceil(size * 1.3) + (rows.some(row => row.kind === 'input') ? 48 : 16)),
     titleHeight: Math.max(48, Math.ceil(theme.tokens.titleSize * 1.3)), sectionTitleHeight: Math.max(32, Math.ceil(theme.tokens.headingSize * 1.3)),
     maxHeight, overflow: settings.overflow === 'auto' ? 'scroll' : settings.overflow, body };
   // Full contract/geometry gate; explicit narrow dimensions fail rather than changing business or requested layout.
-  const checked = validatePanelSpec(spec); measureFlowLayout(checked); return checked;
+  const checked = validatePanelSpec(spec); (checked.tabs ? measureTabbedLayout : measureFlowLayout)(checked); return checked;
 }
 
 export async function materializePanelIntent(contextInput, input) {
   return materializeIntent(contextInput, input, false);
 }
-async function materializeIntent(contextInput, input, progressTransport) {
+async function materializeIntent(contextInput, input, progressTransport, navigation = null, formsTransport = false) {
   const context = await validatePlanningContext(contextInput), intent = snapshotJson(input);
   exact(intent, ['panelIntentVersion', 'contextSha256', 'panel', 'unresolved'], '$');
-  if (!['0.1', '0.2', '0.3', '0.4'].includes(intent.panelIntentVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8'].includes(intent.panelIntentVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (intent.panelIntentVersion === '0.8') return materializeIntent(context, lowerRequestReferences(context, intent), true, navigation, true);
+  if (intent.panelIntentVersion === '0.7') {
+    if (context.planningContextVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
+    return materializeIntent(context, lowerOrdinalIntent(intent), true, navigation, true);
+  }
+  if (intent.panelIntentVersion === '0.6') {
+    if (context.planningContextVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
+    return materializeIntent(context, { ...intent, panelIntentVersion: '0.5' }, true, navigation, true);
+  }
+  if (intent.panelIntentVersion === '0.5' && !['0.6', '0.7'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
   if (intent.panelIntentVersion === '0.4' && context.planningContextVersion !== '0.5') fail('INTENT_VERSION', '$.panelIntentVersion');
-  progressTransport ||= intent.panelIntentVersion === '0.4';
+  progressTransport ||= ['0.4', '0.5'].includes(intent.panelIntentVersion);
   if (intent.contextSha256 !== context.sha256) fail('PLAN_CONTEXT_MISMATCH', '$.contextSha256');
   const proposal = { proposalVersion: context.planningContextVersion, contextSha256: intent.contextSha256, spec: null, decisions: [], unresolved: intent.unresolved };
   if (intent.panel === null) return validatePanelProposal(context, proposal);
+  if (intent.panelIntentVersion === '0.5') {
+    const panel = intent.panel;
+    exact(panel, ['id', 'title', 'themeKey', 'panelSurface', 'layout', 'body'], '$.panel');
+    let body = panel.body;
+    if (body?.kind === 'tabs') {
+      exact(body, ['kind', 'enabled', 'sourceQuote', 'pages'], '$.panel.body'); bounded(body.pages, 2, 8, '$.panel.body.pages');
+      if (typeof body.enabled !== 'boolean' || body.pages.filter(p=>p.initial===true).length !== 1) fail('INTENT_DEFAULT', '$.panel.body.pages');
+      navigation = { enabled: body.enabled, sourceQuote: body.sourceQuote, pages: body.pages.map(page=>{
+        exact(page, ['id','label','sourceQuote','initial','body'], '$.panel.body.pages'); identity(page.id,'$.panel.body.pages.id'); display(page.label,'$.panel.body.pages.label');
+        if (typeof page.initial !== 'boolean') fail('boolean','$.panel.body.pages.initial');
+        const sections=[];const visit=node=>{if(node?.kind==='section')sections.push(node.id);else for(const child of node?.children??[])visit(child);};visit(page.body);
+        return {id:page.id,label:page.label,initial:page.initial,sourceQuote:page.sourceQuote,sections};
+      }) };
+      body = {kind:'column',children:body.pages.map(page=>page.body)};
+    }
+    return materializeIntent(context,{...intent,panelIntentVersion:'0.3',panel:{...panel,body}},true,navigation,formsTransport);
+  }
   if (['0.3', '0.4'].includes(intent.panelIntentVersion)) {
     const panel = intent.panel;
     exact(panel, ['id', 'title', 'themeKey', 'panelSurface', 'layout', 'body'], '$.panel');
@@ -138,7 +344,7 @@ async function materializeIntent(contextInput, input, progressTransport) {
       return { ...node, children: node.children.map(child => attach(child, depth + 1)) };
     };
     return materializeIntent(context, { ...intent, panelIntentVersion: '0.2', panel: { ...panel, sourceQuote: null,
-      layout: { ...panel.layout, sourceQuote: null }, body: attach(panel.body) } }, progressTransport);
+      layout: { ...panel.layout, sourceQuote: null }, body: attach(panel.body) } }, progressTransport, navigation, formsTransport);
   }
   if (intent.panelIntentVersion === '0.2') {
     const panel = intent.panel;
@@ -171,9 +377,9 @@ async function materializeIntent(contextInput, input, progressTransport) {
     };
     const body = convert(panel.body), { body: sourceBody, ...rest } = panel;
     // Spec references are generated from embedded leaves, never authored in a parallel collection.
-    return materializeIntent(context, { ...intent, panelIntentVersion: '0.1', panel: { ...rest, sections, layout: { ...panel.layout, body } } }, progressTransport);
+    return materializeIntent(context, { ...intent, panelIntentVersion: '0.1', panel: { ...rest, sections, layout: { ...panel.layout, body } } }, progressTransport, navigation, formsTransport);
   }
-  if (!['0.4', '0.5'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.panel');
+  if (!['0.4', '0.5', '0.6', '0.7'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.panel');
   const panel = intent.panel;
   exact(panel, ['id', 'title', 'sourceQuote', 'themeKey', 'panelSurface', 'layout', 'sections'], '$.panel');
   identity(panel.id, '$.panel.id'); display(panel.title, '$.panel.title');
@@ -188,11 +394,13 @@ async function materializeIntent(contextInput, input, progressTransport) {
     decisions.push({ target: `section:${section.id}`, basis: basis(section.sourceQuote, `${path}.sourceQuote`, 'Grouping is a presentation choice; no business defaults are inferred.') });
     const rows = section.rows.map((inputRow, j) => {
       const p = `${path}.rows[${j}]`, r = inputRow; if (!kinds.includes(r?.kind)) fail('row-kind', `${p}.kind`);
-      exact(r, rowKeys[r.kind], p); identity(r.id, `${p}.id`); display(r.label, `${p}.label`);
+      exact(r, [...rowKeys[r.kind], ...(formsTransport && r.kind === 'button' ? ['submitRows'] : [])], p); identity(r.id, `${p}.id`); display(r.label, `${p}.label`);
+      if (r.kind === 'input' && !formsTransport) fail('INTENT_VERSION', `${p}.kind`);
       if (rowsById.has(r.id) || rowsById.size >= 128) fail('duplicate', `${p}.id`);
       const recipe = context.catalog.recipes.find(recipe => recipe.kind === `${r.kind}-row` && refKey(recipe) === r.recipeKey);
       if (!recipe) fail('INTENT_REFERENCE', `${p}.recipeKey`);
       const source = basis(r.sourceQuote, `${p}.sourceQuote`), row = { id: r.id, kind: r.kind, recipe: { id: recipe.id, version: recipe.version }, label: r.kind === 'button' ? '' : r.label };
+      preserveLiteralQualifier(context.request.text, r, `${p}.label`);
       decisions.push({ target: `row:${r.id}`, basis: source });
       if (r.kind === 'text') { display(r.text, `${p}.text`); row.text = r.text; }
       else if (r.kind === 'progress') {
@@ -205,10 +413,12 @@ async function materializeIntent(contextInput, input, progressTransport) {
         if (typeof r.enabled !== 'boolean') fail('boolean', `${p}.enabled`);
         Object.assign(row, { enabled: r.enabled, event: `panel.${r.id}` });
         if (r.kind === 'button') {
-          if (!['emit', 'reset-initial'].includes(r.action)) fail('action-kind', `${p}.action`);
-          bounded(r.resetRows, r.action === 'emit' ? 0 : 1, 128, `${p}.resetRows`);
-          if (r.action === 'emit' && r.resetRows.length) fail('action-field', `${p}.resetRows`);
-          row.buttonLabel = r.label; row.action = r.action === 'emit' ? { kind: 'emit' } : { kind: 'reset-initial', fields: r.resetRows };
+          if (!(formsTransport ? ['emit', 'reset-initial', 'submit'] : ['emit', 'reset-initial']).includes(r.action)) fail('action-kind', `${p}.action`);
+          bounded(r.resetRows, r.action === 'reset-initial' ? 1 : 0, 128, `${p}.resetRows`);
+          if (r.action !== 'reset-initial' && r.resetRows.length) fail('action-field', `${p}.resetRows`);
+          if (formsTransport) { bounded(r.submitRows, r.action === 'submit' ? 1 : 0, 128, `${p}.submitRows`);
+            if (r.action !== 'submit' && r.submitRows.length) fail('action-field', `${p}.submitRows`); }
+          row.buttonLabel = r.label; row.action = r.action === 'emit' ? { kind: 'emit' } : { kind: r.action, fields: r.action === 'submit' ? r.submitRows : r.resetRows };
         } else {
           row.bind = r.id; let field;
           if (r.kind === 'slider') {
@@ -216,6 +426,10 @@ async function materializeIntent(contextInput, input, progressTransport) {
             display(r.prefix, `${p}.prefix`, true); display(r.suffix, `${p}.suffix`, true);
             field = { id: r.id, type: 'number', initial: r.initial, min: r.min, max: r.max, step: r.step };
             row.format = { fractionDigits: Math.max(...[r.min, r.max, r.step, r.initial].map(digits)), prefix: r.prefix, suffix: r.suffix };
+          } else if (r.kind === 'input') {
+            field = { id: r.id, type: 'string', initial: r.initial, maxLength: r.maxLength };
+            Object.assign(row, { placeholder: r.placeholder, inputType: r.inputType, readOnly: r.readOnly,
+              validation: { required: r.required, minLength: r.minLength, requiredMessage: '此项不能为空', minLengthMessage: `至少输入 ${r.minLength} 个字符` } });
           } else if (r.kind === 'switch') field = { id: r.id, type: 'boolean', initial: r.initial };
           else {
             bounded(r.options, 1, 8, `${p}.options`); r.options.forEach((option, k) => display(option, `${p}.options[${k}]`));
@@ -233,7 +447,16 @@ async function materializeIntent(contextInput, input, progressTransport) {
   });
   const assets = panel.panelSurface === null && !rowIcons.length ? null : { library: context.assetRetrieval?.library,
     panelSurface: panel.panelSurface, rowIcons };
-  let spec = { panelSpecVersion: context.planningContextVersion === '0.5' ? '0.5' : '0.4', id: panel.id, title: panel.title, theme: { id: theme.id, version: theme.version },
+  let tabs = null;
+  if (navigation) {
+    const source = basis(navigation.sourceQuote,'$.panel.body.sourceQuote');
+    const recipe=context.catalog.recipes.find(r=>r.kind==='tabs');if(!recipe)fail('INTENT_REFERENCE','$.panel.body');
+    tabs={id:'navigation',bind:'navigation',event:'panel.navigation',enabled:navigation.enabled,recipe:{id:recipe.id,version:recipe.version},pages:navigation.pages.map(({id,label,sections})=>({id,label,sections}))};
+    state.push({id:tabs.bind,type:'enum',initial:navigation.pages.find(p=>p.initial).id,options:tabs.pages.map(({id,label})=>({id,label}))});
+    decisions.push({target:'tabs',basis:source},{target:`state:${tabs.bind}`,basis:source});
+    for(const page of navigation.pages)decisions.push({target:`tab:${page.id}`,basis:basis(page.sourceQuote,'$.panel.body.pages.sourceQuote')});
+  }
+  let spec = { panelSpecVersion: context.planningContextVersion === '0.7' ? '0.7' : context.planningContextVersion === '0.6' ? '0.6' : context.planningContextVersion === '0.5' ? '0.5' : '0.4', ...(['0.6','0.7'].includes(context.planningContextVersion)?{tabs}:{}), id: panel.id, title: panel.title, theme: { id: theme.id, version: theme.version },
     state, sections, assets, provenance: { kind: 'agent-authored', description: 'Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.',
       assumptions: ['Preview actions notify the host; no actual game business is executed.', 'Geometry follows deterministic intent layout policy 0.1.',
         ...(state.some(field => field.type === 'progress') ? ['Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence.'] : [])] } };

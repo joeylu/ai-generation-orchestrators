@@ -139,7 +139,7 @@ test('failed reset dependency proposal preserves the complete workbench, history
   assert.deepEqual(controller.getSnapshot(), before);
 });
 
-test('public and native schemas retain exact button keys and only emit/reset action shapes', async () => {
+test('public and native schemas retain exact button keys and emit/reset and scoped submit action shapes', async () => {
   const schema = JSON.parse(await readFile(new URL('../schemas/panel-patch.schema.json', import.meta.url), 'utf8'));
   assert.deepEqual(schema.$defs.setButtonLabel.required, ['op', 'rowId', 'buttonLabel']);
   assert.deepEqual(schema.$defs.setButtonAction.required, ['op', 'rowId', 'action']);
@@ -151,7 +151,7 @@ test('public and native schemas retain exact button keys and only emit/reset act
     assert(shape); assert.deepEqual(shape.required, keys); assert.equal(shape.additionalProperties, false);
   }
   const actionSchema = shapes.find(value => value.properties?.op?.enum?.[0] === 'set-button-action').properties.action;
-  const variants = native.$defs[actionSchema.$ref.slice('#/$defs/'.length)].anyOf;
-  assert.deepEqual(variants.map(value => value.properties.kind.enum[0]).sort(), ['emit', 'reset-initial']);
+  const variants = actionSchema.anyOf.flatMap(value => value.$ref ? native.$defs[value.$ref.slice('#/$defs/'.length)].anyOf : [value]);
+  assert.deepEqual(variants.map(value => value.properties.kind.enum[0]).sort(), ['emit', 'reset-initial', 'submit']);
   assert(variants.every(value => value.additionalProperties === false));
 });

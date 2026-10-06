@@ -215,7 +215,7 @@ test('all async proposal entry points snapshot both inputs before their first aw
 test('strict proposal fields reject unsupported versions, injected approval fields and malformed evidence', async () => {
   const { context, proposal } = await inputs();
   const cases = [
-    [value => { value.proposalVersion = '0.6'; }, 'PLAN_VERSION'],
+    [value => { value.proposalVersion = '0.8'; }, 'PLAN_VERSION'],
     [value => { value.userApproved = true; }, 'PLAN_FIELDS'],
     [value => { value.decisions[0].approved = true; }, 'PLAN_FIELDS'],
     [value => { value.decisions[0].basis.kind = 'model-confidence'; }, 'PLAN_BASIS'],

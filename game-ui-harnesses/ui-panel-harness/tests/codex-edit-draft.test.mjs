@@ -75,10 +75,11 @@ test('draft inputs are isolated before awaits and getters are never invoked', as
 
 test('native draft schema omits model-authored positions and retains strict operation shapes', async () => {
   const schema = await buildCodexEditResponseSchema({ draft: true });
-  assert.deepEqual(schema.required, ['codexEditDraftVersion', 'contextSha256', 'patch', 'bases', 'unresolved']);
+  assert.deepEqual(schema.required, ['codexEditDraftVersion', 'contextSha256', 'patch', 'bases', 'unresolved', 'noChange']);
   assert.equal(schema.additionalProperties, false);
   const basisShape = JSON.stringify(schema.properties.bases);
   assert(!basisShape.includes('operationIndex'));
-  const requestBasis = schema.properties.bases.anyOf[1].items.anyOf[0];
+  const dereference = value => value.$ref ? dereference(schema.$defs[value.$ref.slice('#/$defs/'.length)]) : value;
+  const requestBasis = dereference(schema.properties.bases).anyOf[1].items.anyOf[0];
   assert.deepEqual(requestBasis.required, ['kind', 'quote']); assert.equal(requestBasis.additionalProperties, false);
 });

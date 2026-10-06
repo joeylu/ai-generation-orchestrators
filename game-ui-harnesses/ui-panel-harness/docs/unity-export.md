@@ -1,11 +1,19 @@
-# Unity UGUI 导出适配器 0.1.2
+# Unity UGUI 导出适配器 0.1.4
 
-同一份已经验证的 PanelBundle 可导出 Unity 导入工具包，保留原来的 PanelSpec 0.1–0.5、
+多实例的开关、焦点和事件路由可使用 [共享宿主 SDK](panel-host.md)，它独立于生成 Runtime，
+只安装一个脚本。五个原生实例同时运行及 20 轮生命周期已完成，见 [接入验收](host-integration-acceptance-2026-10-06.md)。
+
+四个面板的原生交互、包共存和共享脚本验证见
+[2026-10-06 组合验收](composite-acceptance-2026-10-06.md)。
+
+同一份已经验证的 PanelBundle 可导出 Unity 导入工具包，保留原来的 PanelSpec 0.1–0.7、
 稳定 ID、当前值与创作初值。Unity 编辑器用自己的 API 创建真实 UGUI 层级和 Prefab，
 再按需生成 `.unitypackage`。其他引擎仍需各自适配器；这不是将 Pixi 的画布截图放进 Unity。
 
 0.1.2 新增只读确定进度条：原生 Image.Type.Filled 和静默 SetProgress，见 [加载条合同](panel-progress.md)。
-共享 Runtime 能读取 0.1.0 / 0.1.1 Prefab 文档；既有 managed identity 的跨 Runtime 版本迁移尚未实现，
+0.1.3 新增原生 Button 页签、GameObject 分页显隐、分页独立 ScrollRect，见 [Tabs 合同](panel-tabs.md)。
+0.1.4 新增原生单行 InputField、必填/长度校验、静默 SetText 和指定字段提交，见 [输入表单](panel-forms.md)。
+共享 Runtime 能读取 0.1.0 / 0.1.1 / 0.1.2 / 0.1.3 Prefab 文档；既有 managed identity 的跨 Runtime 版本迁移尚未实现，
 安装预检仍拒绝不同共享脚本版本/摘要混装，不会静默覆盖旧项目。
 
 ## 两阶段输出
@@ -86,7 +94,7 @@ Assets/PanelHarness/
 要求全部属于同一根目录与本次面板；包不包含 Editor 构建脚本、测试工程或测试场景。
 导入工具包中的 `Editor` 脚本只供 Unity 生成 Prefab 使用。
 
-滑条、开关、选择、按钮和滚动使用原生 `Slider/Toggle/Dropdown/Button/ScrollRect`，
+滑条、开关、选择、按钮、输入和滚动使用原生 `Slider/Toggle/Dropdown/Button/InputField/ScrollRect`，
 并使用原生 Canvas、RectTransform、Text、Image 和 RectMask2D。
 附加脚本中，`PanelController` 连接通用状态与事件，`PanelRoundedGraphic` 是自定义
 UGUI Graphic，负责程序化圆角与边框，`PanelScrollReveal` 负责控件聚焦时滚动显示。

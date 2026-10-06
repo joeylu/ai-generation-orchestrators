@@ -114,6 +114,20 @@ test('output format diagnostics survive the client only with their original bind
   }
 });
 
+test('edit result cause crosses the client only as safe schema fields bound to the current edit', async () => {
+  const diagnostic = createCodexDiagnostic({ code: 'EDIT_RESULT_SPEC', path: '$.patch', cause: {
+    code: 'text', path: '$.sections[0].rows[1].validation.requiredMessage', message: 'SECRET',
+  } }, { operation: 'edit', contextSha256: context.sha256, proposalJsonSha256: 'e'.repeat(64), stage: 'proposal-validation' });
+  for (const change of [{}, { cause: { ...diagnostic.cause, message: 'SECRET' } }, { operation: 'plan' }]) {
+    let calls = 0, caught;
+    await assert.rejects(requestCodexEditProposal(context, signal(), async () => {
+      calls++; return response({ code: 'CODEX_PROPOSAL_INVALID', diagnostic: { ...diagnostic, ...change } }, 502);
+    }), error => { caught = error; return error.code === 'CODEX_PROPOSAL_INVALID'; });
+    assert.equal(calls, 1); assert.equal(Boolean(caught.diagnostic), Object.keys(change).length === 0);
+    assert(!JSON.stringify(caught).includes('SECRET'));
+  }
+});
+
 test('complete response readers release their lock without cancellation; incomplete oversized bodies are cancelled', async () => {
   for (const oversized of [false, true]) {
     let reads = 0, cancelled = 0, released = 0;

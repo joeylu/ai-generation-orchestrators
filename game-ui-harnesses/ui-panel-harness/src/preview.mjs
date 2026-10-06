@@ -6,16 +6,17 @@ import { createBundle, validateBundle, bundleResources } from '../../ui-componen
 import { createPanelBundle, validatePanelBundle, panelBundleAssetInputs } from './panel-bundle.mjs';
 import { attachPanelSession } from './state.mjs';
 import { attachLayoutSession } from './layout-session.mjs';
+import { attachInputEditor } from './input-editor.mjs';
 
 const core = { compileTree, validateDocument, createBundle, validateBundle, bundleResources };
 const host = document.getElementById('canvas-host'), status = document.getElementById('status');
 const output = document.getElementById('state'), eventOutput = document.getElementById('event');
-let bundle, runtime, session, layoutSession, controller, ticket = 0, unsubscribe = () => {};
+let bundle, runtime, session, layoutSession, controller, ticket = 0, unsubscribe = () => {}, detachInputEditor = () => {};
 const events = [], componentEvents = [];
 function renderState() { output.textContent = session ? JSON.stringify(session.getState(), null, 2) : ''; }
 function fatal() { status.textContent = '面板加载或交互失败，请检查面板文件。'; status.dataset.state = 'error'; }
 function release() {
-  controller?.abort(); layoutSession?.destroy(); layoutSession = undefined; session?.destroy(); unsubscribe(); runtime?.destroy();
+  controller?.abort(); detachInputEditor(); detachInputEditor = () => {}; layoutSession?.destroy(); layoutSession = undefined; session?.destroy(); unsubscribe(); runtime?.destroy();
   session = undefined; runtime = undefined; controller = undefined; unsubscribe = () => {};
   host.replaceChildren(); document.getElementById('export').disabled = true;
 }
@@ -57,6 +58,7 @@ async function importPanel(input) {
       events.push(event); if (events.length > 100) events.shift();
       eventOutput.textContent = JSON.stringify(event, null, 2); renderState();
     }, bundle.state);
+    detachInputEditor = attachInputEditor(host, bundle.spec, preview, session);
     document.getElementById('panel-title').textContent = bundle.spec.title;
     host.style.width = `${bundle.spec.canvas.width}px`;
     host.style.height = `${bundle.spec.canvas.height}px`;

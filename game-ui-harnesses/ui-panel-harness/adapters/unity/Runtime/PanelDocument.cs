@@ -37,6 +37,7 @@ namespace GameUi.PanelHarness
         public bool initialBoolean, booleanValue;
         public string initialString, stringValue;
         public PanelOption[] options;
+        public int maxLength;
     }
 
     [Serializable]
@@ -51,10 +52,22 @@ namespace GameUi.PanelHarness
         public string nodeId, rowId, kind, fieldId, eventName;
         public bool enabled;
         public string action;
-        public string[] resetFields;
+        public string[] resetFields, submitFields;
+        public string placeholder, inputType, requiredErrorTextId, minLengthErrorTextId;
+        public bool readOnly;
+        public PanelInputValidation validation;
         public string valueTextId, prefix, suffix;
         public string displayMode;
+        public string[] contentIds;
         public int fractionDigits;
+    }
+
+    [Serializable]
+    public sealed class PanelInputValidation
+    {
+        public bool required;
+        public int minLength;
+        public string requiredMessage, minLengthMessage;
     }
 
     [Serializable]
@@ -86,5 +99,6 @@ namespace GameUi.PanelHarness
         public string StringValue { get; internal set; }
         public string StateJson { get; internal set; }
         public PanelStateValue[] State { get; internal set; }
+        public System.Collections.Generic.Dictionary<string, string> Values { get; internal set; }
     }
 }

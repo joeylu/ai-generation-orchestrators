@@ -1,9 +1,13 @@
 # 本地面板工作台
 
+预览区新增「下载交付包」，包含可离线运行的 Pixi 预览、Unity 导入工具包与业务字段/事件说明。
+共享接入 SDK 从「面板操作」单独下载，安装一次供多个面板复用，见 [交付流程](panel-delivery.md)。
+
 工作台首页保留「需求描述 + 生成面板」「修改要求 + 修改面板」和交互预览。
 资源检索、方案校验和确定性编译仍在后台执行；报错、进度与澄清问题就近显示。
 打开/导出、Unity 下载和撤销集中到预览旁的「面板操作」。
 规划文件往返、资源候选、属性编辑、补丁和事件证据位于菜单中的「高级工具」，默认不占首页。
+输入表单可生成、修改、保留当前输入及导出原生 InputField，见 [输入表单](panel-forms.md)。
 普通生成自动分配 `panel-<UUID>` 标识：需求或资源风格变化时使用新标识，相同输入重复准备时保留。
 补充回答、示例载入沿用其来源标识；修改和撤销已有面板保留原 ID。
 高级工具中手动填写标识会改为固定命名，清空该字段恢复自动命名。
@@ -18,7 +22,7 @@ Codex CLI，以 `gpt-6-luna / xhigh` 生成方案；随后仍通过同一校验�
 从 `ui-panel-harness` 运行，输出目录必须不存在：
 
 ```sh
-node scripts/build-workbench.mjs --catalog examples/modern-mint-controls.catalog.json --output output/my-panel-studio
+node scripts/build-workbench.mjs --catalog examples/modern-mint-forms.catalog.json --output output/my-panel-studio
 ```
 
 上述版本可以使用程序控件；若需要资源检索，附加 `--assets <通用资源库目录>`。
@@ -42,6 +46,7 @@ node scripts/build-workbench.mjs --catalog examples/modern-mint-controls.catalog
    应用保留当前试玩值；新默认值在面板中的恢复默认操作时生效，并在成功提示中说明。
    支持取消；失败或存在未决问题时保留旧面板，不自动重试。
    修改问题显示在描述下方，补充后再手动点击修改，见 [自然语言编辑](panel-editing.md)。
+   明确无需修改时显示“无需修改，当前面板和输入已保留”，不刷新预览、不增加撤销记录。
 3. **试玩。** 在右侧直接操作真实 Pixi 控件。处理期间锁定交互，结束后恢复。
 4. **撤销与导出。** 打开「面板操作」。撤销恢复上一次修改前的方案和试玩状态。导出得到既有 PanelBundle，
    包含当前语义状态、原始创作初值、动作和实际选中的 PNG，可以重新打开。
@@ -96,7 +101,7 @@ node scripts/build-workbench.mjs --catalog examples/modern-mint-controls.catalog
 
 ## 验证
 
-当前精简版产物为 `output/panel-studio-simple-v7/`，本次后台入口为 4188，原 4186、4187 保留。
+当前工作区构建为`output/panel-studio-panel-title-v1/`，本地入口为4197；移到其它工作区时按[启动说明](start-here.md)重新构建并使用实际打印的地址。分页和输入表单能力见[Tabs](panel-tabs.md)与[Input](panel-forms.md)。
 使用带布局能力的目录和 0.4 设置示例。
 单元/集成测试、旧版浏览器回归及新版布局/工作台的实际验证范围见 [任务证据](tasks.md)。
 调用浏览器回归使用规划替身。用户随后真实 CLI 声音设置草稿已通过公共提案检查并在网页

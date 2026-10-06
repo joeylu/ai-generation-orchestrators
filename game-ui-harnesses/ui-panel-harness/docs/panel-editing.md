@@ -90,11 +90,18 @@ Schema 不能独自保证这些规则，也不能证明自然语言解释正确�
 旧的八操作 EditContext 仍能复算并保持原摘要；不得用新操作提交到旧上下文。
 需要新能力时重新准备上下文，不改写旧文件或迁就提案。
 
-本地 Codex 使用独立的 [CodexEditDraft 0.1](../schemas/codex-edit-draft.schema.json)：
+本地 Codex 当前使用独立的 [CodexEditDraft 0.3](../schemas/codex-edit-draft-v0.3.schema.json)，
+Spec 0.7 保留 [0.2](../schemas/codex-edit-draft-v0.2.schema.json) 的紧凑新增输入形状：
 保留完整 patch，每个操作按顺序提供一条精确原文引句或允许的设计依据。
 程序在当前原文中定位逐字引句（重复时取最早出现的位置），计算 UTF-16 区间和操作索引，
 然后执行完整公共 EditProposal 校验。不存在的引句、缺失依据、额外位置字段及无效修改仍拒绝，
-不修补失败的旧 EditProposal。公共文件导入和其他 Agent 输出继续使用 EditProposal 0.1。
+不修补失败的旧 EditProposal，旧 draft 0.1/0.2 仍可严格导入。
+普通修改与澄清输出的 `noChange:null`，程序生成 EditProposal 0.1。
+明确无需修改时提供 `patch:null`、`bases:null`、`unresolved:[]`、`noChange:{reason,quote}`，
+程序定位原文，生成专用 [EditProposal 0.2](../schemas/panel-edit-proposal-v0.2.schema.json) 的
+`noChange:{reason,basis}`。该结果不能同时携带修改或问题，报告为 `NO_CHANGES`，
+不会编译、刷新预览、修改试玩输入/事件或增加撤销历史，语义审查仍为 `NOT_RUN`。
+无说明的旧空补丁继续拒绝，不会被默认为成功。公共文件入口支持上述两种提案。
 
 本地编辑调用在本 Harness 内新建 `codex-edit-<UUID>/`，由程序保存
 `edit-context.json`、`edit-proposal.json`、`edit-planning-report.json` 和
@@ -103,6 +110,7 @@ Schema 不能独自保证这些规则，也不能证明自然语言解释正确�
 经完整校验的公共 `edit-proposal.json`，不混淆原草稿与最终提案。
 编辑回执使用独立 `codexEditingReceiptVersion:0.1`，成功状态为 `READY_TO_APPLY`
 或 `NEEDS_INPUT`；不能冒充新面板规划回执或已经应用的修改。
+仅 `NO_CHANGES` 使用编辑回执 0.2；不能把该回执版本配给实际修改或新面板生成。
 
 `READY_TO_APPLY` 只说明结构、出处和结果 Spec 已通过检查，仍需目录编译、资源核验、
 几何检查与实际渲染。语义审查和用户视觉确认不能由精确引句或摘要替代。哈希是内容一致性

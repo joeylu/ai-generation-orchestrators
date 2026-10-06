@@ -6,6 +6,7 @@ import { createBundle, validateBundle, bundleResources } from '../../ui-componen
 import { validatePanelBundle } from './panel-bundle.mjs';
 import { attachPanelSession } from './state.mjs';
 import { attachLayoutSession } from './layout-session.mjs';
+import { attachInputEditor } from './input-editor.mjs';
 export const browserCore = Object.freeze({ compileTree, validateDocument, createBundle, validateBundle, bundleResources });
 
 function decode(resource, signal) {
@@ -22,11 +23,12 @@ function decode(resource, signal) {
 }
 export function createWorkbenchRenderer(host, onEvent, onError) {
   let ticket = 0, mounted, pending, disposed = false, interactionLocked = false;
-  const close = item => { if (!item) return; item.controller.abort(); item.layoutSession?.destroy(); item.session?.destroy(); item.preview?.destroy(); item.element.remove(); };
+  const close = item => { if (!item) return; item.controller.abort(); item.detachInputEditor?.(); item.layoutSession?.destroy(); item.session?.destroy(); item.preview?.destroy(); item.element.remove(); };
   const lock = item => {
     if (!item || item.lockedControls) return;
+    item.session?.setInteractionLocked(true);
     const nodes = item.preview.inspect().nodes;
-    item.lockedControls = nodes.filter(node => ['Slider', 'Switch', 'Select', 'Button'].includes(node.type)).map(node => ({ id: node.id, enabled: node.enabled }));
+    item.lockedControls = nodes.filter(node => ['Slider', 'Switch', 'Select', 'Button', 'Tabs', 'Input'].includes(node.type)).map(node => ({ id: node.id, enabled: node.enabled }));
     for (const node of nodes.filter(node => node.type === 'ScrollView')) item.preview.setValue(node.id, node.value);
     // setEnabled cancels in-flight gestures as well as closing select popups.
     for (const node of item.lockedControls) item.preview.setEnabled(node.id, false);
@@ -56,6 +58,7 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
         if (own !== ticket || !isCurrent()) { close(candidate); return { status: 'STALE' }; }
         if (candidate.failure) throw candidate.failure;
         candidate.session = attachPanelSession(bundle.spec, candidate.preview, event => onEvent(event, candidate.session.getState()), bundle.state);
+        candidate.detachInputEditor = attachInputEditor(candidate.element, bundle.spec, candidate.preview, candidate.session);
         candidate.layoutSession = attachLayoutSession(bundle.spec, candidate.preview);
         if (interactionLocked) lock(candidate);
         close(mounted); mounted = candidate; pending = undefined;
@@ -74,6 +77,7 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
       else if (mounted?.lockedControls) {
         for (const node of mounted.lockedControls) mounted.preview.setEnabled(node.id, node.enabled);
         mounted.lockedControls = null;
+        mounted.session?.setInteractionLocked(false);
       }
     },
     getState() { if (!mounted || disposed) throw new Error('WORKBENCH_RENDER_EMPTY'); return mounted.session.getState(); },
@@ -81,6 +85,12 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
       if (!mounted || disposed) throw new Error('WORKBENCH_RENDER_EMPTY');
       if (interactionLocked) throw new Error('WORKBENCH_BUSY');
       mounted.session.setProgress(fieldId, value);
+      return mounted.session.getState();
+    },
+    setText(fieldId, value) {
+      if (!mounted || disposed) throw new Error('WORKBENCH_RENDER_EMPTY');
+      if (interactionLocked) throw new Error('WORKBENCH_BUSY');
+      mounted.session.setText(fieldId, value);
       return mounted.session.getState();
     },
     inspect() { return mounted?.preview.inspect() ?? { empty: true }; },

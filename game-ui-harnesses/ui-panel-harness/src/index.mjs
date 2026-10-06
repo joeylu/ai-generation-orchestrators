@@ -13,3 +13,8 @@ export { PanelEditPlanningError, createPanelEditContext, validatePanelEditContex
 export { attachLayoutSession } from './layout-session.mjs';
 export { composePanelBundles, validatePanelComposition } from './panel-composition.mjs';
 export { createUnityDocument, UNITY_ADAPTER_VERSION } from './unity-export.mjs';
+export { createPanelHost } from './panel-host.mjs';
+export { validateGameBinding, attachPanelGameBinding } from './game-binding.mjs';
+export { createMemoryGamePort } from './game-port.mjs';
+export { createUnityGameBinding } from './unity-game-binding.mjs';
+export { createPanelDelivery, createPanelIntegrationContract } from './panel-delivery.mjs';

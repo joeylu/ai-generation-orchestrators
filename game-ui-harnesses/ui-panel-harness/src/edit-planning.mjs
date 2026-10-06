@@ -19,6 +19,8 @@ const LEGACY_OPERATIONS = Object.freeze([
   'set-row-enabled', 'set-state-initial', 'add-row', 'remove-row',
 ]);
 const OPERATIONS = Object.freeze([...LEGACY_OPERATIONS, 'set-button-label', 'set-button-action']);
+const TABS_OPERATIONS = Object.freeze([...OPERATIONS, 'set-tab-label', 'set-tabs-enabled']);
+const INPUT_OPERATION = 'set-input-properties';
 const CONTEXT_FIELDS = ['editContextVersion', 'request', 'spec', 'catalog', 'baseSpecSha256', 'catalogSha256', 'capabilities', 'sha256'];
 const fail = (code, path, message) => { throw new PanelEditPlanningError(code, path, message); };
 
@@ -48,10 +50,11 @@ function list(value, path, max) {
   if (!Array.isArray(value) || value.length > max) fail('EDIT_LIST', path, `Array of at most ${max} entries required`);
 }
 
-async function buildContext(specInput, catalogInput, requestInput, operations = OPERATIONS) {
+async function buildContext(specInput, catalogInput, requestInput, operations) {
   const spec = checked(() => validatePanelSpec(specInput), 'EDIT_SPEC', '$.spec');
   const catalog = checked(() => validateCatalog(catalogInput), 'EDIT_CATALOG', '$.catalog');
   const request = checked(() => validatePanelRequest(requestInput), 'EDIT_REQUEST', '$.request');
+  operations ??= [...(spec.tabs ? TABS_OPERATIONS : OPERATIONS), ...(spec.panelSpecVersion === '0.7' ? [INPUT_OPERATION] : [])];
   const [baseSpecSha256, catalogSha256] = await Promise.all([digestJson(spec), digestJson(catalog)]);
   const payload = {
     editContextVersion: '0.1', request, spec, catalog, baseSpecSha256, catalogSha256,
@@ -76,8 +79,11 @@ async function validateContextSnapshot(context) {
   if (context.editContextVersion !== '0.1') fail('EDIT_CONTEXT_VERSION', '$.editContextVersion', 'Only edit context 0.1 is supported');
   // Existing exported contexts keep their original capabilities and digest.
   // Only these two complete, ordered capability sets are accepted, never subsets.
-  const operations = canonicalJson(context.capabilities?.operations ?? null) === canonicalJson(LEGACY_OPERATIONS)
-    ? LEGACY_OPERATIONS : OPERATIONS;
+  const suppliedOperations = context.capabilities?.operations ?? null;
+  const formsOperations = [...(context.spec?.tabs ? TABS_OPERATIONS : OPERATIONS), INPUT_OPERATION];
+  const operations = context.spec?.panelSpecVersion === '0.7' && canonicalJson(suppliedOperations) === canonicalJson(formsOperations) ? formsOperations
+    : canonicalJson(suppliedOperations) === canonicalJson(LEGACY_OPERATIONS) ? LEGACY_OPERATIONS
+    : canonicalJson(suppliedOperations) === canonicalJson(TABS_OPERATIONS) && context.spec?.tabs ? TABS_OPERATIONS : OPERATIONS;
   const expected = await buildContext(context.spec, context.catalog, context.request, operations);
   if (canonicalJson(context) !== canonicalJson(expected)) {
     fail('EDIT_CONTEXT_MISMATCH', '$', 'Context evidence does not match its exact request, PanelSpec and catalog');
@@ -117,8 +123,9 @@ function validateBasis(basis, operation, request, path) {
 
 async function validateProposalSnapshots(contextSnapshot, proposal) {
   const context = await validateContextSnapshot(contextSnapshot);
-  exact(proposal, ['editProposalVersion', 'contextSha256', 'patch', 'decisions', 'unresolved'], '$');
-  if (proposal.editProposalVersion !== '0.1') fail('EDIT_PROPOSAL_VERSION', '$.editProposalVersion', 'Only edit proposal 0.1 is supported');
+  const noChanges = proposal.editProposalVersion === '0.2';
+  exact(proposal, ['editProposalVersion', 'contextSha256', 'patch', 'decisions', 'unresolved', ...(noChanges ? ['noChange'] : [])], '$');
+  if (!['0.1', '0.2'].includes(proposal.editProposalVersion)) fail('EDIT_PROPOSAL_VERSION', '$.editProposalVersion', 'Only edit proposal 0.1/0.2 is supported');
   if (proposal.contextSha256 !== context.sha256) fail('EDIT_CONTEXT_MISMATCH', '$.contextSha256', 'Proposal belongs to a different edit context');
   list(proposal.unresolved, '$.unresolved', 64);
   const questionIds = new Set();
@@ -133,6 +140,18 @@ async function validateProposalSnapshots(contextSnapshot, proposal) {
     questionIds.add(question.id);
   }
   list(proposal.decisions, '$.decisions', 32);
+  if (noChanges) {
+    if (proposal.patch !== null || proposal.decisions.length || proposal.unresolved.length) {
+      fail('EDIT_NO_CHANGE', '$.noChange', 'No-change evidence cannot accompany operations, decisions or questions');
+    }
+    exact(proposal.noChange, ['reason', 'basis'], '$.noChange');
+    text(proposal.noChange.reason, '$.noChange.reason', 500);
+    if (proposal.noChange.basis?.kind !== 'request-interpretation') {
+      fail('EDIT_BASIS', '$.noChange.basis', 'No-change results require exact current-request evidence');
+    }
+    validateBasis(proposal.noChange.basis, null, context.request.text, '$.noChange.basis');
+    return { context, proposal, result: null };
+  }
   if (proposal.patch === null) {
     if (!proposal.unresolved.length || proposal.decisions.length) {
       fail('EDIT_EMPTY_PATCH', '$.patch', 'A null patch requires unresolved questions and no decisions');
@@ -176,9 +195,9 @@ export async function validatePanelEditProposal(contextInput, proposalInput) {
 
 async function reportFor({ context, proposal, result }) {
   return {
-    editPlanningReportVersion: '0.1', contextSha256: context.sha256,
+    editPlanningReportVersion: proposal.editProposalVersion, contextSha256: context.sha256,
     proposalSha256: await digestJson(proposal), baseSpecSha256: context.baseSpecSha256,
-    status: proposal.unresolved.length ? 'NEEDS_INPUT' : 'READY_TO_APPLY',
+    status: proposal.editProposalVersion === '0.2' ? 'NO_CHANGES' : proposal.unresolved.length ? 'NEEDS_INPUT' : 'READY_TO_APPLY',
     unresolvedCount: proposal.unresolved.length, operationCount: proposal.patch?.operations.length ?? 0,
     resultSpecSha256: result?.receipt.resultSpecSha256 ?? null,
     changedRowIds: result?.receipt.changedRowIds ?? [],
@@ -196,6 +215,7 @@ export async function requireReadyEditProposal(contextInput, proposalInput) {
   const context = snapshot(contextInput, '$.context'), proposal = snapshot(proposalInput, '$.proposal');
   const validated = await validateProposalSnapshots(context, proposal);
   const report = await reportFor(validated);
+  if (report.status === 'NO_CHANGES') fail('EDIT_PLAN_NO_CHANGES', '$.noChange', 'No-change result contains no applicable patch');
   if (report.status !== 'READY_TO_APPLY') fail('EDIT_PLAN_NEEDS_INPUT', '$.unresolved', 'Resolve recorded questions before applying this edit');
   return { proposal: validated.proposal, report };
 }

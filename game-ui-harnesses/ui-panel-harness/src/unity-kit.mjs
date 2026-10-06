@@ -56,16 +56,18 @@ published delivery and target project. It is read-only. For an update it require
 --expected-panel-sha. It catches GUID, version, local-change and base conflicts.
 Unity's ordinary Import Package dialog does not run this Harness check automatically.
 
-Interactive controls are native UGUI Slider, Toggle, Dropdown, Button and
+Interactive controls are native UGUI Slider, Toggle, Dropdown, Button, InputField and
 ScrollRect. Determinate progress uses native UGUI Image.Type.Filled (horizontal)
 and is read-only. PanelController.SetProgress(fieldId, value) updates continuous
 progress silently; no Slider, timer or game loader is added. PanelController bridges state/events; PanelRoundedGraphic draws
-rounded surfaces; PanelScrollReveal reveals focused controls. PanelDocument
+rounded surfaces; PanelScrollReveal reveals focused controls. Single-line inputs
+preserve raw strings; SetText is silent. Required/minimum validation gates submit,
+whose PanelHostEvent.Values contains only the declared input fields. PanelDocument
 and PanelControlView are data types. This is native UGUI with adapter scripts.
 
 The import preserves source IDs, declared coordinates, current values, initial
 values, step-based sliders, switches, enumerated selects, buttons, reset scopes,
-read-only text, images and scrolling. Native fonts and UGUI rasterization can
+read-only text, validated single-line input, images and scrolling. Native fonts and UGUI rasterization can
 differ from the Pixi preview. Layout is fixed to the declared logical canvas;
 CanvasScaler scales that canvas, without recomputing grid columns.
 

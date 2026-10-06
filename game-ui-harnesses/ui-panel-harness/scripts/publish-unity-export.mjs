@@ -18,7 +18,7 @@ const PREFAB = /^project\/Assets\/PanelHarness\/Panels\/[A-Za-z0-9][A-Za-z0-9_.-
 const RUNTIME_NAMES = ['PanelControlView.cs', 'PanelController.cs', 'PanelDocument.cs', 'PanelRoundedGraphic.cs', 'PanelScrollReveal.cs'];
 const COVERAGE = new Set(['sourceNodes', 'textNodes', 'readOnlyControls', 'scrollViews', 'images', 'spriteRegions',
   'currentValuesDifferentFromInitial', 'sliders', 'switches', 'selects', 'buttons', 'disabledControls', 'resetFields', 'preservedResetFields',
-  'visibleTextMeshes', 'sliderThumbs']);
+  'visibleTextMeshes', 'sliderThumbs', 'tabNavigations', 'tabPages', 'inputFields', 'submitButtons']);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const requireThat = (value, code) => { if (!value) throw new Error(code); };
 const isSha = value => typeof value === 'string' && SHA.test(value);

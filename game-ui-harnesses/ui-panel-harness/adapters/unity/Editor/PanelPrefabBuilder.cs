@@ -243,8 +243,14 @@ namespace GameUi.PanelHarness.Editor
                         case "Select":
                             BuildDropdown(current, node, view, fields[definition.fieldId], font);
                             break;
+                        case "Input":
+                            BuildInput(current, node, view, fields[definition.fieldId], font);
+                            break;
                         case "Button":
                             BuildButton(current, node, view, font);
+                            break;
+                        case "Tabs":
+                            BuildTabs(current, node, view, fields[definition.fieldId], font);
                             break;
                         case "ScrollView":
                             parents[node.id] = BuildScroll(current, node);
@@ -255,6 +261,12 @@ namespace GameUi.PanelHarness.Editor
                 foreach (PanelControlView view in views)
                 {
                     if (!string.IsNullOrEmpty(view.definition.valueTextId)) view.valueText = objects[view.definition.valueTextId].GetComponent<Text>();
+                    if (view.definition.kind == "input")
+                    {
+                        view.requiredErrorText = objects[view.definition.requiredErrorTextId].GetComponent<Text>();
+                        view.minLengthErrorText = objects[view.definition.minLengthErrorTextId].GetComponent<Text>();
+                    }
+                    if (view.definition.kind == "tabs") view.tabPages = view.definition.contentIds.Select(id => objects[id]).ToArray();
                     GameObject control = objects[view.definition.nodeId];
                     ScrollRect scroll = control.GetComponentInParent<ScrollRect>(true);
                     if (scroll != null) control.AddComponent<PanelScrollReveal>().Configure(scroll);
@@ -374,7 +386,7 @@ namespace GameUi.PanelHarness.Editor
 
         private static void ValidateDocument(PanelDocument document)
         {
-            if (document == null || document.formatVersion != "0.1" || document.adapterVersion != PanelController.ADAPTER_VERSION || !new[] { "0.1", "0.2", "0.3", "0.4", "0.5" }.Contains(document.panelSpecVersion) || !ValidId(document.panelId) || !IsSha(document.panelSha256)) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_VERSION");
+            if (document == null || document.formatVersion != "0.1" || document.adapterVersion != PanelController.ADAPTER_VERSION || !new[] { "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7" }.Contains(document.panelSpecVersion) || !ValidId(document.panelId) || !IsSha(document.panelSha256)) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_VERSION");
             if (!Positive(document.canvasWidth, 4096) || !Positive(document.canvasHeight, 4096) || document.nodes == null || document.nodes.Length < 1 || document.nodes.Length > 2048 || document.fields == null || document.fields.Length > 128 || document.controls == null || document.controls.Length > 128 || document.assets == null || document.assets.Length > 129) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_LIMIT");
             Dictionary<string, PanelAsset> assets = new Dictionary<string, PanelAsset>(StringComparer.Ordinal);
             foreach (PanelAsset asset in document.assets)
@@ -386,7 +398,7 @@ namespace GameUi.PanelHarness.Editor
             Dictionary<string, int> depths = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (PanelNode node in document.nodes)
             {
-                if (node == null || !ValidId(node.id) || nodes.ContainsKey(node.id) || !new[] { "Container", "Text", "Image", "Slider", "Switch", "Select", "Button", "ProgressBar", "ScrollView" }.Contains(node.type)) throw new InvalidDataException("PANEL_IMPORT_NODE_ID_TYPE");
+                if (node == null || !ValidId(node.id) || nodes.ContainsKey(node.id) || !new[] { "Container", "Text", "Image", "Slider", "Switch", "Select", "Button", "ProgressBar", "ScrollView", "Tabs", "Input" }.Contains(node.type)) throw new InvalidDataException("PANEL_IMPORT_NODE_ID_TYPE");
                 if (!Finite(node.x) || !Finite(node.y) || node.x < 0 || node.y < 0 || !Positive(node.width, 65536) || !Positive(node.height, 65536) || !Finite(node.opacity) || node.opacity < 0 || node.opacity > 1 || !Finite(node.borderWidth) || node.borderWidth < 0 || node.borderWidth > 256 || !Finite(node.cornerRadius) || node.cornerRadius < 0 || node.cornerRadius > 4096 || !ValidColor(node.backgroundColor) || !ValidColor(node.borderColor) || !ValidColor(node.textColor) || node.fontSize < 1 || node.fontSize > 256 || !ValidText(node.text, 512)) throw new InvalidDataException("PANEL_IMPORT_NODE_STYLE_GEOMETRY");
                 if (nodes.Count == 0)
                 {
@@ -396,7 +408,7 @@ namespace GameUi.PanelHarness.Editor
                 else
                 {
                     PanelNode parent;
-                    if (node.parentId == null || !nodes.TryGetValue(node.parentId, out parent) || (parent.type != "Container" && parent.type != "ScrollView")) throw new InvalidDataException("PANEL_IMPORT_PARENT_ORDER");
+                    if (node.parentId == null || !nodes.TryGetValue(node.parentId, out parent) || (parent.type != "Container" && parent.type != "ScrollView" && parent.type != "Tabs")) throw new InvalidDataException("PANEL_IMPORT_PARENT_ORDER");
                     int depth = depths[parent.id] + 1;
                     if (depth > 32) throw new InvalidDataException("PANEL_IMPORT_NODE_DEPTH");
                     depths.Add(node.id, depth);
@@ -425,7 +437,7 @@ namespace GameUi.PanelHarness.Editor
                 }
                 else if (field.type == "progress")
                 {
-                    if (document.panelSpecVersion != "0.5" || field.min != 0 || field.step != 0 || !Finite(field.max) || field.max <= 0
+                    if ((document.panelSpecVersion != "0.5" && document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7") || field.min != 0 || field.step != 0 || !Finite(field.max) || field.max <= 0
                         || !ValidProgress(field, field.initialNumber) || !ValidProgress(field, field.numberValue)) throw new InvalidDataException("PANEL_IMPORT_PROGRESS_FIELD");
                 }
                 else if (field.type == "enum")
@@ -433,6 +445,11 @@ namespace GameUi.PanelHarness.Editor
                     HashSet<string> options = new HashSet<string>(StringComparer.Ordinal);
                     foreach (PanelOption option in field.options) if (option == null || !ValidId(option.id) || !options.Add(option.id) || !ValidText(option.label, 120) || string.IsNullOrWhiteSpace(option.label)) throw new InvalidDataException("PANEL_IMPORT_ENUM_OPTION");
                     if (options.Count < 1 || !options.Contains(field.initialString) || !options.Contains(field.stringValue)) throw new InvalidDataException("PANEL_IMPORT_ENUM_VALUE");
+                }
+                else if (field.type == "string")
+                {
+                    if (document.panelSpecVersion != "0.7" || !PanelController.StringValid(field.initialString, field.maxLength)
+                        || !PanelController.StringValid(field.stringValue, field.maxLength)) throw new InvalidDataException("PANEL_IMPORT_STRING_FIELD");
                 }
                 else if (field.type != "boolean") throw new InvalidDataException("PANEL_IMPORT_FIELD_TYPE");
                 fields.Add(field.id, field);
@@ -451,21 +468,55 @@ namespace GameUi.PanelHarness.Editor
                         || (control.displayMode != "percent" && control.displayMode != "value")) throw new InvalidDataException("PANEL_IMPORT_PROGRESS_CONTROL");
                 }
                 else if (!ValidId(control.eventName) || !events.Add(control.eventName)) throw new InvalidDataException("PANEL_IMPORT_CONTROL_EVENT");
-                string type = control.kind == "slider" ? "Slider" : control.kind == "switch" ? "Switch" : control.kind == "select" ? "Select" : control.kind == "button" ? "Button" : control.kind == "progress" ? "ProgressBar" : "";
+                string type = control.kind == "slider" ? "Slider" : control.kind == "switch" ? "Switch" : control.kind == "select" ? "Select" : control.kind == "button" ? "Button" : control.kind == "progress" ? "ProgressBar" : control.kind == "tabs" ? "Tabs" : control.kind == "input" ? "Input" : "";
                 if (type == "" || node.type != type) throw new InvalidDataException("PANEL_IMPORT_CONTROL_TYPE");
                 if (control.kind == "button")
                 {
-                    if (control.fieldId != "" || (control.action != "emit" && control.action != "reset-initial") || (control.action == "emit" && control.resetFields.Length != 0) || (control.action == "reset-initial" && control.resetFields.Length == 0)) throw new InvalidDataException("PANEL_IMPORT_BUTTON_ACTION");
+                    if (control.fieldId != "" || (control.action != "emit" && control.action != "reset-initial" && control.action != "submit") || (control.action == "emit" && control.resetFields.Length != 0) || (control.action == "reset-initial" && control.resetFields.Length == 0)) throw new InvalidDataException("PANEL_IMPORT_BUTTON_ACTION");
+                    if (control.action == "submit")
+                    {
+                        if (document.panelSpecVersion != "0.7" || control.resetFields.Length != 0 || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) throw new InvalidDataException("PANEL_IMPORT_SUBMIT_SCOPE");
+                        HashSet<string> submitted = new HashSet<string>(StringComparer.Ordinal);
+                        foreach (string id in control.submitFields)
+                            if (id == null || !fields.ContainsKey(id) || fields[id].type != "string" || !submitted.Add(id)
+                                || !document.controls.Any(item => item != null && item.kind == "input" && item.fieldId == id)) throw new InvalidDataException("PANEL_IMPORT_SUBMIT_FIELD");
+                    }
+                    else if (control.submitFields != null && control.submitFields.Length != 0) throw new InvalidDataException("PANEL_IMPORT_SUBMIT_UNEXPECTED");
                     HashSet<string> resetFields = new HashSet<string>(StringComparer.Ordinal);
                     foreach (string field in control.resetFields) if (field == null || !fields.ContainsKey(field) || !resetFields.Add(field)) throw new InvalidDataException("PANEL_IMPORT_RESET_FIELD");
                 }
                 else
                 {
                     PanelField field;
-                    string expected = control.kind == "slider" ? "number" : control.kind == "switch" ? "boolean" : control.kind == "progress" ? "progress" : "enum";
+                    string expected = control.kind == "slider" ? "number" : control.kind == "switch" ? "boolean" : control.kind == "progress" ? "progress" : control.kind == "input" ? "string" : "enum";
                     if (control.fieldId == null || !fields.TryGetValue(control.fieldId, out field) || field.type != expected || control.action != "" || control.resetFields.Length != 0) throw new InvalidDataException("PANEL_IMPORT_BINDING");
                     if (!usedFields.Add(field.id)) throw new InvalidDataException("PANEL_IMPORT_DUPLICATE_BINDING");
                     if (control.kind == "progress" && control.displayMode == "value" && field.max >= 1E21) throw new InvalidDataException("PANEL_IMPORT_PROGRESS_FORMAT_LIMIT");
+                    if (control.kind == "input")
+                    {
+                        if (!PanelController.InputMetadataValid(control, field)) throw new InvalidDataException("PANEL_IMPORT_INPUT_METADATA");
+                        string[] errorIds = { control.requiredErrorTextId, control.minLengthErrorTextId };
+                        string[] messages = { control.validation.requiredMessage, control.validation.minLengthMessage };
+                        for (int i = 0; i < errorIds.Length; i++)
+                        {
+                            PanelNode errorNode;
+                            if (errorIds[i] == null || !nodes.TryGetValue(errorIds[i], out errorNode) || errorNode.type != "Text"
+                                || errorNode.parentId != node.parentId || errorNode.text != messages[i]) throw new InvalidDataException("PANEL_IMPORT_INPUT_ERROR_TEXT");
+                        }
+                        if (errorIds[0] == errorIds[1]) throw new InvalidDataException("PANEL_IMPORT_INPUT_ERROR_ID");
+                    }
+                    if (control.kind == "tabs")
+                    {
+                        if ((document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7") || field.options.Length < 2 || node.height < 104 || node.width / field.options.Length < 24
+                            || control.contentIds == null || control.contentIds.Length != field.options.Length
+                            || control.contentIds.Distinct(StringComparer.Ordinal).Count() != control.contentIds.Length) throw new InvalidDataException("PANEL_IMPORT_TABS_RECORD");
+                        foreach (string id in control.contentIds)
+                        {
+                            PanelNode page;
+                            if (id == null || !nodes.TryGetValue(id, out page) || page.parentId != node.id || (page.type != "Container" && page.type != "ScrollView") || page.y < 48) throw new InvalidDataException("PANEL_IMPORT_TABS_PAGE");
+                        }
+                        if (document.nodes.Count(item => item.parentId == node.id) != control.contentIds.Length) throw new InvalidDataException("PANEL_IMPORT_TABS_PAGE_COVERAGE");
+                    }
                 }
                 if (control.kind == "slider" || control.kind == "progress")
                 {
@@ -474,7 +525,7 @@ namespace GameUi.PanelHarness.Editor
                 }
                 else if (control.valueTextId != "") throw new InvalidDataException("PANEL_IMPORT_VALUE_TEXT_UNEXPECTED");
             }
-            foreach (PanelNode node in document.nodes) if (new[] { "Slider", "Switch", "Select", "Button", "ProgressBar" }.Contains(node.type) && !controlNodes.Contains(node.id)) throw new InvalidDataException("PANEL_IMPORT_UNBOUND_CONTROL");
+            foreach (PanelNode node in document.nodes) if (new[] { "Slider", "Switch", "Select", "Button", "ProgressBar", "Tabs", "Input" }.Contains(node.type) && !controlNodes.Contains(node.id)) throw new InvalidDataException("PANEL_IMPORT_UNBOUND_CONTROL");
             if (usedFields.Count != fields.Count) throw new InvalidDataException("PANEL_IMPORT_UNUSED_FIELD");
         }
 
@@ -559,6 +610,8 @@ namespace GameUi.PanelHarness.Editor
 
         private static Sprite ProgressSprite(string folder)
         {
+            AssertNoLinks(ToAbsoluteAssetPath(folder + "/Textures"));
+            if (!AssetDatabase.IsValidFolder(folder + "/Textures")) AssetDatabase.CreateFolder(folder, "Textures");
             // An owned opaque white pixel removes the default UGUI sprite's bevel/gradient.
             byte[] bytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4////fwAJ+wP9CNHoHgAAAABJRU5ErkJggg==");
             string path = folder + "/Textures/" + Hash(bytes) + ".png";
@@ -639,6 +692,28 @@ namespace GameUi.PanelHarness.Editor
             view.toggle = toggle;
         }
 
+        private static void BuildInput(GameObject target, PanelNode node, PanelControlView view, PanelField field, Font font)
+        {
+            PanelRoundedGraphic background = AddBackground(target, node);
+            InputField input = target.AddComponent<InputField>();
+            input.targetGraphic = background;
+            ConfigureSelectable(input, view.definition.enabled);
+            GameObject viewport = Child(target, "__input-viewport", 10, 0, Math.Max(1, node.width - 20), node.height);
+            viewport.AddComponent<RectMask2D>();
+            GameObject label = Child(viewport, "__input-text", 0, 0, Math.Max(1, node.width - 20), node.height);
+            Text text = AddText(label, "", node, font, TextAnchor.MiddleLeft);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            GameObject placeholder = Child(viewport, "__placeholder", 0, 0, Math.Max(1, node.width - 20), node.height);
+            Text placeholderText = AddText(placeholder, view.definition.placeholder, node, font, TextAnchor.MiddleLeft);
+            placeholderText.color = new Color(text.color.r, text.color.g, text.color.b, text.color.a * 0.6f);
+            input.textComponent = text; input.placeholder = placeholderText;
+            input.contentType = view.definition.inputType == "password" ? InputField.ContentType.Password : InputField.ContentType.Standard;
+            input.lineType = InputField.LineType.SingleLine; input.characterLimit = field.maxLength;
+            input.readOnly = view.definition.readOnly; input.SetTextWithoutNotify(field.stringValue);
+            view.input = input;
+        }
+
         private static void BuildButton(GameObject target, PanelNode node, PanelControlView view, Font font)
         {
             PanelRoundedGraphic background = AddBackground(target, node);
@@ -648,6 +723,32 @@ namespace GameUi.PanelHarness.Editor
             GameObject label = Child(target, "__label", 8, 0, Math.Max(1, node.width - 16), node.height);
             AddText(label, node.text, node, font, TextAnchor.MiddleCenter);
             view.button = button;
+        }
+
+        private static void BuildTabs(GameObject target, PanelNode node, PanelControlView view, PanelField field, Font font)
+        {
+            view.tabButtons = new Button[field.options.Length];
+            view.tabActiveColor = ParseColor(node.borderColor, node.opacity);
+            view.tabIdleColor = ParseColor(node.backgroundColor, node.opacity);
+            float width = node.width / field.options.Length;
+            for (int i = 0; i < field.options.Length; i++)
+            {
+                GameObject tab = Child(target, "__tab_" + field.options[i].id, i * width, 0, width, 48);
+                PanelRoundedGraphic graphic = AddGraphic(tab, Color.white, Color.clear, 0, 6);
+                Button button = tab.AddComponent<Button>(); button.targetGraphic = graphic;
+                ConfigureSelectable(button, view.definition.enabled);
+                button.transition = Selectable.Transition.None;
+                GameObject label = Child(tab, "__label", 8, 0, Math.Max(1, width - 16), 48);
+                AddText(label, field.options[i].label, node, font, TextAnchor.MiddleCenter);
+                view.tabButtons[i] = button;
+            }
+            for (int i = 0; i < view.tabButtons.Length; i++)
+            {
+                Navigation navigation = new Navigation { mode = Navigation.Mode.Explicit,
+                    selectOnLeft = view.tabButtons[(i + view.tabButtons.Length - 1) % view.tabButtons.Length],
+                    selectOnRight = view.tabButtons[(i + 1) % view.tabButtons.Length] };
+                view.tabButtons[i].navigation = navigation;
+            }
         }
 
         private static void BuildDropdown(GameObject target, PanelNode node, PanelControlView view, PanelField field, Font font)

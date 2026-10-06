@@ -8,13 +8,18 @@ import { CODEX_MODEL, CODEX_EFFORT, findCodexExecutable, planWithCodex, editWith
 import { createPanelEditContext, checkPanelEditProposal } from '../src/edit-planning.mjs';
 import { digestJson, digestBytes } from '../src/canonical.mjs';
 import { validateCodexDiagnostic } from '../src/codex-diagnostics.mjs';
-import { buildCodexEditResponseSchema } from '../src/codex-edit-schema.mjs';
+import { buildCodexEditResponseSchema, codexEditOperationContracts } from '../src/codex-edit-schema.mjs';
 import { applyPanelPatch } from '../src/patch.mjs';
 import { harnessRoot } from '../src/io.mjs';
 import { createPlanningContext } from '../src/planning-context.mjs';
 import { proposalTargets } from '../src/proposal.mjs';
 import { PANEL_EVALUATION_SUITE } from '../examples/panel-evaluation/suite.mjs';
 import { compactIntentFixture } from '../examples/panel-evaluation/intent-fixture.mjs';
+import { formRequest, formIntent } from '../examples/forms-v1/fixture.mjs';
+import { formEditRequest, formEditDraft } from '../examples/forms-v1/edit-fixture.mjs';
+import { materializePanelIntent } from '../src/panel-intent.mjs';
+import { ordinalFixture } from './ordinal-intent-fixture.mjs';
+import { requestReferenceFixture } from '../examples/request-reference-v1/fixture.mjs';
 
 const json = async path => JSON.parse(await readFile(path, 'utf8'));
 const catalog = await json(join(harnessRoot, 'examples/modern-mint-controls.catalog.json'));
@@ -33,6 +38,22 @@ const executable = join(work, process.platform === 'win32' ? 'codex.exe' : 'code
 await writeFile(executable, 'This is a non-executable fixture. Tests only use fake child processes.');
 let folderIndex = 0;
 const output = () => join(work, `case-${folderIndex++}`);
+async function clarifiedAudioFixture() {
+  const formsCatalog = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const text = '做个声音设置，放音量滑条和静音开关，再加恢复默认。\n【补充回答】\n问题：音量范围、步长、初值和静音初值是多少？\n回答：音量0到100、步长1、默认70；静音默认关闭，开启表示静音；恢复默认只重置这两项；全部可用';
+  const input = await createPlanningContext({ ...request, id: 'clarified-audio', text }, formsCatalog);
+  const common = (id, kind, label) => ({ id, kind, label, recipeKey: `settings.${kind}@0.1.0`, sourceQuote: text, icon: null, enabled: true });
+  const intent = { panelIntentVersion: '0.6', contextSha256: input.sha256, unresolved: [], panel: {
+    id: input.request.id, title: '声音设置', themeKey: 'modern-mint-light@0.1.0', panelSurface: null,
+    layout: { width: null, canvasWidth: null, canvasHeight: null, maxHeight: 480, overflow: 'auto' },
+    body: { kind: 'column', children: [{ kind: 'section', id: 'section0', title: '声音', rows: [
+      { ...common('row0', 'slider', '音量'), min: 0, max: 100, step: 1, initial: 70, prefix: '', suffix: '' },
+      { ...common('row1', 'switch', '静音'), initial: false },
+      { ...common('row2', 'button', '恢复默认'), action: 'reset-initial', resetRows: ['row0', 'row1'], submitRows: [] },
+    ] }] },
+  } };
+  return { input, intent: ordinalFixture(intent), formsCatalog };
+}
 const threadId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const beginning = [{ type: 'thread.started', thread_id: threadId }, { type: 'turn.started' }];
 function proposalFor(input = context) {
@@ -86,7 +107,7 @@ async function rejected(fake, code, { input = context, ...options } = {}) {
     assert.equal(caught.receipt.status, 'FAILED'); assert.equal(caught.receipt.automaticRetries, 0);
     assert.equal(caught.receipt.failureCode, code);
     assert.equal(caught.receipt.proposalSha256, null);
-    validateCodexReceipt(caught.receipt, { contextSha256: context.sha256 });
+    validateCodexReceipt(caught.receipt, { contextSha256: input.sha256 });
     assert.equal(JSON.stringify(caught.receipt).includes('private_endpoint'), false);
   }
   assert.ok(fake.calls.length <= 1, 'never retries failed or indeterminate requests');
@@ -106,9 +127,10 @@ test('Codex editing accepts legacy native proposals under draft dispatch and wri
   assert.ok(call.args.includes('model_reasoning_effort="xhigh"'));
   assert.ok(call.args.includes('features.shell_tool=false'));
   assert.ok(call.prompt.includes('UNTRUSTED TASK DATA')); assert.ok(call.prompt.includes('panel-editor.md'));
-  assert.ok(call.prompt.includes('panel-edit-proposal.schema.json')); assert.ok(call.prompt.includes('reset-initial'));
+  assert.ok(call.prompt.includes('### Native CLI output schema')); assert.ok(call.prompt.includes('reset-initial'));
+  assert.ok(!call.prompt.includes('panel-edit-proposal.schema.json'));
   assert.ok(call.prompt.includes('Do not wrap it in proposalJson'));
-  assert.deepEqual(call.schema.required.sort(), ['bases', 'codexEditDraftVersion', 'contextSha256', 'patch', 'unresolved']);
+  assert.deepEqual(call.schema.required.sort(), ['bases', 'codexEditDraftVersion', 'contextSha256', 'noChange', 'patch', 'unresolved']);
   assert.equal(Object.hasOwn(call.schema.properties, 'proposalJson'), false);
   assert.ok(call.prompt.includes(JSON.stringify(editContext.request.text))); assert.ok(call.prompt.includes(editContext.baseSpecSha256));
   assert.equal(call.prompt.includes(executable), false);
@@ -156,7 +178,7 @@ test('0.4 generation uses concise native intent, deterministic bindings and pres
   assert.equal(bad.calls.length, 1);
 });
 
-test('editing output schema has strict native shapes, all ten operations and local recursive layout references', async () => {
+test('editing output schema has strict native shapes, all thirteen operations and local recursive layout references', async () => {
   const schema = await buildCodexEditResponseSchema(), operations = new Set(); let recursiveChildren = false;
   const visit = value => {
     if (!value || typeof value !== 'object') return;
@@ -174,8 +196,324 @@ test('editing output schema has strict native shapes, all ten operations and loc
     Object.values(value).forEach(visit);
   };
   visit(schema);
-  assert.deepEqual([...operations].sort(), ['add-row', 'remove-row', 'set-button-action', 'set-button-label', 'set-layout', 'set-panel-title', 'set-row-enabled', 'set-row-label', 'set-state-initial', 'set-theme']);
+  assert.deepEqual([...operations].sort(), ['add-row', 'remove-row', 'set-button-action', 'set-button-label', 'set-input-properties', 'set-layout', 'set-panel-title', 'set-row-enabled', 'set-row-label', 'set-state-initial', 'set-tab-label', 'set-tabs-enabled', 'set-theme']);
   assert.equal(recursiveChildren, true);
+});
+
+test('native generation schema bounds containers, rows, options, pages and action scopes while invalid trees stay terminal', async () => {
+  const { input, intent } = await clarifiedAudioFixture();
+  const fake = fakeProcess(async (child, call) => {
+    const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    const limits = (shape, min, max) => { assert.equal(shape.minItems, min); assert.equal(shape.maxItems, max); };
+    limits(schema.$defs.container.properties.children, 1, 96);
+    const rows = schema.$defs.body.anyOf[0].properties.rows;
+    limits(rows, 1, 128);
+    const rowSchemas = rows.items.anyOf;
+    limits(rowSchemas.find(row => row.properties.kind.enum[0] === 'select').properties.options, 1, 8);
+    const button = rowSchemas.find(row => row.properties.kind.enum[0] === 'button');
+    limits(button.properties.resetRows, 0, 128); limits(button.properties.submitRows, 0, 128);
+    limits(schema.properties.panel.anyOf[1].properties.body.anyOf[1].properties.pages, 2, 8);
+    assert(call.prompt.includes('不允许空容器、空分组或占位节点'));
+    sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0);
+  });
+  assert.equal((await planWithCodex(input, { outputRoot: output(), executable, runProcess: fake.runProcess })).report.status, 'READY_TO_COMPILE');
+  for (const children of [[], Array.from({ length: 97 }, () => intent.panel.body.children[0])]) {
+    const broken = structuredClone(intent); broken.panel.body.children = structuredClone(children);
+    const bad = fakeProcess(child => { sendEvents(child, completedEvents(JSON.stringify(broken))); child.close(0); });
+    await assert.rejects(planWithCodex(input, { outputRoot: output(), executable, runProcess: bad.runProcess }), error => {
+      assert.equal(error.code, 'CODEX_PROPOSAL_INVALID'); assert.equal(error.diagnostic.validatorCode, 'INTENT_COUNT');
+      assert.equal(error.diagnostic.path, '$.panel.body.children'); assert.equal(error.receipt.automaticRetries, 0); return true;
+    });
+    assert.equal(bad.calls.length, 1);
+  }
+});
+
+test('successive edit invocations pin both current digests and stale bindings remain failures without repair', async () => {
+  const first = editProposalFor(editContext);
+  const nextSpec = (await applyPanelPatch(sourceSpec, first.patch)).spec;
+  const secondContext = await createPanelEditContext(nextSpec, catalog, { ...request, id: 'panel-edit', text: '将主音量默认值改成50，其他保持不变。' });
+  assert.notEqual(secondContext.sha256, editContext.sha256); assert.notEqual(secondContext.baseSpecSha256, editContext.baseSpecSha256);
+  for (const input of [editContext, secondContext]) {
+    const reply = input === editContext ? first : { ...editProposalFor(input), patch: {
+      patchVersion: '0.1', baseSpecSha256: input.baseSpecSha256, reason: '调整明确的创作默认值。',
+      operations: [{ op: 'set-state-initial', fieldId: 'volume', value: 50 }] } };
+    const fake = fakeProcess(async (child, call) => {
+      const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+      assert.deepEqual(schema.properties.contextSha256.enum, [input.sha256]);
+      const follow = shape => shape.$ref ? follow(schema.$defs[shape.$ref.slice('#/$defs/'.length)]) : shape;
+      const patch = follow(follow(schema.properties.patch).anyOf.find(shape => shape.type !== 'null'));
+      assert.deepEqual(patch.properties.baseSpecSha256.enum, [input.baseSpecSha256]);
+      assert.equal(patch.properties.operations.minItems, 1); assert.equal(patch.properties.operations.maxItems, 32);
+      const binding = JSON.stringify({ baseSpecSha256: input.baseSpecSha256, contextSha256: input.sha256 });
+      assert(call.prompt.includes('Authoritative invocation binding')); assert(call.prompt.includes(binding));
+      assert(call.prompt.includes('Final binding check before returning'));
+      sendEvents(child, completedEvents(JSON.stringify(reply))); child.close(0);
+    });
+    assert.equal((await editWithCodex(input, { outputRoot: output(), executable, runProcess: fake.runProcess })).report.status, 'READY_TO_APPLY');
+    assert.equal(fake.calls.length, 1);
+  }
+  const before = structuredClone(secondContext);
+  for (const changes of [{ contextSha256: editContext.sha256 }, { baseSpecSha256: editContext.baseSpecSha256 }]) {
+    const stale = editProposalFor(secondContext);
+    if (changes.contextSha256) stale.contextSha256 = changes.contextSha256;
+    else stale.patch.baseSpecSha256 = changes.baseSpecSha256;
+    const fake = fakeProcess(child => { sendEvents(child, completedEvents(JSON.stringify(stale))); child.close(0); });
+    await assert.rejects(editWithCodex(secondContext, { outputRoot: output(), executable, runProcess: fake.runProcess }), error => {
+      assert.equal(error.code, 'CODEX_PROPOSAL_INVALID');
+      assert.equal(error.diagnostic.validatorCode, changes.contextSha256 ? 'EDIT_CONTEXT_MISMATCH' : 'EDIT_BASE_MISMATCH');
+      assert.equal(error.receipt.automaticRetries, 0); return true;
+    });
+    assert.equal(fake.calls.length, 1); assert.deepEqual(secondContext, before);
+  }
+});
+
+test('forms generation uses the native intent schema in exactly one CLI invocation', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const context = await createPlanningContext(formRequest, catalog);
+  const fake = fakeProcess(async (child, call) => {
+    call.schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    sendEvents(child, completedEvents(JSON.stringify(requestReferenceFixture(ordinalFixture(formIntent(context)))))); child.close(0);
+  });
+  const result = await planWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(fake.calls.length, 1);
+  assert.deepEqual(fake.calls[0].schema.properties.panelIntentVersion.enum, ['0.8']);
+  const nativeSchema = fake.calls[0].prompt.split('### Native CLI output schema\n')[1].split('\n\nComplete validated task data:')[0];
+  assert.deepEqual(JSON.parse(nativeSchema), fake.calls[0].schema);
+  assert(fake.calls[0].prompt.includes('A name like 仅收藏 must not become 收藏'));
+  const outputFolder = dirname(fake.calls[0].args[fake.calls[0].args.indexOf('--output-schema') + 1]);
+  assert.deepEqual(await json(join(outputFolder, 'panel-intent.json')), requestReferenceFixture(ordinalFixture(formIntent(context))));
+  assert(fake.calls[0].prompt.includes('submitRows'));
+  assert.equal(result.proposal.spec.panelSpecVersion, '0.7');
+  assert.equal(result.report.status, 'READY_TO_COMPILE');
+  assert.equal(result.receipt.automaticRetries, 0);
+});
+
+test('no-change CLI drafts produce separate bound evidence once without an applied edit receipt', async () => {
+  const context = await createPanelEditContext(sourceSpec, catalog, { ...request, text: '保持当前面板完全一样，这次不用修改任何内容。' });
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: context.sha256, patch: null, bases: null, unresolved: [],
+    noChange: { reason: '用户明确要求无需修改。', quote: context.request.text } };
+  const outputRoot = output();
+  const fake = fakeProcess(async (child, call) => {
+    const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    assert.deepEqual(schema.properties.codexEditDraftVersion.enum, ['0.3']);
+    assert(schema.required.includes('noChange')); assert(call.prompt.includes('noChange MUST be null'));
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot, executable, runProcess: fake.runProcess });
+  assert.equal(fake.calls.length, 1); assert.equal(result.report.status, 'NO_CHANGES');
+  assert.equal(result.receipt.codexEditingReceiptVersion, '0.2'); assert.equal(result.receipt.automaticRetries, 0);
+  assert.equal(result.proposal.editProposalVersion, '0.2'); assert.equal(result.proposal.patch, null);
+  assert.equal(result.receipt.proposalSha256, await digestJson(result.proposal));
+  const directory = join(outputRoot, (await readdir(outputRoot))[0]);
+  assert.deepEqual(await json(join(directory, 'codex-edit-draft.json')), draft);
+  assert.deepEqual(await json(join(directory, 'edit-proposal.json')), result.proposal);
+  assert.deepEqual(await json(join(directory, 'codex-edit-receipt.json')), result.receipt);
+});
+
+test('existing readonly input edits advertise exact current capabilities and preserve every unrequested input property', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const planning = await createPlanningContext(formRequest, catalog);
+  const spec = (await materializePanelIntent(planning, formIntent(planning))).spec;
+  const request = { ...formRequest, text: '将角色名输入改为只读，其他属性和按钮行为不变。' };
+  const context = await createPanelEditContext(spec, catalog, request);
+  const row = spec.sections.flatMap(section => section.rows).find(value => value.kind === 'input');
+  const field = spec.state.find(value => value.id === row.bind);
+  const draft = { codexEditDraftVersion: '0.2', contextSha256: context.sha256,
+    patch: { patchVersion: '0.1', baseSpecSha256: context.baseSpecSha256, reason: request.text,
+      operations: [{ op: 'set-input-properties', rowId: row.id, placeholder: row.placeholder,
+        inputType: row.inputType, readOnly: true, maxLength: field.maxLength, validation: row.validation }] },
+    bases: [{ kind: 'request-interpretation', quote: request.text }], unresolved: [] };
+  const fake = fakeProcess((child, call) => {
+    const marker = 'Authoritative current editing capabilities, copied by the program from the validated context: ';
+    const line = call.prompt.split('\n').find(value => value.startsWith(marker));
+    assert.deepEqual(JSON.parse(line.slice(marker.length)), { sourceSpecVersion: spec.panelSpecVersion,
+      allowedPatchOperations: context.capabilities.operations });
+    assert(call.prompt.indexOf(marker) < call.prompt.indexOf('### CLI editing instructions:'));
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'READY_TO_APPLY'); assert.equal(fake.calls.length, 1);
+  const changed = (await applyPanelPatch(spec, result.proposal.patch)).spec;
+  const expected = structuredClone(spec);
+  expected.sections.flatMap(section => section.rows).find(value => value.id === row.id).readOnly = true;
+  assert.deepEqual(changed, expected); assert.equal(result.receipt.automaticRetries, 0);
+});
+
+test('declaration edits dispatch draft 0.3 once while preserving accepted legacy form drafts', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const planning = await createPlanningContext(formRequest, catalog);
+  const spec = (await materializePanelIntent(planning, formIntent(planning))).spec;
+  const context = await createPanelEditContext(spec, catalog, { ...formRequest, text: formEditRequest });
+  const draft = formEditDraft(context), outputRoot = output();
+  const fake = fakeProcess(async (child, call) => {
+    call.schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot, executable, runProcess: fake.runProcess });
+  assert.equal(fake.calls.length, 1); assert.equal(result.receipt.automaticRetries, 0);
+  assert.deepEqual(fake.calls[0].schema.properties.codexEditDraftVersion.enum, ['0.3']);
+  assert(fake.calls[0].prompt.includes('add-input-row')); assert(fake.calls[0].prompt.includes('validationMessages:null'));
+  assert.equal(result.report.status, 'READY_TO_APPLY'); assert.equal(result.proposal.patch.operations[1].op, 'add-row');
+  assert.deepEqual(result.proposal.patch.operations[2].action.fields, ['row0', 'declaration']);
+  const directory = join(outputRoot, (await readdir(outputRoot))[0]);
+  assert.deepEqual(await json(join(directory, 'codex-edit-draft.json')), draft);
+  assert.deepEqual(await json(join(directory, 'edit-proposal.json')), result.proposal);
+});
+
+test('native edit operation mapping comes from reachable schema branches and respects the source capabilities', async () => {
+  const formCatalog = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const planning = await createPlanningContext(formRequest, formCatalog);
+  const spec = (await materializePanelIntent(planning, formIntent(planning))).spec;
+  const context = await createPanelEditContext(spec, formCatalog, { ...formRequest, text: '新增一个角色宣言输入框。' });
+  const schema = await buildCodexEditResponseSchema({ draft: true, context });
+  const contracts = codexEditOperationContracts(schema, context), input = contracts.find(value => value.operation === 'add-input-row');
+  assert(context.capabilities.operations.includes('add-row')); assert(!context.capabilities.operations.includes('add-input-row'));
+  assert.equal(input.publicOperation, 'add-row');
+  assert.deepEqual(input.required, ['op','sectionId','afterRowId','id','recipeKey','label','enabled','initial','placeholder','inputType','readOnly','maxLength','required','minLength','validationMessages']);
+  assert(contracts.every(value => context.capabilities.operations.includes(value.publicOperation)));
+  const oldSchema = await buildCodexEditResponseSchema({ draft: true, context: editContext });
+  const old = codexEditOperationContracts(oldSchema, editContext);
+  assert(!old.some(value => ['add-input-row', 'set-input-properties', 'set-tab-label'].includes(value.operation)));
+});
+
+test('two successive declaration edits receive one current native schema contract, preserve IDs and submit dependencies', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const planning = await createPlanningContext(formRequest, catalog);
+  const base = (await materializePanelIntent(planning, formIntent(planning))).spec;
+  const firstText = '在角色名下新增“角色宣言”单行输入，初始为空，非必填，最多30字符，可编辑。确认同时提交角色名和宣言，其他不变。';
+  const secondText = '将角色宣言改为必填、最少3字符、最多30字符，其他不变。';
+  let draft;
+  const fake = fakeProcess(async (child, call) => {
+    const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    const nativeText = call.prompt.split('### Native CLI output schema\n')[1].split('\n### Complete validated task data')[0].trim();
+    assert.deepEqual(JSON.parse(nativeText), schema);
+    assert.deepEqual(schema.properties.codexEditDraftVersion.enum, ['0.3']);
+    assert(!call.prompt.includes('schemas/panel-patch.schema.json'));
+    assert(!call.prompt.includes('schemas/codex-edit-draft-v0.2.schema.json'));
+    assert(!call.prompt.includes('### Public contract reference:'));
+    assert(call.prompt.includes('It does not need a separate public capability named add-input-row'));
+    const marker = "Native edit operation contracts, derived from this invocation's output schema: ";
+    const native = JSON.parse(call.prompt.split('\n').find(line => line.startsWith(marker)).slice(marker.length));
+    assert.equal(native.find(value => value.operation === 'add-input-row').publicOperation, 'add-row');
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const firstContext = await createPanelEditContext(base, catalog, { ...formRequest, text: firstText });
+  draft = { codexEditDraftVersion: '0.3', contextSha256: firstContext.sha256, noChange: null, unresolved: [],
+    patch: { patchVersion: '0.1', baseSpecSha256: firstContext.baseSpecSha256, reason: '新增可选角色宣言并同时提交两个输入。', operations: [
+      { op: 'add-input-row', sectionId: 'section0', afterRowId: 'row0', id: 'declaration', recipeKey: 'forms.input@0.1.0', label: '角色宣言', enabled: true, initial: '', placeholder: '', inputType: 'text', readOnly: false, maxLength: 30, required: false, minLength: 0, validationMessages: null },
+      { op: 'set-button-action', rowId: 'row1', action: { kind: 'submit', fields: ['row0', 'declaration'] } },
+    ] }, bases: Array.from({length:2}, () => ({kind:'request-interpretation',quote:firstText})) };
+  const first = await editWithCodex(firstContext, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(first.report.status, 'READY_TO_APPLY'); assert.equal(first.receipt.invocationCount, 1);
+  const next = (await applyPanelPatch(base, first.proposal.patch)).spec;
+  assert.deepEqual(next.sections[0].rows.map(row => row.id), ['row0','declaration','row1','row2']);
+  assert.deepEqual(next.sections[0].rows.find(row => row.id === 'row0'), base.sections[0].rows[0]);
+  assert.deepEqual(next.sections[0].rows.find(row => row.id === 'row2'), base.sections[0].rows[2]);
+  assert.deepEqual(next.sections[0].rows.find(row => row.id === 'row1').action.fields, ['row0','declaration']);
+  assert.equal(next.state.find(field => field.id === 'declaration').initial, '');
+  const input = next.sections[0].rows.find(row => row.id === 'declaration');
+  const secondContext = await createPanelEditContext(next, catalog, { ...formRequest, text: secondText });
+  draft = { codexEditDraftVersion:'0.3',contextSha256:secondContext.sha256,noChange:null,unresolved:[],
+    patch:{patchVersion:'0.1',baseSpecSha256:secondContext.baseSpecSha256,reason:'角色宣言改为必填且至少三个字符。',operations:[
+      {op:'set-input-properties',rowId:input.id,placeholder:input.placeholder,inputType:input.inputType,readOnly:input.readOnly,maxLength:30,
+        validation:{...input.validation,required:true,minLength:3,minLengthMessage:'至少输入 3 个字符'}},
+    ]},bases:[{kind:'request-interpretation',quote:secondText}]};
+  const second = await editWithCodex(secondContext, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(second.report.status,'READY_TO_APPLY'); assert.equal(second.receipt.invocationCount,1);
+  const actual=(await applyPanelPatch(next,second.proposal.patch)).spec, expected=structuredClone(next);
+  expected.sections[0].rows.find(row=>row.id===input.id).validation={...input.validation,required:true,minLength:3,minLengthMessage:'至少输入 3 个字符'};
+  assert.deepEqual(actual,expected);assert.equal(fake.calls.length,2);assert.equal(first.receipt.automaticRetries,0);assert.equal(second.receipt.automaticRetries,0);
+});
+
+test('a model question is retained after the native-contract fix instead of repaired or resubmitted', async () => {
+  const catalog=await json(join(harnessRoot,'examples/modern-mint-forms.catalog.json'));
+  const planning=await createPlanningContext(formRequest,catalog),spec=(await materializePanelIntent(planning,formIntent(planning))).spec;
+  const context=await createPanelEditContext(spec,catalog,{...formRequest,text:'在角色名下新增角色宣言，其他不变。'});
+  const draft={codexEditDraftVersion:'0.3',contextSha256:context.sha256,patch:null,bases:null,noChange:null,
+    unresolved:[{id:'q0',question:'How should the required input addition be represented?'}]};
+  const fake=fakeProcess(child=>{sendEvents(child,completedEvents(JSON.stringify(draft)));child.close(0);});
+  const result=await editWithCodex(context,{outputRoot:output(),executable,runProcess:fake.runProcess});
+  assert.equal(result.report.status,'NEEDS_INPUT');assert.deepEqual(result.proposal.unresolved,draft.unresolved);
+  assert.equal(result.proposal.patch,null);assert.equal(fake.calls.length,1);assert.equal(result.receipt.automaticRetries,0);
+});
+
+test('invalid optional input messages preserve the exact underlying field without retries or raw values', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const planning = await createPlanningContext(formRequest, catalog);
+  const spec = (await materializePanelIntent(planning, formIntent(planning))).spec;
+  const context = await createPanelEditContext(spec, catalog, { ...formRequest, text: formEditRequest });
+  const draft = formEditDraft(context);
+  draft.patch.operations[1].validationMessages = { requiredMessage: '', minLengthMessage: 'SECRET_NOT_RECORDED' };
+  const fake = fakeProcess(child => { sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0); });
+  const outputRoot = output(); let caught;
+  await assert.rejects(editWithCodex(context, { outputRoot, executable, runProcess: fake.runProcess }), error => {
+    caught = error; return error.code === 'CODEX_PROPOSAL_INVALID';
+  });
+  assert.equal(fake.calls.length, 1); assert.equal(caught.receipt.automaticRetries, 0);
+  assert.equal(caught.diagnostic.validatorCode, 'EDIT_RESULT_SPEC');
+  assert.deepEqual(caught.diagnostic.cause, { validatorCode: 'text', path: '$.sections[0].rows[1].validation.requiredMessage' });
+  const directory = join(outputRoot, (await readdir(outputRoot))[0]);
+  const saved = await json(join(directory, 'codex-edit-diagnostic.json'));
+  assert.deepEqual(saved, caught.diagnostic); assert(!JSON.stringify(saved).includes('SECRET'));
+  assert.deepEqual((await readdir(directory)).sort(), ['codex-edit-diagnostic.json', 'codex-edit-receipt.json', 'edit-context.json']);
+});
+
+test('Tabs request with missing defaults returns native questions with schema-constrained IDs', async () => {
+  const tabsCatalog = await json(join(harnessRoot, 'examples/modern-mint-tabs.catalog.json'));
+  const input = await createPlanningContext({ ...request, text: '生成设置面板，包含声音和显示两个页签。声音页有主音量和静音开关；显示页有亮度滑条。默认打开声音页。' }, tabsCatalog);
+  const intent = { panelIntentVersion: '0.5', contextSha256: input.sha256, panel: null, unresolved: [
+    { id: 'q0', question: '主音量的范围、步长和初始值是多少？' },
+    { id: 'q1', question: '静音开关默认开启还是关闭？' },
+    { id: 'q2', question: '亮度的范围、步长和初始值是多少？' },
+  ] };
+  const fake = fakeProcess(async (child, call) => {
+    const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    assert.deepEqual(schema.properties.unresolved.items.properties.id.enum, Array.from({ length: 64 }, (_, i) => `q${i}`));
+    assert(call.prompt.includes('q0、q1')); assert(call.prompt.includes('不能翻译成中文'));
+    sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0);
+  });
+  const outputRoot = output(), result = await planWithCodex(input, { outputRoot, executable, runProcess: fake.runProcess });
+  assert.equal(fake.calls.length, 1); assert.equal(result.receipt.status, 'NEEDS_INPUT');
+  assert.equal(result.receipt.automaticRetries, 0); assert.equal(result.proposal.spec, null);
+  assert.deepEqual(result.proposal.unresolved, intent.unresolved);
+  const [name] = await readdir(outputRoot);
+  assert.deepEqual(await json(join(outputRoot, name, 'panel-intent.json')), intent);
+});
+
+test('malformed native question IDs, duplicates and empty text still fail once without repair', async () => {
+  const tabsCatalog = await json(join(harnessRoot, 'examples/modern-mint-tabs.catalog.json'));
+  const input = await createPlanningContext({ ...request, text: '生成设置面板，包含声音和显示两个页签。' }, tabsCatalog);
+  for (const [unresolved, code] of [
+    [[{ id: '音量初值', question: '音量初值是多少？' }], 'PLAN_UNRESOLVED_ID'],
+    [[{ id: 'question 0', question: '音量初值是多少？' }], 'PLAN_UNRESOLVED_ID'],
+    [[{ id: 'q0', question: '音量初值是多少？' }, { id: 'q0', question: '亮度初值是多少？' }], 'PLAN_UNRESOLVED_ID'],
+    [[{ id: 'q0', question: '' }], 'PLAN_TEXT'],
+  ]) {
+    const fake = fakeProcess(child => {
+      sendEvents(child, completedEvents(JSON.stringify({ panelIntentVersion: '0.5', contextSha256: input.sha256, panel: null, unresolved })));
+      child.close(0);
+    });
+    await assert.rejects(planWithCodex(input, { outputRoot: output(), executable, runProcess: fake.runProcess }), error => {
+      assert.equal(error.diagnostic.validatorCode, code); assert.equal(error.receipt.automaticRetries, 0); return true;
+    });
+    assert.equal(fake.calls.length, 1);
+  }
+});
+
+test('native editing questions use the same ID constraints and preserve the source panel', async () => {
+  const draft = { codexEditDraftVersion: '0.1', contextSha256: editContext.sha256, patch: null, bases: null,
+    unresolved: [{ id: 'q0', question: '新的音量初值是多少？' }] };
+  const source = structuredClone(editContext.spec);
+  const fake = fakeProcess(async (child, call) => {
+    const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    assert.deepEqual(schema.properties.unresolved.items.properties.id.enum, Array.from({ length: 64 }, (_, i) => `q${i}`));
+    assert(call.prompt.includes('distinct schema-provided ASCII IDs q0'));
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(editContext, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(fake.calls.length, 1); assert.equal(result.receipt.status, 'NEEDS_INPUT');
+  assert.equal(result.proposal.patch, null); assert.deepEqual(result.proposal.unresolved, draft.unresolved);
+  assert.deepEqual(editContext.spec, source);
 });
 
 test('native multi-operation sound edits preserve existing IDs, reset scope and untouched defaults', async () => {
@@ -396,6 +734,138 @@ test('NEEDS_INPUT is a checked outcome, not a failed model call or compile succe
   const result = await planWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
   assert.deepEqual(result.proposal, proposal); assert.equal(result.receipt.status, 'NEEDS_INPUT');
   assert.equal(result.report.status, 'NEEDS_INPUT'); assert.equal(result.receipt.failureCode, null);
+});
+
+test('clarified native generation binds the current source without copying quotations and compiles all answered facts', async () => {
+  const { input, intent: legacy } = await clarifiedAudioFixture(), intent = requestReferenceFixture(legacy);
+  const fake = fakeProcess((child, call) => {
+    const copied = JSON.parse(call.prompt.split('### Request source binding\n')[1].split('\n')[0]);
+    assert.deepEqual(copied, { contextSha256: input.sha256, sourceRef: 'request' });
+    const schema = JSON.parse(call.prompt.split('### Native CLI output schema\n')[1].split('\n\nComplete validated task data:')[0]);
+    assert.deepEqual(schema.$defs.requestSourceRef, { type: 'string', enum: ['request'] });
+    assert.equal(schema.$defs.exactRequestQuote, undefined);
+    for (const row of schema.$defs.body.anyOf[0].properties.rows.items.anyOf)
+      assert.deepEqual(row.properties.sourceRef, { $ref: '#/$defs/requestSourceRef' });
+    assert(call.prompt.includes('Do not output sourceQuote'));
+    assert(call.prompt.includes('【补充回答】'));
+    sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0);
+  });
+  const result = await planWithCodex(input, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'READY_TO_COMPILE');
+  assert.deepEqual(result.proposal.spec.state.map(field => field.initial), [70, false]);
+  assert.deepEqual(result.proposal.spec.sections[0].rows[2].action.fields, ['row0', 'row1']);
+  assert.equal(fake.calls.length, 1); assert.equal(result.receipt.automaticRetries, 0);
+});
+
+test('current native CLI rejects a provider-returned unique short quote once while saved intent compatibility remains', async () => {
+  const { input, intent } = await clarifiedAudioFixture();
+  intent.panel.body.children[0].rows.forEach(row => { row.sourceQuote = '音量0到100、步长1、默认70；静音默认关闭'; });
+  const before = structuredClone(intent);
+  assert.equal((await materializePanelIntent(input, intent)).spec.sections[0].rows.length, 3, 'saved unique short quotes remain public-valid');
+  const fake = fakeProcess(child => { sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0); });
+  const { error, outputRoot } = await rejected(fake, 'CODEX_PROPOSAL_INVALID', { input });
+  assert.equal(error.diagnostic.validatorCode, 'INTENT_NATIVE_QUOTE');
+  assert.equal(error.diagnostic.path, '$.panel.body.children[0].rows[0].sourceQuote');
+  assert.equal(error.receipt.invocationCount, 1); assert.equal(error.receipt.automaticRetries, 0); assert.equal(fake.calls.length, 1);
+  assert.deepEqual(intent, before);
+  const attempt = join(outputRoot, (await readdir(outputRoot))[0]);
+  assert.deepEqual((await readdir(attempt)).sort(), ['codex-diagnostic.json', 'codex-receipt.json', 'planning-context.json']);
+});
+
+test('current native request-reference instructions avoid competing quotation output contracts', async () => {
+  const { input, intent: legacy } = await clarifiedAudioFixture(), intent = requestReferenceFixture(legacy);
+  const fake = fakeProcess((child, call) => {
+    assert(call.prompt.includes('EVERY row, tabs-root and page must have sourceRef:"request"'));
+    assert(call.prompt.includes('Older quotation-based responses are not converted'));
+    assert(!call.prompt.includes('sourceQuoteCopy'));
+    assert(!call.prompt.includes('prefer the complete sourceQuoteCopy'));
+    assert(!call.prompt.includes('use longer quotes where short words repeat'));
+    sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0);
+  });
+  assert.equal((await planWithCodex(input, { outputRoot: output(), executable, runProcess: fake.runProcess })).report.status, 'READY_TO_COMPILE');
+});
+
+test('native 0.8 rejects invalid source references once before saving an accepted intent', async () => {
+  const { input, intent: legacy } = await clarifiedAudioFixture(), intent = requestReferenceFixture(legacy);
+  intent.panel.body.children[0].rows[0].sourceRef = 'previous-request'; const before = structuredClone(intent);
+  const fake = fakeProcess(child => { sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0); });
+  const { error, outputRoot } = await rejected(fake, 'CODEX_PROPOSAL_INVALID', { input });
+  assert.equal(error.diagnostic.validatorCode, 'INTENT_SOURCE_REFERENCE');
+  assert.equal(error.diagnostic.path, '$.panel.body.children[0].rows[0].sourceRef');
+  assert.equal(error.receipt.invocationCount, 1); assert.equal(error.receipt.automaticRetries, 0); assert.equal(fake.calls.length, 1);
+  assert.deepEqual(intent, before);
+  const attempt = join(outputRoot, (await readdir(outputRoot))[0]);
+  assert.deepEqual((await readdir(attempt)).sort(), ['codex-diagnostic.json', 'codex-receipt.json', 'planning-context.json']);
+});
+
+test('native CLI refuses an explicit read-only label/content substitution once and saves only failure evidence', async () => {
+  const { ORDINAL_STABILITY_SUITE } = await import('../examples/ordinal-stability-v1/suite.mjs');
+  const item = ORDINAL_STABILITY_SUITE.cases.find(value => value.id === 'eval-confirm'), forms = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const input = await createPlanningContext(item.request, forms), intent = requestReferenceFixture(ordinalFixture(compactIntentFixture(input, item)));
+  intent.panel.body.children[0].rows[0].label = '删除后无法恢复'; const before = structuredClone(intent);
+  const fake = fakeProcess((child, call) => { assert(call.prompt.includes('是两个独立字段')); assert(call.prompt.includes('Literal read-only label/content pairs')); sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0); });
+  const { error, outputRoot } = await rejected(fake, 'CODEX_PROPOSAL_INVALID', { input });
+  assert.equal(error.diagnostic.validatorCode, 'INTENT_TEXT_LABEL'); assert.equal(error.diagnostic.path, '$.panel.body.children[0].rows[0].label');
+  assert.equal(error.receipt.invocationCount, 1); assert.equal(error.receipt.automaticRetries, 0); assert.equal(fake.calls.length, 1); assert.deepEqual(intent, before);
+  const attempt = join(outputRoot, (await readdir(outputRoot))[0]); assert.deepEqual((await readdir(attempt)).sort(), ['codex-diagnostic.json', 'codex-receipt.json', 'planning-context.json']);
+});
+
+test('the native transport sends overall-panel title guidance and retains title and task-name content independently', async () => {
+  const { ORDINAL_STABILITY_SUITE } = await import('../examples/ordinal-stability-v1/suite.mjs');
+  const { evaluatePanelSemantics } = await import('../src/panel-evaluation.mjs');
+  const item = ORDINAL_STABILITY_SUITE.cases.find(value => value.id === 'eval-quest');
+  const forms = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
+  const input = await createPlanningContext(item.request, forms), intent = requestReferenceFixture(ordinalFixture(compactIntentFixture(input, item)));
+  const fake = fakeProcess(async (child, call) => {
+    assert(call.prompt.includes('panel.title 是面板整体的名称'));
+    assert(call.prompt.includes('是两个独立字段'));
+    const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    assert.match(schema.properties.panel.anyOf[1].properties.title.description, /overall panel name/);
+    sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0);
+  });
+  const result = await planWithCodex(input, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(fake.calls.length, 1); assert.equal(result.receipt.automaticRetries, 0);
+  assert.equal(result.proposal.spec.title, '任务详情');
+  assert.equal(result.proposal.spec.sections[0].rows[0].text, '森林巡逻');
+  assert.equal(evaluatePanelSemantics(result.proposal.spec, item.expected).status, 'PASS');
+});
+
+test('repeated clarification snippets still fail the unique quote gate without repair or retry', async () => {
+  const { input, intent } = await clarifiedAudioFixture();
+  intent.panel.body.children[0].rows[1].sourceQuote = '静音';
+  const fake = fakeProcess(child => { sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0); });
+  await assert.rejects(planWithCodex(input, { outputRoot: output(), executable, runProcess: fake.runProcess }), error => {
+    assert.equal(error.code, 'CODEX_PROPOSAL_INVALID');
+    assert.equal(error.diagnostic.validatorCode, 'INTENT_QUOTE');
+    assert.match(error.diagnostic.path, /rows\[1\]\.sourceQuote$/);
+    assert.equal(error.receipt.automaticRetries, 0); return true;
+  });
+  assert.equal(fake.calls.length, 1);
+});
+
+test('ambiguous numeric editing requests a value role before a separate explicit default edit', async () => {
+  const { input, intent, formsCatalog } = await clarifiedAudioFixture();
+  const base = (await materializePanelIntent(input, intent)).spec, unchanged = structuredClone(base);
+  const ambiguous = await createPanelEditContext(base, formsCatalog, { ...request, text: '把音量改成40，其他不变。' });
+  let draft = { codexEditDraftVersion: '0.3', contextSha256: ambiguous.sha256, patch: null, bases: null, noChange: null,
+    unresolved: [{ id: 'q0', question: '40 是当前试玩值还是创作默认值？' }] };
+  const fake = fakeProcess((child, call) => {
+    assert(call.prompt.includes('Do not infer a default from a bare numeric change'));
+    assert(call.prompt.includes('“其他不变”不能消除这个歧义'));
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const question = await editWithCodex(ambiguous, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(question.report.status, 'NEEDS_INPUT'); assert.equal(question.proposal.patch, null); assert.deepEqual(base, unchanged);
+  const clarified = await createPanelEditContext(base, formsCatalog, { ...request, text: '音量创作默认值改40，当前试玩值保留，其他配置全部不变。' });
+  draft = { codexEditDraftVersion: '0.3', contextSha256: clarified.sha256, noChange: null, unresolved: [],
+    patch: { patchVersion: '0.1', baseSpecSha256: clarified.baseSpecSha256, reason: '只改创作默认值。', operations: [
+      { op: 'set-state-initial', fieldId: 'row0', value: 40 },
+    ] }, bases: [{ kind: 'request-interpretation', quote: clarified.request.text }] };
+  const result = await editWithCodex(clarified, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'READY_TO_APPLY');
+  const expected = structuredClone(base); expected.state.find(field => field.id === 'row0').initial = 40;
+  assert.deepEqual((await applyPanelPatch(base, result.proposal.patch)).spec, expected); assert.deepEqual(base, unchanged);
+  assert.equal(fake.calls.length, 2); assert.equal(question.receipt.automaticRetries, 0); assert.equal(result.receipt.automaticRetries, 0);
 });
 
 test('input is snapshotted before awaits; forged contexts and getters cannot dispatch', async () => {

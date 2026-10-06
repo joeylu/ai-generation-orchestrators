@@ -124,6 +124,11 @@ function aligned(value, definition, path) {
 }
 
 function stateValue(value, definition, path) {
+  if (definition.type === 'string') {
+    text(value, path, 512, true);
+    if (value.length > definition.maxLength || /[\u2028\u2029]/u.test(value)) fail('input-value', path, 'single-line text exceeds its UTF-16 limit');
+    return;
+  }
   if (definition.type === 'boolean') return bool(value, path);
   if (definition.type === 'enum') {
     identifier(value, path);
@@ -201,12 +206,14 @@ function layoutBody(value, sectionIds) {
 /** Return an isolated, validated JSON value; throw PanelSpecError on failure. */
 export function validatePanelSpec(input) {
   const spec = snapshotJson(input);
-  const progress = spec?.panelSpecVersion === '0.5';
+  const forms = spec?.panelSpecVersion === '0.7';
+  const tabbed = forms || spec?.panelSpecVersion === '0.6';
+  const progress = tabbed || spec?.panelSpecVersion === '0.5';
   const containers = progress || spec?.panelSpecVersion === '0.4';
   const controls = spec?.panelSpecVersion === '0.3' || containers;
   const hasAssetsField = spec?.panelSpecVersion === '0.2' || controls;
-  object(spec, ['panelSpecVersion', 'id', 'title', 'theme', 'canvas', 'layout', 'state', 'sections', 'provenance', ...(hasAssetsField ? ['assets'] : [])], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5'].includes(spec.panelSpecVersion)) fail('version', '$.panelSpecVersion', 'only PanelSpec 0.1 through 0.5 are supported');
+  object(spec, ['panelSpecVersion', 'id', 'title', 'theme', 'canvas', 'layout', 'state', 'sections', 'provenance', ...(hasAssetsField ? ['assets'] : []), ...(tabbed ? ['tabs'] : [])], '$');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'].includes(spec.panelSpecVersion)) fail('version', '$.panelSpecVersion', 'only PanelSpec 0.1 through 0.7 are supported');
   identifier(spec.id, '$.id');
   text(spec.title, '$.title');
   reference(spec.theme, '$.theme');
@@ -225,10 +232,11 @@ export function validatePanelSpec(input) {
   const states = new Map();
   spec.state.forEach((definition, index) => {
     const path = `$.state[${index}]`;
-    if (!definition || !(progress ? ['number', 'boolean', 'enum', 'progress'] : controls ? ['number', 'boolean', 'enum'] : ['number', 'boolean']).includes(definition.type)) {
+    if (!definition || !(forms ? ['number', 'boolean', 'enum', 'progress', 'string'] : progress ? ['number', 'boolean', 'enum', 'progress'] : controls ? ['number', 'boolean', 'enum'] : ['number', 'boolean']).includes(definition.type)) {
       fail('state-type', `${path}.type`, progress ? 'must be number, boolean, enum or progress' : controls ? 'must be number, boolean or enum' : 'must be number or boolean');
     }
-    object(definition, ['id', 'type', 'initial', ...(definition.type === 'number' ? ['min', 'max', 'step'] : definition.type === 'progress' ? ['max'] : definition.type === 'enum' ? ['options'] : [])], path);
+    object(definition, ['id', 'type', 'initial', ...(definition.type === 'number' ? ['min', 'max', 'step'] : definition.type === 'progress' ? ['max'] : definition.type === 'enum' ? ['options'] : definition.type === 'string' ? ['maxLength'] : [])], path);
+    if (definition.type === 'string') integer(definition.maxLength, `${path}.maxLength`, 1, 512);
     identifier(definition.id, `${path}.id`);
     if (states.has(definition.id)) fail('duplicate', `${path}.id`, 'state identifier must be unique');
     if (definition.type === 'number') {
@@ -269,12 +277,12 @@ export function validatePanelSpec(input) {
     array(section.rows, `${sectionPath}.rows`, 1, 128);
     section.rows.forEach((row, rowIndex) => {
       const path = `${sectionPath}.rows[${rowIndex}]`;
-      const kinds = progress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : containers ? ['slider', 'switch', 'select', 'button', 'text'] : controls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'];
+      const kinds = forms ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'] : progress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : containers ? ['slider', 'switch', 'select', 'button', 'text'] : controls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'];
       if (!row || !kinds.includes(row.kind)) {
         fail('row-kind', `${path}.kind`, `must be ${kinds.join(', ')}`);
       }
       object(row, row.kind === 'progress' ? ['id', 'kind', 'recipe', 'label', 'bind', 'format'] : row.kind === 'text' ? ['id', 'kind', 'recipe', 'label', 'text']
-        : ['id', 'kind', 'recipe', 'label', 'enabled', 'event', ...(row.kind === 'button' ? ['buttonLabel', 'action'] : ['bind']), ...(row.kind === 'slider' ? ['format'] : [])], path);
+        : ['id', 'kind', 'recipe', 'label', 'enabled', 'event', ...(row.kind === 'button' ? ['buttonLabel', 'action'] : ['bind']), ...(row.kind === 'slider' ? ['format'] : row.kind === 'input' ? ['placeholder', 'inputType', 'readOnly', 'validation'] : [])], path);
       identifier(row.id, `${path}.id`);
       unique(row.id, rowIds, `${path}.id`);
       if (rowIds.size > 128) fail('structure-limit', '$.sections', 'at most 128 rows are supported');
@@ -288,9 +296,9 @@ export function validatePanelSpec(input) {
       if (row.kind !== 'progress') bool(row.enabled, `${path}.enabled`);
       if (row.kind === 'button') {
         text(row.buttonLabel, `${path}.buttonLabel`);
-        if (!row.action || !['emit', 'reset-initial'].includes(row.action.kind)) fail('action-kind', `${path}.action.kind`, 'must be emit or reset-initial');
+        if (!row.action || !(forms ? ['emit', 'reset-initial', 'submit'] : ['emit', 'reset-initial']).includes(row.action.kind)) fail('action-kind', `${path}.action.kind`, 'unsupported button action');
         object(row.action, row.action.kind === 'emit' ? ['kind'] : ['kind', 'fields'], `${path}.action`);
-        if (row.action.kind === 'reset-initial') {
+        if (['reset-initial', 'submit'].includes(row.action.kind)) {
           array(row.action.fields, `${path}.action.fields`, 1, 128);
           const actionFields = new Set();
           row.action.fields.forEach((field, fieldIndex) => {
@@ -298,13 +306,14 @@ export function validatePanelSpec(input) {
             identifier(field, fieldPath);
             unique(field, actionFields, fieldPath);
             if (!states.has(field)) fail('action-field', fieldPath, 'reset field does not exist');
+            if (row.action.kind === 'submit' && states.get(field).type !== 'string') fail('action-field', fieldPath, 'submit must reference input string fields');
           });
         }
       } else {
         identifier(row.bind, `${path}.bind`);
         const definition = states.get(row.bind);
         if (!definition) fail('binding', `${path}.bind`, 'state field does not exist');
-        const expected = { slider: 'number', switch: 'boolean', select: 'enum', progress: 'progress' }[row.kind];
+        const expected = { slider: 'number', switch: 'boolean', select: 'enum', progress: 'progress', input: 'string' }[row.kind];
         if (definition.type !== expected) fail('binding-type', `${path}.bind`, 'state type does not match the row kind');
         unique(row.bind, bindings, `${path}.bind`);
       }
@@ -319,6 +328,18 @@ export function validatePanelSpec(input) {
         text(row.format.prefix, `${path}.format.prefix`, 32, true);
         text(row.format.suffix, `${path}.format.suffix`, 32, true);
       }
+      if (row.kind === 'input') {
+        text(row.placeholder, `${path}.placeholder`, 120, true);
+        if (/[\u2028\u2029]/u.test(row.placeholder) || !['text', 'password'].includes(row.inputType)) fail('input-type', path, 'single-line text/password inputs only');
+        bool(row.readOnly, `${path}.readOnly`);
+        object(row.validation, ['required', 'minLength', 'requiredMessage', 'minLengthMessage'], `${path}.validation`);
+        bool(row.validation.required, `${path}.validation.required`);
+        integer(row.validation.minLength, `${path}.validation.minLength`, 0, states.get(row.bind).maxLength);
+        for (const key of ['requiredMessage', 'minLengthMessage']) {
+          text(row.validation[key], `${path}.validation.${key}`, 80);
+          if (/[\u2028\u2029]/u.test(row.validation[key])) fail('text', path, 'validation messages must be single-line');
+        }
+      }
       if (row.kind === 'progress') {
         object(row.format, ['mode', 'fractionDigits'], `${path}.format`);
         if (!['percent', 'value'].includes(row.format.mode)) fail('progress-format', `${path}.format.mode`, 'must be percent or value');
@@ -327,6 +348,30 @@ export function validatePanelSpec(input) {
     });
   });
   if (containers) layoutBody(spec.layout.body, sectionIds);
+  if (tabbed && spec.tabs !== null) {
+    const tabs = spec.tabs, path = '$.tabs';
+    object(tabs, ['id', 'recipe', 'bind', 'event', 'enabled', 'pages'], path);
+    identifier(tabs.id, `${path}.id`); unique(tabs.id, rowIds, `${path}.id`);
+    if (rowIds.size > 128) fail('structure-limit', path, 'at most 128 controls including navigation are supported');
+    reference(tabs.recipe, `${path}.recipe`); bool(tabs.enabled, `${path}.enabled`);
+    identifier(tabs.bind, `${path}.bind`); identifier(tabs.event, `${path}.event`, true);
+    unique(tabs.bind, bindings, `${path}.bind`); unique(tabs.event, events, `${path}.event`);
+    const field = states.get(tabs.bind);
+    if (field?.type !== 'enum') fail('binding-type', `${path}.bind`, 'tabs must bind a distinct enum field');
+    array(tabs.pages, `${path}.pages`, 2, 8);
+    const pages = new Set(), covered = new Set();
+    tabs.pages.forEach((page, index) => {
+      const p = `${path}.pages[${index}]`;
+      object(page, ['id', 'label', 'sections'], p); identifier(page.id, `${p}.id`);
+      unique(page.id, pages, `${p}.id`); text(page.label, `${p}.label`);
+      array(page.sections, `${p}.sections`, 1, 32);
+      page.sections.forEach((id, i) => { identifier(id, `${p}.sections[${i}]`);
+        if (!sectionIds.has(id)) fail('tabs-section', p, 'page section does not exist');
+        unique(id, covered, `${p}.sections[${i}]`); });
+      if (field.options[index]?.id !== page.id || field.options[index]?.label !== page.label) fail('tabs-options', p, 'enum options must exactly match ordered pages');
+    });
+    if (covered.size !== sectionIds.size || field.options.length !== tabs.pages.length) fail('tabs-coverage', path, 'every section must belong to exactly one declared page');
+  }
   for (const id of states.keys()) if (!bindings.has(id)) fail('unused-state', '$.state', `state field ${id} is not bound to a row`);
   if (hasAssetsField && !(controls && spec.assets === null)) panelAssets(spec.assets, rowIds);
   object(spec.provenance, ['kind', 'description', 'assumptions'], '$.provenance');

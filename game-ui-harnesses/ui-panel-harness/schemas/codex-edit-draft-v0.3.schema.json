@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:codex-edit-draft:0.3",
+  "title": "Optional Codex Edit Draft 0.3",
+  "description": "Explicit no-change transport. Normal edits/questions require noChange:null. A no-change result requires patch:null, bases:null, unresolved:[] and exact request quote. Program-owned offsets lower to EditProposal 0.2; ordinary edits lower to 0.1. Neither is a success receipt.",
+  "$comment": "Input additions retain draft 0.2 lowering only for Spec 0.7. The CLI dispatch schema restricts older contexts to legacy patch shapes. Legacy drafts remain accepted without repair. Runtime validates mutual exclusion, literal evidence, capabilities and all resulting Spec gates.",
+  "type": "object", "additionalProperties": false,
+  "required": ["codexEditDraftVersion", "contextSha256", "patch", "bases", "unresolved", "noChange"],
+  "properties": {
+    "codexEditDraftVersion": { "const": "0.3" },
+    "contextSha256": { "$ref": "urn:ai-game-assets:codex-edit-draft:0.2#/properties/contextSha256" },
+    "patch": { "$ref": "urn:ai-game-assets:codex-edit-draft:0.2#/properties/patch" },
+    "bases": { "$ref": "urn:ai-game-assets:codex-edit-draft:0.2#/properties/bases" },
+    "unresolved": { "$ref": "urn:ai-game-assets:codex-edit-draft:0.2#/properties/unresolved" },
+    "noChange": { "oneOf": [{ "type": "null" }, {
+      "type": "object", "additionalProperties": false, "required": ["reason", "quote"],
+      "properties": {
+        "reason": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/$defs/explanation" },
+        "quote": { "type": "string", "minLength": 1 }
+      }
+    }] }
+  }
+}

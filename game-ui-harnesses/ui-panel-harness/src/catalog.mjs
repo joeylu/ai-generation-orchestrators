@@ -1,5 +1,5 @@
 /** A local, data-only catalog. No downloads, model calls, or implicit version selection. */
-const KINDS = new Set(['panel', 'section', 'slider-row', 'switch-row', 'select-row', 'button-row', 'text-row', 'progress-row']);
+const KINDS = new Set(['panel', 'section', 'slider-row', 'switch-row', 'select-row', 'button-row', 'text-row', 'progress-row', 'input-row', 'tabs']);
 const STATES = new Set(['idle', 'hover', 'pressed', 'disabled', 'dragging', 'checked']);
 const ID = /^[a-z][a-z0-9._-]{0,95}$/;
 const VERSION = /^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$/;
@@ -139,6 +139,20 @@ export function resolveTheme(catalog, ref) {
 const normalize = (value) => value.normalize('NFKC').toLowerCase();
 const words = (value) => normalize(value).match(/[\p{L}\p{N}]+/gu) ?? [];
 const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+// Versioned lexical hints only: never change the catalog, request or business facts.
+const RECIPE_ALIASES = { 'slider-row': ['滑块', '滑动条', '拖动条', '拖动滑条', '能拖的条',
+  '可以拖的条', '可拖动的条', '可以拖动的条', '能拖动的条'] };
+function includesAlias(query, aliases) {
+  return aliases.some(alias => {
+    let start = query.indexOf(alias);
+    while (start >= 0) {
+      const prefix = query.slice(Math.max(0, start - 12), start);
+      if (!/(?:不要|不需要|不包含|不用|没有|删除|去掉)[^，。；！？,.;!?]{0,6}$/u.test(prefix)) return true;
+      start = query.indexOf(alias, start + alias.length);
+    }
+    return false;
+  });
+}
 
 function includesTerm(text, term) {
   // Chinese phrases have no whitespace boundaries; Latin terms require word boundaries.
@@ -150,12 +164,14 @@ function includesTerm(text, term) {
 /** Local lexical retrieval. Scores are ranking evidence, not confidence probabilities. */
 export function searchCatalog(catalog, options) {
   const copy = validateCatalog(catalog);
-  object(options, 'search', ['query'], ['kind', 'target']);
+  object(options, 'search', ['query'], ['kind', 'target', 'retrievalVersion']);
   if (typeof options.query !== 'string' || options.query.length > 512 || /[\u0000-\u001f\u007f]/u.test(options.query)) {
     fail('search.query', 'expected a string of at most 512 characters without control characters');
   }
   if (Object.hasOwn(options, 'kind') && !KINDS.has(options.kind)) fail('search.kind', 'unsupported recipe kind');
   if (Object.hasOwn(options, 'target')) string(options.target, 'search.target', 40, ID);
+  const retrievalVersion = options.retrievalVersion ?? '0.2';
+  if (!['0.1', '0.2'].includes(retrievalVersion)) fail('search.retrievalVersion', 'unsupported retrieval version');
   const query = normalize(options.query.trim());
   const terms = [...new Set(words(query))];
   if (terms.length === 0) return [];
@@ -172,6 +188,7 @@ export function searchCatalog(catalog, options) {
       if (includesTerm(normalize(recipe.id), term)) score += 3;
       if (includesTerm(normalize(recipe.description), term)) score += 1;
     }
+    if (retrievalVersion === '0.2' && includesAlias(query, RECIPE_ALIASES[recipe.kind] ?? [])) score += 12;
     if (score > 0) results.push({ recipe, score });
   }
   return results.sort((left, right) => right.score - left.score

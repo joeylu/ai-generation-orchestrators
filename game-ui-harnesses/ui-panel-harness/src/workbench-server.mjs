@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { listenLoopback } from './loopback-listener.mjs';
 import { lstat, open } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { canonicalJson, digestBytes, digestJson } from './canonical.mjs';
@@ -237,10 +238,7 @@ export async function createWorkbenchServer({ workbench, outputRoot, port = 0, p
       if (controller && active === controller) active = null;
     }
   });
-  await new Promise((resolveListening, reject) => {
-    server.once('error', reject);
-    server.listen(port, '127.0.0.1', () => { server.off('error', reject); resolveListening(); });
-  });
+  await listenLoopback(server, port);
   expectedHost = `127.0.0.1:${server.address().port}`; origin = `http://${expectedHost}`;
   let closePromise;
   return Object.freeze({ url: `${origin}/`, model: CODEX_MODEL, effort: CODEX_EFFORT, available, editingAvailable,

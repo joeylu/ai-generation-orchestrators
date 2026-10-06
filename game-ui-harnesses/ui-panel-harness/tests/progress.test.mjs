@@ -123,7 +123,7 @@ test('two composed progress panels keep separate host state and source-local res
 test('Unity kit preserves continuous values and declares native read-only UGUI progress without extra shared scripts', async () => {
   const bundle=await createPanelBundle(spec,catalog,core,{row0:0.376123456789,row1:123.456789,row2:false});
   const native=await createUnityDocument(bundle,core), fields=native.fields.filter(field=>field.type==='progress');
-  assert.equal(native.adapterVersion,'0.1.2'); assert.equal(fields[0].numberValue,0.376123456789); assert.equal(fields[0].step,0);
+  assert.equal(native.adapterVersion,'0.1.4'); assert.equal(fields[0].numberValue,0.376123456789); assert.equal(fields[0].step,0);
   assert.equal(native.controls[0].displayMode,'percent'); assert.equal(native.controls[0].enabled,false); assert.equal(native.controls[0].eventName,'');
   const sources=await readUnityAdapterSources(), kit=await createUnityKitFiles(bundle,core,sources);
   assert.equal([...kit.contents.keys()].filter(path=>path.endsWith('.cs')).length,6);
@@ -132,7 +132,7 @@ test('Unity kit preserves continuous values and declares native read-only UGUI p
 });
 test('new public schema references all resolve and strict native edit transport includes progress additions', async () => {
   const native=await buildCodexEditResponseSchema({draft:true}); assert(JSON.stringify(native).includes('progress'));
-  const files=['panel-spec.schema.json','panel-spec-v0.2.schema.json','panel-spec-v0.3.schema.json','panel-spec-v0.4.schema.json','panel-spec-v0.5.schema.json',
+  const files=['panel-spec.schema.json','panel-spec-v0.2.schema.json','panel-spec-v0.3.schema.json','panel-spec-v0.4.schema.json','panel-spec-v0.5.schema.json','panel-spec-v0.6.schema.json','panel-spec-v0.7.schema.json',
     'panel-proposal-v0.5.schema.json','panel-patch.schema.json','panel-edit-context.schema.json','panel-request.schema.json'];
   const docs=await Promise.all(files.map(file=>json('../schemas/'+file))), registry=new Map(docs.map(d=>[d.$id,d]));
   function check(value,owner) { if(!value||typeof value!=='object')return;

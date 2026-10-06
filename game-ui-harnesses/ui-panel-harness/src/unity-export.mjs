@@ -1,8 +1,10 @@
 import { validatePanelBundle } from './panel-bundle.mjs';
 import { controlId } from './compiler.mjs';
+import { formErrorId } from './forms.mjs';
+import { tabPageId } from './tabs.mjs';
 
-export const UNITY_ADAPTER_VERSION = '0.1.2';
-const supported = new Set(['Container', 'Text', 'Image', 'Slider', 'Switch', 'Select', 'Button', 'ProgressBar', 'ScrollView']);
+export const UNITY_ADAPTER_VERSION = '0.1.4';
+const supported = new Set(['Container', 'Text', 'Image', 'Slider', 'Switch', 'Select', 'Button', 'ProgressBar', 'ScrollView', 'Tabs', 'Input']);
 const fail = code => { const error = new Error(code); error.code = code; throw error; };
 
 /** Native target lowering from a recompiled bundle; source capabilities remain unchanged. */
@@ -30,19 +32,27 @@ export async function createUnityDocument(input, core) {
       numberValue: ['number', 'progress'].includes(field.type) ? bundle.state[field.id] : 0,
       initialBoolean: field.type === 'boolean' ? field.initial : false,
       booleanValue: field.type === 'boolean' ? bundle.state[field.id] : false,
-      initialString: field.type === 'enum' ? field.initial : '',
-      stringValue: field.type === 'enum' ? bundle.state[field.id] : '',
+      initialString: ['enum', 'string'].includes(field.type) ? field.initial : '',
+      stringValue: ['enum', 'string'].includes(field.type) ? bundle.state[field.id] : '',
       options: structuredClone(field.options ?? []),
+      ...(field.type === 'string' ? { maxLength: field.maxLength } : {}),
     };
   });
   const controls = spec.sections.flatMap(section => section.rows).filter(row => row.kind !== 'text').map(row => ({
     nodeId: controlId(spec.id, row.id), rowId: row.id, kind: row.kind, fieldId: row.bind ?? '',
     eventName: row.event ?? '', enabled: row.enabled ?? false, action: row.action?.kind ?? '',
-    resetFields: [...(row.action?.fields ?? [])], valueTextId: ['slider', 'progress'].includes(row.kind) ? `${spec.id}.row.${row.id}.value` : '',
+    resetFields: row.action?.kind === 'reset-initial' ? [...row.action.fields] : [], valueTextId: ['slider', 'progress'].includes(row.kind) ? `${spec.id}.row.${row.id}.value` : '',
     prefix: row.format?.prefix ?? '', suffix: row.format?.suffix ?? '', fractionDigits: row.format?.fractionDigits ?? 0,
     ...(row.kind === 'progress' ? { displayMode: row.format.mode } : {}),
+    ...(row.action?.kind === 'submit' ? { submitFields: [...row.action.fields] } : {}),
+    ...(row.kind === 'input' ? { placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
+      validation: structuredClone(row.validation), requiredErrorTextId: formErrorId(spec.id,row.id,'required'),
+      minLengthErrorTextId: formErrorId(spec.id,row.id,'min-length') } : {}),
   }));
   const nodes = [];
+  if (spec.tabs) controls.push({nodeId:controlId(spec.id,spec.tabs.id),rowId:spec.tabs.id,kind:'tabs',fieldId:spec.tabs.bind,eventName:spec.tabs.event,
+    enabled:spec.tabs.enabled,action:'',resetFields:[],valueTextId:'',prefix:'',suffix:'',fractionDigits:0,
+    contentIds:spec.tabs.pages.map(page=>tabPageId(spec.id,page.id))});
   function visit(node, parentId) {
     if (!supported.has(node.type)) fail('UNITY_COMPONENT_UNSUPPORTED');
     const p = node.props, s = p.style, region = p.region;

@@ -17,3 +17,6 @@ export async function createBrowserUnityKit(bundle, core) {
   const kit = await createUnityKitFiles(bundle, core, sources);
   return { bytes: createStoredZip(kit.contents), manifest: kit.manifest, panelId: kit.panelId };
 }
+
+// Same deterministic producer, with files exposed for the complete delivery archive.
+export const createBrowserUnityKitFiles = (bundle,core) => createUnityKitFiles(bundle,core,sources);

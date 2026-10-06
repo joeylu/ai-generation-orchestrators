@@ -2,7 +2,11 @@ import { createWorkbenchModel } from './workbench-model.mjs';
 import { browserCore, createWorkbenchRenderer } from './workbench-renderer.mjs';
 import { digestJson } from './canonical.mjs';
 import { detectCodexBridge, requestCodexProposal, requestCodexEditProposal } from './workbench-codex-client.mjs';
-import { createBrowserUnityKit } from './unity-browser-export.mjs';
+import { createBrowserUnityKit,createBrowserUnityKitFiles } from './unity-browser-export.mjs';
+import {createPanelDelivery} from './panel-delivery.mjs';
+import {createStoredZip} from './zip-store.mjs';
+import {createBrowserSharedSdk} from './shared-sdk-browser.mjs';
+import deliveryRuntime from 'virtual:panel-delivery-runtime';
 import { createWorkbenchRequestIdentity } from './workbench-request-identity.mjs';
 
 const el = id => document.getElementById(id);
@@ -13,6 +17,7 @@ let questionKey = null;
 let editDraftDirty = true, editSnapshot = null;
 let editCodexReceipt = null;
 let unityExportReceipt = null;
+let deliveryReceipt = null;
 let requestNotice = '';
 const hostEvents = [];
 const requestIdentity = createWorkbenchRequestIdentity();
@@ -68,12 +73,19 @@ function errorText(error) {
       OUTPUT_PROPOSAL_JSON: '方案字符串中的 JSON 格式不合法',
       EDIT_CONTEXT_MISMATCH: '修改方案对应其他描述或面板', EDIT_COVERAGE: '修改操作缺少完整依据',
       EDIT_QUOTE: '修改方案引用的原文不匹配', EDIT_FIELDS: '修改方案字段不符合协议',
+      EDIT_INPUT_RECIPE: '新增输入框未选择当前目录中的输入配方',
+      'action-field': '按钮引用的状态不存在、重复或不属于可提交的输入字段',
+      'binding': '控件与状态绑定不匹配', 'binding-type': '控件绑定了错误类型的状态',
+      'input-value': '文本不是单行内容或超过最大长度', 'input-type': '输入框类型不受支持',
+      integer: '长度或尺寸必须是允许范围内的整数', duplicate: '控件或状态标识重复',
     };
     const detail = error.diagnostic;
+    const issue = detail.cause ?? detail;
     const targetReasons = { duplicate: '同一个目标填写了多条需求依据', unmatched: '需求依据指向面板中不存在或协议不支持的目标',
       'non-string': '需求依据的目标名必须是字符串' };
-    const reason = targetReasons[detail.targetIssue] ?? reasons[detail.validatorCode] ?? '字段或内容不符合面板协议';
-    return `Codex 返回的方案未通过校验：${reason}（${detail.validatorCode}）${detail.path ? `，位置 ${detail.path}` : ''}。原面板保留，未自动重试。`;
+    const messageIssue = issue.validatorCode === 'text' && /\.(?:requiredMessage|minLengthMessage)$/.test(issue.path ?? '');
+    const reason = targetReasons[detail.targetIssue] ?? (messageIssue ? '校验提示必须是非空的单行文字，最多 80 个字符' : reasons[issue.validatorCode]) ?? '字段或内容不符合面板协议';
+    return `Codex 返回的方案未通过校验：${reason}（${issue.validatorCode}）${issue.path ? `，位置 ${issue.path}` : ''}。原面板保留，未自动重试。`;
   }
   const known = {
     PLAN_CONTEXT_MISMATCH: '该方案对应另一份需求。请将当前规划文件交给 Agent，返回匹配的方案。',
@@ -101,11 +113,16 @@ function errorText(error) {
     LAYOUT_OVERFLOW: '面板超出画布，请调整布局尺寸或减少设置行。',
     SELECT_POPUP_OVERFLOW: '下拉菜单展开后超出画布，请增加画布高度或调整设置行顺序。',
     'enum-value': '默认值必须是该下拉菜单中的一个选项。',
+    'input-value': '当前试玩文字超过修改后的最大长度，或不是单行文字。修改未应用，原面板、输入和撤销历史已保留。请先缩短试玩文字，或提高最大长度。',
     WORKBENCH_FILE_LIMIT: '文件过大。规划方案和面板文件上限为 2 MiB。',
     TEXT_OVERFLOW: '文字超出当前控件，请缩短标签或增加布局宽度。修改未应用，原面板与试玩状态已保留。',
     UNITY_SLIDER_PRECISION_LIMIT: 'Unity 导出最多支持一百万个滑条步长，请减少数值范围或增大步长。',
     UNITY_NUMBER_PRECISION: '该滑条范围和步长无法在 Unity 中精确回算，请调整数值范围或步长后导出。',
-    ZIP_SIZE_LIMIT: 'Unity 工具包超过 64 MiB，请减少面板引用的图片后导出。',
+    ZIP_SIZE_LIMIT: '下载包超过 64 MiB，请减少面板引用的图片后导出。',
+    DELIVERY_PANEL_ID: '当前面板标识不能用作 Unity 文件夹名，请使用稳定英文标识后导出。',
+    DELIVERY_RUNTIME_INTEGRITY: '内置预览运行库校验失败，请重新构建 Studio。',
+    DELIVERY_UNITY_INTEGRITY: 'Unity 工具包文件校验失败，本次未下载。',
+    DELIVERY_UNITY_SOURCE: 'Unity 工具包与当前面板来源不匹配，本次未下载。',
     CODEX_BRIDGE_CONTEXT_MISMATCH: '返回的方案与本次需求不匹配，原面板已保留。',
     CODEX_PROPOSAL_INVALID: 'Codex 返回的方案未通过校验，本次没有生成预览。该调用没有留下具体字段原因；原面板保留，未自动重试。',
     CODEX_OUTPUT_INVALID: 'Codex 返回内容的格式无法读取。该调用没有留下具体格式原因；原面板保留，未自动重试。',
@@ -162,6 +179,8 @@ function updateButtons() {
   el('clarify').disabled = busy || !canAnswer;
   el('questions').querySelectorAll('textarea').forEach(input => { input.disabled = busy || !canAnswer; });
   el('download-panel').disabled = el('download-spec').disabled = el('download-unity').disabled = busy || !panel;
+  el('download-delivery').disabled = busy || !panel;
+  el('download-shared-sdk').disabled = busy || !ready;
   el('editor-fields').disabled = busy || !panel;
   el('edit-enabled').disabled = busy || !panel || readRow()?.kind === 'text';
   el('undo').disabled = busy || !panel || !snapshot?.canUndo;
@@ -195,8 +214,9 @@ function fillRow() {
   const field = snapshot.panel.spec.state.find(f => f.id === row.bind);
   const label = document.createElement('label'); label.htmlFor = 'edit-initial'; label.textContent = '创作默认值';
   const numeric = ['number', 'progress'].includes(field.type);
-  const input = document.createElement(numeric ? 'input' : 'select'); input.id = 'edit-initial'; input.dataset.mutation = '';
-  if (numeric) { input.type = 'number'; input.min = field.min ?? 0; input.max = field.max; input.step = field.step ?? 'any'; }
+  const input = document.createElement(numeric || field.type === 'string' ? 'input' : 'select'); input.id = 'edit-initial'; input.dataset.mutation = '';
+  if (field.type === 'string') { input.type = 'text'; input.maxLength = field.maxLength; }
+  else if (numeric) { input.type = 'number'; input.min = field.min ?? 0; input.max = field.max; input.step = field.step ?? 'any'; }
   else for (const option of field.type === 'enum' ? field.options : [{ id: 'true', label: 'true' }, { id: 'false', label: 'false' }]) {
     const item = document.createElement('option'); item.value = option.id; item.textContent = option.label; input.append(item);
   }
@@ -253,7 +273,9 @@ function sync() {
     const li = document.createElement('li'); li.textContent = question.question; el('edit-questions').append(li);
   }
   el('edit-hint').textContent = snapshot.panel ? '' : '生成或打开面板后即可修改。';
-  el('edit-plan-status').textContent = !advancedMode()
+  el('edit-plan-status').textContent = !editDraftDirty && editSnapshot.report?.status === 'NO_CHANGES'
+    ? '无需修改，当前面板和输入已保留。'
+    : !advancedMode()
     ? !editDraftDirty && editSnapshot.report?.status === 'NEEDS_INPUT' ? '请在修改要求中补充以下信息，再点击「修改面板」。'
       : !editSnapshot.context && snapshot.history.at(-1)?.editEvidence && !editDraftDirty ? '修改已应用，试玩值已保留；新默认值在恢复默认时生效。' : ''
     : editDraftDirty && editSnapshot.context ? '修改描述已变化，请重新准备。'
@@ -275,6 +297,7 @@ function sync() {
     lastCodexEditCall: editCodexReceipt,
     editPlanning: editSnapshot.report,
     lastUnityDownload: unityExportReceipt,
+    lastDeliveryDownload: deliveryReceipt,
     semanticReview: 'NOT_RUN', humanVisualReview: 'NOT_RUN', nativeEngines: 'NOT_RUN' }, null, 2);
   updateButtons();
 }
@@ -420,7 +443,7 @@ async function acceptEdit(proposal) {
   if (editDraftDirty) throw new Error('WORKBENCH_EDIT_CONTEXT_REQUIRED');
   const accepted = await model.acceptEditProposal(proposal, currentState());
   if (disposed || accepted.status === 'STALE') return;
-  if (model.getEditSnapshot().report?.status !== 'NEEDS_INPUT') await showPanel();
+  if (!['NEEDS_INPUT', 'NO_CHANGES'].includes(model.getEditSnapshot().report?.status)) await showPanel();
 }
 el('edit-proposal-file').addEventListener('change', event => {
   const file = event.target.files?.[0]; if (!file) return;
@@ -454,6 +477,20 @@ el('download-spec').addEventListener('click', () => { if (snapshot.panel) downlo
 el('download-panel').addEventListener('click', () => run('preview-error', async () => {
   const panel = await model.exportPanel(currentState()); if (!disposed && panel.status !== 'STALE') download(`${panel.spec.id}.panel.bundle.json`, panel);
 }));
+el('download-delivery').addEventListener('click',()=>run('preview-error',async()=>{
+  el('unity-export-status').textContent='';
+  const panel=await model.exportPanel(currentState());if(disposed||panel.status==='STALE')return;
+  const unityKit=await createBrowserUnityKitFiles(panel,browserCore),delivery=await createPanelDelivery(panel,browserCore,{runtime:deliveryRuntime,unityKit});
+  if(disposed)return;
+  downloadBlob(`${delivery.panelId}.panel-delivery.zip`,new Blob([createStoredZip(delivery.contents)],{type:'application/zip'}));
+  deliveryReceipt={panelSha256:delivery.manifest.panelSha256,fileCount:delivery.manifest.files.length+1,verification:delivery.manifest.verification};
+  el('unity-export-status').textContent='已下载完整交付包：可运行的 Pixi 预览、Unity 导入工具包和业务接线说明。包含本次点击时的试玩值。';
+}));
+el('download-shared-sdk').addEventListener('click',()=>run('preview-error',async()=>{
+  const sdk=await createBrowserSharedSdk(deliveryRuntime);if(disposed)return;
+  downloadBlob('panel-shared-sdk-0.1.0.zip',new Blob([sdk.bytes],{type:'application/zip'}));
+  el('unity-export-status').textContent='已下载共享接入 SDK，所有面板安装一次并复用。';
+}));
 el('download-unity').addEventListener('click', () => run('preview-error', async () => {
   el('unity-export-status').textContent = '';
   const panel = await model.exportPanel(currentState());
@@ -471,11 +508,17 @@ window.addEventListener('pageshow', event => { if (event.persisted && disposed) 
 // Read-only acceptance surface; all mutations are exercised through the visible UI.
 window.panelWorkbench = Object.freeze({ snapshot: () => model?.getSnapshot(), editSnapshot: () => model?.getEditSnapshot(), inspect: () => renderer.inspect(),
   getState: () => renderer.getState(), events: () => structuredClone(hostEvents), get busy() { return busy; }, destroy });
-// Host integration for read-only determinate progress. Values never emit player events.
+// Host updates for determinate progress and text. Setters never emit player events.
 window.panelHost = Object.freeze({
   setProgress(fieldId, value) {
     if (busy) throw new Error('WORKBENCH_BUSY');
     const values = renderer.setProgress(fieldId, value); renderValues(values); return values;
+  },
+  setText(fieldId, value) {
+    if (busy) throw new Error('WORKBENCH_BUSY');
+    const row = model.getSnapshot().panel?.spec.sections.flatMap(section => section.rows).find(row => row.kind === 'input' && row.bind === fieldId);
+    if (!row) throw new Error('PANEL_INPUT_FIELD_UNKNOWN');
+    const values = renderer.setText(fieldId, value); renderValues(values); return values;
   },
 });
 async function initialize() { try {
@@ -485,6 +528,7 @@ async function initialize() { try {
     if (result.status === 'READY' && isCurrent()) {
       renderedSha = panel.sha256;
       unityExportReceipt = null; el('unity-export-status').textContent = '';
+      deliveryReceipt = null;
     }
   });
   if (disposed) model.dispose();

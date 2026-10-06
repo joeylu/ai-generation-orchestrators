@@ -118,7 +118,7 @@ test('proposal 0.4 accepts older specs but a layout spec cannot enter older cont
     const mismatched = proposalFor(context); mismatched.proposalVersion = version;
     await assert.rejects(validatePanelProposal(context, mismatched), { code: 'PLAN_ASSET_CONTEXT_VERSION' });
   }
-  const future = proposalFor(context); future.proposalVersion = '0.6';
+  const future = proposalFor(context); future.proposalVersion = '0.8';
   await assert.rejects(validatePanelProposal(context, future), { code: 'PLAN_VERSION' });
   const blocked = { proposalVersion: '0.4', contextSha256: context.sha256, spec: null, decisions: [],
     unresolved: [{ id: 'profile-content', question: '需要显示哪些角色资料？' }] };

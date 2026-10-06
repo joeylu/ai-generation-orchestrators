@@ -1,5 +1,6 @@
 import { canonicalJson, digestJson } from './canonical.mjs';
 import { snapshotJson, validatePanelSpec } from './spec.mjs';
+import { navigationRows } from './tabs.mjs';
 
 /** Invalid patch instructions; invalid resulting PanelSpecs use PanelSpecError. */
 export class PanelPatchError extends Error {
@@ -24,6 +25,9 @@ const OP_KEYS = {
   'set-state-initial': ['op', 'fieldId', 'value'],
   'add-row': ['op', 'sectionId', 'afterRowId', 'row', 'state'],
   'remove-row': ['op', 'rowId'],
+  'set-tab-label': ['op', 'pageId', 'label'],
+  'set-tabs-enabled': ['op', 'enabled'],
+  'set-input-properties': ['op', 'rowId', 'placeholder', 'inputType', 'readOnly', 'maxLength', 'validation'],
 };
 const fail = (code, path, message) => { throw new PanelPatchError(code, path, message); };
 
@@ -67,6 +71,7 @@ function snapshotPatch(input) {
     object(operation, OP_KEYS[operation.op], path);
     if (Object.hasOwn(operation, 'rowId')) identifier(operation.rowId, `${path}.rowId`);
     if (Object.hasOwn(operation, 'fieldId')) identifier(operation.fieldId, `${path}.fieldId`);
+    if (Object.hasOwn(operation, 'pageId')) identifier(operation.pageId, `${path}.pageId`);
     if (operation.op === 'add-row') {
       identifier(operation.sectionId, `${path}.sectionId`);
       if (operation.afterRowId !== null) identifier(operation.afterRowId, `${path}.afterRowId`);
@@ -94,7 +99,8 @@ function findRow(spec, id, path) {
 
 function rowContents(spec) {
   const state = new Map(spec.state.map(field => [field.id, field]));
-  return new Map(spec.sections.flatMap(section => section.rows.map(row => [row.id, canonicalJson({ row, state: Object.hasOwn(row, 'bind') ? state.get(row.bind) : null })])));
+  return new Map([...spec.sections.flatMap(section => section.rows), ...navigationRows(spec)]
+    .map(row => [row.id, canonicalJson({ row, state: Object.hasOwn(row, 'bind') ? state.get(row.bind) : null })]));
 }
 
 /**
@@ -132,6 +138,27 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
   patch.operations.forEach((operation, index) => {
     const path = `$.operations[${index}]`;
     switch (operation.op) {
+      case 'set-input-properties': {
+        const { row } = findRow(candidate, operation.rowId, `${path}.rowId`);
+        if (candidate.panelSpecVersion !== '0.7' || row.kind !== 'input') fail('row-kind', path, 'existing input in Spec 0.7 required');
+        for (const key of ['placeholder', 'inputType', 'readOnly', 'validation']) { touch(`row:${row.id}`, key, path); row[key] = operation[key]; }
+        touch(`state:${row.bind}`, 'maxLength', path);
+        candidate.state.find(field => field.id === row.bind).maxLength = operation.maxLength;
+        break;
+      }
+      case 'set-tab-label': {
+        if (!candidate.tabs) fail('tabs-required', path, 'existing tabs are required');
+        const page=candidate.tabs.pages.find(page=>page.id===operation.pageId);
+        if (!page) fail('missing-page', path, 'page does not exist');
+        touch(`tab:${page.id}`, 'label', path); text(operation.label, `${path}.label`, 120);
+        page.label=operation.label;
+        candidate.state.find(field=>field.id===candidate.tabs.bind).options.find(option=>option.id===page.id).label=operation.label;
+        break;
+      }
+      case 'set-tabs-enabled': {
+        if (!candidate.tabs) fail('tabs-required', path, 'existing tabs are required');
+        touch('tabs', 'enabled', path); candidate.tabs.enabled=operation.enabled; break;
+      }
       case 'set-panel-title':
       case 'set-theme':
       case 'set-layout': {

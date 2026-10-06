@@ -3,7 +3,7 @@
   "$id": "urn:ai-game-assets:panel-patch:0.1",
   "title": "PanelPatch 0.1",
   "description": "Bounded stable-ID edits bound to one exact PanelSpec digest. Reason is caller-authored context, not proof of intent. No paths, array-index addressing or executable instructions are supported.",
-  "$comment": "Load sibling panel-spec.schema.json under its declared urn:ai-game-assets:panel-spec:0.1 ID. src/patch.mjs applies source-digest checks, JSON-only safety, overlap rules, target existence, add-row binding and final PanelSpec validation atomically. Compilation/catalog acceptance is a separate required step before publication. Duplicate writes to one property are rejected; adding/removing a row reserves the entire row and its paired state. Different properties of an existing row may be edited together. Empty sections are rejected, never removed implicitly. Register PanelSpec 0.3 as well. A button add-row supplies state:null; stateful rows require the matching state definition. Removing a field still referenced by reset-initial is rejected by final validation. This schema permits new shapes, but the source PanelSpec version governs their use. Register PanelSpec 0.4 as well. Text additions also require state:null. Layout may use the 0.4 container form; only a source Spec 0.4 accepts that form or text rows. Empty button labels are only valid in Spec 0.4. Register PanelSpec 0.5. Progress additions require a matching progress state; progress enabled/event edits are forbidden.",
+  "$comment": "Load sibling panel-spec.schema.json under its declared urn:ai-game-assets:panel-spec:0.1 ID. src/patch.mjs applies source-digest checks, JSON-only safety, overlap rules, target existence, add-row binding and final PanelSpec validation atomically. Compilation/catalog acceptance is a separate required step before publication. Duplicate writes to one property are rejected; adding/removing a row reserves the entire row and its paired state. Different properties of an existing row may be edited together. Empty sections are rejected, never removed implicitly. Register PanelSpec 0.3 as well. A button add-row supplies state:null; stateful rows require the matching state definition. Removing a field still referenced by reset-initial is rejected by final validation. This schema permits new shapes, but the source PanelSpec version governs their use. Register PanelSpec 0.4 as well. Text additions also require state:null. Layout may use the 0.4 container form; only a source Spec 0.4 accepts that form or text rows. Empty button labels are only valid in Spec 0.4. Register PanelSpec 0.5. Progress additions require a matching progress state; progress enabled/event edits are forbidden. Spec 0.6 navigation accepts set-tab-label and set-tabs-enabled; each label edit updates its matching enum option atomically. Page insertion/removal/reordering is unsupported. Register PanelSpec 0.7. set-input-properties atomically edits existing input configuration and paired maxLength. Existing current state must fit the new limit before application. Removing submit dependencies fails final validation.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -68,6 +68,15 @@
           },
           {
             "$ref": "#/$defs/removeRow"
+          },
+          {
+            "$ref": "#/$defs/setTabLabel"
+          },
+          {
+            "$ref": "#/$defs/setTabsEnabled"
+          },
+          {
+            "$ref": "#/$defs/setInputProperties"
           }
         ]
       }
@@ -217,7 +226,33 @@
           "$ref": "#/$defs/id"
         },
         "action": {
-          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/action"
+          "oneOf": [
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/action"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "fields"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "submit"
+                },
+                "fields": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 128,
+                  "uniqueItems": true,
+                  "items": {
+                    "$ref": "#/$defs/id"
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -291,6 +326,12 @@
             },
             {
               "$ref": "urn:ai-game-assets:panel-spec:0.5#/$defs/progressRow"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/inputRow"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/submitButtonRow"
             }
           ]
         },
@@ -310,6 +351,9 @@
             },
             {
               "$ref": "urn:ai-game-assets:panel-spec:0.5#/$defs/progressState"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/stringState"
             }
           ]
         }
@@ -360,6 +404,85 @@
         },
         "rowId": {
           "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "setTabLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "pageId",
+        "label"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-tab-label"
+        },
+        "pageId": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/text"
+        }
+      }
+    },
+    "setTabsEnabled": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "enabled"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-tabs-enabled"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "setInputProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "placeholder",
+        "inputType",
+        "readOnly",
+        "maxLength",
+        "validation"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-input-properties"
+        },
+        "rowId": {
+          "$ref": "#/$defs/id"
+        },
+        "placeholder": {
+          "type": "string",
+          "maxLength": 120,
+          "pattern": "^[^\\p{Cc}\\p{Cs}\\u2028\\u2029]*$(?![\\s\\S])"
+        },
+        "inputType": {
+          "enum": [
+            "text",
+            "password"
+          ]
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "validation": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/inputValidation"
         }
       }
     }

@@ -55,3 +55,22 @@ test('format diagnostics allow only format codes and fixed paths, never raw pars
   }
   assert.throws(() => validateCodexDiagnostic({ ...fixture(), validatorCode: 'OUTPUT_JSON' }), { code: 'CODEX_DIAGNOSTIC_INVALID' });
 });
+
+test('wrapped edit result failures retain only the bounded underlying validation code and field', () => {
+  const details = { ...binding, operation: 'edit' };
+  const error = { code: 'EDIT_RESULT_SPEC', path: '$.patch', message: 'SECRET_VALUE',
+    cause: { code: 'text', path: '$.sections[0].rows[1].validation.requiredMessage', message: 'SECRET_MESSAGE' } };
+  const diagnostic = createCodexDiagnostic(error, details);
+  assert.equal(diagnostic.validatorCode, 'EDIT_RESULT_SPEC');
+  assert.deepEqual(diagnostic.cause, { validatorCode: 'text', path: '$.sections[0].rows[1].validation.requiredMessage' });
+  assert.deepEqual(validateCodexDiagnostic(diagnostic, details), diagnostic);
+  assert(!JSON.stringify(diagnostic).includes('SECRET'));
+  for (const cause of [{ validatorCode: 'SECRET', path: '$' }, { ...diagnostic.cause, message: 'SECRET' },
+    { ...diagnostic.cause, path: '$.privateToken' }, { ...diagnostic.cause, cause: diagnostic.cause }]) {
+    assert.throws(() => validateCodexDiagnostic({ ...diagnostic, cause }, details), { code: 'CODEX_DIAGNOSTIC_INVALID' });
+  }
+  assert.throws(() => validateCodexDiagnostic({ ...diagnostic, validatorCode: 'EDIT_QUOTE' }), { code: 'CODEX_DIAGNOSTIC_INVALID' });
+  const unknown = createCodexDiagnostic({ ...error, cause: { code: 'SECRET', path: '$.privateToken' } }, details);
+  assert(!Object.hasOwn(unknown, 'cause'));
+  const legacy = { ...diagnostic }; delete legacy.cause; assert.deepEqual(validateCodexDiagnostic(legacy, details), legacy);
+});

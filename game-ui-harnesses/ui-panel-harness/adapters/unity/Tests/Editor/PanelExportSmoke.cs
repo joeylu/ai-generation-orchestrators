@@ -30,7 +30,7 @@ namespace GameUi.PanelHarness.Editor
         {
             public int sourceNodes, textNodes, readOnlyControls, scrollViews, images, spriteRegions, currentValuesDifferentFromInitial;
             public int sliders, switches, selects, buttons, progressBars, disabledControls, resetFields, preservedResetFields;
-            public int visibleTextMeshes, sliderThumbs;
+            public int visibleTextMeshes, sliderThumbs, tabNavigations, tabPages, inputFields, submitButtons;
         }
         [Serializable] private sealed class Report
         {
@@ -52,6 +52,17 @@ namespace GameUi.PanelHarness.Editor
         private static Camera renderCamera;
         private static RenderTexture renderTexture;
         private static GameObject instance;
+        private static int warmPage;
+        private static PanelStateValue[] warmState;
+#if PANEL_GAME_ACCEPTANCE
+        private static System.Threading.Tasks.Task gameTask;
+#endif
+#if PANEL_HOST_ACCEPTANCE
+        [Serializable] private sealed class HostInput { public string version; public int cycles; public HostSource[] instances; }
+        [Serializable] private sealed class HostSource { public string id, prefab; public PanelDocument document; }
+        [Serializable] private sealed class HostReport { public string version = "0.1", status = "RUNNING", error = ""; public int instances, cycles, submitDeliveries; public List<Check> checks = new List<Check>(); }
+        private sealed class HostInstance { public HostSource source; public GameObject root; public PanelController controller; public Hosting.PanelInstanceHost host; public Dictionary<string, GameObject> nodes; public int events; public PanelHostEvent last; }
+#endif
 
         static PanelExportSmoke()
         {
@@ -308,6 +319,7 @@ namespace GameUi.PanelHarness.Editor
             report = JsonUtility.FromJson<Report>(SessionState.GetString(KEY + "report", "{}"));
             currentStage = "play-mode-first-frames";
             firstFrame = Time.frameCount; phase = 0; finishing = false;
+            warmPage = 0; warmState = null;
             EditorApplication.update -= Tick;
             EditorApplication.update += Tick;
         }
@@ -319,13 +331,34 @@ namespace GameUi.PanelHarness.Editor
             {
                 if (phase == 0)
                 {
+                    // UGUI Dropdown initializes its tween runner in Start. Give every initially
+                    // hidden page normal frames before synchronous all-page acceptance calls.
+                    if (WarmTabPages()) { firstFrame = Time.frameCount; return; }
                     currentStage = "verify-play-runtime";
                     VerifyRuntime();
+                    VerifyConcurrentHostPanels();
+#if PANEL_GAME_ACCEPTANCE
+                    currentStage = "verify-game-binding";
+                    gameTask = PanelGameBindingSmoke.RunAsync(SessionState.GetString(KEY + "kit", ""));
+                    phase = 2; return;
+#endif
                     if (SessionState.GetBool(KEY + "render", false))
                     {
                         currentStage = "prepare-render";
                         PrepareRender(); phase = 1; firstFrame = Time.frameCount; captureNotBefore = Time.realtimeSinceStartup + 0.25f; currentStage = "render-wait"; return;
                     }
+                }
+                else if (phase == 2)
+                {
+#if PANEL_GAME_ACCEPTANCE
+                    if (!gameTask.IsCompleted) return;
+                    gameTask.GetAwaiter().GetResult();
+                    CheckPass("native-game-binding-acceptance");
+                    if (SessionState.GetBool(KEY + "render", false))
+                    {
+                        currentStage = "prepare-render"; PrepareRender(); phase = 1; firstFrame = Time.frameCount; captureNotBefore = Time.realtimeSinceStartup + 0.25f; return;
+                    }
+#endif
                 }
                 else { currentStage = "capture-render"; CaptureRender(); }
                 Ensure(report.unexpectedErrorLogs == 0, "no-unexpected-unity-error-logs");
@@ -346,7 +379,9 @@ namespace GameUi.PanelHarness.Editor
             Dictionary<string, GameObject> nodes = NodeObjects(document, instance);
             VerifyGeometry(document, instance, false);
             Canvas.ForceUpdateCanvases();
-            VerifyVisualStructure(document, nodes);
+            PanelStateValue[] visualState = controller.GetState();
+            VerifyVisualStructure(document, nodes, controller);
+            Assert(controller.SetState(visualState), "visual-tests-restore-navigation");
 
             PanelStateValue[] exported = controller.GetState();
             Ensure(exported.Length == document.fields.Length, "exported-state-shape-preserved");
@@ -394,10 +429,13 @@ namespace GameUi.PanelHarness.Editor
                 }
                 if (report.coverage.progressBars > 0) CheckPass("native-filled-image-progress-continuous-silent-readonly-and-label-update");
                 Ensure(controller.SetState(exported), "progress-test-state-restored");
-                foreach (PanelControl control in document.controls.Where(item => item.enabled && item.kind != "button"))
+                VerifyTabs(document, controller, nodes);
+                VerifyForms(document, controller, nodes);
+                foreach (PanelControl control in document.controls.Where(item => item.enabled && item.kind != "button" && item.kind != "progress" && !(item.kind == "input" && item.readOnly)))
                 {
                     currentStage = "native-" + control.kind + ":" + control.rowId;
                     PanelField field = document.fields.Single(item => item.id == control.fieldId);
+                    RevealPage(document, controller, nodes, control);
                     int before = events;
                     if (control.kind == "select")
                     {
@@ -412,17 +450,20 @@ namespace GameUi.PanelHarness.Editor
                     PanelStateValue actual = controller.GetState().Single(item => item.fieldId == field.id);
                     if (field.type == "number") Assert(actual.numberValue == lastEvent.NumberValue, "native-slider-business-value");
                     else if (field.type == "boolean") Assert(actual.booleanValue == lastEvent.BooleanValue, "native-switch-business-value");
+                    else if (field.type == "string") Assert(actual.stringValue == lastEvent.StringValue, "native-input-raw-string");
                     else Assert(actual.stringValue == lastEvent.StringValue && field.options.Any(option => option.id == actual.stringValue), "native-select-semantic-id");
                     if (control.kind == "slider") report.coverage.sliders++;
                     else if (control.kind == "switch") report.coverage.switches++;
-                    else report.coverage.selects++;
+                    else if (control.kind == "select") report.coverage.selects++;
                 }
-                if (document.controls.Any(item => item.enabled && item.kind != "button")) CheckPass("native-slider-toggle-dropdown-callbacks-map-to-business-state");
+                if (report.coverage.selects > 0) CheckPass("native-dropdown-template-expands-options-and-closes");
+                if (document.controls.Any(item => item.enabled && item.kind != "button" && item.kind != "progress" && !(item.kind == "input" && item.readOnly))) CheckPass("native-slider-toggle-dropdown-callbacks-map-to-business-state");
 
                 foreach (PanelControl control in document.controls.Where(item => item.enabled && item.kind == "button"))
                 {
                     currentStage = "button-prepare:" + control.rowId;
                     foreach (PanelField field in document.fields) Assert(SetAwayFromInitial(controller, field), "prepare-button-state");
+                    RevealPage(document, controller, nodes, control);
                     PanelStateValue[] beforeState = controller.GetState();
                     int before = events;
                     PointerEventData pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
@@ -439,9 +480,10 @@ namespace GameUi.PanelHarness.Editor
                 if (report.coverage.buttons > 0) CheckPass("native-button-pointer-and-submit-preserve-action-and-reset-scope");
 
                 for (int index = 0; index < 3; index++) { currentStage = "enable-disable-cycle:" + index; instance.SetActive(false); instance.SetActive(true); }
-                PanelControl enabled = document.controls.FirstOrDefault(item => item.enabled);
+                PanelControl enabled = document.controls.FirstOrDefault(item => item.enabled && item.kind != "progress" && !(item.kind == "input" && item.readOnly));
                 if (enabled != null)
                 {
+                    RevealPage(document, controller, nodes, enabled);
                     int before = events;
                     if (enabled.kind == "button") ExecuteEvents.Execute(nodes[enabled.nodeId], new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
                     else ChangeNative(enabled, document.fields.Single(item => item.id == enabled.fieldId), nodes[enabled.nodeId]);
@@ -453,6 +495,158 @@ namespace GameUi.PanelHarness.Editor
                 Ensure(controller.SetState(exported) && controller.GetStateJson() == exportedJson, "fixture-state-restored-after-tests");
             }
             finally { controller.EventRaised -= listener; }
+        }
+
+        // Optional fixture, produced by the deterministic isolated-project runner.
+        // It reuses delivered native prefabs; none of these helpers ships in Runtime.
+        private static void VerifyConcurrentHostPanels()
+        {
+#if PANEL_HOST_ACCEPTANCE
+            string path = Absolute(SessionState.GetString(KEY + "kit", "") + "/host-instances.json");
+            if (!File.Exists(path)) return;
+            HostInput input = JsonUtility.FromJson<HostInput>(File.ReadAllText(path, Encoding.UTF8));
+            Assert(input.version == "0.1" && input.cycles == 20 && input.instances.Length >= 3 && input.instances.Length <= 10, "host-input-contract");
+            HostReport result = new HostReport { instances = input.instances.Length };
+            GameObject owner = new GameObject("ConcurrentPanelHost");
+            List<HostInstance> mounted = new List<HostInstance>();
+            Action<string> pass = name => { result.checks.Add(new Check { name = name }); CheckPass(name); };
+            try
+            {
+                currentStage = "host-mount";
+                foreach (HostSource source in input.instances)
+                {
+                    GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(source.prefab);
+                    Assert(prefab != null, "host-prefab-imported");
+                    Hosting.PanelInstanceHost hosted = new Hosting.PanelInstanceHost(source.id, prefab, owner.transform);
+                    GameObject root = hosted.Root;
+                    HostInstance item = new HostInstance { source = source, root = root, controller = hosted.Controller, host = hosted, nodes = NodeObjects(source.document, root) };
+                    Assert(item.controller != null && item.controller.PanelSha256 == source.document.panelSha256, "host-source-identity");
+                    item.host.EventRaised += (id, value) => { Assert(id == item.source.id, "host-native-envelope-instance-id"); item.events++; item.last = value; };
+                    mounted.Add(item);
+                    VerifyNoMissingScripts(root);
+                    foreach (PanelField field in source.document.fields) Assert(ValueEquals(item.controller.GetState().Single(value => value.fieldId == field.id), field, false), "host-source-current-state");
+                }
+                pass("host-five-simultaneous-native-prefab-instances-with-shared-runtime");
+
+                currentStage = "host-setters";
+                foreach (HostInstance item in mounted)
+                {
+                    string[] others = mounted.Where(other => other != item).Select(other => other.controller.GetStateJson()).ToArray();
+                    foreach (PanelField field in item.source.document.fields) Assert(SetDifferent(item.controller, field), "host-isolated-setter");
+                    Assert(item.events == 0, "host-setters-silent");
+                    Assert(others.SequenceEqual(mounted.Where(other => other != item).Select(other => other.controller.GetStateJson())), "host-setters-do-not-change-other-instances");
+                }
+                pass("host-native-setters-silent-and-independent-across-all-instances");
+
+                currentStage = "host-duplicate-input";
+                HostInstance[] forms = mounted.Where(item => item.source.document.controls.Any(control => control.kind == "input")).ToArray();
+                Assert(forms.Length == 2 && forms[0].controller.PanelId == forms[1].controller.PanelId, "host-duplicate-form-source");
+                for (int index = 0; index < forms.Length; index++)
+                {
+                    HostInstance form = forms[index];
+                    foreach (PanelControl control in form.source.document.controls.Where(control => control.kind == "input" && !control.readOnly))
+                    {
+                        RevealPage(form.source.document, form.controller, form.nodes, control);
+                        int before = form.events;
+                        string other = forms[1 - index].controller.GetStateJson();
+                        form.nodes[control.nodeId].GetComponent<InputField>().text = index == 0 ? "主角甲" : "主角乙";
+                        Assert(form.events == before + 1 && form.last.FieldId == control.fieldId && form.last.StringValue == (index == 0 ? "主角甲" : "主角乙"), "host-native-input-event-bound-to-instance");
+                        Assert(forms[1 - index].controller.GetStateJson() == other, "host-native-input-does-not-change-duplicate");
+                    }
+                }
+                pass("host-duplicate-native-input-values-and-callbacks-do-not-cross");
+
+                HostInstance selected = forms[1];
+                PanelControl selectedControl = selected.source.document.controls.First(control => control.kind == "input" && !control.readOnly);
+                RevealPage(selected.source.document, selected.controller, selected.nodes, selectedControl);
+                InputField editor = selected.nodes[selectedControl.nodeId].GetComponent<InputField>();
+                EventSystem.current.SetSelectedGameObject(editor.gameObject);
+                editor.ActivateInputField();
+                string retained = selected.controller.GetStateJson(); int selectedEvents = selected.events;
+                selected.host.Close();
+                Assert(EventSystem.current.currentSelectedGameObject == null || !EventSystem.current.currentSelectedGameObject.transform.IsChildOf(selected.root.transform), "host-close-releases-native-focus");
+                editor.onValueChanged.Invoke("不能串入");
+                Assert(selected.controller.GetStateJson() == retained && selected.events == selectedEvents, "host-closed-input-callback-detached");
+                selected.host.Open();
+                Assert(selected.controller.GetStateJson() == retained && selected.events == selectedEvents, "host-reopen-preserves-native-state");
+                pass("host-close-focused-native-input-detaches-callback-and-preserves-state");
+
+                currentStage = "host-submit";
+                HostInstance submitting = forms[0];
+                PanelControl submit = submitting.source.document.controls.Single(control => control.action == "submit");
+                RevealPage(submitting.source.document, submitting.controller, submitting.nodes, submit);
+                Action submitOnce = () => {
+                    int before = submitting.events;
+                    int[] otherCounts = mounted.Where(item => item != submitting).Select(item => item.events).ToArray();
+                    ExecuteEvents.Execute(submitting.nodes[submit.nodeId], new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                    Assert(submitting.events == before + 1 && submitting.last.Action == "submit" && submitting.last.Values.Count == submit.submitFields.Length, "host-submit-delivered-once");
+                    foreach (string field in submit.submitFields) Assert(submitting.last.Values[field] == submitting.controller.GetState().Single(value => value.fieldId == field).stringValue, "host-submit-exact-current-values");
+                    Assert(otherCounts.SequenceEqual(mounted.Where(item => item != submitting).Select(item => item.events)), "host-submit-not-delivered-to-duplicates");
+                    result.submitDeliveries++;
+                };
+                submitOnce();
+                pass("host-cross-page-native-submit-routes-exact-values-once");
+
+                currentStage = "host-lifecycle";
+                string[] states = mounted.Select(item => item.controller.GetStateJson()).ToArray();
+                for (int cycle = 0; cycle < input.cycles; cycle++)
+                {
+                    int[] counts = mounted.Select(item => item.events).ToArray();
+                    foreach (HostInstance item in mounted) item.host.Close();
+                    foreach (HostInstance item in mounted) item.host.Open();
+                    Assert(states.SequenceEqual(mounted.Select(item => item.controller.GetStateJson())), "host-lifecycle-retains-all-state");
+                    Assert(counts.SequenceEqual(mounted.Select(item => item.events)), "host-lifecycle-emits-no-player-event");
+                    submitOnce(); result.cycles++;
+                }
+                pass("host-twenty-native-close-reopen-cycles-retain-state-and-one-listener");
+
+                currentStage = "host-destroy-remount";
+                UnityEngine.Events.UnityEvent<string>[] staleInputs = selected.root.GetComponentsInChildren<InputField>(true).Select(field => (UnityEngine.Events.UnityEvent<string>)field.onValueChanged).ToArray();
+                UnityEngine.Events.UnityEvent[] staleButtons = selected.root.GetComponentsInChildren<Button>(true).Select(button => (UnityEngine.Events.UnityEvent)button.onClick).ToArray();
+                int staleCount = selected.events;
+                selected.host.Dispose(); selected.host.Dispose();
+                foreach (UnityEngine.Events.UnityEvent<string> callback in staleInputs) callback.Invoke("不得触发");
+                foreach (UnityEngine.Events.UnityEvent callback in staleButtons) callback.Invoke();
+                Assert(selected.events == staleCount, "host-destroy-removes-native-callbacks");
+                selected.host = new Hosting.PanelInstanceHost(selected.source.id, AssetDatabase.LoadAssetAtPath<GameObject>(selected.source.prefab), owner.transform);
+                selected.root = selected.host.Root;
+                selected.controller = selected.host.Controller;
+                foreach (PanelField field in selected.source.document.fields) Assert(ValueEquals(selected.controller.GetState().Single(value => value.fieldId == field.id), field, false), "host-remount-uses-source-current-state");
+                Assert(submitting.controller.GetStateJson() == states[Array.IndexOf(mounted.ToArray(), submitting)], "host-destroy-does-not-change-other-form");
+                pass("host-native-destroy-removes-stale-callbacks-and-remount-uses-source-state");
+                result.status = "PASS";
+            }
+            catch (Exception exception) { result.status = "FAIL"; result.error = exception.Message; throw; }
+            finally
+            {
+                foreach (HostInstance item in mounted) item.host.Dispose();
+                UnityEngine.Object.DestroyImmediate(owner);
+                File.WriteAllText(Absolute("../unity-host-smoke.json"), JsonUtility.ToJson(result, true), new UTF8Encoding(false));
+            }
+#endif
+        }
+
+        private static bool WarmTabPages()
+        {
+            PanelDocument document = ReadDocument();
+            PanelControl tabs = document.controls.FirstOrDefault(item => item.kind == "tabs");
+            if (tabs == null) return false;
+            PanelController controller = UnityEngine.Object.FindObjectsByType<PanelController>(FindObjectsSortMode.None).Single(item => item.PanelId == document.panelId);
+            if (warmState == null) warmState = controller.GetState();
+            PanelField field = document.fields.Single(item => item.id == tabs.fieldId);
+            currentStage = "warm-native-page-lifecycle";
+            if (warmPage < field.options.Length)
+            {
+                Assert(controller.SetChoice(field.id, field.options[warmPage++].id), "native-page-lifecycle-choice");
+                return true;
+            }
+            if (warmPage == field.options.Length)
+            {
+                warmPage++;
+                Assert(controller.SetState(warmState), "native-page-lifecycle-restores-exported-state");
+                return true;
+            }
+            return false;
         }
 
         private static PanelDocument ReadDocument()
@@ -507,7 +701,7 @@ namespace GameUi.PanelHarness.Editor
             CheckPass(prefabAsset ? "prefab-every-source-node-geometry-and-parent" : "play-mode-every-source-node-geometry-and-parent");
         }
 
-        private static void VerifyVisualStructure(PanelDocument document, Dictionary<string, GameObject> nodes)
+        private static void VerifyVisualStructure(PanelDocument document, Dictionary<string, GameObject> nodes, PanelController controller)
         {
             foreach (PanelNode node in document.nodes)
             {
@@ -553,6 +747,8 @@ namespace GameUi.PanelHarness.Editor
                 else if (node.type == "Slider")
                 {
                     currentStage = "slider-thumb:" + node.id;
+                    RevealPage(document, controller, nodes, document.controls.Single(control => control.nodeId == node.id));
+                    Canvas.ForceUpdateCanvases();
                     Slider slider = current.GetComponent<Slider>();
                     Assert(slider != null && slider.handleRect != null && Near(slider.handleRect.rect.width, 20) && Near(slider.handleRect.rect.height, 20), "native-slider-thumb-keeps-20-pixel-size");
                     report.coverage.sliderThumbs++;
@@ -589,6 +785,7 @@ namespace GameUi.PanelHarness.Editor
             if (field.type == "number") return controller.SetNumber(field.id, current.numberValue == field.min ? field.max : field.min);
             if (field.type == "progress") return controller.SetProgress(field.id, current.numberValue == 0 ? field.max : 0);
             if (field.type == "boolean") return controller.SetBoolean(field.id, !current.booleanValue);
+            if (field.type == "string") return controller.SetText(field.id, OtherText(field, current.stringValue));
             PanelOption other = field.options.FirstOrDefault(item => item.id != current.stringValue);
             return controller.SetChoice(field.id, other == null ? current.stringValue : other.id);
         }
@@ -598,8 +795,15 @@ namespace GameUi.PanelHarness.Editor
             if (field.type == "number") return controller.SetNumber(field.id, field.initialNumber == field.min ? field.max : field.min);
             if (field.type == "progress") return controller.SetProgress(field.id, field.initialNumber == 0 ? field.max : 0);
             if (field.type == "boolean") return controller.SetBoolean(field.id, !field.initialBoolean);
+            if (field.type == "string") return controller.SetText(field.id, OtherText(field, field.initialString));
             PanelOption other = field.options.FirstOrDefault(item => item.id != field.initialString);
             return controller.SetChoice(field.id, other == null ? field.initialString : other.id);
+        }
+
+        private static string OtherText(PanelField field, string value)
+        {
+            string next = new string('名', field.maxLength);
+            return next == value ? new string('字', field.maxLength) : next;
         }
 
         private static void ChangeNative(PanelControl control, PanelField field, GameObject node)
@@ -610,12 +814,57 @@ namespace GameUi.PanelHarness.Editor
                 Assert(slider.wholeNumbers && Near(slider.minValue, 0) && Near(slider.maxValue, (float)Math.Round((field.max - field.min) / field.step)), "slider-integer-step-index");
                 slider.value = slider.value == 0 ? slider.maxValue : 0;
             }
+            else if (control.kind == "input") { InputField input = node.GetComponent<InputField>(); input.text = OtherText(field, input.text); }
             else if (control.kind == "switch") { Toggle toggle = node.GetComponent<Toggle>(); toggle.isOn = !toggle.isOn; }
+            else if (control.kind == "tabs")
+            {
+                int current = Array.FindIndex(field.options, option => node.transform.Find(control.contentIds[Array.IndexOf(field.options, option)]).gameObject.activeSelf);
+                Button[] headers = node.GetComponentsInChildren<Button>(false).Where(button => button.transform.parent == node.transform).ToArray();
+                Assert(headers.Length == field.options.Length, "native-tabs-real-header-count");
+                ExecuteEvents.Execute(headers[(current + 1) % headers.Length].gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            }
             else
             {
                 Dropdown dropdown = node.GetComponent<Dropdown>();
                 Assert(dropdown.options.Count > 1, "enum-fixture-needs-choice-change");
                 dropdown.value = (dropdown.value + 1) % dropdown.options.Count;
+            }
+        }
+
+        private static void RevealPage(PanelDocument document, PanelController controller, Dictionary<string, GameObject> nodes, PanelControl control)
+        {
+            foreach (PanelControl tabs in document.controls.Where(item => item.kind == "tabs"))
+                for (int i = 0; i < tabs.contentIds.Length; i++)
+                    if (nodes[control.nodeId].transform.IsChildOf(nodes[tabs.contentIds[i]].transform))
+                        Assert(controller.SetChoice(tabs.fieldId, document.fields.Single(field => field.id == tabs.fieldId).options[i].id), "native-silent-reveal-page");
+        }
+
+        private static void VerifyTabs(PanelDocument document, PanelController controller, Dictionary<string, GameObject> nodes)
+        {
+            foreach (PanelControl tabs in document.controls.Where(item => item.kind == "tabs"))
+            {
+                PanelField field = document.fields.Single(item => item.id == tabs.fieldId);
+                foreach (PanelField other in document.fields.Where(item => item.id != field.id)) Assert(SetDifferent(controller, other), "tabs-prepare-other-values");
+                PanelStateValue[] retained = controller.GetState();
+                for (int i = 0; i < field.options.Length; i++)
+                {
+                    Assert(controller.SetChoice(field.id, field.options[i].id), "tabs-host-select-page");
+                    for (int j = 0; j < field.options.Length; j++) Assert(nodes[tabs.contentIds[j]].activeSelf == (j == i), "tabs-exactly-one-visible-page");
+                    foreach (PanelStateValue value in controller.GetState().Where(item => item.fieldId != field.id))
+                        Assert(ValuesEqual(value, retained.Single(item => item.fieldId == value.fieldId)), "tabs-preserve-page-values");
+                    foreach (PanelControl hidden in document.controls.Where(item => item.kind == "slider" || item.kind == "switch" || item.kind == "select" || item.kind == "input"))
+                    {
+                        if (nodes[hidden.nodeId].activeInHierarchy) continue;
+                        string before = controller.GetStateJson();
+                        if (hidden.kind == "slider") nodes[hidden.nodeId].GetComponent<Slider>().onValueChanged.Invoke(0);
+                        else if (hidden.kind == "switch") nodes[hidden.nodeId].GetComponent<Toggle>().onValueChanged.Invoke(true);
+                        else if (hidden.kind == "input") nodes[hidden.nodeId].GetComponent<InputField>().onValueChanged.Invoke("变更");
+                        else nodes[hidden.nodeId].GetComponent<Dropdown>().onValueChanged.Invoke(0);
+                        Assert(controller.GetStateJson() == before, "tabs-hidden-user-input-rejected");
+                    }
+                }
+                report.coverage.tabNavigations++; report.coverage.tabPages += field.options.Length;
+                CheckPass("native-tabs-page-visibility-retains-values-and-rejects-hidden-input");
             }
         }
 
@@ -631,7 +880,70 @@ namespace GameUi.PanelHarness.Editor
             foreach (PanelOption option in field.options)
                 Assert(options.Any(item => item.GetComponentsInChildren<Text>(false).Any(text => text.text == option.label)), "native-dropdown-option-labels");
             dropdown.Hide();
-            CheckPass("native-dropdown-template-expands-options-and-closes");
+        }
+
+        private static void VerifyForms(PanelDocument document, PanelController controller, Dictionary<string, GameObject> nodes)
+        {
+            PanelStateValue[] before = controller.GetState();
+            int events = 0; PanelHostEvent last = null;
+            Action<PanelHostEvent> listener = value => { events++; last = value; };
+            controller.EventRaised += listener;
+            try
+            {
+                foreach (PanelControl control in document.controls.Where(item => item.kind == "input"))
+                {
+                    currentStage = "native-input:" + control.rowId;
+                    RevealPage(document, controller, nodes, control);
+                    PanelField field = document.fields.Single(item => item.id == control.fieldId);
+                    InputField input = nodes[control.nodeId].GetComponent<InputField>();
+                    Assert(input != null && input.lineType == InputField.LineType.SingleLine && input.characterLimit == field.maxLength
+                        && input.readOnly == control.readOnly && ((Text)input.placeholder).text == control.placeholder
+                        && input.contentType == (control.inputType == "password" ? InputField.ContentType.Password : InputField.ContentType.Standard), "native-inputfield-properties");
+                    Assert(controller.SetText(field.id, ""), "native-input-empty-preview-allowed");
+                    Assert(nodes[control.requiredErrorTextId].activeSelf == control.validation.required && !nodes[control.minLengthErrorTextId].activeSelf, "native-required-message");
+                    if (control.validation.minLength > 1)
+                    {
+                        Assert(controller.SetText(field.id, "名"), "native-short-preview-allowed");
+                        Assert(nodes[control.minLengthErrorTextId].activeSelf && !nodes[control.requiredErrorTextId].activeSelf, "native-min-length-message");
+                    }
+                    string raw = field.maxLength >= 6 ? " 名字😀 " : new string('名', field.maxLength);
+                    Assert(controller.SetText(field.id, raw) && input.text == raw && controller.GetState().Single(item => item.fieldId == field.id).stringValue == raw, "native-raw-unicode-and-spaces-preserved");
+                    Assert(!input.placeholder.enabled && input.textComponent.isActiveAndEnabled, "native-filled-input-hides-placeholder-graphic");
+                    string snapshot = controller.GetStateJson();
+                    Assert(!controller.SetText(field.id, new string('a', field.maxLength + 1)) && !controller.SetText(field.id, "x\n")
+                        && !controller.SetText(field.id, "\uD800") && controller.GetStateJson() == snapshot, "native-invalid-string-setters-atomic");
+                    if (control.readOnly)
+                    {
+                        input.onValueChanged.Invoke("变更");
+                        Assert(controller.GetStateJson() == snapshot && input.text == raw && events == 0, "native-readonly-input-rejects-user-callback");
+                    }
+                    report.coverage.inputFields++;
+                }
+                foreach (PanelControl control in document.controls.Where(item => item.kind == "button" && item.action == "submit"))
+                {
+                    currentStage = "native-form-submit:" + control.rowId;
+                    RevealPage(document, controller, nodes, control);
+                    foreach (string id in control.submitFields)
+                    {
+                        PanelField field = document.fields.Single(item => item.id == id);
+                        Assert(controller.SetText(id, new string('名', field.maxLength)), "native-submit-prepare-valid");
+                    }
+                    Assert(events == 0, "native-form-host-setters-silent");
+                    PanelControl required = document.controls.FirstOrDefault(item => item.kind == "input" && control.submitFields.Contains(item.fieldId) && item.validation.required);
+                    if (required != null)
+                    {
+                        Assert(controller.SetText(required.fieldId, " "), "native-submit-blank-prepare");
+                        Assert(!nodes[control.nodeId].GetComponent<Button>().interactable && !controller.Activate(control.rowId) && events == 0, "native-invalid-submit-disabled-and-no-host-event");
+                        PanelField field = document.fields.Single(item => item.id == required.fieldId);
+                        Assert(controller.SetText(field.id, new string('名', field.maxLength)), "native-submit-restore-valid");
+                    }
+                    Assert(controller.Activate(control.rowId) && events == 1 && last.Action == "submit" && last.Values != null
+                        && last.Values.Count == control.submitFields.Length && control.submitFields.All(id => last.Values[id] == controller.GetState().Single(item => item.fieldId == id).stringValue), "native-submit-exact-scoped-values");
+                    events = 0; report.coverage.submitButtons++;
+                }
+                if (report.coverage.inputFields > 0) CheckPass("native-inputfield-validation-raw-values-readonly-and-submit-scope");
+            }
+            finally { controller.EventRaised -= listener; Assert(controller.SetState(before), "native-form-state-restored"); }
         }
 
         private static void VerifyAtomicRejection(PanelController controller, PanelDocument document)
@@ -642,6 +954,7 @@ namespace GameUi.PanelHarness.Editor
             PanelField first = document.fields.Single(item => item.id == invalid[0].fieldId);
             if (first.type == "number" || first.type == "progress") invalid[0].numberValue = invalid[0].numberValue == first.min ? first.max : first.min;
             else if (first.type == "boolean") invalid[0].booleanValue = !invalid[0].booleanValue;
+            else if (first.type == "string") invalid[0].stringValue = OtherText(first, invalid[0].stringValue);
             else invalid[0].stringValue = first.options.Last().id;
             invalid[invalid.Length - 1].fieldId = "__unknown_smoke_field";
             expectedErrors++;
@@ -693,7 +1006,12 @@ namespace GameUi.PanelHarness.Editor
                 PanelControlView[] views = disabled.controls.Select(control => new PanelControlView { definition = control,
                     slider = nodes[control.nodeId].GetComponent<Slider>(), toggle = nodes[control.nodeId].GetComponent<Toggle>(),
                     dropdown = nodes[control.nodeId].GetComponent<Dropdown>(), button = nodes[control.nodeId].GetComponent<Button>(),
+                    input = nodes[control.nodeId].GetComponent<InputField>(),
+                    requiredErrorText = control.kind == "input" ? nodes[control.requiredErrorTextId].GetComponent<Text>() : null,
+                    minLengthErrorText = control.kind == "input" ? nodes[control.minLengthErrorTextId].GetComponent<Text>() : null,
                     progressFill = control.kind == "progress" ? nodes[control.nodeId].transform.Find(control.nodeId + ".__progress-fill").GetComponent<Image>() : null,
+                    tabButtons = control.kind == "tabs" ? nodes[control.nodeId].GetComponentsInChildren<Button>(true).Where(button => button.transform.parent == nodes[control.nodeId].transform).ToArray() : null,
+                    tabPages = control.kind == "tabs" ? control.contentIds.Select(id => nodes[id]).ToArray() : null,
                     valueText = string.IsNullOrEmpty(control.valueTextId) ? null : nodes[control.valueTextId].GetComponent<Text>() }).ToArray();
                 PanelController controller = clone.GetComponent<PanelController>();
                 currentStage = "disabled-clone:configure";
@@ -710,9 +1028,11 @@ namespace GameUi.PanelHarness.Editor
                         try { view.button.onClick.Invoke(); }
                         finally { expectedErrors--; }
                     }
+                    else if (view.definition.kind == "input") view.input.onValueChanged.Invoke("变更");
                     else if (view.definition.kind == "slider") view.slider.onValueChanged.Invoke(view.slider.value == 0 ? view.slider.maxValue : 0);
                     else if (view.definition.kind == "switch") view.toggle.onValueChanged.Invoke(!view.toggle.isOn);
                     else if (view.definition.kind == "select") view.dropdown.onValueChanged.Invoke((view.dropdown.value + 1) % view.dropdown.options.Count);
+                    else if (view.definition.kind == "tabs") view.tabButtons[1].onClick.Invoke();
                     Assert(controller.GetStateJson() == before && events == 0, "disabled-user-callback-rejected");
                     report.coverage.disabledControls++;
                 }
@@ -727,6 +1047,7 @@ namespace GameUi.PanelHarness.Editor
             foreach (PanelNode node in document.nodes.Where(item => item.type == "ScrollView" && item.contentHeight > item.height))
             {
                 currentStage = "scroll-reveal:" + node.id;
+                RevealPage(document, nodes[node.id].GetComponentInParent<PanelController>(true), nodes, new PanelControl { nodeId = node.id });
                 ScrollRect scroll = nodes[node.id].GetComponent<ScrollRect>();
                 PanelScrollReveal[] targets = scroll.content.GetComponentsInChildren<PanelScrollReveal>(true);
                 if (targets.Length == 0) continue;
@@ -819,7 +1140,7 @@ namespace GameUi.PanelHarness.Editor
             HashSet<string> rowIds = new HashSet<string>(ReadDocument().nodes.Where(node => node.type == "Container" && node.id.Contains(".row.")).Select(node => node.id), StringComparer.Ordinal);
             foreach (Text text in instance.GetComponentsInChildren<Text>(false))
             {
-                if (string.IsNullOrWhiteSpace(text.text) || text.canvasRenderer.cull) continue;
+                if (!text.isActiveAndEnabled || string.IsNullOrWhiteSpace(text.text) || text.canvasRenderer.cull) continue;
                 currentStage = "render-text:" + text.gameObject.name;
                 TextGenerator generator = text.cachedTextGenerator;
                 Assert(generator.vertexCount >= 4 && generator.characterCountVisible > 0 && text.color.a > 0, "visible-text-generates-glyph-mesh");
@@ -913,6 +1234,9 @@ namespace GameUi.PanelHarness.Editor
 
         private static void FailRun(Exception exception)
         {
+            if (report != null && report.unexpectedLogDetails.Count < 10)
+                report.unexpectedLogDetails.Add(new LogDetail { stage = SanitizeLogMessage(currentStage),
+                    message = exception.GetType().Name, stackTrace = SanitizeStackTrace(exception.StackTrace) });
             reportingFailure = true;
             try { Debug.LogException(exception); }
             finally { reportingFailure = false; }

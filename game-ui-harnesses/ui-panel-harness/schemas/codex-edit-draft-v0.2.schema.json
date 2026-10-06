@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:codex-edit-draft:0.2",
+  "title": "Optional Codex Edit Draft 0.2",
+  "description": "Form-aware transport. New input definitions are lowered by the program to one public add-row operation; not an applied edit or receipt.",
+  "$comment": "Only Spec 0.7 contexts use this transport. add-input-row requires the advertised add-row capability. id is both new row and state ID. The program resolves the exact catalog recipeKey, derives bind/event and string state, and supplies standard messages only when validationMessages is null. Explicit business values, IDs, quotes, dependencies and final Spec still pass the unchanged public gates. Raw input add-row is excluded from this version's native response schema; legacy 0.1 and public EditProposal remain supported without repair.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["codexEditDraftVersion", "contextSha256", "patch", "bases", "unresolved"],
+  "properties": {
+    "codexEditDraftVersion": { "const": "0.2" },
+    "contextSha256": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/$defs/digest" },
+    "patch": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/patch" }] },
+    "bases": { "$ref": "urn:ai-game-assets:codex-edit-draft:0.1#/properties/bases" },
+    "unresolved": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/properties/unresolved" }
+  },
+  "$defs": {
+    "patch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["patchVersion", "baseSpecSha256", "reason", "operations"],
+      "properties": {
+        "patchVersion": { "const": "0.1" },
+        "baseSpecSha256": { "$ref": "urn:ai-game-assets:panel-patch:0.1#/properties/baseSpecSha256" },
+        "reason": { "$ref": "urn:ai-game-assets:panel-patch:0.1#/properties/reason" },
+        "operations": {
+          "type": "array", "minItems": 1, "maxItems": 32,
+          "items": { "oneOf": [
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setPanelTitle" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setTheme" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setLayout" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setRowLabel" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setRowEnabled" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setButtonLabel" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setButtonAction" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setStateInitial" },
+            { "$ref": "#/$defs/addRow" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/removeRow" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setTabLabel" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setTabsEnabled" },
+            { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/setInputProperties" },
+            { "$ref": "#/$defs/addInputRow" }
+          ] }
+        }
+      }
+    },
+    "addRow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["op", "sectionId", "afterRowId", "row", "state"],
+      "properties": {
+        "op": { "const": "add-row" },
+        "sectionId": { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/id" },
+        "afterRowId": { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/addRow/properties/afterRowId" },
+        "row": { "oneOf": [
+          { "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/sliderRow" },
+          { "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/switchRow" },
+          { "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/selectRow" },
+          { "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/buttonRow" },
+          { "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/textRow" },
+          { "$ref": "urn:ai-game-assets:panel-spec:0.5#/$defs/progressRow" }
+        ] },
+        "state": { "oneOf": [
+          { "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/numberState" },
+          { "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/booleanState" },
+          { "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/enumState" },
+          { "type": "null" },
+          { "$ref": "urn:ai-game-assets:panel-spec:0.5#/$defs/progressState" }
+        ] }
+      }
+    },
+    "addInputRow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["op", "sectionId", "afterRowId", "id", "recipeKey", "label", "enabled", "initial", "placeholder", "inputType", "readOnly", "maxLength", "required", "minLength", "validationMessages"],
+      "properties": {
+        "op": { "const": "add-input-row" },
+        "sectionId": { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/id" },
+        "afterRowId": { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/addRow/properties/afterRowId" },
+        "id": { "$ref": "urn:ai-game-assets:panel-patch:0.1#/$defs/id" },
+        "recipeKey": { "type": "string" },
+        "label": { "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/text" },
+        "enabled": { "type": "boolean" },
+        "initial": { "type": "string" },
+        "placeholder": { "type": "string" },
+        "inputType": { "enum": ["text", "password"] },
+        "readOnly": { "type": "boolean" },
+        "maxLength": { "type": "integer", "minimum": 1, "maximum": 512 },
+        "required": { "type": "boolean" },
+        "minLength": { "type": "integer", "minimum": 0, "maximum": 512 },
+        "validationMessages": { "oneOf": [{ "type": "null" }, {
+          "type": "object", "additionalProperties": false,
+          "required": ["requiredMessage", "minLengthMessage"],
+          "properties": {
+            "requiredMessage": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "minLengthMessage": { "type": "string", "minLength": 1, "maxLength": 80 }
+          }
+        }] }
+      }
+    }
+  }
+}

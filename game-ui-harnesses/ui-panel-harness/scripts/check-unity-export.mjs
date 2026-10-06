@@ -134,7 +134,7 @@ async function verifiedKit(directory) {
   return { manifest, manifestSha256: hash(manifestBytes), files };
 }
 
-async function builtinPackages(editorDirectory) {
+async function builtinPackages(editorDirectory, includeAudio = false) {
   const directory = join(editorDirectory, 'Data', 'Resources', 'PackageManager', 'BuiltInPackages');
   const dependencies = {};
   const visit = async name => {
@@ -147,6 +147,7 @@ async function builtinPackages(editorDirectory) {
   };
   for (const name of ['com.unity.ugui', 'com.unity.modules.ui', 'com.unity.modules.imgui', 'com.unity.modules.uielements',
     'com.unity.modules.physics', 'com.unity.modules.jsonserialize', 'com.unity.modules.imageconversion', 'com.unity.modules.animation']) await visit(name);
+  if (includeAudio) await visit('com.unity.modules.audio');
   requireThat(dependencies['com.unity.ugui'] === '2.0.0', 'UGUI_VERSION_UNSUPPORTED');
   return Object.fromEntries(Object.entries(dependencies).sort(([a], [b]) => a.localeCompare(b, 'en')));
 }
@@ -169,7 +170,7 @@ export async function prepareUnityValidation(options) {
   const executable = resolve(options.unity), fontSource = resolve(options.font), kitSource = resolve(options.kit);
   requireThat(['.ttf', '.otf'].includes(extname(fontSource).toLowerCase()), 'FONT_EXTENSION');
   const version = await editorVersion(executable);
-  const dependencies = await builtinPackages(dirname(executable));
+  const dependencies = await builtinPackages(dirname(executable), options.audio === true);
   const { manifest, manifestSha256, files } = await verifiedKit(kitSource);
   const font = await fileBytes(fontSource), documentBytes = files.get('panel.unity.json').bytes;
   requireThat(documentBytes.length <= 2 * 1024 * 1024, 'KIT_DOCUMENT_LIMIT');

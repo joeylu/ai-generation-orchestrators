@@ -60,16 +60,26 @@ function* queryWindows(text) {
 
 /** Program-generated context for an external Agent; it does not parse natural language. */
 export async function createPlanningContext(requestInput, catalogInput, assetRetrievalInput) {
+  const current = await buildPlanningContext(requestInput, catalogInput, assetRetrievalInput, '0.2');
+  // Unaffected requests keep the exact historical bytes/hash. Reuse snapshotted
+  // inputs so callers cannot change source data across these awaits.
+  const legacy = await buildPlanningContext(current.request, current.catalog, current.assetRetrieval, '0.1');
+  return canonicalJson(current.candidates) === canonicalJson(legacy.candidates) ? legacy : current;
+}
+
+async function buildPlanningContext(requestInput, catalogInput, assetRetrievalInput, retrievalVersion) {
   const request = validatePanelRequest(requestInput);
   const catalog = validateCatalog(snapshotJson(catalogInput));
+  const supportsForms = catalog.recipes.some(recipe => recipe.kind === 'input-row');
+  const supportsTabs = catalog.recipes.some(recipe => recipe.kind === 'tabs');
   const supportsProgress = catalog.recipes.some(recipe => recipe.kind === 'progress-row');
-  const supportsLayout = supportsProgress || catalog.recipes.some(recipe => recipe.kind === 'text-row');
+  const supportsLayout = supportsForms || supportsTabs || supportsProgress || catalog.recipes.some(recipe => recipe.kind === 'text-row');
   const supportsControls = supportsLayout || catalog.recipes.some(recipe => ['select-row', 'button-row'].includes(recipe.kind));
   const assetRetrieval = assetRetrievalInput === undefined || (supportsControls && assetRetrievalInput === null)
     ? undefined : validateAssetRetrieval(request.text, assetRetrievalInput);
   const matches = new Map();
   for (const query of queryWindows(request.text)) {
-    for (const { recipe, score } of searchCatalog(catalog, { query, target: request.target })) {
+    for (const { recipe, score } of searchCatalog(catalog, { query, target: request.target, retrievalVersion })) {
       const key = `${recipe.id}@${recipe.version}`;
       if (!matches.has(key) || score > matches.get(key).score) {
         matches.set(key, { id: recipe.id, version: recipe.version, kind: recipe.kind, score });
@@ -80,13 +90,14 @@ export async function createPlanningContext(requestInput, catalogInput, assetRet
     || compare(left.id, right.id) || compare(left.version, right.version));
   const [requestSha256, catalogSha256] = await Promise.all([digestJson(request), digestJson(catalog)]);
   const payload = {
-    planningContextVersion: supportsProgress ? '0.5' : supportsLayout ? '0.4' : supportsControls ? '0.3' : assetRetrieval ? '0.2' : '0.1', request, requestSha256, catalog, catalogSha256, candidates,
+    planningContextVersion: supportsForms ? '0.7' : supportsTabs ? '0.6' : supportsProgress ? '0.5' : supportsLayout ? '0.4' : supportsControls ? '0.3' : assetRetrieval ? '0.2' : '0.1', request, requestSha256, catalog, catalogSha256, candidates,
+    ...(retrievalVersion === '0.2' ? { recipeRetrievalVersion: '0.2' } : {}),
     ...(supportsControls ? { assetRetrieval: assetRetrieval ?? null } : assetRetrieval ? { assetRetrieval } : {}),
     capabilities: {
-      rowKinds: supportsProgress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : supportsLayout ? ['slider', 'switch', 'select', 'button', 'text'] : supportsControls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'],
+      rowKinds: supportsForms ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'] : supportsProgress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : supportsLayout ? ['slider', 'switch', 'select', 'button', 'text'] : supportsControls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'],
       layout: supportsLayout ? 'flow-containers-v1' : 'fixed-viewport-stacks', target: 'pixi',
       naturalLanguageInterpreter: 'external-agent', semanticReview: 'NOT_RUN',
-      ...(supportsControls ? { panelSpecVersions: supportsProgress ? ['0.1', '0.2', '0.3', '0.4', '0.5'] : supportsLayout ? ['0.1', '0.2', '0.3', '0.4'] : ['0.1', '0.2', '0.3'], actions: ['emit', 'reset-initial'] } : {}),
+      ...(supportsControls ? { ...(supportsTabs ? { navigation: 'horizontal-tabs-v1' } : {}), ...(supportsForms ? { forms: 'single-line-inputs-v1' } : {}), panelSpecVersions: supportsForms ? ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'] : supportsTabs ? ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6'] : supportsProgress ? ['0.1', '0.2', '0.3', '0.4', '0.5'] : supportsLayout ? ['0.1', '0.2', '0.3', '0.4'] : ['0.1', '0.2', '0.3'], actions: supportsForms ? ['emit', 'reset-initial', 'submit'] : ['emit', 'reset-initial'] } : {}),
     },
   };
   return { ...payload, sha256: await digestJson(payload) };
@@ -96,9 +107,12 @@ export async function createPlanningContext(requestInput, catalogInput, assetRet
 export async function validatePlanningContext(input) {
   const context = snapshotJson(input);
   if (!context || typeof context !== 'object' || Array.isArray(context)) fail('object', '$', 'must be an object');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5'].includes(context?.planningContextVersion)) fail('context-version', '$.planningContextVersion', 'only planning context 0.1 through 0.5 are supported');
-  exactObject(context, ['planningContextVersion', 'request', 'requestSha256', 'catalog', 'catalogSha256', 'candidates', 'capabilities', 'sha256', ...(context.planningContextVersion !== '0.1' ? ['assetRetrieval'] : [])], '$');
-  const expected = await createPlanningContext(context.request, context.catalog, context.assetRetrieval);
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'].includes(context?.planningContextVersion)) fail('context-version', '$.planningContextVersion', 'only planning context 0.1 through 0.7 are supported');
+  const versionedRetrieval = Object.hasOwn(context, 'recipeRetrievalVersion');
+  if (versionedRetrieval && context.recipeRetrievalVersion !== '0.2') fail('retrieval-version', '$.recipeRetrievalVersion', 'only recipe retrieval 0.2 is supported');
+  exactObject(context, ['planningContextVersion', 'request', 'requestSha256', 'catalog', 'catalogSha256', 'candidates', 'capabilities', 'sha256', ...(versionedRetrieval ? ['recipeRetrievalVersion'] : []), ...(context.planningContextVersion !== '0.1' ? ['assetRetrieval'] : [])], '$');
+  // Old frozen contexts replay their original ranking and digest, never today's aliases.
+  const expected = await buildPlanningContext(context.request, context.catalog, context.assetRetrieval, versionedRetrieval ? '0.2' : '0.1');
   if (canonicalJson(context) !== canonicalJson(expected)) fail('context-mismatch', '$', 'PLANNING_CONTEXT_MISMATCH: generated fields do not match the request and catalog');
   return expected;
 }

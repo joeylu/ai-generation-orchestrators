@@ -6,6 +6,11 @@ import { createPlanningContext } from '../src/planning-context.mjs';
 import { readJson } from '../src/io.mjs';
 import { loadWorkspaceCore } from '../src/component-adapter.mjs';
 import { createPanelBundle, validatePanelBundle } from '../src/panel-bundle.mjs';
+import { QUOTE_RECHECK_SUITE, quoteRecheckFixture } from '../examples/quote-recheck-v1/suite.mjs';
+import { materializePanelIntent } from '../src/panel-intent.mjs';
+import { evaluationProtocolFingerprint } from '../src/evaluation-protocol.mjs';
+import { digestBytes } from '../src/canonical.mjs';
+import { readFile } from 'node:fs/promises';
 
 const catalog = await readJson(new URL('../examples/modern-mint-layout.catalog.json', import.meta.url));
 const core = await loadWorkspaceCore();
@@ -73,4 +78,31 @@ test('missing lexical row kinds are reported separately from generation', async 
   const item = suite.cases[0], context = await createPlanningContext({ ...item.request, text: '做一个东西' }, catalog);
   assert.equal(evaluateRecipeHits(context, item.expected).status, 'MISS');
   assert.equal(evaluateRecipeHits(context, item.expected).assetCandidateCount, 0);
+});
+
+test('tabs expectations count navigation and independently reject wrong initial page, membership and availability', async () => {
+  const item = QUOTE_RECHECK_SUITE.cases.find(item => item.expected.tabs);
+  const forms = await readJson(new URL('../examples/modern-mint-forms.catalog.json', import.meta.url));
+  const context = await createPlanningContext(item.request, forms);
+  const { spec } = await materializePanelIntent(context, quoteRecheckFixture(context, item));
+  assert.equal(evaluatePanelSemantics(spec, item.expected).status, 'PASS');
+  for (const mutate of [
+    value => { value.state.find(field => field.id === value.tabs.bind).initial = value.tabs.pages[1].id; },
+    value => { value.tabs.enabled = false; },
+    value => { value.tabs.pages.reverse(); value.state.find(field => field.id === value.tabs.bind).options.reverse(); },
+    value => { [value.tabs.pages[0].sections, value.tabs.pages[1].sections] = [value.tabs.pages[1].sections, value.tabs.pages[0].sections]; },
+  ]) {
+    const bad = structuredClone(spec); mutate(bad); assert.equal(evaluatePanelSemantics(bad, item.expected).status, 'FAIL');
+  }
+  const noTabsExpected = structuredClone(item.expected); delete noTabsExpected.tabs;
+  assert.equal(evaluatePanelSemantics(spec, noTabsExpected).status, 'FAIL', 'unrequested navigation state is not ignored');
+});
+
+test('evaluation fingerprints bind the prompt selected by native quote-guard generation', async () => {
+  const protocol = await evaluationProtocolFingerprint();
+  assert.equal(protocol.panelIntentVersion, '0.8');
+  for (const name of ['panel-intent-v0.7-quote-guard.md', 'panel-intent-v0.7-native-quotes.md', 'panel-intent-v0.8-request-refs.md', 'panel-intent-v0.8-text-labels.md', 'panel-intent-v0.8-panel-titles.md']) {
+    const file = protocol.files.find(file => file.path === `prompts/${name}`); assert(file);
+    assert.equal(file.sha256, await digestBytes(await readFile(new URL(`../prompts/${name}`, import.meta.url))));
+  }
 });

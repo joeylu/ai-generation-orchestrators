@@ -1,4 +1,5 @@
 /** Deterministic PanelSpec 0.4 geometry. The caller validates the input contract. */
+import { pageLayout } from './tabs.mjs';
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
 const offset = (space, align) => align === 'center' ? space / 2 : align === 'end' ? space : 0;
 const positive = value => Number.isFinite(value) && value > 0;
@@ -80,5 +81,31 @@ export function measureFlowLayout(spec) {
     panelY: (spec.canvas.height - reserve - panelHeight) / 2,
     body: { x: l.padding, y: bodyY, width: viewportWidth, height: viewportHeight },
     contentHeight: measured.height, scrollable, sections: measured.sections,
+  };
+}
+
+/** Fixed header, independent page scroll offsets, stable panel height across navigation. */
+export function measureTabbedLayout(spec) {
+  if (!spec.tabs) return measureFlowLayout(spec);
+  const header = 48, gap = spec.layout.gap;
+  const overhead = header + gap;
+  const measurePages = maxHeight => spec.tabs.pages.map(page => measureFlowLayout({ ...spec,
+    sections: spec.sections.filter(section => page.sections.includes(section.id)),
+    canvas: { ...spec.canvas, height: spec.canvas.height - overhead },
+    layout: { ...spec.layout, maxHeight, body: pageLayout(spec.layout.body, page.sections) },
+  }));
+  let layouts = measurePages(spec.layout.maxHeight - overhead);
+  // Popup clearance is shared across pages; a short page with many choices
+  // must not leave the larger page below the canvas edge.
+  const reserve = Math.max(...layouts.map(layout => spec.canvas.height - overhead - layout.panelHeight - layout.panelY * 2));
+  layouts = measurePages(Math.min(spec.layout.maxHeight - overhead, spec.canvas.height - overhead - reserve));
+  const largest = layouts.reduce((a, b) => a.panelHeight >= b.panelHeight ? a : b);
+  const panelHeight = largest.panelHeight + overhead;
+  const contentHeight = largest.body.height;
+  return { width: largest.width, panelHeight, panelX: largest.panelX, panelY: (spec.canvas.height - reserve - panelHeight) / 2,
+    body: { ...largest.body, width: largest.width - spec.layout.padding * 2, height: contentHeight + overhead },
+    sections: layouts.flatMap((layout, index) => layout.sections.map(section => ({ ...section, pageId: spec.tabs.pages[index].id }))),
+    pages: layouts.map((layout, index) => ({ id: spec.tabs.pages[index].id, ...layout, viewportHeight: contentHeight })),
+    headerHeight: header, pageY: overhead,
   };
 }

@@ -134,7 +134,8 @@ try {
   await page.goto(server.url); await idle();
   await page.waitForFunction(() => document.getElementById('model-status').textContent.includes('gpt-6-luna'));
   assert.equal(await page.locator('textarea:visible').count(), 2);
-  assert.deepEqual(await page.locator('button:visible').allTextContents(), ['生成面板', '修改面板']);
+  assert.deepEqual(await page.locator('.request-column button:visible').allTextContents(), ['生成面板', '修改面板']);
+  assert.equal(await page.locator('#download-delivery').isDisabled(),true);
   for (const id of ['advanced-area', 'library-badge', 'prepare', 'proposal-json', 'editor-form', 'live-state', 'evidence-output', 'download-panel'])
     assert.equal(await page.locator(`#${id}`).isVisible(), false, id);
   assert.equal(await page.locator('#generate-plan').isDisabled(), true);
@@ -267,6 +268,15 @@ try {
   assert.match(await page.locator('#request-error').textContent(), /连接中断/u);
   assert.equal(await page.locator('#request-error').isVisible(), true); await preserve(before, state);
   assert.equal(calls.length, count + 1); assert.equal(await page.locator('#request-text').inputValue(), calls[0].request.text); pass(stage);
+
+  stage = 'failed-modification-keeps-live-trial-history-and-events-no-retry';
+  const previousEvents = await page.evaluate(() => window.panelWorkbench.events());
+  const editRequest = await page.locator('#edit-request-text').inputValue(); count = calls.length;
+  await click('generate-edit');
+  assert.match(await page.locator('#edit-plan-error').textContent(), /连接中断.*未自动重试/u);
+  assert.equal(await page.locator('#edit-plan-error').isVisible(), true); await preserve(before, state);
+  assert.deepEqual(await page.evaluate(() => window.panelWorkbench.events()), previousEvents);
+  assert.equal(calls.length, count + 1); assert.equal(await page.locator('#edit-request-text').inputValue(), editRequest); pass(stage);
 
   stage = 'clarification-appears-only-when-needed-and-answer-never-auto-calls';
   expectedFault = false; mode = 'questions'; await click('generate-plan'); await noErrors(); await preserve(before, state);

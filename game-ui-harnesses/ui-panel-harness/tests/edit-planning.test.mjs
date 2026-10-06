@@ -168,7 +168,7 @@ test('every operation requires one exact indexed decision and business operation
     [value => { value.decisions[0].basis = { kind: 'inferred' }; }, 'EDIT_BASIS'],
     [value => { value.decisions[0].extra = true; }, 'EDIT_FIELDS'],
     [value => { value.extra = true; }, 'EDIT_FIELDS'],
-    [value => { value.editProposalVersion = '0.2'; }, 'EDIT_PROPOSAL_VERSION'],
+    [value => { value.editProposalVersion = '9.0'; }, 'EDIT_PROPOSAL_VERSION'],
   ]) {
     const proposal = proposalFor(context); mutate(proposal);
     await assert.rejects(validatePanelEditProposal(context, proposal), { code });

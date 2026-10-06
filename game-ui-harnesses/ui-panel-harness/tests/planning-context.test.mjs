@@ -57,6 +57,39 @@ test('short-request candidates are the complete lexical result, not probabilitie
   }
 });
 
+test('new recipe retrieval is digest-bound while frozen legacy contexts retain their original ranking', async () => {
+  const input = request('做个能拖的条，最低0最高100每格1，一开始40。');
+  const current = await createPlanningContext(input, catalog);
+  assert.equal(current.recipeRetrievalVersion, '0.2');
+  assert(current.candidates.some(candidate => candidate.kind === 'slider-row'));
+  assert.deepEqual(current.request, input);
+  assert.deepEqual(current.catalog, catalog);
+  assert.deepEqual(await validatePlanningContext(current), current);
+  const legacy = structuredClone(current);
+  delete legacy.recipeRetrievalVersion;
+  legacy.candidates = searchCatalog(catalog, { query: input.text, target: 'pixi', retrievalVersion: '0.1' })
+    .map(({ recipe, score }) => ({ id: recipe.id, version: recipe.version, kind: recipe.kind, score }));
+  await rehash(legacy);
+  assert.deepEqual(await validatePlanningContext(legacy), legacy);
+  assert.notEqual(legacy.sha256, current.sha256);
+  const forged = structuredClone(current); delete forged.recipeRetrievalVersion;
+  await assert.rejects(validatePlanningContext(await rehash(forged)), /PLANNING_CONTEXT_MISMATCH/);
+  await assert.rejects(validatePlanningContext({ ...current, recipeRetrievalVersion: '0.3' }), { code: 'retrieval-version' });
+});
+
+test('all 16 colloquial requests retrieve every explicitly needed recipe kind with untouched source evidence', async () => {
+  const { COLLOQUIAL_SUITE } = await import('../examples/real-input-evaluation-v1/suite.mjs');
+  const formsCatalog = JSON.parse(await readFile(new URL('../examples/modern-mint-forms.catalog.json', import.meta.url), 'utf8'));
+  for (const item of COLLOQUIAL_SUITE.cases) {
+    const context = await createPlanningContext(item.request, formsCatalog);
+    for (const kind of new Set(item.expected.rows.map(row => `${row.kind}-row`))) {
+      assert(context.candidates.some(candidate => candidate.kind === kind), `${item.id}: ${kind}`);
+    }
+    assert.deepEqual(context.request, item.request);
+    assert.equal(context.catalogSha256, await digestJson(formsCatalog));
+  }
+});
+
 test('retrieval processes late text and multiline input beyond the search API limit', async () => {
   const text = `${'无关说明。'.repeat(1450)}\r\n\t音量\n声音开关`;
   const context = await createPlanningContext(request(text), catalog);
@@ -145,7 +178,7 @@ test('validator rejects forged candidates, capabilities and fingerprints even af
   }
   await assert.rejects(validatePlanningContext({ ...original, sha256: '0'.repeat(64) }), /PLANNING_CONTEXT_MISMATCH/);
   await assert.rejects(validatePlanningContext({ ...original, unexpected: true }), /unknown field/);
-  await assert.rejects(validatePlanningContext({ ...original, planningContextVersion: '0.6' }), /only planning context/);
+  await assert.rejects(validatePlanningContext({ ...original, planningContextVersion: '0.8' }), /only planning context/);
 });
 
 test('validator rejects non-JSON context evidence before touching getters or cyclic values', async () => {

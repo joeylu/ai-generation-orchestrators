@@ -66,7 +66,7 @@ const noOutput = async output => assert.rejects(stat(output), { code: 'ENOENT' }
 
 function reportFixture(rendered = true) {
   const checks = [{ name: 'filesystem-native-test-double', status: 'PASS' }];
-  const coverage = { sourceNodes: document.nodes.length, visibleTextMeshes: rendered ? 4 : 0, sliderThumbs: 1 };
+  const coverage = { sourceNodes: document.nodes.length, visibleTextMeshes: rendered ? 4 : 0, sliderThumbs: 1, tabNavigations: 1, tabPages: 2 };
   const smoke = {
     status: 'PASS', panelId: bundle.spec.id, panelSha256: bundle.sha256, checks: copy(checks), coverage,
     playMode: true, rendered, error: '', expectedErrorLogs: 1, unexpectedErrorLogs: 0,
@@ -119,6 +119,8 @@ test('report sanitization retains source replay and visual regression coverage w
   assert.equal(checked.validation.sourceReplay, 'PASS');
   assert.equal(checked.smoke.coverage.visibleTextMeshes, 4);
   assert.equal(checked.smoke.coverage.sliderThumbs, 1);
+  assert.equal(checked.smoke.coverage.tabNavigations, 1);
+  assert.equal(checked.smoke.coverage.tabPages, 2);
   assert.equal(checked.smoke.humanVisualReview, 'NOT_RUN');
   assert.equal(checked.validation.visualReview, 'NOT_RUN');
   assert(!JSON.stringify(checked).includes(privateFixture));

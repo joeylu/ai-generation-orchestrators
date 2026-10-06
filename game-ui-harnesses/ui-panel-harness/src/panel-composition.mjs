@@ -17,8 +17,9 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
   const request = snapshotJson(requestInput), inputs = snapshotJson(bundlesInput);
   exact(request, ['panelCompositionRequestVersion', 'id', 'title', 'sources', 'layout', 'width', 'canvasWidth', 'canvasHeight', 'maxHeight', 'surfaceFrom']);
   if (request.panelCompositionRequestVersion !== '0.1' || !identity(request.id)
-    || !['column', 'row', 'grid'].includes(request.layout) || !Array.isArray(request.sources)
+    || !['column', 'row', 'grid', 'tabs'].includes(request.layout) || !Array.isArray(request.sources)
     || request.sources.length < 2 || request.sources.length > 32 || !Array.isArray(inputs) || inputs.length !== request.sources.length) fail('COMPOSITION_REQUEST');
+  if (request.layout === 'tabs' && request.sources.length > 8) fail('COMPOSITION_TABS_LIMIT');
   const namespaces = new Set();
   for (const source of request.sources) {
     exact(source, ['namespace', 'bundleSha256']);
@@ -38,7 +39,8 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
   for (let i = 0; i < bundles.length; i++) {
     const bundle = bundles[i], source = request.sources[i], spec = bundle.spec, ns = source.namespace;
     if (bundle.sha256 !== source.bundleSha256) fail('COMPOSITION_SOURCE_MISMATCH');
-    if (!['0.4', '0.5'].includes(spec.panelSpecVersion)) fail('COMPOSITION_SPEC_VERSION');
+    if (!['0.4', '0.5', '0.6', '0.7'].includes(spec.panelSpecVersion)) fail('COMPOSITION_SPEC_VERSION');
+    if (spec.tabs) fail('COMPOSITION_NESTED_TABS_UNSUPPORTED');
     if (!equal(bundle.catalog, catalog)) fail('COMPOSITION_CATALOG');
     if (!equal(spec.theme, themeRef)) fail('COMPOSITION_THEME');
     const fieldMap = new Map(), rowMap = new Map(), sectionMap = new Map();
@@ -57,7 +59,7 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
           const row = { ...original, id: rowMap.get(original.id) };
           if (row.bind) row.bind = fieldMap.get(row.bind);
           if (row.event) { row.event = `panel.${row.id}`; events.push({ source: original.event, target: row.event }); }
-          if (row.action?.kind === 'reset-initial') row.action = { ...row.action, fields: row.action.fields.map(id => fieldMap.get(id)) };
+          if (['reset-initial', 'submit'].includes(row.action?.kind)) row.action = { ...row.action, fields: row.action.fields.map(id => fieldMap.get(id)) };
           return row;
         }) });
     }
@@ -83,14 +85,24 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
       }
     } else if (request.surfaceFrom === ns) fail('COMPOSITION_SURFACE');
   }
-  const spec = arrangeIntentSpec({ panelSpecVersion: bundles.some(bundle => bundle.spec.panelSpecVersion === '0.5') ? '0.5' : '0.4', id: request.id, title: request.title, theme: themeRef, state, sections,
+  const forms = bundles.some(bundle => bundle.spec.panelSpecVersion === '0.7');
+  const tabbed = request.layout === 'tabs', modern = forms || tabbed || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.6');
+  const tabsRecipe = tabbed ? catalog.recipes.find(recipe => recipe.kind === 'tabs') : null;
+  if (tabbed && !tabsRecipe) fail('COMPOSITION_TABS_RECIPE_REQUIRED');
+  const pages = tabbed ? mappings.map((mapping, index) => ({ id: `page${index}`, label: bundles[index].spec.title, sections: mapping.sections.map(item => item.target) })) : null;
+  if (tabbed) {
+    state.push({ id: 'navigation', type: 'enum', initial: pages[0].id, options: pages.map(({id,label}) => ({id,label})) });
+    current.navigation = pages[0].id;
+  }
+  const spec = arrangeIntentSpec({ panelSpecVersion: forms ? '0.7' : modern ? '0.6' : bundles.some(bundle => bundle.spec.panelSpecVersion === '0.5') ? '0.5' : '0.4', id: request.id, title: request.title, theme: themeRef, state, sections,
+    ...(modern ? { tabs: tabbed ? { id: 'navigation', recipe: {id:tabsRecipe.id,version:tabsRecipe.version}, bind:'navigation', event:'panel.navigation', enabled:true, pages } : null } : {}),
     assets: panelSurface || rowIcons.length ? { library, panelSurface, rowIcons } : null,
     provenance: { kind: bundles.some(bundle => bundle.spec.provenance.kind === 'agent-authored') ? 'agent-authored'
       : bundles.every(bundle => bundle.spec.provenance.kind === 'programmatic-fixture') ? 'programmatic-fixture' : 'user-authored',
       description: 'Deterministic composition of verified source bundles under an explicit composition request. Source provenance is retained in the composition receipt.',
       assumptions: ['Bindings and events are namespaced per source; reset scopes remain source-local.', 'Source section layout kinds are preserved; geometry is measured for the new container.'] } },
     { width: request.width, canvasWidth: request.canvasWidth, canvasHeight: request.canvasHeight, maxHeight: request.maxHeight,
-      overflow: 'scroll', sourceQuote: null, body: { kind: request.layout, children: groups } }, theme);
+      overflow: 'scroll', sourceQuote: null, body: { kind: tabbed ? 'column' : request.layout, children: groups } }, theme);
   const keys = panelAssetKeys(spec), selectedRecords = keys.map(key => records.get(key)), paths = new Set(selectedRecords.map(record => `textures/${record.sha256}.png`));
   const assets = spec.assets ? { closure: { assetClosureVersion: '0.1', library, records: selectedRecords },
     resources: [...resources.values()].filter(resource => paths.has(resource.path)) } : undefined;

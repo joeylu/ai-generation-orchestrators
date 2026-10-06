@@ -9,7 +9,8 @@
 在本 Harness 内构建工作台，具体资源参数见 [工作台说明](workbench.md)，然后运行：
 
 ```sh
-node scripts/serve-workbench.mjs --workbench output/panel-studio-simple-v7 --output-root output/codex-runs --port 4188
+node scripts/build-workbench.mjs --catalog examples/modern-mint-forms.catalog.json --output output/my-studio
+node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 
 打开命令打印的本地网址。默认端口 4184；若已占用，可指定 `--port 0` 自动选择空闲端口。
@@ -33,15 +34,30 @@ CLI 从 PATH 中发现；必要时通过 `--codex <可执行文件的绝对路�
 关闭 shell、浏览器、插件和其他任务工具；规划提示包含所需合同与上下文。
 布局上下文 0.4 使用 [PanelIntent 0.3](../prompts/panel-intent.md)，直接输出原生 JSON，
 不再把完整方案塞进字符串。分组和行嵌入递归布局树，默认标记随下拉选项保存，业务依据随行保存。
-模型解释行类型、顺序、标签、明确的范围/步长/初值、选项、按钮重置范围、禁用策略与只读内容。
+Context 0.7 当前CLI新生成使用PanelIntent 0.8，通过sourceRef绑定完整已验证请求；保存的0.7意图继续严格兼容。保留输入属性、校验与明确submitRows，见[输入表单](panel-forms.md)。
+行、分组、页签不由模型填写ID；程序按深度优先树顺序生成row0、section0、page0等全局身份。
+resetRows/submitRows使用从0开始的整数行序号，包括文字与按钮，跨分组/页签不重启；支持前向引用，仍严格检查类型、存在性与重复引用。
+旧Intent 0.6兼容读取，旧重复ID不自动修复。运输协议不升级保存的Spec或编辑协议；修改与重导入继续保留稳定ID。
+提示中的Native CLI output schema与实际--output-schema一致。明确标签须完整复制；对明确下一行/编号行的开关或下拉名称丢失“仅”有局部字面校验，不能当作完整自然语言解析器。
+模型解释行类型、顺序、标签、明确的范围/步长/初值、选项、按钮作用范围、禁用策略与只读内容。
 程序按每行生成状态和绑定、事件、数字精度、依据目标与原文 UTF-16 区间，并测量几何布局。
 动态输出 schema 固定当前上下文摘要、目录配方/主题和图片候选；完整公共校验仍检查数值、类型、
-资源、引用、来源与布局。原文必须精确且唯一，不猜测缺失值、不修复无效输出。
+资源、引用、来源与布局。当前Intent 0.8由程序提供请求原文依据；旧原文引句仍按对应版本精确检查。不会猜测缺失值或修复无效输出。
 
 提示保留完整上下文，并在末尾再次提供逐句原文和默认词组的字面扫描，帮助模型检查长需求。
 扫描不会解析或补充业务事实，也不能证明需求完整；确有缺失时仍返回问题，由用户回答。
 展示标题、ID、分组名称、未指定几何和图片选择不作为缺失业务事实提问。
 模型问了问题就保持 NEEDS_INPUT，不因评测希望成功而忽略问题。
+
+原生生成与编辑输出的 unresolved.id 使用 q0、q1……q63，schema 枚举这些内部 ASCII 编号，
+提示要求按顺序且唯一；问题正文仍使用用户语言。公共提案导入仍支持原有合法的 ASCII 符号 ID。
+公共校验继续拒绝重复编号、空问题、超长文本和错误上下文，不改写已失败调用的输出。
+例如只写“声音和显示两个页签，含音量、静音、亮度”仍缺少业务范围、步长和初值，
+正确结果是显示具体补充问题。补充回答只更新需求，用户再点击生成才发起新调用。
+
+可直接测试的完整需求：
+
+> 生成设置面板，包含声音和显示两个页签。声音页有主音量滑条，范围0～100，步长1，默认70；静音开关默认关闭，开启表示静音。显示页有亮度滑条，范围0～100，步长1，默认60。默认打开声音页。
 
 较早上下文继续使用 [CodexPanelDraft 0.1](../prompts/codex-panel-draft.md) 的旧传输；
 收到旧版意图、草稿或完整 PanelProposal 时仍须通过全部对应校验。公共文件导入、PanelSpec、
@@ -67,9 +83,20 @@ WebSocket 转 HTTPS 的通知可以继续等待，仍要求正常退出、完整
 
 填写“修改要求”，点击“修改面板”。程序从完整当前 Spec、目录和本次原文
 重新创建编辑上下文，经同源 `/api/panel/edit` 调用一次 CLI，仅接收 EditProposal。
-CLI 编辑输出直接使用 CodexEditDraft 0.1 对象，不把完整方案嵌在 `proposalJson` 字符串中。
+CLI 编辑输出直接使用 CodexEditDraft 对象，不把完整方案嵌在 `proposalJson` 字符串中。
+当前编辑 dispatch 使用 CodexEditDraft 0.3。Spec 0.7 保留 0.2 的紧凑输入新增操作，
+由程序生成绑定与标准提示；其它源保留原有 Patch 形状，旧 0.1/0.2 草稿仍严格支持。
+CLI 使用[专用编辑合同](../prompts/codex-panel-editor.md)，提示内嵌的原生 schema
+与这次 `--output-schema` 使用同一对象。原生操作及必填字段从该 schema 的实际可达分支
+派生，再与当前公共 capabilities 逐项对应；不同时注入旧版完整 schema 作为另一种输出要求。
+原生 `add-input-row` 对应公共 `add-row`，不要求公共列表再声明传输专用名称。
+原生 `add-row.row` 不含 Input 是使用紧凑输入分支的约定，不表示无法新增输入。
+普通修改/澄清的 `noChange:null`；明确无需修改提供带原文引句的 `noChange`，
+程序校验为独立 `NO_CHANGES` 结果，保留输入与撤销历史。
+公共 Patch 不变，普通提案仍为 EditProposal 0.1，无需修改专用提案为 0.2。
+见 [局部编辑协议](panel-editing.md) 和 [表单编辑说明](form-edit-recovery.md)。
 程序从公共 schema 生成所有字段必填、对象拒绝额外属性、引用全部本地化的输出形状，
-包含十种操作与递归布局；条件、范围、源版本、摘要和原文依据仍由完整公共校验器检查。
+包含当前原生操作与递归布局；条件、范围、源版本、摘要和原文依据仍由完整公共校验器检查。
 模型按操作顺序提供逐字引句；程序确定 UTF-16 区间与操作索引，生成公共 EditProposal
 并通过全部原有校验。没有逐字出处仍失败，不猜引句或修补已有的失败提案。
 按钮文字、禁用和明确的重置范围可局部修改，新增状态与重置范围在同一批校验。
@@ -103,6 +130,9 @@ CLI 编辑输出直接使用 CodexEditDraft 0.1 对象，不把完整方案嵌�
 未知字段名和非协议路径被移除。页面显示这些已验证的具体原因，仍保留旧面板，不自动
 修补或重试。诊断里的提案摘要仅指纹标识被拒绝的数据，不是有效方案或成功证明。
 历史调用若只记录通用错误码，无法凭新版诊断恢复其已丢弃的模型返回内容。
+编辑 `EDIT_RESULT_SPEC` / `EDIT_PATCH` 可额外含单层 `cause:{validatorCode,path}`，
+保留底层白名单校验码和字段路径；不含原值、错误消息或嵌套 cause。
+服务和客户端仍验证操作、阶段、摘要及所有字段。旧诊断不要求新 cause。
 
 解析返回内容失败也保存同类诊断，阶段为 `output-validation`，只允许 `OUTPUT_JSON`、
 `OUTPUT_WRAPPER`、`OUTPUT_PROPOSAL_JSON` 和固定路径 `$` / `$.proposalJson`。
@@ -191,3 +221,9 @@ node scripts/check-codex-workbench-browser.mjs --workbench output/panel-studio-l
 
 参数依据：[Codex 非交互模式](https://learn.chatgpt.com/docs/non-interactive-mode) 与
 [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)，并以本机 CLI `exec --help` 确认可用开关。
+# 真实输入修复补充
+
+详见 [2026-10-06 修复与验收](studio-stability-fixes-2026-10-06.md)：原生生成 schema 同步数组数量边界，
+修改 schema 按本次上下文限定 contextSha256 与 baseSpecSha256；错误绑定仍终止，不覆盖或自动重试。
+新增词法别名改变候选时，上下文以 recipeRetrievalVersion:"0.2" 记录并绑定检索规则。
+无该字段的旧上下文保留原检索和摘要，未受影响的新请求也保留历史字节。

@@ -6,8 +6,15 @@ const CODES = new Set(`EDIT_BASE_MISMATCH EDIT_BASIS EDIT_BUSINESS_ORIGIN EDIT_C
 const FIELDS = new Set(`spec proposalVersion editProposalVersion contextSha256 decisions unresolved target basis kind start end quote reason id question panelSpecVersion title theme version canvas width height layout padding gap sectionGap labelWidth rowHeight titleHeight sectionTitleHeight maxHeight overflow body direction children columns breakpoint align justify sectionId state type initial min max step options label sections rows recipe bind enabled event format fractionDigits prefix suffix buttonLabel action fields text provenance description assumptions assets library sha256 panelSurface rowIcons rowId asset patch patchVersion baseSpecSha256 operations op operationIndex afterRowId fieldId value catalog recipes themes capabilities request requestVersion editContextVersion catalogSha256`.split(' '));
 const KEYS = ['codexValidationDiagnosticVersion', 'operation', 'contextSha256', 'proposalJsonSha256', 'stage', 'validatorCode', 'path'];
 const OUTPUT_CODES = new Set(['OUTPUT_JSON', 'OUTPUT_WRAPPER', 'OUTPUT_PROPOSAL_JSON']);
+CODES.add('INTENT_NATIVE_QUOTE');
+CODES.add('INTENT_SOURCE_REFERENCE'); FIELDS.add('sourceRef');
+CODES.add('INTENT_TEXT_LABEL');
 for (const code of ['DRAFT_FIELDS', 'DRAFT_COUNT', 'DRAFT_VERSION', 'INTENT_FIELDS', 'INTENT_COUNT', 'INTENT_QUOTE', 'INTENT_VERSION', 'INTENT_REFERENCE', 'INTENT_PRECISION', 'INTENT_DEFAULT', ...OUTPUT_CODES]) CODES.add(code);
 for (const field of ['codexPanelDraftVersion', 'codexEditDraftVersion', 'bases', 'overall', 'surface', 'proposalJson', 'panelIntentVersion', 'panel', 'sourceQuote', 'themeKey', 'recipeKey', 'icon', 'canvasWidth', 'canvasHeight', 'initialLabel', 'resetRows']) FIELDS.add(field);
+for (const code of ['EDIT_INPUT_RECIPE', 'EDIT_NO_CHANGE', 'EDIT_PLAN_NO_CHANGES', 'input-value', 'input-type']) CODES.add(code);
+FIELDS.add('noChange');
+for (const field of ['placeholder', 'inputType', 'readOnly', 'maxLength', 'validation', 'required', 'minLength',
+  'requiredMessage', 'minLengthMessage', 'validationMessages', 'submitRows', 'tabs', 'pages', 'pageId']) FIELDS.add(field);
 const TARGET_ISSUES = new Set(['duplicate', 'unmatched', 'non-string']);
 const bad = () => { const error = new Error('CODEX_DIAGNOSTIC_INVALID'); error.code = error.message; throw error; };
 
@@ -28,7 +35,8 @@ function safePath(input) {
 export function validateCodexDiagnostic(input, { operation, contextSha256, failureCode } = {}) {
   let value;
   try { value = snapshotJson(input); } catch { bad(); }
-  const keys = value && Object.hasOwn(value, 'targetIssue') ? [...KEYS, 'targetIssue'] : KEYS;
+  const keys = [...KEYS, ...(value && Object.hasOwn(value, 'targetIssue') ? ['targetIssue'] : []),
+    ...(value && Object.hasOwn(value, 'cause') ? ['cause'] : [])];
   if (!value || Array.isArray(value) || Object.keys(value).sort().join('|') !== [...keys].sort().join('|')
     || value.codexValidationDiagnosticVersion !== '0.1' || !['plan', 'edit'].includes(value.operation)
     || !HASH.test(value.contextSha256 ?? '') || !HASH.test(value.proposalJsonSha256 ?? '')
@@ -43,6 +51,14 @@ export function validateCodexDiagnostic(input, { operation, contextSha256, failu
       || ((failureCode === 'CODEX_OUTPUT_INVALID') !== (value.stage === 'output-validation'))))
     || (operation !== undefined && value.operation !== operation)
     || (contextSha256 !== undefined && value.contextSha256 !== contextSha256)) bad();
+  if (Object.hasOwn(value, 'cause')) {
+    const cause = value.cause;
+    if (value.operation !== 'edit' || !['EDIT_RESULT_SPEC', 'EDIT_PATCH'].includes(value.validatorCode)
+      || !['proposal-validation', 'proposal-check'].includes(value.stage)
+      || !cause || Array.isArray(cause) || Object.keys(cause).sort().join('|') !== 'path|validatorCode'
+      || !CODES.has(cause.validatorCode) || cause.validatorCode === 'VALIDATION_FAILED'
+      || (cause.path !== null && safePath(cause.path) !== cause.path)) bad();
+  }
   return value;
 }
 
@@ -50,8 +66,12 @@ export function createCodexDiagnostic(error, { operation, contextSha256, proposa
   // Only constants from public validators and known schema field names survive.
   const validatorCode = CODES.has(error?.code) ? error.code : 'VALIDATION_FAILED';
   const candidatePath = error?.path ?? (typeof error?.message === 'string' ? error.message.split(':', 1)[0] : undefined);
+  const nested = operation === 'edit' && ['EDIT_RESULT_SPEC', 'EDIT_PATCH'].includes(validatorCode)
+    && ['proposal-validation', 'proposal-check'].includes(stage) && CODES.has(error?.cause?.code)
+    && error.cause.code !== 'VALIDATION_FAILED'
+    ? { cause: { validatorCode: error.cause.code, path: safePath(error.cause.path) } } : {};
   return validateCodexDiagnostic({ codexValidationDiagnosticVersion: '0.1', operation, contextSha256,
-    proposalJsonSha256, stage, validatorCode, path: safePath(candidatePath),
+    proposalJsonSha256, stage, validatorCode, path: safePath(candidatePath), ...nested,
     ...(operation === 'plan' && validatorCode === 'PLAN_TARGET' && TARGET_ISSUES.has(error?.targetIssue)
       ? { targetIssue: error.targetIssue } : {}) });
 }
