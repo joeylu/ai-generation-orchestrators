@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased alpha-aware material observation displays
+
+- New singleton and sheet material review observation PNGs are opaque RGB
+  checkerboard composites of the real source alpha. The original PNG, alpha,
+  source identity and geometry are unchanged; this is display preparation.
+- Observation mappings and final attachments are bound into review requests.
+  Prompt guidance distinguishes nearly transparent RGB fringe from visible
+  extra artwork. Existing severity, ownership and technical gates still apply.
+- Offline fixtures cover bright alpha=1 fringe, continuous translucency,
+  unchanged source fingerprints and coordinate mappings. Historical frozen
+  requests, answers and terminal failures retain their original bytes.
+
 ## Unreleased source-bound material cleanup exchange
 
 - Explicit cleanup preparation freezes an actual received singleton or exact

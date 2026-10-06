@@ -40,6 +40,15 @@ body observation have separate fresh authorizations. Material review is one
 aggregate scope frozen after all images are received; it binds every actual
 request and attachment, then reserves one review at a time.
 
+New material review reference/generated observation attachments display native
+PNG alpha composited on an opaque neutral checkerboard. Their mapping metadata
+and PNG bytes are fingerprinted; the original PNG and continuous alpha remain
+unchanged pixel authorities. This prevents hidden RGB or nearly transparent
+fringe from appearing as solid extra artwork in an alpha-ignoring viewer. Review
+findings still describe visible missing, foreign or distorted artwork under the
+frozen policy. Existing frozen requests and failed runs are not changed or
+reclassified by this display preparation.
+
 Return genuine original bytes using `host-receive --run RUN --digest
 SUBMISSION_DIGEST --response FILE`. Model responses additionally require
 `--host-attestation`, `--dispatch-evidence`, and `--return-evidence`; their typed

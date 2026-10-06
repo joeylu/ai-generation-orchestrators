@@ -13,7 +13,7 @@ from .automatic_registration import observation_image, call_model
 from .sheet_pixels import prepare, axis_cuts
 from .short_prompt import exclusions
 from .sheet_review_policy import PROMPT as REVIEW_PROMPT, classify, schema_for
-from .review_image import fit_resampling
+from .review_image import fit_resampling, ALPHA_VISIBILITY_GUIDANCE
 from .visual_policy import snapshot_policy, output_review_guidance
 from . import visual_textures
 
@@ -297,8 +297,8 @@ def prepare_sheet_review(snapshot, manifest, row, visual, source, prepared_hash,
     texture_doc=visual_textures.snapshot_input(snapshot,manifest)
     texture_metadata={key:manifest[key] for key in ("visualTexturePolicy","visualTexturesSha256","visualTextureBindingsSha256") if key in manifest}
     request_schema=schema_for(visual_policy);key=row["asset"];review_hash=digest(review_source)
-    mappings=dict(reference=observation_image(snapshot/'reference.png',folder/'reference.png'),
-                  generated=observation_image(review_source,folder/'generated.png'))
+    mappings=dict(reference=observation_image(snapshot/'reference.png',folder/'reference.png',alpha_visibility=True),
+                  generated=observation_image(review_source,folder/'generated.png',alpha_visibility=True))
     detail_comparison(snapshot,review_source,row,review_boxes,folder)
     save(folder/'observation-mapping.json',mappings);save(folder/'schema.json',request_schema)
     entries=review_entries(visual,row['materialIds'])
@@ -314,7 +314,7 @@ def prepare_sheet_review(snapshot, manifest, row, visual, source, prepared_hash,
         'close scale. A stronger border or newly beveled corner is a finding even when the '
         'icon and progress fill are correct. Reference crops may contain removed business text, '
         'scene pixels or foreign artwork; apply the ownership and text rules below. '
-        + adapted_note +
+        + ALPHA_VISIBILITY_GUIDANCE + adapted_note +
         'No tools. Verify every assigned cell contains exactly its assigned material: correct '
         'identity, observed state, complete silhouette, relative proportions, integrated details, '
         'and material ownership. Each entry owns only its listed objects. '

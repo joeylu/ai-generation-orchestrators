@@ -76,10 +76,19 @@ class SingleMaterialReviewTests(unittest.TestCase):
         calls=[]
         def model(folder):
             calls.append(folder)
+            from ai_ui_layers.evaluate import read, digest
+            request=read(folder/'request.json')
+            self.assertIn('observation-mapping.json',request['inputs'])
+            mapping=read(folder/'observation-mapping.json')['generated']
+            self.assertEqual(mapping['originalSha256'],digest(self.job/'attempts/asset-coin-a/raw.png'))
+            self.assertEqual(mapping['alphaDisplay']['policy'],'opaque-checkerboard-native-alpha-v1')
+            with Image.open(folder/'generated.png') as image:
+                self.assertEqual(image.mode,'RGB')
             prompt=(folder/'prompt.md').read_text(encoding='utf-8')
             self.assertIn('excludedForeignArtwork',prompt)
             self.assertIn('Each entry owns only its listed objects',prompt)
             self.assertIn('checkerboard reveals alpha',prompt)
+            self.assertIn('alpha-ignoring preview',prompt)
             self.assertIn('Expected materialIds: asset-coin-a',prompt)
             save(folder/'draft.json',dict(materialIds=['asset-coin-a'],findings=[dict(
                 materialId='asset-coin-a',category='geometry',referenceState='not-applicable',

@@ -22,16 +22,25 @@ BASE=HARNESS/'planning-harness'
 OBSERVATION_MAX_EDGE=1536
 
 
-def observation_image(source, destination):
+def observation_image(source, destination, *, alpha_visibility=False):
     """Bound the actual attachment size; preserve the original as pixel authority."""
     with Image.open(source) as im:
         original=im.size
         image=im.convert('RGBA')
         image.thumbnail((OBSERVATION_MAX_EDGE,OBSERVATION_MAX_EDGE),Image.Resampling.LANCZOS)
-        image.save(destination)
-    return dict(originalSize=list(original),observationSize=list(image.size),
+        if alpha_visibility:
+            from .review_image import alpha_visibility_rgb
+            alpha_visibility_rgb(image).save(destination)
+        else:
+            image.save(destination)
+    mapping=dict(originalSize=list(original),observationSize=list(image.size),
                 originalSha256=digest(Path(source)),observationSha256=digest(destination),
                 mapping='floor-rational-half-open-edges')
+    if alpha_visibility:
+        from .review_image import ALPHA_VISIBILITY_POLICY
+        mapping['alphaDisplay']=dict(policy=ALPHA_VISIBILITY_POLICY,outputMode='RGB',
+                                    checkerTile=24,checkerShades=[190,235],rawAlphaModified=False)
+    return mapping
 
 
 def original_box(values, mapping):

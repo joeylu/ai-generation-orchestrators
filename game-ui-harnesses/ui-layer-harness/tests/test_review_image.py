@@ -6,11 +6,53 @@ from pathlib import Path
 from PIL import Image
 
 from ai_ui_layers.extract_sheets import detail_comparison
-from ai_ui_layers.review_image import fit_resampling
+from ai_ui_layers.review_image import fit_resampling, alpha_visibility_rgb
+from ai_ui_layers.automatic_registration import observation_image
+from ai_ui_layers.evaluate import digest
 from ai_ui_layers.single_material_review import comparison
 
 
 class ReviewImageTests(unittest.TestCase):
+    def test_faint_bright_fringe_is_composited_at_its_real_alpha(self):
+        image = Image.new('RGBA', (48, 24), (255, 255, 255, 0))
+        image.putpixel((0, 0), (255, 255, 255, 1))
+        image.putpixel((24, 0), (255, 255, 255, 1))
+        image.putpixel((12, 12), (40, 70, 100, 255))
+        image.putpixel((30, 12), (0, 0, 0, 128))
+        original = image.tobytes()
+        visible = alpha_visibility_rgb(image)
+        self.assertEqual(visible.mode, 'RGB')
+        self.assertEqual(visible.getpixel((0, 0)), (235, 235, 235))
+        self.assertEqual(visible.getpixel((24, 0)), (190, 190, 190))
+        self.assertEqual(visible.getpixel((1, 0)), (235, 235, 235))
+        self.assertEqual(visible.getpixel((12, 12)), (40, 70, 100))
+        self.assertEqual(visible.getpixel((30, 12)), (95, 95, 95))
+        self.assertEqual(image.tobytes(), original)
+
+    def test_visibility_attachment_preserves_source_and_coordinate_mapping(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root/'source.png'
+            Image.new('RGBA', (2000, 1000), (255, 255, 255, 1)).save(source)
+            original_sha = digest(source)
+            observed = root/'visible.png'
+            mapping = observation_image(source, observed, alpha_visibility=True)
+            self.assertEqual(mapping['originalSize'], [2000, 1000])
+            self.assertEqual(mapping['observationSize'], [1536, 768])
+            self.assertEqual(mapping['originalSha256'], original_sha)
+            self.assertEqual(mapping['observationSha256'], digest(observed))
+            self.assertFalse(mapping['alphaDisplay']['rawAlphaModified'])
+            with Image.open(observed) as image:
+                self.assertEqual(image.mode, 'RGB')
+                self.assertEqual(image.getpixel((0, 0)), (235, 235, 235))
+            self.assertEqual(digest(source), original_sha)
+            unchanged_mode = root/'default.png'
+            default_mapping = observation_image(source, unchanged_mode)
+            self.assertNotIn('alphaDisplay', default_mapping)
+            with Image.open(unchanged_mode) as image:
+                self.assertEqual(image.mode, 'RGBA')
+                self.assertEqual(image.getchannel('A').getextrema(), (1, 1))
+
     def test_enlargement_keeps_source_pixels_and_reduction_antialiases(self):
         self.assertEqual(fit_resampling((2, 2), (8, 8)), Image.Resampling.NEAREST)
         self.assertEqual(fit_resampling((8, 8), (2, 2)), Image.Resampling.LANCZOS)

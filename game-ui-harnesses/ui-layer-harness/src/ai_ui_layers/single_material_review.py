@@ -11,7 +11,7 @@ from .experimental_executor import load_job, status, verified
 from .extract_sheets import review_entries
 from .postprocess_visual import process
 from .sheet_review_policy import PROMPT, classify, schema_for
-from .review_image import fit_resampling
+from .review_image import fit_resampling, ALPHA_VISIBILITY_GUIDANCE
 from .visual_policy import snapshot_policy, output_review_guidance
 from . import visual_textures
 
@@ -73,7 +73,9 @@ def finalize_failed_transport(output):
 def review_prompt(asset, visual, visual_policy=None):
     entries=review_entries(visual,[asset])
     return ('Compare image 1, the original rectangular reference crop, against image 2, '
-            'the received raw generated material. Image 3 places the original on the left, '
+            'the alpha-composited visibility preview of the received raw generated material. '
+            + ALPHA_VISIBILITY_GUIDANCE +
+            'Image 3 places the original on the left, '
             'the raw generated artwork in the middle and its deterministic target-size fit on '
             'the right. Each checkerboard reveals alpha and is not generated artwork. Each pane '
             'is fitted independently for inspection, not measurement; enlarged source pixels '
@@ -145,8 +147,9 @@ def prepare_review(job, output, request_id=None, *, received_request_only=False)
         save(output/'result.json',result);return result
     folder=output/'review';folder.mkdir()
     reference=job/'snapshot'/row['crop']
-    observation_image(reference,folder/'reference.png')
-    observation_image(raw,folder/'generated.png')
+    mappings=dict(reference=observation_image(reference,folder/'reference.png',alpha_visibility=True),
+                  generated=observation_image(raw,folder/'generated.png',alpha_visibility=True))
+    save(folder/'observation-mapping.json',mappings)
     processed=output/'processed/material.png'
     detail=comparison(reference,raw,folder/'detail-compare.png',processed)
     save(folder/'detail-compare.json',detail)
@@ -161,7 +164,7 @@ def prepare_review(job, output, request_id=None, *, received_request_only=False)
         prompt+=visual_textures.generation_guidance(texture_doc,texture_bindings,[asset],visual,context=row.get('references'))
         prompt+='\nReview protected texture shapes against source appearance, including ink, count, layout and proportions. Their removal, invented lettering, uncertain preservation or damaged protected artwork blocks acceptance. Ordinary text removal does not apply to these approved shapes. Actual review metadata: '+json.dumps(dict(materialId=asset,rawSha256=receipt['rawSha256'],sourceRegion=row['sourceRegion'],comparison=detail),ensure_ascii=False)
     (folder/'prompt.md').write_text(prompt,encoding='utf-8')
-    names=('reference.png','generated.png','detail-compare.png','detail-compare.json',
+    names=('reference.png','generated.png','detail-compare.png','detail-compare.json','observation-mapping.json',
            'schema.json','prompt.md')
     bound={name:digest(folder/name) for name in names}
     save(folder/'request.json',dict(kind='ui_single_material_review_v1',materialId=asset,
