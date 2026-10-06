@@ -385,18 +385,39 @@ v3 精确要求六个字段，新增 `minorGeometry: strict|record`。`record` �
 重复、错状态、实心裁切以及 `layout` 内部图形位移仍阻断。模型的 minor 声明不是
 像素测量，完整原始观察和证据进入交付警告，最终人工验收仍待执行。
 
-主体归位从同一冻结 snapshot 读取该策略。仅 v3 `minorGeometry=record` 允许整体
+主体归位从同一冻结 snapshot 读取该策略。v3/v4 `minorGeometry=record` 允许整体
 等比 contain 缩放后的宽高残差超过原来的 1 像素，并在归位证明中记录源/目标比例、
 实际缩放后尺寸及残差。中心按真实主体框对齐；两轴使用同一 scale，不拉伸、不移动内部
 图形、不重绘、不删弱 alpha。对称宽高比差 `max(rSource/rTarget,rTarget/rSource)-1`
 超过 25% 且尺寸残差超过量化的 1 像素时，仍以 `BODY_PROPORTIONS_GROSSLY_DIFFER`
 停止。这是防止主体锚点或整体形状严重失配的粗略护栏，不是视觉精确还原指标；较小
-差异若真实复审判定 major/uncertain 也仍阻断。未选择 v3 record 时沿用 1 像素门槛。
+差异若真实复审判定 major/uncertain 也仍阻断。未选择 `minorGeometry=record` 时沿用 1 像素门槛。
 
 v3 继承原始字节/SHA 绑定、提示词重建、单次新摘要授权及不重投规则。标准 support、
 host 主体交换、完整存储/原尺寸 viewport、离线 preview 和素材来源回放均继承同一
 冻结策略；旧 v1/v2、历史固定运行时、已消费授权和失败作业不改判。不将粗略护栏、
 回拼一致或程序测试称为用户视觉通过。
+
+使用者也接受轻微内部布局偏差时，新作业可显式选择 v4：
+
+```json
+{"kind":"ui_visual_policy_v4","appearanceEvidence":"bound-reference","minorColor":"record","shadow":"optional","minorStyle":"record","minorGeometry":"record","minorLayout":"record"}
+```
+
+v4 精确要求七个字段，新增 `minorLayout: strict|record`。只有清晰归属、
+`layout/other + magnitude=minor` 的观察在 `record` 下成为 `minor-layout-deviation`
+警告。例如完整条板内符号的轻微间距、位置或相对尺度变化，且身份、数量、状态、连接、
+先后/左右关系仍保留。观察必须建立两图的完整归属边界，按整体可见影响判断；
+不以猜测像素或百分比决定，不改填 geometry/style 隐藏布局变化。
+明显位移、关系反转、错层填 major；无法判断或多锚点对应不清填 uncertain。
+major、uncertain、归属不清、缺件、重复、错误身份/状态、实心裁切和技术失败仍阻断。
+独立 owned/foreign 完整观察、真实 alpha、来源指纹和主体证据要求不变。
+
+完整原始观察、证据、建议和布局警告进入交付报告；不会为消除警告重绘、移位内部图形，
+也不改变同一主体的等比归位或 support 存储规则。`minorLayout=strict` 保持布局阻断；
+该字段不影响 `minorGeometry` 或其他选项。v1/v2/v3 的提示词与判定语义保持原样。
+新策略同样绑定原始字节/SHA、所有提示词、冻结请求和新范围授权；已冻结或已失败作业
+不热更新、不重判、不恢复。此容差不代表程序确认像素保真或人工通过。
 
 显式策略的完整 mixed 请求中，每个 singleton 经真实 `single_material_review`：
 先重放相同冻结 snapshot 的作业、授权、提交和接收回执，核对 raw SHA-256，再按

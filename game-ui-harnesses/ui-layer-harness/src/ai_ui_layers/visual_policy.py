@@ -7,6 +7,7 @@ from pathlib import Path
 KIND = 'ui_visual_policy_v1'
 KIND_V2 = 'ui_visual_policy_v2'
 KIND_V3 = 'ui_visual_policy_v3'
+KIND_V4 = 'ui_visual_policy_v4'
 FIELDS = {
     'kind': (KIND,),
     'appearanceEvidence': ('text-complete', 'bound-reference'),
@@ -15,6 +16,7 @@ FIELDS = {
 }
 FIELDS_V2 = dict(FIELDS, kind=(KIND_V2,), minorStyle=('strict', 'record'))
 FIELDS_V3 = dict(FIELDS_V2, kind=(KIND_V3,), minorGeometry=('strict', 'record'))
+FIELDS_V4 = dict(FIELDS_V3, kind=(KIND_V4,), minorLayout=('strict', 'record'))
 INPUT_NAME = 'visual-policy.json'
 MODEL_STAGES = ('m2', 'repair', 'rereview', 'repair2', 'rereview2')
 
@@ -23,7 +25,8 @@ def validate(policy):
     """Require the exact public policy shape, without implicit defaults."""
     if not isinstance(policy, dict):
         raise ValueError('INVALID_VISUAL_POLICY_FIELDS')
-    fields = {KIND_V2: FIELDS_V2, KIND_V3: FIELDS_V3}.get(policy.get('kind'), FIELDS)
+    fields = {KIND_V2: FIELDS_V2, KIND_V3: FIELDS_V3,
+              KIND_V4: FIELDS_V4}.get(policy.get('kind'), FIELDS)
     if set(policy) != set(fields):
         raise ValueError('INVALID_VISUAL_POLICY_FIELDS')
     for field, allowed in fields.items():
@@ -144,7 +147,16 @@ def planning_guidance(policy):
     geometry = ('目标为整体基本还原；完整主体的轻微宽高比例、圆角或外轮廓差异可记录，'
                 '不要求逐像素复刻。缺件、重复、实心裁切、错误归属/状态、内部图形位移、'
                 '明显或不确定变形仍须修正。' if policy.get('minorGeometry') == 'record' else '')
-    return '\n本次显式视觉策略：' + appearance + color + shadow + style + geometry + '\n'
+    layout = ''
+    if policy.get('minorLayout') == 'record':
+        if policy.get('minorGeometry') == 'record':
+            geometry = ('目标为整体基本还原；完整主体的轻微宽高比例、圆角或外轮廓差异可记录，'
+                        '不要求逐像素复刻。缺件、重复、实心裁切、错误归属/状态、'
+                        '明显或不确定变形仍须修正。')
+        layout = ('完整、清晰归属的内部图形可有轻微间距、位置或相对尺度差异；'
+                  '身份、数量、状态、连接、先后/左右关系和独立控件必须保留，'
+                  '规划仍须准确写明原图内部布局。明显位移、关系反转、错层或不确定布局仍须修正。')
+    return '\n本次显式视觉策略：' + appearance + color + shadow + style + geometry + layout + '\n'
 
 
 def generation_guidance(policy):
@@ -165,7 +177,14 @@ def generation_guidance(policy):
     geometry = ('整体基本还原即可；完整主体可有轻微比例或圆角差异，仍尽量贴近参考。'
                 '保留全部独立内容、状态、连接、内部图形相对位置和真透明 alpha；'
                 '不复制、遗漏、裁切或明显改变主体形状。' if policy.get('minorGeometry') == 'record' else '')
-    return '\n显式视觉策略：' + appearance + color + shadow + style + geometry
+    layout = ''
+    if policy.get('minorLayout') == 'record':
+        if policy.get('minorStyle') == 'record':
+            style = '轻微表面渲染差异可记录；保留主体归属、身份、状态、数量、连接和纹理类型。'
+        layout = ('内部图形的间距、位置或相对尺度可有轻微差异，仍尽量贴近参考；'
+                  '全部部件、连接和先后/左右关系必须保留，不重复、不遗漏、不改变状态或层级。'
+                  '明显或无法判断的布局变化不可接受；整体画布归位仍由程序处理。')
+    return '\n显式视觉策略：' + appearance + color + shadow + style + geometry + layout
 
 
 def output_review_guidance(policy):
@@ -187,5 +206,13 @@ def output_review_guidance(policy):
                 '明显变形填major；无法判断填uncertain。缺件、重复、实心裁切、错归属/状态、'
                 '内部图形位移或多锚点失配不得降为轻微几何或样式。'
                 if policy.get('minorGeometry') == 'record' else '')
+    layout = ('建立原图和实际图的完整归属边界后，身份/数量/状态/连接及先后/左右关系保留的'
+              '轻微内部间距、位置或相对尺度差异，填layout/other、magnitude=minor；'
+              '程序按minorLayout=record记录为非阻断。根据整体可见影响判断轻微，'
+              '不以猜测像素或百分比判定；不把内部布局问题改填geometry或style。'
+              '明显位移、关系反转、错层填major；无法判断、多锚点对应不清填uncertain。'
+              '缺件、重复、错误归属/状态、实心裁切和技术校验失败仍阻断，'
+              '任何minor声明都不能豁免独立归属观察或主体证据要求。'
+              if policy.get('minorLayout') == 'record' else '')
     return ('\n显式输出审查策略：逐项 finding 填 styleAspect=color-tone/shadow/other，非样式问题填 other。'
-            + color + shadow + style + geometry + '绑定参考图只承接细微表面，不豁免缺件、错状态、错归属或裁切。')
+            + color + shadow + style + geometry + layout + '绑定参考图只承接细微表面，不豁免缺件、错状态、错归属或裁切。')

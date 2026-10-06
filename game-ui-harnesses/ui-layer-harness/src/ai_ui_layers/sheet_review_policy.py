@@ -90,11 +90,14 @@ def classify(answer, material_ids, visual_policy=None):
                           aspect=='other' and visual_policy.get('minorStyle')=='record')
         elif category == 'geometry' and visual_policy is not None:
             advisory = finding['magnitude'] == 'minor' and visual_policy.get('minorGeometry') == 'record'
+        elif category == 'layout' and visual_policy is not None:
+            advisory = finding['magnitude'] == 'minor' and visual_policy.get('minorLayout') == 'record'
         decision = dict(finding, severity='warning' if advisory else 'blocking', attribution=attribution)
         decisions.append(decision)
         if advisory:
             warnings.append(dict(category='minor-progress-deviation' if category == 'progress' else
-                'minor-geometry-deviation' if category == 'geometry' else 'minor-style-deviation', materialId=finding['materialId'],
+                'minor-geometry-deviation' if category == 'geometry' else
+                'minor-layout-deviation' if category == 'layout' else 'minor-style-deviation', materialId=finding['materialId'],
                 evidence=finding['evidence'], suggestion=finding['suggestion']))
         else:
             blockers.append(decision)

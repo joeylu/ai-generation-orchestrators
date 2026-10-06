@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased explicit minor internal layout tolerance
+
+- New runs can opt into `ui_visual_policy_v4` with an explicit
+  `minorLayout: strict|record`. Clear minor internal spacing, placement or relative
+  scale observations can be recorded as `minor-layout-deviation` warnings.
+- Missing, foreign/duplicate, clipped, wrong-state, major, uncertain and ambiguous
+  findings still block. Ownership observations, body evidence, alpha, source
+  identity, uniform registration and package integrity gates retain their rules.
+- Policy bytes and prompts remain frozen and digest-bound. Earlier v1/v2/v3
+  guidance and severity remain unchanged; no archived failure is reinterpreted.
+- Offline regressions cover a minor internal arrow displacement, strict legacy
+  behavior, retained structural blockers, scope binding and delivery warnings.
+  Tests do not establish generated fidelity or human visual acceptance.
+
 ## Unreleased alpha-aware material observation displays
 
 - New singleton and sheet material review observation PNGs are opaque RGB
