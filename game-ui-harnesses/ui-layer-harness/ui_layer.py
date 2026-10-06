@@ -14,6 +14,8 @@ if __name__ == '__main__':
     else:
         if len(sys.argv)>1 and sys.argv[1] in ('prepare-received-diagnostic','deliver-received-diagnostic'):
             from ai_ui_layers.received_diagnostic_delivery import main
+        elif len(sys.argv)>1 and sys.argv[1]=='compare-package-baseline':
+            from ai_ui_layers.package_baseline_audit import main
         elif len(sys.argv)>1 and sys.argv[1] in ('host-run','host-status','host-next','host-authorize','host-receive','host-fail','host-resume'):
             from ai_ui_layers.host_delivery import main
         else:

@@ -1046,3 +1046,11 @@ independent, zero-compute `diagnostic-pending-human-review` artifact from genuin
 received sources. They preserve unresolved extraction findings and every original
 pixel in separate source evidence; they never change the existing strict/candidate
 gates or promote a failed host DAG. See [the diagnostic delivery contract](RECEIVED-DIAGNOSTIC-DELIVERY.md).
+
+Before recommending a candidate replacement for an existing accepted delivery,
+compare its complete structure and final viewport with that selected baseline.
+The optional local `compare-package-baseline` command binds both archive hashes
+and reports cross-version differences; see [the baseline audit contract](PACKAGE-BASELINE-AUDIT.md).
+The accepted package remains the recommended delivery while replacement visual
+acceptance is pending. Local cleanup or package integrity alone does not promote
+a candidate or preserve prior wordmark/component-split approvals automatically.
