@@ -1,5 +1,18 @@
 # Release notes
 
+## Unreleased protected source backgrounds in fresh host jobs
+
+- Add opt-in source-bound region plans to independent planning review, compiled
+  snapshots and exact native visual-reference arguments. A required independent
+  mask scope audit checks coverage and ownership without certifying segmentation.
+- Preserve genuine raw proposals; deterministically apply frozen masks to a
+  distinct candidate and replay its complete evidence during review/extraction.
+- Use exact-canvas identity background adaptation. Final package bytes and
+  protected source pixels are checked again; portable proof excludes host paths
+  and private job/submission fields. Default jobs and old terminals are unchanged.
+- Offline fixtures establish mechanism and binding only. Actual seam-free
+  reconstruction and sample visual acceptance remain to be demonstrated.
+
 ## Unreleased explicit prototype instances
 
 - Fresh integrated host jobs can bind a source-hashed `ui_material_reuse_v1`

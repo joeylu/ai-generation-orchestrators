@@ -17,6 +17,12 @@ def preflight(folder, expected_digest):
     snapshot=inspect(folder,expected_digest)
     from . import material_reuse, reuse_pipeline
     reuse_doc=reuse_pipeline.snapshot_input(folder,snapshot)
+    from . import background_region_pipeline as bg_region
+    bg_bound=bg_region.snapshot_input(folder,snapshot)
+    if bg_bound is not None:
+        report=read(folder/'compile-report.json')
+        if any(report.get(k)!=snapshot.get(k) for k in ('backgroundRegionPolicy','backgroundRegionDigest','backgroundRegionMaterialId')):
+            raise ValueError('BG_REGION_COMPILER_METADATA_CHANGED')
     policy=snapshot_policy(folder,snapshot)
     texture_doc=visual_textures.snapshot_input(folder,snapshot)
     visual_path=folder/'evidence/revised-visual-plan.json'

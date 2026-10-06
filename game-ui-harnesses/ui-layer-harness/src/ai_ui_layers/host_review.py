@@ -14,6 +14,7 @@ from .sequence_focus import make_sequence_focus
 from .boundary_evidence import guidance as boundary_guidance
 from .session_review import render_for_review, build_review_prompt
 from . import material_reuse as reuse, reuse_pipeline
+from . import background_region_pipeline as bg_region
 from .planning_dag import (BOX_TEXT_GUIDANCE, itemized_coverage_prompt, read_notes,
                            locked)
 
@@ -107,6 +108,7 @@ def verify_prepared(root):
     Draft202012Validator(read(root/'m1/schema.json')).validate(plan)
     if plan.get('kind')!='ui_visual_plan_v5':raise ValueError('V5_REQUIRED')
     reuse_pipeline.planning_input(root,plan)
+    bg_region.planning_input(root,plan)
     return plan
 
 
@@ -174,9 +176,11 @@ def verify_frozen(folder, snapshot, plan):
         reuse_doc=reuse.validate(read(evidence/('host-input-'+reuse_pipeline.INPUT_NAME)),plan,
             digest(folder/'reference.png'),digest(evidence/'m1-draft.json'))
         schema=reuse.review_schema(schema,reuse_doc)
+    schema,bg_bound=bg_region.frozen_schema(folder,config,plan,digest(folder/'reference.png'),schema)
     if schema!=read(evidence/'m2-schema.json'):raise ValueError('HOST_FROZEN_SCHEMA_CHANGED')
     review=read(response_path);Draft202012Validator(schema).validate(review)
     reuse.validate_review(review,reuse_doc)
+    bg_region.validate_review(review,bg_bound)
     resolve_review(review,plan,'exact-fragments-v1')
     if focus:
         from .boundary_evidence import validate_boundaries
@@ -185,7 +189,8 @@ def verify_frozen(folder, snapshot, plan):
 
 
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
-            visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128):
+            visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
+            background_region=None, background_region_digest=None):
     """Snapshot an explicit offline seed and prepare a complete independent M2 review."""
     root=Path(output).resolve();contract=Path(contract_dir)
     for name,sha in CONTRACT_DIGESTS.items():
@@ -220,6 +225,8 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     if texture_bytes is not None:(inputs/textures.INPUT_NAME).write_bytes(texture_bytes)
     if reuse_bytes is not None:(inputs/reuse_pipeline.INPUT_NAME).write_bytes(reuse_bytes)
     if notes is not None:(inputs/'planning-notes.txt').write_bytes(notes)
+    if (background_region is None)!=(background_region_digest is None):raise ValueError('BG_REGION_CONFIG_PAIR_REQUIRED')
+    if background_region is not None:bg_region.copy_inputs(background_region,background_region_digest,inputs)
     config=dict(kind='ui_planning_dag_v1',planningDriver=DRIVER,
         runtime=runtime_files(),
         generationMode='sheets',generationReference='context-crops',contextPromptVersion='v7',
@@ -230,6 +237,7 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
         offlineCandidateSeed=dict(sourcePlanSha256=digest(inputs/'source-plan.json'),
                                   candidateAuthors=authors,m1ModelExecuted=False),
         **({'visualTexturePolicy':textures.POLICY} if texture_bytes is not None else {}))
+    if background_region is not None:config['backgroundRegionDigest']=background_region_digest
     save(root/'.dag/config.json',config)
     save(root/'.dag/config-digest.json',dict(sha256=digest(root/'.dag/config.json')))
     m1=root/'m1';m1.mkdir()
@@ -267,7 +275,11 @@ def _prepare_review(root, plan):
     save(p/relation_review.NAME,relations)
     reuse_doc=reuse_pipeline.planning_input(root,plan)
     reuse_pipeline.source_focus(reference,plan,reuse_doc,p)
-    save(p/'schema.json',reuse.review_schema(relation_review.bind_schema(schema,relations),reuse_doc))
+    bg_bound=bg_region.planning_input(root,plan)
+    save(p/'schema.json',bg_region.schema(reuse.review_schema(relation_review.bind_schema(schema,relations),reuse_doc),bg_bound))
+    if bg_bound is not None:
+        for name in ('edit-mask.png','blend-mask.png','preview.png'):
+            (p/(bg_region.PREFIX+name)).write_bytes((inputs/(bg_region.PREFIX+name)).read_bytes())
     checks=build_review_prompt((p/'review-source.md').read_text(encoding='utf-8'),check_relations(plan))
     checks=checks.replace('证据逐字引用所属素材/对象 label；',
         '覆盖项由程序按 materialId/objectId 还原本轮计划目录原文；小素材部件另选所属 planEvidenceId；',1)
@@ -283,6 +295,7 @@ def _prepare_review(root, plan):
     if sequence:prompt+='\nInspect all repeated instances in the attached sequence-source pages.\n'
     prompt+=relation_review.guidance(relations)+planning_guidance(policy)+textures.guidance(texture_doc)
     prompt+=reuse_pipeline.guidance(reuse_doc)
+    prompt+=bg_region.guidance(bg_bound)
     if reuse_doc is not None:prompt+='\nInspect reuse-source-focus.png and its mapping: every source instance is shown in declared order. The source crops include foreign objects and ordinary text; apply each original owner contract before comparing.\n'
     if (inputs/'planning-notes.txt').exists():
         prompt+='\nUser planning constraints:\n'+(inputs/'planning-notes.txt').read_text(encoding='utf-8-sig')
@@ -320,6 +333,7 @@ def _assess(root, plan):
     folder=root/'m2';review=read(folder/'draft.json');bound=read(folder/'request.json')
     Draft202012Validator(read(folder/'schema.json')).validate(review)
     reuse.validate_review(review,reuse_pipeline.planning_input(root,plan))
+    bg_region.validate_review(review,bg_region.planning_input(root,plan))
     verify_plan_evidence(folder,review,bound,plan)
     verify_boundary_evidence(folder,review,bound,plan,root/'m1/reference.png')
     blockers,warnings=split(review,plan,planning_policy(root),'exact-fragments-v1',textures.planning_input(root))

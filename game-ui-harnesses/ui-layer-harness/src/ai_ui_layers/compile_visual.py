@@ -200,6 +200,8 @@ def verify_plan_evidence(folder, review, bound, visual):
     if config.get('planningDriver')=='host-model-exchange-v1':
         from . import material_reuse, reuse_pipeline
         expected_schema=material_reuse.review_schema(expected_schema,reuse_pipeline.planning_input(folder.parent,visual))
+        from . import background_region_pipeline
+        expected_schema=background_region_pipeline.schema(expected_schema,background_region_pipeline.planning_input(folder.parent,visual))
     if schema!=expected_schema:
         raise ValueError('PLAN_EVIDENCE_SCHEMA_MISMATCH')
     resolve_review(review,visual,config.get('coverageTextPolicy'))
@@ -423,6 +425,13 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     if reuse_doc is not None:
         report.update(materialReusePolicy=reuse_pipeline.POLICY,materialReuseSha256=digest(output/reuse_pipeline.INPUT_NAME),
             generatedMaterialCount=len(generation_plan['assets']))
+    from . import background_region_pipeline as bg_region
+    bg_bound=bg_region.planning_input(run,visual) if config.get('planningDriver')=='host-model-exchange-v1' else None
+    if bg_bound is not None:
+        target=output/'background-region';target.mkdir()
+        for name in bg_region.NAMES:(target/name).write_bytes((run/'.dag/inputs'/(bg_region.PREFIX+name)).read_bytes())
+        report.update(backgroundRegionPolicy=bg_region.POLICY,backgroundRegionDigest=bg_bound['plan']['digest'],
+            backgroundRegionMaterialId=bg_bound['materialId'])
     save(output/'compile-report.json', report)
     return report
 

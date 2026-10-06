@@ -324,8 +324,10 @@ def inspect(plan_dir, expected_digest):
     return _inspect(plan_dir, expected_digest)[0]
 
 
-def apply(plan_dir, expected_digest, proposal, proposal_sha256, output):
+def apply(plan_dir, expected_digest, proposal, proposal_sha256, output, *, candidate_mode='RGB'):
     """Make one candidate using exactly the frozen weights, without rescaling."""
+    if candidate_mode not in ('RGB', 'RGBA'):
+        raise ValueError('BG_REGION_CANDIDATE_MODE')
     output = _destination(output, (plan_dir, proposal))
     plan, raw_plan, raws, source, weight, profile = _inspect(plan_dir, expected_digest)
     proposal_raw = _bound(proposal, proposal_sha256, 'PROPOSAL')
@@ -338,8 +340,10 @@ def apply(plan_dir, expected_digest, proposal, proposal_sha256, output):
         raise ValueError('BG_REGION_PROTECTION_INVARIANT')
     if not np.array_equal(pixels[weight == 255], proposed[weight == 255]):
         raise ValueError('BG_REGION_CORE_INVARIANT')
+    encoded = (np.concatenate((pixels, np.full((*pixels.shape[:2], 1), 255, dtype=np.uint8)), axis=2)
+               if candidate_mode == 'RGBA' else pixels)
     copied = dict(raws, **{'proposal.png': proposal_raw, 'frozen-plan.json': raw_plan,
-                         'candidate.png': _png(pixels, profile)})
+                         'candidate.png': _png(encoded, profile)})
     report = dict(kind='ui_background_region_candidate_v1', status='candidate_pending_visual_review',
                   regionDigest=expected_digest, size=plan['size'],
                   backgroundMode=plan['backgroundMode'], textPolicy=plan['textPolicy'], reason=plan['reason'],
@@ -348,6 +352,8 @@ def apply(plan_dir, expected_digest, proposal, proposal_sha256, output):
                   regionPolicy=REGION_POLICY.copy(), blendPolicy=BLEND_POLICY.copy(),
                   protectedChangedPixels=0, coreMatchesProposal=True, outputOpaque=True,
                   **EVIDENCE)
+    if candidate_mode == 'RGBA':
+        report.update(candidateMode='RGBA', candidateEncoding='opaque-RGBA-same-RGB-pixels-v1')
     output.mkdir(parents=True, exist_ok=False)
     for name, raw in copied.items():
         _write(output / name, raw)

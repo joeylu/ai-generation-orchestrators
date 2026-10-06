@@ -64,6 +64,13 @@ not attest provider provenance or a successful generation receipt. The artifact
 is not accepted by the existing package pipeline as an automatically approved
 replacement, and cannot clear a stopped job.
 
+A fresh integrated host job may opt into the separate
+[protected host background contract](PROTECTED-HOST-BACKGROUND.md). It binds this
+plan before independent scope review, consumes a genuine new raw proposal,
+reviews the deterministic candidate and checks identity adaptation through final
+packaging. The standalone application itself grants none of those passes and
+cannot clear a stopped job.
+
 A future generation experiment must separately freeze its actual inputs, prompt,
 destination and call budget and obtain the applicable authorization. This module
 does not assume a provider supports inpainting masks. A generated full canvas can

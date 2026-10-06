@@ -68,6 +68,27 @@ class BackgroundRegionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'SOURCE_CHANGED'):self.freeze(source_sha256='0'*64)
         self.assertFalse((self.root/'plan').exists())
 
+    def test_explicit_rgba_candidate_preserves_rgb_arithmetic_profile_and_raw_bytes(self):
+        metadata=PngImagePlugin.PngInfo();metadata.add(b'sRGB',b'\x00')
+        Image.fromarray(self.a).save(self.source,pnginfo=metadata)
+        Image.fromarray(self.b).save(self.proposal,pnginfo=metadata)
+        plan=self.freeze();default=self.apply(plan)
+        result=region.apply(self.root/'plan',plan['digest'],self.proposal,sha(self.proposal),
+                            self.root/'rgba-result',candidate_mode='RGBA')
+        with Image.open(self.root/'result/candidate.png') as image:
+            self.assertEqual(image.mode,'RGB');rgb=np.array(image)
+        with Image.open(self.root/'rgba-result/candidate.png') as image:
+            self.assertEqual(image.mode,'RGBA');self.assertEqual(image.info['srgb'],0)
+            rgba=np.array(image)
+        np.testing.assert_array_equal(rgba[:,:,:3],rgb)
+        self.assertTrue(np.all(rgba[:,:,3]==255))
+        self.assertEqual(result['candidateMode'],'RGBA');self.assertNotIn('candidateMode',default)
+        self.assertEqual((self.root/'rgba-result/proposal.png').read_bytes(),self.proposal.read_bytes())
+        with self.assertRaisesRegex(ValueError,'CANDIDATE_MODE'):
+            region.apply(self.root/'plan',plan['digest'],self.proposal,sha(self.proposal),
+                         self.root/'invalid-mode',candidate_mode='L')
+        self.assertFalse((self.root/'invalid-mode').exists())
+
     def test_binary_mask_and_identical_support_required(self):
         for label,value in [('nonbinary',128),('support',0)]:
             with self.subTest(label=label):

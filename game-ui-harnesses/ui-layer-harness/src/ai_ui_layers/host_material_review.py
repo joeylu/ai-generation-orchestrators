@@ -66,10 +66,13 @@ def prepare(job, request_id, output, *, material_authors, review_registry):
             prepared=prepare_review(job,output,request_id,received_request_only=True)
             if prepared['status']=='blocked_no_retry':return prepared
             mids=[request_id]
-            extraction=dict(materials={request_id:str(raw)},records=[dict(materialId=request_id,
-                requestId=request_id,sourceSha256=receipt['rawSha256'],outputSha256=receipt['rawSha256'],
+            material=Path(prepared.get('protectedCandidate',str(raw)))
+            extraction=dict(materials={request_id:str(material)},records=[dict(materialId=request_id,
+                requestId=request_id,sourceSha256=receipt['rawSha256'],outputSha256=digest(material),
                 jobDigest=config['digest'],submissionDigest=receipt['submissionDigest'],
                 receiptSha256=digest(job/'attempts'/request_id/'received.json'))],adaptations={})
+            if 'protectedCandidate' in prepared:
+                extraction['records'][0]['backgroundRegion']=read(output/'background-region-binding.json')
         else:
             output.mkdir(parents=True);(output/'prepared').mkdir();folder=output/'review';folder.mkdir()
             target=output/'prepared'/('sheet.png');pixel_report=prepare_pixels(raw,target)
@@ -154,6 +157,14 @@ def verify_prepared(output):
             request['materialIds']!=reuse.expanded_ids(reuse_pipeline.snapshot_input(job/'snapshot',inspect(job/'snapshot',config['snapshotDigest'])),row.get('materialIds',[request['requestId']]))):
         raise ValueError('OUTPUT_SOURCE_BINDING_CHANGED')
     snapshot=job/'snapshot';policy=snapshot_policy(snapshot,inspect(snapshot,config['snapshotDigest']))
+    from . import background_region_pipeline as bg_region
+    bg_bound=bg_region.snapshot_input(snapshot,inspect(snapshot,config['snapshotDigest']))
+    if bg_bound is not None and request['requestId']==bg_bound['materialId']:
+        binding=bg_region.verify_candidate(output,snapshot,inspect(snapshot,config['snapshotDigest']),raw,receipt['rawSha256'])
+        candidate=read(output/'extraction-candidate.json')
+        if (candidate['materials'].get(bg_bound['materialId'])!=str(output/'protected-background/candidate.png')
+                or len(candidate['records'])!=1 or candidate['records'][0].get('backgroundRegion')!=binding
+                or candidate['records'][0]['outputSha256']!=binding['candidateSha256']):raise ValueError('BG_REGION_EXTRACTION_CHANGED')
     reuse_image_review.verify(output,row,inspect(snapshot,config['snapshotDigest']),reuse_pipeline.snapshot_input(snapshot,inspect(snapshot,config['snapshotDigest'])))
     expected_schema=schema_for(policy)
     if request['kind']=='ui_host_output_review_request_v2':

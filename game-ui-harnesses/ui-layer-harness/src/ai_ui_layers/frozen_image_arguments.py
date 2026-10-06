@@ -61,6 +61,11 @@ def write_new(path, value):
 def tool_arguments(request, transparent_background):
     if type(transparent_background) is not bool:
         raise ValueError('TRANSPARENCY_MODE_UNVERIFIED')
+    if request.get('backgroundRegionPolicy')=='exact-source-canvas-protected-region-v1':
+        if transparent_background:raise ValueError('BG_REGION_OPAQUE_GENERATION_REQUIRED')
+        return dict(prompt=request['arguments']['prompt'],
+                    referenced_image_paths=list(request['arguments']['referenced_image_paths']),
+                    transparent_background=False)
     return dict(prompt=request['arguments']['prompt'],
                 num_last_images_to_include=len(request['arguments']['referenced_image_paths']),
                 transparent_background=transparent_background)
@@ -81,6 +86,14 @@ def validate(payload):
             or not payload['submissionDigest']):
         raise ValueError('FROZEN_ARGUMENTS_INVALID')
     args = payload['arguments']
+    if isinstance(args,dict) and 'referenced_image_paths' in args:
+        paths=args['referenced_image_paths']
+        if (set(args)!={'prompt','referenced_image_paths','transparent_background'}
+                or not isinstance(args['prompt'],str) or not args['prompt'].strip()
+                or args['transparent_background'] is not False or not isinstance(paths,list) or not 1<=len(paths)<=5
+                or any(not isinstance(p,str) or not p or not Path(p).is_absolute() for p in paths)):
+            raise ValueError('FROZEN_ARGUMENTS_INVALID')
+        return
     if (not isinstance(args, dict) or set(args) != {'prompt', 'num_last_images_to_include', 'transparent_background'}
             or not isinstance(args['prompt'], str) or not args['prompt'].strip()
             or type(args['num_last_images_to_include']) is not int

@@ -154,6 +154,8 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     snapshot.update(texture_metadata)
     if 'materialReusePolicy' in report:
         snapshot.update(**{key:report[key] for key in ('materialReusePolicy','materialReuseSha256','generatedMaterialCount')})
+    if 'backgroundRegionPolicy' in report:
+        snapshot.update(**{key:report[key] for key in ('backgroundRegionPolicy','backgroundRegionDigest','backgroundRegionMaterialId')})
     if host_exchange:
         snapshot.update(planningDriver='host-model-exchange-v1',
             responseOrigin='host-attested-model-response',notProviderReceipt=True,
@@ -206,6 +208,8 @@ def inspect(folder, expected_digest=None):
         verify_frozen(folder,snapshot,read(visual_path))
     from .reuse_pipeline import snapshot_input as reuse_input
     reuse_input(folder,snapshot)
+    from .background_region_pipeline import snapshot_input as bg_input
+    bg_input(folder,snapshot)
     return snapshot
 
 

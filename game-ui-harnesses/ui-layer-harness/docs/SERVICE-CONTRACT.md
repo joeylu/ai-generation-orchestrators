@@ -1,5 +1,17 @@
 # UI layer host contract v1 (preview)
 
+## Optional protected source background
+
+Fresh integrated host configs may bind `backgroundRegion`,
+`backgroundRegionDigest`, and the explicit
+`exact-source-canvas-protected-region-v1` background policy. The
+[protected background contract](PROTECTED-HOST-BACKGROUND.md) requires independent
+mask scope review, genuine raw acquisition, deterministic candidate replay and
+final protected-pixel identity. Masks are declarations, not certified
+segmentation or API inpainting parameters. Candidate seams and contamination
+still require actual visual review; historical jobs and default behavior retain
+their frozen policies.
+
 ## Optional explicit prototype instances
 
 Fresh integrated host configs may bind `materialReuse` before planning review.

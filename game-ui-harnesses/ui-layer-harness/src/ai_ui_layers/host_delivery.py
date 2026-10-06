@@ -96,6 +96,11 @@ def _scope(root, config, stage, request, request_dir, key=None):
 def prepare(config_path, output):
     """Freeze an offline Agent seed, exact model configuration and reviewed inputs."""
     source = read(Path(config_path)); root = Path(output).resolve()
+    from . import background_region_pipeline as bg_region
+    if bool(source.get('backgroundRegion'))!=bool(source.get('backgroundRegionDigest')):raise ValueError('BG_REGION_CONFIG_PAIR_REQUIRED')
+    if source.get('backgroundRegion'):
+        from .background_region import inspect as inspect_region
+        inspect_region(source['backgroundRegion'],source['backgroundRegionDigest'])
     if root.exists(): raise ValueError('FRESH_HOST_RUN_REQUIRED')
     for key,default in (('maximumModelCallSeconds',1800),('maximumImageCallSeconds',900)):
         source.setdefault(key,default)
@@ -137,7 +142,14 @@ def prepare(config_path, output):
     for name in ('viewer.html','viewer.js'):
         (viewer/name).write_bytes((Path(source['viewer'])/name).read_bytes())
     source['viewer']=str(viewer)
-    if source.get('backgroundPolicy')!='uniform-whole-canvas-opaque-contain-edgepad-v1':
+    if source.get('backgroundRegion'):
+        if source.get('backgroundPolicy')!=bg_region.POLICY:raise ValueError('BG_REGION_IDENTITY_POLICY_REQUIRED')
+        from .background_region import inspect as inspect_region
+        inspect_region(source['backgroundRegion'],source.get('backgroundRegionDigest'))
+        target=inputs/'background-region';target.mkdir()
+        for name in bg_region.NAMES:(target/name).write_bytes((Path(source['backgroundRegion'])/name).read_bytes())
+        source['backgroundRegion']=str(target)
+    elif source.get('backgroundPolicy')!='uniform-whole-canvas-opaque-contain-edgepad-v1':
         raise ValueError('EXPLICIT_BACKGROUND_POLICY_REQUIRED')
     config=record(root/'config.json',dict(source,kind=KIND,runtime=host_review.runtime_files(),
         planningMode='offline-agent-seed-independent-host-review', m1ModelExecuted=False,
@@ -146,7 +158,8 @@ def prepare(config_path, output):
         host_review.prepare(config['seed'],config['original'],root/'planning',config['contract'],
             seed_author=config['candidateAuthors'], planning_notes=config.get('planningNotes'),
             visual_policy=config.get('visualPolicy'),visual_textures=config.get('visualTextures'),material_reuse=config.get('materialReuse'),
-            max_calls=config['maximumImageCalls'])
+            max_calls=config['maximumImageCalls'],background_region=config.get('backgroundRegion'),
+            background_region_digest=config.get('backgroundRegionDigest'))
         _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
     except Exception as exc:
         _state(root,config,'failed',reason=str(exc),automaticRetry=False)
@@ -408,6 +421,8 @@ def resume(run):
                     maximumCallSeconds=config['maximumModelCallSeconds'],destination=config['bodyDestination'],reviewerId=config['bodyReviewer'])
                 if (root/'frozen/material-reuse.json').exists():
                     body_config['reviewedReuseExtraction']=dict(path=str(root/'extraction'),sha256=digest(root/'extraction/result.json'))
+                if (root/'frozen/background-region/plan.json').exists():
+                    body_config['reviewedBackgroundExtraction']=dict(path=str(root/'extraction'),sha256=digest(root/'extraction/result.json'))
                 save(root/'body-input.json',body_config)
                 host_body_observation.prepare(root/'body-input.json',root/'body',config['maximumBodyCalls'],
                     model=config['bodyModel'],effort=config['bodyEffort'])

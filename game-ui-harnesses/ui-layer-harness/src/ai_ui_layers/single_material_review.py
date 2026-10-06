@@ -140,7 +140,18 @@ def prepare_review(job, output, request_id=None, *, received_request_only=False)
         raise ValueError('UNKNOWN_MATERIAL_ROLE')
     background=matching[0]['role']=='background'
     output.mkdir(parents=True,exist_ok=False)
-    gate=process(raw,row['outputSize'],output/'processed',background=background)
+    from . import background_region_pipeline as bg_region
+    from .background_region import apply as apply_region
+    bg_bound=bg_region.snapshot_input(snapshot,manifest)
+    review_source=raw
+    if bg_bound is not None and asset==bg_bound['materialId']:
+        apply_region(snapshot/'background-region',bg_bound['plan']['digest'],raw,receipt['rawSha256'],output/'protected-background',candidate_mode='RGBA')
+        review_source=output/'protected-background/candidate.png'
+        save(output/'background-region-binding.json',dict(regionDigest=bg_bound['plan']['digest'],materialId=asset,
+            rawSha256=receipt['rawSha256'],candidateSha256=digest(review_source),
+            reportSha256=digest(output/'protected-background/report.json')))
+        bg_region.verify_candidate(output,snapshot,manifest,raw,receipt['rawSha256'])
+    gate=process(review_source,row['outputSize'],output/'processed',background=background)
     if gate['issues']:
         result=dict(status='blocked_no_retry',reason='MATERIAL_GATE_FAILED',materialId=asset,
                     rawSha256=receipt['rawSha256'],modelCalls=0,humanVisualAcceptance=False)
@@ -148,10 +159,10 @@ def prepare_review(job, output, request_id=None, *, received_request_only=False)
     folder=output/'review';folder.mkdir()
     reference=job/'snapshot'/row['crop']
     mappings=dict(reference=observation_image(reference,folder/'reference.png',alpha_visibility=True),
-                  generated=observation_image(raw,folder/'generated.png',alpha_visibility=True))
+                  generated=observation_image(review_source,folder/'generated.png',alpha_visibility=True))
     save(folder/'observation-mapping.json',mappings)
     processed=output/'processed/material.png'
-    detail=comparison(reference,raw,folder/'detail-compare.png',processed)
+    detail=comparison(reference,review_source,folder/'detail-compare.png',processed)
     save(folder/'detail-compare.json',detail)
     save(folder/'schema.json',schema_for(visual_policy))
     visual_path=job/'snapshot/evidence/revised-visual-plan.json'
@@ -160,6 +171,13 @@ def prepare_review(job, output, request_id=None, *, received_request_only=False)
     texture_bindings=visual_textures.snapshot_bindings(snapshot,manifest,visual)
     texture_metadata={key:manifest[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256') if key in manifest}
     prompt=(background_review_prompt if background else review_prompt)(asset,visual,visual_policy)
+    if review_source!=raw:
+        prompt+='\nGenerated attachment is the deterministic protected candidate, not the native provider proposal. '
+        prompt+='Inspect every declared replacement and transition boundary for seams, foreground contamination and scope errors; protected pixels must retain source background. Masks are declarations, not certified segmentation.\n'
+        for name,source_path in [('native-proposal.png',raw),('region-preview.png',snapshot/'background-region/preview.png'),
+                                 ('region-edit-mask.png',snapshot/'background-region/edit-mask.png')]:
+            (folder/name).write_bytes(source_path.read_bytes())
+        prompt+='Native proposal, explicit edit mask and tinted region preview are additional diagnostic attachments.\n'
     if texture_doc is not None:
         prompt+=visual_textures.generation_guidance(texture_doc,texture_bindings,[asset],visual,context=row.get('references'))
         prompt+='\nReview protected texture shapes against source appearance, including ink, count, layout and proportions. Their removal, invented lettering, uncertain preservation or damaged protected artwork blocks acceptance. Ordinary text removal does not apply to these approved shapes. Actual review metadata: '+json.dumps(dict(materialId=asset,rawSha256=receipt['rawSha256'],sourceRegion=row['sourceRegion'],comparison=detail),ensure_ascii=False)
@@ -167,12 +185,15 @@ def prepare_review(job, output, request_id=None, *, received_request_only=False)
     names=('reference.png','generated.png','detail-compare.png','detail-compare.json','observation-mapping.json',
            'schema.json','prompt.md')
     bound={name:digest(folder/name) for name in names}
+    if review_source!=raw:
+        bound.update({name:digest(folder/name) for name in ('native-proposal.png','region-preview.png','region-edit-mask.png')})
     save(folder/'request.json',dict(kind='ui_single_material_review_v1',materialId=asset,
          jobDigest=config['digest'],submissionDigest=receipt['submissionDigest'],
          rawSha256=receipt['rawSha256'],referenceSha256=digest(reference),inputs=bound,
          modelCallsMaximum=1,automaticRetry=False,
          **texture_metadata,**({'visualPolicySha256':policy_sha} if visual_policy is not None else {})))
-    return dict(status="awaiting_host_review", materialId=asset, gate=gate)
+    return dict(status="awaiting_host_review", materialId=asset, gate=gate,
+                **({'protectedCandidate':str(review_source)} if review_source!=raw else {}))
 
 
 def review(job, output, model_call=None, request_id=None):

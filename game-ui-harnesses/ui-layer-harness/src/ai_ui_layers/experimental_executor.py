@@ -108,13 +108,18 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         **({key:manifest[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')} if texture_doc is not None else {}),
         **({'generationReference':'sheet-layout-board' if layout else 'context-crops'} if context else {}),
         **({'generationMode':'sheets','materialCount':sum(len(r.get('materialIds',[r['asset']])) for r in all_rows if r['asset'] in selected)} if grouped else {}),
-        **({key:manifest[key] for key in ('materialReusePolicy','materialReuseSha256','generatedMaterialCount','materialCount')} if manifest.get('materialReusePolicy') else {}),**variant})
+        **({key:manifest[key] for key in ('materialReusePolicy','materialReuseSha256','generatedMaterialCount','materialCount')} if manifest.get('materialReusePolicy') else {}),
+        **({key:manifest[key] for key in ('backgroundRegionPolicy','backgroundRegionDigest','backgroundRegionMaterialId')} if manifest.get('backgroundRegionPolicy') else {}),**variant})
 
 
 def load_job(job):
     config=verified(job/'job.json')
     if config.get('kind')!='ui_experimental_image_job_v1':raise ValueError('JOB_KIND')
     manifest=inspect(job/'snapshot',config['snapshotDigest'])
+    for key in ('backgroundRegionPolicy','backgroundRegionDigest','backgroundRegionMaterialId'):
+        if config.get(key)!=manifest.get(key):raise ValueError('BG_REGION_JOB_METADATA_CHANGED')
+    if manifest.get('backgroundRegionPolicy') and ('promptVariant' in config or config.get('referenceMode')!='context-crops'):
+        raise ValueError('BG_REGION_FROZEN_ARGUMENTS_REQUIRED')
     if manifest.get('materialReusePolicy'):
         if any(config.get(key)!=manifest.get(key) for key in ('materialReusePolicy','materialReuseSha256','generatedMaterialCount','materialCount')):
             raise ValueError('REUSE_JOB_METADATA_CHANGED')
@@ -225,6 +230,7 @@ def next_request(job):
             'requestDigest':body_digest(row),'nonce':secrets.token_hex(16),'createdAt':time.time(),
             'evidenceBasis':'One invocation intent reserved; not proof of a provider call.'})
         return {'asset':asset,'submissionDigest':submission['digest'],
+                **({'backgroundRegionPolicy':config.get('backgroundRegionPolicy')} if config.get('backgroundRegionMaterialId')==asset else {}),
                 **({'materialIds':row['materialIds'],'grid':row['grid']} if row.get('kind')=='sheet' else {}),
                 **({'generationReference':'context-crops','references':row['references']}
                    if config.get('generationReference')=='context-crops' else {}),
@@ -255,7 +261,13 @@ def frozen_request_arguments(job, config, row):
                 if mode=='sheet-crops-only' else
                 [str(snapshot/row['crop'])] if mode=='crop-only' else [str(snapshot/row['reference'])])
     if mode=='full-and-crop':references.append(str(snapshot/row['crop']))
-    return {'prompt':prompt_path.read_text(encoding='utf-8').rstrip('\n'),
+    prompt=prompt_path.read_text(encoding='utf-8').rstrip('\n')
+    from . import background_region_pipeline as bg_region
+    manifest=inspect(snapshot,config['snapshotDigest']);bound=bg_region.snapshot_input(snapshot,manifest)
+    if bound is not None and row['asset']==bound['materialId']:
+        prompt+=bg_region.generation_guidance(bound)
+        references.extend(str(snapshot/'background-region'/n) for n in ('edit-mask.png','preview.png'))
+    return {'prompt':prompt,
             'referenced_image_paths':references}
 
 
@@ -268,6 +280,10 @@ def receive(job, submission_digest, source):
         if len(pending)!=1:raise ValueError('PENDING_COUNT')
         asset=pending[0];folder=job/'attempts'/asset;submission=verified(folder/'submission.json')
         if submission['digest']!=submission_digest:raise ValueError('WRONG_SUBMISSION')
+        bound_config,bound_index=load_job(job)
+        protected=(bound_config.get('backgroundRegionPolicy') is not None and
+                   bound_config.get('backgroundRegionMaterialId')==asset)
+        data=None
         try:
             if source.stat().st_size>64*1024*1024:raise ValueError('IMAGE_TOO_LARGE')
             data=source.read_bytes()
@@ -284,13 +300,25 @@ def receive(job, submission_digest, source):
                 if sheet and ('A' not in image.getbands() or alpha[0]!=0):raise ValueError('SHEET_NATIVE_ALPHA_REQUIRED')
                 if background and abs((width/height)/(w/h)-1)>.05:raise ValueError('ASPECT_MISMATCH')
                 if background and alpha!= (255,255):raise ValueError('BACKGROUND_NOT_OPAQUE')
+            if protected:
+                from . import background_region as bg_pixels, background_region_pipeline as bg_region
+                manifest=inspect(job/'snapshot',bound_config['snapshotDigest'])
+                bound=bg_region.snapshot_input(job/'snapshot',manifest)
+                _,_,profile,_=bg_pixels._decode(data,size=tuple(bound['plan']['size']))
+                _,_,source_profile,_=bg_pixels._decode((job/'snapshot/background-region/source.png').read_bytes())
+                if profile!=source_profile:raise ValueError('BG_REGION_COLOR_PROFILE_MISMATCH')
             with (folder/'raw.png').open('xb') as stream:stream.write(data)
             return record(folder/'received.json',{'submissionDigest':submission_digest,'rawSha256':digest(folder/'raw.png'),
                 'size':[width,height],'status':'raw_received','provenance':'host-supplied provider result; not independently attested',
                 'alphaQualityAccepted':False,'humanVisualAcceptance':False,'postprocessing':'not_run'})
         except (OSError,ValueError) as exc:
+            rejected={}
+            if protected and data is not None:
+                with (folder/'rejected-raw.png').open('xb') as stream:stream.write(data)
+                rejected=dict(rejectedRawSha256=digest(folder/'rejected-raw.png'),rejectedRawBytes=len(data),
+                              reasonDetail=str(exc))
             record(folder/'failed.json',{'submissionDigest':submission_digest,'reason':type(exc).__name__,
-                                        'status':'rejected_no_resubmit'})
+                                        'status':'rejected_no_resubmit',**rejected})
             raise
 
 

@@ -100,6 +100,9 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 背景局部修正可先离线冻结显式编辑区与混合权重，再将同画布不透明候选合成到该区域；
 保护区原像素必须完全不变。它不识别遮挡、不生图、不解除旧任务阻断，结果仍待视觉审查，
 见[背景区域合同](docs/BACKGROUND-REGIONS.md)。
+新宿主作业可在规划前绑定显式掩码，经独立范围复审后，将真实生图作为补景候选；
+程序保留保护区源像素，最终背景使用同画布 identity 适配并再次核验像素，见
+[宿主背景保护合同](docs/PROTECTED-HOST-BACKGROUND.md)。接缝与补景质量仍须真实视觉审查。
 用户确认并经 M2 复核的宽卡片/面板框可用显式[横向框体适配](docs/HORIZONTAL-FRAME-SLICE.md)，
 四角保持等比，仅缩放无固定细节的中段；默认素材仍保持原比例。
 Docker 项目负责服务封装；Web 消费该服务 API 和公开图层包；本仓库不规定 HTTP 路由。

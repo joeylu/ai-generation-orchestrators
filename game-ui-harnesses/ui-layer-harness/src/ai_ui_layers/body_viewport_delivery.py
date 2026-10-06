@@ -22,6 +22,7 @@ from .postprocess_visual import assess
 from .viewport_geometry_revision import POLICY as CANVAS_POLICY, transform, _wrapper
 
 BACKGROUND_POLICY = 'uniform-whole-canvas-opaque-contain-edgepad-v1'
+from . import background_region_pipeline as bg_region
 
 
 def validate_contract(source, reference, entry, region, material_id, snapshot_digest, visual_policy=None):
@@ -119,6 +120,10 @@ def _background(source, size, policy):
         return None, dict(policy='frozen opaque whole original size; identity only',
                           originalMode=mode, sourceSize=list(raw.size), uniformScale=1,
                           translation=[0, 0], axisStretch=False, byteIdentity=True)
+    if policy==bg_region.POLICY:
+        if raw.size!=size:raise ValueError('BG_REGION_EXACT_SOURCE_CANVAS_REQUIRED')
+        return None,dict(policy=policy,originalMode=mode,sourceSize=list(raw.size),uniformScale=1,
+                         translation=[0,0],axisStretch=False,byteIdentity=True)
     if policy != BACKGROUND_POLICY:
         raise ValueError('UNKNOWN_BACKGROUND_POLICY')
     w, h = raw.size; cw, ch = size
@@ -162,18 +167,38 @@ def build(config_path, output, viewer, warnings=()):
     config_path, output, viewer = Path(config_path).resolve(), Path(output).resolve(), Path(viewer).resolve()
     config = json.loads(config_path.read_text(encoding='utf-8'), object_pairs_hook=_unique_object)
     _policy(config)
-    if config.get('backgroundPolicy') not in (None, BACKGROUND_POLICY):
+    if config.get('backgroundPolicy') not in (None, BACKGROUND_POLICY,bg_region.POLICY):
         raise ValueError('UNKNOWN_BACKGROUND_POLICY')
     if config.get('registrationPolicy') not in (POLICY, POLICY_SUPPORT):
         raise ValueError('BODY_POLICY_REQUIRED')
     snapshot = Path(config['snapshot']).resolve()
     frozen = inspect(snapshot, config['snapshotDigest'])
+    bg_bound=bg_region.snapshot_input(snapshot,frozen)
+    if (config.get('backgroundPolicy')==bg_region.POLICY)!=(bg_bound is not None):
+        raise ValueError('BG_REGION_IDENTITY_SCOPE_REQUIRED')
     from .visual_policy import snapshot_policy
     visual_policy = snapshot_policy(snapshot, frozen)
     path = snapshot / 'evidence/revised-visual-plan.json'
     visual = read(path if path.exists() else snapshot / 'evidence/m1-draft.json')
     rows = read(snapshot / 'placements.json')['materials']
     material_ids = [m['id'] for m in visual['materials']]
+    bg_proof=None
+    if bg_bound is not None:
+        from .host_material_review import verify_extraction
+        binding=config.get('reviewedBackgroundExtraction')
+        if not binding or digest(Path(binding['path'])/'result.json')!=binding['sha256']:
+            raise ValueError('BG_REGION_REVIEWED_EXTRACTION_REQUIRED')
+        verified_snapshot,extraction=verify_extraction(binding['path'])
+        if inspect(verified_snapshot)['digest']!=frozen['digest'] or extraction['materials']!=config['materials']:
+            raise ValueError('BG_REGION_DELIVERY_SOURCE_CHANGED')
+        records=[r for r in extraction['records'] if r['materialId']==bg_bound['materialId']]
+        if len(records)!=1 or 'backgroundRegion' not in records[0]:raise ValueError('BG_REGION_REVIEWED_CANDIDATE_REQUIRED')
+        bg_proof=dict(records[0]['backgroundRegion'],reviewSha256=records[0]['reviewSha256'],
+            sourceSha256=bg_bound['plan']['artifacts']['source.png']['sha256'],
+            editMaskSha256=bg_bound['plan']['artifacts']['edit-mask.png']['sha256'],
+            blendMaskSha256=bg_bound['plan']['artifacts']['blend-mask.png']['sha256'],
+            protectedChangedPixels=0,maskCoverageProven=False,policy=bg_region.POLICY)
+        bg_region.check_final(config['materials'][bg_bound['materialId']],snapshot,bg_bound)
     reuse_records={}
     if frozen.get('materialReusePolicy'):
         from .host_material_review import verify_extraction
@@ -247,6 +272,7 @@ def build(config_path, output, viewer, warnings=()):
         for i, row in enumerate(rows):
             mid = row['id']; material = materials[mid]; source = Path(config['materials'][mid])
             proof = dict(materialId=mid, sourceSha256=inputs[source.resolve()], role=material['role'])
+            if bg_bound is not None and mid==bg_bound['materialId']:proof['backgroundRegion']=bg_proof
             if mid in reuse_records:proof['materialReuse']=reuse_records[mid]
             if mid in checked:
                 image, geometry = transform(source, checked[mid]['geometry'])
@@ -294,6 +320,11 @@ def build(config_path, output, viewer, warnings=()):
         issues.append('Body viewport proof: ' + json.dumps(provenance, ensure_ascii=False, sort_keys=True))
         _unchanged(inputs); inspect(snapshot, config['snapshotDigest'])
         package = write_package(temp/'reference.png', composition, sources, output, viewer, issues)
+        if bg_bound is not None:
+            layer=next(l for l in composition['layers'] if l['id']==bg_bound['materialId'])
+            final=output/'package'/layer['path']
+            if digest(final)!=bg_proof['candidateSha256']:raise ValueError('BG_REGION_PACKAGE_BYTE_IDENTITY_CHANGED')
+            bg_region.check_final(final,snapshot,bg_bound)
         world = composite(output/'package', composition)
         world.crop(viewport['worldViewportBox']).save(output/'viewport-preview.png')
         shutil.copyfile(reference, output/'original-reference.png'); save(output/'viewport.json', viewport)
