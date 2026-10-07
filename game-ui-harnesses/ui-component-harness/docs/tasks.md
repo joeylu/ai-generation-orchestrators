@@ -3363,3 +3363,39 @@ Fresh registry installation, Linux/container runtime and production Web adoption
 are not claimed. Zero model calls, image generation, deployment or task mutation.
 Procedural browser fixtures establish technical behavior only;
 nativeFullChainPassed=false and humanVisualAcceptance=false.
+
+### 2026-10-08 Consolidate component development branches on tony
+
+Retain the complete checkpoint (4fd4615f), service preparation (6d2b97eb) and
+panel-background SDK (c6db7097) histories on the existing tony branch. The service
+branch already contains the checkpoint. Resolve the stale modal-focus copy in
+tony in favor of the checkpoint's tested opener-only focus transfer: a direct
+Dialog state write must not redirect a held key to a newly opened modal button.
+Keep both atomic motion-system replacement and drawBackground opt-out, and retain
+both original task records. The UI Panel directory is byte-identical to the
+existing remote tony snapshot ffc64354; no shared working-tree changes are copied.
+
+Executed on the combined source: full Node/declaration/browser build and
+typecheck PASS; component units 664/664 PASS; UI Panel units 1060/1060 PASS;
+36 related Edge/Pixi browser cases PASS without retries/skips, covering modal
+keyboard focus, internal button effects, background opt-out, motion replacement
+and Dialog lifecycle. Installed distribution's nine offline checks PASS,
+including actual standalone input/export/reopen and extracted source build.
+UI Panel's static Studio and delivery runtime build PASS. The fixed browser-test
+port is denied by the local system; acceptance uses a dynamically assigned
+loopback port without changing project configuration.
+
+Two additional UI Panel planning/clarification browser scripts time out on the
+legacy #clarification-answer-0 locator. The modern probe first verifies the
+questions and three visible textareas; its subsequent legacy ID lookup fails
+before any panel is instantiated. These failed reports are retained and are not
+reported as passes. Panel sources and these scripts are outside this merge's
+changes. This does not establish complete UI Panel browser acceptance.
+
+Remote CI is checked separately on the final pushed commit before development
+branches are removed. The published rc.3 tag remains bound to c6db7097 and its
+existing TGZ SHA-256 remains
+58f419368492b58545fef36d5d6b40dfcb47c7737d883aabd49c6ae477e8aa88.
+The combined working branch is not a replacement release artifact. No model
+dispatch, media generation, deployment or customer-task mutation is performed;
+humanVisualAcceptance=false.
