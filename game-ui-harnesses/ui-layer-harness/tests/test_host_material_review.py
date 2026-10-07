@@ -189,6 +189,28 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
                     self.assertEqual(expected,digest(folder/'review'/name),name)
                 host.verify_prepared(folder)
 
+    def test_nearest_seam_is_bound_to_review_and_exact_partition(self):
+        from ai_ui_layers.sheet_pixels import NEAREST_SEAM
+        key=self.sheets[0];snapshot=self.job/'snapshot';manifest=read(snapshot/'snapshot.json')
+        job=self.root/'nearest-sheet';config=exchange.prepare(snapshot,manifest['digest'],job,[key])
+        exchange.authorize(job,config['digest'],'offline fixture only')
+        submission=exchange.next_request(job);raw=self.root/'nearest-sheet.png'
+        with Image.open(self.job/'attempts'/key/'raw.png') as original:image=original.convert('RGBA')
+        image.putpixel((image.width//2-5,image.height//2),(11,21,31,2));image.save(raw)
+        exchange.receive(job,submission['submissionDigest'],raw)
+        folder=self.root/'nearest-review'
+        host.prepare(job,key,folder,material_authors=['fixture-generator'],review_registry=self.root/'nearest-registry',sheet_seam_policy=NEAREST_SEAM)
+        request,_=host.verify_prepared(folder)
+        self.assertEqual(request['sheetSeamPolicy'],NEAREST_SEAM)
+        proof=read(folder/'sheet-partition.json')
+        self.assertTrue(proof['allPreparedPixelsRetained'])
+        self.assertEqual(proof['sourceRgbaPixelsSha256'],proof['reconstructedRgbaPixelsSha256'])
+        self.assertIn('sheet-partition.json',read(folder/'review/request.json')['inputs'])
+        self.assertFalse((folder/'result.json').exists())
+        host.receive(**self.response(folder));host.verify_run(folder)
+        (folder/'sheet-partition.json').write_text('{}',encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'CHANGED'):host.verify_prepared(folder)
+
     def test_sheet_order_alpha_detail_and_complete_extract(self):
         before=host.files(self.job);folders=[]
         for key in read(self.job/'job.json')['assets']:

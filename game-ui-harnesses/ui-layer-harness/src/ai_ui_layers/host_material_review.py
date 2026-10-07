@@ -13,8 +13,8 @@ from .freeze_visual import inspect, body_digest
 from .host_review import runtime_files, _bound_files, _identity
 from .visual_policy import snapshot_policy
 from .sheet_review_policy import classify, schema_for
-from .extract_sheets import cells, _review_variant, prepare_sheet_review
-from .sheet_pixels import prepare as prepare_pixels
+from .extract_sheets import cells, partition_cells, _review_variant, prepare_sheet_review
+from .sheet_pixels import prepare as prepare_pixels, STRICT_SEAM, validate_seam_policy
 from .single_material_review import prepare_review
 from . import ownership_observation as ownership
 from . import material_reuse as reuse, reuse_pipeline, reuse_image_review
@@ -49,8 +49,10 @@ def source(job, request_id):
     return config,index[request_id],receipt,raw
 
 
-def prepare(job, request_id, output, *, material_authors, review_registry, background_visual_review_policy=None):
+def prepare(job, request_id, output, *, material_authors, review_registry, background_visual_review_policy=None,
+            sheet_seam_policy=STRICT_SEAM):
     job=Path(job).resolve();output=Path(output).resolve()
+    validate_seam_policy(sheet_seam_policy)
     authors=list(material_authors)
     if not authors or len(authors)!=len(set(authors)):raise ValueError('MATERIAL_AUTHORS_REQUIRED')
     for author in authors:_identity(author)
@@ -89,7 +91,8 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
         else:
             output.mkdir(parents=True);(output/'prepared').mkdir();folder=output/'review';folder.mkdir()
             target=output/'prepared'/('sheet.png');pixel_report=prepare_pixels(raw,target)
-            with Image.open(target) as image:boxes=cells(image,row,actual_gaps=True)
+            with Image.open(target) as image:boxes,partition=partition_cells(image,row,sheet_seam_policy)
+            save(output/'sheet-partition.json',partition)
             visual_path=snapshot/'evidence/revised-visual-plan.json'
             visual=read(visual_path if visual_path.exists() else snapshot/'evidence/m1-draft.json')
             sizes={a['id']:a['output_size'] for a in read(snapshot/'execution-plan.candidate.json')['assets']}
@@ -109,7 +112,8 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
                         reviewSourceSha256=digest(review_source),reviewBox=review_box,outputSha256=digest(result),
                         jobDigest=config['digest'],submissionDigest=receipt['submissionDigest'],
                         receiptSha256=digest(job/'attempts'/request_id/'received.json')))
-            extraction=dict(materials=materials,records=records,adaptations=adaptations)
+            extraction=dict(materials=materials,records=records,adaptations=adaptations,
+                sheetSeamPolicy=sheet_seam_policy,sheetPartitionSha256=digest(output/'sheet-partition.json'))
         folder=output/'review';policy=snapshot_policy(snapshot,manifest)
         if read(folder/'schema.json')!=schema_for(policy):raise ValueError('OUTPUT_SCHEMA_MISMATCH')
         visual_path=snapshot/'evidence/revised-visual-plan.json'
@@ -137,6 +141,9 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
         nested_request=read(folder/'request.json')
         nested_request['inputs']={name:digest(folder/name) for name in nested_request['inputs']}
         nested_request['inputs']['ownership-inventory.json']=digest(folder/'ownership-inventory.json')
+        if row.get('kind')=='sheet' and (output/'sheet-partition.json').is_file():
+            shutil.copyfile(output/'sheet-partition.json',folder/'sheet-partition.json')
+            nested_request['inputs']['sheet-partition.json']=digest(folder/'sheet-partition.json')
         (folder/'request.json').write_text(json.dumps(nested_request,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         save(output/'extraction-candidate.json',extraction)
         # Every immutable producer file is pinned, including source crop and raw/receipt chain.
@@ -149,6 +156,8 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
             humanVisualAcceptance=False,originalDagPromoted=False)
         if background_visual_review_policy is not None:
             request['backgroundVisualReviewPolicy']=background_visual_review_policy
+        if row.get('kind')=='sheet' and (output/'sheet-partition.json').is_file():
+            request['sheetSeamPolicy']=sheet_seam_policy
         save(output/'request.json',request)
         save(output/'preparation.json',dict(requestSha256=digest(output/'request.json')))
         verify_prepared(output)
@@ -180,6 +189,18 @@ def verify_prepared(output):
             request['materialIds']!=reuse.expanded_ids(reuse_pipeline.snapshot_input(job/'snapshot',inspect(job/'snapshot',config['snapshotDigest'])),row.get('materialIds',[request['requestId']]))):
         raise ValueError('OUTPUT_SOURCE_BINDING_CHANGED')
     snapshot=job/'snapshot';policy=snapshot_policy(snapshot,inspect(snapshot,config['snapshotDigest']))
+    if 'sheetSeamPolicy' in request:
+        validate_seam_policy(request['sheetSeamPolicy'])
+        if row.get('kind')!='sheet':raise ValueError('OUTPUT_SHEET_POLICY_ON_SINGLE')
+        with Image.open(output/'prepared/sheet.png') as image:
+            boxes,partition=partition_cells(image,row,request['sheetSeamPolicy'])
+        if read(output/'sheet-partition.json')!=partition or read(output/'review/sheet-partition.json')!=partition:
+            raise ValueError('OUTPUT_SHEET_PARTITION_CHANGED')
+        extraction=read(output/'extraction-candidate.json')
+        if (extraction.get('sheetSeamPolicy')!=request['sheetSeamPolicy'] or
+                extraction.get('sheetPartitionSha256')!=digest(output/'sheet-partition.json') or
+                [r['sourceBox'] for r in extraction['records']]!=boxes):
+            raise ValueError('OUTPUT_SHEET_PARTITION_BINDING_CHANGED')
     from . import background_region_pipeline as bg_region
     bg_bound=bg_region.snapshot_input(snapshot,inspect(snapshot,config['snapshotDigest']))
     validate_background_visual_policy(request.get('backgroundVisualReviewPolicy'),bg_bound,request['requestId'])

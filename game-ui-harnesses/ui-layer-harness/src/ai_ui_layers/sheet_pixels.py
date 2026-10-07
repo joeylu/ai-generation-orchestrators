@@ -3,6 +3,14 @@ import numpy as np
 from PIL import Image
 from .evaluate import digest, save
 
+STRICT_SEAM = 'strict-unique-empty-band-v1'
+NEAREST_SEAM = 'nearest-unique-transparent-seam-v2'
+
+
+def validate_seam_policy(policy):
+    if policy not in (STRICT_SEAM, NEAREST_SEAM):
+        raise ValueError('SHEET_SEAM_POLICY')
+
 
 def prepare(source, target):
     """Only clear alpha 0/1 noise; all channels at alpha > 1 remain exact."""
@@ -29,8 +37,9 @@ def prepare(source, target):
     return evidence
 
 
-def axis_cuts(alpha, count, axis):
-    """Use a unique full-span empty band near each expected grid seam."""
+def axis_cuts(alpha, count, axis, policy=STRICT_SEAM):
+    """Select full-span empty cuts; v2 requires a unique nearest safe cut."""
+    validate_seam_policy(policy)
     length = alpha.shape[axis]
     occupied = np.any(alpha != 0, axis=1-axis)
     nominal = [i * length // count for i in range(count+1)]
@@ -49,11 +58,15 @@ def axis_cuts(alpha, count, axis):
                 if pos-start >= 2: bands.append((start,pos))
                 start=None
         if start is not None and hi+1-start >= 2: bands.append((start,hi+1))
-        if len(bands) != 1:
+        if not bands or policy == STRICT_SEAM and len(bands) != 1:
             raise ValueError('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY' if not bands else 'SHEET_AMBIGUOUS_EMPTY_BANDS')
-        left,right=bands[0]
         # Both pixels adjoining the half-open cut must be empty.
-        cut=min(max(center,left+1),right-1)
+        possible=[min(max(center,left+1),right-1) for left,right in bands]
+        distance=min(abs(cut-center) for cut in possible)
+        nearest=[cut for cut in possible if abs(cut-center)==distance]
+        if len(nearest)!=1:raise ValueError('SHEET_NEAREST_TRANSPARENT_SEAM_TIE')
+        cut=nearest[0]
+        if occupied[cut-1] or occupied[cut]:raise ValueError('SHEET_NONZERO_ALPHA_SEAM')
         cuts.append(cut)
     cuts.append(length)
     return cuts

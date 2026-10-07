@@ -10,7 +10,7 @@ from jsonschema import Draft202012Validator
 from .evaluate import read, save, digest
 from .freeze_visual import inspect
 from .automatic_registration import observation_image, call_model
-from .sheet_pixels import prepare, axis_cuts
+from .sheet_pixels import prepare, axis_cuts, STRICT_SEAM, validate_seam_policy
 from .short_prompt import exclusions
 from .sheet_review_policy import PROMPT as REVIEW_PROMPT, classify, schema_for
 from .review_image import fit_resampling, ALPHA_VISIBILITY_GUIDANCE
@@ -102,14 +102,15 @@ def _review_variant(row, source, raw_boxes, visual, sizes, output):
     return review, review_boxes, reports, cell_hashes
 
 
-def cells(image, row, actual_gaps=False):
+def cells(image, row, actual_gaps=False, seam_policy=STRICT_SEAM):
+    validate_seam_policy(seam_policy)
     if 'A' not in image.getbands():raise ValueError('SHEET_NATIVE_ALPHA_REQUIRED')
     alpha=np.asarray(image.getchannel('A'))
     if alpha.min()!=0 or alpha.max()==0:raise ValueError('SHEET_NATIVE_ALPHA_REQUIRED')
     columns,rows=row['grid'];count=len(row['materialIds']);bounds=[]
     if columns*rows<count or count<2:raise ValueError('SHEET_GRID')
-    xs=axis_cuts(alpha,columns,1) if actual_gaps else [x*image.width//columns for x in range(columns+1)]
-    ys=axis_cuts(alpha,rows,0) if actual_gaps else [y*image.height//rows for y in range(rows+1)]
+    xs=axis_cuts(alpha,columns,1,seam_policy) if actual_gaps else [x*image.width//columns for x in range(columns+1)]
+    ys=axis_cuts(alpha,rows,0,seam_policy) if actual_gaps else [y*image.height//rows for y in range(rows+1)]
     for i in range(columns*rows):
         x=i%columns;y=i//columns
         box=[xs[x],ys[y],xs[x+1],ys[y+1]]
@@ -124,6 +125,27 @@ def cells(image, row, actual_gaps=False):
             raise ValueError('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY')
         bounds.append(box)
     return bounds
+
+
+def partition_cells(image, row, seam_policy):
+    """Prove the selected transparent partition retains every prepared RGBA pixel."""
+    bounds=cells(image,row,actual_gaps=True,seam_policy=seam_policy)
+    alpha=np.asarray(image.getchannel('A'));columns,rows=row['grid']
+    xs=axis_cuts(alpha,columns,1,seam_policy);ys=axis_cuts(alpha,rows,0,seam_policy)
+    original=image.convert('RGBA');rebuilt=Image.new('RGBA',original.size);partition=[]
+    for y in range(rows):
+        for x in range(columns):
+            box=[xs[x],ys[y],xs[x+1],ys[y+1]];partition.append(box)
+            rebuilt.paste(original.crop(box),box[:2])
+    if rebuilt.tobytes()!=original.tobytes():raise ValueError('SHEET_PIXEL_PARTITION_MISMATCH')
+    import hashlib
+    evidence=dict(policy=seam_policy,xCuts=xs,yCuts=ys,partitionBoxes=partition,
+        materialBoxes=bounds,maximumSeamDisplacementFraction=0.25,
+        reconstructionPixelExact=True,allPreparedPixelsRetained=True,
+        alphaThresholdChanged=False,sourceBoundaryRelaxed=False,
+        sourceRgbaPixelsSha256=hashlib.sha256(original.tobytes()).hexdigest(),
+        reconstructedRgbaPixelsSha256=hashlib.sha256(rebuilt.tobytes()).hexdigest())
+    return bounds,evidence
 
 
 def extract(snapshot, expected_digest, sources, output, model_call=None, selected_request=None,

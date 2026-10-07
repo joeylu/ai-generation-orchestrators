@@ -79,6 +79,13 @@ The image authorization covers the frozen image requests; the host must also
 have permission for the documented read-only model review calls. Fewer image
 requests does not necessarily mean less total wall time or compute cost.
 
+The integrated host supports a separately frozen
+`nearest-unique-transparent-seam-v2` policy, documented in `HOST-DELIVERY.md`.
+It selects a unique nearest fully transparent cut without discarding intervening
+noise pixels and binds an exact RGBA partition proof to independent review.
+Standalone extraction keeps the strict one-band rule described above. Neither
+policy accepts a nontransparent cut, changed alpha floor or nonempty unused cell.
+
 For an integrated control whose label is removed, keep the original outer
 contour and the icon's position and size relative to that contour. A received
 sheet with a recentered or enlarged icon, changed empty label area, or changed

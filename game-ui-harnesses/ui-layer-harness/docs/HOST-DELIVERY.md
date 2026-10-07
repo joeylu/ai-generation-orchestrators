@@ -23,6 +23,22 @@ both must be positive integers no greater than 3600. The host enforces these
 deadlines. Timeout or unknown acceptance consumes the reserved invocation and
 requires terminal failure reporting; it never permits another submission.
 
+New host runs freeze `sheetSeamPolicy=nearest-unique-transparent-seam-v2`.
+After the existing alpha-0/1 preparation, each seam must have two adjoining
+full-span transparent pixel lines within the original quarter-cell search range.
+When noise divides a gap, select the uniquely nearest safe cut to the nominal
+grid seam. Equal-distance ties, no transparent cut, nonempty unused cells,
+missing artwork and source/cell boundary alpha still stop preparation. No noise
+pixel above the existing floor is erased or relocated. A hashed partition proof
+reconstructs every prepared RGBA pixel, including unused cells, and is bound into
+the independent material review inputs. That review must still establish cell
+identity and ownership; a transparent partition does not certify correct artwork.
+
+Explicit `sheetSeamPolicy=strict-unique-empty-band-v1` retains the one-band rule.
+Old host configurations without the field replay v1; standalone extraction and
+existing frozen evidence retain their existing rules. Failed runs are not resumed
+under this new runtime.
+
 Set `canvasPolicy` to `expanded-support-original-viewport-v1`,
 `canvasPolicyInstruction` to the actual approved user instruction, and
 `canvasPolicyInstructionSha256` to SHA-256 of its raw UTF-8 bytes. Set

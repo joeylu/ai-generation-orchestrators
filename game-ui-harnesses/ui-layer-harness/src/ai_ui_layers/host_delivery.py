@@ -17,6 +17,7 @@ from .freeze_visual import body_digest
 from . import host_review, host_material_review, experimental_executor
 from . import host_body_observation, body_viewport_delivery
 from .refreeze import freeze_reviewed
+from .sheet_pixels import NEAREST_SEAM, STRICT_SEAM, validate_seam_policy
 
 KIND = 'ui_integrated_host_delivery_v1'
 POLICY = 'expanded-support-original-viewport-v1'
@@ -164,6 +165,8 @@ def prepare(config_path, output):
     prior=_reviewed_snapshot(source) if source.get('reviewedSnapshot') else None
     version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v8')
     if version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    source.setdefault('sheetSeamPolicy',NEAREST_SEAM)
+    validate_seam_policy(source['sheetSeamPolicy'])
     root.mkdir(parents=True); inputs=root/'inputs';inputs.mkdir()
     for key in ('seed','original','planningNotes','visualPolicy','visualTextures','materialReuse'):
         if source.get(key):
@@ -398,6 +401,7 @@ def _material_stage(root,config,keys):
         folder=root/'reviews'/key
         prepared=host_material_review.prepare(root/'images',key,folder,material_authors=config['materialAuthors'],
                                      review_registry=root/'review-registry',
+                                     sheet_seam_policy=config.get('sheetSeamPolicy',STRICT_SEAM),
                                      **({'background_visual_review_policy':config['backgroundVisualReviewPolicy']}
                                         if key==background_id else {}))
         if prepared['status']=='blocked_no_retry':

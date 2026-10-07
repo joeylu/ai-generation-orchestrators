@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
-from ai_ui_layers.sheet_pixels import prepare, axis_cuts
-from ai_ui_layers.extract_sheets import cells
+from ai_ui_layers.sheet_pixels import prepare, axis_cuts, NEAREST_SEAM
+from ai_ui_layers.extract_sheets import cells, partition_cells
 from ai_ui_layers.evaluate import digest
 
 
@@ -57,3 +57,33 @@ class SheetPixelTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'UNUSED'):cells(im,row,True)
         im.putpixel((150,150),(0,0,0,0));im.putpixel((0,50),(1,2,3,255))
         with self.assertRaisesRegex(ValueError,'CONTOUR_TOUCHES'):cells(im,row,True)
+
+    def test_nearest_seam_keeps_intervening_noise_and_all_rgba_pixels(self):
+        im=Image.new('RGBA',(120,200));d=ImageDraw.Draw(im)
+        d.rectangle((10,10,109,80),fill=(30,60,90,255))
+        d.rectangle((10,125,109,189),fill=(70,50,20,128))
+        im.putpixel((37,90),(91,83,42,2))
+        row=dict(grid=[1,2],materialIds=['a','b'])
+        before=im.tobytes()
+        with self.assertRaisesRegex(ValueError,'AMBIGUOUS'):cells(im,row,True)
+        boxes,proof=partition_cells(im,row,NEAREST_SEAM)
+        self.assertEqual(boxes[0][3],100)
+        self.assertEqual(im.tobytes(),before)
+        self.assertEqual(im.crop(boxes[0]).getpixel((37,90)),(91,83,42,2))
+        self.assertTrue(proof['allPreparedPixelsRetained'])
+        self.assertEqual(proof['sourceRgbaPixelsSha256'],proof['reconstructedRgbaPixelsSha256'])
+        self.assertFalse(proof['sourceBoundaryRelaxed'])
+
+    def test_nearest_seam_tie_bridge_outer_and_unused_remain_blocking(self):
+        a=np.ones((200,120),dtype=np.uint8)*255
+        a[85:90]=0;a[110:115]=0
+        with self.assertRaisesRegex(ValueError,'SEAM_TIE'):axis_cuts(a,2,0,NEAREST_SEAM)
+        with self.assertRaisesRegex(ValueError,'CONTOUR_TOUCHES'):axis_cuts(np.ones_like(a),2,0,NEAREST_SEAM)
+        im=Image.new('RGBA',(200,200));d=ImageDraw.Draw(im)
+        for x,y in ((0,0),(100,0),(0,100)):d.rectangle((x+20,y+20,x+79,y+79),fill='white')
+        row=dict(grid=[2,2],materialIds=['a','b','c'])
+        im.putpixel((150,150),(1,2,3,2))
+        with self.assertRaisesRegex(ValueError,'UNUSED'):partition_cells(im,row,NEAREST_SEAM)
+        im.putpixel((150,150),(0,0,0,0));im.putpixel((0,50),(1,2,3,2))
+        with self.assertRaisesRegex(ValueError,'CONTOUR_TOUCHES'):partition_cells(im,row,NEAREST_SEAM)
+        with self.assertRaisesRegex(ValueError,'SEAM_POLICY'):cells(im,row,True,'unknown')

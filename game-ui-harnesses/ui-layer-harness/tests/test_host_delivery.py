@@ -56,6 +56,7 @@ class HostDeliveryTests(unittest.TestCase):
 
     def test_new_default_uses_ownership_actions_and_explicit_v7_is_frozen(self):
         self.assertEqual(read(self.run/'config.json')['contextPromptVersion'],'v8')
+        self.assertEqual(read(self.run/'config.json')['sheetSeamPolicy'],'nearest-unique-transparent-seam-v2')
         self.assertEqual(read(self.run/'planning/.dag/config.json')['contextPromptVersion'],'v8')
         self.planning()
         self.assertEqual(read(self.run/'frozen/snapshot.json')['contextPromptVersion'],'v8')
@@ -70,6 +71,15 @@ class HostDeliveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'HOST_CONTEXT_PROMPT_VERSION'):
             host.prepare(invalid_path,self.base/'invalid-version')
         self.assertFalse((self.base/'invalid-version').exists())
+
+    def test_explicit_legacy_seam_and_unknown_policy_before_output(self):
+        legacy=read(self.config_path);legacy['sheetSeamPolicy']='strict-unique-empty-band-v1'
+        path=self.base/'legacy-seam-config.json';save(path,legacy)
+        run=self.base/'legacy-seam';host.prepare(path,run)
+        self.assertEqual(read(run/'config.json')['sheetSeamPolicy'],legacy['sheetSeamPolicy'])
+        legacy['sheetSeamPolicy']='unknown';path=self.base/'unknown-seam-config.json';save(path,legacy)
+        with self.assertRaisesRegex(ValueError,'SHEET_SEAM_POLICY'):host.prepare(path,self.base/'unknown-seam')
+        self.assertFalse((self.base/'unknown-seam').exists())
 
     def test_unsafe_submission_cannot_write_and_interrupted_receive_is_terminal(self):
         with self.assertRaisesRegex(ValueError,'DIGEST_REQUIRED'):
