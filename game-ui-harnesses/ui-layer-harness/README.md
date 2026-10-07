@@ -77,6 +77,7 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 ## 接入合同
 
 见 [服务接入合同](docs/SERVICE-CONTRACT.md)：命令、授权、状态、媒体交换和交付边界。
+当前正式宿主流程、修订／诊断导出与验收证据的区别见[链路检查点](docs/DELIVERY-CHAIN-CHECKPOINT.md)。
 版本变化见 [发布说明](docs/RELEASE-NOTES.md)。
 相似样本的通用防错规则和验证边界见 [视觉保障](docs/VISUAL-SAFEGUARDS.md)。
 多份已接收变体的确定性恢复与待验收打包见 [变体恢复合同](docs/REVIEW-REQUIRED-VARIANTS.md)。
