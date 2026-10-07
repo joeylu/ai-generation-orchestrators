@@ -2,7 +2,8 @@
 /** Visible native-Intent fixture regression. No model process is launched. */
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
-import { chromium } from '../../ui-component-harness/node_modules/@playwright/test/index.mjs';
+import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
+const { chromium } = await loadWorkspaceTool('@playwright/test');
 import { createWorkbenchServer } from '../src/workbench-server.mjs';
 import { createOutputDirectory, writeNewJson } from '../src/io.mjs';
 import { materializePanelIntent } from '../src/panel-intent.mjs';

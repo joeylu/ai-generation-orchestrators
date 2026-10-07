@@ -5,25 +5,13 @@
 
 ## 从这里开始
 
-- [使用与启动](docs/start-here.md)：构建Studio、生成、修改、试玩、撤销和下载。
-- [本次源码收尾](docs/v1-candidate-2026-10-08.md)：冻结当前范围，记录本地回归、本次真实验收与保留边界。
-- [本地第一版交付目录](output/ui-panel-closeout-v1/index.html)：已接受的16类面板、5种同轮组合和10步真实修改，含预览及实际下载ZIP；本地产物不随Git提交。
-- Studio网址以启动命令打印的地址为准；旧静态页面不会自动更新。支持浅深模式与四种主色。
-- [视觉主题与前后对照](docs/panel-visual-style.md)：新主题单独版本，旧交付包保持原样。
-- [浅深模式与主色](docs/panel-themes.md)：需求中指定八种主题，修改保留未要求变化的风格。
-- [自定义样式与布局编辑](docs/panel-appearance.md)：指定实际背景、文字、按钮颜色和圆角，保留试玩值并支持撤销。
-- [同组按钮排列与形状](docs/panel-action-layout.md)：现有播放按钮横排、居中和1:1圆形，保留原动作。
-- [顺序、正文与单按钮样式](docs/panel-control-editing.md)：交换控件位置、独立按钮配色/尺寸、修改提示正文，以及生成时的同组按钮排列。
-- [标题对齐与底板](docs/panel-title-bar.md)：独立调整现有标题的对齐、字号和背景条。
-- [正文换行与内容高度](docs/panel-text-wrap.md)：长正文完整显示，后续控件随内容下移，超高时滚动。
-- [面板比例与固定尺寸](docs/panel-frame.md)：修改现有面板为16:9、9:16或指定宽高，保留字号、试玩值和动作。
-- [同轮修改比例与内容布局](docs/panel-layout-details.md)：一轮同时改比例、内边距、间距和标题区域高度，独立属性完整应用。
-- [明确属性与修改范围](docs/panel-edit-property-checks.md)：核对标题、主题引用、色值、字号、默认值，以及完整明确的“其他不变”。
-- [修改结果核对](docs/panel-edit-request-checks.md)：拦截明确几何要求的漏项，并列出最近实际修改的前后值；不宣称通用语义验收。
-- [用户修改边界审计](docs/edit-boundaries-audit.md)：20条程序用例、8条能力缺口，以及结构校验发现不了的需求漏项反例。
-- [点选修改对象](docs/panel-point-selection.md)：先选预览中的控件，再用“这个…”描述修改；内部绑定稳定ID并限制修改范围。
-- [用途排版与真实验收](docs/visual-smoke-acceptance.md)：四类新面板及一次修改，包含窄屏布局和实际下载重导入。
-- [本版范围及验收](docs/first-version-closeout-2026-10-07.md)，[历史任务和失败记录](docs/tasks.md)。
+- [使用与启动](docs/start-here.md)：构建 Studio、生成、修改、试玩、撤销和下载。
+- [文档索引](docs/index.md)：按生成编辑、资源交付和历史验收查阅。
+- [目录与依赖边界](docs/structure.md)、[命令索引](docs/commands.md)：维护入口及只读依赖预检。
+- [本次源码收尾](docs/v1-candidate-2026-10-08.md)：此前版本的范围、验收与保留边界。
+- [本地第一版交付目录](output/ui-panel-closeout-v1/index.html)：历史面板、组合和修改预览；本地产物不随 Git 提交。
+
+Studio 网址以启动命令打印的地址为准，旧静态页面不会自动更新。
 
 ## 当前能力
 
@@ -65,10 +53,11 @@ modern-v3 的新编辑使用 EditContext 0.12，可选择单控件，并独立�
 
 ## 快速构建
 
-需要Node >=22.18和同仓库`ui-component-harness`源码；Vite/Pixi等开发依赖由相邻Harness提供。
+需要Node >=22.18和同仓库`ui-component-harness`源码；已安装的Vite/Pixi/Playwright版本由[开发依赖合同](src/workspace/requirements.mjs)明确限定。预检不会安装依赖或调用模型。
 在`ui-panel-harness`目录运行；输出目录必须不存在：
 
 ```sh
+node scripts/check-workspace.mjs
 node --test tests/*.test.mjs
 node scripts/cli.mjs validate examples/audio-settings.panel.json
 node scripts/build-workbench.mjs --catalog examples/modern-adaptive.catalog.json --output output/my-studio

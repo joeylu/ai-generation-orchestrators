@@ -1,15 +1,12 @@
 /** Thin workspace adapter. Owns Pixi and panel-session lifetime, never game side effects. */
-import { createTreePreview } from '../../ui-component-harness/src/tree-runtime.ts';
-import { compileTree } from '../../ui-component-harness/src/tree-compiler.ts';
-import { validateDocument } from '../../ui-component-harness/src/tree-contract.ts';
-import { createBundle, validateBundle, bundleResources } from '../../ui-component-harness/src/bundle.ts';
+import { createTreePreview, componentCore } from './workspace/component-browser.mjs';
 import { validatePanelBundle } from './panel-bundle.mjs';
 import { attachPanelSession } from './state.mjs';
 import { attachLayoutSession } from './layout-session.mjs';
 import { attachInputEditor } from './input-editor.mjs';
 import { attachPanelVisuals } from './panel-visuals.mjs';
 import { attachWorkbenchSelection } from './workbench-selection.mjs';
-export const browserCore = Object.freeze({ compileTree, validateDocument, createBundle, validateBundle, bundleResources });
+export const browserCore = componentCore;
 
 function decode(resource, signal) {
   return new Promise((resolve, reject) => {

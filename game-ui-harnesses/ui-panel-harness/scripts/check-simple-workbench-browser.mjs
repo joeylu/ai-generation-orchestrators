@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-/** Default Studio journeys through the visible UI. Only injected fixture adapters run. */
+/** Default Studio journeys, including the point-selection helper. Only fixture adapters run. */
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { chromium } from '../../ui-component-harness/node_modules/@playwright/test/index.mjs';
+import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
+const { chromium } = await loadWorkspaceTool('@playwright/test');
 import { createOutputDirectory, readJson, writeNewJson } from '../src/io.mjs';
 import { digestBytes } from '../src/canonical.mjs';
 import { createWorkbenchServer } from '../src/workbench-server.mjs';
@@ -130,11 +131,12 @@ try {
     for (let attempt = 0; calls.length < count && attempt < 200; attempt++) await new Promise(done => setTimeout(done, 20));
     assert.equal(calls.length, count, 'Exactly one fixture adapter invocation was admitted');
   };
-  stage = 'default-only-two-inputs-two-actions-and-preview';
+  stage = 'default-two-inputs-primary-actions-selection-helper-and-preview';
   await page.goto(server.url); await idle();
   await page.waitForFunction(() => document.getElementById('model-status').textContent.includes('gpt-6-luna'));
   assert.equal(await page.locator('textarea:visible').count(), 2);
-  assert.deepEqual(await page.locator('.request-column button:visible').allTextContents(), ['生成面板', '修改面板']);
+  assert.deepEqual(await page.locator('.request-column button:visible').allTextContents(), ['生成面板', '选择修改对象', '修改面板']);
+  assert.equal(await page.locator('#select-edit-target').isDisabled(), true);
   assert.equal(await page.locator('#download-delivery').isDisabled(),true);
   for (const id of ['advanced-area', 'library-badge', 'prepare', 'proposal-json', 'editor-form', 'live-state', 'evidence-output', 'download-panel'])
     assert.equal(await page.locator(`#${id}`).isVisible(), false, id);
@@ -282,7 +284,7 @@ try {
   expectedFault = false; mode = 'questions'; await click('generate-plan'); await noErrors(); await preserve(before, state);
   const clarificationId = (await snapshot()).context.request.id;
   assert.equal(await page.locator('#clarification-form').isVisible(), true);
-  await page.locator('#clarification-answer-0').fill('重置音量、静音和画质，不重置音效开关。'); count = calls.length;
+  await page.locator('#questions textarea').first().fill('重置音量、静音和画质，不重置音效开关。'); count = calls.length;
   await click('clarify'); assert.equal(calls.length, count); assert.equal(await page.locator('#clarification-form').isVisible(), false);
   assert.equal((await snapshot()).context.request.id, clarificationId);
   assert.match(await page.locator('#status').textContent(), /回答已补充.*生成面板/u);
@@ -294,7 +296,7 @@ try {
   before = await snapshot(); state = await values(); mode = 'questions'; await page.locator('#edit-request-text').fill(editText);
   await click('generate-edit'); await preserve(before, state);
   assert.equal(await page.locator('#edit-questions').isVisible(), true);
-  assert.match(await page.locator('#edit-plan-status').textContent(), /补充.*修改面板/u);
+  assert.match(await page.locator('#edit-plan-status').textContent(), /回答.*修改面板/u);
   count = calls.length; await page.locator('#edit-request-text').fill(`${editText}音效默认 true。`);
   assert.equal(await page.locator('#edit-questions').isVisible(), false); assert.equal(calls.length, count); pass(stage);
 

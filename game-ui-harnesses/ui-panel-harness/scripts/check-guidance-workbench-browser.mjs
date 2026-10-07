@@ -2,7 +2,8 @@
 /** Player-task examples and clarification choices through visible UI. Fixture adapters only. */
 import assert from 'node:assert/strict';
 import { join, resolve } from 'node:path';
-import { chromium } from '../../ui-component-harness/node_modules/@playwright/test/index.mjs';
+import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
+const { chromium } = await loadWorkspaceTool('@playwright/test');
 import { createOutputDirectory, readJson, writeNewJson } from '../src/io.mjs';
 import { createWorkbenchServer } from '../src/workbench-server.mjs';
 import { materializePanelIntent } from '../src/panel-intent.mjs';

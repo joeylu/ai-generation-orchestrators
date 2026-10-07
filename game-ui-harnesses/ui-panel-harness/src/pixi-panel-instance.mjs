@@ -1,15 +1,12 @@
 /** Pixi adapter for createPanelHost. Every mount owns its canvas, editor and resources. */
-import {createTreePreview} from '../../ui-component-harness/src/tree-runtime.ts';
-import {compileTree} from '../../ui-component-harness/src/tree-compiler.ts';
-import {validateDocument} from '../../ui-component-harness/src/tree-contract.ts';
-import {createBundle,validateBundle,bundleResources} from '../../ui-component-harness/src/bundle.ts';
+import { createTreePreview, componentCore } from './workspace/component-browser.mjs';
 import {attachPanelSession} from './state.mjs';
 import {attachLayoutSession} from './layout-session.mjs';
 import {attachInputEditor} from './input-editor.mjs';
 import {attachPanelVisuals} from './panel-visuals.mjs';
 import {compilePanel} from './compiler.mjs';
 import {observePanelViewport} from './panel-viewport.mjs';
-export const pixiPanelCore={compileTree,validateDocument,createBundle,validateBundle,bundleResources};
+export const pixiPanelCore = componentCore;
 
 function imageFor(resource,signal){return new Promise((resolve,reject)=>{const image=new Image(),cleanup=()=>{image.onload=null;image.onerror=null;signal.removeEventListener('abort',abort);},abort=()=>{cleanup();image.src='';reject(new Error('PANEL_HOST_OPEN_CANCELLED'));};image.onload=()=>{cleanup();resolve(image);};image.onerror=()=>{cleanup();reject(new Error('PANEL_HOST_IMAGE'));};signal.addEventListener('abort',abort,{once:true});if(signal.aborted){abort();return;}image.src=`data:${resource.mime};base64,${resource.base64}`;});}
 export async function mountPixiPanelInstance({bundle,state,options,signal,onEvent,onFatal}){

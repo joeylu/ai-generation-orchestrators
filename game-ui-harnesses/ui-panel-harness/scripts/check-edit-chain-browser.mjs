@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join, relative, dirname } from 'node:path';
-import { chromium } from '../../ui-component-harness/node_modules/@playwright/test/index.mjs';
+import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
+const { chromium } = await loadWorkspaceTool('@playwright/test');
 import { createOutputDirectory, readJson, writeNewJson } from '../src/io.mjs';
 import { digestBytes, digestJson } from '../src/canonical.mjs';
 import { loadWorkspaceCore } from '../src/component-adapter.mjs';
