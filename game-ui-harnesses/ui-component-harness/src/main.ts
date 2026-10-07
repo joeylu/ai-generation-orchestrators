@@ -6,6 +6,8 @@ import { validateButtonIntent, validatePreviewPolicy } from './intent-compiler.t
 import { createTreePreview, type TreePreview, type TreeRuntimeEvent } from './tree-runtime.ts';
 import { replayReferenceState } from './reference-replay.ts';
 import { validatePersistedHandoff, exportReferenceHandoff, type PersistedHandoff } from './reference-persistence.ts';
+import type { PersistedLayerSource } from './layer-component.ts';
+import { assertLayerTextRendering } from './layer-preview.ts';
 import type { ReferenceEvidence } from './reference-evidence.ts';
 import { validateDocument, walkNodes, type UiDocument, type UiNode } from './tree-contract.ts';
 import { compileTree, validateTreeIntent, validateTreePolicy, type ImageFactsMap } from './tree-compiler.ts';
@@ -27,6 +29,7 @@ let tree: TreePreview | undefined, legacy: Preview | undefined, legacyInstance: 
 let currentDocument: UiDocument | ButtonContract | undefined;
 let provenance: BundleProvenance = { kind: 'programmatic-fixture', description: 'Explicit procedural engineering fixture; not vision recognition.' };
 let componentHandoff: PersistedHandoff | undefined;
+let layerSource: PersistedLayerSource | undefined;
 let controller: AbortController | undefined, generation = 0, selectedId = '', activates = 0;
 const activationCounts = new Map<string, number>();
 let motion: MotionPlayer | undefined, currentMotion: MotionDocument | undefined;
@@ -60,6 +63,7 @@ function cleanup(keepLegacy = false) {
 }
 function invalidate(keepLegacy = false) {
   generation++; controller?.abort(new DOMException('加载被新请求替换', 'AbortError')); controller = undefined;
+  componentHandoff = undefined; layerSource = undefined;
   try { cleanup(keepLegacy); } finally { resetOutput(); }
 }
 function report(error: unknown) {
@@ -132,13 +136,19 @@ function sync() {
   if (currentDocument) el('output-json').textContent = json(currentDocument);
   el('live-counts').textContent = info ? `${info.nodes.length} 节点 / ${info.resources} 资源 / ${info.externalListeners} 监听` : legacy ? `${legacy.inspect().instances} 实例 / ${legacy.inspect().externalListeners} 监听` : '0 节点 / 0 资源';
   el('node-count').textContent = String(info?.nodes.length ?? (legacyInstance ? 1 : 0));
-  const list = el('tree'); list.replaceChildren();
-  for (const node of info?.nodes ?? []) {
-    const button = document.createElement('button'); button.textContent = node.id;
-    button.setAttribute('aria-pressed', String(node.id === selectedId)); button.dataset.nodeId = node.id;
-    const type = document.createElement('small'); type.textContent = node.type; button.append(type);
-    button.addEventListener('click', () => { selectedId = node.id; sync(); }); list.append(button);
+  const list = el('tree'), nodes = info?.nodes ?? [], rows = [...list.children];
+  // Native Input blur happens between pointerdown and click. Keep an unchanged
+  // tree's buttons mounted so its pending mouse click still selects the target.
+  if (rows.length !== nodes.length || rows.some((row, index) =>
+    (row as HTMLElement).dataset.nodeId !== nodes[index].id || row.lastElementChild?.textContent !== nodes[index].type)) {
+    list.replaceChildren();
+    for (const node of nodes) {
+      const button = document.createElement('button'); button.textContent = node.id; button.dataset.nodeId = node.id;
+      const type = document.createElement('small'); type.textContent = node.type; button.append(type);
+      button.addEventListener('click', () => { selectedId = node.id; sync(); }); list.append(button);
+    }
   }
+  for (const row of list.children) row.setAttribute('aria-pressed', String((row as HTMLElement).dataset.nodeId === selectedId));
   inspectSelected();
   for (const id of ['apply-motion-system', 'apply-system-json']) el<HTMLButtonElement>(id).disabled = !tree;
   const system = tree?.getMotionSystem();
@@ -169,6 +179,7 @@ async function mountTree(documentInput: unknown, request: ReturnType<typeof begi
     await preview.load(contract, request.signal, async (source, signal) => {
       const existing = decoded.get(source); return existing ?? decode(await resource(source, signal), signal);
     }, async (source, signal) => new Uint8Array((await resource(source, signal)).bytes).buffer);
+    assertLayerTextRendering(layerSource?.plan, preview.inspect());
     request.check(); currentDocument = contract; applyWorkbenchZoom();
     selectedId = contract.root.id; el('lifecycle').textContent = '运行中'; el('render-info').textContent = 'PixiJS · WebGL';
     el<HTMLButtonElement>('export-bundle').disabled = false; el<HTMLButtonElement>('show-dialog').disabled = contract.id !== 'fixture-gallery';
@@ -242,7 +253,7 @@ async function exportBundle() {
   }
   const signal = controller?.signal ?? new AbortController().signal;
   const data = await Promise.all([...needed].map(source => resource(source, signal)));
-  return createBundle(contract, componentHandoff ? [...resources.values()] : data, provenance, timeline, system, componentHandoff);
+  return createBundle(contract, componentHandoff || layerSource ? [...resources.values()] : data, provenance, timeline, system, componentHandoff, layerSource);
 }
 async function importBundle(input: unknown) {
   invalidate(); const ticket = generation;
@@ -253,6 +264,7 @@ async function importBundle(input: unknown) {
   if (bundle.motion) { el<HTMLTextAreaElement>('motion-editor').value = json(bundle.motion); applyMotion(); }
   if (bundle.motionSystem) setMotionSystem(bundle.motionSystem);
   componentHandoff = bundle.componentHandoff;
+  layerSource = bundle.layerSource;
   el('source-note').textContent = `组件包 · ${provenance.description}`; log({ type: 'bundle-import', id: bundle.document.id });
   return bundle.document;
 }

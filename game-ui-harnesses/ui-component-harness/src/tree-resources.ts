@@ -37,6 +37,7 @@ export function treeResourceReferences(document: UiDocument): { imageSources: Se
       if(node.props.appearance.backgroundImage) imageSources.add(node.props.appearance.backgroundImage);
       imageSources.add(node.props.appearance.rowImage);
       imageSources.add(node.props.appearance.selectedRowImage);
+      if (node.props.appearance.selectedIndicator) imageSources.add(node.props.appearance.selectedIndicator.image);
     }
     if (node.type === 'Panel' && node.props.appearance) {
       imageSources.add(node.props.appearance.background.image);

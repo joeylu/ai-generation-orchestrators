@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     "AGENTS.md", ".gitignore", "LICENSE", "README.md", "SKILL.md", "skill.json",
     "package.json", "package-lock.json", "tsconfig.json", "tsconfig.lib.json",
-    "vite.config.ts", "playwright.config.ts", "index.html", "workbench.html",
+    "vite.config.ts", "vite.browser.config.ts", "playwright.config.ts", "index.html", "workbench.html",
+    "reference-acceptance.html", "layer-plan-check.html",
     "analysis/button-confirm.intent.json",
 )
 TREES = ("src", "tests", "scripts", "docs", "examples", "prompts", "agents", "skills", "public/fixtures")

@@ -13,11 +13,18 @@ ai-ui-component compile <intent.json> <policy.json> (--facts <facts.json> | --as
 ai-ui-component pack <document.json> --resource <portable-path>=<file> [--resource ...] --provenance-kind <kind> --provenance-description <text> [--motion <motion.json>] [--motion-system <system.json>] [--output <bundle.json>]
 ai-ui-component unpack <bundle.json> <empty-output-directory>
 ai-ui-component component-handoff <handoff.zip> --output <saved.ui-bundle.json> [--reference-output <evidence.json>]
+ai-ui-component layer-intake <ui-layers.zip> [--output <intake.json>]
+ai-ui-component layer-build <ui-layers.zip> --plan <explicit-component-plan.json> --output <ui-bundle.json>
 ai-ui-component reference-export <saved.ui-bundle.json> --output <new-handoff.zip>
 ai-ui-component reference-accept <handoff.zip> --output <new-directory>
 ai-ui-component self-test
 ai-ui-component doctor
 ```
+
+`layer-intake` and `layer-build` consume the independent `ui_layers_package_v1`
+archive, not a decomposition `scene.json` archive. The second command requires
+an explicit complete component plan and produces source-bound bundle 0.4. See
+[the direct layer-package contract](layer-component.md).
 
 ## `run`
 
@@ -111,3 +118,11 @@ model paths, workflow files, or provider state.
 `bind-value-text <handoff.zip> <bindings.json> --output <new-handoff.zip>` attaches
 explicit version1.0 document valueTextBindings, revalidates and refuses output overwrite.
 See [value text binding contract](value-text-bindings-v1.md).
+## Single material ZIP
+
+`assets-intake <assets.zip> [--output <intake.json>]` authenticates legacy or v2
+materials and emits evidence and planning gaps. `assets-plan <assets.zip> --input
+<reviewed-planning-input.json> [--output <plan.json>]` compiles explicit Agent
+decisions without model calls. The original three-input `assets-build` remains
+compatible. See [the implemented intake workflow](assets-intake-v2.md) for exact
+input, persistence and acceptance boundaries.

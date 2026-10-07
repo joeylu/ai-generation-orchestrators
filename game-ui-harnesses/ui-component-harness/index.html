@@ -73,6 +73,27 @@
           <p id="handoff-review" class="section-copy" style="white-space:pre-wrap;overflow-wrap:anywhere" role="status" hidden></p>
         </section>
 
+        <section class="sidebar-section" aria-labelledby="layer-import-title">
+          <p class="section-kicker">图层交付包</p>
+          <h2 id="layer-import-title">从图层 ZIP 生成组件</h2>
+          <p class="section-copy">导入后先显示包内预览图。组件方案可裁切复用图层、调整遮挡顺序，并用程序控件补齐缺失部件；适配内容会列出供复核。通过检查后切换到组件预览，也可手动选择方案 JSON。</p>
+          <label class="bundle-import" for="layer-archive">
+            <span>导入图层交付 ZIP</span>
+            <input id="layer-archive" type="file" accept="application/zip,.zip" />
+          </label>
+          <p id="layer-archive-status" class="section-copy" role="status">尚未导入图层交付包。</p>
+          <button id="layer-auto" type="button" disabled>Codex 生成组件方案并预览</button>
+          <p id="layer-auto-status" class="section-copy" role="status">由本机 Codex session 读取参考图和图层，规划待复核的组件方案。</p>
+          <ul id="layer-auto-issues" class="section-copy" aria-label="自动方案待复核项"></ul>
+          <button id="layer-plan-export" type="button" disabled>下载组件方案草稿 JSON</button>
+          <label class="bundle-import" for="layer-plan">
+            <span>选择组件方案 JSON</span>
+            <input id="layer-plan" type="file" accept="application/json,.json" disabled />
+          </label>
+          <p id="layer-plan-status" class="section-copy" role="status">先导入图层 ZIP。</p>
+          <button id="layer-build" type="button" disabled>按所选方案生成 Bundle 并预览</button>
+        </section>
+
         <section id="analysis-state" class="sidebar-section" aria-live="polite" hidden>
           <p class="section-kicker">组件识别</p>
           <h2>理解图片，生成组件</h2>
@@ -171,6 +192,7 @@
 
         <div id="studio-error" class="studio-error" role="alert" hidden>
           <p id="error-message"></p>
+          <button id="reload-studio" class="error-dismiss" type="button" hidden>刷新页面</button>
           <button id="dismiss-error" class="error-dismiss" type="button">知道了</button>
         </div>
 

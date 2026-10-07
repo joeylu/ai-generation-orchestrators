@@ -4,7 +4,7 @@ import { componentHandoffEntries, MAX_COMPONENT_HANDOFF_ARCHIVE_BYTES } from './
 
 import { validateReferenceStates } from './reference-evidence.ts';
 
-/** Bundle 0.3 preserves the authoritative handoff; its v2 fields are not duplicated. */
+/** Bundle 0.3 preserves the authoritative handoff; its source contracts are not duplicated. */
 export interface PersistedHandoff { sha256: string; base64: string }
 export function encodeArchive(bytes: Uint8Array): string {
   let value = ''; for (let i = 0; i < bytes.length; i += 32768) value += String.fromCharCode(...bytes.subarray(i, i + 32768));
@@ -37,14 +37,13 @@ export async function validatePersistedHandoff(input: unknown, bundle: UiBundle)
   const bytes = decodeArchive(value.base64);
   if (await referenceSha256(bytes) !== value.sha256) throw new Error('REFERENCE_ARCHIVE_DIGEST');
   const source = await compileComponentHandoff(bytes);
-  if (source.referenceEvidence.status !== 'complete') throw new Error('REFERENCE_EVIDENCE_REQUIRED');
   if (bundle.document.schemaVersion !== '0.2' || structure(bundle.document) !== structure(source.bundle.document)
     || canonical([...bundle.resources].sort((a, b) => a.path.localeCompare(b.path))) !== canonical([...source.bundle.resources].sort((a, b) => a.path.localeCompare(b.path)))) throw new Error('REFERENCE_EVIDENCE_STALE: component structure, options, canvas or resources changed');
-  validateReferenceStates(source.referenceEvidence.state, source.referenceEvidence.scope, bundle.document);
+  if (source.referenceEvidence.status === 'complete') validateReferenceStates(source.referenceEvidence.state, source.referenceEvidence.scope, bundle.document);
   return source.referenceEvidence;
 }
 
-/** Deterministic ZIP_STORED writer; entries originate from the validated v2 inventory. */
+/** Deterministic ZIP_STORED writer; entries originate from the validated handoff inventory. */
 export function zip(entries: Map<string, Uint8Array>): Uint8Array {
   const chunks: Uint8Array[] = [], central: Uint8Array[] = []; let offset = 0;
   for (const [path, bytes] of [...entries].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
@@ -76,7 +75,7 @@ export async function exportReferenceHandoff(bundle: UiBundle): Promise<Uint8Arr
   if (bundle.motionSystem) semantic.motionSystem = bundle.motionSystem; else delete semantic.motionSystem;
   semantic.bundleVersion = bundle.motionSystem ? '0.2' : '0.1';
   write('runtime.ui-bundle.json', semantic);
-  manifest.schemaVersion = '2.1';
+  manifest.schemaVersion = manifest.kind === 'ai_ui_component_handoff_v2' ? '2.1' : '1.1';
   manifest.runtime_bundle = { path: 'runtime.ui-bundle.json', sha256: await referenceSha256(entries.get('runtime.ui-bundle.json')!) };
   write('handoff.json', manifest);
   const output = zip(entries); await compileComponentHandoff(output); return output;

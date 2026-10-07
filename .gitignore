@@ -5,7 +5,7 @@ Thumbs.db
 node_modules/
 build/
 dist/
-dist-layers/
+/game-ui-harnesses/ui-component-harness/dist-layers/
 coverage/
 .venv/
 .ai-frame-animation/

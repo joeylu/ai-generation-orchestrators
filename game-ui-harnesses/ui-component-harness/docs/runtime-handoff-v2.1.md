@@ -20,3 +20,21 @@ runtime values and motion. Studio does not overwrite an imported saved snapshot 
 reference replay. Explicit reference replay/acceptance still uses original evidence,
 including unknown values. Human visual acceptance stays false. Consumers supporting
 only 2.0 must reject 2.1 rather than silently discard runtime state.
+
+## Runtime-only handoff 1.1
+
+Legacy `ai_ui_component_handoff_v1` packages may now be retained in the same
+UiBundle 0.3 `componentHandoff` attachment. Source integrity, complete binding,
+structure and resource checks remain mandatory. Missing reference evidence is
+still `missing_reference_evidence`, never a successful reference comparison.
+
+Saving a legacy runtime package writes `schemaVersion:"1.1"` and the existing
+`runtime_bundle:{path:"runtime.ui-bundle.json",sha256}` entry. The exact original
+component bundle, appearance binding and nested decomposition ZIP remain unchanged.
+The snapshot follows the same restricted runtime-value/motion/linkageState rules
+as handoff 2.1; geometry, options, prices, bindings and resources cannot change.
+Only the manifest and runtime snapshot change on repeated exports. Unknown versions,
+missing snapshots, recursive attachments and changed snapshot structure reject.
+Older consumers must reject 1.1 instead of discarding saved state. Reference-less
+archives cannot acquire reference observations by saving. Handoff 2.0/2.1 rules
+and their reference-byte preservation remain unchanged.

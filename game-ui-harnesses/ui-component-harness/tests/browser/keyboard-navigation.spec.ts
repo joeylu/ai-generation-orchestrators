@@ -61,8 +61,30 @@ test('keyboard focus skips disabled/hidden controls, obeys modal blocking and ca
   await page.evaluate(() => (window as any).uiHarness.setVisible('sound', false));
   await focus(page, 'tips');
   await page.evaluate(() => (window as any).uiHarness.setValue('dialog', true));
+  await expect.poll(() => page.locator('#canvas-host canvas').getAttribute('data-focused-component')).toBeNull();
   await page.keyboard.press('Space'); await expect.poll(() => value(page, 'tips')).toBe(false);
+  await expect.poll(() => value(page, 'dialog')).toBe(true);
+  await expect(page.locator('#events li.activate')).toHaveCount(0);
   await page.keyboard.press('Tab'); await expect(page.locator('#canvas-host canvas')).toHaveAttribute('data-focused-component', 'dialog-close');
   await page.keyboard.press('Enter');
   await expect(page.locator('#events li.activate').filter({ hasText: 'dialog-close' })).toHaveCount(1);
+});
+
+test('a direct modal open cannot redirect a held key to a modal button', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await load(page); await focus(page, 'confirm');
+  const canvas = page.locator('#canvas-host canvas');
+  await page.keyboard.down('Enter');
+  await page.evaluate(() => (window as any).uiHarness.setValue('dialog', true));
+  await page.keyboard.up('Enter');
+  await expect(page.locator('#events li.activate')).toHaveCount(0);
+  await expect.poll(() => value(page, 'dialog')).toBe(true);
+  await expect.poll(() => canvas.getAttribute('data-focused-component')).toBeNull();
+  await page.keyboard.press('Tab');
+  await expect(canvas).toHaveAttribute('data-focused-component', 'dialog-close');
+  await canvas.screenshot({ path: test.info().outputPath('programmatic-modal-focus.png') });
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#events li.activate').filter({ hasText: 'dialog-close' })).toHaveCount(1);
+  await expect.poll(() => value(page, 'dialog')).toBe(false);
+  await expect(page.locator('#error')).toBeHidden(); expect(errors).toEqual([]);
 });

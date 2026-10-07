@@ -1,0 +1,31 @@
+import { expect, test } from '@playwright/test';
+import { layerComponentFixture } from '../helpers/layer-component-fixture.ts';
+import { compileLayerComponents } from '../../src/layer-component.ts';
+
+test('missing deferred build module offers page refresh instead of reporting damaged Bundle', async ({ page }) => {
+  const fixture = await layerComponentFixture();
+  const bundle = await compileLayerComponents(fixture.bytes, fixture.plan);
+  let providerRequests = 0, blockedModules = 0;
+  await page.route('**/api/**', route => { providerRequests++; return route.abort(); });
+  await page.goto('/');
+  await page.waitForFunction(() => Boolean(window.uiStudio));
+  const scripts = await page.locator('script[src]').evaluateAll(nodes => nodes.map(node => node.getAttribute('src')));
+  test.skip(!scripts.some(source => source?.includes('/assets/')), 'Replaced hashed modules occur in the built preview; run with UI_HARNESS_PREVIEW=1.');
+  const blockModule = async (route: import('@playwright/test').Route) => { blockedModules++; await route.abort(); };
+  await page.route('**/assets/layer-component-*.js', blockModule);
+  await page.locator('#open-bundle').setInputFiles({ name: 'valid.ui-bundle.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
+  await expect(page.locator('#error-message')).toContainText('页面程序资源加载失败');
+  await expect(page.locator('#error-message')).not.toContainText('已损坏');
+  await expect(page.locator('#reload-studio')).toBeVisible();
+  await expect(page.locator('#studio-export')).toBeDisabled();
+  expect(blockedModules).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.uiStudio.snapshot().ready)).toBe(false);
+  await page.unroute('**/assets/layer-component-*.js', blockModule);
+  await Promise.all([page.waitForEvent('load'), page.locator('#reload-studio').click()]);
+  await expect(page.locator('#reload-studio')).toBeHidden();
+  await page.locator('#open-bundle').setInputFiles({ name: 'valid.ui-bundle.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
+  await page.waitForFunction(() => window.uiStudio.snapshot().ready);
+  await expect(page.locator('#main-preview canvas')).toBeVisible();
+  await expect(page.locator('#studio-export')).toBeEnabled();
+  expect(providerRequests).toBe(0);
+});
