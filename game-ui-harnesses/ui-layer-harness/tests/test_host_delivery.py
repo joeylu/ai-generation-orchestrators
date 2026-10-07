@@ -54,6 +54,23 @@ class HostDeliveryTests(unittest.TestCase):
         path=self.run/'planning/m2/prompt.md';path.write_bytes(path.read_bytes()+b'changed')
         with self.assertRaisesRegex(ValueError,'CHANGED'):host.status(self.run)
 
+    def test_new_default_uses_ownership_actions_and_explicit_v7_is_frozen(self):
+        self.assertEqual(read(self.run/'config.json')['contextPromptVersion'],'v8')
+        self.assertEqual(read(self.run/'planning/.dag/config.json')['contextPromptVersion'],'v8')
+        self.planning()
+        self.assertEqual(read(self.run/'frozen/snapshot.json')['contextPromptVersion'],'v8')
+        self.assertTrue((self.run/'frozen/materials/asset-panel/prompt.txt').read_text('utf-8').startswith('OWNERSHIP FIRST.'))
+        legacy=read(self.config_path);legacy['contextPromptVersion']='v7'
+        legacy_path=self.base/'legacy-config.json';save(legacy_path,legacy)
+        other=self.base/'explicit-legacy';host.prepare(legacy_path,other)
+        self.assertEqual(read(other/'config.json')['contextPromptVersion'],'v7')
+        self.assertEqual(read(other/'planning/.dag/config.json')['contextPromptVersion'],'v7')
+        invalid={**legacy,'contextPromptVersion':'v99'}
+        invalid_path=self.base/'invalid-config.json';save(invalid_path,invalid)
+        with self.assertRaisesRegex(ValueError,'HOST_CONTEXT_PROMPT_VERSION'):
+            host.prepare(invalid_path,self.base/'invalid-version')
+        self.assertFalse((self.base/'invalid-version').exists())
+
     def test_unsafe_submission_cannot_write_and_interrupted_receive_is_terminal(self):
         with self.assertRaisesRegex(ValueError,'DIGEST_REQUIRED'):
             host.receive(self.run,'../../escape',self.response)

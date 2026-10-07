@@ -13,8 +13,10 @@ the exact exchange protocol.
 1. Supply an offline planning seed and fixed shared planning contracts. An
    independent planning review checks the seed. This mode does not execute M1;
    report `m1ModelExecuted=false` rather than attributing the seed to a model call.
-2. Compile frozen `sheets` requests with `context-crops` and v7 prompts. Complex
-   requests may use the documented v6 fallback within v7. Every output layer keeps
+2. Compile frozen `sheets` requests with `context-crops` and v8 ownership-first
+   prompts. Every foreign object gets a direct DELETE action before KEEP;
+   foreign appearance prose is not a drawing instruction. Complex requests and
+   sheets use these actions without a v6 fallback. Every output layer keeps
    its own identity; a sheet reduces image requests, not the layer count.
 3. Acquire genuine native images serially through the host exchange. Preserve
    the exact inputs, requests, original outputs and source fingerprints.

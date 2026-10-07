@@ -529,7 +529,8 @@ def candidate_cell(image, box, split):
 
 
 def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, output, max_calls,
-                          visual_policy=None, visual_textures=None, prior_texture_review=None,generation_mode='sheets'):
+                          visual_policy=None, visual_textures=None, prior_texture_review=None,generation_mode='sheets',
+                          context_prompt_version='v8'):
     """Schema-checked deterministic candidate snapshot, explicitly without M2 approval."""
     from .host_review import CONTRACT_DIGESTS
     from .compile_visual import compile_plan, render_prompt, validate
@@ -546,6 +547,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
     if visual['unknowns']:raise ValueError('UNRESOLVED_UNKNOWNS')
     if type(max_calls) is not int or not 1<=max_calls<=128:raise ValueError('CALL_LIMIT_REQUIRED')
     if generation_mode not in ('single','sheets'):raise ValueError('GENERATION_MODE')
+    if context_prompt_version not in ('v7','v8'):raise ValueError('CONTEXT_PROMPT_VERSION')
     source_sha=digest(reference);plan_sha=digest(plan_path)
     if source_sha!=reference_sha256:raise ValueError('REFERENCE_CHANGED')
     with Image.open(reference) as image:
@@ -561,7 +563,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
     if texture_blockers:raise ValueError('SOURCE_TEXTURE_BINDING_INVALID')
     from .evaluate import check_relations
     planning_findings=check_relations(visual)
-    plan,placements=compile_plan(visual,picture.size,source_sha,generation_reference='context-crops',context_prompt_version='v7',
+    plan,placements=compile_plan(visual,picture.size,source_sha,generation_reference='context-crops',context_prompt_version=context_prompt_version,
                                  planning_review_deferred=True,visual_policy=policy,texture_doc=texture_doc,texture_bindings=texture_bindings)
     groups=build_groups(visual,plan,CONTEXT_GROUP_POLICY) if generation_mode=='sheets' else None
     if (groups['plannedCalls'] if groups else len(plan['assets']))>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
@@ -599,7 +601,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
         if group['mode']=='single':row=singles[group['id']]
         else:
             folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
-            (folder/'prompt.txt').write_text(prompt(visual,plan,group['materialIds'],group,version='v7')+
+            (folder/'prompt.txt').write_text(prompt(visual,plan,group['materialIds'],group,version=context_prompt_version)+
                 generation_guidance(policy)+textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,
                     context=request_references(references,group['materialIds']),group=group)+'\n',encoding='utf-8')
             row=dict(asset=group['id'],kind='sheet',materialIds=group['materialIds'],grid=group['grid'],
@@ -609,14 +611,14 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
         rows.append(row)
     save(output/'requests.json',dict(kind='ui_visual_requests_preview_v2' if groups else 'ui_visual_requests_preview_v1',dispatchEnabled=False,
                                    generationReference='context-crops',requests=rows,**metadata))
-    save(output/'compile-report.json',dict(contextPromptVersion='v7',planningReviewDeferred=True,
+    save(output/'compile-report.json',dict(contextPromptVersion=context_prompt_version,planningReviewDeferred=True,
         sourcePlanSha256=plan_sha,referenceSha256=source_sha,visualReviewPolicy=CANDIDATE_POLICY,
         planningVisualFindings=planning_findings,**metadata))
     manifest=dict(kind='ui_visual_frozen_experiment_v1',policy='deferred-visual-candidate-plan-v1',
         status='frozen_experimental_snapshot',executable=False,productionReady=False,humanVisualAcceptance=False,
         planningReviewDeferred=True,newM2ReviewPerformed=False,visualReviewPolicy=CANDIDATE_POLICY,
         planningVisualFindings=planning_findings,
-        generationMode=generation_mode,generationReference='context-crops',contextPromptVersion='v7',
+        generationMode=generation_mode,generationReference='context-crops',contextPromptVersion=context_prompt_version,
         generationCalls=0,materialCount=len(plan['assets']),plannedCalls=len(rows),maximumCalls=max_calls,
         sourcePlanSha256=plan_sha,referenceSha256=source_sha,legacyCompatibilityBlockers=[
             dict(code='PLANNING_REVIEW_DEFERRED',reason='Candidate only; no M2 visual approval or body observation.')],

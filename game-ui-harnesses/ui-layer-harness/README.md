@@ -4,7 +4,7 @@
 本入口从本地实验链路收口，保留旧 `ai-ui-decomposition` / `ai-ui-assets` 命令及行为。
 它不是旧包 0.5.0 的新模式，也不是组件化交付；普通业务文字被移除。
 
-新 `run` 默认以 v7 编译局部参考提示词，并使用 `reference-body-auto-v1`：
+新 `run` 默认以 v8 编译局部参考提示词，并使用 `reference-body-auto-v1`：
 素材接收及既有审查完成后，冻结主体观察请求，取得对应摘要的授权才执行，随后归位并打包。
 主体确定尺寸与锚点，完整 alpha 支持确定 PNG 存储画布；扩展只允许在原图画布内。
 输出仍待视觉验收，不代表生成模型已可靠还原。旧作业不转换，历史缺省仍为近似裁片适配。
@@ -88,7 +88,10 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 [素材板合同](docs/GENERATION-SHEETS.md)。需要逐素材生成时显式传 `--generation-mode single`。
 新 `run` 默认 `--generation-reference context-crops`，使用有指纹的外扩局部参考和对应生成提示词；背景仍用整图，合板最多四份素材。可显式选择 `full`；旧配置缺省仍解释为 `full`，旧快照和授权不转换，`freeze-reviewed` 缺省继承源模式。见[局部参考合同](docs/CONTEXT-REFERENCES.md)。
 
-新局部参考任务默认 `--context-prompt-version v7`；复杂素材与合板仍使用 v7 的 v6 安全回退。
+新局部参考任务默认 `--context-prompt-version v8`：先逐对象明确删除外来单元，再保留所属对象；
+外来对象只传身份、类别、关系和定位，不把其外观长描述当作生成指令。父底板必须为空净底，
+子层不得携带独立父轨道或底板；合板和复杂素材使用同一规则，不退回 v6。完整所属装饰仍须保留。
+这不保证模型服从；实际归属复审、主体观察及最终回拼验收仍必需。
 可显式选历史版本；`full` 不接受该参数。`--registration-policy legacy-region-fit` 可显式选旧归位策略，
 不允许失败后自动降级。默认 `--max-body-calls 12`，每份前景最多一次观察，超过上限在生图前停止。
 等待主体授权时，状态提供 `bodyObservation.jobDigest`；用

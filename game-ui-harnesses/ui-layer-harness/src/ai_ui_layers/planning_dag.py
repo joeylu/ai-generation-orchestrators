@@ -30,9 +30,9 @@ BASE=HARNESS/'planning-harness'
 REPO=Path(__file__).resolve().parents[4]
 DEFAULT_GENERATION_MODE='sheets'
 DEFAULT_GENERATION_REFERENCE='context-crops'
-DEFAULT_CONTEXT_PROMPT_VERSION='v7'
+DEFAULT_CONTEXT_PROMPT_VERSION='v8'
 LEGACY_CONTEXT_PROMPT_VERSION='v3'
-CONTEXT_PROMPT_VERSIONS=('v1','v2','v3','v4','v5','v6','v7')
+CONTEXT_PROMPT_VERSIONS=('v1','v2','v3','v4','v5','v6','v7','v8')
 GRAPH={'m1':[], 'check':['m1'], 'm2':['check'], 'repair':['m2'],
        'repair_check':['repair'], 'rereview':['repair_check'],
        'repair2':['rereview'], 'repair_check2':['repair2'], 'rereview2':['repair_check2'],
@@ -635,7 +635,7 @@ def main():
     p.add_argument('--generation-mode',choices=['single','sheets'],default=DEFAULT_GENERATION_MODE)
     p.add_argument('--generation-reference',choices=['full','context-crops'],default=DEFAULT_GENERATION_REFERENCE)
     p.add_argument('--context-prompt-version',choices=CONTEXT_PROMPT_VERSIONS,
-                   help='New context-crops run: default v7; explicit versions are frozen in the run config')
+                   help='New context-crops run: default v8; explicit versions are frozen in the run config')
     p.add_argument('--visual-policy',help='New-run explicit visual evidence policy JSON')
     p.add_argument('--visual-textures',help='New-run source-bound visual texture preservation regions JSON')
     p.add_argument('--planning-model')

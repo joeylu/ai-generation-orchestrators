@@ -1,5 +1,25 @@
 # Release notes
 
+## Unreleased ownership-first v8 generation
+
+- New planning, delivery and integrated host runs default to v8. A foreign
+  object's owner, ID, kind, relation and locator produce a direct DELETE action;
+  its appearance prose cannot leak into positive drawing instructions. Actions
+  precede KEEP even when an owned source note describes an assembled control.
+- Parent clean plates explicitly omit independent children. Child materials
+  omit foreign parent backing, including tracks. Multi-object materials, repeated
+  instances, logos and sheets use the same actions without the v7/v6 fallback.
+  Owned appearances, anchors, exact licensed text, real holes and alpha remain.
+- Historical v1-v7 rendering stays byte-compatible. Fresh host configuration can
+  explicitly freeze v7; exact reviewed-snapshot reuse must retain the selected
+  source version. Frozen prompts are reconstructed during preflight.
+- Fresh cleanup edits bind `cleanup-ownership-first-v3` and share the generation
+  priority and depth rules, including exclusion of a child's foreign parent
+  backing. Historical cleanup v1/v2 prompts replay unchanged.
+- These are compiler and binding changes. Offline regressions do not establish
+  real-image removal, first-attempt success or accepted recomposition. Actual
+  material ownership review and final visual acceptance remain required.
+
 ## Unreleased protected source backgrounds in fresh host jobs
 
 - Add opt-in source-bound region plans to independent planning review, compiled

@@ -2,7 +2,7 @@
 
 `--generation-reference context-crops` compiles foreground generation requests
 from deterministic expanded crops. New public runs and planning initialization
-default to `context-crops`; explicit `full` remains available. Historical
+default to `context-crops` with v8 ownership actions; explicit `full` remains available. Historical
 configs and snapshots without this field keep their full-reference behavior.
 Low-level compile/freeze defaults remain unchanged, and `freeze-reviewed`
 inherits the source mode unless explicitly overridden. This is an
@@ -110,7 +110,7 @@ context arguments were:
 | Button | 2499 | 1802 | -27.9% |
 | Two-coin sheet | 2600 | 2266 | -12.8% |
 
-New context snapshots bind `contextPromptVersion: v3` in the snapshot and
+Early context snapshots bound `contextPromptVersion: v3` in the snapshot and
 compile report. Version 2 consolidates common instructions and omits sheet-only
 instructions for single materials; the complete ownership entries remain.
 Version 3 additionally states that removing a foreign object covering an owned
@@ -126,7 +126,7 @@ depends on the plan and does not establish token cost or visual fidelity.
 Version 4 is opt-in for a fresh offline freeze from completed reviewed planning:
 `freeze-reviewed --planning-run RUN --output NEW_SNAPSHOT --max-calls 16
 --generation-reference context-crops --context-prompt-version v4`. The ordinary
-default remains v3; omitting the option while refreezing an existing context
+default at that stage was v3; omitting the option while refreezing an existing context
 snapshot inherits its version. A rejected-crop child keeps its parent version.
 Version 4 lists owned objects as `keepOnly` using their IDs, kinds, appearance
 and available local anchors; it omits the material's broader summary label when
@@ -157,7 +157,7 @@ overlay, then continue only the owned surface actually hidden behind it, without
 artificial holes or recessed edges. Genuine owned openings and translucency,
 all owned/foreign occurrences, local anchors, state, text permissions, underlay
 and same-depth exclusions remain as in v5. Reference pixels, crop geometry,
-placement and preflight binding are unchanged. Defaults remain v3 and frozen
+placement and preflight binding are unchanged. Defaults at that stage stayed v3; frozen
 v1-v5 prompts retain their original rendering.
 
 The background's 27-character difference is only removal of the historical
@@ -169,6 +169,32 @@ universally shorter; necessary appearance information is never dropped to meet
 a length target.
 
 ## Authorization, exact transport and quality gates
+
+### Current v8 ownership actions
+
+New planning, public delivery and integrated host jobs default to v8. Low-level
+historical compile defaults remain unchanged; explicit v1-v7 snapshots replay
+their original rendering. v8 applies to foreground singletons and sheets without
+falling back to v6 for repeated descriptions, multiple objects, logos or offsets.
+
+Each cell starts with one DELETE action per foreign object, including its owner,
+ID, kind, depth relation and local reference locator. Foreign appearance prose
+stays in the frozen plan and material-review catalog but is not sent as a drawing
+instruction. KEEP retains every owned appearance and anchor verbatim. DELETE
+overrides broad source notes and generic preservation instructions; neither a
+description nor an enclosing box transfers object ownership. Underlays are not
+copied as child backing, overlays are removed through the complete foreign unit,
+and only the existing owned surface is restored. Clean plates retain their owned
+substrate and owned decorations, with every separately assigned child absent.
+True openings, translucency, exact permitted text and icon pictograms survive.
+
+Actions stay scoped to their own cell. Every repeated instance remains explicit;
+reference order, grid row/column, common scale, crop geometry, placement and output
+identities are unchanged. Preflight reconstructs v8 and rejects rehashed edits.
+Model compliance still requires actual material review. A diagnostic export may
+display residual duplicates and must never be reported as a passed automatic DAG.
+
+### Historical v7 selection
 
 Version 7 is opt-in for a fresh freeze (`--context-prompt-version v7`). It uses
 short Chinese keep/remove instructions for one unambiguous whole material with

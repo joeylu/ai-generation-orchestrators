@@ -102,7 +102,8 @@ def _reviewed_snapshot(source):
             source.get('planningNotes') or manifest.get('planningDriver')!='host-model-exchange-v1' or
             manifest.get('policy')!='visual-plan-v5-experiment-v1' or
             'generation-groups.json' not in manifest['files'] or manifest.get('generationReference')!='context-crops' or
-            manifest.get('contextPromptVersion')!='v7' or
+            manifest.get('contextPromptVersion') not in ('v7','v8') or
+            manifest.get('contextPromptVersion')!=source.get('contextPromptVersion',manifest.get('contextPromptVersion')) or
             digest(folder/'reference.png')!=digest(Path(source['original'])) or
             manifest['sourcePlanSha256']!=digest(Path(source['seed'])) or
             manifest.get('backgroundRegionDigest')!=source.get('backgroundRegionDigest')):
@@ -161,6 +162,8 @@ def prepare(config_path, output):
             or source['canvasPolicyInstructionSha256']!=hashlib.sha256(instruction.encode('utf-8')).hexdigest()):
         raise ValueError('EXPLICIT_BOUND_CANVAS_POLICY_REQUIRED')
     prior=_reviewed_snapshot(source) if source.get('reviewedSnapshot') else None
+    version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v8')
+    if version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     root.mkdir(parents=True); inputs=root/'inputs';inputs.mkdir()
     for key in ('seed','original','planningNotes','visualPolicy','visualTextures','materialReuse'):
         if source.get(key):
@@ -187,7 +190,7 @@ def prepare(config_path, output):
     config=record(root/'config.json',dict(source,kind=KIND,runtime=host_review.runtime_files(),
         planningMode='verified-prior-independent-host-review' if prior else 'offline-agent-seed-independent-host-review', m1ModelExecuted=False,
         **(dict(newM2ReviewPerformed=False,priorReviewedSnapshotDigest=prior[1]['digest'],priorM2ResponseSha256=prior[1]['reviewSha256']) if prior else {}),
-        generationMode='sheets', generationReference='context-crops', contextPromptVersion='v7'))
+        generationMode='sheets', generationReference='context-crops', contextPromptVersion=version))
     try:
         if prior:
             from .freeze_visual import inspect
@@ -207,7 +210,7 @@ def prepare(config_path, output):
             seed_author=config['candidateAuthors'], planning_notes=config.get('planningNotes'),
             visual_policy=config.get('visualPolicy'),visual_textures=config.get('visualTextures'),material_reuse=config.get('materialReuse'),
             max_calls=config['maximumImageCalls'],background_region=config.get('backgroundRegion'),
-            background_region_digest=config.get('backgroundRegionDigest'))
+            background_region_digest=config.get('backgroundRegionDigest'),context_prompt_version=version)
         _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
     except Exception as exc:
         _state(root,config,'failed',reason=str(exc),automaticRetry=False)
@@ -464,7 +467,7 @@ def resume(run):
         try:
             if stage=='planning_review':
                 frozen=freeze_reviewed(root/'planning',root/'frozen',config['maximumImageCalls'],
-                    generation_mode='sheets',generation_reference='context-crops',context_prompt_version='v7')
+                    generation_mode='sheets',generation_reference='context-crops',context_prompt_version=config['contextPromptVersion'])
                 requests=read(root/'frozen/requests.json')['requests']
                 visual=read(root/'planning/m1/draft.json')
                 bodies=sum(m['role']=='foreground' for m in visual['materials'])

@@ -6,7 +6,7 @@ Agent plan, not a claim that M1 ran as an external model. Existing DAG commands,
 strict runs and candidate runs retain their behavior.
 
 The new workflow performs independent planning review, freezes stock sheets with
-context crops and v7 prompts, acquires all native images serially, reviews every
+context crops and v8 ownership-first prompts, acquires all native images serially, reviews every
 actual image request, extracts materials, observes foreground whole bodies,
 preserves complete material storage, packages an original-size viewport, and
 creates a three-way comparison. It never calls a model or native generation tool.

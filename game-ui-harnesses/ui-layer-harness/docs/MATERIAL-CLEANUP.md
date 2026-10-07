@@ -54,9 +54,28 @@ Offline regression coverage: `python -m unittest discover -s tests -p
 test_material_cleanup.py`. Fixtures create PNGs and exchange receipts locally;
 they never call generation tools or private services.
 
-## Versioned direct deletion prompts
+## Ownership-first deletion prompts
 
-New preparations bind `cleanup.promptVersion=cleanup-delete-direct-v2` in the
+New preparations bind `cleanup.promptVersion=cleanup-ownership-first-v3`.
+Deletion takes priority over reference copying and even an owned description
+that mentions an assembled control. Each foreign member retains its owner,
+object ID, depth relation and normalized reference locator. Foreign appearance
+prose remains frozen evidence and is never sent as a drawing instruction.
+
+Generation v8 and cleanup v3 share the same priority and removal rules.
+Overlay removal continues the existing owned surface; underlay removal omits
+the foreign parent backing and preserves genuine owned gaps. Same-depth removal
+does not invent hidden owned artwork. This also governs a child fill that must
+exclude its parent track. Locators remain coordinates, never erase masks.
+
+Historical v1 and v2 prompts replay unchanged. Fresh preparation uses v3 and
+does not migrate old jobs. Actual PNG inspection must establish foreign removal
+and owned preservation before a result can be accepted; prompt replay alone is
+not visual evidence.
+
+## Historical direct deletion prompts
+
+Earlier preparations bound `cleanup.promptVersion=cleanup-delete-direct-v2` in the
 job digest. Each foreign catalog member produces one direct `DELETE` action
 using readable identifier words and its exact material/object ID. Foreign
 appearance descriptions, relation details and JSON geometry are excluded from
@@ -74,7 +93,7 @@ owned surface. It does not leave an empty card or create a new hole.
 
 Historical jobs with no prompt version retain `cleanup-catalog-v1` replay with
 the original prompt bytes. Explicit v1 bindings also replay that format. Unknown
-versions fail. Preparation always uses v2 for a fresh job; it does not migrate
+versions fail. Historical v2 jobs retain that format; preparation does not migrate
 an existing job, modify a frozen runtime or resubmit a terminal attempt.
 
 Offline tests verify all foreign members have deletion actions, foreign prose
@@ -83,7 +102,7 @@ historical v1 prompt digest is unchanged, and legacy jobs still replay. They als
 reject catalog tampering and unknown versions. These checks establish compiler
 and exchange behavior; they do not establish a successful visual cleanup.
 
-A small next validation can use one fresh v2 job for one previously failed
+A small next validation can use one fresh v3 job for one previously failed
 material, sourced from its original received generation job. Inspect that result
 for complete foreign removal and preservation of every owned object before
 considering a second material. The fresh job requires its own bound compute

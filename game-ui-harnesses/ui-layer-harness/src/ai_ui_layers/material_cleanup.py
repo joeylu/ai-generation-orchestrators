@@ -11,7 +11,8 @@ from . import ownership_observation as ownership
 
 
 KIND = 'ui_material_cleanup_v1'
-PROMPT_VERSION = 'cleanup-delete-direct-v2'
+PROMPT_VERSION = 'cleanup-ownership-first-v3'
+DIRECT_PROMPT_VERSION = 'cleanup-delete-direct-v2'
 LEGACY_PROMPT_VERSION = 'cleanup-catalog-v1'
 SCHEMA = dict(type='object', additionalProperties=False,
     required=['kind','materialId','ownedOnly','removeForeign','sourceSize','contextGeometry','ownershipRegion','preserveText'],
@@ -156,10 +157,53 @@ def _prompt_v2(inputs):
     return '\n'.join(lines)+'\n'
 
 
+def _prompt_v3(inputs):
+    from .context_owned_actions import OWNERSHIP_PRIORITY, FOREIGN_REMOVAL_RULES
+    width,height=inputs['sourceSize']
+    lines=[
+        'CLEAN-PLATE EDIT: DELETE the listed foreign objects from image 1.',
+        'Return one PNG containing ONLY the owned objects below. Everything else must be absent.',
+        OWNERSHIP_PRIORITY,
+        'Image 1 is the actual contaminated generated material. Image 2 is the original local '
+        'context reference; use it only for the owned shape, aspect ratio and relative layout. '
+        'Do not copy its foreign children, cards, items, icons or buttons into the result.',
+        'DELETE each listed foreign unit completely: body, backing, frame, contents, ornaments, '
+        'outline, shadow, glow and text. Removing its text alone is insufficient.',
+        'removeForeign:',
+    ]
+    for item in inputs['removeForeign']:
+        relation=item['relation']
+        if relation not in ('overlay','underlay','same-depth'):
+            raise ValueError('CLEANUP_FOREIGN_RELATION')
+        locator=json.dumps(item['referenceBox'],separators=(',', ':'))
+        lines.append('- DELETE '+_name(item['objectId'])+' ['+item['materialId']+'/'+item['objectId']+
+                     ']. relation='+relation+'; referenceBox='+locator+'.')
+    lines.extend([
+        FOREIGN_REMOVAL_RULES,
+        'ownedOnly — the ONLY KEEP list:',
+        *['- KEEP '+item['objectId']+': '+item['appearance'] for item in inputs['ownedOnly']],
+        'Correct an incorrect owned body shape using image 2. Preserve owned identity, texture, '
+        'decorations, lighting, genuine holes and translucency, proportions and relative offsets. '
+        'Do not move decorations independently. A parent owns only its substrate and explicitly '
+        'listed ornaments; separately assigned children are absent. A child excludes its parent backing.',
+        'Remove ordinary business labels and numbers. Text allowed to remain: '+
+            (json.dumps(inputs['preserveText'],ensure_ascii=False) if inputs['preserveText'] else 'NONE')+'.',
+        'Use the same '+str(width)+' x '+str(height)+' pixel canvas. Preserve continuous soft alpha; '
+        'zero RGB where alpha is zero. No added objects, collage or sheet.',
+        'Image 2 ownership targetBox (pixels): '+str(inputs['contextGeometry']['targetBox'])+
+        ' in reference size '+str(inputs['contextGeometry']['referenceSize'])+'. referenceBox values '
+        'are normalized locators within image 2. These boxes are not masks or measured body bounds; '
+        'never fill them, stretch artwork to them or cut their rectangles out of an owned surface.',
+        'Final check: every DELETE object is absent; every KEEP object is complete.',
+    ])
+    return '\n'.join(lines)+'\n'
+
+
 def _prompt(inputs, version=LEGACY_PROMPT_VERSION):
     """Version dispatch preserves byte-for-byte replay of historical frozen prompts."""
     if version==LEGACY_PROMPT_VERSION:return _prompt_v1(inputs)
-    if version==PROMPT_VERSION:return _prompt_v2(inputs)
+    if version==DIRECT_PROMPT_VERSION:return _prompt_v2(inputs)
+    if version==PROMPT_VERSION:return _prompt_v3(inputs)
     raise ValueError('CLEANUP_PROMPT_VERSION')
 
 

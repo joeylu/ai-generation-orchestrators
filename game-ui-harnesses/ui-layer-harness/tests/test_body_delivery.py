@@ -37,9 +37,9 @@ class BodyDeliveryTests(unittest.TestCase):
     def test_new_default_run_waits_for_specific_body_authorization_then_packages(self):
         first = self.dag.execute()
         self.assertEqual(first['registrationPolicy'], body.POLICY)
-        self.assertEqual(first['contextPromptVersion'], 'v7')
+        self.assertEqual(first['contextPromptVersion'], 'v8')
         self.assertEqual(first['status'], 'awaiting_authorization')
-        self.assertEqual(read(self.run/'planning/.dag/config.json')['contextPromptVersion'], 'v7')
+        self.assertEqual(read(self.run/'planning/.dag/config.json')['contextPromptVersion'], 'v8')
         self.complete_media()
         waiting = self.dag.execute()
         self.assertEqual(waiting['status'], 'awaiting_body_authorization')
@@ -87,7 +87,7 @@ class BodyDeliveryTests(unittest.TestCase):
         initial = self.dag.execute()
         self.assertEqual(initial['generationMode'], 'sheets')
         self.assertEqual(initial['generationReference'], 'context-crops')
-        self.assertEqual(initial['contextPromptVersion'], 'v7')
+        self.assertEqual(initial['contextPromptVersion'], 'v8')
         self.job = self.run/'generation'
         test_sheet_delivery.SheetDeliveryTests.media(self)
         waiting = self.dag.execute()

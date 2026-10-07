@@ -51,7 +51,7 @@ def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_
                                         parent.get('generationReference')=='context-crops' else 'v3')
             else:
                 context_prompt_version='v3'
-        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7'):
+        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8'):
             raise ValueError('CONTEXT_PROMPT_VERSION')
         # This is a new offline artifact, not resume under a changed runtime.
         # freeze verifies model receipts, candidate/patch lineage and empty review.

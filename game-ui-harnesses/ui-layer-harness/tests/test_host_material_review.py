@@ -549,7 +549,7 @@ class CandidateSingletonSubstitutionTests(unittest.TestCase):
             '--output','unused','--viewer','unused']
         with patch('sys.argv',args),self.assertRaises(SystemExit):main()
 
-    def test_single_mode_preserves_v7_texture_policy_prompts_and_exact_asset_structure(self):
+    def test_single_mode_preserves_v8_texture_policy_prompts_and_exact_asset_structure(self):
         from ai_ui_layers.visual_policy import FIELDS
         import test_visual_texture_pipeline as fixture
         sample=fixture.VisualTexturePipelineTests();sample.setUp();self.addCleanup(sample.doCleanups)
@@ -571,7 +571,7 @@ class CandidateSingletonSubstitutionTests(unittest.TestCase):
         self.assertTrue(all(row.get('kind')!='sheet' and 'materialIds' not in row for row in requests['requests']))
         coin=next(row for row in requests['requests'] if row['asset']=='asset-coin-a')
         prompt=(singles/coin['prompt']).read_text(encoding='utf-8')
-        self.assertIn('tiny-print',prompt);self.assertIn('visual-material-context-prompt-v7',read(singles/'execution-plan.candidate.json')['assets'][0]['prompt'])
+        self.assertIn('tiny-print',prompt);self.assertIn('visual-material-context-prompt-v8',read(singles/'execution-plan.candidate.json')['assets'][0]['prompt'])
         self.assertFalse(b['newM2ReviewPerformed']);self.assertFalse(b['newTextureReviewPerformed'])
 
 

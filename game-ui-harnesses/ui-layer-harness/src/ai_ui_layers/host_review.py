@@ -190,9 +190,10 @@ def verify_frozen(folder, snapshot, plan):
 
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
-            background_region=None, background_region_digest=None):
+            background_region=None, background_region_digest=None, context_prompt_version='v8'):
     """Snapshot an explicit offline seed and prepare a complete independent M2 review."""
     root=Path(output).resolve();contract=Path(contract_dir)
+    if context_prompt_version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     for name,sha in CONTRACT_DIGESTS.items():
         if digest(contract/name)!=sha:raise ValueError('HOST_PLANNING_CONTRACT_NOT_SUPPORTED:'+name)
     authors=[seed_author] if isinstance(seed_author,str) else list(seed_author)
@@ -229,7 +230,7 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     if background_region is not None:bg_region.copy_inputs(background_region,background_region_digest,inputs)
     config=dict(kind='ui_planning_dag_v1',planningDriver=DRIVER,
         runtime=runtime_files(),
-        generationMode='sheets',generationReference='context-crops',contextPromptVersion='v7',
+        generationMode='sheets',generationReference='context-crops',contextPromptVersion=context_prompt_version,
         maxCalls=max_calls,relationReviewPolicy=relation_review.POLICY,
         reviewEvidenceProtocol=PROTOCOL_V4,coverageTextPolicy='exact-fragments-v1',
         inputs={p.name:digest(p) for p in inputs.iterdir()},

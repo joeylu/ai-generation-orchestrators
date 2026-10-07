@@ -41,8 +41,8 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
     from .context_references import validate_mode
     validate_mode(generation_reference)
     if generation_reference == 'context-crops':
-        context_prompt_version = context_prompt_version or 'v7'
-        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7'):
+        context_prompt_version = context_prompt_version or 'v8'
+        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8'):
             raise ValueError('CONTEXT_PROMPT_VERSION')
     elif context_prompt_version is not None:
         raise ValueError('CONTEXT_PROMPT_REQUIRES_CONTEXT_CROPS')
@@ -111,7 +111,7 @@ class DeliveryDag(planning.Dag):
         if self.config['runtime'] != runtime_files(): raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
         version = self.config.get('contextPromptVersion')
         if version is not None and (self.config.get('generationReference') != 'context-crops' or
-                version not in ('v1','v2','v3','v4','v5','v6','v7')):
+                version not in ('v1','v2','v3','v4','v5','v6','v7','v8')):
             raise ValueError('CONTEXT_PROMPT_VERSION')
         policy = self.config.get('registrationPolicy', 'legacy-region-fit')
         if policy not in ('legacy-region-fit', body.POLICY):
@@ -321,8 +321,8 @@ def main():
                    help='New runs default to context-crops; freeze-reviewed inherits the source mode')
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
-    p.add_argument('--context-prompt-version',choices=['v1','v2','v3','v4','v5','v6','v7'],
-                   help='For new run or freeze-reviewed: frozen context prompt version; new context runs default to v7')
+    p.add_argument('--context-prompt-version',choices=['v1','v2','v3','v4','v5','v6','v7','v8'],
+                   help='For new run or freeze-reviewed: frozen context prompt version; new context runs default to v8')
     p.add_argument('--registration-policy',choices=['legacy-region-fit',body.POLICY],
                    help='For new runs: default reference-body-auto-v1; historical runs retain their old policy')
     p.add_argument('--candidate-registration-policy',choices=['uniform-alpha-contain-v1','measured-alpha-support-v1','measured-alpha-anchor-locked-v2'],
@@ -420,7 +420,7 @@ def main():
             if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)):
                 p.error('host review does not accept CLI planning model settings')
             if a.context_prompt_version is not None:
-                p.error('host review preparation freezes context prompt v7; no override accepted')
+                p.error('host review preparation freezes context prompt v8; no override accepted')
             if a.generation_reference is not None or a.regroup_generation_mode is not None or a.generation_mode!='sheets':
                 p.error('host review preparation freezes sheets and context-crops; no override accepted')
         if a.action=='status-host-review':

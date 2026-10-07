@@ -46,13 +46,13 @@ Fixture coverage does not constitute real generation or visual acceptance.
 若修补候选尚未得到新 M2，可先使用 `freeze-candidate-plan --candidate PLAN.json
 --image REFERENCE.png --source-sha256 REFERENCE_SHA256 --contract-dir FIXED_FAD597A0_CONTRACT
 --max-calls N --output NEW_SNAPSHOT`。程序检查固定公开 schema 字节、来源、未知项、引用、
-几何关系及有限调用预算，再调用原确定性编译/分组/参考生产程序冻结 sheets/context-crops/v7。
+几何关系及有限调用预算，再调用原确定性编译/分组/参考生产程序冻结 sheets/context-crops/v8。
 仅 SAME_LAYER_OVERLAP_REVIEW 且 requires=M2 的声明框视觉提示可明确留待人工整图检查；
 它们原值进入 planningVisualFindings 与交付 review.json，未知引用和其他关系错误仍阻断。
 snapshot 显式 policy=deferred-visual-candidate-plan-v1、planningReviewDeferred=true、
 newM2ReviewPerformed=false，无伪造新 M2 结果。默认编译仍拒绝这些未审关系。
 该候选冻结可显式选择 --generation-mode single|sheets，默认 sheets；single 继续使用同一原计划、
-参考、视觉策略、纹理绑定、context-crops/v7 与确定性资产/归位结构，只改变生成请求分组。
+参考、视觉策略、纹理绑定、context-crops/v8 与确定性资产/归位结构，只改变生成请求分组。
 可传 --visual-policy；有纹理区域时同时传 --visual-textures 与 --prior-texture-review：
 旧实际来源绑定审查的 bytes、摘要和区域归属重新核验并保留，明确只是调用方提供的历史区域审查，
 newTextureReviewPerformed=false，不声称新候选已完成 M2。区域所属 ID/框变化导致原审查不适用则拒绝。
@@ -135,7 +135,7 @@ originalSheetDelivered=false，原 alpha 像素继续按完整支持与透明采
 v5 存储 schema；非空 unknowns 可准备供审查，但冻结仍阻断。合同目录中的 schema 与
 两份规划／审查 prompt 仅接受固定共享合同 fad597a0 的公开字节指纹并按字节快照，
 不得通过外部弱 schema 放宽 v5 验证；运行时公共程序代码指纹也绑定配置。仅生成确定性
-附件，默认冻结 sheets、context-crops、v7、typed-review-v4 与 exact-fragments-v1。
+附件，默认冻结 sheets、context-crops、v8、typed-review-v4 与 exact-fragments-v1。
 候选明确标记 offline seed，既不调用模型，也不声称原 M1 运行成功。
 
 宿主读取返回的 `requestSha256`、`m1/reference.png` 与 `m2` 全部请求附件，独立调用
@@ -189,8 +189,12 @@ host 入口拒绝 CLI-only model/effort/timeout、context 版本和生成策略�
 新 `run` 的自动主体观察与支持画布策略见 [BODY-REGISTRATION.md](BODY-REGISTRATION.md)：
 真实素材收到后另行冻结摘要和一次调用预算，等待授权再观察，不复用生图或旧作业授权。
 
-新 `context-crops` run 默认冻结 `contextPromptVersion: v7`，可显式传
-`--context-prompt-version v1|v2|v3|v4|v5|v6|v7`；根与嵌套规划版本必须一致。
+新 `context-crops` run 默认冻结 `contextPromptVersion: v8`，可显式传
+`--context-prompt-version v1|v2|v3|v4|v5|v6|v7|v8`；根与嵌套规划版本必须一致。
+v8 在每格 KEEP 前逐对象编译 DELETE；外来对象只传身份、类别、关系及定位，
+不把其完整外观描述带入绘制指令。父底板排除独立子单元，子层排除独立父底材；
+合板和复杂素材均不回退 v6。所属外观、装饰、锚点、许可文字与真实开孔不删减。
+此规则仍须实际素材归属复审及整图验收，不能保证生成模型服从。
 `full` 拒绝显式 context 版本；历史配置缺版本仍按 v3 冻结，旧 snapshot 字节不转换，
 `freeze-reviewed`、显式恢复和修订继承原策略。
 
@@ -1026,7 +1030,7 @@ package completion does not settle these observations or assert human acceptance
 This opt-in may additionally supply both `reviewedSnapshot` and
 `reviewedSnapshotDigest`. This reuses only an exact formally frozen, independently
 reviewed planning snapshot (`planningDriver=host-model-exchange-v1`, normal
-`visual-plan-v5-experiment-v1` policy, sheets/context-crops/v7). Full M2 evidence,
+`visual-plan-v5-experiment-v1` policy, sheets/context-crops/v7 or v8, retaining the exact selected version). Full M2 evidence,
 current deterministic preflight, the source seed/reference and optional visual,
 texture/reuse inputs, region digest and all downstream capacities are reverified.
 `planningNotes` is forbidden in this mode. Only the snapshot's bound file allowlist
