@@ -3399,3 +3399,13 @@ existing TGZ SHA-256 remains
 The combined working branch is not a replacement release artifact. No model
 dispatch, media generation, deployment or customer-task mutation is performed;
 humanVisualAcceptance=false.
+
+Full CI 37681864834 subsequently exposes 161 broken documentation links in the
+pre-existing UI Panel snapshot: their targets are ignored local output artifacts,
+not files shipped with a clean checkout. Convert those links in 27 Markdown files
+to explicit local-output path descriptions, preserving labels, historical
+results and fingerprints. No output files are copied into the source release,
+and no test or executable Panel source changes. Focused execution of the unchanged
+repository document-link test now passes. The two additional browser-script
+probes remain failures; the same clarification locator timeout is reproduced on
+the unmerged remote tony baseline ffc64354 before a Panel is instantiated.

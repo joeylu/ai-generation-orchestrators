@@ -26,12 +26,12 @@ gpt-6-luna / xhigh，最多32次，同16条需求各自独立生成两轮。每�
 
 新根/子消费记录0，新真实运行目录不存在。六份历史FAIL、删除确认单例PASS及本次两例PASS证据原字节保持。
 
-- [冻结根计划](../output/panel-title-stability-plan-v1/ordinal-stability-plan.json)
-- [原样16条需求与期望](../output/panel-title-stability-plan-v1/suite.json)
-- [程序夹具预览与交付包](../output/panel-title-stability-preparation-accepted-v1/index.html)
-- [383项夹具浏览器检查](../output/panel-title-stability-plan-v1/fixture-browser/browser-report.json)
-- [宿主零模型预检](../output/panel-title-stability-preflight-v1/preflight-report.json)
-- [独立准备审计](../output/panel-title-stability-preparation-accepted-v1/acceptance.json)
+- 冻结根计划（本地产物：`../output/panel-title-stability-plan-v1/ordinal-stability-plan.json`）
+- 原样16条需求与期望（本地产物：`../output/panel-title-stability-plan-v1/suite.json`）
+- 程序夹具预览与交付包（本地产物：`../output/panel-title-stability-preparation-accepted-v1/index.html`）
+- 383项夹具浏览器检查（本地产物：`../output/panel-title-stability-plan-v1/fixture-browser/browser-report.json`）
+- 宿主零模型预检（本地产物：`../output/panel-title-stability-preflight-v1/preflight-report.json`）
+- 独立准备审计（本地产物：`../output/panel-title-stability-preparation-accepted-v1/acceptance.json`）
 - [已通过的任务/画质真实复验与4197](panel-title-real-recheck-2026-10-06.md)
 
 只有两轮实际全部门禁通过才记录 OBSERVED_TWO_ROUND_PASS；这是固定16条的实测结果，不代表任意自然语言输入可靠。连续修改链、原生Unity、其它引擎及人工视觉认证不在本次范围。

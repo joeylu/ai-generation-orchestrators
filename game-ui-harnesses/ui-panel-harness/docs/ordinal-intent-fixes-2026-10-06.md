@@ -35,9 +35,9 @@
 
 ## 三次真实复验
 
-已消费的执行计划：[intent-recheck-plan.json](../output/ordinal-intent-recheck-plan-v4/intent-recheck-plan.json)。
+已消费的执行计划：intent-recheck-plan.json（本地产物：`../output/ordinal-intent-recheck-plan-v4/intent-recheck-plan.json`）。
 SHA-256：`ca96ef40ffec0664fa27c7ee7e344093efdb58607ed104196e7e3b68d38186cc`。
-完整三条输入与期望：[suite.json](../output/ordinal-intent-recheck-plan-v4/suite.json)。
+完整三条输入与期望：suite.json（本地产物：`../output/ordinal-intent-recheck-plan-v4/suite.json`）。
 
 计划绑定179份源码/协议文件、三个原生响应schema、三个完整上下文、资产库、静态构建和浏览器证据。
 最多3次gpt-6-luna / xhigh：画质、角色、背包各一次；独立失败保留，其余独立项可完成。
@@ -51,9 +51,9 @@ SHA-256：`ca96ef40ffec0664fa27c7ee7e344093efdb58607ed104196e7e3b68d38186cc`。
 
 ## 证据
 
-- [独立修复汇总](../output/ordinal-intent-fix-acceptance-v1/acceptance.json)：654项、分离后59项、浏览器20项、预检5项以及旧提示字节核对。
-- [浏览器报告](../output/ordinal-intent-browser-v1/browser-report.json)：明确标为程序原生方案测试，模型调用0，不是真实生成成功率。
-- [预检报告](../output/ordinal-intent-preflight-v2/preflight-report.json)：当前v4摘要通过、错误摘要拒绝、父/子消费记录与未授权输出均不存在。
+- 独立修复汇总（本地产物：`../output/ordinal-intent-fix-acceptance-v1/acceptance.json`）：654项、分离后59项、浏览器20项、预检5项以及旧提示字节核对。
+- 浏览器报告（本地产物：`../output/ordinal-intent-browser-v1/browser-report.json`）：明确标为程序原生方案测试，模型调用0，不是真实生成成功率。
+- 预检报告（本地产物：`../output/ordinal-intent-preflight-v2/preflight-report.json`）：当前v4摘要通过、错误摘要拒绝、父/子消费记录与未授权输出均不存在。
 - [新原生协议回归](../tests/ordinal-intent.test.mjs)与[Codex传输回归](../tests/codex-planner.test.mjs)：原生schema与提示一致、原始接受方案单独保存、一次调用与不重试保持。
 
 首轮准备v1因JSON写入接口不允许带子目录的文件名停止，没有调用模型或创建消费记录。

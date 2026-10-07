@@ -64,13 +64,13 @@
 运行器验证摘要、源码、schema、上下文和构建，然后做同环境登录/代理预检，再写一次性消费记录。
 真实结果与失败状态由程序生成；Agent不手改报告，不重试可能已受理的请求。
 
-- [冻结根计划](../output/ordinal-stability-plan-v1/ordinal-stability-plan.json)
-- [完整16条请求与期望](../output/ordinal-stability-plan-v1/suite.json)
-- [程序期望与组合夹具验证](../output/ordinal-stability-plan-v1/fixture-validation.json)
-- [宿主预检与错误摘要拒绝报告](../output/ordinal-stability-preflight-v1/preflight-report.json)
-- [新版Studio启动证据](../output/panel-studio-ordinal-live-v1/launch.json)
-- [新版Studio入口8项检查](../output/panel-studio-ordinal-live-browser-v2/browser-report.json)
-- [独立准备审计](../output/ordinal-stability-preparation-accepted-v1/acceptance.json)
+- 冻结根计划（本地产物：`../output/ordinal-stability-plan-v1/ordinal-stability-plan.json`）
+- 完整16条请求与期望（本地产物：`../output/ordinal-stability-plan-v1/suite.json`）
+- 程序期望与组合夹具验证（本地产物：`../output/ordinal-stability-plan-v1/fixture-validation.json`）
+- 宿主预检与错误摘要拒绝报告（本地产物：`../output/ordinal-stability-preflight-v1/preflight-report.json`）
+- 新版Studio启动证据（本地产物：`../output/panel-studio-ordinal-live-v1/launch.json`）
+- 新版Studio入口8项检查（本地产物：`../output/panel-studio-ordinal-live-browser-v2/browser-report.json`）
+- 独立准备审计（本地产物：`../output/ordinal-stability-preparation-accepted-v1/acceptance.json`）
 
 原16类同轮13/16、总体FAIL与全16组合NOT_RUN保持；前次三真实样本3/3及109项检查只覆盖那三份来源。
 新两轮只有实际全部通过后才能记录OBSERVED_TWO_ROUND_PASS；目前仍为PREPARED。

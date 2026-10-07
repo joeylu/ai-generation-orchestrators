@@ -7,7 +7,7 @@
 
 ## 实际调用与验收结果
 
-用户明确批准[冻结计划](../output/ordinal-stability-plan-v1/ordinal-stability-plan.json)：
+用户明确批准冻结计划（本地产物：`../output/ordinal-stability-plan-v1/ordinal-stability-plan.json`）：
 `bdfd27b901fa4a613bcc5051e1d5721c1935c5d6e7f4b60df8fe00bfd5c47954`。
 宿主环境沿用进程临时代理，gpt-6-luna / xhigh共32次，每个请求每轮一次，Harness自动重试0。
 第一轮全部门禁通过后才进入第二轮；第二轮模型门禁失败，未运行该轮浏览器、组合和交付。
@@ -55,13 +55,13 @@
 
 ## 可查看的证据
 
-- [原32次完整审计](../output/ordinal-stability-accepted-v1/acceptance.json)，质量状态FAIL、证据审计PASS
-- [第一轮16个真实面板预览](../output/ordinal-stability-run-v1/round01/preview/index.html)
-- [第一轮5种实际来源组合](../output/ordinal-stability-run-v1/round01/composition/index.html)
-- [原两轮生产报告](../output/ordinal-stability-run-v1/ordinal-stability-report.json)
-- [引用约束零模型检查](../output/quote-guard-check-v1/check-report.json)
-- [修复版Studio启动](../output/panel-studio-quote-guard-live-v1/launch.json)与[8项浏览器检查](../output/panel-studio-quote-guard-live-browser-v1/browser-report.json)
-- [修复后的独立汇总](../output/quote-guard-accepted-v1/acceptance.json)
+- 原32次完整审计（本地产物：`../output/ordinal-stability-accepted-v1/acceptance.json`），质量状态FAIL、证据审计PASS
+- 第一轮16个真实面板预览（本地产物：`../output/ordinal-stability-run-v1/round01/preview/index.html`）
+- 第一轮5种实际来源组合（本地产物：`../output/ordinal-stability-run-v1/round01/composition/index.html`）
+- 原两轮生产报告（本地产物：`../output/ordinal-stability-run-v1/ordinal-stability-report.json`）
+- 引用约束零模型检查（本地产物：`../output/quote-guard-check-v1/check-report.json`）
+- 修复版Studio启动（本地产物：`../output/panel-studio-quote-guard-live-v1/launch.json`）与8项浏览器检查（本地产物：`../output/panel-studio-quote-guard-live-browser-v1/browser-report.json`）
+- 修复后的独立汇总（本地产物：`../output/quote-guard-accepted-v1/acceptance.json`）
 
 原32次FAIL报告摘要在修复前后保持相同；没有将程序夹具或离线重放计作真实生成通过。
 原生schema服务执行的真实复验仍NOT_RUN；当前不能记录两轮全通过。

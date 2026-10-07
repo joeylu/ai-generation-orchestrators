@@ -2,11 +2,11 @@
 
 本地准备通过，准备时真实修改尚未运行。随后本摘要获批并完成真实10/10，见[独立真实结果](edit-chain-results-2026-10-06.md)；本页和准备证据继续描述零模型准备，程序夹具的通过不能算作模型修改成绩。
 
-冻结计划：[edit-chain-plan.json](../output/edit-chain-plan-v1/edit-chain-plan.json)
+冻结计划：edit-chain-plan.json（本地产物：`../output/edit-chain-plan-v1/edit-chain-plan.json`）
 
 摘要：`509104e8dc0047cf8948e8e9783f2989eade5bc57ac1520cd6ba9f5429198c12`
 
-审计与预览：[零模型准备入口](../output/edit-chain-preparation-accepted-v1/index.html)。
+审计与预览：零模型准备入口（本地产物：`../output/edit-chain-preparation-accepted-v1/index.html`）。
 
 ## 来源与调用范围
 
@@ -51,10 +51,10 @@
 - 新运行目录和消费记录不存在，实际新增模型0。
 
 证据分别保存在
-[driver-simulation.json](../output/edit-chain-plan-v1/driver-simulation.json)、
-[browser-report.json](../output/edit-chain-plan-v1/fixture-browser/browser-report.json)、
-[preflight-report.json](../output/edit-chain-preflight-v1/preflight-report.json)和
-[acceptance.json](../output/edit-chain-preparation-accepted-v1/acceptance.json)。
+driver-simulation.json（本地产物：`../output/edit-chain-plan-v1/driver-simulation.json`）、
+browser-report.json（本地产物：`../output/edit-chain-plan-v1/fixture-browser/browser-report.json`）、
+preflight-report.json（本地产物：`../output/edit-chain-preflight-v1/preflight-report.json`）和
+acceptance.json（本地产物：`../output/edit-chain-preparation-accepted-v1/acceptance.json`）。
 
 ## 执行入口与边界
 

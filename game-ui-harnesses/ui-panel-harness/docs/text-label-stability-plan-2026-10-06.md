@@ -22,12 +22,12 @@
 214份源码、32份实际0.8响应schema、原样请求/期望、资产和静态构建已冻结。同环境登录可见性预检和错误摘要拒绝通过，真实模型调用0；真实连接与模型可用性未通过预检验证。
 新根/子消费记录0，新真实运行目录不存在。五份历史FAIL审计报告原字节SHA保持，一次删除确认真实PASS的报告也保留。
 
-- [冻结根计划](../output/text-label-stability-plan-v1/ordinal-stability-plan.json)
-- [原样16条需求与期望](../output/text-label-stability-plan-v1/suite.json)
-- [程序夹具预览与交付包](../output/text-label-stability-preparation-accepted-v1/index.html)
-- [383项夹具浏览器检查](../output/text-label-stability-plan-v1/fixture-browser/browser-report.json)
-- [宿主零模型预检](../output/text-label-stability-preflight-v1/preflight-report.json)
-- [独立准备审计](../output/text-label-stability-preparation-accepted-v1/acceptance.json)
+- 冻结根计划（本地产物：`../output/text-label-stability-plan-v1/ordinal-stability-plan.json`）
+- 原样16条需求与期望（本地产物：`../output/text-label-stability-plan-v1/suite.json`）
+- 程序夹具预览与交付包（本地产物：`../output/text-label-stability-preparation-accepted-v1/index.html`）
+- 383项夹具浏览器检查（本地产物：`../output/text-label-stability-plan-v1/fixture-browser/browser-report.json`）
+- 宿主零模型预检（本地产物：`../output/text-label-stability-preflight-v1/preflight-report.json`）
+- 独立准备审计（本地产物：`../output/text-label-stability-preparation-accepted-v1/acceptance.json`）
 - [已通过的删除确认真实复验与4196](text-label-real-recheck-2026-10-06.md)
 
 只有两轮实际全部门禁通过，才记录OBSERVED_TWO_ROUND_PASS；不代表任意自然语言输入可靠。连续修改链、原生Unity、其它引擎及人工视觉认证不在本次范围。

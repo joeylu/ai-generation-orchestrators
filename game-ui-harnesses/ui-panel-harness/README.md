@@ -7,7 +7,7 @@
 
 - [使用与启动](docs/start-here.md)：构建Studio、生成、修改、试玩、撤销和下载。
 - [本次源码收尾](docs/v1-candidate-2026-10-08.md)：冻结当前范围，记录本地回归、本次真实验收与保留边界。
-- [本地第一版交付目录](output/ui-panel-closeout-v1/index.html)：已接受的16类面板、5种同轮组合和10步真实修改，含预览及实际下载ZIP；本地产物不随Git提交。
+- 本地第一版交付目录（本地产物：`output/ui-panel-closeout-v1/index.html`）：已接受的16类面板、5种同轮组合和10步真实修改，含预览及实际下载ZIP；本地产物不随Git提交。
 - Studio网址以启动命令打印的地址为准；旧静态页面不会自动更新。支持浅深模式与四种主色。
 - [视觉主题与前后对照](docs/panel-visual-style.md)：新主题单独版本，旧交付包保持原样。
 - [浅深模式与主色](docs/panel-themes.md)：需求中指定八种主题，修改保留未要求变化的风格。

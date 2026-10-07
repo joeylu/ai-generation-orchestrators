@@ -56,14 +56,14 @@ node scripts/serve-workbench.mjs --workbench output/my-themed-studio --output-ro
 node --test tests/panel-themes.test.mjs tests/panel-composition.test.mjs
 ```
 
-本工作区的[八主题与面板对照](../output/panel-theme-review-v2/index.html)包含8份明确程序夹具、
+本工作区的八主题与面板对照（本地产物：`../output/panel-theme-review-v2/index.html`）包含8份明确程序夹具、
 16份保存真实面板的深色蓝色重编译、3份既有控件夹具和5种同主题组合。
 本轮没有新模型调用，不能计为新一轮真实生成稳定率。
 浏览器及交付检查单独记录；Unity目标工程运行和用户视觉验收仍为`NOT_RUN`。
 
-749项单元回归通过。[主浏览器报告](../output/panel-theme-browser-v1/visual-browser-report.json)通过678项检查，
+749项单元回归通过。主浏览器报告（本地产物：`../output/panel-theme-browser-v1/visual-browser-report.json`）通过678项检查，
 含32次精确导入、32份实际下载ZIP的CRC与文件摘要、离线打开和试玩状态重导入，以及27份对照预览。
-[细节报告](../output/panel-theme-details-v2/theme-details-report.json)通过23项，覆盖八主题下拉选项、
+细节报告（本地产物：`../output/panel-theme-details-v2/theme-details-report.json`）通过23项，覆盖八主题下拉选项、
 输入校验、页签，以及可见UI中换主题、保留试玩值与撤销；修改方案是明确导入的夹具，不是模型返回。
 代理查看了深色下拉、表单错误提示和浅色橙色截图，未代替用户视觉批准。
 

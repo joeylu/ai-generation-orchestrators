@@ -43,7 +43,7 @@ PanelSpec仍为0.7，Pixi、Unity、编辑协议及其它Harness未改。
 
 ## 下一份准备结果
 
-[新三例计划](../output/request-reference-recheck-plan-v1/quote-recheck-plan.json)摘要为
+新三例计划（本地产物：`../output/request-reference-recheck-plan-v1/quote-recheck-plan.json`）摘要为
 `b7a3800116d56698a83f5518736698f3cea800e2f8ed830f923eb2e9e7347a40`。
 固定原样高级设置、补充回答声音和双页签进度，各最多一次gpt-6-luna / xhigh，最多3次、失败不重试。
 205份源码、3份实际0.8 schema、库/构建、程序样本和42项交付证据已冻结并独立核验；只读宿主预检通过。
@@ -53,8 +53,8 @@ PanelSpec仍为0.7，Pixi、Unity、编辑协议及其它Harness未改。
 
 ## 可复核证据
 
-- [本次一次真实FAIL独立审计](../output/native-quote-recheck-accepted-v1/acceptance.json)与[结果页](../output/native-quote-recheck-accepted-v1/index.html)
-- [692回归与34历史方案重放](../output/request-reference-fix-check-v2/check-report.json)
-- [新格式准备及交付独立审计](../output/request-reference-fix-accepted-v1/acceptance.json)与[程序样本预览/ZIP入口](../output/request-reference-fix-accepted-v1/index.html)
-- [42项程序样本浏览器与交付](../output/request-reference-recheck-plan-v1/fixture-browser/browser-report.json)
-- [4195启动回执](../output/panel-studio-request-reference-live-v1/launch.json)与[8项零模型入口验证](../output/panel-studio-request-reference-live-browser-v1/browser-report.json)
+- 本次一次真实FAIL独立审计（本地产物：`../output/native-quote-recheck-accepted-v1/acceptance.json`）与结果页（本地产物：`../output/native-quote-recheck-accepted-v1/index.html`）
+- 692回归与34历史方案重放（本地产物：`../output/request-reference-fix-check-v2/check-report.json`）
+- 新格式准备及交付独立审计（本地产物：`../output/request-reference-fix-accepted-v1/acceptance.json`）与程序样本预览/ZIP入口（本地产物：`../output/request-reference-fix-accepted-v1/index.html`）
+- 42项程序样本浏览器与交付（本地产物：`../output/request-reference-recheck-plan-v1/fixture-browser/browser-report.json`）
+- 4195启动回执（本地产物：`../output/panel-studio-request-reference-live-v1/launch.json`）与8项零模型入口验证（本地产物：`../output/panel-studio-request-reference-live-browser-v1/browser-report.json`）

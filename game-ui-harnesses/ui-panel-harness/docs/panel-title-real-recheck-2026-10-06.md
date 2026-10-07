@@ -10,10 +10,10 @@
 
 原16次14/16和FAIL保持，未运行的第二轮及组合/交付没有补写成功，也没有把两例结果拼接进去。五份更早FAIL及删除确认一次PASS原字节保持。
 
-- [两例真实预览与ZIP入口](../output/panel-title-recheck-accepted-v1/index.html)
-- [独立真实审计](../output/panel-title-recheck-accepted-v1/acceptance.json)
-- [真实生产报告](../output/panel-title-recheck-run-v1/quote-recheck-report.json)
-- [23项实际浏览器/离线交付检查](../output/panel-title-recheck-run-v1/browser/browser-report.json)
+- 两例真实预览与ZIP入口（本地产物：`../output/panel-title-recheck-accepted-v1/index.html`）
+- 独立真实审计（本地产物：`../output/panel-title-recheck-accepted-v1/acceptance.json`）
+- 真实生产报告（本地产物：`../output/panel-title-recheck-run-v1/quote-recheck-report.json`）
+- 23项实际浏览器/离线交付检查（本地产物：`../output/panel-title-recheck-run-v1/browser/browser-report.json`）
 
 ## 修复Studio入口
 
@@ -22,9 +22,9 @@
 13项零模型入口检查通过：两份本次真实Bundle精确导入、Pixi可见、整体标题实际渲染、任务的三个只读值/标签和两个仅通知按钮、需求/修改输入就绪、390宽度无横向溢出及无外部请求/浏览器异常。
 检查阻断全部非GET和外部请求，生成/修改没有点击；新运行目录为空或不存在。独立入口审计通过。
 
-- [Studio启动回执](../output/panel-studio-panel-title-live-v1/launch.json)
-- [13项入口浏览器检查](../output/panel-studio-panel-title-live-browser-v1/browser-report.json)
-- [Studio独立审计](../output/panel-studio-panel-title-live-accepted-v1/acceptance.json)
+- Studio启动回执（本地产物：`../output/panel-studio-panel-title-live-v1/launch.json`）
+- 13项入口浏览器检查（本地产物：`../output/panel-studio-panel-title-live-browser-v1/browser-report.json`）
+- Studio独立审计（本地产物：`../output/panel-studio-panel-title-live-accepted-v1/acceptance.json`）
 
 这里只证明两个原样失败输入的新单次复验通过；完整16条独立两轮及同轮组合尚未完成新的真实验收。原生Unity/其它引擎及人工视觉认证本次NOT_RUN。
 

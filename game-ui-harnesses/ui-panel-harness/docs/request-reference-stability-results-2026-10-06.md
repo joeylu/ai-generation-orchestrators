@@ -29,11 +29,11 @@
 宿主只读登录可见性及错误摘要拒绝通过；不提交模型请求，真实连接与模型可用性仍未验证。根/子消费记录不存在。
 通过后才检查这个真实来源的独立标签渲染、交互及实际下载/离线/重导入，不把这一例当作全16两轮或组合认证。
 
-- [本轮原FAIL审计](../output/request-reference-stability-accepted-v1/acceptance.json)与[运行入口](../output/request-reference-stability-accepted-v1/index.html)
-- [本地修复审计与下一例](../output/text-label-fix-accepted-v1/acceptance.json)
-- [修复夹具预览](../output/text-label-recheck-plan-v1/fixture-browser/eval-confirm-delivery/pixi/index.html)
-- [单次冻结计划](../output/text-label-recheck-plan-v1/quote-recheck-plan.json)
-- [原样请求与业务期望](../output/text-label-recheck-plan-v1/suite.json)
+- 本轮原FAIL审计（本地产物：`../output/request-reference-stability-accepted-v1/acceptance.json`）与运行入口（本地产物：`../output/request-reference-stability-accepted-v1/index.html`）
+- 本地修复审计与下一例（本地产物：`../output/text-label-fix-accepted-v1/acceptance.json`）
+- 修复夹具预览（本地产物：`../output/text-label-recheck-plan-v1/fixture-browser/eval-confirm-delivery/pixi/index.html`）
+- 单次冻结计划（本地产物：`../output/text-label-recheck-plan-v1/quote-recheck-plan.json`）
+- 原样请求与业务期望（本地产物：`../output/text-label-recheck-plan-v1/suite.json`）
 
 [仓库AGENTS.md](../../../AGENTS.md)要求：“A generation attempt requires one fresh, single-use authorization bound to an immutable plan digest.”
 原32次计划已经消费并按失败门禁终止，剩余预算不能换到新摘要。新的单例需用户决定后执行，失败不重试。

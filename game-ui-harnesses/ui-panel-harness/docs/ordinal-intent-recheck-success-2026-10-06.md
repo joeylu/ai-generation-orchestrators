@@ -7,7 +7,7 @@
 ## 执行绑定
 
 用户明确批准根计划`8cf2578876300bb6a2c6369058a8596109ad8019ae8b69befacdf8bdb2ff6478`，
-[冻结计划](../output/ordinal-intent-recheck-plan-v6/intent-recheck-plan.json)和父/子唯一消费记录保留。
+冻结计划（本地产物：`../output/ordinal-intent-recheck-plan-v6/intent-recheck-plan.json`）和父/子唯一消费记录保留。
 宿主执行环境可见CLI登录；系统已有代理只通过当前进程及子进程的临时变量传递，结束后恢复。
 未改全局代理、登录状态或CLI配置。模型本身仍为只读、禁工具、禁自动重试的调用配置。
 
@@ -29,10 +29,10 @@
 
 ## 浏览器与实际下载
 
-- [三个独立面板的离线Pixi检查](../output/ordinal-intent-recheck-browser-v2/panel-evaluation-browser-report.json)：30项通过，覆盖可见文字、布局、每行交互/事件、禁用行为、重置、状态导出和文件重开。
-- [Studio与实际ZIP检查](../output/ordinal-intent-recheck-studio-browser-v1/browser-report.json)：28项通过。点击生成按钮时只重放本次保存的真实Proposal和原回执，完整Context必须相同；重放3次、额外模型调用0。
+- 三个独立面板的离线Pixi检查（本地产物：`../output/ordinal-intent-recheck-browser-v2/panel-evaluation-browser-report.json`）：30项通过，覆盖可见文字、布局、每行交互/事件、禁用行为、重置、状态导出和文件重开。
+- Studio与实际ZIP检查（本地产物：`../output/ordinal-intent-recheck-studio-browser-v1/browser-report.json`）：28项通过。点击生成按钮时只重放本次保存的真实Proposal和原回执，完整Context必须相同；重放3次、额外模型调用0。
 - 实际下载的三个交付ZIP校验独立CRC和全部文件SHA，Pixi与Unity导入工具包使用同一源规格；解包后断网打开Pixi，再导入Studio，规格、默认值和试玩值保持。
-- [三种新来源组合浏览器检查](../output/ordinal-intent-recheck-composition-browser-v1/panel-evaluation-browser-report.json)：51项通过，横排、双列、背包双实例均使用本轮来源。每次交互比较完整状态，重置按来源隔离，事件、导出及重开通过。
+- 三种新来源组合浏览器检查（本地产物：`../output/ordinal-intent-recheck-composition-browser-v1/panel-evaluation-browser-report.json`）：51项通过，横排、双列、背包双实例均使用本轮来源。每次交互比较完整状态，重置按来源隔离，事件、导出及重开通过。
 
 109项为30+28+51，后处理模型调用0。390×844检查页面横向溢出，不能称移动端视觉重排或触摸易用性已验收。
 Unity本轮交付为导入工具包，新的原生导入、运行与人工视觉验收仍NOT_RUN；没有写真实Unity游戏工程。
@@ -40,10 +40,10 @@ Unity本轮交付为导入工具包，新的原生导入、运行与人工视觉
 
 ## 产物与后续范围
 
-- [独立完整验收报告](../output/ordinal-intent-recheck-acceptance-v2/acceptance.json)
-- [三个真实面板预览](../output/ordinal-intent-recheck-preview-v2/index.html)
-- [三个新面板的组合预览](../output/ordinal-intent-recheck-composition-v1/index.html)
-- [画质交付ZIP](../output/ordinal-intent-recheck-studio-browser-v1/eval-graphics.panel-delivery.zip)、[角色交付ZIP](../output/ordinal-intent-recheck-studio-browser-v1/eval-character.panel-delivery.zip)、[背包交付ZIP](../output/ordinal-intent-recheck-studio-browser-v1/eval-inventory.panel-delivery.zip)
+- 独立完整验收报告（本地产物：`../output/ordinal-intent-recheck-acceptance-v2/acceptance.json`）
+- 三个真实面板预览（本地产物：`../output/ordinal-intent-recheck-preview-v2/index.html`）
+- 三个新面板的组合预览（本地产物：`../output/ordinal-intent-recheck-composition-v1/index.html`）
+- 画质交付ZIP（本地产物：`../output/ordinal-intent-recheck-studio-browser-v1/eval-graphics.panel-delivery.zip`）、角色交付ZIP（本地产物：`../output/ordinal-intent-recheck-studio-browser-v1/eval-character.panel-delivery.zip`）、背包交付ZIP（本地产物：`../output/ordinal-intent-recheck-studio-browser-v1/eval-inventory.panel-delivery.zip`）
 
 可复用[真实方案Studio重放脚本](../scripts/check-ordinal-recheck-browser.mjs)和[三来源组合构建脚本](../scripts/build-ordinal-recheck-composition.mjs)，
 均不调用模型，且严格复验真实来源。旧全16组合脚本的16个同轮成功来源门禁保持，未用本轮结果替换旧失败项。

@@ -12,9 +12,9 @@
 
 改源码之前完成独立审计：214份冻结源码、根/子消费记录、16份调用回执、15份原始Intent与proposal、69处来源引用及旧证据指纹核对通过。15份已知用量：输入401836、缓存0、输出12866 Token；画质一份未知。历史五份FAIL、删除确认单例PASS均原字节保持。
 
-- [真实独立审计](../output/text-label-stability-accepted-v1/acceptance.json)
-- [真实结果入口](../output/text-label-stability-accepted-v1/index.html)
-- [原生产报告](../output/text-label-stability-run-v1/ordinal-stability-report.json)
+- 真实独立审计（本地产物：`../output/text-label-stability-accepted-v1/acceptance.json`）
+- 真实结果入口（本地产物：`../output/text-label-stability-accepted-v1/index.html`）
+- 原生产报告（本地产物：`../output/text-label-stability-run-v1/ordinal-stability-report.json`）
 
 ## 本地规则补强
 
@@ -28,8 +28,8 @@
 
 任务与画质两个程序夹具通过23项浏览器检查，包括实际面板标题/文本/标签渲染、交互、ZIP下载、CRC/摘要/展开文件、离线打开及试玩状态重新导入；两份夹具包经独立审计通过。这些是程序夹具，不计为新的真实生成成功。
 
-- [本地补强与两例夹具预览](../output/panel-title-fix-accepted-v1/index.html)
-- [本地补强独立审计](../output/panel-title-fix-accepted-v1/acceptance.json)
+- 本地补强与两例夹具预览（本地产物：`../output/panel-title-fix-accepted-v1/index.html`）
+- 本地补强独立审计（本地产物：`../output/panel-title-fix-accepted-v1/acceptance.json`）
 
 ## 仅两例的新真实复验计划
 
@@ -39,9 +39,9 @@ gpt-6-luna / xhigh，最多2次：原样任务需求一次、原样画质需求�
 
 同环境只读登录可见性预检、错误摘要拒绝通过，新增模型调用0，根/子消费记录0，真实运行目录不存在。网络与模型可用性未验证。Studio4196和旧服务保持，本地补强尚未切换到该旧进程。
 
-- [两例冻结计划](../output/panel-title-recheck-plan-v1/quote-recheck-plan.json)
-- [原样需求和期望](../output/panel-title-recheck-plan-v1/suite.json)
-- [23项程序夹具浏览器检查](../output/panel-title-recheck-plan-v1/fixture-browser/browser-report.json)
+- 两例冻结计划（本地产物：`../output/panel-title-recheck-plan-v1/quote-recheck-plan.json`）
+- 原样需求和期望（本地产物：`../output/panel-title-recheck-plan-v1/suite.json`）
+- 23项程序夹具浏览器检查（本地产物：`../output/panel-title-recheck-plan-v1/fixture-browser/browser-report.json`）
 
 两例通过仍不能拼接成全16成功；需要另行准备并授权新的完整两轮和同轮组合验收。原生Unity、其他引擎和人工视觉验收本次NOT_RUN。
 

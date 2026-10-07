@@ -48,10 +48,10 @@
 
 ## 证据与限制
 
-- [独立验收汇总](../output/studio-input-stress-acceptance-v1/acceptance-summary.json)：总体FAIL、24份回执、原始证据摘要和逐步修改审计。
-- [原始运行报告](../output/studio-input-stress-run-v1/input-stress-report.json)与[16类生成报告](../output/studio-input-stress-run-v1/generation/evaluation-report.json)。
-- [生成浏览器报告](../output/studio-input-stress-generation-browser-v1/browser-report.json)、[修改浏览器报告](../output/studio-input-stress-edit-browser-v1/browser-report.json)与[离线交付报告](../output/studio-input-stress-delivery-v1/acceptance-report.json)。
-- [本轮预览集合](../output/studio-input-stress-preview-v1/index.html)：含15个可编译预览，其中角色与背包两份为明确标注FAIL的草稿，不能当作验收成功。
+- 独立验收汇总（本地产物：`../output/studio-input-stress-acceptance-v1/acceptance-summary.json`）：总体FAIL、24份回执、原始证据摘要和逐步修改审计。
+- 原始运行报告（本地产物：`../output/studio-input-stress-run-v1/input-stress-report.json`）与16类生成报告（本地产物：`../output/studio-input-stress-run-v1/generation/evaluation-report.json`）。
+- 生成浏览器报告（本地产物：`../output/studio-input-stress-generation-browser-v1/browser-report.json`）、修改浏览器报告（本地产物：`../output/studio-input-stress-edit-browser-v1/browser-report.json`）与离线交付报告（本地产物：`../output/studio-input-stress-delivery-v1/acceptance-report.json`）。
+- 本轮预览集合（本地产物：`../output/studio-input-stress-preview-v1/index.html`）：含15个可编译预览，其中角色与背包两份为明确标注FAIL的草稿，不能当作验收成功。
 
 24份用量回执均已知：输入660,904 tokens，缓存输入0，输出32,383 tokens。
 零模型预检另有4项新增单元测试、147项生成驱动浏览器检查与73项修改驱动浏览器检查；不计为真实模型验收或新增调用。
