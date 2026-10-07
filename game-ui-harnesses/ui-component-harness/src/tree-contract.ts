@@ -170,7 +170,7 @@ export interface PanelRasterAppearance {
 
 export interface ImageProps { source: string; region?: ImageRegion; fit: 'stretch' | 'contain' | 'cover'; drawBackground?: boolean; style: ControlStyle }
 export interface TextProps { text: string; wrap: 'none' | 'word'; overflow: 'clip' | 'ellipsis' | 'error'; lineHeight: number; fontSource?: string; drawBackground?: boolean; style: ControlStyle }
-export interface ContainerProps { appearance?: ContainerRasterAppearance; style: ControlStyle }
+export interface ContainerProps { drawBackground?: boolean; appearance?: ContainerRasterAppearance; style: ControlStyle }
 export interface ButtonProps { interaction?: import('./button-interactions.ts').ButtonInteraction; label: string; enabled: boolean; backgroundImage?: string; appearance?: ButtonRasterAppearance; style: ControlStyle }
 export interface ToggleProps { label: string; checked: boolean; enabled: boolean; style: ControlStyle }
 export interface SwitchProps extends ToggleProps { stateLabels?: { on: string; off: string }; appearance?: SwitchRasterAppearance }
@@ -183,8 +183,8 @@ export interface ProgressBarProps { value: number; max: number; appearance?: Pro
 export interface SliderProps { value: number; min: number; max: number; step: number; enabled: boolean; appearance?: SliderRasterAppearance; style: ControlStyle }
 export interface ScrollViewProps { drawBackground?: boolean; scrollbarVisibility?: 'auto' | 'always'; scrollX: number; scrollY: number; contentWidth: number; contentHeight: number; appearance?: ScrollViewRasterAppearance; style: ControlStyle }
 export interface ListProps { itemContents?: import('./list-item-contents.ts').ListItemContents; rowGap?: number; drawBackground?: boolean; selectedId: string | null; items: Choice[]; itemTemplate: 'text-row'; itemHeight: number; enabled: boolean; appearance?: ListRasterAppearance; style: ControlStyle }
-export interface PanelProps { title: string; appearance?: PanelRasterAppearance; style: ControlStyle }
-export interface DialogProps { open: boolean; title: string; modal: boolean; backdrop?: { color: string; opacity: number }; appearance?: DialogRasterAppearance; style: ControlStyle }
+export interface PanelProps { drawBackground?: boolean; title: string; appearance?: PanelRasterAppearance; style: ControlStyle }
+export interface DialogProps { drawBackground?: boolean; open: boolean; title: string; modal: boolean; backdrop?: { color: string; opacity: number }; appearance?: DialogRasterAppearance; style: ControlStyle }
 export interface TabsProps { activeId: string; tabs: TabDefinition[]; enabled: boolean; drawBackground?: boolean; appearance?: TabsRasterAppearance; style: ControlStyle }
 
 interface BaseNode<T extends UiNodeType, P> { id: string; type: T; layout: Layout; props: P }
@@ -396,13 +396,13 @@ class ContractValidator {
   props(type: UiNodeType, value: unknown, path: string, nodeLayout: unknown): void {
     const keysByType: Record<UiNodeType, readonly string[]> = {
       Image: ['source', 'region', 'fit', 'drawBackground', 'style'], Text: ['text', 'wrap', 'overflow', 'lineHeight', 'fontSource', 'drawBackground', 'style'],
-      Container: ['appearance', 'style'], Button: ['label', 'enabled', 'backgroundImage', 'appearance', 'interaction', 'style'], Switch: ['label', 'checked', 'enabled', 'appearance', 'stateLabels', 'style'], CheckBox: ['label', 'checked', 'enabled', 'appearance', 'style'],
+      Container: ['appearance', 'drawBackground', 'style'], Button: ['label', 'enabled', 'backgroundImage', 'appearance', 'interaction', 'style'], Switch: ['label', 'checked', 'enabled', 'appearance', 'stateLabels', 'style'], CheckBox: ['label', 'checked', 'enabled', 'appearance', 'style'],
       RadioGroup: ['selectedId', 'options', 'enabled', 'appearance', 'style'], Input: ['value', 'placeholder', 'inputType', 'readOnly', 'maxLength', 'enabled', 'valueOverflow', 'appearance', 'style'],
       Select: ['selectedId', 'options', 'enabled', 'appearance', 'style'], ProgressBar: ['value', 'max', 'appearance', 'style'], Slider: ['value', 'min', 'max', 'step', 'enabled', 'appearance', 'style'],
       ScrollView: ['scrollX', 'scrollY', 'contentWidth', 'contentHeight', 'appearance', 'drawBackground', 'scrollbarVisibility', 'style'], List: ['itemContents', 'selectedId', 'items', 'itemTemplate', 'itemHeight', 'rowGap', 'enabled', 'appearance', 'drawBackground', 'style'],
-      Panel: ['title', 'appearance', 'style'], Dialog: ['open', 'title', 'modal', 'backdrop', 'appearance', 'style'], Tabs: ['activeId', 'tabs', 'enabled', 'drawBackground', 'appearance', 'style'],
+      Panel: ['title', 'appearance', 'drawBackground', 'style'], Dialog: ['open', 'title', 'modal', 'backdrop', 'appearance', 'drawBackground', 'style'], Tabs: ['activeId', 'tabs', 'enabled', 'drawBackground', 'appearance', 'style'],
     };
-    const optionalByType: Partial<Record<UiNodeType, readonly string[]>> = { Image: ['region', 'drawBackground'], Text: ['fontSource', 'drawBackground'], Container: ['appearance'], Button: ['backgroundImage', 'appearance', 'interaction'], Switch: ['appearance', 'stateLabels'], CheckBox: ['appearance'], RadioGroup: ['appearance'], Input: ['valueOverflow', 'appearance'], Select: ['appearance'], ProgressBar: ['appearance'], Slider: ['appearance'], ScrollView: ['appearance', 'drawBackground', 'scrollbarVisibility'], List: ['appearance', 'drawBackground', 'rowGap', 'itemContents'], Panel: ['appearance'], Dialog: ['appearance', 'backdrop'], Tabs: ['appearance', 'drawBackground'] };
+    const optionalByType: Partial<Record<UiNodeType, readonly string[]>> = { Image: ['region', 'drawBackground'], Text: ['fontSource', 'drawBackground'], Container: ['appearance', 'drawBackground'], Button: ['backgroundImage', 'appearance', 'interaction'], Switch: ['appearance', 'stateLabels'], CheckBox: ['appearance'], RadioGroup: ['appearance'], Input: ['valueOverflow', 'appearance'], Select: ['appearance'], ProgressBar: ['appearance'], Slider: ['appearance'], ScrollView: ['appearance', 'drawBackground', 'scrollbarVisibility'], List: ['appearance', 'drawBackground', 'rowGap', 'itemContents'], Panel: ['appearance', 'drawBackground'], Dialog: ['appearance', 'backdrop', 'drawBackground'], Tabs: ['appearance', 'drawBackground'] };
     const allowed = keysByType[type];
     const required = keysByType[type].filter(key => !optionalByType[type]?.includes(key));
     const data = this.object(value, path, allowed, required);
@@ -425,6 +425,7 @@ class ContractValidator {
         this.style(data.style, `${path}.style`); break;
       }
       case 'Container': case 'Panel':
+        if (Object.hasOwn(data, 'drawBackground')) this.boolean(data.drawBackground, `${path}.drawBackground`);
         if (type === 'Panel') this.string(data.title, `${path}.title`, true);
         if (Object.hasOwn(data, 'appearance')) {
           if (type === 'Container') {
@@ -671,6 +672,7 @@ class ContractValidator {
         this.style(data.style, `${path}.style`); break;
       }
       case 'Dialog':
+        if (Object.hasOwn(data, 'drawBackground')) this.boolean(data.drawBackground, `${path}.drawBackground`);
         this.boolean(data.open, `${path}.open`); this.string(data.title, `${path}.title`, true); this.boolean(data.modal, `${path}.modal`);
         if (Object.hasOwn(data, 'backdrop')) { const b = this.object(data.backdrop, `${path}.backdrop`, ['color', 'opacity']); if (b) { if (!this.string(b.color, `${path}.backdrop.color`) || !colorPattern.test(b.color as string)) this.add(`${path}.backdrop.color`, 'COLOR_REQUIRED', 'must be a hex color'); this.finite(b.opacity, `${path}.backdrop.opacity`, { min: 0, max: 1 }); } if (data.modal !== true || (data.appearance as any)?.overlayImage) this.add(`${path}.backdrop`, 'BACKDROP_CONFLICT', 'explicit native backdrop requires modal without raster overlay'); }
         if (Object.hasOwn(data, 'appearance')) { const appearance = this.object(data.appearance, `${path}.appearance`, ['sourceCanvas', 'background', 'header', 'body', 'overlayImage', 'overlayCanvas', 'titleLayout'], ['sourceCanvas', 'background', 'header', 'titleLayout']); if (appearance) { const source = this.object(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`, ['width', 'height']); if (source) { this.rasterCanvas(appearance.sourceCanvas, `${path}.appearance.sourceCanvas`); this.positionedRasterPart(appearance.background, `${path}.appearance.background`, source); this.positionedRasterPart(appearance.header, `${path}.appearance.header`, source); if (appearance.body !== undefined) this.positionedRasterPart(appearance.body, `${path}.appearance.body`, source); this.appearanceLayout(appearance.titleLayout, `${path}.appearance.titleLayout`, source); } const hasOverlay = Object.hasOwn(appearance, 'overlayImage') || Object.hasOwn(appearance, 'overlayCanvas'); if (hasOverlay) { this.resource(appearance.overlayImage, `${path}.appearance.overlayImage`); this.rasterCanvas(appearance.overlayCanvas, `${path}.appearance.overlayCanvas`); } if (data.modal === false && hasOverlay) this.add(`${path}.appearance`, 'OVERLAY_MODAL_MISMATCH', 'overlay fields are allowed only for a modal Dialog'); } }

@@ -3,7 +3,12 @@
 This contract covers local, offline consumer integration. It does not implement
 an account system, job service, public network route or deployment workflow.
 Install an immutable tagged release by its artifact SHA-256. Package version
-`0.2.0-rc.2` alone is not a release identity or native compute acceptance.
+`0.2.0-rc.3` alone is not a release identity or native compute acceptance.
+
+This candidate adds optional Container/Panel/Dialog `props.drawBackground` and
+its explicit planning evidence. See [the background policy](panel-background-v1.md).
+Existing frozen deliveries remain unchanged; upgrade all installed SDK entries
+and contract fingerprints before creating plans that use the new field.
 
 ## Entries
 
