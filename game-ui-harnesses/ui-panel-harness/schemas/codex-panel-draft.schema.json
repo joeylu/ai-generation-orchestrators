@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:codex-panel-draft:0.1",
+  "title": "Optional Codex Panel Draft 0.1",
+  "$comment": "Register PanelSpec 0.1 through 0.4 and PanelProposal 0.4 schemas. Spec collection order defines evidence association. Runtime requires exact array lengths, context binding, matching capabilities and every public PanelProposal gate. This is a transport format, not a new public engine format or an output repair mechanism.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["codexPanelDraftVersion", "contextSha256", "spec", "bases", "unresolved"],
+  "properties": {
+    "codexPanelDraftVersion": {"const": "0.1"},
+    "contextSha256": {"$ref": "urn:ai-game-assets:panel-proposal:0.4#/properties/contextSha256"},
+    "spec": {"oneOf": [
+      {"type": "null"},
+      {"$ref": "urn:ai-game-assets:panel-spec:0.1"},
+      {"$ref": "urn:ai-game-assets:panel-spec:0.2"},
+      {"$ref": "urn:ai-game-assets:panel-spec:0.3"},
+      {"$ref": "urn:ai-game-assets:panel-spec:0.4"}
+    ]},
+    "bases": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/bases"}]},
+    "unresolved": {"$ref": "urn:ai-game-assets:panel-proposal:0.4#/properties/unresolved"}
+  },
+  "$defs": {
+    "basis": {"oneOf": [
+      {"$ref": "urn:ai-game-assets:panel-proposal:0.4#/$defs/requestInterpretation"},
+      {"$ref": "urn:ai-game-assets:panel-proposal:0.4#/$defs/designChoice"}
+    ]},
+    "basisList": {"type": "array", "maxItems": 512, "items": {"$ref": "#/$defs/basis"}},
+    "assets": {
+      "type": "object", "additionalProperties": false, "required": ["overall", "surface", "rowIcons"],
+      "properties": {
+        "overall": {"$ref": "#/$defs/basis"},
+        "surface": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/basis"}]},
+        "rowIcons": {"$ref": "#/$defs/basisList"}
+      }
+    },
+    "section": {
+      "type": "object", "additionalProperties": false, "required": ["section", "rows"],
+      "properties": {"section": {"$ref": "#/$defs/basis"}, "rows": {"$ref": "#/$defs/basisList"}}
+    },
+    "bases": {
+      "type": "object", "additionalProperties": false,
+      "required": ["panel", "theme", "canvas", "layout", "assets", "sections", "state"],
+      "properties": {
+        "panel": {"$ref": "#/$defs/basis"}, "theme": {"$ref": "#/$defs/basis"},
+        "canvas": {"$ref": "#/$defs/basis"}, "layout": {"$ref": "#/$defs/basis"},
+        "assets": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/assets"}]},
+        "sections": {"type": "array", "maxItems": 512, "items": {"$ref": "#/$defs/section"}},
+        "state": {"$ref": "#/$defs/basisList"}
+      }
+    }
+  }
+}

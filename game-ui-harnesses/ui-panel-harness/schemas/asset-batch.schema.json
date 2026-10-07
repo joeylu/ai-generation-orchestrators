@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:asset-batch:0.1",
+  "title": "AssetBatch 0.1",
+  "description": "Bounded portable PNG/SVG import descriptors. Assets have exact namespace/id@version identities and explicit semantic metadata.",
+  "$comment": "Schema defaults are annotations and do not mutate data. validateAssetBatch creates the normalized copy, inserts defaults, normalizes tags with NFKC/trim/lowercase and deduplicates them preserving first occurrence. It additionally checks identity uniqueness across assets, positive nine-slice centers against size, a 16 Mi-pixel cap, and plain bounded JSON without accessors, cycles or custom prototypes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assetBatchVersion", "namespace", "assets"],
+  "properties": {
+    "assetBatchVersion": { "const": "0.1" },
+    "namespace": { "$ref": "#/$defs/slug" },
+    "assets": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/asset" } }
+  },
+  "$defs": {
+    "slug": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z][a-z0-9-]{0,63}$(?![\\s\\S])" },
+    "version": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,5}|1000000)(?:\\.(?:0|[1-9][0-9]{0,5}|1000000)){2}$(?![\\s\\S])" },
+    "printable": { "type": "string", "minLength": 1, "allOf": [{ "pattern": "\\S" }, { "not": { "pattern": "[\\u0000-\\u001f\\u007f-\\u009f\\ud800-\\udfff]" } }] },
+    "symbol": { "type": "string", "minLength": 1, "maxLength": 96, "pattern": "^[a-z0-9.-]+$(?![\\s\\S])" },
+    "file": {
+      "type": "string", "minLength": 1, "maxLength": 240,
+      "pattern": "\\.(?:[pP][nN][gG]|[sS][vV][gG])$(?![\\s\\S])",
+      "allOf": [
+        { "not": { "pattern": "[\\\\:<>\"|?*\\u0000-\\u001f\\u007f-\\u009f\\ud800-\\udfff]" } },
+        { "not": { "pattern": "^/|//$|//|(?:^|/)\\.{1,2}(?:/|$)|[ .](?:/|$)" } },
+        { "not": { "pattern": "(?:^|/)(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9¹²³]|[lL][pP][tT][1-9¹²³]|[cC][oO][nN][iI][nN]\\$|[cC][oO][nN][oO][uU][tT]\\$)[ .]*(?:\\.|/|$)" } }
+      ]
+    },
+    "size": {
+      "type": "object", "additionalProperties": false, "required": ["width", "height"],
+      "properties": { "width": { "type": "integer", "minimum": 1, "maximum": 4096 }, "height": { "type": "integer", "minimum": 1, "maximum": 4096 } }
+    },
+    "slice": {
+      "type": ["object", "null"], "default": null,
+      "description": "Pixel borders. Opposing borders must sum to less than the corresponding asset size; validateAssetBatch performs this cross-field check.",
+      "additionalProperties": false, "required": ["left", "top", "right", "bottom"],
+      "properties": {
+        "left": { "type": "integer", "minimum": 0, "maximum": 4095 },
+        "top": { "type": "integer", "minimum": 0, "maximum": 4095 },
+        "right": { "type": "integer", "minimum": 0, "maximum": 4095 },
+        "bottom": { "type": "integer", "minimum": 0, "maximum": 4095 }
+      }
+    },
+    "asset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "version", "file", "name", "role", "tags", "size"],
+      "properties": {
+        "id": { "$ref": "#/$defs/slug" },
+        "version": { "$ref": "#/$defs/version" },
+        "file": { "$ref": "#/$defs/file" },
+        "name": { "$ref": "#/$defs/printable", "maxLength": 120 },
+        "role": { "enum": ["icon", "shape", "effect", "layout-primitive", "animation-part"] },
+        "tags": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "$ref": "#/$defs/printable", "maxLength": 64 }, "description": "Normalized and deduplicated by validateAssetBatch; raw duplicates are permitted." },
+        "size": { "$ref": "#/$defs/size" },
+        "family": { "$ref": "#/$defs/symbol", "description": "Defaults to this asset's id in validateAssetBatch. This dynamic default is not inserted by JSON Schema." },
+        "style": { "$ref": "#/$defs/symbol", "default": "custom" },
+        "variant": { "$ref": "#/$defs/symbol", "default": "default" },
+        "slice": { "$ref": "#/$defs/slice", "default": null }
+      }
+    }
+  }
+}

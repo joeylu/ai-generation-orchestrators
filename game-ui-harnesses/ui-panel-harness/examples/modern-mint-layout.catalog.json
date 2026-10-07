@@ -1,0 +1,201 @@
+{
+  "catalogVersion": "0.1",
+  "id": "modern-mint-layout",
+  "version": "0.1.0",
+  "themes": [
+    {
+      "id": "modern-mint-light",
+      "version": "0.1.0",
+      "tokens": {
+        "background": "#152D35",
+        "surface": "#FFFFFF",
+        "control": "#EDF4F2",
+        "accent": "#168674",
+        "text": "#1B3438",
+        "muted": "#57716F",
+        "border": "#D7E4E0",
+        "fontFamily": "sans-serif",
+        "fontSize": 16,
+        "headingSize": 20,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 12
+      }
+    }
+  ],
+  "recipes": [
+    {
+      "id": "settings.panel",
+      "version": "0.1.0",
+      "kind": "panel",
+      "description": "自有程序化设置面板，包含标题及纵向内容区域。Procedural settings panel with a title and vertical content.",
+      "tags": [
+        "设置面板",
+        "设置页",
+        "settings panel",
+        "settings",
+        "panel"
+      ],
+      "states": [
+        "idle"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 320,
+      "minHeight": 160
+    },
+    {
+      "id": "settings.section",
+      "version": "0.1.0",
+      "kind": "section",
+      "description": "自有程序化设置分组，包含分组标题和设置行。Procedural titled section for related settings rows.",
+      "tags": [
+        "设置分组",
+        "分组",
+        "section",
+        "group"
+      ],
+      "states": [
+        "idle"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 80
+    },
+    {
+      "id": "settings.slider",
+      "version": "0.1.0",
+      "kind": "slider-row",
+      "description": "自有程序化数值设置行，组合标签、滑条和数值文字，适用于音量等有界数值。Procedural labeled slider with a value readout.",
+      "tags": [
+        "音量",
+        "声音大小",
+        "响度",
+        "滑条",
+        "百分比",
+        "volume",
+        "loudness",
+        "slider",
+        "range"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "dragging",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 56
+    },
+    {
+      "id": "settings.switch",
+      "version": "0.1.0",
+      "kind": "switch-row",
+      "description": "自有程序化布尔设置行，组合标签与开关；开关含义由面板方案显式声明。Procedural labeled switch for an explicit boolean setting.",
+      "tags": [
+        "声音开关",
+        "开关",
+        "启用声音",
+        "静音",
+        "布尔",
+        "mute",
+        "toggle",
+        "switch",
+        "sound enabled"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "checked",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 56
+    },
+    {
+      "id": "settings.select",
+      "version": "0.1.0",
+      "kind": "select-row",
+      "description": "自有程序化枚举设置行，组合标签与下拉菜单，适用于明确的画质档位等有限选项。Procedural labeled select for explicit enumerated settings.",
+      "tags": [
+        "画质",
+        "画质档位",
+        "下拉",
+        "选项",
+        "选择",
+        "quality",
+        "dropdown",
+        "select"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "pressed",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 56
+    },
+    {
+      "id": "settings.button",
+      "version": "0.1.0",
+      "kind": "button-row",
+      "description": "自有程序化操作行，组合标签与按钮；动作仅限通知宿主或重置明确列出的状态初值。Procedural labeled action button with explicit emit or reset-initial behavior.",
+      "tags": [
+        "恢复默认",
+        "重置",
+        "按钮",
+        "操作",
+        "reset",
+        "button",
+        "action"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "pressed",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 56
+    },
+    {
+      "id": "settings.text",
+      "version": "0.1.0",
+      "kind": "text-row",
+      "description": "自有程序化只读信息行，组合标签与单行文字，不绑定可变状态，不发出事件。Procedural read-only labeled text for character and summary information.",
+      "tags": [
+        "角色信息",
+        "信息",
+        "文本",
+        "只读",
+        "character",
+        "text",
+        "information"
+      ],
+      "states": [
+        "idle"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 240,
+      "minHeight": 40
+    }
+  ]
+}

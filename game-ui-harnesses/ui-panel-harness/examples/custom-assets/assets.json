@@ -1,0 +1,31 @@
+{
+  "assetBatchVersion": "0.1",
+  "namespace": "game-ui",
+  "assets": [
+    {
+      "id": "mute",
+      "version": "1.0.0",
+      "file": "mute.svg",
+      "name": "静音",
+      "role": "icon",
+      "family": "audio.mute",
+      "style": "modern-mint",
+      "variant": "outline",
+      "tags": ["静音", "声音", "音频", "mute", "audio"],
+      "size": { "width": 64, "height": 64 }
+    },
+    {
+      "id": "panel-surface",
+      "version": "1.0.0",
+      "file": "panel-surface.png",
+      "name": "柔角面板背景",
+      "role": "shape",
+      "family": "panel.surface",
+      "style": "modern-mint",
+      "variant": "filled",
+      "tags": ["面板", "背景", "圆角", "panel", "surface"],
+      "size": { "width": 64, "height": 64 },
+      "slice": { "left": 12, "top": 12, "right": 12, "bottom": 12 }
+    }
+  ]
+}

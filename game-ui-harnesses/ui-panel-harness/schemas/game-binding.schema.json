@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Panel game binding 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["gameBindingVersion", "panelId", "panelSha256", "states", "commands"],
+  "properties": {
+    "gameBindingVersion": {"const": "0.1"},
+    "panelId": {"type": "string", "minLength": 1},
+    "panelSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "states": {
+      "type": "array", "maxItems": 128,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["fieldId", "key", "direction"],
+        "properties": {
+          "fieldId": {"type": "string", "minLength": 1},
+          "key": {"$ref": "#/$defs/key"},
+          "direction": {"enum": ["two-way", "from-game", "to-game"]}
+        }
+      }
+    },
+    "commands": {
+      "type": "array", "maxItems": 128,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["rowId", "command", "payload", "concurrency"],
+        "properties": {
+          "rowId": {"type": "string", "minLength": 1},
+          "command": {"$ref": "#/$defs/key"},
+          "payload": {"type": "object", "propertyNames": {"$ref": "#/$defs/key"}, "additionalProperties": {"type": "string", "minLength": 1}},
+          "concurrency": {"enum": ["drop", "replace"]}
+        }
+      }
+    }
+  },
+  "$defs": {"key": {"type": "string", "maxLength": 64, "pattern": "^(?!__proto__$|constructor$|prototype$)[A-Za-z][A-Za-z0-9_.-]{0,63}$"}}
+}

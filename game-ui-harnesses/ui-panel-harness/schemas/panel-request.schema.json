@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-request:0.1",
+  "title": "Panel Request 0.1",
+  "description": "An exact user request for an external Agent to interpret. No defaults, parsed business facts, or success claims are inserted.",
+  "$comment": "src/planning-context.mjs is authoritative for validation and preserving the original text. String lengths are Unicode code points, not UTF-16 offsets. CR, LF and tabs are permitted in text; other control characters and lone surrogates are rejected. Runtime snapshot checks also reject non-JSON values, accessors, cycles and custom prototypes. This schema does not validate natural-language meaning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestVersion", "id", "text", "target"],
+  "properties": {
+    "requestVersion": { "const": "0.1" },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$(?![\\s\\S])"
+    },
+    "text": {
+      "description": "Original request text, including whitespace and line endings; never normalized in the stored request.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000,
+      "allOf": [
+        { "pattern": "\\S" },
+        { "pattern": "^(?:[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])*$(?![\\s\\S])" }
+      ]
+    },
+    "target": { "const": "pixi" }
+  }
+}

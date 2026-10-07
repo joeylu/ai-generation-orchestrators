@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:codex-edit-draft:0.1",
+  "title": "Optional Codex Edit Draft 0.1",
+  "description": "Optional transport input; not a public applied edit or receipt. Exact literal quotes replace Agent-authored numeric source offsets.",
+  "$comment": "Register EditProposal 0.1, PanelPatch 0.1 and PanelSpec 0.1-0.4. src/codex-edit-draft.mjs snapshots both inputs, validates the exact context, requires one ordered basis per operation and locates each literal quote in the exact current request. For repeated identical quotes the earliest occurrence is canonical. It derives operationIndex and UTF-16 start/end, then runs the unchanged public EditProposal gate. No missing quotes, patched business values, guessed evidence, retries or success fields are allowed. Null patch requires bases:null and unresolved questions. The original accepted draft and resulting public proposal are saved separately.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["codexEditDraftVersion", "contextSha256", "patch", "bases", "unresolved"],
+  "properties": {
+    "codexEditDraftVersion": { "const": "0.1" },
+    "contextSha256": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/$defs/digest" },
+    "patch": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/properties/patch" },
+    "bases": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "array", "minItems": 1, "maxItems": 32, "items": {
+          "oneOf": [
+            { "type": "object", "additionalProperties": false, "required": ["kind", "quote"], "properties": {
+              "kind": { "const": "request-interpretation" }, "quote": { "type": "string", "minLength": 1 }
+            } },
+            { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/$defs/designChoice" }
+          ]
+        } }
+      ]
+    },
+    "unresolved": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/properties/unresolved" }
+  }
+}

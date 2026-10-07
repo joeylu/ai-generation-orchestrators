@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-edit-proposal:0.2",
+  "title": "Panel Edit Proposal 0.2 — explicit no-change result",
+  "description": "A request-bound no-change interpretation, never an applied patch or semantic approval. Ordinary edits and questions retain EditProposal 0.1. Runtime verifies literal evidence and mutually exclusive outcomes.",
+  "type": "object", "additionalProperties": false,
+  "required": ["editProposalVersion", "contextSha256", "patch", "decisions", "unresolved", "noChange"],
+  "properties": {
+    "editProposalVersion": { "const": "0.2" },
+    "contextSha256": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/$defs/digest" },
+    "patch": { "type": "null" },
+    "decisions": { "type": "array", "maxItems": 0, "items": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/$defs/decision" } },
+    "unresolved": { "type": "array", "maxItems": 0, "items": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/properties/unresolved/items" } },
+    "noChange": {
+      "type": "object", "additionalProperties": false, "required": ["reason", "basis"],
+      "properties": {
+        "reason": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/$defs/explanation" },
+        "basis": { "$ref": "urn:ai-game-assets:panel-edit-proposal:0.1#/$defs/requestInterpretation" }
+      }
+    }
+  }
+}

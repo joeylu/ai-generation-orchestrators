@@ -1,0 +1,303 @@
+{
+  "proposalVersion": "0.3",
+  "contextSha256": "91effa18ca91e57001d7b7278621888ea6f11fc79675e1bcc23bd6a1d674bcbd",
+  "spec": {
+    "panelSpecVersion": "0.3",
+    "id": "settings-controls",
+    "title": "设置",
+    "theme": {
+      "id": "modern-mint-light",
+      "version": "0.1.0"
+    },
+    "canvas": {
+      "width": 960,
+      "height": 800
+    },
+    "layout": {
+      "width": 640,
+      "padding": 32,
+      "gap": 16,
+      "sectionGap": 24,
+      "labelWidth": 160,
+      "rowHeight": 56,
+      "titleHeight": 48,
+      "sectionTitleHeight": 32
+    },
+    "state": [
+      {
+        "id": "volume",
+        "type": "number",
+        "initial": 80,
+        "min": 0,
+        "max": 100,
+        "step": 1
+      },
+      {
+        "id": "muted",
+        "type": "boolean",
+        "initial": true
+      },
+      {
+        "id": "quality",
+        "type": "enum",
+        "initial": "high",
+        "options": [
+          {
+            "id": "low",
+            "label": "低"
+          },
+          {
+            "id": "medium",
+            "label": "中"
+          },
+          {
+            "id": "high",
+            "label": "高"
+          }
+        ]
+      }
+    ],
+    "sections": [
+      {
+        "id": "preferences",
+        "title": "偏好设置",
+        "rows": [
+          {
+            "id": "volume-row",
+            "kind": "slider",
+            "recipe": {
+              "id": "settings.slider",
+              "version": "0.1.0"
+            },
+            "label": "音量",
+            "bind": "volume",
+            "enabled": true,
+            "event": "audio.volumeChanged",
+            "format": {
+              "fractionDigits": 0,
+              "prefix": "",
+              "suffix": "%"
+            }
+          },
+          {
+            "id": "mute-row",
+            "kind": "switch",
+            "recipe": {
+              "id": "settings.switch",
+              "version": "0.1.0"
+            },
+            "label": "静音",
+            "bind": "muted",
+            "enabled": true,
+            "event": "audio.muteChanged"
+          },
+          {
+            "id": "quality-row",
+            "kind": "select",
+            "recipe": {
+              "id": "settings.select",
+              "version": "0.1.0"
+            },
+            "label": "画质",
+            "bind": "quality",
+            "enabled": true,
+            "event": "graphics.qualityChanged"
+          },
+          {
+            "id": "reset-row",
+            "kind": "button",
+            "recipe": {
+              "id": "settings.button",
+              "version": "0.1.0"
+            },
+            "label": "默认设置",
+            "buttonLabel": "恢复默认",
+            "enabled": true,
+            "event": "settings.resetRequested",
+            "action": {
+              "kind": "reset-initial",
+              "fields": [
+                "volume",
+                "muted",
+                "quality"
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "provenance": {
+      "kind": "programmatic-fixture",
+      "description": "Settings controls and pinned asset acceptance fixture; no model generation or actual game settings are invoked.",
+      "assumptions": [
+        "Fixed viewport and system sans-serif font are explicit preview choices.",
+        "Mute and volume remain independent. Quality values are symbolic host-facing IDs.",
+        "Reset returns only the declared state fields to their authored initial values; external audio, graphics and persistence remain host responsibilities."
+      ]
+    },
+    "assets": {
+      "library": {
+        "id": "modern-mint-assets",
+        "sha256": "c6078f0763c270b31784ad487b8c59bd682e13126a0384ffaa20bf4112a39ee7"
+      },
+      "panelSurface": "game-ui/panel-surface@1.0.0",
+      "rowIcons": [
+        {
+          "rowId": "volume-row",
+          "asset": "modern-mint/texture-ad2392a3924b99c50f8c88cb@0.1.0"
+        },
+        {
+          "rowId": "mute-row",
+          "asset": "game-ui/mute@1.0.0"
+        }
+      ]
+    }
+  },
+  "decisions": [
+    {
+      "target": "panel",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 339,
+        "end": 348,
+        "quote": "面板标题为“设置”"
+      }
+    },
+    {
+      "target": "theme",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 5,
+        "end": 15,
+        "quote": "现代薄荷浅色设置面板"
+      }
+    },
+    {
+      "target": "canvas",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 352,
+        "end": 362,
+        "quote": "960×800 画布"
+      }
+    },
+    {
+      "target": "layout",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 363,
+        "end": 469,
+        "quote": "640 宽居中面板，padding 32、gap 16、sectionGap 24、labelWidth 160、rowHeight 56、titleHeight 48、sectionTitleHeight 32"
+      }
+    },
+    {
+      "target": "assets",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 470,
+        "end": 523,
+        "quote": "给音量行配置扬声器线条图标、静音行配置静音线条图标，并使用圆角面板背景；图标只标识用途，不随开关状态变化。"
+      }
+    },
+    {
+      "target": "asset:surface",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 497,
+        "end": 505,
+        "quote": "使用圆角面板背景"
+      }
+    },
+    {
+      "target": "asset:row:volume-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 470,
+        "end": 483,
+        "quote": "给音量行配置扬声器线条图标"
+      }
+    },
+    {
+      "target": "asset:row:mute-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 484,
+        "end": 495,
+        "quote": "静音行配置静音线条图标"
+      }
+    },
+    {
+      "target": "section:preferences",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 18,
+        "end": 26,
+        "quote": "一个偏好设置分组"
+      }
+    },
+    {
+      "target": "row:volume-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 27,
+        "end": 94,
+        "quote": "所有控件都启用。音量用滑条，范围 0–100、步长 1、初值 80，显示整数百分比，变化通知 audio.volumeChanged。"
+      }
+    },
+    {
+      "target": "row:mute-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 27,
+        "end": 167,
+        "quote": "所有控件都启用。音量用滑条，范围 0–100、步长 1、初值 80，显示整数百分比，变化通知 audio.volumeChanged。静音开关初始为 true，true 表示静音，变化通知 audio.muteChanged；静音与音量独立，切换静音保留音量，调整音量不改变静音。"
+      }
+    },
+    {
+      "target": "row:quality-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 27,
+        "end": 241,
+        "quote": "所有控件都启用。音量用滑条，范围 0–100、步长 1、初值 80，显示整数百分比，变化通知 audio.volumeChanged。静音开关初始为 true，true 表示静音，变化通知 audio.muteChanged；静音与音量独立，切换静音保留音量，调整音量不改变静音。画质用下拉菜单，依次为低（low）、中（medium）、高（high），初值为 high，变化通知 graphics.qualityChanged。"
+      }
+    },
+    {
+      "target": "row:reset-row",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 27,
+        "end": 312,
+        "quote": "所有控件都启用。音量用滑条，范围 0–100、步长 1、初值 80，显示整数百分比，变化通知 audio.volumeChanged。静音开关初始为 true，true 表示静音，变化通知 audio.muteChanged；静音与音量独立，切换静音保留音量，调整音量不改变静音。画质用下拉菜单，依次为低（low）、中（medium）、高（high），初值为 high，变化通知 graphics.qualityChanged。添加“恢复默认”按钮，一次将 volume、muted、quality 恢复到上述初值并通知 settings.resetRequested。"
+      }
+    },
+    {
+      "target": "state:volume",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 35,
+        "end": 94,
+        "quote": "音量用滑条，范围 0–100、步长 1、初值 80，显示整数百分比，变化通知 audio.volumeChanged。"
+      }
+    },
+    {
+      "target": "state:muted",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 94,
+        "end": 167,
+        "quote": "静音开关初始为 true，true 表示静音，变化通知 audio.muteChanged；静音与音量独立，切换静音保留音量，调整音量不改变静音。"
+      }
+    },
+    {
+      "target": "state:quality",
+      "basis": {
+        "kind": "request-interpretation",
+        "start": 167,
+        "end": 241,
+        "quote": "画质用下拉菜单，依次为低（low）、中（medium）、高（high），初值为 high，变化通知 graphics.qualityChanged。"
+      }
+    }
+  ],
+  "unresolved": []
+}

@@ -1,0 +1,18 @@
+{
+  "assetBatchVersion": "0.1",
+  "namespace": "game-ui",
+  "assets": [
+    {
+      "id": "mute",
+      "version": "1.1.0",
+      "file": "mute-v2.svg",
+      "name": "静音",
+      "role": "icon",
+      "family": "audio.mute",
+      "style": "modern-mint",
+      "variant": "outline",
+      "tags": ["静音", "声音", "音频", "mute", "audio"],
+      "size": { "width": 64, "height": 64 }
+    }
+  ]
+}

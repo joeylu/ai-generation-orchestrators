@@ -1,0 +1,820 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.7",
+  "title": "PanelSpec 0.7",
+  "description": "Single-line text/password inputs, retained string state, bounded required/minimum checks and scoped submit actions.",
+  "$comment": "Register PanelSpec 0.1 through 0.6. Runtime enforces UTF-16 maximum/minimum lengths, exact string bindings, valid submit field scopes, and no automatic trimming. Empty values remain representable before form submission.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.7"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/properties/canvas"
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "padding",
+        "gap",
+        "sectionGap",
+        "labelWidth",
+        "rowHeight",
+        "titleHeight",
+        "sectionTitleHeight",
+        "maxHeight",
+        "overflow",
+        "body"
+      ],
+      "properties": {
+        "width": {
+          "$ref": "#/$defs/dimension"
+        },
+        "padding": {
+          "$ref": "#/$defs/spacing"
+        },
+        "gap": {
+          "$ref": "#/$defs/spacing"
+        },
+        "sectionGap": {
+          "$ref": "#/$defs/spacing"
+        },
+        "labelWidth": {
+          "$ref": "#/$defs/dimension"
+        },
+        "rowHeight": {
+          "$ref": "#/$defs/dimension"
+        },
+        "titleHeight": {
+          "$ref": "#/$defs/dimension"
+        },
+        "sectionTitleHeight": {
+          "$ref": "#/$defs/dimension"
+        },
+        "maxHeight": {
+          "$ref": "#/$defs/dimension"
+        },
+        "overflow": {
+          "enum": [
+            "error",
+            "scroll"
+          ]
+        },
+        "body": {
+          "$ref": "#/$defs/layoutNode"
+        }
+      }
+    },
+    "state": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 128,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "urn:ai-game-assets:panel-spec:0.3#/properties/state/items"
+          },
+          {
+            "$ref": "#/$defs/progressState"
+          },
+          {
+            "$ref": "#/$defs/stringState"
+          }
+        ]
+      }
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "rows"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "title": {
+            "$ref": "#/$defs/text"
+          },
+          "rows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/sliderRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/switchRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/selectRow"
+                },
+                {
+                  "$ref": "#/$defs/buttonRow"
+                },
+                {
+                  "$ref": "#/$defs/textRow"
+                },
+                {
+                  "$ref": "#/$defs/progressRow"
+                },
+                {
+                  "$ref": "#/$defs/inputRow"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/properties/provenance"
+    },
+    "assets": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/properties/assets"
+    },
+    "tabs": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "recipe",
+            "bind",
+            "event",
+            "enabled",
+            "pages"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "recipe": {
+              "$ref": "#/$defs/reference"
+            },
+            "bind": {
+              "$ref": "#/$defs/id"
+            },
+            "event": {
+              "$ref": "#/$defs/symbol"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "pages": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "label",
+                  "sections"
+                ],
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "label": {
+                    "$ref": "#/$defs/text"
+                  },
+                  "sections": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "items": {
+                      "$ref": "#/$defs/id"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/id"
+    },
+    "symbol": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/symbol"
+    },
+    "reference": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/reference"
+    },
+    "text": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/text"
+    },
+    "dimension": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/dimension"
+    },
+    "spacing": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/spacing"
+    },
+    "layoutNode": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sectionNode"
+        },
+        {
+          "$ref": "#/$defs/columnNode"
+        },
+        {
+          "$ref": "#/$defs/rowNode"
+        },
+        {
+          "$ref": "#/$defs/gridNode"
+        }
+      ]
+    },
+    "sectionNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "sectionId",
+        "width"
+      ],
+      "properties": {
+        "kind": {
+          "const": "section"
+        },
+        "sectionId": {
+          "$ref": "#/$defs/id"
+        },
+        "width": {
+          "oneOf": [
+            {
+              "const": "fill"
+            },
+            {
+              "$ref": "#/$defs/dimension"
+            }
+          ]
+        }
+      }
+    },
+    "columnNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "width",
+        "gap",
+        "align",
+        "children"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "column"
+        },
+        "width": {
+          "oneOf": [
+            {
+              "const": "fill"
+            },
+            {
+              "$ref": "#/$defs/dimension"
+            }
+          ]
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 96,
+          "items": {
+            "$ref": "#/$defs/layoutNode"
+          }
+        }
+      }
+    },
+    "rowNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "width",
+        "gap",
+        "align",
+        "children"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "row"
+        },
+        "width": {
+          "oneOf": [
+            {
+              "const": "fill"
+            },
+            {
+              "$ref": "#/$defs/dimension"
+            }
+          ]
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 96,
+          "items": {
+            "$ref": "#/$defs/layoutNode"
+          }
+        }
+      }
+    },
+    "gridNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "width",
+        "gap",
+        "align",
+        "children",
+        "minColumnWidth"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "grid"
+        },
+        "width": {
+          "oneOf": [
+            {
+              "const": "fill"
+            },
+            {
+              "$ref": "#/$defs/dimension"
+            }
+          ]
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 96,
+          "items": {
+            "$ref": "#/$defs/layoutNode"
+          }
+        },
+        "minColumnWidth": {
+          "$ref": "#/$defs/dimension"
+        }
+      }
+    },
+    "buttonRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "enabled",
+        "event",
+        "buttonLabel",
+        "action"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/id"
+        },
+        "kind": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/kind"
+        },
+        "recipe": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/recipe"
+        },
+        "label": {
+          "oneOf": [
+            {
+              "const": ""
+            },
+            {
+              "$ref": "#/$defs/text"
+            }
+          ]
+        },
+        "enabled": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/enabled"
+        },
+        "event": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/event"
+        },
+        "buttonLabel": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/buttonLabel"
+        },
+        "action": {
+          "oneOf": [
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/action"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "fields"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "submit"
+                },
+                "fields": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 128,
+                  "uniqueItems": true,
+                  "items": {
+                    "$ref": "#/$defs/id"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "textRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "text"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "text"
+        },
+        "recipe": {
+          "$ref": "#/$defs/reference"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "text": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "pattern": "^[^  ]*$(?![\\s\\S])"
+            }
+          ]
+        }
+      }
+    },
+    "progressState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "initial",
+        "max"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "progress"
+        },
+        "initial": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "progressRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "bind",
+        "format"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "progress"
+        },
+        "recipe": {
+          "$ref": "#/$defs/reference"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "bind": {
+          "$ref": "#/$defs/id"
+        },
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "fractionDigits"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "percent",
+                "value"
+              ]
+            },
+            "fractionDigits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            }
+          }
+        }
+      }
+    },
+    "inputValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "minLength",
+        "requiredMessage",
+        "minLengthMessage"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 512
+        },
+        "requiredMessage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[^\\p{Cc}\\p{Cs}\\u2028\\u2029]*\\S[^\\p{Cc}\\p{Cs}\\u2028\\u2029]*$(?![\\s\\S])"
+        },
+        "minLengthMessage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[^\\p{Cc}\\p{Cs}\\u2028\\u2029]*\\S[^\\p{Cc}\\p{Cs}\\u2028\\u2029]*$(?![\\s\\S])"
+        }
+      }
+    },
+    "stringState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "initial",
+        "maxLength"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "string"
+        },
+        "initial": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^[^\\p{Cc}\\p{Cs}\\u2028\\u2029]*$(?![\\s\\S])"
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        }
+      }
+    },
+    "inputRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "enabled",
+        "event",
+        "bind",
+        "placeholder",
+        "inputType",
+        "readOnly",
+        "validation"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "input"
+        },
+        "recipe": {
+          "$ref": "#/$defs/reference"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "event": {
+          "$ref": "#/$defs/symbol"
+        },
+        "bind": {
+          "$ref": "#/$defs/id"
+        },
+        "placeholder": {
+          "type": "string",
+          "maxLength": 120,
+          "pattern": "^[^\\p{Cc}\\p{Cs}\\u2028\\u2029]*$(?![\\s\\S])"
+        },
+        "inputType": {
+          "enum": [
+            "text",
+            "password"
+          ]
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "validation": {
+          "$ref": "#/$defs/inputValidation"
+        }
+      }
+    },
+    "submitButtonRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "enabled",
+        "event",
+        "buttonLabel",
+        "action"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/id"
+        },
+        "kind": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/kind"
+        },
+        "recipe": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/recipe"
+        },
+        "label": {
+          "oneOf": [
+            {
+              "const": ""
+            },
+            {
+              "$ref": "#/$defs/text"
+            }
+          ]
+        },
+        "enabled": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/enabled"
+        },
+        "event": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/event"
+        },
+        "buttonLabel": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/buttonRow/properties/buttonLabel"
+        },
+        "action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "fields"
+          ],
+          "properties": {
+            "kind": {
+              "const": "submit"
+            },
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 128,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

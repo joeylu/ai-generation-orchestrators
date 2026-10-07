@@ -1,0 +1,1 @@
+请生成一个现代薄荷浅色设置面板，包含一个偏好设置分组，所有控件都启用。音量用滑条，范围 0–100、步长 1、初值 80，显示整数百分比，变化通知 audio.volumeChanged。静音开关初始为 true，true 表示静音，变化通知 audio.muteChanged；静音与音量独立，切换静音保留音量，调整音量不改变静音。画质用下拉菜单，依次为低（low）、中（medium）、高（high），初值为 high，变化通知 graphics.qualityChanged。添加“恢复默认”按钮，一次将 volume、muted、quality 恢复到上述初值并通知 settings.resetRequested。只做面板状态与宿主事件，不接入真实音频、画质或存档。

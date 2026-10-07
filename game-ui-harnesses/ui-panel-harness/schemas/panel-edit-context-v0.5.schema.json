@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-edit-context:0.5",
+  "title": "Selected-control PanelEditContext",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "editContextVersion",
+    "request",
+    "spec",
+    "catalog",
+    "baseSpecSha256",
+    "catalogSha256",
+    "selection",
+    "capabilities",
+    "sha256"
+  ],
+  "properties": {
+    "editContextVersion": {
+      "const": "0.5"
+    },
+    "request": {
+      "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/request"
+    },
+    "spec": {
+      "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/spec"
+    },
+    "catalog": {
+      "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/catalog"
+    },
+    "baseSpecSha256": {
+      "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/baseSpecSha256"
+    },
+    "catalogSha256": {
+      "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/catalogSha256"
+    },
+    "sha256": {
+      "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/sha256"
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rowId"
+      ],
+      "properties": {
+        "rowId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operations",
+        "target",
+        "statePolicy",
+        "semanticReview",
+        "themePolicy",
+        "appearancePolicy",
+        "actionLayoutPolicy",
+        "buttonStylePolicy",
+        "selectionPolicy"
+      ],
+      "properties": {
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "set-row-label",
+              "set-row-enabled",
+              "set-state-initial",
+              "remove-row",
+              "set-button-label",
+              "set-button-action",
+              "set-input-properties",
+              "set-text",
+              "set-button-style"
+            ]
+          }
+        },
+        "target": {
+          "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/capabilities/properties/target"
+        },
+        "statePolicy": {
+          "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/capabilities/properties/statePolicy"
+        },
+        "semanticReview": {
+          "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/capabilities/properties/semanticReview"
+        },
+        "themePolicy": {
+          "const": "explicit-change-v1"
+        },
+        "appearancePolicy": {
+          "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/capabilities/properties/appearancePolicy"
+        },
+        "actionLayoutPolicy": {
+          "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/capabilities/properties/actionLayoutPolicy"
+        },
+        "buttonStylePolicy": {
+          "$ref": "urn:ai-game-assets:panel-edit-context:0.4#/properties/capabilities/properties/buttonStylePolicy"
+        },
+        "selectionPolicy": {
+          "const": "selected-row-v1"
+        }
+      }
+    }
+  },
+  "$comment": "Runtime recomputes the exact ordered capabilities for the selected row kind, verifies that row exists, and rejects operations affecting another row. Unselected contexts retain versions 0.1-0.4 unchanged."
+}

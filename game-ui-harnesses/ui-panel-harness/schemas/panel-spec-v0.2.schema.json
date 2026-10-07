@@ -1,0 +1,502 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.2",
+  "title": "PanelSpec 0.2",
+  "description": "Explicit source contract for fixed-canvas settings panels with digest-bound asset selections. No defaults are inferred.",
+  "$comment": "src/spec.mjs is authoritative for cross-reference checks, unique IDs/events/bindings, total row count, min/max/step alignment, unused state, finite JavaScript numbers and JSON-only object safety. JSON Schema alone does not establish these invariants. PanelSpec 0.2 also requires an existing, unique row ID for each row icon. Asset library identity, content, selected asset existence and compatible roles are resolved outside this schema and the structural validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.2"
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "$ref": "#/$defs/text"
+    },
+    "theme": {
+      "$ref": "#/$defs/reference"
+    },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height"
+      ],
+      "properties": {
+        "width": {
+          "$ref": "#/$defs/dimension"
+        },
+        "height": {
+          "$ref": "#/$defs/dimension"
+        }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "padding",
+        "gap",
+        "sectionGap",
+        "labelWidth",
+        "rowHeight",
+        "titleHeight",
+        "sectionTitleHeight"
+      ],
+      "properties": {
+        "width": {
+          "$ref": "#/$defs/dimension"
+        },
+        "padding": {
+          "$ref": "#/$defs/spacing"
+        },
+        "gap": {
+          "$ref": "#/$defs/spacing"
+        },
+        "sectionGap": {
+          "$ref": "#/$defs/spacing"
+        },
+        "labelWidth": {
+          "$ref": "#/$defs/dimension"
+        },
+        "rowHeight": {
+          "$ref": "#/$defs/dimension"
+        },
+        "titleHeight": {
+          "$ref": "#/$defs/dimension"
+        },
+        "sectionTitleHeight": {
+          "$ref": "#/$defs/dimension"
+        }
+      }
+    },
+    "state": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/numberState"
+          },
+          {
+            "$ref": "#/$defs/booleanState"
+          }
+        ]
+      }
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "rows"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "title": {
+            "$ref": "#/$defs/text"
+          },
+          "rows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sliderRow"
+                },
+                {
+                  "$ref": "#/$defs/switchRow"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "description",
+        "assumptions"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "programmatic-fixture",
+            "user-authored",
+            "agent-authored"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "allOf": [
+            {
+              "pattern": "\\S"
+            },
+            {
+              "$ref": "#/$defs/printable"
+            }
+          ]
+        },
+        "assumptions": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "allOf": [
+              {
+                "pattern": "\\S"
+              },
+              {
+                "$ref": "#/$defs/printable"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "assets": {
+      "$ref": "#/$defs/assets"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$(?![\\s\\S])"
+    },
+    "symbol": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*(?:\\.[A-Za-z][A-Za-z0-9_-]*)*$(?![\\s\\S])"
+    },
+    "reference": {
+      "description": "Pinned catalog reference; existence, kind and implementation support are validated by the catalog resolver/compiler.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/symbol"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$(?![\\s\\S])"
+        }
+      }
+    },
+    "printable": {
+      "type": "string",
+      "pattern": "^(?:[^\\u0000-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])*$(?![\\s\\S])"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "allOf": [
+        {
+          "pattern": "\\S"
+        },
+        {
+          "$ref": "#/$defs/printable"
+        }
+      ]
+    },
+    "affix": {
+      "type": "string",
+      "maxLength": 32,
+      "allOf": [
+        {
+          "$ref": "#/$defs/printable"
+        }
+      ]
+    },
+    "dimension": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "spacing": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4096
+    },
+    "numberState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "initial",
+        "min",
+        "max",
+        "step"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "number"
+        },
+        "initial": {
+          "type": "number"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "booleanState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "initial"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "boolean"
+        },
+        "initial": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sliderRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "bind",
+        "enabled",
+        "event",
+        "format"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "slider"
+        },
+        "recipe": {
+          "$ref": "#/$defs/reference"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "bind": {
+          "$ref": "#/$defs/id"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "event": {
+          "$ref": "#/$defs/symbol"
+        },
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fractionDigits",
+            "prefix",
+            "suffix"
+          ],
+          "properties": {
+            "fractionDigits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "prefix": {
+              "$ref": "#/$defs/affix"
+            },
+            "suffix": {
+              "$ref": "#/$defs/affix"
+            }
+          }
+        }
+      }
+    },
+    "switchRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "bind",
+        "enabled",
+        "event"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "switch"
+        },
+        "recipe": {
+          "$ref": "#/$defs/reference"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "bind": {
+          "$ref": "#/$defs/id"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "event": {
+          "$ref": "#/$defs/symbol"
+        }
+      }
+    },
+    "assetSlug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9-]{0,63}$(?![\\s\\S])"
+    },
+    "exactAssetKey": {
+      "type": "string",
+      "maxLength": 153,
+      "description": "Exact namespace/id@major.minor.patch identity; each lowercase slug is at most 64 characters and each numeric version part is at most 1000000.",
+      "pattern": "^[a-z][a-z0-9-]{0,63}/[a-z][a-z0-9-]{0,63}@(?:0|[1-9][0-9]{0,5}|1000000)\\.(?:0|[1-9][0-9]{0,5}|1000000)\\.(?:0|[1-9][0-9]{0,5}|1000000)$(?![\\s\\S])"
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "library",
+        "panelSurface",
+        "rowIcons"
+      ],
+      "properties": {
+        "library": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "sha256"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/assetSlug"
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64,
+              "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+            }
+          }
+        },
+        "panelSurface": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/exactAssetKey"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rowIcons": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "rowId",
+              "asset"
+            ],
+            "properties": {
+              "rowId": {
+                "$ref": "#/$defs/id"
+              },
+              "asset": {
+                "$ref": "#/$defs/exactAssetKey"
+              }
+            }
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "panelSurface": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "properties": {
+            "rowIcons": {
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

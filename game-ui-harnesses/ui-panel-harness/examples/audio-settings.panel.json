@@ -1,0 +1,59 @@
+{
+  "panelSpecVersion": "0.1",
+  "id": "audio-settings",
+  "title": "设置",
+  "theme": { "id": "modern-dark", "version": "0.1.0" },
+  "canvas": { "width": 960, "height": 640 },
+  "layout": {
+    "width": 640,
+    "padding": 32,
+    "gap": 20,
+    "sectionGap": 28,
+    "labelWidth": 160,
+    "rowHeight": 56,
+    "titleHeight": 48,
+    "sectionTitleHeight": 32
+  },
+  "state": [
+    { "id": "volume", "type": "number", "initial": 80, "min": 0, "max": 100, "step": 1 },
+    { "id": "audioEnabled", "type": "boolean", "initial": true }
+  ],
+  "sections": [
+    {
+      "id": "audio",
+      "title": "音频",
+      "rows": [
+        {
+          "id": "volume-row",
+          "kind": "slider",
+          "recipe": { "id": "settings.slider", "version": "0.1.0" },
+          "label": "音量",
+          "bind": "volume",
+          "enabled": true,
+          "event": "audio.volumeChanged",
+          "format": { "fractionDigits": 0, "prefix": "", "suffix": "%" }
+        },
+        {
+          "id": "audio-enabled-row",
+          "kind": "switch",
+          "recipe": { "id": "settings.switch", "version": "0.1.0" },
+          "label": "启用声音",
+          "bind": "audioEnabled",
+          "enabled": true,
+          "event": "audio.enabledChanged"
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "kind": "programmatic-fixture",
+    "description": "自有程序化现代主题的设置面板夹具；仅用于验证确定性合同，不含 MUIP 素材，也不代表用户最终美术或业务验收。",
+    "assumptions": [
+      "预览初始音量为 80，整数范围 0–100，步长 1；初始值是夹具数据，不是玩家当前设置。",
+      "audioEnabled=true 表示启用声音；关闭后保留音量，并允许继续调整音量。",
+      "Pixi 滑条拖动期间更新可见数值文字，在指针释放或键盘步进时提交状态并回调宿主；开关切换时提交。初始化与状态恢复不模拟用户操作。",
+      "实际音频、持久化与单位转换由宿主负责；本面板不包含应用、取消或恢复默认行为。",
+      "固定参考画布为 960×640；画布缩放不代表响应式重排。"
+    ]
+  }
+}

@@ -1,5 +1,7 @@
 import { formatValueText } from './value-text-bindings.ts';
+import { preparePixiTextLanguage } from './pixi-text-language.ts';
 import { linkageTransition, visibleLinkageItems, quantityValue, writeQuantity, linkageTotal } from './component-linkages.ts';
+import { applyInteractionCopy, buttonInteractionEnabled, interactionEffects, nextInputStep, prepareInteractionCopies, snapshotInteractionDocument, type InteractionBaselines } from './button-interactions.ts';
 import { insetThumbGeometry } from './scrollbar-insets.ts';
 import { treeResourceReferences } from './tree-resources.ts';
 import { scrollHitArea } from './scroll-hit-area.ts';
@@ -46,7 +48,8 @@ export interface RuntimeNodeInspection {
     textBounds?: Array<{text:string;bounds:RuntimeBounds;fontFamily:string;fontSize:number}> }>;
   visibleItemIds?: string[];
   renderedLabels?: Array<{text:string;x:number;y:number;width:number;height:number}>;
-  renderedTextBounds?: Array<{text:string;bounds:RuntimeBounds;fontFamily:string;fontSize:number}>;
+  renderedTextBounds?: Array<{text:string;bounds:RuntimeBounds;fontFamily:string;fontSize:number;
+    implicitTruncation?: { textId: string; requestedText: string; overflowAxis: 'x' | 'y' | 'both'; ellipsisFits: boolean } }>;
   id: string;
   type: UiNode['type'];
   bounds: RuntimeBounds;
@@ -217,6 +220,7 @@ class TreeResources {
         if (appearance.backgroundImage) part(appearance.backgroundImage, appearance.sourceCanvas, 'LIST_BACKGROUND_CANVAS_MISMATCH');
         part(appearance.rowImage, appearance.rowCanvas, 'LIST_ROW_CANVAS_MISMATCH');
         part(appearance.selectedRowImage, appearance.selectedRowCanvas, 'LIST_SELECTED_ROW_CANVAS_MISMATCH');
+        if (appearance.selectedIndicator) part(appearance.selectedIndicator.image, appearance.selectedIndicator.canvas, 'LIST_INDICATOR_CANVAS_MISMATCH');
       }
       if (node.type === 'Panel' && node.props.appearance) {
         const appearance = node.props.appearance;
@@ -315,11 +319,13 @@ interface RuntimeRecord {
   sliderTextures?: { track: Texture; fill: Texture; thumb: Texture };
   containerTexture?: Texture;
   scrollTextures?: { viewport: Texture; scrollbarTrack: Texture; scrollbarThumb: Texture };
-  listTextures?: { background?: Texture; row: Texture; selectedRow: Texture };
+  listTextures?: { background?: Texture; row: Texture; selectedRow: Texture; indicator?: Texture };
   panelTextures?: { background: Texture; header?: Texture; body?: Texture };
   dialogTextures?: { background: Texture; header: Texture; body?: Texture; overlay?: Texture };
   tabsTextures?: { tab: Texture; activeTab: Texture; items: Map<string, { tab: Texture; activeTab: Texture }>; icons: Map<string, { icon: Texture; activeIcon: Texture }> };
   buttonTexture?: Texture;
+  imageRelease?: () => void;
+  imageCropTexture?: Texture;
   selectTextures?: { field: Texture; arrow: Texture; popup: Texture; icons: Map<string, Texture> };
   userVisible: boolean;
   tabVisible: boolean;
@@ -332,6 +338,7 @@ interface RuntimeRecord {
   dialogDetached: boolean;
   logicalDialogTransform?: Matrix;
   dialogClosing: boolean;
+  dialogOpener?: RuntimeRecord;
   redraw?: () => void;
   updateContentPosition?: () => void;
   updateTabs?: () => void;
@@ -346,6 +353,7 @@ interface RuntimeRecord {
 
 interface MountedScope {
   document: UiDocument;
+  interactionBaselines: InteractionBaselines;
   holder: Container;
   /** Full-canvas modal backdrops are intentionally separate from animated panels. */
   modalLayer: Container;
@@ -390,7 +398,8 @@ function addClip(parent: Container, width: number, height: number): Container {
 
 function fits(text: Text, layout: Layout): boolean { return text.width <= layout.width + 0.01 && text.height <= layout.height + 0.01; }
 
-function makeText(node: TextNode, value = node.props.text): Text {
+const implicitTextTruncations = new WeakMap<Text, { textId: string; requestedText: string; overflowAxis: 'x' | 'y' | 'both'; ellipsisFits: boolean }>();
+function makeText(node: TextNode, value = node.props.text, implicitLabel = false): Text {
   const { props } = node;
   const text = new Text({
     text: value,
@@ -406,6 +415,7 @@ function makeText(node: TextNode, value = node.props.text): Text {
     },
   });
   if (props.overflow === 'ellipsis' && !fits(text, node.layout)) {
+    const horizontal = text.width > node.layout.width + 0.01, vertical = text.height > node.layout.height + 0.01;
     const codepoints = [...value];
     let low = 0, high = codepoints.length;
     while (low < high) {
@@ -415,6 +425,8 @@ function makeText(node: TextNode, value = node.props.text): Text {
       else high = middle - 1;
     }
     text.text = low === 0 ? '…' : `${codepoints.slice(0, low).join('')}…`;
+    if (implicitLabel) implicitTextTruncations.set(text, { textId: node.id, requestedText: value,
+      overflowAxis: horizontal && vertical ? 'both' : horizontal ? 'x' : 'y', ellipsisFits: fits(text, node.layout) });
   }
   if (props.overflow === 'error' && !fits(text, node.layout)) {
     text.destroy();
@@ -431,7 +443,7 @@ function drawTextNode(record: RuntimeRecord): void {
   target.addChild(makeText(record.boundText===undefined?node:{...node,props:{...node.props,text:record.boundText}}));
 }
 
-function cloneForSnapshot(document: UiDocument): UiDocument { return validateDocument(structuredClone(document)); }
+function cloneForSnapshot(document: UiDocument, baselines: InteractionBaselines): UiDocument { return validateDocument(snapshotInteractionDocument(document, baselines)); }
 
 async function defaultFontResolver(source: string, signal: AbortSignal): Promise<ArrayBuffer> {
   const timeout = AbortSignal.timeout(10_000);
@@ -449,6 +461,7 @@ async function defaultFontResolver(source: string, signal: AbortSignal): Promise
 /** Create a PixiJS-backed preview. UI documents and runtime events remain engine-neutral. */
 export async function createTreePreview(host: HTMLElement, onFatal: (error: unknown) => void): Promise<TreePreview> {
   if (typeof PointerEvent !== 'function') throw new Error('UNSUPPORTED_BROWSER: Pointer Events are required');
+  preparePixiTextLanguage();
   const app = new Application();
   await app.init({ width: 1, height: 1, backgroundAlpha: 0, antialias: true, resolution: 1, preference: 'webgl', autoStart: false });
   const canvas = app.canvas as HTMLCanvasElement;
@@ -501,6 +514,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   }
   function neverItem(): never {throw Error('LINKAGE_LIST_TYPE');}
   function linkageEnabled(record:RuntimeRecord):boolean {
+    if (!buttonInteractionEnabled(record.scope.document, record.node)) return false;
     const p=record.scope.document.componentLinkages?.pipelines.find(p=>p.purchase.buttonId===record.node.id);
     if(!p||p.purchase.emptySelection==='enabled')return true;
     const list=record.scope.records.get(p.listId)!;
@@ -595,6 +609,26 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const event: TreeRuntimeEvent = { type, id: record.node.id, source, sourceId: record.node.id, targetId };
     if (value !== undefined) event.value = value;
     if(type==='change'||type==='activate')updateLinkages(event);
+    if (type === 'activate' && record.node.type === 'Button' && record.node.props.interaction?.mode === 'internal') {
+      for (const effect of record.node.props.interaction.effects) {
+        if (effect.kind === 'dialog-open') {
+          const target = record.scope.records.get(effect.targetId);
+          if (effect.open && target?.node.type === 'Dialog' && !target.node.props.open) target.dialogOpener = record;
+          api.setValue(effect.targetId, effect.open);
+        }
+        else if (effect.kind === 'input-step') {
+          const next = nextInputStep(record.scope.document, effect);
+          if (next !== null) api.setValue(effect.targetId, next);
+        } else {
+          applyInteractionCopy(record.scope.document, effect);
+          record.scope.records.get(effect.targetId)!.redraw?.();
+        }
+      }
+      render();
+    }
+    if (type === 'activate' || type === 'change') for (const target of record.scope.records.values()) {
+      if (target.node.type === 'Button') updateNodeAlpha(target);
+    }
     for (const listener of [...listeners]) {
       try { listener(event); } catch (error) { reportFatal(error); }
     }
@@ -751,6 +785,33 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     }
     return true;
   }
+  function restoreDialogFocus(record: RuntimeRecord): void {
+    if (record.node.type !== 'Dialog' || record.node.props.open || record.dialogClosing) return;
+    const opener = record.dialogOpener; record.dialogOpener = undefined;
+    if (opener && keyboardEligible(opener)) { setKeyboardFocus(opener); return; }
+    if (keyboardFocus && !keyboardEligible(keyboardFocus)) setKeyboardFocus(undefined);
+    if (currentModal(record.scope) && !keyboardFocus) setKeyboardFocus([...record.scope.records.values()].find(keyboardEligible));
+  }
+  function revealListSelection(record: RuntimeRecord): void {
+    if (record.node.type !== 'List' || record.node.props.selectedId === null) return;
+    const selectedId = record.node.props.selectedId;
+    const index = listItems(record).findIndex(item => item.id === selectedId);
+    if (index < 0) return;
+    const start = index * record.node.props.itemHeight;
+    const end = start + record.node.props.itemHeight - (record.node.props.rowGap ?? 0);
+    for (let ancestor = record.parent; ancestor; ancestor = ancestor.parent) {
+      if (ancestor.node.type !== 'ScrollView') continue;
+      const scroll = ancestor.node;
+      const top = ancestor.view.toLocal(record.view.toGlobal({ x: 0, y: start })).y + scroll.props.scrollY;
+      const bottom = ancestor.view.toLocal(record.view.toGlobal({ x: 0, y: end })).y + scroll.props.scrollY;
+      const desired = top < scroll.props.scrollY ? top : bottom > scroll.props.scrollY + scroll.layout.height ? bottom - scroll.layout.height : scroll.props.scrollY;
+      const next = clampScroll(desired, scroll.props.contentHeight, scroll.layout.height);
+      if (next === scroll.props.scrollY) continue;
+      cancelGesturesFor(ancestor, 'list-keyboard-selection');
+      preparePresentationChange(ancestor, 'scroll', ['scrollX', 'scrollY']); scroll.props.scrollY = next;
+      ancestor.redraw?.(); ancestor.updateContentPosition?.(); emit(ancestor, 'scroll', 'keyboard', { x: scroll.props.scrollX, y: next });
+    }
+  }
   function setKeyboardFocus(record: RuntimeRecord | undefined): void {
     if (keyboardPress && keyboardPress.record !== record) cancelKeyboardPress();
     const previous = keyboardFocus; keyboardFocus = record;
@@ -810,7 +871,11 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const result: NonNullable<RuntimeNodeInspection['renderedTextBounds']> = [];
     const visit = (container: Container): void => {
       for (const child of container.children) {
-        if (child instanceof Text) { const b = child.getBounds(); result.push({text:child.text,bounds:{x:b.x/zoom,y:b.y/zoom,width:b.width/zoom,height:b.height/zoom},fontFamily:String(child.style.fontFamily),fontSize:Number(child.style.fontSize)}); }
+        if (child instanceof Text) {
+          const b = child.getBounds(), implicitTruncation = implicitTextTruncations.get(child);
+          result.push({text:child.text,bounds:{x:b.x/zoom,y:b.y/zoom,width:b.width/zoom,height:b.height/zoom},fontFamily:String(child.style.fontFamily),fontSize:Number(child.style.fontSize),
+            ...(implicitTruncation ? { implicitTruncation: { ...implicitTruncation } } : {})});
+        }
         else if (child instanceof Container) visit(child);
       }
     };
@@ -837,7 +902,16 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       if (!part.visible || !part.renderable || part.alpha <= 0) return;
       owner = owners.get(part) ?? owner;
       const mask = part.mask;
-      if (mask instanceof Container) { const b = mask.getBounds(); clip = intersect(clip, { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom }); }
+      if (mask instanceof Graphics) {
+        // Pixi excludes mask objects from ordinary getBounds() by setting
+        // measurable=false. Measure their geometry directly without changing
+        // renderer flags, then transform every corner into canvas coordinates.
+        const b = mask.bounds;
+        const points = [[b.minX, b.minY], [b.maxX, b.minY], [b.minX, b.maxY], [b.maxX, b.maxY]].map(([x, y]) => mask.toGlobal({ x, y }));
+        const xs = points.map(p => p.x / zoom), ys = points.map(p => p.y / zoom);
+        const x = Math.min(...xs), y = Math.min(...ys);
+        clip = intersect(clip, { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y });
+      } else if (mask instanceof Container) { const b = mask.getBounds(); clip = intersect(clip, { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom }); }
       if (owner && (part instanceof Sprite || part instanceof NineSliceSprite || part instanceof Graphics || part instanceof Text)) {
         if (!part.isRenderable) return;
         const b = part.getBounds(), bounds = intersect(clip, { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom });
@@ -874,7 +948,17 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const gap = node.type === 'Select' && node.props.appearance ? node.props.appearance.popupGap : 2;
     const global = record.view.toGlobal({ x: 0, y: node.layout.height + gap });
     const local = record.scope.holder.toLocal(global);
-    popup.position.copyFrom(local);
+    const surface = popup.hitArea;
+    if (!(surface instanceof Rectangle)) throw new Error('SELECT_POPUP_GEOMETRY_INVALID');
+    const canvas = record.scope.document.canvas;
+    const above = record.scope.holder.toLocal(record.view.toGlobal({ x: 0, y: -gap })).y - surface.height;
+    // Keep the full-size menu inside the canvas when it fits. Prefer the original
+    // below anchor, then flip above the field; clamping handles edge translations.
+    // Use nominal surface size so opening animation cannot change the anchor.
+    const belowFits = local.y >= 0 && local.y + surface.height <= canvas.height;
+    const aboveFits = above >= 0 && above + surface.height <= canvas.height;
+    const y = belowFits ? local.y : aboveFits ? above : Math.max(0, Math.min(local.y, canvas.height - surface.height));
+    popup.position.set(Math.max(0, Math.min(local.x, canvas.width - surface.width)), y);
   }
   function positionOpenPopup(scope: MountedScope): void {
     if (openSelect?.scope === scope) positionPopup(openSelect);
@@ -951,14 +1035,19 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
 
   function renderImage(record: RuntimeRecord): void {
     const node = record.node as ImageNode;
+    // Acquire before releasing: static Images also redraw during modal/focus
+    // changes and must never drop their sole texture between identical draws.
+    const handle = record.scope.resources.acquireImage(node.props.source);
     clear(record.paint);
+    record.imageCropTexture?.destroy(false); record.imageCropTexture = undefined;
+    record.imageRelease?.();
     if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
-    const handle = record.scope.resources.acquireImage(node.props.source); record.resourceReleases.push(handle.release);
+    record.imageRelease = handle.release;
     let texture = handle.texture;
     if (node.props.region) {
       const region = node.props.region;
       texture = new Texture({ source: handle.texture.source, frame: new Rectangle(region.x, region.y, region.width, region.height) });
-      record.cleanups.push(() => texture.destroy(false));
+      record.imageCropTexture = texture;
     }
     const sprite = new Sprite(texture);
     const sourceWidth = texture.width, sourceHeight = texture.height;
@@ -992,11 +1081,12 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   }
 
   function label(record: RuntimeRecord, value: string, x: number, y: number, width: number, height: number, style = styleOf(record.node), target: Container = record.paint): void {
+    if (value.length === 0) return;
     const synthetic: TextNode = {
       id: `${record.node.id}.label`, type: 'Text', layout: { x, y, width, height },
       props: { text: value, wrap: 'none', overflow: 'ellipsis', lineHeight: style.fontSize * 1.25, style },
     };
-    const item = makeText(synthetic); item.x = x; item.y = y + Math.max(0, (height - item.height) / 2); target.addChild(item);
+    const item = makeText(synthetic, value, true); item.x = x; item.y = y + Math.max(0, (height - item.height) / 2); target.addChild(item);
   }
   function drawButton(record: RuntimeRecord): void {
     const node = record.node;
@@ -1301,12 +1391,18 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         if (appearance && textures) { const highlighted = new Sprite(textures.selectedRow); highlighted.width = node.layout.width; highlighted.height = node.props.itemHeight - (node.props.rowGap ?? 0); highlighted.alpha = selected; row.addChild(highlighted); }
         else row.addChild(new Graphics().rect(1, 0, node.layout.width - 2, node.props.itemHeight - (node.props.rowGap ?? 0)).fill({ color: '#E3F1EC', alpha: selected }));
       }
+      if (selected > 0 && appearance?.selectedIndicator && textures?.indicator) {
+        const r = appearance.selectedIndicator.layout, marker = new Sprite(textures.indicator);
+        marker.x = r.x * node.layout.width / appearance.rowCanvas.width; marker.y = r.y * (node.props.itemHeight - (node.props.rowGap ?? 0)) / appearance.rowCanvas.height;
+        marker.width = r.width * node.layout.width / appearance.rowCanvas.width; marker.height = r.height * (node.props.itemHeight - (node.props.rowGap ?? 0)) / appearance.rowCanvas.height;
+        marker.alpha = selected; row.addChild(marker);
+      }
       if(node.props.itemContents)return;
       const labelLayout = appearance
         ? { x: appearance.labelLayout.x * node.layout.width / appearance.rowCanvas.width, y: appearance.labelLayout.y * (node.props.itemHeight - (node.props.rowGap ?? 0)) / appearance.rowCanvas.height, width: appearance.labelLayout.width * node.layout.width / appearance.rowCanvas.width, height: appearance.labelLayout.height * (node.props.itemHeight - (node.props.rowGap ?? 0)) / appearance.rowCanvas.height }
         : { x: 12, y: 0, width: node.layout.width - 24, height: node.props.itemHeight - (node.props.rowGap ?? 0) };
-      const synthetic: TextNode = { id: `${node.id}.${item.id}`, type: 'Text', layout: labelLayout, props: { text: item.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: node.props.style } };
-      const text = makeText(synthetic); text.x = labelLayout.x; text.y = labelLayout.y + Math.max(0, (labelLayout.height - text.height) / 2); row.addChild(text);
+      const synthetic: TextNode = { id: `${node.id}.${item.id}`, type: 'Text', layout: labelLayout, props: { text: item.label, wrap: 'none', overflow: 'ellipsis', lineHeight: node.props.style.fontSize * 1.25, style: selected > 0 && appearance?.selectedTextColor ? { ...node.props.style, textColor: appearance.selectedTextColor } : node.props.style } };
+      const text = makeText(synthetic, item.label, true); text.x = labelLayout.x; text.y = labelLayout.y + Math.max(0, (labelLayout.height - text.height) / 2); row.addChild(text);
     });
   }
   function drawPanel(record: RuntimeRecord): void {
@@ -1435,7 +1531,8 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   }
 
   function buildScope(document: UiDocument, resources: TreeResources): MountedScope {
-    const scope: MountedScope = { document, resources, holder: new Container(), modalLayer: new Container(), overlay: new Container(), records: new Map(), disposed: false };
+    const interactionBaselines = prepareInteractionCopies(document);
+    const scope: MountedScope = { document, interactionBaselines, resources, holder: new Container(), modalLayer: new Container(), overlay: new Container(), records: new Map(), disposed: false };
     scope.holder.addChild(scope.modalLayer);
     let ordinal = 0;
     const build = (node: UiNode, parent: Container, modalScope?: string, parentRecord?: RuntimeRecord): RuntimeRecord => {
@@ -1449,7 +1546,10 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       const record: RuntimeRecord = { scope, node, view, visual, paint, foreground, displayParent: parent, order: ordinal++, childIds: [], parent: parentRecord, modalScope, cleanups: [], resourceReleases: [], userVisible: true, tabVisible: true, destroyed: false, popupClosing: false, dialogDetached: false, dialogClosing: false, motion: {}, presentation: {}, motionKeys: new Set() };
       scope.records.set(node.id, record); updateNodeAlpha(record);
       switch (node.type) {
-        case 'Image': renderImage(record); break;
+        case 'Image':
+          record.resourceReleases.push(() => record.imageRelease?.());
+          record.cleanups.push(() => record.imageCropTexture?.destroy(false));
+          record.redraw = () => renderImage(record); record.redraw(); break;
         case 'Text': record.redraw=()=>drawTextNode(record); record.redraw(); break;
         case 'Container':
           if (node.props.appearance) {
@@ -1589,7 +1689,9 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
             const background = node.props.appearance.backgroundImage ? scope.resources.acquireImage(node.props.appearance.backgroundImage) : undefined;
             const row = scope.resources.acquireImage(node.props.appearance.rowImage);
             const selectedRow = scope.resources.acquireImage(node.props.appearance.selectedRowImage);
-            record.listTextures = {background: background?.texture, row: row.texture, selectedRow: selectedRow.texture};
+            const indicator = node.props.appearance.selectedIndicator ? scope.resources.acquireImage(node.props.appearance.selectedIndicator.image) : undefined;
+            record.listTextures = {background: background?.texture, row: row.texture, selectedRow: selectedRow.texture, indicator: indicator?.texture};
+            if (indicator) record.resourceReleases.push(indicator.release);
             if(background)record.resourceReleases.push(background.release);
             record.resourceReleases.push(row.release,selectedRow.release);
           }
@@ -1703,9 +1805,12 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         if (node.type === 'Tabs') {
           record.updateTabs = () => {
             if (record.node.type !== 'Tabs') return;
-            for (const tab of record.node.props.tabs) {
-              const child = scope.records.get(tab.contentId); if (!child) continue;
-              child.tabVisible = tab.id === record.node.props.activeId; refreshVisibility(child);
+            const { tabs, activeId } = record.node.props;
+            // Multiple tab choices may explicitly share one real content node
+            // (for example category filters over the same linked List).
+            for (const contentId of new Set(tabs.map(tab => tab.contentId))) {
+              const child = scope.records.get(contentId); if (!child) continue;
+              child.tabVisible = tabs.some(tab => tab.contentId === contentId && tab.id === activeId); refreshVisibility(child);
             }
             if (openSelect?.scope === scope && !effectiveVisible(openSelect)) closePopup(openSelect, undefined, true);
           };
@@ -1718,6 +1823,14 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     };
     try {
       scope.root = build(document.root, scope.holder);
+      // Keep copy sources and frozen target resources alive across choices.
+      const pinned = new Set<string>();
+      for (const baseline of interactionBaselines.values()) if (baseline.source) pinned.add(baseline.source);
+      for (const effect of interactionEffects(document)) if (effect.kind === 'copy-image') {
+        const source = scope.records.get(effect.sourceId)!.node;
+        if (source.type === 'Image') pinned.add(source.props.source);
+      }
+      for (const source of pinned) scope.root.resourceReleases.push(resources.acquireImage(source).release);
       // Keep transient Select menus outside the tree root. A Select's own
       // hitArea covers only its base rectangle, which must not cull menu rows.
       scope.holder.addChild(scope.modalLayer); scope.holder.addChild(scope.overlay);
@@ -2140,7 +2253,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
           return true;
         }
         if (record.node.type === 'Dialog') one('dialog', { dialogScale: values.dialogScale ?? 1, dialogAlpha: values.dialogAlpha ?? 1 }, { dialogScale: profile.enterScale, dialogAlpha: 0 }, profile.exitMs, boundedEasing, () => {
-          if (record.dialogClosing) { record.dialogClosing = false; updateDialogBlocker(record); refreshVisibility(record); render(); }
+          if (record.dialogClosing) { record.dialogClosing = false; updateDialogBlocker(record); refreshVisibility(record); restoreDialogFocus(record); render(); }
         });
         return true;
       case 'stagger':
@@ -2186,8 +2299,13 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     const eligible = active ? [...active.records.values()].filter(keyboardEligible) : [];
     if (event.key === 'Tab') {
       const index = current ? eligible.indexOf(current) : -1;
-      const next = index < 0 ? (event.shiftKey ? eligible.length - 1 : 0) : index + (event.shiftKey ? -1 : 1);
+      let next = index < 0 ? (event.shiftKey ? eligible.length - 1 : 0) : index + (event.shiftKey ? -1 : 1);
       if (openSelect) closePopup(openSelect, undefined, true);
+      if (active && currentModal(active)) {
+        event.preventDefault();
+        if (!eligible.length) { setKeyboardFocus(undefined); render(); return; }
+        next = (next + eligible.length) % eligible.length;
+      }
       if (next < 0 || next >= eligible.length) {
         if (focusedInput) blurInput(focusedInput, 'keyboard');
         canvas.focus({ preventScroll: true }); setKeyboardFocus(undefined); render(); return;
@@ -2233,6 +2351,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         preparePresentationChange(current, 'change', ['markerAlpha', 'markerY', 'listSelection', 'tabProgress']);
         if (node.type === 'Tabs') node.props.activeId = selected; else node.props.selectedId = selected;
         current.redraw?.(); current.updateTabs?.(); emit(current, 'change', 'keyboard', selected, selected);
+        if (node.type === 'List') revealListSelection(current);
         if (openSelect === current) {
           if (current.updatePopupHighlights) current.updatePopupHighlights();
           else { closePopup(current, undefined, true); toggleSelect(current); }
@@ -2305,7 +2424,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
   };
   listen(canvas, 'webglcontextlost', contextLost);
 
-  return {
+  const api: TreePreview = {
     canvas,
     async load(input, signal, resolver: ImageResolver = (source, currentSignal) => loadImage(source, currentSignal, '$.root'), fontResolver: FontResolver = defaultFontResolver): Promise<void> {
       assertAlive(); signal.throwIfAborted();
@@ -2350,7 +2469,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
         nodes: scope ? [...scope.records.values()].sort((a, b) => a.order - b.order).map(record => ({ id: record.node.id, type: record.node.type, bounds: inspectionBounds(record), visible: effectiveVisible(record), enabled: linkageEnabled(record) ? enabledOf(record.node) : false, ...(record.node.type === 'List' ? {visibleItemIds:listItems(record).map(i=>i.id)} : {}), value: inspectValue(record.node), ...(record.node.type === 'Input' ? {inputEditing: editingState(record)} : {}), renderedTextBounds: inspectRenderedText(record), ...(record.node.type === 'Select' ? {popupOpen: openSelect === record && Boolean(record.popup) && !record.popupClosing, popupItems: inspectPopupItems(record), ...(record.popup ? { popupBounds: (() => { const b = record.popup!.getBounds(); return { x: b.x / zoom, y: b.y / zoom, width: b.width / zoom, height: b.height / zoom }; })() } : {})} : {}), ...(record.node.type === 'Switch' ? {renderedLabels: record.paint.children.filter((child): child is Text => child instanceof Text).map(child=>({text:child.text,x:child.x,y:child.y,width:child.width,height:child.height}))} : {}) })) : [],
       };
     },
-    getDocument(): UiDocument { assertAlive(); if (!active) throw new Error('TREE_NOT_LOADED'); return cloneForSnapshot(active.document); },
+    getDocument(): UiDocument { assertAlive(); if (!active) throw new Error('TREE_NOT_LOADED'); return cloneForSnapshot(active.document, active.interactionBaselines); },
     setSelectOpen(id, open): void {
       const record = requireRecord(id);
       if (record.node.type !== 'Select' || typeof open !== 'boolean') throw new TypeError('SELECT_OPEN_VALUE_INVALID');
@@ -2413,11 +2532,13 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
             record.presentation.dialogScale = getMotionStyle(motionStyle ?? 'corporate').enterScale; record.presentation.dialogAlpha = 0;
           }
           record.redraw?.(); refreshVisibility(record); updateDialogBlocker(record);
+          if (!wasOpen || wasClosing) setKeyboardFocus([...record.scope.records.values()].find(keyboardEligible));
           if (!wasOpen || wasClosing) { runSystemAction(record, 'open'); emit(record, 'open', 'control'); }
         } else {
           record.dialogClosing = (wasOpen || wasClosing) && hasAction(record, 'close'); record.redraw?.(); refreshVisibility(record); updateDialogBlocker(record);
           if (record.dialogClosing) { runSystemAction(record, 'close'); emit(record, 'close', 'control'); }
           else { updateDialogBlocker(record); refreshVisibility(record); }
+          restoreDialogFocus(record);
         }
         if (openSelect && blocked(openSelect)) closePopup(openSelect, undefined, true);
       } else throw new Error(`VALUE_UNSUPPORTED: ${node.type}`);
@@ -2515,6 +2636,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       reportCleanupErrors(cleanupErrors);
     },
   };
+  return api;
 }
 
 function inspectValue(node: UiNode): RuntimeNodeInspection['value'] | undefined {

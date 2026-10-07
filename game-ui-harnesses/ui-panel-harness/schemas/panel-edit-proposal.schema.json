@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-edit-proposal:0.1",
+  "title": "Panel Edit Proposal 0.1",
+  "description": "An external Agent edit proposal bound to an exact program-generated edit context. It is input, never a success receipt or user approval.",
+  "$comment": "Register panel-patch.schema.json and all three PanelSpec schemas under their declared IDs. src/edit-planning.mjs validates the context, hash bindings, one unique decision per patch operation (zero-based operationIndex), and unique unresolved IDs. Only decisions for set-theme and set-layout may use design-choice; all other operations require request-interpretation. JSON Schema cannot use operationIndex to look up the corresponding operation, so runtime enforces this relation. Runtime also enforces UTF-16 start < end, source bounds, surrogate-pair boundaries, and quote === context.request.text.slice(start,end). Neither exact quotes nor hashes establish semantic correctness. Any unresolved item blocks application, even when patch is non-null. Runtime applies the whole patch to an isolated source and validates the resulting PanelSpec. READY_TO_APPLY certifies only structural/source evidence and patch-result Spec checks; catalog compilation and actual rendering are still required and semanticReview remains NOT_RUN.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "editProposalVersion",
+    "contextSha256",
+    "patch",
+    "decisions",
+    "unresolved"
+  ],
+  "properties": {
+    "editProposalVersion": {
+      "const": "0.1"
+    },
+    "contextSha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "patch": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "urn:ai-game-assets:panel-patch:0.1"
+        }
+      ]
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/decision"
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "question"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/id"
+          },
+          "question": {
+            "$ref": "#/$defs/explanation"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "patch": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "patch"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decisions": {
+            "maxItems": 0
+          },
+          "unresolved": {
+            "minItems": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "decisions": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+    },
+    "explanation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "allOf": [
+        {
+          "pattern": "\\S"
+        },
+        {
+          "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/printable"
+        }
+      ]
+    },
+    "requestInterpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "start",
+        "end",
+        "quote"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request-interpretation"
+        },
+        "start": {
+          "description": "Inclusive UTF-16 offset in the unchanged context.request.text; must not split a surrogate pair.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15999
+        },
+        "end": {
+          "description": "Exclusive UTF-16 offset; runtime checks it against start and the actual source length.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16000
+        },
+        "quote": {
+          "description": "Must equal context.request.text.slice(start, end) exactly, with non-whitespace content. Source matching is not proof of semantic correctness.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "allOf": [
+            {
+              "pattern": "\\S"
+            },
+            {
+              "pattern": "^(?:[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])*$(?![\\s\\S])"
+            }
+          ]
+        }
+      }
+    },
+    "designChoice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reason"
+      ],
+      "properties": {
+        "kind": {
+          "const": "design-choice"
+        },
+        "reason": {
+          "$ref": "#/$defs/explanation"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operationIndex",
+        "basis"
+      ],
+      "properties": {
+        "operationIndex": {
+          "description": "Zero-based index into patch.operations. Runtime requires exactly one decision for each operation and restricts design-choice to set-theme/set-layout.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31
+        },
+        "basis": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/requestInterpretation"
+            },
+            {
+              "$ref": "#/$defs/designChoice"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

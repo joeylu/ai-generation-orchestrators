@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-proposal:0.6",
+  "title": "PanelProposal 0.6",
+  "description": "Tabs-capable proposal with exact page membership and request evidence.",
+  "$comment": "Register PanelSpec 0.1 through 0.6. Proposal and context must both be 0.6. Navigation and page membership require exact request evidence. Programs own digest checks, source spans, compilation and readiness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalVersion",
+    "contextSha256",
+    "spec",
+    "decisions",
+    "unresolved"
+  ],
+  "properties": {
+    "proposalVersion": {
+      "const": "0.6"
+    },
+    "contextSha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+    },
+    "spec": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "allOf": [
+            {
+              "oneOf": [
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.1"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.2"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.4"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.5"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.6"
+                }
+              ]
+            },
+            {
+              "properties": {
+                "provenance": {
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "agent-authored",
+                        "programmatic-fixture"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/decision"
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "question"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/id"
+          },
+          "question": {
+            "$ref": "#/$defs/explanation"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "spec": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "spec"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decisions": {
+            "maxItems": 0
+          },
+          "unresolved": {
+            "minItems": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "decisions": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "explanation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "allOf": [
+        {
+          "pattern": "\\S"
+        },
+        {
+          "$ref": "urn:ai-game-assets:panel-spec:0.1#/$defs/printable"
+        }
+      ]
+    },
+    "target": {
+      "type": "string",
+      "maxLength": 74,
+      "oneOf": [
+        {
+          "enum": [
+            "panel",
+            "theme",
+            "canvas",
+            "layout",
+            "assets",
+            "asset:surface",
+            "tabs"
+          ]
+        },
+        {
+          "pattern": "^(?:section|row|state|tab):[A-Za-z][A-Za-z0-9_-]{0,63}$(?![\\s\\S])"
+        },
+        {
+          "pattern": "^asset:row:[A-Za-z][A-Za-z0-9_-]{0,63}$(?![\\s\\S])"
+        }
+      ]
+    },
+    "requestInterpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "start",
+        "end",
+        "quote"
+      ],
+      "properties": {
+        "kind": {
+          "const": "request-interpretation"
+        },
+        "start": {
+          "description": "Inclusive UTF-16 offset in the unchanged context.request.text; must not split a surrogate pair.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15999
+        },
+        "end": {
+          "description": "Exclusive UTF-16 offset; runtime checks it against start and the actual source length.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16000
+        },
+        "quote": {
+          "description": "Must equal context.request.text.slice(start, end) exactly, with non-whitespace content. Source matching is not proof of semantic correctness.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "allOf": [
+            {
+              "pattern": "\\S"
+            },
+            {
+              "pattern": "^(?:[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])*$(?![\\s\\S])"
+            }
+          ]
+        }
+      }
+    },
+    "designChoice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reason"
+      ],
+      "properties": {
+        "kind": {
+          "const": "design-choice"
+        },
+        "reason": {
+          "$ref": "#/$defs/explanation"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "basis"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "basis": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/requestInterpretation"
+            },
+            {
+              "$ref": "#/$defs/designChoice"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "basis": {
+                "properties": {
+                  "kind": {
+                    "const": "design-choice"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            },
+            "required": [
+              "basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "oneOf": [
+                  {
+                    "enum": [
+                      "panel",
+                      "theme",
+                      "canvas",
+                      "layout",
+                      "assets",
+                      "asset:surface"
+                    ]
+                  },
+                  {
+                    "pattern": "^section:[A-Za-z][A-Za-z0-9_-]{0,63}$(?![\\s\\S])"
+                  },
+                  {
+                    "pattern": "^asset:row:[A-Za-z][A-Za-z0-9_-]{0,63}$(?![\\s\\S])"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

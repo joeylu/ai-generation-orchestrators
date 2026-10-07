@@ -1,0 +1,163 @@
+{
+  "panelSpecVersion": "0.4",
+  "id": "layout-character",
+  "title": "角色信息",
+  "theme": {
+    "id": "modern-mint-light",
+    "version": "0.1.0"
+  },
+  "canvas": {
+    "width": 1000,
+    "height": 720
+  },
+  "layout": {
+    "width": 920,
+    "padding": 24,
+    "gap": 12,
+    "sectionGap": 20,
+    "labelWidth": 96,
+    "rowHeight": 56,
+    "titleHeight": 48,
+    "sectionTitleHeight": 32,
+    "maxHeight": 680,
+    "overflow": "error",
+    "body": {
+      "id": "character-row",
+      "kind": "row",
+      "width": "fill",
+      "gap": 24,
+      "align": "center",
+      "children": [
+        {
+          "kind": "section",
+          "sectionId": "profile",
+          "width": "fill"
+        },
+        {
+          "kind": "section",
+          "sectionId": "stats",
+          "width": "fill"
+        }
+      ]
+    }
+  },
+  "state": [],
+  "sections": [
+    {
+      "id": "profile",
+      "title": "旅者档案",
+      "rows": [
+        {
+          "id": "name-row",
+          "kind": "text",
+          "recipe": {
+            "id": "settings.text",
+            "version": "0.1.0"
+          },
+          "label": "角色名",
+          "text": "岚"
+        },
+        {
+          "id": "level-row",
+          "kind": "text",
+          "recipe": {
+            "id": "settings.text",
+            "version": "0.1.0"
+          },
+          "label": "等级",
+          "text": "Lv. 24"
+        },
+        {
+          "id": "class-row",
+          "kind": "text",
+          "recipe": {
+            "id": "settings.text",
+            "version": "0.1.0"
+          },
+          "label": "职业",
+          "text": "巡林者"
+        },
+        {
+          "id": "details-row",
+          "kind": "button",
+          "recipe": {
+            "id": "settings.button",
+            "version": "0.1.0"
+          },
+          "label": "",
+          "buttonLabel": "查看详细资料",
+          "enabled": true,
+          "event": "character.detailsRequested",
+          "action": {
+            "kind": "emit"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stats",
+      "title": "基础属性",
+      "rows": [
+        {
+          "id": "health-row",
+          "kind": "text",
+          "recipe": {
+            "id": "settings.text",
+            "version": "0.1.0"
+          },
+          "label": "生命值",
+          "text": "1280 / 1280"
+        },
+        {
+          "id": "attack-row",
+          "kind": "text",
+          "recipe": {
+            "id": "settings.text",
+            "version": "0.1.0"
+          },
+          "label": "攻击力",
+          "text": "186"
+        },
+        {
+          "id": "armor-row",
+          "kind": "text",
+          "recipe": {
+            "id": "settings.text",
+            "version": "0.1.0"
+          },
+          "label": "防御力",
+          "text": "94"
+        },
+        {
+          "id": "speed-row",
+          "kind": "text",
+          "recipe": {
+            "id": "settings.text",
+            "version": "0.1.0"
+          },
+          "label": "移动速度",
+          "text": "105"
+        },
+        {
+          "id": "critical-row",
+          "kind": "text",
+          "recipe": {
+            "id": "settings.text",
+            "version": "0.1.0"
+          },
+          "label": "暴击率",
+          "text": "18%"
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "kind": "programmatic-fixture",
+    "description": "Deterministic layout v1 acceptance fixture; authored sample values are not inferred user requirements.",
+    "assumptions": [
+      "All actions notify the host only; the preview performs no game navigation, saving or persistence.",
+      "Layout uses declared fixed text slots and a system sans-serif font."
+    ]
+  },
+  "assets": null
+}
