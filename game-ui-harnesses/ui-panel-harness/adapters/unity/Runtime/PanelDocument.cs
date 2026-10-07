@@ -24,6 +24,7 @@ namespace GameUi.PanelHarness
         public int fontSize;
         public bool bold, drawBackground;
         public string text, source, fit;
+        public string textAlignment; // Empty in legacy documents; only the panel title uses an explicit native anchor.
         public bool hasRegion;
         public float regionX, regionY, regionWidth, regionHeight;
         public float contentWidth, contentHeight;

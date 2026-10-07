@@ -1,6 +1,6 @@
 /** Harness-side viewport behavior; the shared component runtime remains unmodified. */
 export function attachLayoutSession(spec, runtime) {
-  if (!['0.4', '0.5', '0.6', '0.7'].includes(spec.panelSpecVersion)) return Object.freeze({ destroy() {} });
+  if (!['0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) return Object.freeze({ destroy() {} });
   if (typeof runtime?.getDocument !== 'function' || typeof runtime?.inspect !== 'function' || typeof runtime?.subscribe !== 'function'
       || typeof runtime?.setValue !== 'function' || typeof runtime?.setSelectOpen !== 'function') {
     throw new Error('PANEL_LAYOUT_RUNTIME_REQUIRED');

@@ -220,7 +220,7 @@ test('patch schema lists the exact operation surface and points to the existing 
   const schema = JSON.parse(readFileSync(new URL('../schemas/panel-patch.schema.json', import.meta.url), 'utf8'));
   assert.equal(schema.additionalProperties, false);
   assert.equal(schema.properties.operations.maxItems, 32);
-  assert.equal(schema.properties.operations.items.oneOf.length, 13);
+  assert.equal(schema.properties.operations.items.oneOf.length, 24);
   assert.match(schema.$comment, /overlap/);
   const digestPattern = new RegExp(schema.properties.baseSpecSha256.pattern, 'u');
   assert.equal(digestPattern.test('a'.repeat(64)), true);

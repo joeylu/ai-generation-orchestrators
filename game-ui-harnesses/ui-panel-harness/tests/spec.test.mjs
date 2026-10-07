@@ -30,7 +30,7 @@ test('required fields, future fields and future versions fail without inferred d
   rejects(value => { delete value.layout.gap; }, 'required', '$.layout.gap');
   rejects(value => { value.sections[0].rows[0].script = 'arbitrary()'; }, 'unknown-key');
   rejects(value => { value.sections[0].rows[1].format = {}; }, 'unknown-key');
-  rejects(value => { value.panelSpecVersion = '0.8'; }, 'version');
+  rejects(value => { value.panelSpecVersion = '0.99'; }, 'version');
   rejects(value => { value.theme.version = 'latest'; }, 'version');
   rejects(value => { value.sections[0].rows[0].recipe.version = 'latest'; }, 'version');
   rejects(value => { value.sections[0].rows[0].recipe.id = '../recipe'; }, 'identifier');

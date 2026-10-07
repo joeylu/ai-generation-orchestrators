@@ -162,7 +162,7 @@ test('layout catalog adds a discoverable read-only recipe without changing exist
 
 test('new JSON schemas expose layout/text shapes, preserve strict unions and resolve every reference', () => {
   const files = ['panel-spec.schema.json', 'panel-spec-v0.2.schema.json', 'panel-spec-v0.3.schema.json',
-    'panel-spec-v0.4.schema.json', 'panel-spec-v0.5.schema.json','panel-spec-v0.6.schema.json','panel-spec-v0.7.schema.json', 'panel-request.schema.json', 'panel-patch.schema.json', 'panel-edit-context.schema.json'];
+    'panel-spec-v0.4.schema.json', 'panel-spec-v0.5.schema.json','panel-spec-v0.6.schema.json','panel-spec-v0.7.schema.json', 'panel-spec-v0.8.schema.json', 'panel-spec-v0.9.schema.json', 'panel-spec-v0.10.schema.json', 'panel-spec-v0.11.schema.json', 'panel-spec-v0.12.schema.json', 'panel-spec-v0.13.schema.json', 'panel-spec-v0.14.schema.json', 'panel-request.schema.json', 'panel-patch.schema.json', 'panel-edit-context.schema.json', 'panel-edit-context-v0.2.schema.json', 'panel-edit-context-v0.3.schema.json', 'panel-edit-context-v0.4.schema.json'];
   const schemas = files.map(file => read(`../schemas/${file}`)), registry = new Map(schemas.map(schema => [schema.$id, schema]));
   function visit(value, owner) {
     if (!value || typeof value !== 'object') return;

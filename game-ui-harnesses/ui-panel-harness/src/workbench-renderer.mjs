@@ -8,6 +8,7 @@ import { attachPanelSession } from './state.mjs';
 import { attachLayoutSession } from './layout-session.mjs';
 import { attachInputEditor } from './input-editor.mjs';
 import { attachPanelVisuals } from './panel-visuals.mjs';
+import { attachWorkbenchSelection } from './workbench-selection.mjs';
 export const browserCore = Object.freeze({ compileTree, validateDocument, createBundle, validateBundle, bundleResources });
 
 function decode(resource, signal) {
@@ -22,9 +23,9 @@ function decode(resource, signal) {
     image.src = `data:${resource.mime};base64,${resource.base64}`;
   });
 }
-export function createWorkbenchRenderer(host, onEvent, onError) {
+export function createWorkbenchRenderer(host, onEvent, onError, onSelect = () => {}, onSelectionExit = () => {}) {
   let ticket = 0, mounted, pending, disposed = false, interactionLocked = false;
-  const close = item => { if (!item) return; item.controller.abort(); item.detachVisuals?.(); item.detachInputEditor?.(); item.layoutSession?.destroy(); item.session?.destroy(); item.preview?.destroy(); item.element.remove(); };
+  const close = item => { if (!item) return; item.controller.abort(); item.selection?.destroy(); item.detachVisuals?.(); item.detachInputEditor?.(); item.layoutSession?.destroy(); item.session?.destroy(); item.preview?.destroy(); item.element.remove(); };
   const lock = item => {
     if (!item || item.lockedControls) return;
     item.session?.setInteractionLocked(true);
@@ -43,7 +44,7 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
         const bundle = await validatePanelBundle(input, browserCore);
         if (own !== ticket || !isCurrent()) return { status: 'STALE' };
         candidate = { controller: new AbortController(), element: document.createElement('div') };
-        if (bundle.compilerVersion === '0.7.3') {
+        if (['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0'].includes(bundle.compilerVersion)) {
           // Compact forms retain their authored size in a wide Studio preview.
           // The existing canvas CSS still scales them down on smaller screens.
           candidate.element.style.width = '100%';
@@ -69,6 +70,8 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
         candidate.session = attachPanelSession(bundle.spec, candidate.preview, event => onEvent(event, candidate.session.getState()), bundle.state);
         candidate.detachInputEditor = attachInputEditor(candidate.element, bundle.spec, candidate.preview, candidate.session);
         candidate.layoutSession = attachLayoutSession(bundle.spec, candidate.preview);
+        candidate.selection = attachWorkbenchSelection(candidate.element, bundle.spec, candidate.preview, onSelect, onSelectionExit);
+        candidate.selection.setSuspended(interactionLocked);
         if (interactionLocked) lock(candidate);
         close(mounted); mounted = candidate; pending = undefined;
         host.replaceChildren(candidate.element);
@@ -82,6 +85,7 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
     setInteractionLocked(value) {
       if (disposed || value === interactionLocked) return;
       interactionLocked = value; host.inert = value;
+      mounted?.selection?.setSuspended(value);
       if (value) lock(mounted);
       else if (mounted?.lockedControls) {
         for (const node of mounted.lockedControls) mounted.preview.setEnabled(node.id, node.enabled);
@@ -89,6 +93,7 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
         mounted.session?.setInteractionLocked(false);
       }
     },
+    setSelectionMode(value) { mounted?.selection?.setActive(value); },
     getState() { if (!mounted || disposed) throw new Error('WORKBENCH_RENDER_EMPTY'); return mounted.session.getState(); },
     setProgress(fieldId, value) {
       if (!mounted || disposed) throw new Error('WORKBENCH_RENDER_EMPTY');
@@ -103,6 +108,7 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
       return mounted.session.getState();
     },
     inspect() { return mounted?.preview.inspect() ?? { empty: true }; },
+    clear() { if (disposed) return; ++ticket; close(pending); close(mounted); pending = mounted = undefined; host.replaceChildren(); },
     destroy() { if (disposed) return; disposed = true; ++ticket; close(pending); close(mounted); pending = mounted = undefined; host.replaceChildren(); },
   });
 }

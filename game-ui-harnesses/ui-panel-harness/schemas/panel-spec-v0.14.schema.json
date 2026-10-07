@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.14",
+  "title": "PanelSpec 0.14",
+  "description": "Fixed logical panel width/height; content reflows or scrolls while typography and controls retain their size.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs",
+    "appearance",
+    "actionLayouts",
+    "buttonStyles",
+    "buttonFonts",
+    "titleBar",
+    "textLayouts",
+    "frame"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.14"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/canvas"
+    },
+    "layout": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/layout"
+    },
+    "state": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/state"
+    },
+    "sections": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/sections"
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/provenance"
+    },
+    "assets": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/assets"
+    },
+    "tabs": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/tabs"
+    },
+    "appearance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/appearance"
+    },
+    "actionLayouts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/actionLayouts"
+    },
+    "buttonStyles": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/buttonStyles"
+    },
+    "buttonFonts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/buttonFonts"
+    },
+    "titleBar": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/titleBar"
+    },
+    "textLayouts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/textLayouts"
+    },
+    "frame": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "height": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          }
+        }
+      ]
+    }
+  }
+}

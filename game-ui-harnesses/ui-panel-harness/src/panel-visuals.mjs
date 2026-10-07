@@ -5,7 +5,7 @@ export function panelVisualMotion(bundle) {
   const theme = bundle.catalog.themes.find(theme => theme.id === bundle.spec.theme.id && theme.version === bundle.spec.theme.version);
   if (!((theme?.visualStyle === 'modern-v1' && bundle.compilerVersion === '0.7.1')
     || (theme?.visualStyle === 'modern-v2' && bundle.compilerVersion === '0.7.2')
-    || (theme?.visualStyle === 'modern-v3' && bundle.compilerVersion === '0.7.3'))) return null;
+    || (theme?.visualStyle === 'modern-v3' && ['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0'].includes(bundle.compilerVersion)))) return null;
   // Native press and input focus stay immediate. Hover uses a per-button channel,
   // avoiding the shared runtime's whole-tree reset when installing a motion system.
   const actions = { Button: ['hover'] }, bindings = [];
@@ -22,6 +22,7 @@ export function attachPanelVisuals(bundle, runtime, media = globalThis.matchMedi
   now: () => performance.now(), request: callback => requestAnimationFrame(callback), cancel: id => cancelAnimationFrame(id),
 }) {
   const motion = panelVisualMotion(bundle);
+  alignPanelTitle(bundle, runtime);
   if (!motion) return () => {};
   const preference = typeof media === 'function' ? media.call(globalThis, '(prefers-reduced-motion: reduce)') : null;
   const buttons = new Map(), profile = getMotionStyle(motion.style), animator = new MotionAnimator(clock);
@@ -56,6 +57,19 @@ export function attachPanelVisuals(bundle, runtime, media = globalThis.matchMedi
     if (disposed) return;
     disposed = true; preference?.removeEventListener('change', sync); unsubscribe(); reset(); animator.destroy();
   };
+}
+
+/** Align the heading's measured glyphs inside its authored slot, with no frame loop. */
+export function alignPanelTitle(bundle, runtime) {
+  const style = bundle.spec.titleBar;
+  if (!style) return;
+  const title = runtime.inspect().nodes.find(node => node.id === `${bundle.spec.id}.title`);
+  const glyph = title?.renderedTextBounds?.[0]?.bounds;
+  if (!title || !glyph) return;
+  const box = title.bounds;
+  const x = style.horizontalAlign === 'center' ? (box.width - glyph.width) / 2 : style.horizontalAlign === 'right' ? box.width - glyph.width : 0;
+  const y = style.verticalAlign === 'middle' ? (box.height - glyph.height) / 2 : style.verticalAlign === 'bottom' ? box.height - glyph.height : 0;
+  runtime.applyMotion(title.id, { x: style.horizontalAlign === null ? 0 : box.x + x - glyph.x, y: style.verticalAlign === null ? 0 : box.y + y - glyph.y });
 }
 
 /** Environment fonts are measured by Pixi; authored label/state remain unchanged. */

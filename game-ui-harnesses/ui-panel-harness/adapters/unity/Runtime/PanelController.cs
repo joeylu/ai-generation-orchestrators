@@ -153,7 +153,7 @@ namespace GameUi.PanelHarness
                 }
                 else if (field.type == "progress")
                 {
-                    if ((source.panelSpecVersion != "0.5" && source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7") || (source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || field.min != 0 || field.step != 0
+                    if ((source.panelSpecVersion != "0.5" && source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || (source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || field.min != 0 || field.step != 0
                         || !ProgressValid(field, field.initialNumber) || !ProgressValid(field, field.numberValue)) return false;
                 }
                 else if (field.type == "enum")
@@ -166,7 +166,7 @@ namespace GameUi.PanelHarness
                 }
                 else if (field.type == "string")
                 {
-                    if (source.panelSpecVersion != "0.7" || source.adapterVersion != ADAPTER_VERSION
+                    if ((source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || source.adapterVersion != ADAPTER_VERSION
                         || !StringValid(field.initialString, field.maxLength) || !StringValid(field.stringValue, field.maxLength)) return false;
                 }
                 else if (field.type != "boolean") return false;
@@ -196,7 +196,7 @@ namespace GameUi.PanelHarness
                     if (control.action != "reset-initial" && resets.Count != 0) return false;
                     if (control.action == "submit")
                     {
-                        if (source.panelSpecVersion != "0.7" || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) return false;
+                        if ((source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) return false;
                         HashSet<string> submitted = new HashSet<string>(StringComparer.Ordinal);
                         foreach (string id in control.submitFields)
                             if (id == null || !fields.ContainsKey(id) || fields[id].type != "string" || !submitted.Add(id)
@@ -229,7 +229,7 @@ namespace GameUi.PanelHarness
                     }
                     else if (control.kind == "tabs")
                     {
-                        if ((source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7") || (source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || field.type != "enum" || field.options.Length < 2
+                        if ((source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || (source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || field.type != "enum" || field.options.Length < 2
                             || control.action != "" || control.resetFields == null || control.resetFields.Length != 0
                             || view.tabButtons == null || view.tabPages == null || control.contentIds == null || view.tabButtons.Length != field.options.Length
                             || view.tabPages.Length != field.options.Length || control.contentIds.Length != field.options.Length) return false;

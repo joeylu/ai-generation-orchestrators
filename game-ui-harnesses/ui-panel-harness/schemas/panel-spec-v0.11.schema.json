@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.11",
+  "title": "PanelSpec 0.11",
+  "description": "Independent button text/glyph font sizes in logical pixels; button geometry is unchanged. Runtime checks glyph fit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs",
+    "appearance",
+    "actionLayouts",
+    "buttonStyles",
+    "buttonFonts"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.11"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/canvas"
+    },
+    "layout": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/layout"
+    },
+    "state": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/state"
+    },
+    "sections": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/sections"
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/provenance"
+    },
+    "assets": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/assets"
+    },
+    "tabs": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/tabs"
+    },
+    "appearance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/appearance"
+    },
+    "actionLayouts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/actionLayouts"
+    },
+    "buttonStyles": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.10#/properties/buttonStyles"
+    },
+    "buttonFonts": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rowId",
+          "fontSize"
+        ],
+        "properties": {
+          "rowId": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 96
+          }
+        }
+      }
+    }
+  }
+}

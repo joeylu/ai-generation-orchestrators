@@ -46,8 +46,9 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
   if (request.surfaceFrom !== null && !namespaces.has(request.surfaceFrom)) fail('COMPOSITION_SURFACE');
   const bundles = await Promise.all(inputs.map(input => validatePanelBundle(input, core)));
   const catalog = bundles[0].catalog, themeRef = bundles[0].spec.theme;
+  const appearance = bundles[0].spec.appearance ?? null, titleBar = bundles[0].spec.titleBar ?? null;
   const theme = catalog.themes.find(item => equal({ id: item.id, version: item.version }, themeRef));
-  const state = [], current = {}, sections = [], groups = [], mappings = [], rowIcons = [], records = new Map(), resources = new Map();
+  const state = [], current = {}, sections = [], groups = [], actionLayouts = [], buttonStyles = [], buttonFonts = [], textLayouts = [], mappings = [], rowIcons = [], records = new Map(), resources = new Map();
   let library = null, panelSurface = null;
   const mappedId = async (namespace, role, id) => {
     const full = `${namespace}_${role}_${id}`;
@@ -56,10 +57,12 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
   for (let i = 0; i < bundles.length; i++) {
     const bundle = bundles[i], source = request.sources[i], spec = bundle.spec, ns = source.namespace;
     if (bundle.sha256 !== source.bundleSha256) fail('COMPOSITION_SOURCE_MISMATCH');
-    if (!['0.4', '0.5', '0.6', '0.7'].includes(spec.panelSpecVersion)) fail('COMPOSITION_SPEC_VERSION');
+    if (!['0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) fail('COMPOSITION_SPEC_VERSION');
     if (spec.tabs) fail('COMPOSITION_NESTED_TABS_UNSUPPORTED');
     if (!equal(bundle.catalog, catalog)) fail('COMPOSITION_CATALOG');
     if (!equal(spec.theme, themeRef)) fail('COMPOSITION_THEME');
+    if (!equal(spec.appearance ?? null, appearance)) fail('COMPOSITION_APPEARANCE');
+    if (!equal(spec.titleBar ?? null, titleBar)) fail('COMPOSITION_TITLE_BAR');
     const fieldMap = new Map(), rowMap = new Map(), sectionMap = new Map();
     for (const field of spec.state) {
       const id = await mappedId(ns, 'f', field.id); fieldMap.set(field.id, id);
@@ -80,6 +83,10 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
           return row;
         }) });
     }
+    textLayouts.push(...(spec.textLayouts??[]).map(value=>({...value,rowId:rowMap.get(value.rowId)})));
+    buttonFonts.push(...(spec.buttonFonts ?? []).map(value => ({ ...value, rowId: rowMap.get(value.rowId) })));
+    buttonStyles.push(...(spec.buttonStyles ?? []).map(value => ({...value,rowId:rowMap.get(value.rowId)})));
+    actionLayouts.push(...(spec.actionLayouts ?? []).map(value => ({ ...value, sectionId: sectionMap.get(value.sectionId) })));
     const convertBody = node => node.kind === 'section' ? { kind: 'section', sectionId: sectionMap.get(node.sectionId) }
       : { kind: node.kind, children: node.children.map(convertBody) };
     groups.push(convertBody(spec.layout.body));
@@ -102,7 +109,13 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
       }
     } else if (request.surfaceFrom === ns) fail('COMPOSITION_SURFACE');
   }
-  const forms = bundles.some(bundle => bundle.spec.panelSpecVersion === '0.7');
+  const wrapping = bundles.some(bundle => ['0.13','0.14'].includes(bundle.spec.panelSpecVersion));
+  const titled = wrapping || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.12');
+  const typography = titled || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.11');
+  const individual = typography || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.10');
+  const arranged = individual || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.9');
+  const styled = arranged || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.8');
+  const forms = styled || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.7');
   const tabbed = request.layout === 'tabs', modern = forms || tabbed || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.6');
   const tabsRecipe = tabbed ? catalog.recipes.find(recipe => recipe.kind === 'tabs') : null;
   if (tabbed && !tabsRecipe) fail('COMPOSITION_TABS_RECIPE_REQUIRED');
@@ -111,7 +124,9 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
     state.push({ id: 'navigation', type: 'enum', initial: pages[0].id, options: pages.map(({id,label}) => ({id,label})) });
     current.navigation = pages[0].id;
   }
-  const spec = arrangeIntentSpec({ panelSpecVersion: forms ? '0.7' : modern ? '0.6' : bundles.some(bundle => bundle.spec.panelSpecVersion === '0.5') ? '0.5' : '0.4', id: request.id, title: request.title, theme: themeRef, state, sections,
+  const spec = arrangeIntentSpec({ panelSpecVersion: wrapping ? '0.13' : titled ? '0.12' : typography ? '0.11' : individual ? '0.10' : arranged ? '0.9' : styled ? '0.8' : forms ? '0.7' : modern ? '0.6' : bundles.some(bundle => bundle.spec.panelSpecVersion === '0.5') ? '0.5' : '0.4', id: request.id, title: request.title, theme: themeRef, state, sections,
+    ...(arranged ? { actionLayouts } : {}), ...(individual ? { buttonStyles } : {}), ...(typography ? { buttonFonts } : {}), ...(titled ? { titleBar } : {}), ...(wrapping ? {textLayouts} : {}),
+    ...(styled ? { appearance } : {}),
     ...(modern ? { tabs: tabbed ? { id: 'navigation', recipe: {id:tabsRecipe.id,version:tabsRecipe.version}, bind:'navigation', event:'panel.navigation', enabled:true, pages } : null } : {}),
     assets: panelSurface || rowIcons.length ? { library, panelSurface, rowIcons } : null,
     provenance: { kind: bundles.some(bundle => bundle.spec.provenance.kind === 'agent-authored') ? 'agent-authored'
@@ -120,6 +135,7 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
       assumptions: ['Bindings and events are namespaced per source; reset scopes remain source-local.', 'Source section layout kinds are preserved; geometry is measured for the new container.'] } },
     { width: request.width, canvasWidth: request.canvasWidth, canvasHeight: request.canvasHeight, maxHeight: request.maxHeight,
       overflow: 'scroll', sourceQuote: null, body: { kind: tabbed ? 'column' : request.layout, children: groups } }, theme);
+  if (titled) spec.layout.titleHeight = bundles[0].spec.layout.titleHeight;
   const keys = panelAssetKeys(spec), selectedRecords = keys.map(key => records.get(key)), paths = new Set(selectedRecords.map(record => `textures/${record.sha256}.png`));
   const assets = spec.assets ? { closure: { assetClosureVersion: '0.1', library, records: selectedRecords },
     resources: [...resources.values()].filter(resource => paths.has(resource.path)) } : undefined;

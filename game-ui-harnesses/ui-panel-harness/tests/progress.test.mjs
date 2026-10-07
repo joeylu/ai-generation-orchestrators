@@ -132,7 +132,7 @@ test('Unity kit preserves continuous values and declares native read-only UGUI p
 });
 test('new public schema references all resolve and strict native edit transport includes progress additions', async () => {
   const native=await buildCodexEditResponseSchema({draft:true}); assert(JSON.stringify(native).includes('progress'));
-  const files=['panel-spec.schema.json','panel-spec-v0.2.schema.json','panel-spec-v0.3.schema.json','panel-spec-v0.4.schema.json','panel-spec-v0.5.schema.json','panel-spec-v0.6.schema.json','panel-spec-v0.7.schema.json',
+  const files=['panel-spec.schema.json','panel-spec-v0.2.schema.json','panel-spec-v0.3.schema.json','panel-spec-v0.4.schema.json','panel-spec-v0.5.schema.json','panel-spec-v0.6.schema.json','panel-spec-v0.7.schema.json','panel-spec-v0.8.schema.json','panel-spec-v0.9.schema.json', 'panel-spec-v0.10.schema.json', 'panel-spec-v0.11.schema.json', 'panel-spec-v0.12.schema.json', 'panel-spec-v0.13.schema.json', 'panel-spec-v0.14.schema.json',
     'panel-proposal-v0.5.schema.json','panel-patch.schema.json','panel-edit-context.schema.json','panel-request.schema.json'];
   const docs=await Promise.all(files.map(file=>json('../schemas/'+file))), registry=new Map(docs.map(d=>[d.$id,d]));
   function check(value,owner) { if(!value||typeof value!=='object')return;

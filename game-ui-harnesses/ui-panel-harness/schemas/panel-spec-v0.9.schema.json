@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.9",
+  "title": "PanelSpec 0.9",
+  "description": "Explicit button-only section layouts. Runtime requires existing unique sections and square circle dimensions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs",
+    "appearance",
+    "actionLayouts"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.9"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/canvas"
+    },
+    "layout": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/layout"
+    },
+    "state": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/state"
+    },
+    "sections": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/sections"
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/provenance"
+    },
+    "assets": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/assets"
+    },
+    "tabs": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/tabs"
+    },
+    "appearance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.8#/$defs/appearance"
+    },
+    "actionLayouts": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/actionLayout"
+      }
+    }
+  },
+  "$defs": {
+    "actionLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sectionId",
+        "direction",
+        "align",
+        "gap",
+        "buttonWidth",
+        "buttonHeight",
+        "shape"
+      ],
+      "properties": {
+        "direction": {
+          "enum": [
+            "row",
+            "column"
+          ]
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "buttonWidth": {
+          "type": "integer",
+          "minimum": 44,
+          "maximum": 512
+        },
+        "buttonHeight": {
+          "type": "integer",
+          "minimum": 44,
+          "maximum": 512
+        },
+        "shape": {
+          "enum": [
+            "default",
+            "circle"
+          ]
+        },
+        "sectionId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/id"
+        }
+      }
+    },
+    "actionLayoutValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "direction",
+        "align",
+        "gap",
+        "buttonWidth",
+        "buttonHeight",
+        "shape"
+      ],
+      "properties": {
+        "direction": {
+          "enum": [
+            "row",
+            "column"
+          ]
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "buttonWidth": {
+          "type": "integer",
+          "minimum": 44,
+          "maximum": 512
+        },
+        "buttonHeight": {
+          "type": "integer",
+          "minimum": 44,
+          "maximum": 512
+        },
+        "shape": {
+          "enum": [
+            "default",
+            "circle"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -77,6 +77,39 @@
           },
           {
             "$ref": "#/$defs/setInputProperties"
+          },
+          {
+            "$ref": "#/$defs/setAppearance"
+          },
+          {
+            "$ref": "#/$defs/setActionLayout"
+          },
+          {
+            "$ref": "#/$defs/setTitleBar"
+          },
+          {
+            "$ref": "#/$defs/setButtonFontSize"
+          },
+          {
+            "$ref": "#/$defs/setButtonStyle"
+          },
+          {
+            "$ref": "#/$defs/setRowOrder"
+          },
+          {
+            "$ref": "#/$defs/setText"
+          },
+          {
+            "$ref": "#/$defs/setTextWrap"
+          },
+          {
+            "$ref": "#/$defs/setPanelFrame"
+          },
+          {
+            "$ref": "#/$defs/setPanelRatio"
+          },
+          {
+            "$ref": "#/$defs/setLayoutDetails"
           }
         ]
       }
@@ -322,7 +355,7 @@
               "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/buttonRow"
             },
             {
-              "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/textRow"
+              "$ref": "urn:ai-game-assets:panel-spec:0.13#/$defs/textRow"
             },
             {
               "$ref": "urn:ai-game-assets:panel-spec:0.5#/$defs/progressRow"
@@ -483,6 +516,364 @@
         },
         "validation": {
           "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/inputValidation"
+        }
+      }
+    },
+    "setAppearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "appearance"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-appearance"
+        },
+        "appearance": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.8#/$defs/appearance"
+        }
+      }
+    },
+    "setActionLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "sectionId",
+        "layout"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-action-layout"
+        },
+        "sectionId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/id"
+        },
+        "layout": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.9#/$defs/actionLayoutValue"
+            }
+          ]
+        }
+      }
+    },
+    "setTitleBar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "style"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-title-bar"
+        },
+        "style": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/titleBar"
+        }
+      }
+    },
+    "setButtonFontSize": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "fontSize"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-button-font-size"
+        },
+        "rowId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "fontSize": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 96
+            }
+          ]
+        }
+      }
+    },
+    "setButtonStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "style"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-button-style"
+        },
+        "rowId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "style": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.10#/$defs/buttonStyle"
+            }
+          ]
+        }
+      }
+    },
+    "setRowOrder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "sectionId",
+        "rowIds"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-row-order"
+        },
+        "sectionId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "rowIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+          }
+        }
+      }
+    },
+    "setText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "text"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-text"
+        },
+        "rowId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "text": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.13#/$defs/textRow/properties/text"
+        }
+      }
+    },
+    "setTextWrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "wrap"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-text-wrap"
+        },
+        "rowId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "wrap": {
+          "enum": [
+            null,
+            "word"
+          ]
+        }
+      }
+    },
+    "setPanelFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "frame"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-panel-frame"
+        },
+        "frame": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.14#/properties/frame"
+        }
+      }
+    },
+    "setPanelRatio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "ratio",
+        "width"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-panel-ratio"
+        },
+        "ratio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        },
+        "width": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          ]
+        }
+      }
+    },
+    "setLayoutDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "details"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-layout-details"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "padding",
+            "gap",
+            "labelWidth",
+            "rowHeight",
+            "titleHeight",
+            "sectionTitleHeight",
+            "overflow",
+            "body"
+          ],
+          "properties": {
+            "padding": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/spacing"
+                }
+              ]
+            },
+            "gap": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/spacing"
+                }
+              ]
+            },
+            "labelWidth": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/dimension"
+                }
+              ]
+            },
+            "rowHeight": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/dimension"
+                }
+              ]
+            },
+            "titleHeight": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/dimension"
+                }
+              ]
+            },
+            "sectionTitleHeight": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/dimension"
+                }
+              ]
+            },
+            "overflow": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "enum": [
+                    "error",
+                    "scroll"
+                  ]
+                }
+              ]
+            },
+            "body": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.4#/$defs/layoutNode"
+                }
+              ]
+            }
+          }
         }
       }
     }

@@ -245,16 +245,18 @@ test('a superseded presentation cannot commit over a newer request', async () =>
   assert.equal(fresh.panel, null);
 });
 
-test('patch history does not rewrite original proposal or planning evidence and is bounded to sixteen edits', async () => {
+test('patch history does not rewrite original evidence and the Studio allows ten committed edit rounds', async () => {
   const controller = await model(), prepared = await controller.prepare(request());
   const ready = await controller.acceptProposal(proposalFor(prepared.context));
-  for (let i = 0; i < 16; i++) await controller.patch(await titlePatch(controller, `设置 ${i}`));
+  for (let i = 0; i < 10; i++) await controller.patch(await titlePatch(controller, `设置 ${i}`));
   const full = controller.getSnapshot();
-  assert.equal(full.history.length, 16); assert.deepEqual(full.context, ready.context);
+  assert.equal(full.history.length, 10); assert.deepEqual(full.context, ready.context);
   assert.deepEqual(full.proposal, ready.proposal); assert.deepEqual(full.report, ready.report);
-  await assert.rejects(controller.patch(await titlePatch(controller, 'Overflow')), /WORKBENCH_HISTORY_LIMIT/);
+  await assert.rejects(controller.patch(await titlePatch(controller, 'Overflow')), /WORKBENCH_EDIT_LIMIT/);
   assert.deepEqual(controller.getSnapshot(), full);
-  await controller.undo(); assert.equal(controller.getSnapshot().history.length, 15);
+  await controller.undo(); assert.equal(controller.getSnapshot().history.length, 9);
+  assert.deepEqual(controller.getEditBudget(), { used: 10, limit: 10, remaining: 0 });
+  await assert.rejects(controller.patch(await titlePatch(controller, 'Still limited')), /WORKBENCH_EDIT_LIMIT/);
 });
 
 test('export is a separately validated live-state snapshot and never changes model state or undo history', async () => {

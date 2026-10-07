@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.12",
+  "title": "PanelSpec 0.12",
+  "description": "Alignment, independent background plate and typography of the existing panel title.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs",
+    "appearance",
+    "actionLayouts",
+    "buttonStyles",
+    "buttonFonts",
+    "titleBar"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.12"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/canvas"
+    },
+    "layout": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/layout"
+    },
+    "state": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/state"
+    },
+    "sections": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/sections"
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/provenance"
+    },
+    "assets": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/assets"
+    },
+    "tabs": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/tabs"
+    },
+    "appearance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/appearance"
+    },
+    "actionLayouts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/actionLayouts"
+    },
+    "buttonStyles": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/buttonStyles"
+    },
+    "buttonFonts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.11#/properties/buttonFonts"
+    },
+    "titleBar": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "horizontalAlign",
+            "verticalAlign",
+            "backgroundColor",
+            "textColor",
+            "cornerRadius",
+            "fontSize",
+            "padding"
+          ],
+          "properties": {
+            "horizontalAlign": {
+              "enum": [
+                null,
+                "left",
+                "center",
+                "right"
+              ]
+            },
+            "verticalAlign": {
+              "enum": [
+                null,
+                "top",
+                "middle",
+                "bottom"
+              ]
+            },
+            "backgroundColor": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "textColor": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "cornerRadius": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 128
+                }
+              ]
+            },
+            "fontSize": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 8,
+                  "maximum": 96
+                }
+              ]
+            },
+            "padding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            }
+          }
+        }
+      ]
+    }
+  }
+}

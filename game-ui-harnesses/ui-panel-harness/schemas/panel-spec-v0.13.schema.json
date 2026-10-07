@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.13",
+  "title": "PanelSpec 0.13",
+  "description": "Bounded static Text wrapping with deterministic line placement and content-driven row height.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs",
+    "appearance",
+    "actionLayouts",
+    "buttonStyles",
+    "buttonFonts",
+    "titleBar",
+    "textLayouts"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.13"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/canvas"
+    },
+    "layout": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/layout"
+    },
+    "state": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/state"
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "rows"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+          },
+          "title": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/text"
+          },
+          "rows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/sliderRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/switchRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/selectRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/buttonRow"
+                },
+                {
+                  "$ref": "#/$defs/textRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/progressRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/inputRow"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/provenance"
+    },
+    "assets": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/assets"
+    },
+    "tabs": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/tabs"
+    },
+    "appearance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/appearance"
+    },
+    "actionLayouts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/actionLayouts"
+    },
+    "buttonStyles": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/buttonStyles"
+    },
+    "buttonFonts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/buttonFonts"
+    },
+    "titleBar": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.12#/properties/titleBar"
+    },
+    "textLayouts": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rowId",
+          "wrap"
+        ],
+        "properties": {
+          "rowId": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+          },
+          "wrap": {
+            "const": "word"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "textRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "text"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "kind": {
+          "const": "text"
+        },
+        "recipe": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/reference"
+        },
+        "label": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/text"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "\\S",
+          "$comment": "Runtime permits LF/CRLF and paragraph separators only with this row in textLayouts; other controls/lone surrogates are rejected."
+        }
+      }
+    }
+  }
+}

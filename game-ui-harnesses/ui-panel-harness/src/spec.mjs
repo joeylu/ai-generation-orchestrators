@@ -1,4 +1,11 @@
-/** Strict, dependency-free PanelSpec 0.1–0.5 validation. No defaults are inserted. */
+import { checkPanelFrame } from './panel-frame.mjs';
+import { checkTextLayouts,checkWrappedText,hasTextWrap } from './text-wrap.mjs';
+import { checkTitleBar } from './title-bar.mjs';
+import { checkButtonFonts } from './button-font.mjs';
+import { checkButtonStyles } from './button-style.mjs';
+import { checkActionLayouts } from './action-layout.mjs';
+import { checkAppearance } from './appearance.mjs';
+/** Strict, dependency-free PanelSpec 0.1–0.13 validation. No defaults are inserted. */
 export class PanelSpecError extends Error {
   constructor(code, path, message) {
     super(`${path}: ${message}`);
@@ -206,14 +213,16 @@ function layoutBody(value, sectionIds) {
 /** Return an isolated, validated JSON value; throw PanelSpecError on failure. */
 export function validatePanelSpec(input) {
   const spec = snapshotJson(input);
-  const forms = spec?.panelSpecVersion === '0.7';
+  const sized = spec?.panelSpecVersion === '0.14', wrapping = sized || spec?.panelSpecVersion === '0.13', titled = wrapping || spec?.panelSpecVersion === '0.12', typography = titled || spec?.panelSpecVersion === '0.11', individual = typography || spec?.panelSpecVersion === '0.10', arranged = individual || spec?.panelSpecVersion === '0.9', styled = arranged || spec?.panelSpecVersion === '0.8';
+  const forms = styled || spec?.panelSpecVersion === '0.7';
   const tabbed = forms || spec?.panelSpecVersion === '0.6';
   const progress = tabbed || spec?.panelSpecVersion === '0.5';
   const containers = progress || spec?.panelSpecVersion === '0.4';
   const controls = spec?.panelSpecVersion === '0.3' || containers;
   const hasAssetsField = spec?.panelSpecVersion === '0.2' || controls;
-  object(spec, ['panelSpecVersion', 'id', 'title', 'theme', 'canvas', 'layout', 'state', 'sections', 'provenance', ...(hasAssetsField ? ['assets'] : []), ...(tabbed ? ['tabs'] : [])], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'].includes(spec.panelSpecVersion)) fail('version', '$.panelSpecVersion', 'only PanelSpec 0.1 through 0.7 are supported');
+  object(spec, ['panelSpecVersion', 'id', 'title', 'theme', 'canvas', 'layout', 'state', 'sections', 'provenance', ...(hasAssetsField ? ['assets'] : []), ...(tabbed ? ['tabs'] : []), ...(styled ? ['appearance'] : []), ...(arranged ? ['actionLayouts'] : []), ...(individual ? ['buttonStyles'] : []), ...(typography ? ['buttonFonts'] : []), ...(titled ? ['titleBar'] : []), ...(wrapping ? ['textLayouts'] : []), ...(sized ? ['frame'] : [])], '$');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) fail('version', '$.panelSpecVersion', 'only PanelSpec 0.1 through 0.14 are supported');
+  if (styled) checkAppearance(spec.appearance, fail);
   identifier(spec.id, '$.id');
   text(spec.title, '$.title');
   reference(spec.theme, '$.theme');
@@ -228,6 +237,7 @@ export function validatePanelSpec(input) {
     integer(spec.layout.maxHeight, '$.layout.maxHeight', 1, 4096);
     if (!['error', 'scroll'].includes(spec.layout.overflow)) fail('layout-overflow', '$.layout.overflow', 'must be error or scroll');
   }
+  if(sized){checkPanelFrame(spec.frame,fail);if(spec.frame&&(spec.layout.width!==spec.frame.width||spec.layout.maxHeight!==Math.ceil(spec.frame.height)))fail('panel-frame-layout','$.frame','frame must match layout width and height ceiling');}
   array(spec.state, '$.state', containers ? 0 : 1, 128);
   const states = new Map();
   spec.state.forEach((definition, index) => {
@@ -288,8 +298,8 @@ export function validatePanelSpec(input) {
       if (rowIds.size > 128) fail('structure-limit', '$.sections', 'at most 128 rows are supported');
       if (!(containers && row.kind === 'button' && row.label === '')) text(row.label, `${path}.label`);
       if (row.kind === 'text') {
-        text(row.text, `${path}.text`);
-        if (/[\u2028\u2029]/u.test(row.text)) fail('text', `${path}.text`, 'must be a single line');
+        if (wrapping && hasTextWrap(spec,row.id)) checkWrappedText(row.text,fail,`${path}.text`); else text(row.text, `${path}.text`);
+        if (!hasTextWrap(spec,row.id) && /[\u2028\u2029]/u.test(row.text)) fail('text', `${path}.text`, 'must be a single line');
         reference(row.recipe, `${path}.recipe`);
         return;
       }
@@ -347,6 +357,11 @@ export function validatePanelSpec(input) {
       }
     });
   });
+  if (arranged) checkActionLayouts(spec, fail);
+  if (individual) checkButtonStyles(spec, fail);
+  if (typography) checkButtonFonts(spec, fail);
+  if (titled) checkTitleBar(spec.titleBar, fail);
+  if (wrapping) checkTextLayouts(spec,fail);
   if (containers) layoutBody(spec.layout.body, sectionIds);
   if (tabbed && spec.tabs !== null) {
     const tabs = spec.tabs, path = '$.tabs';

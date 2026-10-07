@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.8",
+  "title": "PanelSpec 0.8",
+  "description": "Panel-local opaque colors and uniform radii over a pinned modern-v3 theme. Null inherits the theme.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs",
+    "appearance"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.8"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/canvas"
+    },
+    "layout": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/layout"
+    },
+    "state": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/state"
+    },
+    "sections": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/sections"
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/provenance"
+    },
+    "assets": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/assets"
+    },
+    "tabs": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/tabs"
+    },
+    "appearance": {
+      "$ref": "#/$defs/appearance"
+    }
+  },
+  "$defs": {
+    "appearance": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "canvasColor",
+            "panelColor",
+            "controlColor",
+            "accentColor",
+            "textColor",
+            "mutedColor",
+            "borderColor",
+            "buttonColor",
+            "buttonTextColor",
+            "panelRadius",
+            "controlRadius",
+            "buttonRadius"
+          ],
+          "properties": {
+            "canvasColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "panelColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "controlColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "accentColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "textColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "mutedColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "borderColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "buttonColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "buttonTextColor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+                }
+              ]
+            },
+            "panelRadius": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 128
+                }
+              ]
+            },
+            "controlRadius": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 128
+                }
+              ]
+            },
+            "buttonRadius": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 128
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

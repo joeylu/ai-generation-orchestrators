@@ -44,7 +44,7 @@ test('PanelSpec 0.1 retains its original contract and rejects assets; future ver
   assert.equal(schema01.required.includes('assets'), false);
   const legacyWithAssets = { ...structuredClone(fixture), assets: fresh().assets };
   assert.throws(() => validatePanelSpec(legacyWithAssets), { code: 'unknown-key', path: '$.assets' });
-  const future = { ...structuredClone(fixture), panelSpecVersion: '0.8' };
+  const future = { ...structuredClone(fixture), panelSpecVersion: '0.99' };
   assert.throws(() => validatePanelSpec(future), { code: 'version', path: '$.panelSpecVersion' });
 });
 

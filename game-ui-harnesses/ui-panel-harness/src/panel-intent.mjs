@@ -7,6 +7,7 @@ import { createPresentationPolicy, sectionPurpose } from './panel-presentation.m
 import { progressValueWidth } from './progress.mjs';
 import { buildCodexQuestionsResponseSchema } from './codex-questions-schema.mjs';
 import { literalReadOnlyLabelPairs, nativeReadOnlyLabelMismatch } from './literal-text-labels.mjs';
+import { checkWrappedText, hasTextWrap } from './text-wrap.mjs';
 
 const kinds = ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'];
 const common = ['id', 'kind', 'label', 'recipeKey', 'sourceQuote', 'icon'];
@@ -29,7 +30,7 @@ const nullable = schema => ({ anyOf: [{ type: 'null' }, schema] });
 
 /** Direct native JSON schema: no encoded JSON string, parallel evidence lists or invented readiness. */
 export function buildPanelIntentResponseSchema(context) {
-  const forms = context.planningContextVersion === '0.7';
+  const forms = ['0.7','0.8','0.9'].includes(context.planningContextVersion);
   const programIds = forms;
   const rowIds = Array.from({ length: 128 }, (_, i) => `row${i}`), sectionIds = Array.from({ length: 32 }, (_, i) => `section${i}`);
   const recipes = kind => context.catalog.recipes.filter(recipe => recipe.kind === `${kind}-row`).map(refKey);
@@ -72,7 +73,7 @@ export function buildPanelIntentResponseSchema(context) {
  * The older constructor remains available for saved 0.7 schema verification. */
 export function buildNativePanelIntentResponseSchema(context) {
   const schema = buildPanelIntentResponseSchema(context);
-  if (context.planningContextVersion !== '0.7') return schema;
+  if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) return schema;
   const replace = value => {
     if (Array.isArray(value)) return value.map(replace);
     if (!value || typeof value !== 'object') return value;
@@ -83,23 +84,88 @@ export function buildNativePanelIntentResponseSchema(context) {
     ]));
   };
   const current = replace(schema);
-  current.properties.panelIntentVersion.enum = ['0.8'];
+  current.properties.panelIntentVersion.enum = [context.planningContextVersion === '0.9' ? '0.10' : context.planningContextVersion === '0.8' ? '0.9' : '0.8'];
+  if (['0.8','0.9'].includes(context.planningContextVersion)) {
+    const section = current.$defs.body.anyOf[0]; section.required.push('actionLayout');
+    section.properties.actionLayout = nullable(objectSchema({direction:{type:'string',enum:['row','column']},align:{type:'string',enum:['start','center','end']},gap:{type:'integer',minimum:0,maximum:128},buttonWidth:{type:'integer',minimum:44,maximum:512},buttonHeight:{type:'integer',minimum:44,maximum:512},shape:{type:'string',enum:['default','circle']},sourceRef:{$ref:'#/$defs/requestSourceRef'}}));
+  }
   current.$defs.requestSourceRef = { type: 'string', enum: ['request'] };
   current.properties.panel.anyOf[1].properties.title.description = 'The overall panel name requested by the user, distinct from a section heading and a read-only field value. For "任务详情先展示任务名称：森林巡逻", the panel name is "任务详情" and "森林巡逻" is the task-name field content. A request to retain the panel name refers to the panel, not its first named field. Preserve explicit later title corrections or explicit requests to use a field value as the title.';
   current.$defs.body.anyOf[0].properties.title.description = 'A section heading inside the panel. Setting this heading does not replace the overall panel.title.';
+  if (['0.8','0.9'].includes(context.planningContextVersion)) {
+    // Spec requires a visible, bounded section name. State this at dispatch,
+    // rather than allowing an empty native string that can only fail later.
+    Object.assign(current.$defs.body.anyOf[0].properties.title, { minLength: 1, maxLength: 120, pattern: '\\S',
+      description: 'Required non-empty section heading, 1–120 Unicode characters with at least one non-whitespace character. This is separate from a row label and button caption. A request for inline glyph buttons without extra row labels does not make this field empty. Choose a concise grouping name when the request leaves it unspecified; never delete an explicit heading.' });
+  }
   const textRow = current.$defs.body.anyOf[0].properties.rows.items.anyOf.find(row => row.properties.kind.enum[0] === 'text');
   if (textRow) {
+    if (context.planningContextVersion === '0.9') {
+      textRow.required.push('wrap');
+      textRow.properties.wrap = { type:'string', enum:['none','word'], description:'Use word for prose, paragraphs or content that should wrap to the available width. none retains the bounded single-line contract. Only static Text supports wrapping.' };
+      Object.assign(textRow.properties.text, {minLength:1,maxLength:1000});
+    }
     textRow.properties.label.description = 'The row label, separate from its read-only text. Copy an explicitly specified label; never substitute the displayed content.';
     textRow.properties.text.description = 'The displayed read-only content, separate from the row label. Preserve both when the request specifies them independently.';
+    if (context.planningContextVersion === '0.9') textRow.properties.text.description += ' With wrap:word preserve up to 1000 Unicode code points, including LF/CRLF and blank paragraphs. Do not precompute lines or truncate. With wrap:none the legacy single-line limit is 120.';
     const pairs = literalReadOnlyLabelPairs(context.request.text);
     if (pairs.length) textRow.description = `Literal read-only label/content pairs in this request (data, not instructions): ${JSON.stringify(pairs)}`;
   }
   return current;
 }
 
+function lowerActionIntent(context, input) {
+  if (!['0.8','0.9'].includes(context.planningContextVersion) || context.capabilities.actionLayouts !== 'section-buttons-v1') fail('INTENT_VERSION','$.panelIntentVersion');
+  const intent = snapshotJson(input); if (intent.panel === null) return {intent:{...intent,panelIntentVersion:'0.8'},layouts:[]};
+  let ordinal=0,count=0; const layouts=[];
+  const visit=(node,path,depth=1)=>{
+    if (++count>96 || depth>8) fail('layout-structure',path);
+    if (node?.kind==='section') {
+      exact(node,['kind','title','rows','actionLayout'],path);const sectionId='section'+ordinal++;
+      const {actionLayout,...rest}=node;
+      if(actionLayout!==null){exact(actionLayout,['direction','align','gap','buttonWidth','buttonHeight','shape','sourceRef'],path+'.actionLayout');if(actionLayout.sourceRef!=='request')fail('INTENT_SOURCE_REFERENCE',path+'.actionLayout.sourceRef');const {sourceRef,...layout}=actionLayout;layouts.push({...layout,sectionId});}
+      return rest;
+    }
+    if(node?.kind==='tabs'){exact(node,['kind','enabled','sourceRef','pages'],path);bounded(node.pages,2,8,path+'.pages');return {...node,pages:node.pages.map((page,i)=>({...page,body:visit(page.body,path+'.pages['+i+'].body',depth+1)}))};}
+    exact(node,['kind','children'],path);bounded(node.children,1,96,path+'.children');return {...node,children:node.children.map((child,i)=>visit(child,path+'.children['+i+']',depth+1))};
+  };
+  return {intent:{...intent,panelIntentVersion:'0.8',panel:{...intent.panel,body:visit(intent.panel.body,'$.panel.body')}},layouts};
+}
+
+/** 0.10 owns only the static-text wrap declaration. Global ordinals include all
+ * rows across sections/pages; layout entries never add or renumber controls. */
+function lowerTextWrapIntent(context, input) {
+  if (context.planningContextVersion !== '0.9' || context.capabilities.textWrap !== 'static-text-wrap-v1') fail('INTENT_VERSION','$.panelIntentVersion');
+  const intent = snapshotJson(input), layouts = [];
+  if (intent.panel === null) return {intent:{...intent,panelIntentVersion:'0.9'},layouts};
+  let ordinal = 0, count = 0;
+  const visit = (node,path,depth=1) => {
+    if (++count > 96 || depth > 8) fail('layout-structure',path);
+    if (node?.kind === 'section') {
+      exact(node,['kind','title','rows','actionLayout'],path); bounded(node.rows,1,128,path+'.rows');
+      return {...node,rows:node.rows.map((row,i)=>{
+        const p=path+'.rows['+i+']', rowId='row'+ordinal++;
+        if(ordinal>128)fail('INTENT_COUNT',p);
+        if(row?.kind!=='text')return row;
+        exact(row,[...rowKeys.text.filter(key=>key!=='id').map(key=>key==='sourceQuote'?'sourceRef':key),'wrap'],p);
+        if(!['none','word'].includes(row.wrap))fail('INTENT_TEXT_WRAP',p+'.wrap');
+        if(row.wrap==='word')layouts.push({rowId,wrap:'word'});
+        const {wrap,...rest}=row;return rest;
+      })};
+    }
+    if(node?.kind==='tabs') {
+      exact(node,['kind','enabled','sourceRef','pages'],path); bounded(node.pages,2,8,path+'.pages');
+      return {...node,pages:node.pages.map((page,i)=>({...page,body:visit(page.body,path+'.pages['+i+'].body',depth+1)}))};
+    }
+    exact(node,['kind','children'],path);bounded(node.children,1,96,path+'.children');
+    return {...node,children:node.children.map((child,i)=>visit(child,path+'.children['+i+']',depth+1))};
+  };
+  return {intent:{...intent,panelIntentVersion:'0.9',panel:{...intent.panel,body:visit(intent.panel.body,'$.panel.body')}},layouts};
+}
+
 /** Declared 0.8 lowering only; never rewrites a quotation in an older intent. */
 function lowerRequestReferences(context, intent) {
-  if (context.planningContextVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
   if (intent.contextSha256 !== context.sha256) fail('PLAN_CONTEXT_MISMATCH', '$.contextSha256');
   if (intent.panel === null) return { ...intent, panelIntentVersion: '0.7' };
   exact(intent.panel, ['id', 'title', 'themeKey', 'panelSurface', 'layout', 'body'], '$.panel');
@@ -141,10 +207,19 @@ function lowerRequestReferences(context, intent) {
 /** Run after materialization at the current native accepting boundary. Accepted
  * older 0.7 responses still need exact full quotes; no failed quote is repaired. */
 export function validateNativePanelIntentEvidence(context, intent) {
-  if (intent.panelIntentVersion === '0.8') {
+  if (intent.panelIntentVersion === '0.10' && context.planningContextVersion !== '0.9') fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (context.planningContextVersion === '0.9') {
+    if (intent.panelIntentVersion !== '0.10') fail('INTENT_VERSION', '$.panelIntentVersion');
+    validateNativePanelIntentQuotes(context, lowerRequestReferences(context, lowerActionIntent(context, lowerTextWrapIntent(context,intent).intent).intent));
+  } else
+  if (context.planningContextVersion === '0.8' && intent.panelIntentVersion !== '0.9') fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (intent.panelIntentVersion === '0.10') { /* validated above */ }
+  else if (intent.panelIntentVersion === '0.9') {
+    validateNativePanelIntentQuotes(context, lowerRequestReferences(context, lowerActionIntent(context, intent).intent));
+  } else if (intent.panelIntentVersion === '0.8') {
     validateNativePanelIntentQuotes(context, lowerRequestReferences(context, intent));
   } else validateNativePanelIntentQuotes(context, intent);
-  if (context.planningContextVersion === '0.7' && intent.panel !== null) {
+  if (['0.7','0.8','0.9'].includes(context.planningContextVersion) && intent.panel !== null) {
     const path = nativeReadOnlyLabelMismatch(context.request.text, intent.panel.body);
     if (path) fail('INTENT_TEXT_LABEL', path);
   }
@@ -153,7 +228,7 @@ export function validateNativePanelIntentEvidence(context, intent) {
 /** Current CLI-only evidence contract. Run after public intent shape validation;
  * saved/imported intents keep their valid unique-short-quote compatibility. */
 export function validateNativePanelIntentQuotes(context, intent) {
-  if (context.planningContextVersion !== '0.7') return;
+  if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) return;
   if (intent.panelIntentVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
   if (intent.panel === null) return;
   const check = (quote, path) => { if (quote !== context.request.text) fail('INTENT_NATIVE_QUOTE', path); };
@@ -260,6 +335,7 @@ export function arrangeIntentSpec(spec, settings, theme) {
   const labelWidth = Math.max(112, ...rows.filter(row => row.kind !== 'button' && !(adaptive && row.kind === 'input' && purposes.get(row.id) === 'form')).map(row => conservativeTextWidth(row.label, size) + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0)));
   const fields = new Map(spec.state.map(field => [field.id, field]));
   const rowWidths = rows.map(row => {
+    if (hasTextWrap(spec,row.id)) return Math.max(280, conservativeTextWidth(row.label,size) + 24);
     const content = row.kind === 'slider' ? 96 + Math.max(64, size * 4) + 12
       : row.kind === 'progress' ? 96 + progressValueWidth(row, fields.get(row.bind), size) + 12
       : row.kind === 'select' ? Math.max(120, ...fields.get(row.bind).options.map(option => conservativeTextWidth(option.label, size) + 56))
@@ -268,7 +344,11 @@ export function arrangeIntentSpec(spec, settings, theme) {
     return (row.kind === 'button' ? 24 + (adaptive && spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0) : labelWidth + 36) + content;
   });
   const widths = new Map(rows.map((row, index) => [row.id, rowWidths[index]]));
-  const sectionWidths = new Map(spec.sections.map(section => [section.id, Math.max(adaptive ? 280 : 320, ...section.rows.map(row => widths.get(row.id)), adaptive ? conservativeTextWidth(section.title, theme.tokens.headingSize) : 0)]));
+  const sectionWidths = new Map(spec.sections.map(section => {
+    const actions = spec.actionLayouts?.find(value => value.sectionId === section.id);
+    const actionWidth = actions ? actions.direction === 'row' ? section.rows.length * actions.buttonWidth + (section.rows.length - 1) * actions.gap : actions.buttonWidth : 0;
+    return [section.id, Math.max(adaptive ? 280 : 320, actionWidth, ...section.rows.map(row => widths.get(row.id)), adaptive ? conservativeTextWidth(section.title, theme.tokens.headingSize) : 0)];
+  }));
   const minWidth = Math.max(...sectionWidths.values());
   let counter = 0, count = 0;
   const convert = (node, depth = 1) => {
@@ -309,20 +389,22 @@ export function arrangeIntentSpec(spec, settings, theme) {
 export async function materializePanelIntent(contextInput, input) {
   return materializeIntent(contextInput, input, false);
 }
-async function materializeIntent(contextInput, input, progressTransport, navigation = null, formsTransport = false) {
+async function materializeIntent(contextInput, input, progressTransport, navigation = null, formsTransport = false, generatedLayouts = null, generatedTextLayouts = null) {
   const context = await validatePlanningContext(contextInput), intent = snapshotJson(input);
   exact(intent, ['panelIntentVersion', 'contextSha256', 'panel', 'unresolved'], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8'].includes(intent.panelIntentVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
-  if (intent.panelIntentVersion === '0.8') return materializeIntent(context, lowerRequestReferences(context, intent), true, navigation, true);
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10'].includes(intent.panelIntentVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (intent.panelIntentVersion === '0.10') { const next = lowerTextWrapIntent(context,intent); return materializeIntent(context,next.intent,true,navigation,true,generatedLayouts,next.layouts); }
+  if (intent.panelIntentVersion === '0.9') { const next = lowerActionIntent(context, intent); return materializeIntent(context, next.intent, true, navigation, true, next.layouts, generatedTextLayouts); }
+  if (intent.panelIntentVersion === '0.8') return materializeIntent(context, lowerRequestReferences(context, intent), true, navigation, true, generatedLayouts, generatedTextLayouts);
   if (intent.panelIntentVersion === '0.7') {
-    if (context.planningContextVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
-    return materializeIntent(context, lowerOrdinalIntent(intent), true, navigation, true);
+    if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+    return materializeIntent(context, lowerOrdinalIntent(intent), true, navigation, true, generatedLayouts, generatedTextLayouts);
   }
   if (intent.panelIntentVersion === '0.6') {
-    if (context.planningContextVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
-    return materializeIntent(context, { ...intent, panelIntentVersion: '0.5' }, true, navigation, true);
+    if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+    return materializeIntent(context, { ...intent, panelIntentVersion: '0.5' }, true, navigation, true, generatedLayouts, generatedTextLayouts);
   }
-  if (intent.panelIntentVersion === '0.5' && !['0.6', '0.7'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (intent.panelIntentVersion === '0.5' && !['0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
   if (intent.panelIntentVersion === '0.4' && context.planningContextVersion !== '0.5') fail('INTENT_VERSION', '$.panelIntentVersion');
   progressTransport ||= ['0.4', '0.5'].includes(intent.panelIntentVersion);
   if (intent.contextSha256 !== context.sha256) fail('PLAN_CONTEXT_MISMATCH', '$.contextSha256');
@@ -343,7 +425,7 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
       }) };
       body = {kind:'column',children:body.pages.map(page=>page.body)};
     }
-    return materializeIntent(context,{...intent,panelIntentVersion:'0.3',panel:{...panel,body}},true,navigation,formsTransport);
+    return materializeIntent(context,{...intent,panelIntentVersion:'0.3',panel:{...panel,body}},true,navigation,formsTransport,generatedLayouts,generatedTextLayouts);
   }
   if (['0.3', '0.4'].includes(intent.panelIntentVersion)) {
     const panel = intent.panel;
@@ -360,7 +442,7 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
       return { ...node, children: node.children.map(child => attach(child, depth + 1)) };
     };
     return materializeIntent(context, { ...intent, panelIntentVersion: '0.2', panel: { ...panel, sourceQuote: null,
-      layout: { ...panel.layout, sourceQuote: null }, body: attach(panel.body) } }, progressTransport, navigation, formsTransport);
+      layout: { ...panel.layout, sourceQuote: null }, body: attach(panel.body) } }, progressTransport, navigation, formsTransport, generatedLayouts, generatedTextLayouts);
   }
   if (intent.panelIntentVersion === '0.2') {
     const panel = intent.panel;
@@ -393,9 +475,9 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
     };
     const body = convert(panel.body), { body: sourceBody, ...rest } = panel;
     // Spec references are generated from embedded leaves, never authored in a parallel collection.
-    return materializeIntent(context, { ...intent, panelIntentVersion: '0.1', panel: { ...rest, sections, layout: { ...panel.layout, body } } }, progressTransport, navigation, formsTransport);
+    return materializeIntent(context, { ...intent, panelIntentVersion: '0.1', panel: { ...rest, sections, layout: { ...panel.layout, body } } }, progressTransport, navigation, formsTransport, generatedLayouts, generatedTextLayouts);
   }
-  if (!['0.4', '0.5', '0.6', '0.7'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.panel');
+  if (!['0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.panel');
   const panel = intent.panel;
   exact(panel, ['id', 'title', 'sourceQuote', 'themeKey', 'panelSurface', 'layout', 'sections'], '$.panel');
   identity(panel.id, '$.panel.id'); display(panel.title, '$.panel.title');
@@ -418,7 +500,11 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
       const source = basis(r.sourceQuote, `${p}.sourceQuote`), row = { id: r.id, kind: r.kind, recipe: { id: recipe.id, version: recipe.version }, label: r.kind === 'button' ? '' : r.label };
       preserveLiteralQualifier(context.request.text, r, `${p}.label`);
       decisions.push({ target: `row:${r.id}`, basis: source });
-      if (r.kind === 'text') { display(r.text, `${p}.text`); row.text = r.text; }
+      if (r.kind === 'text') {
+        if (generatedTextLayouts?.some(value=>value.rowId===r.id)) checkWrappedText(r.text,fail,`${p}.text`);
+        else display(r.text, `${p}.text`);
+        row.text = r.text;
+      }
       else if (r.kind === 'progress') {
         if (!progressTransport) fail('INTENT_VERSION', `${p}.kind`);
         row.bind = r.id; row.format = { mode: r.display, fractionDigits: r.fractionDigits };
@@ -472,10 +558,17 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
     decisions.push({target:'tabs',basis:source},{target:`state:${tabs.bind}`,basis:source});
     for(const page of navigation.pages)decisions.push({target:`tab:${page.id}`,basis:basis(page.sourceQuote,'$.panel.body.pages.sourceQuote')});
   }
-  let spec = { panelSpecVersion: context.planningContextVersion === '0.7' ? '0.7' : context.planningContextVersion === '0.6' ? '0.6' : context.planningContextVersion === '0.5' ? '0.5' : '0.4', ...(['0.6','0.7'].includes(context.planningContextVersion)?{tabs}:{}), id: panel.id, title: panel.title, theme: { id: theme.id, version: theme.version },
+  let spec = { panelSpecVersion: ['0.7','0.8','0.9'].includes(context.planningContextVersion) ? '0.7' : context.planningContextVersion === '0.6' ? '0.6' : context.planningContextVersion === '0.5' ? '0.5' : '0.4', ...(['0.6','0.7','0.8','0.9'].includes(context.planningContextVersion)?{tabs}:{}), id: panel.id, title: panel.title, theme: { id: theme.id, version: theme.version },
     state, sections, assets, provenance: { kind: 'agent-authored', description: 'Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.',
       assumptions: ['Preview actions notify the host; no actual game business is executed.', 'Geometry follows deterministic intent layout policy 0.1.',
         ...(state.some(field => field.type === 'progress') ? ['Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence.'] : [])] } };
+  if (generatedLayouts?.length) { spec.panelSpecVersion = '0.9'; spec.appearance = null; spec.actionLayouts = generatedLayouts;
+    for (const value of generatedLayouts) decisions.push({target:'action-layout:' + value.sectionId,basis:basis(context.request.text,'$.panel.body.actionLayout.sourceRef')}); }
+  if (generatedTextLayouts?.length) {
+    if (theme.visualStyle !== 'modern-v3') fail('INTENT_TEXT_WRAP_THEME','$.panel.themeKey');
+    Object.assign(spec,{panelSpecVersion:'0.13',appearance:null,actionLayouts:generatedLayouts??[],buttonStyles:[],buttonFonts:[],titleBar:null,textLayouts:generatedTextLayouts});
+    for(const value of generatedTextLayouts) decisions.push({target:'text-layout:'+value.rowId,basis:basis(context.request.text,'$.panel.body.rows.wrap')});
+  }
   spec = arrangeIntentSpec(spec, panel.layout, theme);
   const top = [ { target: 'panel', basis: basis(panel.sourceQuote, '$.panel.sourceQuote', 'Panel title and identity are presentation choices.') },
     { target: 'theme', basis: design('Selected exact theme from the pinned complete catalog.') },

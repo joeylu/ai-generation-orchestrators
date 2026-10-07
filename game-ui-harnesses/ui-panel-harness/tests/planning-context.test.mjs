@@ -178,7 +178,7 @@ test('validator rejects forged candidates, capabilities and fingerprints even af
   }
   await assert.rejects(validatePlanningContext({ ...original, sha256: '0'.repeat(64) }), /PLANNING_CONTEXT_MISMATCH/);
   await assert.rejects(validatePlanningContext({ ...original, unexpected: true }), /unknown field/);
-  await assert.rejects(validatePlanningContext({ ...original, planningContextVersion: '0.8' }), /only planning context/);
+  await assert.rejects(validatePlanningContext({ ...original, planningContextVersion: '0.99' }), /only planning context/);
 });
 
 test('validator rejects non-JSON context evidence before touching getters or cyclic values', async () => {

@@ -1,5 +1,8 @@
 # 自然语言局部编辑
 
+现有modern-v3面板另支持[自定义颜色、统一圆角与布局编辑](panel-appearance.md)。
+EditContext 0.3还支持[同组按钮排列与形状](panel-action-layout.md)，可以将播放按钮横排并设为1:1圆形。
+
 已有面板可通过本次修改请求生成有限 PanelPatch。本地工作台可显式调用 Codex CLI
 （`gpt-6-luna / xhigh`）；也可由对话中的 Agent 编写提案，再以文件导入。
 网页自动调用 subagent 未实现。真实 Codex 已验证标题、创作初值修改、试玩值保留、恢复默认和撤销。
@@ -43,7 +46,7 @@
 支持 `set-panel-title`、`set-theme`、`set-layout`、`set-row-label`、`set-row-enabled`、
 `set-state-initial`、`add-row`、`remove-row`、`set-button-label`、`set-button-action`，具体结构见
 [PanelPatch Schema](../schemas/panel-patch.schema.json)。源 Spec 版本决定可用行类型；
-Patch 不升级版本。`set-layout` 提供完整对象，保留本次未要求修改的字段。
+普通Patch不升级版本；首次 `set-appearance` 或 `set-action-layout` 分别升级到Spec 0.8或0.9。`set-layout` 提供完整对象，保留本次未要求修改的字段。
 `set-row-label` 修改行标签，不修改按钮文字或动作。
 `set-button-label` 只改现有按钮的 buttonLabel；`set-button-action` 提供完整的
 `{kind:"emit"}` 或 `{kind:"reset-initial",fields:[状态ID...]}`。两者均要求目标为现有 Button，

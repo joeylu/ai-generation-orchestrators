@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-edit-context:0.3",
+  "title": "Panel Edit Context 0.3",
+  "description": "Appearance and existing standalone-button section layouts for modern-v3.",
+  "$comment": "Register PanelSpec 0.1 through 0.9. Runtime also verifies the exact catalog visual profile, complete ordered capability set, source hashes and request evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "editContextVersion",
+    "request",
+    "spec",
+    "catalog",
+    "baseSpecSha256",
+    "catalogSha256",
+    "capabilities",
+    "sha256"
+  ],
+  "properties": {
+    "editContextVersion": {
+      "const": "0.3"
+    },
+    "request": {
+      "$ref": "urn:ai-game-assets:panel-request:0.1"
+    },
+    "spec": {
+      "oneOf": [
+        {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7"
+        },
+        {
+          "$ref": "urn:ai-game-assets:panel-spec:0.8"
+        },
+        {
+          "$ref": "urn:ai-game-assets:panel-spec:0.9"
+        }
+      ]
+    },
+    "catalog": {
+      "$ref": "#/$defs/catalog"
+    },
+    "baseSpecSha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "catalogSha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operations",
+        "target",
+        "statePolicy",
+        "semanticReview",
+        "themePolicy",
+        "appearancePolicy",
+        "actionLayoutPolicy"
+      ],
+      "properties": {
+        "operations": {
+          "anyOf": [
+            {
+              "const": [
+                "set-panel-title",
+                "set-theme",
+                "set-layout",
+                "set-row-label",
+                "set-row-enabled",
+                "set-state-initial",
+                "add-row",
+                "remove-row",
+                "set-button-label",
+                "set-button-action",
+                "set-input-properties",
+                "set-appearance",
+                "set-action-layout"
+              ]
+            },
+            {
+              "const": [
+                "set-panel-title",
+                "set-theme",
+                "set-layout",
+                "set-row-label",
+                "set-row-enabled",
+                "set-state-initial",
+                "add-row",
+                "remove-row",
+                "set-button-label",
+                "set-button-action",
+                "set-tab-label",
+                "set-tabs-enabled",
+                "set-input-properties",
+                "set-appearance",
+                "set-action-layout"
+              ]
+            }
+          ],
+          "$comment": "Context 0.3 advertises thirteen ordinary or fifteen Tabs operations. All edits must be advertised in the source context; saved Context 0.1 and 0.2 retain their original capability sets and digests."
+        },
+        "target": {
+          "const": "pixi"
+        },
+        "statePolicy": {
+          "const": "preserve-current-at-apply"
+        },
+        "semanticReview": {
+          "const": "NOT_RUN"
+        },
+        "appearancePolicy": {
+          "const": "panel-local-v1"
+        },
+        "actionLayoutPolicy": {
+          "const": "section-buttons-v1"
+        }
+      }
+    },
+    "sha256": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalogVersion",
+        "id",
+        "version",
+        "themes",
+        "recipes"
+      ],
+      "properties": {
+        "catalogVersion": {
+          "const": "0.1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^[a-z][a-z0-9._-]{0,95}$(?![\\s\\S])"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 20,
+          "pattern": "^(?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3})$(?![\\s\\S])"
+        },
+        "themes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/theme"
+          }
+        },
+        "recipes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/recipe"
+          }
+        }
+      },
+      "$comment": "src/catalog.mjs additionally enforces unique id@version identities, NFKC/case-normalized uniqueness within tags/states/supports and UTF-16 string length limits. JSON Schema maxLength counts Unicode code points. Embedded catalog structure does not prove successful recipe resolution or compilation."
+    },
+    "color": {
+      "type": "string",
+      "minLength": 7,
+      "maxLength": 7,
+      "pattern": "^#[0-9a-fA-F]{6}$(?![\\s\\S])"
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "tokens"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^[a-z][a-z0-9._-]{0,95}$(?![\\s\\S])"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 20,
+          "pattern": "^(?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3})$(?![\\s\\S])"
+        },
+        "tokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "background",
+            "surface",
+            "control",
+            "accent",
+            "text",
+            "muted",
+            "border",
+            "fontFamily",
+            "fontSize",
+            "headingSize",
+            "titleSize",
+            "spacing",
+            "radius"
+          ],
+          "properties": {
+            "background": {
+              "$ref": "#/$defs/color"
+            },
+            "surface": {
+              "$ref": "#/$defs/color"
+            },
+            "control": {
+              "$ref": "#/$defs/color"
+            },
+            "accent": {
+              "$ref": "#/$defs/color"
+            },
+            "text": {
+              "$ref": "#/$defs/color"
+            },
+            "muted": {
+              "$ref": "#/$defs/color"
+            },
+            "border": {
+              "$ref": "#/$defs/color"
+            },
+            "fontFamily": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)[^\\u0000-\\u001F\\u007F]*$(?![\\s\\S])"
+            },
+            "fontSize": {
+              "type": "number",
+              "minimum": 8,
+              "maximum": 128
+            },
+            "headingSize": {
+              "type": "number",
+              "minimum": 8,
+              "maximum": 128
+            },
+            "titleSize": {
+              "type": "number",
+              "minimum": 8,
+              "maximum": 128
+            },
+            "spacing": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 128
+            },
+            "radius": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 128
+            }
+          }
+        }
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "kind",
+        "description",
+        "tags",
+        "states",
+        "supports",
+        "minWidth",
+        "minHeight"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^[a-z][a-z0-9._-]{0,95}$(?![\\s\\S])"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 20,
+          "pattern": "^(?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3})$(?![\\s\\S])"
+        },
+        "kind": {
+          "enum": [
+            "panel",
+            "section",
+            "slider-row",
+            "switch-row",
+            "select-row",
+            "button-row",
+            "text-row",
+            "progress-row",
+            "tabs",
+            "input-row"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)[^\\u0000-\\u001F\\u007F]*$(?![\\s\\S])"
+        },
+        "tags": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)[^\\u0000-\\u001F\\u007F]*$(?![\\s\\S])"
+          }
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "idle",
+              "hover",
+              "pressed",
+              "disabled",
+              "dragging",
+              "checked"
+            ]
+          }
+        },
+        "supports": {
+          "const": [
+            "pixi"
+          ]
+        },
+        "minWidth": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "minHeight": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8192
+        }
+      }
+    }
+  }
+}

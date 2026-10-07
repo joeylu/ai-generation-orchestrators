@@ -6,6 +6,7 @@ const positive = value => Number.isFinite(value) && value > 0;
 
 export function measureFlowLayout(spec, presentationPolicy) {
   const l = spec.layout, width = Math.min(l.width, spec.canvas.width);
+  const frame = spec.panelSpecVersion === '0.14' ? spec.frame : null;
   const bodyWidth = width - l.padding * 2;
   const bodyY = l.padding + l.titleHeight + l.gap;
   const chromeHeight = bodyY + l.padding;
@@ -26,7 +27,8 @@ export function measureFlowLayout(spec, presentationPolicy) {
       return { width: ownWidth, height, sections: [{ id: section.id, x: 0, y: 0, width: ownWidth, height, ...(presentation ? { presentation } : {}) }] };
     }
     const count = node.children.length;
-    let columns = node.kind === 'column' ? 1 : node.kind === 'row' ? count
+    let columns = node.kind === 'column' ? 1 : node.kind === 'row' ? frame
+      ? Math.max(1,Math.min(count,Math.floor((ownWidth+node.gap)/(Math.max(280,l.labelWidth+208)+node.gap)))) : count
       : 2 * node.minColumnWidth + node.gap <= ownWidth ? 2 : 1;
     columns = Math.min(columns, count);
     const slotWidth = (ownWidth - node.gap * (columns - 1)) / columns;
@@ -56,7 +58,7 @@ export function measureFlowLayout(spec, presentationPolicy) {
   let viewportWidth = bodyWidth, panelHeight, viewportHeight;
   const fields = new Map(spec.state.map(field => [field.id, field]));
   for (let pass = 0; pass < 3; pass += 1) {
-    const availableHeight = Math.min(l.maxHeight, spec.canvas.height - reserve);
+    const availableHeight = Math.min(frame?.height ?? l.maxHeight, spec.canvas.height - reserve);
     const naturalHeight = chromeHeight + measured.height;
     if (!scrollable && naturalHeight > availableHeight) {
       if (l.overflow !== 'scroll') fail('LAYOUT_OVERFLOW', 'Flow content exceeds the declared panel height');
@@ -68,10 +70,11 @@ export function measureFlowLayout(spec, presentationPolicy) {
       measured = measure(l.body, viewportWidth);
       continue;
     }
-    panelHeight = Math.min(naturalHeight, availableHeight);
+    panelHeight = frame ? frame.height : Math.min(naturalHeight, availableHeight);
+    if (panelHeight > availableHeight) fail('LAYOUT_OVERFLOW','Fixed panel frame exceeds canvas or popup clearance');
     viewportHeight = panelHeight - chromeHeight;
     const minimumViewport = presentationPolicy
-      ? Math.max(l.rowHeight, ...measured.sections.flatMap(section => section.presentation.rows.map(row => row.height))) : l.rowHeight;
+      ? Math.max(l.rowHeight, ...measured.sections.flatMap(section => section.presentation.rows.map(row => row.allowPartialScroll ? Math.min(l.rowHeight,row.height) : row.height))) : l.rowHeight;
     if (!positive(panelHeight) || !positive(viewportHeight)
         || (scrollable && viewportHeight < minimumViewport)) {
       fail('LAYOUT_OVERFLOW', 'The scroll viewport must fit one complete row after title and popup clearance');
@@ -93,6 +96,7 @@ export function measureTabbedLayout(spec, presentationPolicy) {
   const header = 48, gap = spec.layout.gap;
   const overhead = header + gap;
   const measurePages = maxHeight => spec.tabs.pages.map(page => measureFlowLayout({ ...spec,
+    ...(spec.frame ? {frame:{...spec.frame,height:spec.frame.height-overhead}} : {}),
     sections: spec.sections.filter(section => page.sections.includes(section.id)),
     canvas: { ...spec.canvas, height: spec.canvas.height - overhead },
     layout: { ...spec.layout, maxHeight, body: pageLayout(spec.layout.body, page.sections) },

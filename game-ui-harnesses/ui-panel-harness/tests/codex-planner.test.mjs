@@ -20,6 +20,9 @@ import { formEditRequest, formEditDraft } from '../examples/forms-v1/edit-fixtur
 import { materializePanelIntent } from '../src/panel-intent.mjs';
 import { ordinalFixture } from './ordinal-intent-fixture.mjs';
 import { requestReferenceFixture } from '../examples/request-reference-v1/fixture.mjs';
+import { roleRequest, roleIntent } from '../examples/adaptive-v1/fixture.mjs';
+
+
 
 const json = async path => JSON.parse(await readFile(path, 'utf8'));
 const catalog = await json(join(harnessRoot, 'examples/modern-mint-controls.catalog.json'));
@@ -38,6 +41,73 @@ const executable = join(work, process.platform === 'win32' ? 'codex.exe' : 'code
 await writeFile(executable, 'This is a non-executable fixture. Tests only use fake child processes.');
 let folderIndex = 0;
 const output = () => join(work, `case-${folderIndex++}`);
+test('after a button-layout upgrade the CLI prompt retains form instructions and exposes the new layout operation', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-adaptive.catalog.json'));
+  const planning = await createPlanningContext(roleRequest, catalog);
+  const base = (await materializePanelIntent(planning, roleIntent(planning))).spec;
+  const spec = { ...base, panelSpecVersion: '0.9', appearance: null, actionLayouts: [] };
+  const context = await createPanelEditContext(spec, catalog, { ...roleRequest, text: '保持当前界面不变。' });
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: context.sha256, patch: null, bases: null,
+    unresolved: [], noChange: { reason: '当前请求明确保持不变。', quote: context.request.text } };
+  let schema;
+  const fake = fakeProcess(async (child, call) => { schema = await json(call.args[call.args.indexOf('--output-schema') + 1]); sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0); });
+  const result = await editWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'NO_CHANGES'); assert.equal(fake.calls.length, 1);
+  assert(fake.calls[0].prompt.includes('It does not need a separate public capability named add-input-row'));
+  assert(fake.calls[0].prompt.includes('prompts/panel-action-layout-editor.md'));
+  const native = codexEditOperationContracts(schema, context);
+  assert(native.some(value => value.operation === 'set-action-layout'));
+  assert(native.some(value => value.operation === 'add-input-row'));
+});
+
+test('selected-object CLI dispatch carries separate ID scope and exact original request without retries', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-adaptive.catalog.json'));
+  const planning = await createPlanningContext(roleRequest, catalog);
+  const spec = (await materializePanelIntent(planning, roleIntent(planning))).spec;
+  const row = spec.sections.flatMap(section => section.rows).find(row => row.kind === 'button');
+  const context = await createPanelEditContext(spec, catalog, { ...roleRequest, id: 'panel-edit', text: '把这个按钮的文字改为继续，其他不变。' }, { rowId: row.id });
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: context.sha256,
+    patch: { patchVersion: '0.1', baseSpecSha256: context.baseSpecSha256, reason: context.request.text,
+      operations: [{ op: 'set-button-label', rowId: row.id, buttonLabel: '继续' }] },
+    bases: [{ kind: 'request-interpretation', quote: context.request.text }], unresolved: [], noChange: null };
+  let selectedSchema;
+  const fake = fakeProcess(async (child, call) => {
+    selectedSchema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status,'READY_TO_APPLY'); assert.equal(fake.calls.length,1);
+  assert.deepEqual(new Set(codexEditOperationContracts(selectedSchema, context).map(op => op.operation)), new Set(context.capabilities.operations));
+  assert(fake.calls[0].prompt.includes('Selected-object scope: context.selection.rowId'));
+  assert(fake.calls[0].prompt.includes('Quote the unmodified current request'));
+  assert(fake.calls[0].prompt.includes(JSON.stringify(context.selection)));
+  assert.equal(result.proposal.patch.operations[0].rowId,row.id);
+  assert.equal(result.proposal.decisions[0].basis.quote,context.request.text);
+});
+
+test('button font dispatch advertises the operation and distinguishes glyph size from hit target size', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-adaptive.catalog.json'));
+  const planning = await createPlanningContext(roleRequest, catalog);
+  const spec = (await materializePanelIntent(planning, roleIntent(planning))).spec;
+  const row = spec.sections.flatMap(section => section.rows).find(row => row.kind === 'button');
+  const context = await createPanelEditContext(spec, catalog, { ...roleRequest, id: 'panel-edit', text: '只把这个按钮文字字号改成24，按钮尺寸和其他内容不变。' }, { rowId: row.id });
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: context.sha256,
+    patch: { patchVersion: '0.1', baseSpecSha256: context.baseSpecSha256, reason: context.request.text,
+      operations: [{ op: 'set-button-font-size', rowId: row.id, fontSize: 24 }] },
+    bases: [{ kind: 'request-interpretation', quote: context.request.text }], unresolved: [], noChange: null };
+  let selectedSchema;
+  const fake = fakeProcess(async (child, call) => {
+    selectedSchema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'READY_TO_APPLY'); assert.equal(fake.calls.length, 1);
+  assert(codexEditOperationContracts(selectedSchema, context).some(op => op.operation === 'set-button-font-size'));
+  assert(fake.calls[0].prompt.includes('这是按钮字号修改'));
+  assert(fake.calls[0].prompt.includes('不改变按钮宽高'));
+  assert.deepEqual(result.proposal.patch.operations, draft.patch.operations);
+});
+
 async function clarifiedAudioFixture() {
   const formsCatalog = await json(join(harnessRoot, 'examples/modern-mint-forms.catalog.json'));
   const text = '做个声音设置，放音量滑条和静音开关，再加恢复默认。\n【补充回答】\n问题：音量范围、步长、初值和静音初值是多少？\n回答：音量0到100、步长1、默认70；静音默认关闭，开启表示静音；恢复默认只重置这两项；全部可用';
@@ -96,6 +166,40 @@ function fakeProcess(scenario = child => { sendEvents(child, completedEvents());
   };
   return { calls, runProcess };
 }
+
+test('native 0.9 initial layout and per-button editing use the actual CLI boundary with one fixture child each', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-adaptive.catalog.json'));
+  const request = { ...roleRequest, id: 'player-dispatch', text: '生成音乐播放器，上一首播放下一首用⏮⏯⏭表示，三个56像素圆形按钮横向居中，间距16。' };
+  const context = await createPlanningContext(request, catalog, undefined, { actionLayouts: true });
+  const intent = roleIntent(context); intent.panelIntentVersion = '0.9'; intent.panel.title = '音乐播放器';
+  intent.panel.body.children = [{ kind: 'section', title: '播放控制', actionLayout: { direction: 'row', align: 'center', gap: 16, buttonWidth: 56, buttonHeight: 56, shape: 'circle', sourceRef: 'request' },
+    rows: ['⏮', '⏯', '⏭'].map(label => ({ kind: 'button', label, recipeKey: 'settings.button@0.1.0', sourceRef: 'request', icon: null, enabled: true, action: 'emit', resetRows: [], submitRows: [] })) }];
+  let generatedSchema;
+  const fake = fakeProcess(async (child, call) => {
+    generatedSchema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    assert(call.prompt.includes('Intent 0.9')); assert(call.prompt.includes('actionLayout'));
+    sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0);
+  });
+  const generated = await planWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(fake.calls.length, 1); assert.equal(generated.report.status, 'READY_TO_COMPILE');
+  assert.deepEqual(generatedSchema.properties.panelIntentVersion.enum, ['0.9']);
+  assert.equal(generated.proposal.spec.panelSpecVersion, '0.9');
+  const editing = await createPanelEditContext(generated.proposal.spec, catalog, { ...request, text: '交换上一首和下一首，播放键改为紫色80像素圆形，其他不变。' });
+  const operations = [{ op: 'set-row-order', sectionId: 'section0', rowIds: ['row2', 'row1', 'row0'] },
+    { op: 'set-button-style', rowId: 'row1', style: { backgroundColor: '#7C3AED', textColor: null, borderColor: null, borderWidth: null, cornerRadius: null, width: 80, height: 80, shape: 'circle' } }];
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: editing.sha256,
+    patch: { patchVersion: '0.1', baseSpecSha256: editing.baseSpecSha256, reason: editing.request.text, operations },
+    bases: operations.map(() => ({ kind: 'request-interpretation', quote: editing.request.text })), unresolved: [], noChange: null };
+  const editFake = fakeProcess(async (child, call) => {
+    assert(call.prompt.includes('prompts/panel-control-editor.md'));
+    const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    assert(codexEditOperationContracts(schema, editing).some(op => op.operation === 'set-button-style'));
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const edited = await editWithCodex(editing, { outputRoot: output(), executable, runProcess: editFake.runProcess });
+  assert.equal(editFake.calls.length, 1); assert.equal(edited.report.status, 'READY_TO_APPLY');
+  assert.deepEqual(edited.proposal.patch.operations, operations);
+});
 async function rejected(fake, code, { input = context, ...options } = {}) {
   const outputRoot = output();
   let caught;
@@ -1212,4 +1316,45 @@ test('receipt validator rejects operational fields, wrong pins, invalid usage an
   ]) assert.throws(() => validateCodexReceipt({ ...receipt, ...change }), { code: 'CODEX_RECEIPT_INVALID' });
   assert.throws(() => validateCodexReceipt(receipt, { contextSha256: '0'.repeat(64) }), { code: 'CODEX_RECEIPT_INVALID' });
   assert.throws(() => validateCodexReceipt(receipt, { proposalSha256: '0'.repeat(64) }), { code: 'CODEX_RECEIPT_INVALID' });
+});
+
+test('title bar CLI transport supplies real alignment capabilities instead of a height-only substitute', async () => {
+  const catalog = await json(join(harnessRoot, 'examples/modern-adaptive.catalog.json'));
+  const planning = await createPlanningContext(roleRequest, catalog), spec = (await materializePanelIntent(planning, roleIntent(planning))).spec;
+  const context = await createPanelEditContext(spec, catalog, { ...roleRequest, id: 'panel-edit', text: '把面板标题横向居中，其他不变。' });
+  const style = { horizontalAlign: 'center', verticalAlign: null, backgroundColor: null, textColor: null, cornerRadius: null, fontSize: null, padding: 0 };
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: context.sha256,
+    patch: { patchVersion: '0.1', baseSpecSha256: context.baseSpecSha256, reason: context.request.text, operations: [{ op: 'set-title-bar', style }] },
+    bases: [{ kind: 'request-interpretation', quote: context.request.text }], unresolved: [], noChange: null };
+  let dispatched;
+  const fake = fakeProcess(async (child, call) => {
+    dispatched = await json(call.args[call.args.indexOf('--output-schema') + 1]);
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'READY_TO_APPLY'); assert.equal(fake.calls.length, 1);
+  assert(codexEditOperationContracts(dispatched, context).some(op => op.operation === 'set-title-bar'));
+  assert(fake.calls[0].prompt.includes('不能只改高度冒充居中成功'));
+  assert(fake.calls[0].prompt.includes('不能把普通行文本的限制套在面板标题上'));
+  assert.equal(fake.calls[0].prompt.includes('不支持其他文本的独立字号'),false);
+  assert(fake.calls[0].prompt.includes('任一必要部分不支持就返回具体缺口'));
+  assert.deepEqual(result.proposal.patch.operations, draft.patch.operations);
+});
+
+test('Text wrapping uses the real native edit schema and guide through one fake CLI child without a model call', async () => {
+  const {createTextWrapFixture} = await import('../examples/text-wrap-v1/fixture.mjs');
+  const {loadWorkspaceCore} = await import('../src/component-adapter.mjs');
+  const fixture = await createTextWrapFixture(await json(join(harnessRoot,'examples/modern-adaptive.catalog.json')),await loadWorkspaceCore());
+  const {context,proposal}=fixture;
+  const draft={codexEditDraftVersion:'0.3',contextSha256:context.sha256,patch:proposal.patch,
+    bases:proposal.patch.operations.map(()=>({kind:'request-interpretation',quote:context.request.text})),unresolved:[],noChange:null};
+  let schema;
+  const fake=fakeProcess(async(child,call)=>{schema=await json(call.args[call.args.indexOf('--output-schema')+1]);sendEvents(child,completedEvents(JSON.stringify(draft)));child.close(0);});
+  const result=await editWithCodex(context,{outputRoot:output(),executable,runProcess:fake.runProcess});
+  assert.equal(result.report.status,'READY_TO_APPLY');assert.equal(fake.calls.length,1);assert.equal(result.receipt.automaticRetries,0);
+  assert(codexEditOperationContracts(schema,context).some(op=>op.operation==='set-text-wrap'));
+  assert(fake.calls[0].prompt.includes('prompts/panel-text-wrap-editor.md'));
+  assert(fake.calls[0].prompt.includes('set-text-wrap'));
+  assert(!fake.calls[0].prompt.includes('文本换行、动态文案'));
+  assert.deepEqual(result.proposal.patch.operations,proposal.patch.operations);
 });

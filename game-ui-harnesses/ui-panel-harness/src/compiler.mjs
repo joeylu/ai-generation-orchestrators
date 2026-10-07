@@ -4,8 +4,11 @@ import { validatePanelAssetClosure, panelAssetPath } from './panel-assets.mjs';
 import { measureFlowLayout, measureTabbedLayout } from './flow-layout.mjs';
 import { tabPageId } from './tabs.mjs';
 import { progressDisplayValue, progressDisplayMax, progressText, progressValueWidth } from './progress.mjs';
-import { createPresentationPolicy } from './panel-presentation.mjs';
+import { createPresentationPolicy, presentationTextWidth } from './panel-presentation.mjs';
 import { formErrorId, inputError, buttonEnabled } from './forms.mjs';
+import { staticTextWidth, wrappedLinePresentation } from './text-wrap.mjs';
+import { buttonFontSize } from './button-font.mjs';
+import { appearanceTokens } from './appearance.mjs';
 
 export const PANEL_COMPILER_VERSION = '0.1.0';
 export const ASSET_PANEL_COMPILER_VERSION = '0.2.0';
@@ -19,10 +22,21 @@ export const FORMS_PANEL_COMPILER_VERSION = '0.7.0';
 export const MODERN_PANEL_COMPILER_VERSION = '0.7.1';
 export const THEMED_PANEL_COMPILER_VERSION = '0.7.2';
 export const ADAPTIVE_PANEL_COMPILER_VERSION = '0.7.3';
+export const APPEARANCE_PANEL_COMPILER_VERSION = '0.8.0';
+export const ACTION_LAYOUT_PANEL_COMPILER_VERSION = '0.9.0';
+export const BUTTON_STYLE_PANEL_COMPILER_VERSION = '0.10.0';
+export const BUTTON_FONT_PANEL_COMPILER_VERSION = '0.11.0';
+export const TITLE_BAR_PANEL_COMPILER_VERSION = '0.12.0';
+export const TEXT_WRAP_PANEL_COMPILER_VERSION = '0.13.0';
+export const FRAME_PANEL_COMPILER_VERSION = '0.14.0';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
   const profile = resolveTheme(catalog, spec.theme).visualStyle;
+  if (['0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) {
+    if (profile !== 'modern-v3') throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Panel appearance requires modern-v3');
+    return spec.panelSpecVersion === '0.14' ? FRAME_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.13' ? TEXT_WRAP_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.12' ? TITLE_BAR_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.11' ? BUTTON_FONT_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.10' ? BUTTON_STYLE_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.9' ? ACTION_LAYOUT_PANEL_COMPILER_VERSION : APPEARANCE_PANEL_COMPILER_VERSION;
+  }
   if (['modern-v1', 'modern-v2', 'modern-v3'].includes(profile)) {
     if (spec.panelSpecVersion !== '0.7') throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Modern visual style requires PanelSpec 0.7');
     return profile === 'modern-v3' ? ADAPTIVE_PANEL_COMPILER_VERSION : profile === 'modern-v2' ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION;
@@ -85,13 +99,14 @@ export function initialPanelState(spec) {
 /** Pure lowering. Renderer-free; core functions are supplied by the host adapter. */
 export function compilePanel(input, catalogInput, core, stateInput, assetClosureInput, compilerVersionInput) {
   const spec = validatePanelSpec(input), catalog = validateCatalog(catalogInput);
-  const formsVersion = spec.panelSpecVersion === '0.7';
+  const sized = spec.panelSpecVersion === '0.14', wrapping = sized || spec.panelSpecVersion === '0.13', titled = wrapping || spec.panelSpecVersion === '0.12', typography = titled || spec.panelSpecVersion === '0.11', individual = typography || spec.panelSpecVersion === '0.10', arranged = individual || spec.panelSpecVersion === '0.9', styled = arranged || spec.panelSpecVersion === '0.8', appearance = styled ? spec.appearance : null;
+  const formsVersion = styled || spec.panelSpecVersion === '0.7';
   const tabsVersion = formsVersion || spec.panelSpecVersion === '0.6';
   const progressVersion = tabsVersion || spec.panelSpecVersion === '0.5';
   const flowVersion = progressVersion || spec.panelSpecVersion === '0.4';
   const controls = flowVersion || spec.panelSpecVersion === '0.3';
   const compilerVersion = compilerVersionInput ?? defaultPanelCompilerVersion(spec, catalog);
-  const allowedVersions = formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
+  const allowedVersions = sized ? [FRAME_PANEL_COMPILER_VERSION] : wrapping ? [TEXT_WRAP_PANEL_COMPILER_VERSION] : titled ? [TITLE_BAR_PANEL_COMPILER_VERSION] : typography ? [BUTTON_FONT_PANEL_COMPILER_VERSION] : individual ? [BUTTON_STYLE_PANEL_COMPILER_VERSION] : arranged ? [ACTION_LAYOUT_PANEL_COMPILER_VERSION] : styled ? [APPEARANCE_PANEL_COMPILER_VERSION] : formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
     : [controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION];
   if (!allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec');
   const assetClosure = validatePanelAssetClosure(spec, assetClosureInput);
@@ -102,12 +117,12 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     fail('COMPONENT_CORE_REQUIRED', '$', 'A compatible component compiler must be supplied');
   }
   const state = validatePanelState(spec, stateInput === undefined ? initialPanelState(spec) : stateInput);
-  const theme = resolveTheme(catalog, spec.theme), t = theme.tokens;
+  const theme = resolveTheme(catalog, spec.theme), t = appearanceTokens(theme.tokens, appearance);
   const adaptive = theme.visualStyle === 'modern-v3', themed = adaptive || theme.visualStyle === 'modern-v2', modern = themed || theme.visualStyle === 'modern-v1';
   const presentationPolicy = adaptive ? createPresentationPolicy(spec, t) : undefined;
   const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec, presentationPolicy) : flowVersion ? measureFlowLayout(spec, presentationPolicy) : null;
   const l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
-  if (modern ? compilerVersion !== (adaptive ? ADAPTIVE_PANEL_COMPILER_VERSION : themed ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION)
+  if (styled ? !adaptive : modern ? compilerVersion !== (adaptive ? ADAPTIVE_PANEL_COMPILER_VERSION : themed ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION)
     : [MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION].includes(compilerVersion))
     fail('VISUAL_STYLE_VERSION', '$.compilerVersion', 'Visual style and compiler version must match');
   const navigation = themed ? navigationPalette(t) : null;
@@ -150,8 +165,14 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     text: value, wrap: 'none', overflow: 'error', lineHeight: Math.ceil(fontSize * 1.3), drawBackground: false,
     style: style(t.surface, { textColor: color, fontSize, fontWeight: weight }),
   });
-  const children = [text(`${spec.id}.title`, spec.title,
-    { x: l.padding, y: l.padding, width: contentWidth, height: l.titleHeight }, t.titleSize, t.text, 'bold')];
+  const titleBar = spec.titleBar, titlePadding = titleBar?.padding ?? 0, titleSize = titleBar?.fontSize ?? t.titleSize;
+  const titleWidth = contentWidth - 2 * titlePadding, titleHeight = l.titleHeight - 2 * titlePadding;
+  if (titleBar && (Math.ceil(titleSize * 1.3) > titleHeight || presentationTextWidth(spec.title,titleSize) > titleWidth)) fail('TITLE_BAR_FIT', '$.titleBar', 'Title does not fit its existing slot; reduce font/padding or explicitly increase title height');
+  const hasPlate = titleBar?.backgroundColor != null;
+  const titleNode = text(`${spec.id}.title`, spec.title,
+    { x: (hasPlate ? 0 : l.padding) + titlePadding, y: (hasPlate ? 0 : l.padding) + titlePadding, width: titleWidth, height: titleHeight }, titleSize, titleBar?.textColor ?? t.text, 'bold');
+  const children = [hasPlate ? node(`${spec.id}.title-bar`, 'Container', { x:l.padding, y:l.padding, width:contentWidth, height:l.titleHeight },
+    { style:style(titleBar.backgroundColor,{cornerRadius:titleBar.cornerRadius ?? t.radius}) }, [titleNode]) : titleNode];
   if (modern && !adaptive && l.gap >= 4) children.push(node(`${spec.id}.title-divider`, 'Container',
     { x: l.padding, y: l.padding + l.titleHeight + l.gap / 2, width: contentWidth, height: 1 },
     { style: style(t.border, { cornerRadius: 0 }) }, []));
@@ -185,7 +206,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       const stacked = placement?.stacked === true;
       if (icon && (rowHeight < 40 || (!fullButton && !stacked && l.labelWidth - iconOffset < t.fontSize * 2))) fail('ICON_GEOMETRY', '$.layout', 'Icon needs a 28px slot and a readable label');
       const rowChildren = fullButton ? [] : [text(`${rowId}.label`, row.label,
-        { x: 12 + iconOffset, y: stacked ? 0 : modern && row.kind === 'input' ? 4 + (40 - textHeight) / 2 : (rowHeight - textHeight) / 2, width: stacked ? contentWidth - 24 - iconOffset : l.labelWidth - iconOffset, height: textHeight }, t.fontSize)];
+        { x: 12 + iconOffset, y: placement?.textBlock ? 12 : stacked ? 0 : modern && row.kind === 'input' ? 4 + (40 - textHeight) / 2 : (rowHeight - textHeight) / 2, width: stacked ? contentWidth - 24 - iconOffset : l.labelWidth - iconOffset, height: textHeight }, t.fontSize)];
       if (icon) rowChildren.unshift(image(`${rowId}.icon`, icon, { x: placement?.iconX ?? 12, y: stacked ? 0 : (rowHeight - 28) / 2, width: stacked ? 24 : 28, height: stacked ? 24 : 28 }, null, true));
       const controlX = placement?.controlX ?? (stacked ? 12 : fullButton ? 12 + iconOffset : l.labelWidth + l.gap + 12);
       const available = placement?.controlWidth ?? contentWidth - controlX - 12;
@@ -195,7 +216,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         rowChildren.push(node(id, 'Input', { x: controlX, y: stacked ? textHeight + 8 : 4, width: available, height: stacked ? 44 : 40 }, {
           value: state[row.bind], placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
           maxLength: field.maxLength, enabled: row.enabled, valueOverflow: 'ellipsis',
-          style: style(modern && row.readOnly ? t.control : t.surface, { borderWidth: 1, cornerRadius: modern ? 8 : 6,
+          style: style(appearance?.controlColor ?? (modern && row.readOnly ? t.control : t.surface), { borderWidth: 1, cornerRadius: appearance?.controlRadius ?? (modern ? 8 : 6),
             ...(modern ? { borderColor: t.accent } : {}) }),
         }));
         for (const [code, message] of [['required', row.validation.requiredMessage], ['min-length', row.validation.minLengthMessage]])
@@ -210,7 +231,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         }));
         const valueId = `${rowId}.value`;
         rowChildren.push(text(valueId, `${row.format.prefix}${state[row.bind].toFixed(row.format.fractionDigits)}${row.format.suffix}`,
-          { x: contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, t.accent));
+          { x: contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, appearance?.textColor ?? t.accent));
         textBindings.push({ sourceId: id, targetId: valueId, parts: [row.format.prefix,
           { field: 'value', fractionDigits: row.format.fractionDigits, grouping: 'none' }, row.format.suffix] });
       } else if (row.kind === 'progress') {
@@ -220,11 +241,11 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         if (barWidth < 96) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Progress needs a bar and a readable value slot');
         rowChildren.push(node(id, 'ProgressBar', { x: controlX, y: (rowHeight - 16) / 2, width: barWidth, height: 16 }, {
           value: progressDisplayValue(row, field, state[row.bind]), max: progressDisplayMax(row, field),
-          style: style(t.border, { borderColor: t.accent, cornerRadius: 8 }),
+          style: style(appearance?.controlColor ?? t.border, { borderColor: t.accent, cornerRadius: 8 }),
         }));
         const valueId = `${rowId}.value`, suffix = row.format.mode === 'percent' ? '%' : '';
         rowChildren.push(text(valueId, progressText(row, field, state[row.bind]),
-          { x: contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, t.accent));
+          { x: contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, appearance?.textColor ?? t.accent));
         textBindings.push({ sourceId: id, targetId: valueId, parts: [
           { field: 'value', fractionDigits: row.format.fractionDigits, grouping: 'none' }, suffix] });
       } else if (row.kind === 'switch') {
@@ -234,10 +255,19 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         }));
       } else if (row.kind === 'text') {
         if (available <= 0) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Text values need a positive content slot');
-        rowChildren.push(text(id, row.text, { x: controlX, y: (rowHeight - textHeight) / 2, width: available, height: textHeight }, t.fontSize));
+        if (placement?.textBlock) {
+          const block=placement.textBlock;
+          block.lines.forEach((line,i)=>{
+            const {text:value,indent}=wrappedLinePresentation(line,t.fontSize);
+            rowChildren.push(text(i===0?id:id+'.line'+i,value,{x:controlX+indent,y:12+textHeight+8+i*block.lineHeight,width:available-indent,height:block.lineHeight+4},t.fontSize));
+          });
+        } else {
+          if (wrapping && staticTextWidth(row.text)*t.fontSize>available) fail('TEXT_WRAP_REQUIRED','$.textLayouts','Text does not fit one line; enable wrapping or shorten it');
+          rowChildren.push(text(id, row.text, { x: controlX, y: (rowHeight - textHeight) / 2, width: available, height: textHeight }, t.fontSize));
+        }
       } else {
-        const controlHeight = adaptive && row.kind === 'button' ? 44 : 40, controlY = (rowHeight - controlHeight) / 2;
-        if (available < 120) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Select and Button need at least 120 logical pixels');
+        const controlHeight = placement?.controlHeight ?? (adaptive && row.kind === 'button' ? 44 : 40), controlY = (rowHeight - controlHeight) / 2;
+        if (available < (placement?.explicitAction ? 44 : 120)) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Select and Button need at least 120 logical pixels');
         if (controlY < 0 || controlHeight < t.fontSize * 1.3) fail('CONTROL_HEIGHT', '$.layout.rowHeight', 'Select and Button use a 40px control with a fitting text line');
         const rect = { x: controlX, y: controlY, width: available, height: controlHeight };
         if (row.kind === 'select') {
@@ -253,7 +283,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
             enabled: row.enabled,
             // The default runtime popup is white/light green. An explicit light-field
             // palette keeps text legible there and in the collapsed field, including dark themes.
-            style: themed ? style(navigation.background, { textColor: navigation.text, borderColor: navigation.accent, borderWidth: 1, cornerRadius: 8 })
+            style: themed ? style(navigation.background, { textColor: navigation.text, borderColor: navigation.accent, borderWidth: 1, cornerRadius: appearance?.controlRadius ?? 8 })
               : modern ? style(t.surface, { borderColor: t.accent, borderWidth: 1, cornerRadius: 8 })
               : style('#F1F5FC', { textColor: '#111622', borderWidth: 1, cornerRadius: 6 }),
           }));
@@ -261,11 +291,24 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           const buttonStyle = modern && (placement?.buttonRole === 'secondary' || (!placement?.buttonRole && row.action.kind === 'reset-initial'))
             ? style(t.surface, { textColor: t.accent, borderColor: t.accent, borderWidth: 1, fontWeight: 'bold', cornerRadius: 8 })
             : style(t.accent, { textColor: buttonForeground(t.accent), fontWeight: 'bold', cornerRadius: modern ? 8 : 6 });
+          if (appearance?.buttonColor != null) {
+            buttonStyle.backgroundColor = appearance.buttonColor;
+            buttonStyle.textColor = buttonForeground(appearance.buttonColor);
+          }
+          if (appearance?.buttonTextColor != null) buttonStyle.textColor = appearance.buttonTextColor;
+          if (appearance?.buttonRadius != null) buttonStyle.cornerRadius = appearance.buttonRadius;
+          const localStyle = spec.buttonStyles?.find(value => value.rowId === row.id)?.style;
+          if (localStyle?.backgroundColor != null) { buttonStyle.backgroundColor = localStyle.backgroundColor; buttonStyle.textColor = buttonForeground(localStyle.backgroundColor); }
+          for (const key of ['textColor','borderColor','borderWidth','cornerRadius']) if (localStyle?.[key] != null) buttonStyle[key] = localStyle[key];
+          if (placement?.circle) buttonStyle.cornerRadius = controlHeight / 2;
+          const labelSize = buttonFontSize(spec, row.id, t.fontSize), labelHeight = Math.ceil(labelSize * 1.3);
+          buttonStyle.fontSize = labelSize;
+          if (typography && (labelHeight + 8 > controlHeight || presentationTextWidth(row.buttonLabel, labelSize) + 16 > available)) fail('BUTTON_FONT_FIT', '$.buttonFonts', 'Button text does not fit; reduce its font size or explicitly request a larger button');
           // An explicit Text child suppresses the component's implicit left label.
           // Pixi aligns this child using measured glyph bounds in panel-visuals;
           // Unity uses its existing native centered label instead.
-          const labels = modern ? [node(`${id}.center-label`, 'Text', { x: 8, y: (controlHeight - textHeight) / 2, width: available - 16, height: textHeight }, {
-            text: row.buttonLabel, wrap: 'none', overflow: adaptive ? 'error' : 'ellipsis', lineHeight: textHeight, drawBackground: false, style: buttonStyle,
+          const labels = modern ? [node(`${id}.center-label`, 'Text', { x: 8, y: (controlHeight - labelHeight) / 2, width: available - 16, height: labelHeight }, {
+            text: row.buttonLabel, wrap: 'none', overflow: adaptive ? 'error' : 'ellipsis', lineHeight: labelHeight, drawBackground: false, style: buttonStyle,
           })] : [];
           rowChildren.push(node(id, 'Button', rect, {
             label: row.buttonLabel, enabled: buttonEnabled(spec, row, state),
@@ -277,7 +320,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {
@@ -286,7 +329,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         }
       } else sectionChildren.push(node(rowId, 'Container', {
         x: 0, y: rowY, width: contentWidth, height: rowHeight,
-      }, { style: style(stacked || (modern && row.kind === 'text') ? t.surface : t.control, { ...(modern ? { cornerRadius: 8 } : {}) }) }, rowChildren));
+      }, { style: style(stacked || (modern && row.kind === 'text') ? t.surface : t.control, { ...(modern ? { cornerRadius: appearance?.controlRadius ?? 8 } : {}) }) }, rowChildren));
     }
     bodyChildren.push(node(sectionId, 'Container', { x: place?.x ?? l.padding, y: sectionY, width: contentWidth, height },
       { style: style(t.surface) }, sectionChildren));
@@ -312,7 +355,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     flow.scrollable ? { scrollX: 0, scrollY: 0, contentWidth: flow.body.width, contentHeight: flow.contentHeight,
       drawBackground: false, scrollbarVisibility: 'auto', style: style(t.surface) } : { style: style(t.surface) }, bodyChildren));
   const surface = assets.get(spec.assets?.panelSurface);
-  if (surface) {
+  if (surface && appearance?.panelColor == null && appearance?.panelRadius == null) {
     const { left, right, top, bottom } = surface.slice;
     if (l.width <= left + right || panelHeight <= top + bottom) fail('SURFACE_GEOMETRY', '$.layout', 'Panel must exceed the fixed slice borders');
     const sx = [0, left, surface.width - right, surface.width], sy = [0, top, surface.height - bottom, surface.height];
@@ -328,7 +371,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   }
   const card = node(`${spec.id}.panel`, 'Container', {
     x: flow?.panelX ?? (spec.canvas.width - l.width) / 2, y: flow?.panelY ?? (spec.canvas.height - panelHeight) / 2, width: l.width, height: panelHeight,
-  }, { style: style(t.surface, { borderWidth: 1 }) }, children);
+  }, { style: style(t.surface, { borderWidth: 1, cornerRadius: appearance?.panelRadius ?? t.radius }) }, children);
   const root = node(`${spec.id}.canvas`, 'Container', { x: 0, y: 0, ...spec.canvas }, { style: style(t.background, { cornerRadius: 0 }) }, [card]);
   const intent = { intentVersion: '0.2', id: spec.id, root };
   const policy = { canvas: spec.canvas, layout: layouts, layoutSource: {

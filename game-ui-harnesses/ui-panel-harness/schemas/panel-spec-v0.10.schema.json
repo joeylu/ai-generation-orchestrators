@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.10",
+  "title": "PanelSpec 0.10",
+  "description": "Bounded per-button style and geometry overrides. Runtime verifies target identities, readable dimensions and layout fit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs",
+    "appearance",
+    "actionLayouts",
+    "buttonStyles"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.10"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/canvas"
+    },
+    "layout": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/layout"
+    },
+    "state": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/state"
+    },
+    "sections": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/sections"
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/provenance"
+    },
+    "assets": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/assets"
+    },
+    "tabs": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/tabs"
+    },
+    "appearance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.8#/$defs/appearance"
+    },
+    "actionLayouts": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/actionLayout"
+      }
+    },
+    "buttonStyles": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rowId",
+          "style"
+        ],
+        "properties": {
+          "rowId": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+          },
+          "style": {
+            "$ref": "#/$defs/buttonStyle"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "actionLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sectionId",
+        "direction",
+        "align",
+        "gap",
+        "buttonWidth",
+        "buttonHeight",
+        "shape"
+      ],
+      "properties": {
+        "direction": {
+          "enum": [
+            "row",
+            "column"
+          ]
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "buttonWidth": {
+          "type": "integer",
+          "minimum": 44,
+          "maximum": 512
+        },
+        "buttonHeight": {
+          "type": "integer",
+          "minimum": 44,
+          "maximum": 512
+        },
+        "shape": {
+          "enum": [
+            "default",
+            "circle"
+          ]
+        },
+        "sectionId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/properties/id"
+        }
+      }
+    },
+    "actionLayoutValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "direction",
+        "align",
+        "gap",
+        "buttonWidth",
+        "buttonHeight",
+        "shape"
+      ],
+      "properties": {
+        "direction": {
+          "enum": [
+            "row",
+            "column"
+          ]
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "buttonWidth": {
+          "type": "integer",
+          "minimum": 44,
+          "maximum": 512
+        },
+        "buttonHeight": {
+          "type": "integer",
+          "minimum": 44,
+          "maximum": 512
+        },
+        "shape": {
+          "enum": [
+            "default",
+            "circle"
+          ]
+        }
+      }
+    },
+    "buttonStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backgroundColor",
+        "textColor",
+        "borderColor",
+        "borderWidth",
+        "cornerRadius",
+        "width",
+        "height",
+        "shape"
+      ],
+      "properties": {
+        "backgroundColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          ]
+        },
+        "textColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          ]
+        },
+        "borderColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          ]
+        },
+        "borderWidth": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8
+            }
+          ]
+        },
+        "cornerRadius": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 128
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 44,
+              "maximum": 512
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 44,
+              "maximum": 512
+            }
+          ]
+        },
+        "shape": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "default",
+                "circle"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

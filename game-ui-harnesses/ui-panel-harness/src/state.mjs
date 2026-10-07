@@ -1,3 +1,4 @@
+import { hasTextWrap,wrapStaticText,wrappedLinePresentation } from './text-wrap.mjs';
 import { validatePanelSpec, validatePanelState } from './spec.mjs';
 import { controlId, choiceId, initialPanelState } from './compiler.mjs';
 import { navigationRows, tabPageId } from './tabs.mjs';
@@ -75,7 +76,18 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput) {
   for (const row of rows) {
     const node = nodes.get(controlId(spec.id, row.id)), field = fieldMap.get(row.bind);
     if (row.kind === 'text') {
-      if (!node || node.type !== 'Text' || node.props.text !== row.text) throw new Error('PANEL_RUNTIME_MISMATCH');
+      if (!node || node.type !== 'Text') throw new Error('PANEL_RUNTIME_MISMATCH');
+      if (hasTextWrap(spec,row.id)) {
+        const container=nodes.get(`${spec.id}.row.${row.id}`),fontSize=node.props.style.fontSize;
+        if(container?.type!=='Container')throw new Error('PANEL_RUNTIME_MISMATCH');
+        const width=container.layout.width-24,expected=wrapStaticText(row.text,width,fontSize);
+        if(expected.lines.some((line,i)=>{
+          const child=nodes.get(i===0?node.id:node.id+'.line'+i),display=wrappedLinePresentation(line,fontSize);
+          return child?.type!=='Text'||child.props.text!==display.text||child.layout.width!==width-display.indent
+            ||child.layout.x!==12+display.indent||child.layout.y!==12+Math.ceil(fontSize*1.3)+8+i*expected.lineHeight
+            ||child.layout.height!==expected.lineHeight+4||child.props.style.fontSize!==fontSize;
+        }) || nodes.has(node.id+'.line'+expected.lines.length))throw new Error('PANEL_RUNTIME_MISMATCH');
+      } else if(node.props.text!==row.text)throw new Error('PANEL_RUNTIME_MISMATCH');
       continue;
     }
     const expectedEnabled = row.kind === 'button' && row.action.kind === 'submit' ? buttonEnabled(spec, row, suppliedState) : row.enabled;

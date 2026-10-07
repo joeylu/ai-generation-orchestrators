@@ -1,4 +1,5 @@
 export { PanelSpecError, validatePanelSpec, validatePanelState } from './spec.mjs';
+export { APPEARANCE_KEYS, APPEARANCE_COLORS, APPEARANCE_RADII } from './appearance.mjs';
 export { validateCatalog, searchCatalog, resolveRecipe, resolveTheme } from './catalog.mjs';
 export { PanelCompileError, compilePanel, controlId, choiceId, initialPanelState } from './compiler.mjs';
 export { createPanelBundle, validatePanelBundle, panelBundleAssetInputs } from './panel-bundle.mjs';

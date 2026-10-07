@@ -8,7 +8,10 @@ import {createStoredZip} from './zip-store.mjs';
 import {createBrowserSharedSdk} from './shared-sdk-browser.mjs';
 import deliveryRuntime from 'virtual:panel-delivery-runtime';
 import { createWorkbenchRequestIdentity } from './workbench-request-identity.mjs';
+import { createWorkbenchStorage, WORKBENCH_STORAGE_KEY } from './workbench-storage.mjs';
 import { beginnerExamples, questionPresentation, appendEditAnswers, clarificationDisplayText, summarizePanel } from './workbench-guidance.mjs';
+import { selectionLabel } from './workbench-selection.mjs';
+import { editChangeValue } from './edit-review.mjs';
 
 const el = id => document.getElementById(id);
 const seed = JSON.parse(el('workbench-seed').textContent);
@@ -22,13 +25,29 @@ let deliveryReceipt = null;
 let requestNotice = '';
 let editAnswerNotice = '';
 let clarifiedDraft = null, editClarifiedDraft = null;
+let workspaceStorage = null, storagePaused = true, saveTimer = null, manualRequestId = false;
+let selectedRowId = null, selecting = false;
 const hostEvents = [];
 const requestIdentity = createWorkbenchRequestIdentity();
 const errors = ['request-error', 'proposal-error', 'clarification-error', 'edit-plan-error', 'edit-clarification-error', 'edit-error', 'preview-error'];
 const renderer = createWorkbenchRenderer(el('canvas-host'), (event, state) => {
   hostEvents.push(event); if (hostEvents.length > 100) hostEvents.shift();
-  el('event-output').textContent = JSON.stringify(event, null, 2); renderValues(state);
-}, () => { renderedSha = null; el('preview-error').textContent = '预览渲染失败，请重新打开面板。'; updateButtons(); });
+  el('event-output').textContent = JSON.stringify(event, null, 2); renderValues(state); scheduleSave();
+}, () => { renderedSha = null; el('preview-error').textContent = '预览渲染失败，请重新打开面板。'; updateButtons(); },
+rowId => {
+  selectedRowId = rowId; selecting = false; invalidateSelectedEdit(); updateButtons(); el('edit-request-text').focus();
+}, () => { selecting = false; updateButtons(); el('select-edit-target').focus(); });
+function invalidateSelectedEdit() {
+  editDraftDirty = true; editCodexReceipt = null; editClarifiedDraft = null; editAnswerNotice = '';
+  el('edit-proposal-json').value = ''; el('edit-plan-status').textContent = '';
+  el('edit-plan-error').textContent = ''; renderEditQuestions();
+}
+el('select-edit-target').addEventListener('click', () => {
+  selecting = !selecting; updateButtons();
+});
+el('clear-edit-target').addEventListener('click', () => {
+  selectedRowId = null; selecting = false; invalidateSelectedEdit(); updateButtons();
+});
 const phaseLabels = { empty: '', planning: '正在整理需求…', 'awaiting-proposal': '', 'needs-input': '请补充需求信息', ready: '预览已就绪' };
 const advancedMode = () => document.body.classList.contains('advanced-mode');
 function updateView() {
@@ -57,6 +76,10 @@ el('panel-file').addEventListener('change', closeMenu);
 updateView();
 function errorText(error) {
   const code = error.code ?? error.issues?.[0]?.code ?? String(error.message).split(':')[0];
+  if (code === 'EDIT_REQUEST_INCOMPLETE' || error.diagnostic?.validatorCode === 'EDIT_REQUEST_INCOMPLETE') {
+    const missing = error.requestCheck?.items.filter(item=>!item.matched).map(item=>`${item.label}要求 ${editChangeValue(item.expected)}，方案为 ${editChangeValue(item.actual)}`).join('；');
+    return `明确的修改要求未全部落实${missing?'：'+missing:''}。本轮未应用，原面板和试玩值已保留，未自动重试。`;
+  }
   if (error.diagnostic) {
     const reasons = {
       required: '方案缺少必填字段', 'unknown-key': '方案包含协议未允许的字段',
@@ -93,12 +116,15 @@ function errorText(error) {
   const known = {
     PLAN_CONTEXT_MISMATCH: '该方案对应另一份需求。请将当前规划文件交给 Agent，返回匹配的方案。',
     'base-digest': '补丁针对旧版面板。请重新获取当前面板方案后编写补丁。',
-    WORKBENCH_HISTORY_LIMIT: '已保存 16 次修改。可撤销，或导出后重新打开以开始新的修改记录。',
+    WORKBENCH_HISTORY_LIMIT: '会话撤销记录已满。请先撤销部分修改或导出备份。',
+    WORKBENCH_EDIT_LIMIT: '已达到 10 轮修改上限。可继续试玩、撤销或导出；生成新面板后重新开始。',
     WORKBENCH_CONTEXT_REQUIRED: '请先准备当前需求的规划上下文。',
     WORKBENCH_EDIT_CONTEXT_REQUIRED: '请先针对当前面板准备修改上下文。',
     WORKBENCH_EDIT_STALE: '面板版本已变化，请重新准备修改上下文。',
     EDIT_CONTEXT_MISMATCH: '修改方案与当前描述或面板不匹配，请重新准备并取得新方案。',
     EDIT_BASE_MISMATCH: '修改方案针对旧版面板，请重新准备修改上下文。',
+    EDIT_SELECTION: '选中的控件已失效，请重新选择修改对象。',
+    EDIT_SELECTION_SCOPE: '方案修改了选中对象之外的内容。要修改整页或其他控件，请先取消选择。',
     EDIT_PLAN_NEEDS_INPUT: '请把下方问题的答案补充到修改描述中，再重新准备。',
     EDIT_BUSINESS_ORIGIN: '业务修改缺少当前修改要求中的依据，请让 Agent 修正方案。',
     WORKBENCH_CLARIFICATION_REQUIRED: '当前没有待回答的问题，请先导入对应当前需求的 Agent 方案。',
@@ -159,9 +185,134 @@ function currentState() {
   if (!snapshot?.panel || renderedSha !== snapshot.panel.sha256) throw new Error('WORKBENCH_PREVIEW_NOT_CURRENT');
   return renderer.getState();
 }
+function currentDraft() {
+  return { text: el('request-text').value, id: el('request-id').value, style: el('asset-style').value,
+    editText: el('edit-request-text').value, manualId: manualRequestId };
+}
+function adoptDraft(draft) {
+  el('request-text').value = draft.text; el('request-id').value = draft.id;
+  if (![...el('asset-style').options].some(option => option.value === draft.style)) {
+    const option = document.createElement('option'); option.value = draft.style; option.textContent = draft.style; el('asset-style').append(option);
+  }
+  el('asset-style').value = draft.style; el('edit-request-text').value = draft.editText;
+  manualRequestId = draft.manualId; requestIdentity.setManual(manualRequestId);
+  requestIdentity.adopt(draft.text, draft.style, draft.id);
+  draftDirty = true; editDraftDirty = true; clarifiedDraft = null; editClarifiedDraft = null;
+  requestNotice = ''; editAnswerNotice = ''; codexReceipt = null; editCodexReceipt = null;
+  el('proposal-json').value = ''; el('edit-proposal-json').value = '';
+}
+function storageStatus(text, error = false) {
+  el('save-status').textContent = text; el('save-status').dataset.error = String(error);
+  el('storage-dialog-status').textContent = error ? text : '';
+}
+function storageFailure(error) {
+  const code = error?.message;
+  if (['WORKSPACE_CONFLICT', 'WORKSPACE_INVALID', 'WORKSPACE_BLOCKED'].includes(code)) storagePaused = true;
+  const messages = {
+    WORKSPACE_CONFLICT: '另一标签页更新了存档，已暂停本页自动保存。请先导出当前面板，再从历史版本重新读取。',
+    WORKSPACE_INVALID: '本机存档无法读取，原记录已保留。可在历史版本中备份并重置。',
+    WORKSPACE_QUOTA: '浏览器空间不足，未保存本次变化。请导出当前面板备份。',
+    WORKSPACE_TOO_LARGE: '当前面板超出本机保存容量，请导出面板备份。',
+    WORKSPACE_UNAVAILABLE: '浏览器不允许本机保存，请使用「导出当前面板」备份。',
+  };
+  storageStatus(messages[code] ?? '本机恢复或保存失败，原存档已保留。请导出当前面板备份。', true);
+  if (model) updateButtons();
+}
+function renderSavedVersions() {
+  const saved = workspaceStorage?.snapshot(); el('saved-versions').replaceChildren();
+  el('saved-history-empty').hidden = Boolean(saved?.versions.length);
+  for (const entry of [...(saved?.versions ?? [])].reverse()) {
+    const li = document.createElement('li'), description = document.createElement('div');
+    const title = document.createElement('strong'), detail = document.createElement('p'), button = document.createElement('button');
+    title.textContent = entry.panel.spec?.title ?? '面板版本'; detail.className = 'hint';
+    detail.textContent = new Date(entry.savedAt).toLocaleString(); description.append(title, detail);
+    button.type = 'button'; button.disabled = busy || disposed || storagePaused;
+    button.textContent = entry.id === saved.currentId ? '恢复当前存档' : '恢复此版本';
+    button.addEventListener('click', () => run('preview-error', async () => {
+      if (storagePaused) throw new Error('WORKSPACE_BLOCKED');
+      // Revalidate and render before changing drafts or the persisted selection.
+      await model.importPanel(entry.panel, entry.state); await showPanel(); adoptDraft(entry.draft);
+      el('saved-history').close();
+    }));
+    li.append(description, button); el('saved-versions').append(li);
+  }
+}
+function flushWorkspace() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (storagePaused || !workspaceStorage || disposed || !model) return;
+  const panel = model.getSnapshot().panel;
+  if (panel && panel.sha256 !== renderedSha) return;
+  try {
+    const { workspace, removed } = workspaceStorage.save({ draft: currentDraft(), panel, state: panel ? currentState() : null, editUsage: model.getEditUsage() });
+    storageStatus(`已保存到本机${workspace.versions.length ? ` · ${workspace.versions.length} 个版本` : ' · 草稿'}${removed ? '（较早版本已腾出空间）' : ''}`);
+    if (el('saved-history').open) renderSavedVersions();
+  } catch (error) { storageFailure(error); }
+}
+function scheduleSave() {
+  if (storagePaused || disposed) return;
+  clearTimeout(saveTimer); saveTimer = setTimeout(flushWorkspace, 250);
+}
+async function restoreWorkspace() {
+  storagePaused = true;
+  try {
+    const saved = workspaceStorage.read(), active = saved.versions.find(entry => entry.id === saved.currentId);
+    if (active) { await model.importPanel(active.panel, active.state); model.restoreEditUsage(saved.editUsage); await showPanel(); }
+    else {
+      model.clear(); renderer.clear(); renderedSha = null; summaryKey = null;
+      model.restoreEditUsage(saved.editUsage);
+      el('empty-preview').hidden = false; el('panel-name').textContent = '尚未生成面板';
+      el('panel-dimensions').textContent = '支持鼠标和键盘';
+      el('event-output').textContent = '尚未操作'; el('live-state').replaceChildren();
+      unityExportReceipt = null; deliveryReceipt = null; el('unity-export-status').textContent = '';
+    }
+    if (disposed) return;
+    adoptDraft(saved.draft); storagePaused = false;
+    storageStatus(active ? '已恢复最近面板、草稿与试玩值。' : saved.draft.text ? '已恢复需求草稿。' : '自动保存到本机 · 仅当前浏览器与地址');
+    renderSavedVersions(); sync();
+  } catch (error) { storagePaused = true; storageFailure(error); }
+}
+el('open-saved-history').addEventListener('click', () => { flushWorkspace(); renderSavedVersions(); el('saved-history').showModal(); });
+el('close-saved-history').addEventListener('click', () => el('saved-history').close());
+el('reload-saved-history').addEventListener('click', () => run('preview-error', restoreWorkspace));
+el('backup-saved-history').addEventListener('click', () => {
+  try { const raw = workspaceStorage?.backup(); if (raw) downloadBlob('panel-studio.workspace-backup.json', new Blob([raw], { type: 'application/json' })); }
+  catch (error) { storageFailure(error); }
+});
+el('reset-saved-history').addEventListener('click', () => { el('reset-saved-confirm').hidden = false; });
+el('confirm-reset-saved').addEventListener('click', () => {
+  try {
+    workspaceStorage.reset(); storagePaused = false; el('reset-saved-confirm').hidden = true;
+    flushWorkspace(); renderSavedVersions();
+  } catch (error) { storageFailure(error); }
+});
+window.addEventListener('storage', event => {
+  if (workspaceStorage && (event.key === WORKBENCH_STORAGE_KEY || event.key === null)) {
+    storagePaused = true; storageFailure(new Error('WORKSPACE_CONFLICT'));
+  }
+});
 function updateButtons() {
+  for (const id of ['open-saved-history', 'reload-saved-history', 'reset-saved-history', 'confirm-reset-saved']) el(id).disabled = busy || !model || disposed;
+  for (const button of el('saved-versions').querySelectorAll('button')) button.disabled = busy || !model || disposed || storagePaused;
   const ready = Boolean(model && !disposed), context = ready && snapshot?.context && !draftDirty;
   const panel = ready && snapshot?.panel && renderedSha === snapshot.panel.sha256;
+  const budget = model?.getEditBudget(), editLimitReached = budget?.remaining === 0;
+  const selectionSupported = panel && ['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14'].includes(snapshot.panel.spec.panelSpecVersion)
+    && snapshot.panel.catalog.themes.some(theme => theme.id === snapshot.panel.spec.theme.id && theme.version === snapshot.panel.spec.theme.version && theme.visualStyle === 'modern-v3');
+  if (!selectionSupported) { selecting = false; selectedRowId = null; }
+  const selectedRow = panel ? snapshot.panel.spec.sections.flatMap(section => section.rows).find(row => row.id === selectedRowId) : null;
+  el('select-edit-target').disabled = busy || !selectionSupported || editLimitReached;
+  el('select-edit-target').textContent = selecting ? '返回试玩' : '选择修改对象';
+  el('select-edit-target').setAttribute('aria-pressed', String(selecting));
+  el('clear-edit-target').hidden = !selectedRow;
+  el('clear-edit-target').disabled = busy;
+  el('edit-target').hidden = !selectedRow;
+  el('edit-target-name').textContent = selectedRow ? `修改对象：${selectionLabel(selectedRow)}` : '';
+  el('selection-help').hidden = !selecting;
+  renderer.setSelectionMode(selecting);
+  el('edit-rounds').textContent = panel ? budget.remaining === 0
+    ? '已达到 10 轮修改上限。可继续试玩、撤销或导出；生成新面板后重新开始。'
+    : `已修改 ${budget.used} / ${budget.limit} 轮` : '';
+  if (panel && editLimitReached) el('edit-plan-status').textContent = '';
   document.body.classList.toggle('busy', busy);
   el('generate-plan').textContent = generation?.kind === 'plan' ? '生成中…' : '生成面板';
   el('generate-edit').textContent = generation?.kind === 'edit' ? '修改中…' : '修改面板';
@@ -184,17 +335,17 @@ function updateButtons() {
   el('download-panel').disabled = el('download-spec').disabled = el('download-unity').disabled = busy || !panel;
   el('download-delivery').disabled = busy || !panel;
   el('download-shared-sdk').disabled = busy || !ready;
-  el('editor-fields').disabled = busy || !panel;
-  el('edit-enabled').disabled = busy || !panel || readRow()?.kind === 'text';
+  el('editor-fields').disabled = busy || !panel || editLimitReached;
+  el('edit-enabled').disabled = busy || !panel || editLimitReached || readRow()?.kind === 'text';
   el('undo').disabled = busy || !panel || !snapshot?.canUndo;
-  el('apply-json-patch').disabled = busy || !panel;
+  el('apply-json-patch').disabled = busy || !panel || editLimitReached;
   el('download-patch').disabled = busy || !panel || !snapshot.history.length;
   const editContext = panel && editSnapshot?.context && !editDraftDirty;
   el('edit-request-text').disabled = busy || !panel;
-  el('prepare-edit-context').disabled = busy || !panel || !el('edit-request-text').value.trim();
-  el('generate-edit').disabled = busy || !panel || !bridge?.editingAvailable || !el('edit-request-text').value.trim();
+  el('prepare-edit-context').disabled = busy || !panel || editLimitReached || !el('edit-request-text').value.trim();
+  el('generate-edit').disabled = busy || !panel || editLimitReached || !bridge?.editingAvailable || !el('edit-request-text').value.trim();
   el('download-edit-context').disabled = busy || !editContext;
-  el('edit-proposal-file').disabled = el('apply-edit-proposal').disabled = busy || !editContext;
+  el('edit-proposal-file').disabled = el('apply-edit-proposal').disabled = busy || !editContext || editLimitReached;
   const canAnswerEdit = editContext && editSnapshot.report?.status === 'NEEDS_INPUT';
   el('clarify-edit').disabled = busy || !canAnswerEdit;
   el('edit-questions').querySelectorAll('textarea,button').forEach(input => { input.disabled = busy || !canAnswerEdit; });
@@ -302,6 +453,27 @@ function renderSummary() {
   el('summary-details').replaceChildren();
   for (const text of summary.details) { const li = document.createElement('li'); li.textContent = text; el('summary-details').append(li); }
 }
+function renderEditChanges() {
+  const entry = snapshot.history.at(-1), changes = entry?.changes ?? [];
+  el('edit-changes').hidden = !changes.length;
+  el('edit-changes-heading').textContent = `上次实际变化 · ${changes.length} 项`;
+  el('edit-changes-list').replaceChildren();
+  for (const change of changes.slice(0,60)) {
+    const li = document.createElement('li');
+    li.textContent = `${change.label}：${editChangeValue(change.before)} → ${editChangeValue(change.after)}`;
+    el('edit-changes-list').append(li);
+  }
+  if(changes.length>60){const li=document.createElement('li');li.textContent=`另有 ${changes.length-60} 项，完整内容可查看面板方案。`;el('edit-changes-list').append(li);}
+  const check=entry?.editEvidence?.report.requestCheck;
+  el('edit-check-summary').textContent=check?.items.length
+    ? `${check.items.length} 项明确要求已核对。其他描述请结合预览确认。`
+    : '已列出实际变化；自然语言要求是否完整落实，请结合预览确认。';
+  if(check?.preserveRest?.requested&&!check.preserveRest.enforced)el('edit-check-summary').textContent+='“其他不变”尚未自动核对。';
+  el('edit-check-list').replaceChildren();
+  for (const item of check?.items??[]) {
+    const li=document.createElement('li');li.textContent=`${item.quote}：已符合要求`;el('edit-check-list').append(li);
+  }
+}
 function sync() {
   if (!model) return; snapshot = model.getSnapshot();
   editSnapshot = model.getEditSnapshot();
@@ -309,9 +481,10 @@ function sync() {
   el('context-ready').hidden = !snapshot.context;
   renderQuestions();
   renderEditQuestions(); renderSummary();
+  renderEditChanges();
   el('edit-hint').textContent = snapshot.panel ? '' : '生成或打开面板后即可修改。';
   el('edit-plan-status').textContent = editAnswerNotice ? editAnswerNotice : !editDraftDirty && editSnapshot.report?.status === 'NO_CHANGES'
-    ? '无需修改，当前面板和输入已保留。'
+    ? `无需修改：${editSnapshot.proposal?.noChange?.reason ?? '当前面板已符合要求'}。当前面板和输入已保留。`
     : !advancedMode()
     ? !editDraftDirty && editSnapshot.report?.status === 'NEEDS_INPUT' ? '请回答下面的问题，再点击「修改面板」。'
       : !editSnapshot.context && snapshot.history.at(-1)?.editEvidence && !editDraftDirty ? '修改已应用，试玩值已保留；新默认值在恢复默认时生效。' : ''
@@ -340,22 +513,25 @@ function sync() {
 }
 async function showPanel() {
   snapshot = model.getSnapshot(); if (!snapshot.panel) return;
+  selectedRowId = null; selecting = false; renderer.setSelectionMode(false);
   if (renderedSha !== snapshot.panel.sha256) editAnswerNotice = '';
   if (renderedSha !== snapshot.panel.sha256) await renderer.load(snapshot.panel);
   if (disposed) return;
   renderedSha = snapshot.panel.sha256; hostEvents.length = 0;
   el('empty-preview').hidden = true; el('panel-name').textContent = snapshot.panel.spec.title;
   el('panel-dimensions').textContent = `${snapshot.panel.spec.canvas.width} × ${snapshot.panel.spec.canvas.height} · ${snapshot.panel.spec.sections.flatMap(s => s.rows).length} 个控件`;
+  if(snapshot.panel.spec.frame){const frame=snapshot.panel.spec.frame;el('panel-dimensions').textContent=`面板 ${frame.width} × ${Number(frame.height.toFixed(2))} · 画布 `+el('panel-dimensions').textContent;}
   el('event-output').textContent = '尚未操作'; renderValues(renderer.getState()); fillEditor();
   if (renderer.inspect().nodes.some(node => node.type === 'ScrollView')) el('panel-dimensions').textContent += ' · 滚轮或拖动空白处查看更多';
 }
 async function run(errorId, work) {
   if (busy || disposed || !model) return;
+  flushWorkspace();
   busy = true; errors.forEach(id => { el(id).textContent = ''; }); updateButtons();
   el('status').textContent = '正在校验与处理…';
   try { await work(); }
   catch (error) { if (!disposed) el(errorId).textContent = errorText(error); }
-  finally { busy = false; if (!disposed) sync(); }
+  finally { busy = false; if (!disposed) { sync(); flushWorkspace(); } }
 }
 function download(name, value) {
   const blob = new Blob([JSON.stringify(value, null, 2) + '\n'], { type: 'application/json' });
@@ -369,7 +545,7 @@ async function fileJson(file) {
   if (!file || file.size > 2 * 1024 * 1024) throw new Error('WORKBENCH_FILE_LIMIT');
   return JSON.parse(await file.text());
 }
-function dirty() { draftDirty = true; clarifiedDraft = null; requestNotice = ''; if (snapshot) renderQuestions(); updateButtons(); if (snapshot?.context) el('status').textContent = '需求已更新，点击「生成面板」应用。'; }
+function dirty() { scheduleSave(); draftDirty = true; clarifiedDraft = null; requestNotice = ''; if (snapshot) renderQuestions(); updateButtons(); if (snapshot?.context) el('status').textContent = '需求已更新，点击「生成面板」应用。'; }
 for (const example of beginnerExamples) {
   const button = document.createElement('button'); button.type = 'button'; button.dataset.mutation = '';
   button.textContent = `${example.title}：${example.text}`;
@@ -377,7 +553,7 @@ for (const example of beginnerExamples) {
   el('example-choices').append(button);
 }
 for (const id of ['request-text', 'asset-style']) el(id).addEventListener('input', dirty);
-el('request-id').addEventListener('input', () => { requestIdentity.setManual(Boolean(el('request-id').value.trim())); dirty(); });
+el('request-id').addEventListener('input', () => { manualRequestId = Boolean(el('request-id').value.trim()); requestIdentity.setManual(manualRequestId); dirty(); });
 async function prepareCurrentRequest() {
   requestNotice = '';
   const existing = model.getSnapshot().context;
@@ -456,6 +632,7 @@ el('panel-file').addEventListener('change', event => { const file = event.target
 });
 el('edit-row').addEventListener('change', () => { fillRow(); updateButtons(); });
 el('edit-request-text').addEventListener('input', () => {
+  scheduleSave();
   editDraftDirty = true; editCodexReceipt = null; editAnswerNotice = ''; editClarifiedDraft = null;
   el('edit-plan-status').textContent = advancedMode() && editSnapshot?.context ? '修改描述已变化，请重新准备。' : '';
   // Questions from the previous description no longer describe the current draft.
@@ -484,7 +661,8 @@ async function prepareCurrentEdit() {
   const clarified = editClarifiedDraft && model.getEditSnapshot().context?.sha256 === editClarifiedDraft.sourceContextSha256
     && el('edit-request-text').value === editClarifiedDraft.text ? editClarifiedDraft : null;
   const prepared = await model.prepareEdit(clarified ? clarified.request
-    : { requestVersion: '0.1', id: 'panel-edit', text: el('edit-request-text').value, target: 'pixi' });
+    : { requestVersion: '0.1', id: 'panel-edit', text: el('edit-request-text').value, target: 'pixi' },
+    selectedRowId ? { rowId: selectedRowId } : null);
   if (disposed || prepared.status === 'STALE') throw new Error('WORKBENCH_EDIT_STALE');
   editDraftDirty = false; el('edit-proposal-json').value = '';
   if (clarified) clarified.sourceContextSha256 = prepared.context.sha256;
@@ -576,7 +754,7 @@ el('download-unity').addEventListener('click', () => run('preview-error', async 
     verification: kit.manifest.verification };
   el('unity-export-status').textContent = '已下载 Unity 导入工具包，包含本次点击时的试玩值。解压后在 Unity 中创建 Prefab，并验证交互。';
 }));
-function destroy() { if (disposed) return; disposed = true; generation?.controller.abort(); model?.dispose(); renderer.destroy(); }
+function destroy() { if (disposed) return; flushWorkspace(); disposed = true; clearTimeout(saveTimer); generation?.controller.abort(); model?.dispose(); renderer.destroy(); }
 window.addEventListener('pagehide', destroy, { once: true });
 window.addEventListener('pageshow', event => { if (event.persisted && disposed) location.reload(); });
 // Read-only acceptance surface; all mutations are exercised through the visible UI.
@@ -586,16 +764,17 @@ window.panelWorkbench = Object.freeze({ snapshot: () => model?.getSnapshot(), ed
 window.panelHost = Object.freeze({
   setProgress(fieldId, value) {
     if (busy) throw new Error('WORKBENCH_BUSY');
-    const values = renderer.setProgress(fieldId, value); renderValues(values); return values;
+    const values = renderer.setProgress(fieldId, value); renderValues(values); scheduleSave(); return values;
   },
   setText(fieldId, value) {
     if (busy) throw new Error('WORKBENCH_BUSY');
     const row = model.getSnapshot().panel?.spec.sections.flatMap(section => section.rows).find(row => row.kind === 'input' && row.bind === fieldId);
     if (!row) throw new Error('PANEL_INPUT_FIELD_UNKNOWN');
-    const values = renderer.setText(fieldId, value); renderValues(values); return values;
+    const values = renderer.setText(fieldId, value); renderValues(values); scheduleSave(); return values;
   },
 });
 async function initialize() { try {
+  updateButtons();
   if (seed.workbenchSeedVersion !== '0.1') throw new Error('WORKBENCH_SEED_VERSION');
   model = await createWorkbenchModel({ catalog: seed.catalog, pool: seed.pool }, browserCore, async (panel, isCurrent) => {
     const result = await renderer.load(panel, isCurrent);
@@ -610,6 +789,8 @@ async function initialize() { try {
     const styles = [...new Set((seed.pool?.index.records ?? []).map(r => r.metadata.style))].sort();
     for (const style of styles) { const option = document.createElement('option'); option.value = style; option.textContent = style; el('asset-style').append(option); }
     el('library-badge').textContent = seed.pool ? `${seed.pool.index.records.length} 项自有资源 · 离线库` : '程序控件 · 无图片库';
+    try { workspaceStorage = createWorkbenchStorage(window.localStorage); await restoreWorkspace(); }
+    catch (error) { storagePaused = true; storageFailure(error?.name === 'SecurityError' ? new Error('WORKSPACE_UNAVAILABLE') : error); }
     sync();
     bridge = await detectCodexBridge(location);
     if (!disposed) {

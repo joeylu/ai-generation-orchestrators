@@ -226,7 +226,7 @@ namespace GameUi.PanelHarness.Editor
                             if (node.drawBackground) AddBackground(current, node);
                             break;
                         case "Text":
-                            AddText(current, node.text, node, font, TextAnchor.MiddleLeft);
+                            AddText(current, node.text, node, font, string.IsNullOrEmpty(node.textAlignment) ? TextAnchor.MiddleLeft : (TextAnchor)Enum.Parse(typeof(TextAnchor), node.textAlignment));
                             break;
                         case "Image":
                             AddImage(current, node, textures, sprites, outputAssetFolder);
@@ -386,7 +386,7 @@ namespace GameUi.PanelHarness.Editor
 
         private static void ValidateDocument(PanelDocument document)
         {
-            if (document == null || document.formatVersion != "0.1" || document.adapterVersion != PanelController.ADAPTER_VERSION || !new[] { "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7" }.Contains(document.panelSpecVersion) || !ValidId(document.panelId) || !IsSha(document.panelSha256)) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_VERSION");
+            if (document == null || document.formatVersion != "0.1" || document.adapterVersion != PanelController.ADAPTER_VERSION || !new[] { "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13", "0.14" }.Contains(document.panelSpecVersion) || !ValidId(document.panelId) || !IsSha(document.panelSha256)) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_VERSION");
             if (!Positive(document.canvasWidth, 4096) || !Positive(document.canvasHeight, 4096) || document.nodes == null || document.nodes.Length < 1 || document.nodes.Length > 2048 || document.fields == null || document.fields.Length > 128 || document.controls == null || document.controls.Length > 128 || document.assets == null || document.assets.Length > 129) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_LIMIT");
             Dictionary<string, PanelAsset> assets = new Dictionary<string, PanelAsset>(StringComparer.Ordinal);
             foreach (PanelAsset asset in document.assets)
@@ -400,6 +400,7 @@ namespace GameUi.PanelHarness.Editor
             {
                 if (node == null || !ValidId(node.id) || nodes.ContainsKey(node.id) || !new[] { "Container", "Text", "Image", "Slider", "Switch", "Select", "Button", "ProgressBar", "ScrollView", "Tabs", "Input" }.Contains(node.type)) throw new InvalidDataException("PANEL_IMPORT_NODE_ID_TYPE");
                 if (!Finite(node.x) || !Finite(node.y) || node.x < 0 || node.y < 0 || !Positive(node.width, 65536) || !Positive(node.height, 65536) || !Finite(node.opacity) || node.opacity < 0 || node.opacity > 1 || !Finite(node.borderWidth) || node.borderWidth < 0 || node.borderWidth > 256 || !Finite(node.cornerRadius) || node.cornerRadius < 0 || node.cornerRadius > 4096 || !ValidColor(node.backgroundColor) || !ValidColor(node.borderColor) || !ValidColor(node.textColor) || node.fontSize < 1 || node.fontSize > 256 || !ValidText(node.text, 512)) throw new InvalidDataException("PANEL_IMPORT_NODE_STYLE_GEOMETRY");
+                if (!string.IsNullOrEmpty(node.textAlignment) && (document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14" || node.type != "Text" || node.id != document.panelId + ".title" || !new[] { "UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight" }.Contains(node.textAlignment))) throw new InvalidDataException("PANEL_IMPORT_TEXT_ALIGNMENT");
                 if (nodes.Count == 0)
                 {
                     if (node.parentId != "" || node.type != "Container" || node.x != 0 || node.y != 0 || node.width != document.canvasWidth || node.height != document.canvasHeight) throw new InvalidDataException("PANEL_IMPORT_CANVAS_ROOT");
@@ -437,7 +438,7 @@ namespace GameUi.PanelHarness.Editor
                 }
                 else if (field.type == "progress")
                 {
-                    if ((document.panelSpecVersion != "0.5" && document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7") || field.min != 0 || field.step != 0 || !Finite(field.max) || field.max <= 0
+                    if ((document.panelSpecVersion != "0.5" && document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14") || field.min != 0 || field.step != 0 || !Finite(field.max) || field.max <= 0
                         || !ValidProgress(field, field.initialNumber) || !ValidProgress(field, field.numberValue)) throw new InvalidDataException("PANEL_IMPORT_PROGRESS_FIELD");
                 }
                 else if (field.type == "enum")
@@ -448,7 +449,7 @@ namespace GameUi.PanelHarness.Editor
                 }
                 else if (field.type == "string")
                 {
-                    if (document.panelSpecVersion != "0.7" || !PanelController.StringValid(field.initialString, field.maxLength)
+                    if ((document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14") || !PanelController.StringValid(field.initialString, field.maxLength)
                         || !PanelController.StringValid(field.stringValue, field.maxLength)) throw new InvalidDataException("PANEL_IMPORT_STRING_FIELD");
                 }
                 else if (field.type != "boolean") throw new InvalidDataException("PANEL_IMPORT_FIELD_TYPE");
@@ -475,7 +476,7 @@ namespace GameUi.PanelHarness.Editor
                     if (control.fieldId != "" || (control.action != "emit" && control.action != "reset-initial" && control.action != "submit") || (control.action == "emit" && control.resetFields.Length != 0) || (control.action == "reset-initial" && control.resetFields.Length == 0)) throw new InvalidDataException("PANEL_IMPORT_BUTTON_ACTION");
                     if (control.action == "submit")
                     {
-                        if (document.panelSpecVersion != "0.7" || control.resetFields.Length != 0 || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) throw new InvalidDataException("PANEL_IMPORT_SUBMIT_SCOPE");
+                        if ((document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14") || control.resetFields.Length != 0 || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) throw new InvalidDataException("PANEL_IMPORT_SUBMIT_SCOPE");
                         HashSet<string> submitted = new HashSet<string>(StringComparer.Ordinal);
                         foreach (string id in control.submitFields)
                             if (id == null || !fields.ContainsKey(id) || fields[id].type != "string" || !submitted.Add(id)
@@ -507,7 +508,7 @@ namespace GameUi.PanelHarness.Editor
                     }
                     if (control.kind == "tabs")
                     {
-                        if ((document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7") || field.options.Length < 2 || node.height < 104 || node.width / field.options.Length < 24
+                        if ((document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14") || field.options.Length < 2 || node.height < 104 || node.width / field.options.Length < 24
                             || control.contentIds == null || control.contentIds.Length != field.options.Length
                             || control.contentIds.Distinct(StringComparer.Ordinal).Count() != control.contentIds.Length) throw new InvalidDataException("PANEL_IMPORT_TABS_RECORD");
                         foreach (string id in control.contentIds)

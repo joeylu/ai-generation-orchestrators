@@ -49,7 +49,7 @@ export async function materializeCodexEditDraft(contextInput, input) {
   const current = draft.codexEditDraftVersion === '0.3';
   exact(draft, ['codexEditDraftVersion', 'contextSha256', 'patch', 'bases', 'unresolved', ...(current ? ['noChange'] : [])], '$');
   if (!['0.1', '0.2', '0.3'].includes(draft.codexEditDraftVersion)) fail('EDIT_PROPOSAL_VERSION', '$.codexEditDraftVersion', 'Only edit draft 0.1/0.2/0.3 is supported');
-  if (draft.codexEditDraftVersion === '0.2' && context.spec.panelSpecVersion !== '0.7') {
+  if (draft.codexEditDraftVersion === '0.2' && !['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(context.spec.panelSpecVersion)) {
     fail('EDIT_PROPOSAL_VERSION', '$.codexEditDraftVersion', 'Draft 0.2 requires Spec 0.7');
   }
   const proposal = { editProposalVersion: '0.1', contextSha256: draft.contextSha256,
@@ -72,7 +72,7 @@ export async function materializeCodexEditDraft(contextInput, input) {
   if (!Array.isArray(draft.patch?.operations) || !Array.isArray(draft.bases)
     || draft.patch.operations.length < 1 || draft.patch.operations.length > 32
     || draft.bases.length !== draft.patch.operations.length) fail('EDIT_COVERAGE', '$.bases', 'One basis per operation in exact order required');
-  if (draft.codexEditDraftVersion === '0.2' || (current && context.spec.panelSpecVersion === '0.7')) {
+  if (draft.codexEditDraftVersion === '0.2' || (current && ['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(context.spec.panelSpecVersion))) {
     proposal.patch = { ...draft.patch, operations: draft.patch.operations.map((operation, index) => formOperation(context, operation, index)) };
   }
   proposal.decisions = draft.bases.map((basis, operationIndex) => {

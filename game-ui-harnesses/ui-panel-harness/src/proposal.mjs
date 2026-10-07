@@ -22,10 +22,12 @@ export function proposalTargets(spec, proposalVersion = '0.1') {
   const checked = validatePanelSpec(spec);
   return ['panel', 'theme', 'canvas', 'layout',
     ...(checked.assets ? ['assets'] : []),
-    ...(checked.assets && ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7'].includes(proposalVersion) ? [
+    ...(checked.assets && ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(proposalVersion) ? [
       ...(checked.assets.panelSurface ? ['asset:surface'] : []),
       ...checked.assets.rowIcons.map(icon => `asset:row:${icon.rowId}`),
     ] : []),
+    ...(checked.actionLayouts ?? []).map(value => 'action-layout:' + value.sectionId),
+    ...(checked.textLayouts ?? []).map(value => 'text-layout:' + value.rowId),
     ...checked.sections.flatMap(section => [`section:${section.id}`, ...section.rows.map(row => `row:${row.id}`)]),
     ...(checked.tabs ? ['tabs', ...checked.tabs.pages.map(page => `tab:${page.id}`)] : []),
     ...checked.state.map(field => `state:${field.id}`)];
@@ -36,7 +38,7 @@ export async function validatePanelProposal(contextInput, proposalInput) {
   const contextSnapshot = snapshotJson(contextInput), proposal = snapshotJson(proposalInput);
   const context = await validatePlanningContext(contextSnapshot);
   exact(proposal, ['proposalVersion', 'contextSha256', 'spec', 'decisions', 'unresolved'], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'].includes(proposal.proposalVersion)) fail('PLAN_VERSION', '$.proposalVersion', 'Only proposal 0.1 through 0.5 are supported');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(proposal.proposalVersion)) fail('PLAN_VERSION', '$.proposalVersion', 'Only proposal 0.1 through 0.9 are supported');
   if (proposal.proposalVersion !== context.planningContextVersion) {
     fail('PLAN_ASSET_CONTEXT_VERSION', '$.proposalVersion', 'Proposal and planning context versions must match');
   }
@@ -56,15 +58,16 @@ export async function validatePanelProposal(contextInput, proposalInput) {
     return proposal;
   }
   const spec = validatePanelSpec(proposal.spec);
-  if (spec.panelSpecVersion === '0.7' && context.planningContextVersion !== '0.7') fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Forms requires context 0.7');
-  if (spec.panelSpecVersion === '0.6' && !['0.6', '0.7'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Tabs requires context 0.6');
-  if (spec.panelSpecVersion === '0.5' && !['0.5', '0.6', '0.7'].includes(context.planningContextVersion)) {
+  if (context.capabilities.panelSpecVersions && !context.capabilities.panelSpecVersions.includes(spec.panelSpecVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Spec version was not advertised by this context');
+  if (spec.panelSpecVersion === '0.7' && !['0.7','0.8','0.9'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Forms requires context 0.7');
+  if (spec.panelSpecVersion === '0.6' && !['0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Tabs requires context 0.6');
+  if (spec.panelSpecVersion === '0.5' && !['0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.5 requires planning context 0.5');
   }
-  if (spec.panelSpecVersion === '0.4' && !['0.4', '0.5', '0.6', '0.7'].includes(context.planningContextVersion)) {
+  if (spec.panelSpecVersion === '0.4' && !['0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.4 requires planning context 0.4');
   }
-  if (spec.panelSpecVersion === '0.3' && !['0.3', '0.4', '0.5', '0.6', '0.7'].includes(context.planningContextVersion)) {
+  if (spec.panelSpecVersion === '0.3' && !['0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.3 requires planning context 0.3 or 0.4');
   }
   if (!['agent-authored', 'programmatic-fixture'].includes(spec.provenance.kind)) fail('PLAN_PROVENANCE', '$.spec.provenance.kind', 'Agent proposals must identify their author; user-authored documents use direct compile');

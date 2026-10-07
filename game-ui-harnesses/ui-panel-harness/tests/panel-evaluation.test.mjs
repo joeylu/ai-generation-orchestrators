@@ -100,8 +100,8 @@ test('tabs expectations count navigation and independently reject wrong initial 
 
 test('evaluation fingerprints bind the prompt selected by native quote-guard generation', async () => {
   const protocol = await evaluationProtocolFingerprint();
-  assert.equal(protocol.panelIntentVersion, '0.8');
-  for (const name of ['panel-intent-v0.7-quote-guard.md', 'panel-intent-v0.7-native-quotes.md', 'panel-intent-v0.8-request-refs.md', 'panel-intent-v0.8-text-labels.md', 'panel-intent-v0.8-panel-titles.md']) {
+  assert.equal(protocol.panelIntentVersion, '0.10');
+  for (const name of ['panel-intent-v0.7-quote-guard.md', 'panel-intent-v0.7-native-quotes.md', 'panel-intent-v0.8-request-refs.md', 'panel-intent-v0.8-text-labels.md', 'panel-intent-v0.8-panel-titles.md', 'panel-intent-v0.9-actions.md']) {
     const file = protocol.files.find(file => file.path === `prompts/${name}`); assert(file);
     assert.equal(file.sha256, await digestBytes(await readFile(new URL(`../prompts/${name}`, import.meta.url))));
   }

@@ -1,8 +1,11 @@
+import {explicitPropertyRequirements,checkExplicitPropertyRequirements} from './edit-property-review.mjs';
+import { explicitEditRequirements, checkExplicitEditRequirements } from './edit-review.mjs';
 import { canonicalJson, digestJson } from './canonical.mjs';
 import { validateCatalog } from './catalog.mjs';
 import { validatePanelRequest } from './planning-context.mjs';
 import { applyPanelPatch, PanelPatchError } from './patch.mjs';
 import { snapshotJson, validatePanelSpec } from './spec.mjs';
+import { selectedEditOperations, selectedEditRow, isSelectedEditOperation } from './edit-selection.mjs';
 
 /** Invalid edit planning evidence; never an applied edit or semantic approval. */
 export class PanelEditPlanningError extends Error {
@@ -50,43 +53,69 @@ function list(value, path, max) {
   if (!Array.isArray(value) || value.length > max) fail('EDIT_LIST', path, `Array of at most ${max} entries required`);
 }
 
-async function buildContext(specInput, catalogInput, requestInput, operations) {
+async function buildContext(specInput, catalogInput, requestInput, operations, version, selection) {
   const spec = checked(() => validatePanelSpec(specInput), 'EDIT_SPEC', '$.spec');
   const catalog = checked(() => validateCatalog(catalogInput), 'EDIT_CATALOG', '$.catalog');
   const request = checked(() => validatePanelRequest(requestInput), 'EDIT_REQUEST', '$.request');
-  operations ??= [...(spec.tabs ? TABS_OPERATIONS : OPERATIONS), ...(spec.panelSpecVersion === '0.7' ? [INPUT_OPERATION] : [])];
+  const appearance = ['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion) && catalog.themes.some(theme => theme.id === spec.theme.id && theme.version === spec.theme.version && theme.visualStyle === 'modern-v3');
+  version ??= spec.panelSpecVersion === '0.14' ? '0.9' : appearance ? '0.8' : selection ? '0.5' : '0.1';
+  if (['0.2', '0.3', '0.4', '0.5', '0.6', '0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) && !appearance || spec.panelSpecVersion === '0.8' && !['0.2', '0.3', '0.4', '0.5', '0.6', '0.7','0.8','0.9','0.10','0.11','0.12'].includes(version)
+    || spec.panelSpecVersion === '0.9' && !['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) || spec.panelSpecVersion === '0.10' && !['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version)
+    || spec.panelSpecVersion === '0.11' && !['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) || spec.panelSpecVersion === '0.12' && !['0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) || spec.panelSpecVersion === '0.13' && !['0.8','0.9','0.10','0.11','0.12'].includes(version) || spec.panelSpecVersion === '0.14' && !['0.9','0.10','0.11','0.12'].includes(version)) fail('EDIT_CONTEXT_VERSION', '$.editContextVersion', 'Context version must match the appearance and action layout capabilities');
+  const selected = version === '0.5' || ['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) && selection !== null;
+  if (selected) checked(() => selectedEditRow(spec, selection), 'EDIT_SELECTION', '$.selection');
+  operations ??= [...(spec.tabs ? TABS_OPERATIONS : OPERATIONS), ...(['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion) ? [INPUT_OPERATION] : []),
+    ...(['0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-appearance'] : []), ...(['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-action-layout'] : []), ...(['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-row-order','set-text','set-button-style'] : []), ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-button-font-size'] : []), ...(['0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-title-bar'] : []), ...(['0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-text-wrap'] : [])];
+  if(['0.9','0.10','0.11','0.12'].includes(version))operations.push(...['set-panel-frame','set-panel-ratio'].filter(op=>!operations.includes(op)));
+  if(['0.10','0.11','0.12'].includes(version)&&!operations.includes('set-layout-details'))operations.push('set-layout-details');
+  if (selected) operations = selectedEditOperations(spec, selection, operations);
   const [baseSpecSha256, catalogSha256] = await Promise.all([digestJson(spec), digestJson(catalog)]);
   const payload = {
-    editContextVersion: '0.1', request, spec, catalog, baseSpecSha256, catalogSha256,
+    editContextVersion: version, request, spec, catalog, baseSpecSha256, catalogSha256,
+    ...(version === '0.11' ? {requestChecks:explicitEditRequirements(request.text,selection)} : version === '0.12' ? {requestChecks:explicitPropertyRequirements(request.text,spec,catalog,selection)} : {}),
+    ...(['0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { selection } : {}),
     capabilities: {
       operations: [...operations], target: 'pixi', statePolicy: 'preserve-current-at-apply', semanticReview: 'NOT_RUN',
       ...(catalog.themes.some(theme => theme.id === spec.theme.id && theme.version === spec.theme.version && ['modern-v2', 'modern-v3'].includes(theme.visualStyle))
         ? { themePolicy: 'explicit-change-v1' } : {}),
+      ...(['0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { appearancePolicy: 'panel-local-v1' } : {}),
+      ...(['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { actionLayoutPolicy: 'section-buttons-v1' } : {}), ...(['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { buttonStylePolicy: 'per-button-v1' } : {}),
+      ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { buttonFontPolicy: 'per-button-font-size-v1' } : {}),
+      ...(['0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { titleBarPolicy: 'panel-title-bar-v1' } : {}),
+      ...(['0.8','0.9','0.10','0.11','0.12'].includes(version) ? {textWrapPolicy:'static-text-wrap-v1'} : {}),
+      ...(['0.9','0.10','0.11','0.12'].includes(version) ? {panelFramePolicy:'fixed-panel-frame-v1'} : {}),
+      ...(['0.10','0.11','0.12'].includes(version) ? {layoutDetailsPolicy:'layout-details-v1'} : {}),
+      ...(['0.11','0.12'].includes(version) ? {requestCheckPolicy:version === '0.12'?'explicit-properties-v2':'explicit-geometry-v1'} : {}),
+      ...(selected ? { selectionPolicy: 'selected-row-v1' } : {}),
     },
   };
   return { ...payload, sha256: await digestJson(payload) };
 }
 
 /** Bind an exact document and request. Live session state is deliberately absent. */
-export async function createPanelEditContext(specInput, catalogInput, requestInput) {
+export async function createPanelEditContext(specInput, catalogInput, requestInput, selectionInput = null, { panelFrame = false, layoutDetails = false, requestChecks = false } = {}) {
   // Snapshot every caller-owned input before the first await or digest computation.
   const spec = snapshot(specInput, '$.spec');
   const catalog = snapshot(catalogInput, '$.catalog');
   const request = snapshot(requestInput, '$.request');
-  return buildContext(spec, catalog, request);
+  const selection = selectionInput === null ? null : snapshot(selectionInput, '$.selection');
+  return buildContext(spec, catalog, request, undefined, (panelFrame || layoutDetails || requestChecks) && catalog.themes.some(theme=>theme.id===spec.theme.id&&theme.version===spec.theme.version&&theme.visualStyle==='modern-v3') ? requestChecks === 'properties-v2' ? '0.12' : requestChecks ? '0.11' : layoutDetails ? '0.10' : '0.9' : undefined, selection);
 }
 
 async function validateContextSnapshot(context) {
-  exact(context, CONTEXT_FIELDS, '$');
-  if (context.editContextVersion !== '0.1') fail('EDIT_CONTEXT_VERSION', '$.editContextVersion', 'Only edit context 0.1 is supported');
+  exact(context, [...CONTEXT_FIELDS, ...(['0.11','0.12'].includes(context?.editContextVersion) ? ['requestChecks'] : []), ...(['0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(context?.editContextVersion) ? ['selection'] : [])], '$');
+  if (!['0.1', '0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion)) fail('EDIT_CONTEXT_VERSION', '$.editContextVersion', 'Only edit context 0.1 through 0.12 is supported');
   // Existing exported contexts keep their original capabilities and digest.
   // Only these two complete, ordered capability sets are accepted, never subsets.
   const suppliedOperations = context.capabilities?.operations ?? null;
   const formsOperations = [...(context.spec?.tabs ? TABS_OPERATIONS : OPERATIONS), INPUT_OPERATION];
-  const operations = context.spec?.panelSpecVersion === '0.7' && canonicalJson(suppliedOperations) === canonicalJson(formsOperations) ? formsOperations
+  const operations = ['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion) ? [...formsOperations, 'set-appearance', 'set-action-layout', 'set-row-order','set-text','set-button-style', ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion) ? ['set-button-font-size'] : []), ...(['0.7','0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion) ? ['set-title-bar'] : []), ...(['0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion) ? ['set-text-wrap'] : [])]
+    : context.editContextVersion === '0.3' ? [...formsOperations, 'set-appearance', 'set-action-layout']
+    : context.editContextVersion === '0.2' ? [...formsOperations, 'set-appearance']
+    : context.spec?.panelSpecVersion === '0.7' && canonicalJson(suppliedOperations) === canonicalJson(formsOperations) ? formsOperations
     : canonicalJson(suppliedOperations) === canonicalJson(LEGACY_OPERATIONS) ? LEGACY_OPERATIONS
     : canonicalJson(suppliedOperations) === canonicalJson(TABS_OPERATIONS) && context.spec?.tabs ? TABS_OPERATIONS : OPERATIONS;
-  const expected = await buildContext(context.spec, context.catalog, context.request, operations);
+  const expected = await buildContext(context.spec, context.catalog, context.request, operations, context.editContextVersion, context.selection);
   if (canonicalJson(context) !== canonicalJson(expected)) {
     fail('EDIT_CONTEXT_MISMATCH', '$', 'Context evidence does not match its exact request, PanelSpec and catalog');
   }
@@ -123,6 +152,19 @@ function validateBasis(basis, operation, request, path) {
   } else fail('EDIT_BASIS', path, 'Explicit request interpretation or design choice required');
 }
 
+function requestCheck(context,spec,proposal) {
+  if (!context.requestChecks || proposal.unresolved.length) return null;
+  const result = context.capabilities.requestCheckPolicy === 'explicit-properties-v2'
+    ? checkExplicitPropertyRequirements(context.requestChecks,spec,context.catalog,context.spec)
+    : checkExplicitEditRequirements(context.requestChecks,spec);
+  if (result.status === 'MISMATCH') {
+    const error = new PanelEditPlanningError('EDIT_REQUEST_INCOMPLETE','$.patch','Explicit requested properties are not satisfied; no edit applied');
+    error.requestCheck = result;
+    throw error;
+  }
+  return result;
+}
+
 async function validateProposalSnapshots(contextSnapshot, proposal) {
   const context = await validateContextSnapshot(contextSnapshot);
   const noChanges = proposal.editProposalVersion === '0.2';
@@ -152,7 +194,7 @@ async function validateProposalSnapshots(contextSnapshot, proposal) {
       fail('EDIT_BASIS', '$.noChange.basis', 'No-change results require exact current-request evidence');
     }
     validateBasis(proposal.noChange.basis, null, context.request.text, '$.noChange.basis');
-    return { context, proposal, result: null };
+    return { context, proposal, result: null, requestCheck:requestCheck(context,context.spec,proposal) };
   }
   if (proposal.patch === null) {
     if (!proposal.unresolved.length || proposal.decisions.length) {
@@ -168,6 +210,9 @@ async function validateProposalSnapshots(contextSnapshot, proposal) {
   if (Array.isArray(proposal.patch?.operations) && proposal.patch.operations.some(operation =>
     !context.capabilities.operations.includes(operation?.op))) {
     fail('EDIT_PATCH', '$.patch.operations', 'Every operation must be advertised by this exact edit context');
+  }
+  if (context.selection && proposal.patch?.operations?.some(operation => !isSelectedEditOperation(context.spec, context.selection, operation))) {
+    fail('EDIT_SELECTION_SCOPE', '$.patch.operations', 'Clear the selection before editing other controls or the whole panel');
   }
   if (context.capabilities.themePolicy === 'explicit-change-v1') {
     for (const [index, operation] of (Array.isArray(proposal.patch?.operations) ? proposal.patch.operations : []).entries()) {
@@ -196,16 +241,16 @@ async function validateProposalSnapshots(contextSnapshot, proposal) {
     validateBasis(decision.basis, proposal.patch.operations[decision.operationIndex], context.request.text, `${path}.basis`);
   }
   if (seen.size !== proposal.patch.operations.length) fail('EDIT_COVERAGE', '$.decisions', 'Every operation must state its source exactly once');
-  return { context, proposal, result };
+  return { context, proposal, result, requestCheck:requestCheck(context,result.spec,proposal) };
 }
 
-/** Validate bounded patch instructions and exact source evidence; never interpret prose. */
+/** Validate bounded patch instructions and exact source evidence; bounded explicit geometry only; broader prose is not semantically approved. */
 export async function validatePanelEditProposal(contextInput, proposalInput) {
   const context = snapshot(contextInput, '$.context'), proposal = snapshot(proposalInput, '$.proposal');
   return (await validateProposalSnapshots(context, proposal)).proposal;
 }
 
-async function reportFor({ context, proposal, result }) {
+async function reportFor({ context, proposal, result, requestCheck }) {
   return {
     editPlanningReportVersion: proposal.editProposalVersion, contextSha256: context.sha256,
     proposalSha256: await digestJson(proposal), baseSpecSha256: context.baseSpecSha256,
@@ -213,6 +258,7 @@ async function reportFor({ context, proposal, result }) {
     unresolvedCount: proposal.unresolved.length, operationCount: proposal.patch?.operations.length ?? 0,
     resultSpecSha256: result?.receipt.resultSpecSha256 ?? null,
     changedRowIds: result?.receipt.changedRowIds ?? [],
+    ...(requestCheck ? {requestCheck} : {}),
     semanticReview: 'NOT_RUN', humanVisualReview: 'NOT_RUN', compilation: 'NOT_RUN',
   };
 }

@@ -1,5 +1,6 @@
 import { validatePanelBundle } from './panel-bundle.mjs';
 import { controlId } from './compiler.mjs';
+import { nativeTitleAlignment } from './title-bar.mjs';
 import { formErrorId } from './forms.mjs';
 import { tabPageId } from './tabs.mjs';
 
@@ -63,6 +64,7 @@ export async function createUnityDocument(input, core) {
       backgroundColor: s.backgroundColor, borderColor: s.borderColor, textColor: s.textColor,
       borderWidth: s.borderWidth, cornerRadius: s.cornerRadius, opacity: s.opacity,
       fontSize: s.fontSize, bold: s.fontWeight === 'bold', drawBackground: p.drawBackground ?? true,
+      ...(spec.titleBar && node.id === `${spec.id}.title` ? { textAlignment: nativeTitleAlignment(spec.titleBar) } : {}),
       text: p.text ?? p.label ?? '', source: p.source ?? '', fit: p.fit ?? '',
       hasRegion: Boolean(region), regionX: region?.x ?? 0, regionY: region?.y ?? 0,
       regionWidth: region?.width ?? 0, regionHeight: region?.height ?? 0,
@@ -71,7 +73,7 @@ export async function createUnityDocument(input, core) {
     for (const child of node.children ?? []) {
       // The modern Pixi label is centered from environment glyph measurements.
       // Native Button already paints node.text at MiddleCenter; keep one label.
-      if (['0.7.1', '0.7.2', '0.7.3'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
+      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
       visit(child, node.id);
     }
   }
