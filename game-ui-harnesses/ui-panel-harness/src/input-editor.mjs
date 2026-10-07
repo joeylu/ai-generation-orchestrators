@@ -12,12 +12,24 @@ export function attachInputEditor(host, spec, runtime, session) {
     .filter(row => row.kind === 'input').map(row => [controlId(spec.id, row.id), row]));
   if (!rows.size) return () => {};
   if (!editor) throw new Error('PANEL_INPUT_EDITOR_REQUIRED');
+  // A 1px native input has no usable text content box in Chromium: committed
+  // Chinese text can leave its caret at zero. Keep the invisible proxy wide
+  // enough for native editing; the Pixi input remains the visible field.
+  const previousWidth = editor.style.width;
+  editor.style.width = '320px';
   const listener = () => {
     const node = runtime.inspect().nodes.find(node => node.type === 'Input' && node.inputEditing.focused);
     const row = rows.get(node?.id); if (!row) return;
     const field = spec.state.find(field => field.id === row.bind);
-    editor.value = boundedEditorText(editor.value, field.maxLength, session.getState()[field.id]);
+    const next = boundedEditorText(editor.value, field.maxLength, session.getState()[field.id]);
+    // Reassigning even valid text can reset the native input selection during
+    // each capture event. Leave ordinary typing and IME selection untouched.
+    if (next !== editor.value) {
+      const start = editor.selectionStart, end = editor.selectionEnd, direction = editor.selectionDirection;
+      editor.value = next;
+      if (start !== null && end !== null) editor.setSelectionRange(Math.min(start, next.length), Math.min(end, next.length), direction);
+    }
   };
   editor.addEventListener('input', listener, true);
-  return () => editor.removeEventListener('input', listener, true);
+  return () => { editor.removeEventListener('input', listener, true); editor.style.width = previousWidth; };
 }

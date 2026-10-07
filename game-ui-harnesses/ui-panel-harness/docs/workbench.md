@@ -4,6 +4,10 @@
 共享接入 SDK 从「面板操作」单独下载，安装一次供多个面板复用，见 [交付流程](panel-delivery.md)。
 
 工作台首页保留「需求描述 + 生成面板」「修改要求 + 修改面板」和交互预览。
+可从折叠的口语示例开始。缺少业务信息时，支持点选推荐回答或自己填写；采用后再生成/修改，
+不会自动调用模型。预览旁显示控件摘要，默认值与按钮行为可展开核对，见[需求引导](studio-requirements.md)。
+需求可指定浅色／深色及薄荷绿、蓝、紫、橙主色；修改未提及时保持现有主题，见[主题选择](panel-themes.md)。
+新目录按分区用途排版，表单输入标签在上，确认与取消采用底部按钮组，见[按用途排版](panel-presentation.md)。
 资源检索、方案校验和确定性编译仍在后台执行；报错、进度与澄清问题就近显示。
 打开/导出、Unity 下载和撤销集中到预览旁的「面板操作」。
 规划文件往返、资源候选、属性编辑、补丁和事件证据位于菜单中的「高级工具」，默认不占首页。
@@ -22,7 +26,7 @@ Codex CLI，以 `gpt-6-luna / xhigh` 生成方案；随后仍通过同一校验�
 从 `ui-panel-harness` 运行，输出目录必须不存在：
 
 ```sh
-node scripts/build-workbench.mjs --catalog examples/modern-mint-polished.catalog.json --output output/my-panel-studio
+node scripts/build-workbench.mjs --catalog examples/modern-adaptive.catalog.json --output output/my-panel-studio
 ```
 
 上述版本可以使用程序控件；若需要资源检索，附加 `--assets <通用资源库目录>`。

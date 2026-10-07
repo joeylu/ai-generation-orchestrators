@@ -4,6 +4,7 @@ import { validatePanelAssetClosure, panelAssetPath } from './panel-assets.mjs';
 import { measureFlowLayout, measureTabbedLayout } from './flow-layout.mjs';
 import { tabPageId } from './tabs.mjs';
 import { progressDisplayValue, progressDisplayMax, progressText, progressValueWidth } from './progress.mjs';
+import { createPresentationPolicy } from './panel-presentation.mjs';
 import { formErrorId, inputError, buttonEnabled } from './forms.mjs';
 
 export const PANEL_COMPILER_VERSION = '0.1.0';
@@ -16,12 +17,15 @@ export const PROGRESS_PANEL_COMPILER_VERSION = '0.5.1';
 export const TABS_PANEL_COMPILER_VERSION = '0.6.0';
 export const FORMS_PANEL_COMPILER_VERSION = '0.7.0';
 export const MODERN_PANEL_COMPILER_VERSION = '0.7.1';
+export const THEMED_PANEL_COMPILER_VERSION = '0.7.2';
+export const ADAPTIVE_PANEL_COMPILER_VERSION = '0.7.3';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
-  if (resolveTheme(catalog, spec.theme).visualStyle === 'modern-v1') {
+  const profile = resolveTheme(catalog, spec.theme).visualStyle;
+  if (['modern-v1', 'modern-v2', 'modern-v3'].includes(profile)) {
     if (spec.panelSpecVersion !== '0.7') throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Modern visual style requires PanelSpec 0.7');
-    return MODERN_PANEL_COMPILER_VERSION;
+    return profile === 'modern-v3' ? ADAPTIVE_PANEL_COMPILER_VERSION : profile === 'modern-v2' ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION;
   }
   return spec.panelSpecVersion === '0.7' ? FORMS_PANEL_COMPILER_VERSION
     : spec.panelSpecVersion === '0.6' ? TABS_PANEL_COMPILER_VERSION
@@ -50,6 +54,29 @@ function buttonForeground(background) {
   return (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05) ? '#000000' : '#FFFFFF';
 }
 
+function contrast(foreground, background) {
+  const luminance = color => {
+    const c = [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16) / 255)
+      .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722;
+  };
+  const a = luminance(foreground), b = luminance(background);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+// The shared default Select popup and Tabs headers paint light surfaces.
+// Keep their field/header and menu text in one readable palette without
+// changing the component runtime or introducing theme-specific raster assets.
+function navigationPalette(tokens) {
+  const light = contrast(tokens.text, '#FFFFFF') >= 4.5 && contrast(tokens.text, '#E3F1EC') >= 4.5;
+  const background = light ? tokens.surface : '#F1F6F4', text = light ? tokens.text : '#183A36';
+  let accent = tokens.accent;
+  for (let i = 0; i < 16 && Math.min(contrast(accent, background), contrast(accent, '#E8F3EE')) < 3; i++) {
+    accent = '#' + [1, 3, 5].map(offset => Math.floor(parseInt(accent.slice(offset, offset + 2), 16) * 0.8).toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  return { background, text, accent };
+}
+
 export function initialPanelState(spec) {
   const checked = validatePanelSpec(spec);
   return Object.fromEntries(checked.state.map(field => [field.id, field.initial]));
@@ -64,7 +91,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   const flowVersion = progressVersion || spec.panelSpecVersion === '0.4';
   const controls = flowVersion || spec.panelSpecVersion === '0.3';
   const compilerVersion = compilerVersionInput ?? defaultPanelCompilerVersion(spec, catalog);
-  const allowedVersions = formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
+  const allowedVersions = formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
     : [controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION];
   if (!allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec');
   const assetClosure = validatePanelAssetClosure(spec, assetClosureInput);
@@ -75,10 +102,16 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     fail('COMPONENT_CORE_REQUIRED', '$', 'A compatible component compiler must be supplied');
   }
   const state = validatePanelState(spec, stateInput === undefined ? initialPanelState(spec) : stateInput);
-  const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec) : flowVersion ? measureFlowLayout(spec) : null;
-  const theme = resolveTheme(catalog, spec.theme), t = theme.tokens, l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
-  const modern = theme.visualStyle === 'modern-v1';
-  if (modern !== (compilerVersion === MODERN_PANEL_COMPILER_VERSION)) fail('VISUAL_STYLE_VERSION', '$.compilerVersion', 'Visual style and compiler version must match');
+  const theme = resolveTheme(catalog, spec.theme), t = theme.tokens;
+  const adaptive = theme.visualStyle === 'modern-v3', themed = adaptive || theme.visualStyle === 'modern-v2', modern = themed || theme.visualStyle === 'modern-v1';
+  const presentationPolicy = adaptive ? createPresentationPolicy(spec, t) : undefined;
+  const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec, presentationPolicy) : flowVersion ? measureFlowLayout(spec, presentationPolicy) : null;
+  const l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
+  if (modern ? compilerVersion !== (adaptive ? ADAPTIVE_PANEL_COMPILER_VERSION : themed ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION)
+    : [MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION].includes(compilerVersion))
+    fail('VISUAL_STYLE_VERSION', '$.compilerVersion', 'Visual style and compiler version must match');
+  const navigation = themed ? navigationPalette(t) : null;
+  const errorColor = themed && contrast('#B22C42', t.control) < 4.5 ? '#FDA29B' : '#B22C42';
   const selected = new Map();
   const select = (ref, kind, width, height) => {
     const recipe = resolveRecipe(catalog, ref, kind);
@@ -119,7 +152,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   });
   const children = [text(`${spec.id}.title`, spec.title,
     { x: l.padding, y: l.padding, width: contentWidth, height: l.titleHeight }, t.titleSize, t.text, 'bold')];
-  if (modern && l.gap >= 4) children.push(node(`${spec.id}.title-divider`, 'Container',
+  if (modern && !adaptive && l.gap >= 4) children.push(node(`${spec.id}.title-divider`, 'Container',
     { x: l.padding, y: l.padding + l.titleHeight + l.gap / 2, width: contentWidth, height: 1 },
     { style: style(t.border, { cornerRadius: 0 }) }, []));
   const bodyChildren = flow ? [] : children;
@@ -136,27 +169,30 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     const place = flow?.sections.find(value => value.id === section.id);
     const contentWidth = place?.width ?? l.width - l.padding * 2;
     const sectionY = place?.y ?? legacySectionY;
-    const height = sectionHeight(section);
+    const presentation = place?.presentation;
+    const height = place?.height ?? sectionHeight(section);
     select({ id: 'settings.section', version: '0.1.0' }, 'section', contentWidth, height);
     const sectionId = `${spec.id}.section.${section.id}`;
-    const sectionChildren = [text(`${sectionId}.title`, section.title,
+    const sectionChildren = presentation?.showTitle === false ? [] : [text(`${sectionId}.title`, section.title,
       { x: 0, y: 0, width: contentWidth, height: l.sectionTitleHeight }, t.headingSize, t.muted, 'bold')];
     for (const [index, row] of section.rows.entries()) {
       const rowId = `${spec.id}.row.${row.id}`, id = controlId(spec.id, row.id), field = fields.get(row.bind);
-      select(row.recipe, `${row.kind}-row`, contentWidth, l.rowHeight);
+      const placement = presentation?.rows[index], rowHeight = placement?.height ?? l.rowHeight;
+      select(row.recipe, `${row.kind}-row`, contentWidth, rowHeight);
       const textHeight = Math.ceil(t.fontSize * 1.3);
       const icon = assets.get(rowIcons.get(row.id)), iconOffset = icon ? 40 : 0;
       const fullButton = flowVersion && row.kind === 'button' && row.label === '';
-      if (icon && (l.rowHeight < 40 || (!fullButton && l.labelWidth - iconOffset < t.fontSize * 2))) fail('ICON_GEOMETRY', '$.layout', 'Icon needs a 28px slot and a readable label');
+      const stacked = placement?.stacked === true;
+      if (icon && (rowHeight < 40 || (!fullButton && !stacked && l.labelWidth - iconOffset < t.fontSize * 2))) fail('ICON_GEOMETRY', '$.layout', 'Icon needs a 28px slot and a readable label');
       const rowChildren = fullButton ? [] : [text(`${rowId}.label`, row.label,
-        { x: 12 + iconOffset, y: modern && row.kind === 'input' ? 4 + (40 - textHeight) / 2 : (l.rowHeight - textHeight) / 2, width: l.labelWidth - iconOffset, height: textHeight }, t.fontSize)];
-      if (icon) rowChildren.unshift(image(`${rowId}.icon`, icon, { x: 12, y: (l.rowHeight - 28) / 2, width: 28, height: 28 }, null, true));
-      const controlX = fullButton ? 12 + iconOffset : l.labelWidth + l.gap + 12;
-      const available = contentWidth - controlX - 12;
-      const rowY = l.sectionTitleHeight + l.gap + index * (l.rowHeight + l.gap);
+        { x: 12 + iconOffset, y: stacked ? 0 : modern && row.kind === 'input' ? 4 + (40 - textHeight) / 2 : (rowHeight - textHeight) / 2, width: stacked ? contentWidth - 24 - iconOffset : l.labelWidth - iconOffset, height: textHeight }, t.fontSize)];
+      if (icon) rowChildren.unshift(image(`${rowId}.icon`, icon, { x: placement?.iconX ?? 12, y: stacked ? 0 : (rowHeight - 28) / 2, width: stacked ? 24 : 28, height: stacked ? 24 : 28 }, null, true));
+      const controlX = placement?.controlX ?? (stacked ? 12 : fullButton ? 12 + iconOffset : l.labelWidth + l.gap + 12);
+      const available = placement?.controlWidth ?? contentWidth - controlX - 12;
+      const rowY = placement?.y ?? l.sectionTitleHeight + l.gap + index * (l.rowHeight + l.gap);
       if (row.kind === 'input') {
-        if (available < 160 || l.rowHeight < 48 + textHeight) fail('INPUT_GEOMETRY', '$.layout', 'Input and validation need a readable field and error line');
-        rowChildren.push(node(id, 'Input', { x: controlX, y: 4, width: available, height: 40 }, {
+        if (available < 160 || rowHeight < (stacked ? 2 * textHeight + 60 : 48 + textHeight)) fail('INPUT_GEOMETRY', '$.layout', 'Input and validation need a readable field and error line');
+        rowChildren.push(node(id, 'Input', { x: controlX, y: stacked ? textHeight + 8 : 4, width: available, height: stacked ? 44 : 40 }, {
           value: state[row.bind], placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
           maxLength: field.maxLength, enabled: row.enabled, valueOverflow: 'ellipsis',
           style: style(modern && row.readOnly ? t.control : t.surface, { borderWidth: 1, cornerRadius: modern ? 8 : 6,
@@ -164,17 +200,17 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         }));
         for (const [code, message] of [['required', row.validation.requiredMessage], ['min-length', row.validation.minLengthMessage]])
           rowChildren.push(text(formErrorId(spec.id, row.id, code), message,
-            { x: controlX, y: 48, width: available, height: textHeight }, t.fontSize, '#B22C42'));
+            { x: controlX, y: stacked ? textHeight + 60 : 48, width: available, height: textHeight }, t.fontSize, errorColor));
       } else if (row.kind === 'slider') {
         const valueWidth = Math.max(64, t.fontSize * 4), sliderWidth = available - valueWidth - l.gap;
         if (sliderWidth < 96) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Slider needs at least 96 logical pixels after label and value slots');
-        rowChildren.push(node(id, 'Slider', { x: controlX, y: 0, width: sliderWidth, height: l.rowHeight }, {
+        rowChildren.push(node(id, 'Slider', { x: controlX, y: 0, width: sliderWidth, height: rowHeight }, {
           value: state[row.bind], min: field.min, max: field.max, step: field.step, enabled: row.enabled,
           style: style(t.control, { borderColor: t.accent }),
         }));
         const valueId = `${rowId}.value`;
         rowChildren.push(text(valueId, `${row.format.prefix}${state[row.bind].toFixed(row.format.fractionDigits)}${row.format.suffix}`,
-          { x: contentWidth - valueWidth - 12, y: (l.rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, t.accent));
+          { x: contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, t.accent));
         textBindings.push({ sourceId: id, targetId: valueId, parts: [row.format.prefix,
           { field: 'value', fractionDigits: row.format.fractionDigits, grouping: 'none' }, row.format.suffix] });
       } else if (row.kind === 'progress') {
@@ -182,25 +218,25 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           ? Math.max(64, t.fontSize * (row.format.fractionDigits + 4)) : progressValueWidth(row, field, t.fontSize);
         const barWidth = available - valueWidth - l.gap;
         if (barWidth < 96) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Progress needs a bar and a readable value slot');
-        rowChildren.push(node(id, 'ProgressBar', { x: controlX, y: (l.rowHeight - 16) / 2, width: barWidth, height: 16 }, {
+        rowChildren.push(node(id, 'ProgressBar', { x: controlX, y: (rowHeight - 16) / 2, width: barWidth, height: 16 }, {
           value: progressDisplayValue(row, field, state[row.bind]), max: progressDisplayMax(row, field),
           style: style(t.border, { borderColor: t.accent, cornerRadius: 8 }),
         }));
         const valueId = `${rowId}.value`, suffix = row.format.mode === 'percent' ? '%' : '';
         rowChildren.push(text(valueId, progressText(row, field, state[row.bind]),
-          { x: contentWidth - valueWidth - 12, y: (l.rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, t.accent));
+          { x: contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, t.accent));
         textBindings.push({ sourceId: id, targetId: valueId, parts: [
           { field: 'value', fractionDigits: row.format.fractionDigits, grouping: 'none' }, suffix] });
       } else if (row.kind === 'switch') {
         if (available < 76) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Switch needs at least 76 logical pixels');
-        rowChildren.push(node(id, 'Switch', { x: contentWidth - 88, y: 0, width: 76, height: l.rowHeight }, {
+        rowChildren.push(node(id, 'Switch', { x: contentWidth - 88, y: 0, width: 76, height: rowHeight }, {
           label: '', checked: state[row.bind], enabled: row.enabled, style: style(t.control, { borderColor: t.accent }),
         }));
       } else if (row.kind === 'text') {
         if (available <= 0) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Text values need a positive content slot');
-        rowChildren.push(text(id, row.text, { x: controlX, y: (l.rowHeight - textHeight) / 2, width: available, height: textHeight }, t.fontSize));
+        rowChildren.push(text(id, row.text, { x: controlX, y: (rowHeight - textHeight) / 2, width: available, height: textHeight }, t.fontSize));
       } else {
-        const controlHeight = 40, controlY = (l.rowHeight - controlHeight) / 2;
+        const controlHeight = adaptive && row.kind === 'button' ? 44 : 40, controlY = (rowHeight - controlHeight) / 2;
         if (available < 120) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Select and Button need at least 120 logical pixels');
         if (controlY < 0 || controlHeight < t.fontSize * 1.3) fail('CONTROL_HEIGHT', '$.layout.rowHeight', 'Select and Button use a 40px control with a fitting text line');
         const rect = { x: controlX, y: controlY, width: available, height: controlHeight };
@@ -217,18 +253,19 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
             enabled: row.enabled,
             // The default runtime popup is white/light green. An explicit light-field
             // palette keeps text legible there and in the collapsed field, including dark themes.
-            style: modern ? style(t.surface, { borderColor: t.accent, borderWidth: 1, cornerRadius: 8 })
+            style: themed ? style(navigation.background, { textColor: navigation.text, borderColor: navigation.accent, borderWidth: 1, cornerRadius: 8 })
+              : modern ? style(t.surface, { borderColor: t.accent, borderWidth: 1, cornerRadius: 8 })
               : style('#F1F5FC', { textColor: '#111622', borderWidth: 1, cornerRadius: 6 }),
           }));
         } else {
-          const buttonStyle = modern && row.action.kind === 'reset-initial'
+          const buttonStyle = modern && (placement?.buttonRole === 'secondary' || (!placement?.buttonRole && row.action.kind === 'reset-initial'))
             ? style(t.surface, { textColor: t.accent, borderColor: t.accent, borderWidth: 1, fontWeight: 'bold', cornerRadius: 8 })
             : style(t.accent, { textColor: buttonForeground(t.accent), fontWeight: 'bold', cornerRadius: modern ? 8 : 6 });
           // An explicit Text child suppresses the component's implicit left label.
           // Pixi aligns this child using measured glyph bounds in panel-visuals;
           // Unity uses its existing native centered label instead.
           const labels = modern ? [node(`${id}.center-label`, 'Text', { x: 8, y: (controlHeight - textHeight) / 2, width: available - 16, height: textHeight }, {
-            text: row.buttonLabel, wrap: 'none', overflow: 'ellipsis', lineHeight: textHeight, drawBackground: false, style: buttonStyle,
+            text: row.buttonLabel, wrap: 'none', overflow: adaptive ? 'error' : 'ellipsis', lineHeight: textHeight, drawBackground: false, style: buttonStyle,
           })] : [];
           rowChildren.push(node(id, 'Button', rect, {
             label: row.buttonLabel, enabled: buttonEnabled(spec, row, state),
@@ -240,7 +277,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {
@@ -248,8 +285,8 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           sectionChildren.push(child);
         }
       } else sectionChildren.push(node(rowId, 'Container', {
-        x: 0, y: rowY, width: contentWidth, height: l.rowHeight,
-      }, { style: style(modern && row.kind === 'text' ? t.surface : t.control, { ...(modern ? { cornerRadius: 8 } : {}) }) }, rowChildren));
+        x: 0, y: rowY, width: contentWidth, height: rowHeight,
+      }, { style: style(stacked || (modern && row.kind === 'text') ? t.surface : t.control, { ...(modern ? { cornerRadius: 8 } : {}) }) }, rowChildren));
     }
     bodyChildren.push(node(sectionId, 'Container', { x: place?.x ?? l.padding, y: sectionY, width: contentWidth, height },
       { style: style(t.surface) }, sectionChildren));
@@ -268,7 +305,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           drawBackground: false, scrollbarVisibility: 'auto', style: style(t.surface) } : { style: style(t.surface) }, ownSections);
     });
     children.push(node(id, 'Tabs', flow.body, { activeId: choiceId(spec.id, tabs.id, state[tabs.bind]), enabled: tabs.enabled,
-      drawBackground: false, style: style(t.surface, { borderColor: t.accent }),
+      drawBackground: false, style: themed ? style(navigation.background, { textColor: navigation.text, borderColor: navigation.accent }) : style(t.surface, { borderColor: t.accent }),
       tabs: tabs.pages.map(page => ({ id: choiceId(spec.id, tabs.id, page.id), label: page.label, contentId: tabPageId(spec.id, page.id) })) }, pages));
     bindings.push({ nodeId: id, fieldId: tabs.bind, type: 'enum', event: tabs.event });
   } else if (flow) children.push(node(`${spec.id}.body`, flow.scrollable ? 'ScrollView' : 'Container', flow.body,

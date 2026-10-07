@@ -9,7 +9,7 @@
 在本 Harness 内构建工作台，具体资源参数见 [工作台说明](workbench.md)，然后运行：
 
 ```sh
-node scripts/build-workbench.mjs --catalog examples/modern-mint-polished.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-game-themes.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 
@@ -22,6 +22,10 @@ CLI 从 PATH 中发现；必要时通过 `--codex <可执行文件的绝对路�
 该模式不会探测本地服务，也不能启动 CLI。
 
 ## 一次生成
+
+新版目录提供八种精确主题，见[浅深模式与主色](panel-themes.md)。生成提示带完整主题清单及默认引用；
+修改提示带当前主题，保留未要求变化的模式与主色，原生编辑schema绑定目录中的主题ID/版本组合。
+旧目录和旧包按原编译器重放，不在导入时升级。风格解释由Agent负责，程序验证引用及来源。
 
 填写需求后点击“生成面板”，程序将：
 

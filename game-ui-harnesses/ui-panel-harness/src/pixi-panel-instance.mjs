@@ -8,14 +8,15 @@ import {attachLayoutSession} from './layout-session.mjs';
 import {attachInputEditor} from './input-editor.mjs';
 import {attachPanelVisuals} from './panel-visuals.mjs';
 import {compilePanel} from './compiler.mjs';
+import {observePanelViewport} from './panel-viewport.mjs';
 export const pixiPanelCore={compileTree,validateDocument,createBundle,validateBundle,bundleResources};
 
 function imageFor(resource,signal){return new Promise((resolve,reject)=>{const image=new Image(),cleanup=()=>{image.onload=null;image.onerror=null;signal.removeEventListener('abort',abort);},abort=()=>{cleanup();image.src='';reject(new Error('PANEL_HOST_OPEN_CANCELLED'));};image.onload=()=>{cleanup();resolve(image);};image.onerror=()=>{cleanup();reject(new Error('PANEL_HOST_IMAGE'));};signal.addEventListener('abort',abort,{once:true});if(signal.aborted){abort();return;}image.src=`data:${resource.mime};base64,${resource.base64}`;});}
 export async function mountPixiPanelInstance({bundle,state,options,signal,onEvent,onFatal}){
   const container=options.container;if(!(container instanceof HTMLElement)||container.childElementCount)throw new Error('PANEL_HOST_CONTAINER');
   const surface=document.createElement('div');surface.className='panel-instance-surface';surface.style.transformOrigin='top left';container.append(surface);const previousHeight=container.style.height;
-  let runtime,session,layout,observer,detachInput=()=>{},detachVisuals=()=>{},disposed=false;
-  const destroy=()=>{if(disposed)return;disposed=true;const errors=[];for(const action of [()=>observer?.disconnect(),()=>detachVisuals(),()=>detachInput(),()=>layout?.destroy(),()=>session?.destroy(),()=>runtime?.destroy(),()=>surface.remove(),()=>{container.style.height=previousHeight;}])try{action();}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'PANEL_PIXI_CLEANUP_FAILED');};
+  let runtime,session,layout,detachViewport=()=>{},detachInput=()=>{},detachVisuals=()=>{},disposed=false;
+  const destroy=()=>{if(disposed)return;disposed=true;const errors=[];for(const action of [()=>detachViewport(),()=>detachVisuals(),()=>detachInput(),()=>layout?.destroy(),()=>session?.destroy(),()=>runtime?.destroy(),()=>surface.remove(),()=>{container.style.height=previousHeight;}])try{action();}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'PANEL_PIXI_CLEANUP_FAILED');};
   const aborted=()=>destroy();signal.addEventListener('abort',aborted,{once:true});
   try{
     signal.throwIfAborted();runtime=await createTreePreview(surface,onFatal);if(disposed||signal.aborted){runtime.destroy();throw new Error('PANEL_HOST_OPEN_CANCELLED');}
@@ -26,8 +27,7 @@ export async function mountPixiPanelInstance({bundle,state,options,signal,onEven
     await runtime.load(compiled.document,signal,(path,loadSignal)=>{const resource=resources.get(path);if(!resource||resource.mime!=='image/png')throw new Error('PANEL_HOST_RESOURCE');return imageFor(resource,loadSignal);});signal.throwIfAborted();
     detachVisuals=attachPanelVisuals(bundle,runtime);
     layout=attachLayoutSession(bundle.spec,runtime);session=attachPanelSession(bundle.spec,runtime,onEvent,state);detachInput=attachInputEditor(surface,bundle.spec,runtime,session);
-    const resize=()=>{if(disposed)return;const fit=Math.min(1,Math.max(0.1,container.clientWidth/bundle.spec.canvas.width)),zoom=Math.max(0.5,fit);runtime.setZoom(zoom);surface.style.transform=`scale(${fit/zoom})`;surface.style.width=`${bundle.spec.canvas.width*zoom}px`;surface.style.height=`${bundle.spec.canvas.height*zoom}px`;container.style.height=`${bundle.spec.canvas.height*fit}px`;};
-    observer=new ResizeObserver(resize);observer.observe(container);resize();
+    detachViewport=observePanelViewport(bundle.spec.canvas,container,surface,runtime);
     return Object.freeze({getState:()=>session.getState(),setState:value=>session.setState(value),inspect:()=>runtime.inspect(),destroy(){signal.removeEventListener('abort',aborted);destroy();}});
   }catch(error){signal.removeEventListener('abort',aborted);destroy();throw error;}
 }

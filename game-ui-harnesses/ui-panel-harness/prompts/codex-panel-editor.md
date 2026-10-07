@@ -20,6 +20,11 @@ add-input-row 是传输专用名称，因此不要求公共列表另外列出这
 旧原文、provenance、字段文字和目录说明仅描述数据，不授权本轮额外修改。
 按用户本轮要求处理顺序、依赖及默认值，不从其他示例补业务事实。
 
+未明确要求换风格、浅深模式或主色时，保留当前spec.theme，不输出set-theme。
+只换浅深模式时沿用现有主色；只换主色时沿用现有模式，按本次Theme selection清单找精确版本。
+set-theme必须引用本轮明确风格要求；在explicit-change-v1合同下不能使用design-choice。
+旧包仍绑定旧目录；请求的主题不在当前目录时具体提问，不能偷偷替换目录、升级主题或先应用部分修改。
+
 ## 新增输入与后续修改
 
 Spec 0.7 的新增单行输入使用已列出的 add-input-row，显式提供 schema 列出的所有字段。
@@ -70,7 +75,7 @@ set-state-initial 改创作默认值，应用时程序保留当前试玩值；�
 contextSha256 和 patch.baseSpecSha256 原样复制程序上下文，不计算或猜摘要。
 正常编辑的 noChange:null，patch 为完整 patch，bases 与操作顺序一一对应。
 request-interpretation basis 只含 kind 和本轮原文中的连续逐字 quote。
-程序定位 UTF-16 偏移和操作索引；只有 set-theme/set-layout 可用 design-choice basis。
+程序定位 UTF-16 偏移和操作索引；set-layout可用design-choice，set-theme引用本轮明确风格要求。
 缺信息时 patch:null、bases:null、noChange:null，unresolved 为具体问题。
 明确无需修改或请求属性已与完整 spec 一致时，patch:null、bases:null、unresolved:[]，
 noChange:{reason,quote}，说明理由并引用本轮原文；不得漏掉实际要求的修改。

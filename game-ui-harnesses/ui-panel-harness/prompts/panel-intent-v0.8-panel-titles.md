@@ -25,6 +25,11 @@ unresolved为{id,question}，id按顺序使用q0…q63，非空question最多500
 themeKey与recipeKey逐字使用当前目录中的key，图片只能使用相应候选slot的准确key，非必要图片为null。
 panelSurface:null仍可显示程序化现代背景，icon:null仍可显示控件。不选无关图片或外部路径。
 
+风格同样来自完整需求。按本次Theme selection清单选择准确themeKey；未指定风格使用清单默认主题。
+有模式/主色标签的目录支持浅色或深色及列出的主色，不能把深色误解为静音、禁用或只换预览外壳。
+仅指定模式时使用默认主色，仅指定主色时使用默认浅色。矛盾或目录没有的颜色应具体提问。
+不能凭空创建主题、输出自定义token、把任意十六进制主色自动近似成目录中的颜色。
+
 普通body必须是column/row/grid容器，即使仅含一个section；section仅kind、title、rows。
 容器children 1～96项，section.rows 1～128行，全局最多96布局节点、32组、128行、嵌套8层。
 不允许空容器、空分组或占位节点。超出支持结构时返回panel:null和具体问题，不能伪造完成。

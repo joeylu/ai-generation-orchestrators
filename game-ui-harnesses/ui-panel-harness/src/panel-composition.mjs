@@ -12,9 +12,26 @@ const exact = (value, keys) => { if (!value || Array.isArray(value) || typeof va
 const identity = value => typeof value === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,63}$(?![\s\S])/.test(value);
 const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$(?![\s\S])/.test(value);
 
+function snapshotSources(input) {
+  if (!Array.isArray(input) || Object.getPrototypeOf(input) !== Array.prototype || input.length < 2 || input.length > 32)
+    fail('COMPOSITION_REQUEST');
+  const descriptors = Object.getOwnPropertyDescriptors(input), keys = Reflect.ownKeys(descriptors);
+  if (keys.length !== input.length + 1 || keys.some(key => typeof key !== 'string'
+    || !Object.hasOwn(descriptors[key], 'value') || (key !== 'length' && !descriptors[key].enumerable)))
+    fail('COMPOSITION_SOURCE_ARRAY');
+  const result = [];
+  for (let i = 0; i < input.length; i++) {
+    if (!Object.hasOwn(descriptors, String(i))) fail('COMPOSITION_SOURCE_ARRAY');
+    // Each source retains the ordinary 20,000-node/32-depth JSON budget.
+    // A bounded batch must not spend one source's budget on repeated catalogs.
+    result.push(snapshotJson(descriptors[String(i)].value));
+  }
+  return result;
+}
+
 export async function composePanelBundles(requestInput, bundlesInput, core) {
   // Snapshot every authored source before the first await.
-  const request = snapshotJson(requestInput), inputs = snapshotJson(bundlesInput);
+  const request = snapshotJson(requestInput), inputs = snapshotSources(bundlesInput);
   exact(request, ['panelCompositionRequestVersion', 'id', 'title', 'sources', 'layout', 'width', 'canvasWidth', 'canvasHeight', 'maxHeight', 'surfaceFrom']);
   if (request.panelCompositionRequestVersion !== '0.1' || !identity(request.id)
     || !['column', 'row', 'grid', 'tabs'].includes(request.layout) || !Array.isArray(request.sources)

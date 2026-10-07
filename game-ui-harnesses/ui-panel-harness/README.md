@@ -7,8 +7,10 @@
 
 - [使用与启动](docs/start-here.md)：构建Studio、生成、修改、试玩、撤销和下载。
 - [本地第一版交付目录](output/ui-panel-closeout-v1/index.html)：已接受的16类面板、5种同轮组合和10步真实修改，含预览及实际下载ZIP；本地产物不随Git提交。
-- 本工作区当前Studio：`http://127.0.0.1:4198/`，使用新版Modern Mint主题。其他工作区使用启动命令打印的地址。
+- Studio网址以启动命令打印的地址为准；旧静态页面不会自动更新。支持浅深模式与四种主色。
 - [视觉主题与前后对照](docs/panel-visual-style.md)：新主题单独版本，旧交付包保持原样。
+- [浅深模式与主色](docs/panel-themes.md)：需求中指定八种主题，修改保留未要求变化的风格。
+- [用途排版与真实验收](docs/visual-smoke-acceptance.md)：四类新面板及一次修改，包含窄屏布局和实际下载重导入。
 - [本版范围及验收](docs/first-version-closeout-2026-10-07.md)，[历史任务和失败记录](docs/tasks.md)。
 
 ## 当前能力
@@ -16,6 +18,7 @@
 | 能力 | 说明 |
 | --- | --- |
 | 控件 | Slider、Switch、Select、Button、静态Text、Progress、单行Input |
+| 主题 | 浅色／深色 × 薄荷绿、蓝、紫、橙；在需求描述中指定 |
 | 布局 | 横排、纵排、双列、嵌套分组、垂直滚动、2–8页签Tabs |
 | 局部修改 | 默认值、名称、启用状态、范围、输入约束、有限增删、重置/提交字段和布局；存活试玩值保留 |
 | 撤销/文件往返 | 整批撤销恢复修改前规格与试玩值；PanelBundle可以导出后重新打开 |
@@ -37,6 +40,9 @@ Studio首页保留需求描述、生成按钮、修改要求和修改按钮；�
 | [10步真实连续修改](docs/edit-chain-results-2026-10-06.md) | 10/10、123项浏览器检查、10份实际ZIP及逐步/整链撤销 | 实际10次、无重试，仅最新声音来源的固定修改链 |
 | 授权前单元回归 | 727/727 | 测试使用夹具/替身，不提交模型请求 |
 | [视觉主题优化](docs/panel-visual-style.md) | 734项回归、518项浏览器检查、24份实际ZIP离线往返 | 保存的16份真实面板换主题、3份程序夹具及5种组合；本轮新增模型0 |
+| [浅深模式与四主色](docs/panel-themes.md) | 749项回归、701项浏览器检查、32份实际ZIP离线往返 | 八主题夹具与保存结果重编译；本轮新增模型0 |
+| [按用途排版](docs/panel-presentation.md) | 764项回归、443项浏览器检查、26份实际ZIP离线往返 | 表单、对话框、菜单、设置与组合夹具，修复连续中文输入；本轮新增模型0 |
+| [用途排版真实复验](docs/visual-smoke-acceptance.md) | 5/5真实调用、五份390宽度布局、实际ZIP校验及重导入 | 无重试；769项回归证据绑定当前源码，窄屏仅检查可见布局 |
 | [原生Unity接入](docs/unity-game-integration-acceptance-2026-10-06.md) | 先前隔离环境的UGUI与宿主业务验收 | 不替代上述最新批次的原生验证，普通下载包仍标NOT_RUN |
 
 这些成绩只证明报告中指定的请求、构建和来源。程序夹具、保存结果重放、原生引擎和人工视觉分别记录；历史失败不回填为成功。
@@ -50,7 +56,7 @@ Studio首页保留需求描述、生成按钮、修改要求和修改按钮；�
 ```sh
 node --test tests/*.test.mjs
 node scripts/cli.mjs validate examples/audio-settings.panel.json
-node scripts/build-workbench.mjs --catalog examples/modern-mint-polished.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-adaptive.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

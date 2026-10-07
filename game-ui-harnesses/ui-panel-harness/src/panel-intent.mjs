@@ -3,6 +3,7 @@ import { snapshotJson, validatePanelSpec } from './spec.mjs';
 import { validatePlanningContext } from './planning-context.mjs';
 import { validatePanelProposal, PanelPlanningError } from './proposal.mjs';
 import { measureFlowLayout, measureTabbedLayout } from './flow-layout.mjs';
+import { createPresentationPolicy, sectionPurpose } from './panel-presentation.mjs';
 import { progressValueWidth } from './progress.mjs';
 import { buildCodexQuestionsResponseSchema } from './codex-questions-schema.mjs';
 import { literalReadOnlyLabelPairs, nativeReadOnlyLabelMismatch } from './literal-text-labels.mjs';
@@ -254,15 +255,21 @@ export function arrangeIntentSpec(spec, settings, theme) {
   for (const key of ['width', 'canvasWidth', 'canvasHeight', 'maxHeight']) if (settings[key] !== null && (!Number.isInteger(settings[key]) || settings[key] < 1 || settings[key] > 4096)) fail('integer', `$.panel.layout.${key}`);
   if (!['auto', 'scroll', 'error'].includes(settings.overflow)) fail('INTENT_FIELDS', '$.panel.layout.overflow');
   const rows = spec.sections.flatMap(section => section.rows), size = theme.tokens.fontSize;
-  const labelWidth = Math.max(112, ...rows.filter(row => row.kind !== 'button').map(row => conservativeTextWidth(row.label, size) + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0)));
+  const adaptive = theme.visualStyle === 'modern-v3';
+  const purposes = new Map(spec.sections.flatMap(section => section.rows.map(row => [row.id, sectionPurpose(section)])));
+  const labelWidth = Math.max(112, ...rows.filter(row => row.kind !== 'button' && !(adaptive && row.kind === 'input' && purposes.get(row.id) === 'form')).map(row => conservativeTextWidth(row.label, size) + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0)));
   const fields = new Map(spec.state.map(field => [field.id, field]));
-  const minWidth = Math.max(320, ...rows.map(row => {
+  const rowWidths = rows.map(row => {
     const content = row.kind === 'slider' ? 96 + Math.max(64, size * 4) + 12
       : row.kind === 'progress' ? 96 + progressValueWidth(row, fields.get(row.bind), size) + 12
       : row.kind === 'select' ? Math.max(120, ...fields.get(row.bind).options.map(option => conservativeTextWidth(option.label, size) + 56))
       : row.kind === 'text' ? conservativeTextWidth(row.text, size) + 8 : row.kind === 'input' ? Math.max(200, ...[row.validation.requiredMessage, row.validation.minLengthMessage].map(message => conservativeTextWidth(message, size) + 8)) : row.kind === 'switch' ? 76 : Math.max(120, conservativeTextWidth(row.buttonLabel, size) + 32);
-    return (row.kind === 'button' ? 24 : labelWidth + 36) + content;
-  }));
+    if (adaptive && row.kind === 'input' && purposes.get(row.id) === 'form') return Math.max(280, content + 24, conservativeTextWidth(row.label, size) + 24 + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0));
+    return (row.kind === 'button' ? 24 + (adaptive && spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0) : labelWidth + 36) + content;
+  });
+  const widths = new Map(rows.map((row, index) => [row.id, rowWidths[index]]));
+  const sectionWidths = new Map(spec.sections.map(section => [section.id, Math.max(adaptive ? 280 : 320, ...section.rows.map(row => widths.get(row.id)), adaptive ? conservativeTextWidth(section.title, theme.tokens.headingSize) : 0)]));
+  const minWidth = Math.max(...sectionWidths.values());
   let counter = 0, count = 0;
   const convert = (node, depth = 1) => {
     if (++count > 96 || depth > 8) fail('layout-structure', '$.panel.layout.body');
@@ -274,20 +281,29 @@ export function arrangeIntentSpec(spec, settings, theme) {
       ...(node.kind === 'grid' ? { minColumnWidth: minWidth } : {}), children: node.children.map(child => convert(child, depth + 1)) };
   };
   const body = convert(settings.body ?? { kind: 'column', children: spec.sections.map(section => ({ kind: 'section', sectionId: section.id })) });
-  const requiredWidth = node => node.kind === 'section' ? minWidth
+  const requiredWidth = node => node.kind === 'section' ? (adaptive ? sectionWidths.get(node.sectionId) ?? minWidth : minWidth)
     : node.kind === 'column' ? Math.max(...node.children.map(requiredWidth))
     : node.kind === 'grid' ? 2 * Math.max(...node.children.map(requiredWidth)) + 20
     : node.children.reduce((sum, child) => sum + requiredWidth(child), 20 * (node.children.length - 1));
   const tabWidth = spec.tabs ? Math.max(...spec.tabs.pages.map(page => conservativeTextWidth(page.label, size) + 24)) * spec.tabs.pages.length : 0;
-  const width = settings.width ?? Math.max(640, requiredWidth(body) + 64, tabWidth + 48);
+  const compact = adaptive && spec.sections.every(section => sectionPurpose(section) !== 'settings');
+  const width = settings.width ?? Math.max(compact ? 420 : 640, requiredWidth(body) + (adaptive ? 48 : 64), tabWidth + 48, adaptive ? conservativeTextWidth(spec.title, theme.tokens.titleSize) + 48 : 0);
   const maxHeight = settings.maxHeight ?? 560;
   const popup = Math.max(0, ...spec.state.filter(field => field.type === 'enum' && field.id !== spec.tabs?.bind).map(field => field.options.length * 40 + 2));
   spec.canvas = { width: settings.canvasWidth ?? Math.min(4096, width + 64), height: settings.canvasHeight ?? Math.max(640, maxHeight + popup * 2 + 96) };
-  spec.layout = { width, padding: 24, gap: 12, sectionGap: 20, labelWidth, rowHeight: Math.max(rows.some(row => row.kind === 'input') ? 80 : 56, Math.ceil(size * 1.3) + (rows.some(row => row.kind === 'input') ? 48 : 16)),
-    titleHeight: Math.max(48, Math.ceil(theme.tokens.titleSize * 1.3)), sectionTitleHeight: Math.max(32, Math.ceil(theme.tokens.headingSize * 1.3)),
+  spec.layout = { width, padding: 24, gap: 12, sectionGap: 20, labelWidth, rowHeight: Math.max(!adaptive && rows.some(row => row.kind === 'input') ? 80 : 56, Math.ceil(size * 1.3) + (!adaptive && rows.some(row => row.kind === 'input') ? 48 : 16)),
+    titleHeight: Math.max(adaptive ? 40 : 48, Math.ceil(theme.tokens.titleSize * 1.3)), sectionTitleHeight: Math.max(32, Math.ceil(theme.tokens.headingSize * 1.3)),
     maxHeight, overflow: settings.overflow === 'auto' ? 'scroll' : settings.overflow, body };
   // Full contract/geometry gate; explicit narrow dimensions fail rather than changing business or requested layout.
-  const checked = validatePanelSpec(spec); (checked.tabs ? measureTabbedLayout : measureFlowLayout)(checked); return checked;
+  let checked = validatePanelSpec(spec);
+  const measure = checked.tabs ? measureTabbedLayout : measureFlowLayout;
+  const measured = measure(checked, adaptive ? createPresentationPolicy(checked, theme.tokens) : undefined);
+  if (adaptive && settings.canvasHeight === null) {
+    checked.canvas.height = Math.ceil(measured.panelHeight + 64 + popup * 2);
+    checked = validatePanelSpec(checked);
+    measure(checked, createPresentationPolicy(checked, theme.tokens));
+  }
+  return checked;
 }
 
 export async function materializePanelIntent(contextInput, input) {

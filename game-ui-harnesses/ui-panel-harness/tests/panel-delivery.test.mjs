@@ -20,6 +20,13 @@ runtime.sha256=await digestBytes(utf8(runtime.code));
 const bundle=await createPanelBundle(fixture,catalog,core);
 const delivery=async(input=bundle,adapter=runtime,kit)=>createPanelDelivery(input,core,{runtime:adapter,unityKit:kit??await createUnityKitFiles(input,core,sources)});
 
+test('standalone preview reserves its scrollbar gutter to prevent iframe resize feedback',async()=>{
+ const out=await delivery(),html=new TextDecoder().decode(out.contents.get('pixi/index.html'));
+ assert(html.includes('html{scrollbar-gutter:stable}'));
+ assert(html.includes('@supports not (scrollbar-gutter:stable){html{overflow-y:scroll}}'));
+ assert.deepEqual(decode(out.contents.get('pixi/panel.bundle.json')),bundle);
+});
+
 test('complete delivery retains played values separately from authored defaults and Unity document',async()=>{
  const boolean=fixture.state.find(field=>field.type==='boolean').id;
  const state={...bundle.state,volume:37,[boolean]:!bundle.state[boolean]};

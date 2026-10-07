@@ -75,6 +75,14 @@ export async function buildCodexEditResponseSchema({ draft = false, context } = 
     const patch = follow(result.properties.patch);
     const nonNullPatch = follow(patch.anyOf ? patch.anyOf.find(shape => shape.type !== 'null') : patch);
     nonNullPatch.properties.baseSpecSha256 = { type: 'string', enum: [context.baseSpecSha256] };
+    if (context.capabilities?.themePolicy === 'explicit-change-v1') {
+      const shape = Object.values(definitions).find(shape => shape.properties?.op?.enum?.[0] === 'set-theme');
+      if (shape) shape.properties.theme = { anyOf: context.catalog.themes.map(theme => ({
+        type: 'object', additionalProperties: false, required: ['id', 'version'], properties: {
+          id: { type: 'string', enum: [theme.id] }, version: { type: 'string', enum: [theme.version] },
+        },
+      })) };
+    }
   }
   if (forms) {
     const shape = Object.values(definitions).find(shape => shape.properties?.op?.enum?.[0] === 'add-input-row');

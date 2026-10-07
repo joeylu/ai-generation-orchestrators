@@ -3,7 +3,9 @@ import { MotionAnimator, getMotionStyle } from '../../ui-component-harness/src/m
 /** Presentation only. Semantic values/events are owned by the unchanged panel session. */
 export function panelVisualMotion(bundle) {
   const theme = bundle.catalog.themes.find(theme => theme.id === bundle.spec.theme.id && theme.version === bundle.spec.theme.version);
-  if (theme?.visualStyle !== 'modern-v1' || bundle.compilerVersion !== '0.7.1') return null;
+  if (!((theme?.visualStyle === 'modern-v1' && bundle.compilerVersion === '0.7.1')
+    || (theme?.visualStyle === 'modern-v2' && bundle.compilerVersion === '0.7.2')
+    || (theme?.visualStyle === 'modern-v3' && bundle.compilerVersion === '0.7.3'))) return null;
   // Native press and input focus stay immediate. Hover uses a per-button channel,
   // avoiding the shared runtime's whole-tree reset when installing a motion system.
   const actions = { Button: ['hover'] }, bindings = [];

@@ -60,6 +60,8 @@ async function buildContext(specInput, catalogInput, requestInput, operations) {
     editContextVersion: '0.1', request, spec, catalog, baseSpecSha256, catalogSha256,
     capabilities: {
       operations: [...operations], target: 'pixi', statePolicy: 'preserve-current-at-apply', semanticReview: 'NOT_RUN',
+      ...(catalog.themes.some(theme => theme.id === spec.theme.id && theme.version === spec.theme.version && ['modern-v2', 'modern-v3'].includes(theme.visualStyle))
+        ? { themePolicy: 'explicit-change-v1' } : {}),
     },
   };
   return { ...payload, sha256: await digestJson(payload) };
@@ -167,6 +169,12 @@ async function validateProposalSnapshots(contextSnapshot, proposal) {
     !context.capabilities.operations.includes(operation?.op))) {
     fail('EDIT_PATCH', '$.patch.operations', 'Every operation must be advertised by this exact edit context');
   }
+  if (context.capabilities.themePolicy === 'explicit-change-v1') {
+    for (const [index, operation] of (Array.isArray(proposal.patch?.operations) ? proposal.patch.operations : []).entries()) {
+      if (operation.op === 'set-theme' && !context.catalog.themes.some(theme => theme.id === operation.theme?.id && theme.version === operation.theme?.version))
+        fail('EDIT_THEME_REFERENCE', `$.patch.operations[${index}].theme`, 'Select an exact theme from this panel\'s pinned catalog');
+    }
+  }
   try { result = await applyPanelPatch(context.spec, proposal.patch); }
   catch (cause) {
     const code = cause instanceof PanelPatchError ? 'EDIT_PATCH' : 'EDIT_RESULT_SPEC';
@@ -181,6 +189,10 @@ async function validateProposalSnapshots(contextSnapshot, proposal) {
       fail('EDIT_OPERATION_INDEX', `${path}.operationIndex`, 'Expected one unique in-range operation index per decision');
     }
     seen.add(decision.operationIndex);
+    if (context.capabilities.themePolicy === 'explicit-change-v1'
+      && proposal.patch.operations[decision.operationIndex].op === 'set-theme' && decision.basis?.kind !== 'request-interpretation') {
+      fail('EDIT_THEME_ORIGIN', `${path}.basis`, 'Theme changes require current-request evidence; an unrequested design choice is not allowed');
+    }
     validateBasis(decision.basis, proposal.patch.operations[decision.operationIndex], context.request.text, `${path}.basis`);
   }
   if (seen.size !== proposal.patch.operations.length) fail('EDIT_COVERAGE', '$.decisions', 'Every operation must state its source exactly once');

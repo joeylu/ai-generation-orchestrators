@@ -43,6 +43,13 @@ export function createWorkbenchRenderer(host, onEvent, onError) {
         const bundle = await validatePanelBundle(input, browserCore);
         if (own !== ticket || !isCurrent()) return { status: 'STALE' };
         candidate = { controller: new AbortController(), element: document.createElement('div') };
+        if (bundle.compilerVersion === '0.7.3') {
+          // Compact forms retain their authored size in a wide Studio preview.
+          // The existing canvas CSS still scales them down on smaller screens.
+          candidate.element.style.width = '100%';
+          candidate.element.style.maxWidth = `${bundle.spec.canvas.width}px`;
+          candidate.element.style.marginInline = 'auto';
+        }
         pending = candidate;
         candidate.preview = await createTreePreview(candidate.element, error => {
           // A failed replacement must not silence the still-mounted renderer.

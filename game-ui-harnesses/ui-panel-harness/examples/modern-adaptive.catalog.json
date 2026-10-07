@@ -1,0 +1,422 @@
+{
+  "catalogVersion": "0.1",
+  "id": "modern-adaptive",
+  "version": "0.4.0",
+  "themes": [
+    {
+      "id": "modern-mint-light",
+      "version": "0.4.0",
+      "visualStyle": "modern-v3",
+      "tokens": {
+        "background": "#142B32",
+        "surface": "#FFFFFF",
+        "control": "#F1F6F4",
+        "accent": "#0F7666",
+        "text": "#183A36",
+        "muted": "#526B65",
+        "border": "#DCE8E3",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": 16,
+        "headingSize": 18,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 16
+      }
+    },
+    {
+      "id": "modern-mint-dark",
+      "version": "0.4.0",
+      "visualStyle": "modern-v3",
+      "tokens": {
+        "background": "#070F17",
+        "surface": "#0D1720",
+        "control": "#111C26",
+        "accent": "#63D3B8",
+        "text": "#EAF3F8",
+        "muted": "#A8BCC8",
+        "border": "#3A5361",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": 16,
+        "headingSize": 18,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 16
+      }
+    },
+    {
+      "id": "modern-blue-light",
+      "version": "0.4.0",
+      "visualStyle": "modern-v3",
+      "tokens": {
+        "background": "#142B32",
+        "surface": "#FFFFFF",
+        "control": "#F1F6F4",
+        "accent": "#1D4ED8",
+        "text": "#183A36",
+        "muted": "#526B65",
+        "border": "#DCE8E3",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": 16,
+        "headingSize": 18,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 16
+      }
+    },
+    {
+      "id": "modern-blue-dark",
+      "version": "0.4.0",
+      "visualStyle": "modern-v3",
+      "tokens": {
+        "background": "#070F17",
+        "surface": "#0D1720",
+        "control": "#111C26",
+        "accent": "#8BB5FF",
+        "text": "#EAF3F8",
+        "muted": "#A8BCC8",
+        "border": "#3A5361",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": 16,
+        "headingSize": 18,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 16
+      }
+    },
+    {
+      "id": "modern-violet-light",
+      "version": "0.4.0",
+      "visualStyle": "modern-v3",
+      "tokens": {
+        "background": "#142B32",
+        "surface": "#FFFFFF",
+        "control": "#F1F6F4",
+        "accent": "#6D28D9",
+        "text": "#183A36",
+        "muted": "#526B65",
+        "border": "#DCE8E3",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": 16,
+        "headingSize": 18,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 16
+      }
+    },
+    {
+      "id": "modern-violet-dark",
+      "version": "0.4.0",
+      "visualStyle": "modern-v3",
+      "tokens": {
+        "background": "#070F17",
+        "surface": "#0D1720",
+        "control": "#111C26",
+        "accent": "#C1A0FF",
+        "text": "#EAF3F8",
+        "muted": "#A8BCC8",
+        "border": "#3A5361",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": 16,
+        "headingSize": 18,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 16
+      }
+    },
+    {
+      "id": "modern-orange-light",
+      "version": "0.4.0",
+      "visualStyle": "modern-v3",
+      "tokens": {
+        "background": "#142B32",
+        "surface": "#FFFFFF",
+        "control": "#F1F6F4",
+        "accent": "#9A4300",
+        "text": "#183A36",
+        "muted": "#526B65",
+        "border": "#DCE8E3",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": 16,
+        "headingSize": 18,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 16
+      }
+    },
+    {
+      "id": "modern-orange-dark",
+      "version": "0.4.0",
+      "visualStyle": "modern-v3",
+      "tokens": {
+        "background": "#070F17",
+        "surface": "#0D1720",
+        "control": "#111C26",
+        "accent": "#FFB15C",
+        "text": "#EAF3F8",
+        "muted": "#A8BCC8",
+        "border": "#3A5361",
+        "fontFamily": "\"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": 16,
+        "headingSize": 18,
+        "titleSize": 28,
+        "spacing": 16,
+        "radius": 16
+      }
+    }
+  ],
+  "recipes": [
+    {
+      "id": "settings.panel",
+      "version": "0.1.0",
+      "kind": "panel",
+      "description": "自有程序化设置面板，包含标题及纵向内容区域。Procedural settings panel with a title and vertical content.",
+      "tags": [
+        "设置面板",
+        "设置页",
+        "settings panel",
+        "settings",
+        "panel"
+      ],
+      "states": [
+        "idle"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 320,
+      "minHeight": 160
+    },
+    {
+      "id": "settings.section",
+      "version": "0.1.0",
+      "kind": "section",
+      "description": "自有程序化设置分组，包含分组标题和设置行。Procedural titled section for related settings rows.",
+      "tags": [
+        "设置分组",
+        "分组",
+        "section",
+        "group"
+      ],
+      "states": [
+        "idle"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 80
+    },
+    {
+      "id": "settings.slider",
+      "version": "0.1.0",
+      "kind": "slider-row",
+      "description": "自有程序化数值设置行，组合标签、滑条和数值文字，适用于音量等有界数值。Procedural labeled slider with a value readout.",
+      "tags": [
+        "音量",
+        "声音大小",
+        "响度",
+        "滑条",
+        "百分比",
+        "volume",
+        "loudness",
+        "slider",
+        "range"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "dragging",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 56
+    },
+    {
+      "id": "settings.switch",
+      "version": "0.1.0",
+      "kind": "switch-row",
+      "description": "自有程序化布尔设置行，组合标签与开关；开关含义由面板方案显式声明。Procedural labeled switch for an explicit boolean setting.",
+      "tags": [
+        "声音开关",
+        "开关",
+        "启用声音",
+        "静音",
+        "布尔",
+        "mute",
+        "toggle",
+        "switch",
+        "sound enabled"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "checked",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 56
+    },
+    {
+      "id": "settings.select",
+      "version": "0.1.0",
+      "kind": "select-row",
+      "description": "自有程序化枚举设置行，组合标签与下拉菜单，适用于明确的画质档位等有限选项。Procedural labeled select for explicit enumerated settings.",
+      "tags": [
+        "画质",
+        "画质档位",
+        "下拉",
+        "选项",
+        "选择",
+        "quality",
+        "dropdown",
+        "select"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "pressed",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 56
+    },
+    {
+      "id": "settings.button",
+      "version": "0.1.0",
+      "kind": "button-row",
+      "description": "自有程序化操作行，组合标签与按钮；动作仅限通知宿主或重置明确列出的状态初值。Procedural labeled action button with explicit emit or reset-initial behavior.",
+      "tags": [
+        "恢复默认",
+        "重置",
+        "按钮",
+        "操作",
+        "reset",
+        "button",
+        "action"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "pressed",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 56
+    },
+    {
+      "id": "settings.text",
+      "version": "0.1.0",
+      "kind": "text-row",
+      "description": "自有程序化只读信息行，组合标签与单行文字，不绑定可变状态，不发出事件。Procedural read-only labeled text for character and summary information.",
+      "tags": [
+        "角色信息",
+        "信息",
+        "文本",
+        "只读",
+        "character",
+        "text",
+        "information"
+      ],
+      "states": [
+        "idle"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 240,
+      "minHeight": 40
+    },
+    {
+      "id": "settings.progress",
+      "version": "0.1.0",
+      "kind": "progress-row",
+      "description": "只读确定进度加载条，由宿主更新连续数值，支持百分比或实际数值显示。Read-only determinate host-owned loading/progress bar.",
+      "tags": [
+        "加载条",
+        "加载",
+        "进度条",
+        "进度",
+        "loading",
+        "progress",
+        "下载",
+        "资源加载"
+      ],
+      "states": [
+        "idle"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 40
+    },
+    {
+      "id": "navigation.tabs",
+      "version": "0.1.0",
+      "kind": "tabs",
+      "description": "Horizontal tabs with persistent page state and independent scroll content.",
+      "tags": [
+        "页签",
+        "分页",
+        "标签页",
+        "选项卡",
+        "tabs",
+        "tab",
+        "分类",
+        "声音",
+        "画面"
+      ],
+      "states": [
+        "idle",
+        "hover",
+        "pressed",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 104
+    },
+    {
+      "id": "forms.input",
+      "version": "0.1.0",
+      "kind": "input-row",
+      "description": "单行文本输入及必填和最短长度校验，支持角色命名、兑换码与搜索。Single-line text/password entry with bounded validation.",
+      "tags": [
+        "输入框",
+        "文本输入",
+        "角色命名",
+        "名字",
+        "昵称",
+        "兑换码",
+        "搜索",
+        "input",
+        "text entry",
+        "form",
+        "name"
+      ],
+      "states": [
+        "idle",
+        "disabled"
+      ],
+      "supports": [
+        "pixi"
+      ],
+      "minWidth": 280,
+      "minHeight": 72
+    }
+  ]
+}

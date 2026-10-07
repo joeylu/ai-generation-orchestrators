@@ -114,6 +114,45 @@ async function rejected(fake, code, { input = context, ...options } = {}) {
   return { error: caught, outputRoot };
 }
 
+test('theme generation dispatch supplies the exact eight choices and a default without new UI fields', async () => {
+  const themes = await json(join(harnessRoot, 'examples/modern-game-themes.catalog.json'));
+  const input = await createPlanningContext({...formRequest, text:formRequest.text+' 使用深色蓝色主题。'}, themes);
+  const intent = requestReferenceFixture(ordinalFixture(formIntent(input)));
+  intent.panel.themeKey = 'modern-blue-dark@0.3.0';
+  const fake = fakeProcess(async (child, call) => {
+    assert(call.prompt.includes('### Theme selection'));
+    assert(call.prompt.includes('defaultThemeKey'));
+    for(const theme of themes.themes) assert(call.prompt.includes(`${theme.id}@${theme.version}`));
+    assert(call.prompt.includes('arbitrary hex color'));
+    sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0);
+  });
+  const result = await planWithCodex(input, {outputRoot:output(), executable, runProcess:fake.runProcess});
+  assert.equal(fake.calls.length,1);assert.equal(result.report.status,'READY_TO_COMPILE');
+  assert.deepEqual(result.proposal.spec.theme,{id:'modern-blue-dark',version:'0.3.0'});
+});
+
+test('theme edit dispatch pins exact theme/version pairs and retains the unrequested mode/accent', async () => {
+  const themes = await json(join(harnessRoot, 'examples/modern-game-themes.catalog.json'));
+  const input = await createPlanningContext(formRequest, themes), intent = requestReferenceFixture(ordinalFixture(formIntent(input)));
+  intent.panel.themeKey = 'modern-blue-dark@0.3.0';
+  const spec = (await materializePanelIntent(input,intent)).spec;
+  const editing = await createPanelEditContext(spec,themes,{...formRequest,text:'只把主色换成橙色，其他不变。'});
+  const draft = {codexEditDraftVersion:'0.3',contextSha256:editing.sha256,noChange:null,unresolved:[],
+    patch:{patchVersion:'0.1',baseSpecSha256:editing.baseSpecSha256,reason:'Change explicitly requested accent.',operations:[{op:'set-theme',theme:{id:'modern-orange-dark',version:'0.3.0'}}]},
+    bases:[{kind:'request-interpretation',quote:editing.request.text}]};
+  const fake = fakeProcess(async (child, call) => {
+    assert(call.prompt.includes('currentThemeKey'));assert(call.prompt.includes('modern-blue-dark@0.3.0'));
+    assert(call.prompt.includes('keep the current mode'));assert(call.prompt.includes('unless this edit explicitly requests'));
+    const schema = await json(call.args[call.args.indexOf('--output-schema')+1]);
+    const operation = Object.values(schema.$defs).find(s=>s.properties?.op?.enum?.[0]==='set-theme');
+    assert.equal(operation.properties.theme.anyOf.length,8);
+    sendEvents(child, completedEvents(JSON.stringify(draft)));child.close(0);
+  });
+  const result = await editWithCodex(editing,{outputRoot:output(),executable,runProcess:fake.runProcess});
+  assert.equal(fake.calls.length,1);assert.equal(result.report.status,'READY_TO_APPLY');
+  assert.deepEqual(result.proposal.patch.operations,draft.patch.operations);
+});
+
 test('Codex editing accepts legacy native proposals under draft dispatch and writes distinct program-owned edit evidence', async () => {
   const fake = fakeProcess(async child => {
     const call = fake.calls[0];

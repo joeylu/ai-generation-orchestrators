@@ -1,6 +1,6 @@
 import { validatePanelSpec, snapshotJson } from './spec.mjs';
 import { validateCatalog } from './catalog.mjs';
-import { compilePanel, defaultPanelCompilerVersion, PANEL_COMPILER_VERSION, ASSET_PANEL_COMPILER_VERSION, CONTROLS_PANEL_COMPILER_VERSION, FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION } from './compiler.mjs';
+import { compilePanel, defaultPanelCompilerVersion, PANEL_COMPILER_VERSION, ASSET_PANEL_COMPILER_VERSION, CONTROLS_PANEL_COMPILER_VERSION, FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION } from './compiler.mjs';
 import { canonicalJson, digestJson } from './canonical.mjs';
 import { validatePanelAssetInputs } from './panel-assets.mjs';
 
@@ -39,7 +39,7 @@ export async function validatePanelBundle(input, core) {
     && !(input.panelBundleVersion === '0.4' && [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION].includes(input.compilerVersion))
     && !(input.panelBundleVersion === '0.5' && [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION].includes(input.compilerVersion))
     && !(input.panelBundleVersion === '0.6' && input.compilerVersion === TABS_PANEL_COMPILER_VERSION)
-    && !(input.panelBundleVersion === '0.7' && [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION].includes(input.compilerVersion))) throw new Error('PANEL_BUNDLE_VERSION');
+    && !(input.panelBundleVersion === '0.7' && [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION].includes(input.compilerVersion))) throw new Error('PANEL_BUNDLE_VERSION');
   input.componentBundle = await core.validateBundle(input.componentBundle);
   const expected = await createPanelBundle(input.spec, input.catalog, core, input.state, panelBundleAssetInputs(input, core), input.compilerVersion);
   if (canonicalJson(input) !== canonicalJson(expected)) throw new Error('PANEL_BUNDLE_MISMATCH');

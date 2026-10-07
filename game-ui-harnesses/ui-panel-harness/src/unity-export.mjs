@@ -71,7 +71,7 @@ export async function createUnityDocument(input, core) {
     for (const child of node.children ?? []) {
       // The modern Pixi label is centered from environment glyph measurements.
       // Native Button already paints node.text at MiddleCenter; keep one label.
-      if (bundle.compilerVersion === '0.7.1' && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
+      if (['0.7.1', '0.7.2', '0.7.3'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
       visit(child, node.id);
     }
   }

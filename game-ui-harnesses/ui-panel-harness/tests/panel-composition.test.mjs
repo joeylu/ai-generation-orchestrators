@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { composePanelBundles, validatePanelComposition } from '../src/panel-composition.mjs';
 import { PANEL_EVALUATION_SUITE as suite } from '../examples/panel-evaluation/suite.mjs';
-import { intentFixture } from '../examples/panel-evaluation/intent-fixture.mjs';
+import { intentFixture, compactIntentFixture } from '../examples/panel-evaluation/intent-fixture.mjs';
+import {ordinalFixture} from './ordinal-intent-fixture.mjs';
+import {requestReferenceFixture} from '../examples/request-reference-v1/fixture.mjs';
+import {snapshotJson} from '../src/spec.mjs';
 import { createPlanningContext } from '../src/planning-context.mjs';
 import { materializePanelIntent } from '../src/panel-intent.mjs';
 import { createPanelBundle } from '../src/panel-bundle.mjs';
@@ -21,6 +24,37 @@ const bundles = await Promise.all(suite.cases.map(async item => {
 const request = (sources, layout = 'grid') => ({ panelCompositionRequestVersion: '0.1', id: 'combined', title: '组合面板',
   sources: sources.map((bundle, i) => ({ namespace: `part${i}`, bundleSha256: bundle.sha256 })), layout,
   width: layout === 'row' ? 1500 : 1280, canvasWidth: null, canvasHeight: null, maxHeight: 480, surfaceFrom: null });
+
+test('16 panels with eight themes and a rich retrieval catalog retain per-source budgets and deterministic composition',async()=>{
+ const themes=await readJson(new URL('../examples/modern-game-themes.catalog.json',import.meta.url));
+ for(const recipe of themes.recipes)while(recipe.tags.length<32)recipe.tags.push(`检索标签${recipe.tags.length}`);
+ const sources=await Promise.all(suite.cases.map(async item=>{
+  const context=await createPlanningContext(item.request,themes),intent=requestReferenceFixture(ordinalFixture(compactIntentFixture(context,item)));
+  intent.panel.themeKey='modern-blue-dark@0.3.0';
+  const spec=(await materializePanelIntent(context,intent)).spec;
+  spec.provenance={kind:'programmatic-fixture',description:'Multi-theme composition budget regression; no model call.',assumptions:[]};
+  return createPanelBundle(spec,themes,core);
+ }));
+ assert.throws(()=>snapshotJson(sources),{code:'structure-limit'},'this fixture reproduces the old aggregate budget failure');
+ const result=await composePanelBundles(request(sources),sources,core);
+ assert.equal(result.bundle.compilerVersion,'0.7.2');assert.equal(result.receipt.mappings.length,16);
+ assert.deepEqual(await validatePanelComposition(result,sources,core),result);
+});
+
+test('per-source composition snapshots still reject accessors, sparse arrays, symbols and oversized sources',async()=>{
+ const valid=bundles.slice(0,2),req=request(valid);let reads=0;
+ const getter=[...valid];Object.defineProperty(getter,'0',{enumerable:true,get(){reads++;return valid[0];}});
+ const sparse=[...valid];delete sparse[0];const symbols=[...valid];symbols[Symbol('extra')]=true;
+ const hidden=[...valid];Object.defineProperty(hidden,'extra',{value:true});
+ const extra=[...valid];extra.extra=true;
+ for(const input of[getter,sparse,symbols,hidden,extra])await assert.rejects(composePanelBundles(req,input,core),{code:'COMPOSITION_SOURCE_ARRAY'});
+ assert.equal(reads,0);
+ const oversized={rows:Array.from({length:1024},()=>Array(32).fill(1))};
+ await assert.rejects(composePanelBundles(req,[oversized,valid[1]],core),{code:'structure-limit'});
+ const sources=[...valid],before=structuredClone(valid),pending=composePanelBundles(req,sources,core);
+ sources[0]={};sources[1]={};const result=await pending;
+ assert.deepEqual(result.receipt.mappings.map(m=>m.bundleSha256),before.map(b=>b.sha256),'every source is isolated before await');
+});
 test('all 16 fixture panels compose with preserved source state, unique names and full deterministic replay', async () => {
   const result = await composePanelBundles(request(bundles), bundles, core);
   assert.equal(result.bundle.spec.sections.flatMap(s => s.rows).length, bundles.reduce((n, b) => n + b.spec.sections.flatMap(s => s.rows).length, 0));

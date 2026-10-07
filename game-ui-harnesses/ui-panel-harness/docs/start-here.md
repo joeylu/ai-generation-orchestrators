@@ -5,18 +5,28 @@
 
 ## 已运行的Studio
 
-本工作区当前地址是`http://127.0.0.1:4198/`，使用`output/panel-studio-visual-v3`构建。
-新版Modern Mint主题说明及前后对照见[视觉主题](panel-visual-style.md)。旧4197服务和第一版交付记录保留。
+本工作区新排版Studio地址是`http://127.0.0.1:1353/`，使用`output/panel-studio-adaptive-final-v4`构建。
+表单、对话框、菜单和设置分区采用不同排版，见[按用途排版](panel-presentation.md)。
+原`4442`服务保留；已保存的旧面板按原主题版本还原。
+[浅深模式与主色](panel-themes.md)通过需求描述指定；未要求换风格的修改保持现有主题。
+前一版Modern Mint说明见[视觉主题](panel-visual-style.md)。旧服务和第一版交付记录保留。
 现有服务保留。另开工作区或重启时按下面的命令构建，使用程序打印的地址。
 
-1. 填写需求描述，点击「生成面板」。初值、范围和操作含义要明确；缺少业务信息时逐项回答，再点击生成。
+1. 说说玩家需要做什么，或选用折叠的口语示例，点击「生成面板」。缺少初值、范围和操作含义时，可点选建议或自己回答；采用回答后再点击生成。
 2. 在右侧试玩。面板尚未连接真实游戏，事件通过显式宿主接口接线。
 3. 填写修改要求，点击「修改面板」。存活字段的试玩值保留；新默认值通过面板的恢复默认操作生效。
 4. 「面板操作」提供撤销、打开面板、下载交付包和共享SDK。关闭或刷新前下载PanelBundle，重开后可继续修改。
 
 首次可粘贴：
 
-> 生成声音设置面板：主音量范围0到100，步长1，默认70；静音开关默认关闭，开启表示静音；增加恢复默认按钮，恢复这两项初值。
+> 做一个声音设置，让玩家调节音量、打开或关闭静音，还能恢复默认。
+
+推荐回答由你选择后才采用，不预选。生成结果会显示控件摘要；展开「默认值与按钮行为」可核对具体约定。
+完整说明见[需求引导](studio-requirements.md)。如果已想好参数，也可以直接明确写出：
+
+> 主音量范围0到100，步长1，默认70；静音默认关闭，开启表示静音；恢复默认只重置这两项。
+
+要试深色，可在上述需求末尾加「使用深色蓝色主题」。主色支持薄荷绿、蓝、紫、橙。
 
 随后修改：
 
@@ -34,7 +44,7 @@ Vite/Pixi/Playwright等依赖由该相邻Harness的锁定依赖提供；如果�
 
 ```sh
 node --test tests/*.test.mjs
-node scripts/build-workbench.mjs --catalog examples/modern-mint-polished.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-adaptive.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

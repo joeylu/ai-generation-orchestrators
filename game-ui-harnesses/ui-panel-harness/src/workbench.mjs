@@ -8,20 +8,23 @@ import {createStoredZip} from './zip-store.mjs';
 import {createBrowserSharedSdk} from './shared-sdk-browser.mjs';
 import deliveryRuntime from 'virtual:panel-delivery-runtime';
 import { createWorkbenchRequestIdentity } from './workbench-request-identity.mjs';
+import { beginnerExamples, questionPresentation, appendEditAnswers, clarificationDisplayText, summarizePanel } from './workbench-guidance.mjs';
 
 const el = id => document.getElementById(id);
 const seed = JSON.parse(el('workbench-seed').textContent);
 let model, busy = false, disposed = false, draftDirty = true, renderedSha = null, snapshot;
 let bridge = null, generation = null, codexReceipt = null;
-let questionKey = null;
+let questionKey = null, editQuestionKey = null, summaryKey = null;
 let editDraftDirty = true, editSnapshot = null;
 let editCodexReceipt = null;
 let unityExportReceipt = null;
 let deliveryReceipt = null;
 let requestNotice = '';
+let editAnswerNotice = '';
+let clarifiedDraft = null, editClarifiedDraft = null;
 const hostEvents = [];
 const requestIdentity = createWorkbenchRequestIdentity();
-const errors = ['request-error', 'proposal-error', 'clarification-error', 'edit-plan-error', 'edit-error', 'preview-error'];
+const errors = ['request-error', 'proposal-error', 'clarification-error', 'edit-plan-error', 'edit-clarification-error', 'edit-error', 'preview-error'];
 const renderer = createWorkbenchRenderer(el('canvas-host'), (event, state) => {
   hostEvents.push(event); if (hostEvents.length > 100) hostEvents.shift();
   el('event-output').textContent = JSON.stringify(event, null, 2); renderValues(state);
@@ -177,7 +180,7 @@ function updateButtons() {
   el('download-context').disabled = busy || !context;
   const canAnswer = context && snapshot.report?.status === 'NEEDS_INPUT' && snapshot.proposal?.unresolved.length;
   el('clarify').disabled = busy || !canAnswer;
-  el('questions').querySelectorAll('textarea').forEach(input => { input.disabled = busy || !canAnswer; });
+  el('questions').querySelectorAll('textarea,button').forEach(input => { input.disabled = busy || !canAnswer; });
   el('download-panel').disabled = el('download-spec').disabled = el('download-unity').disabled = busy || !panel;
   el('download-delivery').disabled = busy || !panel;
   el('download-shared-sdk').disabled = busy || !ready;
@@ -192,6 +195,9 @@ function updateButtons() {
   el('generate-edit').disabled = busy || !panel || !bridge?.editingAvailable || !el('edit-request-text').value.trim();
   el('download-edit-context').disabled = busy || !editContext;
   el('edit-proposal-file').disabled = el('apply-edit-proposal').disabled = busy || !editContext;
+  const canAnswerEdit = editContext && editSnapshot.report?.status === 'NEEDS_INPUT';
+  el('clarify-edit').disabled = busy || !canAnswerEdit;
+  el('edit-questions').querySelectorAll('textarea,button').forEach(input => { input.disabled = busy || !canAnswerEdit; });
 }
 function readRow() {
   return snapshot?.panel?.spec.sections.flatMap(s => s.rows).find(r => r.id === el('edit-row').value);
@@ -247,20 +253,54 @@ function candidates(context) {
   }
   if (!selected.length) { const p = document.createElement('p'); p.className = 'hint'; p.textContent = seed.pool ? '未找到匹配资源。可调整需求或让 Agent 使用程序控件。' : '当前工作台未打包图片库，可使用程序控件。'; el('candidates').append(p); }
 }
+function fillQuestions(containerId, questions) {
+  const container = el(containerId); container.replaceChildren();
+  for (const [index, question] of questions.entries()) {
+    const presentation = questionPresentation(question.question);
+    const li = document.createElement('li'), label = document.createElement('label'), input = document.createElement('textarea');
+    input.id = `${containerId}-answer-${index}`; input.dataset.questionId = question.id; input.dataset.mutation = '';
+    input.rows = 2; input.placeholder = presentation.choices.length ? '可点选上方回答，也可自己填写' : '填写这项的具体约定';
+    label.id = `${containerId}-label-${index}`; label.htmlFor = input.id; label.textContent = presentation.prompt;
+    li.append(label);
+    const group = document.createElement('div'); group.className = 'suggested-answers';
+    group.setAttribute('role', 'group'); group.setAttribute('aria-labelledby', label.id);
+    const buttons = [];
+    const markSelection = () => buttons.forEach(({ button, value }) => button.setAttribute('aria-pressed', String(input.value === value)));
+    for (const choice of presentation.choices) {
+      const button = document.createElement('button'); button.type = 'button'; button.dataset.mutation = '';
+      button.textContent = `${choice.recommended ? '推荐：' : ''}${choice.value}`;
+      button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => { input.value = choice.value; markSelection(); });
+      buttons.push({ button, value: choice.value }); group.append(button);
+    }
+    input.addEventListener('input', markSelection);
+    if (buttons.length) li.append(group);
+    li.append(input); container.append(li);
+  }
+}
 function renderQuestions() {
-  const questions = snapshot.proposal?.unresolved ?? [];
+  const questions = draftDirty ? [] : snapshot.proposal?.unresolved ?? [];
   const key = JSON.stringify([snapshot.context?.sha256 ?? null, questions]);
   el('clarification-form').hidden = !questions.length;
   // Keep partially entered answers across unrelated edits and validation errors.
   if (key === questionKey) return;
-  questionKey = key; el('questions').replaceChildren();
-  for (const [index, question] of questions.entries()) {
-    const li = document.createElement('li'), label = document.createElement('label'), input = document.createElement('textarea');
-    input.id = `clarification-answer-${index}`; input.dataset.questionId = question.id; input.dataset.mutation = '';
-    input.rows = 2; input.placeholder = '填写这项的具体约定';
-    label.htmlFor = input.id; label.textContent = question.question;
-    li.append(label, input); el('questions').append(li);
-  }
+  questionKey = key; fillQuestions('questions', questions);
+}
+function renderEditQuestions() {
+  const questions = editDraftDirty ? [] : editSnapshot.proposal?.unresolved ?? [];
+  const key = JSON.stringify([editSnapshot.context?.sha256 ?? null, questions]);
+  el('edit-clarification-form').hidden = !questions.length;
+  if (key === editQuestionKey) return;
+  editQuestionKey = key; fillQuestions('edit-questions', questions);
+}
+function renderSummary() {
+  el('requirement-summary').hidden = !snapshot.panel;
+  if (!snapshot.panel || summaryKey === snapshot.panel.sha256) return;
+  summaryKey = snapshot.panel.sha256;
+  const summary = summarizePanel(snapshot.panel.spec);
+  el('summary-overview').textContent = `当前面板：${summary.overview}`;
+  el('summary-details').replaceChildren();
+  for (const text of summary.details) { const li = document.createElement('li'); li.textContent = text; el('summary-details').append(li); }
 }
 function sync() {
   if (!model) return; snapshot = model.getSnapshot();
@@ -268,15 +308,12 @@ function sync() {
   el('status').textContent = snapshot.phase === 'awaiting-proposal' ? requestNotice : phaseLabels[snapshot.phase];
   el('context-ready').hidden = !snapshot.context;
   renderQuestions();
-  el('edit-questions').replaceChildren();
-  for (const question of editDraftDirty ? [] : editSnapshot.proposal?.unresolved ?? []) {
-    const li = document.createElement('li'); li.textContent = question.question; el('edit-questions').append(li);
-  }
+  renderEditQuestions(); renderSummary();
   el('edit-hint').textContent = snapshot.panel ? '' : '生成或打开面板后即可修改。';
-  el('edit-plan-status').textContent = !editDraftDirty && editSnapshot.report?.status === 'NO_CHANGES'
+  el('edit-plan-status').textContent = editAnswerNotice ? editAnswerNotice : !editDraftDirty && editSnapshot.report?.status === 'NO_CHANGES'
     ? '无需修改，当前面板和输入已保留。'
     : !advancedMode()
-    ? !editDraftDirty && editSnapshot.report?.status === 'NEEDS_INPUT' ? '请在修改要求中补充以下信息，再点击「修改面板」。'
+    ? !editDraftDirty && editSnapshot.report?.status === 'NEEDS_INPUT' ? '请回答下面的问题，再点击「修改面板」。'
       : !editSnapshot.context && snapshot.history.at(-1)?.editEvidence && !editDraftDirty ? '修改已应用，试玩值已保留；新默认值在恢复默认时生效。' : ''
     : editDraftDirty && editSnapshot.context ? '修改描述已变化，请重新准备。'
     : editSnapshot.report?.status === 'NEEDS_INPUT' ? '请把这些问题的答案补充到修改描述，再重新准备。'
@@ -303,6 +340,7 @@ function sync() {
 }
 async function showPanel() {
   snapshot = model.getSnapshot(); if (!snapshot.panel) return;
+  if (renderedSha !== snapshot.panel.sha256) editAnswerNotice = '';
   if (renderedSha !== snapshot.panel.sha256) await renderer.load(snapshot.panel);
   if (disposed) return;
   renderedSha = snapshot.panel.sha256; hostEvents.length = 0;
@@ -331,11 +369,22 @@ async function fileJson(file) {
   if (!file || file.size > 2 * 1024 * 1024) throw new Error('WORKBENCH_FILE_LIMIT');
   return JSON.parse(await file.text());
 }
-function dirty() { draftDirty = true; requestNotice = ''; updateButtons(); if (snapshot?.context) el('status').textContent = '需求已更新，点击「生成面板」应用。'; }
+function dirty() { draftDirty = true; clarifiedDraft = null; requestNotice = ''; if (snapshot) renderQuestions(); updateButtons(); if (snapshot?.context) el('status').textContent = '需求已更新，点击「生成面板」应用。'; }
+for (const example of beginnerExamples) {
+  const button = document.createElement('button'); button.type = 'button'; button.dataset.mutation = '';
+  button.textContent = `${example.title}：${example.text}`;
+  button.addEventListener('click', () => { el('request-text').value = example.text; dirty(); el('requirement-examples').open = false; el('request-text').focus(); });
+  el('example-choices').append(button);
+}
 for (const id of ['request-text', 'asset-style']) el(id).addEventListener('input', dirty);
 el('request-id').addEventListener('input', () => { requestIdentity.setManual(Boolean(el('request-id').value.trim())); dirty(); });
 async function prepareCurrentRequest() {
   requestNotice = '';
+  const existing = model.getSnapshot().context;
+  if (!draftDirty && clarifiedDraft && existing?.sha256 === clarifiedDraft.contextSha256
+      && el('request-text').value === clarifiedDraft.text && el('request-id').value === clarifiedDraft.id
+      && el('asset-style').value === clarifiedDraft.style) return { context: existing };
+  clarifiedDraft = null;
   el('request-id').value = requestIdentity.select(el('request-text').value, el('asset-style').value, el('request-id').value);
   const prepared = await model.prepare({ requestVersion: '0.1', id: el('request-id').value, text: el('request-text').value, target: 'pixi' }, { style: el('asset-style').value || null });
   draftDirty = false; el('proposal-json').value = '';
@@ -352,10 +401,12 @@ el('clarification-form').addEventListener('submit', event => {
     const clarified = await model.clarify({ clarificationVersion: '0.1', contextSha256: source.context.sha256,
       proposalSha256: await digestJson(source.proposal), answers });
     if (disposed || clarified.status === 'STALE') return;
-    el('request-text').value = clarified.context.request.text;
+    el('request-text').value = clarificationDisplayText(el('request-text').value, source.proposal.unresolved, answers);
     el('request-id').value = clarified.context.request.id;
     el('asset-style').value = clarified.context.assetRetrieval?.policy.style ?? '';
     requestIdentity.adopt(el('request-text').value, el('asset-style').value, el('request-id').value);
+    clarifiedDraft = { contextSha256: clarified.context.sha256, text: el('request-text').value,
+      id: el('request-id').value, style: el('asset-style').value };
     draftDirty = false; el('proposal-json').value = '';
     requestNotice = '回答已补充，请点击「生成面板」。';
   });
@@ -405,16 +456,39 @@ el('panel-file').addEventListener('change', event => { const file = event.target
 });
 el('edit-row').addEventListener('change', () => { fillRow(); updateButtons(); });
 el('edit-request-text').addEventListener('input', () => {
-  editDraftDirty = true; editCodexReceipt = null;
+  editDraftDirty = true; editCodexReceipt = null; editAnswerNotice = ''; editClarifiedDraft = null;
   el('edit-plan-status').textContent = advancedMode() && editSnapshot?.context ? '修改描述已变化，请重新准备。' : '';
   // Questions from the previous description no longer describe the current draft.
-  el('edit-questions').replaceChildren();
+  renderEditQuestions();
   updateButtons();
 });
+el('edit-clarification-form').addEventListener('submit', event => {
+  event.preventDefault();
+  run('edit-clarification-error', async () => {
+    const source = model.getEditSnapshot();
+    const boundDisplay = editClarifiedDraft && editClarifiedDraft.sourceContextSha256 === source.context?.sha256
+      && editClarifiedDraft.text === el('edit-request-text').value;
+    if (editDraftDirty || !source.context || source.report?.status !== 'NEEDS_INPUT'
+        || source.context.request.text !== el('edit-request-text').value && !boundDisplay) throw new Error('WORKBENCH_EDIT_CONTEXT_REQUIRED');
+    const answers = [...el('edit-questions').querySelectorAll('textarea')].map(input => ({ questionId: input.dataset.questionId, text: input.value }));
+    const request = appendEditAnswers(source.context.request, source.proposal.unresolved, answers);
+    el('edit-request-text').value = clarificationDisplayText(el('edit-request-text').value, source.proposal.unresolved, answers);
+    el('edit-request-text').dispatchEvent(new Event('input'));
+    editClarifiedDraft = { sourceContextSha256: source.context.sha256, text: el('edit-request-text').value, request };
+    editAnswerNotice = '回答已补充，请点击「修改面板」。';
+    el('edit-request-text').focus();
+  });
+});
 async function prepareCurrentEdit() {
-  const prepared = await model.prepareEdit({ requestVersion: '0.1', id: 'panel-edit', text: el('edit-request-text').value, target: 'pixi' });
+  editAnswerNotice = '';
+  const clarified = editClarifiedDraft && model.getEditSnapshot().context?.sha256 === editClarifiedDraft.sourceContextSha256
+    && el('edit-request-text').value === editClarifiedDraft.text ? editClarifiedDraft : null;
+  const prepared = await model.prepareEdit(clarified ? clarified.request
+    : { requestVersion: '0.1', id: 'panel-edit', text: el('edit-request-text').value, target: 'pixi' });
   if (disposed || prepared.status === 'STALE') throw new Error('WORKBENCH_EDIT_STALE');
   editDraftDirty = false; el('edit-proposal-json').value = '';
+  if (clarified) clarified.sourceContextSha256 = prepared.context.sha256;
+  else editClarifiedDraft = null;
   return prepared;
 }
 el('prepare-edit-context').addEventListener('click', () => run('edit-plan-error', async () => {

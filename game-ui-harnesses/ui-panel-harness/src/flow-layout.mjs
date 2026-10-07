@@ -4,7 +4,7 @@ const fail = (code, message) => { const error = new Error(message); error.code =
 const offset = (space, align) => align === 'center' ? space / 2 : align === 'end' ? space : 0;
 const positive = value => Number.isFinite(value) && value > 0;
 
-export function measureFlowLayout(spec) {
+export function measureFlowLayout(spec, presentationPolicy) {
   const l = spec.layout, width = Math.min(l.width, spec.canvas.width);
   const bodyWidth = width - l.padding * 2;
   const bodyY = l.padding + l.titleHeight + l.gap;
@@ -21,8 +21,9 @@ export function measureFlowLayout(spec) {
     if (node.kind === 'section') {
       const section = sectionsById.get(node.sectionId);
       if (!section) fail('LAYOUT_GEOMETRY', 'Flow section reference does not exist');
-      const height = sectionHeight(section);
-      return { width: ownWidth, height, sections: [{ id: section.id, x: 0, y: 0, width: ownWidth, height }] };
+      const presentation = presentationPolicy?.(section, ownWidth);
+      const height = presentation?.height ?? sectionHeight(section);
+      return { width: ownWidth, height, sections: [{ id: section.id, x: 0, y: 0, width: ownWidth, height, ...(presentation ? { presentation } : {}) }] };
     }
     const count = node.children.length;
     let columns = node.kind === 'column' ? 1 : node.kind === 'row' ? count
@@ -69,8 +70,10 @@ export function measureFlowLayout(spec) {
     }
     panelHeight = Math.min(naturalHeight, availableHeight);
     viewportHeight = panelHeight - chromeHeight;
+    const minimumViewport = presentationPolicy
+      ? Math.max(l.rowHeight, ...measured.sections.flatMap(section => section.presentation.rows.map(row => row.height))) : l.rowHeight;
     if (!positive(panelHeight) || !positive(viewportHeight)
-        || (scrollable && viewportHeight < l.rowHeight)) {
+        || (scrollable && viewportHeight < minimumViewport)) {
       fail('LAYOUT_OVERFLOW', 'The scroll viewport must fit one complete row after title and popup clearance');
     }
     break;
@@ -85,15 +88,15 @@ export function measureFlowLayout(spec) {
 }
 
 /** Fixed header, independent page scroll offsets, stable panel height across navigation. */
-export function measureTabbedLayout(spec) {
-  if (!spec.tabs) return measureFlowLayout(spec);
+export function measureTabbedLayout(spec, presentationPolicy) {
+  if (!spec.tabs) return measureFlowLayout(spec, presentationPolicy);
   const header = 48, gap = spec.layout.gap;
   const overhead = header + gap;
   const measurePages = maxHeight => spec.tabs.pages.map(page => measureFlowLayout({ ...spec,
     sections: spec.sections.filter(section => page.sections.includes(section.id)),
     canvas: { ...spec.canvas, height: spec.canvas.height - overhead },
     layout: { ...spec.layout, maxHeight, body: pageLayout(spec.layout.body, page.sections) },
-  }));
+  }, presentationPolicy));
   let layouts = measurePages(spec.layout.maxHeight - overhead);
   // Popup clearance is shared across pages; a short page with many choices
   // must not leave the larger page below the canvas edge.
