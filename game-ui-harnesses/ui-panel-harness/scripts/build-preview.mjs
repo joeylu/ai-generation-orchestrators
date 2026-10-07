@@ -3,7 +3,8 @@
 import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
-import { build } from '../../ui-component-harness/node_modules/vite/dist/node/index.js';
+import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
+const { build } = await loadWorkspaceTool('vite');
 import { loadWorkspaceCore } from '../src/component-adapter.mjs';
 import { validatePanelBundle } from '../src/panel-bundle.mjs';
 import { readJson, createOutputDirectory, writeNewJson, harnessRoot } from '../src/io.mjs';

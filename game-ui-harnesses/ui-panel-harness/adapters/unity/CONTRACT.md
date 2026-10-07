@@ -1,12 +1,12 @@
-# Unity UGUI adapter contract 0.1.1
+# Unity UGUI adapter contract 0.1.4
 
 Implementation target: Unity 6 / UGUI 2.0. This adapter consumes a verified
-PanelBundle 0.1–0.4 and exports a local import kit. The kit does not itself count
+PanelBundle 0.1–0.14 and exports a local import kit. The kit does not itself count
 as a Unity-validated Prefab. Unity creates the native Prefab with its own API.
 
 `panel.unity.json` contains a flat, parent-before-child `PanelDocument`:
 
-- `formatVersion`: `"0.1"`; `adapterVersion`: `"0.1.0"`.
+- `formatVersion`: `"0.1"`; current `adapterVersion`: `"0.1.4"`.
 - `panelId`, `panelSha256`, `panelSpecVersion`: source identity.
 - `canvasWidth`, `canvasHeight`: positive logical pixels.
 - `nodes`: `PanelNode[]` below, including the source canvas root.
@@ -14,7 +14,7 @@ as a Unity-validated Prefab. Unity creates the native Prefab with its own API.
 - `controls`: `PanelControl[]` below; may be empty.
 - `assets`: `PanelAsset[]`: `path`, `sha256`, `bytes`, `width`, `height`.
 
-`PanelNode` fields (all present):
+`PanelNode` fields (optional values are noted):
 
 ```text
 string id, parentId, type
@@ -24,13 +24,15 @@ float borderWidth, cornerRadius, opacity
 int fontSize
 bool bold, drawBackground
 string text, source, fit
+string textAlignment                # optional; explicit anchor for the panel title
 bool hasRegion
 float regionX, regionY, regionWidth, regionHeight
 float contentWidth, contentHeight
 ```
 
 The root has `parentId:""`; all other parents precede their children. Types are
-Container, Text, Image, Slider, Switch, Select, Button, ScrollView. Coordinates
+Container, Text, Image, Slider, Switch, Select, Button, ProgressBar, ScrollView,
+Tabs and Input. Coordinates
 are top-left, y-down, relative to the declared parent. ScrollView children attach
 under its Content transform; the declared viewport remains at the node ID.
 Image source paths are `textures/<sha256>.png`. Regions use top-left PNG pixels;
@@ -38,28 +40,39 @@ Unity Sprite rect y is `imageHeight - regionY - regionHeight`. Icons retain
 contain aspect, while individual nine-slice regions stretch. White image tint
 preserves PNG colors; optional badge is a separate background.
 
-`PanelField` fields (all present; unused values are zero/false/empty):
+`PanelField` fields (unused values are zero/false/empty):
 
 ```text
-string id, type                       # number | boolean | enum
+string id, type                       # number | boolean | enum | progress | string
 double min, max, step, initialNumber, numberValue
 bool initialBoolean, booleanValue
 string initialString, stringValue
 PanelOption[] options                 # { string id, label }
+int maxLength                         # string fields only; omitted otherwise
 ```
 
-`PanelControl` fields (all present):
+`PanelControl` fields (kind-specific values may be omitted in JSON):
 
 ```text
 string nodeId, rowId, kind, fieldId, eventName
 bool enabled
-string action                        # empty | emit | reset-initial
+string action                        # empty | emit | reset-initial | submit
 string[] resetFields
 string valueTextId, prefix, suffix
 int fractionDigits
+string displayMode                   # progress only
+string[] contentIds                  # tabs only
+string[] submitFields                # submit action only
+string placeholder, inputType, requiredErrorTextId, minLengthErrorTextId
+bool readOnly                        # input only
+PanelInputValidation validation      # input: required, minLength, messages
 ```
 
-Only interactive rows have control records. Slider uses integer step indices in
+Controls include interactive rows, host-driven progress rows, and an optional
+Tabs control. Text rows have no control record. Input uses native InputField;
+submit validates the selected string fields before emitting their values.
+Progress uses a native fill with host-driven state updates. Tabs activate only
+their declared content roots. Slider uses integer step indices in
 native UGUI, preserving the double business value in the controller. A native
 float cannot encode every possible source value, so the exporter rejects more
 than 1,000,000 slider intervals. Every exported tick must round-trip under the
@@ -75,7 +88,8 @@ Runtime namespace: `GameUi.PanelHarness`.
 - `PanelController.Configure(PanelDocument document, PanelControlView[] views)`
   stores a serializable deep snapshot and references, then binds listeners.
 - `PanelControlView`: public `PanelControl definition`, `Slider slider`,
-  `Toggle toggle`, `Dropdown dropdown`, `Button button`, `Text valueText`.
+  `Toggle toggle`, `Dropdown dropdown`, `Button button`, `Text valueText`,
+  plus native InputField, progress and Tabs references for those control kinds.
 - `PanelController.GetStateJson()` returns the original business object shape.
 - `PanelController.SetNumber/SetBoolean/SetChoice(fieldId,value)` validate and
   change a field silently. `PanelController.Activate(rowId)` applies enabled
@@ -126,7 +140,8 @@ Editor namespace: `GameUi.PanelHarness.Editor`.
   does not automatically run this check. Legacy 0.1.0 trials lack update identity;
   0.1.1 runtime still accepts their document shape without inventing an update base.
 
-The neutral PanelSpec and old bundle capability fields are unchanged. Native
+This document describes the current adapter; old bundles retain their original
+protocol versions and capability fields. Native
 appearance uses UGUI rasterization and host font metrics; pixel identity with
 Pixi, live browser resize layout, and native exports for other engines are not
 part of this adapter version.

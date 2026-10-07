@@ -1,4 +1,4 @@
-import { MotionAnimator, getMotionStyle } from '../../ui-component-harness/src/motion-system.ts';
+import { MotionAnimator, getMotionStyle } from './workspace/component-browser.mjs';
 
 /** Presentation only. Semantic values/events are owned by the unchanged panel session. */
 export function panelVisualMotion(bundle) {

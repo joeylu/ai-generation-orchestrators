@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { chromium } from '../../ui-component-harness/node_modules/@playwright/test/index.mjs';
+import { loadWorkspaceTool, workspacePackageEvidence } from './lib/workspace-tools.mjs';
+const { chromium } = await loadWorkspaceTool('@playwright/test');
 import { createOutputDirectory, readJson, writeNewJson } from '../src/io.mjs';
 import { digestBytes, digestJson } from '../src/canonical.mjs';
 import { loadWorkspaceCore } from '../src/component-adapter.mjs';
@@ -39,7 +40,7 @@ try {
   const core = await loadWorkspaceCore();
   browser = await chromium.launch({ headless: true, channel: 'msedge', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   report.browser = { channel: 'msedge', version: browser.version(), graphics: 'software-WebGL', offline: true,
-    pixiVersion: (await readJson(new URL('../../ui-component-harness/node_modules/pixi.js/package.json', import.meta.url))).version };
+    pixiVersion: (await workspacePackageEvidence('pixi.js')).version };
   for (const item of manifest.cases) {
     assert(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(item.id));
     if (item.previewFile) assert.equal(item.previewFile, `${item.id}.html`);

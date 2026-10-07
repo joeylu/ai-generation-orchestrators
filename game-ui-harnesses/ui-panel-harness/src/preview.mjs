@@ -1,15 +1,12 @@
 /** Static workspace preview. The component renderer is a read-only development dependency. */
-import { createTreePreview } from '../../ui-component-harness/src/tree-runtime.ts';
-import { compileTree } from '../../ui-component-harness/src/tree-compiler.ts';
-import { validateDocument } from '../../ui-component-harness/src/tree-contract.ts';
-import { createBundle, validateBundle, bundleResources } from '../../ui-component-harness/src/bundle.ts';
+import { createTreePreview, componentCore } from './workspace/component-browser.mjs';
 import { createPanelBundle, validatePanelBundle, panelBundleAssetInputs } from './panel-bundle.mjs';
 import { attachPanelSession } from './state.mjs';
 import { attachLayoutSession } from './layout-session.mjs';
 import { attachInputEditor } from './input-editor.mjs';
 import { attachPanelVisuals } from './panel-visuals.mjs';
 
-const core = { compileTree, validateDocument, createBundle, validateBundle, bundleResources };
+const core = componentCore;
 const host = document.getElementById('canvas-host'), status = document.getElementById('status');
 const output = document.getElementById('state'), eventOutput = document.getElementById('event');
 let bundle, runtime, session, layoutSession, controller, ticket = 0, unsubscribe = () => {}, detachInputEditor = () => {}, detachVisuals = () => {};

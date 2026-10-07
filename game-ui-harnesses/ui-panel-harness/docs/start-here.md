@@ -45,6 +45,7 @@ Vite/Pixi/Playwright等依赖由该相邻Harness的锁定依赖提供；如果�
 以下命令从`ui-panel-harness`目录运行：
 
 ```sh
+node scripts/check-workspace.mjs
 node --test tests/*.test.mjs
 node scripts/build-workbench.mjs --catalog examples/modern-adaptive.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0

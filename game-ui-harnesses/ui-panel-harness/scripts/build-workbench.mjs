@@ -3,7 +3,8 @@
 import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
-import { build } from '../../ui-component-harness/node_modules/vite/dist/node/index.js';
+import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
+const { build } = await loadWorkspaceTool('vite');
 import { validateCatalog } from '../src/catalog.mjs';
 import { validatePlanningContext } from '../src/planning-context.mjs';
 import { checkPanelProposal, validatePanelProposal } from '../src/proposal.mjs';

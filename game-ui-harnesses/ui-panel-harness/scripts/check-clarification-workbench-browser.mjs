@@ -2,7 +2,8 @@
 /** Exact regression fixtures through the visible Studio flow. Never invokes a real model. */
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
-import { chromium } from '../../ui-component-harness/node_modules/@playwright/test/index.mjs';
+import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
+const { chromium } = await loadWorkspaceTool('@playwright/test');
 import { createOutputDirectory, readJson, writeNewJson } from '../src/io.mjs';
 import { createWorkbenchServer } from '../src/workbench-server.mjs';
 import { materializePanelIntent, buildPanelIntentResponseSchema } from '../src/panel-intent.mjs';

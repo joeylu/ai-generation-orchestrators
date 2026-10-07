@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {chromium} from '../../ui-component-harness/node_modules/@playwright/test/index.mjs';
+import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
+const { chromium } = await loadWorkspaceTool('@playwright/test');
 import {createOutputDirectory,readJson,writeNewJson,harnessRoot} from '../src/io.mjs';
 import {digestBytes} from '../src/canonical.mjs';
 import {loadWorkspaceCore} from '../src/component-adapter.mjs';
@@ -107,8 +108,8 @@ try{
   for(const [path,bytes]of files){assert(/^[A-Za-z0-9_./-]+$/.test(path)&&!path.split('/').includes('..')&&!path.startsWith('/'));const target=resolve(folder,path);assert(target.startsWith(folder+'/')||target.startsWith(folder+'\\'));await mkdir(dirname(target),{recursive:true});await writeFile(target,bytes,{flag:'wx'});}
   report.deliveries.push({name,panelId:source.spec.id,panelSha256:source.sha256,zipSha256:await digestBytes(archive.bytes),zipBytes:archive.bytes.length});await healthy();return{source,files,folder,archive};
  };
- stage='default-left-remains-two-inputs-download-disabled-until-generated';await page.goto(server.url);await idle();
- assert.equal(await page.locator('textarea:visible').count(),2);assert.deepEqual(await page.locator('.request-column button:visible').allTextContents(),['生成面板','修改面板']);assert(await page.locator('#download-delivery').isDisabled());pass(stage);
+ stage='default-left-two-inputs-selection-helper-download-disabled-until-generated';await page.goto(server.url);await idle();
+ assert.equal(await page.locator('textarea:visible').count(),2);assert.deepEqual(await page.locator('.request-column button:visible').allTextContents(),['生成面板','选择修改对象','修改面板']);assert(await page.locator('#select-edit-target').isDisabled());assert(await page.locator('#download-delivery').isDisabled());pass(stage);
  stage='generate-settings-through-visible-button';
  await page.locator('#request-text').fill('生成设置面板：主音量范围0～100，步长1，默认70；静音默认关闭；画质三档默认高；恢复默认重置原有设置；应用按钮通知宿主。');
  await page.locator('#generate-plan').click();await idle();await healthy();const initial=(await snap()).panel;assert(initial);assert.equal(calls.length,1);pass(stage);

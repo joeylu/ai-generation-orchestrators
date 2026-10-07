@@ -4,6 +4,8 @@ import { canonicalJson, digestBytes, digestJson } from './canonical.mjs';
 import { createOutputDirectory, jsonFileBytes } from './io.mjs';
 import { classifyTexture, parseUnityTextureMeta } from './texture-semantics.mjs';
 import { textureUsage } from './texture-usage.mjs';
+import { REDESIGN_STYLE, describeTextureRedesign, redesignUnityMetadata } from './textures/redesign-contract.mjs';
+import { verifyTextureCuration } from './textures/curation-contract.mjs';
 
 const PNG_LIMIT = 16 * 1024 * 1024;
 const ID = /^[a-z][a-z0-9-]{0,63}$(?![\s\S])/;
@@ -189,7 +191,7 @@ export async function verifyTexturePackage(directoryInput, adapter) {
     || canonicalJson(index.verification) !== canonicalJson(expectedVerification)) throw new Error('TEXTURE_INDEX_CONTRACT');
   const ids = new Set();
   const decoded = new Map();
-  let sourceIndex, sourceRecords, describeRedesign, redesignUnity;
+  let sourceIndex, sourceRecords;
   if (redesigned) {
     if (!blobs.has('texture-library.json')) throw new Error('REDESIGN_SOURCE_INDEX_MISSING');
     sourceIndex = JSON.parse(blobs.get('texture-library.json'));
@@ -208,10 +210,7 @@ export async function verifyTexturePackage(directoryInput, adapter) {
         imageCheck(record.image); unityCheck(record.unity, record.image);
       }
     }
-    const module = await import('./texture-redesign.mjs');
-    if (canonicalJson(index.style) !== canonicalJson(module.REDESIGN_STYLE)) throw new Error('REDESIGN_STYLE_MISMATCH');
-    describeRedesign = module.describeTextureRedesign;
-    redesignUnity = module.redesignUnityMetadata;
+    if (canonicalJson(index.style) !== canonicalJson(REDESIGN_STYLE)) throw new Error('REDESIGN_STYLE_MISMATCH');
   }
   for (const record of index.records) {
     safeSourcePath(record.source.relativePath);
@@ -232,9 +231,9 @@ export async function verifyTexturePackage(directoryInput, adapter) {
       const original = sourceRecords.get(record.id);
       if (!original || canonicalJson(record.source) !== canonicalJson(original.source) || canonicalJson(record.sourceImage) !== canonicalJson(original.image)
         || canonicalJson(record.sourceUnity) !== canonicalJson(original.unity) || record.image.width !== original.image.width || record.image.height !== original.image.height) throw new Error('REDESIGN_SOURCE_MAPPING');
-      const expected = describeRedesign(original), expectedBytes = new TextEncoder().encode(expected.svg);
+      const expected = describeTextureRedesign(original), expectedBytes = new TextEncoder().encode(expected.svg);
       if (await digestBytes(expectedBytes) !== vector.sha256) throw new Error('REDESIGN_VECTOR_MISMATCH');
-      if (canonicalJson(record.unity) !== canonicalJson(redesignUnity(original.unity, expected.border, record.image))) throw new Error('REDESIGN_IMPORT_METADATA_MISMATCH');
+      if (canonicalJson(record.unity) !== canonicalJson(redesignUnityMetadata(original.unity, expected.border, record.image))) throw new Error('REDESIGN_IMPORT_METADATA_MISMATCH');
       const regenerated = await adapter.render(expected.svg, record.image.width, record.image.height);
       if (await digestBytes(regenerated) !== file.sha256) throw new Error('REDESIGN_RASTER_MISMATCH');
       if (record.image.alpha.mode === 'empty' || record.image.alpha.hiddenRgbPixels !== 0 || !['valid', 'none'].includes(record.unity.nineSlice)) throw new Error('REDESIGN_PIXEL_GATE');
@@ -242,7 +241,6 @@ export async function verifyTexturePackage(directoryInput, adapter) {
   }
   if (canonicalJson(index.summary) !== canonicalJson(textureSummary(index.records))) throw new Error('TEXTURE_SUMMARY_MISMATCH');
   if (curated) {
-    const { verifyTextureCuration } = await import('./texture-curation.mjs');
     await verifyTextureCuration(index, sourceIndex, blobs, adapter);
   }
   return { index, manifest, blobs };
