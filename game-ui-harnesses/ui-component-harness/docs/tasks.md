@@ -3274,3 +3274,32 @@ nativeFullChainPassed=false and humanVisualAcceptance=false. Candidate artifacts
 are development inputs; production still requires an immutable tagged release
 and verified artifact digest. Docker-only handoff/evidence stays in the ignored
 work area, outside the public provider-neutral runtime.
+
+### 2026-10-07 Explicit Container/Panel/Dialog fallback background
+
+Used an isolated checkout at exact baseline
+f44a5d8061b5f8d6a33d55a4d37ba17364fe0bee. Checked then applied the supplied
+three-source-file patch. Optional boolean drawBackground disables only fallback
+drawBox on these types; explicit layer-plan values require explicit-policy
+evidence. Added contract, prompt and consumer documentation and versioned the
+new candidate as 0.2.0-rc.3. Rebuilt Node JavaScript/declarations and both browser
+outputs; the shared checkout, fixed rc.2 vendor and customer tasks are untouched.
+
+Executed: full build/typecheck PASS; 664/664 unit tests PASS; seven related actual
+Edge/Pixi browser cases PASS with zero retries/skips. New standalone coverage
+checks default/true/false fill and border, native appearance, transparent child
+art corners, titles, layout, opacity, mouse/keyboard input, backdrop/close and
+resource/pixel-preserving bundle export/reopen. Existing modal, Button and Tabs
+cases retain their gates. Installed TGZ Node/CLI/render/browser regression PASS,
+including the new policy in a source-bound compiled plan; extracted source ZIP
+checksums and build PASS. The test extracts directly into its installation folder
+after Windows refused the previous tar-tree rename. Failed setup diagnostics are
+retained in the ignored work area.
+
+Environment: Windows, Node 25.9.0, local Edge/software WebGL. Registry fetching
+omitted the optional locked rolldown 1.2.7 native binding after a connection reset;
+the same-version local dependency was used, with no dependency/lock changes.
+Fresh registry installation, Linux/container runtime and production Web adoption
+are not claimed. Zero model calls, image generation, deployment or task mutation.
+Procedural browser fixtures establish technical behavior only;
+nativeFullChainPassed=false and humanVisualAcceptance=false.

@@ -1,7 +1,7 @@
 /** Offline regression of actual release artifacts; never dispatches compute. */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, writeFile, rename, symlink, realpath, access } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, symlink, realpath, access } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -32,6 +32,8 @@ const fingerprint = async path => {
 let host, browser;
 try {
   const fixture = await layerPlanningFixture();
+  // The installed candidate must compile and preserve the new explicit policy.
+  fixture.proposal.plan.document.root.props.drawBackground = false;
   // Explicit procedural release fixture, with no inferred user artwork/semantics.
   fixture.proposal.plan.document.root.children.push(
     { id: 'tips', type: 'Switch', layout: { x: 90, y: 10, width: 90, height: 30 }, props: {
@@ -53,9 +55,10 @@ try {
   for (const name of packedFiles) assert.ok(!name.startsWith('src/') && !name.split('/').includes('..') && !name.startsWith('/'));
   const consumer = join(folder, 'consumer'), nm = join(consumer, 'node_modules');
   await mkdir(nm, { recursive: true });
-  await command('npm-extract', 'tar', ['-xzf', join(folder, packed[0].filename), '-C', consumer]);
   const installed = join(nm, 'ai-ui-component-harness');
-  await rename(join(consumer, 'package'), installed);
+  // Extract directly: Windows can refuse renaming a freshly extracted tree.
+  await mkdir(installed);
+  await command('npm-extract', 'tar', ['-xzf', join(folder, packed[0].filename), '--strip-components=1', '-C', installed]);
   const installedMetadata = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));
   assert.equal(installedMetadata.version, packed[0].version);
   assert.equal(JSON.parse(await readFile(join(installed, 'skill.json'), 'utf8')).version, installedMetadata.version);
@@ -80,6 +83,7 @@ try {
     const plan=await core.validateLayerProposal(archive,input,proposal);
     const bundle=await core.compileLayerComponents(archive,plan);
     await core.validateBundle(bundle);
+    assert.equal(bundle.document.root.props.drawBackground,false);
     await writeFile('../plan.json',JSON.stringify(plan));await writeFile('../bundle.json',JSON.stringify(bundle));
     // The installed adapter must resolve its prompt and public declaration files, with no checkout src.
     const {buildLayerPlanPrompt}=await import('./node_modules/ai-ui-component-harness/scripts/studio-codex-plan.mjs');
@@ -167,6 +171,7 @@ try {
     return api.validateBundle({ ...bundle, document: preview.getDocument() });
   });
   const reopened = await core.validateBundle(JSON.parse(JSON.stringify(saved)));
+  assert.equal(reopened.document.root.props.drawBackground, false);
   assert.equal(reopened.layerSource.plan.semanticInputs.sha256, bundle.layerSource.plan.semanticInputs.sha256);
   assert.deepEqual(Buffer.from(reopened.layerSource.base64, 'base64'), Buffer.from(fixture.bytes));
   for (const resource of reopened.resources) assert.deepEqual(Buffer.from(resource.base64, 'base64'), Buffer.from(fixture.entries.get(resource.path)));

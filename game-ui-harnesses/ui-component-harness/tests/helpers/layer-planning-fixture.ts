@@ -6,7 +6,7 @@ import { layerComponentFixture } from './layer-component-fixture.ts';
 
 export function fixtureFindings(document: UiDocument) {
   const findings: LayerPlanningFinding[] = requiredLayerDecisionFields(document).map(field => ({ ...field,
-    basis: field.pointer.includes('/style/') ? 'inferred' as const : 'observed' as const,
+    basis: field.pointer === '/props/drawBackground' ? 'explicit-policy' as const : field.pointer.includes('/style/') ? 'inferred' as const : 'observed' as const,
     note: field.pointer.includes('/style/') ? 'Explicit procedural fixture typography proposal.' : 'Programmatic fixture evidence; no live model observation.',
   }));
   findings.push(...fixtureProceduralAdaptations(document).map(adaptation => ({ componentId: adaptation.componentId,
