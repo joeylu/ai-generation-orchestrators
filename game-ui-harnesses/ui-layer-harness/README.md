@@ -4,6 +4,11 @@
 本入口从本地实验链路收口，保留旧 `ai-ui-decomposition` / `ai-ui-assets` 命令及行为。
 它不是旧包 0.5.0 的新模式，也不是组件化交付；普通业务文字被移除。
 
+[宿主链路](docs/HOST-DELIVERY.md)可用 `planningMode=fresh-host-m1-independent-review`
+从原图执行新的 M1 模型规划，再做独立 M2 复审。M1 原始答复与来源证据贯穿冻结校验；
+只有这类完整链路完成才报告 `FullReferenceToDeliveryExecutionCompleted=true`。
+显式离线草案入口仍保留，并报告 M1 未执行；两种来源不能混记。
+
 新 `run` 默认以 v8 编译局部参考提示词，并使用 `reference-body-auto-v1`：
 素材接收及既有审查完成后，冻结主体观察请求，取得对应摘要的授权才执行，随后归位并打包。
 主体确定尺寸与锚点，完整 alpha 支持确定 PNG 存储画布；扩展只允许在原图画布内。

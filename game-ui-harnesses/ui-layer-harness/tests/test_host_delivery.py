@@ -159,6 +159,7 @@ class HostDeliveryTests(unittest.TestCase):
                 notCryptographicallyPlatformVerified=True,dispatchEvidenceSha256=digest(dispatch),returnEvidenceSha256=digest(returned)))
             host.receive(self.run,request['submissionDigest'],response,host_attestation=attestation,dispatch_evidence=dispatch,return_evidence=returned)
         result=host.status(self.run);self.assertTrue(result['FullAutomationExecutionCompleted']);self.assertTrue(result['visualAcceptancePending'])
+        self.assertEqual(result['FullReferenceToDeliveryExecutionCompleted'],result['m1ModelExecuted'])
         self.assertFalse(result['humanVisualAcceptance']);self.assertTrue((self.run/'delivery/comparison/three-way-comparison.png').is_file())
         before=host._files(self.run);host.resume(self.run);self.assertEqual(before,host._files(self.run))
         host.status(self.run);self.assertEqual(before,host._files(self.run))

@@ -1,4 +1,4 @@
-"""Offline candidate review exchange. Hosts attest responses; no provider receipts."""
+"""Independent candidate review exchange. Host evidence never asserts provider receipts."""
 from pathlib import Path, PurePosixPath
 import json
 import re
@@ -107,6 +107,9 @@ def verify_prepared(root):
     plan=read(root/'m1/draft.json')
     Draft202012Validator(read(root/'m1/schema.json')).validate(plan)
     if plan.get('kind')!='ui_visual_plan_v5':raise ValueError('V5_REQUIRED')
+    if config.get('hostM1Exchange'):
+        _verify_m1_source(root/'m1/source',root/'m1/draft.json',request['candidateAuthors'],
+                          digest(root/'m1/reference.png'),config['hostM1Exchange'])
     reuse_pipeline.planning_input(root,plan)
     bg_region.planning_input(root,plan)
     return plan
@@ -123,6 +126,13 @@ def verify_frozen(folder, snapshot, plan):
     if (snapshot.get('notProviderReceipt') is not True or snapshot.get('cliSessionAsserted') is not False or
             snapshot.get('notCryptographicallyPlatformVerified') is not True):
         raise ValueError('HOST_FROZEN_PROVENANCE_INVALID')
+    if snapshot.get('offlineCandidateSeed') is not (not bool(config.get('hostM1Exchange'))):
+        raise ValueError('HOST_FROZEN_M1_ORIGIN_CHANGED')
+    if config.get('hostM1Exchange'):
+        if snapshot.get('m1ModelExecuted') is not True or snapshot.get('hostM1Exchange')!=config['hostM1Exchange']:
+            raise ValueError('HOST_FROZEN_M1_ORIGIN_CHANGED')
+    elif snapshot.get('m1ModelExecuted') or snapshot.get('hostM1Exchange'):
+        raise ValueError('HOST_FROZEN_M1_ORIGIN_CHANGED')
     request_path=evidence/'m2-request.json';response_path=evidence/'m2-draft.json'
     prepared=read(evidence/'host-review-preparation.json')
     _bound_files(evidence/'prepared',prepared['files'])
@@ -131,6 +141,9 @@ def verify_frozen(folder, snapshot, plan):
                     evidence/'m2-host-attestation.json',evidence/'m2-host-dispatch-evidence.bin',
                     evidence/'m2-host-return-evidence.bin')
     request=read(request_path)
+    if config.get('hostM1Exchange'):
+        _verify_m1_source(evidence/'prepared/m1/source',evidence/'m1-draft.json',
+            request['candidateAuthors'],digest(folder/'reference.png'),config['hostM1Exchange'])
     if (request.get('sourcePlanSha256')!=digest(evidence/'m1-draft.json') or
             request.get('originalReferenceSha256')!=digest(folder/'reference.png')):
         raise ValueError('HOST_FROZEN_INPUT_CHANGED')
@@ -188,10 +201,18 @@ def verify_frozen(folder, snapshot, plan):
     if split(review,plan,policy,'exact-fragments-v1',texture_doc)[0]:raise ValueError('M2_UNRESOLVED')
 
 
+def _verify_m1_source(source,candidate,authors,reference_sha,binding):
+    from . import host_m1
+    _,provenance=host_m1.bind_candidate(source,candidate,authors,reference_sha)
+    if binding!=dict(requestSha256=provenance['requestSha256'],responseSha256=provenance['responseSha256'],
+            plannerId=provenance['plannerId'],m1ModelExecuted=True):
+        raise ValueError('HOST_M1_REVIEW_SOURCE_CHANGED')
+
+
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
-            background_region=None, background_region_digest=None, context_prompt_version='v8'):
-    """Snapshot an explicit offline seed and prepare a complete independent M2 review."""
+            background_region=None, background_region_digest=None, context_prompt_version='v8',m1_source=None):
+    """Snapshot an explicit seed or source-bound host M1 and prepare independent M2."""
     root=Path(output).resolve();contract=Path(contract_dir)
     if context_prompt_version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     for name,sha in CONTRACT_DIGESTS.items():
@@ -199,6 +220,12 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     authors=[seed_author] if isinstance(seed_author,str) else list(seed_author)
     if not authors or len(set(authors))!=len(authors):raise ValueError('HOST_CANDIDATE_AUTHORS_REQUIRED')
     for author in authors:_identity(author)
+    m1_binding=None
+    if m1_source is not None:
+        from . import host_m1
+        _,provenance=host_m1.bind_candidate(m1_source,candidate,authors,digest(Path(reference)))
+        m1_binding=dict(requestSha256=provenance['requestSha256'],responseSha256=provenance['responseSha256'],
+            plannerId=provenance['plannerId'],m1ModelExecuted=True)
     if root.exists():raise ValueError('FRESH_OUTPUT_REQUIRED')
     if not 1<=max_calls<=128:raise ValueError('CALL_LIMIT')
     schema=read(contract/'schemas/visual-plan.schema.json');plan=read(Path(candidate))
@@ -235,8 +262,9 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
         reviewEvidenceProtocol=PROTOCOL_V4,coverageTextPolicy='exact-fragments-v1',
         inputs={p.name:digest(p) for p in inputs.iterdir()},
         mediaGenerationCalls=0,maximumRepairs=0,
-        offlineCandidateSeed=dict(sourcePlanSha256=digest(inputs/'source-plan.json'),
-                                  candidateAuthors=authors,m1ModelExecuted=False),
+        **({'hostM1Exchange':m1_binding,'candidateAuthors':authors} if m1_binding else
+           {'offlineCandidateSeed':dict(sourcePlanSha256=digest(inputs/'source-plan.json'),
+                                  candidateAuthors=authors,m1ModelExecuted=False)}),
         **({'visualTexturePolicy':textures.POLICY} if texture_bytes is not None else {}))
     if background_region is not None:config['backgroundRegionDigest']=background_region_digest
     save(root/'.dag/config.json',config)
@@ -245,9 +273,13 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     for source,target in [('reference.png','reference.png'),('source-plan.json','draft.json'),
                           ('storage-schema.json','schema.json'),('visual-plan.md','prompt.md')]:
         (m1/target).write_bytes((inputs/source).read_bytes())
-    save(m1/'seed.json',dict(kind='ui_offline_candidate_seed_v1',
+    if m1_source is not None:
+        copied=m1/'source';copied.mkdir()
+        for name in host_m1.FILES:(copied/name).write_bytes((Path(m1_source)/name).read_bytes())
+    save(m1/'seed.json',dict(kind='ui_host_generated_candidate_v1' if m1_binding else 'ui_offline_candidate_seed_v1',
          candidateSha256=digest(m1/'draft.json'),referenceSha256=digest(m1/'reference.png'),
-         candidateAuthors=authors,m1ModelExecuted=False,originalM1SuccessAsserted=False))
+         candidateAuthors=authors,m1ModelExecuted=bool(m1_binding),originalM1SuccessAsserted=False,
+         **({'hostM1Exchange':m1_binding} if m1_binding else {})))
     save(m1/'program-check.json',dict(issues=check_relations(plan),unknowns=plan['unknowns']))
     render_for_review(m1/'reference.png',plan,m1/'preview')
     _prepare_review(root,plan)
@@ -256,7 +288,7 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     verify_prepared(root)
     return dict(status='awaiting_host_review',planningDriver=DRIVER,
         requestSha256=digest(root/'m2/request.json'),reviewDirectory='m2',
-        offlineCandidateSeed=True,modelCalls=0,generationCalls=0,
+        offlineCandidateSeed=not bool(m1_binding),modelCalls=0,generationCalls=0,
         unresolvedUnknowns=plan['unknowns'])
 
 
@@ -285,7 +317,8 @@ def _prepare_review(root, plan):
     checks=checks.replace('证据逐字引用所属素材/对象 label；',
         '覆盖项由程序按 materialId/objectId 还原本轮计划目录原文；小素材部件另选所属 planEvidenceId；',1)
     prompt=BOX_TEXT_GUIDANCE+itemized_coverage_prompt(checks,PROTOCOL_V4)
-    prompt+='\nIndependent review of an explicitly supplied offline candidate seed. No prior model session is asserted.\n'
+    prompt+=('\nIndependent review of the freshly generated host M1 plan. Its original response and source-bound exchange evidence are preserved. No CLI session is asserted.\n'
+        if config.get('hostM1Exchange') else '\nIndependent review of an explicitly supplied offline candidate seed. No prior model session is asserted.\n')
     prompt+='\nReview the clean original reference, every material and object, all nine coverage regions, and every required small-material part. Use the exact typed response schema.\n'
     prompt+='\nCandidate plan:\n'+json.dumps(plan,ensure_ascii=False)
     prompt+='\nPlan evidence catalog:\n'+json.dumps(catalog,ensure_ascii=False)
@@ -293,6 +326,7 @@ def _prepare_review(root, plan):
     if small:
         prompt+=boundary_guidance(small)
         prompt+='\nSmall-material parts require visiblePart, observedAppearance, an owned planEvidenceId, and independent descriptionStatus. Inspect shape, count, gaps, attachments, colors, highlights and surface marks; generic owner names cannot replace structure evidence.\n'
+        prompt+='\nOnly descriptionStatus=reference-bound permits deferredAppearance, which must then contain nonblank appearance evidence. For consistent, missing, conflicting or uncertain, deferredAppearance must be null.\n'
     if sequence:prompt+='\nInspect all repeated instances in the attached sequence-source pages.\n'
     prompt+=relation_review.guidance(relations)+planning_guidance(policy)+textures.guidance(texture_doc)
     prompt+=reuse_pipeline.guidance(reuse_doc)
@@ -303,7 +337,7 @@ def _prepare_review(root, plan):
     (p/'prompt.md').write_text(prompt,encoding='utf-8')
     save(p/'request.json',dict(kind='ui_host_review_request_v1',planningDriver=DRIVER,
         sourcePlanSha256=digest(root/'m1/draft.json'),
-        candidateAuthors=config['offlineCandidateSeed']['candidateAuthors'],
+        candidateAuthors=config.get('candidateAuthors') if config.get('hostM1Exchange') else config['offlineCandidateSeed']['candidateAuthors'],
         originalReferenceSha256=digest(reference),originalImageResent=True,
         inputs={path.name:digest(path) for path in sorted(p.iterdir()) if path.is_file()},
         **({'visualPolicySha256':config['inputs'][INPUT_NAME]} if policy is not None else {}),

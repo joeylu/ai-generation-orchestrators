@@ -1,8 +1,11 @@
 # Explicit host delivery
 
 `ui_layer.py host-run --config CONFIG.json --output NEW_RUN` prepares a separate
-provider-neutral workflow. Its planning seed is an explicitly supplied offline
-Agent plan, not a claim that M1 ran as an external model. Existing DAG commands,
+provider-neutral workflow. Set `planningMode=fresh-host-m1-independent-review`
+to start with a new model-generated M1 plan from the original reference. The
+host dispatches M1 explicitly and returns its original answer before the program
+prepares independent M2 review. Omitting this mode retains the explicit offline
+seed workflow; that mode never claims M1 model execution. Existing DAG commands,
 strict runs and candidate runs retain their behavior.
 
 The new workflow performs independent planning review, freezes stock sheets with
@@ -11,13 +14,20 @@ actual image request, extracts materials, observes foreground whole bodies,
 preserves complete material storage, packages an original-size viewport, and
 creates a three-way comparison. It never calls a model or native generation tool.
 
-The JSON configuration requires `seed`, `original`, `contract`, `viewer`,
+The JSON configuration requires `original`, `contract`, `viewer`,
 `candidateAuthors` and `materialAuthors` arrays of opaque identities. For each of
 `planning`, `material`, and `body`, provide `Reviewer`, `Model`, `Effort`, and
 `Destination` fields with that prefix. Reviewers must be independent of the
 corresponding authors. Provide an explicit `imageDestination` and finite integer
 `maximumImageCalls`, `maximumMaterialReviews`, and `maximumBodyCalls` (1–128).
 Optional `planningNotes`, `visualPolicy`, and `visualTextures` are snapshotted.
+The offline mode additionally requires `seed`. Fresh M1 instead requires an
+opaque `m1Planner` identity and `candidateAuthors=[m1Planner]`. It forbids seed,
+reviewed snapshot, material reuse, preplanned texture regions and preplanned
+background regions. Its initial model request contains only the original PNG,
+locked v5 schema and a prompt compiled from the locked planning contract,
+explicit policy and notes. It supplies no old plan, layer count, coordinates or
+generated image. M1 uses the configured planning model, effort and destination.
 `maximumModelCallSeconds` defaults to 1800 and `maximumImageCallSeconds` to 900;
 both must be positive integers no greater than 3600. The host enforces these
 deadlines. Timeout or unknown acceptance consumes the reserved invocation and
@@ -51,7 +61,7 @@ Use `host-status --run RUN` to inspect the next stage and its scope digest.
 `host-authorize --run RUN --digest DIGEST --approval TEXT` binds explicit approval
 to that exact scope. `host-next --run RUN` reserves one exact request before the
 host independently invokes its configured tool. Repeated `host-next` cannot
-resubmit a pending request. Planning review, native images, material review, and
+resubmit a pending request. Fresh M1, planning review, native images, material review, and
 body observation have separate fresh authorizations. Material review is one
 aggregate scope frozen after all images are received; it binds every actual
 request and attachment, then reserves one review at a time.
@@ -74,6 +84,21 @@ receipts. Response construction belongs to the independent host, never this
 workflow. A failed or unknown dispatch is terminal through `host-fail --run RUN
 --digest SUBMISSION_DIGEST --reason TEXT`.
 
+Fresh M1 uses `ui_host_m1_attestation_v1`, with exactly `kind`,
+`requestSha256`, `responseSha256`, `plannerId`, `model`, `effort`,
+`hostAssertedModelResponse`, `notProviderReceipt`,
+`notCryptographicallyPlatformVerified`, `dispatchEvidenceSha256`, and
+`returnEvidenceSha256`. All three booleans are true; the model and effort match
+the request and the two evidence hashes are distinct. The program preserves and
+validates the raw answer and source evidence. M2 copies that evidence and binds
+the candidate bytes and author to it; frozen snapshots recheck the same chain.
+An actual schema-invalid answer remains terminal with its original source
+evidence preserved. A reservation alone never counts as M1 execution.
+
+Fresh v4 review schemas encode the existing deferred-appearance invariant:
+`reference-bound` requires nonblank `deferredAppearance`; all other description
+statuses require null. The program does not rewrite contradictory model answers.
+
 `host-resume --run RUN` advances deterministic completed stages and returns pending
 requests unchanged. Interrupted transactions are preserved and terminalized;
 they never replay a model invocation. Program-owned control pointers are atomic
@@ -84,3 +109,6 @@ Only a successful new integrated run reports `FullAutomationExecutionCompleted:
 true`. `visualAcceptancePending` remains true and `humanVisualAcceptance` remains
 false. The packages and `delivery/comparison/three-way-comparison.png` await human
 visual acceptance. The comparison atlas uses actual stored package layer PNGs.
+`FullReferenceToDeliveryExecutionCompleted` is true only after a complete fresh
+M1 workflow with verified original model-source evidence. Offline seed workflows
+report it as false even when their downstream delivery finishes.

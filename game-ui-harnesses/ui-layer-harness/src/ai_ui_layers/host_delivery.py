@@ -15,13 +15,14 @@ from .evaluate import read, save, digest
 from .experimental_executor import record, verified, lock
 from .freeze_visual import body_digest
 from . import host_review, host_material_review, experimental_executor
-from . import host_body_observation, body_viewport_delivery
+from . import host_body_observation, body_viewport_delivery, host_m1
 from .refreeze import freeze_reviewed
 from .sheet_pixels import NEAREST_SEAM, STRICT_SEAM, validate_seam_policy
 
 KIND = 'ui_integrated_host_delivery_v1'
 POLICY = 'expanded-support-original-viewport-v1'
 CONTROL = {'state.json', 'checkpoint.json', 'exchange.lock', 'transaction.json'}
+MODEL_STAGES = ('planning_generate', 'planning_review', 'material_review')
 
 
 def _files(root):
@@ -79,12 +80,14 @@ def _state(root, config, stage, **values):
 def _scope(root, config, stage, request, request_dir, key=None):
     folder = root/'scopes'/(stage if key is None else stage+'-'+key)
     folder.mkdir(parents=True, exist_ok=False)
-    prefix = 'planning' if stage == 'planning_review' else 'material'
+    prefix = 'planning' if stage.startswith('planning_') else 'material'
     result = record(folder/'scope.json', dict(kind='ui_host_model_scope_v1', stage=stage,
         requestPath=str(request), requestSha256=digest(request),
         requestDirectory=str(request_dir), inputs=_files(request_dir),
         destination=config[prefix+'Destination'], model=config[prefix+'Model'],
-        effort=config[prefix+'Effort'], reviewerId=config[prefix+'Reviewer'],
+        effort=config[prefix+'Effort'],
+        **({'plannerId':config['m1Planner']} if stage=='planning_generate' else
+           {'reviewerId':config[prefix+'Reviewer']}),
         maximumCallSeconds=config['maximumModelCallSeconds'],
         maximumCalls=1, automaticRetries=0,
         stops=['failed', 'unknown', 'unresolved', 'indeterminate', 'timeout'],
@@ -122,8 +125,16 @@ def _reviewed_snapshot(source):
 
 
 def prepare(config_path, output):
-    """Freeze an offline Agent seed, exact model configuration and reviewed inputs."""
+    """Freeze a fresh M1 request or an explicitly supplied candidate seed."""
     source = read(Path(config_path)); root = Path(output).resolve()
+    fresh_m1=source.get('planningMode')==host_m1.MODE
+    if 'planningMode' in source and not fresh_m1:
+        raise ValueError('HOST_PLANNING_MODE_UNSUPPORTED')
+    if fresh_m1:
+        if any(source.get(k) for k in ('seed','reviewedSnapshot','materialReuse','visualTextures','backgroundRegion')):
+            raise ValueError('FRESH_M1_FORBIDS_PREPLANNED_INPUTS')
+        planner=host_review._identity(source['m1Planner'])
+        if source.get('candidateAuthors')!=[planner]:raise ValueError('FRESH_M1_AUTHOR_REQUIRED')
     from . import background_region_pipeline as bg_region
     if bool(source.get('backgroundRegion'))!=bool(source.get('backgroundRegionDigest')):raise ValueError('BG_REGION_CONFIG_PAIR_REQUIRED')
     if source.get('backgroundRegion'):
@@ -191,10 +202,15 @@ def prepare(config_path, output):
     elif source.get('backgroundPolicy')!='uniform-whole-canvas-opaque-contain-edgepad-v1':
         raise ValueError('EXPLICIT_BACKGROUND_POLICY_REQUIRED')
     config=record(root/'config.json',dict(source,kind=KIND,runtime=host_review.runtime_files(),
-        planningMode='verified-prior-independent-host-review' if prior else 'offline-agent-seed-independent-host-review', m1ModelExecuted=False,
+        planningMode=host_m1.MODE if fresh_m1 else 'verified-prior-independent-host-review' if prior else 'offline-agent-seed-independent-host-review', m1ModelExecuted=False,
         **(dict(newM2ReviewPerformed=False,priorReviewedSnapshotDigest=prior[1]['digest'],priorM2ResponseSha256=prior[1]['reviewSha256']) if prior else {}),
         generationMode='sheets', generationReference='context-crops', contextPromptVersion=version))
     try:
+        if fresh_m1:
+            host_m1.prepare(root/'planning-m1',config)
+            _scope(root,config,'planning_generate',root/'planning-m1/request.json',root/'planning-m1')
+            _checkpoint(root)
+            return status(root)
         if prior:
             from .freeze_visual import inspect
             from .execution_preflight import preflight
@@ -226,15 +242,21 @@ def status(run):
     root=Path(run).resolve();config,state=_load(root);stage=state['stage']
     result=dict(stage=stage,configDigest=config['digest'],
         planningMode=config['planningMode'],m1ModelExecuted=config['m1ModelExecuted'],
-        FullAutomationExecutionCompleted=stage=='complete',visualAcceptancePending=True,
+        FullAutomationExecutionCompleted=stage=='complete',FullReferenceToDeliveryExecutionCompleted=False,
+        visualAcceptancePending=True,
         humanVisualAcceptance=False,originalDagPromoted=False,automaticRetries=0,
         notProviderReceipt=True,notCryptographicallyPlatformVerified=True)
+    if config['planningMode']==host_m1.MODE:
+        proof=root/'planning-m1/exchange-provenance.json'
+        result['m1ModelExecuted']=proof.is_file()
+        if proof.is_file():host_m1.verify_exchange(root/'planning-m1')
+        result['FullReferenceToDeliveryExecutionCompleted']=stage=='complete' and proof.is_file()
     result.update(maximumModelCallSeconds=config['maximumModelCallSeconds'],maximumImageCallSeconds=config['maximumImageCallSeconds'])
     if 'newM2ReviewPerformed' in config:result['newM2ReviewPerformed']=config['newM2ReviewPerformed']
     if config.get('backgroundVisualReviewPolicy'):
         result.update(deferredBackgroundVisualReview=True,
             backgroundVisualReviewPolicy=config['backgroundVisualReviewPolicy'],finalCompositeVisualAcceptancePending=True)
-    if stage in ('planning_review','material_review'):
+    if stage in MODEL_STAGES:
         scope=root/state['scope']; bound=verified(scope/'scope.json')
         rows=bound.get('requests',[bound])
         for row in rows:
@@ -263,7 +285,7 @@ def authorize(run, scope_digest, approval):
     with lock(root):
         config,state=_load(root);stage=state['stage']
         if not isinstance(approval,str) or not approval.strip():raise ValueError('EXPLICIT_BOUND_APPROVAL_REQUIRED')
-        if stage in ('planning_review','material_review'):
+        if stage in MODEL_STAGES:
             folder=root/state['scope'];scope=verified(folder/'scope.json')
             if scope['digest']!=scope_digest:raise ValueError('EXPLICIT_BOUND_APPROVAL_REQUIRED')
             if (folder/'authorization.json').exists() or list(folder.glob('*-submission.json')):raise ValueError('HOST_SCOPE_ALREADY_AUTHORIZED')
@@ -280,7 +302,7 @@ def next_request(run):
     with lock(root):
         config,state=_load(root);stage=state['stage']
         if (root/'transaction.json').exists():raise ValueError('HOST_RESUME_REQUIRED')
-        if stage in ('planning_review','material_review'):
+        if stage in MODEL_STAGES:
             folder=root/state['scope'];scope=verified(folder/'scope.json')
             if not (folder/'authorization.json').exists():raise ValueError('HOST_SCOPE_AUTHORIZATION_REQUIRED')
             auth=verified(folder/'authorization.json')
@@ -319,7 +341,7 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
         raise ValueError('HOST_SUBMISSION_DIGEST_REQUIRED')
     with lock(root):
         config,state=_load(root);stage=state['stage']
-        if stage in ('planning_review','material_review'):
+        if stage in MODEL_STAGES:
             scope=root/state['scope'];bound=verified(scope/'scope.json')
             matches=[verified(path) for path in scope.glob('*-submission.json') if verified(path)['digest']==submission_digest]
             if len(matches)!=1:raise ValueError('HOST_RESERVED_SUBMISSION_REQUIRED')
@@ -339,9 +361,16 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
         record(root/'transaction.json',dict(operation='receive',stage=stage,submissionDigest=submission_digest))
         try:
             if stage!='images':
-                if read(Path(host_attestation))['reviewerId']!=config[('planning' if stage=='planning_review' else 'material' if stage=='material_review' else 'body')+'Reviewer']:
+                attestation=read(Path(host_attestation))
+                actor=attestation.get('plannerId') if stage=='planning_generate' else attestation.get('reviewerId')
+                expected=config['m1Planner'] if stage=='planning_generate' else config[('planning' if stage=='planning_review' else 'material' if stage=='material_review' else 'body')+'Reviewer']
+                if actor!=expected:
                     raise ValueError('FROZEN_HOST_REVIEWER_REQUIRED')
-            if stage=='planning_review':
+            if stage=='planning_generate':
+                host_m1.receive(root/'planning-m1',response,host_attestation=host_attestation,
+                    dispatch_evidence=dispatch_evidence,return_evidence=return_evidence)
+                record(scope/'planning-received.json',dict(submissionDigest=submission_digest,responseSha256=digest(Path(response))))
+            elif stage=='planning_review':
                 host_review.receive(root/'planning',response,bound['requestSha256'],
                     response_sha256=digest(Path(response)),host_attestation=host_attestation,
                     dispatch_evidence=dispatch_evidence,return_evidence=return_evidence)
@@ -377,7 +406,7 @@ def fail(run, submission_digest, reason):
     with lock(root):
         config,state=_load(root)
         if not reason.strip():raise ValueError('HOST_FAILURE_REASON_REQUIRED')
-        if state['stage'] in ('planning_review','material_review'):
+        if state['stage'] in MODEL_STAGES:
             scope=root/state['scope'];matches=[verified(p) for p in scope.glob('*-submission.json') if verified(p)['digest']==submission_digest]
             if len(matches)!=1:raise ValueError('HOST_RESERVED_SUBMISSION_REQUIRED')
             submission=matches[0]
@@ -458,7 +487,7 @@ def resume(run):
             _terminal(root,config,'INTERRUPTED_TRANSACTION_NO_RESUBMIT')
             (root/'transaction.json').unlink();return status(root)
         if stage in ('failed','complete'):return status(root)
-        advancing=stage=='planning_review' and (root/state['scope']/'planning-received.json').exists()
+        advancing=stage in ('planning_generate','planning_review') and (root/state['scope']/'planning-received.json').exists()
         if stage=='material_review':
             scope=root/state['scope'];rows=verified(scope/'scope.json')['requests']
             advancing=all((scope/(row['requestId']+'-received.json')).exists() for row in rows)
@@ -469,7 +498,14 @@ def resume(run):
         if not advancing:return status(root)
         record(root/'transaction.json',dict(operation='deterministic-advance',stage=stage))
         try:
-            if stage=='planning_review':
+            if stage=='planning_generate':
+                host_m1.verify(root/'planning-m1')
+                host_review.prepare(root/'planning-m1/draft.json',config['original'],root/'planning',config['contract'],
+                    seed_author=config['candidateAuthors'],planning_notes=config.get('planningNotes'),
+                    visual_policy=config.get('visualPolicy'),max_calls=config['maximumImageCalls'],
+                    context_prompt_version=config['contextPromptVersion'],m1_source=root/'planning-m1')
+                _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
+            elif stage=='planning_review':
                 frozen=freeze_reviewed(root/'planning',root/'frozen',config['maximumImageCalls'],
                     generation_mode='sheets',generation_reference='context-crops',context_prompt_version=config['contextPromptVersion'])
                 requests=read(root/'frozen/requests.json')['requests']

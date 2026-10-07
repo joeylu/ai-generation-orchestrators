@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased fresh host M1 planning
+
+- Integrated host delivery can start from the clean original reference through
+  a separately authorized, single-use M1 host exchange, followed by independent
+  M2 review. Offline seed mode remains explicitly labelled and distinct.
+- Preserve the exact M1 answer, local host attestation and dispatch/return bytes;
+  bind the author, reference, candidate and runtime through review and frozen
+  evidence. No CLI session or provider receipt is asserted.
+- Report full reference-to-delivery execution only after fresh M1 and all
+  downstream stages complete. Visual acceptance remains a separate human step.
+- Fresh v4 review transport schemas prevent deferred appearance text from
+  contradicting non-reference-bound description statuses; existing semantic
+  validation is unchanged and failed answers are never repaired in place.
+
 ## Unreleased ownership-first v8 generation
 
 - New planning, delivery and integrated host runs default to v8. A foreign

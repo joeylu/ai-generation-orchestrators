@@ -160,7 +160,9 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
         snapshot.update(planningDriver='host-model-exchange-v1',
             responseOrigin='host-attested-model-response',notProviderReceipt=True,
             cliSessionAsserted=False,notCryptographicallyPlatformVerified=True,
-            offlineCandidateSeed=True)
+            offlineCandidateSeed=not bool(config.get('hostM1Exchange')))
+        if config.get('hostM1Exchange'):
+            snapshot.update(m1ModelExecuted=True,hostM1Exchange=config['hostM1Exchange'])
     snapshot['digest']=body_digest(snapshot)
     save(output/'snapshot.json',snapshot)
     inspect(output,snapshot['digest'])

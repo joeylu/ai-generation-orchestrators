@@ -179,6 +179,19 @@ def build_review_schema(catalog,small_focus,policy,protocol=PROTOCOL_V3,coverage
                 part_schema['properties']['descriptionStatus']['enum'].append('reference-bound')
             part_schema['properties']['deferredAppearance']={'type':['string','null']}
             part_schema['required'].append('deferredAppearance')
+            if protocol==PROTOCOL_V4:
+                # Encode the existing semantic invariant in the model's schema,
+                # rather than accepting contradictory bytes and repairing them.
+                ordinary=copy.deepcopy(part_schema)
+                ordinary['properties']['descriptionStatus']['enum']=list(DESCRIPTION_STATUSES)
+                ordinary['properties']['deferredAppearance']={'type':'null'}
+                branches=[ordinary]
+                if policy['appearanceEvidence']=='bound-reference':
+                    deferred=copy.deepcopy(part_schema)
+                    deferred['properties']['descriptionStatus']['enum']=['reference-bound']
+                    deferred['properties']['deferredAppearance']={'type':'string','pattern':r'\S'}
+                    branches.append(deferred)
+                part_schema={'anyOf':branches}
         material_schema={'type':'object','additionalProperties':False,
             'required':['parts','boundary'],
             'properties':{'boundary':boundary_schema(),
