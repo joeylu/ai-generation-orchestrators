@@ -1,5 +1,9 @@
 # Separate crop geometry from visible body registration
 
+New approximate runs can explicitly freeze a scale-aware residual policy;
+see [relative body fit](BODY-RELATIVE-FIT.md). Existing defaults and fixed-pixel
+policies remain unchanged.
+
 ## Integrated host profile
 
 Fresh approximate `host-run` jobs freeze actual-alpha body display v3 and

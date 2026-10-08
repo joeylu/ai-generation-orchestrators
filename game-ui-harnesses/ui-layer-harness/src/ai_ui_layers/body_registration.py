@@ -12,6 +12,7 @@ POLICY = 'reference-body-v1'
 POLICY_SUPPORT = 'reference-body-support-v1'
 KIND = 'ui_whole_body_registration_v1'
 FIT_POLICY = 'uniform-observed-body-residual-v2'
+RELATIVE_FIT_POLICY = 'uniform-observed-body-relative-residual-v3'
 
 
 def validate_fit_policy(policy, visual_policy):
@@ -20,13 +21,24 @@ def validate_fit_policy(policy, visual_policy):
     from .visual_policy import validate
     if visual_policy is None or validate(visual_policy).get('minorGeometry') != 'record':
         raise ValueError('APPROXIMATE_VISUAL_POLICY_REQUIRED_FOR_BODY_FIT')
-    if (not isinstance(policy, dict) or set(policy) != {'kind', 'maximumResidualPixels', 'denseBoundaryMarginPixels'}
-            or policy['kind'] != FIT_POLICY
+    fields = {'kind', 'maximumResidualPixels', 'denseBoundaryMarginPixels'}
+    relative = isinstance(policy, dict) and policy.get('kind') == RELATIVE_FIT_POLICY
+    if relative:
+        fields |= {'minimumResidualPixels', 'maximumResidualFraction'}
+    if (not isinstance(policy, dict) or set(policy) != fields
+            or policy['kind'] not in (FIT_POLICY, RELATIVE_FIT_POLICY)
             or type(policy['maximumResidualPixels']) not in (int, float)
             or not math.isfinite(policy['maximumResidualPixels']) or not 0 <= policy['maximumResidualPixels'] <= 128
             or type(policy['denseBoundaryMarginPixels']) is not int
             or not 0 <= policy['denseBoundaryMarginPixels'] <= 8):
         raise ValueError('EXPLICIT_FINITE_BODY_FIT_POLICY_REQUIRED')
+    if relative:
+        floor, fraction = policy['minimumResidualPixels'], policy['maximumResidualFraction']
+        if (type(floor) not in (int, float) or not math.isfinite(floor)
+                or not 0 <= floor <= min(8, policy['maximumResidualPixels'])
+                or type(fraction) not in (int, float) or not math.isfinite(fraction)
+                or not 0 < fraction <= .05):
+            raise ValueError('EXPLICIT_FINITE_BODY_FIT_POLICY_REQUIRED')
     return policy
 
 
@@ -69,12 +81,21 @@ def fit_body(source_size, target_size, visual_policy=None, fit_policy=None):
         difference = max(ratio, 1/ratio)-1
         if difference > .25 + 1e-12 and any(value > 1 for value in residual):
             raise ValueError('BODY_PROPORTIONS_GROSSLY_DIFFER')
-        if corner > fit_policy['maximumResidualPixels'] + 1e-9:
+        maximum = fit_policy['maximumResidualPixels']
+        relative_report = {}
+        if fit_policy['kind'] == RELATIVE_FIT_POLICY:
+            diagonal = math.hypot(tw, th)
+            maximum = min(maximum, max(fit_policy['minimumResidualPixels'],
+                diagonal * fit_policy['maximumResidualFraction']))
+            relative_report = dict(referenceBodyDiagonalPixels=diagonal,
+                cornerResidualFraction=corner/diagonal,
+                effectiveMaximumResidualPixels=maximum)
+        if corner > maximum + 1e-9:
             raise ValueError('UNIFORM_FIT_RESIDUAL_EXCEEDED')
-        return scale, dict(kind='ui_approximate_body_fit_v2', visualPolicy=visual_policy,
+        return scale, dict(kind='ui_approximate_body_fit_v3' if relative_report else 'ui_approximate_body_fit_v2', visualPolicy=visual_policy,
             fitPolicy=fit_policy, fittedBodySize=[bw*scale, bh*scale], sizeDifferencePixels=residual,
             symmetricAspectDifference=difference, coarseAspectGuard=.25,
-            maximumCornerResidualPixels=corner, axisStretch=False, rotation=0,
+            maximumCornerResidualPixels=corner, **relative_report, axisStretch=False, rotation=0,
             status='recorded-pending-human-review', humanVisualAcceptance=False)
     scale = min(target_size[0] / bw, target_size[1] / bh)
     residual = [abs(source_size[i] * scale - target_size[i]) for i in (0, 1)]

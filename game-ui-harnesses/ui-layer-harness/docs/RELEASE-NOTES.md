@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased explicit relative body fit
+
+- Approximate host runs may freeze a relative reference-body-diagonal corner
+  allowance with a finite pixel floor and absolute cap. Reports include its
+  effective threshold and normalized measured error.
+- Existing defaults and v2 policies remain unchanged. The new policy preserves
+  uniform scaling, independent visual review, solid body coverage, original
+  alpha and terminal failure rules. It requires a new authorized scope and
+  does not guarantee generated proportions or human visual success.
+
+See [relative body fit](BODY-RELATIVE-FIT.md).
+
 ## Unreleased observed external body effects
 
 - Fresh approximate integrated jobs freeze body observation v3 and a typed
