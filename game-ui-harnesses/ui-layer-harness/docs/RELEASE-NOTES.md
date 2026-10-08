@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased alpha-aware host geometry measurements
+
+- New archive geometry preparations default to v2 with SHA-bound, native-size
+  opaque light/dark composites and an alpha display. Verification replays each
+  attachment from the unmodified source; hidden RGB cannot appear as opaque
+  backing in these previews. Alpha extent never substitutes for body geometry.
+- V2 separates measured size/position/proportion differences from unreliable
+  geometry. Visible differences reach the existing uniform fitter and its frozen
+  residual ceiling; uncertain, incomplete or explicitly blocked measurements
+  remain unresolved. Appearance findings remain in candidate provenance.
+- Explicit v1 preparation and old sealed responses retain their exact protocol
+  and failure semantics. No old failed run is restored, no source is regenerated,
+  and offline fixtures do not establish actual visual acceptance or DAG success.
+
 ## Unreleased fresh host M1 planning
 
 - Integrated host delivery can start from the clean original reference through

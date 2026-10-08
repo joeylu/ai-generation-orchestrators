@@ -23,12 +23,26 @@ and a frozen copy of the verified edit chain under `edit-evidence`. Reference an
 ownership remain bound to the original archive. Every verification replays the
 original edit job and the copied chain; unbound replacements are rejected.
 
-`policy` is `host-observed-geometry-candidate-v1`. Each item has at most one host
+New preparations default to `host-observed-geometry-candidate-v2`. Explicit
+`observation_policy=POLICY` retains the historical v1 protocol. V1 requests,
+prompt/schema bytes, four inputs, sealed assessments and failure semantics replay
+unchanged; they are never promoted by this change. Each item has at most one host
 observation and no automatic retry. Freezing a request does not authorize compute.
 A host must inspect both images and supply its actual answer and exchange evidence.
 No CLI process, provider service or model is invoked by this module.
 
-The answer has `kind: ui_host_geometry_answer_v1`, `layerId`, `boundaryStatus`,
+V2 also freezes three native-size display attachments: `source-over-light.png`
+and `source-over-dark.png` are opaque RGB composites of the unmodified source over
+RGB (240,240,240) and (32,32,32); `source-alpha.png` displays native alpha as RGB
+grayscale. All three are at identity position without cropping or resizing. They
+use source pixel coordinates, preserve continuous opacity including alpha 1, and
+do not change native source bytes. Hidden RGB at alpha 0 contributes no visible
+color to the composites. Alpha support remains storage evidence, never semantic
+body geometry. Every preview is SHA-bound and deterministically replayed against
+the native source during verification; changing hashes alone cannot substitute an
+arbitrary preview. The frozen `displayEvidence` describes this derivation.
+
+The v1 answer has `kind: ui_host_geometry_answer_v1`, `layerId`, `boundaryStatus`,
 `sourceBodyBox`, `targetBodyBox`, `landmarkPairs`, `geometryIssues`,
 `materialIssues` and `evidence`. Boxes use `[left, top, right, bottom]` in image
 edge coordinates. Source coordinates are local PNG pixels; target coordinates
@@ -45,7 +59,16 @@ with pairwise separation of at least one pixel. Hidden edges must not be inferre
 `uncertain` and `not-whole` remain unresolved. Structural validation cannot prove
 that a host's visual assertion is correct; human acceptance is still required.
 
-`geometryIssues` block candidate geometry use. `materialIssues` are retained in
+V2 uses `kind: ui_host_geometry_answer_v2` and additionally requires
+`geometryDifferences`. This records reliably measured size, translation, aspect
+ratio or landmark-layout differences. These findings do not mean that visible
+boundaries cannot be measured. The deterministic downstream uniform fitter owns
+the explicitly frozen residual ceiling; excessive residuals still reject a fit.
+The model must never adjust observed coordinates to satisfy that ceiling.
+
+`geometryIssues` block candidate geometry use. In v2 these identify unreliable
+measurement, wrong correspondence, clipping or incompleteness. A complete body
+with an explicit measurement blocker remains unresolved. `materialIssues` are retained in
 full and do not block otherwise usable geometry. Consumers must retain these
 material findings in candidate provenance. No observation passes strict body
 registration, establishes human visual acceptance, or promotes the original DAG.
@@ -71,7 +94,9 @@ returnEvidenceSha256 = SHA-256 of original return evidence bytes
 The reviewer must differ from every declared material author. Dispatch and return
 hashes must differ. These declarations are host assertions, without cryptographic
 platform verification. Original bytes and evidence are sealed under `answer/`.
-The result is `geometry_usable_candidate` or `unresolved` and retains all findings.
+The result is `geometry_usable_candidate` or `unresolved` and retains all findings,
+including v2 `geometryDifferences`. V2 is still candidate geometry only: it is not
+a material-quality pass or a change to strict registration.
 
 `verify_response(directory)` replays archive identity, manifest and complete
 package bytes, frozen images, schema, prompt, request, answer, host hash chain and

@@ -41,7 +41,7 @@ class ObservedGeometryTests(unittest.TestCase):
         write_package(self.reference,composition,{'body':dict(path=str(self.source),sha256=digest(self.source))},
                       self.original,self.viewer,['Old blocked body proof stays unresolved.'])
         self.archive=self.original/'ui-layers.zip';self.batch=self.root/'batch'
-        observation.prepare(self.archive,self.batch);self.item=self.batch/'items/000'
+        observation.prepare(self.archive,self.batch,observation_policy=observation.POLICY);self.item=self.batch/'items/000'
 
     def receive(self,value):
         response=self.root/'response.json';save(response,value)
@@ -170,7 +170,8 @@ class ObservedGeometryTests(unittest.TestCase):
             submissionDigest=submitted['submissionDigest'],returnedSha256=digest(raw),
             hostObservedNativeReturn=True,notCryptographicallyProviderVerified=True))
         edit.receive(job,submitted['submissionDigest'],raw,native)
-        self.batch=self.root/'edited-batch';observation.prepare(self.archive,self.batch,source_overrides={'body':job})
+        self.batch=self.root/'edited-batch';observation.prepare(self.archive,self.batch,
+            observation_policy=observation.POLICY,source_overrides={'body':job})
         self.item=self.batch/'items/000';self.receive(answer(target=[30,30,50,50]))
         frozen,config=self.freeze();out=self.root/'edited-out'
         result=revision.revise(frozen,config['digest'],out,self.viewer)

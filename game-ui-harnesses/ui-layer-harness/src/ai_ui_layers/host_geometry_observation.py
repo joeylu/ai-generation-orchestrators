@@ -14,6 +14,7 @@ from .evaluate import read, save, digest
 from .layer_package import validate_archive, composite
 
 POLICY = 'host-observed-geometry-candidate-v1'
+DEFAULT_POLICY = 'host-observed-geometry-candidate-v2'
 PROMPT = '''Observe only the frozen source.png and full original reference.png.
 Source coordinates are local PNG pixels; target coordinates are full reference pixels.
 The originalLayer/sourceRegion describes ownership and placement, never a body box.
@@ -26,6 +27,41 @@ Separate geometryIssues from materialIssues: retain material faults even if geom
 can be used for a candidate. This observation cannot promote strict registration.
 Return only the JSON schema answer. Do not claim generation or platform receipts.
 '''
+MEASUREMENT_PROMPT = '''Observe the frozen full original reference.png and the native-source display evidence.
+Use source-over-light.png and source-over-dark.png for visible source appearance.
+These opaque RGB previews composite source.png with its actual continuous alpha,
+at identity position and native size. Their pixels use the same source coordinates.
+source.png retains unmodified native bytes for identity; hidden RGB where alpha is
+zero is invisible artwork, not a leftover background. source-alpha.png visualizes
+opacity only: never use its extent as the semantic body boundary.
+Source coordinates are local PNG pixels; target coordinates are full reference pixels.
+The originalLayer/sourceRegion describes ownership and placement, never a body box.
+Do not use alpha support, ownership bounds or imagined hidden edges as body geometry.
+For complete, report genuinely visible whole body boxes with visual evidence.
+For visible-landmarks, leave both boxes null and identify at least three spatially
+separated, non-collinear actual visible corresponding points in each image.
+For uncertain or not-whole leave boxes null. Never infer occluded boundaries.
+geometryIssues records blockers to reliable measurement, such as ambiguous edges,
+wrong correspondence, clipping or incomplete body. These blockers remain unresolved.
+geometryDifferences records measurable differences in size, position, aspect ratio
+or corresponding point layout when the coordinates can be reliably observed.
+A measurable difference alone does not make the observation uncertain. Report its
+evidence without judging whether it fits: the deterministic uniform fitter owns
+the frozen residual ceiling and rejects excessive error. Never adjust coordinates
+to make a fit pass, and never replace visual evidence with the ownership rectangle.
+materialIssues retains visible style, glow, alpha, content and ownership faults.
+Do not describe hidden RGB as visible backing. Use both composites to distinguish
+real opacity from display artifacts. Uncertainty remains an explicit finding.
+This observation cannot promote strict registration or human visual acceptance.
+Return only the JSON schema answer. Do not claim generation or platform receipts.
+'''
+PREVIEW_BACKGROUNDS = {'source-over-light.png': (240, 240, 240),
+                       'source-over-dark.png': (32, 32, 32)}
+DISPLAY_EVIDENCE = dict(kind='ui_host_geometry_alpha_display_v1',
+    coordinates='source-native-pixels', transform='identity-no-resize',
+    nativeSourceUnmodified=True,
+    opaqueRgbComposites={name:list(color) for name,color in PREVIEW_BACKGROUNDS.items()},
+    alphaPreview='source-alpha.png', alphaIsBodyGeometry=False)
 
 
 def _canonical(value):
@@ -33,7 +69,9 @@ def _canonical(value):
                                     ensure_ascii=False, allow_nan=False).encode()).hexdigest()
 
 
-def schema():
+def schema(policy=POLICY):
+    if policy not in (POLICY, DEFAULT_POLICY):
+        raise ValueError('GEOMETRY_CANDIDATE_POLICY_REQUIRED')
     point = dict(type='array', items=dict(type='number'), minItems=2, maxItems=2)
     box = dict(anyOf=[dict(type='null'), dict(type='array', items=dict(type='number'),
                                              minItems=4, maxItems=4)])
@@ -46,7 +84,31 @@ def schema():
             properties=dict(id=text, source=point, target=point, evidence=text))),
         geometryIssues=dict(type='array', maxItems=128, items=text),
         materialIssues=dict(type='array', maxItems=128, items=text), evidence=text)
+    if policy == DEFAULT_POLICY:
+        fields['kind'] = dict(const='ui_host_geometry_answer_v2')
+        fields['geometryDifferences'] = dict(type='array', maxItems=128, items=text)
     return dict(type='object', additionalProperties=False, required=list(fields), properties=fields)
+
+
+def _source_previews(source):
+    """Opaque display evidence only; native bytes, geometry and alpha stay intact."""
+    with Image.open(source) as image:
+        image.load()
+        rgba = image.convert('RGBA')
+    previews = {name:Image.alpha_composite(Image.new('RGBA', rgba.size, (*color, 255)),
+                 rgba).convert('RGB') for name,color in PREVIEW_BACKGROUNDS.items()}
+    previews['source-alpha.png'] = rgba.getchannel('A').convert('RGB')
+    return previews
+
+
+def _verify_previews(item, request):
+    if request.get('displayEvidence') != DISPLAY_EVIDENCE:
+        raise ValueError('GEOMETRY_DISPLAY_EVIDENCE_CHANGED')
+    for name, expected in _source_previews(item/'source.png').items():
+        _png(item/name, request['sourceSize'])
+        with Image.open(item/name) as actual:
+            if actual.mode != 'RGB' or actual.tobytes() != expected.tobytes():
+                raise ValueError('GEOMETRY_ALPHA_PREVIEW_CHANGED:'+name)
 
 
 def _png(path, size=None):
@@ -61,7 +123,8 @@ def _png(path, size=None):
 
 def prepare(source_archive, output_directory, material_ids=None, observation_policy=None, *, source_overrides=None):
     archive = Path(source_archive).resolve(); output = Path(output_directory).resolve()
-    if observation_policy not in (None, POLICY):
+    policy = DEFAULT_POLICY if observation_policy is None else observation_policy
+    if policy not in (POLICY, DEFAULT_POLICY):
         raise ValueError('GEOMETRY_CANDIDATE_POLICY_REQUIRED')
     if output.exists():
         raise ValueError('FRESH_OUTPUT_REQUIRED')
@@ -110,24 +173,31 @@ def prepare(source_archive, output_directory, material_ids=None, observation_pol
         else:
             shutil.copyfile(package/layer['path'], item/'source.png')
         shutil.copyfile(package/'reference.png', item/'reference.png')
-        save(item/'schema.json', schema()); (item/'prompt.md').write_text(PROMPT, encoding='utf-8')
-        inputs = {name: digest(item/name) for name in ('source.png', 'reference.png', 'schema.json', 'prompt.md')}
-        request = dict(kind='ui_host_geometry_request_v1', sourceArchive=str(archive),
+        modern = policy == DEFAULT_POLICY
+        save(item/'schema.json', schema(policy))
+        (item/'prompt.md').write_text(MEASUREMENT_PROMPT if modern else PROMPT, encoding='utf-8')
+        names = ['source.png', 'reference.png', 'schema.json', 'prompt.md']
+        if modern:
+            for name, preview in _source_previews(item/'source.png').items():
+                preview.save(item/name); names.append(name)
+        inputs = {name: digest(item/name) for name in names}
+        request = dict(kind='ui_host_geometry_request_v2' if modern else 'ui_host_geometry_request_v1', sourceArchive=str(archive),
             sourceArchiveSha256=validated['sha256'], sourcePackageManifestSha256=digest(package/'manifest.json'),
             layerId=mid, originalLayer=layer, sourceRegion=[layer['x'], layer['y'],
                 layer['x']+layer['width'], layer['y']+layer['height']],
             sourceSha256=inputs['source.png'], sourceSize=_png(item/'source.png'),
             referenceSha256=inputs['reference.png'], referenceSize=reference_size,
             schemaSha256=inputs['schema.json'], promptSha256=inputs['prompt.md'], inputs=inputs,
-            inputsSha256=_canonical(inputs), policy=POLICY, modelCallsMaximum=1, automaticRetry=False,
+            inputsSha256=_canonical(inputs), policy=policy, modelCallsMaximum=1, automaticRetry=False,
             humanVisualAcceptance=False, strictBodyRegistrationPassed=False, originalDagPromoted=False)
         if source_override is not None:request['sourceOverride']=source_override
+        if modern:request['displayEvidence']=DISPLAY_EVIDENCE
         save(item/'request.json', request)
         save(item/'preparation.json', dict(requestSha256=digest(item/'request.json')))
         rows.append(dict(layerId=mid, directory=item.relative_to(output).as_posix(),
                          requestSha256=digest(item/'request.json')))
-    save(output/'request.json', dict(kind='ui_host_geometry_batch_v1', items=rows,
-        sourceArchiveSha256=validated['sha256'], policy=POLICY, generationCalls=0))
+    save(output/'request.json', dict(kind='ui_host_geometry_batch_v2' if policy==DEFAULT_POLICY else 'ui_host_geometry_batch_v1', items=rows,
+        sourceArchiveSha256=validated['sha256'], policy=policy, generationCalls=0))
     return dict(status='awaiting_host_geometry_observation', items=rows, generationCalls=0)
 
 
@@ -135,10 +205,13 @@ def verify_prepared(directory):
     item = Path(directory).resolve(); request = read(item/'request.json')
     if digest(item/'request.json') != read(item/'preparation.json')['requestSha256']:
         raise ValueError('GEOMETRY_REQUEST_CHANGED')
-    if (request.get('kind') != 'ui_host_geometry_request_v1' or request.get('policy') != POLICY
+    policy = request.get('policy'); modern = policy == DEFAULT_POLICY
+    if (policy not in (POLICY, DEFAULT_POLICY)
+            or request.get('kind') != ('ui_host_geometry_request_v2' if modern else 'ui_host_geometry_request_v1')
             or request.get('modelCallsMaximum') != 1 or request.get('automaticRetry') is not False):
         raise ValueError('GEOMETRY_REQUEST_CONTRACT_CHANGED')
     expected = {'source.png', 'reference.png', 'schema.json', 'prompt.md'}
+    if modern:expected.update([*PREVIEW_BACKGROUNDS, 'source-alpha.png'])
     if set(request['inputs']) != expected or _canonical(request['inputs']) != request['inputsSha256']:
         raise ValueError('GEOMETRY_INPUT_BINDING_CHANGED')
     for name, sha in request['inputs'].items():
@@ -148,7 +221,7 @@ def verify_prepared(directory):
                         ('schemaSha256','schema.json'), ('promptSha256','prompt.md')):
         if request[field] != request['inputs'][name]:
             raise ValueError('GEOMETRY_INPUT_BINDING_CHANGED')
-    if read(item/'schema.json') != schema() or (item/'prompt.md').read_text(encoding='utf-8') != PROMPT:
+    if read(item/'schema.json') != schema(policy) or (item/'prompt.md').read_text(encoding='utf-8') != (MEASUREMENT_PROMPT if modern else PROMPT):
         raise ValueError('GEOMETRY_SCHEMA_OR_PROMPT_CHANGED')
     archive = Path(request['sourceArchive']); validated = validate_archive(archive)
     if validated['sha256'] != request['sourceArchiveSha256']:
@@ -190,6 +263,7 @@ def verify_prepared(directory):
     if digest(package/'manifest.json') != request['sourcePackageManifestSha256']:
         raise ValueError('GEOMETRY_MANIFEST_CHANGED')
     _png(item/'source.png', request['sourceSize']); _png(item/'reference.png', request['referenceSize'])
+    if modern:_verify_previews(item, request)
     return request
 
 
@@ -211,7 +285,10 @@ def _noncollinear(points):
 
 
 def assess(request, answer):
-    Draft202012Validator(schema()).validate(answer)
+    # Component exchanges also reuse the legacy answer validator under their own
+    # independently verified request policy. Only an explicit v2 request selects v2.
+    policy = DEFAULT_POLICY if request.get('policy') == DEFAULT_POLICY else POLICY
+    Draft202012Validator(schema(policy)).validate(answer)
     if answer['layerId'] != request['layerId']:
         raise ValueError('GEOMETRY_LAYER_ID_MISMATCH')
     complete = answer['boundaryStatus'] == 'complete'
@@ -230,10 +307,12 @@ def assess(request, answer):
                       or not _noncollinear([p['target'] for p in pairs])):
         raise ValueError('THREE_SEPARATED_NONCOLLINEAR_VISIBLE_LANDMARKS_REQUIRED')
     usable = (complete or landmarks) and not answer['geometryIssues']
-    return dict(status='geometry_usable_candidate' if usable else 'unresolved',
+    result = dict(status='geometry_usable_candidate' if usable else 'unresolved',
         geometryUsableCandidate=usable, boundaryStatus=answer['boundaryStatus'],
         geometryIssues=answer['geometryIssues'], materialIssues=answer['materialIssues'],
         humanVisualAcceptance=False, strictBodyRegistrationPassed=False, originalDagPromoted=False)
+    if policy == DEFAULT_POLICY:result['geometryDifferences'] = answer['geometryDifferences']
+    return result
 
 
 def _attestation(item, request):
