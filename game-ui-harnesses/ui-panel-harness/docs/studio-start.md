@@ -6,6 +6,9 @@
 npm run studio
 ```
 
+若要加载自有图标，使用 `npm run studio -- --assets <library> --sharp-module <module>`。
+常用素材集的筛选、命名和离线验收见 [core-assets.md](core-assets.md)。
+
 程序依次检查同仓库的锁定依赖、构建当前源码、启动本机 Studio。
 默认地址固定为 `http://127.0.0.1:4951/`，不自动选择其他端口。
 保持终端运行，按 Ctrl+C 停止；再次执行同一命令即可重启。
