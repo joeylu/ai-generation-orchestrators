@@ -2,9 +2,12 @@
 
 ## Integrated host profile
 
-The `host-run` entry point now freezes actual-alpha body display v2 and, only with
-an explicit approximate visual policy, a uniform four-corner fit with a finite
-residual ceiling and small dense-boundary measurement margin. The same frozen
+Fresh approximate `host-run` jobs freeze actual-alpha body display v3 and
+separately observed external soft effects. The [soft-effect contract](BODY-SOFT-EFFECTS.md)
+requires independent evidence, solid-support and connectivity checks;
+historical v1/v2 profiles remain unchanged. With an explicit approximate visual
+policy, the uniform four-corner fit has a finite residual ceiling and small
+native boundary measurement margin. The same frozen
 parameters govern receipt checking and packaging. This is separate from the
 historical CLI observation/registration route described below; its defaults and
 old sealed jobs are unchanged. See [HOST-DELIVERY.md](HOST-DELIVERY.md#formal-body-observations-and-uniform-fitting).

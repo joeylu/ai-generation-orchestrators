@@ -162,9 +162,15 @@ class HostDeliveryTests(unittest.TestCase):
             sx=mapping['source']['observationSize'][0]/mapping['source']['originalSize'][0]
             source_box=[round(v*sx) for v in box]
             response=self.base/(key+'-body.json')
-            save(response,dict(sourceBodyBox=source_box,referenceCropBodyBox=[0,0,*mapping['referenceCropSize']],
+            answer=dict(sourceBodyBox=source_box,referenceCropBodyBox=[0,0,*mapping['referenceCropSize']],
                 boundaryStatus='complete',issues=[],geometryDifferences=[],materialIssues=[],
-                evidence='Offline matching whole rectangular fixture.'))
+                evidence='Offline matching whole rectangular fixture.')
+            from ai_ui_layers import body_coverage, host_body_profile
+            if read(self.run/'body/job.json')['bodyObservationPolicy']==host_body_profile.SOFT_EFFECTS:
+                answer[body_coverage.FIELD]=[dict(side=side,classification='none',
+                    evidence='Offline rectangular fixture has no exterior dense artwork or shadow.')
+                    for side in body_coverage.SIDES]
+            save(response,answer)
             dispatch=self.base/(key+'-dispatch');dispatch.write_bytes(b'fixture dispatch body')
             returned=self.base/(key+'-return');returned.write_bytes(b'fixture return body')
             attestation=self.base/(key+'-attestation.json')

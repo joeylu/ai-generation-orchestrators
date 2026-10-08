@@ -1,8 +1,10 @@
 """Versioned actual-alpha display and measurement rules for host body exchange."""
 from PIL import Image
+from . import body_coverage
 
 LEGACY = 'host-body-observation-v1'
 POLICY = 'host-body-observation-alpha-v2'
+SOFT_EFFECTS = 'host-body-observation-soft-effects-v3'
 PREVIEWS = ('generated-light.png', 'generated-dark.png', 'generated-alpha.png')
 BACKGROUNDS = ((240, 240, 240), (32, 32, 32))
 GUIDANCE = '''
@@ -21,10 +23,41 @@ owns the frozen uniform fit and residual ceiling. materialIssues records minor
 appearance differences allowed by the bound visual policy; major or uncertain
 content/appearance faults belong in issues. Do not judge overall visual success.
 '''
+SOFT_EFFECT_GUIDANCE = '''
+Also observe outsideBodySupport separately for left, top, right and bottom of
+the measured source body. Provide all four unique sides with concrete evidence.
+Classify none, external-soft-effect, owned-artwork or uncertain. Only external
+soft shadows or glow may be external-soft-effect. Translucent owned surfaces,
+outlines, detached objects, duplicate graphics and missing body parts are owned
+artwork or uncertain, never a shadow exception. Any unresolved classification
+requires issues and uncertain/not-whole. Do not move the measured body edge to
+include a shadow merely to satisfy an opacity threshold. The program separately
+requires alpha>=240 artwork inside the measured body plus its frozen native
+measurement margin. Dense exterior effects (alpha128..239) beyond that margin
+require explicit semantic evidence and a dense connection to the margin.
+These checks are not proof that a region is a shadow. Every nonzero source alpha
+pixel remains in storage; no alpha cleanup or body-mask crop is permitted.
+'''
+
+
+def alpha_profile(policy):
+    return policy in (POLICY, SOFT_EFFECTS)
+
+
+def validate_binding(policy, fit_policy, coverage_policy):
+    validate(policy)
+    body_coverage.validate_policy(coverage_policy)
+    if fit_policy is not None and not alpha_profile(policy):
+        raise ValueError('BODY_FIT_REQUIRES_ALPHA_OBSERVATION_PROFILE')
+    if policy == SOFT_EFFECTS:
+        if fit_policy is None or coverage_policy != body_coverage.POLICY:
+            raise ValueError('SOFT_EFFECTS_REQUIRE_EXPLICIT_FIT_AND_COVERAGE_POLICY')
+    elif coverage_policy is not None:
+        raise ValueError('EXTERNAL_EFFECTS_REQUIRE_V3_OBSERVATION')
 
 
 def validate(policy):
-    if policy not in (LEGACY, POLICY):
+    if policy not in (LEGACY, POLICY, SOFT_EFFECTS):
         raise ValueError('HOST_BODY_OBSERVATION_POLICY_REQUIRED')
     return policy
 
@@ -33,11 +66,18 @@ def schema(policy):
     from .body_observation import schema as legacy_schema
     validate(policy)
     result = legacy_schema()
-    if policy == POLICY:
+    if alpha_profile(policy):
         for key in ('geometryDifferences', 'materialIssues'):
             result['properties'][key] = dict(type='array', maxItems=32,
                 items=dict(type='string', minLength=1, maxLength=4096))
             result['required'].append(key)
+    if policy == SOFT_EFFECTS:
+        result['properties'][body_coverage.FIELD] = dict(type='array', minItems=4, maxItems=4,
+            items=dict(type='object', additionalProperties=False, required=['side','classification','evidence'],
+                properties=dict(side=dict(type='string', enum=list(body_coverage.SIDES)),
+                    classification=dict(type='string', enum=list(body_coverage.STATES)),
+                    evidence=dict(type='string', minLength=1, maxLength=4096))))
+        result['required'].append(body_coverage.FIELD)
     return result
 
 

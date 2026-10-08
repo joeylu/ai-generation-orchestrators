@@ -1,5 +1,15 @@
 # Release notes
 
+## Unreleased observed external body effects
+
+- Fresh approximate integrated jobs freeze body observation v3 and a typed
+  exterior-support contract. Independent side observations, alpha240 solid
+  coverage and dense-support connectivity distinguish the body anchor from
+  permitted external soft effects. The original measurement margin is retained.
+- All nonzero source alpha remains rendered and stored. Strict/explicit v1/v2
+  profiles and sealed failures retain their original gates. Offline fixtures
+  and source replay do not establish real full-chain or human visual success.
+
 ## Unreleased formal host body integration
 
 - Integrated host delivery freezes actual-alpha body display v2, separates

@@ -16,6 +16,7 @@ from jsonschema import Draft202012Validator
 from . import body_observation as body
 from . import body_registration as registration
 from . import host_body_profile as profile
+from . import body_coverage
 from .automatic_registration import observation_image
 from .evaluate import read, save, digest
 from .experimental_executor import record, verified, lock
@@ -48,8 +49,8 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
     inspect(snapshot, config['snapshotDigest'])
     from .visual_policy import snapshot_policy
     fit_policy = registration.validate_fit_policy(config.get('bodyFitPolicy'), snapshot_policy(snapshot))
-    if fit_policy is not None and observation_policy != profile.POLICY:
-        raise ValueError('BODY_FIT_REQUIRES_ALPHA_OBSERVATION_PROFILE')
+    coverage_policy = config.get('bodyCoveragePolicy')
+    profile.validate_binding(observation_policy, fit_policy, coverage_policy)
     visual, ids = body.foreground(snapshot)
     body.validate_budget(snapshot, maximum)
     if set(config['materials']) != {m['id'] for m in visual['materials']}:
@@ -92,8 +93,8 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
         region = placements[key]['sourceRegion']
         mapping = dict(reference=observation_image(reference, folder / 'reference.png'),
                        source=observation_image(source, folder / 'generated.png',
-                           alpha_visibility=observation_policy == profile.POLICY), referenceCropRegion=region)
-        if observation_policy == profile.POLICY:
+                           alpha_visibility=profile.alpha_profile(observation_policy)), referenceCropRegion=region)
+        if profile.alpha_profile(observation_policy):
             profile.prepare(folder, mapping)
         with Image.open(reference) as image:
             registration._box(region, image.size)
@@ -111,13 +112,15 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
                   + json.dumps(dict(material=next(m for m in visual['materials'] if m['id'] == key),
                                     objects=[o for o in visual['objects'] if o['materialId'] == key],
                                     mapping=mapping), ensure_ascii=False))
-        if observation_policy == profile.POLICY:
+        if profile.alpha_profile(observation_policy):
             prompt += profile.GUIDANCE + json.dumps(dict(bodyFitPolicy=fit_policy,
                 visualPolicy=snapshot_policy(snapshot)), ensure_ascii=False)
+        if observation_policy == profile.SOFT_EFFECTS:
+            prompt += profile.SOFT_EFFECT_GUIDANCE
         (folder / 'prompt.md').write_text(prompt, encoding='utf-8')
         save(folder / 'schema.json', profile.schema(observation_policy))
         save(folder / 'mapping.json', mapping)
-        files = (*FILES, *profile.PREVIEWS) if observation_policy == profile.POLICY else FILES
+        files = (*FILES, *profile.PREVIEWS) if profile.alpha_profile(observation_policy) else FILES
         requests[key] = dict(inputs={n: digest(folder / n) for n in files}, sourceSha256=hashes[key],
                              sourceRegion=region, materialAuthors=authors[key])
     record(output / 'job.json', dict(kind=KIND, nonce=secrets.token_hex(16), snapshot=str(snapshot),
@@ -126,7 +129,8 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
         registrationPolicy=body.POLICY, outputRegistrationPolicy=body.SUPPORT_POLICY, canvasPolicy=canvas_policy,
         model=model, effort=effort, driver='host-model-exchange-v1', automaticRetries=0, generationCalls=0,
         configPath=str(config_path), configSha256=digest(config_path),
-        bodyObservationPolicy=observation_policy, bodyFitPolicy=fit_policy, **canvas_fields))
+        bodyObservationPolicy=observation_policy, bodyFitPolicy=fit_policy,
+        **(dict(bodyCoveragePolicy=coverage_policy) if coverage_policy is not None else {}), **canvas_fields))
     return status(output)
 
 
@@ -144,12 +148,12 @@ def load(job):
     source_config = read(Path(config['configPath']))
     observation_policy = profile.validate(config.get('bodyObservationPolicy', profile.LEGACY))
     if (observation_policy != source_config.get('bodyObservationPolicy', profile.LEGACY)
-            or config.get('bodyFitPolicy') != source_config.get('bodyFitPolicy')):
+            or config.get('bodyFitPolicy') != source_config.get('bodyFitPolicy')
+            or config.get('bodyCoveragePolicy') != source_config.get('bodyCoveragePolicy')):
         raise ValueError('BODY_PROFILE_BINDING_CHANGED')
     from .visual_policy import snapshot_policy
     registration.validate_fit_policy(config.get('bodyFitPolicy'), snapshot_policy(snapshot))
-    if config.get('bodyFitPolicy') is not None and observation_policy != profile.POLICY:
-        raise ValueError('BODY_FIT_REQUIRES_ALPHA_OBSERVATION_PROFILE')
+    profile.validate_binding(observation_policy, config.get('bodyFitPolicy'), config.get('bodyCoveragePolicy'))
     if (digest(snapshot / 'reference.png') != config['referenceSha256'] or
             digest(job / 'reference-original.png') != config['referenceSha256']):
         raise ValueError('BODY_REFERENCE_CHANGED')
@@ -160,11 +164,11 @@ def load(job):
         if digest(Path(path)) != config['sourceHashes'][key]:
             raise ValueError('BODY_SOURCE_CHANGED')
     for key, request in config['requests'].items():
-        files = (*FILES, *profile.PREVIEWS) if observation_policy == profile.POLICY else FILES
+        files = (*FILES, *profile.PREVIEWS) if profile.alpha_profile(observation_policy) else FILES
         if set(request['inputs']) != set(files) or any(
                 digest(job / 'requests' / key / n) != sha for n, sha in request['inputs'].items()):
             raise ValueError('BODY_REQUEST_CHANGED')
-        if observation_policy == profile.POLICY:
+        if profile.alpha_profile(observation_policy):
             folder = job/'requests'/key
             if digest(folder/'source-original.png') != config['sourceHashes'][key]:
                 raise ValueError('BODY_DISPLAY_SOURCE_CHANGED')
@@ -277,7 +281,7 @@ def next_request(job):
                     attachments=[dict(name=n, path=str((job / 'requests' / key / n).resolve()),
                                       sha256=config['requests'][key]['inputs'][n])
                                  for n in ('reference.png', 'reference-crop.png', 'generated.png',
-                                     *(profile.PREVIEWS if config.get('bodyObservationPolicy') == profile.POLICY else ()))],
+                                     *(profile.PREVIEWS if profile.alpha_profile(config.get('bodyObservationPolicy')) else ()))],
                     inputsSha256=body_digest(config['requests'][key]['inputs']),
                     materialAuthors=config['requests'][key]['materialAuthors'])
 
@@ -344,9 +348,15 @@ def receive(job, submission_digest, response_path, *, host_attestation_path, dis
             observation = dict(kind='ui_body_observation_v1', snapshotDigest=config['snapshotDigest'], materialId=key,
                 sourceSha256=config['sourceHashes'][key], referenceSha256=config['referenceSha256'],
                 sourceBodyBox=source_box, targetBodyBox=target, boundaryStatus='complete', issues=[])
+            modern = config.get('bodyCoveragePolicy') == body_coverage.POLICY
+            if modern:
+                body_coverage.declarations(answer[body_coverage.FIELD])
+                observation.update(kind=body_coverage.OBSERVATION_KIND,
+                                   **{body_coverage.FIELD: answer[body_coverage.FIELD]})
             save(folder / 'observation.json', observation)
             save(folder / 'body-contract.json', {k: v for k, v in observation.items() if k != 'boundaryStatus'} | dict(
-                kind=registration.KIND, evidence=dict(path=str((folder / 'observation.json').resolve()),
+                kind=body_coverage.CONTRACT_KIND if modern else registration.KIND,
+                evidence=dict(path=str((folder / 'observation.json').resolve()),
                 sha256=digest(folder / 'observation.json'), basis=answer['evidence'])))
             entry = dict(path=str((folder / 'body-contract.json').resolve()), sha256=digest(folder / 'body-contract.json'))
             from .visual_policy import snapshot_policy
@@ -359,12 +369,13 @@ def receive(job, submission_digest, response_path, *, host_attestation_path, dis
                 from .body_viewport_delivery import validate_contract
                 checked = validate_contract(job / 'requests' / key / 'source-original.png', job / 'reference-original.png',
                     entry, region, key, config['snapshotDigest'], visual_policy=visual_policy,
-                    fit_policy=config.get('bodyFitPolicy'))
+                    fit_policy=config.get('bodyFitPolicy'), coverage_policy=config.get('bodyCoveragePolicy'))
                 save(folder / 'registration-check.json', checked)
             else:
                 registration.process(job / 'requests' / key / 'source-original.png', job / 'reference-original.png',
                     entry, region, key, config['snapshotDigest'], folder / 'registration-check', policy=body.SUPPORT_POLICY,
-                    visual_policy=visual_policy, fit_policy=config.get('bodyFitPolicy'))
+                    visual_policy=visual_policy, fit_policy=config.get('bodyFitPolicy'),
+                    coverage_policy=config.get('bodyCoveragePolicy'))
             load(job)
             return _seal(folder, submission, 'sealed')
         except Exception as exc:
@@ -393,11 +404,14 @@ def finish(job, output):
         entries = {key: dict(path=str((job / 'attempts' / key / 'body-contract.json').resolve()),
                            sha256=digest(job / 'attempts' / key / 'body-contract.json')) for key in config['requests']}
         result = dict(read(Path(config['configPath'])), registrationPolicy=body.SUPPORT_POLICY, wholePlacements=entries)
-        if config.get('bodyObservationPolicy') == profile.POLICY:
+        if profile.alpha_profile(config.get('bodyObservationPolicy')):
             result['bodyObservationWarnings'] = [dict(materialId=key,
                 responseSha256=digest(job/'attempts'/key/'response.json'),
                 **{name: read(job/'attempts'/key/'response.json')[name]
                    for name in ('geometryDifferences', 'materialIssues')}) for key in config['requests']]
+            if config.get('bodyCoveragePolicy') == body_coverage.POLICY:
+                for row in result['bodyObservationWarnings']:
+                    row[body_coverage.FIELD] = read(job/'attempts'/row['materialId']/'response.json')[body_coverage.FIELD]
         if config['canvasPolicy'] == EXPANDED_POLICY:
             result.update(canvasPolicy=config['canvasPolicy'], canvasPolicyInstruction=config['canvasPolicyInstruction'],
                           canvasPolicyInstructionSha256=config['canvasPolicyInstructionSha256'])

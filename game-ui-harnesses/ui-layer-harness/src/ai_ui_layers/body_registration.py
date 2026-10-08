@@ -6,6 +6,7 @@ from PIL import Image
 from .evaluate import read, save, digest
 from .freeze_visual import body_digest
 from .postprocess_visual import assess
+from . import body_coverage
 
 POLICY = 'reference-body-v1'
 POLICY_SUPPORT = 'reference-body-support-v1'
@@ -29,8 +30,15 @@ def validate_fit_policy(policy, visual_policy):
     return policy
 
 
-def dense_body_margin(raw, body, fit_policy=None):
+def dense_body_margin(raw, body, fit_policy=None, *, coverage_policy=None, outside_support=None):
     """Guard against an inner-icon anchor; retain every alpha pixel at render."""
+    body_coverage.validate_policy(coverage_policy)
+    if coverage_policy is not None:
+        if fit_policy is None:
+            raise ValueError('EXTERNAL_EFFECTS_REQUIRE_EXPLICIT_BODY_FIT')
+        return body_coverage.check(raw, body, fit_policy['denseBoundaryMarginPixels'], outside_support)
+    if outside_support is not None:
+        raise ValueError('EXTERNAL_EFFECTS_REQUIRE_EXPLICIT_COVERAGE_POLICY')
     core = raw.getchannel('A').point(lambda a: 255 if a >= 128 else 0).getbbox()
     if core is None:
         raise ValueError('BODY_CORE_NOT_OBSERVABLE')
@@ -125,11 +133,9 @@ def checked_inputs(config, placements, foreground_ids):
     return result
 
 
-def process(source, reference, entry, region, material_id, snapshot_digest, output, policy=POLICY, visual_policy=None, fit_policy=None):
-    """Apply one observed body mapping to every existing RGBA pixel, never repaint."""
-    if policy not in (POLICY, POLICY_SUPPORT):
-        raise ValueError('UNKNOWN_REGISTRATION_POLICY')
-    source, reference, output = Path(source), Path(reference), Path(output)
+def load_body_contract(source, reference, entry, material_id, snapshot_digest, coverage_policy=None):
+    """Check identical observation bindings for fixed-canvas and viewport routes."""
+    body_coverage.validate_policy(coverage_policy)
     path = Path(entry['path'])
     contract_sha = digest(path)
     if contract_sha != entry['sha256']:
@@ -137,7 +143,11 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
     contract = read(path)
     fields = {'kind', 'snapshotDigest', 'materialId', 'sourceSha256', 'referenceSha256',
               'sourceBodyBox', 'targetBodyBox', 'evidence', 'issues'}
-    if not isinstance(contract, dict) or set(contract) != fields or contract['kind'] != KIND:
+    modern = coverage_policy == body_coverage.POLICY
+    if modern:
+        fields.add(body_coverage.FIELD)
+    if (not isinstance(contract, dict) or set(contract) != fields
+            or contract['kind'] != (body_coverage.CONTRACT_KIND if modern else KIND)):
         raise ValueError('BODY_CONTRACT_KIND_OR_FIELDS')
     if contract['snapshotDigest'] != snapshot_digest or contract['materialId'] != material_id:
         raise ValueError('BODY_CONTRACT_SCOPE_MISMATCH')
@@ -156,12 +166,32 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
     observation=read(evidence_path)
     observation_fields={'kind','snapshotDigest','materialId','sourceSha256','referenceSha256',
                         'sourceBodyBox','targetBodyBox','boundaryStatus','issues'}
-    if not isinstance(observation,dict) or set(observation)!=observation_fields or observation['kind']!='ui_body_observation_v1':
+    if modern:
+        observation_fields.add(body_coverage.FIELD)
+    if (not isinstance(observation,dict) or set(observation)!=observation_fields
+            or observation['kind']!=(body_coverage.OBSERVATION_KIND if modern else 'ui_body_observation_v1')):
         raise ValueError('BODY_OBSERVATION_FORMAT')
     for name in ('snapshotDigest','materialId','sourceSha256','referenceSha256','sourceBodyBox','targetBodyBox'):
         if observation[name]!=contract[name]:raise ValueError('BODY_OBSERVATION_SCOPE_MISMATCH')
     if observation['boundaryStatus']!='complete' or observation['issues']!=[]:
         raise ValueError('BODY_OBSERVATION_UNRESOLVED')
+    if modern:
+        body_coverage.declarations(contract[body_coverage.FIELD])
+        if observation[body_coverage.FIELD] != contract[body_coverage.FIELD]:
+            raise ValueError('BODY_OBSERVATION_SCOPE_MISMATCH')
+    return contract, observation
+
+
+def process(source, reference, entry, region, material_id, snapshot_digest, output, policy=POLICY,
+            visual_policy=None, fit_policy=None, coverage_policy=None):
+    """Apply one observed body mapping to every existing RGBA pixel, never repaint."""
+    if policy not in (POLICY, POLICY_SUPPORT):
+        raise ValueError('UNKNOWN_REGISTRATION_POLICY')
+    source, reference, output = Path(source), Path(reference), Path(output)
+    contract, observation = load_body_contract(source, reference, entry, material_id, snapshot_digest, coverage_policy)
+    path = Path(entry['path']); contract_sha = entry['sha256']
+    evidence = contract['evidence']; evidence_path = Path(evidence['path'])
+    source_sha, reference_sha = contract['sourceSha256'], contract['referenceSha256']
     with Image.open(source) as im:
         raw = im.convert('RGBA')
     with Image.open(reference) as im:
@@ -183,7 +213,8 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
     # enlarge its backing. Dense artwork outside it requires explicit review;
     # wholly translucent subjects need another registration policy.
     validate_fit_policy(fit_policy, visual_policy)
-    dense_margin = dense_body_margin(raw, body, fit_policy)
+    dense_margin = dense_body_margin(raw, body, fit_policy, coverage_policy=coverage_policy,
+                                    outside_support=contract.get(body_coverage.FIELD))
     bw, bh = body[2]-body[0], body[3]-body[1]
     scale, appearance = fit_body([bw, bh], target_size, visual_policy, fit_policy)
     content_box = raw.getchannel('A').getbbox()  # Preserve ALL nonzero alpha, including faint shadows.
@@ -285,5 +316,7 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
             report['fitting']['denseBoundaryCheck'] = dense_margin
         if any(value > 1 for value in appearance['sizeDifferencePixels']):
             report['warnings'].append('APPROXIMATE_BODY_PROPORTIONS_RECORDED')
+    if coverage_policy is not None:
+        report['fitting']['bodyCoveragePolicy'] = coverage_policy
     save(output/'report.json', report)
     return report

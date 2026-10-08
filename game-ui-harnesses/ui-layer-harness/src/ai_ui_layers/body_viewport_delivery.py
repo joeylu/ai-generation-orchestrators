@@ -14,7 +14,8 @@ import numpy as np
 
 from PIL import Image
 
-from .body_registration import KIND, POLICY, POLICY_SUPPORT, _box, checked_inputs, fit_body, validate_fit_policy, dense_body_margin
+from .body_registration import POLICY, POLICY_SUPPORT, _box, checked_inputs, fit_body, validate_fit_policy, dense_body_margin, load_body_contract
+from . import body_coverage
 from .evaluate import digest, read, save
 from .freeze_visual import inspect, body_digest
 from .layer_package import write_package, composite, portable_text, check_composition
@@ -25,40 +26,13 @@ BACKGROUND_POLICY = 'uniform-whole-canvas-opaque-contain-edgepad-v1'
 from . import background_region_pipeline as bg_region
 
 
-def validate_contract(source, reference, entry, region, material_id, snapshot_digest, visual_policy=None, fit_policy=None):
+def validate_contract(source, reference, entry, region, material_id, snapshot_digest, visual_policy=None,
+                      fit_policy=None, coverage_policy=None):
     """Retain strict source/body gates while leaving storage bounds to the caller."""
     source, reference = Path(source), Path(reference)
     path = Path(entry['path'])
-    if digest(path) != entry['sha256']:
-        raise ValueError('BODY_CONTRACT_CHANGED')
-    contract = read(path)
-    fields = {'kind', 'snapshotDigest', 'materialId', 'sourceSha256', 'referenceSha256',
-              'sourceBodyBox', 'targetBodyBox', 'evidence', 'issues'}
-    if not isinstance(contract, dict) or set(contract) != fields or contract['kind'] != KIND:
-        raise ValueError('BODY_CONTRACT_KIND_OR_FIELDS')
-    if contract['snapshotDigest'] != snapshot_digest or contract['materialId'] != material_id:
-        raise ValueError('BODY_CONTRACT_SCOPE_MISMATCH')
-    if contract['sourceSha256'] != digest(source) or contract['referenceSha256'] != digest(reference):
-        raise ValueError('BODY_INPUT_CHANGED')
+    contract, observation = load_body_contract(source, reference, entry, material_id, snapshot_digest, coverage_policy)
     evidence = contract['evidence']
-    if (not isinstance(evidence, dict) or set(evidence) != {'path', 'sha256', 'basis'}
-            or not isinstance(evidence['basis'], str) or not evidence['basis'].strip()):
-        raise ValueError('BODY_OBSERVATION_EVIDENCE_REQUIRED')
-    if digest(Path(evidence['path'])) != evidence['sha256']:
-        raise ValueError('BODY_OBSERVATION_CHANGED')
-    if not isinstance(contract['issues'], list) or contract['issues']:
-        raise ValueError('BODY_OBSERVATION_UNRESOLVED')
-    observation = read(Path(evidence['path']))
-    fields = {'kind', 'snapshotDigest', 'materialId', 'sourceSha256', 'referenceSha256',
-              'sourceBodyBox', 'targetBodyBox', 'boundaryStatus', 'issues'}
-    if (not isinstance(observation, dict) or set(observation) != fields
-            or observation['kind'] != 'ui_body_observation_v1'):
-        raise ValueError('BODY_OBSERVATION_FORMAT')
-    for name in ('snapshotDigest', 'materialId', 'sourceSha256', 'referenceSha256', 'sourceBodyBox', 'targetBodyBox'):
-        if observation[name] != contract[name]:
-            raise ValueError('BODY_OBSERVATION_SCOPE_MISMATCH')
-    if observation['boundaryStatus'] != 'complete' or observation['issues'] != []:
-        raise ValueError('BODY_OBSERVATION_UNRESOLVED')
     with Image.open(source) as image:
         if image.format != 'PNG' or image.getexif().get(274, 1) != 1:
             raise ValueError('ORIENTED_PNG_REQUIRED')
@@ -80,7 +54,8 @@ def validate_contract(source, reference, entry, region, material_id, snapshot_di
     if not raw.crop(body).getchannel('A').getbbox():
         raise ValueError('EMPTY_SOURCE_BODY')
     validate_fit_policy(fit_policy, visual_policy)
-    dense_margin = dense_body_margin(raw, body, fit_policy)
+    dense_margin = dense_body_margin(raw, body, fit_policy, coverage_policy=coverage_policy,
+                                    outside_support=contract.get(body_coverage.FIELD))
     bw, bh = body[2] - body[0], body[3] - body[1]
     scale, appearance = fit_body([bw, bh], target_size, visual_policy, fit_policy)
     translation = [(target[i] + target[i + 2]) / 2 - (body[i] + body[i + 2]) / 2 * scale for i in (0, 1)]
@@ -93,6 +68,8 @@ def validate_contract(source, reference, entry, region, material_id, snapshot_di
         geometry['appearanceTolerance'] = appearance
         if fit_policy is not None:
             geometry['denseBoundaryCheck'] = dense_margin
+    if coverage_policy is not None:
+        geometry['bodyCoveragePolicy'] = coverage_policy
     return dict(contract=contract, observation=observation, rawReport=report, geometry=geometry)
 
 
@@ -178,6 +155,7 @@ def build(config_path, output, viewer, warnings=()):
     from .visual_policy import snapshot_policy
     visual_policy = snapshot_policy(snapshot, frozen)
     fit_policy = validate_fit_policy(config.get('bodyFitPolicy'), visual_policy)
+    coverage_policy = body_coverage.validate_policy(config.get('bodyCoveragePolicy'))
     path = snapshot / 'evidence/revised-visual-plan.json'
     visual = read(path if path.exists() else snapshot / 'evidence/m1-draft.json')
     rows = read(snapshot / 'placements.json')['materials']
@@ -238,7 +216,8 @@ def build(config_path, output, viewer, warnings=()):
             raise ValueError('BODY_OWNERSHIP_MISMATCH')
         if materials[mid]['role'] == 'foreground':
             checked[mid] = validate_contract(source, reference, entries[mid], row['sourceRegion'], mid, frozen['digest'],
-                                             visual_policy=visual_policy, fit_policy=fit_policy)
+                                             visual_policy=visual_policy, fit_policy=fit_policy,
+                                             coverage_policy=coverage_policy)
             contract = checked[mid]['contract']
             inputs[Path(entries[mid]['path']).resolve()] = entries[mid]['sha256']
             inputs[Path(contract['evidence']['path']).resolve()] = contract['evidence']['sha256']

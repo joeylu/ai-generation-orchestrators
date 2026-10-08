@@ -1,5 +1,11 @@
 # Explicit host delivery
 
+Fresh approximate runs use [body observation v3](BODY-SOFT-EFFECTS.md), separating
+the semantic body anchor from explicitly observed external shadows/glow. The
+frozen `bodyCoveragePolicy=observed-external-soft-effects-v1` is rechecked during
+receipt, processing and packaging. Strict and explicit v1/v2 profiles retain
+their coverage gates; old failed jobs are never migrated.
+
 `ui_layer.py host-run --config CONFIG.json --output NEW_RUN` prepares a separate
 provider-neutral workflow. Set `planningMode=fresh-host-m1-independent-review`
 to start with a new model-generated M1 plan from the original reference. The
