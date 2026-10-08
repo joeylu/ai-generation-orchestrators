@@ -7,6 +7,7 @@
 
 | 脚本 | 用途 |
 | --- | --- |
+| `start-studio.mjs` | `npm run studio` 一次完成检查、构建与固定地址启动；不调用模型 |
 | `check-workspace.mjs` | 只读依赖预检；也可用 `npm run doctor` |
 | `cli.mjs` | PanelSpec 校验、规划上下文、编译、Bundle 校验；子命令见其 usage |
 | `build-workbench.mjs`、`serve-workbench.mjs` | 构建 Studio，提供本机生成与修改入口 |
@@ -27,6 +28,7 @@
 - `check-asset-png.mjs`：真实 PNG 的离线解码检查。
 - `check-codex-runtime.mjs`：只读 CLI 登录可见性预检，不调用模型。
 - `check-*-browser.mjs`：相应构建的浏览器验收；浏览器程序可以自动化，但不调用模型。
+- `check-studio-start-browser.mjs`：真实构建、同地址重启、草稿与轮次恢复、版本更新提示和保存失败保护。
 - `write-*-fixture.mjs`、`write-*-fixtures.mjs`、`write-real-input-suites.mjs`：确定性夹具/请求集生成。
 - `check-edit-boundaries.mjs`、`check-host-integration.mjs`、`check-unity-coexistence.mjs`：专项离线检查。
 - `build-*-demo.mjs`、`build-*-preview.mjs`、`build-*-composition.mjs`：演示与验收构建。

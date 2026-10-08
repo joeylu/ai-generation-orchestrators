@@ -1,5 +1,6 @@
 /** Static markup; all untrusted JSON is escaped out of HTML/script syntax. */
-export function renderWorkbenchHtml(seed) {
+import { studioBuildMarkup } from './studio-build-info.mjs';
+export function renderWorkbenchHtml(seed, buildInfo = null) {
   const embedded = JSON.stringify(seed).replace(/</g, '\\u003c');
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>Panel Studio · UI 面板工作台</title>
 <style>
@@ -18,7 +19,7 @@ header{padding:18px 24px;display:flex;align-items:center;gap:24px;border-bottom:
 .selection-layer{position:absolute;z-index:3;background:#101b221a}.selection-target{position:absolute;padding:0;min-height:0;min-width:0;border:2px dashed #0d7767;border-radius:8px;background:#6ad8bd0d;cursor:crosshair}.selection-target:hover,.selection-target:focus-visible{background:#6ad8bd33;border:3px solid #0d7767;outline:2px solid #fff;outline-offset:-5px}.selection-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}.edit-target{border-left:3px solid var(--accent);padding:8px 12px;margin:0 0 12px;background:var(--raised);font-size:13px;overflow-wrap:anywhere}.edit-target .hint{margin-top:4px}#selection-help{margin:0 0 12px;color:var(--accent)}
 </style></head><body>
 <a class="skip-link" href="#request-text">跳到需求描述</a>
-<header><div class="brand"><h1>Panel Studio</h1></div><p id="status" role="status" aria-live="polite">正在初始化…</p></header>
+<header><div class="brand"><h1>Panel Studio</h1>${studioBuildMarkup(buildInfo)}</div><p id="studio-update" class="hint" role="status" hidden>Studio 已更新。<button id="refresh-studio" type="button">保存并刷新</button><span id="studio-update-error" class="error"></span></p><p id="status" role="status" aria-live="polite">正在初始化…</p></header>
 <main class="workspace">
 <div class="column request-column">
 <section class="card" aria-label="生成面板">

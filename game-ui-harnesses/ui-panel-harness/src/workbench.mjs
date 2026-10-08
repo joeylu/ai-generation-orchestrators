@@ -12,11 +12,13 @@ import { createWorkbenchStorage, WORKBENCH_STORAGE_KEY } from './workbench-stora
 import { beginnerExamples, questionPresentation, appendEditAnswers, clarificationDisplayText, summarizePanel } from './workbench-guidance.mjs';
 import { selectionLabel } from './workbench-selection.mjs';
 import { editChangeValue } from './edit-review.mjs';
+import { detectStudioBuild } from './studio-build-info.mjs';
 
 const el = id => document.getElementById(id);
 const seed = JSON.parse(el('workbench-seed').textContent);
 let model, busy = false, disposed = false, draftDirty = true, renderedSha = null, snapshot;
 let bridge = null, generation = null, codexReceipt = null;
+let studioOutdated = false, versionCheck = null;
 let questionKey = null, editQuestionKey = null, summaryKey = null;
 let editDraftDirty = true, editSnapshot = null;
 let editCodexReceipt = null;
@@ -30,6 +32,28 @@ let selectedRowId = null, selecting = false;
 const hostEvents = [];
 const requestIdentity = createWorkbenchRequestIdentity();
 const errors = ['request-error', 'proposal-error', 'clarification-error', 'edit-plan-error', 'edit-clarification-error', 'edit-error', 'preview-error'];
+async function checkStudioVersion() {
+  const expected = el('studio-version')?.dataset.build;
+  if (!expected || disposed) return !studioOutdated;
+  if (!versionCheck) versionCheck = (async () => {
+    const current = await detectStudioBuild(location);
+    if (current && !disposed) {
+      studioOutdated = current.buildSha256 !== expected;
+      el('studio-update').hidden = !studioOutdated;
+      if (!studioOutdated) el('studio-update-error').textContent = '';
+      updateButtons();
+    }
+    return !studioOutdated;
+  })().finally(() => { versionCheck = null; });
+  return versionCheck;
+}
+window.addEventListener('focus', () => { if (!busy) void checkStudioVersion(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !busy) void checkStudioVersion(); });
+el('refresh-studio').addEventListener('click', () => {
+  if (busy || disposed) return;
+  if (flushWorkspace()) location.reload();
+  else el('studio-update-error').textContent = '本机保存未完成。请先导出当前面板，并备份尚未保存的文字，再刷新页面。';
+});
 const renderer = createWorkbenchRenderer(el('canvas-host'), (event, state) => {
   hostEvents.push(event); if (hostEvents.length > 100) hostEvents.shift();
   el('event-output').textContent = JSON.stringify(event, null, 2); renderValues(state); scheduleSave();
@@ -76,6 +100,7 @@ el('panel-file').addEventListener('change', closeMenu);
 updateView();
 function errorText(error) {
   const code = error.code ?? error.issues?.[0]?.code ?? String(error.message).split(':')[0];
+  if (code === 'STUDIO_OUTDATED') return 'Studio 已更新，请先使用页首「保存并刷新」。当前面板保留，本次未调用模型。';
   if (code === 'EDIT_REQUEST_INCOMPLETE' || error.diagnostic?.validatorCode === 'EDIT_REQUEST_INCOMPLETE') {
     const missing = error.requestCheck?.items.filter(item=>!item.matched).map(item=>`${item.label}要求 ${editChangeValue(item.expected)}，方案为 ${editChangeValue(item.actual)}`).join('；');
     return `明确的修改要求未全部落实${missing?'：'+missing:''}。本轮未应用，原面板和试玩值已保留，未自动重试。`;
@@ -239,14 +264,15 @@ function renderSavedVersions() {
 }
 function flushWorkspace() {
   clearTimeout(saveTimer); saveTimer = null;
-  if (storagePaused || !workspaceStorage || disposed || !model) return;
+  if (storagePaused || !workspaceStorage || disposed || !model) return false;
   const panel = model.getSnapshot().panel;
-  if (panel && panel.sha256 !== renderedSha) return;
+  if (panel && panel.sha256 !== renderedSha) return false;
   try {
     const { workspace, removed } = workspaceStorage.save({ draft: currentDraft(), panel, state: panel ? currentState() : null, editUsage: model.getEditUsage() });
     storageStatus(`已保存到本机${workspace.versions.length ? ` · ${workspace.versions.length} 个版本` : ' · 草稿'}${removed ? '（较早版本已腾出空间）' : ''}`);
     if (el('saved-history').open) renderSavedVersions();
-  } catch (error) { storageFailure(error); }
+    return true;
+  } catch (error) { storageFailure(error); return false; }
 }
 function scheduleSave() {
   if (storagePaused || disposed) return;
@@ -291,6 +317,7 @@ window.addEventListener('storage', event => {
   }
 });
 function updateButtons() {
+  el('refresh-studio').disabled = busy || disposed;
   for (const id of ['open-saved-history', 'reload-saved-history', 'reset-saved-history', 'confirm-reset-saved']) el(id).disabled = busy || !model || disposed;
   for (const button of el('saved-versions').querySelectorAll('button')) button.disabled = busy || !model || disposed || storagePaused;
   const ready = Boolean(model && !disposed), context = ready && snapshot?.context && !draftDirty;
@@ -321,7 +348,7 @@ function updateButtons() {
   document.querySelectorAll('[data-mutation]').forEach(n => { n.disabled = busy || !ready; });
   el('example').disabled = busy || !ready || !seed.example;
   el('prepare').disabled = busy || !ready || !el('request-text').value.trim();
-  el('generate-plan').disabled = busy || !ready || !bridge?.available || !el('request-text').value.trim();
+  el('generate-plan').disabled = busy || studioOutdated || !ready || !bridge?.available || !el('request-text').value.trim();
   for (const kind of ['plan', 'edit']) {
     const active = generation?.kind === kind;
     el(`cancel-${kind}`).hidden = !active;
@@ -343,7 +370,7 @@ function updateButtons() {
   const editContext = panel && editSnapshot?.context && !editDraftDirty;
   el('edit-request-text').disabled = busy || !panel;
   el('prepare-edit-context').disabled = busy || !panel || editLimitReached || !el('edit-request-text').value.trim();
-  el('generate-edit').disabled = busy || !panel || editLimitReached || !bridge?.editingAvailable || !el('edit-request-text').value.trim();
+  el('generate-edit').disabled = busy || studioOutdated || !panel || editLimitReached || !bridge?.editingAvailable || !el('edit-request-text').value.trim();
   el('download-edit-context').disabled = busy || !editContext;
   el('edit-proposal-file').disabled = el('apply-edit-proposal').disabled = busy || !editContext || editLimitReached;
   const canAnswerEdit = editContext && editSnapshot.report?.status === 'NEEDS_INPUT';
@@ -588,6 +615,7 @@ el('clarification-form').addEventListener('submit', event => {
   });
 });
 el('generate-plan').addEventListener('click', () => run('request-error', async () => {
+  if (!(await checkStudioVersion())) throw Object.assign(new Error('STUDIO_OUTDATED'), { code: 'STUDIO_OUTDATED' });
   if (!bridge?.available) throw Object.assign(new Error('CODEX_BRIDGE_UNAVAILABLE'), { code: 'CODEX_BRIDGE_UNAVAILABLE' });
   const active = { controller: new AbortController(), phase: 'calling', kind: 'plan' }; generation = active; codexReceipt = null;
   updateButtons();
@@ -673,6 +701,7 @@ el('prepare-edit-context').addEventListener('click', () => run('edit-plan-error'
   editCodexReceipt = null; await prepareCurrentEdit();
 }));
 el('generate-edit').addEventListener('click', () => run('edit-plan-error', async () => {
+  if (!(await checkStudioVersion())) throw Object.assign(new Error('STUDIO_OUTDATED'), { code: 'STUDIO_OUTDATED' });
   if (!bridge?.editingAvailable) throw Object.assign(new Error('CODEX_BRIDGE_UNAVAILABLE'), { code: 'CODEX_BRIDGE_UNAVAILABLE' });
   const active = { controller: new AbortController(), phase: 'calling', kind: 'edit' };
   generation = active; editCodexReceipt = null; updateButtons();
@@ -793,6 +822,7 @@ async function initialize() { try {
     catch (error) { storagePaused = true; storageFailure(error?.name === 'SecurityError' ? new Error('WORKSPACE_UNAVAILABLE') : error); }
     sync();
     bridge = await detectCodexBridge(location);
+    await checkStudioVersion();
     if (!disposed) {
       el('model-status').textContent = bridge?.available || bridge?.editingAvailable ? 'gpt-6-luna · xhigh · 本地 Codex CLI'
         : bridge ? '未找到 Codex CLI，可使用文件导入。' : '离线预览模式：启动本地工作台后可直接调用 Codex。';

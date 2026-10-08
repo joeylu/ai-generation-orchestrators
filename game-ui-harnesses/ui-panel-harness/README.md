@@ -11,7 +11,9 @@
 - [本次源码收尾](docs/v1-candidate-2026-10-08.md)：此前版本的范围、验收与保留边界。
 - [本地第一版交付目录](output/ui-panel-closeout-v1/index.html)：历史面板、组合和修改预览；本地产物不随 Git 提交。
 
-Studio 网址以启动命令打印的地址为准，旧静态页面不会自动更新。
+日常运行 `npm run studio`，固定入口 `http://127.0.0.1:4951/`；检查、构建、启动一次完成。
+同地址重启保留本机草稿、面板、试玩值和轮次，页首显示构建版本。见[日常启动](docs/studio-start.md)。
+旧静态页面不会自动更新。
 
 ## 当前能力
 
@@ -54,6 +56,7 @@ modern-v3 的新编辑使用 EditContext 0.12，可选择单控件，并独立�
 ## 快速构建
 
 需要Node >=22.18和同仓库`ui-component-harness`源码；已安装的Vite/Pixi/Playwright版本由[开发依赖合同](src/workspace/requirements.mjs)明确限定。预检不会安装依赖或调用模型。
+日常从本目录运行 `npm run studio`，按 Ctrl+C 停止；再次运行会构建新版本，并沿用固定地址。
 在`ui-panel-harness`目录运行；输出目录必须不存在：
 
 ```sh

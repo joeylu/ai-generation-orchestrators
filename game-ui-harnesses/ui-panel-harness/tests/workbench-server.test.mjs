@@ -13,6 +13,7 @@ import { createPanelEditContext, checkPanelEditProposal } from '../src/edit-plan
 import { createCodexDiagnostic } from '../src/codex-diagnostics.mjs';
 import { createWorkbenchAssetPool, workbenchRetrieval } from '../src/workbench-assets.mjs';
 import { digestBytes, digestJson } from '../src/canonical.mjs';
+import { createStudioBuildInfo } from '../src/studio-build-info.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const catalog = JSON.parse(await readFile(join(root, 'catalog/modern-core.json'), 'utf8'));
@@ -24,9 +25,12 @@ const context = await createPlanningContext(request, catalog);
 const copy = value => structuredClone(value);
 let fixtureIndex = 0;
 
-async function buildFixture({ pool = null, changeManifest, changeHtml } = {}) {
+async function buildFixture({ pool = null, changeManifest, changeHtml, studio = false } = {}) {
   const path = join(work, `build-${fixtureIndex++}`); await mkdir(path);
-  let html = renderWorkbenchHtml({ workbenchSeedVersion: '0.1', catalog, pool, example: null });
+  const seed = { workbenchSeedVersion: '0.1', catalog, pool, example: null };
+  const buildInfo = studio ? await createStudioBuildInfo('0.1.0', { shellSha256: await digestBytes(Buffer.from(renderWorkbenchHtml(seed))),
+    scriptSha256: await digestBytes(Buffer.from('/* deterministic transport test fixture */')) }) : null;
+  let html = renderWorkbenchHtml(seed, buildInfo);
   if (changeHtml) html = changeHtml(html);
   const contents = [{ path: 'index.html', bytes: Buffer.from(html) }, { path: 'workbench.js', bytes: Buffer.from('/* deterministic transport test fixture */') }];
   const manifest = { workbenchBuildVersion: '0.1', status: 'COMPLETE', catalogSha256: await digestJson(catalog),
@@ -35,6 +39,7 @@ async function buildFixture({ pool = null, changeManifest, changeHtml } = {}) {
     sourceReplay: pool ? 'VERIFIED_AT_BUILD' : 'NOT_APPLICABLE', example: null,
     files: await Promise.all(contents.map(async item => ({ path: item.path, bytes: item.bytes.length, sha256: await digestBytes(item.bytes) }))),
     browser: 'NOT_RUN', humanVisualReview: 'NOT_RUN', nativeEngines: 'NOT_RUN' };
+  if (buildInfo) manifest.studio = buildInfo;
   changeManifest?.(manifest);
   for (const item of contents) await writeFile(join(path, item.path), item.bytes);
   await writeFile(join(path, 'workbench-build.json'), JSON.stringify(manifest));
@@ -210,6 +215,24 @@ test('startup is read only, serves only verified snapshots and capabilities, and
     await expected(await fetch(`${server.url}${name}`), 404, 'WORKBENCH_SERVER_NOT_FOUND');
   }
   assert.equal(calls, 0);
+});
+
+test('verified metadata and a fixed-origin restart stay read only; legacy manifests still work', async t => {
+  const workbench = await buildFixture({ studio: true });
+  let calls = 0;
+  const planner = async () => { calls++; throw new Error('No inference authorized'); };
+  const first = await start(t, { workbench, planner });
+  const metadata = await (await fetch(`${first.url}api/panel/studio`)).json();
+  assert.deepEqual(metadata, { protocol: '0.1', kind: 'ui-panel-studio', build: first.studio, active: false });
+  assert.equal(metadata.build.appVersion, '0.1.0');
+  await first.close();
+  const next = await start(t, { workbench, port: Number(new URL(first.url).port), planner });
+  assert.equal(next.url, first.url); assert.deepEqual(next.studio, first.studio); assert.equal(calls, 0);
+  const legacy = await start(t); assert.equal((await (await fetch(`${legacy.url}api/panel/studio`)).json()).build, null);
+  const tampered = await buildFixture({ studio: true, changeManifest: manifest => { manifest.studio.buildSha256 = 'c'.repeat(64); } });
+  await assert.rejects(createWorkbenchServer({ workbench: tampered, outputRoot: join(work, 'calls'), planner }), { code: 'WORKBENCH_SERVER_BUILD_IDENTITY' });
+  const htmlChanged = await buildFixture({ studio: true, changeHtml: html => html.replace('<title>Panel Studio', '<title>Changed Studio') });
+  await assert.rejects(createWorkbenchServer({ workbench: htmlChanged, outputRoot: join(work, 'calls'), planner }), { code: 'WORKBENCH_SERVER_BUILD_IDENTITY' });
 });
 
 test('admission fixes the immutable context, returns independently checked results and never reuses a request ID', async t => {

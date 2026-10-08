@@ -13,6 +13,7 @@ import { loadWorkspaceCore } from '../src/component-adapter.mjs';
 import { verifyAssetLibrary } from '../src/asset-library.mjs';
 import { loadTextureImageAdapter } from '../src/texture-image-adapter.mjs';
 import { canonicalJson, digestBytes, digestJson } from '../src/canonical.mjs';
+import { createStudioBuildInfo } from '../src/studio-build-info.mjs';
 import { readJson, createOutputDirectory, writeNewJson, harnessRoot } from '../src/io.mjs';
 import {buildDeliveryRuntime} from './build-delivery-runtime.mjs';
 
@@ -74,8 +75,6 @@ try {
   const seed = { workbenchSeedVersion: '0.1', catalog, pool, example };
   phase = 'WORKBENCH_BUILD_FAILED';
   const { renderWorkbenchHtml } = await import('../src/workbench-shell.mjs');
-  const html = renderWorkbenchHtml(seed);
-  if (typeof html !== 'string' || !html.length) fail('WORKBENCH_HTML_REQUIRED');
   const deliveryRuntime = await buildDeliveryRuntime();
   const result = await build({ configFile: false, root: harnessRoot, publicDir: false, logLevel: 'silent',
     plugins: [{name:'panel-delivery-runtime',resolveId(id){if(id==='virtual:panel-delivery-runtime')return '\0'+id;},load(id){if(id==='\0virtual:panel-delivery-runtime')return 'export default '+JSON.stringify(deliveryRuntime)+';';}}],
@@ -87,9 +86,16 @@ try {
   const chunks = (Array.isArray(result) ? result : [result]).flatMap(item => item.output);
   if (chunks.length !== 1 || chunks[0].type !== 'chunk' || chunks[0].fileName !== 'workbench.js'
     || chunks[0].imports.length || chunks[0].dynamicImports.some(path => path !== 'workbench.js')) fail('WORKBENCH_BUILD_SHAPE');
+  const script = new TextEncoder().encode(chunks[0].code);
+  const metadata = await readJson(new URL('../package.json', import.meta.url));
+  const studio = await createStudioBuildInfo(metadata.version, {
+    shellSha256: await digestBytes(new TextEncoder().encode(renderWorkbenchHtml(seed))), scriptSha256: await digestBytes(script) });
+  const html = renderWorkbenchHtml(seed, studio);
+  if (typeof html !== 'string' || !html.length) fail('WORKBENCH_HTML_REQUIRED');
   const contents = [{ path: 'index.html', bytes: new TextEncoder().encode(html) },
-    { path: 'workbench.js', bytes: new TextEncoder().encode(chunks[0].code) }];
+    { path: 'workbench.js', bytes: script }];
   const manifest = {
+    studio,
     workbenchBuildVersion: '0.1', status: 'COMPLETE', catalogSha256: await digestJson(catalog),
     poolSha256: pool?.sha256 ?? null,
     library: pool ? { id: pool.index.id, sha256: pool.index.sha256 } : null,

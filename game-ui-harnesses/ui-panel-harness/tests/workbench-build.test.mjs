@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { createPlanningContext } from '../src/planning-context.mjs';
 import { proposalTargets } from '../src/proposal.mjs';
 import { digestJson } from '../src/canonical.mjs';
+import { createStudioBuildInfo, studioHtmlTemplate } from '../src/studio-build-info.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const catalogPath = join(root, 'examples/modern-mint-controls.catalog.json');
@@ -69,6 +70,8 @@ test('static workbench compiles a real asset-free example and records only actua
   assert.deepEqual(Object.keys(seed).sort(), ['catalog', 'example', 'pool', 'workbenchSeedVersion']);
   assert.equal(seed.workbenchSeedVersion, '0.1'); assert.deepEqual(seed.catalog, catalog);
   assert.equal(seed.pool, null); assert.deepEqual(seed.example, { context, proposal });
+  assert.deepEqual(manifest.studio, await createStudioBuildInfo('0.1.0', { shellSha256: createHash('sha256').update(studioHtmlTemplate(html, manifest.studio)).digest('hex'), scriptSha256: manifest.files[1].sha256 }));
+  assert(html.includes(`data-build="${manifest.studio.buildSha256}"`));
   assert.equal(source.includes('<'), false, 'Raw request markup cannot terminate the inert JSON script');
   assert.match(html, /src="(?:\.\/)?workbench\.js"/);
   const before = await readFile(join(output, 'workbench-build.json'));
