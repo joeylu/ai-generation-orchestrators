@@ -3,7 +3,7 @@ import { launchStudio, parseStudioArguments, studioFailure } from './lib/studio-
 
 const args = process.argv.slice(2);
 if (args.length === 1 && args[0] === '--help') {
-  process.stdout.write('用法：npm run studio -- [--port 4951] [--catalog <catalog.json>] [--assets <library>] [--sharp-module <module>] [--codex <absolute executable>]\n固定地址：http://127.0.0.1:4951/；Ctrl+C 停止。检查、构建和启动不调用模型，不安装依赖。\n');
+  process.stdout.write('用法：npm run studio -- [--port 4951] [--catalog <catalog.json>] [--assets builtin|none|<library>] [--sharp-module <module>] [--codex <absolute executable>]\n默认加载内置12个核心图标；none 使用程序化界面；外部库才需要本地 Sharp。\n固定地址：http://127.0.0.1:4951/；Ctrl+C 停止。检查、构建和启动不调用模型，不安装依赖。\n');
 } else {
   try {
     const server = await launchStudio(parseStudioArguments(args), { onPhase: phase => {

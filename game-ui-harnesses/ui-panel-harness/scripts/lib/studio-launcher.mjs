@@ -20,8 +20,10 @@ export function parseStudioArguments(args) {
   if (!/^[1-9]\d{0,4}$/.test(port) || Number(port) > 65535) fail('STUDIO_PORT');
   if (values['--codex'] && !isAbsolute(values['--codex'])) fail('WORKBENCH_SERVER_CODEX_PATH');
   if (values['--sharp-module'] && !values['--assets']) fail('WORKBENCH_ASSETS_REQUIRED');
+  const assets = values['--assets'] ?? 'builtin';
+  if (values['--sharp-module'] && ['builtin', 'none'].includes(assets)) fail('WORKBENCH_EXTERNAL_ASSETS_REQUIRED');
   return { port: Number(port), catalog: resolve(harnessRoot, values['--catalog'] ?? 'examples/modern-navigation.catalog.json'),
-    assets: values['--assets'] && resolve(harnessRoot, values['--assets']), sharp: values['--sharp-module'], executable: values['--codex'] };
+    assets: ['builtin', 'none'].includes(assets) ? assets : resolve(harnessRoot, assets), sharp: values['--sharp-module'], executable: values['--codex'] };
 }
 
 export async function checkStudioPort(port) {
@@ -76,7 +78,7 @@ export function studioFailure(error) {
   const message = code === 'STUDIO_PORT_IN_USE' ? '固定端口已占用。如果 Studio 已打开，请使用现有窗口；更新版本时先停止旧启动进程，再运行同一命令。不会自动换端口或结束其他进程。'
     : code.startsWith('WORKSPACE_') || code.startsWith('COMPONENT_') ? '依赖检查失败。请运行 npm run doctor，并按使用说明准备相邻 ui-component-harness 的锁定依赖。'
     : code === 'STUDIO_PORT' || code === 'WORKBENCH_SERVER_PORT_BLOCKED' ? '端口不可用，请指定 1–65535 范围内浏览器允许的固定端口。更换端口会使用独立本机存档。'
-    : code === 'STUDIO_ARGUMENTS' || code === 'WORKBENCH_ASSETS_REQUIRED' || code === 'WORKBENCH_SERVER_CODEX_PATH' ? '启动参数不正确，请运行 npm run studio -- --help 查看用法。'
+    : code === 'STUDIO_ARGUMENTS' || code === 'WORKBENCH_ASSETS_REQUIRED' || code === 'WORKBENCH_EXTERNAL_ASSETS_REQUIRED' || code === 'WORKBENCH_SERVER_CODEX_PATH' ? '启动参数不正确，请运行 npm run studio -- --help 查看用法。'
     : code === 'STUDIO_INPUT_NOT_FOUND' ? '启动输入文件不存在，请检查 --catalog、--assets 与 --sharp-module 指定的位置。'
     : 'Studio 未启动，原面板和本机存档保留。请核对下方错误代码与启动输入。';
   return { status: 'FAILED', code, message, modelCalls: 0 };

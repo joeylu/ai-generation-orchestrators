@@ -6,6 +6,7 @@
 ## 已运行的Studio
 
 日常从 `ui-panel-harness` 目录运行 `npm run studio`，默认固定地址为 `http://127.0.0.1:4951/`。
+默认使用随源码提供的[12 个核心图标与语义索引](core-assets.md)，不依赖本地 `output/` 图库或 Sharp。
 该命令完成依赖检查、当前源码构建和启动；按 Ctrl+C 停止后，使用同一命令重启。
 同一浏览器与地址的草稿、面板、试玩值和轮次保留，详见[一键启动与更新](studio-start.md)。
 页首显示当前构建；服务更新后，新版页面提供「保存并刷新」。
@@ -66,6 +67,7 @@ node scripts/serve-workbench.mjs --workbench output/my-studio --output-root outp
 `index.html`和`workbench.js`应一起移动；构建清单记录二者摘要，本地服务启动时重新校验。
 
 上述最小构建使用程序控件，不需要本地纹理归档。
+在构建命令添加 `--assets builtin` 可加载与日常 Studio 相同的内置核心库；`--assets none` 显式禁用图库。
 需要自有图标和背景池时，在同一构建命令添加`--assets <已验证资源库目录>`；必要时添加`--sharp-module <已安装的模块目录>`。
 本工作区现有库为`output/generic-library-migrated-v1`，264条记录/221份去重PNG；新增资源见[增量入库](asset-import.md)。
 完整库的原始路径和机器模块位置不用写进面板文件，选中PNG随PanelBundle内嵌。

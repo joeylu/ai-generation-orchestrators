@@ -1,10 +1,41 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCodexDiagnostic, validateCodexDiagnostic } from '../src/codex-diagnostics.mjs';
+import { createCodexDiagnostic, createCodexMessageDiagnostic, validateCodexDiagnostic } from '../src/codex-diagnostics.mjs';
 
 const binding = { operation: 'plan', contextSha256: 'a'.repeat(64), proposalJsonSha256: 'b'.repeat(64), stage: 'proposal-validation' };
 const fixture = () => createCodexDiagnostic({ code: 'required', path: '$.state[0].initial',
   message: 'Private model values C:\\Users\\private-user https://private.invalid?token=SECRET' }, binding);
+
+const messageFixture = (validatorCode = 'OUTPUT_MESSAGE_EMPTY', operation = 'plan') => createCodexMessageDiagnostic(
+  validatorCode, { eventCount: validatorCode === 'OUTPUT_MESSAGE_DUPLICATE' ? 4 : 3,
+    completedAgentMessages: validatorCode === 'OUTPUT_MESSAGE_DUPLICATE' ? 2 : 1,
+    acceptedFinalMessages: validatorCode === 'OUTPUT_MESSAGE_DUPLICATE' ? 1 : 0 }, { ...binding, operation });
+
+test('message diagnostics describe only rejected message structure for planning and editing', () => {
+  for (const operation of ['plan', 'edit']) for (const code of ['OUTPUT_MESSAGE_EMPTY', 'OUTPUT_MESSAGE_NOT_TEXT', 'OUTPUT_MESSAGE_DUPLICATE']) {
+    const diagnostic = messageFixture(code, operation);
+    assert.deepEqual(validateCodexDiagnostic(diagnostic, { ...binding, operation, failureCode: 'CODEX_OUTPUT_INVALID' }), diagnostic);
+    assert.equal(diagnostic.proposalJsonSha256, null); assert.equal(diagnostic.stage, 'event-validation');
+    assert.equal(diagnostic.path, '$.item.text'); assert.equal(diagnostic.validatorCode, code);
+    assert(!JSON.stringify(diagnostic).includes('SECRET'));
+  }
+});
+
+test('message diagnostics reject raw fields, forged counters and mismatched operation, context or failure', () => {
+  const value = messageFixture();
+  for (const change of [{ message: 'SECRET' }, { targetIssue: 'duplicate' }, { cause: { validatorCode: 'required', path: '$' } },
+    { proposalJsonSha256: binding.proposalJsonSha256 }, { stage: 'output-validation' }, { path: '$.state' },
+    { validatorCode: 'OUTPUT_JSON' }, { validatorCode: 'OUTPUT_MESSAGE_DUPLICATE' }, { codexValidationDiagnosticVersion: '0.1' },
+    { stream: { ...value.stream, text: 'SECRET' } }, { stream: { ...value.stream, eventCount: 2 } },
+    { stream: { ...value.stream, completedAgentMessages: 2 } }, { stream: { ...value.stream, acceptedFinalMessages: 1 } },
+    { stream: { ...value.stream, eventCount: 4 * 1024 * 1024 + 1 } }, { stream: { ...value.stream, eventCount: 3.5 } }])
+    assert.throws(() => validateCodexDiagnostic({ ...value, ...change }), { code: 'CODEX_DIAGNOSTIC_INVALID' });
+  for (const change of [{ operation: 'edit' }, { contextSha256: 'c'.repeat(64) }, { failureCode: 'CODEX_PROPOSAL_INVALID' }])
+    assert.throws(() => validateCodexDiagnostic(value, { ...binding, ...change }), { code: 'CODEX_DIAGNOSTIC_INVALID' });
+  let reads = 0;
+  Object.defineProperty(value.stream, 'eventCount', { enumerable: true, get() { reads++; return 3; } });
+  assert.throws(() => validateCodexDiagnostic(value), { code: 'CODEX_DIAGNOSTIC_INVALID' }); assert.equal(reads, 0);
+});
 
 test('diagnostics contain only bound validator constants, schema paths and fingerprints', () => {
   const value = fixture();

@@ -122,6 +122,9 @@ function errorText(error) {
       INTENT_VERSION: '控件意图版本不支持', 'layout-coverage': '布局分组引用缺失或重复',
       OUTPUT_JSON: '返回内容不是有效 JSON', OUTPUT_WRAPPER: '返回的传输格式不符合协议',
       OUTPUT_PROPOSAL_JSON: '方案字符串中的 JSON 格式不合法',
+      OUTPUT_MESSAGE_EMPTY: '模型返回了空的最终消息',
+      OUTPUT_MESSAGE_NOT_TEXT: '模型返回的最终消息不是文本',
+      OUTPUT_MESSAGE_DUPLICATE: '模型返回了多条最终消息，无法确定采用哪一条',
       EDIT_CONTEXT_MISMATCH: '修改方案对应其他描述或面板', EDIT_COVERAGE: '修改操作缺少完整依据',
       EDIT_QUOTE: '修改方案引用的原文不匹配', EDIT_FIELDS: '修改方案字段不符合协议',
       EDIT_INPUT_RECIPE: '新增输入框未选择当前目录中的输入配方',
@@ -131,6 +134,8 @@ function errorText(error) {
       integer: '长度或尺寸必须是允许范围内的整数', duplicate: '控件或状态标识重复',
     };
     const detail = error.diagnostic;
+    if (detail.stage === 'event-validation')
+      return `Codex 未返回可用方案：${reasons[detail.validatorCode]}。原面板和试玩值保留，未自动重试。`;
     const issue = detail.cause ?? detail;
     const targetReasons = { duplicate: '同一个目标填写了多条需求依据', unmatched: '需求依据指向面板中不存在或协议不支持的目标',
       'non-string': '需求依据的目标名必须是字符串' };

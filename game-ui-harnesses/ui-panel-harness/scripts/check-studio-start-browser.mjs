@@ -14,6 +14,8 @@ import { materializePanelIntent } from '../src/panel-intent.mjs';
 import { createPanelBundle, validatePanelBundle } from '../src/panel-bundle.mjs';
 import { loadWorkspaceCore } from '../src/component-adapter.mjs';
 import { formRequest, formIntent } from '../examples/forms-v1/fixture.mjs';
+import { BUNDLED_CORE, loadBundledCoreAssets } from '../src/bundled-core-assets.mjs';
+import { workbenchAssetInputs } from '../src/workbench-assets.mjs';
 
 assert(process.argv.length === 4 && process.argv[2] === '--output', 'Required: --output <fresh directory>');
 const output = await createOutputDirectory(process.argv[3]);
@@ -30,14 +32,19 @@ try {
   intent.panel.body.children[0].rows[1].recipeKey = 'settings.button.primary@0.1.0';
   intent.panel.body.children[0].rows[2].recipeKey = 'settings.button.secondary@0.1.0';
   const proposal = await materializePanelIntent(planning, intent), core = await loadWorkspaceCore();
-  const bundle = await createPanelBundle(proposal.spec, catalog, core);
+  const pool = await loadBundledCoreAssets(), source = structuredClone(proposal.spec);
+  source.assets = { library: { id: pool.index.id, sha256: pool.index.sha256 }, panelSurface: null,
+    rowIcons: [{ rowId: source.sections[0].rows.find(r => r.kind === 'input').id, asset: 'panel-core/user@1.0.0' }] };
+  const bundle = await createPanelBundle(source, catalog, core, undefined, await workbenchAssetInputs(source, pool));
   await writeNewJson(output, 'fixture.panel.bundle.json', bundle);
   const probe = createServer(); await listenLoopback(probe, 0); const port = probe.address().port;
   await new Promise(done => probe.close(done));
   const options = { ...parseStudioArguments([]), port };
   const start = async custom => launchStudio({ ...options, ...custom }, { serve: async args => {
     const result = await createWorkbenchServer({ ...args, planner: forbidden, editor: forbidden });
-    report.builds.push({ workbench: args.workbench.replace(harnessRoot, '').replaceAll('\\', '/'), ...result.studio });
+    const buildManifest = await readJson(resolve(args.workbench, 'workbench-build.json'));
+    report.builds.push({ workbench: args.workbench.replace(harnessRoot, '').replaceAll('\\', '/'),
+      sourceReplay: buildManifest.sourceReplay, ...result.studio });
     return result;
   } });
   server = await start(); const url = server.url, firstBuild = server.studio.buildSha256;
@@ -62,9 +69,17 @@ try {
   assert.equal(await page.locator('#studio-version').getAttribute('data-build'), firstBuild);
   assert.equal(await page.locator('textarea:visible').count(), 2); pass(stage);
 
+  stage = 'default-studio-loads-bundled-core-without-sharp';
+  const seed = await page.locator('#workbench-seed').textContent();
+  const embedded = JSON.parse(seed).pool;
+  assert.equal(embedded.sha256, BUNDLED_CORE.poolSha256); assert.equal(embedded.index.records.length, 12);
+  assert.equal(report.builds[0].sourceReplay, 'PINNED_BUNDLED_ASSETS'); pass(stage);
+
   stage = 'same-address-open-play-and-edit-without-model';
   await menu(); await page.locator('#panel-file').setInputFiles(resolve(output, 'fixture.panel.bundle.json')); await idle();
   await page.waitForFunction(() => Boolean(window.panelWorkbench.snapshot().panel));
+  const images = await page.evaluate(() => window.panelWorkbench.inspect().nodes.filter(n => n.type === 'Image' && n.id.endsWith('.icon')));
+  assert.equal(images.length, 1); assert(images.every(n => n.visible));
   await page.locator('#canvas-host canvas').scrollIntoViewIfNeeded();
   const position = await page.evaluate(() => {
     const w = window.panelWorkbench, b = w.snapshot().panel, r = b.spec.sections[0].rows.find(r => r.kind === 'input');

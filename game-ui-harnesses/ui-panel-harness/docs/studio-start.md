@@ -6,8 +6,9 @@
 npm run studio
 ```
 
-若要加载自有图标，使用 `npm run studio -- --assets <library> --sharp-module <module>`。
-常用素材集的筛选、命名和离线验收见 [core-assets.md](core-assets.md)。
+默认加载随源码提供的 12 个核心图标和语义索引，不需要指定图库或安装 Sharp。
+使用 `--assets none` 可启动纯程序化界面；`--assets <library> --sharp-module <module>` 可替换为外部图库。
+内置库的固定摘要校验、扩充方式和验收见 [core-assets.md](core-assets.md)。
 
 程序依次检查同仓库的锁定依赖、构建当前源码、启动本机 Studio。
 默认地址固定为 `http://127.0.0.1:4951/`，不自动选择其他端口。
@@ -48,6 +49,7 @@ PanelBundle 不携带 Studio 轮次和完整草稿，不能用它冒充完整工
 
 ```sh
 npm run studio -- --help
+npm run studio -- --assets none
 npm run studio -- --assets <verified-library> --sharp-module <installed-module>
 npm run studio -- --codex <absolute-executable>
 npm run studio -- --port 5123
@@ -56,6 +58,7 @@ npm run studio -- --port 5123
 显式更换端口会得到独立的本机存档，请长期使用选定地址。
 可选 `--catalog <catalog.json>` 切换目录；默认采用 `examples/modern-navigation.catalog.json`。
 资源目录与相对目录参数相对于 Harness 根目录解析。
+`builtin`（默认）与 `none` 是保留模式；只有外部图库才接受 `--sharp-module`。
 网络环境由当前启动进程继承，不读取或修改全局代理配置。
 
 ## 离线验收

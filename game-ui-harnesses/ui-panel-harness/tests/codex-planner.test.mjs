@@ -1202,6 +1202,47 @@ test('exactly one complete ordered turn and one final message are required', asy
   }
 });
 
+test('empty, non-text and duplicate final messages save safe diagnoses without accepting or retrying', async () => {
+  const privateText = 'SECRET_RESPONSE https://private.invalid?token=SECRET';
+  const cases = [
+    ['OUTPUT_MESSAGE_EMPTY', [{ type: 'item.completed', item: { type: 'agent_message', text: ' \t\r\n' } }]],
+    ['OUTPUT_MESSAGE_NOT_TEXT', [{ type: 'item.completed', item: { type: 'agent_message', text: { privateText } } }]],
+    ['OUTPUT_MESSAGE_NOT_TEXT', [{ type: 'item.completed', item: { type: 'agent_message' } }]],
+    ['OUTPUT_MESSAGE_DUPLICATE', [privateText, privateText].map(text => ({ type: 'item.completed', item: { type: 'agent_message', text } }))],
+  ];
+  for (const editing of [false, true]) for (const [validatorCode, messages] of cases) {
+    for (const trailingNewline of [true, false]) {
+      const fake = fakeProcess(child => { sendEvents(child, [...beginning, ...messages], { trailingNewline }); child.close(0); });
+      const outputRoot = output(); let error;
+      await assert.rejects((editing ? editWithCodex : planWithCodex)(editing ? editContext : context,
+        { outputRoot, executable, runProcess: fake.runProcess }), value => { error = value; return value.code === 'CODEX_OUTPUT_INVALID'; });
+      assert.equal(fake.calls.length, 1); assert.equal(error.receipt.invocationCount, 1); assert.equal(error.receipt.automaticRetries, 0);
+      assert.equal(error.receipt.status, 'FAILED'); assert.equal(error.receipt.proposalSha256, null); assert.equal(error.receipt.usage, null);
+      const diagnostic = validateCodexDiagnostic(error.diagnostic, { operation: editing ? 'edit' : 'plan',
+        contextSha256: (editing ? editContext : context).sha256, failureCode: error.code });
+      assert.equal(diagnostic.validatorCode, validatorCode); assert.equal(diagnostic.proposalJsonSha256, null);
+      assert.deepEqual(diagnostic.stream, { eventCount: 2 + messages.length, completedAgentMessages: messages.length,
+        acceptedFinalMessages: validatorCode === 'OUTPUT_MESSAGE_DUPLICATE' ? 1 : 0 });
+      const directory = join(outputRoot, (await readdir(outputRoot))[0]), prefix = editing ? 'codex-edit' : 'codex';
+      assert.deepEqual((await readdir(directory)).sort(), [`${prefix}-diagnostic.json`, `${prefix}-receipt.json`, editing ? 'edit-context.json' : 'planning-context.json'].sort());
+      assert.deepEqual(await json(join(directory, `${prefix}-diagnostic.json`)), diagnostic);
+      assert(!JSON.stringify(diagnostic).includes('SECRET')); assert(!JSON.stringify(diagnostic).includes(threadId));
+      assert(!JSON.stringify(diagnostic).includes('private.invalid'));
+    }
+  }
+});
+
+test('message rejection evidence survives child errors and forced termination without a second invocation', async () => {
+  for (const termination of ['error', 'unresponsive']) {
+    const fake = fakeProcess(child => {
+      child.kill = () => { if (termination === 'error') queueMicrotask(() => child.emit('error', new Error('SECRET'))); return true; };
+      sendEvents(child, [...beginning, { type: 'item.completed', item: { type: 'agent_message', text: '' } }]);
+    });
+    const { error } = await rejected(fake, 'CODEX_OUTPUT_INVALID');
+    assert.equal(error.diagnostic.validatorCode, 'OUTPUT_MESSAGE_EMPTY'); assert.equal(fake.calls.length, 1);
+  }
+});
+
 test('stream bounds cover total stdout, an unterminated event line, total stderr and one stderr line', async () => {
   const scenarios = [
     child => child.stdout.write(Buffer.alloc(2 * 1024 * 1024 + 1, 32)),

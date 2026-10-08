@@ -6,6 +6,7 @@ const CODES = new Set(`EDIT_REQUEST_INCOMPLETE EDIT_BASE_MISMATCH EDIT_BASIS EDI
 const FIELDS = new Set(`spec proposalVersion editProposalVersion contextSha256 decisions unresolved target basis kind start end quote reason id question panelSpecVersion title theme version canvas width height layout padding gap sectionGap labelWidth rowHeight titleHeight sectionTitleHeight maxHeight overflow body direction children columns breakpoint align justify sectionId state type initial min max step options label sections rows recipe bind enabled event format fractionDigits prefix suffix buttonLabel action fields text provenance description assumptions assets library sha256 panelSurface rowIcons rowId asset patch patchVersion baseSpecSha256 operations op operationIndex afterRowId fieldId value catalog recipes themes capabilities request requestVersion editContextVersion catalogSha256`.split(' '));
 const KEYS = ['codexValidationDiagnosticVersion', 'operation', 'contextSha256', 'proposalJsonSha256', 'stage', 'validatorCode', 'path'];
 const OUTPUT_CODES = new Set(['OUTPUT_JSON', 'OUTPUT_WRAPPER', 'OUTPUT_PROPOSAL_JSON']);
+const MESSAGE_CODES = new Set(['OUTPUT_MESSAGE_EMPTY', 'OUTPUT_MESSAGE_NOT_TEXT', 'OUTPUT_MESSAGE_DUPLICATE']);
 CODES.add('INTENT_NATIVE_QUOTE');
 CODES.add('INTENT_SOURCE_REFERENCE'); FIELDS.add('sourceRef');
 CODES.add('INTENT_TEXT_LABEL');
@@ -37,6 +38,23 @@ function safePath(input) {
 export function validateCodexDiagnostic(input, { operation, contextSha256, failureCode } = {}) {
   let value;
   try { value = snapshotJson(input); } catch { bad(); }
+  if (value?.codexValidationDiagnosticVersion === '0.2') {
+    const stream = value.stream;
+    const duplicate = value.validatorCode === 'OUTPUT_MESSAGE_DUPLICATE';
+    if (Object.keys(value).sort().join('|') !== [...KEYS, 'stream'].sort().join('|')
+      || !['plan', 'edit'].includes(value.operation) || !HASH.test(value.contextSha256 ?? '')
+      || value.proposalJsonSha256 !== null || value.stage !== 'event-validation'
+      || !MESSAGE_CODES.has(value.validatorCode) || value.path !== '$.item.text'
+      || !stream || Array.isArray(stream)
+      || Object.keys(stream).sort().join('|') !== 'acceptedFinalMessages|completedAgentMessages|eventCount'
+      || !Object.values(stream).every(count => Number.isSafeInteger(count) && count >= 0 && count <= 4 * 1024 * 1024)
+      || stream.eventCount < 2 + stream.completedAgentMessages
+      || stream.completedAgentMessages !== (duplicate ? 2 : 1) || stream.acceptedFinalMessages !== (duplicate ? 1 : 0)
+      || (operation !== undefined && value.operation !== operation)
+      || (contextSha256 !== undefined && value.contextSha256 !== contextSha256)
+      || (failureCode !== undefined && failureCode !== 'CODEX_OUTPUT_INVALID')) bad();
+    return value;
+  }
   const keys = [...KEYS, ...(value && Object.hasOwn(value, 'targetIssue') ? ['targetIssue'] : []),
     ...(value && Object.hasOwn(value, 'cause') ? ['cause'] : [])];
   if (!value || Array.isArray(value) || Object.keys(value).sort().join('|') !== [...keys].sort().join('|')
@@ -62,6 +80,12 @@ export function validateCodexDiagnostic(input, { operation, contextSha256, failu
       || (cause.path !== null && safePath(cause.path) !== cause.path)) bad();
   }
   return value;
+}
+
+/** Structural facts only: no CLI text, IDs, endpoints, stderr or discarded response fingerprint. */
+export function createCodexMessageDiagnostic(validatorCode, stream, { operation, contextSha256 }) {
+  return validateCodexDiagnostic({ codexValidationDiagnosticVersion: '0.2', operation, contextSha256,
+    proposalJsonSha256: null, stage: 'event-validation', validatorCode, path: '$.item.text', stream });
 }
 
 export function createCodexDiagnostic(error, { operation, contextSha256, proposalJsonSha256, stage }) {

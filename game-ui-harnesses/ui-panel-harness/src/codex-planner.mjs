@@ -5,7 +5,7 @@ import { statSync } from 'node:fs';
 import { readFile, unlink, writeFile } from 'node:fs/promises';
 import { delimiter, isAbsolute, join, resolve } from 'node:path';
 import { canonicalJson, digestBytes } from './canonical.mjs';
-import { createCodexDiagnostic } from './codex-diagnostics.mjs';
+import { createCodexDiagnostic, createCodexMessageDiagnostic } from './codex-diagnostics.mjs';
 import { materializeCodexPanelDraft } from './codex-panel-draft.mjs';
 import { buildNativePanelIntentResponseSchema, materializePanelIntent, validateNativePanelIntentEvidence } from './panel-intent.mjs';
 import { requestReading } from './request-reading.mjs';
@@ -193,6 +193,13 @@ function transportFailureCode(message) {
 
 function eventCollector() {
   let thread = false, started = false, completed = false, finalText = null, usage = null;
+  let eventCount = 0, completedAgentMessages = 0;
+  const rejectMessage = validatorCode => {
+    const error = new CodexPlanningError('CODEX_OUTPUT_INVALID');
+    error.messageFailure = { validatorCode, stream: { eventCount, completedAgentMessages,
+      acceptedFinalMessages: finalText === null ? 0 : 1 } };
+    throw error;
+  };
   let lastReconnect = 1, transportFallback = false;
   // These are progress notices from the same CLI turn, not a new Harness attempt.
   // Keep their details in memory only and retain the original timeout/output limits.
@@ -205,6 +212,7 @@ function eventCollector() {
       let event;
       try { event = JSON.parse(line); } catch { fail('CODEX_EVENT_INVALID_NO_RETRY'); }
       if (!event || typeof event !== 'object' || Array.isArray(event)) fail('CODEX_EVENT_INVALID_NO_RETRY');
+      eventCount++;
       if (event.type === 'error') {
         const notice = transportNotice(event.message, /^Reconnecting\.\.\. ([2-5])\/5(?: \([^\r\n]{0,2048}\))?$(?![\s\S])/);
         if (!notice || !acceptingProgress() || Number(notice[1]) <= lastReconnect) fail(transportFailureCode(event.message));
@@ -230,7 +238,10 @@ function eventCollector() {
         if (!['reasoning', 'agent_message'].includes(event.item?.type)) fail('CODEX_TOOL_EVENT_NO_RETRY');
         if (!started || completed) fail('CODEX_EVENT_INVALID_NO_RETRY');
         if (event.type === 'item.completed' && event.item.type === 'agent_message') {
-          if (finalText !== null || typeof event.item.text !== 'string' || !event.item.text.trim()) fail('CODEX_OUTPUT_INVALID');
+          completedAgentMessages++;
+          if (finalText !== null) rejectMessage('OUTPUT_MESSAGE_DUPLICATE');
+          if (typeof event.item.text !== 'string') rejectMessage('OUTPUT_MESSAGE_NOT_TEXT');
+          if (!event.item.text.trim()) rejectMessage('OUTPUT_MESSAGE_EMPTY');
           if (Buffer.byteLength(event.item.text) > MAX_LINE_BYTES) fail('CODEX_OUTPUT_LIMIT_NO_RETRY');
           finalText = event.item.text;
         }
@@ -262,16 +273,16 @@ function invoke(executable, args, prompt, { signal, timeoutMs, runProcess, onInv
     const events = eventCollector();
     const cleanup = () => { clearTimeout(timer); clearTimeout(killTimer); signal?.removeEventListener('abort', abort); };
     const finish = error => { if (ended) return; ended = true; cleanup(); reject(error); };
-    const stop = code => {
+    const stop = cause => {
       if (ended || failure) return;
-      failure = code;
+      failure = cause instanceof CodexPlanningError ? cause : new CodexPlanningError(cause);
       // A tool-disabled session has no permitted subprocesses. Kill the exact child,
       // then escalate on POSIX if it ignores TERM; never launch a shell or retry.
       try { child.kill('SIGTERM'); } catch {}
       if (ended) return;
       killTimer = setTimeout(() => {
         try { child.kill('SIGKILL'); } catch {}
-        finish(new CodexPlanningError(failure));
+        finish(failure);
       }, 250);
     };
     const abort = () => stop('CODEX_ABORTED_NO_RETRY');
@@ -295,7 +306,7 @@ function invoke(executable, args, prompt, { signal, timeoutMs, runProcess, onInv
           events.accept(line);
         }
         if (Buffer.byteLength(buffer) > MAX_LINE_BYTES) fail('CODEX_OUTPUT_LIMIT_NO_RETRY');
-      } catch (error) { stop(error instanceof CodexPlanningError ? error.code : 'CODEX_EVENT_INVALID_NO_RETRY'); }
+      } catch (error) { stop(error instanceof CodexPlanningError ? error : 'CODEX_EVENT_INVALID_NO_RETRY'); }
     });
     child.stderr.on('data', chunk => {
       if (failure || ended) return;
@@ -308,10 +319,10 @@ function invoke(executable, args, prompt, { signal, timeoutMs, runProcess, onInv
       stderrText += errorDecoder.decode(chunk, { stream: true });
     });
     child.stdin.on('error', () => stop('CODEX_TRANSPORT_FAILED_NO_RETRY'));
-    child.once('error', () => finish(new CodexPlanningError(failure ?? 'CODEX_START_FAILED')));
+    child.once('error', () => finish(failure ?? new CodexPlanningError('CODEX_START_FAILED')));
     child.once('close', exitCode => {
       if (ended) return;
-      if (failure) { finish(new CodexPlanningError(failure)); return; }
+      if (failure) { finish(failure); return; }
       if (exitCode !== 0) { finish(new CodexPlanningError(transportFailureCode(stderrText + errorDecoder.decode()))); return; }
       try {
         buffer += decoder.decode();
@@ -427,6 +438,10 @@ async function requestWithCodex(editing, contextInput, { outputRoot, signal, exe
     return { proposal, report, receipt };
   } catch (error) {
     const code = error instanceof CodexPlanningError ? error.code : 'CODEX_OUTPUT_INVALID';
+    if (error instanceof CodexPlanningError && error.messageFailure) {
+      error.diagnostic = createCodexMessageDiagnostic(error.messageFailure.validatorCode, error.messageFailure.stream,
+        { operation: editing ? 'edit' : 'plan', contextSha256: context.sha256 });
+    }
     const receipt = receiptFor('FAILED', code);
     if (directory) {
       try { await writeNewJson(directory, editing ? 'codex-edit-receipt.json' : 'codex-receipt.json', receipt); } catch {}

@@ -10,10 +10,11 @@ import { renderWorkbenchHtml } from '../src/workbench-shell.mjs';
 import { createPlanningContext } from '../src/planning-context.mjs';
 import { checkPanelProposal, proposalTargets } from '../src/proposal.mjs';
 import { createPanelEditContext, checkPanelEditProposal } from '../src/edit-planning.mjs';
-import { createCodexDiagnostic } from '../src/codex-diagnostics.mjs';
+import { createCodexDiagnostic, createCodexMessageDiagnostic } from '../src/codex-diagnostics.mjs';
 import { createWorkbenchAssetPool, workbenchRetrieval } from '../src/workbench-assets.mjs';
 import { digestBytes, digestJson } from '../src/canonical.mjs';
 import { createStudioBuildInfo } from '../src/studio-build-info.mjs';
+import { loadBundledCoreAssets } from '../src/bundled-core-assets.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const catalog = JSON.parse(await readFile(join(root, 'catalog/modern-core.json'), 'utf8'));
@@ -46,6 +47,15 @@ async function buildFixture({ pool = null, changeManifest, changeHtml, studio = 
   return path;
 }
 const basicBuild = await buildFixture();
+test('server accepts pinned bundled evidence only for the exact authenticated core pool', async t => {
+  const pool = await loadBundledCoreAssets();
+  const workbench = await buildFixture({ pool, changeManifest: m => { m.sourceReplay = 'PINNED_BUNDLED_ASSETS'; } });
+  const server = await start(t, { workbench }); assert(server.url.startsWith('http://127.0.0.1:'));
+  for (const foreign of [null, await fixturePool()]) {
+    const invalid = await buildFixture({ pool: foreign, changeManifest: m => { m.sourceReplay = 'PINNED_BUNDLED_ASSETS'; } });
+    await assert.rejects(createWorkbenchServer({ workbench: invalid, outputRoot: join(work, 'never-called') }), { code: 'WORKBENCH_SERVER_SEED_MISMATCH' });
+  }
+});
 function proposed(value, unresolved = false) {
   return { proposalVersion: value.planningContextVersion, contextSha256: value.sha256, spec: unresolved ? null : copy(spec),
     decisions: unresolved ? [] : proposalTargets(spec, value.planningContextVersion).map(target => ({ target,
@@ -157,6 +167,27 @@ test('editing format failures expose bound constants, preserve one-shot request 
     assert.equal(response.status, 502); const value = await response.json(); assert.equal(value.code, 'CODEX_OUTPUT_INVALID');
     assert.equal(Boolean(value.diagnostic), Object.keys(change).length === 0); assert.equal(JSON.stringify(value).includes('SECRET'), false);
     await expected(await postEdit(server, input), 409, 'WORKBENCH_SERVER_DUPLICATE'); assert.equal(calls, 1);
+  }
+});
+
+test('message diagnostics remain bound and consumed across both server endpoints', async t => {
+  for (const editing of [false, true]) for (const change of [{}, { stream: { eventCount: 3, completedAgentMessages: 1, acceptedFinalMessages: 0, rawText: 'SECRET' } },
+    { contextSha256: 'b'.repeat(64) }, { operation: editing ? 'plan' : 'edit' }]) {
+    let calls = 0;
+    const adapter = async value => {
+      calls++;
+      const error = Object.assign(new Error('SECRET_PRIVATE_MESSAGE'), { code: 'CODEX_OUTPUT_INVALID' });
+      error.diagnostic = { ...createCodexMessageDiagnostic('OUTPUT_MESSAGE_EMPTY',
+        { eventCount: 3, completedAgentMessages: 1, acceptedFinalMessages: 0 },
+        { operation: editing ? 'edit' : 'plan', contextSha256: value.sha256 }), ...change };
+      throw error;
+    };
+    const server = await start(t, editing ? { editor: adapter } : { planner: adapter });
+    const input = { requestId: randomUUID(), context: editing ? editContext : context }, send = editing ? postEdit : post;
+    const response = await send(server, input); assert.equal(response.status, 502);
+    const value = await response.json(); assert.equal(value.code, 'CODEX_OUTPUT_INVALID');
+    assert.equal(Boolean(value.diagnostic), Object.keys(change).length === 0); assert(!JSON.stringify(value).includes('SECRET'));
+    await expected(await send(server, input), 409, 'WORKBENCH_SERVER_DUPLICATE'); assert.equal(calls, 1);
   }
 });
 

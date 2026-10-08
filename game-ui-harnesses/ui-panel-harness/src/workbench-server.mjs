@@ -12,6 +12,7 @@ import { validatePanelEditContext, validatePanelEditProposal, checkPanelEditProp
 import { applyPanelPatch } from './patch.mjs';
 import { validateCodexDiagnostic } from './codex-diagnostics.mjs';
 import { validateWorkbenchAssetPool, verifyWorkbenchContextPool, workbenchAssetInputs } from './workbench-assets.mjs';
+import { isBundledCorePool } from './bundled-core-assets.mjs';
 import { CODEX_MODEL, CODEX_EFFORT, findCodexExecutable, planWithCodex, editWithCodex, validateCodexReceipt, validateCodexEditReceipt } from './codex-planner.mjs';
 
 const MIB = 1024 * 1024;
@@ -80,10 +81,13 @@ async function loadBuild(workbench) {
   if (raw.workbenchSeedVersion !== '0.1') fail('WORKBENCH_SERVER_SEED');
   const catalog = freeze(validateCatalog(raw.catalog));
   const pool = raw.pool === null ? null : await validateWorkbenchAssetPool(raw.pool);
+  const sourceReplayValid = pool
+    ? manifest.sourceReplay === 'VERIFIED_AT_BUILD' || (manifest.sourceReplay === 'PINNED_BUNDLED_ASSETS' && isBundledCorePool(pool))
+    : manifest.sourceReplay === 'NOT_APPLICABLE';
   if (manifest.catalogSha256 !== await digestJson(catalog) || manifest.poolSha256 !== (pool?.sha256 ?? null)
       || !same(manifest.library, pool ? { id: pool.index.id, sha256: pool.index.sha256 } : null)
       || manifest.recordCount !== (pool?.index.records.length ?? 0) || manifest.imageCount !== (pool?.resources.length ?? 0)
-      || manifest.sourceReplay !== (pool ? 'VERIFIED_AT_BUILD' : 'NOT_APPLICABLE')) fail('WORKBENCH_SERVER_SEED_MISMATCH');
+      || !sourceReplayValid) fail('WORKBENCH_SERVER_SEED_MISMATCH');
   if (raw.example === null) {
     if (manifest.example !== null) fail('WORKBENCH_SERVER_EXAMPLE');
   } else {

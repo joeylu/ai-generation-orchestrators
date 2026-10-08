@@ -10,11 +10,27 @@ test('daily entry fixes the origin and accepts explicit local settings', () => {
   const defaults = parseStudioArguments([]);
   assert.equal(defaults.port, 4951); assert.equal(STUDIO_PORT, 4951);
   assert.match(defaults.catalog.replaceAll('\\', '/'), /\/examples\/modern-navigation.catalog.json$/);
-  assert.equal(defaults.assets, undefined);
+  assert.equal(defaults.assets, 'builtin');
+  assert.equal(parseStudioArguments(['--assets', 'none']).assets, 'none');
+  assert.equal(parseStudioArguments(['--assets', 'builtin']).assets, 'builtin');
+  assert.match(parseStudioArguments(['--assets', 'output/library']).assets.replaceAll('\\', '/'), /\/output\/library$/);
   assert.equal(parseStudioArguments(['--port', '5123', '--assets', 'output/library']).port, 5123);
   for (const args of [['--port', '0'], ['--port', '65536'], ['--port', '1.5'], ['--port', '01'], ['--port'],
-    ['--unknown', 'value'], ['--port', '5123', '--port', '5124'], ['--sharp-module', 'unused'], ['--codex', 'relative.exe']]) {
+    ['--unknown', 'value'], ['--port', '5123', '--port', '5124'], ['--sharp-module', 'unused'], ['--codex', 'relative.exe'],
+    ['--assets', 'builtin', '--sharp-module', 'unused'], ['--assets', 'none', '--sharp-module', 'unused']]) {
     assert.throws(() => parseStudioArguments(args));
+  }
+});
+
+test('daily default and explicit asset-free startup pass distinct build modes without Sharp', async () => {
+  for (const assets of ['builtin', 'none']) {
+    let builds = 0;
+    await launchStudio(parseStudioArguments(assets === 'builtin' ? [] : ['--assets', assets]), {
+      checkPort: async () => {}, preflight: async () => {},
+      build: async args => { builds++; assert.equal(args[args.indexOf('--assets') + 1], assets); assert(!args.includes('--sharp-module')); },
+      serve: async () => ({ url: 'fixture' }),
+    });
+    assert.equal(builds, 1);
   }
 });
 

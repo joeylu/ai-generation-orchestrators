@@ -14,7 +14,7 @@ import { checkPanelProposal } from '../src/proposal.mjs';
 import { initialPanelState, controlId } from '../src/compiler.mjs';
 import { createWorkbenchServer } from '../src/workbench-server.mjs';
 import { checkPanelEditProposal } from '../src/edit-planning.mjs';
-import { createCodexDiagnostic } from '../src/codex-diagnostics.mjs';
+import { createCodexDiagnostic, createCodexMessageDiagnostic } from '../src/codex-diagnostics.mjs';
 import { materializeCodexPanelDraft } from '../src/codex-panel-draft.mjs';
 
 const args = process.argv.slice(2), options = {};
@@ -38,6 +38,15 @@ const transportObservations = [], requestBindings = new WeakMap();
 const requestFailureChecks = [];
 let editBehavior = 'ready', editRequests = 0;
 const editCalls = [];
+function rejectMessage(mode, input, operation) {
+  const duplicate = mode === 'message-duplicate';
+  const error = Object.assign(new Error('SECRET_PRIVATE_MESSAGE'), { code: 'CODEX_OUTPUT_INVALID' });
+  error.diagnostic = createCodexMessageDiagnostic({ 'message-empty': 'OUTPUT_MESSAGE_EMPTY',
+    'message-not-text': 'OUTPUT_MESSAGE_NOT_TEXT', 'message-duplicate': 'OUTPUT_MESSAGE_DUPLICATE' }[mode],
+    { eventCount: duplicate ? 4 : 3, completedAgentMessages: duplicate ? 2 : 1, acceptedFinalMessages: duplicate ? 1 : 0 },
+    { operation, contextSha256: input.sha256 });
+  throw error;
+}
 function editProposalFor(editing, mode = 'ready') {
   const rows = editing.spec.sections.flatMap(section => section.rows), toggle = rows.find(row => row.kind === 'switch');
   const volume = editing.spec.state.find(field => field.type === 'number');
@@ -76,6 +85,7 @@ try {
       signal: transport.signal, aborted: false };
     calls.push(call);
     const ownBehavior = behavior;
+    if (ownBehavior.startsWith('message-')) rejectMessage(ownBehavior, planning, 'plan');
     if (ownBehavior === 'validation-fail') {
       const error = Object.assign(new Error('SECRET_PRIVATE_MESSAGE'), { code: 'CODEX_PROPOSAL_INVALID' });
       error.diagnostic = createCodexDiagnostic({ code: 'PLAN_COVERAGE', path: '$.decisions' },
@@ -129,6 +139,7 @@ try {
     const ownBehavior = editBehavior, call = { contextSha256: editing.sha256, request: structuredClone(editing.request),
       baseSpecSha256: editing.baseSpecSha256, behavior: ownBehavior, signal: transport.signal, aborted: false };
     editCalls.push(call);
+    if (ownBehavior.startsWith('message-')) rejectMessage(ownBehavior, editing, 'edit');
     if (ownBehavior.startsWith('output-')) {
       const error = Object.assign(new Error('SECRET_PRIVATE_MESSAGE'), { code: 'CODEX_OUTPUT_INVALID' });
       const codes = { 'output-json': 'OUTPUT_JSON', 'output-wrapper': 'OUTPUT_WRAPPER', 'output-proposal-json': 'OUTPUT_PROPOSAL_JSON' };
@@ -181,7 +192,7 @@ try {
     context = await browser.newContext({ viewport: report.browser.viewport, serviceWorkers: 'block', acceptDownloads: true });
     const permitted = url => ['data:', 'blob:'].includes(url.protocol) || (offline && url.protocol === 'file:')
       || (!offline && url.origin === origin && !url.search
-        && ['/', '/index.html', '/workbench.js', '/api/panel/capabilities', '/api/panel/plan', '/api/panel/edit'].includes(url.pathname));
+        && ['/', '/index.html', '/workbench.js', '/api/panel/studio', '/api/panel/capabilities', '/api/panel/plan', '/api/panel/edit'].includes(url.pathname));
     // Routing even a nonmatching URL predicate enables global CDP Fetch
     // interception. Observe the allowlist here; the browser proxy blocks outbound
     // HTTP, and the offline context blocks every HTTP request in file mode.
@@ -363,7 +374,7 @@ try {
 
   stage = 'answering-questions-never-submits-a-model-request';
   const beforeAnswer = await snapshot();
-  await page.locator('#clarification-answer-0').fill('恢复全部三项设置到面板的创作初值。');
+  await page.locator('#questions-answer-0').fill('恢复全部三项设置到面板的创作初值。');
   await click('#clarify'); await healthy(); await preserve(stable, live);
   const afterAnswer = await snapshot();
   assert.equal(afterAnswer.phase, 'awaiting-proposal');
@@ -520,6 +531,18 @@ try {
     await page.waitForTimeout(150); assert.equal(editCalls.length, count + 1); pass(stage);
   }
   faultExpected = false; await screenshot('edit-output-diagnostic.png');
+
+  for (const editing of [false, true]) for (const [mode, message] of [['message-empty', /空的最终消息/u],
+    ['message-not-text', /最终消息不是文本/u], ['message-duplicate', /多条最终消息/u]]) {
+    stage = `${editing ? 'editing' : 'planning'}-${mode}-is-visible-and-keeps-old-panel`; faultExpected = true;
+    if (editing) editBehavior = mode; else behavior = mode;
+    const ownCalls = editing ? editCalls : calls, count = ownCalls.length;
+    await click(editing ? '#generate-edit' : '#generate-plan'); await preserve(undoBase, editLive);
+    const messageText = await errorVisible(); assert.match(messageText, message); assert.match(messageText, /未自动重试/u);
+    assert.equal(messageText.includes('SECRET_PRIVATE_MESSAGE'), false);
+    await page.waitForTimeout(150); assert.equal(ownCalls.length, count + 1); pass(stage);
+  }
+  faultExpected = false; await screenshot('message-diagnostic.png');
 
   stage = 'mobile-layout-retains-generation-control'; await page.setViewportSize({ width: 375, height: 900 });
   const widths = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth,
