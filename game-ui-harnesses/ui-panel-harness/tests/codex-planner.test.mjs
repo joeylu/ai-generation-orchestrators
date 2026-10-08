@@ -953,6 +953,15 @@ test('native CLI refuses an explicit read-only label/content substitution once a
   const attempt = join(outputRoot, (await readdir(outputRoot))[0]); assert.deepEqual((await readdir(attempt)).sort(), ['codex-diagnostic.json', 'codex-receipt.json', 'planning-context.json']);
 });
 
+test('native CLI rejects shortened complete body copy once and retains only failure evidence',async()=>{
+  const {bodyFixture}=await import('./literal-body-fixture.mjs'),{context:input,intent}=await bodyFixture();
+  intent.panel.body.children[0].rows[0].text='角色名会显示在排行榜和好友列表中。';const before=structuredClone(intent);
+  const fake=fakeProcess((child,call)=>{assert(call.prompt.includes('不能只取冒号之后的第一句'));assert(call.prompt.includes('Explicit complete body copies'));sendEvents(child,completedEvents(JSON.stringify(intent)));child.close(0);});
+  const {error,outputRoot}=await rejected(fake,'CODEX_PROPOSAL_INVALID',{input});
+  assert.equal(error.diagnostic.validatorCode,'INTENT_TEXT_CONTENT');assert.equal(error.diagnostic.path,'$.panel.body.children[0].rows[0].text');assert.equal(error.receipt.invocationCount,1);assert.equal(error.receipt.automaticRetries,0);assert.equal(fake.calls.length,1);assert.deepEqual(intent,before);
+  const attempt=join(outputRoot,(await readdir(outputRoot))[0]);assert.deepEqual((await readdir(attempt)).sort(),['codex-diagnostic.json','codex-receipt.json','planning-context.json']);
+});
+
 test('the native transport sends overall-panel title guidance and retains title and task-name content independently', async () => {
   const { ORDINAL_STABILITY_SUITE } = await import('../examples/ordinal-stability-v1/suite.mjs');
   const { evaluatePanelSemantics } = await import('../src/panel-evaluation.mjs');

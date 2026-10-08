@@ -35,3 +35,5 @@ node scripts/check-navigation-browser.mjs --output output/my-navigation-review
 长正文滚动位置、390px 窗口、实际下载 ZIP 的 CRC/摘要、重导入和离线切换。
 样例由程序夹具生成，模型调用为零，不代表新的真实模型生成成功率。
 本地[交互对比](../output/panel-navigation-review-v6/index.html?panel=modern-blue-dark)包含八种主题。
+
+带说明的表单可声明[完整说明正文](literal-body-copy.md)，避免多句内容被缩短成第一句。

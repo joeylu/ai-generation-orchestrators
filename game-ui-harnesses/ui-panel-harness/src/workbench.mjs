@@ -110,7 +110,7 @@ function errorText(error) {
     const targetReasons = { duplicate: '同一个目标填写了多条需求依据', unmatched: '需求依据指向面板中不存在或协议不支持的目标',
       'non-string': '需求依据的目标名必须是字符串' };
     const messageIssue = issue.validatorCode === 'text' && /\.(?:requiredMessage|minLengthMessage)$/.test(issue.path ?? '');
-    const reason = targetReasons[detail.targetIssue] ?? (messageIssue ? '校验提示必须是非空的单行文字，最多 80 个字符' : reasons[issue.validatorCode]) ?? '字段或内容不符合面板协议';
+    const reason = targetReasons[detail.targetIssue] ?? (messageIssue ? '校验提示必须是非空的单行文字，最多 80 个字符' : issue.validatorCode === 'INTENT_TEXT_CONTENT' ? '说明正文没有按需求完整保留' : reasons[issue.validatorCode]) ?? '字段或内容不符合面板协议';
     return `Codex 返回的方案未通过校验：${reason}（${issue.validatorCode}）${issue.path ? `，位置 ${issue.path}` : ''}。原面板保留，未自动重试。`;
   }
   const known = {
