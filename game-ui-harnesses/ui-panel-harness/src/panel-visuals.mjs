@@ -5,7 +5,7 @@ export function panelVisualMotion(bundle) {
   const theme = bundle.catalog.themes.find(theme => theme.id === bundle.spec.theme.id && theme.version === bundle.spec.theme.version);
   if (!((theme?.visualStyle === 'modern-v1' && bundle.compilerVersion === '0.7.1')
     || (theme?.visualStyle === 'modern-v2' && bundle.compilerVersion === '0.7.2')
-    || (theme?.visualStyle === 'modern-v3' && ['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0'].includes(bundle.compilerVersion)))) return null;
+    || (theme?.visualStyle === 'modern-v3' && ['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0'].includes(bundle.compilerVersion)))) return null;
   // Native press and input focus stay immediate. Hover uses a per-button channel,
   // avoiding the shared runtime's whole-tree reset when installing a motion system.
   const actions = { Button: ['hover'] }, bindings = [];

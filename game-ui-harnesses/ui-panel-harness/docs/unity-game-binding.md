@@ -1,7 +1,7 @@
 # Unity 游戏业务绑定 SDK 0.1.0
 
 Unity 面板继续使用原生 UGUI Slider、Toggle、InputField、Button 和 Image。
-业务绑定属于游戏侧共享 SDK，不加入每次面板导出的 Runtime 依赖。默认面板 Runtime 仍为 0.1.4 / 五个脚本。
+业务绑定属于游戏侧共享 SDK，不加入每次面板导出的 Runtime 依赖。默认面板 Runtime 为 0.1.5 / 五个脚本。
 
 ## 安装与目录
 

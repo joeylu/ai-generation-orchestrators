@@ -4,6 +4,7 @@ import { controlId, choiceId, initialPanelState } from './compiler.mjs';
 import { navigationRows, tabPageId } from './tabs.mjs';
 import { progressDisplayValue, progressDisplayMax } from './progress.mjs';
 import { formErrorId, inputError, formErrors, buttonEnabled } from './forms.mjs';
+import {sectionPurpose} from './panel-presentation.mjs';
 
 const userSources = new Set(['mouse', 'touch', 'pen', 'keyboard']);
 const rowsOf = spec => [...spec.sections.flatMap(section => section.rows), ...navigationRows(spec)];
@@ -58,7 +59,8 @@ export function projectPanelEvent(specInput, stateInput, input) {
 }
 
 /** Attach to an already-loaded TreePreview. The caller retains renderer ownership. */
-export function attachPanelSession(specInput, runtime, onEvent, stateInput) {
+export function attachPanelSession(specInput, runtime, onEvent, stateInput, presentationStyle) {
+  if (presentationStyle !== undefined && presentationStyle !== 'focused-v1') throw new Error('PANEL_PRESENTATION_PROFILE');
   const spec = validatePanelSpec(specInput);
   if (typeof runtime?.getDocument !== 'function' || typeof runtime?.subscribe !== 'function'
     || typeof runtime?.setValue !== 'function' || typeof onEvent !== 'function') throw new Error('PANEL_RUNTIME_REQUIRED');
@@ -77,14 +79,17 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput) {
     const node = nodes.get(controlId(spec.id, row.id)), field = fieldMap.get(row.bind);
     if (row.kind === 'text') {
       if (!node || node.type !== 'Text') throw new Error('PANEL_RUNTIME_MISMATCH');
+      const focusedCopy = presentationStyle === 'focused-v1' && ['form','dialog'].includes(sectionPurpose(spec.sections.find(section=>section.rows.some(item=>item.id===row.id))));
       if (hasTextWrap(spec,row.id)) {
         const container=nodes.get(`${spec.id}.row.${row.id}`),fontSize=node.props.style.fontSize;
         if(container?.type!=='Container')throw new Error('PANEL_RUNTIME_MISMATCH');
-        const width=container.layout.width-24,expected=wrapStaticText(row.text,width,fontSize);
+        const inset=focusedCopy ? spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 12 : 0 : 12;
+        const width=container.layout.width-inset*2,expected=wrapStaticText(row.text,width,fontSize);
+        const top=focusedCopy ? row.label ? Math.ceil(fontSize*1.3)+8 : 0 : 12+Math.ceil(fontSize*1.3)+8;
         if(expected.lines.some((line,i)=>{
           const child=nodes.get(i===0?node.id:node.id+'.line'+i),display=wrappedLinePresentation(line,fontSize);
           return child?.type!=='Text'||child.props.text!==display.text||child.layout.width!==width-display.indent
-            ||child.layout.x!==12+display.indent||child.layout.y!==12+Math.ceil(fontSize*1.3)+8+i*expected.lineHeight
+            ||child.layout.x!==inset+display.indent||child.layout.y!==top+i*expected.lineHeight
             ||child.layout.height!==expected.lineHeight+4||child.props.style.fontSize!==fontSize;
         }) || nodes.has(node.id+'.line'+expected.lines.length))throw new Error('PANEL_RUNTIME_MISMATCH');
       } else if(node.props.text!==row.text)throw new Error('PANEL_RUNTIME_MISMATCH');

@@ -8,6 +8,7 @@ import { progressValueWidth } from './progress.mjs';
 import { buildCodexQuestionsResponseSchema } from './codex-questions-schema.mjs';
 import { literalReadOnlyLabelPairs, nativeReadOnlyLabelMismatch } from './literal-text-labels.mjs';
 import { checkWrappedText, hasTextWrap } from './text-wrap.mjs';
+import { buttonFontSize } from './button-font.mjs';
 
 const kinds = ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'];
 const common = ['id', 'kind', 'label', 'recipeKey', 'sourceQuote', 'icon'];
@@ -331,10 +332,14 @@ export function arrangeIntentSpec(spec, settings, theme) {
   if (!['auto', 'scroll', 'error'].includes(settings.overflow)) fail('INTENT_FIELDS', '$.panel.layout.overflow');
   const rows = spec.sections.flatMap(section => section.rows), size = theme.tokens.fontSize;
   const adaptive = theme.visualStyle === 'modern-v3';
+  const focused = theme.presentationStyle === 'focused-v1';
   const purposes = new Map(spec.sections.flatMap(section => section.rows.map(row => [row.id, sectionPurpose(section)])));
   const labelWidth = Math.max(112, ...rows.filter(row => row.kind !== 'button' && !(adaptive && row.kind === 'input' && purposes.get(row.id) === 'form')).map(row => conservativeTextWidth(row.label, size) + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0)));
   const fields = new Map(spec.state.map(field => [field.id, field]));
   const rowWidths = rows.map(row => {
+    if (focused && row.kind === 'text' && ['form','dialog'].includes(purposes.get(row.id))) return Math.max(280, conservativeTextWidth(row.label,size)+24,hasTextWrap(spec,row.id)?0:conservativeTextWidth(row.text,size)+24);
+    if (focused && row.kind === 'button') return 24 + (spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 40 : 0)
+      + Math.max(spec.buttonStyles?.find(entry=>entry.rowId===row.id)?.style.width ?? 0,120,conservativeTextWidth(row.buttonLabel,buttonFontSize(spec,row.id,size))+32);
     if (hasTextWrap(spec,row.id)) return Math.max(280, conservativeTextWidth(row.label,size) + 24);
     const content = row.kind === 'slider' ? 96 + Math.max(64, size * 4) + 12
       : row.kind === 'progress' ? 96 + progressValueWidth(row, fields.get(row.bind), size) + 12
@@ -367,7 +372,7 @@ export function arrangeIntentSpec(spec, settings, theme) {
     : node.children.reduce((sum, child) => sum + requiredWidth(child), 20 * (node.children.length - 1));
   const tabWidth = spec.tabs ? Math.max(...spec.tabs.pages.map(page => conservativeTextWidth(page.label, size) + 24)) * spec.tabs.pages.length : 0;
   const compact = adaptive && spec.sections.every(section => sectionPurpose(section) !== 'settings');
-  const width = settings.width ?? Math.max(compact ? 420 : 640, requiredWidth(body) + (adaptive ? 48 : 64), tabWidth + 48, adaptive ? conservativeTextWidth(spec.title, theme.tokens.titleSize) + 48 : 0);
+  const width = settings.width ?? Math.max(compact ? focused && spec.sections.some(section=>sectionPurpose(section)==='dialog') ? 480 : 420 : 640, requiredWidth(body) + (adaptive ? 48 : 64), tabWidth + 48, adaptive ? conservativeTextWidth(spec.title, theme.tokens.titleSize) + 48 : 0);
   const maxHeight = settings.maxHeight ?? 560;
   const popup = Math.max(0, ...spec.state.filter(field => field.type === 'enum' && field.id !== spec.tabs?.bind).map(field => field.options.length * 40 + 2));
   spec.canvas = { width: settings.canvasWidth ?? Math.min(4096, width + 64), height: settings.canvasHeight ?? Math.max(640, maxHeight + popup * 2 + 96) };
@@ -377,11 +382,11 @@ export function arrangeIntentSpec(spec, settings, theme) {
   // Full contract/geometry gate; explicit narrow dimensions fail rather than changing business or requested layout.
   let checked = validatePanelSpec(spec);
   const measure = checked.tabs ? measureTabbedLayout : measureFlowLayout;
-  const measured = measure(checked, adaptive ? createPresentationPolicy(checked, theme.tokens) : undefined);
+  const measured = measure(checked, adaptive ? createPresentationPolicy(checked, theme.tokens, theme.presentationStyle) : undefined);
   if (adaptive && settings.canvasHeight === null) {
     checked.canvas.height = Math.ceil(measured.panelHeight + 64 + popup * 2);
     checked = validatePanelSpec(checked);
-    measure(checked, createPresentationPolicy(checked, theme.tokens));
+    measure(checked, createPresentationPolicy(checked, theme.tokens, theme.presentationStyle));
   }
   return checked;
 }

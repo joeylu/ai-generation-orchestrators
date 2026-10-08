@@ -13,6 +13,7 @@
 - [自然语言编辑](panel-editing.md)、[Codex 接入](codex-planner.md)、[点选修改对象](panel-point-selection.md)。
 - [视觉主题](panel-visual-style.md)、[浅深模式与主色](panel-themes.md)、[自定义外观](panel-appearance.md)。
 - [按用途排版](panel-presentation.md)、[布局](panel-layout.md)、[比例与固定尺寸](panel-frame.md)。
+- [按钮主次与主题下拉](panel-semantic-controls.md)、[菜单表单弹窗排版](panel-focused-layout.md)、[主题页签](panel-navigation.md)。
 - [按钮排列与形状](panel-action-layout.md)、[顺序、正文与单按钮样式](panel-control-editing.md)。
 - [标题对齐与底板](panel-title-bar.md)、[正文换行](panel-text-wrap.md)、[同轮比例与布局](panel-layout-details.md)。
 - [属性与修改范围](panel-edit-property-checks.md)、[修改结果核对](panel-edit-request-checks.md)。

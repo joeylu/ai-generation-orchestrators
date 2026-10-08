@@ -85,9 +85,12 @@ export function validateCatalog(value) {
   array(value.recipes, 'catalog.recipes', 1, 256);
   value.themes.forEach((theme, index) => {
     const path = `catalog.themes[${index}]`;
-    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle']);
+    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle', 'controlStyle', 'presentationStyle', 'navigationStyle']);
     identity(theme, path);
     if (Object.hasOwn(theme, 'visualStyle') && !['modern-v1', 'modern-v2', 'modern-v3'].includes(theme.visualStyle)) fail(`${path}.visualStyle`, 'unsupported visual style');
+    if (Object.hasOwn(theme, 'controlStyle') && (theme.controlStyle !== 'semantic-v1' || theme.visualStyle !== 'modern-v3')) fail(`${path}.controlStyle`, 'semantic-v1 requires modern-v3');
+    if (Object.hasOwn(theme, 'presentationStyle') && (theme.presentationStyle !== 'focused-v1' || theme.controlStyle !== 'semantic-v1')) fail(`${path}.presentationStyle`, 'focused-v1 requires semantic-v1 controls');
+    if (Object.hasOwn(theme, 'navigationStyle') && (theme.navigationStyle !== 'tabs-v1' || theme.presentationStyle !== 'focused-v1')) fail(`${path}.navigationStyle`, 'tabs-v1 requires focused-v1 presentation');
     object(theme.tokens, `${path}.tokens`, TOKEN_KEYS);
     for (const key of COLOR_KEYS) string(theme.tokens[key], `${path}.tokens.${key}`, 7, /^#[0-9a-fA-F]{6}$/);
     string(theme.tokens.fontFamily, `${path}.tokens.fontFamily`, 128);
@@ -97,9 +100,10 @@ export function validateCatalog(value) {
   });
   value.recipes.forEach((recipe, index) => {
     const path = `catalog.recipes[${index}]`;
-    object(recipe, path, ['id', 'version', 'kind', 'description', 'tags', 'states', 'supports', 'minWidth', 'minHeight']);
+    object(recipe, path, ['id', 'version', 'kind', 'description', 'tags', 'states', 'supports', 'minWidth', 'minHeight'], ['buttonRole']);
     identity(recipe, path);
     if (!KINDS.has(recipe.kind)) fail(`${path}.kind`, 'unsupported recipe kind');
+    if (Object.hasOwn(recipe, 'buttonRole') && (recipe.kind !== 'button-row' || !['primary', 'secondary', 'danger'].includes(recipe.buttonRole))) fail(`${path}.buttonRole`, 'explicit button role requires a button-row recipe');
     string(recipe.description, `${path}.description`, 512);
     strings(recipe.tags, `${path}.tags`, 32);
     strings(recipe.states, `${path}.states`, STATES.size, STATES);

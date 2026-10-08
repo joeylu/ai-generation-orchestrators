@@ -55,7 +55,7 @@ test('composing ordinary panels as tabs preserves namespaces, current state and 
 
 test('native Unity lowering declares ordered pages, enum semantics and no replacement controls',async()=>{
   const native=await createUnityDocument(bundle,core), navigation=native.controls.find(c=>c.kind==='tabs');
-  assert.equal(native.adapterVersion,'0.1.4');assert.deepEqual(navigation.contentIds,['tabs-settings.page.page0','tabs-settings.page.page1']);
+  assert.equal(native.adapterVersion,'0.1.5');assert.deepEqual(navigation.contentIds,['tabs-settings.page.page0','tabs-settings.page.page1']);
   const node=native.nodes.find(n=>n.id===navigation.nodeId);assert.equal(node.type,'Tabs');
   assert.deepEqual(native.nodes.filter(n=>n.parentId===node.id).map(n=>n.id),navigation.contentIds);
   assert.equal(native.fields.find(f=>f.id==='navigation').stringValue,'page0');

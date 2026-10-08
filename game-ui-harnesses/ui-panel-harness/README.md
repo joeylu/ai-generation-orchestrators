@@ -60,7 +60,7 @@ modern-v3 的新编辑使用 EditContext 0.12，可选择单控件，并独立�
 node scripts/check-workspace.mjs
 node --test tests/*.test.mjs
 node scripts/cli.mjs validate examples/audio-settings.panel.json
-node scripts/build-workbench.mjs --catalog examples/modern-adaptive.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-navigation.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

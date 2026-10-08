@@ -25,6 +25,7 @@ namespace GameUi.PanelHarness
         public bool bold, drawBackground;
         public string text, source, fit;
         public string textAlignment; // Empty in legacy documents; only the panel title uses an explicit native anchor.
+        public string tabActiveColor, tabActiveTextColor, tabIndicatorColor; // Optional themed header, absent in legacy documents.
         public bool hasRegion;
         public float regionX, regionY, regionWidth, regionHeight;
         public float contentWidth, contentHeight;

@@ -5,10 +5,14 @@
 
 ## 已运行的Studio
 
-本工作区当前Studio地址是`http://127.0.0.1:1353/`，使用`output/panel-studio-property-review-live-v2`构建。
+本工作区当前推荐 Studio 使用 `output/panel-studio-navigation-v2` 构建，地址见本轮启动记录。
+原 `http://127.0.0.1:1353/` 及其草稿保留；新地址是独立工作区，可通过下载并打开 PanelBundle 转移面板。
 表单、对话框、菜单和设置分区采用不同排版，见[按用途排版](panel-presentation.md)。
 已保存的旧面板按原主题版本还原。其他历史地址是否可用，以对应进程为准。
 [浅深模式与主色](panel-themes.md)通过需求描述指定；未要求换风格的修改保持现有主题。
+[按钮主次与主题下拉菜单](panel-semantic-controls.md)采用新的显式主题目录；旧服务和已保存面板不自动换样式。
+[菜单、表单与弹窗排版](panel-focused-layout.md)进一步收拢菜单、对齐字段，并按完整内容宽度测量正文及操作区。
+[主题页签](panel-navigation.md)统一深浅主题的选中背景、文字和下划线；切页保留输入、设置及滚动位置。
 前一版Modern Mint说明见[视觉主题](panel-visual-style.md)。旧服务和第一版交付记录保留。
 现有服务保留。另开工作区或重启时按下面的命令构建，使用程序打印的地址。
 
@@ -47,7 +51,7 @@ Vite/Pixi/Playwright等依赖由该相邻Harness的锁定依赖提供；如果�
 ```sh
 node scripts/check-workspace.mjs
 node --test tests/*.test.mjs
-node scripts/build-workbench.mjs --catalog examples/modern-adaptive.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-navigation.catalog.json --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

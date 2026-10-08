@@ -23,7 +23,7 @@ export async function mountPixiPanelInstance({bundle,state,options,signal,onEven
     const compiled=compilePanel(bundle.spec,bundle.catalog,pixiPanelCore,state,bundle.assetClosure,bundle.compilerVersion);
     await runtime.load(compiled.document,signal,(path,loadSignal)=>{const resource=resources.get(path);if(!resource||resource.mime!=='image/png')throw new Error('PANEL_HOST_RESOURCE');return imageFor(resource,loadSignal);});signal.throwIfAborted();
     detachVisuals=attachPanelVisuals(bundle,runtime);
-    layout=attachLayoutSession(bundle.spec,runtime);session=attachPanelSession(bundle.spec,runtime,onEvent,state);detachInput=attachInputEditor(surface,bundle.spec,runtime,session);
+    layout=attachLayoutSession(bundle.spec,runtime);session=attachPanelSession(bundle.spec,runtime,onEvent,state,['0.16.0','0.17.0'].includes(bundle.compilerVersion)?'focused-v1':undefined);detachInput=attachInputEditor(surface,bundle.spec,runtime,session);
     detachViewport=observePanelViewport(bundle.spec.canvas,container,surface,runtime);
     return Object.freeze({getState:()=>session.getState(),setState:value=>session.setState(value),inspect:()=>runtime.inspect(),destroy(){signal.removeEventListener('abort',aborted);destroy();}});
   }catch(error){signal.removeEventListener('abort',aborted);destroy();throw error;}

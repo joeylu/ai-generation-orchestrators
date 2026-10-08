@@ -1,5 +1,6 @@
 import { hasTextWrap,wrapStaticText } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
+import { measureFocusedSection } from './focused-presentation.mjs';
 
 /** Opt-in modern-v3 geometry. Typed controls determine presentation; actions remain unchanged. */
 export const presentationTextWidth = (value, size) => Math.ceil([...value].reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * 0.8 : size * 1.1), 0));
@@ -12,7 +13,7 @@ export function sectionPurpose(section) {
   return 'settings';
 }
 
-export function createPresentationPolicy(spec, tokens) {
+export function createPresentationPolicy(spec, tokens, presentationStyle) {
   const l = spec.layout, textHeight = Math.ceil(tokens.fontSize * 1.3);
   const icons = new Set((spec.assets?.rowIcons ?? []).map(icon => icon.rowId));
   const overrides = new Map((spec.buttonStyles ?? []).map(value => [value.rowId, value.style]));
@@ -42,6 +43,10 @@ export function createPresentationPolicy(spec, tokens) {
           stacked: false, buttonRole: null, explicitAction: true, circle: size.circle,
           controlX: direction === 'row' ? x + sizes.slice(0,index).reduce((sum,value)=>sum+value.width+gap,0) : align === 'center' ? (width-size.width)/2 : align === 'end' ? width-size.width : 0,
           controlWidth: size.width, controlHeight: size.height })) };
+    }
+    if (presentationStyle === 'focused-v1' && purpose !== 'settings') {
+      const focused = measureFocusedSection(spec, tokens, section, width, purpose, geometry);
+      if (focused) return focused;
     }
     const placements = [], primary = compact
       ? section.rows.find(row => row.kind === 'button' && row.action.kind === 'submit')

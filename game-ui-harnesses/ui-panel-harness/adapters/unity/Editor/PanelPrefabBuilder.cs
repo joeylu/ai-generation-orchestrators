@@ -729,18 +729,33 @@ namespace GameUi.PanelHarness.Editor
         private static void BuildTabs(GameObject target, PanelNode node, PanelControlView view, PanelField field, Font font)
         {
             view.tabButtons = new Button[field.options.Length];
-            view.tabActiveColor = ParseColor(node.borderColor, node.opacity);
+            bool themed = !string.IsNullOrEmpty(node.tabActiveColor);
+            view.tabActiveColor = ParseColor(themed ? node.tabActiveColor : node.borderColor, node.opacity);
             view.tabIdleColor = ParseColor(node.backgroundColor, node.opacity);
+            if (themed)
+            {
+                view.tabLabels = new Text[field.options.Length];
+                view.tabIndicators = new GameObject[field.options.Length];
+                view.tabIdleTextColor = ParseColor(node.textColor, node.opacity);
+                view.tabActiveTextColor = ParseColor(node.tabActiveTextColor, node.opacity);
+            }
             float width = node.width / field.options.Length;
             for (int i = 0; i < field.options.Length; i++)
             {
                 GameObject tab = Child(target, "__tab_" + field.options[i].id, i * width, 0, width, 48);
-                PanelRoundedGraphic graphic = AddGraphic(tab, Color.white, Color.clear, 0, 6);
+                PanelRoundedGraphic graphic = AddGraphic(tab, Color.white, Color.clear, 0, themed ? 0 : 6);
                 Button button = tab.AddComponent<Button>(); button.targetGraphic = graphic;
                 ConfigureSelectable(button, view.definition.enabled);
                 button.transition = Selectable.Transition.None;
                 GameObject label = Child(tab, "__label", 8, 0, Math.Max(1, width - 16), 48);
-                AddText(label, field.options[i].label, node, font, TextAnchor.MiddleCenter);
+                Text text = AddText(label, field.options[i].label, node, font, TextAnchor.MiddleCenter);
+                if (themed)
+                {
+                    view.tabLabels[i] = text;
+                    GameObject indicator = Child(tab, "__active-indicator", 0, 45, width, 3);
+                    AddGraphic(indicator, ParseColor(node.tabIndicatorColor, node.opacity), Color.clear, 0, 0).raycastTarget = false;
+                    view.tabIndicators[i] = indicator;
+                }
                 view.tabButtons[i] = button;
             }
             for (int i = 0; i < view.tabButtons.Length; i++)

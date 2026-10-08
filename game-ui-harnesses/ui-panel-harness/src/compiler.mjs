@@ -9,6 +9,8 @@ import { formErrorId, inputError, buttonEnabled } from './forms.mjs';
 import { staticTextWidth, wrappedLinePresentation } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
 import { appearanceTokens } from './appearance.mjs';
+import { selectSkin } from './select-skin.mjs';
+import { tabsSkin } from './tabs-skin.mjs';
 
 export const PANEL_COMPILER_VERSION = '0.1.0';
 export const ASSET_PANEL_COMPILER_VERSION = '0.2.0';
@@ -29,10 +31,17 @@ export const BUTTON_FONT_PANEL_COMPILER_VERSION = '0.11.0';
 export const TITLE_BAR_PANEL_COMPILER_VERSION = '0.12.0';
 export const TEXT_WRAP_PANEL_COMPILER_VERSION = '0.13.0';
 export const FRAME_PANEL_COMPILER_VERSION = '0.14.0';
+export const SEMANTIC_PANEL_COMPILER_VERSION = '0.15.0';
+export const FOCUSED_PANEL_COMPILER_VERSION = '0.16.0';
+export const NAVIGATION_PANEL_COMPILER_VERSION = '0.17.0';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
-  const profile = resolveTheme(catalog, spec.theme).visualStyle;
+  const theme = resolveTheme(catalog, spec.theme), profile = theme.visualStyle;
+  if (theme.controlStyle === 'semantic-v1') {
+    if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(spec.panelSpecVersion)) throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Semantic controls require PanelSpec 0.7 or later');
+    return theme.navigationStyle === 'tabs-v1' ? NAVIGATION_PANEL_COMPILER_VERSION : theme.presentationStyle === 'focused-v1' ? FOCUSED_PANEL_COMPILER_VERSION : SEMANTIC_PANEL_COMPILER_VERSION;
+  }
   if (['0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) {
     if (profile !== 'modern-v3') throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Panel appearance requires modern-v3');
     return spec.panelSpecVersion === '0.14' ? FRAME_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.13' ? TEXT_WRAP_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.12' ? TITLE_BAR_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.11' ? BUTTON_FONT_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.10' ? BUTTON_STYLE_PANEL_COMPILER_VERSION : spec.panelSpecVersion === '0.9' ? ACTION_LAYOUT_PANEL_COMPILER_VERSION : APPEARANCE_PANEL_COMPILER_VERSION;
@@ -108,28 +117,31 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   const compilerVersion = compilerVersionInput ?? defaultPanelCompilerVersion(spec, catalog);
   const allowedVersions = sized ? [FRAME_PANEL_COMPILER_VERSION] : wrapping ? [TEXT_WRAP_PANEL_COMPILER_VERSION] : titled ? [TITLE_BAR_PANEL_COMPILER_VERSION] : typography ? [BUTTON_FONT_PANEL_COMPILER_VERSION] : individual ? [BUTTON_STYLE_PANEL_COMPILER_VERSION] : arranged ? [ACTION_LAYOUT_PANEL_COMPILER_VERSION] : styled ? [APPEARANCE_PANEL_COMPILER_VERSION] : formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
     : [controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION];
-  if (!allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec');
+  const semantic = resolveTheme(catalog, spec.theme).controlStyle === 'semantic-v1';
+  if (semantic ? compilerVersion !== defaultPanelCompilerVersion(spec, catalog) : !allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec and pinned theme');
   const assetClosure = validatePanelAssetClosure(spec, assetClosureInput);
   const assets = new Map((assetClosure?.records ?? []).map(r => [r.key, r]));
   const rowIcons = new Map((spec.assets?.rowIcons ?? []).map(r => [r.rowId, r.asset]));
   const imageFacts = {};
+  const generatedResources = new Map();
   if (typeof core?.compileTree !== 'function' || typeof core?.validateDocument !== 'function') {
     fail('COMPONENT_CORE_REQUIRED', '$', 'A compatible component compiler must be supplied');
   }
   const state = validatePanelState(spec, stateInput === undefined ? initialPanelState(spec) : stateInput);
   const theme = resolveTheme(catalog, spec.theme), t = appearanceTokens(theme.tokens, appearance);
   const adaptive = theme.visualStyle === 'modern-v3', themed = adaptive || theme.visualStyle === 'modern-v2', modern = themed || theme.visualStyle === 'modern-v1';
-  const presentationPolicy = adaptive ? createPresentationPolicy(spec, t) : undefined;
+  const presentationPolicy = adaptive ? createPresentationPolicy(spec, t, theme.presentationStyle) : undefined;
   const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec, presentationPolicy) : flowVersion ? measureFlowLayout(spec, presentationPolicy) : null;
   const l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
-  if (styled ? !adaptive : modern ? compilerVersion !== (adaptive ? ADAPTIVE_PANEL_COMPILER_VERSION : themed ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION)
+  if (!semantic && (styled ? !adaptive : modern ? compilerVersion !== (adaptive ? ADAPTIVE_PANEL_COMPILER_VERSION : themed ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION)
     : [MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION].includes(compilerVersion))
-    fail('VISUAL_STYLE_VERSION', '$.compilerVersion', 'Visual style and compiler version must match');
+    ) fail('VISUAL_STYLE_VERSION', '$.compilerVersion', 'Visual style and compiler version must match');
   const navigation = themed ? navigationPalette(t) : null;
   const errorColor = themed && contrast('#B22C42', t.control) < 4.5 ? '#FDA29B' : '#B22C42';
   const selected = new Map();
   const select = (ref, kind, width, height) => {
     const recipe = resolveRecipe(catalog, ref, kind);
+    if (recipe.buttonRole && !semantic) fail('BUTTON_ROLE_THEME', '$.theme', 'Explicit button roles require semantic-v1 controls');
     if (!recipe.supports.includes('pixi')) fail('CAPABILITY_UNSUPPORTED', '$.catalog', 'Recipe does not support the Pixi target');
     if (width < recipe.minWidth || height < recipe.minHeight) fail('RECIPE_GEOMETRY', '$.layout', `Recipe ${recipe.id} minimum size is not met`);
     selected.set(`${recipe.id}@${recipe.version}`, { id: recipe.id, version: recipe.version });
@@ -205,8 +217,8 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       const fullButton = flowVersion && row.kind === 'button' && row.label === '';
       const stacked = placement?.stacked === true;
       if (icon && (rowHeight < 40 || (!fullButton && !stacked && l.labelWidth - iconOffset < t.fontSize * 2))) fail('ICON_GEOMETRY', '$.layout', 'Icon needs a 28px slot and a readable label');
-      const rowChildren = fullButton ? [] : [text(`${rowId}.label`, row.label,
-        { x: 12 + iconOffset, y: placement?.textBlock ? 12 : stacked ? 0 : modern && row.kind === 'input' ? 4 + (40 - textHeight) / 2 : (rowHeight - textHeight) / 2, width: stacked ? contentWidth - 24 - iconOffset : l.labelWidth - iconOffset, height: textHeight }, t.fontSize)];
+      const rowChildren = fullButton || (placement?.copy && !row.label) ? [] : [text(`${rowId}.label`, row.label,
+        { x: (placement?.labelX ?? 12) + iconOffset, y: placement?.labelY ?? (placement?.textBlock ? 12 : stacked ? 0 : modern && row.kind === 'input' ? 4 + (40 - textHeight) / 2 : (rowHeight - textHeight) / 2), width: placement?.labelX !== undefined ? contentWidth - 2 * placement.labelX - iconOffset : stacked ? contentWidth - 24 - iconOffset : l.labelWidth - iconOffset, height: textHeight }, t.fontSize)];
       if (icon) rowChildren.unshift(image(`${rowId}.icon`, icon, { x: placement?.iconX ?? 12, y: stacked ? 0 : (rowHeight - 28) / 2, width: stacked ? 24 : 28, height: stacked ? 24 : 28 }, null, true));
       const controlX = placement?.controlX ?? (stacked ? 12 : fullButton ? 12 + iconOffset : l.labelWidth + l.gap + 12);
       const available = placement?.controlWidth ?? contentWidth - controlX - 12;
@@ -259,11 +271,11 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           const block=placement.textBlock;
           block.lines.forEach((line,i)=>{
             const {text:value,indent}=wrappedLinePresentation(line,t.fontSize);
-            rowChildren.push(text(i===0?id:id+'.line'+i,value,{x:controlX+indent,y:12+textHeight+8+i*block.lineHeight,width:available-indent,height:block.lineHeight+4},t.fontSize));
+            rowChildren.push(text(i===0?id:id+'.line'+i,value,{x:controlX+indent,y:(placement.copyTextY ?? 12+textHeight+8)+i*block.lineHeight,width:available-indent,height:block.lineHeight+4},t.fontSize));
           });
         } else {
-          if (wrapping && staticTextWidth(row.text)*t.fontSize>available) fail('TEXT_WRAP_REQUIRED','$.textLayouts','Text does not fit one line; enable wrapping or shorten it');
-          rowChildren.push(text(id, row.text, { x: controlX, y: (rowHeight - textHeight) / 2, width: available, height: textHeight }, t.fontSize));
+          if ((wrapping || placement?.copy) && staticTextWidth(row.text)*t.fontSize>available) fail('TEXT_WRAP_REQUIRED','$.textLayouts','Text does not fit one line; enable wrapping or shorten it');
+          rowChildren.push(text(id, row.text, { x: controlX, y: placement?.copy ? placement.copyTextY : (rowHeight - textHeight) / 2, width: available, height: textHeight }, t.fontSize));
         }
       } else {
         const controlHeight = placement?.controlHeight ?? (adaptive && row.kind === 'button' ? 44 : 40), controlY = (rowHeight - controlHeight) / 2;
@@ -277,13 +289,19 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           const popupBottom = (flow ? flow.panelY + flow.body.y + (pageFlow ? flow.pageY : 0) : (spec.canvas.height - panelHeight) / 2) + sectionY + rowY + controlY
             + controlHeight + 2 + Math.max(32, controlHeight) * field.options.length;
           if (!(pageFlow ? pageFlow.contentHeight > pageFlow.viewportHeight : flow?.scrollable) && popupBottom > spec.canvas.height) fail('SELECT_POPUP_OVERFLOW', '$.canvas.height', 'The open Select menu must fit below its field within the canvas');
+          const skinTokens = { ...t, text: contrast(t.text,t.control) >= 4.5 ? t.text : buttonForeground(t.control) };
+          const skinBorder = contrast(t.border,t.control) >= 3 ? t.border : contrast(t.accent,t.control) >= 3 ? t.accent : skinTokens.text;
+          const skin = semantic ? selectSkin(rect,field.options.length,skinTokens,skinBorder,appearance?.controlRadius ?? 8) : null;
+          for (const resource of skin?.resources ?? []) generatedResources.set(resource.path,resource);
           rowChildren.push(node(id, 'Select', rect, {
             selectedId: choiceId(spec.id, row.id, state[row.bind]),
             options: field.options.map(option => ({ id: choiceId(spec.id, row.id, option.id), label: option.label })),
             enabled: row.enabled,
+            ...(skin ? { appearance: skin.appearance } : {}),
             // The default runtime popup is white/light green. An explicit light-field
             // palette keeps text legible there and in the collapsed field, including dark themes.
-            style: themed ? style(navigation.background, { textColor: navigation.text, borderColor: navigation.accent, borderWidth: 1, cornerRadius: appearance?.controlRadius ?? 8 })
+            style: semantic ? style(t.control,{textColor:skinTokens.text,borderColor:skinBorder,borderWidth:1,cornerRadius:appearance?.controlRadius ?? 8})
+              : themed ? style(navigation.background, { textColor: navigation.text, borderColor: navigation.accent, borderWidth: 1, cornerRadius: appearance?.controlRadius ?? 8 })
               : modern ? style(t.surface, { borderColor: t.accent, borderWidth: 1, cornerRadius: 8 })
               : style('#F1F5FC', { textColor: '#111622', borderWidth: 1, cornerRadius: 6 }),
           }));
@@ -291,6 +309,9 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           const buttonStyle = modern && (placement?.buttonRole === 'secondary' || (!placement?.buttonRole && row.action.kind === 'reset-initial'))
             ? style(t.surface, { textColor: t.accent, borderColor: t.accent, borderWidth: 1, fontWeight: 'bold', cornerRadius: 8 })
             : style(t.accent, { textColor: buttonForeground(t.accent), fontWeight: 'bold', cornerRadius: modern ? 8 : 6 });
+          const role = semantic ? resolveRecipe(catalog,row.recipe,'button-row').buttonRole : undefined;
+          if (role === 'secondary') Object.assign(buttonStyle,{backgroundColor:t.control,textColor:contrast(t.text,t.control)>=4.5?t.text:buttonForeground(t.control),borderColor:t.accent,borderWidth:1});
+          if (role === 'primary' || role === 'danger') { const color = role === 'danger' ? '#C42B43' : t.accent; Object.assign(buttonStyle,{backgroundColor:color,textColor:buttonForeground(color),borderWidth:0}); }
           if (appearance?.buttonColor != null) {
             buttonStyle.backgroundColor = appearance.buttonColor;
             buttonStyle.textColor = buttonForeground(appearance.buttonColor);
@@ -320,7 +341,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {
@@ -347,8 +368,12 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         scrollable ? { scrollX: 0, scrollY: 0, contentWidth: page.body.width, contentHeight: page.contentHeight,
           drawBackground: false, scrollbarVisibility: 'auto', style: style(t.surface) } : { style: style(t.surface) }, ownSections);
     });
+    const skin = theme.navigationStyle === 'tabs-v1' ? tabsSkin(flow.body,tabs.pages.length,t,flow.headerHeight) : null;
+    for (const resource of skin?.resources ?? []) generatedResources.set(resource.path,resource);
     children.push(node(id, 'Tabs', flow.body, { activeId: choiceId(spec.id, tabs.id, state[tabs.bind]), enabled: tabs.enabled,
-      drawBackground: false, style: themed ? style(navigation.background, { textColor: navigation.text, borderColor: navigation.accent }) : style(t.surface, { borderColor: t.accent }),
+      ...(skin ? {appearance:skin.appearance} : {}),
+      drawBackground: false, style: skin ? style(skin.palette.idle,{textColor:skin.palette.text,borderColor:skin.palette.focus})
+        : themed ? style(navigation.background, { textColor: navigation.text, borderColor: navigation.accent }) : style(t.surface, { borderColor: t.accent }),
       tabs: tabs.pages.map(page => ({ id: choiceId(spec.id, tabs.id, page.id), label: page.label, contentId: tabPageId(spec.id, page.id) })) }, pages));
     bindings.push({ nodeId: id, fieldId: tabs.bind, type: 'enum', event: tabs.event });
   } else if (flow) children.push(node(`${spec.id}.body`, flow.scrollable ? 'ScrollView' : 'Container', flow.body,
@@ -381,6 +406,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   if (textBindings.length) document.valueTextBindings = { version: '1.0', bindings: textBindings };
   return {
     document: core.validateDocument(document), intent, policy, bindings, state, ...(controls ? { actions } : {}),
+    ...(semantic ? { resources: [...generatedResources.values()] } : {}),
     selection: { theme: { id: theme.id, version: theme.version }, recipes: [...selected.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) },
   };
 }

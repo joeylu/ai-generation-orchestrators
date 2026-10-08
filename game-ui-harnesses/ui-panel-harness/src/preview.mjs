@@ -56,7 +56,7 @@ async function importPanel(input) {
     session = attachPanelSession(bundle.spec, preview, event => {
       events.push(event); if (events.length > 100) events.shift();
       eventOutput.textContent = JSON.stringify(event, null, 2); renderState();
-    }, bundle.state);
+    }, bundle.state, ['0.16.0','0.17.0'].includes(bundle.compilerVersion)?'focused-v1':undefined);
     detachInputEditor = attachInputEditor(host, bundle.spec, preview, session);
     document.getElementById('panel-title').textContent = bundle.spec.title;
     host.style.width = `${bundle.spec.canvas.width}px`;
