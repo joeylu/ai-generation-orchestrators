@@ -177,6 +177,9 @@ class ApproximatePolicyTests(unittest.TestCase):
         fresh = fixture.base / 'approximate-host-config.json'; save(fresh, config)
         fixture.run = fixture.base / 'approximate-integrated'
         host.prepare(fresh, fixture.run); fixture.root = fixture.run / 'planning'
+        frozen_fit = read(fixture.run/'config.json')['bodyFitPolicy']
+        self.assertEqual(frozen_fit,dict(kind='uniform-observed-body-residual-v2',
+            maximumResidualPixels=32,denseBoundaryMarginPixels=4))
         original_material = HostEvidence.response
         original_planning = delivery_fixtures.review_fixtures.HostReviewTests.response_doc
         original_receive = host.receive
@@ -198,6 +201,8 @@ class ApproximatePolicyTests(unittest.TestCase):
         def receive(run, submission_digest, response, **kwargs):
             if host.status(run)['stage'] == 'body_observation':
                 answer = read(response)
+                answer['geometryDifferences'] = ['Fixture body is measurably ten percent shorter.']
+                answer['materialIssues'] = ['Fixture minor highlight difference under explicit approximate policy.']
                 box = answer['referenceCropBodyBox']
                 box[3] = box[1] + max(1, round((box[3] - box[1]) * .9))
                 Path(response).write_text(json.dumps(answer), encoding='utf-8')
@@ -213,12 +218,17 @@ class ApproximatePolicyTests(unittest.TestCase):
                 patch.object(host, 'receive', receive):
             fixture.test_complete_sheet_workflow_separate_scopes_and_delivered_comparison()
         self.assertTrue(body_calls)
+        self.assertEqual(read(fixture.run/'body/job.json')['bodyFitPolicy'],frozen_fit)
+        self.assertEqual(read(fixture.run/'body-output.json')['bodyFitPolicy'],frozen_fit)
+        self.assertTrue(read(fixture.run/'body-output.json')['bodyObservationWarnings'])
         warnings = read(fixture.run / 'extraction/result.json')['warnings']
         self.assertTrue(any(w['category'] == 'minor-geometry-deviation' for w in warnings))
         proof = read(fixture.run / 'delivery/body-provenance.json')
         for record in proof['records']:
             if record['role'] != 'foreground': continue
             geometry = record['geometry']
+            self.assertEqual(geometry['appearanceTolerance']['kind'],'ui_approximate_body_fit_v2')
+            self.assertEqual(geometry['appearanceTolerance']['fitPolicy'],frozen_fit)
             self.assertFalse(geometry['appearanceTolerance']['axisStretch'])
             self.assertGreater(max(geometry['appearanceTolerance']['sizeDifferencePixels']), 1)
             self.assertFalse(geometry['alphaSupportClipped'])

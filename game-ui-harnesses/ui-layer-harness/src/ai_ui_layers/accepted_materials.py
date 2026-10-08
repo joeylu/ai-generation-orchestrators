@@ -65,10 +65,11 @@ def replay(entry, row, placement, role, reference_sha, output):
         # fitting. Approximate receipts must replay the actual frozen policy.
         visual_policy = (snapshot_policy(job/'snapshot')
                          if row['report']['fitting'].get('appearanceTolerance') is not None else None)
+        fit_policy = (row['report']['fitting'].get('appearanceTolerance') or {}).get('fitPolicy')
         result=process_body(source,job/'snapshot/reference.png',
             dict(path=str(contract_path),sha256=digest(contract_path)),placement['sourceRegion'],
             row['id'],row['report']['snapshotDigest'],output/'processed',policy=fitting_mode,
-            visual_policy=visual_policy)
+            visual_policy=visual_policy,fit_policy=fit_policy)
     else:
         mode='frame-bounds' if fitting_mode=='frame-bounds' else 'contain'
         result=process(source,placement['outputSize'],output/'processed',background=role=='background',fit_mode=mode)

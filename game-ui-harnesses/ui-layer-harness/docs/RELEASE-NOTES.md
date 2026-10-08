@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased formal host body integration
+
+- Integrated host delivery freezes actual-alpha body display v2, separates
+  measurable geometry from observation blockers, and retains appearance evidence
+  through packaging. The raw native PNG remains unchanged; previews are replayed.
+- Explicit approximate runs freeze a uniform four-corner residual fit and bounded
+  native boundary measurement margin. Receipt validation and delivery use the
+  same parameters; no slicing, axis stretching or alpha deletion is introduced.
+- Strict policies and historical missing-field/v1 requests retain their previous
+  gates. New code does not convert failed runs or establish real model/visual
+  success from fixture tests or deterministic replay.
+
 ## Unreleased alpha-aware host geometry measurements
 
 - New archive geometry preparations default to v2 with SHA-bound, native-size

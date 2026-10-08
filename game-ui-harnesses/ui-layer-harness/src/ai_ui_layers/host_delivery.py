@@ -173,6 +173,19 @@ def prepare(config_path, output):
     if (source['canvasPolicy']!=POLICY or not isinstance(instruction,str) or not instruction.strip()
             or source['canvasPolicyInstructionSha256']!=hashlib.sha256(instruction.encode('utf-8')).hexdigest()):
         raise ValueError('EXPLICIT_BOUND_CANVAS_POLICY_REQUIRED')
+    from . import host_body_profile, body_registration
+    from .visual_policy import load_input, _decode
+    source.setdefault('bodyObservationPolicy', host_body_profile.POLICY)
+    host_body_profile.validate(source['bodyObservationPolicy'])
+    policy_data = load_input(source.get('visualPolicy'))
+    visual_policy = _decode(policy_data) if policy_data is not None else None
+    if ('bodyFitPolicy' not in source and source['bodyObservationPolicy'] == host_body_profile.POLICY
+            and visual_policy is not None and visual_policy.get('minorGeometry') == 'record'):
+        source['bodyFitPolicy'] = dict(kind=body_registration.FIT_POLICY,
+            maximumResidualPixels=32, denseBoundaryMarginPixels=4)
+    body_registration.validate_fit_policy(source.get('bodyFitPolicy'), visual_policy)
+    if source.get('bodyFitPolicy') is not None and source['bodyObservationPolicy'] != host_body_profile.POLICY:
+        raise ValueError('BODY_FIT_REQUIRES_ALPHA_OBSERVATION_PROFILE')
     prior=_reviewed_snapshot(source) if source.get('reviewedSnapshot') else None
     version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v8')
     if version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
@@ -529,6 +542,10 @@ def resume(run):
                     canvasPolicy=config['canvasPolicy'],canvasPolicyInstruction=config['canvasPolicyInstruction'],
                     canvasPolicyInstructionSha256=config['canvasPolicyInstructionSha256'],backgroundPolicy=config['backgroundPolicy'],
                     maximumCallSeconds=config['maximumModelCallSeconds'],destination=config['bodyDestination'],reviewerId=config['bodyReviewer'])
+                # Missing fields preserve historical host-run semantics. New
+                # prepare() freezes the v2 profile before any model execution.
+                for name in ('bodyObservationPolicy','bodyFitPolicy'):
+                    if name in config:body_config[name]=config[name]
                 if (root/'frozen/material-reuse.json').exists():
                     body_config['reviewedReuseExtraction']=dict(path=str(root/'extraction'),sha256=digest(root/'extraction/result.json'))
                 if (root/'frozen/background-region/plan.json').exists():

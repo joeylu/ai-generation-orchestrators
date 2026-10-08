@@ -84,6 +84,39 @@ receipts. Response construction belongs to the independent host, never this
 workflow. A failed or unknown dispatch is terminal through `host-fail --run RUN
 --digest SUBMISSION_DIGEST --reason TEXT`.
 
+## Formal body observations and uniform fitting
+
+New host runs freeze `bodyObservationPolicy=host-body-observation-alpha-v2` at
+initial preparation. Each foreground request binds the raw source, full reference,
+ownership crop, actual-alpha checker/light/dark RGB composites, alpha display,
+schema, prompt and coordinate mapping. Verification reconstructs the display
+pixels from the unchanged native PNG. Alpha extent never defines semantic geometry.
+The v2 answer adds required `geometryDifferences` and `materialIssues` arrays.
+Measurable size/aspect differences and permitted minor appearance differences are
+retained with their response SHA in the output configuration and package review.
+Unreliable/incomplete correspondence, missing/repeated content, wrong ownership
+and major/uncertain deformation remain blocking `issues`.
+
+With an explicitly bound visual policy selecting `minorGeometry: record`, new
+v2 host runs also freeze `bodyFitPolicy` as
+`{"kind":"uniform-observed-body-residual-v2","maximumResidualPixels":32,"denseBoundaryMarginPixels":4}`.
+The program fits the four observed body corners by one least-squares scale and
+centered translation. Maximum corner residual is measured in reference pixels;
+excessive residual or a gross aspect mismatch above the existing 25% guard fails.
+The dense-alpha guard permits only the frozen small native-pixel boundary margin
+and records all four actual excursions. It does not expand or alter observed
+coordinates, delete alpha, slice a material, or stretch axes independently.
+Complete nonzero-alpha support is rendered into storage; the viewport stays at
+the original reference size. Observation validation and final packaging use the
+same frozen fit policy and record the actual residual and margin.
+
+Strict visual policies keep their original fit and zero boundary margin.
+Explicit `bodyObservationPolicy=host-body-observation-v1` retains the old answer
+and display protocol; explicit `bodyFitPolicy: null` retains historical fitting.
+Historical configurations missing these fields retain old semantics. A changed
+runtime requires a fresh run and new actual scopes; failed runs, old responses and
+authorizations are never migrated or promoted.
+
 Fresh M1 uses `ui_host_m1_attestation_v1`, with exactly `kind`,
 `requestSha256`, `responseSha256`, `plannerId`, `model`, `effort`,
 `hostAssertedModelResponse`, `notProviderReceipt`,

@@ -15,6 +15,7 @@ from jsonschema import Draft202012Validator
 
 from . import body_observation as body
 from . import body_registration as registration
+from . import host_body_profile as profile
 from .automatic_registration import observation_image
 from .evaluate import read, save, digest
 from .experimental_executor import record, verified, lock
@@ -42,8 +43,13 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
     """Freeze exact attachments, requested model/budget and author identities."""
     config_path, output = Path(config_path).resolve(), Path(output).resolve()
     config = read(config_path)
+    observation_policy = profile.validate(config.get('bodyObservationPolicy', profile.LEGACY))
     snapshot = Path(config['snapshot']).resolve()
     inspect(snapshot, config['snapshotDigest'])
+    from .visual_policy import snapshot_policy
+    fit_policy = registration.validate_fit_policy(config.get('bodyFitPolicy'), snapshot_policy(snapshot))
+    if fit_policy is not None and observation_policy != profile.POLICY:
+        raise ValueError('BODY_FIT_REQUIRES_ALPHA_OBSERVATION_PROFILE')
     visual, ids = body.foreground(snapshot)
     body.validate_budget(snapshot, maximum)
     if set(config['materials']) != {m['id'] for m in visual['materials']}:
@@ -85,7 +91,10 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
         (folder / 'source-original.png').write_bytes(source.read_bytes())
         region = placements[key]['sourceRegion']
         mapping = dict(reference=observation_image(reference, folder / 'reference.png'),
-                       source=observation_image(source, folder / 'generated.png'), referenceCropRegion=region)
+                       source=observation_image(source, folder / 'generated.png',
+                           alpha_visibility=observation_policy == profile.POLICY), referenceCropRegion=region)
+        if observation_policy == profile.POLICY:
+            profile.prepare(folder, mapping)
         with Image.open(reference) as image:
             registration._box(region, image.size)
             crop = image.crop(tuple(region))
@@ -102,17 +111,22 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
                   + json.dumps(dict(material=next(m for m in visual['materials'] if m['id'] == key),
                                     objects=[o for o in visual['objects'] if o['materialId'] == key],
                                     mapping=mapping), ensure_ascii=False))
+        if observation_policy == profile.POLICY:
+            prompt += profile.GUIDANCE + json.dumps(dict(bodyFitPolicy=fit_policy,
+                visualPolicy=snapshot_policy(snapshot)), ensure_ascii=False)
         (folder / 'prompt.md').write_text(prompt, encoding='utf-8')
-        save(folder / 'schema.json', body.schema())
+        save(folder / 'schema.json', profile.schema(observation_policy))
         save(folder / 'mapping.json', mapping)
-        requests[key] = dict(inputs={n: digest(folder / n) for n in FILES}, sourceSha256=hashes[key],
+        files = (*FILES, *profile.PREVIEWS) if observation_policy == profile.POLICY else FILES
+        requests[key] = dict(inputs={n: digest(folder / n) for n in files}, sourceSha256=hashes[key],
                              sourceRegion=region, materialAuthors=authors[key])
     record(output / 'job.json', dict(kind=KIND, nonce=secrets.token_hex(16), snapshot=str(snapshot),
         snapshotDigest=config['snapshotDigest'], referenceSha256=digest(reference), materials=paths,
         sourceHashes=hashes, requests=requests, maximumCalls=len(ids), configuredMaximumCalls=maximum,
         registrationPolicy=body.POLICY, outputRegistrationPolicy=body.SUPPORT_POLICY, canvasPolicy=canvas_policy,
         model=model, effort=effort, driver='host-model-exchange-v1', automaticRetries=0, generationCalls=0,
-        configPath=str(config_path), configSha256=digest(config_path), **canvas_fields))
+        configPath=str(config_path), configSha256=digest(config_path),
+        bodyObservationPolicy=observation_policy, bodyFitPolicy=fit_policy, **canvas_fields))
     return status(output)
 
 
@@ -127,6 +141,15 @@ def load(job):
     inspect(snapshot, config['snapshotDigest'])
     if digest(Path(config['configPath'])) != config['configSha256']:
         raise ValueError('BODY_CONFIG_CHANGED')
+    source_config = read(Path(config['configPath']))
+    observation_policy = profile.validate(config.get('bodyObservationPolicy', profile.LEGACY))
+    if (observation_policy != source_config.get('bodyObservationPolicy', profile.LEGACY)
+            or config.get('bodyFitPolicy') != source_config.get('bodyFitPolicy')):
+        raise ValueError('BODY_PROFILE_BINDING_CHANGED')
+    from .visual_policy import snapshot_policy
+    registration.validate_fit_policy(config.get('bodyFitPolicy'), snapshot_policy(snapshot))
+    if config.get('bodyFitPolicy') is not None and observation_policy != profile.POLICY:
+        raise ValueError('BODY_FIT_REQUIRES_ALPHA_OBSERVATION_PROFILE')
     if (digest(snapshot / 'reference.png') != config['referenceSha256'] or
             digest(job / 'reference-original.png') != config['referenceSha256']):
         raise ValueError('BODY_REFERENCE_CHANGED')
@@ -137,9 +160,17 @@ def load(job):
         if digest(Path(path)) != config['sourceHashes'][key]:
             raise ValueError('BODY_SOURCE_CHANGED')
     for key, request in config['requests'].items():
-        if set(request['inputs']) != set(FILES) or any(
+        files = (*FILES, *profile.PREVIEWS) if observation_policy == profile.POLICY else FILES
+        if set(request['inputs']) != set(files) or any(
                 digest(job / 'requests' / key / n) != sha for n, sha in request['inputs'].items()):
             raise ValueError('BODY_REQUEST_CHANGED')
+        if observation_policy == profile.POLICY:
+            folder = job/'requests'/key
+            if digest(folder/'source-original.png') != config['sourceHashes'][key]:
+                raise ValueError('BODY_DISPLAY_SOURCE_CHANGED')
+            profile.verify(folder, read(folder/'mapping.json'))
+            if read(folder/'schema.json') != profile.schema(observation_policy):
+                raise ValueError('BODY_PROFILE_SCHEMA_CHANGED')
     return config
 
 
@@ -245,7 +276,8 @@ def next_request(job):
                     inputs=config['requests'][key]['inputs'],
                     attachments=[dict(name=n, path=str((job / 'requests' / key / n).resolve()),
                                       sha256=config['requests'][key]['inputs'][n])
-                                 for n in ('reference.png', 'reference-crop.png', 'generated.png')],
+                                 for n in ('reference.png', 'reference-crop.png', 'generated.png',
+                                     *(profile.PREVIEWS if config.get('bodyObservationPolicy') == profile.POLICY else ()))],
                     inputsSha256=body_digest(config['requests'][key]['inputs']),
                     materialAuthors=config['requests'][key]['materialAuthors'])
 
@@ -319,15 +351,20 @@ def receive(job, submission_digest, response_path, *, host_attestation_path, dis
             entry = dict(path=str((folder / 'body-contract.json').resolve()), sha256=digest(folder / 'body-contract.json'))
             from .visual_policy import snapshot_policy
             visual_policy = snapshot_policy(Path(config['snapshot']))
+            if answer.get('materialIssues') and (visual_policy is None
+                    or not all(visual_policy.get(name) == 'record'
+                               for name in ('minorColor', 'minorStyle', 'minorGeometry'))):
+                raise ValueError('BODY_APPEARANCE_FINDING_REQUIRES_EXPLICIT_TOLERANCE')
             if config['canvasPolicy'] == EXPANDED_POLICY:
                 from .body_viewport_delivery import validate_contract
                 checked = validate_contract(job / 'requests' / key / 'source-original.png', job / 'reference-original.png',
-                    entry, region, key, config['snapshotDigest'], visual_policy=visual_policy)
+                    entry, region, key, config['snapshotDigest'], visual_policy=visual_policy,
+                    fit_policy=config.get('bodyFitPolicy'))
                 save(folder / 'registration-check.json', checked)
             else:
                 registration.process(job / 'requests' / key / 'source-original.png', job / 'reference-original.png',
                     entry, region, key, config['snapshotDigest'], folder / 'registration-check', policy=body.SUPPORT_POLICY,
-                    visual_policy=visual_policy)
+                    visual_policy=visual_policy, fit_policy=config.get('bodyFitPolicy'))
             load(job)
             return _seal(folder, submission, 'sealed')
         except Exception as exc:
@@ -356,6 +393,11 @@ def finish(job, output):
         entries = {key: dict(path=str((job / 'attempts' / key / 'body-contract.json').resolve()),
                            sha256=digest(job / 'attempts' / key / 'body-contract.json')) for key in config['requests']}
         result = dict(read(Path(config['configPath'])), registrationPolicy=body.SUPPORT_POLICY, wholePlacements=entries)
+        if config.get('bodyObservationPolicy') == profile.POLICY:
+            result['bodyObservationWarnings'] = [dict(materialId=key,
+                responseSha256=digest(job/'attempts'/key/'response.json'),
+                **{name: read(job/'attempts'/key/'response.json')[name]
+                   for name in ('geometryDifferences', 'materialIssues')}) for key in config['requests']]
         if config['canvasPolicy'] == EXPANDED_POLICY:
             result.update(canvasPolicy=config['canvasPolicy'], canvasPolicyInstruction=config['canvasPolicyInstruction'],
                           canvasPolicyInstructionSha256=config['canvasPolicyInstructionSha256'])

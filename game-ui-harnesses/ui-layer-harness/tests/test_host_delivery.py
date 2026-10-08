@@ -57,6 +57,8 @@ class HostDeliveryTests(unittest.TestCase):
     def test_new_default_uses_ownership_actions_and_explicit_v7_is_frozen(self):
         self.assertEqual(read(self.run/'config.json')['contextPromptVersion'],'v8')
         self.assertEqual(read(self.run/'config.json')['sheetSeamPolicy'],'nearest-unique-transparent-seam-v2')
+        self.assertEqual(read(self.run/'config.json')['bodyObservationPolicy'],'host-body-observation-alpha-v2')
+        self.assertNotIn('bodyFitPolicy',read(self.run/'config.json'))  # strict remains strict
         self.assertEqual(read(self.run/'planning/.dag/config.json')['contextPromptVersion'],'v8')
         self.planning()
         self.assertEqual(read(self.run/'frozen/snapshot.json')['contextPromptVersion'],'v8')
@@ -80,6 +82,19 @@ class HostDeliveryTests(unittest.TestCase):
         legacy['sheetSeamPolicy']='unknown';path=self.base/'unknown-seam-config.json';save(path,legacy)
         with self.assertRaisesRegex(ValueError,'SHEET_SEAM_POLICY'):host.prepare(path,self.base/'unknown-seam')
         self.assertFalse((self.base/'unknown-seam').exists())
+
+    def test_explicit_body_legacy_and_invalid_fit_are_frozen_before_any_output(self):
+        legacy=read(self.config_path);legacy['bodyObservationPolicy']='host-body-observation-v1'
+        path=self.base/'legacy-body-config.json';save(path,legacy)
+        other=self.base/'legacy-body';host.prepare(path,other)
+        self.assertEqual(read(other/'config.json')['bodyObservationPolicy'],legacy['bodyObservationPolicy'])
+        for index,change in enumerate((dict(bodyObservationPolicy='unknown'),
+                dict(bodyFitPolicy=dict(kind='uniform-observed-body-residual-v2',maximumResidualPixels=32,denseBoundaryMarginPixels=4)))):
+            config=dict(legacy,**change);path=self.base/('invalid-body-'+str(index)+'.json');save(path,config)
+            output=self.base/('invalid-body-'+str(index))
+            with self.assertRaisesRegex(ValueError,'POLICY_REQUIRED'):
+                host.prepare(path,output)
+            self.assertFalse(output.exists())
 
     def test_unsafe_submission_cannot_write_and_interrupted_receive_is_terminal(self):
         with self.assertRaisesRegex(ValueError,'DIGEST_REQUIRED'):
@@ -148,7 +163,8 @@ class HostDeliveryTests(unittest.TestCase):
             source_box=[round(v*sx) for v in box]
             response=self.base/(key+'-body.json')
             save(response,dict(sourceBodyBox=source_box,referenceCropBodyBox=[0,0,*mapping['referenceCropSize']],
-                boundaryStatus='complete',issues=[],evidence='Offline matching whole rectangular fixture.'))
+                boundaryStatus='complete',issues=[],geometryDifferences=[],materialIssues=[],
+                evidence='Offline matching whole rectangular fixture.'))
             dispatch=self.base/(key+'-dispatch');dispatch.write_bytes(b'fixture dispatch body')
             returned=self.base/(key+'-return');returned.write_bytes(b'fixture return body')
             attestation=self.base/(key+'-attestation.json')
