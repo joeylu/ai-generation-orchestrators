@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 from PIL import Image, ImageDraw
 from ai_ui_layers import experimental_executor as exchange
 from ai_ui_layers import context_references as context
@@ -10,7 +11,7 @@ from ai_ui_layers.compile_visual import compile_plan, HARNESS
 from ai_ui_layers.freeze_visual import freeze, body_digest
 from ai_ui_layers.execution_preflight import preflight
 from ai_ui_layers.evaluate import read, digest
-from ai_ui_layers.generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY
+from ai_ui_layers.generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY, LEGACY_CONTEXT_GROUP_POLICY
 from ai_ui_layers.generate_session import build_session_prompt
 from ai_ui_layers.frozen_image_arguments import tool_arguments
 import test_compile_visual
@@ -106,6 +107,32 @@ class ContextReferencesTests(unittest.TestCase):
         self.assertEqual([len(g['materialIds']) for g in new['groups']],[4,2])
         one=build_groups(visual,dict(assets=assets[:1]),CONTEXT_GROUP_POLICY)['groups'][0]
         self.assertEqual(one['mode'],'single')
+
+    def test_fresh_full_grid_and_historical_grid_both_revalidate(self):
+        source=next(m for m in self.visual['materials'] if m['id']=='asset-coin-b')
+        self.visual['materials'].append(dict(source,id='asset-coin-c',bboxNorm=[.7,.55,.75,.60]))
+        self.visual['objects'].append(dict(id='coin-c',materialId='asset-coin-c',
+                                         kind='icon',label='Third independent coin',bboxNorm=None))
+        self.bind()
+        fresh,manifest=self.frozen(name='full-grid')
+        groups=read(fresh/'generation-groups.json')
+        self.assertEqual(groups['policy'],CONTEXT_GROUP_POLICY)
+        sheet=next(g for g in groups['groups'] if g['mode']=='sheet')
+        self.assertEqual(sheet['grid'],[3,1])
+        self.assertEqual(preflight(fresh,manifest['digest'])['inputChecks'],'passed')
+        with patch('ai_ui_layers.generation_groups.build_groups',
+                   side_effect=lambda visual,plan,policy:build_groups(visual,plan,LEGACY_CONTEXT_GROUP_POLICY)):
+            legacy,old=self.frozen(name='historical-grid')
+        before={p.relative_to(legacy).as_posix():digest(p) for p in legacy.rglob('*') if p.is_file()}
+        historical=read(legacy/'generation-groups.json')
+        self.assertEqual(historical['policy'],LEGACY_CONTEXT_GROUP_POLICY)
+        self.assertEqual(next(g for g in historical['groups'] if g['mode']=='sheet')['grid'],[2,2])
+        self.assertEqual(preflight(legacy,old['digest'])['inputChecks'],'passed')
+        self.assertEqual(before,{p.relative_to(legacy).as_posix():digest(p) for p in legacy.rglob('*') if p.is_file()})
+        historical['policy']=CONTEXT_GROUP_POLICY
+        save(legacy/'generation-groups.json',historical)
+        with self.assertRaisesRegex(ValueError,'GENERATION_GROUPS_CHANGED'):
+            preflight(legacy,self.resign(legacy))
 
     def test_prompt_retains_boxed_appearance_with_local_layout(self):
         obj=next(o for o in self.visual['objects'] if o['materialId']=='asset-coin-a')

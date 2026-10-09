@@ -20,6 +20,19 @@ size (dimensions within 2x, aspect ratios within 1.5x for every pair). Backgroun
 panels, unknowns, logos and multi-control materials remain separate. Grouping is
 conservative; it is not pixel reuse or proof that two artworks are identical.
 
+New context-crop snapshots use `compatible-size-and-kind-context-grid-v2`,
+retaining the four-material group cap and the existing compatibility rules.
+The grid has exactly as many cells as assigned materials. Among exact factor
+grids, the compiler chooses the most balanced canvas from the maximum member
+width and height; ties prefer fewer rows. Three near-square materials therefore
+use a three-cell strip instead of a 2x2 sheet with an unused cell.
+This avoids asking the image model to keep an unnecessary whole cell at exactly
+zero alpha. It does not change alpha cleanup, transparent seam selection,
+ownership, contour or visual review gates. Existing context-grid-v1 and full
+reference policies keep their original grouping and remain reconstructible.
+New grouping requires a fresh frozen job and authorization; a failed sheet
+cannot be rearranged or resumed under the new policy.
+
 The frozen `ui_generation_groups_v1` document binds ordered material IDs, equal
 grid cells and suggested canvas size. `ui_visual_requests_preview_v2` contains
 both single requests and sheet requests. A sheet request's `asset` is a request

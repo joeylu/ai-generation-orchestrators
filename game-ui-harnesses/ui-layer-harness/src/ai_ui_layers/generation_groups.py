@@ -20,8 +20,25 @@ def family(visual, asset):
 GROUP_POLICIES={'compatible-size-and-kind-grid-v1':1.5,
                 'compatible-size-and-kind-grid-v2':1.2}
 DEFAULT_GROUP_POLICY='compatible-size-and-kind-grid-v1'
-CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v1'
-GROUP_POLICIES[CONTEXT_GROUP_POLICY]=1.5
+LEGACY_CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v1'
+CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v2'
+CONTEXT_GROUP_POLICIES={LEGACY_CONTEXT_GROUP_POLICY,CONTEXT_GROUP_POLICY}
+GROUP_POLICIES.update({policy:1.5 for policy in CONTEXT_GROUP_POLICIES})
+
+
+def full_grid(members):
+    """Choose a fully occupied factor grid with the most balanced canvas."""
+    count=len(members)
+    width=max(a['output_size'][0] for a in members)
+    height=max(a['output_size'][1] for a in members)
+    choices=[]
+    for columns in range(1,count+1):
+        if count%columns:continue
+        rows=count//columns
+        aspect=width*columns/(height*rows)
+        choices.append((max(aspect,1/aspect),rows,columns))
+    _,rows,columns=min(choices)
+    return columns,rows
 
 
 def compatible(left, right, max_aspect):
@@ -39,7 +56,7 @@ def build_groups(visual, plan, policy=DEFAULT_GROUP_POLICY):
         first=pending.pop(0);members=[first];kind=family(visual,first)
         if kind:
             for other in list(pending):
-                if len(members)==(4 if policy==CONTEXT_GROUP_POLICY else 6):break
+                if len(members)==(4 if policy in CONTEXT_GROUP_POLICIES else 6):break
                 if family(visual,other)==kind and all(compatible(a,other,max_aspect) for a in members):
                     members.append(other);pending.remove(other)
         ids=[a['id'] for a in members]
@@ -48,9 +65,12 @@ def build_groups(visual, plan, policy=DEFAULT_GROUP_POLICY):
             continue
         key='sheet-'+hashlib.sha256('\n'.join(ids).encode()).hexdigest()[:16]
         if key in known:raise ValueError('GENERATION_GROUP_ID_COLLISION')
-        ratio=first['output_size'][0]/first['output_size'][1]
-        columns=1 if ratio>2 else len(ids) if ratio<.5 else math.ceil(math.sqrt(len(ids)))
-        rows=math.ceil(len(ids)/columns)
+        if policy==CONTEXT_GROUP_POLICY:
+            columns,rows=full_grid(members)
+        else:
+            ratio=first['output_size'][0]/first['output_size'][1]
+            columns=1 if ratio>2 else len(ids) if ratio<.5 else math.ceil(math.sqrt(len(ids)))
+            rows=math.ceil(len(ids)/columns)
         w=max(a['output_size'][0] for a in members)*columns*1.4
         h=max(a['output_size'][1] for a in members)*rows*1.4
         scale=1536/max(w,h)

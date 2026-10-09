@@ -102,12 +102,12 @@ def preflight(folder, expected_digest):
         rebuilt,_=compile_plan(read(visual_path),reference.size,digest(folder/'reference.png'),plan['id'],visual_policy=policy,relation_evidence=relations,texture_doc=texture_doc,texture_bindings=texture_bindings)
         if rebuilt!=plan:raise ValueError('VISUAL_POLICY_PLAN_COMPILER_MISMATCH')
     if grouped:
-        from .generation_groups import build_groups, sheet_prompt, CONTEXT_GROUP_POLICY
+        from .generation_groups import build_groups, sheet_prompt, CONTEXT_GROUP_POLICIES
         visual_path=folder/'evidence/revised-visual-plan.json'
         if not visual_path.exists():visual_path=folder/'evidence/m1-draft.json'
         if 'generation-groups.json' not in snapshot['files']:raise ValueError('GENERATION_GROUPS_CHANGED')
         frozen_groups=read(folder/'generation-groups.json')
-        if (frozen_groups.get('policy')==CONTEXT_GROUP_POLICY)!=context:
+        if (frozen_groups.get('policy') in CONTEXT_GROUP_POLICIES)!=context:
             raise ValueError('CONTEXT_GROUP_POLICY_MISMATCH')
         visual=read(visual_path);generation_plan=material_reuse.selected_plan(visual,plan,reuse_doc)
         groups=build_groups(visual,generation_plan,frozen_groups.get('policy'))

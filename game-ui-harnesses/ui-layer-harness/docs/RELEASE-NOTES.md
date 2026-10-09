@@ -1,5 +1,15 @@
 # Release notes
 
+## Unreleased fully occupied context sheets
+
+- New context-crop snapshots freeze context-grid-v2: exact factor grids contain
+  no unused cells, reducing avoidable failures from faint residual alpha in
+  an otherwise empty cell. Material identities, compatibility and the four-item
+  cap are retained.
+- Historical grouping policies remain reconstructible. Alpha processing, seam
+  safety and independent review are unchanged; no old failed job is resumed.
+  Offline regression does not establish real generation or visual success.
+
 ## Unreleased explicit relative body fit
 
 - Approximate host runs may freeze a relative reference-body-diagonal corner
