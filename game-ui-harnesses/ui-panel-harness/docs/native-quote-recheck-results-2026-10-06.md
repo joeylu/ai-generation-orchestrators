@@ -46,7 +46,7 @@
 已进一步改为显式Intent 0.8请求来源绑定，当前Studio为4195；详见[最新单次结果与修复](request-reference-fix-results-2026-10-06.md)。以下保留当时的准备证据。
 
 修复后只为声音输入准备一次新复验，不再重跑已通过的高级设置或分页样本。
-[冻结计划](../output/native-quote-recheck-plan-v1/quote-recheck-plan.json)摘要：
+冻结计划（本地产物：`../output/native-quote-recheck-plan-v1/quote-recheck-plan.json`）摘要：
 
 ```text
 e1a07482b45bac831a94af7776e27e62c82cf54b5021fecc6eff9af5a363340b
@@ -60,10 +60,10 @@ e1a07482b45bac831a94af7776e27e62c82cf54b5021fecc6eff9af5a363340b
 
 ## 程序证据
 
-- [三次真实生产报告](../output/quote-recheck-run-v2/quote-recheck-report.json)与[独立审计](../output/quote-recheck-accepted-v2/acceptance.json)
-- [三次结果入口](../output/quote-recheck-accepted-v2/index.html)，总体FAIL和逐项门禁保持
-- [零模型修复与34份重放](../output/native-quote-fix-check-v1/check-report.json)
-- [单例冻结计划](../output/native-quote-recheck-plan-v1/quote-recheck-plan.json)与[零模型准备审计](../output/native-quote-prepared-v1/preparation-audit.json)
-- [单例程序样本9项浏览器与实际交付](../output/native-quote-recheck-plan-v1/fixture-browser/browser-report.json)
-- [4194启动回执](../output/panel-studio-native-quotes-live-v1/launch.json)与[8项入口检查](../output/panel-studio-native-quotes-live-browser-v1/browser-report.json)
-- [修复与待复验状态汇总](../output/native-quote-fix-accepted-v1/acceptance.json)
+- 三次真实生产报告（本地产物：`../output/quote-recheck-run-v2/quote-recheck-report.json`）与独立审计（本地产物：`../output/quote-recheck-accepted-v2/acceptance.json`）
+- 三次结果入口（本地产物：`../output/quote-recheck-accepted-v2/index.html`），总体FAIL和逐项门禁保持
+- 零模型修复与34份重放（本地产物：`../output/native-quote-fix-check-v1/check-report.json`）
+- 单例冻结计划（本地产物：`../output/native-quote-recheck-plan-v1/quote-recheck-plan.json`）与零模型准备审计（本地产物：`../output/native-quote-prepared-v1/preparation-audit.json`）
+- 单例程序样本9项浏览器与实际交付（本地产物：`../output/native-quote-recheck-plan-v1/fixture-browser/browser-report.json`）
+- 4194启动回执（本地产物：`../output/panel-studio-native-quotes-live-v1/launch.json`）与8项入口检查（本地产物：`../output/panel-studio-native-quotes-live-browser-v1/browser-report.json`）
+- 修复与待复验状态汇总（本地产物：`../output/native-quote-fix-accepted-v1/acceptance.json`）

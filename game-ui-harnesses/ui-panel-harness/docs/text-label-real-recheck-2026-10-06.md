@@ -12,11 +12,11 @@
 9项零模型入口检查通过：新真实面板导入、标签/内容渲染、两个事件按钮、输入/修改按钮就绪及窄屏；全部非GET/外部请求被阻断，没有点击模型生成或修改。
 独立入口审计验证启动绑定真实复验PASS、试玩检查及无新生成目录。原生Unity与人工视觉验收NOT_RUN。
 
-- [真实删除确认的交付预览](../output/text-label-recheck-run-v1/browser/eval-confirm-delivery/pixi/index.html)
-- [实际交付ZIP](../output/text-label-recheck-run-v1/browser/eval-confirm.panel-delivery.zip)
-- [真实调用与交付独立审计](../output/text-label-recheck-accepted-v1/acceptance.json)及[结果入口](../output/text-label-recheck-accepted-v1/index.html)
-- [修复Studio启动证据](../output/panel-studio-text-label-live-v1/launch.json)
-- [9项入口检查](../output/panel-studio-text-label-live-browser-v1/browser-report.json)
-- [Studio入口独立审计](../output/panel-studio-text-label-live-accepted-v1/acceptance.json)
+- 真实删除确认的交付预览（本地产物：`../output/text-label-recheck-run-v1/browser/eval-confirm-delivery/pixi/index.html`）
+- 实际交付ZIP（本地产物：`../output/text-label-recheck-run-v1/browser/eval-confirm.panel-delivery.zip`）
+- 真实调用与交付独立审计（本地产物：`../output/text-label-recheck-accepted-v1/acceptance.json`）及结果入口（本地产物：`../output/text-label-recheck-accepted-v1/index.html`）
+- 修复Studio启动证据（本地产物：`../output/panel-studio-text-label-live-v1/launch.json`）
+- 9项入口检查（本地产物：`../output/panel-studio-text-label-live-browser-v1/browser-report.json`）
+- Studio入口独立审计（本地产物：`../output/panel-studio-text-label-live-accepted-v1/acceptance.json`）
 
 本次证明原样失败的这一例修复有效；没有执行新的全16两轮、同轮组合或原生引擎验收。下一轮必须使用完整新cohort，不能拼接原15份与这一份宣称16类稳定通过。

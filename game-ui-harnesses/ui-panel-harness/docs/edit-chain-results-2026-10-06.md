@@ -3,7 +3,7 @@
 固定10步真实连续修改10/10通过。实际调用10次`gpt-6-luna / xhigh`，自动重试0。
 123项浏览器检查、10份实际下载ZIP离线运行和试玩状态重导入、逐步和整链撤销通过；独立审计通过。
 
-[10步真实预览与下载](../output/edit-chain-real-accepted-v1/index.html)按步骤列出请求、Studio截图和实际交付ZIP。
+10步真实预览与下载（本地产物：`../output/edit-chain-real-accepted-v1/index.html`）按步骤列出请求、Studio截图和实际交付ZIP。
 
 ## 来源及执行
 
@@ -52,7 +52,7 @@ Studio4197、旧服务、其它Harness和Unity项目保持。
 
 证据：
 
-- [真实运行报告](../output/edit-chain-run-v1/edit-chain-report.json)
-- [真实结果浏览器报告](../output/edit-chain-real-browser-v1/browser-report.json)
-- [独立审计](../output/edit-chain-real-accepted-v1/acceptance.json)
+- 真实运行报告（本地产物：`../output/edit-chain-run-v1/edit-chain-report.json`）
+- 真实结果浏览器报告（本地产物：`../output/edit-chain-real-browser-v1/browser-report.json`）
+- 独立审计（本地产物：`../output/edit-chain-real-accepted-v1/acceptance.json`）
 - [授权前冻结计划及准备说明](edit-chain-plan-2026-10-06.md)

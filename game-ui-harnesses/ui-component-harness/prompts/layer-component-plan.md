@@ -194,6 +194,12 @@ For raster Panel titles use appearance.titleLayout; for separate text use Text
 nodes with explicit layout, style, wrap, overflow, lineHeight. All style objects
 require backgroundColor,borderColor,borderWidth,cornerRadius,textColor,fontFamily,
 fontSize,fontWeight,opacity. Plain Image may set drawBackground:false.
+Container, Panel and Dialog may also explicitly set props.drawBackground:false
+to suppress only their procedural fallback fill and border when separate child
+art supplies the surface. Native appearance, titles, children and Dialog backdrop
+remain active. Omitted or true retains the prior fallback behavior. If this field
+is present on these three types, either boolean requires an explicit-policy
+finding at /props/drawBackground for that component.
 
 The appended public contract is authoritative. Output no commentary outside the
 structured response and do not claim checks, rendering, or acceptance occurred.

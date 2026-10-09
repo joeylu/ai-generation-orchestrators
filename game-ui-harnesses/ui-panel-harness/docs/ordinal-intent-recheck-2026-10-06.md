@@ -18,8 +18,8 @@
 | eval-character | 1 | CODEX_CONNECTION_FAILED_NO_RETRY | NOT_RUN |
 | eval-inventory | 1 | CODEX_CONNECTION_FAILED_NO_RETRY | NOT_RUN |
 
-[生产报告](../output/ordinal-intent-recheck-run-v1/evaluation-report.json)与
-[独立审计](../output/ordinal-intent-recheck-acceptance-v1/acceptance.json)核对三个请求上下文、失败回执、授权消费、零接受方案及原FAIL保留。
+生产报告（本地产物：`../output/ordinal-intent-recheck-run-v1/evaluation-report.json`）与
+独立审计（本地产物：`../output/ordinal-intent-recheck-acceptance-v1/acceptance.json`）核对三个请求上下文、失败回执、授权消费、零接受方案及原FAIL保留。
 审计时179份冻结源码匹配；随后加入启动环境门禁改变源码，不据此覆盖当时审计或再次执行旧计划。
 总实际进程3、Harness自动重试0。三份usage均null，服务端是否接受与Token用量UNKNOWN，不能写成0 Token或确认未计费。
 
@@ -46,20 +46,20 @@
 
 ## 验证范围
 
-- [76项相关回归](../output/ordinal-runtime-guard-tests-v2/test-report.json)通过：仅测试替身，覆盖拒绝先于消费/推理、超时不重试、脱敏、指定代理缺失拒绝，以及既有协议/编辑/表单回归。早期75项记录保留，不能相加为151项。
-- [实际沙箱预检](../output/ordinal-runtime-guard-sandbox-v1/preflight-report.json)拒绝不可见登录，零模型调用、未创建父/子消费记录。这是旧inherit路线v5的历史检查。
-- [指定代理但环境缺失的预检](../output/ordinal-runtime-guard-missing-proxy-v1/preflight-report.json)拒绝启动，错误摘要也拒绝，无消费或推理输出。
-- [进程临时代理及宿主登录预检](../output/ordinal-runtime-guard-proxy-host-v1/preflight-report.json)通过，核对181份源码及错误摘要拒绝，模型调用0、消费记录0。
+- 76项相关回归（本地产物：`../output/ordinal-runtime-guard-tests-v2/test-report.json`）通过：仅测试替身，覆盖拒绝先于消费/推理、超时不重试、脱敏、指定代理缺失拒绝，以及既有协议/编辑/表单回归。早期75项记录保留，不能相加为151项。
+- 实际沙箱预检（本地产物：`../output/ordinal-runtime-guard-sandbox-v1/preflight-report.json`）拒绝不可见登录，零模型调用、未创建父/子消费记录。这是旧inherit路线v5的历史检查。
+- 指定代理但环境缺失的预检（本地产物：`../output/ordinal-runtime-guard-missing-proxy-v1/preflight-report.json`）拒绝启动，错误摘要也拒绝，无消费或推理输出。
+- 进程临时代理及宿主登录预检（本地产物：`../output/ordinal-runtime-guard-proxy-host-v1/preflight-report.json`）通过，核对181份源码及错误摘要拒绝，模型调用0、消费记录0。
 
 检查报告明确network/modelAvailability为NOT_CHECKED；当前真实模型连接仍未验证。
-[独立启动门禁汇总](../output/ordinal-runtime-guard-acceptance-v1/acceptance.json)另核对新计划181份源码、旧失败报告摘要、
+独立启动门禁汇总（本地产物：`../output/ordinal-runtime-guard-acceptance-v1/acceptance.json`）另核对新计划181份源码、旧失败报告摘要、
 原提示字节与新消费记录缺失；相对原授权计划只改变两份批次脚本，新增预检模块与命令，其他冻结源码保持。
 一次诊断误用Node运行PowerShell脚本，在解释器阶段停止；改用PowerShell后完成上述只读预检，没有模型调用。
 旧准备v5由加入明确代理路线的v6取代，v5不用于当前执行。
 
 ## 下一份有限计划
 
-新[冻结计划](../output/ordinal-intent-recheck-plan-v6/intent-recheck-plan.json)：
+新冻结计划（本地产物：`../output/ordinal-intent-recheck-plan-v6/intent-recheck-plan.json`）：
 `8cf2578876300bb6a2c6369058a8596109ad8019ae8b69befacdf8bdb2ff6478`。
 181份源码、三个原生schema、完整请求上下文、资产库、静态构建和已有零模型浏览器证据绑定；
 明确要求explicit-process-proxy和提交前登录可见性检查。

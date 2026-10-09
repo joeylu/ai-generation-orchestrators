@@ -1,17 +1,18 @@
 {
   "name": "ai-ui-component-harness",
   "private": true,
-  "version": "0.2.0-rc.1",
+  "version": "0.2.0-rc.3",
   "type": "module",
   "engines": {
     "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
-    "build": "tsc --noEmit && vite build && tsc -p tsconfig.lib.json",
+    "build": "tsc --noEmit && vite build && tsc -p tsconfig.lib.json && vite build --config vite.browser.config.ts",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "node --test tests/*.test.ts",
     "test:browser": "playwright test",
+    "test:distribution": "npm run build && node scripts/check-distribution.mjs",
     "self-test": "node scripts/cli.mjs self-test",
     "doctor": "node scripts/cli.mjs doctor",
     "verify": "node scripts/verify.mjs",
@@ -26,13 +27,25 @@
     ".": {
       "types": "./lib/index.d.ts",
       "import": "./lib/index.js"
-    }
+    },
+    "./browser": { "types": "./lib/browser.d.ts", "import": "./lib/browser.js" },
+    "./browser/standalone": { "types": "./lib/browser.d.ts", "import": "./dist-browser/index.js" },
+    "./planning": { "import": "./scripts/layer-planning.mjs" },
+    "./render": { "import": "./scripts/layer-render-host.mjs" }
   },
   "files": [
     "lib",
+    "dist-browser",
+    "scripts/harness-module.mjs",
+    "scripts/layer-planning.mjs",
+    "scripts/layer-render-host.mjs",
+    "scripts/studio-codex-plan.mjs",
+    "scripts/studio-layer-render.mjs",
+    "scripts/layer-ui-interaction-check.mjs",
     "scripts/cli.mjs",
     "scripts/reference-run.mjs",
     "dist/reference-acceptance.html",
+    "dist/layer-plan-check.html",
     "dist/assets",
     "scripts/motion-cli.mjs",
     "scripts/workflow-run.mjs",
@@ -48,6 +61,8 @@
     "docs/automation.md",
     "docs/assets-intake-v2.md",
     "docs/layer-component.md",
+    "docs/consumer-runtime.md",
+    "docs/tree-contract.md",
     "docs/state-templates.md",
     "docs/reference-consumer-v2.md",
     "docs/decomposition-appearance.md",
@@ -57,6 +72,7 @@
     "docs/select-menu-highlights-v1.md",
     "docs/button-label-lines-v1.md",
     "docs/tabs-background-v1.md",
+    "docs/panel-background-v1.md",
     "docs/value-text-bindings-v1.md",
     "docs/component-linkages-v1.md",
     "docs/button-interactions-v1.md",
@@ -65,6 +81,7 @@
     "docs/legacy-layered-case.md",
     "docs/motion.md",
     "docs/release-v0.2.0-rc.1.md",
+    "docs/release-v0.2.0-rc.3.md",
     "docs/runtime.md",
     "docs/workflow.md",
     "prompts",
@@ -94,11 +111,11 @@
   "dependencies": {
     "pixi.js": "8.20.1"
   },
+  "peerDependencies": { "playwright": "1.63.0" },
+  "peerDependenciesMeta": { "playwright": { "optional": true } },
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "typescript": "7.0.2",
     "vite": "8.2.2"
   }
 }
-
-

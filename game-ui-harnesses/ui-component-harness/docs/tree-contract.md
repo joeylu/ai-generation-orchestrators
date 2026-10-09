@@ -74,6 +74,17 @@ relative POSIX reference (for example `assets/icon.png`) or a complete HTTP(S)
 URL without credentials. Traversal, drive/absolute paths, backslashes, encoded
 escapes, unsupported schemes, and credentialed URLs are rejected.
 
+## Container, Panel and Dialog background policy
+
+These three types accept optional boolean `props.drawBackground`. Omitted or
+`true` retains the existing fallback fill and border; `false` suppresses only
+that procedural box. Native raster appearance, titles, children, opacity, layout,
+hit areas and accessibility remain active. Dialog open/modal/backdrop behavior
+and explicitly declared Button close effects remain unchanged. Other value types
+are rejected. Layer plans that explicitly supply either boolean must include an
+`explicit-policy` finding for that component at `/props/drawBackground`.
+See [the background policy contract](panel-background-v1.md).
+
 ## Intent and pure compiler
 
 `TreeIntent` has `{intentVersion:'0.2', id, root}`. Its nodes use
@@ -138,7 +149,9 @@ remain exact; normal-template coordinates govern labels, hits and indicators.
 Only an explicit independent policy permits differently sized active templates.
 
 Keyboard Tab and Shift+Tab wrap inside the current top modal Dialog. Actual
-internal Button open effects establish transient opener references; closing
+internal Button open effects transfer focus and establish transient opener
+references. Direct Dialog state changes clear blocked component focus without
+activating a modal control; the next Tab enters the current modal. Closing
 returns focus to an eligible opener after the close presentation finishes.
 Initial open Dialogs do not invent an opener, and those references are not portable
 saved state. Nonmodal canvas navigation retains its existing exit behavior.

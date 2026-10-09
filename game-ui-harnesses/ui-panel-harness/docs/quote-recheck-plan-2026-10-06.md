@@ -13,7 +13,7 @@
 | 补充回答声音设置 | 音量0–100、步长1、默认70；静音默认false；恢复默认仅重置这两项 | 验证含重复词与补充回答的全文引用 |
 | 声音/显示双页签 | 默认声音页；声音三行；显示页亮度与宿主只读进度条0–1、初始0.2、百分比一位小数 | 验证分页引用、业务归属、跨页状态与进度精度 |
 
-逐字请求和独立业务期望见[三例套件](../examples/quote-recheck-v1/suite.mjs)及[冻结JSON](../output/quote-recheck-plan-v2/suite.json)。
+逐字请求和独立业务期望见[三例套件](../examples/quote-recheck-v1/suite.mjs)及冻结JSON（本地产物：`../output/quote-recheck-plan-v2/suite.json`）。
 高级设置上下文仍为 `939d1bd0dd457a17c38014ea22ac4f344b899c10f19aa80d18d02e668f843032`，与上一批原失败请求一致。
 不把原失败返回修补成成功方案，也不从旧轮次替换本轮来源。
 
@@ -36,7 +36,7 @@
 
 ## 待批准的真实执行
 
-冻结计划为[quote-recheck-plan.json](../output/quote-recheck-plan-v2/quote-recheck-plan.json)，摘要：
+冻结计划为quote-recheck-plan.json（本地产物：`../output/quote-recheck-plan-v2/quote-recheck-plan.json`），摘要：
 
 ```text
 ed0403964f1a8aee2189d67e3faef2bfad714053c0b8909327c839ab101f1358
@@ -51,10 +51,10 @@ ed0403964f1a8aee2189d67e3faef2bfad714053c0b8909327c839ab101f1358
 
 ## 程序生成证据
 
-- [准备独立审计](../output/quote-recheck-prepared-v2/preparation-audit.json)
-- [程序样本验证](../output/quote-recheck-plan-v2/fixture-validation.json)
-- [42项浏览器与三份实际交付](../output/quote-recheck-plan-v2/fixture-browser/browser-report.json)
-- [宿主只读预检与错误摘要拒绝](../output/quote-recheck-preflight-v2/preflight-report.json)
-- [仍为FAIL的原32次验收](../output/ordinal-stability-accepted-v1/acceptance.json)
+- 准备独立审计（本地产物：`../output/quote-recheck-prepared-v2/preparation-audit.json`）
+- 程序样本验证（本地产物：`../output/quote-recheck-plan-v2/fixture-validation.json`）
+- 42项浏览器与三份实际交付（本地产物：`../output/quote-recheck-plan-v2/fixture-browser/browser-report.json`）
+- 宿主只读预检与错误摘要拒绝（本地产物：`../output/quote-recheck-preflight-v2/preflight-report.json`）
+- 仍为FAIL的原32次验收（本地产物：`../output/ordinal-stability-accepted-v1/acceptance.json`）
 
 本地产物均为忽略的开发证据，不是不可变发布或原生引擎已验收产物。

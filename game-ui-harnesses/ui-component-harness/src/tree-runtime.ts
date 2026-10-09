@@ -613,8 +613,11 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       for (const effect of record.node.props.interaction.effects) {
         if (effect.kind === 'dialog-open') {
           const target = record.scope.records.get(effect.targetId);
-          if (effect.open && target?.node.type === 'Dialog' && !target.node.props.open) target.dialogOpener = record;
+          const opening = effect.open && target?.node.type === 'Dialog' && !target.node.props.open;
+          if (opening) target.dialogOpener = record;
           api.setValue(effect.targetId, effect.open);
+          // Focus transfer belongs to this actual opener, not direct state writes.
+          if (opening) setKeyboardFocus([...record.scope.records.values()].find(keyboardEligible));
         }
         else if (effect.kind === 'input-step') {
           const next = nextInputStep(record.scope.document, effect);
@@ -721,12 +724,15 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
     record.motionKeys.clear();
     if (reset) resetPresentation(record);
   }
-  function cancelPresentationTree(record: RuntimeRecord): void {
+  function cancelPresentation(record: RuntimeRecord): void {
     cancelRecordPresentation(record);
     if (record.popupClosing) closePopup(record, undefined, true);
     if (record.dialogClosing) {
       record.dialogClosing = false; updateDialogBlocker(record); refreshVisibility(record);
     }
+  }
+  function cancelPresentationTree(record: RuntimeRecord): void {
+    cancelPresentation(record);
     for (const childId of record.childIds) {
       const child = record.scope.records.get(childId);
       if (child) cancelPresentationTree(child);
@@ -1299,7 +1305,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       record.paint.addChild(rasterPart(record, record.containerTexture, node.props.appearance.sourceCanvas, node.props.appearance.background.layout));
       return;
     }
-    record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
   }
   function scrollBoundaryFeedback(record: RuntimeRecord, delta: number): void {
     if (record.node.type !== 'ScrollView' || !hasAction(record, 'scroll') || !delta || (motionStyle !== 'playful' && motionStyle !== 'premium') || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -1428,7 +1434,7 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       label(record, node.props.title, title.x * scale.x, title.y * scale.y, title.width * scale.x, title.height * scale.y, undefined, record.foreground);
       return;
     }
-    record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
+    if (node.props.drawBackground !== false) record.paint.addChild(drawBox(node.layout.width, node.layout.height, node.props.style));
     if (node.type === 'Panel' || node.type === 'Dialog') label(record, node.props.title, 14, 5, node.layout.width - 28, 30);
   }
   function drawTabs(record: RuntimeRecord): void {
@@ -2532,7 +2538,6 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
             record.presentation.dialogScale = getMotionStyle(motionStyle ?? 'corporate').enterScale; record.presentation.dialogAlpha = 0;
           }
           record.redraw?.(); refreshVisibility(record); updateDialogBlocker(record);
-          if (!wasOpen || wasClosing) setKeyboardFocus([...record.scope.records.values()].find(keyboardEligible));
           if (!wasOpen || wasClosing) { runSystemAction(record, 'open'); emit(record, 'open', 'control'); }
         } else {
           record.dialogClosing = (wasOpen || wasClosing) && hasAction(record, 'close'); record.redraw?.(); refreshVisibility(record); updateDialogBlocker(record);
@@ -2602,9 +2607,17 @@ export async function createTreePreview(host: HTMLElement, onFatal: (error: unkn
       if (!scope) throw new Error('TREE_NOT_LOADED');
       const validated = input === null ? null : validateMotionSystem(input, scope.document);
       animator.cancelAll();
-      for (const record of scope.records.values()) cancelPresentationTree(record);
-      if (input === null) { motionSystem = null; motionStyle = null; return; }
-      motionSystem = validated; motionStyle = validated!.style;
+      // The registry already contains every descendant. Reset each once and
+      // present only the completed replacement, rather than rendering every
+      // ancestor/descendant reset and flooding software WebGL's frame queue.
+      renderBatchDepth += 1;
+      try {
+        for (const record of scope.records.values()) cancelPresentation(record);
+        motionSystem = validated; motionStyle = validated?.style ?? null;
+      } finally {
+        renderBatchDepth -= 1;
+        if (renderBatchDepth === 0) flushBatchedRender();
+      }
     },
     getMotionSystem(): MotionSystemDocument | null {
       assertAlive(); return motionSystem ? structuredClone(motionSystem) : null;

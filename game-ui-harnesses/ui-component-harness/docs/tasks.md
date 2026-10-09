@@ -3191,3 +3191,240 @@ at the user's request; zero native model dispatches and no global login/proxy
 changes. Details and fingerprints remain under
 work/ui-component-harness/version-checkpoint-20261005-r001/ and the separate
 codex-connectivity-20261005-r001/ paused preflight evidence directory.
+
+### 2026-10-05 Isolated checkpoint CI repair
+
+The user authorizes pushing the component checkpoint without other pipelines.
+The isolated branch contains only the component checkpoint over published tony;
+the shared working tree and index remain unchanged. CI run 37221087698 fails:
+four Python matrix jobs identify the same two missing links in this checkpoint's
+assets-intake-v2 documentation; the UI job passes build, unit tests and self-test,
+then records 168 browser passes, two failures and one pre-existing skip.
+
+The keyboard failure is reproduced locally on the exact pushed tree. Direct
+Dialog state writes incorrectly transfer focus to a modal close Button, so the
+next Space closes the modal. Focus transfer now belongs only to actual internal
+Button open effects; direct state writes retain the existing blocked-focus
+teardown and Tab entry. Regression coverage checks blocked keys, held activation,
+actual opener focus, modal containment, focus restoration and close presentation.
+
+The other UI failure is a test reading the strict getDocument getter before
+asynchronous mount finishes. A shared public-inspection readiness helper is used
+by state-template and modal tests, with the original exact document identity and
+paint measurements retained. The mask case explicitly delays real image decode
+and still validates all native row rectangles and the independent marker.
+The material-intake documentation now states that the producer contract/schema
+are separate upstream artifacts absent from this isolated checkpoint; no producer
+files are added or changed and no tests or gates are removed.
+
+Executed after repair: build/typecheck PASS; 17 relevant actual browser tests
+PASS with zero retries/flaky/skips; after the readiness refactor, six affected
+browser cases PASS again; the existing repository-wide document-link regression
+PASS; git diff --check PASS. Browser plugin not available: existing Playwright
+workflow uses local Edge at an isolated localhost port and retains screenshots,
+traces, original CI logs and intermediate failures under the ignored work area.
+No other Harness code, workflow, shared branch/index, global login/proxy setting,
+native Codex model request, image generation or deployment is changed. This is
+deterministic CI repair, with nativeFullChainPassed=false and human visual review
+still pending. New remote CI results are recorded separately after the push.
+
+### 2026-10-05 Installed consumer runtime and frozen semantic inputs
+
+The user requests upstream gaps to be completed before a Docker-only development
+handoff. Docker will implement its service, then issue the actual API contract
+before Web work starts. Changes use an isolated component branch based on
+4fd4615; shared checkout/index and other Harness code remain untouched.
+
+Package 0.2.0-rc.2 now includes compiled planning/render helpers, the actual check
+page/assets and prompt/type contracts, separate browser/standalone entries, and
+complete HTML/Vite inputs in the source ZIP. A loopback static check host rejects
+API/write/query/foreign-host/path requests and guarantees idempotent shutdown.
+Actual installed rendering exposed a Chromium-unsafe OS-selected port; host
+selection now excludes that range before browser launch, with targeted regression.
+
+Explicit user control facts have a strict bounded public schema and canonical
+digest. DAG and optional planner clone/freeze them before dispatch; the program
+attaches them to validated plans, checks initial values, and persists them in
+Bundle 0.4. Wrong completed drafts use only the existing same-session budget.
+Collection verifies per-run/per-turn bindings and refuses changed or retrofitted
+facts. Historical no-facts plans remain valid. Execution receipt validation is
+engine-neutral and no longer requires a Studio implementation in installed code.
+An equivalent facts object with reordered JSON keys initially failed collection;
+the bound value now uses the digest's canonical representation, preserving exact
+prompt verification and rejecting actual changes while accepting key reordering.
+
+Executed here: build/typecheck PASS; all 658 unit tests PASS with no skips;
+12 affected actual layer-component browser cases PASS with no retries/skips;
+actual npm pack/extract without checkout src PASS for Node import without browser
+globals, prompt discovery, semantic library/CLI compile, self-test and doctor;
+installed Pixi acceptance PASS; standalone SDK actual mouse/Tab/Enter/ArrowRight,
+disabled activation, Switch/Slider states, strict frozen-field refusal and allowed
+state export/reopen PASS; exact source ZIP/PNG bytes and teardown/no outbound
+requests PASS; source ZIP member checksums and extracted build with existing
+locked dev tools PASS. npm run test:distribution retains original failures and
+fresh final evidence and is included in the component CI job.
+
+This execution uses Windows, Node 25.9.0, Edge/software WebGL and procedural
+fixtures/process doubles. It performs zero real model dispatches and no image
+generation, login/proxy change, deployment or consumer-project code change.
+Fresh registry installation, this candidate's remote CI, target Linux/Node 24
+container readiness/native chain and human visual review remain unexecuted.
+The earlier base CI and simulated-subagent sample evidence are historical;
+nativeFullChainPassed=false and humanVisualAcceptance=false. Candidate artifacts
+are development inputs; production still requires an immutable tagged release
+and verified artifact digest. Docker-only handoff/evidence stays in the ignored
+work area, outside the public provider-neutral runtime.
+
+### 2026-10-05 Atomic motion-system replacement and CI diagnosis
+
+CI 37315057284 on f44a5d8 completes six jobs successfully, including all four
+Python matrices, dependency audit and build. The component job passes build,
+658 unit tests, self-test and the installed offline distribution regression,
+then records 170 browser passes, one premium endpoint timeout and one existing
+skip. This is an actual failed CI result, not a native-model acceptance result.
+
+The retained trace locates the delay in Image exit: its exact idle wait takes
+31,012.794 ms and the compositor records a matching 31,120.299 ms frame gap.
+Clear completes before the next assertion starts at 45,009 ms, after the shared
+45,000 ms test budget. The original failure diagnostics show a null system/style
+and an idle scheduler. No incorrect clear result is observed. The timer-only
+wait depends on headless software WebGL presenting a native frame. Original-code
+Linux diagnostic CI 37321025433 passes the same three cases in 37.3-37.9 seconds;
+the full-run timeout depends on rendering/fixture timing, not a wrong clear value.
+
+The first repair's one locator screenshot still fails in Linux diagnostic CI
+37322891306: it waits 31,365.765 ms before element capture, then times out in
+another capture's element-stability wait. Playwright's element screenshot awaits
+RAF-based stability before invoking native capture. Full CI 37322725618 on that
+intermediate commit is explicitly cancelled after this reproduced failure; its
+cancellation is not a pass. Both original failures and traces are preserved.
+
+The next page-capture experiment also fails in Linux diagnostic CI 37325201624;
+all three cases hit the 7-second predicate budget. It does not fix the underlying
+render queue. These experiments and their local passes remain historical only;
+the original timer-backed wait and unchanged 45-second test budget are restored.
+
+An actual native WebGL probe confirms the runtime defect. The 35-node Gallery
+needs nine native draw calls for one frame, but each system install, replacement
+and clear makes 765 calls: the complete record registry is traversed, while each
+record recursively resets its descendants and repaints the entire canvas.
+The runtime now resets each registered record once and uses the existing render
+batch to present one completed replacement. Validation still precedes mutation;
+channel cancellation, closing popup/Dialog cleanup and canonical reset remain.
+The same probe measures nine calls per operation after repair. This removes the
+85-fold repeated full-frame work instead of trying to force delayed native RAF.
+
+Executed locally: build/typecheck PASS; 31 existing affected actual browser cases
+PASS with zero retries/skips across motion-system, lifecycle, presets and raster
+Tabs; one new native-draw regression PASS after fixing its duplicate-input
+fixture to stay within the binding limit. It checks all three styles, one-frame
+install/reapply/clear, in-flight cancellation, complete canonical node reset and
+rejection without draws/state changes. Original profile endpoints now complete
+in 2.98-3.67 seconds locally, compared with roughly 12 seconds before repair.
+All original endpoint/input/pixel assertions and measurement targets remain.
+
+Installed offline distribution: nine checks PASS, including real Pixi/SDK input,
+export/reopen, exact source/resource bytes, no outbound and extracted source build.
+Two attempts in the C-drive task area fail before checks at directory rename;
+the same verified allowlisted source ZIP runs successfully in the writable work
+area with existing locked tools. No permission/login/proxy configuration changes.
+Original CI traces, intermediate failures, draw probes, fresh package artifacts
+and program reports are retained in ignored work. git diff --check PASS. Changes
+are limited to component runtime, browser regression and this record; other
+Harnesses and the shared checkout/index remain untouched. Final remote CI is
+recorded separately after push. nativeFullChainPassed=false; human visual
+acceptance remains separate, with no model dispatch or deployment in this repair.
+
+### 2026-10-07 Explicit Container/Panel/Dialog fallback background
+
+Used an isolated checkout at exact baseline
+f44a5d8061b5f8d6a33d55a4d37ba17364fe0bee. Checked then applied the supplied
+three-source-file patch. Optional boolean drawBackground disables only fallback
+drawBox on these types; explicit layer-plan values require explicit-policy
+evidence. Added contract, prompt and consumer documentation and versioned the
+new candidate as 0.2.0-rc.3. Rebuilt Node JavaScript/declarations and both browser
+outputs; the shared checkout, fixed rc.2 vendor and customer tasks are untouched.
+
+Executed: full build/typecheck PASS; 664/664 unit tests PASS; seven related actual
+Edge/Pixi browser cases PASS with zero retries/skips. New standalone coverage
+checks default/true/false fill and border, native appearance, transparent child
+art corners, titles, layout, opacity, mouse/keyboard input, backdrop/close and
+resource/pixel-preserving bundle export/reopen. Existing modal, Button and Tabs
+cases retain their gates. Installed TGZ Node/CLI/render/browser regression PASS,
+including the new policy in a source-bound compiled plan; extracted source ZIP
+checksums and build PASS. The test extracts directly into its installation folder
+after Windows refused the previous tar-tree rename. Failed setup diagnostics are
+retained in the ignored work area.
+
+Environment: Windows, Node 25.9.0, local Edge/software WebGL. Registry fetching
+omitted the optional locked rolldown 1.2.7 native binding after a connection reset;
+the same-version local dependency was used, with no dependency/lock changes.
+Fresh registry installation, Linux/container runtime and production Web adoption
+are not claimed. Zero model calls, image generation, deployment or task mutation.
+Procedural browser fixtures establish technical behavior only;
+nativeFullChainPassed=false and humanVisualAcceptance=false.
+
+### 2026-10-08 Consolidate component development branches on tony
+
+Retain the complete checkpoint (4fd4615f), service preparation (6d2b97eb) and
+panel-background SDK (c6db7097) histories on the existing tony branch. The service
+branch already contains the checkpoint. Resolve the stale modal-focus copy in
+tony in favor of the checkpoint's tested opener-only focus transfer: a direct
+Dialog state write must not redirect a held key to a newly opened modal button.
+Keep both atomic motion-system replacement and drawBackground opt-out, and retain
+both original task records. The UI Panel directory is byte-identical to the
+existing remote tony snapshot ffc64354; no shared working-tree changes are copied.
+
+Executed on the combined source: full Node/declaration/browser build and
+typecheck PASS; component units 664/664 PASS; UI Panel units 1060/1060 PASS;
+36 related Edge/Pixi browser cases PASS without retries/skips, covering modal
+keyboard focus, internal button effects, background opt-out, motion replacement
+and Dialog lifecycle. Installed distribution's nine offline checks PASS,
+including actual standalone input/export/reopen and extracted source build.
+UI Panel's static Studio and delivery runtime build PASS. The fixed browser-test
+port is denied by the local system; acceptance uses a dynamically assigned
+loopback port without changing project configuration.
+
+Two additional UI Panel planning/clarification browser scripts time out on the
+legacy #clarification-answer-0 locator. The modern probe first verifies the
+questions and three visible textareas; its subsequent legacy ID lookup fails
+before any panel is instantiated. These failed reports are retained and are not
+reported as passes. Panel sources and these scripts are outside this merge's
+changes. This does not establish complete UI Panel browser acceptance.
+
+Remote CI is checked separately on the final pushed commit before development
+branches are removed. The published rc.3 tag remains bound to c6db7097 and its
+existing TGZ SHA-256 remains
+58f419368492b58545fef36d5d6b40dfcb47c7737d883aabd49c6ae477e8aa88.
+The combined working branch is not a replacement release artifact. No model
+dispatch, media generation, deployment or customer-task mutation is performed;
+humanVisualAcceptance=false.
+
+Full CI 37681864834 subsequently exposes 161 broken documentation links in the
+pre-existing UI Panel snapshot: their targets are ignored local output artifacts,
+not files shipped with a clean checkout. Convert those links in 27 Markdown files
+to explicit local-output path descriptions, preserving labels, historical
+results and fingerprints. No output files are copied into the source release,
+and no test or executable Panel source changes. Focused execution of the unchanged
+repository document-link test now passes. The two additional browser-script
+probes remain failures; the same clarification locator timeout is reproduced on
+the unmerged remote tony baseline ffc64354 before a Panel is instantiated.
+
+### 2026-10-10 Reconcile tony before pushing the UI layer closeout
+
+Merge the existing remote tony history with the local UI layer closeout without
+rewriting either side. The component and Panel merge trees match the remote
+versions exactly before this evidence entry; the UI Layer tree retains the local
+closeout unchanged. Conflict review preserves installed SDK entries, frozen
+semantic inputs, modal readiness/focus fixes, atomic motion replacement and the
+explicit fallback background policy. A separate checkout isolates merge work
+from the shared checkout's uncommitted files.
+
+Executed: TypeScript noEmit PASS and full component build PASS. The initial unit
+run records 659/664 passes; five reference-run cases fail with ENOENT because the
+clean checkout has no built acceptance page yet. After the build, all six cases
+in that file pass, with zero skips/cancellations, retaining the initial failure
+log. Together the two executions cover all 664 distinct cases; this is not a
+claim that the unprepared first invocation passed. No new model/media call,
+dependency installation, release tag or deployment is performed. Remote CI and
+human visual acceptance are not inferred from these local integration checks.

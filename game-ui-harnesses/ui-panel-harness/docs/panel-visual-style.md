@@ -50,10 +50,10 @@ node scripts/serve-workbench.mjs --workbench output/my-polished-studio --output-
 node --test tests/panel-visuals.test.mjs
 ```
 
-本工作区的[前后对照](../output/panel-visual-review-v4/index.html)包含16份保存的真实面板、
+本工作区的前后对照（本地产物：`../output/panel-visual-review-v4/index.html`）包含16份保存的真实面板、
 3份明确标记的表单/页签/进度程序夹具，以及5种同主题组合。
 对照属于确定性换主题，不是新一轮模型生成；当前值和业务声明与原面板保持一致。
-浏览器检查的独立结果见[检查报告](../output/panel-visual-browser-v7/visual-browser-report.json)。
+浏览器检查的独立结果见检查报告（本地产物：`../output/panel-visual-browser-v7/visual-browser-report.json`）。
 734项回归与518项浏览器检查通过；24份实际下载ZIP完成CRC、逐文件摘要、离线打开和试玩状态重导入。
 19份原主题预览同时检查通过；新主题16个面板与5种组合另含3份程序夹具，不作为新生成成功率。
 浏览器前期的等待超时和大网格动效挂载FAIL保留。大网格定位到全树动效重置时反复重绘，

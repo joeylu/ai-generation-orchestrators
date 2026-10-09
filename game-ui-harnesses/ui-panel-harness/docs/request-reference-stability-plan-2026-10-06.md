@@ -31,12 +31,12 @@
 
 四份历史FAIL审计报告的原字节SHA保持，包括原32次、旧三例、旧单例及最新来源绑定三例原生产批次。最新三例同源修正期望后的独立PASS也保留，不计入本轮16类成绩。
 
-- [冻结计划](../output/request-reference-stability-plan-v1/ordinal-stability-plan.json)
-- [完整请求与期望](../output/request-reference-stability-plan-v1/suite.json)
-- [夹具预览与交付包](../output/request-reference-stability-preparation-accepted-v1/index.html)
-- [383项夹具浏览器检查](../output/request-reference-stability-plan-v1/fixture-browser/browser-report.json)
-- [宿主零模型预检](../output/request-reference-stability-preflight-v1/preflight-report.json)
-- [独立准备审计](../output/request-reference-stability-preparation-accepted-v1/acceptance.json)
+- 冻结计划（本地产物：`../output/request-reference-stability-plan-v1/ordinal-stability-plan.json`）
+- 完整请求与期望（本地产物：`../output/request-reference-stability-plan-v1/suite.json`）
+- 夹具预览与交付包（本地产物：`../output/request-reference-stability-preparation-accepted-v1/index.html`）
+- 383项夹具浏览器检查（本地产物：`../output/request-reference-stability-plan-v1/fixture-browser/browser-report.json`）
+- 宿主零模型预检（本地产物：`../output/request-reference-stability-preflight-v1/preflight-report.json`）
+- 独立准备审计（本地产物：`../output/request-reference-stability-preparation-accepted-v1/acceptance.json`）
 
 [仓库AGENTS.md](../../../AGENTS.md)明确要求：“A generation attempt requires one fresh, single-use authorization bound to an immutable plan digest.”
 前次三次授权已经消费；本次计划需要上述新摘要的一次决定，批准后才能执行最多32次真实调用。

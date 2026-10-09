@@ -66,6 +66,7 @@ export function requiredLayerDecisionFields(document: UiDocument): { componentId
   for (const node of walkNodes(document)) {
     const pointers = ['/type', '/layout'];
     const props = node.props as unknown as Record<string, unknown>;
+    if (['Container', 'Panel', 'Dialog'].includes(node.type) && Object.hasOwn(props, 'drawBackground')) pointers.push('/props/drawBackground');
     for (const key of ['label', 'title', 'text', 'value', 'placeholder', 'options', 'items', 'tabs', 'selectedId', 'activeId',
       'checked', 'open', 'enabled', 'modal', 'readOnly', 'inputType', 'min', 'max', 'step', 'maxLength', 'valueOverflow', 'interaction',
       'scrollX', 'scrollY', 'contentWidth', 'contentHeight', 'itemHeight', 'stateLabels', 'lineHeight', 'wrap', 'overflow']) {
@@ -109,6 +110,7 @@ export function validateLayerPlanningEvidence(input: unknown, document: UiDocume
       && ((typeof target === 'string' && target.length > 0) || (Array.isArray(target) && target.length > 0))
       && finding.basis !== 'observed') fail();
     if (finding.pointer === '/props/stateLabels' && finding.basis !== 'observed') fail();
+    if (finding.pointer === '/props/drawBackground' && ['Container', 'Panel', 'Dialog'].includes(nodes.get(finding.componentId)!.type) && finding.basis !== 'explicit-policy') fail();
     if (['/props/valueOverflow', '/props/appearance/templateSizing', '/props/appearance/selectedIndicator', '/props/appearance/selectedTextColor'].includes(finding.pointer) && finding.basis !== 'explicit-policy') fail();
     const key = `${finding.componentId}:${finding.pointer}`;
     if (seen.has(key)) fail();

@@ -22,12 +22,12 @@
 
 每轮16个面板与5个组合各从Studio实际下载一次，共42份ZIP。CRC、字节数、SHA、展开文件及Pixi/Unity同源Bundle逐项审计通过，42份均离线运行和状态重导入通过。整个浏览器复核封锁所有非GET及外部请求，追加模型0，没有生成/修改按钮点击。
 
-- [两轮真实预览与42份下载](../output/grid-wrapper-evidence-accepted-v1/index.html)
-- [独立复核审计](../output/grid-wrapper-evidence-accepted-v1/acceptance.json)
-- [明确修正和原来源指纹](../output/grid-wrapper-evidence-recheck-v1/evidence-plan.json)
-- [第一轮浏览器](../output/grid-wrapper-evidence-recheck-v1/round01/browser/browser-report.json)
-- [第二轮浏览器](../output/grid-wrapper-evidence-recheck-v1/round02/browser/browser-report.json)
-- [原32次FAIL记录](../output/panel-title-stability-accepted-v1/acceptance.json)
+- 两轮真实预览与42份下载（本地产物：`../output/grid-wrapper-evidence-accepted-v1/index.html`）
+- 独立复核审计（本地产物：`../output/grid-wrapper-evidence-accepted-v1/acceptance.json`）
+- 明确修正和原来源指纹（本地产物：`../output/grid-wrapper-evidence-recheck-v1/evidence-plan.json`）
+- 第一轮浏览器（本地产物：`../output/grid-wrapper-evidence-recheck-v1/round01/browser/browser-report.json`）
+- 第二轮浏览器（本地产物：`../output/grid-wrapper-evidence-recheck-v1/round02/browser/browser-report.json`）
+- 原32次FAIL记录（本地产物：`../output/panel-title-stability-accepted-v1/acceptance.json`）
 - [原冻结准备记录](panel-title-stability-plan-2026-10-06.md)
 
 修复Studio仍为 http://127.0.0.1:4197/，这次变更只涉及测试期望与准备工具，无需重启生成服务。此结果覆盖固定16条需求的两轮实测及同轮组合，不认证任意自然语言输入、连续修改链、原生Unity或其它引擎，也不等同于人工视觉认证。七份历史FAIL及旧单例/两例PASS原字节保持。

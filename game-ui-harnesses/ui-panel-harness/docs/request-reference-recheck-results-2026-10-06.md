@@ -46,10 +46,10 @@
 
 ## 入口和证据
 
-- [三个真实来源的交付预览与ZIP](../output/request-reference-evidence-accepted-v1/index.html)
-- [同源复验独立审计](../output/request-reference-evidence-accepted-v1/acceptance.json)
-- [原生产批次FAIL与三个原始结果](../output/request-reference-recheck-accepted-v1/index.html)及[独立审计](../output/request-reference-recheck-accepted-v1/acceptance.json)
-- [固定来源与期望复验计划](../output/request-reference-evidence-recheck-v1/evidence-plan.json)
-- [42项零模型浏览器与实际交付检查](../output/request-reference-evidence-recheck-v1/browser/browser-report.json)
+- 三个真实来源的交付预览与ZIP（本地产物：`../output/request-reference-evidence-accepted-v1/index.html`）
+- 同源复验独立审计（本地产物：`../output/request-reference-evidence-accepted-v1/acceptance.json`）
+- 原生产批次FAIL与三个原始结果（本地产物：`../output/request-reference-recheck-accepted-v1/index.html`）及独立审计（本地产物：`../output/request-reference-recheck-accepted-v1/acceptance.json`）
+- 固定来源与期望复验计划（本地产物：`../output/request-reference-evidence-recheck-v1/evidence-plan.json`）
+- 42项零模型浏览器与实际交付检查（本地产物：`../output/request-reference-evidence-recheck-v1/browser/browser-report.json`）
 
 这三个新样本确认了0.8来源绑定在本次真实调用中有效。接下来的全16稳定性验收应在调用前明确区分用户指定名称和允许的展示命名，重新冻结本轮协议，不能沿用已经消费的授权或宣称旧32次通过。

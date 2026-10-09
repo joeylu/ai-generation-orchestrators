@@ -17,7 +17,7 @@ Cocos/Godot/UE、矢量检索及更多控件/任意布局留待后续版本，�
 
 ## 统一交付
 
-[统一入口](../output/ui-panel-closeout-v1/index.html)整理第二轮16个单面板、5种同轮组合和10步真实修改，共31份已经实际下载并校验的面板ZIP。
+统一入口（本地产物：`../output/ui-panel-closeout-v1/index.html`）整理第二轮16个单面板、5种同轮组合和10步真实修改，共31份已经实际下载并校验的面板ZIP。
 各包原始字节、共享Pixi/Unity规格和原生`NOT_RUN`状态保持；不改写其清单或混合来源。入口还携带已验收的Studio静态构建，支持离线导入/试玩/导出。
 整理通过程序按原清单允许的文件装配，并记录来源指纹与文件摘要；不会复制临时运行目录、认证文件或代理配置。
 源码复现使用[启动说明](start-here.md)，开发依赖仍是同仓库ui-component-harness及其锁定依赖。
@@ -27,13 +27,13 @@ Cocos/Godot/UE、矢量检索及更多控件/任意布局留待后续版本，�
 
 ## 收尾复验结果
 
-便携归档[ui-panel-closeout-v1.zip](../output/ui-panel-closeout-v1.zip)为21,861,302字节（约21.9 MB），SHA-256为
+便携归档ui-panel-closeout-v1.zip（本地产物：`../output/ui-panel-closeout-v1.zip`）为21,861,302字节（约21.9 MB），SHA-256为
 `f835f6cb6ff9f642b0564a97c253a855c30aa944521babfcbccbb362683d05f8`。
 Python验证归档CRC和逐文件摘要，独立.NET ZipArchive解压后897个文件重新核对一致。
 解压后的31份离线预览、31次门户实际ZIP下载、31次静态Studio重导入，以及窄屏入口和最小源码构建/本地服务启动检查通过；所有生成/编辑回调0、外部请求0。
 门户98条本地链接、使用文档链接和公开文件范围检查通过。
 
-[独立收尾审计](../output/ui-panel-closeout-accepted-v1/acceptance.json)核验392份本Harness公开文件和334份执行源码字节，冻结修改链的210份源码、历史接受报告与失败指纹保持。
+独立收尾审计（本地产物：`../output/ui-panel-closeout-accepted-v1/acceptance.json`）核验392份本Harness公开文件和334份执行源码字节，冻结修改链的210份源码、历史接受报告与失败指纹保持。
 本版源码检查点仅包含本Harness；其他链路33份既有受跟踪改动在收尾检查中保持。
 工作区源快照记录实际字节；Git按本目录既有`.gitattributes`规范文本换行，不把本地原始换行摘要冒充Git对象身份。
 历史727项单元回归的执行源码保持，本次打包/解压/浏览器及启动复验额外模型0。

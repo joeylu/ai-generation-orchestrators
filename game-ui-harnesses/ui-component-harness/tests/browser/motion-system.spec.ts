@@ -265,6 +265,72 @@ test('catalog and compiler validate all 48 style/component bindings without muta
   expect(() => validateMotionSystem(duplicated, ui)).toThrow(/DUPLICATE_TARGET/);
 });
 
+test('motion system replacement presents one complete Pixi frame instead of a descendant repaint backlog', async ({ page }, info) => {
+  await openGallery(page);
+  const inputs = styles.map(style => fullSystem(style, `atomic-reset-${style}`));
+  const result = await page.evaluate(inputs => {
+    const api = (window as any).uiHarness;
+    let drawCalls = 0;
+    const restore: Array<() => void> = [];
+    // Count actual native draws without replacing Pixi rendering, RAF or time.
+    for (const constructor of [WebGLRenderingContext, WebGL2RenderingContext]) {
+      for (const key of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']) {
+        const prototype = constructor.prototype as any;
+        if (!Object.hasOwn(prototype, key)) continue;
+        const original = prototype[key];
+        prototype[key] = function (...args: unknown[]) { drawCalls++; return original.apply(this, args); };
+        restore.push(() => { prototype[key] = original; });
+      }
+    }
+    const measure = (action: () => void) => {
+      drawCalls = 0; action();
+      return { drawCalls, snapshot: api.inspectMotionSystem() as SystemInspection };
+    };
+    try {
+      const initial = (api.inspectMotionSystem() as SystemInspection).nodes;
+      const baseline = measure(() => api.setVisible('root', true));
+      const replacements = inputs.map(input => {
+        const installed = measure(() => api.setMotionSystem(input));
+        api.playMotionAction('confirm', 'enter');
+        const live = api.inspectMotionSystem() as SystemInspection;
+        const invalid = structuredClone(input); invalid.bindings[1] = structuredClone(invalid.bindings[0]);
+        drawCalls = 0;
+        let error = '';
+        try { api.setMotionSystem(invalid); } catch (reason) { error = String(reason); }
+        const rejected = { error, drawCalls, snapshot: api.inspectMotionSystem() as SystemInspection };
+        const reapplied = measure(() => api.setMotionSystem({ ...input, id: `reapplied-${input.style}` }));
+        api.playMotionAction('confirm', 'enter');
+        const cleared = measure(() => api.setMotionSystem(null));
+        return { input, installed, live, rejected, reapplied, cleared };
+      });
+      return { initial, baseline, replacements };
+    } finally { for (const action of restore) action(); }
+  }, inputs);
+  await info.attach('native-render-counts', { contentType: 'application/json', body: JSON.stringify({
+    baseline: result.baseline.drawCalls,
+    replacements: result.replacements.map(item => ({ style: item.input.style,
+      install: item.installed.drawCalls, reapply: item.reapplied.drawCalls,
+      clear: item.cleared.drawCalls, rejected: item.rejected.drawCalls })),
+  }, null, 2) });
+  expect(result.baseline.drawCalls).toBeGreaterThan(0);
+  for (const replacement of result.replacements) {
+    expect(replacement.live.scheduler.running).toBeGreaterThan(0);
+    expect(replacement.rejected.error).toContain('DUPLICATE_TARGET');
+    expect(replacement.rejected.drawCalls).toBe(0);
+    expect(replacement.rejected.snapshot).toEqual(replacement.live);
+    for (const operation of [replacement.installed, replacement.reapplied, replacement.cleared]) {
+      expect(operation.drawCalls).toBe(result.baseline.drawCalls);
+      expect(operation.snapshot.nodes).toEqual(result.initial);
+      expect(operation.snapshot.scheduler).toEqual({ running: 0, pendingFrame: false, destroyed: false });
+    }
+    expect(replacement.installed.snapshot).toMatchObject({ style: replacement.input.style, systemId: replacement.input.id });
+    expect(replacement.reapplied.snapshot).toMatchObject({ style: replacement.input.style, systemId: `reapplied-${replacement.input.style}` });
+    expect(replacement.cleared.snapshot).toMatchObject({ style: null, systemId: null });
+  }
+  await waitForIdle(page);
+  expect((await inspectSystem(page)).nodes).toEqual(result.initial);
+});
+
 // Each style gets a fresh browser context and its own unchanged time budget.
 for (const style of styles) test(`each profile binds every live gallery type and enter, exit, reapply, and clear have deterministic endpoints [${style}]`, async ({ page }) => {
   await openGallery(page);

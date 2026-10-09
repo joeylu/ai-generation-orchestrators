@@ -235,7 +235,7 @@ v3获用户明确授权后派发第1步一次，服务端以 invalid_json_schema
 当前Studio为`http://127.0.0.1:5079/`，构建`output/panel-studio-themes-v2`。
 首次4199监听返回EACCES，改用程序分配的空闲端口，旧服务保留，代理仅作用于新进程。
 本轮原生引擎运行、模型真实风格理解和用户视觉确认仍未执行。
-见[主题说明](panel-themes.md)、[主题对照](../output/panel-theme-review-v2/index.html)与[独立审计](../output/panel-theme-accepted-v1/acceptance.json)。
+见[主题说明](panel-themes.md)、主题对照（本地产物：`../output/panel-theme-review-v2/index.html`）与独立审计（本地产物：`../output/panel-theme-accepted-v1/acceptance.json`）。
 
 ## 2026-10-07 · Modern Mint视觉优化
 
@@ -243,28 +243,28 @@ v3获用户明确授权后派发第1步一次，服务端以 invalid_json_schema
 按钮按真实字形居中，恢复默认为描边操作，输入标签与字段对齐；Unity导出继续使用原生Button的一份标签。悬停只更新发生交互的按钮，复用共享MotionAnimator，按下和焦点仍使用原控件反馈；偏好变化和销毁取消动画并释放监听。
 734项回归、518项浏览器检查通过；19份原主题预览、24次精确Studio导入及实际下载包的CRC/文件摘要、离线打开、状态重导入通过，另检查390/768/1440宽度、按钮居中、键盘事件、禁用输入、进度更新、动效及动态减少运动偏好。
 24项包括16份保存的真实面板、3份程序夹具和5种同主题组合，不是新生成批次；模型0、提供方回调0、阻断请求0。初期等待超时、大网格全树动效重置的FAIL及调试记录保留，逐按钮适配后定点107项及全量检查通过。
-本次公开修改仅位于本Harness，新Studio4198来自`output/panel-studio-visual-v3`；旧4197服务、第一版交付与历史生成结果保留。原生引擎运行和用户视觉确认本轮仍为NOT_RUN。见[主题说明](panel-visual-style.md)、[前后对照](../output/panel-visual-review-v4/index.html)和[本地审计](../output/panel-visual-accepted-v1/acceptance.json)。
+本次公开修改仅位于本Harness，新Studio4198来自`output/panel-studio-visual-v3`；旧4197服务、第一版交付与历史生成结果保留。原生引擎运行和用户视觉确认本轮仍为NOT_RUN。见[主题说明](panel-visual-style.md)、前后对照（本地产物：`../output/panel-visual-review-v4/index.html`）和本地审计（本地产物：`../output/panel-visual-accepted-v1/acceptance.json`）。
 
 ## 2026-10-07 · Pixi优先第一版收尾
 
 统一README、使用/构建入口和当前协议说明，保留完整历史、原生产FAIL及现有Studio4197。整理第二轮16个真实面板、5种同轮组合和10步真实修改为31份原始ZIP与直接预览，携带已验收静态Studio。
 便携ZIP21,861,302字节，SHA-256为f835f6cb…683d05f8；CRC/逐文件摘要与独立.NET解压的897个文件通过。解压后31份离线预览、31次实际ZIP下载、31次Studio重导入、窄屏和最小源码构建/本地启动检查通过；98条门户及使用文档链接通过，额外模型0/回调0/外部请求0。
 独立审计允许392份本Harness公开文件、334份执行源码指纹及冻结修改链210份源码；其他链路33份既有受跟踪改动保持，不提交本地产物、临时脚本或机器配置。源快照实际字节与Git换行规范分别记录。
-收尾范围、下载摘要和限制见[第一版说明](first-version-closeout-2026-10-07.md)，统一入口为[本地交付目录](../output/ui-panel-closeout-v1/index.html)。本次为工作区检查点，尚非生产SDK发布；本批原生引擎/人工视觉NOT_RUN。
+收尾范围、下载摘要和限制见[第一版说明](first-version-closeout-2026-10-07.md)，统一入口为本地交付目录（本地产物：`../output/ui-panel-closeout-v1/index.html`）。本次为工作区检查点，尚非生产SDK发布；本批原生引擎/人工视觉NOT_RUN。
 
 ## 2026-10-06 · 10步真实连续修改与离线交付PASS
 
 批准509104e8…9198c12后实际调用10次gpt-6-luna / xhigh，自动重试0；固定10步方案/业务/编译/状态保留10/10，原默认65改50而试玩83保持，新音效默认40/试玩91分别保留。禁用/重新启用静音、标题/高度、删除控件与重置依赖、按钮文字均只改变请求指定的部分。
 123项真实方案浏览器检查、10份实际下载ZIP的CRC/文件摘要/共享Pixi与Unity规格、离线打开及试玩状态重新导入、逐步和整链撤销通过；浏览器20次保存方案重放回调，额外模型0。
 独立审计210份冻结源码、10份原生draft物化/回执、依赖context/schema及458份运行/交付证据通过，输入277139、缓存27392、输出3733 Token；准备证据、两轮生成复核PASS与原31/32 FAIL指纹保持。
-Studio4197及其它链路未改；本轮仅认证这一声音来源的固定10步，原生引擎和任意修改输入未认证。详见[真实修改结果](edit-chain-results-2026-10-06.md)与[10步预览/ZIP入口](../output/edit-chain-real-accepted-v1/index.html)。
+Studio4197及其它链路未改；本轮仅认证这一声音来源的固定10步，原生引擎和任意修改输入未认证。详见[真实修改结果](edit-chain-results-2026-10-06.md)与10步预览/ZIP入口（本地产物：`../output/edit-chain-real-accepted-v1/index.html`）。
 
 ## 2026-10-06 · 最新真实声音来源的10步连续修改准备
 
 按用户推荐方向，使用两轮验收第二轮声音面板重新准备连续修改；不新增生成。原默认65，试玩83/静音true；首步默认改50时应保留试玩83。加入音效后默认40/试玩91分别验收；补入禁用与重新启用静音两步，总共10步。
 727项回归、123项程序夹具浏览器检查、10份实际下载夹具ZIP的CRC/摘要/同源Pixi与Unity规格/离线打开/试玩状态重导入、逐步和整链撤销通过。调用预检、错误摘要和预检混用授权拒绝、210份源码及历史真实来源独立审计通过；模型0、消费记录0。
 新摘要509104e8…9198c12冻结10条请求、精确业务期望和首步context/schema；后续每步context/schema只从前一步接受的真实结果派生并在调用前保存。最多10次gpt-6-luna / xhigh，失败、不确定、澄清或任一业务/编译/状态门禁失败即停止后续，不重试、不挪用未调用预算；准备时真实修改尚未授权/运行，随后获批并执行，见上方真实结果。
-旧32次及历史失败指纹保持，Studio4197及其它链路未改。详见[修改链计划](edit-chain-plan-2026-10-06.md)与[零模型准备审计](../output/edit-chain-preparation-accepted-v1/index.html)。
+旧32次及历史失败指纹保持，Studio4197及其它链路未改。详见[修改链计划](edit-chain-plan-2026-10-06.md)与零模型准备审计（本地产物：`../output/edit-chain-preparation-accepted-v1/index.html`）。
 
 ## 2026-10-06 · 32次真实完成、两轮同来源复核及10份组合PASS
 
@@ -319,7 +319,7 @@ Studio4197保持，其它链路未改。详见[实际结果与明确复核](pane
 33项回归、16个单面板及5种组合的383项夹具浏览器检查通过，21份实际下载ZIP离线打开、状态重新导入及独立CRC/文件摘要/同源规格审计通过。
 强化每轮原生来源绑定门禁与逐份真实下载/离线运行/重新导入检查；第一轮任何门禁失败停止第二轮，不自动重试、不混用旧来源。
 同环境登录可见性及错误摘要拒绝预检通过，消费记录0；真实连接尚未验证，历史四份FAIL指纹保持，4195服务及其它链路未改动。
-详见[全16两轮准备](request-reference-stability-plan-2026-10-06.md)和[夹具预览与审计](../output/request-reference-stability-preparation-accepted-v1/index.html)。
+详见[全16两轮准备](request-reference-stability-plan-2026-10-06.md)和夹具预览与审计（本地产物：`../output/request-reference-stability-preparation-accepted-v1/index.html`）。
 
 ## 2026-10-06 · 来源绑定真实3/3、固定命名期望同源复验通过
 
@@ -328,7 +328,7 @@ Studio4197保持，其它链路未改。详见[实际结果与明确复核](pane
 对这份没有明确指定进度标签的完整固定请求，声明两个完整精确期望，只改变进度标签及对应页内名称；9项定向测试通过，通用比较器及模型/规格运行代码保持。
 同源复验程序检查原始返回/回执/Bundle未变后，业务3/3；42项真实Pixi/实际ZIP/离线/重导入通过，额外模型调用0。三份ZIP再经独立CRC/摘要/同源规格审计通过。
 新复验PASS与原生产FAIL分开记录；没有修改历史成功率、消费记录或原32次FAIL。4195服务保持，全16新两轮/组合/原生Unity本轮未验收。
-详见[本次真实调用与同源复验](request-reference-recheck-results-2026-10-06.md)及[预览/ZIP入口](../output/request-reference-evidence-accepted-v1/index.html)。
+详见[本次真实调用与同源复验](request-reference-recheck-results-2026-10-06.md)及预览/ZIP入口（本地产物：`../output/request-reference-evidence-accepted-v1/index.html`）。
 
 ## 2026-10-06 · 单次复验完成、请求来源绑定修复
 
