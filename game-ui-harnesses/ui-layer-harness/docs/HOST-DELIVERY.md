@@ -20,8 +20,9 @@ prepares independent M2 review. Omitting this mode retains the explicit offline
 seed workflow; that mode never claims M1 model execution. Existing DAG commands,
 strict runs and candidate runs retain their behavior.
 
-The new workflow performs independent planning review, freezes stock sheets with
-context crops and v8 ownership-first prompts, acquires all native images serially, reviews every
+The new workflow performs independent planning review, freezes default sheets or
+explicit `generationMode=single` requests with context crops and v8 ownership-first prompts,
+acquires all native images serially, reviews every
 actual image request, extracts materials, observes foreground whole bodies,
 preserves complete material storage, packages an original-size viewport, and
 creates a three-way comparison. It never calls a model or native generation tool.
@@ -98,8 +99,11 @@ workflow. A failed or unknown dispatch is terminal through `host-fail --run RUN
 
 ## Formal body observations and uniform fitting
 
-New host runs freeze `bodyObservationPolicy=host-body-observation-alpha-v2` at
-initial preparation. Each foreground request binds the raw source, full reference,
+Fresh approximate host runs default to
+`bodyObservationPolicy=host-body-observation-soft-effects-v3` and the explicit
+exterior-support contract described in [body effects](BODY-SOFT-EFFECTS.md).
+Strict runs and explicit v1/v2 profiles retain their corresponding rules.
+Each foreground request binds the raw source, full reference,
 ownership crop, actual-alpha checker/light/dark RGB composites, alpha display,
 schema, prompt and coordinate mapping. Verification reconstructs the display
 pixels from the unchanged native PNG. Alpha extent never defines semantic geometry.
@@ -107,7 +111,9 @@ The v2 answer adds required `geometryDifferences` and `materialIssues` arrays.
 Measurable size/aspect differences and permitted minor appearance differences are
 retained with their response SHA in the output configuration and package review.
 Unreliable/incomplete correspondence, missing/repeated content, wrong ownership
-and major/uncertain deformation remain blocking `issues`.
+and major/uncertain deformation remain blocking `issues` under bound v1–v4
+policies. Explicit v5 records visual findings as warnings while inability to
+reliably establish and measure a complete corresponding body still stops.
 
 With an explicitly bound visual policy selecting `minorGeometry: record`, new
 v2 host runs also freeze `bodyFitPolicy` as
@@ -121,6 +127,16 @@ coordinates, delete alpha, slice a material, or stretch axes independently.
 Complete nonzero-alpha support is rendered into storage; the viewport stays at
 the original reference size. Observation validation and final packaging use the
 same frozen fit policy and record the actual residual and margin.
+
+New approximate runs may instead freeze the explicit
+[relative fit policy](BODY-RELATIVE-FIT.md), including its fraction, pixel floor,
+absolute cap and native measurement margin. It is not an implicit change to the
+32px default. V5 retains measurable fit, exterior classification and high-opacity
+anchor-envelope differences as warnings, including actual edges, counts and sides;
+it does not remove pixels or replace the measured body with an alpha extent.
+Reliable correspondence, observable solid core, complete side declarations,
+source identity and package integrity remain required. See
+[visual warning policy](VISUAL-WARNING-POLICY.md) for the policy-specific gates.
 
 Strict visual policies keep their original fit and zero boundary margin.
 Explicit `bodyObservationPolicy=host-body-observation-v1` retains the old answer

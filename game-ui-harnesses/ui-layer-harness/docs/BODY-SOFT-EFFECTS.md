@@ -31,7 +31,8 @@ not certified segmentation or machine proof of visual fidelity.
 
 ## Deterministic coverage constraints
 
-The program uses the existing small measurement envelope around the body box:
+The program uses the existing small measurement envelope around the body box.
+Default and explicit v1–v4 policies enforce these constraints:
 
 - A solid core (alpha>=240) must exist inside the observed body. Every alpha>=240
   pixel must be inside its measurement envelope. A smaller internal icon cannot
@@ -48,8 +49,10 @@ The program uses the existing small measurement envelope around the body box:
 The semantic exterior and connectivity gates above retain their original
 severity for default/v1–v4 policies. With an explicitly frozen v5 warning policy,
 owned/uncertain classifications, nonopaque dense exterior without a shadow
-declaration, and detached nonopaque dense components become
-`visualCoverageWarnings`. The solid-core and alpha>=240 envelope constraints,
+declaration, detached nonopaque dense components, and alpha>=240 pixels outside
+the anchor envelope become `visualCoverageWarnings`. High-opacity differences
+retain their actual count and sides; they are not proof of clipping or shadow
+ownership. The solid-core requirement,
 complete unique side declarations, reliable body correspondence, source/evidence
 identity and schema checks remain mandatory. This distinction applies equally
 to fixed/support processing, viewport delivery and source replay.
@@ -61,8 +64,8 @@ antialiasing/residue does not require null body boxes when the complete visible
 body can be reliably measured. These warnings reach package review evidence and
 the host's aggregate warning report, with human acceptance still pending.
 
-The fixed alpha240 constraint bounds an explicit semantic exception; opacity
-alone does not prove shadow ownership. Fully translucent anchors require
+The alpha240 solid-core requirement remains under every policy; opacity alone
+does not prove shadow ownership. Fully translucent anchors require
 another reviewed method. No threshold is applied to the rendering image: all
 source support, including faint or remote alpha below128, remains stored.
 Reports include dense/solid support boxes, actual excursions, side counts and

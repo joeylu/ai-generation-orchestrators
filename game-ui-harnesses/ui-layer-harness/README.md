@@ -13,9 +13,19 @@ M1、生图与复审共用唯一归属、父板排除子元素、完整主体比
 只有这类完整链路完成才报告 `FullReferenceToDeliveryExecutionCompleted=true`。
 显式离线草案入口仍保留，并报告 M1 未执行；两种来源不能混记。
 
+需要从原图完成整条链路时，在新 `host-run` 配置中显式设置
+`planningMode=fresh-host-m1-independent-review`。逐素材生成可设置
+`generationMode=single`，最终整图人工验收可设置 `visualReviewMode=warning`；
+这两项都是独立选择，不改变真实 M1 要求。该正式入口使用仓库内运行时，
+宿主负责实际模型和生图调用，可接入独立模型代理，无须使用 Codex CLI 适配器。
+每份前景都要完成真实主体观察，不能以 alpha 范围代理或诊断包代替。
+执行完成、严格视觉通过与人工验收的判定见[链路检查点](docs/DELIVERY-CHAIN-CHECKPOINT.md#completion-and-acceptance)。
+
 新 `run` 默认以 v8 编译局部参考提示词，并使用 `reference-body-auto-v1`：
 素材接收及既有审查完成后，冻结主体观察请求，取得对应摘要的授权才执行，随后归位并打包。
 主体确定尺寸与锚点，完整 alpha 支持确定 PNG 存储画布；扩展只允许在原图画布内。
+上述限制属于普通 `run`；正式宿主链路显式冻结
+`expanded-support-original-viewport-v1` 后可完整存储画布外素材，显示仍保持原图尺寸。
 输出仍待视觉验收，不代表生成模型已可靠还原。旧作业不转换，历史缺省仍为近似裁片适配。
 已有主体证据也可用离线 [`register-materials`](docs/BODY-REGISTRATION.md)，无新增模型调用。
 已有候选包可经 [`revise-package`](docs/PACKAGE-REVISION.md) 保留原层字节并重放明确替换的前景；

@@ -10,11 +10,15 @@ The public entry is `ui_layer.py`; the host implements the actual model/tool
 invocations. See [explicit host delivery](HOST-DELIVERY.md) for configuration and
 the exact exchange protocol.
 
-1. Supply an offline planning seed and fixed shared planning contracts. An
-   independent planning review checks the seed. This mode does not execute M1;
-   report `m1ModelExecuted=false` rather than attributing the seed to a model call.
-2. Compile frozen `sheets` requests with `context-crops` and v8 ownership-first
-   prompts. Every foreign object gets a direct DELETE action before KEEP;
+1. For a complete original-reference workflow, select
+   `planningMode=fresh-host-m1-independent-review`. The host invokes a fresh M1
+   from the original image, frozen prompt and schema, returns its genuine answer,
+   and invokes independent M2 on that answer. No old plan, coordinates or
+   generated materials enter M1. The separate offline-seed mode remains available
+   and reports `m1ModelExecuted=false`; independent review of a seed is not M1.
+2. Compile frozen requests with `context-crops` and v8 ownership-first prompts.
+   `sheets` is the default; explicit `generationMode=single` generates one complete
+   PNG per material. Every foreign object gets a direct DELETE action before KEEP;
    foreign appearance prose is not a drawing instruction. Complex requests and
    sheets use these actions without a v6 fallback. Every output layer keeps
    its own identity; a sheet reduces image requests, not the layer count.
@@ -28,7 +32,7 @@ the exact exchange protocol.
    production. Ownership, observed body geometry and complete alpha support have
    separate responsibilities; do not hand-adjust manifests or receipts.
 
-Planning review, image acquisition, material review and body observation each
+Fresh M1, planning review, image acquisition, material review and body observation each
 require approval bound to their actual immutable scope. Capacity declarations
 do not authorize calls. `host-next` reserves one request; an uncertain or timed
 out invocation must not be submitted again. Preserve the terminal state and
@@ -39,10 +43,25 @@ policy, retain complete material storage in the expanded world and present the
 original-size viewport. This policy must be frozen with the actual storage
 instruction; it does not silently replace historical or default policies.
 
-`FullAutomationExecutionCompleted=true` describes completion of this integrated
-workflow. It does not mean M1 ran, that no prior planning/code revision occurred,
-that the first experiment succeeded, or that the final image passed human
-inspection. Report the executed planning mode and visual acceptance separately.
+## Completion and acceptance
+
+| Field or evidence | Meaning |
+| --- | --- |
+| `m1ModelExecuted=true` | A genuine fresh M1 answer and its source evidence were received |
+| `FullAutomationExecutionCompleted=true` | The selected integrated workflow reached complete, including every required foreground observation and deterministic packaging |
+| `FullReferenceToDeliveryExecutionCompleted=true` | The complete workflow used fresh M1 and retained its verified original-reference evidence |
+| `strictVisualReviewPassed=false` in warning mode | Execution completion is not strict visual approval |
+| `finalCompositeVisualAcceptancePending=true` in warning mode | The final image still awaits separate human visual acceptance |
+
+Alpha-placement proxies, partial body observations, source-bound repairs and
+diagnostic exports cannot satisfy the complete fresh-M1 route. Report actual
+calls per stage, not capacity ceilings, and retain original model answers,
+registration evidence, warnings, comparison images and package checksums.
+
+Completion does not establish that no earlier failed experiments or code changes
+occurred. When collecting packages from different fixed runtime versions, identify
+each version; that collection is not a same-version five-sample regression or a
+first-attempt success rate. Human acceptance belongs to the selected package bytes.
 
 ## Independent revision and diagnostic workflows
 

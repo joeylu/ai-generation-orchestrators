@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased complete host workflow documentation closeout
+
+- The formal `ui_layer.py host-run` route documents fresh M1, independent M2,
+  native image exchange, actual material review, every foreground body observation,
+  deterministic registration and packaging. Offline seeds and diagnostics retain
+  their distinct completion claims; no new runtime or default is introduced here.
+- Clarified explicit single-material generation, expanded full-PNG storage with an
+  original-size viewport, and v3/relative-fit opt-ins. Aligned exterior-support
+  documentation with the implemented v5 high-opacity coverage warning behavior.
+- Completion fields remain separate from strict visual approval and human
+  acceptance. Reports distinguish actual calls from capacity and cross-version
+  selected deliveries from a same-version regression. No release tag or deployment
+  accompanies this documentation closeout.
+
 ## Unreleased high-opacity coverage warnings and diagnostic replay
 
 - Explicit v5 records high-opacity pixels outside the observed anchor envelope
