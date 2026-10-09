@@ -211,10 +211,12 @@ def _verify_m1_source(source,candidate,authors,reference_sha,binding):
 
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
-            background_region=None, background_region_digest=None, context_prompt_version='v8',m1_source=None):
+            background_region=None, background_region_digest=None, context_prompt_version='v8',m1_source=None,
+            generation_mode='sheets'):
     """Snapshot an explicit seed or source-bound host M1 and prepare independent M2."""
     root=Path(output).resolve();contract=Path(contract_dir)
     if context_prompt_version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    if generation_mode not in ('single','sheets'):raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
     for name,sha in CONTRACT_DIGESTS.items():
         if digest(contract/name)!=sha:raise ValueError('HOST_PLANNING_CONTRACT_NOT_SUPPORTED:'+name)
     authors=[seed_author] if isinstance(seed_author,str) else list(seed_author)
@@ -257,7 +259,7 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     if background_region is not None:bg_region.copy_inputs(background_region,background_region_digest,inputs)
     config=dict(kind='ui_planning_dag_v1',planningDriver=DRIVER,
         runtime=runtime_files(),
-        generationMode='sheets',generationReference='context-crops',contextPromptVersion=context_prompt_version,
+        generationMode=generation_mode,generationReference='context-crops',contextPromptVersion=context_prompt_version,
         maxCalls=max_calls,relationReviewPolicy=relation_review.POLICY,
         reviewEvidenceProtocol=PROTOCOL_V4,coverageTextPolicy='exact-fragments-v1',
         inputs={p.name:digest(p) for p in inputs.iterdir()},

@@ -1005,6 +1005,16 @@ visual acceptance. Arbitrary external processed PNGs, incomplete reviews or
 hand-authored sources/manifests cannot be substituted through this route.
 # Protected background observations deferred to final composite
 
+New integrated `host-run` configurations may explicitly freeze
+`generationMode="single"` to request one complete PNG per material. The default
+remains `sheets`. The selected mode is bound before M1, carried through independent
+M2 and deterministic freezing, and reported by host status. Single requests retain
+context crops, ownership instructions, native-alpha checks, independent material
+review, body observation and package validation. Their count equals the complete
+material count and must fit the authorized image/review budgets. Switching modes
+requires a fresh job and approval; it is not an automatic retry or a way to promote
+a failed sheet extraction.
+
 New `host-run` configurations may explicitly freeze
 `backgroundVisualReviewPolicy="record-until-final-composite-v1"` only with a
 verified `backgroundRegion` / `backgroundRegionDigest` and

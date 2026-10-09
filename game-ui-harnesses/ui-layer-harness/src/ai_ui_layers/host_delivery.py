@@ -105,7 +105,9 @@ def _reviewed_snapshot(source):
     if (source.get('backgroundVisualReviewPolicy')!=host_material_review.BACKGROUND_VISUAL_POLICY or
             source.get('planningNotes') or manifest.get('planningDriver')!='host-model-exchange-v1' or
             manifest.get('policy')!='visual-plan-v5-experiment-v1' or
-            'generation-groups.json' not in manifest['files'] or manifest.get('generationReference')!='context-crops' or
+            source.get('generationMode','sheets')!='sheets' or
+            'generation-groups.json' not in manifest['files'] or
+            manifest.get('generationReference')!='context-crops' or
             manifest.get('contextPromptVersion') not in ('v7','v8') or
             manifest.get('contextPromptVersion')!=source.get('contextPromptVersion',manifest.get('contextPromptVersion')) or
             digest(folder/'reference.png')!=digest(Path(source['original'])) or
@@ -147,6 +149,9 @@ def prepare(config_path, output):
     if bool(source.get('reviewedSnapshot'))!=bool(source.get('reviewedSnapshotDigest')):
         raise ValueError('PRIOR_REVIEWED_SNAPSHOT_PAIR_REQUIRED')
     if root.exists(): raise ValueError('FRESH_HOST_RUN_REQUIRED')
+    source.setdefault('generationMode','sheets')
+    if source['generationMode'] not in ('single','sheets'):
+        raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
     for key,default in (('maximumModelCallSeconds',1800),('maximumImageCallSeconds',900)):
         source.setdefault(key,default)
         if type(source[key]) is not int or not 1 <= source[key] <= 3600:
@@ -219,7 +224,7 @@ def prepare(config_path, output):
     config=record(root/'config.json',dict(source,kind=KIND,runtime=host_review.runtime_files(),
         planningMode=host_m1.MODE if fresh_m1 else 'verified-prior-independent-host-review' if prior else 'offline-agent-seed-independent-host-review', m1ModelExecuted=False,
         **(dict(newM2ReviewPerformed=False,priorReviewedSnapshotDigest=prior[1]['digest'],priorM2ResponseSha256=prior[1]['reviewSha256']) if prior else {}),
-        generationMode='sheets', generationReference='context-crops', contextPromptVersion=version))
+        generationReference='context-crops', contextPromptVersion=version))
     try:
         if fresh_m1:
             host_m1.prepare(root/'planning-m1',config)
@@ -243,7 +248,7 @@ def prepare(config_path, output):
         host_review.prepare(config['seed'],config['original'],root/'planning',config['contract'],
             seed_author=config['candidateAuthors'], planning_notes=config.get('planningNotes'),
             visual_policy=config.get('visualPolicy'),visual_textures=config.get('visualTextures'),material_reuse=config.get('materialReuse'),
-            max_calls=config['maximumImageCalls'],background_region=config.get('backgroundRegion'),
+            max_calls=config['maximumImageCalls'],generation_mode=config['generationMode'],background_region=config.get('backgroundRegion'),
             background_region_digest=config.get('backgroundRegionDigest'),context_prompt_version=version)
         _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
     except Exception as exc:
@@ -256,6 +261,7 @@ def prepare(config_path, output):
 def status(run):
     root=Path(run).resolve();config,state=_load(root);stage=state['stage']
     result=dict(stage=stage,configDigest=config['digest'],
+        generationMode=config.get('generationMode','sheets'),
         planningMode=config['planningMode'],m1ModelExecuted=config['m1ModelExecuted'],
         FullAutomationExecutionCompleted=stage=='complete',FullReferenceToDeliveryExecutionCompleted=False,
         visualAcceptancePending=True,
@@ -518,11 +524,12 @@ def resume(run):
                 host_review.prepare(root/'planning-m1/draft.json',config['original'],root/'planning',config['contract'],
                     seed_author=config['candidateAuthors'],planning_notes=config.get('planningNotes'),
                     visual_policy=config.get('visualPolicy'),max_calls=config['maximumImageCalls'],
+                    generation_mode=config.get('generationMode','sheets'),
                     context_prompt_version=config['contextPromptVersion'],m1_source=root/'planning-m1')
                 _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
             elif stage=='planning_review':
                 frozen=freeze_reviewed(root/'planning',root/'frozen',config['maximumImageCalls'],
-                    generation_mode='sheets',generation_reference='context-crops',context_prompt_version=config['contextPromptVersion'])
+                    generation_mode=config.get('generationMode','sheets'),generation_reference='context-crops',context_prompt_version=config['contextPromptVersion'])
                 requests=read(root/'frozen/requests.json')['requests']
                 visual=read(root/'planning/m1/draft.json')
                 bodies=sum(m['role']=='foreground' for m in visual['materials'])

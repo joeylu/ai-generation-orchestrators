@@ -76,7 +76,7 @@ class FreshHostM1Tests(unittest.TestCase):
         preamble=prompt[:prompt.index(shared)]
         for instruction in ('唯一归属','实例数量','显著渐变','实际方向和两端颜色',
                             '主体面的颜色过渡与边缘描边','同类多实例逐项检查各自 label',
-                            '平涂表面不要臆造渐变','不另加自检字段'):
+                            '平涂表面不要臆造渐变','浅色实体区域仅称为高光','眼部各区域及其相对关系','不另加自检字段'):
             self.assertIn(instruction,preamble)
         request=read(root/'request.json')
         self.assertEqual(request['inputs']['prompt.md'],digest(root/'prompt.md'))
@@ -141,6 +141,28 @@ class FreshHostM1Tests(unittest.TestCase):
         last=read(self.run/'state.json')
         self.assertEqual(last['stage'],'complete')
         self.assertTrue(read(self.run/'frozen/snapshot.json')['m1ModelExecuted'])
+
+    def test_explicit_single_material_mode_runs_full_fresh_chain_without_sheet_partition(self):
+        config=read(self.fresh_config);config['generationMode']='single'
+        path=self.base/'single-config.json';save(path,config)
+        self.run=self.base/'single-integrated';host.prepare(path,self.run)
+        self.root=self.run/'planning'
+        self.assertEqual(host.status(self.run)['generationMode'],'single')
+        delivery_fixtures.HostDeliveryTests.test_complete_sheet_workflow_separate_scopes_and_delivered_comparison(self)
+        self.assertEqual(read(self.run/'planning/.dag/config.json')['generationMode'],'single')
+        self.assertFalse((self.run/'frozen/generation-groups.json').exists())
+        requests=read(self.run/'frozen/requests.json')['requests']
+        self.assertEqual(len(requests),len(self.plan['materials']))
+        self.assertTrue(all(r.get('kind')!='sheet' and 'grid' not in r for r in requests))
+        self.assertTrue(read(self.run/'frozen/snapshot.json')['m1ModelExecuted'])
+
+    def test_invalid_generation_mode_is_rejected_before_output(self):
+        config=read(self.fresh_config);config['generationMode']='unknown'
+        path=self.base/'invalid-generation-config.json';save(path,config)
+        output=self.base/'invalid-generation-run'
+        with self.assertRaisesRegex(ValueError,'GENERATION_MODE_UNSUPPORTED'):
+            host.prepare(path,output)
+        self.assertFalse(output.exists())
 
 
 class DeferredAppearanceSchemaTests(unittest.TestCase):
