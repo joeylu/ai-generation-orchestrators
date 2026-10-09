@@ -123,7 +123,7 @@ test('two composed progress panels keep separate host state and source-local res
 test('Unity kit preserves continuous values and declares native read-only UGUI progress without extra shared scripts', async () => {
   const bundle=await createPanelBundle(spec,catalog,core,{row0:0.376123456789,row1:123.456789,row2:false});
   const native=await createUnityDocument(bundle,core), fields=native.fields.filter(field=>field.type==='progress');
-  assert.equal(native.adapterVersion,'0.1.4'); assert.equal(fields[0].numberValue,0.376123456789); assert.equal(fields[0].step,0);
+  assert.equal(native.adapterVersion,'0.1.5'); assert.equal(fields[0].numberValue,0.376123456789); assert.equal(fields[0].step,0);
   assert.equal(native.controls[0].displayMode,'percent'); assert.equal(native.controls[0].enabled,false); assert.equal(native.controls[0].eventName,'');
   const sources=await readUnityAdapterSources(), kit=await createUnityKitFiles(bundle,core,sources);
   assert.equal([...kit.contents.keys()].filter(path=>path.endsWith('.cs')).length,6);

@@ -143,7 +143,8 @@ async function finish(snapshot, resources, providedHash) {
   return pool;
 }
 
-/** Package a complete PNG pool. The Node builder must first verifyAssetLibrary.
+/** Package a complete PNG pool. The Node builder first replays verifyAssetLibrary
+ * or authenticates the exact previously verified bundled release.
  * Source, renderer, alpha and preview evidence is retained, not replayed here. */
 export async function createWorkbenchAssetPool(index, resources) {
   const snapshot = snapshotIndex(index), copiedResources = snapshotResources(resources, false);

@@ -12,11 +12,14 @@ import { createWorkbenchStorage, WORKBENCH_STORAGE_KEY } from './workbench-stora
 import { beginnerExamples, questionPresentation, appendEditAnswers, clarificationDisplayText, summarizePanel } from './workbench-guidance.mjs';
 import { selectionLabel } from './workbench-selection.mjs';
 import { editChangeValue } from './edit-review.mjs';
+import { detectStudioBuild } from './studio-build-info.mjs';
+import { ambiguousButtonCopyChoices, alreadySatisfiedEditRequirements, selectedEditScopeConflicts } from './edit-property-review.mjs';
 
 const el = id => document.getElementById(id);
 const seed = JSON.parse(el('workbench-seed').textContent);
 let model, busy = false, disposed = false, draftDirty = true, renderedSha = null, snapshot;
 let bridge = null, generation = null, codexReceipt = null;
+let studioOutdated = false, versionCheck = null;
 let questionKey = null, editQuestionKey = null, summaryKey = null;
 let editDraftDirty = true, editSnapshot = null;
 let editCodexReceipt = null;
@@ -30,6 +33,28 @@ let selectedRowId = null, selecting = false;
 const hostEvents = [];
 const requestIdentity = createWorkbenchRequestIdentity();
 const errors = ['request-error', 'proposal-error', 'clarification-error', 'edit-plan-error', 'edit-clarification-error', 'edit-error', 'preview-error'];
+async function checkStudioVersion() {
+  const expected = el('studio-version')?.dataset.build;
+  if (!expected || disposed) return !studioOutdated;
+  if (!versionCheck) versionCheck = (async () => {
+    const current = await detectStudioBuild(location);
+    if (current && !disposed) {
+      studioOutdated = current.buildSha256 !== expected;
+      el('studio-update').hidden = !studioOutdated;
+      if (!studioOutdated) el('studio-update-error').textContent = '';
+      updateButtons();
+    }
+    return !studioOutdated;
+  })().finally(() => { versionCheck = null; });
+  return versionCheck;
+}
+window.addEventListener('focus', () => { if (!busy) void checkStudioVersion(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !busy) void checkStudioVersion(); });
+el('refresh-studio').addEventListener('click', () => {
+  if (busy || disposed) return;
+  if (flushWorkspace()) location.reload();
+  else el('studio-update-error').textContent = '本机保存未完成。请先导出当前面板，并备份尚未保存的文字，再刷新页面。';
+});
 const renderer = createWorkbenchRenderer(el('canvas-host'), (event, state) => {
   hostEvents.push(event); if (hostEvents.length > 100) hostEvents.shift();
   el('event-output').textContent = JSON.stringify(event, null, 2); renderValues(state); scheduleSave();
@@ -40,7 +65,7 @@ rowId => {
 function invalidateSelectedEdit() {
   editDraftDirty = true; editCodexReceipt = null; editClarifiedDraft = null; editAnswerNotice = '';
   el('edit-proposal-json').value = ''; el('edit-plan-status').textContent = '';
-  el('edit-plan-error').textContent = ''; renderEditQuestions();
+  el('edit-plan-error').textContent = ''; renderEditQuestions(); renderEditTargets();
 }
 el('select-edit-target').addEventListener('click', () => {
   selecting = !selecting; updateButtons();
@@ -76,6 +101,7 @@ el('panel-file').addEventListener('change', closeMenu);
 updateView();
 function errorText(error) {
   const code = error.code ?? error.issues?.[0]?.code ?? String(error.message).split(':')[0];
+  if (code === 'STUDIO_OUTDATED') return 'Studio 已更新，请先使用页首「保存并刷新」。当前面板保留，本次未调用模型。';
   if (code === 'EDIT_REQUEST_INCOMPLETE' || error.diagnostic?.validatorCode === 'EDIT_REQUEST_INCOMPLETE') {
     const missing = error.requestCheck?.items.filter(item=>!item.matched).map(item=>`${item.label}要求 ${editChangeValue(item.expected)}，方案为 ${editChangeValue(item.actual)}`).join('；');
     return `明确的修改要求未全部落实${missing?'：'+missing:''}。本轮未应用，原面板和试玩值已保留，未自动重试。`;
@@ -97,6 +123,9 @@ function errorText(error) {
       INTENT_VERSION: '控件意图版本不支持', 'layout-coverage': '布局分组引用缺失或重复',
       OUTPUT_JSON: '返回内容不是有效 JSON', OUTPUT_WRAPPER: '返回的传输格式不符合协议',
       OUTPUT_PROPOSAL_JSON: '方案字符串中的 JSON 格式不合法',
+      OUTPUT_MESSAGE_EMPTY: '模型返回了空的最终消息',
+      OUTPUT_MESSAGE_NOT_TEXT: '模型返回的最终消息不是文本',
+      OUTPUT_MESSAGE_DUPLICATE: '模型返回了多条最终消息，无法确定采用哪一条',
       EDIT_CONTEXT_MISMATCH: '修改方案对应其他描述或面板', EDIT_COVERAGE: '修改操作缺少完整依据',
       EDIT_QUOTE: '修改方案引用的原文不匹配', EDIT_FIELDS: '修改方案字段不符合协议',
       EDIT_INPUT_RECIPE: '新增输入框未选择当前目录中的输入配方',
@@ -106,11 +135,13 @@ function errorText(error) {
       integer: '长度或尺寸必须是允许范围内的整数', duplicate: '控件或状态标识重复',
     };
     const detail = error.diagnostic;
+    if (detail.stage === 'event-validation')
+      return `Codex 未返回可用方案：${reasons[detail.validatorCode]}。原面板和试玩值保留，未自动重试。`;
     const issue = detail.cause ?? detail;
     const targetReasons = { duplicate: '同一个目标填写了多条需求依据', unmatched: '需求依据指向面板中不存在或协议不支持的目标',
       'non-string': '需求依据的目标名必须是字符串' };
     const messageIssue = issue.validatorCode === 'text' && /\.(?:requiredMessage|minLengthMessage)$/.test(issue.path ?? '');
-    const reason = targetReasons[detail.targetIssue] ?? (messageIssue ? '校验提示必须是非空的单行文字，最多 80 个字符' : reasons[issue.validatorCode]) ?? '字段或内容不符合面板协议';
+    const reason = targetReasons[detail.targetIssue] ?? (messageIssue ? '校验提示必须是非空的单行文字，最多 80 个字符' : issue.validatorCode === 'INTENT_TEXT_CONTENT' ? '说明正文没有按需求完整保留' : reasons[issue.validatorCode]) ?? '字段或内容不符合面板协议';
     return `Codex 返回的方案未通过校验：${reason}（${issue.validatorCode}）${issue.path ? `，位置 ${issue.path}` : ''}。原面板保留，未自动重试。`;
   }
   const known = {
@@ -164,7 +195,9 @@ function errorText(error) {
     CODEX_MODEL_UNAVAILABLE_NO_RETRY: 'Codex 未能使用 gpt-6-luna。请检查该账号的模型可用性；没有切换模型或自动重试。',
     CODEX_CONNECTION_FAILED_NO_RETRY: 'Codex 与模型服务的连接中断，本次未取得可用方案。原面板保留，未自动重试。',
     CODEX_TRANSPORT_FAILED_NO_RETRY: 'Codex CLI 调用失败，未取得可用方案。原面板保留，未自动重试。',
-    CODEX_BRIDGE_NETWORK_FAILED: '本机工作台连接中断，结果未应用。请确认服务仍在运行；不会自动重新提交。',
+    CODEX_BRIDGE_NETWORK_FAILED: '本机工作台连接中断，本次结果未应用。原面板和试玩值保留；请确认服务仍在运行。不会自动重新提交。',
+    CODEX_BRIDGE_RESPONSE: '本机返回的内容不完整或格式无法读取，本次未应用。原面板和试玩值保留，未自动重试。',
+    CODEX_BRIDGE_RESPONSE_LIMIT: '返回内容过大，本次未应用。原面板和试玩值保留，未自动重试。',
   };
   if (error.name === 'AbortError') return '已取消本次生成，原面板保留。不会自动重试。';
   if (String(code).includes('TIMEOUT')) return '本次模型调用超时，原面板保留。未自动重试。';
@@ -239,18 +272,27 @@ function renderSavedVersions() {
 }
 function flushWorkspace() {
   clearTimeout(saveTimer); saveTimer = null;
-  if (storagePaused || !workspaceStorage || disposed || !model) return;
+  if (storagePaused || !workspaceStorage || disposed || !model) return false;
   const panel = model.getSnapshot().panel;
-  if (panel && panel.sha256 !== renderedSha) return;
+  if (panel && panel.sha256 !== renderedSha) return false;
   try {
     const { workspace, removed } = workspaceStorage.save({ draft: currentDraft(), panel, state: panel ? currentState() : null, editUsage: model.getEditUsage() });
     storageStatus(`已保存到本机${workspace.versions.length ? ` · ${workspace.versions.length} 个版本` : ' · 草稿'}${removed ? '（较早版本已腾出空间）' : ''}`);
     if (el('saved-history').open) renderSavedVersions();
-  } catch (error) { storageFailure(error); }
+    return true;
+  } catch (error) { storageFailure(error); return false; }
 }
 function scheduleSave() {
   if (storagePaused || disposed) return;
   clearTimeout(saveTimer); saveTimer = setTimeout(flushWorkspace, 250);
+}
+function clearPreview() {
+  renderer.clear(); renderedSha = null; summaryKey = null;
+  selectedRowId = null; selecting = false; hostEvents.length = 0;
+  el('empty-preview').hidden = false; el('panel-name').textContent = '尚未生成面板';
+  el('panel-dimensions').textContent = '支持鼠标和键盘';
+  el('event-output').textContent = '尚未操作'; el('live-state').replaceChildren();
+  unityExportReceipt = null; deliveryReceipt = null; el('unity-export-status').textContent = '';
 }
 async function restoreWorkspace() {
   storagePaused = true;
@@ -258,12 +300,8 @@ async function restoreWorkspace() {
     const saved = workspaceStorage.read(), active = saved.versions.find(entry => entry.id === saved.currentId);
     if (active) { await model.importPanel(active.panel, active.state); model.restoreEditUsage(saved.editUsage); await showPanel(); }
     else {
-      model.clear(); renderer.clear(); renderedSha = null; summaryKey = null;
+      model.clear(); clearPreview();
       model.restoreEditUsage(saved.editUsage);
-      el('empty-preview').hidden = false; el('panel-name').textContent = '尚未生成面板';
-      el('panel-dimensions').textContent = '支持鼠标和键盘';
-      el('event-output').textContent = '尚未操作'; el('live-state').replaceChildren();
-      unityExportReceipt = null; deliveryReceipt = null; el('unity-export-status').textContent = '';
     }
     if (disposed) return;
     adoptDraft(saved.draft); storagePaused = false;
@@ -271,6 +309,21 @@ async function restoreWorkspace() {
     renderSavedVersions(); sync();
   } catch (error) { storagePaused = true; storageFailure(error); }
 }
+el('new-panel').addEventListener('click', async () => {
+  let started = false, failure = null;
+  await run('preview-error', async () => {
+    // Save the current panel, played values and drafts before leaving it.
+    if (!flushWorkspace()) return;
+    let saved;
+    try { saved = workspaceStorage.startNew(); }
+    catch (error) { failure = error; return; }
+    model.clear(); clearPreview(); adoptDraft(saved.draft);
+    el('patch-json').value = ''; el('requirement-examples').open = false;
+    closeMenu(); started = true;
+  });
+  if (failure) storageFailure(failure);
+  if (started) el('request-text').focus();
+});
 el('open-saved-history').addEventListener('click', () => { flushWorkspace(); renderSavedVersions(); el('saved-history').showModal(); });
 el('close-saved-history').addEventListener('click', () => el('saved-history').close());
 el('reload-saved-history').addEventListener('click', () => run('preview-error', restoreWorkspace));
@@ -291,6 +344,7 @@ window.addEventListener('storage', event => {
   }
 });
 function updateButtons() {
+  el('refresh-studio').disabled = busy || disposed;
   for (const id of ['open-saved-history', 'reload-saved-history', 'reset-saved-history', 'confirm-reset-saved']) el(id).disabled = busy || !model || disposed;
   for (const button of el('saved-versions').querySelectorAll('button')) button.disabled = busy || !model || disposed || storagePaused;
   const ready = Boolean(model && !disposed), context = ready && snapshot?.context && !draftDirty;
@@ -306,8 +360,10 @@ function updateButtons() {
   el('clear-edit-target').hidden = !selectedRow;
   el('clear-edit-target').disabled = busy;
   el('edit-target').hidden = !selectedRow;
-  el('edit-target-name').textContent = selectedRow ? `修改对象：${selectionLabel(selectedRow)}` : '';
+  const selectedSection = panel ? snapshot.panel.spec.sections.find(section=>section.rows.some(row=>row.id===selectedRowId)) : null;
+  el('edit-target-name').textContent = selectedRow ? `修改对象：${selectedSection?.title ? selectedSection.title+' · ' : ''}${selectionLabel(selectedRow)}` : '';
   el('selection-help').hidden = !selecting;
+  renderer.setSelectedRow(selectedRow?.id ?? null);
   renderer.setSelectionMode(selecting);
   el('edit-rounds').textContent = panel ? budget.remaining === 0
     ? '已达到 10 轮修改上限。可继续试玩、撤销或导出；生成新面板后重新开始。'
@@ -319,9 +375,10 @@ function updateButtons() {
   el('canvas-host').setAttribute('aria-busy', String(busy));
   renderer.setInteractionLocked(busy);
   document.querySelectorAll('[data-mutation]').forEach(n => { n.disabled = busy || !ready; });
+  el('new-panel').disabled = busy || !ready || storagePaused;
   el('example').disabled = busy || !ready || !seed.example;
   el('prepare').disabled = busy || !ready || !el('request-text').value.trim();
-  el('generate-plan').disabled = busy || !ready || !bridge?.available || !el('request-text').value.trim();
+  el('generate-plan').disabled = busy || studioOutdated || !ready || !bridge?.available || !el('request-text').value.trim();
   for (const kind of ['plan', 'edit']) {
     const active = generation?.kind === kind;
     el(`cancel-${kind}`).hidden = !active;
@@ -331,6 +388,9 @@ function updateButtons() {
   el('download-context').disabled = busy || !context;
   const canAnswer = context && snapshot.report?.status === 'NEEDS_INPUT' && snapshot.proposal?.unresolved.length;
   el('clarify').disabled = busy || !canAnswer;
+  el('clarify').textContent = bridge?.available ? '采用回答并生成' : '采用回答';
+  el('clarification-help').textContent = bridge?.available
+    ? '填写全部回答后，点击「采用回答并生成」直接提交。' : '采用全部回答后，可导出补充后的规划文件。';
   el('questions').querySelectorAll('textarea,button').forEach(input => { input.disabled = busy || !canAnswer; });
   el('download-panel').disabled = el('download-spec').disabled = el('download-unity').disabled = busy || !panel;
   el('download-delivery').disabled = busy || !panel;
@@ -343,11 +403,14 @@ function updateButtons() {
   const editContext = panel && editSnapshot?.context && !editDraftDirty;
   el('edit-request-text').disabled = busy || !panel;
   el('prepare-edit-context').disabled = busy || !panel || editLimitReached || !el('edit-request-text').value.trim();
-  el('generate-edit').disabled = busy || !panel || editLimitReached || !bridge?.editingAvailable || !el('edit-request-text').value.trim();
+  el('generate-edit').disabled = busy || studioOutdated || !panel || editLimitReached || !bridge?.editingAvailable || !el('edit-request-text').value.trim();
   el('download-edit-context').disabled = busy || !editContext;
   el('edit-proposal-file').disabled = el('apply-edit-proposal').disabled = busy || !editContext || editLimitReached;
   const canAnswerEdit = editContext && editSnapshot.report?.status === 'NEEDS_INPUT';
   el('clarify-edit').disabled = busy || !canAnswerEdit;
+  el('clarify-edit').textContent = bridge?.editingAvailable ? '采用回答并修改' : '采用回答';
+  el('edit-clarification-help').textContent = bridge?.editingAvailable
+    ? '选择回答或自己填写，点击「采用回答并修改」直接提交。' : '选择回答或自己填写，采用后可准备并导出修改上下文。';
   el('edit-questions').querySelectorAll('textarea,button').forEach(input => { input.disabled = busy || !canAnswerEdit; });
 }
 function readRow() {
@@ -444,6 +507,26 @@ function renderEditQuestions() {
   if (key === editQuestionKey) return;
   editQuestionKey = key; fillQuestions('edit-questions', questions);
 }
+function renderEditTargets() {
+  const context=editDraftDirty?null:editSnapshot?.context;
+  const choices=context&&snapshot?.panel?ambiguousButtonCopyChoices(context):[];
+  const container=el('edit-target-choices');container.hidden=!choices.length;
+  el('edit-target-options').replaceChildren();
+  if(!choices.length)return;
+  const contextSha=context.sha256,panelSha=snapshot.panel.sha256;
+  el('edit-target-prompt').textContent='有多个同名按钮，请选择本次要修改的一个，也可在修改要求中写明分组。尚未调用模型。';
+  for(const choice of choices){
+    const button=document.createElement('button');button.type='button';button.textContent=choice.label;
+    button.dataset.rowId=choice.rowId;button.dataset.mutation='';button.disabled=busy;
+    button.addEventListener('click',()=>{
+      if(busy||disposed||editDraftDirty||model.getEditSnapshot().context?.sha256!==contextSha||model.getSnapshot().panel?.sha256!==panelSha)return;
+      selectedRowId=choice.rowId;selecting=false;invalidateSelectedEdit();
+      editAnswerNotice='已选择修改对象，请再次点击「修改面板」。';el('edit-plan-status').textContent=editAnswerNotice;
+      updateButtons();el('edit-request-text').focus();
+    });
+    el('edit-target-options').append(button);
+  }
+}
 function renderSummary() {
   el('requirement-summary').hidden = !snapshot.panel;
   if (!snapshot.panel || summaryKey === snapshot.panel.sha256) return;
@@ -480,13 +563,14 @@ function sync() {
   el('status').textContent = snapshot.phase === 'awaiting-proposal' ? requestNotice : phaseLabels[snapshot.phase];
   el('context-ready').hidden = !snapshot.context;
   renderQuestions();
-  renderEditQuestions(); renderSummary();
+  renderEditQuestions(); renderEditTargets(); renderSummary();
   renderEditChanges();
   el('edit-hint').textContent = snapshot.panel ? '' : '生成或打开面板后即可修改。';
   el('edit-plan-status').textContent = editAnswerNotice ? editAnswerNotice : !editDraftDirty && editSnapshot.report?.status === 'NO_CHANGES'
     ? `无需修改：${editSnapshot.proposal?.noChange?.reason ?? '当前面板已符合要求'}。当前面板和输入已保留。`
     : !advancedMode()
-    ? !editDraftDirty && editSnapshot.report?.status === 'NEEDS_INPUT' ? '请回答下面的问题，再点击「修改面板」。'
+    ? !editDraftDirty && editSnapshot.report?.status === 'NEEDS_INPUT'
+      ? bridge?.editingAvailable ? '请回答下面的问题，再点击「采用回答并修改」。' : '请回答下面的问题，再点击「采用回答」。'
       : !editSnapshot.context && snapshot.history.at(-1)?.editEvidence && !editDraftDirty ? '修改已应用，试玩值已保留；新默认值在恢复默认时生效。' : ''
     : editDraftDirty && editSnapshot.context ? '修改描述已变化，请重新准备。'
     : editSnapshot.report?.status === 'NEEDS_INPUT' ? '请把这些问题的答案补充到修改描述，再重新准备。'
@@ -584,10 +668,12 @@ el('clarification-form').addEventListener('submit', event => {
     clarifiedDraft = { contextSha256: clarified.context.sha256, text: el('request-text').value,
       id: el('request-id').value, style: el('asset-style').value };
     draftDirty = false; el('proposal-json').value = '';
-    requestNotice = '回答已补充，请点击「生成面板」。';
+    if (bridge?.available) await generatePlan();
+    else requestNotice = '回答已补充，可导出规划文件。';
   });
 });
-el('generate-plan').addEventListener('click', () => run('request-error', async () => {
+async function generatePlan() {
+  if (!(await checkStudioVersion())) throw Object.assign(new Error('STUDIO_OUTDATED'), { code: 'STUDIO_OUTDATED' });
   if (!bridge?.available) throw Object.assign(new Error('CODEX_BRIDGE_UNAVAILABLE'), { code: 'CODEX_BRIDGE_UNAVAILABLE' });
   const active = { controller: new AbortController(), phase: 'calling', kind: 'plan' }; generation = active; codexReceipt = null;
   updateButtons();
@@ -606,7 +692,8 @@ el('generate-plan').addEventListener('click', () => run('request-error', async (
     generation = null;
     if (!disposed) { el('model-status').textContent = 'gpt-6-luna · xhigh · 本地 Codex CLI'; updateButtons(); }
   }
-}));
+}
+el('generate-plan').addEventListener('click', () => run('request-error', generatePlan));
 for (const kind of ['plan', 'edit']) el(`cancel-${kind}`).addEventListener('click', () => {
   if (generation?.kind === kind && generation.phase === 'calling') {
     generation.controller.abort(); el(kind === 'edit' ? 'edit-plan-status' : 'status').textContent = '正在取消…'; updateButtons();
@@ -636,7 +723,7 @@ el('edit-request-text').addEventListener('input', () => {
   editDraftDirty = true; editCodexReceipt = null; editAnswerNotice = ''; editClarifiedDraft = null;
   el('edit-plan-status').textContent = advancedMode() && editSnapshot?.context ? '修改描述已变化，请重新准备。' : '';
   // Questions from the previous description no longer describe the current draft.
-  renderEditQuestions();
+  renderEditQuestions(); renderEditTargets();
   updateButtons();
 });
 el('edit-clarification-form').addEventListener('submit', event => {
@@ -652,8 +739,11 @@ el('edit-clarification-form').addEventListener('submit', event => {
     el('edit-request-text').value = clarificationDisplayText(el('edit-request-text').value, source.proposal.unresolved, answers);
     el('edit-request-text').dispatchEvent(new Event('input'));
     editClarifiedDraft = { sourceContextSha256: source.context.sha256, text: el('edit-request-text').value, request };
-    editAnswerNotice = '回答已补充，请点击「修改面板」。';
-    el('edit-request-text').focus();
+    if (bridge?.editingAvailable) await generateEdit();
+    else {
+      editAnswerNotice = '回答已补充，可准备并导出修改上下文。';
+      el('edit-request-text').focus();
+    }
   });
 });
 async function prepareCurrentEdit() {
@@ -672,13 +762,24 @@ async function prepareCurrentEdit() {
 el('prepare-edit-context').addEventListener('click', () => run('edit-plan-error', async () => {
   editCodexReceipt = null; await prepareCurrentEdit();
 }));
-el('generate-edit').addEventListener('click', () => run('edit-plan-error', async () => {
+async function generateEdit() {
+  if (!(await checkStudioVersion())) throw Object.assign(new Error('STUDIO_OUTDATED'), { code: 'STUDIO_OUTDATED' });
   if (!bridge?.editingAvailable) throw Object.assign(new Error('CODEX_BRIDGE_UNAVAILABLE'), { code: 'CODEX_BRIDGE_UNAVAILABLE' });
   const active = { controller: new AbortController(), phase: 'calling', kind: 'edit' };
   generation = active; editCodexReceipt = null; updateButtons();
   try {
     const prepared = await prepareCurrentEdit();
     if (disposed || active.controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+    const scopeConflicts=selectedEditScopeConflicts(prepared.context);
+    if(scopeConflicts.length){
+      editAnswerNotice='当前只修改选中的控件，以下要求超出范围：'+scopeConflicts.map(item=>item.quote).join('；')+'。请先「取消选择」，或调整修改要求后再次点击。本次未调用模型。';
+      sync();return;
+    }
+    if(ambiguousButtonCopyChoices(prepared.context).length){sync();return;}
+    if(alreadySatisfiedEditRequirements(prepared.context)){
+      editAnswerNotice='明确要求已满足，无需修改。本次未调用模型，试玩值和修改轮次保持。';
+      sync();return;
+    }
     sync(); el('edit-plan-status').textContent = '正在修改面板…';
     const result = await requestCodexEditProposal(prepared.context, active.controller.signal);
     if (disposed || active.controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError');
@@ -687,7 +788,8 @@ el('generate-edit').addEventListener('click', () => run('edit-plan-error', async
     el('edit-proposal-json').value = JSON.stringify(result.proposal, null, 2);
     await acceptEdit(result.proposal);
   } finally { generation = null; if (!disposed) updateButtons(); }
-}));
+}
+el('generate-edit').addEventListener('click', () => run('edit-plan-error', generateEdit));
 el('download-edit-context').addEventListener('click', () => {
   if (!editDraftDirty && editSnapshot?.context) download('edit-context.json', editSnapshot.context);
 });
@@ -793,6 +895,7 @@ async function initialize() { try {
     catch (error) { storagePaused = true; storageFailure(error?.name === 'SecurityError' ? new Error('WORKSPACE_UNAVAILABLE') : error); }
     sync();
     bridge = await detectCodexBridge(location);
+    await checkStudioVersion();
     if (!disposed) {
       el('model-status').textContent = bridge?.available || bridge?.editingAvailable ? 'gpt-6-luna · xhigh · 本地 Codex CLI'
         : bridge ? '未找到 Codex CLI，可使用文件导入。' : '离线预览模式：启动本地工作台后可直接调用 Codex。';

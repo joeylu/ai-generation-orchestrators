@@ -1,5 +1,6 @@
 import {validatePanelBundle} from './panel-bundle.mjs';
 import {canonicalJson,digestBytes,digestJson} from './canonical.mjs';
+import {UNITY_ADAPTER_VERSION} from './unity-export.mjs';
 const utf8=text=>new TextEncoder().encode(text),jsonBytes=value=>utf8(canonicalJson(value)+'\n');
 const fail=code=>{throw new Error(code);};
 
@@ -13,7 +14,7 @@ export async function createPanelIntegrationContract(input,core){
    ...(row.kind==='input'?{input:{readOnly:row.readOnly,inputType:row.inputType,validation:row.validation}}:{})})),
   navigation:spec.tabs??null,gameBinding:{version:'0.1',status:'NOT_CONNECTED',routes:'game-binding.template.json'},
   ownership:{views:'caller',businessPort:'game',destroyOrder:['binding','view','port-if-owned']},
-  runtimes:{pixi:'0.1.0',unity:'0.1.4'},nativeVerification:'NOT_RUN'};
+  runtimes:{pixi:'0.1.0',unity:UNITY_ADAPTER_VERSION},nativeVerification:'NOT_RUN'};
 }
 function previewHtml(bundle){
  const seed=canonicalJson(bundle).replace(/</g,'\\u003c');

@@ -400,7 +400,9 @@ namespace GameUi.PanelHarness.Editor
             {
                 if (node == null || !ValidId(node.id) || nodes.ContainsKey(node.id) || !new[] { "Container", "Text", "Image", "Slider", "Switch", "Select", "Button", "ProgressBar", "ScrollView", "Tabs", "Input" }.Contains(node.type)) throw new InvalidDataException("PANEL_IMPORT_NODE_ID_TYPE");
                 if (!Finite(node.x) || !Finite(node.y) || node.x < 0 || node.y < 0 || !Positive(node.width, 65536) || !Positive(node.height, 65536) || !Finite(node.opacity) || node.opacity < 0 || node.opacity > 1 || !Finite(node.borderWidth) || node.borderWidth < 0 || node.borderWidth > 256 || !Finite(node.cornerRadius) || node.cornerRadius < 0 || node.cornerRadius > 4096 || !ValidColor(node.backgroundColor) || !ValidColor(node.borderColor) || !ValidColor(node.textColor) || node.fontSize < 1 || node.fontSize > 256 || !ValidText(node.text, 512)) throw new InvalidDataException("PANEL_IMPORT_NODE_STYLE_GEOMETRY");
-                if (!string.IsNullOrEmpty(node.textAlignment) && (document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14" || node.type != "Text" || node.id != document.panelId + ".title" || !new[] { "UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight" }.Contains(node.textAlignment))) throw new InvalidDataException("PANEL_IMPORT_TEXT_ALIGNMENT");
+                if (!string.IsNullOrEmpty(node.textAlignment) && (node.type != "Text" ||
+                    !(node.id == document.panelId + ".title" && new[] { "0.12", "0.13", "0.14" }.Contains(document.panelSpecVersion) || node.textAlignment == "MiddleRight" && document.controls.Any(control => control != null && control.kind == "slider" && control.valueTextId == node.id)) ||
+                    !new[] { "UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight" }.Contains(node.textAlignment))) throw new InvalidDataException("PANEL_IMPORT_TEXT_ALIGNMENT");
                 if (nodes.Count == 0)
                 {
                     if (node.parentId != "" || node.type != "Container" || node.x != 0 || node.y != 0 || node.width != document.canvasWidth || node.height != document.canvasHeight) throw new InvalidDataException("PANEL_IMPORT_CANVAS_ROOT");
@@ -729,18 +731,33 @@ namespace GameUi.PanelHarness.Editor
         private static void BuildTabs(GameObject target, PanelNode node, PanelControlView view, PanelField field, Font font)
         {
             view.tabButtons = new Button[field.options.Length];
-            view.tabActiveColor = ParseColor(node.borderColor, node.opacity);
+            bool themed = !string.IsNullOrEmpty(node.tabActiveColor);
+            view.tabActiveColor = ParseColor(themed ? node.tabActiveColor : node.borderColor, node.opacity);
             view.tabIdleColor = ParseColor(node.backgroundColor, node.opacity);
+            if (themed)
+            {
+                view.tabLabels = new Text[field.options.Length];
+                view.tabIndicators = new GameObject[field.options.Length];
+                view.tabIdleTextColor = ParseColor(node.textColor, node.opacity);
+                view.tabActiveTextColor = ParseColor(node.tabActiveTextColor, node.opacity);
+            }
             float width = node.width / field.options.Length;
             for (int i = 0; i < field.options.Length; i++)
             {
                 GameObject tab = Child(target, "__tab_" + field.options[i].id, i * width, 0, width, 48);
-                PanelRoundedGraphic graphic = AddGraphic(tab, Color.white, Color.clear, 0, 6);
+                PanelRoundedGraphic graphic = AddGraphic(tab, Color.white, Color.clear, 0, themed ? 0 : 6);
                 Button button = tab.AddComponent<Button>(); button.targetGraphic = graphic;
                 ConfigureSelectable(button, view.definition.enabled);
                 button.transition = Selectable.Transition.None;
                 GameObject label = Child(tab, "__label", 8, 0, Math.Max(1, width - 16), 48);
-                AddText(label, field.options[i].label, node, font, TextAnchor.MiddleCenter);
+                Text text = AddText(label, field.options[i].label, node, font, TextAnchor.MiddleCenter);
+                if (themed)
+                {
+                    view.tabLabels[i] = text;
+                    GameObject indicator = Child(tab, "__active-indicator", 0, 45, width, 3);
+                    AddGraphic(indicator, ParseColor(node.tabIndicatorColor, node.opacity), Color.clear, 0, 0).raycastTarget = false;
+                    view.tabIndicators[i] = indicator;
+                }
                 view.tabButtons[i] = button;
             }
             for (int i = 0; i < view.tabButtons.Length; i++)

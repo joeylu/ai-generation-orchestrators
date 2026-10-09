@@ -12,9 +12,10 @@ namespace GameUi.PanelHarness
     [DisallowMultipleComponent]
     public sealed class PanelController : MonoBehaviour
     {
-        public const string ADAPTER_VERSION = "0.1.4";
+        public const string ADAPTER_VERSION = "0.1.5";
         private const double MAX_TICKS = 1000000;
         private const double DOUBLE_EPSILON = 2.2204460492503131E-16;
+        private readonly HashSet<string> EDITED_INPUTS = new HashSet<string>(StringComparer.Ordinal);
         [SerializeField] private PanelDocument document;
         [SerializeField] private PanelControlView[] views = new PanelControlView[0];
         private readonly Dictionary<string, PanelField> FIELDS = new Dictionary<string, PanelField>(StringComparer.Ordinal);
@@ -40,6 +41,7 @@ namespace GameUi.PanelHarness
             string error;
             if (!Validate(copy, controlViews, out error)) return Fail(error);
             Unbind();
+            EDITED_INPUTS.Clear();
             document = copy;
             views = new PanelControlView[controlViews.Length];
             for (int index = 0; index < controlViews.Length; index++)
@@ -49,7 +51,10 @@ namespace GameUi.PanelHarness
                 views[index] = new PanelControlView { definition = definition, slider = sourceView.slider, toggle = sourceView.toggle,
                     dropdown = sourceView.dropdown, button = sourceView.button, input = sourceView.input, requiredErrorText = sourceView.requiredErrorText, minLengthErrorText = sourceView.minLengthErrorText, valueText = sourceView.valueText, progressFill = sourceView.progressFill,
                     tabButtons = sourceView.tabButtons == null ? null : (Button[])sourceView.tabButtons.Clone(),
-                    tabPages = sourceView.tabPages == null ? null : (GameObject[])sourceView.tabPages.Clone(), tabActiveColor = sourceView.tabActiveColor, tabIdleColor = sourceView.tabIdleColor };
+                    tabPages = sourceView.tabPages == null ? null : (GameObject[])sourceView.tabPages.Clone(), tabActiveColor = sourceView.tabActiveColor, tabIdleColor = sourceView.tabIdleColor,
+                    tabLabels = sourceView.tabLabels == null ? null : (Text[])sourceView.tabLabels.Clone(),
+                    tabIndicators = sourceView.tabIndicators == null ? null : (GameObject[])sourceView.tabIndicators.Clone(),
+                    tabActiveTextColor = sourceView.tabActiveTextColor, tabIdleTextColor = sourceView.tabIdleTextColor };
             }
             configured = false;
             Bind();
@@ -137,7 +142,7 @@ namespace GameUi.PanelHarness
         private static bool Validate(PanelDocument source, PanelControlView[] controlViews, out string error)
         {
             error = "PANEL_RUNTIME_DOCUMENT";
-            if (source.formatVersion != "0.1" || (source.adapterVersion != "0.1.0" && source.adapterVersion != "0.1.1" && source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || string.IsNullOrEmpty(source.panelId)
+            if (source.formatVersion != "0.1" || (source.adapterVersion != "0.1.0" && source.adapterVersion != "0.1.1" && source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != ADAPTER_VERSION) || string.IsNullOrEmpty(source.panelId)
                 || source.fields == null || source.controls == null || source.fields.Length > 128 || source.controls.Length > 128
                 || controlViews.Length != source.controls.Length) return false;
             Dictionary<string, PanelField> fields = new Dictionary<string, PanelField>(StringComparer.Ordinal);
@@ -153,7 +158,7 @@ namespace GameUi.PanelHarness
                 }
                 else if (field.type == "progress")
                 {
-                    if ((source.panelSpecVersion != "0.5" && source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || (source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || field.min != 0 || field.step != 0
+                    if ((source.panelSpecVersion != "0.5" && source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || (source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != ADAPTER_VERSION) || field.min != 0 || field.step != 0
                         || !ProgressValid(field, field.initialNumber) || !ProgressValid(field, field.numberValue)) return false;
                 }
                 else if (field.type == "enum")
@@ -166,7 +171,7 @@ namespace GameUi.PanelHarness
                 }
                 else if (field.type == "string")
                 {
-                    if ((source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || source.adapterVersion != ADAPTER_VERSION
+                    if ((source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || (source.adapterVersion != "0.1.4" && source.adapterVersion != ADAPTER_VERSION)
                         || !StringValid(field.initialString, field.maxLength) || !StringValid(field.stringValue, field.maxLength)) return false;
                 }
                 else if (field.type != "boolean") return false;
@@ -229,16 +234,24 @@ namespace GameUi.PanelHarness
                     }
                     else if (control.kind == "tabs")
                     {
-                        if ((source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || (source.adapterVersion != "0.1.3" && source.adapterVersion != ADAPTER_VERSION) || field.type != "enum" || field.options.Length < 2
+                        if ((source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14") || (source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != ADAPTER_VERSION) || field.type != "enum" || field.options.Length < 2
                             || control.action != "" || control.resetFields == null || control.resetFields.Length != 0
                             || view.tabButtons == null || view.tabPages == null || control.contentIds == null || view.tabButtons.Length != field.options.Length
                             || view.tabPages.Length != field.options.Length || control.contentIds.Length != field.options.Length) return false;
                         HashSet<GameObject> pages = new HashSet<GameObject>();
                         HashSet<Button> buttons = new HashSet<Button>();
+                        bool themed = view.tabLabels != null && view.tabLabels.Length != 0;
+                        if (themed && (view.tabLabels.Length != field.options.Length || view.tabIndicators == null || view.tabIndicators.Length != field.options.Length)) return false;
+                        if (!themed && view.tabIndicators != null && view.tabIndicators.Length != 0) return false;
                         for (int i = 0; i < field.options.Length; i++)
+                        {
                             if (view.tabButtons[i] == null || view.tabPages[i] == null || !pages.Add(view.tabPages[i]) || !buttons.Add(view.tabButtons[i])
                                 || view.tabPages[i].name != control.contentIds[i] || view.tabButtons[i].targetGraphic == null
                                 || view.tabPages[i].transform.parent != view.tabButtons[i].transform.parent) return false;
+                            if (themed && (view.tabLabels[i] == null || view.tabIndicators[i] == null
+                                || view.tabLabels[i].transform.parent != view.tabButtons[i].transform
+                                || view.tabIndicators[i].transform.parent != view.tabButtons[i].transform)) return false;
+                        }
                     }
                     else return false;
                 }
@@ -361,7 +374,8 @@ namespace GameUi.PanelHarness
                         view.input.readOnly = control.readOnly;
                         view.input.characterLimit = field.maxLength;
                         view.input.SetTextWithoutNotify(field.stringValue);
-                        string issue = InputError(control, field.stringValue);
+                        string issue = control.deferEmptyError && field.stringValue.Length == 0 && !EDITED_INPUTS.Contains(control.fieldId)
+                            ? null : InputError(control, field.stringValue);
                         view.requiredErrorText.gameObject.SetActive(issue == "required");
                         view.minLengthErrorText.gameObject.SetActive(issue == "min-length");
                     }
@@ -398,6 +412,11 @@ namespace GameUi.PanelHarness
                             }
                             view.tabButtons[i].interactable = control.enabled;
                             view.tabButtons[i].targetGraphic.color = active ? view.tabActiveColor : view.tabIdleColor;
+                            if (view.tabLabels != null && view.tabLabels.Length != 0)
+                            {
+                                view.tabLabels[i].color = active ? view.tabActiveTextColor : view.tabIdleTextColor;
+                                view.tabIndicators[i].SetActive(active);
+                            }
                         }
                     }
                     else view.button.interactable = control.enabled && SubmitValid(control);
@@ -465,6 +484,7 @@ namespace GameUi.PanelHarness
             PanelField field = FIELDS[view.definition.fieldId];
             if (view.definition.readOnly || !StringValid(value, field.maxLength)) { ApplyViews(); return; }
             bool changed = field.stringValue != value;
+            if (changed) EDITED_INPUTS.Add(field.id);
             field.stringValue = value; ApplyViews();
             if (changed) Raise(view.definition, field);
         }

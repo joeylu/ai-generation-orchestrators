@@ -38,7 +38,7 @@ test('shared runtime identity is panel-independent, changes with runtime bytes a
   const spec = copy(fixture); spec.id = 'other-panel';
   const other = await createUnityKitFiles(await createPanelBundle(spec, catalog, core), core, sources);
   assert.deepEqual(JSON.parse(new TextDecoder().decode(other.contents.get('unity-runtime.json'))), first);
-  assert.equal(first.adapterVersion, '0.1.4');
+  assert.equal(first.adapterVersion, '0.1.5');
 });
 
 test('portable kit requires the exact allowlisted adapter set and rejects source bundle tampering', async () => {

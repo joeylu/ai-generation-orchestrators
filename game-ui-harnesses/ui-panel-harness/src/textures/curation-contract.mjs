@@ -56,4 +56,3 @@ export async function verifyTextureCuration(index, sourceIndex, blobs, adapter) 
     if (!bytes || await digestBytes(bytes) !== await digestBytes(await renderPreview(group, blobs, adapter))) throw new Error('TEXTURE_CURATION_PREVIEW_MISMATCH');
   }
 }
-

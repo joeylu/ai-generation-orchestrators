@@ -59,33 +59,33 @@ async function buildContext(specInput, catalogInput, requestInput, operations, v
   const request = checked(() => validatePanelRequest(requestInput), 'EDIT_REQUEST', '$.request');
   const appearance = ['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion) && catalog.themes.some(theme => theme.id === spec.theme.id && theme.version === spec.theme.version && theme.visualStyle === 'modern-v3');
   version ??= spec.panelSpecVersion === '0.14' ? '0.9' : appearance ? '0.8' : selection ? '0.5' : '0.1';
-  if (['0.2', '0.3', '0.4', '0.5', '0.6', '0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) && !appearance || spec.panelSpecVersion === '0.8' && !['0.2', '0.3', '0.4', '0.5', '0.6', '0.7','0.8','0.9','0.10','0.11','0.12'].includes(version)
-    || spec.panelSpecVersion === '0.9' && !['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) || spec.panelSpecVersion === '0.10' && !['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version)
-    || spec.panelSpecVersion === '0.11' && !['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) || spec.panelSpecVersion === '0.12' && !['0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) || spec.panelSpecVersion === '0.13' && !['0.8','0.9','0.10','0.11','0.12'].includes(version) || spec.panelSpecVersion === '0.14' && !['0.9','0.10','0.11','0.12'].includes(version)) fail('EDIT_CONTEXT_VERSION', '$.editContextVersion', 'Context version must match the appearance and action layout capabilities');
-  const selected = version === '0.5' || ['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) && selection !== null;
+  if (['0.2', '0.3', '0.4', '0.5', '0.6', '0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) && !appearance || spec.panelSpecVersion === '0.8' && !['0.2', '0.3', '0.4', '0.5', '0.6', '0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version)
+    || spec.panelSpecVersion === '0.9' && !['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) || spec.panelSpecVersion === '0.10' && !['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version)
+    || spec.panelSpecVersion === '0.11' && !['0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) || spec.panelSpecVersion === '0.12' && !['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) || spec.panelSpecVersion === '0.13' && !['0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) || spec.panelSpecVersion === '0.14' && !['0.9','0.10','0.11','0.12','0.13','0.14'].includes(version)) fail('EDIT_CONTEXT_VERSION', '$.editContextVersion', 'Context version must match the appearance and action layout capabilities');
+  const selected = version === '0.5' || ['0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) && selection !== null;
   if (selected) checked(() => selectedEditRow(spec, selection), 'EDIT_SELECTION', '$.selection');
   operations ??= [...(spec.tabs ? TABS_OPERATIONS : OPERATIONS), ...(['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion) ? [INPUT_OPERATION] : []),
-    ...(['0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-appearance'] : []), ...(['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-action-layout'] : []), ...(['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-row-order','set-text','set-button-style'] : []), ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-button-font-size'] : []), ...(['0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-title-bar'] : []), ...(['0.8','0.9','0.10','0.11','0.12'].includes(version) ? ['set-text-wrap'] : [])];
-  if(['0.9','0.10','0.11','0.12'].includes(version))operations.push(...['set-panel-frame','set-panel-ratio'].filter(op=>!operations.includes(op)));
-  if(['0.10','0.11','0.12'].includes(version)&&!operations.includes('set-layout-details'))operations.push('set-layout-details');
+    ...(['0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? ['set-appearance'] : []), ...(['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? ['set-action-layout'] : []), ...(['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? ['set-row-order','set-text','set-button-style'] : []), ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? ['set-button-font-size'] : []), ...(['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? ['set-title-bar'] : []), ...(['0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? ['set-text-wrap'] : [])];
+  if(['0.9','0.10','0.11','0.12','0.13','0.14'].includes(version))operations.push(...['set-panel-frame','set-panel-ratio'].filter(op=>!operations.includes(op)));
+  if(['0.10','0.11','0.12','0.13','0.14'].includes(version)&&!operations.includes('set-layout-details'))operations.push('set-layout-details');
   if (selected) operations = selectedEditOperations(spec, selection, operations);
   const [baseSpecSha256, catalogSha256] = await Promise.all([digestJson(spec), digestJson(catalog)]);
   const payload = {
     editContextVersion: version, request, spec, catalog, baseSpecSha256, catalogSha256,
-    ...(version === '0.11' ? {requestChecks:explicitEditRequirements(request.text,selection)} : version === '0.12' ? {requestChecks:explicitPropertyRequirements(request.text,spec,catalog,selection)} : {}),
-    ...(['0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { selection } : {}),
+    ...(version === '0.11' ? {requestChecks:explicitEditRequirements(request.text,selection)} : ['0.12','0.13','0.14'].includes(version) ? {requestChecks:explicitPropertyRequirements(request.text,spec,catalog,selection,version==='0.14'?'explicit-properties-v4':version==='0.13'?'explicit-properties-v3':'explicit-properties-v2')} : {}),
+    ...(['0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? { selection } : {}),
     capabilities: {
       operations: [...operations], target: 'pixi', statePolicy: 'preserve-current-at-apply', semanticReview: 'NOT_RUN',
       ...(catalog.themes.some(theme => theme.id === spec.theme.id && theme.version === spec.theme.version && ['modern-v2', 'modern-v3'].includes(theme.visualStyle))
         ? { themePolicy: 'explicit-change-v1' } : {}),
-      ...(['0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { appearancePolicy: 'panel-local-v1' } : {}),
-      ...(['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { actionLayoutPolicy: 'section-buttons-v1' } : {}), ...(['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { buttonStylePolicy: 'per-button-v1' } : {}),
-      ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { buttonFontPolicy: 'per-button-font-size-v1' } : {}),
-      ...(['0.7','0.8','0.9','0.10','0.11','0.12'].includes(version) ? { titleBarPolicy: 'panel-title-bar-v1' } : {}),
-      ...(['0.8','0.9','0.10','0.11','0.12'].includes(version) ? {textWrapPolicy:'static-text-wrap-v1'} : {}),
-      ...(['0.9','0.10','0.11','0.12'].includes(version) ? {panelFramePolicy:'fixed-panel-frame-v1'} : {}),
-      ...(['0.10','0.11','0.12'].includes(version) ? {layoutDetailsPolicy:'layout-details-v1'} : {}),
-      ...(['0.11','0.12'].includes(version) ? {requestCheckPolicy:version === '0.12'?'explicit-properties-v2':'explicit-geometry-v1'} : {}),
+      ...(['0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? { appearancePolicy: 'panel-local-v1' } : {}),
+      ...(['0.3','0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? { actionLayoutPolicy: 'section-buttons-v1' } : {}), ...(['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? { buttonStylePolicy: 'per-button-v1' } : {}),
+      ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? { buttonFontPolicy: 'per-button-font-size-v1' } : {}),
+      ...(['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? { titleBarPolicy: 'panel-title-bar-v1' } : {}),
+      ...(['0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? {textWrapPolicy:'static-text-wrap-v1'} : {}),
+      ...(['0.9','0.10','0.11','0.12','0.13','0.14'].includes(version) ? {panelFramePolicy:'fixed-panel-frame-v1'} : {}),
+      ...(['0.10','0.11','0.12','0.13','0.14'].includes(version) ? {layoutDetailsPolicy:'layout-details-v1'} : {}),
+      ...(['0.11','0.12','0.13','0.14'].includes(version) ? {requestCheckPolicy:version==='0.14'?'explicit-properties-v4':version==='0.13'?'explicit-properties-v3':version === '0.12'?'explicit-properties-v2':'explicit-geometry-v1'} : {}),
       ...(selected ? { selectionPolicy: 'selected-row-v1' } : {}),
     },
   };
@@ -99,17 +99,17 @@ export async function createPanelEditContext(specInput, catalogInput, requestInp
   const catalog = snapshot(catalogInput, '$.catalog');
   const request = snapshot(requestInput, '$.request');
   const selection = selectionInput === null ? null : snapshot(selectionInput, '$.selection');
-  return buildContext(spec, catalog, request, undefined, (panelFrame || layoutDetails || requestChecks) && catalog.themes.some(theme=>theme.id===spec.theme.id&&theme.version===spec.theme.version&&theme.visualStyle==='modern-v3') ? requestChecks === 'properties-v2' ? '0.12' : requestChecks ? '0.11' : layoutDetails ? '0.10' : '0.9' : undefined, selection);
+  return buildContext(spec, catalog, request, undefined, (panelFrame || layoutDetails || requestChecks) && catalog.themes.some(theme=>theme.id===spec.theme.id&&theme.version===spec.theme.version&&theme.visualStyle==='modern-v3') ? requestChecks === 'properties-v4' ? '0.14' : requestChecks === 'properties-v3' ? '0.13' : requestChecks === 'properties-v2' ? '0.12' : requestChecks ? '0.11' : layoutDetails ? '0.10' : '0.9' : undefined, selection);
 }
 
 async function validateContextSnapshot(context) {
-  exact(context, [...CONTEXT_FIELDS, ...(['0.11','0.12'].includes(context?.editContextVersion) ? ['requestChecks'] : []), ...(['0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(context?.editContextVersion) ? ['selection'] : [])], '$');
-  if (!['0.1', '0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion)) fail('EDIT_CONTEXT_VERSION', '$.editContextVersion', 'Only edit context 0.1 through 0.12 is supported');
+  exact(context, [...CONTEXT_FIELDS, ...(['0.11','0.12','0.13','0.14'].includes(context?.editContextVersion) ? ['requestChecks'] : []), ...(['0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(context?.editContextVersion) ? ['selection'] : [])], '$');
+  if (!['0.1', '0.2', '0.3', '0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(context.editContextVersion)) fail('EDIT_CONTEXT_VERSION', '$.editContextVersion', 'Only edit context 0.1 through 0.14 is supported');
   // Existing exported contexts keep their original capabilities and digest.
   // Only these two complete, ordered capability sets are accepted, never subsets.
   const suppliedOperations = context.capabilities?.operations ?? null;
   const formsOperations = [...(context.spec?.tabs ? TABS_OPERATIONS : OPERATIONS), INPUT_OPERATION];
-  const operations = ['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion) ? [...formsOperations, 'set-appearance', 'set-action-layout', 'set-row-order','set-text','set-button-style', ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion) ? ['set-button-font-size'] : []), ...(['0.7','0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion) ? ['set-title-bar'] : []), ...(['0.8','0.9','0.10','0.11','0.12'].includes(context.editContextVersion) ? ['set-text-wrap'] : [])]
+  const operations = ['0.4','0.5','0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(context.editContextVersion) ? [...formsOperations, 'set-appearance', 'set-action-layout', 'set-row-order','set-text','set-button-style', ...(['0.6','0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(context.editContextVersion) ? ['set-button-font-size'] : []), ...(['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(context.editContextVersion) ? ['set-title-bar'] : []), ...(['0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(context.editContextVersion) ? ['set-text-wrap'] : [])]
     : context.editContextVersion === '0.3' ? [...formsOperations, 'set-appearance', 'set-action-layout']
     : context.editContextVersion === '0.2' ? [...formsOperations, 'set-appearance']
     : context.spec?.panelSpecVersion === '0.7' && canonicalJson(suppliedOperations) === canonicalJson(formsOperations) ? formsOperations
@@ -154,7 +154,7 @@ function validateBasis(basis, operation, request, path) {
 
 function requestCheck(context,spec,proposal) {
   if (!context.requestChecks || proposal.unresolved.length) return null;
-  const result = context.capabilities.requestCheckPolicy === 'explicit-properties-v2'
+  const result = ['explicit-properties-v2','explicit-properties-v3','explicit-properties-v4'].includes(context.capabilities.requestCheckPolicy)
     ? checkExplicitPropertyRequirements(context.requestChecks,spec,context.catalog,context.spec)
     : checkExplicitEditRequirements(context.requestChecks,spec);
   if (result.status === 'MISMATCH') {

@@ -1,12 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { detectCodexBridge, requestCodexProposal, requestCodexEditProposal } from '../src/workbench-codex-client.mjs';
-import { createCodexDiagnostic } from '../src/codex-diagnostics.mjs';
+import { createCodexDiagnostic, createCodexMessageDiagnostic } from '../src/codex-diagnostics.mjs';
 
 const response = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 const capability = { protocol: '0.1', model: 'gpt-6-luna', effort: 'xhigh', available: true };
 const context = { sha256: 'a'.repeat(64), request: { text: '一段完整需求' } };
 const signal = () => new AbortController().signal;
+
+test('message diagnostics cross the client only when bound and structurally safe', async () => {
+  for (const editing of [false, true]) {
+    const operation = editing ? 'edit' : 'plan';
+    const diagnostic = createCodexMessageDiagnostic('OUTPUT_MESSAGE_EMPTY',
+      { eventCount: 3, completedAgentMessages: 1, acceptedFinalMessages: 0 }, { operation, contextSha256: context.sha256 });
+    for (const change of [{}, { contextSha256: 'c'.repeat(64) }, { operation: editing ? 'plan' : 'edit' },
+      { stream: { ...diagnostic.stream, rawText: 'SECRET' } }, { proposalJsonSha256: 'd'.repeat(64) }]) {
+      let caught, calls = 0;
+      await assert.rejects((editing ? requestCodexEditProposal : requestCodexProposal)(context, signal(), async () => {
+        calls++; return response({ code: 'CODEX_OUTPUT_INVALID', diagnostic: { ...diagnostic, ...change } }, 502);
+      }), error => { caught = error; return error.code === 'CODEX_OUTPUT_INVALID'; });
+      assert.equal(calls, 1); assert.equal(Boolean(caught.diagnostic), Object.keys(change).length === 0);
+      assert(!JSON.stringify(caught).includes('SECRET'));
+    }
+  }
+});
 
 test('file previews and other sites never probe a local model service', async () => {
   const forbidden = async () => { assert.fail('No fetch allowed'); };

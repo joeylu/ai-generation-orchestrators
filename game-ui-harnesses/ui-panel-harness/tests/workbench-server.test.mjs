@@ -10,9 +10,11 @@ import { renderWorkbenchHtml } from '../src/workbench-shell.mjs';
 import { createPlanningContext } from '../src/planning-context.mjs';
 import { checkPanelProposal, proposalTargets } from '../src/proposal.mjs';
 import { createPanelEditContext, checkPanelEditProposal } from '../src/edit-planning.mjs';
-import { createCodexDiagnostic } from '../src/codex-diagnostics.mjs';
+import { createCodexDiagnostic, createCodexMessageDiagnostic } from '../src/codex-diagnostics.mjs';
 import { createWorkbenchAssetPool, workbenchRetrieval } from '../src/workbench-assets.mjs';
 import { digestBytes, digestJson } from '../src/canonical.mjs';
+import { createStudioBuildInfo } from '../src/studio-build-info.mjs';
+import { loadBundledCoreAssets } from '../src/bundled-core-assets.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const catalog = JSON.parse(await readFile(join(root, 'catalog/modern-core.json'), 'utf8'));
@@ -24,23 +26,36 @@ const context = await createPlanningContext(request, catalog);
 const copy = value => structuredClone(value);
 let fixtureIndex = 0;
 
-async function buildFixture({ pool = null, changeManifest, changeHtml } = {}) {
+async function buildFixture({ pool = null, changeManifest, changeHtml, studio = false, catalog: seedCatalog = catalog } = {}) {
   const path = join(work, `build-${fixtureIndex++}`); await mkdir(path);
-  let html = renderWorkbenchHtml({ workbenchSeedVersion: '0.1', catalog, pool, example: null });
+  const seed = { workbenchSeedVersion: '0.1', catalog: seedCatalog, pool, example: null };
+  const buildInfo = studio ? await createStudioBuildInfo('0.1.0', { shellSha256: await digestBytes(Buffer.from(renderWorkbenchHtml(seed))),
+    scriptSha256: await digestBytes(Buffer.from('/* deterministic transport test fixture */')) }) : null;
+  let html = renderWorkbenchHtml(seed, buildInfo);
   if (changeHtml) html = changeHtml(html);
   const contents = [{ path: 'index.html', bytes: Buffer.from(html) }, { path: 'workbench.js', bytes: Buffer.from('/* deterministic transport test fixture */') }];
-  const manifest = { workbenchBuildVersion: '0.1', status: 'COMPLETE', catalogSha256: await digestJson(catalog),
+  const manifest = { workbenchBuildVersion: '0.1', status: 'COMPLETE', catalogSha256: await digestJson(seedCatalog),
     poolSha256: pool?.sha256 ?? null, library: pool ? { id: pool.index.id, sha256: pool.index.sha256 } : null,
     recordCount: pool?.index.records.length ?? 0, imageCount: pool?.resources.length ?? 0,
     sourceReplay: pool ? 'VERIFIED_AT_BUILD' : 'NOT_APPLICABLE', example: null,
     files: await Promise.all(contents.map(async item => ({ path: item.path, bytes: item.bytes.length, sha256: await digestBytes(item.bytes) }))),
     browser: 'NOT_RUN', humanVisualReview: 'NOT_RUN', nativeEngines: 'NOT_RUN' };
+  if (buildInfo) manifest.studio = buildInfo;
   changeManifest?.(manifest);
   for (const item of contents) await writeFile(join(path, item.path), item.bytes);
   await writeFile(join(path, 'workbench-build.json'), JSON.stringify(manifest));
   return path;
 }
 const basicBuild = await buildFixture();
+test('server accepts pinned bundled evidence only for the exact authenticated core pool', async t => {
+  const pool = await loadBundledCoreAssets();
+  const workbench = await buildFixture({ pool, changeManifest: m => { m.sourceReplay = 'PINNED_BUNDLED_ASSETS'; } });
+  const server = await start(t, { workbench }); assert(server.url.startsWith('http://127.0.0.1:'));
+  for (const foreign of [null, await fixturePool()]) {
+    const invalid = await buildFixture({ pool: foreign, changeManifest: m => { m.sourceReplay = 'PINNED_BUNDLED_ASSETS'; } });
+    await assert.rejects(createWorkbenchServer({ workbench: invalid, outputRoot: join(work, 'never-called') }), { code: 'WORKBENCH_SERVER_SEED_MISMATCH' });
+  }
+});
 function proposed(value, unresolved = false) {
   return { proposalVersion: value.planningContextVersion, contextSha256: value.sha256, spec: unresolved ? null : copy(spec),
     decisions: unresolved ? [] : proposalTargets(spec, value.planningContextVersion).map(target => ({ target,
@@ -155,6 +170,27 @@ test('editing format failures expose bound constants, preserve one-shot request 
   }
 });
 
+test('message diagnostics remain bound and consumed across both server endpoints', async t => {
+  for (const editing of [false, true]) for (const change of [{}, { stream: { eventCount: 3, completedAgentMessages: 1, acceptedFinalMessages: 0, rawText: 'SECRET' } },
+    { contextSha256: 'b'.repeat(64) }, { operation: editing ? 'plan' : 'edit' }]) {
+    let calls = 0;
+    const adapter = async value => {
+      calls++;
+      const error = Object.assign(new Error('SECRET_PRIVATE_MESSAGE'), { code: 'CODEX_OUTPUT_INVALID' });
+      error.diagnostic = { ...createCodexMessageDiagnostic('OUTPUT_MESSAGE_EMPTY',
+        { eventCount: 3, completedAgentMessages: 1, acceptedFinalMessages: 0 },
+        { operation: editing ? 'edit' : 'plan', contextSha256: value.sha256 }), ...change };
+      throw error;
+    };
+    const server = await start(t, editing ? { editor: adapter } : { planner: adapter });
+    const input = { requestId: randomUUID(), context: editing ? editContext : context }, send = editing ? postEdit : post;
+    const response = await send(server, input); assert.equal(response.status, 502);
+    const value = await response.json(); assert.equal(value.code, 'CODEX_OUTPUT_INVALID');
+    assert.equal(Boolean(value.diagnostic), Object.keys(change).length === 0); assert(!JSON.stringify(value).includes('SECRET'));
+    await expected(await send(server, input), 409, 'WORKBENCH_SERVER_DUPLICATE'); assert.equal(calls, 1);
+  }
+});
+
 test('editing rejects tampering, other catalogs, wrong operation contexts and cross-origin requests before inference', async t => {
   let calls = 0; const server = await start(t, { editor: async value => { calls++; return edited(value); } });
   const changed = copy(editContext); changed.spec.title = 'tampered';
@@ -212,6 +248,24 @@ test('startup is read only, serves only verified snapshots and capabilities, and
   assert.equal(calls, 0);
 });
 
+test('verified metadata and a fixed-origin restart stay read only; legacy manifests still work', async t => {
+  const workbench = await buildFixture({ studio: true });
+  let calls = 0;
+  const planner = async () => { calls++; throw new Error('No inference authorized'); };
+  const first = await start(t, { workbench, planner });
+  const metadata = await (await fetch(`${first.url}api/panel/studio`)).json();
+  assert.deepEqual(metadata, { protocol: '0.1', kind: 'ui-panel-studio', build: first.studio, active: false });
+  assert.equal(metadata.build.appVersion, '0.1.0');
+  await first.close();
+  const next = await start(t, { workbench, port: Number(new URL(first.url).port), planner });
+  assert.equal(next.url, first.url); assert.deepEqual(next.studio, first.studio); assert.equal(calls, 0);
+  const legacy = await start(t); assert.equal((await (await fetch(`${legacy.url}api/panel/studio`)).json()).build, null);
+  const tampered = await buildFixture({ studio: true, changeManifest: manifest => { manifest.studio.buildSha256 = 'c'.repeat(64); } });
+  await assert.rejects(createWorkbenchServer({ workbench: tampered, outputRoot: join(work, 'calls'), planner }), { code: 'WORKBENCH_SERVER_BUILD_IDENTITY' });
+  const htmlChanged = await buildFixture({ studio: true, changeHtml: html => html.replace('<title>Panel Studio', '<title>Changed Studio') });
+  await assert.rejects(createWorkbenchServer({ workbench: htmlChanged, outputRoot: join(work, 'calls'), planner }), { code: 'WORKBENCH_SERVER_BUILD_IDENTITY' });
+});
+
 test('admission fixes the immutable context, returns independently checked results and never reuses a request ID', async t => {
   let calls = 0;
   const server = await start(t, { planner: async (value, options) => {
@@ -256,6 +310,63 @@ test('tampered contexts and extra command/model fields fail before invoking the 
   const other = await createPlanningContext(request, otherCatalog);
   await expected(await post(server, { requestId: randomUUID(), context: other }), 400, 'WORKBENCH_SERVER_CATALOG_MISMATCH');
   assert.equal(calls, 0);
+});
+
+test('refined daily build edits the exact previous catalog without upgrading it; generation and altered catalogs remain pinned',async t=>{
+  const json=async name=>JSON.parse(await readFile(join(root,'examples',name),'utf8'));
+  const [current,previous,base]=await Promise.all([json('modern-refined.catalog.json'),json('modern-navigation.catalog.json'),json('settings-controls.panel.json')]);
+  const {semanticSettingsFixture}=await import('../examples/semantic-controls-v1/fixture.mjs');
+  const source=semanticSettingsFixture(previous,base),editRequest={...request,id:'panel-edit',text:'把面板标题改为“声音设置”，其他不变。'};
+  const valid=await createPanelEditContext(source,previous,editRequest);
+  let calls=0;const workbench=await buildFixture({catalog:current}),server=await start(t,{workbench,editor:async value=>{calls++;assert.deepEqual(value.catalog,previous);assert.deepEqual(value.spec,source);return edited(value);}});
+  assert.equal((await postEdit(server,{requestId:randomUUID(),context:valid})).status,200);
+  const changed=copy(previous);changed.themes[0].tokens.radius++;
+  await expected(await postEdit(server,{requestId:randomUUID(),context:await createPanelEditContext(source,changed,editRequest)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  await expected(await post(server,{requestId:randomUUID(),context:await createPlanningContext(request,previous)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  const custom=copy(current);custom.themes[0].tokens.radius++;
+  const customServer=await start(t,{workbench:await buildFixture({catalog:custom}),editor:async()=>{calls++;throw Error('UNEXPECTED');}});
+  await expected(await postEdit(customServer,{requestId:randomUUID(),context:valid}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  assert.equal(calls,1);
+});
+
+test('minimal daily build preserves both exact previous catalogs for editing and keeps generation pinned',async t=>{
+  const json=async name=>JSON.parse(await readFile(join(root,'examples',name),'utf8'));
+  const current=await json('modern-minimal.catalog.json'),base=await json('settings-controls.panel.json');
+  const {semanticSettingsFixture}=await import('../examples/semantic-controls-v1/fixture.mjs');
+  let calls=0;const server=await start(t,{workbench:await buildFixture({catalog:current}),editor:async value=>{calls++;return edited(value);}});
+  for(const name of ['modern-navigation.catalog.json','modern-refined.catalog.json']){
+    const previous=await json(name),source=semanticSettingsFixture(previous,base),editRequest={...request,id:'minimal-edit',text:'把面板标题改为“声音设置”，其他不变。'};
+    const context=await createPanelEditContext(source,previous,editRequest);
+    assert.equal((await postEdit(server,{requestId:randomUUID(),context})).status,200);
+    await expected(await post(server,{requestId:randomUUID(),context:await createPlanningContext(request,previous)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+    const changed=copy(previous);changed.themes[0].tokens.radius++;
+    await expected(await postEdit(server,{requestId:randomUUID(),context:await createPanelEditContext(source,changed,editRequest)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  }
+  assert.equal(calls,2);
+});
+
+test('menu daily build edits all exact previous daily catalogs without upgrading them',async t=>{
+  const json=async name=>JSON.parse(await readFile(join(root,'examples',name),'utf8'));
+  const current=await json('modern-menu.catalog.json'),base=await json('settings-controls.panel.json');
+  const {semanticSettingsFixture}=await import('../examples/semantic-controls-v1/fixture.mjs');
+  let calls=0;const server=await start(t,{workbench:await buildFixture({catalog:current}),editor:async value=>{
+    calls++;assert.notEqual(value.catalog.id,current.id);return edited(value);
+  }});
+  for(const name of ['modern-navigation.catalog.json','modern-refined.catalog.json','modern-minimal.catalog.json']){
+    const previous=await json(name),source=semanticSettingsFixture(previous,base),editRequest={...request,id:'menu-edit',text:'把面板标题改为“声音设置”，其他不变。'};
+    const context=await createPanelEditContext(source,previous,editRequest);
+    const response=await postEdit(server,{requestId:randomUUID(),context});assert.equal(response.status,200);
+    assert.deepEqual((await response.json()).proposal.patch.operations,[{op:'set-panel-title',title:'声音设置'}]);
+    assert.deepEqual(context.catalog,previous);assert.deepEqual(context.spec,source);
+    await expected(await post(server,{requestId:randomUUID(),context:await createPlanningContext(request,previous)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+    const changed=copy(previous);changed.themes[0].tokens.radius++;
+    await expected(await postEdit(server,{requestId:randomUUID(),context:await createPanelEditContext(source,changed,editRequest)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  }
+  const custom=copy(current);custom.themes[0].menuTokens.radius++;
+  const customServer=await start(t,{workbench:await buildFixture({catalog:custom}),editor:async()=>{calls++;throw Error('UNEXPECTED');}});
+  const previous=await json('modern-minimal.catalog.json'),source=semanticSettingsFixture(previous,base);
+  await expected(await postEdit(customServer,{requestId:randomUUID(),context:await createPanelEditContext(source,previous,{...request,id:'menu-custom',text:'把面板标题改为“声音设置”，其他不变。'})}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  assert.equal(calls,3);
 });
 
 test('one flight runs at a time; an indeterminate failed call is consumed and diagnostics redact private messages', async t => {

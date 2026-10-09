@@ -5,15 +5,27 @@
 
 ## 已运行的Studio
 
-本工作区当前Studio地址是`http://127.0.0.1:1353/`，使用`output/panel-studio-property-review-live-v2`构建。
+日常从 `ui-panel-harness` 目录运行 `npm run studio`，默认固定地址为 `http://127.0.0.1:4951/`。
+默认使用随源码提供的[12 个核心图标与语义索引](core-assets.md)，不依赖本地 `output/` 图库或 Sharp。
+该命令完成依赖检查、当前源码构建和启动；按 Ctrl+C 停止后，使用同一命令重启。
+同一浏览器与地址的草稿、面板、试玩值和轮次保留，详见[一键启动与更新](studio-start.md)。
+页首显示当前构建；服务更新后，新版页面提供「保存并刷新」。
+原 `output/panel-studio-navigation-v3` 是上一轮保留构建。
+原 `http://127.0.0.1:1353/` 及其草稿保留；新地址是独立工作区，可通过下载并打开 PanelBundle 转移面板。
 表单、对话框、菜单和设置分区采用不同排版，见[按用途排版](panel-presentation.md)。
 已保存的旧面板按原主题版本还原。其他历史地址是否可用，以对应进程为准。
 [浅深模式与主色](panel-themes.md)通过需求描述指定；未要求换风格的修改保持现有主题。
+[按钮主次与主题下拉菜单](panel-semantic-controls.md)采用新的显式主题目录；旧服务和已保存面板不自动换样式。
+[菜单、表单与弹窗排版](panel-focused-layout.md)进一步收拢菜单、对齐字段，并按完整内容宽度测量正文及操作区。
+[主题页签](panel-navigation.md)统一深浅主题的选中背景、文字和下划线；切页保留输入、设置及滚动位置。
+日常生成采用[纯文字菜单精修默认](menu-defaults.md)，其他类型保持[简约面板基础美术](panel-minimal-art.md)。已保存面板不自动换目录。原40项真实输入之外，另有[24项输入夹具覆盖](input-coverage-v2.md)，不要将夹具通过视为真实理解通过。
+[完整说明正文](literal-body-copy.md)保留多句说明，并拦截明确原文被缩短的生成结果。
 前一版Modern Mint说明见[视觉主题](panel-visual-style.md)。旧服务和第一版交付记录保留。
-现有服务保留。另开工作区或重启时按下面的命令构建，使用程序打印的地址。
+其他地址的历史服务及存档保留；需要独立静态构建时使用下面的手动命令。
 
-1. 说说玩家需要做什么，或选用折叠的口语示例，点击「生成面板」。缺少初值、范围和操作含义时，可点选建议或自己回答；采用回答后再点击生成。
+1. 说说玩家需要做什么，或选用折叠的口语示例，点击「生成面板」。缺少初值、范围和操作含义时，可点选建议或自己回答；点击「采用回答并生成」直接提交，无需复制。修改追问用「采用回答并修改」，同样只提交一次。
 2. 在右侧试玩。面板尚未连接真实游戏，事件通过显式宿主接口接线。
+   想开始另一份任务，点预览区「新建面板」；已有面板可在「面板操作 → 历史版本与本机存档」恢复。新建会清空当前输入，尚未生成的纯文字草稿不另外归档。
 3. 填写修改要求，点击「修改面板」。也可先「选择修改对象」，在预览中选控件，再说“这个按钮改成紫色”。选中时只改该控件，改整页前请取消选择。存活字段的试玩值保留；新默认值通过面板的恢复默认操作生效。
 4. 「面板操作」提供撤销、打开面板、下载交付包和共享SDK。同一浏览器与地址会保存最近面板、草稿、试玩值和轮次；迁移地址或设备前下载PanelBundle备份。
 
@@ -44,10 +56,12 @@ Vite/Pixi/Playwright等依赖由该相邻Harness的锁定依赖提供；如果�
 
 以下命令从`ui-panel-harness`目录运行：
 
+日常启动只需 `npm run studio`；下面保留独立构建与临时端口的维护入口。
+
 ```sh
 node scripts/check-workspace.mjs
 node --test tests/*.test.mjs
-node scripts/build-workbench.mjs --catalog examples/modern-adaptive.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-menu.catalog.json --assets builtin --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 
@@ -55,6 +69,7 @@ node scripts/serve-workbench.mjs --workbench output/my-studio --output-root outp
 `index.html`和`workbench.js`应一起移动；构建清单记录二者摘要，本地服务启动时重新校验。
 
 上述最小构建使用程序控件，不需要本地纹理归档。
+在构建命令添加 `--assets builtin` 可加载与日常 Studio 相同的内置核心库；`--assets none` 显式禁用图库。
 需要自有图标和背景池时，在同一构建命令添加`--assets <已验证资源库目录>`；必要时添加`--sharp-module <已安装的模块目录>`。
 本工作区现有库为`output/generic-library-migrated-v1`，264条记录/221份去重PNG；新增资源见[增量入库](asset-import.md)。
 完整库的原始路径和机器模块位置不用写进面板文件，选中PNG随PanelBundle内嵌。

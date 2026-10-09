@@ -116,7 +116,7 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         guardEdit();
         const request = validatePanelRequest(requestInput), panel = clone(state.panel);
         if (!panel) fail('WORKBENCH_PANEL_REQUIRED');
-          const context = await createPanelEditContext(panel.spec, panel.catalog, request, selectionInput, {panelFrame:true,layoutDetails:true,requestChecks:'properties-v2'});
+          const context = await createPanelEditContext(panel.spec, panel.catalog, request, selectionInput, {panelFrame:true,layoutDetails:true,requestChecks:'properties-v4'});
         if (!isCurrent(ticket)) return stale();
         edit = { context, proposal: null, report: null };
         return getEditSnapshot();

@@ -21,4 +21,3 @@ export function describeTextureRedesign(original) {
   return renderPrimitiveSvg(original.source.relativePath, { width, height, color: REDESIGN_STYLE.tintableInk,
     border: original.unity.nineSlice === 'valid' ? original.unity.border : null });
 }
-

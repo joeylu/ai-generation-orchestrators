@@ -6,3 +6,7 @@
 *.svg text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
+
+# These files are authenticated by their original byte hashes on every platform.
+assets/core-v1/** -text
+assets/core-v1/README.md text eol=lf

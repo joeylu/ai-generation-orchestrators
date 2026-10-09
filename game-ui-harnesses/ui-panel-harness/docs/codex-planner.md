@@ -144,6 +144,14 @@ CLI 使用[专用编辑合同](../prompts/codex-panel-editor.md)，提示内嵌�
 不保存正文、解析器原始消息、字段值或位置附近文本。服务端与浏览器还校验失败码与
 阶段的对应关系；页面显示格式原因、保留原面板，并继续拒绝自动重试。
 
+CLI 事件流中的空最终消息、非文本最终消息和重复最终消息仍立即终止调用，并保存
+版本 `0.2` 的诊断：阶段 `event-validation`，固定路径 `$.item.text`，校验码分别为
+`OUTPUT_MESSAGE_EMPTY`、`OUTPUT_MESSAGE_NOT_TEXT`、`OUTPUT_MESSAGE_DUPLICATE`。
+`stream` 只含事件数、已完成消息数和已接受最终消息数；`proposalJsonSha256` 为 `null`，
+表示尚未取得唯一可用的最终响应。该诊断不保存消息正文、消息 ID、原始事件或 stderr。
+服务和客户端验证版本、操作、上下文摘要、失败码以及计数的一致性后才显示具体原因。
+这不会将重复消息拼接、改选其中一条或把空响应当作成功；历史失败不能补造此类诊断。
+
 ## 临时使用对话中的 subagent
 
 CLI 尚未验证成功时，可由当前对话委派 subagent 按同一个

@@ -1,4 +1,8 @@
-# Unity UGUI 导出适配器 0.1.4
+# Unity UGUI 导出适配器 0.1.5
+
+0.1.5 为主题页签增加可选的选中背景、文字和下划线数据，见[主题页签](panel-navigation.md)。
+沿用共享 Runtime 的五个脚本和稳定 GUID；不把程序生成的 Pixi 页签纹理导入 Unity。
+旧文档在 Runtime 中保留原页签绘制；新导入包仍须通过原有 Runtime 身份检查。
 
 多实例的开关、焦点和事件路由可使用 [共享宿主 SDK](panel-host.md)，它独立于生成 Runtime，
 只安装一个脚本。五个原生实例同时运行及 20 轮生命周期已完成，见 [接入验收](host-integration-acceptance-2026-10-06.md)。
