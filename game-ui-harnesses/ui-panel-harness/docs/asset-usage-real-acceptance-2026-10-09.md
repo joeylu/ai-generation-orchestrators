@@ -24,6 +24,6 @@
 - 四份真实结果的19项页面检查通过，包含图标挂载与对齐、实际交互及试玩状态、4份浏览器实际下载 ZIP 的 CRC/摘要/大小核对、解包后离线打开及无图库重导入。核验过程新增模型调用0次，页面错误与外部请求均为0。
 - 390宽度检查页面无横向溢出；这不等同于完整移动端交互或人工视觉验收。
 
-本机入口：[真实结果与下载](../output/asset-usage-real-accepted-v1/index.html)、[真实验收摘要](../output/asset-usage-real-accepted-v1/acceptance.json)、[实际页面和下载检查](../output/asset-usage-real-accepted-v1/review-browser-report.json)。这些忽略的本地产物不随 Git 克隆，原始方案、回执与失败记录继续保留。
+本机入口：真实结果与下载（本地产物：`output/asset-usage-real-accepted-v1/index.html`）、真实验收摘要（本地产物：`output/asset-usage-real-accepted-v1/acceptance.json`）、实际页面和下载检查（本地产物：`output/asset-usage-real-accepted-v1/review-browser-report.json`）。这些忽略的本地产物不随 Git 克隆，原始方案、回执与失败记录继续保留。
 
 Unity UGUI 适配包已经导出，**本批 Unity 编辑器原生导入未验收（NOT_RUN）**；游戏项目接入未执行。历史 Unity 验收不能替代本批验证。上述计数绑定选图阶段的构建和请求，后续 Studio 交互优化另行记录本地验证，不增加真实模型成功次数。

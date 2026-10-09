@@ -41,5 +41,5 @@ node scripts/check-semantic-controls-browser.mjs --output output/my-controls-bro
 
 浏览器回归仅使用程序夹具，覆盖八种主题的展开选择、Escape、主按钮事件、恢复默认、离线资源摘要和重导入。
 它不会调用模型，不是新的自然语言生成成功率验收。
-本工作区的[科幻面板前后对比](../output/panel-controls-review-v2/index.html?view=compare)也属于程序化视觉调整，
+本工作区的科幻面板前后对比（本地产物：`output/panel-controls-review-v2/index.html?view=compare`）也属于程序化视觉调整，
 保留先前真实生成源的摘要、业务声明、几何、默认值和试玩值；旧演示文件保持原样。

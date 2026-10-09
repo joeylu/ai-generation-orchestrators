@@ -11,10 +11,10 @@
 ## 本地验证（2026-10-10）
 
 - 87项相关单元回归通过。
-- [引导页面14组](../output/adopt-submit-guidance-v3/guidance-browser-report.json)：完整答案一次提交、未填全零提交、推荐与自由文本、多轮追问、双击只发一次、修改保留试玩值及窄屏布局。
-- [连续编辑13组](../output/adopt-submit-continuous-v2/browser-report.json)：采用答案直接接续同一面板；保留3图标、资源字节、状态、轮次，实际下载及离线往返。
-- [日常流程23组](../output/adopt-submit-simple-v3/simple-workbench-browser-report.json)：使用对应旧目录的既有控件夹具，生成、编辑、采用、取消及状态保留。
-- [传输与失败39组](../output/adopt-submit-codex-v3/codex-workbench-browser-report.json)：采用后失败仅发一次、原面板保留，离线采用可导出上下文且零提交，原取消/诊断检查继续通过。
+- 引导页面14组（本地产物：`output/adopt-submit-guidance-v3/guidance-browser-report.json`）：完整答案一次提交、未填全零提交、推荐与自由文本、多轮追问、双击只发一次、修改保留试玩值及窄屏布局。
+- 连续编辑13组（本地产物：`output/adopt-submit-continuous-v2/browser-report.json`）：采用答案直接接续同一面板；保留3图标、资源字节、状态、轮次，实际下载及离线往返。
+- 日常流程23组（本地产物：`output/adopt-submit-simple-v3/simple-workbench-browser-report.json`）：使用对应旧目录的既有控件夹具，生成、编辑、采用、取消及状态保留。
+- 传输与失败39组（本地产物：`output/adopt-submit-codex-v3/codex-workbench-browser-report.json`）：采用后失败仅发一次、原面板保留，离线采用可导出上下文且零提交，原取消/诊断检查继续通过。
 
 所有浏览器报告的真实模型调用均为0。先前FAIL目录保留：引导v1的按钮配方与当前目录不匹配；
 simple v1把旧控件夹具配到了新目录；codex v1误将程序失败硬匹配为网络断开提示。
@@ -24,7 +24,7 @@ v2独立创作完整来源跨度的程序夹具，没有改写真实模型产物
 4951日常服务已更新到 `4f91cc91f9b29d219138582b43e2b7775ff14b653da0b0c99ca9aa8a8c451abc`。
 核对原空闲启动进程后使用同一命令替换；服务HTML/JS与候选逐字节一致，实际能力入口可用，
 启动错误输出为空。89组浏览器结果与当前/兼容构建脚本字节一致性复核见
-[本地验收](../output/adopt-submit-daily-v1/acceptance.json)。用户旧页的已填回答先通过经摘要核对的旧版无请求按钮
+本地验收（本地产物：`output/adopt-submit-daily-v1/acceptance.json`）。用户旧页的已填回答先通过经摘要核对的旧版无请求按钮
 合并并保存，刷新后需求、修改草稿逐字一致，聊天面板及0/10轮次恢复；未代用户提交真实请求。
 浏览器截图接口两次未能捕获当前页，恢复以实际可见页面与DOM核对为证，不宣称有日常页截图。
 Unity原生导入及新的美术验收未执行。
