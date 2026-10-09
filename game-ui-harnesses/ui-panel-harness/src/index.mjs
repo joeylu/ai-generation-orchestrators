@@ -9,6 +9,7 @@ export { validatePanelRequest, createPlanningContext, validatePlanningContext } 
 export { PanelPlanningError, proposalTargets, validatePanelProposal, checkPanelProposal, requireReadyProposal } from './proposal.mjs';
 export { PanelPatchError, applyPanelPatch } from './patch.mjs';
 export { createAssetRetrieval, validateAssetRetrieval } from './asset-retrieval.mjs';
+export { recommendPanelIcons, ICON_USAGE_POLICY } from './asset-usage.mjs';
 export { PanelClarificationError, createClarifiedRequest } from './clarification.mjs';
 export { PanelEditPlanningError, createPanelEditContext, validatePanelEditContext, validatePanelEditProposal, checkPanelEditProposal, requireReadyEditProposal } from './edit-planning.mjs';
 export { attachLayoutSession } from './layout-session.mjs';

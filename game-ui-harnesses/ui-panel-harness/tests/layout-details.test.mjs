@@ -91,7 +91,7 @@ for(const ops of [
 });
 
 test('actual model flow counts the composite once; undo, no-op and export/reimport respect used budget',async()=>{
- const m=await createWorkbenchModel({catalog,pool:null},core);await m.importPanel(before);const prepared=(await m.prepareEdit(request)).context;assert.equal(prepared.editContextVersion,'0.12');
+ const m=await createWorkbenchModel({catalog,pool:null},core);await m.importPanel(before);const prepared=(await m.prepareEdit(request)).context;assert.equal(prepared.editContextVersion,'0.14');
  await m.acceptEditProposal(await materializeCodexEditDraft(prepared,draft(prepared,operations)));assert.equal(m.getEditBudget().used,1);assert.equal(m.getSnapshot().panel.spec.layout.titleHeight,56);
  const saved=await m.exportPanel();await m.importPanel(saved);assert.equal(m.getEditBudget().used,1);await m.patch(await patch(saved.spec,[details({})]));assert.equal(m.getEditBudget().used,1);
  // Reimport intentionally clears the undo stack; verify undo with a fresh successful transaction.

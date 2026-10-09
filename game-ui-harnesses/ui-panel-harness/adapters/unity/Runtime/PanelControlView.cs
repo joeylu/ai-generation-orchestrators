@@ -19,5 +19,8 @@ namespace GameUi.PanelHarness
         public Button[] tabButtons;
         public GameObject[] tabPages;
         public Color tabActiveColor, tabIdleColor;
+        public Text[] tabLabels;
+        public GameObject[] tabIndicators;
+        public Color tabActiveTextColor, tabIdleTextColor;
     }
 }

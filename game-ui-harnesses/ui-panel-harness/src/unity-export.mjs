@@ -3,8 +3,11 @@ import { controlId } from './compiler.mjs';
 import { nativeTitleAlignment } from './title-bar.mjs';
 import { formErrorId } from './forms.mjs';
 import { tabPageId } from './tabs.mjs';
+import {resolveTheme} from './catalog.mjs';
+import {appearanceTokens} from './appearance.mjs';
+import {tabPalette} from './tabs-skin.mjs';
 
-export const UNITY_ADAPTER_VERSION = '0.1.4';
+export const UNITY_ADAPTER_VERSION = '0.1.5';
 const supported = new Set(['Container', 'Text', 'Image', 'Slider', 'Switch', 'Select', 'Button', 'ProgressBar', 'ScrollView', 'Tabs', 'Input']);
 const fail = code => { const error = new Error(code); error.code = code; throw error; };
 
@@ -47,16 +50,35 @@ export async function createUnityDocument(input, core) {
     ...(row.kind === 'progress' ? { displayMode: row.format.mode } : {}),
     ...(row.action?.kind === 'submit' ? { submitFields: [...row.action.fields] } : {}),
     ...(row.kind === 'input' ? { placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
+      ...(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0'].includes(bundle.compilerVersion)?{deferEmptyError:true}:{}),
       validation: structuredClone(row.validation), requiredErrorTextId: formErrorId(spec.id,row.id,'required'),
       minLengthErrorTextId: formErrorId(spec.id,row.id,'min-length') } : {}),
   }));
   const nodes = [];
+  const centeredMenuTitle=['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0'].includes(bundle.compilerVersion)&&!spec.titleBar&&spec.sections.length===1&&spec.sections[0].rows.every(row=>row.kind==='button'&&row.label==='');
+  const selectSkinPaths = new Set();
+  const themedTabs = ['0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0'].includes(bundle.compilerVersion) ? tabPalette(appearanceTokens(resolveTheme(bundle.catalog,spec.theme).tokens,spec.appearance)) : null;
   if (spec.tabs) controls.push({nodeId:controlId(spec.id,spec.tabs.id),rowId:spec.tabs.id,kind:'tabs',fieldId:spec.tabs.bind,eventName:spec.tabs.event,
     enabled:spec.tabs.enabled,action:'',resetFields:[],valueTextId:'',prefix:'',suffix:'',fractionDigits:0,
     contentIds:spec.tabs.pages.map(page=>tabPageId(spec.id,page.id))});
   function visit(node, parentId) {
     if (!supported.has(node.type)) fail('UNITY_COMPONENT_UNSUPPORTED');
     const p = node.props, s = p.style, region = p.region;
+    // Native Dropdown already paints its field and menu from this same style.
+    // Deterministic Pixi Select skins are bundled for replay, not imported as Unity assets.
+    if (['0.15.0','0.16.0','0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0'].includes(bundle.compilerVersion) && node.type === 'Select' && p.appearance) {
+      for (const key of ['fieldImage','popupImage','arrowImage']) selectSkinPaths.add(p.appearance[key]);
+    }
+    if (themedTabs && node.type === 'Tabs' && p.appearance) {
+      selectSkinPaths.add(p.appearance.tabImage);selectSkinPaths.add(p.appearance.activeTabImage);
+    }
+    if(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0'].includes(bundle.compilerVersion)&&['Input','Slider','Switch','ProgressBar'].includes(node.type)&&p.appearance) {
+      const collect=value=>{
+        if(typeof value==='string'&&(value.startsWith('generated/minimal-v1/')||value.startsWith('generated/grouped-v1/')||value.startsWith('generated/raised-slider-v1/')))selectSkinPaths.add(value);
+        else if(value&&typeof value==='object')for(const child of Object.values(value))collect(child);
+      };
+      collect(p.appearance);
+    }
     // Reject float overflow rather than silently changing native geometry.
     for (const value of Object.values(node.layout)) if (!Number.isFinite(Math.fround(value))) fail('UNITY_GEOMETRY_PRECISION');
     nodes.push({
@@ -64,7 +86,10 @@ export async function createUnityDocument(input, core) {
       backgroundColor: s.backgroundColor, borderColor: s.borderColor, textColor: s.textColor,
       borderWidth: s.borderWidth, cornerRadius: s.cornerRadius, opacity: s.opacity,
       fontSize: s.fontSize, bold: s.fontWeight === 'bold', drawBackground: p.drawBackground ?? true,
+      ...(themedTabs && node.type==='Tabs' ? {tabActiveColor:themedTabs.active,tabActiveTextColor:themedTabs.activeText,tabIndicatorColor:themedTabs.indicator} : {}),
       ...(spec.titleBar && node.id === `${spec.id}.title` ? { textAlignment: nativeTitleAlignment(spec.titleBar) } : {}),
+      ...(bundle.compilerVersion==='0.25.0'&&controls.some(control=>control.kind==='slider'&&control.valueTextId===node.id)?{textAlignment:'MiddleRight'}:{}),
+      ...(centeredMenuTitle&&node.id===`${spec.id}.title`?{textAlignment:'MiddleCenter'}:{}),
       text: p.text ?? p.label ?? '', source: p.source ?? '', fit: p.fit ?? '',
       hasRegion: Boolean(region), regionX: region?.x ?? 0, regionY: region?.y ?? 0,
       regionWidth: region?.width ?? 0, regionHeight: region?.height ?? 0,
@@ -73,13 +98,13 @@ export async function createUnityDocument(input, core) {
     for (const child of node.children ?? []) {
       // The modern Pixi label is centered from environment glyph measurements.
       // Native Button already paints node.text at MiddleCenter; keep one label.
-      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
+      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
       visit(child, node.id);
     }
   }
   visit(bundle.componentBundle.document.root, '');
   const records = new Map((bundle.assetClosure?.records ?? []).map(asset => [asset.sha256, asset]));
-  const assets = bundle.componentBundle.resources.map(resource => {
+  const assets = bundle.componentBundle.resources.filter(resource => !selectSkinPaths.has(resource.path)).map(resource => {
     const record = records.get(resource.sha256);
     if (!record || resource.path !== `textures/${resource.sha256}.png`) fail('UNITY_ASSET_REFERENCE');
     return { path: resource.path, sha256: resource.sha256, bytes: record.bytes, width: record.width, height: record.height };

@@ -8,6 +8,8 @@ import { createHash } from 'node:crypto';
 import { createPlanningContext } from '../src/planning-context.mjs';
 import { proposalTargets } from '../src/proposal.mjs';
 import { digestJson } from '../src/canonical.mjs';
+import { createStudioBuildInfo, studioHtmlTemplate } from '../src/studio-build-info.mjs';
+import { BUNDLED_CORE } from '../src/bundled-core-assets.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const catalogPath = join(root, 'examples/modern-mint-controls.catalog.json');
@@ -69,6 +71,8 @@ test('static workbench compiles a real asset-free example and records only actua
   assert.deepEqual(Object.keys(seed).sort(), ['catalog', 'example', 'pool', 'workbenchSeedVersion']);
   assert.equal(seed.workbenchSeedVersion, '0.1'); assert.deepEqual(seed.catalog, catalog);
   assert.equal(seed.pool, null); assert.deepEqual(seed.example, { context, proposal });
+  assert.deepEqual(manifest.studio, await createStudioBuildInfo('0.1.0', { shellSha256: createHash('sha256').update(studioHtmlTemplate(html, manifest.studio)).digest('hex'), scriptSha256: manifest.files[1].sha256 }));
+  assert(html.includes(`data-build="${manifest.studio.buildSha256}"`));
   assert.equal(source.includes('<'), false, 'Raw request markup cannot terminate the inert JSON script');
   assert.match(html, /src="(?:\.\/)?workbench\.js"/);
   const before = await readFile(join(output, 'workbench-build.json'));
@@ -91,6 +95,8 @@ test('arguments reject incomplete example pairs, duplicate flags and orphan Shar
     { args: ['--example-context', contextPath], code: 'WORKBENCH_EXAMPLE_PAIR_REQUIRED' },
     { args: ['--example-proposal', proposalPath], code: 'WORKBENCH_EXAMPLE_PAIR_REQUIRED' },
     { args: ['--sharp-module', 'unused-module'], code: 'WORKBENCH_ASSETS_REQUIRED' },
+    { args: ['--assets', 'builtin', '--sharp-module', 'unused-module'], code: 'WORKBENCH_EXTERNAL_ASSETS_REQUIRED' },
+    { args: ['--assets', 'none', '--sharp-module', 'unused-module'], code: 'WORKBENCH_EXTERNAL_ASSETS_REQUIRED' },
     { args: ['--catalog', catalogPath], code: 'WORKBENCH_ARGUMENTS' },
     { args: ['--unknown', 'value'], code: 'WORKBENCH_ARGUMENTS' },
     { args: ['--assets'], code: 'WORKBENCH_ARGUMENTS' },
@@ -101,6 +107,23 @@ test('arguments reject incomplete example pairs, duplicate flags and orphan Shar
   }
   const missing = join(work, 'missing-catalog');
   await rejected(missing, run('--output', missing), 'WORKBENCH_ARGUMENTS');
+});
+
+test('builtin build embeds the pinned core without Sharp; explicit none remains asset-free', async () => {
+  for (const assets of ['builtin', 'none']) {
+    const output = join(work, `assets-${assets}`), result = run(...basic(output), '--assets', assets);
+    assert.equal(result.status, 0, result.stderr);
+    const { seed } = embeddedSeed(await readFile(join(output, 'index.html'), 'utf8'));
+    const manifest = await json(join(output, 'workbench-build.json'));
+    if (assets === 'builtin') {
+      assert.equal(seed.pool.sha256, BUNDLED_CORE.poolSha256);
+      assert.equal(manifest.poolSha256, BUNDLED_CORE.poolSha256);
+      assert.equal(manifest.recordCount, 12); assert.equal(manifest.imageCount, 12);
+      assert.equal(manifest.sourceReplay, 'PINNED_BUNDLED_ASSETS');
+    } else {
+      assert.equal(seed.pool, null); assert.equal(manifest.sourceReplay, 'NOT_APPLICABLE');
+    }
+  }
 });
 
 test('example context must use the exact supplied catalog and all unresolved items block embedding', async () => {

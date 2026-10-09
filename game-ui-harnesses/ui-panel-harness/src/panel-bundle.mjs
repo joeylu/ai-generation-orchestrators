@@ -1,8 +1,8 @@
 import { validatePanelSpec, snapshotJson } from './spec.mjs';
 import { validateCatalog } from './catalog.mjs';
-import { compilePanel, defaultPanelCompilerVersion, PANEL_COMPILER_VERSION, ASSET_PANEL_COMPILER_VERSION, CONTROLS_PANEL_COMPILER_VERSION, FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION } from './compiler.mjs';
+import { compilePanel, defaultPanelCompilerVersion, PANEL_COMPILER_VERSION, ASSET_PANEL_COMPILER_VERSION, CONTROLS_PANEL_COMPILER_VERSION, FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, GROUPED_PANEL_COMPILER_VERSION, PLAIN_ICON_PANEL_COMPILER_VERSION, RAISED_SLIDER_PANEL_COMPILER_VERSION, GROUPED_CONTENT_PANEL_COMPILER_VERSION, ALIGNED_SETTINGS_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION } from './compiler.mjs';
 import { canonicalJson, digestJson } from './canonical.mjs';
-import { validatePanelAssetInputs } from './panel-assets.mjs';
+import { validatePanelAssetInputs, panelAssetPath } from './panel-assets.mjs';
 
 /** An envelope around the unchanged component bundle, not a new UiBundle version. */
 export async function createPanelBundle(specInput, catalogInput, core, stateInput, assetInput, compilerVersionInput) {
@@ -12,7 +12,7 @@ export async function createPanelBundle(specInput, catalogInput, core, stateInpu
   const assets = await validatePanelAssetInputs(spec, assetInput);
   const compilerVersion = compilerVersionInput ?? defaultPanelCompilerVersion(spec, catalog);
   const compiled = compilePanel(spec, catalog, core, state, assets.closure, compilerVersion);
-  const componentBundle = await core.createBundle(compiled.document, assets.resources, {
+  const componentBundle = await core.createBundle(compiled.document, [...assets.resources,...(compiled.resources ?? [])], {
     kind: spec.provenance.kind === 'programmatic-fixture' ? 'programmatic-fixture' : 'user-provided',
     description: spec.provenance.kind === 'agent-authored'
       ? 'Agent-proposed external document; not user-authored or reviewed. Full author description and assumptions are preserved in the enclosing PanelBundle spec.provenance.'
@@ -33,7 +33,8 @@ export async function validatePanelBundle(input, core) {
   input = snapshotJson(input);
   if (!input || Object.getPrototypeOf(input) !== Object.prototype) throw new Error('PANEL_BUNDLE_OBJECT');
   // Recompile the embedded authored inputs: hashes alone do not prove that output follows the spec.
-  if (!(input.panelBundleVersion === '0.1' && input.compilerVersion === PANEL_COMPILER_VERSION)
+  const semantic = ['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(input.panelBundleVersion) && [SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, GROUPED_PANEL_COMPILER_VERSION, PLAIN_ICON_PANEL_COMPILER_VERSION, RAISED_SLIDER_PANEL_COMPILER_VERSION, GROUPED_CONTENT_PANEL_COMPILER_VERSION, ALIGNED_SETTINGS_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION].includes(input.compilerVersion);
+  if (!semantic && !(input.panelBundleVersion === '0.1' && input.compilerVersion === PANEL_COMPILER_VERSION)
     && !(input.panelBundleVersion === '0.2' && input.compilerVersion === ASSET_PANEL_COMPILER_VERSION)
     && !(input.panelBundleVersion === '0.3' && input.compilerVersion === CONTROLS_PANEL_COMPILER_VERSION)
     && !(input.panelBundleVersion === '0.4' && [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION].includes(input.compilerVersion))
@@ -55,6 +56,7 @@ export async function validatePanelBundle(input, core) {
 
 /** Call only with a validated component bundle; binary decoding is owned by its adapter. */
 export function panelBundleAssetInputs(bundle, core) {
+  const paths = new Set((bundle.assetClosure?.records ?? []).map(panelAssetPath));
   return bundle.spec?.assets
-    ? { closure: bundle.assetClosure, resources: core.bundleResources(bundle.componentBundle) } : undefined;
+    ? { closure: bundle.assetClosure, resources: core.bundleResources(bundle.componentBundle).filter(resource=>paths.has(resource.path)) } : undefined;
 }

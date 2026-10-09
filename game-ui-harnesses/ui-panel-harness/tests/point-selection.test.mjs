@@ -146,7 +146,9 @@ test('selection geometry clips nested scrollers, excludes hidden pages, and incl
 
 test('selection overlay is event driven, never activates preview, preserves focus on resize and detaches', () => {
   const previousDocument = globalThis.document, previousObserver = globalThis.ResizeObserver;
-  let focused, observer, listener, detached = 0, inspected = 0, chosen, exits = 0;
+  let focused, observer, listener, detached = 0, inspected = 0, chosen, exits = 0, visible = true;
+  const bounds = { x: 40, y: 40, width: 60, height: 60 };
+  let canvasWidth = 150;
   class Element extends EventTarget {
     style = {}; dataset = {}; children = []; attributes = {}; hidden = false;
     setAttribute(key,value) { this.attributes[key] = value; }
@@ -162,9 +164,10 @@ test('selection overlay is event driven, never activates preview, preserves focu
     const s = { id: 'p', canvas: { width: 300, height: 200 }, sections: [{ rows: [{ id: 'r', kind: 'button', label: '', buttonLabel: '确认' }] }] };
     const host = new Element();
     const preview = { canvas: new Element(), getDocument: () => ({ root: { id: 'p.row.r.control' } }),
-      inspect: () => { inspected++; return { nodes: [{ id: 'p.row.r.control', visible: true, bounds: { x: 40, y: 40, width: 60, height: 60 } }] }; },
+      inspect: () => { inspected++; return { nodes: [{ id: 'p.row.r.control', visible, bounds }] }; },
       subscribe: fn => { listener = fn; return () => { detached++; }; },
     };
+    preview.canvas.getBoundingClientRect = () => ({ left: 15, top: 30, width: canvasWidth, height: 100 });
     const overlay = attachWorkbenchSelection(host, s, preview, id => { chosen = id; }, () => { exits++; });
     const layer = host.children[0]; assert.equal(layer.hidden,true); assert.equal(inspected,0);
     overlay.setActive(true); const button = layer.children[0]; assert.equal(focused,button);
@@ -176,6 +179,21 @@ test('selection overlay is event driven, never activates preview, preserves focu
     overlay.setSuspended(true); assert.equal(layer.hidden,true);
     overlay.setSuspended(false); assert.equal(layer.hidden,false);
     overlay.setActive(false); assert.equal(layer.hidden,true);
+    const outline = host.children[1], beforeFocus = focused;
+    overlay.setSelectedRow('r'); assert.equal(outline.hidden, false); assert.equal(layer.hidden, true);
+    assert.equal(outline.attributes['aria-hidden'], 'true'); assert.equal(outline.dataset.rowId, 'r');
+    assert.deepEqual(outline.style, { left: '25px', top: '30px', width: '30px', height: '30px' });
+    assert.equal(focused, beforeFocus, 'Passive outline never moves focus');
+    canvasWidth = 300; observer.callback(); assert.equal(outline.style.left, '45px'); assert.equal(outline.style.width, '60px');
+    bounds.y = 190; listener({ type: 'scroll' }); assert.equal(outline.style.height, '5px');
+    visible = false; listener({ type: 'change' }); assert.equal(outline.hidden, true);
+    visible = true; listener({ type: 'change' }); assert.equal(outline.hidden, false);
+    overlay.setActive(true); assert.equal(outline.hidden, true); assert.equal(layer.hidden, false);
+    overlay.setActive(false); assert.equal(outline.hidden, false);
+    overlay.setSuspended(true); assert.equal(outline.hidden, true);
+    overlay.setSuspended(false); assert.equal(outline.hidden, false);
+    overlay.setSelectedRow(null); assert.equal(outline.hidden, true);
+    overlay.setSelectedRow('missing'); assert.equal(outline.hidden, true);
     overlay.destroy(); assert.equal(detached,2); assert.equal(host.children.length,0);
     const calls = inspected; observer.callback(); assert.equal(inspected,calls);
   } finally { globalThis.document = previousDocument; globalThis.ResizeObserver = previousObserver; }

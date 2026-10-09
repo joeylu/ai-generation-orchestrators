@@ -4,6 +4,8 @@ import { controlId, choiceId, initialPanelState } from './compiler.mjs';
 import { navigationRows, tabPageId } from './tabs.mjs';
 import { progressDisplayValue, progressDisplayMax } from './progress.mjs';
 import { formErrorId, inputError, formErrors, buttonEnabled } from './forms.mjs';
+import {sectionPurpose} from './panel-presentation.mjs';
+import {measureGroupedSection} from './grouped-presentation.mjs';
 
 const userSources = new Set(['mouse', 'touch', 'pen', 'keyboard']);
 const rowsOf = spec => [...spec.sections.flatMap(section => section.rows), ...navigationRows(spec)];
@@ -58,7 +60,9 @@ export function projectPanelEvent(specInput, stateInput, input) {
 }
 
 /** Attach to an already-loaded TreePreview. The caller retains renderer ownership. */
-export function attachPanelSession(specInput, runtime, onEvent, stateInput) {
+export function attachPanelSession(specInput, runtime, onEvent, stateInput, presentationStyle) {
+  if (presentationStyle !== undefined && !['focused-v1','minimal-v1','grouped-v2'].includes(presentationStyle)) throw new Error('PANEL_PRESENTATION_PROFILE');
+  const minimalPresentation=['minimal-v1','grouped-v2'].includes(presentationStyle);
   const spec = validatePanelSpec(specInput);
   if (typeof runtime?.getDocument !== 'function' || typeof runtime?.subscribe !== 'function'
     || typeof runtime?.setValue !== 'function' || typeof onEvent !== 'function') throw new Error('PANEL_RUNTIME_REQUIRED');
@@ -77,14 +81,22 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput) {
     const node = nodes.get(controlId(spec.id, row.id)), field = fieldMap.get(row.bind);
     if (row.kind === 'text') {
       if (!node || node.type !== 'Text') throw new Error('PANEL_RUNTIME_MISMATCH');
+      const section=spec.sections.find(section=>section.rows.some(item=>item.id===row.id));
+      const focusedCopy = ['focused-v1','minimal-v1','grouped-v2'].includes(presentationStyle) && ['form','dialog'].includes(sectionPurpose(section));
+      const groupedCopy=presentationStyle==='grouped-v2'&&sectionPurpose(section)==='settings'&&section.rows.every(item=>['slider','switch','select','text','progress'].includes(item.kind));
       if (hasTextWrap(spec,row.id)) {
-        const container=nodes.get(`${spec.id}.row.${row.id}`),fontSize=node.props.style.fontSize;
+        const container=nodes.get(groupedCopy?`${spec.id}.section.${section.id}`:`${spec.id}.row.${row.id}`),fontSize=node.props.style.fontSize;
         if(container?.type!=='Container')throw new Error('PANEL_RUNTIME_MISMATCH');
-        const width=container.layout.width-24,expected=wrapStaticText(row.text,width,fontSize);
+        const inset=groupedCopy?20:focusedCopy ? spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 12 : 0 : 12;
+        const width=container.layout.width-inset*2,expected=wrapStaticText(row.text,width,fontSize);
+        const heading=value=>value.trim().replace(/(?:界面|面板)$/,'');
+        const showTitle=Boolean(spec.tabs)||heading(spec.title)!==heading(section.title);
+        const placement=groupedCopy?measureGroupedSection(spec,{fontSize},section,container.layout.width,'settings',showTitle,undefined,2).rows[section.rows.indexOf(row)]:null;
+        const top=placement?placement.y+placement.copyTextY:focusedCopy ? row.label ? Math.ceil(fontSize*1.3)+8 : 0 : 12+Math.ceil(fontSize*1.3)+8;
         if(expected.lines.some((line,i)=>{
           const child=nodes.get(i===0?node.id:node.id+'.line'+i),display=wrappedLinePresentation(line,fontSize);
           return child?.type!=='Text'||child.props.text!==display.text||child.layout.width!==width-display.indent
-            ||child.layout.x!==12+display.indent||child.layout.y!==12+Math.ceil(fontSize*1.3)+8+i*expected.lineHeight
+            ||child.layout.x!==inset+display.indent||child.layout.y!==top+i*expected.lineHeight
             ||child.layout.height!==expected.lineHeight+4||child.props.style.fontSize!==fontSize;
         }) || nodes.has(node.id+'.line'+expected.lines.length))throw new Error('PANEL_RUNTIME_MISMATCH');
       } else if(node.props.text!==row.text)throw new Error('PANEL_RUNTIME_MISMATCH');
@@ -118,10 +130,12 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput) {
     } else hydrated[row.bind] = node.props[['slider', 'input'].includes(row.kind) ? 'value' : 'checked'];
   }
   let state = validatePanelState(spec, hydrated), alive = true, updating = false, interactionLocked = false;
+  const editedInputs = new Set();
   const updateFormViews = () => {
     for (const row of inputRows) {
       const code = inputError(row, state[row.bind]);
-      for (const key of ['required', 'min-length']) runtime.setVisible(formErrorId(spec.id, row.id, key), code === key);
+      const show = !minimalPresentation || editedInputs.has(row.bind) || state[row.bind].length > 0;
+      for (const key of ['required', 'min-length']) runtime.setVisible(formErrorId(spec.id, row.id, key), show && code === key);
     }
     for (const row of rows.filter(row => row.kind === 'button' && row.action.kind === 'submit'))
       runtime.setEnabled(controlId(spec.id, row.id), !interactionLocked && buttonEnabled(spec, row, state));
@@ -162,6 +176,8 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput) {
     if (input?.type === 'destroy') { destroy(); return; }
     if (updating) return;
     const projected = projectPanelEvent(spec, state, input);
+    if(minimalPresentation&&input?.type==='change'&&projected.event?.fieldId
+      &&inputRows.some(row=>row.bind===projected.event.fieldId))editedInputs.add(projected.event.fieldId);
     if (projected.event?.action === 'reset-initial') applyState(projected.state);
     else { state = projected.state; updateFormViews(); }
     if (projected.event) onEvent(projected.event);

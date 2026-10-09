@@ -1,4 +1,4 @@
-# Unity UGUI adapter contract 0.1.4
+# Unity UGUI adapter contract 0.1.5
 
 Implementation target: Unity 6 / UGUI 2.0. This adapter consumes a verified
 PanelBundle 0.1–0.14 and exports a local import kit. The kit does not itself count
@@ -6,7 +6,7 @@ as a Unity-validated Prefab. Unity creates the native Prefab with its own API.
 
 `panel.unity.json` contains a flat, parent-before-child `PanelDocument`:
 
-- `formatVersion`: `"0.1"`; current `adapterVersion`: `"0.1.4"`.
+- `formatVersion`: `"0.1"`; current `adapterVersion`: `"0.1.5"`.
 - `panelId`, `panelSha256`, `panelSpecVersion`: source identity.
 - `canvasWidth`, `canvasHeight`: positive logical pixels.
 - `nodes`: `PanelNode[]` below, including the source canvas root.
@@ -18,6 +18,7 @@ as a Unity-validated Prefab. Unity creates the native Prefab with its own API.
 
 ```text
 string id, parentId, type
+string tabActiveColor, tabActiveTextColor, tabIndicatorColor (optional themed Tabs only)
 float x, y, width, height
 string backgroundColor, borderColor, textColor
 float borderWidth, cornerRadius, opacity

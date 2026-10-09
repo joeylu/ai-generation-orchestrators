@@ -34,20 +34,35 @@ export function previewSelectionTargets(spec, document, inspection) {
   });
 }
 
-/** DOM overlay is present only while selecting; normal Pixi events remain untouched. No animation loop. */
+/** Click targets exist only while selecting. A passive outline keeps the chosen row visible during play. No animation loop. */
 export function attachWorkbenchSelection(host, spec, preview, onSelect, onExit) {
-  let active = false, suspended = false, alive = true;
+  let active = false, suspended = false, alive = true, selectedRowId = null;
   const layer = document.createElement('div'); layer.className = 'selection-layer'; layer.hidden = true;
   layer.setAttribute('role', 'group'); layer.setAttribute('aria-label', '选择修改对象');
+  const outline = document.createElement('div'); outline.className = 'selected-edit-target'; outline.hidden = true;
+  outline.setAttribute('aria-hidden', 'true');
   host.style.position = 'relative'; host.append(layer);
+  host.append(outline);
   const update = () => {
-    if (!alive || !active || suspended) { layer.hidden = true; return; }
-    layer.hidden = false;
+    layer.hidden = true; outline.hidden = true;
+    if (!alive || suspended || (!active && !selectedRowId)) return;
     const canvasRect = preview.canvas.getBoundingClientRect(), hostRect = host.getBoundingClientRect();
+    const targets = previewSelectionTargets(spec, preview.getDocument(), preview.inspect());
+    if (!active) {
+      const target = targets.find(target => target.rowId === selectedRowId);
+      if (target) {
+        const b = target.bounds, scaleX = canvasRect.width / spec.canvas.width, scaleY = canvasRect.height / spec.canvas.height;
+        outline.dataset.rowId = target.rowId;
+        Object.assign(outline.style, { left: `${canvasRect.left - hostRect.left + b.x * scaleX}px`,
+          top: `${canvasRect.top - hostRect.top + b.y * scaleY}px`, width: `${b.width * scaleX}px`, height: `${b.height * scaleY}px` });
+        outline.hidden = false;
+      }
+      return;
+    }
+    layer.hidden = false;
     Object.assign(layer.style, { left: `${canvasRect.left - hostRect.left}px`, top: `${canvasRect.top - hostRect.top}px`,
       width: `${canvasRect.width}px`, height: `${canvasRect.height}px` });
     // Preserve focused buttons on resize/scroll; never replace the whole layer each frame.
-    const targets = previewSelectionTargets(spec, preview.getDocument(), preview.inspect());
     const ids = new Set(targets.map(target => target.rowId));
     for (const child of [...layer.children]) if (!ids.has(child.dataset.rowId)) child.remove();
     for (const target of targets) {
@@ -73,7 +88,8 @@ export function attachWorkbenchSelection(host, spec, preview, onSelect, onExit) 
   const unsubscribe = preview.subscribe(event => { if (['change', 'scroll'].includes(event.type)) update(); });
   return Object.freeze({
     setActive(value) { const entering = value && !active; active = value; update(); if (entering && !suspended) layer.querySelector('button')?.focus(); },
+    setSelectedRow(rowId) { if (rowId === selectedRowId) return; selectedRowId = rowId; update(); },
     setSuspended(value) { if (value === suspended) return; suspended = value; update(); },
-    destroy() { alive = false; observer.disconnect(); unsubscribe(); layer.remove(); },
+    destroy() { alive = false; observer.disconnect(); unsubscribe(); layer.remove(); outline.remove(); },
   });
 }

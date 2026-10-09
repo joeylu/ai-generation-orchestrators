@@ -20,7 +20,7 @@ for (let i = 2; i < process.argv.length; i += 2) {
 }
 assert(options['--workbench'] && options['--output']);
 const output = await createOutputDirectory(options['--output']), workbench = resolve(options['--workbench']);
-const report = { version: '0.1', status: 'RUNNING', modelRequests: 0, fixtureCalls: { plan: 0, edit: 0 },
+const report = { version: '0.2', status: 'RUNNING', modelRequests: 0, fixtureCalls: { plan: 0, edit: 0 },
   checks: [], blockedRequests: 0, browserErrors: [], nativeEngines: 'NOT_RUN', realModelInterpretation: 'NOT_RUN' };
 const pass = name => report.checks.push({ name, status: 'PASS' });
 const questions = [
@@ -28,11 +28,14 @@ const questions = [
   { id: 'q1', question: '静音默认是什么状态？开启表示什么？' },
   { id: 'q2', question: '恢复默认影响哪些设置？【推荐回答：恢复默认只重置音量和静音。】' },
 ];
+let pendingAdoption;
 const receipt = (context, checked, editing = false) => ({ [editing ? 'codexEditingReceiptVersion' : 'codexPlanningReceiptVersion']: '0.1',
   model: 'gpt-6-luna', effort: 'xhigh', contextSha256: context.sha256, proposalSha256: checked.proposalSha256,
   status: checked.status, failureCode: null, invocationCount: 1, automaticRetries: 0, elapsedMs: 0, usage: null });
 function audioIntent(context) {
-  const common = (kind, label) => ({ kind, label, recipeKey: `settings.${kind}@0.1.0`, sourceRef: 'request', icon: null, enabled: true });
+  const common = (kind, label) => ({ kind, label,
+    recipeKey: kind === 'button' ? 'settings.button.secondary@0.1.0' : `settings.${kind}@0.1.0`,
+    sourceRef: 'request', icon: null, enabled: true });
   return { panelIntentVersion: '0.8', contextSha256: context.sha256, unresolved: [], panel: {
     id: context.request.id, title: '声音设置', themeKey: `${context.catalog.themes[0].id}@${context.catalog.themes[0].version}`, panelSurface: null,
     layout: { width: null, canvasWidth: null, canvasHeight: null, maxHeight: 480, overflow: 'auto' },
@@ -50,6 +53,7 @@ async function planner(context) {
     assert.equal(context.request.text, beginnerExamples[0].text);
     intent = { panelIntentVersion: '0.8', contextSha256: context.sha256, panel: null, unresolved: questions };
   } else if (report.fixtureCalls.plan === 2) {
+    await pendingAdoption.wait;
     assert(context.request.text.startsWith(beginnerExamples[0].text + '\n\n【补充回答】'));
     for (const text of ['回答：音量0～100，每次变化1，默认70。', '回答：默认关闭，开启表示静音。', '回答：恢复默认只重置音量和静音。']) assert(context.request.text.includes(text));
     intent = audioIntent(context);
@@ -157,22 +161,33 @@ try {
   assert.equal(await page.locator('#questions li:nth-child(1) button[aria-pressed=true]').count(), 0);
   await click('#questions li:nth-child(1) button:nth-child(1)');
   await page.locator('#questions li:nth-child(2) textarea').fill('默认关闭，开启表示静音。');
+  assert.equal(await page.locator('#clarify').textContent(), '采用回答并生成');
   await page.screenshot({ path: join(output, 'choices-mobile.png') });
-  await click('#clarify'); await idle();
+  let release;
+  pendingAdoption = { wait: new Promise(done => { release = done; }) };
+  const adoptedResponse = page.waitForResponse(value => new URL(value.url()).pathname === '/api/panel/plan');
+  await page.locator('#clarify').scrollIntoViewIfNeeded();
+  const adoptBounds = await page.locator('#clarify').boundingBox(); assert(adoptBounds);
+  await page.mouse.dblclick(adoptBounds.x + adoptBounds.width / 2, adoptBounds.y + adoptBounds.height / 2);
+  await until(() => report.fixtureCalls.plan === 2);
+  assert(await page.locator('#generate-plan').isDisabled()); assert(await page.locator('#clarify').isDisabled());
+  assert.equal(report.fixtureCalls.plan, 2); release();
+  assert.equal((await adoptedResponse).status(), 200); await idle();
+  pass('double-clicking adoption while the response is held submits once and locks actions');
   const clarified = await page.locator('#request-text').inputValue(); assert(clarified.startsWith(beginnerExamples[0].text));
-  assert(clarified.includes('回答：默认关闭，开启表示静音。')); assert.equal(report.fixtureCalls.plan, 1);
+  assert(clarified.includes('回答：默认关闭，开启表示静音。')); assert.equal(report.fixtureCalls.plan, 2);
   assert.equal(clarified.includes('备选回答'), false);
   assert((await page.evaluate(() => window.panelWorkbench.snapshot())).context.request.text.includes('【备选回答：'));
   assert(await page.locator('#clarification-form').isHidden());
-  pass('suggestions can be replaced by free text; adopting all answers preserves original request and does not call a model');
-  await page.setViewportSize({ width: 1440, height: 1080 }); await submit('#generate-plan', 'plan');
+  pass('adopting complete answers submits exactly one clarified generation without another click');
+  await page.setViewportSize({ width: 1440, height: 1080 });
   const accepted = await page.evaluate(() => window.panelWorkbench.snapshot());
   assert.equal(accepted.phase, 'ready'); assert.equal(accepted.panel.spec.state[0].initial, 70);
   assert.equal(await page.locator('#summary-overview').textContent(), '当前面板：包含音量、静音、恢复默认。');
   await click('#requirement-summary summary');
   const details = await page.locator('#summary-details').textContent();
   assert(details.includes('默认 70')); assert(details.includes('恢复音量、静音的默认值')); assert.equal(report.fixtureCalls.plan, 2);
-  pass('explicit second click generates a real Pixi fixture; summary reads exact accepted values and reset scope');
+  pass('adopt-and-generate renders a Pixi fixture; summary reads exact accepted values and reset scope');
 
   stage = 'edit-choices';
   const nodes = await page.evaluate(() => window.panelWorkbench.inspect().nodes), slider = nodes.find(node => node.type === 'Slider');
@@ -185,18 +200,17 @@ try {
   assert.equal((await page.evaluate(() => window.panelWorkbench.snapshot())).panel.sha256, accepted.panel.sha256);
   assert.deepEqual(await page.evaluate(() => window.panelWorkbench.getState()), played);
   await page.locator('#edit-questions button').first().focus(); await page.keyboard.press('Enter');
-  await click('#clarify-edit'); await idle(); assert.equal(report.fixtureCalls.edit, 1);
+  assert.equal(await page.locator('#clarify-edit').textContent(), '采用回答并修改');
+  await submit('#clarify-edit', 'edit'); assert.equal(report.fixtureCalls.edit, 2);
   assert((await page.locator('#edit-request-text').inputValue()).startsWith('调整默认音量，其他保持不变。\n\n【补充回答】'));
   assert.equal((await page.locator('#edit-request-text').inputValue()).includes('备选回答'), false);
-  assert.equal(await page.locator('#edit-plan-status').textContent(), '回答已补充，请点击「修改面板」。');
-  await submit('#generate-edit', 'edit');
   assert.equal((await page.evaluate(() => window.panelWorkbench.snapshot())).panel.spec.state[0].initial, 50);
   assert.deepEqual(await page.evaluate(() => window.panelWorkbench.getState()), played);
   assert((await page.locator('#summary-details').textContent()).includes('默认 50'));
   assert(await page.locator('#edit-clarification-form').isHidden());
   await page.locator('#requirement-summary').evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
   await page.screenshot({ path: join(output, 'summary-desktop.png') });
-  pass('edit choices adopt answers without compute; explicit edit click updates summary and preserves played values');
+  pass('adopting edit answers submits exactly once, updates summary and preserves played values');
   await click('#panel-menu>summary'); await click('#undo'); await idle();
   assert((await page.locator('#summary-details').textContent()).includes('默认 70'));
   assert.deepEqual(await page.evaluate(() => window.panelWorkbench.getState()), played);
@@ -217,12 +231,14 @@ try {
   pass('malformed suggestions and ordinary prose stay free-text; markup stays inert; editing requirement hides stale questions and keeps last panel');
 
   stage = 'successive-clarifications'; await page.locator('#request-text').fill('做一个声音设置。');
+  await submit('#generate-plan', 'plan');
   for (let round = 0; round < 2; round++) {
-    await submit('#generate-plan', 'plan'); await click('#questions button:nth-child(1)'); await click('#clarify'); await idle();
+    const beforeChoice = report.fixtureCalls.plan;
+    await click('#questions button:nth-child(1)'); assert.equal(report.fixtureCalls.plan, beforeChoice);
+    await submit('#clarify', 'plan'); assert.equal(report.fixtureCalls.plan, beforeChoice + 1);
     assert.equal((await page.locator('#request-text').inputValue()).includes('备选回答'), false);
     assert((await page.locator('#request-text').inputValue()).includes('回答：音量0～100，每次变化1，默认70。'));
   }
-  await submit('#generate-plan', 'plan');
   assert.equal((await page.evaluate(() => window.panelWorkbench.snapshot())).phase, 'ready');
   pass('successive clarification rounds retain every adopted fact without reintroducing unselected alternatives in input');
 

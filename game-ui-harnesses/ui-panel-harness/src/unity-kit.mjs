@@ -89,7 +89,9 @@ export async function createUnityKitFiles(input, core, sources) {
   contents.set('unity-runtime.json', jsonBytes(await createUnityRuntimeIdentity(sources)));
   contents.set('panel.bundle.json', jsonBytes(bundle));
   contents.set('README.md', utf8(readme));
+  const nativeAssets = new Set(document.assets.map(asset => asset.path));
   for (const resource of bundle.componentBundle.resources) {
+    if (!nativeAssets.has(resource.path)) continue;
     const binary = atob(resource.base64);
     contents.set(resource.path, Uint8Array.from(binary, char => char.charCodeAt(0)));
   }

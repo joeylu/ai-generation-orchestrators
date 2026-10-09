@@ -4,6 +4,7 @@ import { lstat, open } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { canonicalJson, digestBytes, digestJson } from './canonical.mjs';
 import { harnessRoot } from './io.mjs';
+import { createStudioBuildInfo, validateStudioBuildInfo, studioHtmlTemplate } from './studio-build-info.mjs';
 import { validateCatalog } from './catalog.mjs';
 import { validatePlanningContext } from './planning-context.mjs';
 import { checkPanelProposal, validatePanelProposal } from './proposal.mjs';
@@ -11,6 +12,7 @@ import { validatePanelEditContext, validatePanelEditProposal, checkPanelEditProp
 import { applyPanelPatch } from './patch.mjs';
 import { validateCodexDiagnostic } from './codex-diagnostics.mjs';
 import { validateWorkbenchAssetPool, verifyWorkbenchContextPool, workbenchAssetInputs } from './workbench-assets.mjs';
+import { isBundledCorePool } from './bundled-core-assets.mjs';
 import { CODEX_MODEL, CODEX_EFFORT, findCodexExecutable, planWithCodex, editWithCodex, validateCodexReceipt, validateCodexEditReceipt } from './codex-planner.mjs';
 
 const MIB = 1024 * 1024;
@@ -79,10 +81,13 @@ async function loadBuild(workbench) {
   if (raw.workbenchSeedVersion !== '0.1') fail('WORKBENCH_SERVER_SEED');
   const catalog = freeze(validateCatalog(raw.catalog));
   const pool = raw.pool === null ? null : await validateWorkbenchAssetPool(raw.pool);
+  const sourceReplayValid = pool
+    ? manifest.sourceReplay === 'VERIFIED_AT_BUILD' || (manifest.sourceReplay === 'PINNED_BUNDLED_ASSETS' && isBundledCorePool(pool))
+    : manifest.sourceReplay === 'NOT_APPLICABLE';
   if (manifest.catalogSha256 !== await digestJson(catalog) || manifest.poolSha256 !== (pool?.sha256 ?? null)
       || !same(manifest.library, pool ? { id: pool.index.id, sha256: pool.index.sha256 } : null)
       || manifest.recordCount !== (pool?.index.records.length ?? 0) || manifest.imageCount !== (pool?.resources.length ?? 0)
-      || manifest.sourceReplay !== (pool ? 'VERIFIED_AT_BUILD' : 'NOT_APPLICABLE')) fail('WORKBENCH_SERVER_SEED_MISMATCH');
+      || !sourceReplayValid) fail('WORKBENCH_SERVER_SEED_MISMATCH');
   if (raw.example === null) {
     if (manifest.example !== null) fail('WORKBENCH_SERVER_EXAMPLE');
   } else {
@@ -99,7 +104,31 @@ async function loadBuild(workbench) {
         || !HASH.test(manifest.example?.panelSha256)) fail('WORKBENCH_SERVER_EXAMPLE');
     if (pool) await workbenchAssetInputs(proposal.spec, pool);
   }
-  return { artifacts, catalog, pool };
+  let studio = null;
+  if (manifest.studio !== undefined) {
+    studio = validateStudioBuildInfo(manifest.studio);
+    let template;
+    try { template = studioHtmlTemplate(html, studio); } catch { fail('WORKBENCH_SERVER_BUILD_IDENTITY'); }
+    const expected = await createStudioBuildInfo(studio.appVersion, { shellSha256: await digestBytes(Buffer.from(template)), scriptSha256: await digestBytes(artifacts.get('workbench.js')) });
+    if (!same(studio, expected)) fail('WORKBENCH_SERVER_BUILD_IDENTITY');
+  }
+  const editingCatalogs = [catalog];
+  // Only an exact shipped successor admits its exact previous daily catalogs.
+  // Importing an arbitrary catalog never expands planner/editor capabilities.
+  const dailyPredecessors = new Map([
+    ['modern-refined@0.8.0', ['modern-refined.catalog.json', 'modern-navigation.catalog.json']],
+    ['modern-minimal@0.9.0', ['modern-minimal.catalog.json', 'modern-navigation.catalog.json', 'modern-refined.catalog.json']],
+    ['modern-menu@0.18.0', ['modern-menu.catalog.json', 'modern-navigation.catalog.json', 'modern-refined.catalog.json', 'modern-minimal.catalog.json']],
+  ]).get(`${catalog.id}@${catalog.version}`);
+  if (dailyPredecessors) {
+    const readCatalog = async file => freeze(validateCatalog(JSON.parse(decode(await readBounded(resolve(harnessRoot, 'examples', file), MIB)))));
+    const [currentFile, ...previousFiles] = dailyPredecessors;
+    const current = await readCatalog(currentFile);
+    if (same(catalog, current)) {
+      for (const file of previousFiles) editingCatalogs.push(await readCatalog(file));
+    }
+  }
+  return { artifacts, catalog, editingCatalogs, pool, studio };
 }
 
 async function validateOutputRoot(input) {
@@ -171,6 +200,9 @@ export async function createWorkbenchServer({ workbench, outputRoot, port = 0, p
       if (request.headers.host !== expectedHost) fail('WORKBENCH_SERVER_HOST', 403);
       if (closing) fail('WORKBENCH_SERVER_CLOSED', 503);
       if (request.method === 'GET') {
+        if (request.url === '/api/panel/studio') {
+          return send(response, 200, { protocol: '0.1', kind: 'ui-panel-studio', build: build.studio, active: Boolean(active) });
+        }
         if (request.url === '/api/panel/capabilities') {
           return send(response, 200, { protocol: '0.1', model: CODEX_MODEL, effort: CODEX_EFFORT, available, editingAvailable });
         }
@@ -197,7 +229,8 @@ export async function createWorkbenchServer({ workbench, outputRoot, port = 0, p
       requestIds.add(id);
       try {
         context = await (editing ? validatePanelEditContext : validatePlanningContext)(input.context);
-        if (!same(context.catalog, build.catalog)) fail('WORKBENCH_SERVER_CATALOG_MISMATCH');
+        const admittedCatalogs = editing ? build.editingCatalogs : [build.catalog];
+        if (!admittedCatalogs.some(catalog => same(context.catalog, catalog))) fail('WORKBENCH_SERVER_CATALOG_MISMATCH');
         if (editing) {
           if (context.spec.assets) {
             if (!build.pool) fail('WORKBENCH_SERVER_POOL_REQUIRED');
@@ -241,7 +274,7 @@ export async function createWorkbenchServer({ workbench, outputRoot, port = 0, p
   await listenLoopback(server, port);
   expectedHost = `127.0.0.1:${server.address().port}`; origin = `http://${expectedHost}`;
   let closePromise;
-  return Object.freeze({ url: `${origin}/`, model: CODEX_MODEL, effort: CODEX_EFFORT, available, editingAvailable,
+  return Object.freeze({ url: `${origin}/`, model: CODEX_MODEL, effort: CODEX_EFFORT, available, editingAvailable, studio: build.studio,
     close() {
       if (!closePromise) {
         closing = true; active?.abort();

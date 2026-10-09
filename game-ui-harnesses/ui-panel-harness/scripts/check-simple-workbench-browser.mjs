@@ -280,23 +280,21 @@ try {
   assert.deepEqual(await page.evaluate(() => window.panelWorkbench.events()), previousEvents);
   assert.equal(calls.length, count + 1); assert.equal(await page.locator('#edit-request-text').inputValue(), editRequest); pass(stage);
 
-  stage = 'clarification-appears-only-when-needed-and-answer-never-auto-calls';
+  stage = 'clarification-adoption-submits-once-without-copying';
   expectedFault = false; mode = 'questions'; await click('generate-plan'); await noErrors(); await preserve(before, state);
   const clarificationId = (await snapshot()).context.request.id;
   assert.equal(await page.locator('#clarification-form').isVisible(), true);
   await page.locator('#questions textarea').first().fill('重置音量、静音和画质，不重置音效开关。'); count = calls.length;
-  await click('clarify'); assert.equal(calls.length, count); assert.equal(await page.locator('#clarification-form').isVisible(), false);
+  mode = 'ready'; await click('clarify'); await noErrors(); assert.equal(calls.length, count + 1); assert.equal(await page.locator('#clarification-form').isVisible(), false);
   assert.equal((await snapshot()).context.request.id, clarificationId);
-  assert.match(await page.locator('#status').textContent(), /回答已补充.*生成面板/u);
   assert.match(await page.locator('#request-text').inputValue(), /不重置音效开关/u);
-  mode = 'ready'; await click('generate-plan'); await noErrors(); assert.equal(calls.length, count + 1);
   assert.equal((await snapshot()).panel.spec.id, clarificationId); pass(stage);
 
   stage = 'modification-questions-stay-next-to-description';
   before = await snapshot(); state = await values(); mode = 'questions'; await page.locator('#edit-request-text').fill(editText);
   await click('generate-edit'); await preserve(before, state);
   assert.equal(await page.locator('#edit-questions').isVisible(), true);
-  assert.match(await page.locator('#edit-plan-status').textContent(), /回答.*修改面板/u);
+  assert.match(await page.locator('#edit-plan-status').textContent(), /回答.*采用回答并修改/u);
   count = calls.length; await page.locator('#edit-request-text').fill(`${editText}音效默认 true。`);
   assert.equal(await page.locator('#edit-questions').isVisible(), false); assert.equal(calls.length, count); pass(stage);
 

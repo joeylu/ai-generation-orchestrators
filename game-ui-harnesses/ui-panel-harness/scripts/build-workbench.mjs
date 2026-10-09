@@ -12,7 +12,9 @@ import { createPanelBundle, validatePanelBundle } from '../src/panel-bundle.mjs'
 import { loadWorkspaceCore } from '../src/component-adapter.mjs';
 import { verifyAssetLibrary } from '../src/asset-library.mjs';
 import { loadTextureImageAdapter } from '../src/texture-image-adapter.mjs';
+import { loadBundledCoreAssets } from '../src/bundled-core-assets.mjs';
 import { canonicalJson, digestBytes, digestJson } from '../src/canonical.mjs';
+import { createStudioBuildInfo } from '../src/studio-build-info.mjs';
 import { readJson, createOutputDirectory, writeNewJson, harnessRoot } from '../src/io.mjs';
 import {buildDeliveryRuntime} from './build-delivery-runtime.mjs';
 
@@ -27,6 +29,7 @@ function argumentsFor(args) {
   if (!options['--catalog'] || !options['--output']) fail('WORKBENCH_ARGUMENTS');
   if (Boolean(options['--example-context']) !== Boolean(options['--example-proposal'])) fail('WORKBENCH_EXAMPLE_PAIR_REQUIRED');
   if (options['--sharp-module'] && !options['--assets']) fail('WORKBENCH_ASSETS_REQUIRED');
+  if (options['--sharp-module'] && ['builtin', 'none'].includes(options['--assets'])) fail('WORKBENCH_EXTERNAL_ASSETS_REQUIRED');
   return options;
 }
 function safeCode(error, fallback) {
@@ -42,8 +45,12 @@ try {
   const options = argumentsFor(process.argv.slice(2));
   phase = 'WORKBENCH_CATALOG_INVALID';
   const catalog = validateCatalog(await readJson(options['--catalog']));
-  let pool = null, poolTools;
-  if (options['--assets']) {
+  let pool = null, poolTools, sourceReplay = 'NOT_APPLICABLE';
+  if (options['--assets'] === 'builtin') {
+    pool = await loadBundledCoreAssets();
+    poolTools = await import('../src/workbench-assets.mjs');
+    sourceReplay = 'PINNED_BUNDLED_ASSETS';
+  } else if (options['--assets'] && options['--assets'] !== 'none') {
     phase = 'WORKBENCH_POOL_INVALID';
     const verified = await verifyAssetLibrary(options['--assets'], await loadTextureImageAdapter(options['--sharp-module']));
     poolTools = await import('../src/workbench-assets.mjs');
@@ -51,6 +58,7 @@ try {
       path: record.file.path, mime: 'image/png', bytes: verified.blobs.get(record.file.path),
     }])).values()];
     pool = await poolTools.createWorkbenchAssetPool(verified.index, resources);
+    sourceReplay = 'VERIFIED_AT_BUILD';
   }
   let example = null, exampleEvidence = null;
   if (options['--example-context']) {
@@ -74,8 +82,6 @@ try {
   const seed = { workbenchSeedVersion: '0.1', catalog, pool, example };
   phase = 'WORKBENCH_BUILD_FAILED';
   const { renderWorkbenchHtml } = await import('../src/workbench-shell.mjs');
-  const html = renderWorkbenchHtml(seed);
-  if (typeof html !== 'string' || !html.length) fail('WORKBENCH_HTML_REQUIRED');
   const deliveryRuntime = await buildDeliveryRuntime();
   const result = await build({ configFile: false, root: harnessRoot, publicDir: false, logLevel: 'silent',
     plugins: [{name:'panel-delivery-runtime',resolveId(id){if(id==='virtual:panel-delivery-runtime')return '\0'+id;},load(id){if(id==='\0virtual:panel-delivery-runtime')return 'export default '+JSON.stringify(deliveryRuntime)+';';}}],
@@ -87,15 +93,22 @@ try {
   const chunks = (Array.isArray(result) ? result : [result]).flatMap(item => item.output);
   if (chunks.length !== 1 || chunks[0].type !== 'chunk' || chunks[0].fileName !== 'workbench.js'
     || chunks[0].imports.length || chunks[0].dynamicImports.some(path => path !== 'workbench.js')) fail('WORKBENCH_BUILD_SHAPE');
+  const script = new TextEncoder().encode(chunks[0].code);
+  const metadata = await readJson(new URL('../package.json', import.meta.url));
+  const studio = await createStudioBuildInfo(metadata.version, {
+    shellSha256: await digestBytes(new TextEncoder().encode(renderWorkbenchHtml(seed))), scriptSha256: await digestBytes(script) });
+  const html = renderWorkbenchHtml(seed, studio);
+  if (typeof html !== 'string' || !html.length) fail('WORKBENCH_HTML_REQUIRED');
   const contents = [{ path: 'index.html', bytes: new TextEncoder().encode(html) },
-    { path: 'workbench.js', bytes: new TextEncoder().encode(chunks[0].code) }];
+    { path: 'workbench.js', bytes: script }];
   const manifest = {
+    studio,
     workbenchBuildVersion: '0.1', status: 'COMPLETE', catalogSha256: await digestJson(catalog),
     poolSha256: pool?.sha256 ?? null,
     library: pool ? { id: pool.index.id, sha256: pool.index.sha256 } : null,
     recordCount: pool?.index.records.length ?? 0, imageCount: pool?.resources.length ?? 0,
     deliveryRuntime: {version:deliveryRuntime.version,sha256:deliveryRuntime.sha256},
-    sourceReplay: pool ? 'VERIFIED_AT_BUILD' : 'NOT_APPLICABLE', example: exampleEvidence,
+    sourceReplay, example: exampleEvidence,
     files: await Promise.all(contents.map(async file => ({ path: file.path, bytes: file.bytes.length, sha256: await digestBytes(file.bytes) }))),
     browser: 'NOT_RUN', humanVisualReview: 'NOT_RUN', nativeEngines: 'NOT_RUN',
   };

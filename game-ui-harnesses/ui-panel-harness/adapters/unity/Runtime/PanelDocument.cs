@@ -24,7 +24,8 @@ namespace GameUi.PanelHarness
         public int fontSize;
         public bool bold, drawBackground;
         public string text, source, fit;
-        public string textAlignment; // Empty in legacy documents; only the panel title uses an explicit native anchor.
+        public string textAlignment; // Explicit anchor for the title or a declared slider value.
+        public string tabActiveColor, tabActiveTextColor, tabIndicatorColor; // Optional themed header, absent in legacy documents.
         public bool hasRegion;
         public float regionX, regionY, regionWidth, regionHeight;
         public float contentWidth, contentHeight;
@@ -56,6 +57,7 @@ namespace GameUi.PanelHarness
         public string[] resetFields, submitFields;
         public string placeholder, inputType, requiredErrorTextId, minLengthErrorTextId;
         public bool readOnly;
+        public bool deferEmptyError;
         public PanelInputValidation validation;
         public string valueTextId, prefix, suffix;
         public string displayMode;

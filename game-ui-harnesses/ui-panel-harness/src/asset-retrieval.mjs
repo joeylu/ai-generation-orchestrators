@@ -162,6 +162,21 @@ function dataFields(value, array, path) {
   return descriptors;
 }
 
+/** Rank only supplied portable assets, using the unchanged lexical-v1 rules.
+ * This does not establish library membership or expand a planning candidate set. */
+export function rankPortableAssets(requestText, input, style = null) {
+  const query = request(requestText), assets = snapshot(input);
+  if (!Array.isArray(assets) || assets.length > 32) fail('CANDIDATES', '$.assets', 'expected at most 32 portable assets');
+  styleFilter(style, '$.style');
+  const keys = new Set();
+  for (const [index, asset] of assets.entries()) {
+    portableAsset(asset, `$.assets[${index}]`);
+    if (keys.has(asset.key)) fail('DUPLICATE', '$.assets', 'duplicate asset key');
+    keys.add(asset.key);
+  }
+  return rank(query, assets, style);
+}
+
 /** Requires an already verified library index; this pure function does not verify files or the library digest. */
 export function createAssetRetrieval(requestText, verifiedIndex, options = {}) {
   const query = request(requestText), checkedOptions = snapshot(options);
