@@ -34,4 +34,4 @@ node scripts/check-focused-layout-browser.mjs --output output/my-layout-review
 浏览器检查覆盖实际输入、必填校验、提交与取消、菜单事件、确认按钮、390px 页面、
 长正文滚动、组合页签及输入值保留、主题 Select，以及实际点击下载后的 CRC、摘要、重导入和离线打开。
 所有样例均为程序夹具，模型调用为零，不代表新的真实模型生成成功率。
-本工作区的[可交互对比](../output/panel-layout-review-v4/index.html?panel=menu)包含菜单、表单、弹窗、长正文、组合及设置六个入口。
+本工作区的可交互对比（本地产物：`output/panel-layout-review-v4/index.html?panel=menu`）包含菜单、表单、弹窗、长正文、组合及设置六个入口。

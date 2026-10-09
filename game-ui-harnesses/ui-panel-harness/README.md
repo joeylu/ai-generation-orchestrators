@@ -10,7 +10,7 @@
 - [目录与依赖边界](docs/structure.md)、[命令索引](docs/commands.md)：维护入口及只读依赖预检。
 - [本次源码收尾](docs/studio-closeout-2026-10-10.md)：菜单默认、编辑体验、本机任务及当前验收。
 - [此前源码检查点](docs/v1-candidate-2026-10-08.md)：此前版本的范围与验收记录。
-- [本地第一版交付目录](output/ui-panel-closeout-v1/index.html)：历史面板、组合和修改预览；本地产物不随 Git 提交。
+- 本地第一版交付目录（本地产物：`output/ui-panel-closeout-v1/index.html`）：历史面板、组合和修改预览；本地产物不随 Git 提交。
 
 日常运行 `npm run studio`，固定入口 `http://127.0.0.1:4951/`；检查、构建、启动一次完成。
 同地址重启保留本机草稿、面板、试玩值和轮次，页首显示构建版本。见[日常启动](docs/studio-start.md)。

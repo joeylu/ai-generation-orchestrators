@@ -38,7 +38,7 @@ node scripts/check-selection-workbench-browser.mjs --workbench output/my-refined
 | 新构建编辑旧目录面板 | 17项通过，注入2次夹具编辑（失败一次后显式再次点击），模型0次；`output/refined-selection-browser-v2/selection-browser-report.json` |
 | 输入覆盖 | 新24场景及独立期望、反例检查通过；仅夹具，见[输入覆盖说明](input-coverage-v2.md) |
 
-本机可交互前后对照：[六类面板](../output/refined-surface-browser-v2/index.html)。左侧为原主题，右侧为新主题；素材和业务语义相同，两侧可试玩，右侧可下载交付包。本页为程序化夹具，不能描述为新的真实模型生成结果。
+本机可交互前后对照：六类面板（本地产物：`output/refined-surface-browser-v2/index.html`）。左侧为原主题，右侧为新主题；素材和业务语义相同，两侧可试玩，右侧可下载交付包。本页为程序化夹具，不能描述为新的真实模型生成结果。
 
 保留的中间记录：视觉v1的84项通过后继续收敛浅色阴影和深色输入底色，v2为最终样式；点选浏览器v1的FAIL暴露新旧目录编辑阻断，修复后v2通过；全量回归v1的唯一失败为新增测试误把原夹具默认80写成70，修正测试后v2全部通过。没有改写历史报告。
 
