@@ -107,7 +107,7 @@ class PublicCliTests(unittest.TestCase):
         entry=Path(__file__).resolve().parents[1]/'ui_layer.py'
         result=subprocess.run([sys.executable,str(entry),'--version'],capture_output=True,text=True,encoding='utf-8')
         self.assertEqual(result.returncode,0)
-        self.assertEqual(result.stdout.strip(),'0.1.0a2')
+        self.assertEqual(result.stdout.strip(),'0.1.0a3')
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             result=subprocess.run([sys.executable,str(entry),'status','--output',str(Path(tmp)/'missing-图层')],

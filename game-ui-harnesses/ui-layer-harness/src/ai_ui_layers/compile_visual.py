@@ -2,7 +2,6 @@
 import argparse
 import json
 from pathlib import Path
-import sys
 import time
 
 from jsonschema import Draft202012Validator
@@ -14,10 +13,9 @@ from . import relation_review, visual_textures
 from .planning_normalization import m1_plan_path
 from .visual_policy import validate as validate_visual_policy, planning_policy, generation_guidance
 
-HARNESS = Path(__file__).resolve().parents[4]/'game-ui-harnesses/ui-decomposition-harness'
-sys.path.insert(0, str(HARNESS/'src'))
-from ai_ui_decomposition.contract import KIND, TEXT_POLICY, GRANULARITY, validate
-from ai_ui_decomposition.batch import _prompt
+HARNESS = Path(__file__).resolve().parents[2]
+from ._core.contract import KIND, TEXT_POLICY, GRANULARITY, validate
+from ._core.prompts import _prompt
 
 
 PROMPT_V2 = 'visual-material-prompt-v2:\n'

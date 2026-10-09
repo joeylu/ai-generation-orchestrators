@@ -6,7 +6,7 @@ import unittest
 from ai_ui_layers.evaluate import read, save, digest
 from ai_ui_layers.local_patch import merge_patch
 
-BASE = Path(__file__).resolve().parents[3]/'game-ui-harnesses/ui-decomposition-harness/planning-harness'
+BASE = Path(__file__).resolve().parents[3]/'game-ui-harnesses/ui-layer-harness/planning-harness'
 
 
 class LocalPatchTests(unittest.TestCase):

@@ -708,7 +708,7 @@ interrupted_or_running 节点不能仅靠文件判断是否仍有进程；进程
 ZIP 中包含 composition.json、manifest.json、review.json、reference.png、preview.png、
 layers/*.png、viewer.html、viewer.js、README.txt。仅相对路径，无私有 session/凭证。
 
-composition.schema 位于 `../../ui-decomposition-harness/planning-harness/schemas/layer-composition.schema.json`。
+composition.schema 位于 `../planning-harness/schemas/layer-composition.schema.json`。
 kind=`ui_layer_composition_v1`；画布单位为原图像素；原点左上；layers 数组从后向前。
 每层 id/name/role/path/x/y/width/height/visible；PNG 已是实际归位尺寸，不再按 bbox 猜测缩放。
 textPolicy/backgroundMode 显式给出。用户上传的业务文字默认去除，不保证可编辑文字层。

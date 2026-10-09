@@ -8,9 +8,9 @@
 未实现能力只提供明确标记为 `planned` 的文档，不伪装成可调用 Skill。
 
 各 Harness 可独立安装：`ai-image-background-removal` 负责单图抠图，
-`ai-frame-animation` 负责视频计划、生成尝试、后处理与透明序列交付；默认关闭的
-实验性 `ai-ui-decomposition` 负责把经过审查的重要 UI 组件组装为分层 PSD。各程序
-可单独安装；视频侧只消费中立 handoff，不导入抠图程序。
+`ai-frame-animation` 负责视频计划、生成尝试、后处理与透明序列交付。
+[UI 图层 Harness](game-ui-harnesses/ui-layer-harness/) 负责原图规划、生图、归位与 PNG 图层包；
+旧拆分 Harness 及其 PSD/CLI 发布入口已退役。视频侧只消费中立 handoff，不导入抠图程序。
 
 独立的 [UI 组件 Harness](game-ui-harnesses/ui-component-harness/) 提供严格 intent
 编译、16 类 PixiJS 组件、完整画布、独立动效、资源包导入导出和离线 CLI/Skill。

@@ -60,7 +60,7 @@ def runtime_files():
     """Pin public program code in the active install, never external host paths."""
     from .compile_visual import HARNESS
     base=Path(__file__).resolve().parents[4]
-    paths=list(Path(__file__).parent.glob('*.py'))+list((HARNESS/'src').rglob('*.py'))
+    paths=list(Path(__file__).parent.rglob('*.py'))
     return {p.relative_to(base).as_posix():digest(p) for p in sorted(paths)}
 
 

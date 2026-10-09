@@ -119,7 +119,7 @@ def rereview_context(plan, findings):
 
 
 def runtime_files():
-    files=list(Path(__file__).parent.glob('*.py'))+list((HARNESS/'src').rglob('*.py'))
+    files=list(Path(__file__).parent.rglob('*.py'))
     files += [BASE/'schemas/visual-plan.schema.json',BASE/'prompts/visual-plan.md',BASE/'prompts/visual-review.md']
     return {p.relative_to(REPO).as_posix():digest(p) for p in files if not p.name.startswith('test_')}
 

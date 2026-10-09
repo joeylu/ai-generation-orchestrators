@@ -51,7 +51,7 @@ class TransportTests(unittest.TestCase):
         self.assertTrue(self.events([{'type':'item.completed','item':{'type':'error','message':'Unknown configuration'}}])['unexpectedEvents'])
 
     def test_current_schema_is_explicit_and_example_valid(self):
-        root = Path(__file__).resolve().parents[3]/'game-ui-harnesses/ui-decomposition-harness/planning-harness'
+        root = Path(__file__).resolve().parents[3]/'game-ui-harnesses/ui-layer-harness/planning-harness'
         schema = json.loads((root/'schemas/visual-plan.schema.json').read_text(encoding='utf-8'))
         example = json.loads((root/'examples/visual-plan.json').read_text(encoding='utf-8'))
         Draft202012Validator.check_schema(schema)

@@ -1,11 +1,11 @@
-# UI Layer Harness — 0.1.0a2 preview
+# UI Layer Harness — 0.1.0a3 preview
 
 独立 UI 拆分入口：参考图 → M1/M2 规划 → M3 冻结 → 宿主生图交换 → 归位 → UI 图层 ZIP。
 
 新宿主作业可设置 `visualReviewMode=warning`：视觉差异全部记录为 warning，继续到回拼后人工验收；
 M1、生图与复审共用唯一归属、父板排除子元素、完整主体比例及高光分类规范。
 技术完整性仍校验，旧任务和旧策略不改写，见[视觉 warning 策略](docs/VISUAL-WARNING-POLICY.md)。
-本入口从本地实验链路收口，保留旧 `ai-ui-decomposition` / `ai-ui-assets` 命令及行为。
+本入口从本地实验链路收口；旧拆分 Harness 已退役，迁移边界见[退役说明](docs/DECOMPOSITION-RETIREMENT.md)。
 它不是旧包 0.5.0 的新模式，也不是组件化交付；普通业务文字被移除。
 
 [宿主链路](docs/HOST-DELIVERY.md)可用 `planningMode=fresh-host-m1-independent-review`
@@ -57,7 +57,7 @@ ui-layer-harness/
     └── RELEASE-NOTES.md     # 版本变化与验证范围
 ```
 
-规划 schema、提示词与示例继续共用相邻 `ui-decomposition-harness/planning-harness/`，不复制第二套合同。
+规划 schema、提示词与示例统一位于本目录 `planning-harness/`；必要的校验和媒体原语由包内 `_core` 维护。
 内部模块使用包内导入；服务仍只调用根目录的 `ui_layer.py`。
 
 ## 安装和启动

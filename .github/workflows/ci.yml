@@ -76,7 +76,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       AI_FRAME_ANIMATION_OFFLINE_TESTS: "1"
-      PYTHONPATH: ${{ github.workspace }}/game-ui-harnesses/ui-decomposition-harness/tests
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -98,25 +97,21 @@ jobs:
           python -m pip install
           "./artwork-harnesses/image-background-removal-harness[test]"
           "./artwork-harnesses/video-sequence-harness/character[test]"
-          "./game-ui-harnesses/ui-decomposition-harness[test,psd]"
       - name: Run offline fixtures and test doubles
         run: |
           python -m pip install -r game-ui-harnesses/ui-layer-harness/requirements.txt
           python -m unittest discover -s game-ui-harnesses/ui-layer-harness/tests -p "test_*.py" -v
           python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
           python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
-          python -m unittest discover -s game-ui-harnesses/ui-decomposition-harness/tests -p "test_*.py" -v
           python -m unittest discover -s .github/repository-tests -p "test_*.py" -v
       - name: Check installed offline contract
         run: |
           ai-image-background-removal self-test
           ai-frame-animation self-test
-          ai-ui-decomposition self-test
       - name: Check redacted doctor
         run: |
           ai-image-background-removal doctor
           ai-frame-animation doctor
-          ai-ui-decomposition doctor
 
   build:
     runs-on: ubuntu-latest
@@ -129,7 +124,6 @@ jobs:
       - run: python -m pip install build
       - run: python -m build --outdir dist artwork-harnesses/image-background-removal-harness
       - run: python -m build --outdir dist artwork-harnesses/video-sequence-harness/character
-      - run: python -m build --outdir dist game-ui-harnesses/ui-decomposition-harness
       - run: python .github/release_tools/build_release_metadata.py --dist dist --component all
       - uses: actions/upload-artifact@v7
         with:
@@ -150,6 +144,6 @@ jobs:
           python -m pip install
           ./artwork-harnesses/image-background-removal-harness
           ./artwork-harnesses/video-sequence-harness/character
-          ./game-ui-harnesses/ui-decomposition-harness
+          -r game-ui-harnesses/ui-layer-harness/requirements.txt
           pip-audit
       - run: pip-audit

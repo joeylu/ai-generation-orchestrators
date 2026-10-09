@@ -1,7 +1,7 @@
 # Decomposition materials and appearance bindings
 
-This offline handoff consumes the PNG ZIP exported by the sibling
-`ui-decomposition-harness`. It connects material evidence to an existing semantic
+This offline compatibility handoff consumes existing verified PNG ZIPs from
+the retired decomposition producer. New image-layer jobs use `ui-layer-harness`. It connects material evidence to an existing semantic
 UI document. It does not invoke a model or change the upstream Harness.
 
 ## Independent asset ZIP entry

@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {buttonLinesFixture} from '../helpers/button-label-lines-fixture.ts';
 import {applyAppearanceBinding} from '../../src/appearance-apply.ts';
-import {buttonLineChecks} from '../../../ui-decomposition-harness/src/ai_ui_decomposition/button-label-lines-browser.mjs';
+import {buttonLineChecks} from '../helpers/button-label-lines-browser.mjs';
 test('two Button lines keep alignment during real input and disabled buttons emit no clicks',async({page},info)=>{
  const f=await buttonLinesFixture(),bundle=structuredClone(await applyAppearanceBinding(f.target,f.imported,f.binding)),node=(bundle.document as any).root.children[0];
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));

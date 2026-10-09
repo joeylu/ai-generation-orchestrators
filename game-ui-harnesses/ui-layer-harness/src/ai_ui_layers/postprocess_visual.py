@@ -4,8 +4,7 @@ import json
 from pathlib import Path
 import numpy as np
 from PIL import Image
-from .compile_visual import HARNESS
-from ai_ui_decomposition.media import KEY_RGB, matte_key, normalize
+from ._core.media import KEY_RGB, matte_key, normalize
 from .key_evidence import key_background_evidence
 from .evaluate import digest, save
 

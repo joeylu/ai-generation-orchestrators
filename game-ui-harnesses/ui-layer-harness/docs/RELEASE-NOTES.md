@@ -1,5 +1,16 @@
 # Release notes
 
+## 0.1.0a3 source preview: decomposition retirement
+
+- Layer owns the planning contracts and the reviewed deterministic validation,
+  resource, path/image, prompt fallback and alpha primitives it uses. Runtime
+  imports and fingerprint inventories no longer require the retired producer.
+- Component keeps historical ZIP/reference-state compatibility and owns its
+  browser label assertion helper. Old producer CLIs, PSD export and `ui-v*`
+  publishing are retired; Layer remains a source preview.
+- Historical job fingerprints and visual claims stay bound to their original
+  versions. This migration uses offline fixtures, not new media generation.
+
 ## Unreleased complete host workflow documentation closeout
 
 - The formal `ui_layer.py host-run` route documents fresh M1, independent M2,

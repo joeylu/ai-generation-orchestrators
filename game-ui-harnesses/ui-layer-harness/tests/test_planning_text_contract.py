@@ -3,7 +3,6 @@ import _bootstrap
 import copy
 import json
 from pathlib import Path
-import subprocess
 import tempfile
 import unittest
 
@@ -15,15 +14,18 @@ from ai_ui_layers.planning_normalization import (
 from ai_ui_layers.review_evidence import build_catalog, build_review_schema, resolve_review, PROTOCOL_V3
 from ai_ui_layers.planning_review_policy import split
 
-REPO = Path(__file__).resolve().parents[3]
-SHARED = 'game-ui-harnesses/ui-decomposition-harness/planning-harness/'
+FIXTURES = Path(__file__).parent/'fixtures/planning-fad597a0'
+FIXTURE_SHA256 = {
+    'schemas/visual-plan.schema.json': 'e9f5fd26fed4f432d35d8a323e3dba322aafd635ac5a7349a5b0ed437c4ff0e5',
+    'examples/visual-plan-scoped.json': '8c951ecaf68355babfc30b849912bc794cd872ce34617969759813156b6f3720',
+}
 
 
 def fixed_json(name):
-    result = subprocess.run(['git', '-c', 'safe.directory='+REPO.as_posix(),
-        'show', 'fad597a0:'+SHARED+name], cwd=REPO, check=True,
-        capture_output=True)
-    return json.loads(result.stdout)
+    path = FIXTURES/name
+    if digest(path) != FIXTURE_SHA256[name]:
+        raise ValueError('HISTORICAL_PLANNING_FIXTURE_CHANGED')
+    return read(path)
 
 
 def audit(fragment='Recipes'):

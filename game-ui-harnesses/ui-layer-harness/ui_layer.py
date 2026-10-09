@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent/"src"))
 
-VERSION = '0.1.0a2'
+VERSION = '0.1.0a3'
 
 if __name__ == '__main__':
     # Service consumers decode the JSON protocol as UTF-8, regardless of host locale.

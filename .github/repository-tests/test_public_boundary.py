@@ -111,10 +111,10 @@ class PublicBoundaryTests(unittest.TestCase):
     def test_background_and_video_packages_are_physically_independent(self) -> None:
         background = ROOT / "artwork-harnesses" / "image-background-removal-harness"
         video = ROOT / "artwork-harnesses" / "video-sequence-harness" / "character"
-        ui = ROOT / "game-ui-harnesses" / "ui-decomposition-harness"
+        ui = ROOT / "game-ui-harnesses" / "ui-layer-harness"
         self.assertTrue((background / "src/ai_image_background_removal/preparation.py").is_file())
         self.assertTrue((video / "src/ai_frame_animation/reference_preparation.py").is_file())
-        self.assertTrue((ui / "src/ai_ui_decomposition/contract.py").is_file())
+        self.assertTrue((ui / "src/ai_ui_layers/_core/contract.py").is_file())
         self.assertFalse((ROOT / "pyproject.toml").exists())
         self.assertFalse((ROOT / "MANIFEST.in").exists())
         background_text = "\n".join(path.read_text(encoding="utf-8") for path in (background / "src").rglob("*.py"))
@@ -125,7 +125,7 @@ class PublicBoundaryTests(unittest.TestCase):
         self.assertNotRegex(ui_text, r"(?m)^\s*(?:from|import)\s+ai_(?:frame_animation|image_background_removal)\b")
         self.assertIn('name = "ai-image-background-removal"', (background / "pyproject.toml").read_text(encoding="utf-8"))
         self.assertIn('name = "ai-frame-animation"', (video / "pyproject.toml").read_text(encoding="utf-8"))
-        self.assertIn('name = "ai-ui-decomposition"', (ui / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertTrue((ui / "requirements.txt").is_file())
 
     def test_harness_catalog_separates_implemented_and_planned_entries(self) -> None:
         image_character = ROOT / "artwork-harnesses" / "image-sequence-harness" / "character"
@@ -145,24 +145,21 @@ class PublicBoundaryTests(unittest.TestCase):
         for directory in planned:
             self.assertIn("planned", (directory / "README.md").read_text(encoding="utf-8").lower())
             self.assertFalse(any(directory.rglob("SKILL.md")), directory)
-        ui = ROOT / "game-ui-harnesses" / "ui-decomposition-harness"
+        ui = ROOT / "game-ui-harnesses" / "ui-layer-harness"
         ui_readme = (ui / "README.md").read_text(encoding="utf-8").lower()
-        self.assertTrue((ui / "SKILL.md").is_file())
-        self.assertTrue((ui / "src/ai_ui_decomposition/cli.py").is_file())
-        self.assertIn("implemented", ui_readme)
-        self.assertIn("opt-in experimental", ui_readme)
-        self.assertIn("not a default", ui_readme)
+        self.assertTrue((ui / "ui_layer.py").is_file())
+        self.assertTrue((ui / "planning-harness/schemas/visual-plan.schema.json").is_file())
+        self.assertIn("preview", ui_readme)
+        self.assertFalse((ROOT / "game-ui-harnesses/ui-decomposition-harness").exists())
 
-    def test_ui_package_is_exercised_by_ci_without_becoming_a_core_dependency(self) -> None:
-        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-        package = "./game-ui-harnesses/ui-decomposition-harness"
-        self.assertGreaterEqual(workflow.count(package), 2)
-        self.assertIn("game-ui-harnesses/ui-decomposition-harness/tests", workflow)
-        self.assertIn("ai-ui-decomposition self-test", workflow)
-        self.assertIn('tags: ["v*", "video-v*", "background-v*", "ui-v*"]', release)
-        self.assertIn("if: env.RELEASE_COMPONENT == 'ui'", release)
-        self.assertIn('RELEASE_PACKAGE=game-ui-harnesses/ui-decomposition-harness', release)
+    def test_ui_layer_is_exercised_without_a_retired_release_route(self) -> None:
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        self.assertIn("game-ui-harnesses/ui-layer-harness/requirements.txt", workflow)
+        self.assertIn("game-ui-harnesses/ui-layer-harness/tests", workflow)
+        self.assertNotIn("ui-decomposition-harness", workflow)
+        self.assertNotIn("ui-decomposition-harness", release)
+        self.assertNotIn('"ui-v*"', release)
         for pyproject in (
             ROOT / "artwork-harnesses/image-background-removal-harness/pyproject.toml",
             ROOT / "artwork-harnesses/video-sequence-harness/character/pyproject.toml",

@@ -4,7 +4,7 @@ This is the single producer/consumer integration contract. It extends existing
 `ui-reference-state` to `schemaVersion: "1.1"`; v1.0 is unchanged and accepted.
 No change to the outer handoff version is required. Store this same document in
 `reference/reference-state.json`, update its existing manifest SHA-256, and retain
-original image bytes. Schema: ui-decomposition-harness/references/reference-state-v1.1.schema.json.
+original image bytes. Schema: legacy-contracts/references/reference-state-v1.1.schema.json.
 Both reference_delivery.validate_states and the consumer validateReferenceStates
 validate this version. Other component fields and acceptance-scope 1.0 are unchanged.
 

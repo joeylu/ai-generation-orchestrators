@@ -13,7 +13,7 @@ Container、Panel、Dialog 可显式设置 `props.drawBackground: false` 关闭�
 图层方案需附带该字段的 explicit-policy 证据。见[底板绘制合同](docs/panel-background-v1.md)。
 
 正式目录为 `game-ui-harnesses/ui-component-harness/`。它与相邻的
-[UI decomposition](../ui-decomposition-harness/) 分别安装、维护，不绑定游戏初始包。
+[UI Layer](../ui-layer-harness/) 分别安装、维护，不绑定游戏初始包。
 
 单素材 ZIP 已支持严格旧/新版导入、`assets-intake` 缺项报告与 `assets-plan`
 确定性规划编译；Agent 仍需提供明确语义和绑定。新版来源随保存/导出保留，

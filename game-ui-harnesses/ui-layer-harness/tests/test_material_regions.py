@@ -9,7 +9,7 @@ from PIL import Image
 from ai_ui_layers.evaluate import read, render, check_relations, draw_order
 
 
-BASE = Path(__file__).resolve().parents[3] / 'game-ui-harnesses/ui-decomposition-harness/planning-harness'
+BASE = Path(__file__).resolve().parents[3] / 'game-ui-harnesses/ui-layer-harness/planning-harness'
 
 
 class MaterialRegionTests(unittest.TestCase):

@@ -24,7 +24,7 @@ the original consolidation and retain their historical severity descriptions.
 
 This maps the M1/M2 templates at `c0154f2b` to their consolidated wording.
 It is reviewer documentation, not an additional model input or a new quality policy.
-Templates remain in the shared `ui-decomposition-harness/planning-harness/prompts/`.
+Templates remain in the owned `ui-layer-harness/planning-harness/prompts/`.
 The schema, deterministic validators, review records, call limits and authorization
 boundaries are unchanged. Offline coverage is not evidence of model fidelity.
 

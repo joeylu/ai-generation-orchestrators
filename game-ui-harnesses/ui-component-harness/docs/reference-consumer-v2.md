@@ -2,7 +2,7 @@
 
 The consumer uses the producer's existing `ai_ui_component_handoff_v2`,
 `ui-reference-state` v1 and `ui-acceptance-scope` v1 contracts unchanged. See
-`../../ui-decomposition-harness/docs/reference-handoff-v2.md`. No reference
+`legacy-contracts/reference-handoff-v2.md`. No reference
 values are inferred, generated or promoted from runtime defaults.
 
 ## Saved schemes and transferable exports

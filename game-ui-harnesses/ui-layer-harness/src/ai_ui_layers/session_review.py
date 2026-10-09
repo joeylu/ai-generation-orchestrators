@@ -120,7 +120,7 @@ def main():
     opts=parser.parse_args()
     root=Path(opts.output).resolve()
     if not opts.resume_m1:root.mkdir(parents=True,exist_ok=False)
-    base=Path(__file__).resolve().parents[4]/'game-ui-harnesses/ui-decomposition-harness/planning-harness'
+    base=Path(__file__).resolve().parents[4]/'game-ui-harnesses/ui-layer-harness/planning-harness'
     m1=root/'m1';m2=root/'m2'
     if opts.resume_m1:
         if any(m2.iterdir()):raise ValueError('M2_ALREADY_STARTED')

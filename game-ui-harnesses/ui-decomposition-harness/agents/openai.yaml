@@ -1,6 +1,0 @@
-interface:
-  display_name: "UI Decomposition"
-  short_description: "Turn a UI reference into reusable PSD or PNG ZIP layers"
-  default_prompt: "Use $ui-decomposition to split my UI reference into important reusable components and deliver a reviewed layered PSD or named PNG ZIP."
-policy:
-  allow_implicit_invocation: true

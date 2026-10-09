@@ -3428,3 +3428,21 @@ log. Together the two executions cover all 664 distinct cases; this is not a
 claim that the unprepared first invocation passed. No new model/media call,
 dependency installation, release tag or deployment is performed. Remote CI and
 human visual acceptance are not inferred from these local integration checks.
+
+### 2026-10-10 Retire the decomposition producer dependency
+
+The maintained image-layer producer is the sibling UI Layer Harness. This
+consumer retains the existing verified decomposition ZIP and reference-state
+formats. Their reference contracts now live in `docs/legacy-contracts/` and are
+included in the Node distribution. The unchanged Button label browser assertion
+helper now belongs to `tests/helpers/`; its browser test imports it locally.
+Historical takeover notes remain labeled with their original audit date.
+
+Executed: 63/63 focused decomposition import, reference handoff, Input state,
+asset package and reference persistence cases PASS. The real Button label browser
+case PASS (1/1) using a temporary loopback port; the normal port was rejected
+with EACCES before either initial attempt could start the test. The temporary
+server was cleaned up. No production port setting, model/provider call, media
+generation, deployment or visual acceptance claim is changed by this migration.
+TypeScript noEmit also PASS; `npm pack --dry-run --ignore-scripts` confirms that
+all five preserved reference contract files are included in the distribution.
