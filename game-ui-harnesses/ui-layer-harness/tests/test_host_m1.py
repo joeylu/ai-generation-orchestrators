@@ -1,5 +1,6 @@
 """Fresh M1 host regressions. All responses and media are offline fixtures."""
 import _bootstrap
+from pathlib import Path
 import unittest
 from jsonschema import Draft202012Validator, ValidationError
 from ai_ui_layers import host_delivery as host, host_m1, host_review
@@ -67,6 +68,35 @@ class FreshHostM1Tests(unittest.TestCase):
         host.fail(self.run,request['submissionDigest'],'Unknown fixture dispatch')
         self.assertEqual(host.status(self.run)['status'],'failed_no_retry')
         self.assertFalse(host.status(self.run)['m1ModelExecuted'])
+
+    def test_salient_surface_check_precedes_contract_and_is_hash_bound(self):
+        root=self.run/'planning-m1'
+        prompt=(root/'prompt.md').read_text('utf-8')
+        shared=(Path(read(self.fresh_config)['contract'])/'prompts/visual-plan.md').read_text('utf-8-sig')
+        preamble=prompt[:prompt.index(shared)]
+        for instruction in ('唯一归属','实例数量','显著渐变','实际方向和两端颜色',
+                            '主体面的颜色过渡与边缘描边','同类多实例逐项检查各自 label',
+                            '平涂表面不要臆造渐变','不另加自检字段'):
+            self.assertIn(instruction,preamble)
+        request=read(root/'request.json')
+        self.assertEqual(request['inputs']['prompt.md'],digest(root/'prompt.md'))
+        self.assertEqual(request['originalReferenceSha256'],digest(self.reference))
+        self.assertEqual(set(request['inputs']),{'reference.png','prompt.md','schema.json'})
+        self.assertEqual((root/'schema.json').read_bytes(),
+                         (Path(read(self.fresh_config)['contract'])/'schemas/visual-plan.schema.json').read_bytes())
+        (root/'prompt.md').write_text(prompt.replace('显著渐变','普通颜色'),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'CHANGED'):host.status(self.run)
+
+    def test_surface_guidance_does_not_rewrite_actual_m1_or_replace_m2(self):
+        # Valid but incomplete fixture prose is preserved for independent review;
+        # the host does not infer appearance or inject a model answer.
+        self.plan['materials'][0]['label']='Fixture with deliberately minimal surface description'
+        current=self.generate()
+        self.assertEqual(current['stage'],'planning_review')
+        self.assertEqual((self.run/'planning-m1/draft.json').read_bytes(),self.response.read_bytes())
+        self.assertEqual(read(self.root/'m1/draft.json'),self.plan)
+        self.assertFalse(current['FullReferenceToDeliveryExecutionCompleted'])
+        self.assertFalse((self.run/'frozen').exists())
 
     def test_actual_m1_bytes_are_bound_to_new_independent_m2_and_freeze(self):
         before=host.status(self.run)['scopeDigest'];current=self.generate()

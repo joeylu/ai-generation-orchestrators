@@ -1,5 +1,16 @@
 # Release notes
 
+## Unreleased fresh M1 surface self-check
+
+- Fresh M1 requests begin with a per-owned-material visual description check.
+  Prominent surface gradients include their observed direction and endpoint
+  colors, distinct from rims, highlights and shadows. Repeated instances retain
+  their own descriptions; flat surfaces must not acquire invented gradients.
+- The instruction is frozen with the request hash and existing schema. The host
+  preserves actual M1 bytes for independent M2 review; it does not repair prose,
+  weaken visual policy or resume old failures. Offline tests verify transport
+  and integrity, not model compliance or real visual success.
+
 ## Unreleased fully occupied context sheets
 
 - New context-crop snapshots freeze context-grid-v2: exact factor grids contain

@@ -14,6 +14,17 @@ FILES = ('reference.png', 'prompt.md', 'schema.json', 'request.json', 'draft.jso
          'host-attestation.json', 'host-dispatch-evidence.bin', 'host-return-evidence.bin',
          'exchange-provenance.json', 'accepted.json')
 
+VISUAL_DESCRIPTION_CHECK = (
+    '逐素材视觉描述自检（输出前完成，不另加自检字段）：\n'
+    '先查看干净原图，再为每项保留图形核对唯一归属、实例数量、状态、完整轮廓、连接和间隙。'
+    '在所属对象或素材的 label 中写出可见主体底色，以及显著渐变、纹理、描边、厚边和高光。\n'
+    '若主体表面存在显著渐变，写明其实际方向和两端颜色；主体面的颜色过渡与边缘描边、厚边、'
+    '局部高光和投影分别核对，不能用单一颜色或“亮色表面”概括后遗漏主体渐变。'
+    '平涂表面不要臆造渐变，不确定细节按冻结策略处理。\n'
+    '同类多实例逐项检查各自 label，不能只在其中一个实例或全局说明中描述。'
+    '仅冻结视觉策略允许的细微表面差异可绑定原图；显著属性不能借此省略。'
+    '描述已有可见属性，不新增图形、样本答案、绘制指令或 schema 字段。\n\n')
+
 
 def prepare(root, config):
     root=Path(root);contract=Path(config['contract'])
@@ -29,14 +40,14 @@ def prepare(root, config):
     root.mkdir()
     (root/'reference.png').write_bytes(Path(config['original']).read_bytes())
     (root/'schema.json').write_bytes((contract/'schemas/visual-plan.schema.json').read_bytes())
-    prompt=(BOX_TEXT_GUIDANCE+f'参考图原始画布：width={width}, height={height} 像素。'
+    prompt=(VISUAL_DESCRIPTION_CHECK+BOX_TEXT_GUIDANCE+f'参考图原始画布：width={width}, height={height} 像素。'
         'bboxNorm 的 x 除以完整画布宽、y 除以完整画布高；不要使用显示尺寸或假定方形画布。'
         '从干净原图独立制定新的完整拆层计划；本请求不提供旧计划、图层数量、旧坐标或旧素材。'
         '全画布背景框不能代替可见图形覆盖；每项保留图形须有唯一所属素材。'
         '依据真实可见结构描述轮廓、数量、连接、间隙及外观。按九区自行清点，不能用类别名称代替细节。\n\n'
         +(contract/'prompts/visual-plan.md').read_text('utf-8-sig')+planning_guidance(policy))
     if notes:prompt+='\n用户规划约束：\n'+notes.decode('utf-8-sig')
-    prompt+='\n只返回 schema 对应的完整 JSON 计划。不得改写输入，不生成图片，不使用其他模型。\n'
+    prompt+='\n输出前逐项核对上述视觉描述，显著属性须写入各自所属 label；只返回 schema 对应的完整 JSON 计划。不得改写输入，不生成图片，不使用其他模型。\n'
     (root/'prompt.md').write_text(prompt,encoding='utf-8')
     save(root/'request.json',dict(kind='ui_host_m1_request_v1',
         originalReferenceSha256=digest(root/'reference.png'),
