@@ -18,12 +18,14 @@
 [按钮主次与主题下拉菜单](panel-semantic-controls.md)采用新的显式主题目录；旧服务和已保存面板不自动换样式。
 [菜单、表单与弹窗排版](panel-focused-layout.md)进一步收拢菜单、对齐字段，并按完整内容宽度测量正文及操作区。
 [主题页签](panel-navigation.md)统一深浅主题的选中背景、文字和下划线；切页保留输入、设置及滚动位置。
+日常生成采用[纯文字菜单精修默认](menu-defaults.md)，其他类型保持[简约面板基础美术](panel-minimal-art.md)。已保存面板不自动换目录。原40项真实输入之外，另有[24项输入夹具覆盖](input-coverage-v2.md)，不要将夹具通过视为真实理解通过。
 [完整说明正文](literal-body-copy.md)保留多句说明，并拦截明确原文被缩短的生成结果。
 前一版Modern Mint说明见[视觉主题](panel-visual-style.md)。旧服务和第一版交付记录保留。
 其他地址的历史服务及存档保留；需要独立静态构建时使用下面的手动命令。
 
-1. 说说玩家需要做什么，或选用折叠的口语示例，点击「生成面板」。缺少初值、范围和操作含义时，可点选建议或自己回答；采用回答后再点击生成。
+1. 说说玩家需要做什么，或选用折叠的口语示例，点击「生成面板」。缺少初值、范围和操作含义时，可点选建议或自己回答；点击「采用回答并生成」直接提交，无需复制。修改追问用「采用回答并修改」，同样只提交一次。
 2. 在右侧试玩。面板尚未连接真实游戏，事件通过显式宿主接口接线。
+   想开始另一份任务，点预览区「新建面板」；已有面板可在「面板操作 → 历史版本与本机存档」恢复。新建会清空当前输入，尚未生成的纯文字草稿不另外归档。
 3. 填写修改要求，点击「修改面板」。也可先「选择修改对象」，在预览中选控件，再说“这个按钮改成紫色”。选中时只改该控件，改整页前请取消选择。存活字段的试玩值保留；新默认值通过面板的恢复默认操作生效。
 4. 「面板操作」提供撤销、打开面板、下载交付包和共享SDK。同一浏览器与地址会保存最近面板、草稿、试玩值和轮次；迁移地址或设备前下载PanelBundle备份。
 
@@ -59,7 +61,7 @@ Vite/Pixi/Playwright等依赖由该相邻Harness的锁定依赖提供；如果�
 ```sh
 node scripts/check-workspace.mjs
 node --test tests/*.test.mjs
-node scripts/build-workbench.mjs --catalog examples/modern-navigation.catalog.json --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-menu.catalog.json --assets builtin --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

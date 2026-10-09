@@ -1,6 +1,11 @@
 import { hasTextWrap,wrapStaticText } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
 import { measureFocusedSection } from './focused-presentation.mjs';
+import { measureMinimalSection } from './minimal-presentation.mjs';
+import { measureCraftedSettings } from './crafted-presentation.mjs';
+import { measureGroupedSection } from './grouped-presentation.mjs';
+import { measureAlignedSettings } from './aligned-settings-presentation.mjs';
+import {isStandaloneMenu,measurePolishedMenu} from './menu-presentation.mjs';
 
 /** Opt-in modern-v3 geometry. Typed controls determine presentation; actions remain unchanged. */
 export const presentationTextWidth = (value, size) => Math.ceil([...value].reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * 0.8 : size * 1.1), 0));
@@ -13,8 +18,11 @@ export function sectionPurpose(section) {
   return 'settings';
 }
 
-export function createPresentationPolicy(spec, tokens, presentationStyle) {
+export function createPresentationPolicy(spec, tokens, presentationStyle, surfaceStyle) {
+  const polishedMenu = surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec);
+  if (surfaceStyle === 'minimal-v2') surfaceStyle = 'minimal-v1';
   const l = spec.layout, textHeight = Math.ceil(tokens.fontSize * 1.3);
+  const groupedProfile = ['grouped-v1','grouped-v2','grouped-v3'].includes(surfaceStyle), crafted = groupedProfile || surfaceStyle === 'crafted-v1', minimal = crafted || surfaceStyle === 'minimal-v1';
   const icons = new Set((spec.assets?.rowIcons ?? []).map(icon => icon.rowId));
   const overrides = new Map((spec.buttonStyles ?? []).map(value => [value.rowId, value.style]));
   const reject = (code, message) => { const error = new Error(message); error.code = code; throw error; };
@@ -27,7 +35,9 @@ export function createPresentationPolicy(spec, tokens, presentationStyle) {
   const heading = value => value.trim().replace(/(?:界面|面板)$/, '');
   return (section, width) => {
     const purpose = sectionPurpose(section), compact = ['form', 'dialog'].includes(purpose);
-    const showTitle = !(compact && !spec.tabs && spec.sections.length === 1 && heading(spec.title) === heading(section.title));
+    const redundantHeading = !spec.tabs && heading(spec.title) === heading(section.title)
+      && (crafted ? true : ['refined-v1','minimal-v1'].includes(surfaceStyle) ? section.id === spec.sections[0].id : compact && spec.sections.length === 1);
+    const showTitle = !redundantHeading;
     const titleHeight = showTitle ? l.sectionTitleHeight + l.gap : 0;
     const explicit = spec.actionLayouts?.find(value => value.sectionId === section.id);
     if (explicit) {
@@ -44,9 +54,44 @@ export function createPresentationPolicy(spec, tokens, presentationStyle) {
           controlX: direction === 'row' ? x + sizes.slice(0,index).reduce((sum,value)=>sum+value.width+gap,0) : align === 'center' ? (width-size.width)/2 : align === 'end' ? width-size.width : 0,
           controlWidth: size.width, controlHeight: size.height })) };
     }
+    if (polishedMenu) return measurePolishedMenu(spec,tokens,section,width,showTitle,geometry);
+    if(surfaceStyle==='grouped-v3')return measureAlignedSettings(spec,tokens,section,width,purpose,showTitle,geometry);
+    if(groupedProfile){
+      const measured=measureGroupedSection(spec,tokens,section,width,purpose,showTitle,geometry,surfaceStyle==='grouped-v2'?2:1);
+      if(measured)return measured;
+    }
     if (presentationStyle === 'focused-v1' && purpose !== 'settings') {
-      const focused = measureFocusedSection(spec, tokens, section, width, purpose, geometry);
+      if(minimal) {
+        const minimal=measureMinimalSection(spec,tokens,section,width,purpose,geometry,showTitle);
+        if(minimal)return crafted ? {...minimal,height:Math.max(80,minimal.height)} : minimal;
+      }
+      const focused = measureFocusedSection(spec, tokens, section, width, purpose,
+        minimal?(row,w,h,shape)=>geometry(row,w,Math.max(48,h),shape):geometry,
+        (minimal || surfaceStyle==='refined-v1') ? showTitle : undefined);
+      if(focused&&minimal) {
+        let extra=0;
+        section.rows.forEach((row,i)=>{
+          const place=focused.rows[i];
+          place.y+=extra;
+          if(row.kind==='input') {
+            const errorWidth=Math.max(...[row.validation.requiredMessage,row.validation.minLengthMessage].map(message=>presentationTextWidth(message,14)));
+            const inline=presentationTextWidth(row.label,tokens.fontSize)+(icons.has(row.id)?40:0)+errorWidth+16<=width;
+            const height=Math.max(l.rowHeight,inline?textHeight+60:textHeight*2+76);
+            extra+=height-place.height;
+            Object.assign(place,{labelX:0,iconX:0,controlX:0,controlWidth:width,height,inputErrorInline:inline,errorWidth});
+          }
+        });
+        focused.height+=extra;
+      }
       if (focused) return focused;
+    }
+    if(crafted) {
+      const measured=measureCraftedSettings(spec,tokens,section,width,purpose,showTitle);
+      if(measured)return measured;
+    }
+    if(minimal) {
+      const minimal=measureMinimalSection(spec,tokens,section,width,purpose,geometry,showTitle);
+      if(minimal)return minimal;
     }
     const placements = [], primary = compact
       ? section.rows.find(row => row.kind === 'button' && row.action.kind === 'submit')

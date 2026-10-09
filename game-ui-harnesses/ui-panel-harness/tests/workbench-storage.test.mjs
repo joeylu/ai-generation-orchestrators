@@ -115,3 +115,43 @@ test('restoring an empty workspace clears panel, contexts and undo without retai
   assert.equal(model.getSnapshot().phase, 'empty'); assert.equal(model.getSnapshot().canUndo, false);
   await assert.rejects(model.exportPanel(), /WORKBENCH_PANEL_REQUIRED/);
 });
+
+test('starting a new panel persists a blank active draft while retaining exact history, played values and edit usage', async () => {
+  const storage = memory(), store = createWorkbenchStorage(storage); store.read();
+  const bundle = await panel(), values = { ...bundle.state, [bundle.spec.state.find(f => f.type === 'number').id]: 37 };
+  store.save({ draft: draft('原需求'), panel: bundle, state: values, editUsage: { [bundle.spec.id]: 4 } });
+  const previous = store.snapshot(), next = store.startNew();
+  assert.equal(next.currentId, null); assert.deepEqual(next.draft, emptyWorkbenchDraft());
+  assert.deepEqual(next.versions, previous.versions); assert.deepEqual(next.editUsage, previous.editUsage);
+  const reopened = createWorkbenchStorage(storage), read = reopened.read(); assert.deepEqual(read, next);
+  reopened.save({ draft: draft('新需求'), editUsage: read.editUsage });
+  assert.equal(reopened.snapshot().currentId, null); assert.deepEqual(reopened.snapshot().versions, previous.versions);
+  const old = previous.versions[0]; reopened.save({ draft: old.draft, panel: old.panel, state: old.state });
+  assert.equal(reopened.snapshot().currentId, old.id); assert.deepEqual(reopened.snapshot().editUsage, previous.editUsage);
+});
+
+test('new-panel quota and concurrent-tab failures preserve the last complete save and selected history', async () => {
+  const storage = memory(), store = createWorkbenchStorage(storage); store.read();
+  store.save({ draft: draft('保留'), panel: await panel() }); const before = store.snapshot(), raw = storage.getItem();
+  storage.setQuota(true); assert.throws(() => store.startNew(), /WORKSPACE_QUOTA/);
+  assert.equal(storage.getItem(), raw); assert.deepEqual(store.snapshot(), before); storage.setQuota(false);
+  storage.replace(raw + ' '); assert.throws(() => store.startNew(), /WORKSPACE_CONFLICT/);
+  assert.equal(storage.getItem(), raw + ' '); assert.deepEqual(store.snapshot(), before);
+  assert.throws(() => store.startNew(), /WORKSPACE_BLOCKED/);
+});
+
+test('new-panel action is idempotent on a blank draft and requires an initialized, readable store', () => {
+  const storage = memory(), store = createWorkbenchStorage(storage);
+  assert.throws(() => store.startNew(), /WORKSPACE_BLOCKED/); store.read();
+  const first = store.startNew(), writes = storage.writes; assert.deepEqual(store.startNew(), first); assert.equal(storage.writes, writes);
+  storage.replace('{'); assert.throws(() => store.read(), /WORKSPACE_INVALID/);
+  assert.throws(() => store.startNew(), /WORKSPACE_BLOCKED/); assert.equal(storage.getItem(), '{');
+});
+
+test('clearing the active panel never refunds its already used edit rounds', async () => {
+  const model = await controller(), bundle = await panel(); await model.importPanel(bundle);
+  model.restoreEditUsage({ [bundle.spec.id]: 4 }); model.clear();
+  assert.equal(model.getSnapshot().panel, null); assert.equal(model.getEditSnapshot().context, null);
+  assert.deepEqual(model.getEditUsage(), { [bundle.spec.id]: 4 });
+  await model.importPanel(bundle); assert.equal(model.getEditBudget().used, 4);
+});

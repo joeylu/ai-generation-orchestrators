@@ -26,15 +26,15 @@ const context = await createPlanningContext(request, catalog);
 const copy = value => structuredClone(value);
 let fixtureIndex = 0;
 
-async function buildFixture({ pool = null, changeManifest, changeHtml, studio = false } = {}) {
+async function buildFixture({ pool = null, changeManifest, changeHtml, studio = false, catalog: seedCatalog = catalog } = {}) {
   const path = join(work, `build-${fixtureIndex++}`); await mkdir(path);
-  const seed = { workbenchSeedVersion: '0.1', catalog, pool, example: null };
+  const seed = { workbenchSeedVersion: '0.1', catalog: seedCatalog, pool, example: null };
   const buildInfo = studio ? await createStudioBuildInfo('0.1.0', { shellSha256: await digestBytes(Buffer.from(renderWorkbenchHtml(seed))),
     scriptSha256: await digestBytes(Buffer.from('/* deterministic transport test fixture */')) }) : null;
   let html = renderWorkbenchHtml(seed, buildInfo);
   if (changeHtml) html = changeHtml(html);
   const contents = [{ path: 'index.html', bytes: Buffer.from(html) }, { path: 'workbench.js', bytes: Buffer.from('/* deterministic transport test fixture */') }];
-  const manifest = { workbenchBuildVersion: '0.1', status: 'COMPLETE', catalogSha256: await digestJson(catalog),
+  const manifest = { workbenchBuildVersion: '0.1', status: 'COMPLETE', catalogSha256: await digestJson(seedCatalog),
     poolSha256: pool?.sha256 ?? null, library: pool ? { id: pool.index.id, sha256: pool.index.sha256 } : null,
     recordCount: pool?.index.records.length ?? 0, imageCount: pool?.resources.length ?? 0,
     sourceReplay: pool ? 'VERIFIED_AT_BUILD' : 'NOT_APPLICABLE', example: null,
@@ -310,6 +310,63 @@ test('tampered contexts and extra command/model fields fail before invoking the 
   const other = await createPlanningContext(request, otherCatalog);
   await expected(await post(server, { requestId: randomUUID(), context: other }), 400, 'WORKBENCH_SERVER_CATALOG_MISMATCH');
   assert.equal(calls, 0);
+});
+
+test('refined daily build edits the exact previous catalog without upgrading it; generation and altered catalogs remain pinned',async t=>{
+  const json=async name=>JSON.parse(await readFile(join(root,'examples',name),'utf8'));
+  const [current,previous,base]=await Promise.all([json('modern-refined.catalog.json'),json('modern-navigation.catalog.json'),json('settings-controls.panel.json')]);
+  const {semanticSettingsFixture}=await import('../examples/semantic-controls-v1/fixture.mjs');
+  const source=semanticSettingsFixture(previous,base),editRequest={...request,id:'panel-edit',text:'把面板标题改为“声音设置”，其他不变。'};
+  const valid=await createPanelEditContext(source,previous,editRequest);
+  let calls=0;const workbench=await buildFixture({catalog:current}),server=await start(t,{workbench,editor:async value=>{calls++;assert.deepEqual(value.catalog,previous);assert.deepEqual(value.spec,source);return edited(value);}});
+  assert.equal((await postEdit(server,{requestId:randomUUID(),context:valid})).status,200);
+  const changed=copy(previous);changed.themes[0].tokens.radius++;
+  await expected(await postEdit(server,{requestId:randomUUID(),context:await createPanelEditContext(source,changed,editRequest)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  await expected(await post(server,{requestId:randomUUID(),context:await createPlanningContext(request,previous)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  const custom=copy(current);custom.themes[0].tokens.radius++;
+  const customServer=await start(t,{workbench:await buildFixture({catalog:custom}),editor:async()=>{calls++;throw Error('UNEXPECTED');}});
+  await expected(await postEdit(customServer,{requestId:randomUUID(),context:valid}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  assert.equal(calls,1);
+});
+
+test('minimal daily build preserves both exact previous catalogs for editing and keeps generation pinned',async t=>{
+  const json=async name=>JSON.parse(await readFile(join(root,'examples',name),'utf8'));
+  const current=await json('modern-minimal.catalog.json'),base=await json('settings-controls.panel.json');
+  const {semanticSettingsFixture}=await import('../examples/semantic-controls-v1/fixture.mjs');
+  let calls=0;const server=await start(t,{workbench:await buildFixture({catalog:current}),editor:async value=>{calls++;return edited(value);}});
+  for(const name of ['modern-navigation.catalog.json','modern-refined.catalog.json']){
+    const previous=await json(name),source=semanticSettingsFixture(previous,base),editRequest={...request,id:'minimal-edit',text:'把面板标题改为“声音设置”，其他不变。'};
+    const context=await createPanelEditContext(source,previous,editRequest);
+    assert.equal((await postEdit(server,{requestId:randomUUID(),context})).status,200);
+    await expected(await post(server,{requestId:randomUUID(),context:await createPlanningContext(request,previous)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+    const changed=copy(previous);changed.themes[0].tokens.radius++;
+    await expected(await postEdit(server,{requestId:randomUUID(),context:await createPanelEditContext(source,changed,editRequest)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  }
+  assert.equal(calls,2);
+});
+
+test('menu daily build edits all exact previous daily catalogs without upgrading them',async t=>{
+  const json=async name=>JSON.parse(await readFile(join(root,'examples',name),'utf8'));
+  const current=await json('modern-menu.catalog.json'),base=await json('settings-controls.panel.json');
+  const {semanticSettingsFixture}=await import('../examples/semantic-controls-v1/fixture.mjs');
+  let calls=0;const server=await start(t,{workbench:await buildFixture({catalog:current}),editor:async value=>{
+    calls++;assert.notEqual(value.catalog.id,current.id);return edited(value);
+  }});
+  for(const name of ['modern-navigation.catalog.json','modern-refined.catalog.json','modern-minimal.catalog.json']){
+    const previous=await json(name),source=semanticSettingsFixture(previous,base),editRequest={...request,id:'menu-edit',text:'把面板标题改为“声音设置”，其他不变。'};
+    const context=await createPanelEditContext(source,previous,editRequest);
+    const response=await postEdit(server,{requestId:randomUUID(),context});assert.equal(response.status,200);
+    assert.deepEqual((await response.json()).proposal.patch.operations,[{op:'set-panel-title',title:'声音设置'}]);
+    assert.deepEqual(context.catalog,previous);assert.deepEqual(context.spec,source);
+    await expected(await post(server,{requestId:randomUUID(),context:await createPlanningContext(request,previous)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+    const changed=copy(previous);changed.themes[0].tokens.radius++;
+    await expected(await postEdit(server,{requestId:randomUUID(),context:await createPanelEditContext(source,changed,editRequest)}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  }
+  const custom=copy(current);custom.themes[0].menuTokens.radius++;
+  const customServer=await start(t,{workbench:await buildFixture({catalog:custom}),editor:async()=>{calls++;throw Error('UNEXPECTED');}});
+  const previous=await json('modern-minimal.catalog.json'),source=semanticSettingsFixture(previous,base);
+  await expected(await postEdit(customServer,{requestId:randomUUID(),context:await createPanelEditContext(source,previous,{...request,id:'menu-custom',text:'把面板标题改为“声音设置”，其他不变。'})}),400,'WORKBENCH_SERVER_CATALOG_MISMATCH');
+  assert.equal(calls,3);
 });
 
 test('one flight runs at a time; an indeterminate failed call is consumed and diagnostics redact private messages', async t => {

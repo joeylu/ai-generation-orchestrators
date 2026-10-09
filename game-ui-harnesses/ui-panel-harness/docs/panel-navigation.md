@@ -1,6 +1,7 @@
 # 主题页签
 
-`examples/modern-navigation.catalog.json` 是当前推荐的 Studio 目录。
+`examples/modern-navigation.catalog.json` 是0.17主题页签目录，继续用于已保存面板。
+日常默认已升级为[refined-v1](panel-refined-surface.md)，包含下述页签能力。
 八种主题版本为 `0.7.0`，显式声明 `navigationStyle: "tabs-v1"`，
 保留 `semantic-v1` 控件与 `focused-v1` 排版，固定编译器 `0.17.0`。
 支持现有 PanelSpec 0.7–0.14，不新增用户需求字段。

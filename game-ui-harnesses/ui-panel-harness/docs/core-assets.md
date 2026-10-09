@@ -20,13 +20,14 @@ npm run studio
 独立静态构建需显式选择：
 
 ```sh
-node scripts/build-workbench.mjs --catalog examples/modern-navigation.catalog.json --assets builtin --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-minimal.catalog.json --assets builtin --output output/my-studio
 npm run studio -- --assets none
 ```
 
 `builtin` 和 `none` 是保留模式，均不接受 `--sharp-module`。
 未带 `--assets` 的独立构建仍是程序化界面；日常 Studio 的默认值为 `builtin`。
 图标是可选行装饰，不改变字段绑定、动作、按钮文字、主题或布局。
+逐控件使用建议、同组菜单回退与六类对比见[按用途选图](asset-usage.md)。
 底板与控件保留主题绘制，不强行用图标替换背景。
 显式横排/圆形动作布局仍遵守现有协议限制。
 

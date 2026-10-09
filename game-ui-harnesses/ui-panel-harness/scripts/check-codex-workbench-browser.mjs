@@ -372,20 +372,18 @@ try {
   assert.equal((await snapshot()).phase, 'needs-input'); assert.equal(await page.locator('#questions li').textContent(), '恢复默认应包含哪些设置？');
   await preserve(stable, live); assert.equal(calls.length, 2); pass(stage);
 
-  stage = 'answering-questions-never-submits-a-model-request';
+  stage = 'adopted-answers-submit-once-and-failure-keeps-panel-without-retry';
   const beforeAnswer = await snapshot();
   await page.locator('#questions-answer-0').fill('恢复全部三项设置到面板的创作初值。');
-  await click('#clarify'); await healthy(); await preserve(stable, live);
+  behavior = 'fail'; faultExpected = true;
+  await click('#clarify'); await idle(); await preserve(stable, live);
+  assert.match(await page.locator('#clarification-error').textContent(), /CODEX_PLANNER_FAILED/u);
   const afterAnswer = await snapshot();
   assert.equal(afterAnswer.phase, 'awaiting-proposal');
   assert.notEqual(afterAnswer.context.sha256, beforeAnswer.context.sha256);
   assert(afterAnswer.context.request.text.startsWith(beforeAnswer.context.request.text));
-  await page.waitForTimeout(150); assert.equal(calls.length, 2); assert.equal(planRequests, 2);
-  pass(stage, { newContextSha256: afterAnswer.context.sha256, automaticModelRequests: 0 });
-
-  stage = 'planner-failure-retains-panel-without-retry'; behavior = 'fail'; faultExpected = true;
-  await click('#generate-plan'); await errorVisible(); await preserve(stable, live);
-  await page.waitForTimeout(150); assert.equal(calls.length, 3); faultExpected = false; pass(stage, { retries: 0 });
+  await page.waitForTimeout(150); assert.equal(calls.length, 3); assert.equal(planRequests, 3); faultExpected = false;
+  pass(stage, { newContextSha256: afterAnswer.context.sha256, explicitAdoptRequests: 1, retries: 0 });
 
   stage = 'mismatched-response-rejected-before-panel-replacement'; behavior = 'ready';
   await mismatchNextResponse('/api/panel/plan');
@@ -567,6 +565,33 @@ try {
   assert.equal((await snapshot()).panel.spec.title, '声音设置'); await click('#undo'); await healthy();
   assert.deepEqual({ calls: calls.length, editCalls: editCalls.length, planRequests, editRequests, capabilityRequests }, beforeOffline);
   await screenshot('planner-offline.png'); pass(stage, { protocol: 'file', network: 'OFFLINE', modelRequests: 0 });
+
+  stage = 'offline-adoption-keeps-manual-context-export-without-submission';
+  const offlineBase = await snapshot(), offlineValues = await values();
+  await page.locator('#request-text').fill('做一个声音设置。'); await click('#prepare');
+  const offlineContext = (await snapshot()).context;
+  const offlineQuestions = { proposalVersion: offlineContext.planningContextVersion, contextSha256: offlineContext.sha256,
+    spec: null, decisions: [], unresolved: [{ id: 'q0', question: '音量范围和默认值是多少？' }] };
+  await writeNewJson(directory, 'offline-questions.proposal.json', offlineQuestions);
+  await page.locator('#proposal-file').setInputFiles(resolve(directory, 'offline-questions.proposal.json')); await idle();
+  assert.equal(await page.locator('#clarify').textContent(), '采用回答');
+  await page.locator('#questions textarea').fill('音量范围0～100，默认50。'); await click('#clarify'); await healthy();
+  assert((await snapshot()).context.request.text.includes('回答：音量范围0～100，默认50。'));
+  assert(await page.locator('#download-context').isEnabled());
+  await page.locator('#edit-request-text').fill('把默认音量改一下，其他不变。'); await click('#prepare-edit-context');
+  const offlineQuestionEdit = await page.evaluate(() => window.panelWorkbench.editSnapshot());
+  const offlineEditQuestions = { editProposalVersion: '0.1', contextSha256: offlineQuestionEdit.context.sha256,
+    patch: null, decisions: [], unresolved: [{ id: 'q0', question: '默认音量改为多少？' }] };
+  await writeNewJson(directory, 'offline-edit-questions.proposal.json', offlineEditQuestions);
+  await page.locator('#edit-proposal-file').setInputFiles(resolve(directory, 'offline-edit-questions.proposal.json')); await idle();
+  assert.equal(await page.locator('#clarify-edit').textContent(), '采用回答');
+  await page.locator('#edit-questions textarea').fill('默认音量改为50。'); await click('#clarify-edit'); await healthy();
+  assert((await page.locator('#edit-request-text').inputValue()).includes('回答：默认音量改为50。'));
+  await click('#prepare-edit-context');
+  assert((await page.evaluate(() => window.panelWorkbench.editSnapshot())).context.request.text.includes('回答：默认音量改为50。'));
+  assert(await page.locator('#download-edit-context').isEnabled()); await preserve(offlineBase, offlineValues);
+  assert.deepEqual({ calls: calls.length, editCalls: editCalls.length, planRequests, editRequests, capabilityRequests }, beforeOffline);
+  pass(stage, { explicitSubmissions: 0 });
 
   assert.deepEqual(problems, []); report.status = 'PASS';
 } catch (error) {

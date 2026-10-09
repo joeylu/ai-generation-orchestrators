@@ -59,7 +59,7 @@ export function createWorkbenchStorage(storage, { key = WORKBENCH_STORAGE_KEY,
             || !object(entry.panel) || !object(entry.state)) fail('WORKSPACE_INVALID');
           entry.draft = draftFor(entry.draft); ids.add(entry.id);
         }
-        if (next.currentId !== null && !ids.has(next.currentId) || next.currentId === null && next.versions.length) fail('WORKSPACE_INVALID');
+        if (next.currentId !== null && !ids.has(next.currentId)) fail('WORKSPACE_INVALID');
       }
       baseline = raw; data = next; blocked = false;
       return clone(data);
@@ -90,6 +90,13 @@ export function createWorkbenchStorage(storage, { key = WORKBENCH_STORAGE_KEY,
       }
       if (JSON.stringify(next) === baseline) return { workspace: clone(next), removed };
       return { workspace: write(next), removed };
+    },
+    // Start a blank workspace while retaining saved panels and their edit usage.
+    startNew() {
+      const next = { ...clone(data), draft: emptyWorkbenchDraft(), currentId: null };
+      if (blocked || baseline === undefined) fail('WORKSPACE_BLOCKED');
+      if (readRaw() !== baseline) { blocked = true; fail('WORKSPACE_CONFLICT'); }
+      return JSON.stringify(next) === baseline ? clone(data) : write(next);
     },
     // Clear only this Studio's key after an explicit user action, even if its old data is unreadable.
     reset() {

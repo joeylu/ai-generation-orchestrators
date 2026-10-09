@@ -2,13 +2,13 @@ import { hasTextWrap, wrapStaticText } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
 
 // Opt-in geometry only. Never changes order, labels, action scopes or values.
-export function measureFocusedSection(spec, tokens, section, width, purpose, geometry) {
+export function measureFocusedSection(spec, tokens, section, width, purpose, geometry, titleOverride) {
   const l = spec.layout, line = Math.ceil(tokens.fontSize * 1.3);
   const textWidth = (value, size) => Math.ceil([...value].reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * .8 : size * 1.1), 0));
   const icons = new Set((spec.assets?.rowIcons ?? []).map(icon => icon.rowId));
   const local = new Map((spec.buttonStyles ?? []).map(entry => [entry.rowId, entry.style]));
   const heading = value => value.trim().replace(/(?:界面|面板)$/, '');
-  const showTitle = !(!spec.tabs && spec.sections.length === 1 && heading(spec.title) === heading(section.title));
+  const showTitle = titleOverride ?? !(!spec.tabs && spec.sections.length === 1 && heading(spec.title) === heading(section.title));
   const standalone = row => row.kind === 'button' && row.label === '';
   // A labelled action is still a list row; preserve its original label/value layout.
   if (purpose === 'menu' && !section.rows.every(standalone)) return null;

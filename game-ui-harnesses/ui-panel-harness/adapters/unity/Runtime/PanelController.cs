@@ -15,6 +15,7 @@ namespace GameUi.PanelHarness
         public const string ADAPTER_VERSION = "0.1.5";
         private const double MAX_TICKS = 1000000;
         private const double DOUBLE_EPSILON = 2.2204460492503131E-16;
+        private readonly HashSet<string> EDITED_INPUTS = new HashSet<string>(StringComparer.Ordinal);
         [SerializeField] private PanelDocument document;
         [SerializeField] private PanelControlView[] views = new PanelControlView[0];
         private readonly Dictionary<string, PanelField> FIELDS = new Dictionary<string, PanelField>(StringComparer.Ordinal);
@@ -40,6 +41,7 @@ namespace GameUi.PanelHarness
             string error;
             if (!Validate(copy, controlViews, out error)) return Fail(error);
             Unbind();
+            EDITED_INPUTS.Clear();
             document = copy;
             views = new PanelControlView[controlViews.Length];
             for (int index = 0; index < controlViews.Length; index++)
@@ -372,7 +374,8 @@ namespace GameUi.PanelHarness
                         view.input.readOnly = control.readOnly;
                         view.input.characterLimit = field.maxLength;
                         view.input.SetTextWithoutNotify(field.stringValue);
-                        string issue = InputError(control, field.stringValue);
+                        string issue = control.deferEmptyError && field.stringValue.Length == 0 && !EDITED_INPUTS.Contains(control.fieldId)
+                            ? null : InputError(control, field.stringValue);
                         view.requiredErrorText.gameObject.SetActive(issue == "required");
                         view.minLengthErrorText.gameObject.SetActive(issue == "min-length");
                     }
@@ -481,6 +484,7 @@ namespace GameUi.PanelHarness
             PanelField field = FIELDS[view.definition.fieldId];
             if (view.definition.readOnly || !StringValid(value, field.maxLength)) { ApplyViews(); return; }
             bool changed = field.stringValue != value;
+            if (changed) EDITED_INPUTS.Add(field.id);
             field.stringValue = value; ApplyViews();
             if (changed) Raise(view.definition, field);
         }

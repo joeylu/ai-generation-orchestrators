@@ -11,6 +11,8 @@ import { buttonFontSize } from './button-font.mjs';
 import { appearanceTokens } from './appearance.mjs';
 import { selectSkin } from './select-skin.mjs';
 import { tabsSkin } from './tabs-skin.mjs';
+import { minimalControlSkin } from './minimal-skin.mjs';
+import {isStandaloneMenu,panelThemeTokens} from './menu-presentation.mjs';
 
 export const PANEL_COMPILER_VERSION = '0.1.0';
 export const ASSET_PANEL_COMPILER_VERSION = '0.2.0';
@@ -34,13 +36,22 @@ export const FRAME_PANEL_COMPILER_VERSION = '0.14.0';
 export const SEMANTIC_PANEL_COMPILER_VERSION = '0.15.0';
 export const FOCUSED_PANEL_COMPILER_VERSION = '0.16.0';
 export const NAVIGATION_PANEL_COMPILER_VERSION = '0.17.0';
+export const REFINED_PANEL_COMPILER_VERSION = '0.18.0';
+export const MINIMAL_PANEL_COMPILER_VERSION = '0.19.0';
+export const CRAFTED_PANEL_COMPILER_VERSION = '0.20.0';
+export const GROUPED_PANEL_COMPILER_VERSION = '0.21.0';
+export const PLAIN_ICON_PANEL_COMPILER_VERSION = '0.22.0';
+export const RAISED_SLIDER_PANEL_COMPILER_VERSION = '0.23.0';
+export const GROUPED_CONTENT_PANEL_COMPILER_VERSION = '0.24.0';
+export const ALIGNED_SETTINGS_PANEL_COMPILER_VERSION = '0.25.0';
+export const POLISHED_MENU_PANEL_COMPILER_VERSION = '0.26.0';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
   const theme = resolveTheme(catalog, spec.theme), profile = theme.visualStyle;
   if (theme.controlStyle === 'semantic-v1') {
     if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(spec.panelSpecVersion)) throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Semantic controls require PanelSpec 0.7 or later');
-    return theme.navigationStyle === 'tabs-v1' ? NAVIGATION_PANEL_COMPILER_VERSION : theme.presentationStyle === 'focused-v1' ? FOCUSED_PANEL_COMPILER_VERSION : SEMANTIC_PANEL_COMPILER_VERSION;
+    return theme.surfaceStyle === 'minimal-v2' ? POLISHED_MENU_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'grouped-v3' ? ALIGNED_SETTINGS_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'grouped-v2' ? GROUPED_CONTENT_PANEL_COMPILER_VERSION : theme.sliderStyle === 'raised-v1' ? RAISED_SLIDER_PANEL_COMPILER_VERSION : theme.iconStyle === 'plain-v1' ? PLAIN_ICON_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'grouped-v1' ? GROUPED_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'crafted-v1' ? CRAFTED_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'minimal-v1' ? MINIMAL_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'refined-v1' ? REFINED_PANEL_COMPILER_VERSION : theme.navigationStyle === 'tabs-v1' ? NAVIGATION_PANEL_COMPILER_VERSION : theme.presentationStyle === 'focused-v1' ? FOCUSED_PANEL_COMPILER_VERSION : SEMANTIC_PANEL_COMPILER_VERSION;
   }
   if (['0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) {
     if (profile !== 'modern-v3') throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Panel appearance requires modern-v3');
@@ -87,6 +98,14 @@ function contrast(foreground, background) {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
+// Existing PNG artwork retains its white ink. Only its optional badge is themed.
+function iconBadgeColor(accent) {
+  let color = accent;
+  for (let i = 0; i < 16 && contrast('#FFFFFF', color) < 4.5; i++)
+    color = '#' + [1, 3, 5].map(offset => Math.floor(parseInt(color.slice(offset, offset + 2), 16) * .85).toString(16).padStart(2, '0')).join('').toUpperCase();
+  return color;
+}
+
 // The shared default Select popup and Tabs headers paint light surfaces.
 // Keep their field/header and menu text in one readable palette without
 // changing the component runtime or introducing theme-specific raster assets.
@@ -128,9 +147,17 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     fail('COMPONENT_CORE_REQUIRED', '$', 'A compatible component compiler must be supplied');
   }
   const state = validatePanelState(spec, stateInput === undefined ? initialPanelState(spec) : stateInput);
-  const theme = resolveTheme(catalog, spec.theme), t = appearanceTokens(theme.tokens, appearance);
+  const theme = resolveTheme(catalog, spec.theme), t = appearanceTokens(panelThemeTokens(spec,theme), appearance);
+  const polishedMenu = theme.surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec);
+  const grouped = ['grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle), crafted = grouped || theme.surfaceStyle === 'crafted-v1';
+  if(theme.surfaceStyle==='grouped-v3'&&(spec.tabs||spec.sections.some(section=>!section.rows.every(row=>['slider','switch'].includes(row.kind))&&!section.rows.every(row=>row.kind==='button'&&row.label===''))))
+    fail('ALIGNED_SETTINGS_SCOPE','$.sections','grouped-v3 supports Slider/Switch sections and standalone actions only');
+  if(theme.surfaceStyle==='grouped-v3'&&spec.sections.flatMap(section=>section.rows).some(row=>row.kind==='button'&&rowIcons.has(row.id)))
+    fail('ALIGNED_SETTINGS_SCOPE','$.assets.rowIcons','Aligned standalone actions require text labels');
+  const groupedBackground = grouped && appearance?.panelColor == null ? t.background : t.surface;
+  const minimal = crafted || ['minimal-v1','minimal-v2'].includes(theme.surfaceStyle), refined = minimal || theme.surfaceStyle === 'refined-v1';
   const adaptive = theme.visualStyle === 'modern-v3', themed = adaptive || theme.visualStyle === 'modern-v2', modern = themed || theme.visualStyle === 'modern-v1';
-  const presentationPolicy = adaptive ? createPresentationPolicy(spec, t, theme.presentationStyle) : undefined;
+  const presentationPolicy = adaptive ? createPresentationPolicy(spec, t, theme.presentationStyle, theme.surfaceStyle) : undefined;
   const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec, presentationPolicy) : flowVersion ? measureFlowLayout(spec, presentationPolicy) : null;
   const l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
   if (!semantic && (styled ? !adaptive : modern ? compilerVersion !== (adaptive ? ADAPTIVE_PANEL_COMPILER_VERSION : themed ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION)
@@ -171,6 +198,12 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       fail('LAYOUT_GEOMETRY', '$.layout', 'Every generated rectangle must have a positive finite size');
     }
     layouts[id] = rect;
+    if (minimal && ['Input','Slider','Switch','ProgressBar'].includes(componentType)
+      && (componentType === 'Input' || appearance?.controlColor == null)) {
+      const skin = minimalControlSkin(({Input:'input',Slider:'slider',Switch:'switch',ProgressBar:'progress'})[componentType],rect,t,props.style.cornerRadius,crafted?2:1,grouped,theme.sliderStyle);
+      props = {...props,appearance:skin.appearance};
+      for(const resource of skin.resources)generatedResources.set(resource.path,resource);
+    }
     return { id, componentType, props, ...(children ? { children } : {}) };
   };
   const text = (id, value, rect, fontSize, color = t.text, weight = 'normal') => node(id, 'Text', rect, {
@@ -182,9 +215,12 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   if (titleBar && (Math.ceil(titleSize * 1.3) > titleHeight || presentationTextWidth(spec.title,titleSize) > titleWidth)) fail('TITLE_BAR_FIT', '$.titleBar', 'Title does not fit its existing slot; reduce font/padding or explicitly increase title height');
   const hasPlate = titleBar?.backgroundColor != null;
   const titleNode = text(`${spec.id}.title`, spec.title,
-    { x: (hasPlate ? 0 : l.padding) + titlePadding, y: (hasPlate ? 0 : l.padding) + titlePadding, width: titleWidth, height: titleHeight }, titleSize, titleBar?.textColor ?? t.text, 'bold');
+    { x: (hasPlate ? 0 : l.padding) + titlePadding, y: (hasPlate ? 0 : l.padding) + titlePadding, width: titleWidth, height: titleHeight }, titleSize, titleBar?.textColor ?? t.text, minimal && !crafted && !polishedMenu ? 'normal' : 'bold');
   const children = [hasPlate ? node(`${spec.id}.title-bar`, 'Container', { x:l.padding, y:l.padding, width:contentWidth, height:l.titleHeight },
     { style:style(titleBar.backgroundColor,{cornerRadius:titleBar.cornerRadius ?? t.radius}) }, [titleNode]) : titleNode];
+  if (refined && !minimal && !titleBar && l.gap >= 4) children.push(node(`${spec.id}.title-accent`, 'Container',
+    { x: l.padding, y: l.padding + l.titleHeight + l.gap / 2, width: Math.min(32, contentWidth), height: 3 },
+    { style: style(t.accent, { cornerRadius: 1.5 }) }, []));
   if (modern && !adaptive && l.gap >= 4) children.push(node(`${spec.id}.title-divider`, 'Container',
     { x: l.padding, y: l.padding + l.titleHeight + l.gap / 2, width: contentWidth, height: 1 },
     { style: style(t.border, { cornerRadius: 0 }) }, []));
@@ -193,7 +229,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     const source = panelAssetPath(record);
     imageFacts[source] = { width: record.width, height: record.height };
     return node(id, 'Image', rect, { source, ...(region ? { region } : {}), fit: region ? 'stretch' : 'contain',
-      drawBackground: badge, style: style(t.accent, { cornerRadius: 6 }) });
+      drawBackground: badge && theme.iconStyle !== 'plain-v1' && (grouped || !(minimal && contrast('#FFFFFF',t.surface)>=3)), style: style(grouped && badge ? iconBadgeColor(t.accent) : crafted && badge ? '#3A4B59' : minimal && badge ? '#314C43' : refined && badge ? iconBadgeColor(t.accent) : t.accent, { cornerRadius: minimal ? 8 : 6 }) });
   };
   let legacySectionY = l.padding + l.titleHeight + l.gap;
   const fields = new Map(spec.state.map(field => [field.id, field]));
@@ -213,37 +249,38 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       const placement = presentation?.rows[index], rowHeight = placement?.height ?? l.rowHeight;
       select(row.recipe, `${row.kind}-row`, contentWidth, rowHeight);
       const textHeight = Math.ceil(t.fontSize * 1.3);
-      const icon = assets.get(rowIcons.get(row.id)), iconOffset = icon ? 40 : 0;
+      const icon = assets.get(rowIcons.get(row.id)), iconOffset = icon ? placement?.iconOffset ?? 40 : 0;
       const fullButton = flowVersion && row.kind === 'button' && row.label === '';
       const stacked = placement?.stacked === true;
       if (icon && (rowHeight < 40 || (!fullButton && !stacked && l.labelWidth - iconOffset < t.fontSize * 2))) fail('ICON_GEOMETRY', '$.layout', 'Icon needs a 28px slot and a readable label');
       const rowChildren = fullButton || (placement?.copy && !row.label) ? [] : [text(`${rowId}.label`, row.label,
-        { x: (placement?.labelX ?? 12) + iconOffset, y: placement?.labelY ?? (placement?.textBlock ? 12 : stacked ? 0 : modern && row.kind === 'input' ? 4 + (40 - textHeight) / 2 : (rowHeight - textHeight) / 2), width: placement?.labelX !== undefined ? contentWidth - 2 * placement.labelX - iconOffset : stacked ? contentWidth - 24 - iconOffset : l.labelWidth - iconOffset, height: textHeight }, t.fontSize)];
-      if (icon) rowChildren.unshift(image(`${rowId}.icon`, icon, { x: placement?.iconX ?? 12, y: stacked ? 0 : (rowHeight - 28) / 2, width: stacked ? 24 : 28, height: stacked ? 24 : 28 }, null, true));
+        { x: (placement?.labelX ?? 12) + iconOffset, y: placement?.labelY ?? (placement?.textBlock ? 12 : stacked ? 0 : modern && row.kind === 'input' ? 4 + (40 - textHeight) / 2 : (rowHeight - textHeight) / 2), width: placement?.labelWidth ?? (placement?.inputErrorInline ? contentWidth-iconOffset-placement.errorWidth-16 : placement?.labelX !== undefined ? contentWidth - 2 * placement.labelX - iconOffset : stacked ? contentWidth - 24 - iconOffset : l.labelWidth - iconOffset), height: textHeight }, t.fontSize)];
+      const iconSize = placement?.iconSize ?? (grouped ? 28 : crafted || stacked ? 24 : 28);
+      if (icon) rowChildren.unshift(image(`${rowId}.icon`, icon, { x: placement?.iconX ?? 12, y: placement?.iconY ?? (stacked ? 0 : (rowHeight - iconSize) / 2), width: iconSize, height: iconSize }, null, true));
       const controlX = placement?.controlX ?? (stacked ? 12 : fullButton ? 12 + iconOffset : l.labelWidth + l.gap + 12);
       const available = placement?.controlWidth ?? contentWidth - controlX - 12;
       const rowY = placement?.y ?? l.sectionTitleHeight + l.gap + index * (l.rowHeight + l.gap);
       if (row.kind === 'input') {
-        if (available < 160 || rowHeight < (stacked ? 2 * textHeight + 60 : 48 + textHeight)) fail('INPUT_GEOMETRY', '$.layout', 'Input and validation need a readable field and error line');
-        rowChildren.push(node(id, 'Input', { x: controlX, y: stacked ? textHeight + 8 : 4, width: available, height: stacked ? 44 : 40 }, {
+        if (available < 160 || rowHeight < (placement?.inputErrorInline ? textHeight+60 : stacked ? 2 * textHeight + 60 : 48 + textHeight)) fail('INPUT_GEOMETRY', '$.layout', 'Input and validation need a readable field and error line');
+        rowChildren.push(node(id, 'Input', { x: controlX, y: stacked ? textHeight + (minimal ? 12 : 8) : 4, width: available, height: stacked ? (minimal ? 48 : 44) : 40 }, {
           value: state[row.bind], placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
           maxLength: field.maxLength, enabled: row.enabled, valueOverflow: 'ellipsis',
-          style: style(appearance?.controlColor ?? (modern && row.readOnly ? t.control : t.surface), { borderWidth: 1, cornerRadius: appearance?.controlRadius ?? (modern ? 8 : 6),
-            ...(modern ? { borderColor: t.accent } : {}) }),
+          style: style(appearance?.controlColor ?? (refined || modern && row.readOnly ? t.control : t.surface), { borderWidth: 1, cornerRadius: appearance?.controlRadius ?? (modern ? 8 : 6),
+            ...(modern ? { borderColor: minimal ? t.accent : refined ? t.border : t.accent } : {}) }),
         }));
         for (const [code, message] of [['required', row.validation.requiredMessage], ['min-length', row.validation.minLengthMessage]])
           rowChildren.push(text(formErrorId(spec.id, row.id, code), message,
-            { x: controlX, y: stacked ? textHeight + 60 : 48, width: available, height: textHeight }, t.fontSize, errorColor));
+            { x: placement?.inputErrorInline ? contentWidth-placement.errorWidth : controlX, y: placement?.inputErrorInline ? 0 : stacked ? textHeight + (minimal ? 68 : 60) : 48, width: placement?.inputErrorInline ? placement.errorWidth : available, height: textHeight }, minimal ? 14 : t.fontSize, errorColor));
       } else if (row.kind === 'slider') {
-        const valueWidth = Math.max(64, t.fontSize * 4), sliderWidth = available - valueWidth - l.gap;
+        const valueWidth = placement?.valueWidth ?? Math.max(64, t.fontSize * 4), sliderWidth = placement?.sliderStack ? available : available - valueWidth - l.gap;
         if (sliderWidth < 96) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Slider needs at least 96 logical pixels after label and value slots');
-        rowChildren.push(node(id, 'Slider', { x: controlX, y: 0, width: sliderWidth, height: rowHeight }, {
+        rowChildren.push(node(id, 'Slider', { x: controlX, y: placement?.controlY ?? (placement?.sliderStack ? 28 : 0), width: sliderWidth, height: placement?.controlHeight ?? (placement?.sliderStack ? rowHeight-28 : rowHeight) }, {
           value: state[row.bind], min: field.min, max: field.max, step: field.step, enabled: row.enabled,
-          style: style(t.control, { borderColor: t.accent }),
+          style: style(refined && appearance?.controlColor == null ? t.surface : t.control, { borderColor: t.accent }),
         }));
         const valueId = `${rowId}.value`;
         rowChildren.push(text(valueId, `${row.format.prefix}${state[row.bind].toFixed(row.format.fractionDigits)}${row.format.suffix}`,
-          { x: contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, appearance?.textColor ?? t.accent));
+          { x: placement?.valueX ?? contentWidth - valueWidth - (placement?.sliderStack ? 0 : 12), y: placement?.valueY ?? (placement?.sliderStack ? 0 : (rowHeight - textHeight) / 2), width: valueWidth, height: textHeight }, placement?.valueFontSize ?? t.fontSize, appearance?.textColor ?? (crafted ? t.muted : t.accent)));
         textBindings.push({ sourceId: id, targetId: valueId, parts: [row.format.prefix,
           { field: 'value', fractionDigits: row.format.fractionDigits, grouping: 'none' }, row.format.suffix] });
       } else if (row.kind === 'progress') {
@@ -257,13 +294,13 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         }));
         const valueId = `${rowId}.value`, suffix = row.format.mode === 'percent' ? '%' : '';
         rowChildren.push(text(valueId, progressText(row, field, state[row.bind]),
-          { x: contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, appearance?.textColor ?? t.accent));
+          { x: placement?.valueX ?? contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, appearance?.textColor ?? t.accent));
         textBindings.push({ sourceId: id, targetId: valueId, parts: [
           { field: 'value', fractionDigits: row.format.fractionDigits, grouping: 'none' }, suffix] });
       } else if (row.kind === 'switch') {
         if (available < 76) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Switch needs at least 76 logical pixels');
-        rowChildren.push(node(id, 'Switch', { x: contentWidth - 88, y: 0, width: 76, height: rowHeight }, {
-          label: '', checked: state[row.bind], enabled: row.enabled, style: style(t.control, { borderColor: t.accent }),
+        rowChildren.push(node(id, 'Switch', { x: placement?.controlX ?? contentWidth - 88, y: 0, width: 76, height: rowHeight }, {
+          label: '', checked: state[row.bind], enabled: row.enabled, style: style(refined && appearance?.controlColor == null ? t.surface : t.control, { borderColor: t.accent }),
         }));
       } else if (row.kind === 'text') {
         if (available <= 0) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Text values need a positive content slot');
@@ -311,7 +348,11 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
             : style(t.accent, { textColor: buttonForeground(t.accent), fontWeight: 'bold', cornerRadius: modern ? 8 : 6 });
           const role = semantic ? resolveRecipe(catalog,row.recipe,'button-row').buttonRole : undefined;
           if (role === 'secondary') Object.assign(buttonStyle,{backgroundColor:t.control,textColor:contrast(t.text,t.control)>=4.5?t.text:buttonForeground(t.control),borderColor:t.accent,borderWidth:1});
+          if (refined && (role === 'secondary' || !role && row.action.kind === 'reset-initial'))
+            Object.assign(buttonStyle, { backgroundColor: t.control, textColor: t.text, borderColor: t.border, borderWidth: 1, fontWeight: 'normal' });
           if (role === 'primary' || role === 'danger') { const color = role === 'danger' ? '#C42B43' : t.accent; Object.assign(buttonStyle,{backgroundColor:color,textColor:buttonForeground(color),borderWidth:0}); }
+          if (minimal) buttonStyle.fontWeight = 'normal';
+          if (polishedMenu) buttonStyle.cornerRadius = 10;
           if (appearance?.buttonColor != null) {
             buttonStyle.backgroundColor = appearance.buttonColor;
             buttonStyle.textColor = buttonForeground(appearance.buttonColor);
@@ -341,7 +382,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {
@@ -350,10 +391,15 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         }
       } else sectionChildren.push(node(rowId, 'Container', {
         x: 0, y: rowY, width: contentWidth, height: rowHeight,
-      }, { style: style(stacked || (modern && row.kind === 'text') ? t.surface : t.control, { ...(modern ? { cornerRadius: appearance?.controlRadius ?? 8 } : {}) }) }, rowChildren));
+      }, { style: style((refined && appearance?.controlColor == null) || stacked || (modern && row.kind === 'text') ? t.surface : t.control, { ...(modern ? { cornerRadius: appearance?.controlRadius ?? 8 } : {}) }) }, rowChildren));
+    }
+    if(grouped&&presentation?.settingsGroup&&section.rows.length>1){
+      for(let index=1;index<section.rows.length;index++)if(!presentation.dividerRows||presentation.dividerRows.includes(index))sectionChildren.push(node(`${sectionId}.divider.${index}`,'Container',
+        {x:presentation.dividerInset,y:presentation.rows[index].y-presentation.dividerOffset,width:contentWidth-presentation.dividerInset-(presentation.dividerRightInset??presentation.dividerInset),height:1},
+        {style:style(t.border,{cornerRadius:0})},[]));
     }
     bodyChildren.push(node(sectionId, 'Container', { x: place?.x ?? l.padding, y: sectionY, width: contentWidth, height },
-      { style: style(t.surface) }, sectionChildren));
+      { style: style(grouped&&!presentation?.settingsGroup?groupedBackground:t.surface,{...(grouped?{cornerRadius:presentation?.settingsGroup?t.radius:0}:{})}) }, sectionChildren));
     legacySectionY += height + l.sectionGap;
   }
   if (spec.tabs) {
@@ -378,7 +424,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     bindings.push({ nodeId: id, fieldId: tabs.bind, type: 'enum', event: tabs.event });
   } else if (flow) children.push(node(`${spec.id}.body`, flow.scrollable ? 'ScrollView' : 'Container', flow.body,
     flow.scrollable ? { scrollX: 0, scrollY: 0, contentWidth: flow.body.width, contentHeight: flow.contentHeight,
-      drawBackground: false, scrollbarVisibility: 'auto', style: style(t.surface) } : { style: style(t.surface) }, bodyChildren));
+      drawBackground: false, scrollbarVisibility: 'auto', style: style(t.surface) } : { style: style(groupedBackground) }, bodyChildren));
   const surface = assets.get(spec.assets?.panelSurface);
   if (surface && appearance?.panelColor == null && appearance?.panelRadius == null) {
     const { left, right, top, bottom } = surface.slice;
@@ -396,8 +442,14 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   }
   const card = node(`${spec.id}.panel`, 'Container', {
     x: flow?.panelX ?? (spec.canvas.width - l.width) / 2, y: flow?.panelY ?? (spec.canvas.height - panelHeight) / 2, width: l.width, height: panelHeight,
-  }, { style: style(t.surface, { borderWidth: 1, cornerRadius: appearance?.panelRadius ?? t.radius }) }, children);
-  const root = node(`${spec.id}.canvas`, 'Container', { x: 0, y: 0, ...spec.canvas }, { style: style(t.background, { cornerRadius: 0 }) }, [card]);
+  }, { style: style(groupedBackground, { borderWidth: crafted || polishedMenu ? 0 : 1, cornerRadius: appearance?.panelRadius ?? (grouped?0:t.radius) }) }, children);
+  const shadow = refined && !crafted && !polishedMenu && !surface && appearance?.panelColor == null ? [2].flatMap((spread, index) => {
+    const rect = layouts[card.id], x = rect.x - spread, y = rect.y - spread + 3;
+    if (x < 0 || y < 0 || x + rect.width + spread * 2 > spec.canvas.width || y + rect.height + spread * 2 > spec.canvas.height) return [];
+    return [node(`${spec.id}.panel-shadow.${index}`, 'Container', { x, y, width: rect.width + spread * 2, height: rect.height + spread * 2 },
+      { style: style('#000000', { opacity: .05, cornerRadius: (appearance?.panelRadius ?? t.radius) + spread }) }, [])];
+  }) : [];
+  const root = node(`${spec.id}.canvas`, 'Container', { x: 0, y: 0, ...spec.canvas }, { style: style(t.background, { cornerRadius: 0 }) }, [...shadow, card]);
   const intent = { intentVersion: '0.2', id: spec.id, root };
   const policy = { canvas: spec.canvas, layout: layouts, layoutSource: {
     kind: 'explicit', description: `Explicit rectangles produced by UI Panel compiler ${compilerVersion} from declared ${flowVersion ? 'flow container' : 'stack'} rules; not image measurements.`,

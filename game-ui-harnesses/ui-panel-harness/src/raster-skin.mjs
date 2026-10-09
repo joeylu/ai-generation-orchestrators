@@ -19,6 +19,15 @@ export function png(width,height,colors,pixel) {
   for(let y=0;y<height;y++)for(let x=0;x<width;x++)data[y*stride+1+(x>>1)]|=pixel(x,y)<<(x%2?0:4);
   return join([Uint8Array.of(137,80,78,71,13,10,26,10),chunk('IHDR',join([u32(width),u32(height),Uint8Array.of(4,3,0,0,0)])),chunk('PLTE',Uint8Array.from(palette)),chunk('tRNS',Uint8Array.from(alpha)),chunk('IDAT',storedZlib(data)),chunk('IEND',new Uint8Array())]);
 }
+/** Full RGBA for layered artwork; callbacks return straight alpha, invisible RGB is normalized. */
+export function rgbaPng(width,height,pixel) {
+  const stride=1+width*4,data=new Uint8Array(stride*height);
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const color=pixel(x,y),offset=y*stride+1+x*4;
+    if(color[3]>0)data.set(color,offset);
+  }
+  return join([Uint8Array.of(137,80,78,71,13,10,26,10),chunk('IHDR',join([u32(width),u32(height),Uint8Array.of(8,6,0,0,0)])),chunk('IDAT',storedZlib(data)),chunk('IEND',new Uint8Array())]);
+}
 function rounded(x,y,width,height,radius,inset=0) {
   const r=Math.max(0,Math.min(radius-inset,(width-2*inset)/2,(height-2*inset)/2));
   if(x<inset||y<inset||x>=width-inset||y>=height-inset)return false;

@@ -9,7 +9,7 @@ import { STUDIO_PORT, parseStudioArguments, checkStudioPort, launchStudio, studi
 test('daily entry fixes the origin and accepts explicit local settings', () => {
   const defaults = parseStudioArguments([]);
   assert.equal(defaults.port, 4951); assert.equal(STUDIO_PORT, 4951);
-  assert.match(defaults.catalog.replaceAll('\\', '/'), /\/examples\/modern-navigation.catalog.json$/);
+  assert.match(defaults.catalog.replaceAll('\\', '/'), /\/examples\/modern-menu.catalog.json$/);
   assert.equal(defaults.assets, 'builtin');
   assert.equal(parseStudioArguments(['--assets', 'none']).assets, 'none');
   assert.equal(parseStudioArguments(['--assets', 'builtin']).assets, 'builtin');

@@ -1,10 +1,10 @@
 # 修改结果核对
 
-Studio 的新修改上下文使用 EditContext 0.11。`requestChecks` 由程序从本轮
+本页记录 EditContext 0.11 的几何核对；Studio 新修改现使用[0.14属性与按钮文案定位核对](scoped-button-copy.md)。`requestChecks` 由程序从本轮
 原文构建，绑定上下文摘要，不能由模型改写或删项。旧上下文保持原能力和摘要。
 Draft 0.3、Proposal 0.1/0.2 与 PanelSpec/Bundle 格式保持原版本。
 
-当前自动核对范围是完整、明确的中文几何短句，例如：
+本页几何策略自动核对完整、明确的中文几何短句，例如：
 
 `改成9:16竖版，宽480，内边距24，标题区域高56，间距12。`
 

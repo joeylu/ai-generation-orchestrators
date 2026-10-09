@@ -43,17 +43,18 @@ export async function detectCodexBridge(location, fetcher = fetch) {
 }
 async function requestProposal(path, context, signal, fetcher) {
   const requestId = crypto.randomUUID(), contextSha256 = context.sha256;
-  let response;
+  let result;
   try {
-    response = await fetcher(path, { method: 'POST', mode: 'same-origin', credentials: 'omit',
+    const response = await fetcher(path, { method: 'POST', mode: 'same-origin', credentials: 'omit',
       redirect: 'error', cache: 'no-store', signal, headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId, context }),
     });
+    // The connection can also fail after headers or a partial body arrived.
+    result = await readResponse(response, { operation: path.endsWith('/edit') ? 'edit' : 'plan', contextSha256 });
   } catch (error) {
     if (error instanceof TypeError) throw failure('CODEX_BRIDGE_NETWORK_FAILED');
     throw error;
   }
-  const result = await readResponse(response, { operation: path.endsWith('/edit') ? 'edit' : 'plan', contextSha256 });
   if (result.protocol !== '0.1' || result.requestId !== requestId || result.contextSha256 !== contextSha256
     || result.proposal?.contextSha256 !== contextSha256) throw failure('CODEX_BRIDGE_CONTEXT_MISMATCH');
   return result;

@@ -85,6 +85,94 @@ test('selected-object CLI dispatch carries separate ID scope and exact original 
   assert.equal(result.proposal.decisions[0].basis.quote,context.request.text);
 });
 
+async function compositionEditFixture() {
+  const catalog = await json(join(harnessRoot, 'examples/modern-adaptive.catalog.json'));
+  const request = { ...roleRequest, id: 'composition-menu', text: '暂停菜单，提供继续游戏、声音设置、返回首页三个可用按钮，均发出点击事件。' };
+  const planning = await createPlanningContext(request, catalog);
+  const intent = roleIntent(planning); intent.panel.title = '暂停游戏';
+  intent.panel.body.children = [{ kind: 'section', title: '操作', rows: ['继续游戏', '声音设置', '返回首页'].map(label => ({
+    kind: 'button', label, recipeKey: 'settings.button@0.1.0', sourceRef: 'request', icon: null,
+    enabled: true, action: 'emit', resetRows: [], submitRows: [],
+  })) }];
+  const base = (await materializePanelIntent(planning, intent)).spec;
+  const titleStyle = { horizontalAlign: 'center', verticalAlign: null, backgroundColor: null,
+    textColor: null, cornerRadius: null, fontSize: 24, padding: 0 };
+  const layout = { direction: 'column', align: 'center', gap: 12, buttonWidth: 280, buttonHeight: 48, shape: 'default' };
+  const style = { backgroundColor: '#2464C8', textColor: null, borderColor: null,
+    borderWidth: null, cornerRadius: null, width: null, height: null, shape: null };
+  const spec = (await applyPanelPatch(base, { patchVersion: '0.1', baseSpecSha256: await digestJson(base), reason: '程序夹具，明确保存的现有构图。', operations: [
+    { op: 'set-title-bar', style: titleStyle },
+    { op: 'set-action-layout', sectionId: base.sections[0].id, layout },
+    { op: 'set-button-style', rowId: base.sections[0].rows[0].id, style },
+    { op: 'set-button-font-size', rowId: base.sections[0].rows[0].id, fontSize: 16 },
+  ] })).spec;
+  return { catalog, request, spec };
+}
+
+for (const selected of [false, true]) test(`composition guidance retains saved geometry through a ${selected ? 'selected button caption' : 'panel title'} edit`, async () => {
+  const { catalog, request, spec } = await compositionEditFixture();
+  const original = structuredClone(spec), rowId = spec.sections[0].rows[0].id;
+  const text = selected ? '只把这个按钮的文字改为继续，其他不变。' : '只把标题文字改为游戏已暂停，其他不变。';
+  const context = await createPanelEditContext(spec, catalog, { ...request, text }, selected ? { rowId } : null);
+  const operation = selected ? { op: 'set-button-label', rowId, buttonLabel: '继续' } : { op: 'set-panel-title', title: '游戏已暂停' };
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: context.sha256,
+    patch: { patchVersion: '0.1', baseSpecSha256: context.baseSpecSha256, reason: text, operations: [operation] },
+    bases: [{ kind: 'request-interpretation', quote: text }], unresolved: [], noChange: null };
+  const fake = fakeProcess((child, call) => {
+    assert(call.prompt.includes('Panel composition by purpose'));
+    assert(call.prompt.includes('A text-only or selected-object edit preserves unmentioned title alignment'));
+    assert(call.prompt.includes('Do not mechanically apply a settings page'));
+    assert(call.prompt.includes(JSON.stringify(text)));
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'READY_TO_APPLY'); assert.equal(fake.calls.length, 1);
+  const applied = await applyPanelPatch(spec, result.proposal.patch), expected = structuredClone(original);
+  if (selected) expected.sections[0].rows[0].buttonLabel = '继续'; else expected.title = '游戏已暂停';
+  assert.deepEqual(applied.spec, expected); assert.deepEqual(spec, original);
+  assert.deepEqual(result.proposal.patch.operations, [operation]);
+});
+
+test('explicit layout edits can override composition preferences without changing other saved properties', async () => {
+  const { catalog, request, spec } = await compositionEditFixture();
+  const text = '标题改成左对齐，按钮列改为左对齐、宽372高48、间距16，其他不变。';
+  const context = await createPanelEditContext(spec, catalog, { ...request, text });
+  const style = { ...spec.titleBar, horizontalAlign: 'left' };
+  const { sectionId, ...oldLayout } = spec.actionLayouts[0];
+  const layout = { ...oldLayout, align: 'start', buttonWidth: 372, gap: 16 };
+  const operations = [{ op: 'set-title-bar', style }, { op: 'set-action-layout', sectionId, layout }];
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: context.sha256,
+    patch: { patchVersion: '0.1', baseSpecSha256: context.baseSpecSha256, reason: text, operations },
+    bases: operations.map(() => ({ kind: 'request-interpretation', quote: text })), unresolved: [], noChange: null };
+  const fake = fakeProcess((child, call) => {
+    assert(call.prompt.includes('Explicit user layout instructions take precedence'));
+    assert(call.prompt.includes('even when they differ from these preferences'));
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'READY_TO_APPLY'); assert.equal(fake.calls.length, 1);
+  assert.deepEqual(result.proposal.patch.operations, operations);
+  const applied = await applyPanelPatch(spec, result.proposal.patch);
+  assert.deepEqual(applied.spec, { ...spec, titleBar: style, actionLayouts: [{ ...layout, sectionId }] });
+});
+
+test('a necessary unsupported animation in an aesthetic edit can be clarified once without a partial restyle', async () => {
+  const { catalog, request, spec } = await compositionEditFixture(), sourceDigest = await digestJson(spec);
+  const text = '改得好看点，必须加淡入动画，其他内容保持。';
+  const context = await createPanelEditContext(spec, catalog, { ...request, text });
+  const draft = { codexEditDraftVersion: '0.3', contextSha256: context.sha256, patch: null, bases: null,
+    unresolved: [{ id: 'animation', question: '当前面板协议不支持淡入动画，是否去掉这项要求后继续调整静态样式？' }], noChange: null };
+  const fake = fakeProcess((child, call) => {
+    assert(call.prompt.includes('A vague aesthetic request'));
+    assert(call.prompt.includes('Never return a partial supported subset'));
+    sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
+  });
+  const result = await editWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
+  assert.equal(result.report.status, 'NEEDS_INPUT'); assert.equal(fake.calls.length, 1);
+  assert.equal(result.proposal.patch, null); assert.deepEqual(result.proposal.unresolved, draft.unresolved);
+  assert.equal(await digestJson(spec), sourceDigest);
+});
+
 test('button font dispatch advertises the operation and distinguishes glyph size from hit target size', async () => {
   const catalog = await json(join(harnessRoot, 'examples/modern-adaptive.catalog.json'));
   const planning = await createPlanningContext(roleRequest, catalog);
@@ -178,12 +266,20 @@ test('native 0.9 initial layout and per-button editing use the actual CLI bounda
   const fake = fakeProcess(async (child, call) => {
     generatedSchema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
     assert(call.prompt.includes('Intent 0.9')); assert(call.prompt.includes('actionLayout'));
+    assert(call.prompt.includes('Icon usage: restrained-v1'));
+    assert(call.prompt.includes('Whole-request interpretation'));
+    assert(call.prompt.includes('Panel composition by purpose'));
+    assert(call.prompt.includes('New-panel scope'));
+    assert(call.prompt.includes('A later number alone is not a correction'));
+    assert(call.prompt.includes('do not adopt an example or superseded value'));
+    assert(call.prompt.includes('Optional decoration does not require clarification'));
     sendEvents(child, completedEvents(JSON.stringify(intent))); child.close(0);
   });
   const generated = await planWithCodex(context, { outputRoot: output(), executable, runProcess: fake.runProcess });
   assert.equal(fake.calls.length, 1); assert.equal(generated.report.status, 'READY_TO_COMPILE');
   assert.deepEqual(generatedSchema.properties.panelIntentVersion.enum, ['0.9']);
   assert.equal(generated.proposal.spec.panelSpecVersion, '0.9');
+  assert.deepEqual(generated.proposal.spec.actionLayouts, [{ sectionId: 'section0', direction: 'row', align: 'center', gap: 16, buttonWidth: 56, buttonHeight: 56, shape: 'circle' }]);
   const editing = await createPanelEditContext(generated.proposal.spec, catalog, { ...request, text: '交换上一首和下一首，播放键改为紫色80像素圆形，其他不变。' });
   const operations = [{ op: 'set-row-order', sectionId: 'section0', rowIds: ['row2', 'row1', 'row0'] },
     { op: 'set-button-style', rowId: 'row1', style: { backgroundColor: '#7C3AED', textColor: null, borderColor: null, borderWidth: null, cornerRadius: null, width: 80, height: 80, shape: 'circle' } }];
@@ -192,6 +288,9 @@ test('native 0.9 initial layout and per-button editing use the actual CLI bounda
     bases: operations.map(() => ({ kind: 'request-interpretation', quote: editing.request.text })), unresolved: [], noChange: null };
   const editFake = fakeProcess(async (child, call) => {
     assert(call.prompt.includes('prompts/panel-control-editor.md'));
+    assert(call.prompt.includes('Whole-request interpretation'));
+    assert(call.prompt.includes('Never guess the first matching row'));
+    assert(call.prompt.includes('Never return a partial supported subset'));
     const schema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
     assert(codexEditOperationContracts(schema, editing).some(op => op.operation === 'set-button-style'));
     sendEvents(child, completedEvents(JSON.stringify(draft))); child.close(0);
@@ -270,6 +369,7 @@ test('Codex editing accepts legacy native proposals under draft dispatch and wri
   assert.ok(call.args.includes('model_reasoning_effort="xhigh"'));
   assert.ok(call.args.includes('features.shell_tool=false'));
   assert.ok(call.prompt.includes('UNTRUSTED TASK DATA')); assert.ok(call.prompt.includes('panel-editor.md'));
+  assert.ok(call.prompt.includes('Do not rebalance or replace saved icons as a side effect'));
   assert.ok(call.prompt.includes('### Native CLI output schema')); assert.ok(call.prompt.includes('reset-initial'));
   assert.ok(!call.prompt.includes('panel-edit-proposal.schema.json'));
   assert.ok(call.prompt.includes('Do not wrap it in proposalJson'));
@@ -852,6 +952,8 @@ test('one fixed-model tool-less invocation validates final proposal and saves pu
     'features.shell_tool=false', 'features.unified_exec=false', 'features.apps=false', 'features.plugins=false',
     'features.image_generation=false', 'features.browser_use=false', 'features.skip_host_skill_discovery=true']) assert.ok(call.args.includes(setting));
   assert.ok(call.prompt.includes('UNTRUSTED TASK DATA')); assert.ok(call.prompt.includes('agent-authored'));
+  assert.ok(call.prompt.includes('Panel composition by purpose'));
+  assert.ok(call.prompt.includes('Unspecified geometry and decoration still use the pinned catalog/compiler defaults'));
   assert.ok(call.prompt.includes('panel-spec-v0.3.schema.json')); assert.ok(call.prompt.includes('panel-proposal-v0.3.schema.json'));
   assert.ok(call.prompt.includes(JSON.stringify(context.request.text)));
   assert.equal(call.prompt.includes(executable), false);
@@ -1083,6 +1185,8 @@ test('Codex draft response uses one invocation, derives targets and saves origin
   assert.deepEqual(result.proposal, proposalFor()); assert.equal(result.receipt.status, 'READY_TO_COMPILE');
   assert.equal(result.receipt.proposalSha256, await digestJson(result.proposal)); assert.equal(fake.calls.length, 1);
   assert.ok(fake.calls[0].prompt.includes('CodexPanelDraft 0.1')); assert.ok(fake.calls[0].prompt.includes('codex-panel-draft.schema.json'));
+  assert(fake.calls[0].prompt.includes('Whole-request interpretation'));
+  assert(fake.calls[0].prompt.includes('Negation and scope matter'));
   const directory = join(outputRoot, (await readdir(outputRoot))[0]);
   assert.deepEqual(await json(join(directory, 'codex-draft.json')), draft);
   assert.deepEqual((await readdir(directory)).sort(), ['codex-draft.json', 'codex-receipt.json', 'planning-context.json', 'planning-report.json', 'proposal.json']);

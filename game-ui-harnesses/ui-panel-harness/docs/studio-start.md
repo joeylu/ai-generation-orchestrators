@@ -7,6 +7,7 @@ npm run studio
 ```
 
 默认加载随源码提供的 12 个核心图标和语义索引，不需要指定图库或安装 Sharp。
+新生成默认使用 `examples/modern-menu.catalog.json`，在[minimal-v1基础美术](panel-minimal-art.md)上增加[纯文字菜单精修默认](menu-defaults.md)；其他类型基础样式保持。源码更新后需按下述流程重启日常服务；已运行进程不会自动换构建，已保存面板继续使用原主题及目录编辑。
 使用 `--assets none` 可启动纯程序化界面；`--assets <library> --sharp-module <module>` 可替换为外部图库。
 内置库的固定摘要校验、扩充方式和验收见 [core-assets.md](core-assets.md)。
 
@@ -56,7 +57,7 @@ npm run studio -- --port 5123
 ```
 
 显式更换端口会得到独立的本机存档，请长期使用选定地址。
-可选 `--catalog <catalog.json>` 切换目录；默认采用 `examples/modern-navigation.catalog.json`。
+可选 `--catalog <catalog.json>` 切换目录；默认采用 `examples/modern-menu.catalog.json`。
 资源目录与相对目录参数相对于 Harness 根目录解析。
 `builtin`（默认）与 `none` 是保留模式；只有外部图库才接受 `--sharp-module`。
 网络环境由当前启动进程继承，不读取或修改全局代理配置。
@@ -70,3 +71,5 @@ node scripts/check-studio-start-browser.mjs --output output/my-studio-start-revi
 
 浏览器检查使用当前源码的真实构建和隔离浏览器，以程序表单及升级目录夹具验证固定地址重启、
 草稿/轮次恢复、旧页刷新提示、保存失败保护和导出。不会调用模型或改动日常 Studio 的存档。
+
+对已运行服务的当前构建、本地编辑反馈与实际下载包，可使用[日常整体验收](daily-studio-acceptance-2026-10-09.md)；该脚本拒绝所有POST，只使用隔离浏览器。

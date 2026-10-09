@@ -112,7 +112,23 @@ async function loadBuild(workbench) {
     const expected = await createStudioBuildInfo(studio.appVersion, { shellSha256: await digestBytes(Buffer.from(template)), scriptSha256: await digestBytes(artifacts.get('workbench.js')) });
     if (!same(studio, expected)) fail('WORKBENCH_SERVER_BUILD_IDENTITY');
   }
-  return { artifacts, catalog, pool, studio };
+  const editingCatalogs = [catalog];
+  // Only an exact shipped successor admits its exact previous daily catalogs.
+  // Importing an arbitrary catalog never expands planner/editor capabilities.
+  const dailyPredecessors = new Map([
+    ['modern-refined@0.8.0', ['modern-refined.catalog.json', 'modern-navigation.catalog.json']],
+    ['modern-minimal@0.9.0', ['modern-minimal.catalog.json', 'modern-navigation.catalog.json', 'modern-refined.catalog.json']],
+    ['modern-menu@0.18.0', ['modern-menu.catalog.json', 'modern-navigation.catalog.json', 'modern-refined.catalog.json', 'modern-minimal.catalog.json']],
+  ]).get(`${catalog.id}@${catalog.version}`);
+  if (dailyPredecessors) {
+    const readCatalog = async file => freeze(validateCatalog(JSON.parse(decode(await readBounded(resolve(harnessRoot, 'examples', file), MIB)))));
+    const [currentFile, ...previousFiles] = dailyPredecessors;
+    const current = await readCatalog(currentFile);
+    if (same(catalog, current)) {
+      for (const file of previousFiles) editingCatalogs.push(await readCatalog(file));
+    }
+  }
+  return { artifacts, catalog, editingCatalogs, pool, studio };
 }
 
 async function validateOutputRoot(input) {
@@ -213,7 +229,8 @@ export async function createWorkbenchServer({ workbench, outputRoot, port = 0, p
       requestIds.add(id);
       try {
         context = await (editing ? validatePanelEditContext : validatePlanningContext)(input.context);
-        if (!same(context.catalog, build.catalog)) fail('WORKBENCH_SERVER_CATALOG_MISMATCH');
+        const admittedCatalogs = editing ? build.editingCatalogs : [build.catalog];
+        if (!admittedCatalogs.some(catalog => same(context.catalog, catalog))) fail('WORKBENCH_SERVER_CATALOG_MISMATCH');
         if (editing) {
           if (context.spec.assets) {
             if (!build.pool) fail('WORKBENCH_SERVER_POOL_REQUIRED');

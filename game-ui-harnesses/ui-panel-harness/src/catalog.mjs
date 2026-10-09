@@ -85,12 +85,25 @@ export function validateCatalog(value) {
   array(value.recipes, 'catalog.recipes', 1, 256);
   value.themes.forEach((theme, index) => {
     const path = `catalog.themes[${index}]`;
-    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle', 'controlStyle', 'presentationStyle', 'navigationStyle']);
+    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle', 'controlStyle', 'presentationStyle', 'navigationStyle', 'surfaceStyle', 'iconStyle', 'sliderStyle', 'menuTokens']);
     identity(theme, path);
     if (Object.hasOwn(theme, 'visualStyle') && !['modern-v1', 'modern-v2', 'modern-v3'].includes(theme.visualStyle)) fail(`${path}.visualStyle`, 'unsupported visual style');
     if (Object.hasOwn(theme, 'controlStyle') && (theme.controlStyle !== 'semantic-v1' || theme.visualStyle !== 'modern-v3')) fail(`${path}.controlStyle`, 'semantic-v1 requires modern-v3');
     if (Object.hasOwn(theme, 'presentationStyle') && (theme.presentationStyle !== 'focused-v1' || theme.controlStyle !== 'semantic-v1')) fail(`${path}.presentationStyle`, 'focused-v1 requires semantic-v1 controls');
     if (Object.hasOwn(theme, 'navigationStyle') && (theme.navigationStyle !== 'tabs-v1' || theme.presentationStyle !== 'focused-v1')) fail(`${path}.navigationStyle`, 'tabs-v1 requires focused-v1 presentation');
+    if (Object.hasOwn(theme, 'surfaceStyle') && (!['refined-v1','minimal-v1','minimal-v2','crafted-v1','grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle) || theme.navigationStyle !== 'tabs-v1')) fail(`${path}.surfaceStyle`, 'Surface styles require tabs-v1 navigation');
+    if ((theme.surfaceStyle === 'minimal-v2') !== Object.hasOwn(theme, 'menuTokens')) fail(`${path}.menuTokens`, 'minimal-v2 requires its exact menu token set');
+    if (Object.hasOwn(theme, 'menuTokens')) {
+      object(theme.menuTokens, `${path}.menuTokens`, TOKEN_KEYS);
+      for (const key of COLOR_KEYS) string(theme.menuTokens[key], `${path}.menuTokens.${key}`, 7, /^#[0-9a-fA-F]{6}$/);
+      string(theme.menuTokens.fontFamily, `${path}.menuTokens.fontFamily`, 128);
+      for (const key of ['fontSize','headingSize','titleSize']) number(theme.menuTokens[key], `${path}.menuTokens.${key}`, 8, 128);
+      number(theme.menuTokens.spacing, `${path}.menuTokens.spacing`, 0, 128);
+      number(theme.menuTokens.radius, `${path}.menuTokens.radius`, 0, 128);
+    }
+    if (Object.hasOwn(theme, 'iconStyle') && (theme.iconStyle !== 'plain-v1' || !['grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle))) fail(`${path}.iconStyle`, 'plain-v1 icons require grouped surfaces');
+    if (Object.hasOwn(theme, 'sliderStyle') && (theme.sliderStyle !== 'raised-v1' || !['grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle))) fail(`${path}.sliderStyle`, 'raised-v1 sliders require grouped surfaces');
+    if(theme.surfaceStyle==='grouped-v3'&&theme.sliderStyle!=='raised-v1')fail(`${path}.sliderStyle`,'grouped-v3 requires raised-v1 slider geometry');
     object(theme.tokens, `${path}.tokens`, TOKEN_KEYS);
     for (const key of COLOR_KEYS) string(theme.tokens[key], `${path}.tokens.${key}`, 7, /^#[0-9a-fA-F]{6}$/);
     string(theme.tokens.fontFamily, `${path}.tokens.fontFamily`, 128);
