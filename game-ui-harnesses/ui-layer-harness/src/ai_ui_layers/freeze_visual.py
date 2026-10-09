@@ -8,7 +8,7 @@ import time
 from .compile_visual import compile_run, verify_run, selected_paths
 from .evaluate import read, save, digest
 from . import visual_textures
-from .visual_policy import planning_policy, snapshot_policy, generation_guidance
+from .visual_policy import planning_policy, snapshot_policy, generation_guidance, warnings_only
 
 
 def body_digest(value):
@@ -32,7 +32,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     policy=planning_policy(run)
     texture_doc=visual_textures.planning_input(run)
     plan_path,review_path=selected_paths(run)
-    if visual['unknowns']:
+    if visual['unknowns'] and not warnings_only(policy):
         raise ValueError('UNRESOLVED_UNKNOWNS')
     # Rebuild from bound inputs rather than accepting editable compiled candidates.
     report=compile_run(run, output, max_calls, generation_mode, generation_reference,
@@ -97,8 +97,16 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
     review=read(review_path)
     itemized=('planEvidenceCatalogDigest' in review or
               any(isinstance(row.get('observedArtwork'),list) for row in review.get('coverageAudit',[])))
-    save(output/'planning-warnings.json',dict(warnings=split(review,
-        visual if policy is not None or itemized or texture_doc is not None else None,visual_policy=policy,coverage_text_policy=read(run/'.dag/config.json').get('coverageTextPolicy') if (run/'.dag/config.json').exists() else None,visual_textures=texture_doc)[1],reviewSha256=digest(review_path)))
+    warnings=split(review,
+        visual if policy is not None or itemized or texture_doc is not None else None,visual_policy=policy,coverage_text_policy=read(run/'.dag/config.json').get('coverageTextPolicy') if (run/'.dag/config.json').exists() else None,visual_textures=texture_doc)[1]
+    if warnings_only(policy):
+        warnings.extend(dict(code='PLANNING_UNKNOWN', description=str(item), suggestedChange='Check against the final composite.')
+                        for item in visual['unknowns'])
+        relations=read(output/'relation-assessment.json') if (output/'relation-assessment.json').exists() else {}
+        warnings.extend(dict(code=item['code'], description=json.dumps(item,ensure_ascii=False,sort_keys=True),
+                             suggestedChange='Inspect the declared relationship in the final composite.')
+                        for item in relations.get('warnings',[]))
+    save(output/'planning-warnings.json',dict(warnings=warnings,reviewSha256=digest(review_path)))
     plan=read(output/'execution-plan.candidate.json')
     texture_bindings=read(output/'visual-texture-bindings.json') if texture_doc is not None else None
     context_document=read(output/'generation-references.json') if generation_reference=='context-crops' else None
@@ -140,7 +148,9 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
               'sourcePlanSha256':report['sourcePlanSha256'],'reviewSha256':report['reviewSha256'],
               'materialCount':report['materialCount'],'plannedCalls':report['plannedCalls'],
               'maximumCalls':max_calls,'legacyCompatibilityBlockers':report['blockers'],
-              'checks':['bound inputs and review','empty M2 issues','no unresolved unknowns',
+              'checks':['bound inputs and review',
+                        *(['visual findings recorded; final composite review pending'] if warnings_only(policy) else
+                          ['empty M2 issues','no unresolved unknowns']),
                         'v5 schema and relationships','legacy plan structure','explicit call limit',
                         'deterministic crops and prompts','artifact hashes'],
               'elapsedSeconds':time.perf_counter()-started,'files':files}

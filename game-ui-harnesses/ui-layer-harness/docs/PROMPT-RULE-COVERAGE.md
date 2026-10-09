@@ -1,5 +1,27 @@
 # Planning prompt rule coverage
 
+## New host warning-policy overlay
+
+For new v5 warning-policy host runs, `visual_prompt_contract.py` is the shared
+source compiled into the frozen M1, M2, single/sheet generation and output-review
+prompts. The historical shared templates below remain pinned; their visual
+blocking dispositions are explicitly overridden by v5. Required structured
+observations, identity, coverage and hash bindings remain mandatory.
+
+| Rule | Shared instruction | Program disposition / evidence |
+| --- | --- | --- |
+| Duplicate prevention | Unique owner/count; clean parent excludes named children; crops locate rather than mask | Every ownership declaration is still required; discrepancies are warnings |
+| Complete illustrations | Distinguish visible body parts, eyes, solid light regions and holes from highlights | M1 writes actual visible structure; M2 records omissions honestly |
+| Surface variations | Shading, glints, bevels and gradients belong to the owned surface; extra content needs independent visual evidence | Original category, magnitude and evidence survive to final report |
+| Body proportions | Transparent margins are separate from complete body dimensions; one PNG, uniform placement | Measured residuals/aspect exceedances are warnings; invalid measurements remain errors |
+| Final acceptance | Report all visual findings without suppressing or downgrading them | Execution completion and human visual acceptance remain separate |
+
+The implemented profile and its technical limits are described in
+[VISUAL-WARNING-POLICY.md](VISUAL-WARNING-POLICY.md). The remaining tables document
+the original consolidation and retain their historical severity descriptions.
+
+## Historical shared-template consolidation
+
 This maps the M1/M2 templates at `c0154f2b` to their consolidated wording.
 It is reviewer documentation, not an additional model input or a new quality policy.
 Templates remain in the shared `ui-decomposition-harness/planning-harness/prompts/`.

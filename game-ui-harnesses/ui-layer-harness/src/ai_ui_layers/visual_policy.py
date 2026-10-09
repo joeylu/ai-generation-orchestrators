@@ -8,6 +8,7 @@ KIND = 'ui_visual_policy_v1'
 KIND_V2 = 'ui_visual_policy_v2'
 KIND_V3 = 'ui_visual_policy_v3'
 KIND_V4 = 'ui_visual_policy_v4'
+KIND_V5 = 'ui_visual_policy_v5'
 FIELDS = {
     'kind': (KIND,),
     'appearanceEvidence': ('text-complete', 'bound-reference'),
@@ -17,6 +18,9 @@ FIELDS = {
 FIELDS_V2 = dict(FIELDS, kind=(KIND_V2,), minorStyle=('strict', 'record'))
 FIELDS_V3 = dict(FIELDS_V2, kind=(KIND_V3,), minorGeometry=('strict', 'record'))
 FIELDS_V4 = dict(FIELDS_V3, kind=(KIND_V4,), minorLayout=('strict', 'record'))
+FIELDS_V5 = dict(FIELDS_V4, kind=(KIND_V5,), minorColor=('record',), shadow=('optional',),
+                minorStyle=('record',), minorGeometry=('record',), minorLayout=('record',),
+                findingDisposition=('warning',))
 INPUT_NAME = 'visual-policy.json'
 MODEL_STAGES = ('m2', 'repair', 'rereview', 'repair2', 'rereview2')
 
@@ -26,13 +30,24 @@ def validate(policy):
     if not isinstance(policy, dict):
         raise ValueError('INVALID_VISUAL_POLICY_FIELDS')
     fields = {KIND_V2: FIELDS_V2, KIND_V3: FIELDS_V3,
-              KIND_V4: FIELDS_V4}.get(policy.get('kind'), FIELDS)
+              KIND_V4: FIELDS_V4, KIND_V5: FIELDS_V5}.get(policy.get('kind'), FIELDS)
     if set(policy) != set(fields):
         raise ValueError('INVALID_VISUAL_POLICY_FIELDS')
     for field, allowed in fields.items():
         if type(policy[field]) is not str or policy[field] not in allowed:
             raise ValueError('INVALID_VISUAL_POLICY_VALUE:' + field)
     return policy
+
+
+def warning_policy():
+    """Explicit new-run profile; never substitutes an archived policy."""
+    return dict(kind=KIND_V5, appearanceEvidence='bound-reference', minorColor='record',
+                shadow='optional', minorStyle='record', minorGeometry='record',
+                minorLayout='record', findingDisposition='warning')
+
+
+def warnings_only(policy):
+    return policy is not None and validate(policy)['kind'] == KIND_V5
 
 
 def _decode(data):
@@ -130,6 +145,9 @@ def planning_guidance(policy):
     if policy is None:
         return ''
     validate(policy)
+    if warnings_only(policy):
+        from .visual_prompt_contract import OWNERSHIP, APPEARANCE, DISPOSITION
+        return '\n显式视觉策略 v5：整体基本还原，所有视觉发现记录为 warning，待整图人工验收。\n' + OWNERSHIP + APPEARANCE + DISPOSITION
     appearance = (
         '图形的结构、身份、数量、状态、连接及显著材质仍完整写入所属 label；'
         '显著高光、渐变、描边与轮廓也须写明；'
@@ -163,6 +181,9 @@ def generation_guidance(policy):
     if policy is None:
         return ''
     validate(policy)
+    if warnings_only(policy):
+        from .visual_prompt_contract import GENERATION
+        return '\n显式视觉策略 v5：整体基本还原。\n' + GENERATION
     appearance = ('以本次绑定参考图承接 label 未列尽的细微表面细节；'
                   if policy['appearanceEvidence'] == 'bound-reference' else
                   '以 label 完整描述为准，逐项对照本次绑定参考图；')
@@ -191,6 +212,10 @@ def output_review_guidance(policy):
     if policy is None:
         return ''
     validate(policy)
+    if warnings_only(policy):
+        from .visual_prompt_contract import REVIEW
+        return ('\n显式输出审查策略 v5：逐项 finding 填 styleAspect=color-tone/shadow/other；'
+                '非样式问题填 other。\n' + REVIEW)
     color = ('轻微色调差异也按失败记录。' if policy['minorColor'] == 'strict' else
              '仅实体身份、状态与纹理不变的轻微色调差异可记录为非阻断。')
     shadow = ('有据阴影缺失仍须审查。' if policy['shadow'] == 'preserve' else

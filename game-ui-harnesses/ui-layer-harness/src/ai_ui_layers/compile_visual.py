@@ -47,7 +47,7 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
         raise ValueError('V5_REQUIRED')
     issues=check_relations(visual)
     if relation_evidence is not None:
-        issues=relation_review.validate_assessment(visual,source_sha,relation_evidence)
+        issues=relation_review.validate_assessment(visual,source_sha,relation_evidence,visual_policy)
     if planning_review_deferred:
         if relation_evidence is not None:raise ValueError('DEFERRED_REVIEW_CANNOT_CLAIM_ASSESSMENT')
         issues=[issue for issue in issues if not (issue.get('code')=='SAME_LAYER_OVERLAP_REVIEW'
@@ -383,7 +383,7 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     summary = validate(plan, source_base=output)
     save(output/'execution-plan.candidate.json', plan)
     save(output/'placements.json', {'basis':'declared material regions, no alpha measurement', 'materials':placements})
-    save(output/'draw-order.json', draw_order(visual, digest(plan_path),relations,before))
+    save(output/'draw-order.json', draw_order(visual, digest(plan_path),relations,before,policy))
     artifacts=[]
     for asset in plan['assets']:
         folder=output/'materials'/asset['id'];folder.mkdir(parents=True)

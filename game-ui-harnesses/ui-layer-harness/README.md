@@ -1,6 +1,10 @@
 # UI Layer Harness — 0.1.0a2 preview
 
 独立 UI 拆分入口：参考图 → M1/M2 规划 → M3 冻结 → 宿主生图交换 → 归位 → UI 图层 ZIP。
+
+新宿主作业可设置 `visualReviewMode=warning`：视觉差异全部记录为 warning，继续到回拼后人工验收；
+M1、生图与复审共用唯一归属、父板排除子元素、完整主体比例及高光分类规范。
+技术完整性仍校验，旧任务和旧策略不改写，见[视觉 warning 策略](docs/VISUAL-WARNING-POLICY.md)。
 本入口从本地实验链路收口，保留旧 `ai-ui-decomposition` / `ai-ui-assets` 命令及行为。
 它不是旧包 0.5.0 的新模式，也不是组件化交付；普通业务文字被移除。
 

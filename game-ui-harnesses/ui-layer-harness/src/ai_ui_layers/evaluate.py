@@ -122,12 +122,12 @@ def check_relations(plan):
     return issues
 
 
-def draw_order(plan, source_sha256, relation_evidence=None, reference_sha=None):
+def draw_order(plan, source_sha256, relation_evidence=None, reference_sha=None, visual_policy=None):
     """Derived unique indices; never change the source plan or resolve ambiguous overlaps."""
     issues=check_relations(plan)
     if relation_evidence is not None:
         from .relation_review import validate_assessment
-        issues=validate_assessment(plan,reference_sha,relation_evidence)
+        issues=validate_assessment(plan,reference_sha,relation_evidence,visual_policy)
     if issues:
         raise ValueError('UNRESOLVED_PLAN_RELATIONS')
     ordered = sorted(plan['materials'], key=lambda row:(row['zOrder'], row['id']))

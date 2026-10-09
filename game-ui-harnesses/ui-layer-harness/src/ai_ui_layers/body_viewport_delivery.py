@@ -298,6 +298,10 @@ def build(config_path, output, viewer, warnings=()):
         provenance = dict(kind='ui_new_run_body_viewport_delivery_v1', snapshotDigest=frozen['digest'],
                           canvasPolicy=CANVAS_POLICY, viewport=viewport, records=records,
                           generationCalls=0, modelCalls=0, humanVisualAcceptance=False)
+        from .visual_policy import warnings_only
+        if warnings_only(visual_policy):
+            provenance.update(visualReviewMode='warning', visualPolicy=visual_policy,
+                              strictVisualReviewPassed=False, finalCompositeVisualAcceptancePending=True)
         issues.append('Body viewport proof: ' + json.dumps(provenance, ensure_ascii=False, sort_keys=True))
         _unchanged(inputs); inspect(snapshot, config['snapshotDigest'])
         package = write_package(temp/'reference.png', composition, sources, output, viewer, issues)

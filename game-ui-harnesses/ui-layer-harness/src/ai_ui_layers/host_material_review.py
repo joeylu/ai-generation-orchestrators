@@ -11,7 +11,7 @@ from .evaluate import read, save, digest
 from .experimental_executor import load_job, status as job_status, verified, lock
 from .freeze_visual import inspect, body_digest
 from .host_review import runtime_files, _bound_files, _identity
-from .visual_policy import snapshot_policy
+from .visual_policy import snapshot_policy, warnings_only
 from .sheet_review_policy import classify, schema_for
 from .extract_sheets import cells, partition_cells, _review_variant, prepare_sheet_review
 from .sheet_pixels import prepare as prepare_pixels, STRICT_SEAM, validate_seam_policy
@@ -251,7 +251,14 @@ def assess(output, request, policy):
     ownership_result={}
     if request['kind']=='ui_host_output_review_request_v2':
         checked=ownership.assess(read(folder/'ownership-inventory.json'),answer['ownershipObservations'])
-        assessment['blockers'].extend(checked['blockers'])
+        if warnings_only(policy):
+            for finding in checked['blockers']:
+                assessment['warnings'].append(dict(finding, category='visual-ownership', severity='warning',
+                    suggestion='Compare the recorded ownership difference in the final composite.',
+                    finalCompositeReviewPending=True))
+                assessment['decisions'].append(dict(finding, severity='warning', attribution='ownership-observation'))
+        else:
+            assessment['blockers'].extend(checked['blockers'])
         ownership_result=dict(ownershipInventorySha256=request['ownershipInventorySha256'],
             ownershipDeclarationsOnly=checked['declarationsOnly'],ownershipObservationCoverage='complete')
     deferred={}

@@ -20,6 +20,7 @@ def audit_rows(review, field):
 
 
 def split(review, plan=None, visual_policy=None, coverage_text_policy=None, visual_textures=None):
+    from .visual_policy import warnings_only
     from .visual_textures import assess
     texture_blockers, _ = assess(visual_textures, plan, review)
     review=resolve_review(review,plan,coverage_text_policy)
@@ -85,6 +86,11 @@ def split(review, plan=None, visual_policy=None, coverage_text_policy=None, visu
                     ids=[row['materialId']],description=boundary['evidence'],
                     suggestedChange='Check the owned contour against the original context and correct its crop; do not infer an edge from the candidate crop.'))
     for issue in issues:
+        if issue['category'] == 'cosmetic' and issue['code'] not in COSMETIC_CODES:
+            raise ValueError('UNKNOWN_COSMETIC_REVIEW_CODE')
+        if warnings_only(visual_policy):
+            warnings.append(issue)
+            continue
         if issue['category'] == 'cosmetic':
             if issue['code'] not in COSMETIC_CODES:
                 raise ValueError('UNKNOWN_COSMETIC_REVIEW_CODE')

@@ -113,7 +113,7 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
                                     objects=[o for o in visual['objects'] if o['materialId'] == key],
                                     mapping=mapping), ensure_ascii=False))
         if profile.alpha_profile(observation_policy):
-            prompt += profile.GUIDANCE + json.dumps(dict(bodyFitPolicy=fit_policy,
+            prompt += profile.guidance(snapshot_policy(snapshot)) + json.dumps(dict(bodyFitPolicy=fit_policy,
                 visualPolicy=snapshot_policy(snapshot)), ensure_ascii=False)
         if observation_policy == profile.SOFT_EFFECTS:
             prompt += profile.SOFT_EFFECT_GUIDANCE

@@ -7,7 +7,7 @@ from PIL import Image
 from .evaluate import read, save, digest
 from . import host_review
 from .planning_dag import BOX_TEXT_GUIDANCE, read_notes
-from .visual_policy import load_input, planning_guidance
+from .visual_policy import load_input, planning_guidance, warnings_only
 
 MODE = 'fresh-host-m1-independent-review'
 FILES = ('reference.png', 'prompt.md', 'schema.json', 'request.json', 'draft.json',
@@ -49,7 +49,10 @@ def prepare(root, config):
         '从干净原图独立制定新的完整拆层计划；本请求不提供旧计划、图层数量、旧坐标或旧素材。'
         '全画布背景框不能代替可见图形覆盖；每项保留图形须有唯一所属素材。'
         '依据真实可见结构描述轮廓、数量、连接、间隙及外观。按九区自行清点，不能用类别名称代替细节。\n\n'
-        +(contract/'prompts/visual-plan.md').read_text('utf-8-sig')+planning_guidance(policy))
+        +(contract/'prompts/visual-plan.md').read_text('utf-8-sig')
+        +('' if warnings_only(policy) else planning_guidance(policy)))
+    if warnings_only(policy):
+        prompt=planning_guidance(policy)+prompt
     if notes:prompt+='\n用户规划约束：\n'+notes.decode('utf-8-sig')
     prompt+='\n输出前逐项核对上述视觉描述，显著属性须写入各自所属 label；只返回 schema 对应的完整 JSON 计划。不得改写输入，不生成图片，不使用其他模型。\n'
     (root/'prompt.md').write_text(prompt,encoding='utf-8')

@@ -68,6 +68,9 @@ def fit_body(source_size, target_size, visual_policy=None, fit_policy=None):
     if visual_policy is not None:
         from .visual_policy import validate
         validate(visual_policy)
+    from .visual_policy import warnings_only
+    warning_mode = warnings_only(visual_policy)
+    fit_warnings = []
     bw, bh = source_size
     validate_fit_policy(fit_policy, visual_policy)
     if fit_policy is not None:
@@ -80,7 +83,8 @@ def fit_body(source_size, target_size, visual_policy=None, fit_policy=None):
         ratio = (bw/bh)/(tw/th)
         difference = max(ratio, 1/ratio)-1
         if difference > .25 + 1e-12 and any(value > 1 for value in residual):
-            raise ValueError('BODY_PROPORTIONS_GROSSLY_DIFFER')
+            if not warning_mode:raise ValueError('BODY_PROPORTIONS_GROSSLY_DIFFER')
+            fit_warnings.append('BODY_PROPORTIONS_GROSSLY_DIFFER')
         maximum = fit_policy['maximumResidualPixels']
         relative_report = {}
         if fit_policy['kind'] == RELATIVE_FIT_POLICY:
@@ -91,12 +95,14 @@ def fit_body(source_size, target_size, visual_policy=None, fit_policy=None):
                 cornerResidualFraction=corner/diagonal,
                 effectiveMaximumResidualPixels=maximum)
         if corner > maximum + 1e-9:
-            raise ValueError('UNIFORM_FIT_RESIDUAL_EXCEEDED')
+            if not warning_mode:raise ValueError('UNIFORM_FIT_RESIDUAL_EXCEEDED')
+            fit_warnings.append('UNIFORM_FIT_RESIDUAL_EXCEEDED')
         return scale, dict(kind='ui_approximate_body_fit_v3' if relative_report else 'ui_approximate_body_fit_v2', visualPolicy=visual_policy,
             fitPolicy=fit_policy, fittedBodySize=[bw*scale, bh*scale], sizeDifferencePixels=residual,
             symmetricAspectDifference=difference, coarseAspectGuard=.25,
             maximumCornerResidualPixels=corner, **relative_report, axisStretch=False, rotation=0,
-            status='recorded-pending-human-review', humanVisualAcceptance=False)
+            status='recorded-pending-human-review', humanVisualAcceptance=False,
+            **(dict(visualFitWarnings=fit_warnings, fitThresholdsAdvisory=True) if warning_mode else {}))
     scale = min(target_size[0] / bw, target_size[1] / bh)
     residual = [abs(source_size[i] * scale - target_size[i]) for i in (0, 1)]
     approximate = visual_policy is not None and visual_policy.get('minorGeometry') == 'record'
@@ -109,13 +115,15 @@ def fit_body(source_size, target_size, visual_policy=None, fit_policy=None):
     # A coarse guard against incompatible whole-body anchors, not a pixel-fidelity
     # target. Genuine material review still blocks major or uncertain distortion.
     if difference > .25 + 1e-12 and any(value > 1 for value in residual):
-        raise ValueError('BODY_PROPORTIONS_GROSSLY_DIFFER')
+        if not warning_mode:raise ValueError('BODY_PROPORTIONS_GROSSLY_DIFFER')
+        fit_warnings.append('BODY_PROPORTIONS_GROSSLY_DIFFER')
     return scale, dict(kind='ui_approximate_body_fit_v1', visualPolicy=visual_policy,
         sourceAspect=bw / bh, targetAspect=target_size[0] / target_size[1],
         symmetricAspectDifference=difference, coarseAspectGuard=.25,
         fittedBodySize=[bw * scale, bh * scale], sizeDifferencePixels=residual,
         axisStretch=False, minorShapePolicy='record after independent material review',
-        status='recorded-pending-human-review', humanVisualAcceptance=False)
+        status='recorded-pending-human-review', humanVisualAcceptance=False,
+        **(dict(visualFitWarnings=fit_warnings, fitThresholdsAdvisory=True) if warning_mode else {}))
 
 
 def _box(value, size):

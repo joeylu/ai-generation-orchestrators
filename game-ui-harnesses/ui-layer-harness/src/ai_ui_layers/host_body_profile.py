@@ -40,6 +40,14 @@ pixel remains in storage; no alpha cleanup or body-mask crop is permitted.
 '''
 
 
+def guidance(visual_policy):
+    from .visual_policy import warnings_only
+    if warnings_only(visual_policy):
+        from .visual_prompt_contract import BODY
+        return GUIDANCE[:GUIDANCE.index('issues contains blockers')] + BODY
+    return GUIDANCE
+
+
 def alpha_profile(policy):
     return policy in (POLICY, SOFT_EFFECTS)
 

@@ -55,6 +55,7 @@ def schema_for(visual_policy):
 
 
 def classify(answer, material_ids, visual_policy=None):
+    from .visual_policy import warnings_only
     Draft202012Validator(schema_for(visual_policy)).validate(answer)
     if answer['materialIds'] != material_ids:
         raise ValueError('SHEET_IDENTITY_MISMATCH')
@@ -92,9 +93,15 @@ def classify(answer, material_ids, visual_policy=None):
             advisory = finding['magnitude'] == 'minor' and visual_policy.get('minorGeometry') == 'record'
         elif category == 'layout' and visual_policy is not None:
             advisory = finding['magnitude'] == 'minor' and visual_policy.get('minorLayout') == 'record'
+        if warnings_only(visual_policy):
+            advisory = True
         decision = dict(finding, severity='warning' if advisory else 'blocking', attribution=attribution)
         decisions.append(decision)
         if advisory:
+            if warnings_only(visual_policy):
+                warnings.append(dict(finding, category='visual-'+category, findingCategory=category,
+                    severity='warning', attribution=attribution, finalCompositeReviewPending=True))
+                continue
             warnings.append(dict(category='minor-progress-deviation' if category == 'progress' else
                 'minor-geometry-deviation' if category == 'geometry' else
                 'minor-layout-deviation' if category == 'layout' else 'minor-style-deviation', materialId=finding['materialId'],

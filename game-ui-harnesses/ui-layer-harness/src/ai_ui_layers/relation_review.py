@@ -44,7 +44,7 @@ def bind_schema(schema, bound):
     result['required'].append('relationReview')
     return result
 
-def assess(plan, reference_sha, review):
+def assess(plan, reference_sha, review, visual_policy=None):
     from jsonschema import Draft202012Validator
     from .evaluate import check_relations
     bound = catalog(plan, reference_sha)
@@ -59,22 +59,31 @@ def assess(plan, reference_sha, review):
         if item['disposition']!='non-occluding':
             blockers.append(dict(pair['issue'], disposition=item['disposition'],
                 sourceEvidence=item['sourceEvidence'], ownershipEvidence=item['ownershipEvidence']))
+    from .visual_policy import warnings_only
+    extra = {}
+    if warnings_only(visual_policy):
+        visual_codes = {'SAME_LAYER_OVERLAP_REVIEW', 'REPEATED_CARD_HEIGHT_OUTLIER_REVIEW'}
+        extra = dict(warnings=[dict(row, severity='warning') for row in blockers if row['code'] in visual_codes])
+        blockers = [row for row in blockers if row['code'] not in visual_codes]
     return dict(kind='ui_relation_assessment_v1',catalog=bound,review=review['relationReview'],
-                blockers=blockers, alphaOverlapMeasured=False, productionReady=False)
+                blockers=blockers, alphaOverlapMeasured=False, productionReady=False, **extra)
 
-def validate_assessment(plan, reference_sha, evidence):
-    expected = assess(plan, reference_sha, {'relationReview':evidence['review']})
+def validate_assessment(plan, reference_sha, evidence, visual_policy=None):
+    expected = assess(plan, reference_sha, {'relationReview':evidence['review']}, visual_policy)
     if evidence!=expected:
         raise ValueError('RELATION_ASSESSMENT_CHANGED')
     return expected['blockers']
 
-def guidance(bound):
+def guidance(bound, visual_policy=None):
     import json
+    from .visual_policy import warnings_only
+    disposition = ('本次视觉发现全部记为 warning，最终整图人工验收。' if warnings_only(visual_policy)
+                   else '均为阻断。')
     return ('\n逐对关系合同 ui-relation-review-v1：relationReview 必须回填本目录摘要、候选摘要与原图摘要，'
         '并按 pairId 审查每一对。AABB交叉仅是提示，不证明实体相交或遮挡。'
         'non-occluding 仅当原图可确认双方完整轮廓互不遮挡且各自唯一归属，'
         'sourceEvidence 写两侧实际轮廓、间隙和交叉框区域位置，ownershipEvidence 写独立归属依据。'
-        '真实遮挡用 real-occlusion，归属冲突用 ownership-conflict，不能确认用 uncertain；均为阻断。'
+        '真实遮挡用 real-occlusion，归属冲突用 ownership-conflict，不能确认用 uncertain；'+disposition+
         '不得缩去斜边极值、任意改变深度或以零issues替代逐对证据。生成后仍须实际alpha/归属技术验收。\n'
         +json.dumps(bound,ensure_ascii=False,separators=(',',':'))+'\n')
 
@@ -100,7 +109,8 @@ def verify_stage(root, folder, plan):
                 transport.get('exitCode') != 0 or transport.get('turnCompleted') is not True or
                 transport.get('responseSha256')!=digest(folder/'draft.json')):
             raise ValueError('RELATION_REVIEW_RECEIPT_INVALID')
-    evidence=assess(plan,expected['referenceSha256'],review)
+    from .visual_policy import planning_policy
+    evidence=assess(plan,expected['referenceSha256'],review,planning_policy(root))
     if read(folder/'relation-assessment.json')!=evidence:
         raise ValueError('RELATION_ASSESSMENT_CHANGED')
     return evidence
@@ -111,7 +121,9 @@ def frozen_evidence(folder, snapshot, plan):
     if snapshot.get('relationReviewPolicy') is None:return None
     if snapshot['relationReviewPolicy']!=POLICY:raise ValueError('RELATION_REVIEW_POLICY_UNKNOWN')
     evidence=read(folder/'relation-assessment.json')
-    validate_assessment(plan,digest(folder/'reference.png'),evidence)
+    from .visual_policy import snapshot_policy
+    visual_policy=snapshot_policy(folder,snapshot)
+    validate_assessment(plan,digest(folder/'reference.png'),evidence,visual_policy)
     stage=snapshot['relationReviewStage']
     if stage not in ('m2','rereview','rereview2'):raise ValueError('RELATION_REVIEW_STAGE_INVALID')
     review=read(folder/'evidence'/(stage+'-draft.json'))
@@ -135,7 +147,7 @@ def frozen_evidence(folder, snapshot, plan):
                 transport.get('failure') or transport.get('unexpectedEvents') or
                 transport.get('responseSha256')!=digest(Path(str(prefix)+'-draft.json'))):
             raise ValueError('RELATION_FROZEN_RECEIPT_INVALID')
-    if evidence!=assess(plan,digest(folder/'reference.png'),review):
+    if evidence!=assess(plan,digest(folder/'reference.png'),review,visual_policy):
         raise ValueError('RELATION_FROZEN_REVIEW_MISMATCH')
     if evidence['blockers']:raise ValueError('UNRESOLVED_PLAN_RELATIONS')
     return evidence

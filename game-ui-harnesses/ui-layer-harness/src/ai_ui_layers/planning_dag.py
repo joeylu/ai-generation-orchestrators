@@ -415,7 +415,7 @@ class Dag:
                  '覆盖项由 materialId/objectId 定位，小素材 parts 才选择所属 planEvidenceId；'
                  '不得复制、拼接或改写 label；仍须独立对原图判断是否描述所见）：'
                  +json.dumps(catalog,ensure_ascii=False,separators=(',',':'))+'\n')
-        if relations is not None:prompt+=relation_review.guidance(relations)
+        if relations is not None:prompt+=relation_review.guidance(relations,policy)
         (p/'prompt.md').write_text(prompt+self.user_context(),encoding='utf-8')
         names=['schema.json','review-source.md','review-overlay.png','prompt.md','plan-evidence-catalog.json']
         if relations is not None:names.append(relation_review.NAME)
@@ -443,7 +443,7 @@ class Dag:
         if small_focus:validate_boundaries(answer,small_focus)
         blockers,warnings=self.review_split(answer,plan)
         if relations is not None:
-            assessment=relation_review.assess(plan,relations['referenceSha256'],answer)
+            assessment=relation_review.assess(plan,relations['referenceSha256'],answer,policy)
             save(p/'relation-assessment.json',assessment)
             blockers+=self.relation_blockers(assessment['blockers'])
         if any(set(i['ids'])-known for i in blockers+warnings):raise ValueError('UNKNOWN_REVIEW_IDS')

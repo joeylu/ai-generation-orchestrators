@@ -1,0 +1,10 @@
+{
+  "kind": "ui_visual_policy_v5",
+  "appearanceEvidence": "bound-reference",
+  "minorColor": "record",
+  "shadow": "optional",
+  "minorStyle": "record",
+  "minorGeometry": "record",
+  "minorLayout": "record",
+  "findingDisposition": "warning"
+}

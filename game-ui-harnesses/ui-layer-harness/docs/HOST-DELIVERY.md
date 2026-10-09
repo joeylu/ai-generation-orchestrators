@@ -1,5 +1,11 @@
 # Explicit host delivery
 
+For final-composite human acceptance, new runs can set `visualReviewMode=warning`.
+This freezes v5 visual findings as warnings throughout planning, material review
+and measurable uniform fitting, and uses a shared prompt contract to prevent
+duplicate ownership and surface/detail confusion. Technical integrity remains
+mandatory; see [visual warning policy](VISUAL-WARNING-POLICY.md).
+
 Fresh approximate runs use [body observation v3](BODY-SOFT-EFFECTS.md), separating
 the semantic body anchor from explicitly observed external shadows/glow. The
 frozen `bodyCoveragePolicy=observed-external-soft-effects-v1` is rechecked during

@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased visual warning profile and prompt contract
+
+- New host configurations can freeze `visualReviewMode=warning` / visual policy
+  v5. Model visual findings and measurable body-fit deviations remain visible
+  warnings through delivery; final composite human acceptance remains pending.
+- One prompt source specifies unique ownership, clean parent surfaces, complete
+  illustrations, subject proportions and surface-highlight classification.
+  Findings retain their original magnitude and evidence.
+- Technical integrity and reliable geometry remain mandatory. Existing policies,
+  authorizations, failed runs and accepted packages are not migrated. Offline
+  verification does not establish new real-model or visual success.
+
+See [visual warning policy](VISUAL-WARNING-POLICY.md).
+
 ## Unreleased fresh M1 surface self-check
 
 - Fresh M1 requests begin with a per-owned-material visual description check.

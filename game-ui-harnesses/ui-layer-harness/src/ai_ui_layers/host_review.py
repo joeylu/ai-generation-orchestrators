@@ -6,7 +6,7 @@ from jsonschema import Draft202012Validator
 from PIL import Image
 from .evaluate import read, save, digest, check_relations
 from . import relation_review, visual_textures as textures
-from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME
+from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME, warnings_only
 from .planning_review_policy import split
 from .review_evidence import build_catalog, build_review_schema, PROTOCOL_V4
 from .review_focus import make_focus, make_small_material_focus
@@ -154,8 +154,8 @@ def verify_frozen(folder, snapshot, plan):
         if '/' in name or '\\' in name or ':' in name or digest(evidence/('host-input-'+name))!=sha:
             raise ValueError('HOST_FROZEN_SOURCE_INPUT_CHANGED')
     Draft202012Validator(read(evidence/'m1-schema.json')).validate(plan)
-    if plan['unknowns']:raise ValueError('UNRESOLVED_UNKNOWNS')
     policy=read(evidence/('host-input-'+INPUT_NAME)) if INPUT_NAME in config['inputs'] else None
+    if plan['unknowns'] and not warnings_only(policy):raise ValueError('UNRESOLVED_UNKNOWNS')
     texture_doc=textures.snapshot_input(folder,snapshot)
     catalog=build_catalog(plan)
     if read(evidence/'m2-plan-evidence-catalog.json')!=catalog:
@@ -330,7 +330,7 @@ def _prepare_review(root, plan):
         prompt+='\nSmall-material parts require visiblePart, observedAppearance, an owned planEvidenceId, and independent descriptionStatus. Inspect shape, count, gaps, attachments, colors, highlights and surface marks; generic owner names cannot replace structure evidence.\n'
         prompt+='\nOnly descriptionStatus=reference-bound permits deferredAppearance, which must then contain nonblank appearance evidence. For consistent, missing, conflicting or uncertain, deferredAppearance must be null.\n'
     if sequence:prompt+='\nInspect all repeated instances in the attached sequence-source pages.\n'
-    prompt+=relation_review.guidance(relations)+planning_guidance(policy)+textures.guidance(texture_doc)
+    prompt+=relation_review.guidance(relations,policy)+planning_guidance(policy)+textures.guidance(texture_doc)
     prompt+=reuse_pipeline.guidance(reuse_doc)
     prompt+=bg_region.guidance(bg_bound)
     if reuse_doc is not None:prompt+='\nInspect reuse-source-focus.png and its mapping: every source instance is shown in declared order. The source crops include foreign objects and ordinary text; apply each original owner contract before comparing.\n'
@@ -376,7 +376,7 @@ def _assess(root, plan):
     blockers,warnings=split(review,plan,planning_policy(root),'exact-fragments-v1',textures.planning_input(root))
     known={row['id'] for key in ('materials','objects') for row in plan[key]}
     if any(set(item['ids'])-known for item in blockers+warnings):raise ValueError('UNKNOWN_REVIEW_IDS')
-    relations=relation_review.assess(plan,digest(root/'m1/reference.png'),review)
+    relations=relation_review.assess(plan,digest(root/'m1/reference.png'),review,planning_policy(root))
     return dict(blockers=blockers,warnings=warnings,relationBlockers=relations['blockers'],
                 reviewSha256=digest(folder/'draft.json')),relations
 
@@ -454,6 +454,7 @@ def status(root):
     if not (root/'.dag/received.json').exists():return dict(base,status='awaiting_host_review',unknowns=plan['unknowns'])
     verify_run(root,allow_issues=True)
     assessment=read(root/'m2/assessment.json')
-    blocked=bool(assessment['blockers'] or assessment['relationBlockers'] or plan['unknowns'])
+    blocked=bool(assessment['blockers'] or assessment['relationBlockers'] or
+                 plan['unknowns'] and not warnings_only(planning_policy(root)))
     return dict(base,status='review_blocked' if blocked else 'ready_to_freeze',
                 **assessment,unknowns=plan['unknowns'])

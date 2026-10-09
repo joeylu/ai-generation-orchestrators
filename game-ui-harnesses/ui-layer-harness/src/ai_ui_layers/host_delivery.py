@@ -90,7 +90,9 @@ def _scope(root, config, stage, request, request_dir, key=None):
            {'reviewerId':config[prefix+'Reviewer']}),
         maximumCallSeconds=config['maximumModelCallSeconds'],
         maximumCalls=1, automaticRetries=0,
-        stops=['failed', 'unknown', 'unresolved', 'indeterminate', 'timeout'],
+        stops=(['failed', 'unknown-receipt', 'invalid-technical-contract', 'indeterminate', 'timeout']
+               if config.get('visualReviewMode')=='warning' else
+               ['failed', 'unknown', 'unresolved', 'indeterminate', 'timeout']),
         notProviderReceipt=True, notCryptographicallyPlatformVerified=True))
     _state(root, config, stage, scope=str(folder.relative_to(root)),
            **({'requestId':key} if key else {}))
@@ -179,12 +181,23 @@ def prepare(config_path, output):
             or source['canvasPolicyInstructionSha256']!=hashlib.sha256(instruction.encode('utf-8')).hexdigest()):
         raise ValueError('EXPLICIT_BOUND_CANVAS_POLICY_REQUIRED')
     from . import host_body_profile, body_registration, body_coverage
-    from .visual_policy import load_input, _decode
+    from .visual_policy import load_input, _decode, warning_policy, warnings_only
     policy_data = load_input(source.get('visualPolicy'))
     visual_policy = _decode(policy_data) if policy_data is not None else None
+    mode=source.get('visualReviewMode','bound-policy')
+    if mode not in ('bound-policy','warning'):
+        raise ValueError('HOST_VISUAL_REVIEW_MODE_UNSUPPORTED')
+    if mode=='warning':
+        if visual_policy is not None and not warnings_only(visual_policy):
+            raise ValueError('WARNING_MODE_REQUIRES_V5_POLICY_NEW_RUN')
+        visual_policy=visual_policy or warning_policy()
+    if warnings_only(visual_policy):
+        source['visualReviewMode']='warning'
     source.setdefault('bodyObservationPolicy', host_body_profile.SOFT_EFFECTS
         if visual_policy is not None and visual_policy.get('minorGeometry') == 'record' else host_body_profile.POLICY)
     host_body_profile.validate(source['bodyObservationPolicy'])
+    if warnings_only(visual_policy) and not host_body_profile.alpha_profile(source['bodyObservationPolicy']):
+        raise ValueError('WARNING_MODE_REQUIRES_ALPHA_BODY_PROFILE')
     if source['bodyObservationPolicy'] == host_body_profile.SOFT_EFFECTS:
         source.setdefault('bodyCoveragePolicy', body_coverage.POLICY)
     if ('bodyFitPolicy' not in source and host_body_profile.alpha_profile(source['bodyObservationPolicy'])
@@ -203,6 +216,9 @@ def prepare(config_path, output):
         if source.get(key):
             path=Path(source[key]);target=inputs/(key+path.suffix)
             target.write_bytes(path.read_bytes());source[key]=str(target)
+    if mode=='warning' and policy_data is None:
+        target=inputs/'visualPolicy.json';save(target,visual_policy)
+        source['visualPolicy']=str(target)
     contract=root/'contract'
     for name in host_review.CONTRACT_DIGESTS:
         target=contract/name;target.parent.mkdir(parents=True,exist_ok=True)
@@ -273,6 +289,11 @@ def status(run):
         if proof.is_file():host_m1.verify_exchange(root/'planning-m1')
         result['FullReferenceToDeliveryExecutionCompleted']=stage=='complete' and proof.is_file()
     result.update(maximumModelCallSeconds=config['maximumModelCallSeconds'],maximumImageCallSeconds=config['maximumImageCallSeconds'])
+    if config.get('visualReviewMode')=='warning':
+        result.update(visualReviewMode='warning',strictVisualReviewPassed=False,
+                      finalCompositeVisualAcceptancePending=True)
+        if stage=='complete':
+            result['visualWarningCount']=read(root/'visual-warning-report.json')['warningCount']
     if 'newM2ReviewPerformed' in config:result['newM2ReviewPerformed']=config['newM2ReviewPerformed']
     if config.get('backgroundVisualReviewPolicy'):
         result.update(deferredBackgroundVisualReview=True,
@@ -567,6 +588,20 @@ def resume(run):
                 host_body_observation.finish(root/'body',root/'body-output.json')
                 extraction=read(root/'extraction/result.json')
                 body_viewport_delivery.build(root/'body-output.json',root/'delivery',root/'viewer',warnings=extraction['warnings'])
+                if config.get('visualReviewMode')=='warning':
+                    from .visual_policy import snapshot_policy
+                    planning=read(root/'frozen/planning-warnings.json')['warnings']
+                    body_warnings=read(root/'body-output.json').get('bodyObservationWarnings',[])
+                    fit_warnings=[dict(materialId=row['materialId'], **row['geometry']['appearanceTolerance'])
+                        for row in read(root/'delivery/body-provenance.json')['records']
+                        if row.get('geometry',{}).get('appearanceTolerance',{}).get('visualFitWarnings')]
+                    count=len(planning)+len(extraction['warnings'])+len(fit_warnings)+sum(
+                        len(row['geometryDifferences'])+len(row['materialIssues']) for row in body_warnings)
+                    save(root/'visual-warning-report.json',dict(kind='ui_visual_warning_report_v1',
+                        visualPolicy=snapshot_policy(root/'frozen'), planning=planning,
+                        material=extraction['warnings'], body=body_warnings, fit=fit_warnings, warningCount=count,
+                        executionCompleted=True,strictVisualReviewPassed=False,humanVisualAcceptance=False,
+                        finalCompositeVisualAcceptancePending=True))
                 _comparison(root)
                 _state(root,config,'complete')
             (root/'transaction.json').unlink();_checkpoint(root)
