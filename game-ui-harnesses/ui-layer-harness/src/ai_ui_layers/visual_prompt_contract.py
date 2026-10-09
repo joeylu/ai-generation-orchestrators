@@ -49,3 +49,24 @@ issues 仅记录无法可靠完成主体对应和测量的原因；boundaryStatu
 及对应关系确实可辨时填写。无法识别、主体实心裁断或缺失使对应关系不可建立时，仍填 uncertain/not-whole
 并使用 null 框。不得假造完整主体框。原生 alpha 支持检查和完整存储规则保持有效。
 '''
+
+BODY_SUPPORT = '''
+Also report outsideBodySupport on all four unique sides: none, external-soft-effect,
+owned-artwork or uncertain, with concrete evidence. Distinguish the visible complete
+body from its antialiasing fringe, external shadows/glow, sparse faint alpha residue
+and identifiable independent artwork. An opacity preview alone cannot establish
+ownership. Use external-soft-effect only for observed shadows/glow; do not relabel
+owned-artwork or uncertainty as a shadow to pass.
+Under this v5 policy, exterior classification, translucent density and disconnected
+exterior components are visual warnings. Record their actual classification and
+appearance/content concerns in materialIssues. They alone do not require issues,
+null boxes or uncertain/not-whole if complete-body correspondence is reliable.
+issues remains reserved for inability to establish or measure that correspondence.
+Measure the actual complete body, including its solid outlines and internal symbols;
+never anchor only an inner icon, move an edge to pass a threshold, or enlarge the
+body to absorb faint residue or shadows. The program still requires a solid core
+inside the body and every alpha>=240 pixel inside the body plus its frozen native
+measurement margin. Do not claim pixel checks passed. Every nonzero alpha pixel,
+including exterior owned-artwork or uncertain residue, remains stored unchanged;
+there is no alpha cleanup or body-mask crop. Final appearance awaits human review.
+'''

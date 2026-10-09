@@ -20,7 +20,10 @@ with `side` left/top/right/bottom, `classification` and concrete `evidence`.
 Classification is `none`, `external-soft-effect`, `owned-artwork` or `uncertain`.
 Only an external soft shadow/glow may use the second classification. Translucent
 owned surfaces and outlines, missing parts, foreign objects and duplicates
-cannot use it. Owned or uncertain exterior support remains unresolved.
+cannot use it. Under default and explicit visual policies v1–v4, owned or
+uncertain exterior support remains unresolved. Explicit visual policy v5 records
+that same classification and evidence as a warning; it does not relabel artwork
+or uncertainty as a shadow.
 
 The measured body includes all owned artwork. Observers must not enlarge it to
 absorb a shadow or shrink it to an inner icon. Evidence is an observer assertion,
@@ -41,6 +44,22 @@ The program uses the existing small measurement envelope around the body box:
   path to a dense pixel inside the envelope. Detached dense islands reject.
 - Unknown/owned exterior, omitted or duplicate sides, missing declarations,
   changed source/evidence and technical alpha failures still stop.
+
+The semantic exterior and connectivity gates above retain their original
+severity for default/v1–v4 policies. With an explicitly frozen v5 warning policy,
+owned/uncertain classifications, nonopaque dense exterior without a shadow
+declaration, and detached nonopaque dense components become
+`visualCoverageWarnings`. The solid-core and alpha>=240 envelope constraints,
+complete unique side declarations, reliable body correspondence, source/evidence
+identity and schema checks remain mandatory. This distinction applies equally
+to fixed/support processing, viewport delivery and source replay.
+
+V5 reports also include `externalNonzeroAlphaPixels` and `externalAlphaMaximum`,
+measured outside the frozen envelope, alongside the unchanged original
+classifications. There is no new alpha cutoff or image cleanup. Faint owned
+antialiasing/residue does not require null body boxes when the complete visible
+body can be reliably measured. These warnings reach package review evidence and
+the host's aggregate warning report, with human acceptance still pending.
 
 The fixed alpha240 constraint bounds an explicit semantic exception; opacity
 alone does not prove shadow ownership. Fully translucent anchors require

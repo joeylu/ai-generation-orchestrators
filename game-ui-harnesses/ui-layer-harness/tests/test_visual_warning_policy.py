@@ -177,8 +177,16 @@ class VisualWarningTests(unittest.TestCase):
             return evidence
 
         def receive(run,submission,response,**kwargs):
+            if host.status(run)['stage']=='images':
+                from PIL import Image
+                with Image.open(response) as source:image=source.copy()
+                if image.mode=='RGBA':
+                    image.putpixel((0,0),(80,90,100,1));image.save(response)
             if host.status(run)['stage']=='body_observation':
                 doc=read(response);doc['materialIssues']=['Major surface gloss difference, with measurable complete body.']
+                if 'outsideBodySupport' in doc:
+                    for row in doc['outsideBodySupport']:
+                        row.update(classification='owned-artwork',evidence='Offline fixture faint owned raster residue outside a measurable body.')
                 rewrite(response,doc)
                 from ai_ui_layers.evaluate import digest
                 att=read(kwargs['host_attestation']);att['responseSha256']=digest(Path(response))
@@ -193,10 +201,16 @@ class VisualWarningTests(unittest.TestCase):
         self.assertFalse(report['strictVisualReviewPassed']);self.assertFalse(report['humanVisualAcceptance'])
         self.assertTrue(any(row['code']=='PLANNING_UNKNOWN' for row in report['planning']))
         self.assertTrue(any(row['category']=='visual-ownership' for row in report['material']))
+        self.assertTrue(report['coverage'])
+        self.assertTrue(all(row['visualCoverageWarnings'] for row in report['coverage']))
+        self.assertEqual(report['warningCount'],len(report['planning'])+len(report['material'])+len(report['fit'])
+            +sum(len(row['visualCoverageWarnings']) for row in report['coverage'])
+            +sum(len(row['geometryDifferences'])+len(row['materialIssues']) for row in report['body']))
         issues=read(fixture.run/'delivery/package/review.json')['issues']
         self.assertTrue(any('Major surface gloss' in row for row in issues))
         self.assertTrue(any('visual-style' in row for row in issues))
         self.assertTrue(any('VISUAL_DESCRIPTION_VARIATION' in row for row in issues))
+        self.assertTrue(any('[body coverage warning]' in row and 'owned-artwork' in row for row in issues))
         self.assertTrue((fixture.run/'delivery/viewport-ui-layers.zip').is_file())
 
 

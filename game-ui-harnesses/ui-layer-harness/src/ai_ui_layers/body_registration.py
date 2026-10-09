@@ -42,13 +42,14 @@ def validate_fit_policy(policy, visual_policy):
     return policy
 
 
-def dense_body_margin(raw, body, fit_policy=None, *, coverage_policy=None, outside_support=None):
+def dense_body_margin(raw, body, fit_policy=None, *, coverage_policy=None, outside_support=None, visual_policy=None):
     """Guard against an inner-icon anchor; retain every alpha pixel at render."""
     body_coverage.validate_policy(coverage_policy)
     if coverage_policy is not None:
         if fit_policy is None:
             raise ValueError('EXTERNAL_EFFECTS_REQUIRE_EXPLICIT_BODY_FIT')
-        return body_coverage.check(raw, body, fit_policy['denseBoundaryMarginPixels'], outside_support)
+        return body_coverage.check(raw, body, fit_policy['denseBoundaryMarginPixels'], outside_support,
+                                   visual_policy=visual_policy)
     if outside_support is not None:
         raise ValueError('EXTERNAL_EFFECTS_REQUIRE_EXPLICIT_COVERAGE_POLICY')
     core = raw.getchannel('A').point(lambda a: 255 if a >= 128 else 0).getbbox()
@@ -243,7 +244,7 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
     # wholly translucent subjects need another registration policy.
     validate_fit_policy(fit_policy, visual_policy)
     dense_margin = dense_body_margin(raw, body, fit_policy, coverage_policy=coverage_policy,
-                                    outside_support=contract.get(body_coverage.FIELD))
+                                    outside_support=contract.get(body_coverage.FIELD), visual_policy=visual_policy)
     bw, bh = body[2]-body[0], body[3]-body[1]
     scale, appearance = fit_body([bw, bh], target_size, visual_policy, fit_policy)
     content_box = raw.getchannel('A').getbbox()  # Preserve ALL nonzero alpha, including faint shadows.
@@ -347,5 +348,7 @@ def process(source, reference, entry, region, material_id, snapshot_digest, outp
             report['warnings'].append('APPROXIMATE_BODY_PROPORTIONS_RECORDED')
     if coverage_policy is not None:
         report['fitting']['bodyCoveragePolicy'] = coverage_policy
+    report['warnings'].extend(row['code'] + (':' + row['side'] if 'side' in row else '')
+                              for row in dense_margin.get('visualCoverageWarnings', []))
     save(output/'report.json', report)
     return report

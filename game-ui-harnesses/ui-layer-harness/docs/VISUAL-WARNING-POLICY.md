@@ -32,6 +32,16 @@ suggestion. Complete measurable bodies retain their observed edges; uniform
 aspect and residual thresholds are advisory and their exceeded values are
 reported. No coordinate is changed to satisfy a threshold.
 
+With body observation v3 and its explicit exterior-support policy, owned or
+uncertain exterior classifications, unreviewed nonopaque dense exterior and
+detached nonopaque dense components also become warnings. Original four-side
+classifications and evidence remain unchanged, including faint antialiasing or
+raster residue that is not a shadow. The body prompt distinguishes exterior
+semantic concerns from inability to measure a complete corresponding body.
+`visualCoverageWarnings`, exterior nonzero counts and maximum alpha appear in
+body provenance; warnings are included in package review and the aggregate
+report's `coverage` array and count. No pixel is removed to make a check pass.
+
 The workflow proceeds through all budgeted stages to a final composite. It does
 not automatically repair, regenerate or replace the reviewer. The generated ZIP
 contains the warnings in its review evidence. Host completion additionally
@@ -45,8 +55,10 @@ completes. Human visual acceptance is a separate event.
 Transport failure, timeout or unknown acceptance; invalid schema/IDs or missing
 review coverage; changed hashes, input sets, runtime, authorization or receipts;
 unsafe paths; invalid/opaque foreground PNGs; invalid geometry or an observation
-that cannot reliably establish complete-body correspondence; omitted dense alpha
-outside the measured body; storage/packaging failures. These cannot yield a
+that cannot reliably establish complete-body correspondence; no solid core
+inside the body or alpha>=240 outside its frozen measurement envelope;
+storage/packaging failures. Observation v2 without the explicit exterior-support
+policy retains its dense-alpha coverage constraint. These cannot yield a
 truthful complete package by relabeling them as visual warnings. All nonzero
 alpha is preserved. There is no slicing, single-axis stretch, invented body box,
 fabricated receipt or promotion of a historical failed run.

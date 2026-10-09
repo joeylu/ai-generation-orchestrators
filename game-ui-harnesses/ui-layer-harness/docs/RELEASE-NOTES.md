@@ -1,5 +1,19 @@
 # Release notes
 
+## Unreleased exterior-support warning consistency
+
+- Explicit v5 now records owned/uncertain exterior classifications, nonopaque
+  dense exterior semantics and detached nonopaque components as warnings in both
+  body processing routes, package review and the aggregate warning report.
+  Original classifications and evidence are retained; faint residue is never
+  relabeled as a shadow or removed from the PNG.
+- Body prompts use policy-specific exterior guidance, separating visual findings
+  from unreliable whole-body correspondence. Solid-core/envelope checks, complete
+  side declarations, evidence identity, schema and alpha integrity remain required.
+- Default and v1–v4 severity, archived failures and consumed authorizations are
+  unchanged. Offline regression and source replay do not establish a new real
+  complete-chain run or human visual acceptance.
+
 ## Unreleased visual warning profile and prompt contract
 
 - New host configurations can freeze `visualReviewMode=warning` / visual policy

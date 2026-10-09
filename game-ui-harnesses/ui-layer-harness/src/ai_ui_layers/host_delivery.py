@@ -595,11 +595,17 @@ def resume(run):
                     fit_warnings=[dict(materialId=row['materialId'], **row['geometry']['appearanceTolerance'])
                         for row in read(root/'delivery/body-provenance.json')['records']
                         if row.get('geometry',{}).get('appearanceTolerance',{}).get('visualFitWarnings')]
+                    coverage_warnings=[dict(materialId=row['materialId'],
+                        **row['geometry']['denseBoundaryCheck'])
+                        for row in read(root/'delivery/body-provenance.json')['records']
+                        if row.get('geometry',{}).get('denseBoundaryCheck',{}).get('visualCoverageWarnings')]
                     count=len(planning)+len(extraction['warnings'])+len(fit_warnings)+sum(
+                        len(row['visualCoverageWarnings']) for row in coverage_warnings)+sum(
                         len(row['geometryDifferences'])+len(row['materialIssues']) for row in body_warnings)
                     save(root/'visual-warning-report.json',dict(kind='ui_visual_warning_report_v1',
                         visualPolicy=snapshot_policy(root/'frozen'), planning=planning,
-                        material=extraction['warnings'], body=body_warnings, fit=fit_warnings, warningCount=count,
+                        material=extraction['warnings'], body=body_warnings, fit=fit_warnings,
+                        coverage=coverage_warnings, warningCount=count,
                         executionCompleted=True,strictVisualReviewPassed=False,humanVisualAcceptance=False,
                         finalCompositeVisualAcceptancePending=True))
                 _comparison(root)

@@ -48,6 +48,14 @@ def guidance(visual_policy):
     return GUIDANCE
 
 
+def soft_effect_guidance(visual_policy):
+    from .visual_policy import warnings_only
+    if warnings_only(visual_policy):
+        from .visual_prompt_contract import BODY_SUPPORT
+        return BODY_SUPPORT
+    return SOFT_EFFECT_GUIDANCE
+
+
 def alpha_profile(policy):
     return policy in (POLICY, SOFT_EFFECTS)
 

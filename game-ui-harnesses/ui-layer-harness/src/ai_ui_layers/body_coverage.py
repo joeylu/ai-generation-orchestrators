@@ -66,10 +66,14 @@ def _connected_to_envelope(alpha, outside, envelope):
     return int(np.count_nonzero(outside & ~reached))
 
 
-def check(raw, body, margin, observations):
+def check(raw, body, margin, observations, *, visual_policy=None):
+    from .visual_policy import warnings_only
+    warning_mode = warnings_only(visual_policy)
     reviewed = declarations(observations)
-    if any(row['classification'] in ('owned-artwork', 'uncertain') for row in reviewed.values()):
+    unresolved = [row for row in reviewed.values() if row['classification'] in ('owned-artwork', 'uncertain')]
+    if unresolved and not warning_mode:
         raise ValueError('OUTSIDE_BODY_OBSERVATION_UNRESOLVED')
+    warnings = [dict(code='OUTSIDE_BODY_OBSERVATION_UNRESOLVED', **row) for row in unresolved]
     alpha = np.asarray(raw.getchannel('A'))
     height, width = alpha.shape
     l, t, r, b = body
@@ -90,13 +94,18 @@ def check(raw, body, margin, observations):
         bottom=int(np.count_nonzero(outside[eb:, :])))
     for side, count in side_counts.items():
         if count and reviewed[side]['classification'] != 'external-soft-effect':
-            raise ValueError('UNREVIEWED_DENSE_EXTERNAL_EFFECT:'+side)
+            if not warning_mode:
+                raise ValueError('UNREVIEWED_DENSE_EXTERNAL_EFFECT:'+side)
+            warnings.append(dict(code='UNREVIEWED_DENSE_EXTERNAL_EFFECT', **reviewed[side], densePixels=count))
     detached = _connected_to_envelope(alpha, outside, envelope)
     if detached:
-        raise ValueError('DETACHED_DENSE_EXTERNAL_EFFECT')
+        if not warning_mode:
+            raise ValueError('DETACHED_DENSE_EXTERNAL_EFFECT')
+        warnings.append(dict(code='DETACHED_DENSE_EXTERNAL_EFFECT', densePixels=detached,
+            evidence='Dense exterior pixels are not connected to the measured body envelope.'))
     dense_box = raw.getchannel('A').point(lambda a: 255 if a >= 128 else 0).getbbox()
     solid_box = raw.getchannel('A').point(lambda a: 255 if a >= SOLID_ALPHA else 0).getbbox()
-    return dict(policy=POLICY, sourceDenseAlphaBox=list(dense_box), sourceSolidAlphaBox=list(solid_box),
+    report = dict(policy=POLICY, sourceDenseAlphaBox=list(dense_box), sourceSolidAlphaBox=list(solid_box),
         outsideBodyPixels=[max(0, l-dense_box[0]), max(0, t-dense_box[1]),
                            max(0, dense_box[2]-r), max(0, dense_box[3]-b)],
         maximumNativeBoundaryMarginPixels=margin, solidAlphaMinimum=SOLID_ALPHA,
@@ -104,3 +113,10 @@ def check(raw, body, margin, observations):
         externalDensePixels=int(np.count_nonzero(outside)), detachedDensePixels=detached,
         outsideBodySupport=[reviewed[side] for side in SIDES],
         semanticClassificationProven=False, alphaPixelsRemoved=0)
+    if warning_mode:
+        exterior = alpha.copy()
+        exterior[et:eb, el:er] = 0
+        report.update(findingDisposition='warning', visualCoverageWarnings=warnings,
+            externalNonzeroAlphaPixels=int(np.count_nonzero(exterior)),
+            externalAlphaMaximum=int(exterior.max()))
+    return report

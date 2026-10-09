@@ -116,7 +116,7 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
             prompt += profile.guidance(snapshot_policy(snapshot)) + json.dumps(dict(bodyFitPolicy=fit_policy,
                 visualPolicy=snapshot_policy(snapshot)), ensure_ascii=False)
         if observation_policy == profile.SOFT_EFFECTS:
-            prompt += profile.SOFT_EFFECT_GUIDANCE
+            prompt += profile.soft_effect_guidance(snapshot_policy(snapshot))
         (folder / 'prompt.md').write_text(prompt, encoding='utf-8')
         save(folder / 'schema.json', profile.schema(observation_policy))
         save(folder / 'mapping.json', mapping)

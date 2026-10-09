@@ -55,7 +55,7 @@ def validate_contract(source, reference, entry, region, material_id, snapshot_di
         raise ValueError('EMPTY_SOURCE_BODY')
     validate_fit_policy(fit_policy, visual_policy)
     dense_margin = dense_body_margin(raw, body, fit_policy, coverage_policy=coverage_policy,
-                                    outside_support=contract.get(body_coverage.FIELD))
+                                    outside_support=contract.get(body_coverage.FIELD), visual_policy=visual_policy)
     bw, bh = body[2] - body[0], body[3] - body[1]
     scale, appearance = fit_body([bw, bh], target_size, visual_policy, fit_policy)
     translation = [(target[i] + target[i + 2]) / 2 - (body[i] + body[i + 2]) / 2 * scale for i in (0, 1)]
@@ -235,6 +235,9 @@ def build(config_path, output, viewer, warnings=()):
     for warning in config.get('bodyObservationWarnings', []):
         issues.append(portable_text('[body observation] ' + json.dumps(warning, ensure_ascii=False, sort_keys=True)))
     for mid, checked_body in checked.items():
+        for warning in checked_body['geometry'].get('denseBoundaryCheck', {}).get('visualCoverageWarnings', []):
+            issues.append(portable_text('[body coverage warning] ' + mid + ': '
+                                        + json.dumps(warning, ensure_ascii=False, sort_keys=True)))
         appearance = checked_body['geometry'].get('appearanceTolerance')
         if appearance is not None and any(value > 1 for value in appearance['sizeDifferencePixels']):
             issues.append('[approximate body proportions] ' + mid + ': ' + json.dumps(appearance, sort_keys=True))
