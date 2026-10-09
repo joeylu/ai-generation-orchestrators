@@ -65,10 +65,17 @@ def prepare(root, config):
         oldPlanInputReused=False,oldImageReused=False,notProviderReceipt=True))
 
 
-def _request(root):
+def _request(root, *, archived_runtime=None):
     request=read(root/'request.json')
+    expected_runtime=host_review.runtime_files() if archived_runtime is None else archived_runtime
+    if archived_runtime is not None and (not isinstance(archived_runtime,dict) or not archived_runtime or
+            any(not isinstance(k,str) or not k.startswith('game-ui-harnesses/') or
+                '\\' in k or ':' in k or '..' in Path(k).parts or not k.endswith('.py') or
+                not isinstance(v,str) or re.fullmatch('[0-9a-f]{64}',v) is None
+                for k,v in archived_runtime.items())):
+        raise ValueError('HOST_M1_ARCHIVED_RUNTIME_INVALID')
     if (request.get('kind')!='ui_host_m1_request_v1' or
-            request.get('runtime')!=host_review.runtime_files() or
+            request.get('runtime')!=expected_runtime or
             request.get('candidateAuthors')!=[request.get('plannerId')] or
             request.get('oldPlanInputReused') is not False or
             request.get('oldImageReused') is not False):
@@ -79,8 +86,8 @@ def _request(root):
     return request
 
 
-def verify_exchange(root):
-    root=Path(root);request=_request(root)
+def verify_exchange(root, *, archived_runtime=None):
+    root=Path(root);request=_request(root,archived_runtime=archived_runtime)
     att=read(root/'host-attestation.json')
     expected={'kind','requestSha256','responseSha256','plannerId','model','effort',
         'hostAssertedModelResponse','notProviderReceipt','notCryptographicallyPlatformVerified',
@@ -125,8 +132,8 @@ def receive(root, response, *, host_attestation, dispatch_evidence, return_evide
     return verify(root)
 
 
-def verify(root):
-    root=Path(root);provenance=verify_exchange(root)
+def verify(root, *, archived_runtime=None):
+    root=Path(root);provenance=verify_exchange(root,archived_runtime=archived_runtime)
     if not (root/'exchange-provenance.json').is_file():raise ValueError('HOST_M1_PROVENANCE_REQUIRED')
     expected=dict(kind='ui_host_m1_accepted_v1',responseSha256=digest(root/'draft.json'),
         requestSha256=digest(root/'request.json'),provenanceSha256=digest(root/'exchange-provenance.json'))
@@ -135,8 +142,8 @@ def verify(root):
     return plan,provenance
 
 
-def bind_candidate(root, candidate, authors, reference_sha):
-    plan,provenance=verify(root)
+def bind_candidate(root, candidate, authors, reference_sha, *, archived_runtime=None):
+    plan,provenance=verify(root,archived_runtime=archived_runtime)
     if (digest(Path(candidate))!=provenance['responseSha256'] or
             authors!=[provenance['plannerId']] or reference_sha!=provenance['originalReferenceSha256']):
         raise ValueError('HOST_M1_CANDIDATE_BINDING_MISMATCH')

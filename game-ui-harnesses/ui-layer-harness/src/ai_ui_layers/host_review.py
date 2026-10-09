@@ -143,7 +143,8 @@ def verify_frozen(folder, snapshot, plan):
     request=read(request_path)
     if config.get('hostM1Exchange'):
         _verify_m1_source(evidence/'prepared/m1/source',evidence/'m1-draft.json',
-            request['candidateAuthors'],digest(folder/'reference.png'),config['hostM1Exchange'])
+            request['candidateAuthors'],digest(folder/'reference.png'),config['hostM1Exchange'],
+            archived_runtime=config['runtime'])
     if (request.get('sourcePlanSha256')!=digest(evidence/'m1-draft.json') or
             request.get('originalReferenceSha256')!=digest(folder/'reference.png')):
         raise ValueError('HOST_FROZEN_INPUT_CHANGED')
@@ -201,9 +202,9 @@ def verify_frozen(folder, snapshot, plan):
     if split(review,plan,policy,'exact-fragments-v1',texture_doc)[0]:raise ValueError('M2_UNRESOLVED')
 
 
-def _verify_m1_source(source,candidate,authors,reference_sha,binding):
+def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archived_runtime=None):
     from . import host_m1
-    _,provenance=host_m1.bind_candidate(source,candidate,authors,reference_sha)
+    _,provenance=host_m1.bind_candidate(source,candidate,authors,reference_sha,archived_runtime=archived_runtime)
     if binding!=dict(requestSha256=provenance['requestSha256'],responseSha256=provenance['responseSha256'],
             plannerId=provenance['plannerId'],m1ModelExecuted=True):
         raise ValueError('HOST_M1_REVIEW_SOURCE_CHANGED')

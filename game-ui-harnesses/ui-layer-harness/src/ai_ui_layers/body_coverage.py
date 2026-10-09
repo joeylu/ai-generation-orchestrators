@@ -84,8 +84,20 @@ def check(raw, body, margin, observations, *, visual_policy=None):
         raise ValueError('BODY_SOLID_CORE_NOT_OBSERVABLE')
     solid_outside = solid.copy()
     solid_outside[et:eb, el:er] = False
-    if np.any(solid_outside):
-        raise ValueError('SOURCE_BODY_OMITS_SOLID_ARTWORK')
+    solid_outside_count = int(np.count_nonzero(solid_outside))
+    solid_side_counts = dict(left=int(np.count_nonzero(solid_outside[et:eb, :el])),
+        top=int(np.count_nonzero(solid_outside[:et, :])),
+        right=int(np.count_nonzero(solid_outside[et:eb, er:])),
+        bottom=int(np.count_nonzero(solid_outside[eb:, :])))
+    if solid_outside_count:
+        if not warning_mode:
+            raise ValueError('SOURCE_BODY_OMITS_SOLID_ARTWORK')
+        warnings.append(dict(code='SOURCE_BODY_OMITS_SOLID_ARTWORK',
+            solidPixels=solid_outside_count, solidAlphaMinimum=SOLID_ALPHA,
+            solidPixelsBySide=solid_side_counts, bodyEnvelope=envelope,
+            evidence='High-opacity source pixels extend beyond the observed anchor envelope. '
+                     'This records a coverage mismatch, not proof of clipping or shadow ownership; '
+                     'the complete source alpha support remains stored.'))
     outside = alpha >= 128
     outside[et:eb, el:er] = False
     side_counts = dict(left=int(np.count_nonzero(outside[et:eb, :el])),
@@ -117,6 +129,7 @@ def check(raw, body, margin, observations, *, visual_policy=None):
         exterior = alpha.copy()
         exterior[et:eb, el:er] = 0
         report.update(findingDisposition='warning', visualCoverageWarnings=warnings,
+            externalSolidPixels=solid_outside_count, externalSolidPixelsBySide=solid_side_counts,
             externalNonzeroAlphaPixels=int(np.count_nonzero(exterior)),
             externalAlphaMaximum=int(exterior.max()))
     return report

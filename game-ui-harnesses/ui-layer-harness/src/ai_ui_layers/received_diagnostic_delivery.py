@@ -115,20 +115,27 @@ def _portable_cleanup(bindings):
             for b in bindings]
 
 
-def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_jobs=None):
+def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_jobs=None, *, body_job=None):
     """Freeze a zero-compute diagnostic contract, independently of strict delivery."""
     checked = _checked(job, expected_digest)
     job, config, snapshot, manifest, rows, visual, reuse, background, bindings = checked
     cleanup_bindings=_cleanup_checked(checked,cleanup_jobs) if cleanup_jobs is not None else []
+    if body_job is not None and cleanup_bindings:
+        raise ValueError('DIAGNOSTIC_BODY_CLEANUP_MIX_NOT_SUPPORTED')
+    from .diagnostic_body_replay import checked_replay
+    body_replay=checked_replay(checked,body_job) if body_job is not None else None
     if not isinstance(canvas_policy_instruction, str) or not canvas_policy_instruction.strip():
         raise ValueError('EXPLICIT_BOUND_VIEWPORT_POLICY_REQUIRED')
-    output = _fresh(output, [job,*[b['cleanupJob'] for b in cleanup_bindings]])
+    output = _fresh(output, [job,*[b['cleanupJob'] for b in cleanup_bindings],
+                            *([body_job] if body_replay else [])])
     output.mkdir(parents=True)
-    value = record(output / 'diagnostic.json', dict(kind='ui_received_diagnostic_delivery_v2' if cleanup_bindings else 'ui_received_diagnostic_delivery_v1',
+    value = record(output / 'diagnostic.json', dict(kind='ui_received_diagnostic_delivery_v3' if body_replay else
+        'ui_received_diagnostic_delivery_v2' if cleanup_bindings else 'ui_received_diagnostic_delivery_v1',
         policy=POLICY, geometryPolicy=GEOMETRY_POLICY, receivedJob=str(job),
         receivedJobDigest=expected_digest, receivedJobFiles=files(job),
         snapshotDigest=manifest['digest'], runtime=runtime_files(), sourceBindings=bindings,
         **({'cleanupBindings':cleanup_bindings} if cleanup_bindings else {}),
+        **({'bodyReplay':body_replay} if body_replay else {}),
         canvasPolicy=viewport.POLICY, canvasPolicyInstruction=canvas_policy_instruction,
         canvasPolicyInstructionSha256=hashlib.sha256(canvas_policy_instruction.encode()).hexdigest(),
         scope='Independent diagnostic only; unresolved sheet, ownership, clipping and visual findings remain unresolved.',
@@ -201,7 +208,8 @@ def deliver(contract_dir, expected_digest, output, viewer):
     """Render a new diagnostic artifact, without editing receipts or failed states."""
     contract_dir = Path(contract_dir).resolve()
     contract = verified(contract_dir / 'diagnostic.json')
-    if (contract['digest'] != expected_digest or contract['kind'] not in ('ui_received_diagnostic_delivery_v1','ui_received_diagnostic_delivery_v2')
+    if (contract['digest'] != expected_digest or contract['kind'] not in (
+            'ui_received_diagnostic_delivery_v1','ui_received_diagnostic_delivery_v2','ui_received_diagnostic_delivery_v3')
             or contract['policy'] != POLICY or contract['geometryPolicy'] != GEOMETRY_POLICY
             or contract['runtime'] != runtime_files() or contract['canvasPolicy'] != viewport.POLICY
             or contract['canvasPolicyInstructionSha256'] != hashlib.sha256(contract['canvasPolicyInstruction'].encode()).hexdigest()
@@ -219,6 +227,15 @@ def deliver(contract_dir, expected_digest, output, viewer):
         cleanup_bindings=_cleanup_checked(checked,selected)
         if cleanup_bindings!=contract['cleanupBindings']:raise ValueError('DIAGNOSTIC_CLEANUP_BINDING_CHANGED')
     elif 'cleanupBindings' in contract:raise ValueError('DIAGNOSTIC_CLEANUP_CONTRACT_VERSION')
+    body_replay=None
+    if contract['kind']=='ui_received_diagnostic_delivery_v3':
+        from .diagnostic_body_replay import checked_replay
+        frozen_replay=contract['bodyReplay']
+        _bound_files(Path(frozen_replay['bodyJob']),frozen_replay['bodyJobFiles'])
+        body_replay=checked_replay(checked,frozen_replay['bodyJob'])
+        if body_replay!=frozen_replay:raise ValueError('DIAGNOSTIC_BODY_REPLAY_CHANGED')
+    elif 'bodyReplay' in contract:raise ValueError('DIAGNOSTIC_BODY_CONTRACT_VERSION')
+    observed={r['materialId']:r for r in body_replay['replayedObservations']} if body_replay else {}
     placements = sorted(read(snapshot / 'placements.json')['materials'], key=lambda p:p['drawIndex'])
     owned = {m['id']:m for m in visual['materials']}
     if (len(owned) != len(visual['materials']) or {p['id'] for p in placements} != set(owned)
@@ -227,7 +244,8 @@ def deliver(contract_dir, expected_digest, output, viewer):
     for mid in owned:
         if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,127}', mid) is None:
             raise ValueError('DIAGNOSTIC_MATERIAL_PATH')
-    output = _fresh(output, [contract_dir, job, snapshot,*[b['cleanupJob'] for b in cleanup_bindings]])
+    output = _fresh(output, [contract_dir, job, snapshot,*[b['cleanupJob'] for b in cleanup_bindings],
+                            *([body_replay['bodyJob']] if body_replay else [])])
     output.mkdir(parents=True)
     cuts = output / 'source-evidence/cells'
     cuts.mkdir(parents=True)
@@ -286,7 +304,11 @@ def deliver(contract_dir, expected_digest, output, viewer):
         else:
             if image.getchannel('A').getextrema()[0] != 0:
                 raise ValueError('DIAGNOSTIC_NATIVE_ALPHA_REQUIRED')
-            fitting = proxy_geometry(image, placement['sourceRegion'])
+            if mid in observed:
+                fitting=dict(observed[mid]['geometry'], observedBody=True,
+                    positionBasis='source-bound-host-body-diagnostic-replay-v1')
+            else:
+                fitting = proxy_geometry(image, placement['sourceRegion'])
         rendered, fitted = viewport.transform(path, fitting)
         region = fitted['layerCanvasRegion']; regions.append(region)
         target = rendered_dir / (mid+'.png')
@@ -317,7 +339,7 @@ def deliver(contract_dir, expected_digest, output, viewer):
         world = Image.new('RGBA',size); world.paste(im.convert('RGBA'),tuple(shift)); world.save(world_reference)
     issues = ['Diagnostic only; strict material review, body observation and full automatic DAG did not pass.',
         'Raw PNGs are unchanged; uniform cubic rendering may quantize alpha. Source clipping, ownership duplication and sheet ambiguity remain pending human review.',
-        'Measured alpha is a placement proxy, not an observed subject body. Expanded storage does not prove source completeness.']
+        'Unobserved materials use measured-alpha proxies. Source-bound host observations, when present, are explicitly identified. Expanded storage does not prove source completeness.']
     issues += ['Sheet diagnosis: '+json.dumps(s, ensure_ascii=False, sort_keys=True) for s in splits]
     issues += ['Placement diagnosis: '+json.dumps(g, ensure_ascii=False, sort_keys=True) for g in geometry]
     result = write_package(world_reference, composition, package_sources, output / 'delivery', viewer, issues)
@@ -335,11 +357,15 @@ def deliver(contract_dir, expected_digest, output, viewer):
     archive = _sources_archive(output, rows, job, splits, derived['records'], bg_proof,cleanup_bindings)
     _bound_files(job, contract['receivedJobFiles'])
     for b in cleanup_bindings:_bound_files(Path(b['cleanupJob']),b['cleanupJobFiles'])
+    if body_replay:_bound_files(Path(body_replay['bodyJob']),body_replay['bodyJobFiles'])
     result.update(status='diagnostic-pending-human-review', policy=POLICY, geometryPolicy=GEOMETRY_POLICY,
         diagnosticDigest=expected_digest, snapshotDigest=manifest['digest'], sourceBindings=_portable_bindings(bindings),
         geometry=geometry, sheetPartitions=splits, reuseDerivations=derived['records'], backgroundProtection=bg_proof,
         viewport=view, viewportArchive=wrapper, sourceArchive=archive, **FLAGS)
     if cleanup_bindings:result['cleanupReplacements']=_portable_cleanup(cleanup_bindings)
+    if body_replay:
+        from .diagnostic_body_replay import portable
+        result['bodyReplay']=portable(body_replay)
     save(output / 'result.json',result)
     return result
 
@@ -350,15 +376,16 @@ def main():
     p.add_argument('--received-job'); p.add_argument('--job-digest'); p.add_argument('--contract')
     p.add_argument('--diagnostic-digest'); p.add_argument('--canvas-policy-instruction')
     p.add_argument('--cleanup-jobs',help='JSON list of source-bound received foreground singleton cleanup selections')
+    p.add_argument('--body-job',help='Read-only genuine host body returns for partial diagnostic replay; never resumes the job')
     p.add_argument('--output',required=True); p.add_argument('--viewer')
     a = p.parse_args()
     if a.action == 'prepare-received-diagnostic':
         if not all((a.received_job,a.job_digest,a.canvas_policy_instruction)) or any((a.contract,a.diagnostic_digest,a.viewer)):
             p.error('prepare requires only received-job, job-digest, canvas-policy-instruction and output')
         result = prepare(a.received_job,a.job_digest,a.output,a.canvas_policy_instruction,
-                         read(Path(a.cleanup_jobs)) if a.cleanup_jobs else None)
+                         read(Path(a.cleanup_jobs)) if a.cleanup_jobs else None,body_job=a.body_job)
     else:
-        if not all((a.contract,a.diagnostic_digest,a.viewer)) or any((a.received_job,a.job_digest,a.canvas_policy_instruction,a.cleanup_jobs)):
+        if not all((a.contract,a.diagnostic_digest,a.viewer)) or any((a.received_job,a.job_digest,a.canvas_policy_instruction,a.cleanup_jobs,a.body_job)):
             p.error('deliver requires only contract, diagnostic-digest, viewer and output')
         result = deliver(a.contract,a.diagnostic_digest,a.output,a.viewer)
     print(json.dumps(result,ensure_ascii=False))

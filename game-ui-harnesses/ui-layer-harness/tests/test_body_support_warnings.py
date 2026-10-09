@@ -1,4 +1,4 @@
-"""Offline regressions for exterior semantic warnings and mandatory solid coverage."""
+"""Offline regressions for exterior warnings and required reliable solid cores."""
 import _bootstrap
 import copy
 import json
@@ -69,13 +69,36 @@ class CoverageWarningTests(unittest.TestCase):
         self.assertEqual(image.tobytes(), before)
         self.assertTrue(all(row['classification'] == 'uncertain' for row in report['outsideBodySupport']))
 
-    def test_solid_omission_and_unobservable_core_still_stop_even_with_warning_classification(self):
+    def test_high_opacity_coverage_mismatch_is_warning_without_relabeling_or_pixel_changes(self):
         for state in ('none', 'external-soft-effect', 'owned-artwork', 'uncertain'):
             image = faint_residue(); image.putpixel((3, 3), (50, 40, 30, 240))
-            with self.subTest(state=state), self.assertRaisesRegex(ValueError, 'SOURCE_BODY_OMITS_SOLID_ARTWORK'):
-                self.check(image, state)
+            before = image.tobytes()
+            with self.subTest(state=state):
+                report = self.check(image, state)
+                warning = next(w for w in report['visualCoverageWarnings']
+                               if w['code'] == 'SOURCE_BODY_OMITS_SOLID_ARTWORK')
+                self.assertEqual(warning['solidPixels'], 1)
+                self.assertEqual(report['externalSolidPixels'], 1)
+                self.assertEqual(report['outsideBodySupport'], soft_fixtures.declarations(state))
+                self.assertEqual(image.tobytes(), before)
+                self.assertEqual(report['alphaPixelsRemoved'], 0)
+        report = self.check(faint_residue(), body=[35, 35, 65, 65])
+        self.assertGreater(report['externalSolidPixels'], 0)
+        self.assertFalse(report['semanticClassificationProven'])
+
+    def test_near_opaque_bottom_fringe_reproduces_small_native_margin_conflict(self):
+        image = faint_residue()
+        for x in range(30, 64): image.putpixel((x, 89), (173, 150, 248, 241))
+        for x in range(30, 63): image.putpixel((x, 90), (173, 150, 248, 240))
+        before = image.tobytes()
+        report = self.check(image, 'external-soft-effect')
+        self.assertEqual(report['externalSolidPixels'], 67)
+        self.assertEqual(report['externalSolidPixelsBySide'], dict(left=0, top=0, right=0, bottom=67))
+        self.assertEqual(image.tobytes(), before)
         with self.assertRaisesRegex(ValueError, 'SOURCE_BODY_OMITS_SOLID_ARTWORK'):
-            self.check(faint_residue(), body=[35, 35, 65, 65])
+            coverage.check(image, [20, 15, 80, 85], 4, soft_fixtures.declarations())
+
+    def test_unobservable_core_still_stops(self):
         image = faint_residue(); image.putalpha(200)
         with self.assertRaisesRegex(ValueError, 'BODY_SOLID_CORE_NOT_OBSERVABLE'):
             self.check(image)
@@ -99,7 +122,7 @@ class CoverageWarningTests(unittest.TestCase):
         self.assertNotIn('Any unresolved classification', new)
         self.assertIn('They alone do not require issues', new)
         self.assertIn('do not relabel', new)
-        self.assertIn('every alpha>=240 pixel', new)
+        self.assertIn('records the actual count and sides as warnings', new)
 
 
 class HostCoverageWarningTests(unittest.TestCase):

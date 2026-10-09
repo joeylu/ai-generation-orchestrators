@@ -57,16 +57,18 @@ body from its antialiasing fringe, external shadows/glow, sparse faint alpha res
 and identifiable independent artwork. An opacity preview alone cannot establish
 ownership. Use external-soft-effect only for observed shadows/glow; do not relabel
 owned-artwork or uncertainty as a shadow to pass.
-Under this v5 policy, exterior classification, translucent density and disconnected
-exterior components are visual warnings. Record their actual classification and
+Under this v5 policy, exterior classification, opacity, disconnected exterior
+components and anchor-envelope coverage mismatches are visual warnings. Record their actual classification and
 appearance/content concerns in materialIssues. They alone do not require issues,
 null boxes or uncertain/not-whole if complete-body correspondence is reliable.
 issues remains reserved for inability to establish or measure that correspondence.
 Measure the actual complete body, including its solid outlines and internal symbols;
 never anchor only an inner icon, move an edge to pass a threshold, or enlarge the
 body to absorb faint residue or shadows. The program still requires a solid core
-inside the body and every alpha>=240 pixel inside the body plus its frozen native
-measurement margin. Do not claim pixel checks passed. Every nonzero alpha pixel,
+inside the body. It measures all alpha>=240 pixels outside the body plus its frozen
+native margin and records the actual count and sides as warnings; high opacity alone
+does not prove that an exterior pixel is owned solid artwork. Do not claim pixel
+checks passed. Every nonzero alpha pixel,
 including exterior owned-artwork or uncertain residue, remains stored unchanged;
 there is no alpha cleanup or body-mask crop. Final appearance awaits human review.
 '''

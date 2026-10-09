@@ -42,6 +42,12 @@ semantic concerns from inability to measure a complete corresponding body.
 body provenance; warnings are included in package review and the aggregate
 report's `coverage` array and count. No pixel is removed to make a check pass.
 
+High-opacity pixels (alpha >= 240) outside the observed anchor envelope are also
+recorded as coverage warnings in v5. Their count, sides and unchanged envelope
+are retained. This does not prove clipping, authorize a new body box or classify
+those pixels as shadow. A reliable corresponding body with an observable solid
+core remains required; complete PNG support is stored.
+
 The workflow proceeds through all budgeted stages to a final composite. It does
 not automatically repair, regenerate or replace the reviewer. The generated ZIP
 contains the warnings in its review evidence. Host completion additionally
@@ -56,7 +62,7 @@ Transport failure, timeout or unknown acceptance; invalid schema/IDs or missing
 review coverage; changed hashes, input sets, runtime, authorization or receipts;
 unsafe paths; invalid/opaque foreground PNGs; invalid geometry or an observation
 that cannot reliably establish complete-body correspondence; no solid core
-inside the body or alpha>=240 outside its frozen measurement envelope;
+inside the body;
 storage/packaging failures. Observation v2 without the explicit exterior-support
 policy retains its dense-alpha coverage constraint. These cannot yield a
 truthful complete package by relabeling them as visual warnings. All nonzero

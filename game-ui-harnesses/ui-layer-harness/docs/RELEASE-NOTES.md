@@ -1,5 +1,20 @@
 # Release notes
 
+## Unreleased high-opacity coverage warnings and diagnostic replay
+
+- Explicit v5 records high-opacity pixels outside the observed anchor envelope
+  as warnings, with counts and sides. It preserves measured edges, classifications
+  and every source pixel. Observable solid core, reliable correspondence, schema
+  and source identity remain mandatory; strict and v1–v4 retain their severity.
+- Independent zero-compute diagnostic export can revalidate partial genuine host
+  observations for singleton materials. Missing observations stay alpha-placement
+  proxies. Original failed jobs remain unchanged; the export never claims complete
+  automatic execution or human acceptance.
+- Read-only frozen M1 inspection verifies the original snapshot-bound runtime
+  rather than the active install. Active M1 reservation and receipt validation
+  still require the current runtime; immutable historical fingerprints cannot
+  authorize or resume computation.
+
 ## Unreleased exterior-support warning consistency
 
 - Explicit v5 now records owned/uncertain exterior classifications, nonopaque

@@ -2,6 +2,7 @@
 import _bootstrap
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 from jsonschema import Draft202012Validator, ValidationError
 from ai_ui_layers import host_delivery as host, host_m1, host_review
 from ai_ui_layers.evaluate import read, save, digest
@@ -118,6 +119,22 @@ class FreshHostM1Tests(unittest.TestCase):
         proof=frozen/'evidence/prepared/m1/source/draft.json'
         proof.write_bytes(proof.read_bytes()+b' ')
         with self.assertRaisesRegex(ValueError,'CHANGED'):inspect(frozen,snapshot['digest'])
+
+    def test_archived_frozen_inspection_uses_bound_runtime_but_active_m1_requires_current_runtime(self):
+        self.generate();self.review()
+        frozen=self.run/'frozen';snapshot=read(frozen/'snapshot.json')
+        changed=dict(host_review.runtime_files())
+        changed['game-ui-harnesses/ui-layer-harness/src/ai_ui_layers/host_m1.py']='0'*64
+        with patch('ai_ui_layers.host_review.runtime_files',return_value=changed):
+            self.assertEqual(inspect(frozen,snapshot['digest'])['digest'],snapshot['digest'])
+            with self.assertRaisesRegex(ValueError,'HOST_M1_REQUEST_CHANGED'):
+                host_m1.verify(self.run/'planning-m1')
+            with self.assertRaisesRegex(ValueError,'HOST_M1_REQUEST_CHANGED'):
+                host_m1.receive(self.run/'planning-m1',self.response,
+                    host_attestation=self.attestation,dispatch_evidence=self.dispatch,return_evidence=self.response)
+        proof=frozen/'evidence/prepared/m1/source/request.json'
+        proof.write_bytes(proof.read_bytes()+b' ')
+        with self.assertRaisesRegex(ValueError,'ARTIFACT_CHANGED'):inspect(frozen,snapshot['digest'])
 
     def test_invalid_real_m1_preserves_origin_and_terminal_answer(self):
         with self.assertRaises(ValidationError):self.generate(invalid=True)
