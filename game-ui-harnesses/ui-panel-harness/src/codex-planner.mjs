@@ -16,7 +16,7 @@ import { themePlanningGuide } from './theme-planning.mjs';
 import { buildCodexEditResponseSchema, codexEditOperationContracts } from './codex-edit-schema.mjs';
 import { CODEX_QUESTIONS_INSTRUCTION } from './codex-questions-schema.mjs';
 import { materializeCodexEditDraft } from './codex-edit-draft.mjs';
-import { createOutputDirectory, harnessRoot, writeNewJson } from './io.mjs';
+import { createOutputDirectory, createScopedOutputDirectory, harnessRoot, writeNewJson } from './io.mjs';
 import { validatePlanningContext } from './planning-context.mjs';
 import { checkPanelProposal, validatePanelProposal } from './proposal.mjs';
 import { validatePanelEditContext, validatePanelEditProposal, checkPanelEditProposal } from './edit-planning.mjs';
@@ -350,7 +350,7 @@ function invoke(executable, args, prompt, { signal, timeoutMs, runProcess, onInv
 }
 
 /** One explicitly requested CLI invocation. No automatic resubmission or output repair. */
-async function requestWithCodex(editing, contextInput, { outputRoot, signal, executable, timeoutMs = 900000, runProcess = spawn } = {}) {
+async function requestWithCodex(editing, contextInput, { outputRoot, writableRoot, signal, executable, timeoutMs = 900000, runProcess = spawn } = {}) {
   const started = performance.now();
   let context;
   try { context = await (editing ? validatePanelEditContext : validatePlanningContext)(contextInput); } catch { fail('CODEX_CONTEXT_INVALID'); }
@@ -372,7 +372,10 @@ async function requestWithCodex(editing, contextInput, { outputRoot, signal, exe
       : ['0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion) ? buildNativePanelIntentResponseSchema(context) : RESPONSE_SCHEMA; }
     catch { fail('CODEX_PROMPT_UNAVAILABLE'); }
     const prompt = editing ? await buildEditPrompt(context, responseSchema) : await buildPrompt(context, responseSchema);
-    try { directory = await createOutputDirectory(resolve(outputRoot, `${editing ? 'codex-edit' : 'codex'}-${randomUUID()}`)); }
+    try {
+      const target = resolve(outputRoot, `${editing ? 'codex-edit' : 'codex'}-${randomUUID()}`);
+      directory = writableRoot === undefined ? await createOutputDirectory(target) : await createScopedOutputDirectory(target, writableRoot);
+    }
     catch { fail('CODEX_OUTPUT_DIRECTORY_INVALID'); }
     try {
       await writeNewJson(directory, editing ? 'edit-context.json' : 'planning-context.json', context);

@@ -20,7 +20,14 @@ export async function readJson(path) {
 
 /** Workspace-development CLI deliberately confines every write to this Harness. */
 export async function createOutputDirectory(input) {
-  const target = resolve(input), root = resolve(harnessRoot), rel = relative(root, target);
+  return createScopedOutputDirectory(input, harnessRoot);
+}
+
+/** A library host explicitly owns this writable root; callers still cannot escape it. */
+export async function createScopedOutputDirectory(input, rootInput) {
+  if (typeof rootInput !== 'string' || !isAbsolute(rootInput) || resolve(rootInput) === dirname(resolve(rootInput)))
+    throw new Error('OUTPUT_ROOT_INVALID');
+  const target = resolve(input), root = resolve(rootInput), rel = relative(root, target);
   if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('OUTPUT_OUTSIDE_HARNESS');
   if (rel.split(sep).some(part => /^(?:\.git|\.codex|\.agents)$/i.test(part))) throw new Error('OUTPUT_RESERVED_DIRECTORY');
   // Verify all existing ancestors, including the checkout root, before creating anything.

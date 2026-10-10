@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough, Writable } from 'node:stream';
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { delimiter, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { CODEX_MODEL, CODEX_EFFORT, findCodexExecutable, planWithCodex, editWithCodex, validateCodexReceipt, validateCodexEditReceipt } from '../src/codex-planner.mjs';
 import { createPanelEditContext, checkPanelEditProposal } from '../src/edit-planning.mjs';
 import { digestJson, digestBytes } from '../src/canonical.mjs';
@@ -41,6 +42,24 @@ const executable = join(work, process.platform === 'win32' ? 'codex.exe' : 'code
 await writeFile(executable, 'This is a non-executable fixture. Tests only use fake child processes.');
 let folderIndex = 0;
 const output = () => join(work, `case-${folderIndex++}`);
+test('an installed adapter needs an explicit writable root and cannot escape that root', async () => {
+  const writableRoot = await mkdtemp(join(tmpdir(), 'panel-sdk-output-'));
+  const fake = fakeProcess();
+  await assert.rejects(planWithCodex(context, { outputRoot: join(writableRoot, 'default'), executable, runProcess: fake.runProcess }),
+    { code: 'CODEX_OUTPUT_DIRECTORY_INVALID' });
+  assert.equal(fake.calls.length, 0);
+  const result = await planWithCodex(context, { outputRoot: join(writableRoot, 'runs'), writableRoot, executable, runProcess: fake.runProcess });
+  assert.equal(result.receipt.status, 'READY_TO_COMPILE');
+  assert.equal(fake.calls.length, 1);
+  assert(fake.calls[0].options.cwd.startsWith(join(writableRoot, 'runs')));
+  const attempt = join(writableRoot, 'runs', (await readdir(join(writableRoot, 'runs')))[0]);
+  assert.equal((await json(join(attempt, 'codex-receipt.json'))).contextSha256, context.sha256);
+  for (const outputRoot of [dirname(writableRoot), join(writableRoot, '.git', 'runs')]) {
+    await assert.rejects(planWithCodex(context, { outputRoot, writableRoot, executable, runProcess: fake.runProcess }),
+      { code: 'CODEX_OUTPUT_DIRECTORY_INVALID' });
+  }
+  assert.equal(fake.calls.length, 1);
+});
 test('after a button-layout upgrade the CLI prompt retains form instructions and exposes the new layout operation', async () => {
   const catalog = await json(join(harnessRoot, 'examples/modern-adaptive.catalog.json'));
   const planning = await createPlanningContext(roleRequest, catalog);

@@ -10,6 +10,8 @@
     "doctor": "node scripts/check-workspace.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:images": "node scripts/check-asset-png.mjs",
+    "package:release": "node scripts/package-release.mjs",
+    "check:release": "node scripts/check-release.mjs",
     "check": "node scripts/cli.mjs validate examples/audio-settings.panel.json",
     "example": "node scripts/cli.mjs compile examples/audio-settings.panel.json --output output/audio-settings"
   }

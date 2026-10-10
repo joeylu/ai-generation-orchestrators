@@ -1,5 +1,15 @@
 # 已执行任务与证据
 
+## 2026-10-10 · 独立 SDK 发布候选
+
+补齐可独立安装的 Node API、固定 Component rc.3 编译模块闭包、默认 modern-menu 与12个自有图标、提示词/Schema、同源离线 Pixi IIFE/ES 模块和 UGUI 0.1.5 源码。可选 Codex 适配新增显式受限输出根，安装目录可保持只读，Studio 原有输出限制保留。包记录源码提交、dirty状态、逐文件字节/摘要及第三方许可；本轮未创建或发布 GitHub tag/release，dirty候选不允许当作正式发布物。
+
+1422项面板单元回归全部通过。实际候选ZIP在系统临时目录、没有相邻源码和node_modules的条件下通过7项安装检查；其中生成和修改各使用1个明确替身子进程，真实模型调用0。实际导出ZIP离线打开/键盘交互/清理和ES模块渲染/往返/清理的5项浏览器检查通过，Edge154.0.4258.62，无远程请求及页面错误；Unity原生NOT_RUN。初次安装检查因测试替身线程ID格式错误失败，v2修正替身后通过，未改生产校验器；旧失败目录保留。
+
+本地证据为 `output/sdk-release-regression-v1.log`、`output/sdk-release-acceptance-v3/installed-package-report.json`、`output/sdk-release-browser-v2/browser-report.json`。`output/sdk-release-candidate-v2/acceptance.json`记录同一候选的两次构建摘要相同；dirty候选仍不发布。SDK安装验收不代表其他项目的部署或真实模型验收。见[发布候选合同与复核命令](sdk-release.md)。
+
+后续获准发布时，仅提交Panel源码，从干净提交重建并复核实际安装包，再发布固定tag、ZIP、SHA-256及程序生成的验收回执。发布回执记录实际源码提交、构建与安装/浏览器验证结果；本段不预先宣称发布成功。已知基线8b947c63的仓库CI在ui-layer夹具失败，本链路发布不修改其他Harness，也不将Panel安装验收表述为全仓CI通过。
+
 ## 2026-10-10 · 单按钮生成后分组几何失败修复
 
 “生成一个开始按钮”的原始方案有效，minimal-v2隐藏重复标题后将分组测为56px，触发80px配方最小高度门禁。仅修正菜单分组测量下限，保持按钮与业务原样；45项相关回归、候选及实际服务各8组页面通过，新的模型请求0。原五份模型记录字节保持，程序复用原Spec/目录重编译并严格校验，恢复包已导入用户当前Studio，输入保留、0/10轮。正常核对空闲4951后更新服务至e1e8dbbf96b180652ad3d20bb02c51087ed71485892cdc09775e635cc2d43520，启动记录与截图保留。见[具体原因及证据](menu-defaults.md)。
