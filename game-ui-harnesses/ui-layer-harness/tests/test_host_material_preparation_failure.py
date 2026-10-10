@@ -3,6 +3,7 @@ import _bootstrap
 from pathlib import Path
 import tempfile
 import unittest
+from contextlib import nullcontext
 from unittest.mock import patch
 
 from ai_ui_layers import host_delivery as host
@@ -30,7 +31,11 @@ class HostMaterialPreparationFailureTests(unittest.TestCase):
 
             reason=('HOST_MATERIAL_PREPARATION_BLOCKED:requestId=explorer:reason=MATERIAL_GATE_FAILED'
                     ':issues=["POSSIBLY_CLIPPED_SOURCE"]')
+            # This failure-routing fixture stubs the producer and batch together.
+            # Import the batch before patching dependencies, so its module-level
+            # bindings cannot retain transient mocks in later real fixture tests.
             with patch.object(host.host_review,'runtime_files',return_value={}), \
+                 patch('ai_ui_layers.received_source_batch.received_sources',return_value=nullcontext(None)), \
                  patch.object(host.experimental_executor,'status',return_value={'status':'raw_complete'}), \
                  patch.object(host.experimental_executor,'load_job',return_value=({'assets':['explorer']},{})), \
                  patch.object(host.host_material_review,'prepare',side_effect=blocked_prepare) as prepare:
