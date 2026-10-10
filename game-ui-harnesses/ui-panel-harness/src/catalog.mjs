@@ -90,7 +90,7 @@ export function validateCatalog(value) {
     if (Object.hasOwn(theme, 'visualStyle') && !['modern-v1', 'modern-v2', 'modern-v3'].includes(theme.visualStyle)) fail(`${path}.visualStyle`, 'unsupported visual style');
     if (Object.hasOwn(theme, 'controlStyle') && (theme.controlStyle !== 'semantic-v1' || theme.visualStyle !== 'modern-v3')) fail(`${path}.controlStyle`, 'semantic-v1 requires modern-v3');
     if (Object.hasOwn(theme, 'presentationStyle') && (theme.presentationStyle !== 'focused-v1' || theme.controlStyle !== 'semantic-v1')) fail(`${path}.presentationStyle`, 'focused-v1 requires semantic-v1 controls');
-    if (Object.hasOwn(theme, 'headingStyle') && (!['concise-v1', 'visible-v1'].includes(theme.headingStyle) || theme.controlStyle !== 'semantic-v1' || theme.surfaceStyle !== 'minimal-v2'))
+    if (Object.hasOwn(theme, 'headingStyle') && (!['concise-v1', 'visible-v1', 'concise-v2', 'visible-v2'].includes(theme.headingStyle) || theme.controlStyle !== 'semantic-v1' || theme.surfaceStyle !== 'minimal-v2'))
       fail(`${path}.headingStyle`, 'Versioned heading presentation requires semantic-v1 and minimal-v2');
     if (Object.hasOwn(theme, 'navigationStyle') && (theme.navigationStyle !== 'tabs-v1' || theme.presentationStyle !== 'focused-v1')) fail(`${path}.navigationStyle`, 'tabs-v1 requires focused-v1 presentation');
     if (Object.hasOwn(theme, 'surfaceStyle') && (!['refined-v1','minimal-v1','minimal-v2','crafted-v1','grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle) || theme.navigationStyle !== 'tabs-v1')) fail(`${path}.surfaceStyle`, 'Surface styles require tabs-v1 navigation');

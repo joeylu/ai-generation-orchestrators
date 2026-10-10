@@ -12,6 +12,8 @@ import { digestBytes } from '../src/canonical.mjs';
 import { readStoredZip } from '../tests/unity-kit-helpers.mjs';
 import { menuRequest, menuIntent } from '../examples/menu-defaults-v1/fixture.mjs';
 import { checkInstalledHeadings } from './lib/heading-release-check.mjs';
+import { checkInstalledGeometry } from './lib/geometry-release-check.mjs';
+import { selectRequest, selectIntent } from '../examples/section-geometry-v2/fixture.mjs';
 
 function fixtureProcess(reply, calls) {
   return (command, args, options) => {
@@ -45,6 +47,7 @@ for (const [name, bytes] of files) {
 const sdk = await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).loadPanelSdk();
 assert.equal(sdk.seed.pool.index.records.length, 12); assert.equal(sdk.seed.pool.resources.length, 12);
 assert.equal(sdk.seed.catalog.id, 'modern-menu-headings');
+assert.equal(sdk.seed.catalog.version, '0.20.0');
 assert.equal(files.has('package/src/component-adapter.mjs'), false);
 assert(![...files.keys()].some(name => /(?:node_modules|\.ts$|workbench-server|\.tmp\/|output\/)/.test(name)));
 pass('loads-outside-checkout-with-no-sibling-node-modules-or-typescript-and-twelve-pinned-icons');
@@ -92,6 +95,25 @@ pass('downloaded-bundle-reimports-without-a-separate-asset-library');
 await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk();
 pass('generation-edit-and-export-leave-installed-package-bytes-intact');
 checks.push(...await checkInstalledHeadings(sdk,output));
+checks.push(...await checkInstalledGeometry(sdk,output));
+const selectModel=await sdk.createWorkbenchModel(sdk.seed,sdk.core),selectPrepared=await selectModel.prepare(selectRequest);
+const selectPlan=await sdk.planner.planWithCodex(selectPrepared.context,options(selectIntent(selectPrepared.context)));
+assert.equal(selectPlan.receipt.invocationCount,1);assert.equal(selectPlan.receipt.automaticRetries,0);
+const selected=await selectModel.acceptProposal(selectPlan.proposal),field=selected.panel.spec.state.find(value=>value.type==='enum');
+assert.equal(selected.phase,'ready');assert.equal(selected.panel.compilerVersion,'0.28.0');
+assert.deepEqual(field.options.map(option=>option.label),['男','女']);assert.equal(selected.panel.state[field.id],field.options[0].id);
+pass('installed-reported-select-request-compiles-after-one-explicit-generation-fixture');
+const selectEditRequest={requestVersion:'0.1',id:'select-title-edit',target:'pixi',text:'只把面板标题改为“选择角色”，其他不变。'};
+const selectEditing=await selectModel.prepareEdit(selectEditRequest);
+const selectDraft={codexEditDraftVersion:'0.3',contextSha256:selectEditing.context.sha256,unresolved:[],noChange:null,
+  patch:{patchVersion:'0.1',baseSpecSha256:selectEditing.context.baseSpecSha256,reason:selectEditRequest.text,operations:[{op:'set-panel-title',title:'选择角色'}]},
+  bases:[{kind:'request-interpretation',quote:selectEditRequest.text}]};
+const selectEdited=await sdk.planner.editWithCodex(selectEditing.context,options(selectDraft));
+const selectCurrent=await selectModel.acceptEditProposal(selectEdited.proposal,{[field.id]:field.options[1].id});
+assert.deepEqual(selectCurrent.panel.spec.sections,selected.panel.spec.sections);assert.deepEqual(selectCurrent.panel.spec.state,selected.panel.spec.state);
+assert.deepEqual(selectCurrent.panel.bindings,selected.panel.bindings);assert.deepEqual(selectCurrent.panel.state,{[field.id]:field.options[1].id});
+assert.equal(selectModel.getEditBudget().used,1);assert.equal(calls.length,4);selectModel.dispose();
+pass('installed-explicit-edit-fixture-preserves-select-default-options-bindings-and-female-play-state');
 await writeFile(join(temporary, 'package/prompts/panel-intent.md'), 'tampered');
 assert.throws(() => sdk.planner.planWithCodex(prepared.context, { outputRoot: 'relative' }), /SDK_OUTPUT_ROOT_REQUIRED/);
 await assert.rejects((await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk(), /SDK_FILE_INTEGRITY/);

@@ -1,0 +1,1459 @@
+{
+  "panelBundleVersion": "0.7",
+  "compilerVersion": "0.27.0",
+  "spec": {
+    "panelSpecVersion": "0.7",
+    "id": "heading-fixture",
+    "title": "角色选择",
+    "theme": {
+      "id": "modern-mint-light",
+      "version": "0.19.1"
+    },
+    "assets": null,
+    "tabs": null,
+    "canvas": {
+      "width": 624,
+      "height": 560
+    },
+    "layout": {
+      "width": 560,
+      "padding": 32,
+      "gap": 16,
+      "sectionGap": 20,
+      "labelWidth": 112,
+      "rowHeight": 56,
+      "titleHeight": 40,
+      "sectionTitleHeight": 32,
+      "maxHeight": 460,
+      "overflow": "scroll",
+      "body": {
+        "id": "body",
+        "kind": "column",
+        "width": "fill",
+        "gap": 20,
+        "align": "start",
+        "children": [
+          {
+            "kind": "section",
+            "sectionId": "section0",
+            "width": "fill"
+          }
+        ]
+      }
+    },
+    "state": [
+      {
+        "id": "row0",
+        "type": "enum",
+        "initial": "male",
+        "options": [
+          {
+            "id": "male",
+            "label": "男"
+          },
+          {
+            "id": "female",
+            "label": "女"
+          }
+        ]
+      }
+    ],
+    "sections": [
+      {
+        "id": "section0",
+        "title": "角色设置",
+        "rows": [
+          {
+            "id": "row0",
+            "label": "性别",
+            "enabled": true,
+            "bind": "row0",
+            "event": "role.genderChanged",
+            "kind": "select",
+            "recipe": {
+              "id": "settings.select",
+              "version": "0.1.0"
+            }
+          }
+        ]
+      }
+    ],
+    "provenance": {
+      "kind": "programmatic-fixture",
+      "description": "Owned section-heading regression fixture. Not a real model result or user task.",
+      "assumptions": []
+    }
+  },
+  "catalog": {
+    "catalogVersion": "0.1",
+    "id": "modern-menu-headings",
+    "version": "0.19.0",
+    "themes": [
+      {
+        "id": "modern-mint-light",
+        "version": "0.19.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#157C64",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#157C64",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v1"
+      },
+      {
+        "id": "modern-mint-dark",
+        "version": "0.19.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#90E6CF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#157C64",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v1"
+      },
+      {
+        "id": "modern-blue-light",
+        "version": "0.19.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#315FC7",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#0066CC",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v1"
+      },
+      {
+        "id": "modern-blue-dark",
+        "version": "0.19.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#A0BFFF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#2466C9",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v1"
+      },
+      {
+        "id": "modern-violet-light",
+        "version": "0.19.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#7051B5",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#6846B7",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v1"
+      },
+      {
+        "id": "modern-violet-dark",
+        "version": "0.19.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#C9B5FF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#6846B7",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v1"
+      },
+      {
+        "id": "modern-orange-light",
+        "version": "0.19.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#A85218",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#A95600",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v1"
+      },
+      {
+        "id": "modern-orange-dark",
+        "version": "0.19.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#FFBD86",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#A95600",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v1"
+      },
+      {
+        "id": "modern-mint-light",
+        "version": "0.19.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#157C64",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#157C64",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v1"
+      },
+      {
+        "id": "modern-mint-dark",
+        "version": "0.19.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#90E6CF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#157C64",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v1"
+      },
+      {
+        "id": "modern-blue-light",
+        "version": "0.19.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#315FC7",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#0066CC",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v1"
+      },
+      {
+        "id": "modern-blue-dark",
+        "version": "0.19.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#A0BFFF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#2466C9",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v1"
+      },
+      {
+        "id": "modern-violet-light",
+        "version": "0.19.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#7051B5",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#6846B7",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v1"
+      },
+      {
+        "id": "modern-violet-dark",
+        "version": "0.19.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#C9B5FF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#6846B7",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v1"
+      },
+      {
+        "id": "modern-orange-light",
+        "version": "0.19.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#A85218",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#A95600",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v1"
+      },
+      {
+        "id": "modern-orange-dark",
+        "version": "0.19.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#FFBD86",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#A95600",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v1"
+      }
+    ],
+    "recipes": [
+      {
+        "id": "settings.panel",
+        "version": "0.1.0",
+        "kind": "panel",
+        "description": "自有程序化设置面板，包含标题及纵向内容区域。Procedural settings panel with a title and vertical content.",
+        "tags": [
+          "设置面板",
+          "设置页",
+          "settings panel",
+          "settings",
+          "panel"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 320,
+        "minHeight": 160
+      },
+      {
+        "id": "settings.section",
+        "version": "0.1.0",
+        "kind": "section",
+        "description": "自有程序化设置分组，包含分组标题和设置行。Procedural titled section for related settings rows.",
+        "tags": [
+          "设置分组",
+          "分组",
+          "section",
+          "group"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 80
+      },
+      {
+        "id": "settings.slider",
+        "version": "0.1.0",
+        "kind": "slider-row",
+        "description": "自有程序化数值设置行，组合标签、滑条和数值文字，适用于音量等有界数值。Procedural labeled slider with a value readout.",
+        "tags": [
+          "音量",
+          "声音大小",
+          "响度",
+          "滑条",
+          "百分比",
+          "volume",
+          "loudness",
+          "slider",
+          "range"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "dragging",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.switch",
+        "version": "0.1.0",
+        "kind": "switch-row",
+        "description": "自有程序化布尔设置行，组合标签与开关；开关含义由面板方案显式声明。Procedural labeled switch for an explicit boolean setting.",
+        "tags": [
+          "声音开关",
+          "开关",
+          "启用声音",
+          "静音",
+          "布尔",
+          "mute",
+          "toggle",
+          "switch",
+          "sound enabled"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "checked",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.select",
+        "version": "0.1.0",
+        "kind": "select-row",
+        "description": "自有程序化枚举设置行，组合标签与下拉菜单，适用于明确的画质档位等有限选项。Procedural labeled select for explicit enumerated settings.",
+        "tags": [
+          "画质",
+          "画质档位",
+          "下拉",
+          "选项",
+          "选择",
+          "quality",
+          "dropdown",
+          "select"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.text",
+        "version": "0.1.0",
+        "kind": "text-row",
+        "description": "自有程序化只读信息行，组合标签与单行文字，不绑定可变状态，不发出事件。Procedural read-only labeled text for character and summary information.",
+        "tags": [
+          "角色信息",
+          "信息",
+          "文本",
+          "只读",
+          "character",
+          "text",
+          "information"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 240,
+        "minHeight": 40
+      },
+      {
+        "id": "settings.progress",
+        "version": "0.1.0",
+        "kind": "progress-row",
+        "description": "只读确定进度加载条，由宿主更新连续数值，支持百分比或实际数值显示。Read-only determinate host-owned loading/progress bar.",
+        "tags": [
+          "加载条",
+          "加载",
+          "进度条",
+          "进度",
+          "loading",
+          "progress",
+          "下载",
+          "资源加载"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 40
+      },
+      {
+        "id": "navigation.tabs",
+        "version": "0.1.0",
+        "kind": "tabs",
+        "description": "Horizontal tabs with persistent page state and independent scroll content.",
+        "tags": [
+          "页签",
+          "分页",
+          "标签页",
+          "选项卡",
+          "tabs",
+          "tab",
+          "分类",
+          "声音",
+          "画面"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 104
+      },
+      {
+        "id": "forms.input",
+        "version": "0.1.0",
+        "kind": "input-row",
+        "description": "单行文本输入及必填和最短长度校验，支持角色命名、兑换码与搜索。Single-line text/password entry with bounded validation.",
+        "tags": [
+          "输入框",
+          "文本输入",
+          "角色命名",
+          "名字",
+          "昵称",
+          "兑换码",
+          "搜索",
+          "input",
+          "text entry",
+          "form",
+          "name"
+        ],
+        "states": [
+          "idle",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 72
+      },
+      {
+        "id": "settings.button.primary",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit primary visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "primary"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "primary"
+      },
+      {
+        "id": "settings.button.secondary",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit secondary visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "secondary"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "secondary"
+      },
+      {
+        "id": "settings.button.danger",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit danger visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "danger"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "danger"
+      }
+    ]
+  },
+  "state": {
+    "row0": "male"
+  },
+  "selection": {
+    "theme": {
+      "id": "modern-mint-light",
+      "version": "0.19.1"
+    },
+    "recipes": [
+      {
+        "id": "settings.panel",
+        "version": "0.1.0"
+      },
+      {
+        "id": "settings.section",
+        "version": "0.1.0"
+      },
+      {
+        "id": "settings.select",
+        "version": "0.1.0"
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "nodeId": "heading-fixture.row.row0.control",
+      "fieldId": "row0",
+      "event": "role.genderChanged",
+      "type": "enum",
+      "enabled": true
+    }
+  ],
+  "componentBundle": {
+    "bundleVersion": "0.1",
+    "document": {
+      "schemaVersion": "0.2",
+      "id": "heading-fixture",
+      "canvas": {
+        "width": 624,
+        "height": 560
+      },
+      "root": {
+        "id": "heading-fixture.canvas",
+        "type": "Container",
+        "layout": {
+          "x": 0,
+          "y": 0,
+          "width": 624,
+          "height": 560
+        },
+        "props": {
+          "style": {
+            "backgroundColor": "#EDF2F0",
+            "borderColor": "#C4D3CD",
+            "borderWidth": 0,
+            "cornerRadius": 0,
+            "textColor": "#20332E",
+            "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+            "fontSize": 16,
+            "fontWeight": "normal",
+            "opacity": 1
+          }
+        },
+        "children": [
+          {
+            "id": "heading-fixture.panel-shadow.0",
+            "type": "Container",
+            "layout": {
+              "x": 30,
+              "y": 171,
+              "width": 564,
+              "height": 224
+            },
+            "props": {
+              "style": {
+                "backgroundColor": "#000000",
+                "borderColor": "#C4D3CD",
+                "borderWidth": 0,
+                "cornerRadius": 18,
+                "textColor": "#20332E",
+                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                "fontSize": 16,
+                "fontWeight": "normal",
+                "opacity": 0.05
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "heading-fixture.panel",
+            "type": "Container",
+            "layout": {
+              "x": 32,
+              "y": 170,
+              "width": 560,
+              "height": 220
+            },
+            "props": {
+              "style": {
+                "backgroundColor": "#FFFFFF",
+                "borderColor": "#C4D3CD",
+                "borderWidth": 1,
+                "cornerRadius": 16,
+                "textColor": "#20332E",
+                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                "fontSize": 16,
+                "fontWeight": "normal",
+                "opacity": 1
+              }
+            },
+            "children": [
+              {
+                "id": "heading-fixture.title",
+                "type": "Text",
+                "layout": {
+                  "x": 32,
+                  "y": 32,
+                  "width": 496,
+                  "height": 40
+                },
+                "props": {
+                  "text": "角色选择",
+                  "wrap": "none",
+                  "overflow": "error",
+                  "lineHeight": 32,
+                  "drawBackground": false,
+                  "style": {
+                    "backgroundColor": "#FFFFFF",
+                    "borderColor": "#C4D3CD",
+                    "borderWidth": 0,
+                    "cornerRadius": 16,
+                    "textColor": "#20332E",
+                    "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                    "fontSize": 24,
+                    "fontWeight": "normal",
+                    "opacity": 1
+                  }
+                }
+              },
+              {
+                "id": "heading-fixture.body",
+                "type": "Container",
+                "layout": {
+                  "x": 32,
+                  "y": 88,
+                  "width": 496,
+                  "height": 100
+                },
+                "props": {
+                  "style": {
+                    "backgroundColor": "#FFFFFF",
+                    "borderColor": "#C4D3CD",
+                    "borderWidth": 0,
+                    "cornerRadius": 16,
+                    "textColor": "#20332E",
+                    "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                    "fontSize": 16,
+                    "fontWeight": "normal",
+                    "opacity": 1
+                  }
+                },
+                "children": [
+                  {
+                    "id": "heading-fixture.section.section0",
+                    "type": "Container",
+                    "layout": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 496,
+                      "height": 100
+                    },
+                    "props": {
+                      "style": {
+                        "backgroundColor": "#FFFFFF",
+                        "borderColor": "#C4D3CD",
+                        "borderWidth": 0,
+                        "cornerRadius": 16,
+                        "textColor": "#20332E",
+                        "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                        "fontSize": 16,
+                        "fontWeight": "normal",
+                        "opacity": 1
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "heading-fixture.section.section0.title",
+                        "type": "Text",
+                        "layout": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 496,
+                          "height": 32
+                        },
+                        "props": {
+                          "text": "角色设置",
+                          "wrap": "none",
+                          "overflow": "error",
+                          "lineHeight": 21,
+                          "drawBackground": false,
+                          "style": {
+                            "backgroundColor": "#FFFFFF",
+                            "borderColor": "#C4D3CD",
+                            "borderWidth": 0,
+                            "cornerRadius": 16,
+                            "textColor": "#5B7069",
+                            "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                            "fontSize": 16,
+                            "fontWeight": "bold",
+                            "opacity": 1
+                          }
+                        }
+                      },
+                      {
+                        "id": "heading-fixture.row.row0",
+                        "type": "Container",
+                        "layout": {
+                          "x": 0,
+                          "y": 44,
+                          "width": 496,
+                          "height": 56
+                        },
+                        "props": {
+                          "style": {
+                            "backgroundColor": "#FFFFFF",
+                            "borderColor": "#C4D3CD",
+                            "borderWidth": 0,
+                            "cornerRadius": 8,
+                            "textColor": "#20332E",
+                            "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                            "fontSize": 16,
+                            "fontWeight": "normal",
+                            "opacity": 1
+                          }
+                        },
+                        "children": [
+                          {
+                            "id": "heading-fixture.row.row0.label",
+                            "type": "Text",
+                            "layout": {
+                              "x": 0,
+                              "y": 17.5,
+                              "width": 496,
+                              "height": 21
+                            },
+                            "props": {
+                              "text": "性别",
+                              "wrap": "none",
+                              "overflow": "error",
+                              "lineHeight": 21,
+                              "drawBackground": false,
+                              "style": {
+                                "backgroundColor": "#FFFFFF",
+                                "borderColor": "#C4D3CD",
+                                "borderWidth": 0,
+                                "cornerRadius": 16,
+                                "textColor": "#20332E",
+                                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                                "fontSize": 16,
+                                "fontWeight": "normal",
+                                "opacity": 1
+                              }
+                            }
+                          },
+                          {
+                            "id": "heading-fixture.row.row0.control",
+                            "type": "Select",
+                            "layout": {
+                              "x": 140,
+                              "y": 8,
+                              "width": 344,
+                              "height": 40
+                            },
+                            "props": {
+                              "selectedId": "heading-fixture.row.row0.control.option.male",
+                              "options": [
+                                {
+                                  "id": "heading-fixture.row.row0.control.option.male",
+                                  "label": "男"
+                                },
+                                {
+                                  "id": "heading-fixture.row.row0.control.option.female",
+                                  "label": "女"
+                                }
+                              ],
+                              "enabled": true,
+                              "appearance": {
+                                "fieldImage": "generated/select-v1/344-40-2-F3F7F5-157C64-8/field.png",
+                                "arrowImage": "generated/select-v1/344-40-2-F3F7F5-157C64-8/arrow.png",
+                                "popupImage": "generated/select-v1/344-40-2-F3F7F5-157C64-8/popup.png",
+                                "sourceCanvas": {
+                                  "width": 344,
+                                  "height": 40
+                                },
+                                "labelLayout": {
+                                  "x": 12,
+                                  "y": 0,
+                                  "width": 296,
+                                  "height": 40
+                                },
+                                "arrowLayout": {
+                                  "x": 316,
+                                  "y": 14,
+                                  "width": 12,
+                                  "height": 12
+                                },
+                                "popupCanvas": {
+                                  "width": 344,
+                                  "height": 80
+                                },
+                                "popupContentLayout": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 344,
+                                  "height": 80
+                                },
+                                "popupGap": 2,
+                                "fieldTextColor": "#20332E",
+                                "menuHighlights": {
+                                  "version": "1.0",
+                                  "coordinateSpace": "popup-row-local",
+                                  "selected": {
+                                    "color": "#157C64",
+                                    "alpha": 0.16,
+                                    "cornerRadius": 6,
+                                    "insets": {
+                                      "top": 4,
+                                      "right": 4,
+                                      "bottom": 4,
+                                      "left": 4
+                                    }
+                                  },
+                                  "hover": {
+                                    "color": "#157C64",
+                                    "alpha": 0.08,
+                                    "cornerRadius": 6,
+                                    "insets": {
+                                      "top": 4,
+                                      "right": 4,
+                                      "bottom": 4,
+                                      "left": 4
+                                    }
+                                  }
+                                }
+                              },
+                              "style": {
+                                "backgroundColor": "#F3F7F5",
+                                "borderColor": "#157C64",
+                                "borderWidth": 1,
+                                "cornerRadius": 8,
+                                "textColor": "#20332E",
+                                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                                "fontSize": 16,
+                                "fontWeight": "normal",
+                                "opacity": 1
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "resources": [
+      {
+        "id": "generated/select-v1/344-40-2-F3F7F5-157C64-8/field.png",
+        "path": "generated/select-v1/344-40-2-F3F7F5-157C64-8/field.png",
+        "mime": "image/png",
+        "sha256": "112c75a061a98d9eb89602952c1591b33d97eb1b00a963604cfa3d383e173a08",
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAVgAAAAoBAMAAABJF/8GAAAAG1BMVEUAAADz9/Xz9/Xz9/Xz9/UVfGQVfGQVfGQVfGRA141wAAAACXRSTlMAQIC//0CAv//HacvVAAAbE0lEQVR4AQEIG/fkAAAAVoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhlAAAAAAeCRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERChwAAAAcURERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERBcAAAcUREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREQXAAWEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREhQBiREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREQmAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAYkREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREJgBYRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESFAAcUREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREQXAAAHFEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREQXAAAAB4JEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREKHAAAAAAVoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhlAADPDH/0sDbQ3AAAAABJRU5ErkJggg=="
+      },
+      {
+        "id": "generated/select-v1/344-40-2-F3F7F5-157C64-8/popup.png",
+        "path": "generated/select-v1/344-40-2-F3F7F5-157C64-8/popup.png",
+        "mime": "image/png",
+        "sha256": "f98f1d223176da73fc6fa5d7e80addab9765456d5aada6114fdb93bf4f112475",
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAVgAAABQBAMAAACuZnCqAAAAG1BMVEUAAADz9/Xz9/Xz9/Xz9/UVfGQVfGQVfGQVfGRA141wAAAACXRSTlMAQIC//0CAv//HacvVAAA2G0lEQVR4AQEQNu/JAAAAVoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhlAAAAAAeCRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERChwAAAAcURERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERBcAAAcUREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREQXAAWEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREhQBiREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREQmAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESACERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREgAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESABiREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREQmAFhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIUABxRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERBcAAAcURERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERBcAAAAHgkREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREQocAAAAABWiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiGUAAPJ5rn2uBTYKAAAAAElFTkSuQmCC"
+      },
+      {
+        "id": "generated/select-v1/344-40-2-F3F7F5-157C64-8/arrow.png",
+        "path": "generated/select-v1/344-40-2-F3F7F5-157C64-8/arrow.png",
+        "mime": "image/png",
+        "sha256": "58b02697e7f691b600d2b13b57e09c7242462efe31b7e87ef731b64b9d7fbcc0",
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMBAMAAACkW0HUAAAAD1BMVEUAAAAVfGQVfGQVfGQVfGSdFf7aAAAABXRSTlMAQIC///YVGPYAAABfSURBVHgBAVQAq/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAABERERERAAABEREREAAAABEREQAAAAABERAAAAAAABEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADHKAP9UCEP2gAAAABJRU5ErkJggg=="
+      }
+    ],
+    "provenance": {
+      "kind": "programmatic-fixture",
+      "description": "Owned section-heading regression fixture. Not a real model result or user task."
+    }
+  },
+  "actions": [],
+  "capabilities": {
+    "componentSchema": "0.2",
+    "target": "pixi",
+    "layout": "flow-containers-v1",
+    "font": "environment-family",
+    "sessionRequired": true
+  },
+  "verification": {
+    "contract": "PASS",
+    "browser": "NOT_RUN",
+    "humanVisualReview": "NOT_RUN",
+    "nativeEngines": "NOT_RUN"
+  },
+  "sha256": "ab7c2193d1a10e5c10da04086cb51baa59656354a9a6cbb78f45771363c1be5e"
+}

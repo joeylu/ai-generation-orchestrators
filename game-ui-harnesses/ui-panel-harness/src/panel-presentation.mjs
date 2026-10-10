@@ -7,6 +7,7 @@ import { measureGroupedSection } from './grouped-presentation.mjs';
 import { measureAlignedSettings } from './aligned-settings-presentation.mjs';
 import {isStandaloneMenu,measurePolishedMenu} from './menu-presentation.mjs';
 import { sectionHeadingVisible } from './section-headings.mjs';
+import { resolveRecipe } from './catalog.mjs';
 
 /** Opt-in modern-v3 geometry. Typed controls determine presentation; actions remain unchanged. */
 export const presentationTextWidth = (value, size) => Math.ceil([...value].reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * 0.8 : size * 1.1), 0));
@@ -19,7 +20,9 @@ export function sectionPurpose(section) {
   return 'settings';
 }
 
-export function createPresentationPolicy(spec, tokens, presentationStyle, surfaceStyle, headingStyle) {
+export function createPresentationPolicy(spec, tokens, presentationStyle, surfaceStyle, headingStyle, catalog) {
+  const sectionMinimum = ['concise-v2','visible-v2'].includes(headingStyle)
+    ? resolveRecipe(catalog, {id:'settings.section',version:'0.1.0'}, 'section').minHeight : 0;
   const polishedMenu = surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec);
   if (surfaceStyle === 'minimal-v2') surfaceStyle = 'minimal-v1';
   const l = spec.layout, textHeight = Math.ceil(tokens.fontSize * 1.3);
@@ -34,7 +37,7 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
     return { width: w, height: h, circle };
   };
   const heading = value => value.trim().replace(/(?:界面|面板)$/, '');
-  return (section, width) => {
+  const measure = (section, width) => {
     const purpose = sectionPurpose(section), compact = ['form', 'dialog'].includes(purpose);
     const redundantHeading = !spec.tabs && heading(spec.title) === heading(section.title)
       && (crafted ? true : ['refined-v1','minimal-v1'].includes(surfaceStyle) ? section.id === spec.sections[0].id : compact && spec.sections.length === 1);
@@ -129,5 +132,11 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
       if (!(grouped && index >= footerStart && index < section.rows.length - 1)) y += height + (index < section.rows.length - 1 ? l.gap : 0);
     }
     return { purpose, showTitle, grouped, height: Math.max(80, y), rows: placements };
+  };
+  // The shared flow/intent/compiler measurement owns the recipe floor. Preserve
+  // row positions (including y=0); the minimum adds no title node or title band.
+  return (section, width) => {
+    const measured = measure(section, width);
+    return sectionMinimum ? {...measured, height:Math.max(sectionMinimum, measured.height)} : measured;
   };
 }

@@ -41,7 +41,7 @@ export function createWorkbenchRenderer(host, onEvent, onError, onSelect = () =>
         const bundle = await validatePanelBundle(input, browserCore);
         if (own !== ticket || !isCurrent()) return { status: 'STALE' };
         candidate = { controller: new AbortController(), element: document.createElement('div') };
-        if (['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion)) {
+        if (['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)) {
           // Compact forms retain their authored size in a wide Studio preview.
           // The existing canvas CSS still scales them down on smaller screens.
           candidate.element.style.width = '100%';
@@ -64,7 +64,7 @@ export function createWorkbenchRenderer(host, onEvent, onError, onSelect = () =>
         if (own !== ticket || !isCurrent()) { close(candidate); return { status: 'STALE' }; }
         if (candidate.failure) throw candidate.failure;
         candidate.detachVisuals = attachPanelVisuals(bundle, candidate.preview);
-        candidate.session = attachPanelSession(bundle.spec, candidate.preview, event => onEvent(event, candidate.session.getState()), bundle.state, ['0.24.0','0.25.0'].includes(bundle.compilerVersion)?'grouped-v2':['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion)?'minimal-v1':['0.16.0','0.17.0', '0.18.0'].includes(bundle.compilerVersion)?'focused-v1':undefined);
+        candidate.session = attachPanelSession(bundle.spec, candidate.preview, event => onEvent(event, candidate.session.getState()), bundle.state, ['0.24.0','0.25.0'].includes(bundle.compilerVersion)?'grouped-v2':['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)?'minimal-v1':['0.16.0','0.17.0', '0.18.0'].includes(bundle.compilerVersion)?'focused-v1':undefined);
         candidate.detachInputEditor = attachInputEditor(candidate.element, bundle.spec, candidate.preview, candidate.session);
         candidate.layoutSession = attachLayoutSession(bundle.spec, candidate.preview);
         candidate.selection = attachWorkbenchSelection(candidate.element, bundle.spec, candidate.preview, onSelect, onSelectionExit);

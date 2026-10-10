@@ -5,7 +5,7 @@ export function panelVisualMotion(bundle) {
   const theme = bundle.catalog.themes.find(theme => theme.id === bundle.spec.theme.id && theme.version === bundle.spec.theme.version);
   if (!((theme?.visualStyle === 'modern-v1' && bundle.compilerVersion === '0.7.1')
     || (theme?.visualStyle === 'modern-v2' && bundle.compilerVersion === '0.7.2')
-    || (theme?.visualStyle === 'modern-v3' && ['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion)))) return null;
+    || (theme?.visualStyle === 'modern-v3' && ['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)))) return null;
   // Native press and input focus stay immediate. Hover uses a per-button channel,
   // avoiding the shared runtime's whole-tree reset when installing a motion system.
   const actions = { Button: ['hover'] }, bindings = [];
@@ -49,7 +49,7 @@ export function attachPanelVisuals(bundle, runtime, media = globalThis.matchMedi
     for (const [id, button] of buttons) if (button.scale !== 1) paint(id, button, 1);
   };
   const sync = () => { if (preference?.matches) reset(); };
-  alignPanelButtonLabels(runtime,['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion));
+  alignPanelButtonLabels(runtime,['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion));
   const unsubscribe = runtime.subscribe(event => {
     if(!disposed&&event.type==='change')alignValues();
     const button = buttons.get(event.id);
@@ -71,7 +71,7 @@ export function attachPanelVisuals(bundle, runtime, media = globalThis.matchMedi
 
 /** Align the heading's measured glyphs inside its authored slot, with no frame loop. */
 export function alignPanelTitle(bundle, runtime) {
-  const menu = ['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion)&&bundle.spec.sections.length===1&&bundle.spec.sections[0].rows.every(row=>row.kind==='button'&&row.label==='');
+  const menu = ['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)&&bundle.spec.sections.length===1&&bundle.spec.sections[0].rows.every(row=>row.kind==='button'&&row.label==='');
   const style = bundle.spec.titleBar ?? (menu?{horizontalAlign:'center',verticalAlign:'middle'}:null);
   if (!style) return;
   const title = runtime.inspect().nodes.find(node => node.id === `${bundle.spec.id}.title`);

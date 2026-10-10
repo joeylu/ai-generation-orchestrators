@@ -134,7 +134,7 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
       description: 'Deterministic composition of verified source bundles under an explicit composition request. Source provenance is retained in the composition receipt.',
       assumptions: ['Bindings and events are namespaced per source; reset scopes remain source-local.', 'Source section layout kinds are preserved; geometry is measured for the new container.'] } },
     { width: request.width, canvasWidth: request.canvasWidth, canvasHeight: request.canvasHeight, maxHeight: request.maxHeight,
-      overflow: 'scroll', sourceQuote: null, body: { kind: tabbed ? 'column' : request.layout, children: groups } }, theme);
+      overflow: 'scroll', sourceQuote: null, body: { kind: tabbed ? 'column' : request.layout, children: groups } }, theme, catalog);
   if (titled) spec.layout.titleHeight = bundles[0].spec.layout.titleHeight;
   const keys = panelAssetKeys(spec), selectedRecords = keys.map(key => records.get(key)), paths = new Set(selectedRecords.map(record => `textures/${record.sha256}.png`));
   const assets = spec.assets ? { closure: { assetClosureVersion: '0.1', library, records: selectedRecords },

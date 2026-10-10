@@ -174,9 +174,9 @@ export async function packagePanelRelease({ componentPackage, output }) {
   await addTree(files, 'schemas', ['.json']);
   await addTree(files, 'assets/core-v1', ['.json', '.md', '.png', '.svg']);
   await addTree(files, 'release/licenses', ['.txt']);
-  for (const name of ['catalog/modern-core.json', 'examples/modern-menu.catalog.json', 'examples/modern-menu-headings.catalog.json', 'examples/audio-settings.panel.json',
+  for (const name of ['catalog/modern-core.json', 'examples/modern-menu.catalog.json', 'examples/modern-menu-headings.catalog.json', 'examples/modern-menu-headings-v2.catalog.json', 'examples/audio-settings.panel.json',
     'examples/layout-v1/settings.panel.json', 'examples/controls-planning/proposal.json', 'examples/asset-planning/proposal.json',
-    'docs/sdk-release.md', 'docs/section-headings.md', 'release/contract.json']) files.set(name, await sourceFile(name));
+    'docs/sdk-release.md', 'docs/section-headings.md', 'docs/section-geometry.md', 'release/contract.json']) files.set(name, await sourceFile(name));
   for (const name of UNITY_SOURCE_PATHS) files.set('adapters/unity/' + name, await sourceFile('adapters/unity/' + name));
   const sourceFiles = [...files.keys()];
   let commit, dirty;

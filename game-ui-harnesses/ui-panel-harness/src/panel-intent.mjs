@@ -100,7 +100,7 @@ export function buildNativePanelIntentResponseSchema(context) {
     // Spec requires a semantic, bounded section name. State this at dispatch,
     // rather than allowing an empty native string that can only fail later.
     Object.assign(current.$defs.body.anyOf[0].properties.title, { minLength: 1, maxLength: 120, pattern: '\\S',
-      description: 'Required non-empty semantic section heading, 1–120 Unicode characters with at least one non-whitespace character. This is separate from a row label and button caption. The pinned theme owns heading visibility: concise-v1 suppresses redundant simple headings; visible-v1 retains headings explicitly requested by the user. Keep this field non-empty in both policies. Choose a concise grouping name when unspecified; never delete an explicit heading or a control label.' });
+      description: 'Required non-empty semantic section heading, 1–120 Unicode characters with at least one non-whitespace character. This is separate from a row label and button caption. The pinned theme owns heading visibility: versioned concise policies suppress redundant simple headings; versioned visible policies retain headings explicitly requested by the user. Use only the exact theme keys in the pinned catalog. Keep this field non-empty in both policies. Choose a concise grouping name when unspecified; never delete an explicit heading or a control label.' });
   }
   const textRow = current.$defs.body.anyOf[0].properties.rows.items.anyOf.find(row => row.properties.kind.enum[0] === 'text');
   if (textRow) {
@@ -337,7 +337,7 @@ function digits(value) {
 }
 
 /** Shared measured layout policy, also usable by the explicit composition tool. */
-export function arrangeIntentSpec(spec, settings, theme) {
+export function arrangeIntentSpec(spec, settings, theme, catalog) {
   exact(settings, ['width', 'canvasWidth', 'canvasHeight', 'maxHeight', 'overflow', 'body', 'sourceQuote'], '$.panel.layout');
   for (const key of ['width', 'canvasWidth', 'canvasHeight', 'maxHeight']) if (settings[key] !== null && (!Number.isInteger(settings[key]) || settings[key] < 1 || settings[key] > 4096)) fail('integer', `$.panel.layout.${key}`);
   if (!['auto', 'scroll', 'error'].includes(settings.overflow)) fail('INTENT_FIELDS', '$.panel.layout.overflow');
@@ -394,11 +394,11 @@ export function arrangeIntentSpec(spec, settings, theme) {
   // Full contract/geometry gate; explicit narrow dimensions fail rather than changing business or requested layout.
   let checked = validatePanelSpec(spec);
   const measure = checked.tabs ? measureTabbedLayout : measureFlowLayout;
-  const measured = measure(checked, adaptive ? createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle) : undefined);
+  const measured = measure(checked, adaptive ? createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle, catalog) : undefined);
   if (adaptive && settings.canvasHeight === null) {
     checked.canvas.height = Math.ceil(measured.panelHeight + 64 + popup * 2);
     checked = validatePanelSpec(checked);
-    measure(checked, createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle));
+    measure(checked, createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle, catalog));
   }
   return checked;
 }
@@ -586,7 +586,7 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
     Object.assign(spec,{panelSpecVersion:'0.13',appearance:null,actionLayouts:generatedLayouts??[],buttonStyles:[],buttonFonts:[],titleBar:null,textLayouts:generatedTextLayouts});
     for(const value of generatedTextLayouts) decisions.push({target:'text-layout:'+value.rowId,basis:basis(context.request.text,'$.panel.body.rows.wrap')});
   }
-  spec = arrangeIntentSpec(spec, panel.layout, theme);
+  spec = arrangeIntentSpec(spec, panel.layout, theme, context.catalog);
   const top = [ { target: 'panel', basis: basis(panel.sourceQuote, '$.panel.sourceQuote', 'Panel title and identity are presentation choices.') },
     { target: 'theme', basis: design('Selected exact theme from the pinned complete catalog.') },
     { target: 'canvas', basis: design('Logical canvas reserves bounded control and popup geometry under intent layout policy 0.1.') },

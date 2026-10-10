@@ -1,10 +1,14 @@
 # Versioned section-heading presentation
 
-New generation uses `modern-menu-headings` 0.19.0. Its eight default themes
+The rc.2 policy introduced `modern-menu-headings` 0.19.0. Its eight default themes
 have `headingStyle: concise-v1`, require `semantic-v1` / `minimal-v2`, and select
 Panel compiler 0.27.0. Colors, controls, recipes and the twelve owned icons are
 unchanged from `modern-menu`. There are eight otherwise matching 0.19.1 themes
 with `headingStyle: visible-v1` for an explicit request to show section headings.
+
+The current rc.3 default is catalog 0.20.0, with concise-v2 / visible-v2 and
+compiler 0.28.0. It retains the visibility rules below and fixes the section
+recipe floor after title collapse. See [section geometry and compatibility](section-geometry.md).
 
 | Structure | concise-v1 behavior |
 | --- | --- |
@@ -41,7 +45,7 @@ const model = await sdk.createWorkbenchModel(sdk.seed, sdk.core);
 await model.importPanel(savedBundle);
 // Invoke only after the user requests this presentation change.
 await model.adoptSectionHeadings('auto', currentPlayState);
-// 'show' selects the otherwise matching visible-v1 theme instead.
+// 'show' selects the otherwise matching visible policy instead.
 const updated = await model.exportPanel();
 model.dispose();
 ```
@@ -71,9 +75,9 @@ and checks their contents and hashes. `scripts/check-heading-browser.mjs` opens
 those extracted offline previews, checks runtime nodes, light/dark mode,
 390px scaling, a real keyboard Slider interaction, restoration and cleanup.
 
-The new SDK release is `ui-panel-harness-v0.1.0-rc.2`; install its full archive
-only after checking the published bytes and SHA-256. Never replace the rc.1 tag
-or archive. The release receipt binds the new source, archive and reports.
+The current SDK release is `ui-panel-harness-v0.1.0-rc.3`; install its full archive
+only after checking the published bytes and SHA-256. Never replace the rc.1 or rc.2 tag
+or archive. The release receipt binds the source, archive and reports.
 Existing real-model receipts remain bound to their original SDK and cannot be
 relabeled for this release. This work uses fixtures only: real model calls 0,
 Unity native import `NOT_RUN`. Consumer service deployment and any newly

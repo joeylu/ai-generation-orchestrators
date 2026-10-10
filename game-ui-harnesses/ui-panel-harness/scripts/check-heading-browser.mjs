@@ -11,11 +11,13 @@ const args = process.argv.slice(2);
 assert(args.length === 4 && args[0] === '--acceptance' && args[2] === '--output', 'HEADING_BROWSER_ARGUMENTS');
 const input = resolve(args[1]), output = await createOutputDirectory(args[3]);
 const installed = JSON.parse(await readFile(resolve(input, 'heading-report.json'), 'utf8'));
+const geometry = JSON.parse(await readFile(resolve(input, 'geometry-report.json'), 'utf8'));
 assert.equal(installed.status, 'PASS');
+assert.equal(geometry.status, 'PASS');
 const { chromium } = await loadWorkspaceTool('@playwright/test');
 const checks = [], errors = [], observations = [], pass = name => checks.push({ name, status: 'PASS' });
 let browser, page, report;
-const url = id => pathToFileURL(resolve(input, 'headings', id, 'pixi/index.html')).href;
+const url = (id, group='headings') => pathToFileURL(resolve(input, group, id, 'pixi/index.html')).href;
 const ready = async () => {
   await page.waitForFunction(() => document.getElementById('status')?.dataset.state === 'ready');
   assert.equal(await page.title(), '面板交付预览');
@@ -51,6 +53,25 @@ try {
       await page.screenshot({ path: resolve(output, fixture.id + '.png'), fullPage: true });
     pass('actual-offline-preview-' + fixture.id);
   }
+  for (const fixture of geometry.cases) {
+    await page.goto(url(fixture.id,'geometry')); await ready();
+    const actual=await page.evaluate(()=>({inspection:window.panelDelivery.inspect(),state:window.panelDelivery.getState(),sha256:window.panelDelivery.bundle.sha256}));
+    assert.equal(actual.sha256,fixture.panelSha256);assert.deepEqual(actual.state,fixture.state);
+    assert.equal(actual.inspection.nodes.filter(node=>/\.section\.[^.]+\.title$/.test(node.id)).length,fixture.headings.length);
+    assert(actual.inspection.nodes.some(node=>node.visible&&node.renderedTextBounds));
+    if(['select','select-dark','rc2-select-visible'].includes(fixture.id))await page.screenshot({path:resolve(output,'geometry-'+fixture.id+'.png'),fullPage:true});
+    observations.push({id:'geometry-'+fixture.id,state:actual.state,sectionHeight:fixture.sectionHeight,rowY:fixture.rowY});
+    pass('actual-offline-geometry-'+fixture.id);
+  }
+  await page.goto(url('select','geometry'));await ready();await page.keyboard.press('Tab');await page.keyboard.press('Enter');
+  await page.waitForFunction(()=>window.panelDelivery.inspect().nodes.some(node=>node.type==='Select'&&node.popupOpen&&node.popupItems.length===2));
+  await page.screenshot({path:resolve(output,'select-open-options.png'),fullPage:true});
+  await page.keyboard.press('ArrowDown');await page.waitForFunction(()=>window.panelDelivery.getState().row0==='female');
+  assert.equal(await page.evaluate(()=>window.panelDelivery.events().length),1);await page.keyboard.press('Escape');
+  pass('select-popup-shows-two-options-and-one-keyboard-change-to-female');
+  await page.reload();await ready();assert.equal(await page.evaluate(()=>window.panelDelivery.getState().row0),'male');
+  assert.equal(await page.evaluate(()=>window.panelDelivery.events().length),0);
+  pass('select-reopen-retains-default-male-without-initial-change-event');
   await page.goto(url('single')); await ready();
   // Enter from the page: the runtime focuses its first control on canvas entry.
   await page.keyboard.press('Tab');
@@ -70,6 +91,11 @@ try {
     assert(box.x >= 0 && box.x + box.width <= 390);
     await page.screenshot({ path: resolve(output, id + '-mobile.png'), fullPage: true });
     pass('390px-offline-preview-' + id);
+  }
+  for(const id of ['select','select-dark']){
+    await page.goto(url(id,'geometry'));await ready();const box=await page.locator('canvas').boundingBox();
+    assert(box.x>=0&&box.x+box.width<=390);await page.screenshot({path:resolve(output,id+'-mobile.png'),fullPage:true});
+    pass('390px-offline-geometry-'+id);
   }
   await page.evaluate(() => window.panelDelivery.destroy());
   assert.equal(await page.locator('canvas').count(), 0);

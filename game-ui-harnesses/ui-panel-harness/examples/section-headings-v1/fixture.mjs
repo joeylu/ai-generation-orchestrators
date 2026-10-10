@@ -1,6 +1,6 @@
 /** Authored deterministic fixtures, never user task exports or model results. */
 export function headingSpec(panel, catalog, { title = '音量控制面板', titles = ['音量'], labels = [['音量']], mode = 'auto', tabs = false, themeId = 'modern-blue-light' } = {}) {
-  const theme = catalog.themes.find(theme => theme.id === themeId && (theme.headingStyle === (mode === 'show' ? 'visible-v1' : 'concise-v1') || !theme.headingStyle));
+  const theme = catalog.themes.find(theme => theme.id === themeId && (theme.headingStyle?.startsWith(mode === 'show' ? 'visible-' : 'concise-') || !theme.headingStyle));
   const ref = kind => { const recipe = catalog.recipes.find(value => value.kind === kind); return { id: recipe.id, version: recipe.version }; };
   let index = 0;
   const state = [], sections = titles.map((title, sectionIndex) => ({ id: `section${sectionIndex}`, title,

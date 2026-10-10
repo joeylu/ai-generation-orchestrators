@@ -50,14 +50,14 @@ export async function createUnityDocument(input, core) {
     ...(row.kind === 'progress' ? { displayMode: row.format.mode } : {}),
     ...(row.action?.kind === 'submit' ? { submitFields: [...row.action.fields] } : {}),
     ...(row.kind === 'input' ? { placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
-      ...(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion)?{deferEmptyError:true}:{}),
+      ...(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)?{deferEmptyError:true}:{}),
       validation: structuredClone(row.validation), requiredErrorTextId: formErrorId(spec.id,row.id,'required'),
       minLengthErrorTextId: formErrorId(spec.id,row.id,'min-length') } : {}),
   }));
   const nodes = [];
-  const centeredMenuTitle=['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion)&&!spec.titleBar&&spec.sections.length===1&&spec.sections[0].rows.every(row=>row.kind==='button'&&row.label==='');
+  const centeredMenuTitle=['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)&&!spec.titleBar&&spec.sections.length===1&&spec.sections[0].rows.every(row=>row.kind==='button'&&row.label==='');
   const selectSkinPaths = new Set();
-  const themedTabs = ['0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion) ? tabPalette(appearanceTokens(resolveTheme(bundle.catalog,spec.theme).tokens,spec.appearance)) : null;
+  const themedTabs = ['0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion) ? tabPalette(appearanceTokens(resolveTheme(bundle.catalog,spec.theme).tokens,spec.appearance)) : null;
   if (spec.tabs) controls.push({nodeId:controlId(spec.id,spec.tabs.id),rowId:spec.tabs.id,kind:'tabs',fieldId:spec.tabs.bind,eventName:spec.tabs.event,
     enabled:spec.tabs.enabled,action:'',resetFields:[],valueTextId:'',prefix:'',suffix:'',fractionDigits:0,
     contentIds:spec.tabs.pages.map(page=>tabPageId(spec.id,page.id))});
@@ -66,13 +66,13 @@ export async function createUnityDocument(input, core) {
     const p = node.props, s = p.style, region = p.region;
     // Native Dropdown already paints its field and menu from this same style.
     // Deterministic Pixi Select skins are bundled for replay, not imported as Unity assets.
-    if (['0.15.0','0.16.0','0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion) && node.type === 'Select' && p.appearance) {
+    if (['0.15.0','0.16.0','0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion) && node.type === 'Select' && p.appearance) {
       for (const key of ['fieldImage','popupImage','arrowImage']) selectSkinPaths.add(p.appearance[key]);
     }
     if (themedTabs && node.type === 'Tabs' && p.appearance) {
       selectSkinPaths.add(p.appearance.tabImage);selectSkinPaths.add(p.appearance.activeTabImage);
     }
-    if(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion)&&['Input','Slider','Switch','ProgressBar'].includes(node.type)&&p.appearance) {
+    if(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)&&['Input','Slider','Switch','ProgressBar'].includes(node.type)&&p.appearance) {
       const collect=value=>{
         if(typeof value==='string'&&(value.startsWith('generated/minimal-v1/')||value.startsWith('generated/grouped-v1/')||value.startsWith('generated/raised-slider-v1/')))selectSkinPaths.add(value);
         else if(value&&typeof value==='object')for(const child of Object.values(value))collect(child);
@@ -98,7 +98,7 @@ export async function createUnityDocument(input, core) {
     for (const child of node.children ?? []) {
       // The modern Pixi label is centered from environment glyph measurements.
       // Native Button already paints node.text at MiddleCenter; keep one label.
-      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
+      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
       visit(child, node.id);
     }
   }

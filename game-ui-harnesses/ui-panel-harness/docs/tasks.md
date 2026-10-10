@@ -1,3 +1,13 @@
+## 2026-10-11 · 单控件分组尺寸修复与 SDK rc.3
+
+实际安装已发布rc.2 ZIP，核对4168482字节与a7904745…d01edf摘要，确定性复现单Select、Switch、Progress的RECIPE_GEOMETRY。收起标题后测得56px，但settings.section仍要求80px；Slider原本80px未暴露冲突。共享presentation测量在v2策略中读取真实配方下限，首行仍y=0，不恢复标题节点/44px标题带，不放宽编译几何门禁。新增modern-menu-headings0.20.0、concise-v2/visible-v2和compiler0.28.0；原目录、0.27.0与0.26.0语义保留。SDK及日常启动的默认目录更新，未替换正在运行的Studio进程。
+
+实际rc.2 Slider及显式标题Select黄金包原样重编译摘要相同，普通编辑保留选项、默认值、合法试玩值、绑定和目录；显式采用保留历史并计入原10轮预算。失败的旧Select方案可通过现有set-theme补丁显式采用同色同模式的新版本，不调用模型，原方案/规划回执保留。根因、修改范围及恢复边界见[section-geometry](section-geometry.md)。
+
+本轮1461项Panel全量回归、32项独立安装检查和31项标题/几何离线浏览器检查通过；实际男女Select默认男、键盘切换女、重开默认男，Slider57→58及重开57，浅深色、390px缩放和清理均核对。Agent查看实际ZIP的桌面、弹出选项和手机截图；Browser plugin not available，使用已有Playwright/Edge，不安装工具。首次专项测试仅按钮行容器断言不符实际扁平编译，修正为检查共享测量与实际按钮节点，原失败日志保留。干净提交后的最终发布验收结果由发布回执记录，不预先宣称发布成功。
+
+输出证据位于output/section-geometry-rc3-v1、section-geometry-installed-v1和section-geometry-browser-v1。新发布合同ui-panel-harness-v0.1.0-rc.3，不覆盖rc.2；新ES/IIFE字节摘要随正式包提供。真实模型调用0，Unity原生NOT_RUN；上游浏览器和UGUI ZIP校验不代表消费者Web/Unity原生验收。Docker/Web及其他Harness未修改，本次只提交Panel修复。
+
 ## 2026-10-10 · 分组标题展示版本化与 SDK rc.2
 
 单组单滑块的重复“音量”标题与44px独占区域收起，语义标题、控件标签/数值/ID/绑定/事件/素材保持；多组音乐/音效、必要分类及Tabs保留，明确要求标题时使用同色visible-v1主题。新增modern-menu-headings目录和0.27.0编译选择，原目录/0.26.0不改。实际rc.1生成的黄金包完整重编译摘要一致；显式采用记录主题补丁与目录/编译过渡，保留历史、嵌入图标及57试玩值，计入原10轮预算，撤销/导入/恢复不退轮次。

@@ -32,7 +32,7 @@ export async function checkInstalledHeadings(sdk, output) {
     pass('installed-heading-delivery-'+fixture.id);
   }
   const model=await sdk.createWorkbenchModel(sdk.seed,sdk.core);await model.importPanel(legacy);
-  const upgraded=await model.adoptSectionHeadings('auto',{row0:57});assert.equal(upgraded.panel.compilerVersion,'0.27.0');
+  const upgraded=await model.adoptSectionHeadings('auto',{row0:57});assert.equal(upgraded.panel.compilerVersion,'0.28.0');
   assert.deepEqual(upgraded.panel.spec.sections,legacy.spec.sections);assert.deepEqual(upgraded.panel.state,legacy.state);
   assert.equal(model.getEditBudget().used,1);await model.undo();assert.deepEqual(model.getSnapshot().panel,legacy);
   await model.importPanel(legacy);assert.equal(model.getEditBudget().used,1);model.dispose();
