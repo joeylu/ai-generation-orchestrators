@@ -5,7 +5,8 @@
 
 ## 外部服务安装
 
-从对应 GitHub Release 下载源码归档、离线查看器附件和 `SHA256SUMS`，先验证摘要，再展开到新的版本目录。
+从对应 GitHub Release 下载本版全部附件（源码归档、离线查看器、发布／回归记录和 `SHA256SUMS`），
+先验证摘要，再展开到新的版本目录。
 源码归档保留仓库目录关系；查看器附件从该根目录展开到
 `game-ui-harnesses/ui-component-harness/dist-layers/`。该附件由本标签的公开源码构建，无须在服务镜像内构建 Node 前端。
 
