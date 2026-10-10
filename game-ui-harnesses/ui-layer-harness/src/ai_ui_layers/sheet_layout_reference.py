@@ -53,15 +53,17 @@ def _frozen(snapshot, row):
     manifest = read(snapshot / 'snapshot.json')
     preflight(snapshot, manifest['digest'])
     requests = read(snapshot / 'requests.json')
+    from .generation_groups import maximum_members
+    group_document=read(snapshot / 'generation-groups.json')
     if (requests.get('generationReference') != 'context-crops' or
             row not in requests['requests'] or
             row.get('kind') != 'sheet' or
             row.get('generationReference') != 'context-crops' or
-            not 2 <= len(row.get('materialIds', [])) <= 4 or
+            not 2 <= len(row.get('materialIds', [])) <= maximum_members(group_document['policy']) or
             len(row['materialIds']) != len(set(row['materialIds'])) or
             [r['materialId'] for r in row['references']] != row['materialIds']):
         raise ValueError('SHEET_LAYOUT_CONTEXT_REQUIRED')
-    group = next((g for g in read(snapshot / 'generation-groups.json')['groups']
+    group = next((g for g in group_document['groups']
                   if g['id'] == row['asset']), None)
     if group is None or group.get('mode') != 'sheet':
         raise ValueError('SHEET_LAYOUT_GROUP_REQUIRED')

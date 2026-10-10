@@ -48,7 +48,15 @@ are retained. This does not prove clipping, authorize a new body box or classify
 those pixels as shadow. A reliable corresponding body with an observable solid
 core remains required; complete PNG support is stored.
 
-The workflow proceeds through all budgeted stages to a final composite. It does
+New local warning configurations default to `bodyReviewPolicy=final-composite-first-v1`:
+review each generated request/sheet, then deliver the diagnostic composite with
+unobserved alpha proxy placement and no per-material body calls. The exhaustive
+body path is explicit (`every-reviewed-foreground-v1`); missing historical fields
+retain prior semantics. Neither a proxy nor a warning certifies completeness.
+Native clipping suspicions and ordered observed identity subsets use separately
+frozen diagnostic policies described in [host delivery](HOST-DELIVERY.md).
+
+With valid sheet partitions, the workflow proceeds through its frozen stages to a final composite. It does
 not automatically repair, regenerate or replace the reviewer. The generated ZIP
 contains the warnings in its review evidence. Host completion additionally
 writes `visual-warning-report.json` with planning, material, body and fit
@@ -56,17 +64,40 @@ findings. `strictVisualReviewPassed=false` and
 `finalCompositeVisualAcceptancePending=true` remain explicit even when execution
 completes. Human visual acceptance is a separate event.
 
+New host warning runs freeze
+`sheetFailurePolicy=continue-reviewed-materials-on-sheet-warning-v2`. If sheet contours
+touch boundaries, a transparent gap is missing/ambiguous, the nearest safe cut
+ties, or unused cells contain pixels, the program records the exact request and
+material IDs and finishes with a diagnostic viewport/comparison and ZIPs instead
+of terminating without output. Raw PNGs, every capacity cell and all source
+pixels are retained, including unused sidecars. Unreliable cuts remain
+unverified; no body observation or independent cutout acceptance is invented.
+Unaffected requests retain their independent reviews and explicitly requested body observations;
+only unresolved owners use diagnostic proxy geometry. These calls remain within
+the original budgets; no image generation is repeated. Replay/export makes zero
+calls. Explicit `diagnostic-on-sheet-partition-warning-v1` retains the earlier
+immediate export without downstream observations. Both branches report
+`diagnostic_complete_pending_visual_acceptance`, never formal DAG success.
+Strict runs, explicit `sheetFailurePolicy=stop-v1` and historical configurations
+without the new field keep their existing gates. See [host delivery](HOST-DELIVERY.md).
+
+New v2 host jobs freeze the separate body-unresolved policy. Genuine well-formed
+answers that cannot establish body correspondence remain sealed and unresolved;
+other observations continue and the final export stays diagnostic. No body box
+or acceptance is fabricated. Technical evidence failures remain terminal. This
+also handles an unobservable body when no sheet partition failed.
+
 ## What still stops
 
 Transport failure, timeout or unknown acceptance; invalid schema/IDs or missing
 review coverage; changed hashes, input sets, runtime, authorization or receipts;
-unsafe paths; invalid/opaque foreground PNGs; invalid geometry or an observation
-that cannot reliably establish complete-body correspondence; no solid core
+unsafe paths; invalid/opaque foreground PNGs; invalid geometry or, without the
+new bound body-unresolved policy, inability to establish body correspondence; no solid core
 inside the body;
 storage/packaging failures. Observation v2 without the explicit exterior-support
 policy retains its dense-alpha coverage constraint. These cannot yield a
 truthful complete package by relabeling them as visual warnings. All nonzero
-alpha is preserved. There is no slicing, single-axis stretch, invented body box,
+alpha is preserved. Formal delivery does not use destructive slicing, single-axis stretch, invented body boxes,
 fabricated receipt or promotion of a historical failed run.
 
 Preplanned texture/reuse/background inputs still need complete validated

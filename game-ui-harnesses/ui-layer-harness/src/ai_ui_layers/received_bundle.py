@@ -47,12 +47,17 @@ def inspect_sources(snapshot, expected_digest, selection, require_all=False, all
         for field in ('reference', 'crop'):
             if field in target_row and digest(source_snapshot/source_row[field]) != digest(snapshot/target_row[field]):
                 raise ValueError(field.upper()+'_MISMATCH:'+asset)
-        source_prompt = (job/'prompt-variant.txt' if 'promptVariant' in config
+        packed = asset in config.get('contextBoardReferences', {})
+        source_prompt = (job/'context-boards'/asset/'sheet-layout/prompt.txt' if packed else
+                         job/'prompt-variant.txt' if 'promptVariant' in config
                          else source_snapshot/source_row['prompt'])
         default_prompt = snapshot/target_row['prompt']
         prompt_changed = source_prompt.read_text(encoding='utf-8').rstrip('\n') != default_prompt.read_text(encoding='utf-8').rstrip('\n')
         variant_sha = config.get('promptVariant', {}).get('sha256')
-        if prompt_changed:
+        if packed:
+            if config['snapshotDigest'] != expected_digest or asset in allowed_variants:
+                raise ValueError('CONTEXT_BOARD_SOURCE_MISMATCH:'+asset)
+        elif prompt_changed:
             if (not variant_sha or allowed_variants.get(asset) != variant_sha or
                     config['snapshotDigest'] != expected_digest):
                 raise ValueError('PROMPT_MISMATCH:'+asset)
@@ -68,7 +73,7 @@ def inspect_sources(snapshot, expected_digest, selection, require_all=False, all
         submission = verified(folder/'submission.json')
         if receipt['submissionDigest'] != submission['digest'] or digest(folder/'raw.png') != receipt['rawSha256']:
             raise ValueError('RECEIPT_MISMATCH:'+asset)
-        if prompt_changed:
+        if prompt_changed and not packed:
             session = job/'generation-sessions'/submission['digest']
             audit_file = session/'image-call-audit.json'
             if not audit_file.is_file():
@@ -98,8 +103,9 @@ def inspect_sources(snapshot, expected_digest, selection, require_all=False, all
                             receiptDigest=receipt['digest'], rawSha256=receipt['rawSha256'],
                             promptSha256=digest(source_prompt),
                             frozenPromptSha256=digest(default_prompt),
-                            promptMode='approved_variant' if prompt_changed else 'frozen',
+                            promptMode='source_bound_context_board' if packed else 'approved_variant' if prompt_changed else 'frozen',
                             promptVariantSha256=variant_sha if prompt_changed else None,
+                            **({'contextBoardReference':config['contextBoardReferences'][asset]} if packed else {}),
                             referenceMode=reference_mode,
                             **({'generationReferences':target_row['references']} if reference_mode=='context-crops' else {}),
                             referenceSha256=digest(source_snapshot/source_row['reference']),

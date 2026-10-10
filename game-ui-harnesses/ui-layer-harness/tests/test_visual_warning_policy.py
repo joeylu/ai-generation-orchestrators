@@ -146,7 +146,8 @@ class VisualWarningTests(unittest.TestCase):
 
     def test_real_m1_fixture_runs_to_package_with_m2_material_ownership_and_body_warnings(self):
         fixture=fresh_fixtures.FreshHostM1Tests();fixture.setUp();self.addCleanup(fixture.doCleanups)
-        config=read(fixture.fresh_config);config.update(visualReviewMode='warning',generationMode='single')
+        config=read(fixture.fresh_config);config.update(visualReviewMode='warning',generationMode='single',
+            bodyReviewPolicy='every-reviewed-foreground-v1')
         path=fixture.base/'warning-config.json';save(path,config)
         fixture.run=fixture.base/'warning-run';host.prepare(path,fixture.run);fixture.root=fixture.run/'planning'
         fixture.plan['unknowns']=['Surface interpretation needs final human review.']

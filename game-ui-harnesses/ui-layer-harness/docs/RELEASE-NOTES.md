@@ -1,5 +1,25 @@
 # Release notes
 
+## 0.1.0a3 release: bounded sheets and warning delivery
+
+Tag: `ui-layers-v0.1.0-alpha.3`. See the [release and consumer notes](release-0.1.0a3.md).
+
+- New runs use sheets. An explicit compact-control grouping policy packs up to
+  six compatible owners without reducing their planned reference resolution;
+  backgrounds and incompatible large surfaces remain standalone requests.
+- Six-owner context requests compile a source-bound reference board rather than
+  exceeding the native tool's five-attachment limit. Board pixels, actual prompt
+  and request lineage are verified before dispatch and when merging receipts.
+- New warning host runs review whole generation requests, then deliver a
+  diagnostic viewport, independent candidate layers and original PNGs with no
+  per-material body calls by default. Sheet ambiguity, native clipping suspicions
+  and honestly unresolved identities retain warnings and their original evidence.
+- Technical integrity, finite budgets, single-use authorization and no automatic
+  resubmission remain mandatory. Historical frozen runs are not migrated.
+- The settings sample produced six PNGs for nineteen materials, but its final
+  geometry and style still differ from the reference. This release does not claim
+  visual acceptance, unattended first-attempt reliability or Docker deployment.
+
 ## 0.1.0a3 source preview: decomposition retirement
 
 - Layer owns the planning contracts and the reviewed deterministic validation,

@@ -1,10 +1,21 @@
 # UI Layer Harness — 0.1.0a3 preview
 
+固定发布标签：`ui-layers-v0.1.0-alpha.3`。
+服务接入与升级参数见[本版发布说明](docs/release-0.1.0a3.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+
 独立 UI 拆分入口：参考图 → M1/M2 规划 → M3 冻结 → 宿主生图交换 → 归位 → UI 图层 ZIP。
 
 新宿主作业可设置 `visualReviewMode=warning`：视觉差异全部记录为 warning，继续到回拼后人工验收；
 M1、生图与复审共用唯一归属、父板排除子元素、完整主体比例及高光分类规范。
 技术完整性仍校验，旧任务和旧策略不改写，见[视觉 warning 策略](docs/VISUAL-WARNING-POLICY.md)。
+新 warning 作业遇到合板贴边、透明缝缺失／歧义或空余格残留时，仅对异常合板局部兜底；
+其他素材继续按生成请求复审，默认随后直接输出诊断回拼和 ZIP。
+保留原始合板与全部像素，标注未验证素材，终态为 `diagnostic_complete_pending_visual_acceptance`。
+不追加生图；复审调用计入原预算。新 warning 作业默认冻结 `bodyReviewPolicy=final-composite-first-v1`，
+不创建逐素材主体观察任务，位置使用明确标注的 alpha 估算并等待整图人工验收。
+疑似原生透明素材裁边、无法区分的同形空白实例保留 warning 和原始答复，不重试、不伪造身份。
+需要完整主体观察时可在新配置中显式选择 `every-reviewed-foreground-v1`；旧配置维持原策略。
+诊断交付不宣称全部切分或正式链路通过。
 本入口从本地实验链路收口；旧拆分 Harness 已退役，迁移边界见[退役说明](docs/DECOMPOSITION-RETIREMENT.md)。
 它不是旧包 0.5.0 的新模式，也不是组件化交付；普通业务文字被移除。
 
@@ -14,11 +25,11 @@ M1、生图与复审共用唯一归属、父板排除子元素、完整主体比
 显式离线草案入口仍保留，并报告 M1 未执行；两种来源不能混记。
 
 需要从原图完成整条链路时，在新 `host-run` 配置中显式设置
-`planningMode=fresh-host-m1-independent-review`。逐素材生成可设置
-`generationMode=single`，最终整图人工验收可设置 `visualReviewMode=warning`；
-这两项都是独立选择，不改变真实 M1 要求。该正式入口使用仓库内运行时，
+`planningMode=fresh-host-m1-independent-review` 和 `generationMode=sheets`。
+新任务默认采用 sheets 合板策略，保留独立交付素材身份；背景及不兼容素材仍由分组程序单独请求。
+最终整图人工验收可设置 `visualReviewMode=warning`，不改变真实 M1 要求。该正式入口使用仓库内运行时，
 宿主负责实际模型和生图调用，可接入独立模型代理，无须使用 Codex CLI 适配器。
-每份前景都要完成真实主体观察，不能以 alpha 范围代理或诊断包代替。
+正式独立素材交付中，每份前景都要完成真实主体观察，不能以 alpha 范围代理或诊断包代替。
 执行完成、严格视觉通过与人工验收的判定见[链路检查点](docs/DELIVERY-CHAIN-CHECKPOINT.md#completion-and-acceptance)。
 
 新 `run` 默认以 v8 编译局部参考提示词，并使用 `reference-body-auto-v1`：

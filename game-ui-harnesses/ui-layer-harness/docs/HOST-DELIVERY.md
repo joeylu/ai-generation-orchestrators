@@ -6,6 +6,31 @@ and measurable uniform fitting, and uses a shared prompt contract to prevent
 duplicate ownership and surface/detail confusion. Technical integrity remains
 mandatory; see [visual warning policy](VISUAL-WARNING-POLICY.md).
 
+New local warning runs freeze `bodyReviewPolicy=final-composite-first-v1` by
+default. Material review remains one call per generated request, including a
+whole sheet. After those reviews the program exports all layers, viewport and
+comparison directly, without a body job, authorization or per-material model
+calls. Placement uses explicitly unobserved alpha proxies; completeness and
+visual acceptance remain unverified. The terminal status is diagnostic, even if
+all sheet cuts succeeded. Set `bodyReviewPolicy=every-reviewed-foreground-v1`
+in a new configuration to request the exhaustive observation path. Historical
+configurations missing this field retain that path.
+
+The same new local warning configurations freeze
+`materialPreparationPolicy=record-native-clipping-for-diagnostic-v1` and
+`identityObservationPolicy=record-observed-subset-for-diagnostic-v1`. Only a
+revalidated native-alpha `POSSIBLY_CLIPPED_SOURCE` suspicion may continue from
+blocked preparation; its producer result remains blocked and receives no model
+review. A truthful ordered unique subset of observed material identities is
+retained as `diagnostic_unresolved_material_identity`, with complete schema,
+ownership, original response and provenance checks. It cannot pass formal
+extraction or supply body anchors. Wrong IDs, ordering, duplicate IDs, malformed
+observations and changed evidence still stop. No retry or answer repair occurs.
+
+Batch verification shares a verified source job and snapshot only within one
+read operation, then hashes the input set again before returning. There is no
+trust cache across operations.
+
 Fresh approximate runs use [body observation v3](BODY-SOFT-EFFECTS.md), separating
 the semantic body anchor from explicitly observed external shadows/glow. The
 frozen `bodyCoveragePolicy=observed-external-soft-effects-v1` is rechecked during
@@ -20,8 +45,9 @@ prepares independent M2 review. Omitting this mode retains the explicit offline
 seed workflow; that mode never claims M1 model execution. Existing DAG commands,
 strict runs and candidate runs retain their behavior.
 
-The new workflow performs independent planning review, freezes default sheets or
-explicit `generationMode=single` requests with context crops and v8 ownership-first prompts,
+For new workflows, explicitly set `generationMode=sheets`, which is also the
+runtime default. The workflow performs independent planning review, freezes
+grouped requests with context crops and v8 ownership-first prompts,
 acquires all native images serially, reviews every
 actual image request, extracts materials, observes foreground whole bodies,
 preserves complete material storage, packages an original-size viewport, and
@@ -51,11 +77,57 @@ After the existing alpha-0/1 preparation, each seam must have two adjoining
 full-span transparent pixel lines within the original quarter-cell search range.
 When noise divides a gap, select the uniquely nearest safe cut to the nominal
 grid seam. Equal-distance ties, no transparent cut, nonempty unused cells,
-missing artwork and source/cell boundary alpha still stop preparation. No noise
+missing artwork and source/cell boundary alpha fail independent extraction. No noise
 pixel above the existing floor is erased or relocated. A hashed partition proof
 reconstructs every prepared RGBA pixel, including unused cells, and is bound into
 the independent material review inputs. That review must still establish cell
 identity and ownership; a transparent partition does not certify correct artwork.
+
+New `visualReviewMode=warning` runs additionally freeze
+`sheetFailurePolicy=continue-reviewed-materials-on-sheet-warning-v2`. After all native
+images arrive, the program checks every sheet before reserving material reviews.
+Contour/boundary contact, ambiguous gaps, nearest-cut ties and nonempty unused
+cells produce warnings for the affected requests. All other requests continue
+their independent material reviews and, when explicitly requested, genuine body observations within the
+frozen budgets. The program then exports a mixed diagnostic: reviewed sources
+and observed geometry for unaffected materials, explicitly unverified candidates
+and proxy placement only for unresolved materials. No generation is repeated.
+It retains all original PNGs and pixel-exact capacity cells, including unused
+sidecars, and produces an original-size viewport, comparison and ZIPs under
+`diagnostic-output/`. The original raw alpha is retained; equal-grid diagnostic
+crops may cross artwork and are explicitly **unverified candidates**.
+
+The terminal status is `diagnostic_complete_pending_visual_acceptance`, with
+`diagnosticExecutionCompleted=true`, `independentMaterialDeliveryComplete=false`
+and both `FullAutomationExecutionCompleted` and
+`FullReferenceToDeliveryExecutionCompleted` false. `visual-warning-report.json`
+identifies affected request/material IDs, continued review/body call counts and
+the genuine observations replayed. The export/replay itself makes no calls.
+This is a reviewable diagnostic delivery, not a passed independent-material
+package. Missing artwork, invalid PNG/alpha, source/receipt/hash/path failures
+still stop. A new strict run defaults to `sheetFailurePolicy=stop-v1`; an explicit
+`stop-v1` also retains this behavior in warning mode. Historical configurations
+without this field retain their original stop behavior and are never migrated.
+Explicit `diagnostic-on-sheet-partition-warning-v1` retains the old immediate
+zero-compute diagnostic branch. It skips all downstream reviews and uses proxy
+geometry; it is no longer the default. Diagnostic body subsets cannot finish
+the formal body-delivery API. Invalid review or observation evidence remains terminal.
+
+New v2 warning runs also freeze
+`bodyUnresolvedPolicy=record-unresolved-body-for-diagnostic-v1`. A genuine,
+schema-valid `uncertain`/`not-whole` body answer is consumed once and retains its
+`blocked_no_retry` seal. Other materials continue; this owner receives no invented
+body contract and remains a proxy in the final diagnostic. The same disposition
+applies when every sheet cut succeeded. Missing declarations, invalid coordinates,
+wrong reviewer/hash/attestation, timeout and unknown transport still stop. A body
+job with unresolved owners cannot finish formal delivery. Historical jobs without
+the field keep their existing terminal behavior.
+
+New v8 background prompts lock the original full-canvas composition, camera and
+visible subject scale; UI removal must not enlarge or relocate scene subjects.
+Continuous-panel prompts distinguish panel tint/alpha from scenery seen through
+it. These instructions require new generation to evaluate; offline regressions
+verify their frozen presence, not image-model compliance or visual equivalence.
 
 Explicit `sheetSeamPolicy=strict-unique-empty-band-v1` retains the one-band rule.
 Old host configurations without the field replay v1; standalone extraction and
@@ -88,6 +160,19 @@ findings still describe visible missing, foreign or distorted artwork under the
 frozen policy. Existing frozen requests and failed runs are not changed or
 reclassified by this display preparation.
 
+For a new plan of simple UI controls, opt in with
+`generationGroupingPolicy=compact-controls-context-grid-v1`. It keeps delivery
+identities separate but packs up to six owners per fully occupied equal-cell
+sheet by geometry: narrow strips, wide controls, compact controls or continuous
+surfaces. It allows different control kinds on the same sheet and keeps a common
+uniform scale with 10% free space on every cell side. A candidate group is rejected
+if any owner would fall below its reference pixel size at the planned 1536-pixel
+canvas limit. Backgrounds, illustrations, cards, logos and unknown objects remain
+standalone. Large panels may therefore remain standalone for resolution, rather
+than because their kind forbids grouping. This opt-in does not establish visual
+fidelity; genuine request review and final composite acceptance still apply.
+An absent field retains the historical same-kind, four-owner context strategy.
+
 Return genuine original bytes using `host-receive --run RUN --digest
 SUBMISSION_DIGEST --response FILE`. Model responses additionally require
 `--host-attestation`, `--dispatch-evidence`, and `--return-evidence`; their typed
@@ -113,7 +198,9 @@ retained with their response SHA in the output configuration and package review.
 Unreliable/incomplete correspondence, missing/repeated content, wrong ownership
 and major/uncertain deformation remain blocking `issues` under bound v1–v4
 policies. Explicit v5 records visual findings as warnings while inability to
-reliably establish and measure a complete corresponding body still stops.
+reliably establish and measure a complete corresponding body produces no body
+contract. A bound body-unresolved diagnostic policy retains that original seal
+and continues; without that policy it still stops.
 
 With an explicitly bound visual policy selecting `minorGeometry: record`, new
 v2 host runs also freeze `bodyFitPolicy` as
@@ -173,3 +260,14 @@ visual acceptance. The comparison atlas uses actual stored package layer PNGs.
 `FullReferenceToDeliveryExecutionCompleted` is true only after a complete fresh
 M1 workflow with verified original model-source evidence. Offline seed workflows
 report it as false even when their downstream delivery finishes.
+
+## Native reference attachment capacity
+
+New image jobs pack context sheets with more than five reference crops into a
+canonical source board before authorization. The board preserves every source
+crop at one common integer scale and binds its PNG, metadata and ownership prompt
+in `contextBoardReferences`. Request count and independent material ownership do
+not change. Board bytes are rebuilt and verified before dispatch and receipt;
+historical jobs retain their frozen transport. Received-bundle evidence records
+the actual board prompt and descriptor instead of reporting the crop prompt as
+the native prompt. This preparation performs no generation.

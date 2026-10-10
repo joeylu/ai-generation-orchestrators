@@ -355,14 +355,15 @@ def compile_run(run, output, max_calls=128, generation_mode="single", generation
     plan, placements = compile_plan(visual, picture.size, before,
                                     generation_reference=generation_reference,
                                     context_prompt_version=context_prompt_version,visual_policy=policy,relation_evidence=relations,texture_doc=texture_doc,texture_bindings=texture_bindings)
-    from .generation_groups import build_groups, DEFAULT_GROUP_POLICY, CONTEXT_GROUP_POLICY
+    from .generation_groups import build_groups, configured_policy
     from . import material_reuse, reuse_pipeline
     config=read(run/'.dag/config.json') if (run/'.dag/config.json').exists() else {}
     reuse_doc=reuse_pipeline.planning_input(run,visual) if config.get('planningDriver')=='host-model-exchange-v1' else None
     if reuse_doc is not None and (generation_mode!='sheets' or generation_reference!='context-crops'):
         raise ValueError('REUSE_REQUIRES_CONTEXT_SHEETS')
     generation_plan=material_reuse.selected_plan(visual,plan,reuse_doc)
-    groups=build_groups(visual,generation_plan,CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY) if generation_mode=='sheets' else None
+    group_policy=configured_policy(config,generation_mode,generation_reference)
+    groups=build_groups(visual,generation_plan,group_policy) if generation_mode=='sheets' else None
     calls=groups['plannedCalls'] if groups else len(plan['assets'])
     if calls>max_calls:raise ValueError('CALL_LIMIT_EXCEEDED')
     output.mkdir(parents=True, exist_ok=False)

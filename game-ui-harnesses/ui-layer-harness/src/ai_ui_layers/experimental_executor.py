@@ -109,6 +109,16 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     if layout:
         from .sheet_layout_reference import materialize
         variant['sheetLayoutReference']=materialize(output,copied,next(r for r in all_rows if r['asset']==selected[0]))
+    elif context:
+        # Native tools accept at most five reference images. Preserve a dense
+        # sheet's owners and pixels in one canonical board before authorization.
+        dense=[r for r in all_rows if r['asset'] in selected and len(r.get('references',[]))>5]
+        if dense:
+            from .sheet_layout_reference import materialize
+            variant['contextBoardReferences']={}
+            for row in dense:
+                folder=output/'context-boards'/row['asset'];folder.mkdir(parents=True)
+                variant['contextBoardReferences'][row['asset']]=materialize(folder,copied,row)
     if override is not None:
         (output/'prompt-variant.txt').write_bytes(override)
         variant={'promptVariant':{'asset':selected[0],'sha256':digest(output/'prompt-variant.txt')}}
@@ -167,6 +177,15 @@ def load_job(job):
         raise ValueError('CONTEXT_SNAPSHOT_REQUIRED')
     index={r['asset']:r for r in rows}
     if not set(config['assets'])<=index.keys():raise ValueError('JOB_ASSETS')
+    if 'contextBoardReferences' in config:
+        expected={k for k in config['assets'] if len(index[k].get('references',[]))>5}
+        if (config.get('referenceMode')!='context-crops' or not expected
+                or not isinstance(config['contextBoardReferences'],dict)
+                or set(config['contextBoardReferences'])!=expected):
+            raise ValueError('CONTEXT_BOARD_SCOPE_CHANGED')
+        from .sheet_layout_reference import verify
+        for key,descriptor in config['contextBoardReferences'].items():
+            verify(job/'context-boards'/key,job/'snapshot',index[key],descriptor)
     if manifest.get('materialReusePolicy') and 'cleanup' not in config and (
             config['assets']!=[r['asset'] for r in rows] or
             'promptVariant' in config or layout):
@@ -272,6 +291,12 @@ def frozen_request_arguments(job, config, row):
     snapshot=(Path(job)/'snapshot').resolve()
     prompt_path=Path(job)/'prompt-variant.txt' if 'promptVariant' in config else snapshot/row['prompt']
     mode=config.get('referenceMode','full-and-crop')
+    if row['asset'] in config.get('contextBoardReferences',{}):
+        from .sheet_layout_reference import verify
+        board_job=Path(job)/'context-boards'/row['asset']
+        verify(board_job,snapshot,row,config['contextBoardReferences'][row['asset']])
+        return {'prompt':(board_job/'sheet-layout/prompt.txt').read_text(encoding='utf-8').rstrip('\n'),
+                'referenced_image_paths':[str((board_job/'sheet-layout/board.png').resolve())]}
     if mode=='sheet-layout-board':
         from .sheet_layout_reference import verify
         verify(Path(job),snapshot,row,config.get('sheetLayoutReference'))

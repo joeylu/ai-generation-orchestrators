@@ -12,7 +12,7 @@ from .experimental_executor import load_job, status as job_status, verified, loc
 from .freeze_visual import inspect, body_digest
 from .host_review import runtime_files, _bound_files, _identity
 from .visual_policy import snapshot_policy, warnings_only
-from .sheet_review_policy import classify, schema_for
+from .sheet_review_policy import classify, classify_findings, schema_for
 from .extract_sheets import cells, partition_cells, _review_variant, prepare_sheet_review
 from .sheet_pixels import prepare as prepare_pixels, STRICT_SEAM, validate_seam_policy
 from .single_material_review import prepare_review
@@ -21,6 +21,21 @@ from . import material_reuse as reuse, reuse_pipeline, reuse_image_review
 
 BACKGROUND_VISUAL_POLICY = 'record-until-final-composite-v1'
 BACKGROUND_DEFERRED_STATUS = 'background_observed_pending_final_composite'
+IDENTITY_POLICY = 'record-observed-subset-for-diagnostic-v1'
+IDENTITY_UNRESOLVED_STATUS = 'diagnostic_unresolved_material_identity'
+
+
+def validate_identity_policy(value, policy):
+    if value is not None and (value != IDENTITY_POLICY or not warnings_only(policy)):
+        raise ValueError('BOUND_WARNING_IDENTITY_POLICY_REQUIRED')
+
+
+def observed_subset(observed, expected):
+    if (not isinstance(observed,list) or any(not isinstance(mid,str) for mid in observed)
+            or len(observed) != len(set(observed)) or not set(observed) <= set(expected)
+            or observed != [mid for mid in expected if mid in observed]):
+        raise ValueError('SHEET_IDENTITY_MISMATCH')
+    return observed != expected
 
 
 def validate_background_visual_policy(value, bound, request_id=None):
@@ -35,7 +50,9 @@ def files(root):
             if p.is_file() and p.name != 'exchange.lock'}
 
 
-def source(job, request_id):
+def source(job, request_id, *, source_batch=None):
+    if source_batch is not None:
+        return source_batch.source(job, request_id)
     config,index=load_job(job)
     if request_id not in config['assets'] or job_status(job)['requests'][request_id]!='raw_received':
         raise ValueError('RECEIVED_REQUEST_REQUIRED')
@@ -50,14 +67,15 @@ def source(job, request_id):
 
 
 def prepare(job, request_id, output, *, material_authors, review_registry, background_visual_review_policy=None,
-            sheet_seam_policy=STRICT_SEAM):
+            sheet_seam_policy=STRICT_SEAM, identity_observation_policy=None, source_batch=None):
     job=Path(job).resolve();output=Path(output).resolve()
     validate_seam_policy(sheet_seam_policy)
     authors=list(material_authors)
     if not authors or len(authors)!=len(set(authors)):raise ValueError('MATERIAL_AUTHORS_REQUIRED')
     for author in authors:_identity(author)
-    config,row,receipt,raw=source(job,request_id)
-    snapshot=job/'snapshot';manifest=inspect(snapshot,config['snapshotDigest'])
+    config,row,receipt,raw=source(job,request_id,source_batch=source_batch)
+    snapshot=job/'snapshot';manifest=source_batch.manifest if source_batch else inspect(snapshot,config['snapshotDigest'])
+    validate_identity_policy(identity_observation_policy, snapshot_policy(snapshot,manifest))
     from . import background_region_pipeline as bg_region
     validate_background_visual_policy(background_visual_review_policy,
         bg_region.snapshot_input(snapshot,manifest),request_id)
@@ -151,16 +169,18 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
             ownershipInventorySha256=digest(folder/'ownership-inventory.json'),
             materialAuthors=authors,job=str(job),jobDigest=config['digest'],snapshotDigest=config['snapshotDigest'],
             submissionDigest=receipt['submissionDigest'],rawSha256=receipt['rawSha256'],
-            sourceFiles=files(job),runtime=runtime_files(),reservation=str(reservation),reservationSha256=digest(reservation),
+            sourceFiles=dict(source_batch.file_hashes) if source_batch else files(job),runtime=runtime_files(),reservation=str(reservation),reservationSha256=digest(reservation),
             inputs=files(output),modelCallsMaximum=1,automaticRetry=False,
             humanVisualAcceptance=False,originalDagPromoted=False)
         if background_visual_review_policy is not None:
             request['backgroundVisualReviewPolicy']=background_visual_review_policy
+        if identity_observation_policy is not None:
+            request['identityObservationPolicy']=identity_observation_policy
         if row.get('kind')=='sheet' and (output/'sheet-partition.json').is_file():
             request['sheetSeamPolicy']=sheet_seam_policy
         save(output/'request.json',request)
         save(output/'preparation.json',dict(requestSha256=digest(output/'request.json')))
-        verify_prepared(output)
+        verify_prepared(output,source_batch=source_batch)
         return dict(status='awaiting_output_review',requestSha256=digest(output/'request.json'),
                     requestId=request_id,materialIds=mids,modelCalls=0,humanVisualAcceptance=False)
     except Exception as exc:
@@ -169,7 +189,7 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
         raise
 
 
-def verify_prepared(output):
+def verify_prepared(output, *, source_batch=None):
     output=Path(output).resolve();request=read(output/'request.json')
     if request['kind'] not in ('ui_host_output_review_request_v1','ui_host_output_review_request_v2'):raise ValueError('OUTPUT_REVIEW_KIND')
     if digest(output/'request.json')!=read(output/'preparation.json')['requestSha256']:
@@ -177,18 +197,22 @@ def verify_prepared(output):
     if request['runtime']!=runtime_files():raise ValueError('RUNTIME_CHANGED_NEW_REVIEW_REQUIRED')
     if digest(Path(request['reservation']))!=request['reservationSha256']:raise ValueError('RESERVATION_CHANGED')
     if read(Path(request['reservation']))['output']!=str(output):raise ValueError('RESERVATION_OUTPUT_CHANGED')
-    _bound_files(output,request['inputs']);job=Path(request['job']);_bound_files(job,request['sourceFiles'])
+    _bound_files(output,request['inputs']);job=Path(request['job'])
+    if source_batch:source_batch.check_files(job,request['sourceFiles'])
+    else:_bound_files(job,request['sourceFiles'])
     nested_inputs=read(output/'review/request.json')['inputs']
     if request['kind']=='ui_host_output_review_request_v2' and not {
             'schema.json','prompt.md','ownership-inventory.json'}<=set(nested_inputs):
         raise ValueError('OUTPUT_NESTED_REVIEW_INPUTS_MISSING')
     _bound_files(output/'review',nested_inputs)
-    config,row,receipt,raw=source(job,request['requestId'])
+    config,row,receipt,raw=source(job,request['requestId'],source_batch=source_batch)
+    snapshot=job/'snapshot';manifest=source_batch.manifest if source_batch else inspect(snapshot,config['snapshotDigest'])
     if (request['jobDigest']!=config['digest'] or request['snapshotDigest']!=config['snapshotDigest'] or
             request['submissionDigest']!=receipt['submissionDigest'] or request['rawSha256']!=digest(raw) or
-            request['materialIds']!=reuse.expanded_ids(reuse_pipeline.snapshot_input(job/'snapshot',inspect(job/'snapshot',config['snapshotDigest'])),row.get('materialIds',[request['requestId']]))):
+            request['materialIds']!=reuse.expanded_ids(reuse_pipeline.snapshot_input(snapshot,manifest),row.get('materialIds',[request['requestId']]))):
         raise ValueError('OUTPUT_SOURCE_BINDING_CHANGED')
-    snapshot=job/'snapshot';policy=snapshot_policy(snapshot,inspect(snapshot,config['snapshotDigest']))
+    policy=snapshot_policy(snapshot,manifest)
+    validate_identity_policy(request.get('identityObservationPolicy'),policy)
     if 'sheetSeamPolicy' in request:
         validate_seam_policy(request['sheetSeamPolicy'])
         if row.get('kind')!='sheet':raise ValueError('OUTPUT_SHEET_POLICY_ON_SINGLE')
@@ -202,15 +226,15 @@ def verify_prepared(output):
                 [r['sourceBox'] for r in extraction['records']]!=boxes):
             raise ValueError('OUTPUT_SHEET_PARTITION_BINDING_CHANGED')
     from . import background_region_pipeline as bg_region
-    bg_bound=bg_region.snapshot_input(snapshot,inspect(snapshot,config['snapshotDigest']))
+    bg_bound=bg_region.snapshot_input(snapshot,manifest)
     validate_background_visual_policy(request.get('backgroundVisualReviewPolicy'),bg_bound,request['requestId'])
     if bg_bound is not None and request['requestId']==bg_bound['materialId']:
-        binding=bg_region.verify_candidate(output,snapshot,inspect(snapshot,config['snapshotDigest']),raw,receipt['rawSha256'])
+        binding=bg_region.verify_candidate(output,snapshot,manifest,raw,receipt['rawSha256'])
         candidate=read(output/'extraction-candidate.json')
         if (candidate['materials'].get(bg_bound['materialId'])!=str(output/'protected-background/candidate.png')
                 or len(candidate['records'])!=1 or candidate['records'][0].get('backgroundRegion')!=binding
                 or candidate['records'][0]['outputSha256']!=binding['candidateSha256']):raise ValueError('BG_REGION_EXTRACTION_CHANGED')
-    reuse_image_review.verify(output,row,inspect(snapshot,config['snapshotDigest']),reuse_pipeline.snapshot_input(snapshot,inspect(snapshot,config['snapshotDigest'])))
+    reuse_image_review.verify(output,row,manifest,reuse_pipeline.snapshot_input(snapshot,manifest))
     expected_schema=schema_for(policy)
     if request['kind']=='ui_host_output_review_request_v2':
         visual_path=snapshot/'evidence/revised-visual-plan.json'
@@ -247,7 +271,19 @@ def provenance(output, request):
 def assess(output, request, policy):
     folder=output/'review';answer=read(folder/'draft.json')
     Draft202012Validator(read(folder/'schema.json')).validate(answer)
-    assessment=classify({k:v for k,v in answer.items() if k!='ownershipObservations'},request['materialIds'],policy)
+    validate_identity_policy(request.get('identityObservationPolicy'),policy)
+    unresolved = (request.get('identityObservationPolicy') == IDENTITY_POLICY
+        and observed_subset(answer['materialIds'],request['materialIds']))
+    assessment = classify_findings(answer['findings'],request['materialIds'],policy) if unresolved else classify(
+        {k:v for k,v in answer.items() if k!='ownershipObservations'},request['materialIds'],policy)
+    identity = {}
+    if unresolved:
+        identity = dict(observedMaterialIds=answer['materialIds'],sourceCompletenessAccepted=False,
+            independentSeparationVerified=False,identityObservationPolicy=IDENTITY_POLICY)
+        assessment['warnings'].append(dict(category='material-identity',severity='warning',
+            code='MATERIAL_IDENTITY_UNRESOLVED',materialIds=request['materialIds'],
+            observedMaterialIds=answer['materialIds'],sourceCompletenessAccepted=False,
+            finalCompositeReviewPending=True))
     ownership_result={}
     if request['kind']=='ui_host_output_review_request_v2':
         checked=ownership.assess(read(folder/'ownership-inventory.json'),answer['ownershipObservations'])
@@ -273,10 +309,10 @@ def assess(output, request, policy):
         assessment['warnings'].append(dict(category='deferred-background-visual-review',
             materialId=request['requestId'],evidence=json.dumps(findings,ensure_ascii=False,sort_keys=True),
             suggestion='Judge all recorded background observations against the complete final composite and original.'))
-    return dict(status=BACKGROUND_DEFERRED_STATUS if deferred else ('blocked_no_retry' if assessment['blockers'] else 'reviewed_pending_visual_acceptance'),
+    return dict(status=IDENTITY_UNRESOLVED_STATUS if unresolved else BACKGROUND_DEFERRED_STATUS if deferred else ('blocked_no_retry' if assessment['blockers'] else 'reviewed_pending_visual_acceptance'),
                 requestId=request['requestId'],materialIds=request['materialIds'],rawSha256=request['rawSha256'],
                 reviewSha256=digest(folder/'draft.json'),modelCalls=1,humanVisualAcceptance=False,
-                originalDagPromoted=False,automaticRetry=False,**assessment,**ownership_result,**deferred)
+                originalDagPromoted=False,automaticRetry=False,**assessment,**ownership_result,**deferred,**identity)
 
 
 def receive(output, response, request_sha256, *, response_sha256, host_attestation, dispatch_evidence, return_evidence):
@@ -305,14 +341,29 @@ def receive(output, response, request_sha256, *, response_sha256, host_attestati
     return result
 
 
-def verify_run(output):
-    output=Path(output).resolve();request,policy=verify_prepared(output);result=read(output/'result.json')
+def verify_run(output, *, source_batch=None):
+    output=Path(output).resolve();request,policy=verify_prepared(output,source_batch=source_batch);result=read(output/'result.json')
     allowed=(request.get('backgroundVisualReviewPolicy')==BACKGROUND_VISUAL_POLICY and
              result['status']==BACKGROUND_DEFERRED_STATUS)
     if result['status']!='reviewed_pending_visual_acceptance' and not allowed:raise ValueError('OUTPUT_REVIEW_NOT_PASSED')
     _bound_files(output/'review',result['outputs'])
     if read(output/'review/exchange-provenance.json')!=provenance(output,request):raise ValueError('OUTPUT_PROVENANCE_CHANGED')
     if {k:v for k,v in result.items() if k!='outputs'}!=assess(output,request,policy):raise ValueError('OUTPUT_ASSESSMENT_CHANGED')
+    return request,result
+
+
+def verify_unresolved_run(output, *, source_batch=None):
+    """Diagnostic evidence only; verify_run/extract never accept this status."""
+    output=Path(output).resolve()
+    request,policy=verify_prepared(output,source_batch=source_batch)
+    result=read(output/'result.json')
+    if request.get('identityObservationPolicy')!=IDENTITY_POLICY or result['status']!=IDENTITY_UNRESOLVED_STATUS:
+        raise ValueError('BOUND_UNRESOLVED_IDENTITY_REVIEW_REQUIRED')
+    _bound_files(output/'review',result['outputs'])
+    if read(output/'review/exchange-provenance.json')!=provenance(output,request):
+        raise ValueError('OUTPUT_PROVENANCE_CHANGED')
+    if {k:v for k,v in result.items() if k!='outputs'}!=assess(output,request,policy):
+        raise ValueError('OUTPUT_ASSESSMENT_CHANGED')
     return request,result
 
 

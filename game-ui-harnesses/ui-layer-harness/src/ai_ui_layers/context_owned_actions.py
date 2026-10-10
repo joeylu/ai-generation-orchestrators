@@ -64,7 +64,10 @@ def build(visual, entries, layout, group=None):
         if entry['surface'] == 'continuous-panel':
             lines.append('CLEAN PLATE: render the owned substrate and explicitly owned decorations only. '
                          'All separately assigned children must be absent. Restore the existing surface '
-                         'through their footprints; retain genuine owned openings and translucency.')
+                         'through their footprints; retain genuine owned openings and translucency. '
+                         'Scene visible THROUGH a translucent panel belongs to the background, never to this plate. '
+                         'Do not bake visible scenery, vehicles, pillars or furniture into its RGB; '
+                         'represent the panel tint and opacity in alpha so the shared scene shows through once.')
         lines.extend([
             'TEXT: remove ordinary labels and numbers except this exact preserveText list: '+
             _json(entry['preserveText'])+'. Retain owned single-character icon pictograms. '
@@ -79,6 +82,10 @@ def build(visual, entries, layout, group=None):
         'targetBox/referenceBox are local normalized locators, not masks or measured alpha bounds; '
         'artworkPixelSize is the planned crop size. withinMaterial=(centerX,centerY,width,height) before padding. '
         'Output PNG with true continuous alpha outside owned contours and in genuine gaps; preserve owned '
-        'translucency without scene or foreign backing. Keep 10% fully transparent margin on every side. '
+        'translucency without foreign backing. Explicitly KEEP-owned illustration interiors retain their '
+        'depicted scenery, floor and reflections, including opaque pixels inside that artwork. '
+        'Transparency applies outside owned artwork; this does not transfer ownership from DELETE or '
+        'context and does not bake shared scenery through a translucent panel. '
+        'Keep 10% fully transparent margin on every side. '
         'Use one uniform x/y scale, never stretch. No cell labels, shared backing or added borders/glow.')
     return '\n'.join(lines)

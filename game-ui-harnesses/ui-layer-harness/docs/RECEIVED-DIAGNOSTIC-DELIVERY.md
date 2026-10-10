@@ -5,6 +5,16 @@ inspection. It does not resume a failed host run, perform a model review, accept
 alpha quality, certify an uncut subject, or pass the automatic DAG. Its status is
 always `diagnostic-pending-human-review`.
 
+New host warning-mode runs can select this export automatically when sheet
+partitioning fails; see [host delivery](HOST-DELIVERY.md). For independently
+exporting already received images with a differently sized opaque background,
+`prepare-received-diagnostic --background-policy
+uniform-whole-canvas-opaque-contain-edgepad-v1` explicitly freezes whole-canvas
+uniform containment and opaque edge extension. It retains the original raw file;
+it never stretches the axes separately or applies this rule to a protected
+background. Omitting this option retains exact original-size background behavior.
+The export also writes `visual-warning-report.json` with unresolved sheet IDs.
+
 Use `ui_layer.py prepare-received-diagnostic --received-job JOB --job-digest SHA256
 --canvas-policy-instruction ACTUAL_USER_STORAGE_INSTRUCTION --output NEW_CONTRACT`,
 then `ui_layer.py deliver-received-diagnostic --contract NEW_CONTRACT
@@ -62,3 +72,24 @@ contains material IDs and artifact hashes; local job paths remain in the private
 contract. Both v1 and v2 retain the same diagnostic flags and pending review
 status, protected background, complete layer set and original viewport. Receiving
 a cleanup still does not establish correct foreign removal or owned preservation.
+
+## Partial genuine material and body replay
+
+`prepare-received-diagnostic --review-runs RUNS.json` accepts a nonempty list of
+genuine material-review directories and freezes a v4 diagnostic contract. Every
+review is replayed against the exact received job, snapshot, raw receipt and
+material order. Candidate bytes and review evidence are pinned. Their reviewed
+sources replace only the corresponding diagnostic candidates; all raw capacity
+cells remain preserved, and exact reviewed PNGs are included in the source ZIP.
+The full review set is never asserted to have passed.
+
+An optional `--body-job` must observe exactly the reviewed foreground subset,
+using matching source hashes and the same original snapshot. Original answers,
+attestations, seals and coordinate conversions are revalidated; genuine geometry
+is retained instead of measured-alpha proxies. Unreviewed owners remain clearly
+unresolved. A diagnostic body subset requires the warning policy and cannot call
+formal `finish`. v1/v2/v3 diagnostic contracts retain their existing semantics;
+cleanup replacements and partial material replay cannot be mixed.
+The layer ZIP's `review.json` retains the portable warning/replay summary; the
+source ZIP retains matching evidence and exact reviewed PNGs. Private job,
+authorization, submission and seal identifiers stay in local provenance.

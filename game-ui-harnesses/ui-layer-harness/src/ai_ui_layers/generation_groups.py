@@ -22,8 +22,24 @@ GROUP_POLICIES={'compatible-size-and-kind-grid-v1':1.5,
 DEFAULT_GROUP_POLICY='compatible-size-and-kind-grid-v1'
 LEGACY_CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v1'
 CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v2'
-CONTEXT_GROUP_POLICIES={LEGACY_CONTEXT_GROUP_POLICY,CONTEXT_GROUP_POLICY}
+COMPACT_CONTROL_POLICY='compact-controls-context-grid-v1'
+CONTEXT_GROUP_POLICIES={LEGACY_CONTEXT_GROUP_POLICY,CONTEXT_GROUP_POLICY,COMPACT_CONTROL_POLICY}
 GROUP_POLICIES.update({policy:1.5 for policy in CONTEXT_GROUP_POLICIES})
+
+
+def configured_policy(config, generation_mode, generation_reference):
+    """New opt-in grouping; an absent field reconstructs historical behavior."""
+    policy=config.get('generationGroupingPolicy')
+    if policy is not None:
+        if (policy != COMPACT_CONTROL_POLICY or generation_mode != 'sheets'
+                or generation_reference != 'context-crops'):
+            raise ValueError('CONTEXT_CONTROL_GROUPING_REQUIRED')
+        return policy
+    return CONTEXT_GROUP_POLICY if generation_reference=='context-crops' else DEFAULT_GROUP_POLICY
+
+
+def maximum_members(policy):
+    return 6 if policy==COMPACT_CONTROL_POLICY or policy not in CONTEXT_GROUP_POLICIES else 4
 
 
 def full_grid(members):
@@ -48,8 +64,64 @@ def compatible(left, right, max_aspect):
     return max(w/ww,ww/w,h/hh,hh/h)<=2 and max((w/h)/(ww/hh),(ww/hh)/(w/h))<=max_aspect
 
 
+def _canvas(members):
+    columns,rows=full_grid(members)
+    width=max(a['output_size'][0] for a in members)*columns*1.4
+    height=max(a['output_size'][1] for a in members)*rows*1.4
+    scale=1536/max(width,height)
+    canvas=[max(64,round(width*scale/8)*8),max(64,round(height*scale/8)*8)]
+    return [columns,rows],canvas
+
+
+def _control_family(visual, asset):
+    kinds={o['kind'] for o in visual['objects'] if o['materialId']==asset['id']}
+    if (asset['role']=='background' or not kinds
+            or not kinds <= {'panel','button','icon','badge','decoration'}):
+        return None
+    width,height=asset['output_size'];aspect=width/height
+    if aspect>=8:return 'horizontal-strip'
+    if aspect>=3:return 'horizontal-control'
+    if 'panel' in kinds:return 'surface'
+    if aspect>=1/3:return 'compact-control'
+    return 'vertical-strip'
+
+
+def _control_fits(members):
+    """Equal cells, common uniform scale, at least 10% free on every side.
+
+    Never buy fewer calls by reducing an owned material below its reference
+    resolution. This is a planning budget, not proof of model fidelity.
+    """
+    grid,canvas=_canvas(members)
+    width=max(a['output_size'][0] for a in members)
+    height=max(a['output_size'][1] for a in members)
+    return min(.8*(canvas[0]//grid[0])/width,.8*(canvas[1]//grid[1])/height)>=1
+
+
+def _control_groups(visual, plan):
+    pending=list(plan['assets']);groups=[];known={a['id'] for a in pending}
+    while pending:
+        first=pending.pop(0);members=[first];kind=_control_family(visual,first)
+        if kind:
+            for other in list(pending):
+                if len(members)==maximum_members(COMPACT_CONTROL_POLICY):break
+                if _control_family(visual,other)==kind and _control_fits(members+[other]):
+                    members.append(other);pending.remove(other)
+        ids=[a['id'] for a in members]
+        if len(ids)==1:
+            groups.append(dict(id=ids[0],mode='single',materialIds=ids));continue
+        key='sheet-'+hashlib.sha256('\n'.join(ids).encode()).hexdigest()[:16]
+        if key in known:raise ValueError('GENERATION_GROUP_ID_COLLISION')
+        grid,canvas=_canvas(members)
+        groups.append(dict(id=key,mode='sheet',materialIds=ids,grid=grid,outputSize=canvas,
+            groupingPolicy=COMPACT_CONTROL_POLICY))
+    return dict(kind='ui_generation_groups_v1',policy=COMPACT_CONTROL_POLICY,
+                materialCount=len(plan['assets']),plannedCalls=len(groups),groups=groups)
+
+
 def build_groups(visual, plan, policy=DEFAULT_GROUP_POLICY):
     if policy not in GROUP_POLICIES:raise ValueError('UNKNOWN_GROUP_POLICY')
+    if policy==COMPACT_CONTROL_POLICY:return _control_groups(visual,plan)
     max_aspect=GROUP_POLICIES[policy]
     pending=list(plan['assets']);groups=[];known={a['id'] for a in pending}
     while pending:

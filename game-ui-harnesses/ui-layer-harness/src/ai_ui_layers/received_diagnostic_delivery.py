@@ -41,18 +41,20 @@ def _checked(job, expected_digest):
     if config['digest'] != expected_digest:
         raise ValueError('DIAGNOSTIC_RECEIVED_JOB_CHANGED')
     snapshot = job / 'snapshot'
-    manifest = inspect(snapshot, config['snapshotDigest'])
     rows = read(snapshot / 'requests.json')['requests']
     if set(config['assets']) != {r['asset'] for r in rows}:
         raise ValueError('COMPLETE_RECEIVED_REQUEST_SET_REQUIRED')
+    from .received_source_batch import received_sources
     bindings = []
-    for row in rows:
-        actual_config, actual_row, receipt, raw = source(job, row['asset'])
-        if actual_config != config or actual_row != row or digest(raw) != receipt['rawSha256']:
-            raise ValueError('DIAGNOSTIC_RECEIVED_SCOPE_CHANGED')
-        bindings.append(dict(requestId=row['asset'], jobDigest=config['digest'],
-            submissionDigest=receipt['submissionDigest'], rawSha256=receipt['rawSha256'],
-            receiptSha256=digest(job / 'attempts' / row['asset'] / 'received.json')))
+    with received_sources(job) as source_batch:
+        manifest = source_batch.manifest
+        for row in rows:
+            actual_config, actual_row, receipt, raw = source(job, row['asset'],source_batch=source_batch)
+            if actual_config != config or actual_row != row or digest(raw) != receipt['rawSha256']:
+                raise ValueError('DIAGNOSTIC_RECEIVED_SCOPE_CHANGED')
+            bindings.append(dict(requestId=row['asset'], jobDigest=config['digest'],
+                submissionDigest=receipt['submissionDigest'], rawSha256=receipt['rawSha256'],
+                receiptSha256=digest(job / 'attempts' / row['asset'] / 'received.json')))
     p = snapshot / 'evidence/revised-visual-plan.json'
     visual = read(p if p.exists() else snapshot / 'evidence/m1-draft.json')
     reuse = reuse_pipeline.snapshot_input(snapshot, manifest, visual)
@@ -115,27 +117,39 @@ def _portable_cleanup(bindings):
             for b in bindings]
 
 
-def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_jobs=None, *, body_job=None):
+def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_jobs=None, *, body_job=None,
+            background_policy=None, review_runs=None):
     """Freeze a zero-compute diagnostic contract, independently of strict delivery."""
     checked = _checked(job, expected_digest)
     job, config, snapshot, manifest, rows, visual, reuse, background, bindings = checked
+    from .body_viewport_delivery import BACKGROUND_POLICY
+    if background_policy is not None and (background_policy != BACKGROUND_POLICY or background is not None):
+        raise ValueError('DIAGNOSTIC_BACKGROUND_POLICY')
     cleanup_bindings=_cleanup_checked(checked,cleanup_jobs) if cleanup_jobs is not None else []
+    from .diagnostic_material_replay import checked_reviews
+    material_replay = checked_reviews(checked, review_runs) if review_runs is not None else None
+    if material_replay is not None and cleanup_bindings:
+        raise ValueError('DIAGNOSTIC_REVIEW_CLEANUP_MIX_NOT_SUPPORTED')
     if body_job is not None and cleanup_bindings:
         raise ValueError('DIAGNOSTIC_BODY_CLEANUP_MIX_NOT_SUPPORTED')
     from .diagnostic_body_replay import checked_replay
-    body_replay=checked_replay(checked,body_job) if body_job is not None else None
+    body_replay=checked_replay(checked,body_job,material_replay) if body_job is not None else None
     if not isinstance(canvas_policy_instruction, str) or not canvas_policy_instruction.strip():
         raise ValueError('EXPLICIT_BOUND_VIEWPORT_POLICY_REQUIRED')
     output = _fresh(output, [job,*[b['cleanupJob'] for b in cleanup_bindings],
+                            *([r['path'] for r in material_replay['reviewRuns']] if material_replay else []),
                             *([body_job] if body_replay else [])])
     output.mkdir(parents=True)
-    value = record(output / 'diagnostic.json', dict(kind='ui_received_diagnostic_delivery_v3' if body_replay else
+    value = record(output / 'diagnostic.json', dict(kind='ui_received_diagnostic_delivery_v4' if material_replay else
+        'ui_received_diagnostic_delivery_v3' if body_replay else
         'ui_received_diagnostic_delivery_v2' if cleanup_bindings else 'ui_received_diagnostic_delivery_v1',
         policy=POLICY, geometryPolicy=GEOMETRY_POLICY, receivedJob=str(job),
         receivedJobDigest=expected_digest, receivedJobFiles=files(job),
         snapshotDigest=manifest['digest'], runtime=runtime_files(), sourceBindings=bindings,
+        **({'backgroundPolicy':background_policy} if background_policy is not None else {}),
         **({'cleanupBindings':cleanup_bindings} if cleanup_bindings else {}),
         **({'bodyReplay':body_replay} if body_replay else {}),
+        **({'materialReplay':material_replay} if material_replay else {}),
         canvasPolicy=viewport.POLICY, canvasPolicyInstruction=canvas_policy_instruction,
         canvasPolicyInstructionSha256=hashlib.sha256(canvas_policy_instruction.encode()).hexdigest(),
         scope='Independent diagnostic only; unresolved sheet, ownership, clipping and visual findings remain unresolved.',
@@ -170,7 +184,7 @@ def _portable_bindings(bindings):
     return [dict(b) for b in bindings]
 
 
-def _sources_archive(output, rows, job, split_records, reuse_records, background_proof, cleanup_bindings=()):
+def _sources_archive(output, rows, job, split_records, reuse_records, background_proof, cleanup_bindings=(), replay_evidence=None, warnings=()):
     """Preserve every genuine raw file and every cell, including unowned sidecars."""
     root = output / 'source-evidence'
     (root / 'raw').mkdir(parents=True)
@@ -182,7 +196,9 @@ def _sources_archive(output, rows, job, split_records, reuse_records, background
             mid=b['materialId']
             shutil.copyfile(Path(b['cleanupJob'])/'attempts'/mid/'raw.png',root/'cleanup-raw'/(mid+'.png'))
     save(root / 'diagnostic-evidence.json', dict(policy=POLICY, sheetPartitions=split_records,
+        warnings=list(warnings),
         reuseDerivations=reuse_records, backgroundProtection=background_proof,
+        **({'reviewReplay':replay_evidence} if replay_evidence is not None else {}),
         **({'cleanupReplacements':_portable_cleanup(cleanup_bindings)} if cleanup_bindings else {}),**FLAGS))
     inventory = {p.relative_to(root).as_posix():dict(sha256=digest(p), bytes=p.stat().st_size)
                  for p in sorted(root.rglob('*')) if p.is_file()}
@@ -209,7 +225,8 @@ def deliver(contract_dir, expected_digest, output, viewer):
     contract_dir = Path(contract_dir).resolve()
     contract = verified(contract_dir / 'diagnostic.json')
     if (contract['digest'] != expected_digest or contract['kind'] not in (
-            'ui_received_diagnostic_delivery_v1','ui_received_diagnostic_delivery_v2','ui_received_diagnostic_delivery_v3')
+            'ui_received_diagnostic_delivery_v1','ui_received_diagnostic_delivery_v2','ui_received_diagnostic_delivery_v3',
+            'ui_received_diagnostic_delivery_v4')
             or contract['policy'] != POLICY or contract['geometryPolicy'] != GEOMETRY_POLICY
             or contract['runtime'] != runtime_files() or contract['canvasPolicy'] != viewport.POLICY
             or contract['canvasPolicyInstructionSha256'] != hashlib.sha256(contract['canvasPolicyInstruction'].encode()).hexdigest()
@@ -219,6 +236,10 @@ def deliver(contract_dir, expected_digest, output, viewer):
     _bound_files(job, contract['receivedJobFiles'])
     checked = _checked(job, contract['receivedJobDigest'])
     job, config, snapshot, manifest, rows, visual, reuse, background, bindings = checked
+    from .body_viewport_delivery import BACKGROUND_POLICY, _background
+    background_policy = contract.get('backgroundPolicy')
+    if background_policy is not None and (background_policy != BACKGROUND_POLICY or background is not None):
+        raise ValueError('DIAGNOSTIC_BACKGROUND_POLICY')
     if manifest['digest'] != contract['snapshotDigest'] or bindings != contract['sourceBindings']:
         raise ValueError('DIAGNOSTIC_SOURCE_SCOPE_CHANGED')
     cleanup_bindings=[]
@@ -227,12 +248,23 @@ def deliver(contract_dir, expected_digest, output, viewer):
         cleanup_bindings=_cleanup_checked(checked,selected)
         if cleanup_bindings!=contract['cleanupBindings']:raise ValueError('DIAGNOSTIC_CLEANUP_BINDING_CHANGED')
     elif 'cleanupBindings' in contract:raise ValueError('DIAGNOSTIC_CLEANUP_CONTRACT_VERSION')
+    material_replay = None
+    if contract['kind'] == 'ui_received_diagnostic_delivery_v4':
+        from .diagnostic_material_replay import checked_reviews
+        frozen_materials = contract['materialReplay']
+        for entry in frozen_materials['reviewRuns']:
+            _bound_files(Path(entry['path']), entry['files'])
+        material_replay = checked_reviews(checked, [r['path'] for r in frozen_materials['reviewRuns']])
+        if material_replay != frozen_materials:
+            raise ValueError('DIAGNOSTIC_MATERIAL_REPLAY_CHANGED')
+    elif 'materialReplay' in contract:
+        raise ValueError('DIAGNOSTIC_MATERIAL_REPLAY_CONTRACT_VERSION')
     body_replay=None
-    if contract['kind']=='ui_received_diagnostic_delivery_v3':
+    if contract['kind']=='ui_received_diagnostic_delivery_v3' or 'bodyReplay' in contract and material_replay is not None:
         from .diagnostic_body_replay import checked_replay
         frozen_replay=contract['bodyReplay']
         _bound_files(Path(frozen_replay['bodyJob']),frozen_replay['bodyJobFiles'])
-        body_replay=checked_replay(checked,frozen_replay['bodyJob'])
+        body_replay=checked_replay(checked,frozen_replay['bodyJob'],material_replay)
         if body_replay!=frozen_replay:raise ValueError('DIAGNOSTIC_BODY_REPLAY_CHANGED')
     elif 'bodyReplay' in contract:raise ValueError('DIAGNOSTIC_BODY_CONTRACT_VERSION')
     observed={r['materialId']:r for r in body_replay['replayedObservations']} if body_replay else {}
@@ -273,6 +305,12 @@ def deliver(contract_dir, expected_digest, output, viewer):
                             cleanupReplacesSourceSha256=b['sourceRawSha256'])
     derived = material_reuse.derive(reuse, sources, output / 'reused-cells', provenance)
     sources = derived['materials']
+    if material_replay is not None:
+        sources.update(material_replay['materials'])
+        reviewed_dir = output/'source-evidence/reviewed-materials'
+        reviewed_dir.mkdir()
+        for mid, source in material_replay['materials'].items():
+            shutil.copyfile(source, reviewed_dir/(mid+'.png'))
     if set(sources) != set(owned):
         raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
     bg_proof = None
@@ -296,11 +334,17 @@ def deliver(contract_dir, expected_digest, output, viewer):
         mid = placement['id']; path = Path(sources[mid])
         with Image.open(path) as im:
             image = im.convert('RGBA')
+        background_render = None
         if owned[mid]['role'] == 'background':
-            if image.size != (width,height) or image.getchannel('A').getextrema() != (255,255):
-                raise ValueError('DIAGNOSTIC_WHOLE_OPAQUE_BACKGROUND_REQUIRED')
-            fitting = dict(uniformScale=1, translation=[0,0], observedBody=False,
-                positionBasis='exact-original-background-canvas', ownershipRegion=placement['sourceRegion'])
+            if background_policy is not None:
+                background_render, fitting = _background(path, (width,height), background_policy)
+                fitting.update(observedBody=False, positionBasis='explicit-whole-background-contain-edgepad',
+                               ownershipRegion=placement['sourceRegion'])
+            else:
+                if image.size != (width,height) or image.getchannel('A').getextrema() != (255,255):
+                    raise ValueError('DIAGNOSTIC_WHOLE_OPAQUE_BACKGROUND_REQUIRED')
+                fitting = dict(uniformScale=1, translation=[0,0], observedBody=False,
+                    positionBasis='exact-original-background-canvas', ownershipRegion=placement['sourceRegion'])
         else:
             if image.getchannel('A').getextrema()[0] != 0:
                 raise ValueError('DIAGNOSTIC_NATIVE_ALPHA_REQUIRED')
@@ -309,7 +353,10 @@ def deliver(contract_dir, expected_digest, output, viewer):
                     positionBasis='source-bound-host-body-diagnostic-replay-v1')
             else:
                 fitting = proxy_geometry(image, placement['sourceRegion'])
-        rendered, fitted = viewport.transform(path, fitting)
+        if background_render is None:
+            rendered, fitted = viewport.transform(path, fitting)
+        else:
+            rendered, fitted = background_render, fitting
         region = fitted['layerCanvasRegion']; regions.append(region)
         target = rendered_dir / (mid+'.png')
         if background is not None and mid == background['materialId']:
@@ -342,6 +389,51 @@ def deliver(contract_dir, expected_digest, output, viewer):
         'Unobserved materials use measured-alpha proxies. Source-bound host observations, when present, are explicitly identified. Expanded storage does not prove source completeness.']
     issues += ['Sheet diagnosis: '+json.dumps(s, ensure_ascii=False, sort_keys=True) for s in splits]
     issues += ['Placement diagnosis: '+json.dumps(g, ensure_ascii=False, sort_keys=True) for g in geometry]
+    quality_warnings = [dict(category='sheet-partition', severity='warning',
+        code=s['strictExtractionIssue'] or 'DIAGNOSTIC_PARTITION_REQUIRES_REVIEW',
+        requestId=s['requestId'], materialIds=[c['materialId'] for c in s['cells'] if c['used']],
+        partitionBasis=s['partitionBasis'], independentSeparationVerified=False,
+        sourceCompletenessAccepted=False, rawSha256=s['sourceSha256'])
+        for s in splits if s['strictExtractionIssue'] is not None and (material_replay is None or
+            s['requestId'] not in material_replay['reviewedRequestIds'])]
+    replay_evidence = None
+    from .postprocess_visual import assess
+    targets={a['id']:a['output_size'] for a in read(snapshot/'execution-plan.candidate.json')['assets']}
+    for row in rows:
+        key=row['asset']
+        if row.get('kind')=='sheet' or owned[key]['role']=='background':
+            continue
+        raw=job/'attempts'/key/'raw.png'
+        with Image.open(raw) as image:
+            report=assess(image,targets[key])
+        if report['issues']==['POSSIBLY_CLIPPED_SOURCE'] and report['keyEvidence']=={'passed':True,'route':'native-alpha-preserved'}:
+            quality_warnings.append(dict(category='material-preparation',severity='warning',
+                code='POSSIBLY_CLIPPED_SOURCE',requestId=key,materialIds=[key],rawSha256=digest(raw),
+                independentSeparationVerified=False,sourceCompletenessAccepted=False,finalCompositeReviewPending=True))
+    all_warnings = list(quality_warnings)
+    unobserved=sorted(mid for mid in owned if owned[mid]['role']=='foreground' and mid not in observed)
+    if unobserved:
+        all_warnings.append(dict(category='body-correspondence',severity='warning',
+            code='BODY_OBSERVATION_NOT_AVAILABLE',materialIds=unobserved,
+            placementBasis=GEOMETRY_POLICY,sourceCompletenessAccepted=False,finalCompositeReviewPending=True))
+    if material_replay is not None:
+        from .diagnostic_material_replay import portable, public_value
+        replay_evidence = dict(material=portable(material_replay), body=None)
+        all_warnings.extend(public_value(material_replay['warnings']))
+        if body_replay is not None:
+            from .diagnostic_body_replay import portable as portable_body
+            replay_evidence['body'] = public_value(portable_body(body_replay))
+            for entry in body_replay['replayedObservations']:
+                answer = read(Path(body_replay['bodyJob'])/'attempts'/entry['materialId']/'response.json')
+                all_warnings.extend(public_value(dict(category='body-'+name,materialIds=[entry['materialId']],
+                    finding=finding)) for name in ('geometryDifferences','materialIssues') for finding in answer[name])
+            all_warnings.extend(dict(category='body-correspondence',materialIds=[entry['materialId']],
+                code='BODY_OBSERVATION_UNRESOLVED',responseSha256=entry['responseSha256'],
+                originalSealStatus=entry['originalSealStatus']) for entry in body_replay['unresolvedObservations'])
+        issues.append('Partial genuine review replay: '+json.dumps(replay_evidence,ensure_ascii=False,sort_keys=True))
+    from .diagnostic_material_replay import public_value
+    all_warnings=public_value(all_warnings)
+    issues.extend('Retained visual warning: '+json.dumps(w,ensure_ascii=False,sort_keys=True) for w in all_warnings)
     result = write_package(world_reference, composition, package_sources, output / 'delivery', viewer, issues)
     delivery = output / 'delivery'
     view = dict(kind='ui_original_viewport_v1', policy=viewport.POLICY,
@@ -354,18 +446,27 @@ def deliver(contract_dir, expected_digest, output, viewer):
         im.crop(view['worldViewportBox']).save(delivery / 'viewport-preview.png')
     shutil.copyfile(snapshot / 'reference.png', delivery / 'original-reference.png')
     wrapper = viewport._wrapper(delivery)
-    archive = _sources_archive(output, rows, job, splits, derived['records'], bg_proof,cleanup_bindings)
+    archive = _sources_archive(output, rows, job, splits, derived['records'], bg_proof,cleanup_bindings,replay_evidence,all_warnings)
     _bound_files(job, contract['receivedJobFiles'])
     for b in cleanup_bindings:_bound_files(Path(b['cleanupJob']),b['cleanupJobFiles'])
     if body_replay:_bound_files(Path(body_replay['bodyJob']),body_replay['bodyJobFiles'])
+    if material_replay is not None:
+        for entry in material_replay['reviewRuns']:
+            _bound_files(Path(entry['path']),entry['files'])
     result.update(status='diagnostic-pending-human-review', policy=POLICY, geometryPolicy=GEOMETRY_POLICY,
         diagnosticDigest=expected_digest, snapshotDigest=manifest['digest'], sourceBindings=_portable_bindings(bindings),
         geometry=geometry, sheetPartitions=splits, reuseDerivations=derived['records'], backgroundProtection=bg_proof,
-        viewport=view, viewportArchive=wrapper, sourceArchive=archive, **FLAGS)
+        viewport=view, viewportArchive=wrapper, sourceArchive=archive, qualityWarnings=quality_warnings, **FLAGS)
     if cleanup_bindings:result['cleanupReplacements']=_portable_cleanup(cleanup_bindings)
     if body_replay:
         from .diagnostic_body_replay import portable
         result['bodyReplay']=portable(body_replay)
+    if material_replay is not None:
+        from .diagnostic_material_replay import portable
+        result['materialReviewReplay']=portable(material_replay)
+    save(output / 'visual-warning-report.json', dict(kind='ui_diagnostic_visual_warning_report_v1',
+        deliveryMode='diagnostic', warningCount=len(all_warnings), warnings=all_warnings,
+        independentSeparationVerified=False, strictVisualReviewPassed=False, **FLAGS))
     save(output / 'result.json',result)
     return result
 
@@ -377,15 +478,20 @@ def main():
     p.add_argument('--diagnostic-digest'); p.add_argument('--canvas-policy-instruction')
     p.add_argument('--cleanup-jobs',help='JSON list of source-bound received foreground singleton cleanup selections')
     p.add_argument('--body-job',help='Read-only genuine host body returns for partial diagnostic replay; never resumes the job')
+    p.add_argument('--review-runs',help='JSON list of genuine partial material review directories')
+    p.add_argument('--background-policy', choices=['uniform-whole-canvas-opaque-contain-edgepad-v1'],
+                   help='Explicit uniform whole opaque background fit; protected backgrounds retain exact identity')
     p.add_argument('--output',required=True); p.add_argument('--viewer')
     a = p.parse_args()
     if a.action == 'prepare-received-diagnostic':
         if not all((a.received_job,a.job_digest,a.canvas_policy_instruction)) or any((a.contract,a.diagnostic_digest,a.viewer)):
             p.error('prepare requires only received-job, job-digest, canvas-policy-instruction and output')
         result = prepare(a.received_job,a.job_digest,a.output,a.canvas_policy_instruction,
-                         read(Path(a.cleanup_jobs)) if a.cleanup_jobs else None,body_job=a.body_job)
+                         read(Path(a.cleanup_jobs)) if a.cleanup_jobs else None,body_job=a.body_job,
+                         background_policy=a.background_policy,
+                         review_runs=read(Path(a.review_runs)) if a.review_runs else None)
     else:
-        if not all((a.contract,a.diagnostic_digest,a.viewer)) or any((a.received_job,a.job_digest,a.canvas_policy_instruction,a.cleanup_jobs,a.body_job)):
+        if not all((a.contract,a.diagnostic_digest,a.viewer)) or any((a.received_job,a.job_digest,a.canvas_policy_instruction,a.cleanup_jobs,a.body_job,a.background_policy,a.review_runs)):
             p.error('deliver requires only contract, diagnostic-digest, viewer and output')
         result = deliver(a.contract,a.diagnostic_digest,a.output,a.viewer)
     print(json.dumps(result,ensure_ascii=False))

@@ -230,8 +230,17 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
     if any('preserveText' not in materials[key] for key in material_ids):raise ValueError('EXPLICIT_TEXT_EXCEPTIONS_REQUIRED')
     if len(material_ids)==1 and assets[material_ids[0]]['role']=='background':
-        return full_prompt(visual,material_ids[0],plan['canvas'])
-    if not 1<=len(material_ids)<=4:raise ValueError('CONTEXT_REFERENCE_LIMIT')
+        result = full_prompt(visual,material_ids[0],plan['canvas'])
+        if version == 'v8':
+            result += (' COMPOSITION LOCK: remove the assigned UI without reframing the scene. '
+                'Preserve the original full-canvas camera, perspective and every already visible scene subject\'s '
+                'position, apparent size and silhouette. Do not zoom, enlarge, recenter or relocate the main subject '
+                'to fill removed UI space. Reconstruct only areas hidden by the removed foreground; '
+                'visible scene outside those footprints remains the layout anchor.')
+        return result
+    from .generation_groups import COMPACT_CONTROL_POLICY
+    reference_limit=6 if group and group.get('groupingPolicy')==COMPACT_CONTROL_POLICY else 4
+    if not 1<=len(material_ids)<=reference_limit:raise ValueError('CONTEXT_REFERENCE_LIMIT')
     builder=action_entry if version in ('v4','v5','v6','v7','v8') else entry
     entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i)
              for i,key in enumerate(material_ids)]

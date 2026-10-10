@@ -27,6 +27,27 @@ KIND = 'ui_host_body_observation_job_v1'
 FILES = (*body.FILES, 'source-original.png')
 ANSWER_FILES = ('response.json', 'host-attestation.json', 'dispatch.bin', 'return.bin')
 EXPANDED_POLICY = 'expanded-support-original-viewport-v1'
+UNRESOLVED_POLICY = 'record-unresolved-body-for-diagnostic-v1'
+
+
+def validate_unresolved_policy(config, snapshot):
+    if 'bodyUnresolvedPolicy' not in config:
+        return
+    from .visual_policy import snapshot_policy, warnings_only
+    if config['bodyUnresolvedPolicy'] != UNRESOLVED_POLICY or not warnings_only(snapshot_policy(snapshot)):
+        raise ValueError('BOUND_WARNING_BODY_UNRESOLVED_POLICY_REQUIRED')
+
+
+def _request_ids(config, ids, snapshot):
+    selected = config.get('diagnosticMaterialIds')
+    if selected is None:
+        return ids
+    from .visual_policy import snapshot_policy, warnings_only
+    if (not warnings_only(snapshot_policy(snapshot)) or not isinstance(selected, list)
+            or not selected or any(not isinstance(mid, str) for mid in selected)
+            or len(selected) != len(set(selected)) or not set(selected) <= set(ids)):
+        raise ValueError('BOUND_DIAGNOSTIC_BODY_SUBSET_REQUIRED')
+    return [mid for mid in ids if mid in selected]
 
 
 def _authors(config, key):
@@ -47,14 +68,19 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
     observation_policy = profile.validate(config.get('bodyObservationPolicy', profile.LEGACY))
     snapshot = Path(config['snapshot']).resolve()
     inspect(snapshot, config['snapshotDigest'])
+    validate_unresolved_policy(config, snapshot)
     from .visual_policy import snapshot_policy
     fit_policy = registration.validate_fit_policy(config.get('bodyFitPolicy'), snapshot_policy(snapshot))
     coverage_policy = config.get('bodyCoveragePolicy')
     profile.validate_binding(observation_policy, fit_policy, coverage_policy)
     visual, ids = body.foreground(snapshot)
-    body.validate_budget(snapshot, maximum)
+    if type(maximum) is not int or not 1 <= maximum <= 128:
+        raise ValueError('BODY_CALL_LIMIT')
     if set(config['materials']) != {m['id'] for m in visual['materials']}:
         raise ValueError('COMPLETE_BODY_MATERIAL_SET_REQUIRED')
+    ids = _request_ids(config, ids, snapshot)
+    if len(ids)>maximum:
+        raise ValueError('BODY_CALL_BUDGET_EXCEEDED')
     if not isinstance(model, str) or not model.strip() or effort not in ('low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
         raise ValueError('EXACT_HOST_MODEL_EFFORT_REQUIRED')
     if canvas_policy is not None and 'canvasPolicy' in config and canvas_policy != config['canvasPolicy']:
@@ -130,6 +156,8 @@ def prepare(config_path, output, maximum, model='gpt-6.1-sol', effort='medium', 
         model=model, effort=effort, driver='host-model-exchange-v1', automaticRetries=0, generationCalls=0,
         configPath=str(config_path), configSha256=digest(config_path),
         bodyObservationPolicy=observation_policy, bodyFitPolicy=fit_policy,
+        **(dict(bodyUnresolvedPolicy=config['bodyUnresolvedPolicy']) if 'bodyUnresolvedPolicy' in config else {}),
+        **(dict(diagnosticMaterialIds=config['diagnosticMaterialIds']) if 'diagnosticMaterialIds' in config else {}),
         **(dict(bodyCoveragePolicy=coverage_policy) if coverage_policy is not None else {}), **canvas_fields))
     return status(output)
 
@@ -146,6 +174,9 @@ def load(job):
     if digest(Path(config['configPath'])) != config['configSha256']:
         raise ValueError('BODY_CONFIG_CHANGED')
     source_config = read(Path(config['configPath']))
+    if config.get('bodyUnresolvedPolicy') != source_config.get('bodyUnresolvedPolicy'):
+        raise ValueError('BODY_UNRESOLVED_POLICY_CHANGED')
+    validate_unresolved_policy(config, snapshot)
     observation_policy = profile.validate(config.get('bodyObservationPolicy', profile.LEGACY))
     if (observation_policy != source_config.get('bodyObservationPolicy', profile.LEGACY)
             or config.get('bodyFitPolicy') != source_config.get('bodyFitPolicy')
@@ -158,6 +189,9 @@ def load(job):
             digest(job / 'reference-original.png') != config['referenceSha256']):
         raise ValueError('BODY_REFERENCE_CHANGED')
     _, ids = body.foreground(snapshot)
+    if config.get('diagnosticMaterialIds') != source_config.get('diagnosticMaterialIds'):
+        raise ValueError('BODY_DIAGNOSTIC_SCOPE_CHANGED')
+    ids = _request_ids(config, ids, snapshot)
     if set(ids) != set(config['requests']) or len(ids) != config['maximumCalls']:
         raise ValueError('BODY_JOB_SCOPE_CHANGED')
     for key, path in config['materials'].items():
@@ -237,10 +271,21 @@ def status(job):
     config = load(job)
     auth = _authorization(job, config)
     attempts = _attempts(job, config)
+    unresolved = []
+    if config.get('bodyUnresolvedPolicy') == UNRESOLVED_POLICY:
+        for mid,(submission,seal) in attempts.items():
+            if seal is not None and seal['status']=='blocked_no_retry' and seal['reason']=='BODY_OBSERVATION_UNRESOLVED':
+                folder=job/'attempts'/mid
+                _attestation(folder,submission)
+                answer=read(folder/'response.json')
+                Draft202012Validator(read(job/'requests'/mid/'schema.json')).validate(answer)
+                if answer['boundaryStatus']=='complete' and not answer['issues']:
+                    raise ValueError('BODY_UNRESOLVED_SEAL_MISMATCH')
+                unresolved.append(mid)
     current = 'ready' if auth or not config['requests'] else 'awaiting_body_authorization'
     if any(s is None for _, s in attempts.values()):
         current = 'awaiting_host_response'
-    if any(s and s['status'] != 'sealed' for _, s in attempts.values()):
+    if any(s and s['status'] != 'sealed' and mid not in unresolved for mid,(_,s) in attempts.items()):
         current = 'blocked_no_retry'
     if (job / 'result.json').exists():
         result = verified(job / 'result.json')
@@ -250,6 +295,8 @@ def status(job):
     return dict(status=current, jobDigest=config['digest'], maximumCalls=config['maximumCalls'],
                 configuredMaximumCalls=config['configuredMaximumCalls'], assignedCalls=len(attempts),
                 sealedCalls=sum(s is not None and s['status'] == 'sealed' for _, s in attempts.values()),
+                **(dict(consumedCalls=sum(s is not None for _,s in attempts.values()),unresolvedMaterialIds=sorted(unresolved))
+                   if config.get('bodyUnresolvedPolicy') == UNRESOLVED_POLICY else {}),
                 model=config['model'], effort=config['effort'], canvasPolicy=config['canvasPolicy'],
                 generationCalls=0, automaticRetries=0, humanVisualAcceptance=False)
 
@@ -399,6 +446,10 @@ def finish(job, output):
     with lock(job):
         current = status(job)
         config = load(job)
+        if 'diagnosticMaterialIds' in config:
+            raise ValueError('DIAGNOSTIC_BODY_SUBSET_CANNOT_FINISH_FORMAL_DELIVERY')
+        if current.get('unresolvedMaterialIds'):
+            raise ValueError('UNRESOLVED_BODY_CANNOT_FINISH_FORMAL_DELIVERY')
         if current['status'] != 'ready' or current['sealedCalls'] != config['maximumCalls']:
             raise ValueError('ALL_GENUINE_BODY_RESPONSES_REQUIRED')
         entries = {key: dict(path=str((job / 'attempts' / key / 'body-contract.json').resolve()),

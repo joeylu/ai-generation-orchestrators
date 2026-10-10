@@ -213,11 +213,14 @@ def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archive
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
             background_region=None, background_region_digest=None, context_prompt_version='v8',m1_source=None,
-            generation_mode='sheets'):
+            generation_mode='sheets',generation_grouping_policy=None):
     """Snapshot an explicit seed or source-bound host M1 and prepare independent M2."""
     root=Path(output).resolve();contract=Path(contract_dir)
     if context_prompt_version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     if generation_mode not in ('single','sheets'):raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
+    from .generation_groups import configured_policy
+    if generation_grouping_policy is not None:
+        configured_policy(dict(generationGroupingPolicy=generation_grouping_policy),generation_mode,'context-crops')
     for name,sha in CONTRACT_DIGESTS.items():
         if digest(contract/name)!=sha:raise ValueError('HOST_PLANNING_CONTRACT_NOT_SUPPORTED:'+name)
     authors=[seed_author] if isinstance(seed_author,str) else list(seed_author)
@@ -269,6 +272,7 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
            {'offlineCandidateSeed':dict(sourcePlanSha256=digest(inputs/'source-plan.json'),
                                   candidateAuthors=authors,m1ModelExecuted=False)}),
         **({'visualTexturePolicy':textures.POLICY} if texture_bytes is not None else {}))
+    if generation_grouping_policy is not None:config['generationGroupingPolicy']=generation_grouping_policy
     if background_region is not None:config['backgroundRegionDigest']=background_region_digest
     save(root/'.dag/config.json',config)
     save(root/'.dag/config-digest.json',dict(sha256=digest(root/'.dag/config.json')))

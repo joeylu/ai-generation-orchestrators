@@ -55,12 +55,18 @@ def schema_for(visual_policy):
 
 
 def classify(answer, material_ids, visual_policy=None):
-    from .visual_policy import warnings_only
     Draft202012Validator(schema_for(visual_policy)).validate(answer)
     if answer['materialIds'] != material_ids:
         raise ValueError('SHEET_IDENTITY_MISMATCH')
+    return classify_findings(answer['findings'], material_ids, visual_policy)
+
+
+def classify_findings(findings, material_ids, visual_policy=None):
+    """Validate observations without inventing the reviewer's observed identities."""
+    from .visual_policy import warnings_only
+    Draft202012Validator(schema_for(visual_policy)['properties']['findings']).validate(findings)
     warnings, blockers, decisions = [], [], []
-    for finding in answer['findings']:
+    for finding in findings:
         if finding['materialId'] not in material_ids:
             raise ValueError('SHEET_FINDING_MATERIAL_MISMATCH')
         category = finding['category']

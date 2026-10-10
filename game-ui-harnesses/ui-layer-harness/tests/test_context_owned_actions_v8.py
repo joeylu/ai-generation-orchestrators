@@ -84,6 +84,34 @@ class OwnedActionsTests(unittest.TestCase):
         self.assertIn('Preserve owned identity, state, count, complete contours',text)
         self.assertIn('not masks or measured alpha bounds',text)
 
+    def test_translucent_plate_excludes_background_and_background_v8_locks_composition(self):
+        text = self.text()
+        self.assertIn('Scene visible THROUGH a translucent panel belongs to the background',text)
+        self.assertIn('represent the panel tint and opacity in alpha',text)
+        visual,plan = copy.deepcopy(self.visual),copy.deepcopy(self.plan)
+        key = 'scene'
+        visual['materials'].append(dict(id=key,role='background',zOrder=0,label='Existing scene and vehicle',
+            bboxNorm=[0,0,1,1],preserveText=[]))
+        plan['assets'].append(dict(id=key,role='background',source_region=[0,0,1000,1000],output_size=[1000,1000]))
+        current = context.prompt(visual,plan,[key],version='v8')
+        legacy = context.prompt(visual,plan,[key],version='v7')
+        self.assertIn('COMPOSITION LOCK',current)
+        self.assertIn('Do not zoom, enlarge, recenter or relocate',current)
+        self.assertNotIn('COMPOSITION LOCK',legacy)
+
+    def test_owned_illustration_interior_is_preserved_without_transferring_context(self):
+        from ai_ui_layers import visual_prompt_contract
+        changed=copy.deepcopy(self.visual)
+        owner=next(o for o in changed['objects'] if o['materialId']=='turn-knob')
+        owner['label']='Owned illustration with its own garage floor and reflection.'
+        text=self.text(changed,ids=['turn-knob'])
+        self.assertIn(owner['label'],text)
+        self.assertIn('Explicitly KEEP-owned illustration interiors retain their',text)
+        self.assertIn('including opaque pixels inside that artwork',text)
+        self.assertIn('does not transfer ownership from DELETE or context',text)
+        self.assertIn('透过半透明面板看到的共享场景仍由背景图层绘制',visual_prompt_contract.GENERATION)
+        self.assertNotIn('不画棋盘格或不透明背景',visual_prompt_contract.GENERATION)
+
     def test_sheet_and_repeated_foreign_appearances_use_actions_without_v6_fallback(self):
         changed=copy.deepcopy(self.visual)
         for obj in changed['objects']:

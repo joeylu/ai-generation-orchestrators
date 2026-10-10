@@ -18,6 +18,7 @@ from . import host_review, host_material_review, experimental_executor
 from . import host_body_observation, body_viewport_delivery, host_m1
 from .refreeze import freeze_reviewed
 from .sheet_pixels import NEAREST_SEAM, STRICT_SEAM, validate_seam_policy
+from . import host_sheet_fallback
 
 KIND = 'ui_integrated_host_delivery_v1'
 POLICY = 'expanded-support-original-viewport-v1'
@@ -120,9 +121,15 @@ def _reviewed_snapshot(source):
         if bool(source.get(key))!=(name in manifest['files']) or source.get(key) and digest(Path(source[key]))!=digest(folder/name):
             raise ValueError('PRIOR_REVIEWED_INPUT_CHANGED')
     preflight(folder,manifest['digest'])
+    from .generation_groups import COMPACT_CONTROL_POLICY
+    actual_group_policy=read(folder/'generation-groups.json')['policy']
+    if ((source.get('generationGroupingPolicy') is not None or actual_group_policy==COMPACT_CONTROL_POLICY)
+            and source.get('generationGroupingPolicy')!=actual_group_policy):
+        raise ValueError('PRIOR_REVIEWED_GROUPING_POLICY_CHANGED')
     visual=read(folder/'evidence/m1-draft.json')
     requests=read(folder/'requests.json')['requests']
     if (len(requests)>source['maximumImageCalls'] or len(requests)>source['maximumMaterialReviews'] or
+            not host_sheet_fallback.final_composite_first(source) and
             sum(m['role']=='foreground' for m in visual['materials'])>source['maximumBodyCalls']):
         raise ValueError('FINITE_DOWNSTREAM_CAPACITY_EXCEEDED')
     return folder,manifest
@@ -154,6 +161,8 @@ def prepare(config_path, output):
     source.setdefault('generationMode','sheets')
     if source['generationMode'] not in ('single','sheets'):
         raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
+    from .generation_groups import configured_policy
+    configured_policy(source,source['generationMode'],'context-crops')
     for key,default in (('maximumModelCallSeconds',1800),('maximumImageCallSeconds',900)):
         source.setdefault(key,default)
         if type(source[key]) is not int or not 1 <= source[key] <= 3600:
@@ -193,6 +202,12 @@ def prepare(config_path, output):
         visual_policy=visual_policy or warning_policy()
     if warnings_only(visual_policy):
         source['visualReviewMode']='warning'
+    host_sheet_fallback.configure(source)
+    if host_sheet_fallback.local(source):
+        source.setdefault('bodyUnresolvedPolicy',host_body_observation.UNRESOLVED_POLICY)
+    if 'bodyUnresolvedPolicy' in source and (source['bodyUnresolvedPolicy']!=host_body_observation.UNRESOLVED_POLICY
+            or source.get('visualReviewMode')!='warning' or not host_sheet_fallback.local(source)):
+        raise ValueError('BOUND_WARNING_BODY_UNRESOLVED_POLICY_REQUIRED')
     source.setdefault('bodyObservationPolicy', host_body_profile.SOFT_EFFECTS
         if visual_policy is not None and visual_policy.get('minorGeometry') == 'record' else host_body_profile.POLICY)
     host_body_profile.validate(source['bodyObservationPolicy'])
@@ -265,7 +280,8 @@ def prepare(config_path, output):
             seed_author=config['candidateAuthors'], planning_notes=config.get('planningNotes'),
             visual_policy=config.get('visualPolicy'),visual_textures=config.get('visualTextures'),material_reuse=config.get('materialReuse'),
             max_calls=config['maximumImageCalls'],generation_mode=config['generationMode'],background_region=config.get('backgroundRegion'),
-            background_region_digest=config.get('backgroundRegionDigest'),context_prompt_version=version)
+            background_region_digest=config.get('backgroundRegionDigest'),context_prompt_version=version,
+            generation_grouping_policy=config.get('generationGroupingPolicy'))
         _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
     except Exception as exc:
         _state(root,config,'failed',reason=str(exc),automaticRetry=False)
@@ -289,10 +305,12 @@ def status(run):
         if proof.is_file():host_m1.verify_exchange(root/'planning-m1')
         result['FullReferenceToDeliveryExecutionCompleted']=stage=='complete' and proof.is_file()
     result.update(maximumModelCallSeconds=config['maximumModelCallSeconds'],maximumImageCallSeconds=config['maximumImageCallSeconds'])
+    if 'bodyReviewPolicy' in config:
+        result['bodyReviewPolicy']=config['bodyReviewPolicy']
     if config.get('visualReviewMode')=='warning':
         result.update(visualReviewMode='warning',strictVisualReviewPassed=False,
                       finalCompositeVisualAcceptancePending=True)
-        if stage=='complete':
+        if stage in ('complete','diagnostic_complete'):
             result['visualWarningCount']=read(root/'visual-warning-report.json')['warningCount']
     if 'newM2ReviewPerformed' in config:result['newM2ReviewPerformed']=config['newM2ReviewPerformed']
     if config.get('backgroundVisualReviewPolicy'):
@@ -316,6 +334,12 @@ def status(run):
     elif stage=='body_observation':
         result.update(host_body_observation.status(root/'body'))
         result['scopeDigest']=verified(root/'body/job.json')['digest']
+    elif stage=='diagnostic_complete':
+        report=read(root/'visual-warning-report.json')
+        result.update(status='diagnostic_complete_pending_visual_acceptance',deliveryMode='diagnostic',
+            diagnosticExecutionCompleted=True,independentMaterialDeliveryComplete=False,
+            unresolvedMaterialIds=report['unresolvedMaterialIds'],
+            diagnosticDelivery=str(root/report['diagnosticDelivery']))
     else: result['status']='complete_pending_visual_acceptance' if stage=='complete' else 'failed_no_retry'
     if 'reason' in state: result['reason']=state['reason']
     if (root/'transaction.json').exists(): result['status']='interrupted_transaction_resume_required'
@@ -422,14 +446,31 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
                 host_material_review.receive(root/'reviews'/key,response,bound['requestSha256'],
                     response_sha256=digest(Path(response)),host_attestation=host_attestation,
                     dispatch_evidence=dispatch_evidence,return_evidence=return_evidence)
-                _,review_result=host_material_review.verify_run(root/'reviews'/key)
-                if review_result['status'] not in ('reviewed_pending_visual_acceptance',host_material_review.BACKGROUND_DEFERRED_STATUS):raise ValueError('HOST_MATERIAL_REVIEW_BLOCKED')
+                material_result=read(root/'reviews'/key/'result.json')
+                if material_result['status']==host_material_review.IDENTITY_UNRESOLVED_STATUS:
+                    _,review_result=host_material_review.verify_unresolved_run(root/'reviews'/key)
+                    if config.get('identityObservationPolicy')!=host_material_review.IDENTITY_POLICY or not host_sheet_fallback.local(config):
+                        raise ValueError('BOUND_WARNING_IDENTITY_POLICY_REQUIRED')
+                    (root/'material-identity-fallback').mkdir(exist_ok=True)
+                    record(root/'material-identity-fallback'/(key+'.json'),dict(
+                        policy=config['identityObservationPolicy'],requestSha256=digest(root/'reviews'/key/'request.json'),
+                        resultSha256=digest(root/'reviews'/key/'result.json'),warnings=[dict(
+                            w,requestId=key) for w in review_result['warnings'] if w.get('code')=='MATERIAL_IDENTITY_UNRESOLVED']))
+                else:
+                    _,review_result=host_material_review.verify_run(root/'reviews'/key)
+                    if review_result['status'] not in ('reviewed_pending_visual_acceptance',host_material_review.BACKGROUND_DEFERRED_STATUS):raise ValueError('HOST_MATERIAL_REVIEW_BLOCKED')
                 record(scope/(key+'-received.json'),dict(submissionDigest=submission_digest,responseSha256=digest(Path(response))))
             elif stage=='images':experimental_executor.receive(root/'images',submission_digest,response)
             else:
-                host_body_observation.receive(root/'body',submission_digest,response,
-                    host_attestation_path=host_attestation,dispatch_evidence_path=dispatch_evidence,
-                    return_evidence_path=return_evidence)
+                try:
+                    host_body_observation.receive(root/'body',submission_digest,response,
+                        host_attestation_path=host_attestation,dispatch_evidence_path=dispatch_evidence,
+                        return_evidence_path=return_evidence)
+                except ValueError as error:
+                    if (str(error)!='BODY_OBSERVATION_UNRESOLVED' or
+                            config.get('bodyUnresolvedPolicy')!=host_body_observation.UNRESOLVED_POLICY or
+                            not host_body_observation.status(root/'body').get('unresolvedMaterialIds')):
+                        raise
             (root/'transaction.json').unlink();_checkpoint(root)
         except Exception as exc:
             # Preserve exact answers even if the frozen reviewer identity is wrong.
@@ -462,7 +503,13 @@ def fail(run, submission_digest, reason):
 
 
 def _material_stage(root,config,keys):
-    rows=[]
+    from .received_source_batch import received_sources
+    with received_sources(root/'images') as source_batch:
+        return _prepare_material_stage(root,config,keys,source_batch)
+
+
+def _prepare_material_stage(root,config,keys,source_batch):
+    rows=[]; preparation_warnings=[]
     background_id=None
     if config.get('backgroundVisualReviewPolicy'):
         from . import background_region_pipeline as bg_region
@@ -472,10 +519,22 @@ def _material_stage(root,config,keys):
         folder=root/'reviews'/key
         prepared=host_material_review.prepare(root/'images',key,folder,material_authors=config['materialAuthors'],
                                      review_registry=root/'review-registry',
+                                     source_batch=source_batch,
+                                     identity_observation_policy=config.get('identityObservationPolicy'),
                                      sheet_seam_policy=config.get('sheetSeamPolicy',STRICT_SEAM),
                                      **({'background_visual_review_policy':config['backgroundVisualReviewPolicy']}
                                         if key==background_id else {}))
         if prepared['status']=='blocked_no_retry':
+            if config.get('materialPreparationPolicy')==host_sheet_fallback.PREPARATION_POLICY:
+                from .native_clipping_warning import native_clipping_evidence
+                _,row,receipt,raw=host_material_review.source(root/'images',key,source_batch=source_batch)
+                targets={a['id']:a['output_size'] for a in read(root/'frozen/execution-plan.candidate.json')['assets']}
+                report_path=folder/'processed/report.json'
+                warning=native_clipping_evidence(raw,receipt['rawSha256'],targets[key],read(report_path),prepared) if report_path.exists() and row.get('kind')!='sheet' else None
+                if warning is not None:
+                    preparation_warnings.append(dict(warning,requestId=key,materialIds=[key],
+                        preparationResultSha256=digest(folder/'result.json'),reportSha256=digest(report_path)))
+                    continue
             reason='HOST_MATERIAL_PREPARATION_BLOCKED:requestId='+key+':reason='+prepared['reason']
             report=folder/'processed/report.json'
             if report.is_file():
@@ -485,17 +544,23 @@ def _material_stage(root,config,keys):
             raise ValueError(reason)
         rows.append(dict(requestId=key,requestPath=str(folder/'request.json'),requestSha256=digest(folder/'request.json'),
                          requestDirectory=str(folder/'review'),inputs=_files(folder/'review')))
+    if preparation_warnings:
+        record(root/'material-preparation-fallback.json',dict(policy=config['materialPreparationPolicy'],warnings=preparation_warnings))
+    if not rows:
+        return False
     scope=root/'scopes/material_review';scope.mkdir()
     record(scope/'scope.json',dict(kind='ui_host_material_batch_scope_v1',stage='material_review',requests=rows,
         destination=config['materialDestination'],model=config['materialModel'],effort=config['materialEffort'],
         reviewerId=config['materialReviewer'],maximumCalls=len(rows),automaticRetries=0,
         maximumCallSeconds=config['maximumModelCallSeconds'],
-        stops=['failed','unknown','unresolved','indeterminate','timeout'],notProviderReceipt=True,
+        stops=(['failed','unknown-receipt','invalid-technical-contract','indeterminate','timeout']
+            if config.get('visualReviewMode')=='warning' else ['failed','unknown','unresolved','indeterminate','timeout']),notProviderReceipt=True,
         notCryptographicallyPlatformVerified=True))
     _state(root,config,'material_review',scope='scopes/material_review')
+    return True
 
 
-def _comparison(root):
+def _comparison(root, *, diagnostic=False):
     folder=root/'delivery/comparison';folder.mkdir()
     with Image.open(root/'delivery/original-reference.png') as source:original=source.convert('RGBA')
     with Image.open(root/'delivery/viewport-preview.png') as source:preview=source.convert('RGBA')
@@ -508,12 +573,14 @@ def _comparison(root):
         with Image.open(path) as source:tile=ImageOps.contain(source.convert('RGBA'),(max(1,cellw-12),max(1,cellh-28)))
         x=(i%columns)*cellw+(cellw-tile.width)//2;y=(i//columns)*cellh+22
         atlas.alpha_composite(tile,(x,y));ImageDraw.Draw(atlas).text(((i%columns)*cellw+5,(i//columns)*cellh+4),mid,fill='black')
-    atlas.save(folder/'independent-material-atlas.png')
+    atlas.save(folder/('candidate-material-atlas.png' if diagnostic else 'independent-material-atlas.png'))
     combined=Image.new('RGBA',(width*3,height+28),'white')
-    for i,(label,image) in enumerate((('Original',original),('Independent materials',atlas),('Recomposed viewport',preview))):
+    labels=('Unverified candidate cells','Diagnostic viewport - review required') if diagnostic else ('Independent materials','Recomposed viewport')
+    for i,(label,image) in enumerate((('Original',original),(labels[0],atlas),(labels[1],preview))):
         combined.alpha_composite(image,(i*width,28));ImageDraw.Draw(combined).text((i*width+8,7),label,fill='black')
     combined.save(folder/'three-way-comparison.png')
     save(folder/'comparison.json',dict(kind='ui_host_three_way_comparison_v1',visualAcceptancePending=True,
+         **({'diagnosticOnly':True,'independentSeparationVerified':False} if diagnostic else {}),
          originalSha256=digest(root/'delivery/original-reference.png'),viewportSha256=digest(root/'delivery/viewport-preview.png'),
          materialSha256={mid:digest(Path(path)) for mid,path in materials.items()},
          files={p.name:digest(p) for p in folder.iterdir() if p.is_file()}))
@@ -528,7 +595,7 @@ def resume(run):
             # No external call is replayed after an interrupted receive transaction.
             _terminal(root,config,'INTERRUPTED_TRANSACTION_NO_RESUBMIT')
             (root/'transaction.json').unlink();return status(root)
-        if stage in ('failed','complete'):return status(root)
+        if stage in ('failed','complete','diagnostic_complete'):return status(root)
         advancing=stage in ('planning_generate','planning_review') and (root/state['scope']/'planning-received.json').exists()
         if stage=='material_review':
             scope=root/state['scope'];rows=verified(scope/'scope.json')['requests']
@@ -536,7 +603,7 @@ def resume(run):
         if stage=='images':advancing=experimental_executor.status(root/'images')['status']=='raw_complete'
         if stage=='body_observation':
             current=host_body_observation.status(root/'body')
-            advancing=current['sealedCalls']==current['maximumCalls'] and current['status'] in ('ready','completed')
+            advancing=current.get('consumedCalls',current['sealedCalls'])==current['maximumCalls'] and current['status'] in ('ready','completed')
         if not advancing:return status(root)
         record(root/'transaction.json',dict(operation='deterministic-advance',stage=stage))
         try:
@@ -546,7 +613,8 @@ def resume(run):
                     seed_author=config['candidateAuthors'],planning_notes=config.get('planningNotes'),
                     visual_policy=config.get('visualPolicy'),max_calls=config['maximumImageCalls'],
                     generation_mode=config.get('generationMode','sheets'),
-                    context_prompt_version=config['contextPromptVersion'],m1_source=root/'planning-m1')
+                    context_prompt_version=config['contextPromptVersion'],m1_source=root/'planning-m1',
+                    generation_grouping_policy=config.get('generationGroupingPolicy'))
                 _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
             elif stage=='planning_review':
                 frozen=freeze_reviewed(root/'planning',root/'frozen',config['maximumImageCalls'],
@@ -554,15 +622,46 @@ def resume(run):
                 requests=read(root/'frozen/requests.json')['requests']
                 visual=read(root/'planning/m1/draft.json')
                 bodies=sum(m['role']=='foreground' for m in visual['materials'])
-                if len(requests)>config['maximumMaterialReviews'] or bodies>config['maximumBodyCalls']:
+                if len(requests)>config['maximumMaterialReviews'] or not host_sheet_fallback.final_composite_first(config) and bodies>config['maximumBodyCalls']:
                     raise ValueError('FINITE_DOWNSTREAM_CAPACITY_EXCEEDED')
                 experimental_executor.prepare(root/'frozen',frozen['digest'],root/'images')
                 _state(root,config,'images')
             elif stage=='images':
                 job,_=experimental_executor.load_job(root/'images')
-                _material_stage(root,config,job['assets'])
+                warnings=host_sheet_fallback.findings(root/'images',config)
+                if warnings and host_sheet_fallback.local(config):
+                    record(root/'sheet-fallback.json',dict(policy=config['sheetFailurePolicy'],warnings=warnings))
+                    unresolved={w['requestId'] for w in warnings}
+                    keys=[key for key in job['assets'] if key not in unresolved]
+                    if keys:
+                        if not _material_stage(root,config,keys):
+                            host_sheet_fallback.build(root,config,host_sheet_fallback.warnings(root))
+                            _comparison(root/'diagnostic-output',diagnostic=True)
+                            _state(root,config,'diagnostic_complete')
+                    else:
+                        host_sheet_fallback.build(root,config,warnings)
+                        _comparison(root/'diagnostic-output',diagnostic=True)
+                        _state(root,config,'diagnostic_complete')
+                elif warnings:
+                    host_sheet_fallback.build(root,config,warnings)
+                    _comparison(root/'diagnostic-output',diagnostic=True)
+                    _state(root,config,'diagnostic_complete')
+                else:
+                    if not _material_stage(root,config,job['assets']):
+                        host_sheet_fallback.build(root,config,host_sheet_fallback.warnings(root))
+                        _comparison(root/'diagnostic-output',diagnostic=True)
+                        _state(root,config,'diagnostic_complete')
             elif stage=='material_review':
                 job,_=experimental_executor.load_job(root/'images');keys=job['assets']
+                if host_sheet_fallback.local(config) and (host_sheet_fallback.warnings(root) or host_sheet_fallback.final_composite_first(config)):
+                    if host_sheet_fallback.prepare_body(root,config):
+                        _state(root,config,'body_observation')
+                    else:
+                        host_sheet_fallback.build(root,config,host_sheet_fallback.warnings(root))
+                        _comparison(root/'diagnostic-output',diagnostic=True)
+                        _state(root,config,'diagnostic_complete')
+                    (root/'transaction.json').unlink();_checkpoint(root)
+                    return status(root)
                 for key in keys:
                     if (root/'reviews'/key/'result.json').exists():host_material_review.verify_run(root/'reviews'/key)
                 extraction=host_material_review.extract(root/'frozen',job['snapshotDigest'],
@@ -574,7 +673,7 @@ def resume(run):
                     maximumCallSeconds=config['maximumModelCallSeconds'],destination=config['bodyDestination'],reviewerId=config['bodyReviewer'])
                 # Missing fields preserve historical host-run semantics. New
                 # prepare() freezes the selected profile before model execution.
-                for name in ('bodyObservationPolicy','bodyFitPolicy','bodyCoveragePolicy'):
+                for name in ('bodyObservationPolicy','bodyFitPolicy','bodyCoveragePolicy','bodyUnresolvedPolicy'):
                     if name in config:body_config[name]=config[name]
                 if (root/'frozen/material-reuse.json').exists():
                     body_config['reviewedReuseExtraction']=dict(path=str(root/'extraction'),sha256=digest(root/'extraction/result.json'))
@@ -585,6 +684,14 @@ def resume(run):
                     model=config['bodyModel'],effort=config['bodyEffort'])
                 _state(root,config,'body_observation')
             else:
+                if host_sheet_fallback.local(config) and (host_sheet_fallback.warnings(root) or
+                        host_body_observation.status(root/'body').get('unresolvedMaterialIds')):
+                    warnings=host_sheet_fallback.warnings(root)
+                    host_sheet_fallback.build(root,config,warnings)
+                    _comparison(root/'diagnostic-output',diagnostic=True)
+                    _state(root,config,'diagnostic_complete')
+                    (root/'transaction.json').unlink();_checkpoint(root)
+                    return status(root)
                 host_body_observation.finish(root/'body',root/'body-output.json')
                 extraction=read(root/'extraction/result.json')
                 body_viewport_delivery.build(root/'body-output.json',root/'delivery',root/'viewer',warnings=extraction['warnings'])
