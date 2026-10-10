@@ -4,6 +4,7 @@ import { validatePlanningContext } from './planning-context.mjs';
 import { validatePanelProposal, PanelPlanningError } from './proposal.mjs';
 import { measureFlowLayout, measureTabbedLayout } from './flow-layout.mjs';
 import { createPresentationPolicy, sectionPurpose } from './panel-presentation.mjs';
+import { sectionHeadingVisible } from './section-headings.mjs';
 import {isStandaloneMenu,panelThemeTokens} from './menu-presentation.mjs';
 import { progressValueWidth } from './progress.mjs';
 import { buildCodexQuestionsResponseSchema } from './codex-questions-schema.mjs';
@@ -96,10 +97,10 @@ export function buildNativePanelIntentResponseSchema(context) {
   current.properties.panel.anyOf[1].properties.title.description = 'The overall panel name requested by the user, distinct from a section heading and a read-only field value. For "任务详情先展示任务名称：森林巡逻", the panel name is "任务详情" and "森林巡逻" is the task-name field content. A request to retain the panel name refers to the panel, not its first named field. Preserve explicit later title corrections or explicit requests to use a field value as the title.';
   current.$defs.body.anyOf[0].properties.title.description = 'A section heading inside the panel. Setting this heading does not replace the overall panel.title.';
   if (['0.8','0.9'].includes(context.planningContextVersion)) {
-    // Spec requires a visible, bounded section name. State this at dispatch,
+    // Spec requires a semantic, bounded section name. State this at dispatch,
     // rather than allowing an empty native string that can only fail later.
     Object.assign(current.$defs.body.anyOf[0].properties.title, { minLength: 1, maxLength: 120, pattern: '\\S',
-      description: 'Required non-empty section heading, 1–120 Unicode characters with at least one non-whitespace character. This is separate from a row label and button caption. A request for inline glyph buttons without extra row labels does not make this field empty. Choose a concise grouping name when the request leaves it unspecified; never delete an explicit heading.' });
+      description: 'Required non-empty semantic section heading, 1–120 Unicode characters with at least one non-whitespace character. This is separate from a row label and button caption. The pinned theme owns heading visibility: concise-v1 suppresses redundant simple headings; visible-v1 retains headings explicitly requested by the user. Keep this field non-empty in both policies. Choose a concise grouping name when unspecified; never delete an explicit heading or a control label.' });
   }
   const textRow = current.$defs.body.anyOf[0].properties.rows.items.anyOf.find(row => row.properties.kind.enum[0] === 'text');
   if (textRow) {
@@ -363,7 +364,7 @@ export function arrangeIntentSpec(spec, settings, theme) {
   const sectionWidths = new Map(spec.sections.map(section => {
     const actions = spec.actionLayouts?.find(value => value.sectionId === section.id);
     const actionWidth = actions ? actions.direction === 'row' ? section.rows.length * actions.buttonWidth + (section.rows.length - 1) * actions.gap : actions.buttonWidth : 0;
-    return [section.id, Math.max(adaptive ? 280 : 320, actionWidth, ...section.rows.map(row => widths.get(row.id)), adaptive ? conservativeTextWidth(section.title, theme.tokens.headingSize) : 0)];
+    return [section.id, Math.max(adaptive ? 280 : 320, actionWidth, ...section.rows.map(row => widths.get(row.id)), adaptive && sectionHeadingVisible(spec, section, theme.headingStyle) ? conservativeTextWidth(section.title, theme.tokens.headingSize) : 0)];
   }));
   const minWidth = Math.max(...sectionWidths.values());
   let counter = 0, count = 0;
@@ -393,11 +394,11 @@ export function arrangeIntentSpec(spec, settings, theme) {
   // Full contract/geometry gate; explicit narrow dimensions fail rather than changing business or requested layout.
   let checked = validatePanelSpec(spec);
   const measure = checked.tabs ? measureTabbedLayout : measureFlowLayout;
-  const measured = measure(checked, adaptive ? createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle) : undefined);
+  const measured = measure(checked, adaptive ? createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle) : undefined);
   if (adaptive && settings.canvasHeight === null) {
     checked.canvas.height = Math.ceil(measured.panelHeight + 64 + popup * 2);
     checked = validatePanelSpec(checked);
-    measure(checked, createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle));
+    measure(checked, createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle));
   }
   return checked;
 }

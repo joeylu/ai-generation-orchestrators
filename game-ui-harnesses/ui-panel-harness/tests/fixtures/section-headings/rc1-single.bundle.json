@@ -1,0 +1,1164 @@
+{
+  "panelBundleVersion": "0.7",
+  "compilerVersion": "0.26.0",
+  "spec": {
+    "panelSpecVersion": "0.7",
+    "id": "heading-fixture",
+    "title": "音量控制面板",
+    "theme": {
+      "id": "modern-blue-light",
+      "version": "0.18.0"
+    },
+    "assets": null,
+    "tabs": null,
+    "canvas": {
+      "width": 624,
+      "height": 560
+    },
+    "layout": {
+      "width": 560,
+      "padding": 32,
+      "gap": 16,
+      "sectionGap": 20,
+      "labelWidth": 112,
+      "rowHeight": 56,
+      "titleHeight": 40,
+      "sectionTitleHeight": 32,
+      "maxHeight": 460,
+      "overflow": "scroll",
+      "body": {
+        "id": "body",
+        "kind": "column",
+        "width": "fill",
+        "gap": 20,
+        "align": "start",
+        "children": [
+          {
+            "kind": "section",
+            "sectionId": "section0",
+            "width": "fill"
+          }
+        ]
+      }
+    },
+    "state": [
+      {
+        "id": "row0",
+        "type": "number",
+        "initial": 57,
+        "min": 0,
+        "max": 100,
+        "step": 1
+      }
+    ],
+    "sections": [
+      {
+        "id": "section0",
+        "title": "音量",
+        "rows": [
+          {
+            "id": "row0",
+            "kind": "slider",
+            "recipe": {
+              "id": "settings.slider",
+              "version": "0.1.0"
+            },
+            "label": "音量",
+            "bind": "row0",
+            "enabled": true,
+            "event": "audio.row0",
+            "format": {
+              "fractionDigits": 0,
+              "prefix": "",
+              "suffix": "%"
+            }
+          }
+        ]
+      }
+    ],
+    "provenance": {
+      "kind": "programmatic-fixture",
+      "description": "Owned section-heading regression fixture. Not a real model result or user task.",
+      "assumptions": []
+    }
+  },
+  "catalog": {
+    "catalogVersion": "0.1",
+    "id": "modern-menu",
+    "version": "0.18.0",
+    "themes": [
+      {
+        "id": "modern-mint-light",
+        "version": "0.18.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#157C64",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#157C64",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        }
+      },
+      {
+        "id": "modern-mint-dark",
+        "version": "0.18.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#90E6CF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#157C64",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        }
+      },
+      {
+        "id": "modern-blue-light",
+        "version": "0.18.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#315FC7",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#0066CC",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        }
+      },
+      {
+        "id": "modern-blue-dark",
+        "version": "0.18.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#A0BFFF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#2466C9",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        }
+      },
+      {
+        "id": "modern-violet-light",
+        "version": "0.18.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#7051B5",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#6846B7",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        }
+      },
+      {
+        "id": "modern-violet-dark",
+        "version": "0.18.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#C9B5FF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#6846B7",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        }
+      },
+      {
+        "id": "modern-orange-light",
+        "version": "0.18.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#A85218",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#A95600",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        }
+      },
+      {
+        "id": "modern-orange-dark",
+        "version": "0.18.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#FFBD86",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#A95600",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "titleSize": 24,
+          "spacing": 16,
+          "radius": 20
+        }
+      }
+    ],
+    "recipes": [
+      {
+        "id": "settings.panel",
+        "version": "0.1.0",
+        "kind": "panel",
+        "description": "自有程序化设置面板，包含标题及纵向内容区域。Procedural settings panel with a title and vertical content.",
+        "tags": [
+          "设置面板",
+          "设置页",
+          "settings panel",
+          "settings",
+          "panel"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 320,
+        "minHeight": 160
+      },
+      {
+        "id": "settings.section",
+        "version": "0.1.0",
+        "kind": "section",
+        "description": "自有程序化设置分组，包含分组标题和设置行。Procedural titled section for related settings rows.",
+        "tags": [
+          "设置分组",
+          "分组",
+          "section",
+          "group"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 80
+      },
+      {
+        "id": "settings.slider",
+        "version": "0.1.0",
+        "kind": "slider-row",
+        "description": "自有程序化数值设置行，组合标签、滑条和数值文字，适用于音量等有界数值。Procedural labeled slider with a value readout.",
+        "tags": [
+          "音量",
+          "声音大小",
+          "响度",
+          "滑条",
+          "百分比",
+          "volume",
+          "loudness",
+          "slider",
+          "range"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "dragging",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.switch",
+        "version": "0.1.0",
+        "kind": "switch-row",
+        "description": "自有程序化布尔设置行，组合标签与开关；开关含义由面板方案显式声明。Procedural labeled switch for an explicit boolean setting.",
+        "tags": [
+          "声音开关",
+          "开关",
+          "启用声音",
+          "静音",
+          "布尔",
+          "mute",
+          "toggle",
+          "switch",
+          "sound enabled"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "checked",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.select",
+        "version": "0.1.0",
+        "kind": "select-row",
+        "description": "自有程序化枚举设置行，组合标签与下拉菜单，适用于明确的画质档位等有限选项。Procedural labeled select for explicit enumerated settings.",
+        "tags": [
+          "画质",
+          "画质档位",
+          "下拉",
+          "选项",
+          "选择",
+          "quality",
+          "dropdown",
+          "select"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.text",
+        "version": "0.1.0",
+        "kind": "text-row",
+        "description": "自有程序化只读信息行，组合标签与单行文字，不绑定可变状态，不发出事件。Procedural read-only labeled text for character and summary information.",
+        "tags": [
+          "角色信息",
+          "信息",
+          "文本",
+          "只读",
+          "character",
+          "text",
+          "information"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 240,
+        "minHeight": 40
+      },
+      {
+        "id": "settings.progress",
+        "version": "0.1.0",
+        "kind": "progress-row",
+        "description": "只读确定进度加载条，由宿主更新连续数值，支持百分比或实际数值显示。Read-only determinate host-owned loading/progress bar.",
+        "tags": [
+          "加载条",
+          "加载",
+          "进度条",
+          "进度",
+          "loading",
+          "progress",
+          "下载",
+          "资源加载"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 40
+      },
+      {
+        "id": "navigation.tabs",
+        "version": "0.1.0",
+        "kind": "tabs",
+        "description": "Horizontal tabs with persistent page state and independent scroll content.",
+        "tags": [
+          "页签",
+          "分页",
+          "标签页",
+          "选项卡",
+          "tabs",
+          "tab",
+          "分类",
+          "声音",
+          "画面"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 104
+      },
+      {
+        "id": "forms.input",
+        "version": "0.1.0",
+        "kind": "input-row",
+        "description": "单行文本输入及必填和最短长度校验，支持角色命名、兑换码与搜索。Single-line text/password entry with bounded validation.",
+        "tags": [
+          "输入框",
+          "文本输入",
+          "角色命名",
+          "名字",
+          "昵称",
+          "兑换码",
+          "搜索",
+          "input",
+          "text entry",
+          "form",
+          "name"
+        ],
+        "states": [
+          "idle",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 72
+      },
+      {
+        "id": "settings.button.primary",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit primary visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "primary"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "primary"
+      },
+      {
+        "id": "settings.button.secondary",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit secondary visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "secondary"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "secondary"
+      },
+      {
+        "id": "settings.button.danger",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit danger visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "danger"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "danger"
+      }
+    ]
+  },
+  "state": {
+    "row0": 57
+  },
+  "selection": {
+    "theme": {
+      "id": "modern-blue-light",
+      "version": "0.18.0"
+    },
+    "recipes": [
+      {
+        "id": "settings.panel",
+        "version": "0.1.0"
+      },
+      {
+        "id": "settings.section",
+        "version": "0.1.0"
+      },
+      {
+        "id": "settings.slider",
+        "version": "0.1.0"
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "nodeId": "heading-fixture.row.row0.control",
+      "fieldId": "row0",
+      "event": "audio.row0",
+      "type": "number",
+      "enabled": true
+    }
+  ],
+  "componentBundle": {
+    "bundleVersion": "0.1",
+    "document": {
+      "schemaVersion": "0.2",
+      "id": "heading-fixture",
+      "canvas": {
+        "width": 624,
+        "height": 560
+      },
+      "root": {
+        "id": "heading-fixture.canvas",
+        "type": "Container",
+        "layout": {
+          "x": 0,
+          "y": 0,
+          "width": 624,
+          "height": 560
+        },
+        "props": {
+          "style": {
+            "backgroundColor": "#EDF2F0",
+            "borderColor": "#C4D3CD",
+            "borderWidth": 0,
+            "cornerRadius": 0,
+            "textColor": "#20332E",
+            "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+            "fontSize": 16,
+            "fontWeight": "normal",
+            "opacity": 1
+          }
+        },
+        "children": [
+          {
+            "id": "heading-fixture.panel-shadow.0",
+            "type": "Container",
+            "layout": {
+              "x": 30,
+              "y": 159,
+              "width": 564,
+              "height": 248
+            },
+            "props": {
+              "style": {
+                "backgroundColor": "#000000",
+                "borderColor": "#C4D3CD",
+                "borderWidth": 0,
+                "cornerRadius": 18,
+                "textColor": "#20332E",
+                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                "fontSize": 16,
+                "fontWeight": "normal",
+                "opacity": 0.05
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "heading-fixture.panel",
+            "type": "Container",
+            "layout": {
+              "x": 32,
+              "y": 158,
+              "width": 560,
+              "height": 244
+            },
+            "props": {
+              "style": {
+                "backgroundColor": "#FFFFFF",
+                "borderColor": "#C4D3CD",
+                "borderWidth": 1,
+                "cornerRadius": 16,
+                "textColor": "#20332E",
+                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                "fontSize": 16,
+                "fontWeight": "normal",
+                "opacity": 1
+              }
+            },
+            "children": [
+              {
+                "id": "heading-fixture.title",
+                "type": "Text",
+                "layout": {
+                  "x": 32,
+                  "y": 32,
+                  "width": 496,
+                  "height": 40
+                },
+                "props": {
+                  "text": "音量控制面板",
+                  "wrap": "none",
+                  "overflow": "error",
+                  "lineHeight": 32,
+                  "drawBackground": false,
+                  "style": {
+                    "backgroundColor": "#FFFFFF",
+                    "borderColor": "#C4D3CD",
+                    "borderWidth": 0,
+                    "cornerRadius": 16,
+                    "textColor": "#20332E",
+                    "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                    "fontSize": 24,
+                    "fontWeight": "normal",
+                    "opacity": 1
+                  }
+                }
+              },
+              {
+                "id": "heading-fixture.body",
+                "type": "Container",
+                "layout": {
+                  "x": 32,
+                  "y": 88,
+                  "width": 496,
+                  "height": 124
+                },
+                "props": {
+                  "style": {
+                    "backgroundColor": "#FFFFFF",
+                    "borderColor": "#C4D3CD",
+                    "borderWidth": 0,
+                    "cornerRadius": 16,
+                    "textColor": "#20332E",
+                    "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                    "fontSize": 16,
+                    "fontWeight": "normal",
+                    "opacity": 1
+                  }
+                },
+                "children": [
+                  {
+                    "id": "heading-fixture.section.section0",
+                    "type": "Container",
+                    "layout": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 496,
+                      "height": 124
+                    },
+                    "props": {
+                      "style": {
+                        "backgroundColor": "#FFFFFF",
+                        "borderColor": "#C4D3CD",
+                        "borderWidth": 0,
+                        "cornerRadius": 16,
+                        "textColor": "#20332E",
+                        "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                        "fontSize": 16,
+                        "fontWeight": "normal",
+                        "opacity": 1
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "heading-fixture.section.section0.title",
+                        "type": "Text",
+                        "layout": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 496,
+                          "height": 32
+                        },
+                        "props": {
+                          "text": "音量",
+                          "wrap": "none",
+                          "overflow": "error",
+                          "lineHeight": 21,
+                          "drawBackground": false,
+                          "style": {
+                            "backgroundColor": "#FFFFFF",
+                            "borderColor": "#C4D3CD",
+                            "borderWidth": 0,
+                            "cornerRadius": 16,
+                            "textColor": "#5B7069",
+                            "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                            "fontSize": 16,
+                            "fontWeight": "bold",
+                            "opacity": 1
+                          }
+                        }
+                      },
+                      {
+                        "id": "heading-fixture.row.row0",
+                        "type": "Container",
+                        "layout": {
+                          "x": 0,
+                          "y": 44,
+                          "width": 496,
+                          "height": 80
+                        },
+                        "props": {
+                          "style": {
+                            "backgroundColor": "#FFFFFF",
+                            "borderColor": "#C4D3CD",
+                            "borderWidth": 0,
+                            "cornerRadius": 8,
+                            "textColor": "#20332E",
+                            "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                            "fontSize": 16,
+                            "fontWeight": "normal",
+                            "opacity": 1
+                          }
+                        },
+                        "children": [
+                          {
+                            "id": "heading-fixture.row.row0.label",
+                            "type": "Text",
+                            "layout": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 496,
+                              "height": 21
+                            },
+                            "props": {
+                              "text": "音量",
+                              "wrap": "none",
+                              "overflow": "error",
+                              "lineHeight": 21,
+                              "drawBackground": false,
+                              "style": {
+                                "backgroundColor": "#FFFFFF",
+                                "borderColor": "#C4D3CD",
+                                "borderWidth": 0,
+                                "cornerRadius": 16,
+                                "textColor": "#20332E",
+                                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                                "fontSize": 16,
+                                "fontWeight": "normal",
+                                "opacity": 1
+                              }
+                            }
+                          },
+                          {
+                            "id": "heading-fixture.row.row0.control",
+                            "type": "Slider",
+                            "layout": {
+                              "x": 0,
+                              "y": 28,
+                              "width": 496,
+                              "height": 52
+                            },
+                            "props": {
+                              "value": 57,
+                              "min": 0,
+                              "max": 100,
+                              "step": 1,
+                              "enabled": true,
+                              "style": {
+                                "backgroundColor": "#FFFFFF",
+                                "borderColor": "#315FC7",
+                                "borderWidth": 0,
+                                "cornerRadius": 16,
+                                "textColor": "#20332E",
+                                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                                "fontSize": 16,
+                                "fontWeight": "normal",
+                                "opacity": 1
+                              },
+                              "appearance": {
+                                "sourceCanvas": {
+                                  "width": 496,
+                                  "height": 52
+                                },
+                                "track": {
+                                  "image": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/track.png",
+                                  "canvas": {
+                                    "width": 468,
+                                    "height": 6
+                                  },
+                                  "layout": {
+                                    "x": 14,
+                                    "y": 23,
+                                    "width": 468,
+                                    "height": 6
+                                  }
+                                },
+                                "fill": {
+                                  "image": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/fill.png",
+                                  "canvas": {
+                                    "width": 468,
+                                    "height": 6
+                                  },
+                                  "layout": {
+                                    "x": 14,
+                                    "y": 23,
+                                    "width": 468,
+                                    "height": 6
+                                  }
+                                },
+                                "fillClip": {
+                                  "x": 14,
+                                  "y": 23,
+                                  "width": 468,
+                                  "height": 6
+                                },
+                                "fillDirection": "left-to-right",
+                                "fillSource": "full-range-template",
+                                "thumbImage": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/thumb.png",
+                                "thumbCanvas": {
+                                  "width": 18,
+                                  "height": 18
+                                },
+                                "thumbPositions": {
+                                  "min": {
+                                    "x": 5,
+                                    "y": 17
+                                  },
+                                  "max": {
+                                    "x": 473,
+                                    "y": 17
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "id": "heading-fixture.row.row0.value",
+                            "type": "Text",
+                            "layout": {
+                              "x": 432,
+                              "y": 0,
+                              "width": 64,
+                              "height": 21
+                            },
+                            "props": {
+                              "text": "57%",
+                              "wrap": "none",
+                              "overflow": "error",
+                              "lineHeight": 21,
+                              "drawBackground": false,
+                              "style": {
+                                "backgroundColor": "#FFFFFF",
+                                "borderColor": "#C4D3CD",
+                                "borderWidth": 0,
+                                "cornerRadius": 16,
+                                "textColor": "#315FC7",
+                                "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+                                "fontSize": 16,
+                                "fontWeight": "normal",
+                                "opacity": 1
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "valueTextBindings": {
+        "version": "1.0",
+        "bindings": [
+          {
+            "sourceId": "heading-fixture.row.row0.control",
+            "targetId": "heading-fixture.row.row0.value",
+            "parts": [
+              "",
+              {
+                "field": "value",
+                "fractionDigits": 0,
+                "grouping": "none"
+              },
+              "%"
+            ]
+          }
+        ]
+      }
+    },
+    "resources": [
+      {
+        "id": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/track.png",
+        "path": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/track.png",
+        "mime": "image/png",
+        "sha256": "481f5c04a0fed3f856fc4fdd21ac2b2b285732eafe62ad8bc9d4404834ae7436",
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAdQAAAAGBAMAAACIiHLPAAAAG1BMVEUAAADE083E083E083E083E083E083E083E081neSEtAAAACXRSTlMAQIC//0CAv//HacvVAAAFjUlEQVR4AQGCBX36AAaIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIYABhRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERBYAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESABhRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERBYABoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhgUGLwYjJXVH0AAAAASUVORK5CYII="
+      },
+      {
+        "id": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/fill.png",
+        "path": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/fill.png",
+        "mime": "image/png",
+        "sha256": "885ce0c2101ef8c541d3b7bcd56334fa19d695279074a1fb18f8b9e8fb4ddb37",
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAAdQAAAAGBAMAAACIiHLPAAAAG1BMVEUAAAAxX8cxX8cxX8cxX8cxX8cxX8cxX8cxX8dLXrYCAAAACXRSTlMAQIC//0CAv//HacvVAAAFjUlEQVR4AQGCBX36AAaIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIYABhRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERBYAhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIAIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESABhRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERBYABoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhgUGLwYjJXVH0AAAAASUVORK5CYII="
+      },
+      {
+        "id": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/thumb.png",
+        "path": "generated/minimal-v1/slider-496-52-16-F3F7F5-C4D3CD-315FC7/thumb.png",
+        "mime": "image/png",
+        "sha256": "b429f656951765abdabb69164c894a2bc1cd19a8117144d53be7aa79244cf037",
+        "base64": "iVBORw0KGgoAAAANSUhEUgAAABIAAAASBAMAAACk4JNkAAAAG1BMVEUAAAD1/Pr1/Pr1/Pr1/PoxX8cxX8cxX8cxX8exY0j+AAAACXRSTlMAQIC//0CAv//HacvVAAAAv0lEQVR4AQG0AEv/AAAABWiIhlAAAAAABXEkREIXUAAAAFg0REREQ4UAAAWDREREREQ4UAAHNEREREREQ3AAUUREREREREQVAGJEREREREREJgCEREREREREREgAhERERERERERIAIRERERERERESACEREREREREREgAYkREREREREQmAFFEREREREREFQAHNEREREREQ3AABYNERERERDhQAABYNEREREOFAAAABXEkREIXUAAAAAAFaIiGUAAAG14oHZGuGFYAAAAASUVORK5CYII="
+      }
+    ],
+    "provenance": {
+      "kind": "programmatic-fixture",
+      "description": "Owned section-heading regression fixture. Not a real model result or user task."
+    }
+  },
+  "actions": [],
+  "capabilities": {
+    "componentSchema": "0.2",
+    "target": "pixi",
+    "layout": "flow-containers-v1",
+    "font": "environment-family",
+    "sessionRequired": true
+  },
+  "verification": {
+    "contract": "PASS",
+    "browser": "NOT_RUN",
+    "humanVisualReview": "NOT_RUN",
+    "nativeEngines": "NOT_RUN"
+  },
+  "sha256": "b15470714c9b2718b5366b3aeba4b2bdcb7b82fa14f5b60b47fb4deb66acf4ef"
+}

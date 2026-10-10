@@ -45,12 +45,14 @@ export const RAISED_SLIDER_PANEL_COMPILER_VERSION = '0.23.0';
 export const GROUPED_CONTENT_PANEL_COMPILER_VERSION = '0.24.0';
 export const ALIGNED_SETTINGS_PANEL_COMPILER_VERSION = '0.25.0';
 export const POLISHED_MENU_PANEL_COMPILER_VERSION = '0.26.0';
+export const SECTION_HEADING_PANEL_COMPILER_VERSION = '0.27.0';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
   const theme = resolveTheme(catalog, spec.theme), profile = theme.visualStyle;
   if (theme.controlStyle === 'semantic-v1') {
     if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(spec.panelSpecVersion)) throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Semantic controls require PanelSpec 0.7 or later');
+    if (theme.headingStyle) return SECTION_HEADING_PANEL_COMPILER_VERSION;
     return theme.surfaceStyle === 'minimal-v2' ? POLISHED_MENU_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'grouped-v3' ? ALIGNED_SETTINGS_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'grouped-v2' ? GROUPED_CONTENT_PANEL_COMPILER_VERSION : theme.sliderStyle === 'raised-v1' ? RAISED_SLIDER_PANEL_COMPILER_VERSION : theme.iconStyle === 'plain-v1' ? PLAIN_ICON_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'grouped-v1' ? GROUPED_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'crafted-v1' ? CRAFTED_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'minimal-v1' ? MINIMAL_PANEL_COMPILER_VERSION : theme.surfaceStyle === 'refined-v1' ? REFINED_PANEL_COMPILER_VERSION : theme.navigationStyle === 'tabs-v1' ? NAVIGATION_PANEL_COMPILER_VERSION : theme.presentationStyle === 'focused-v1' ? FOCUSED_PANEL_COMPILER_VERSION : SEMANTIC_PANEL_COMPILER_VERSION;
   }
   if (['0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) {
@@ -157,7 +159,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   const groupedBackground = grouped && appearance?.panelColor == null ? t.background : t.surface;
   const minimal = crafted || ['minimal-v1','minimal-v2'].includes(theme.surfaceStyle), refined = minimal || theme.surfaceStyle === 'refined-v1';
   const adaptive = theme.visualStyle === 'modern-v3', themed = adaptive || theme.visualStyle === 'modern-v2', modern = themed || theme.visualStyle === 'modern-v1';
-  const presentationPolicy = adaptive ? createPresentationPolicy(spec, t, theme.presentationStyle, theme.surfaceStyle) : undefined;
+  const presentationPolicy = adaptive ? createPresentationPolicy(spec, t, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle) : undefined;
   const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec, presentationPolicy) : flowVersion ? measureFlowLayout(spec, presentationPolicy) : null;
   const l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
   if (!semantic && (styled ? !adaptive : modern ? compilerVersion !== (adaptive ? ADAPTIVE_PANEL_COMPILER_VERSION : themed ? THEMED_PANEL_COMPILER_VERSION : MODERN_PANEL_COMPILER_VERSION)
@@ -382,7 +384,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION, SECTION_HEADING_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {

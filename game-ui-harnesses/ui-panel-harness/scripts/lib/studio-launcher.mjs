@@ -22,7 +22,7 @@ export function parseStudioArguments(args) {
   if (values['--sharp-module'] && !values['--assets']) fail('WORKBENCH_ASSETS_REQUIRED');
   const assets = values['--assets'] ?? 'builtin';
   if (values['--sharp-module'] && ['builtin', 'none'].includes(assets)) fail('WORKBENCH_EXTERNAL_ASSETS_REQUIRED');
-  return { port: Number(port), catalog: resolve(harnessRoot, values['--catalog'] ?? 'examples/modern-menu.catalog.json'),
+  return { port: Number(port), catalog: resolve(harnessRoot, values['--catalog'] ?? 'examples/modern-menu-headings.catalog.json'),
     assets: ['builtin', 'none'].includes(assets) ? assets : resolve(harnessRoot, assets), sharp: values['--sharp-module'], executable: values['--codex'] };
 }
 

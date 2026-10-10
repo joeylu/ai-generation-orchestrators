@@ -47,7 +47,7 @@
 | Unity交付 | 原生UGUI控件、共享状态/事件适配脚本、Prefab与unitypackage的编辑器导入工具；统一Assets/PanelHarness目录 |
 
 Studio首页保留需求描述、生成按钮、修改要求和修改按钮；右侧是实际Pixi交互预览。
-新生成默认目录为 `modern-menu`，在[简约面板美术 minimal-v1](docs/panel-minimal-art.md)基础上仅增加[纯文字菜单精修](docs/menu-defaults.md)；旧面板保持原目录和主题。新增[24种输入场景](docs/input-coverage-v2.md)为夹具覆盖，真实理解效果未新验收。下列美术试稿记录中的“未改默认”描述其各自执行时状态。
+新生成默认目录为 `modern-menu-headings`，沿用 `modern-menu` 的颜色和配方，增加[版本化分组标题展示](docs/section-headings.md)：单组单控件收起额外标题和占位，多组及Tabs保留，明确要求显示时可选择匹配主题。旧面板保持原目录和编译版本，显式采用才计一次编辑。新增[24种输入场景](docs/input-coverage-v2.md)为夹具覆盖，真实理解效果未新验收。下列美术试稿记录中的“未改默认”描述其各自执行时状态。
 用户认为该版美术仍一般；最新[声音设置美术试稿](docs/crafted-audio-study.md)参考Impeccable，提供薄荷紧凑、温润留白、横向分栏三款可试玩候选及浅深色切换。首稿获“有好一些”反馈，尚未选定或替换日常默认主题。
 上述三款是视觉变体；[不同 Skill 独立对照](docs/art-skill-comparison.md)现已完成 frontend-design / Taste / Impeccable 三次独立真实调用，6份浅深色结果及20组汇总检查通过。入口 `output/skill-art-real-v2/review/index.html`，先匿名比较、可显示名称；未设为默认主题，审美效果待用户选择。此前schema失败原记录保留。
 用户认为三种结果基本相同，继续提出布局与Apple方向；新增[Apple风格分组布局试稿](docs/apple-grouped-layout.md)，将音量、静音与恢复默认分组，提供浅深色实际Pixi与离线包。入口 `output/apple-grouped-audio-review-v3/review/index.html`；本轮模型调用0，未设为日常默认。
@@ -95,7 +95,7 @@ modern-v3 的新编辑使用 EditContext 0.14，可选择单控件，并独立�
 node scripts/check-workspace.mjs
 node --test tests/*.test.mjs
 node scripts/cli.mjs validate examples/audio-settings.panel.json
-node scripts/build-workbench.mjs --catalog examples/modern-menu.catalog.json --assets builtin --output output/my-studio
+node scripts/build-workbench.mjs --catalog examples/modern-menu-headings.catalog.json --assets builtin --output output/my-studio
 node scripts/serve-workbench.mjs --workbench output/my-studio --output-root output/my-codex-runs --port 0
 ```
 

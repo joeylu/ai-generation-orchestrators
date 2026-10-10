@@ -11,6 +11,7 @@ import { createOutputDirectory, writeNewJson } from '../src/io.mjs';
 import { digestBytes } from '../src/canonical.mjs';
 import { readStoredZip } from '../tests/unity-kit-helpers.mjs';
 import { menuRequest, menuIntent } from '../examples/menu-defaults-v1/fixture.mjs';
+import { checkInstalledHeadings } from './lib/heading-release-check.mjs';
 
 function fixtureProcess(reply, calls) {
   return (command, args, options) => {
@@ -43,7 +44,7 @@ for (const [name, bytes] of files) {
 }
 const sdk = await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).loadPanelSdk();
 assert.equal(sdk.seed.pool.index.records.length, 12); assert.equal(sdk.seed.pool.resources.length, 12);
-assert.equal(sdk.seed.catalog.id, 'modern-menu');
+assert.equal(sdk.seed.catalog.id, 'modern-menu-headings');
 assert.equal(files.has('package/src/component-adapter.mjs'), false);
 assert(![...files.keys()].some(name => /(?:node_modules|\.ts$|workbench-server|\.tmp\/|output\/)/.test(name)));
 pass('loads-outside-checkout-with-no-sibling-node-modules-or-typescript-and-twelve-pinned-icons');
@@ -90,6 +91,7 @@ await sdk.panel.validatePanelBundle(JSON.parse(new TextDecoder().decode(reread.g
 pass('downloaded-bundle-reimports-without-a-separate-asset-library');
 await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk();
 pass('generation-edit-and-export-leave-installed-package-bytes-intact');
+checks.push(...await checkInstalledHeadings(sdk,output));
 await writeFile(join(temporary, 'package/prompts/panel-intent.md'), 'tampered');
 assert.throws(() => sdk.planner.planWithCodex(prepared.context, { outputRoot: 'relative' }), /SDK_OUTPUT_ROOT_REQUIRED/);
 await assert.rejects((await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk(), /SDK_FILE_INTEGRITY/);

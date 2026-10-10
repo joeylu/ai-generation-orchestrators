@@ -45,7 +45,7 @@ export async function loadPanelSdk() {
     import('../vendor/component/lib/bundle.js'),
   ]);
   const core = createComponentCore(compiler, contract, bundle);
-  const seed = { catalog: validateCatalog(JSON.parse(await readFile(new URL('examples/modern-menu.catalog.json', root), 'utf8'))),
+  const seed = { catalog: validateCatalog(JSON.parse(await readFile(new URL('examples/modern-menu-headings.catalog.json', root), 'utf8'))),
     pool: await loadBundledCoreAssets() };
   const [code, notices, sources] = await Promise.all([
     readFile(new URL('runtime/panel-runtime.js', root), 'utf8'), readFile(new URL('THIRD_PARTY_NOTICES.txt', root), 'utf8'),

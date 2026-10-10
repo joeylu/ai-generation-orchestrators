@@ -6,6 +6,7 @@ import { measureCraftedSettings } from './crafted-presentation.mjs';
 import { measureGroupedSection } from './grouped-presentation.mjs';
 import { measureAlignedSettings } from './aligned-settings-presentation.mjs';
 import {isStandaloneMenu,measurePolishedMenu} from './menu-presentation.mjs';
+import { sectionHeadingVisible } from './section-headings.mjs';
 
 /** Opt-in modern-v3 geometry. Typed controls determine presentation; actions remain unchanged. */
 export const presentationTextWidth = (value, size) => Math.ceil([...value].reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * 0.8 : size * 1.1), 0));
@@ -18,7 +19,7 @@ export function sectionPurpose(section) {
   return 'settings';
 }
 
-export function createPresentationPolicy(spec, tokens, presentationStyle, surfaceStyle) {
+export function createPresentationPolicy(spec, tokens, presentationStyle, surfaceStyle, headingStyle) {
   const polishedMenu = surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec);
   if (surfaceStyle === 'minimal-v2') surfaceStyle = 'minimal-v1';
   const l = spec.layout, textHeight = Math.ceil(tokens.fontSize * 1.3);
@@ -37,7 +38,7 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
     const purpose = sectionPurpose(section), compact = ['form', 'dialog'].includes(purpose);
     const redundantHeading = !spec.tabs && heading(spec.title) === heading(section.title)
       && (crafted ? true : ['refined-v1','minimal-v1'].includes(surfaceStyle) ? section.id === spec.sections[0].id : compact && spec.sections.length === 1);
-    const showTitle = !redundantHeading;
+    const showTitle = sectionHeadingVisible(spec, section, headingStyle, !redundantHeading);
     const titleHeight = showTitle ? l.sectionTitleHeight + l.gap : 0;
     const explicit = spec.actionLayouts?.find(value => value.sectionId === section.id);
     if (explicit) {

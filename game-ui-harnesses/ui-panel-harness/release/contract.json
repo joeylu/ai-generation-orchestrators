@@ -1,10 +1,10 @@
 {
   "releaseContractVersion": "0.1",
   "name": "ai-ui-panel-harness",
-  "version": "0.1.0-rc.1",
-  "tag": "ui-panel-harness-v0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
+  "tag": "ui-panel-harness-v0.1.0-rc.2",
   "repository": "https://github.com/joeylu/ai-generation-orchestrators",
-  "baselineCommit": "25da55bca65fe275296b16faed6668d63ea89c1c",
+  "baselineCommit": "83ce0059706b9bf715706e6c3388199e93092a5a",
   "component": {
     "name": "ai-ui-component-harness",
     "version": "0.2.0-rc.3",
@@ -12,10 +12,20 @@
     "sha256": "58f419368492b58545fef36d5d6b40dfcb47c7737d883aabd49c6ae477e8aa88",
     "url": "https://github.com/joeylu/ai-generation-orchestrators/releases/download/ui-component-harness-v0.2.0-rc.3/ai-ui-component-harness-0.2.0-rc.3.tgz"
   },
-  "runtime": { "node": ">=22.18.0", "pixi": "8.20.1", "panelDelivery": "0.1.0", "ugui": "0.1.5", "font": "environment-family" },
+  "runtime": {
+    "node": ">=22.18.0",
+    "pixi": "8.20.1",
+    "panelDelivery": "0.1.0",
+    "ugui": "0.1.5",
+    "font": "environment-family"
+  },
   "licenseSources": [
-    { "package": "@pixi/colord", "version": "2.9.6", "file": "release/licenses/pixi-colord-LICENSE.txt",
+    {
+      "package": "@pixi/colord",
+      "version": "2.9.6",
+      "file": "release/licenses/pixi-colord-LICENSE.txt",
       "sha256": "7613d4594ee8b6163926af3435dae61c9e3d5a27cd137bd76a543ba40002d8fc",
-      "url": "https://raw.githubusercontent.com/pixijs/colord/5344fbf77b736f81cd33c21050021bc09bc9dd1d/LICENSE.md" }
+      "url": "https://raw.githubusercontent.com/pixijs/colord/5344fbf77b736f81cd33c21050021bc09bc9dd1d/LICENSE.md"
+    }
   ]
 }

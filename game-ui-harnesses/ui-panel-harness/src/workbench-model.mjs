@@ -11,6 +11,7 @@ import { createClarifiedRequest } from './clarification.mjs';
 import { createPanelEditContext, validatePanelEditProposal, checkPanelEditProposal } from './edit-planning.mjs';
 import { validateWorkbenchAssetPool, workbenchRetrieval, workbenchAssetInputs, verifyWorkbenchContextPool } from './workbench-assets.mjs';
 import { WORKBENCH_EDIT_LIMIT, validateWorkbenchEditUsage } from './workbench-edit-budget.mjs';
+import { headingThemeTarget } from './section-headings.mjs';
 
 const clone = value => structuredClone(value);
 const stale = () => ({ status: 'STALE' });
@@ -207,6 +208,31 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         const values = stateInput === undefined ? undefined : snapshotJson(stateInput);
         const candidate = await patchCandidate(base, previousUndo, patch, values);
         return await commitPanel(ticket, candidate.next, candidate.nextUndo, candidate.nextEditCount);
+      } catch (error) { return recover(ticket, error); }
+    },
+    /** Explicit heading-only theme/catalog adoption, with the ordinary edit budget and undo. */
+    async adoptSectionHeadings(mode, stateInput) {
+      const ticket = begin();
+      try {
+        guardEdit();
+        const base = clone(state), previousUndo = clone(undoEntries);
+        if (!base.panel) fail('WORKBENCH_PANEL_REQUIRED');
+        if (previousUndo.length >= 16) fail('WORKBENCH_HISTORY_LIMIT');
+        const theme = headingThemeTarget(base.panel.spec, base.panel.catalog, catalog, mode);
+        const values = validatePanelState(base.panel.spec, stateInput === undefined ? base.panel.state : stateInput);
+        if (canonicalJson(theme) === canonicalJson(base.panel.spec.theme) && canonicalJson(catalog) === canonicalJson(base.panel.catalog)) return getSnapshot();
+        const assets = await assetsFor(base.panel.spec, base.panel);
+        const before = await createPanelBundle(base.panel.spec, base.panel.catalog, core, values, assets, base.panel.compilerVersion);
+        const patch = { patchVersion: '0.1', baseSpecSha256: await digestJson(before.spec),
+          reason: `Explicit section-heading presentation adoption: ${mode}.`, operations: [{ op: 'set-theme', theme }] };
+        const { spec, receipt } = await applyPanelPatch(before.spec, patch);
+        const panel = await packagePanel(spec, catalog, values, assets);
+        if (!isCurrent(ticket)) return stale();
+        const entry = { patch, receipt, changes: describePanelChanges(before.spec, spec),
+          headingUpgrade: { version: '0.1', mode, fromCompiler: before.compilerVersion, toCompiler: panel.compilerVersion,
+            fromCatalogSha256: await digestJson(before.catalog), toCatalogSha256: await digestJson(catalog) } };
+        return await commitPanel(ticket, { ...base, phase: 'ready', context: null, proposal: null, report: null,
+          panel, history: [...base.history, entry], canUndo: true }, [...previousUndo, before], editCount() + 1);
       } catch (error) { return recover(ticket, error); }
     },
     async undo() {
