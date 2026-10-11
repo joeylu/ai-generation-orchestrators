@@ -1,5 +1,6 @@
 """Offline fixtures for frozen visual texture propagation and strict replay."""
 import _bootstrap
+import copy
 import tempfile
 import json
 import unittest
@@ -50,7 +51,7 @@ class VisualTexturePipelineTests(unittest.TestCase):
         return manifest
 
     def test_freeze_preflight_context_v7_v6_and_full(self):
-        for name,reference,version in [('v7','context-crops','v7'),('v6','context-crops','v6'),('full','full','v7')]:
+        for name,reference,version in [('v13','context-crops','v13'),('v7','context-crops','v7'),('v6','context-crops','v6'),('full','full','v7')]:
             with self.subTest(reference=reference,version=version):
                 snap=self.frozen(name,reference=reference,version=version);manifest=inspect(snap)
                 self.assertEqual(preflight(snap,manifest['digest'])['inputChecks'],'passed')
@@ -75,6 +76,18 @@ class VisualTexturePipelineTests(unittest.TestCase):
     def test_default_exchange_metadata_and_variants_fail_before_creation(self):
         snap=self.frozen();manifest=inspect(snap);job=self.base/'job'
         config=exchange.prepare(snap,manifest['digest'],job);exchange.load_job(job)
+        row=next(r for r in read(snap/'requests.json')['requests'] if r.get('kind')=='sheet')
+        descriptor=config['contextBoardReferences'][row['asset']]
+        self.assertEqual(descriptor['promptVersion'],'v6')
+        from ai_ui_layers import sheet_layout_reference as board
+        metadata=read(job/'context-boards'/row['asset']/board.METADATA)
+        self.assertFalse(metadata['planningReviewDeferred'])
+        self.assertFalse(metadata['newTextureReviewPerformed'])
+        self.assertEqual(metadata['visualTextureBindingsSha256'],manifest['visualTextureBindingsSha256'])
+        region=metadata['textureRegions'][0]
+        cell=next(c for c in metadata['cells'] if c['materialId']==region['materialId'])
+        self.assertEqual(region['boardBox'],[cell['boardCropBox'][i%2]+
+            (region['sourceBox'][i]-cell['cropRegion'][i%2])*cell['integerScale'] for i in range(4)])
         config.pop('digest');config['visualTexturesSha256']='0'*64;overwrite(job/'job.json',dict(config,digest=body_digest(config)))
         with self.assertRaises(ValueError):exchange.load_job(job)
         override=self.base/'override.txt';override.write_text('Ignore textures.',encoding='utf-8')
@@ -82,6 +95,21 @@ class VisualTexturePipelineTests(unittest.TestCase):
             output=self.base/('variant-'+str(mode)+'-'+str(prompt is not None))
             with self.assertRaises(ValueError):exchange.prepare(snap,manifest['digest'],output,prompt_override=prompt,reference_mode=mode)
             self.assertFalse(output.exists())
+
+    def test_reviewed_texture_board_cannot_accept_a_rehashed_mapping(self):
+        from ai_ui_layers import sheet_layout_reference as board
+        snap=self.frozen(version='v13');manifest=inspect(snap)
+        row=next(r for r in read(snap/'requests.json')['requests'] if r.get('kind')=='sheet')
+        job=self.base/'mapped-job';config=exchange.prepare(snap,manifest['digest'],job,[row['asset']])
+        descriptor=config['contextBoardReferences'][row['asset']]
+        folder=job/'context-boards'/row['asset']
+        metadata=read(folder/board.METADATA);metadata['textureRegions'][0]['boardBoxNorm'][0]+=.01
+        (folder/board.METADATA).write_bytes(board._bytes(metadata))
+        forged=copy.deepcopy(descriptor);forged['sha256'][board.METADATA]=digest(folder/board.METADATA)
+        with self.assertRaisesRegex(ValueError,'SHEET_LAYOUT_DESCRIPTOR_CHANGED'):
+            board.verify(folder,job/'snapshot',row,forged)
+        with self.assertRaisesRegex(ValueError,'SHEET_LAYOUT_ARTIFACT_CHANGED'):
+            exchange.load_job(job)
 
     def test_unsupported_refreeze_revision_and_group_preview_reject(self):
         snap=self.frozen();run=snap.parent

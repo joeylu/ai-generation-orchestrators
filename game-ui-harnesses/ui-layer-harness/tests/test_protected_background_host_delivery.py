@@ -89,7 +89,9 @@ class ProtectedHostDeliveryTests(unittest.TestCase):
         request=host.next_request(self.run);self.assertEqual(request['asset'],'asset-scene')
         args=request['arguments'];self.assertTrue(any(p.endswith('edit-mask.png') for p in args['referenced_image_paths']))
         self.assertTrue(any(p.endswith('preview.png') for p in args['referenced_image_paths']))
-        self.assertIn('no API inpainting mask',args['prompt'])
+        self.assertIn('The attached mask and tinted preview identify that scope.',args['prompt'])
+        self.assertIn('A deterministic program preserves source pixels outside the scope.',args['prompt'])
+        self.assertNotIn('mask',args)  # Visual references do not become an API mask.
         transport=tool_arguments(request,False);self.assertIn('referenced_image_paths',transport)
         self.assertNotIn('num_last_images_to_include',transport)
         validate(dict(kind=TRANSPORT,submissionDigest=request['submissionDigest'],arguments=transport))

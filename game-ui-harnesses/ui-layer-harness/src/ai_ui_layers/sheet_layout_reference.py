@@ -77,16 +77,21 @@ def _frozen(snapshot, row):
 @tree_result
 def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, bytes, str]:
     """Rebuild canonical metadata, PNG and prompt entirely from a frozen snapshot."""
-    if prompt_version not in ('v1', 'v2', 'v3', 'v4', 'v5'):
+    if prompt_version not in ('v1', 'v2', 'v3', 'v4', 'v5', 'v6'):
         raise ValueError('SHEET_LAYOUT_PROMPT_VERSION')
     snapshot = Path(snapshot)
     manifest, visual, plan = _frozen(snapshot, row)
     texture_doc=snapshot_input(snapshot,manifest)
     texture_bindings=None
+    deferred_textures=manifest.get('policy')=='deferred-visual-candidate-plan-v1'
+    if prompt_version=='v6' and (texture_doc is None or deferred_textures):
+        raise ValueError('REVIEWED_TEXTURE_SHEET_REQUIRED')
     if texture_doc is not None:
-        if manifest.get('policy')!='deferred-visual-candidate-plan-v1':
+        # v6 binds an automatic combined input to already reviewed textures.
+        # Historical board versions retain their original variant restrictions.
+        if not deferred_textures and prompt_version!='v6':
             raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
-        if prompt_version not in ('v2','v3','v4','v5'):raise ValueError('TEXTURE_SHEET_LAYOUT_PROMPT_V2_REQUIRED')
+        if prompt_version not in ('v2','v3','v4','v5','v6'):raise ValueError('TEXTURE_SHEET_LAYOUT_PROMPT_V2_REQUIRED')
         texture_bindings=snapshot_bindings(snapshot,manifest,visual)
     policy=snapshot_policy(snapshot,manifest)
     width, height = row['outputSize']
@@ -169,7 +174,7 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
         metadata.update(textureMappingPolicy='source-bound-integer-board-textures-v1',
             originalReferenceSha256=source_sha,visualTexturesSha256=manifest['visualTexturesSha256'],
             visualTextureBindingsSha256=manifest['visualTextureBindingsSha256'],textureRegions=texture_regions,
-            newTextureReviewPerformed=False,planningReviewDeferred=True)
+            newTextureReviewPerformed=False,planningReviewDeferred=deferred_textures)
     materials = {m['id']: m for m in visual['materials']}
     assets = {a['id']: a for a in plan['assets']}
     entries = []
@@ -177,8 +182,8 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
         key = reference['materialId']
         entry = context_references.entry(visual, materials[key], assets[key], reference,
                                          plan['canvas'], i,
-                                         include_exclusion_details=prompt_version in ('v2','v3','v4','v5'),
-                                         exclude_scene=prompt_version in ('v4','v5'))
+                                         include_exclusion_details=prompt_version in ('v2','v3','v4','v5','v6'),
+                                         exclude_scene=prompt_version in ('v4','v5','v6'))
         placement = item['boardCropBox'][:2]
         crop_size = [*reference['referenceSize'], scale]
         entry['referenceIndex'] = 1
@@ -221,13 +226,13 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
         '10% fully transparent margin within each cell. No shared backing, bridges, grid marks, labels, new borders, '
         'glow, added decoration or invented artwork. Entries: ' +
         json.dumps(entries, ensure_ascii=False, separators=(',', ':')) + '\n')
-    if prompt_version in ('v2','v3','v4','v5'):
+    if prompt_version in ('v2','v3','v4','v5','v6'):
         from .ownership_actions import board_prompt
         prompt = board_prompt(entries, (width, height), (columns, rows),
-            edit_only=prompt_version in ('v3','v4','v5'),
-            exclude_scene=prompt_version in ('v4','v5'),
-            explicit_text_removal=prompt_version=='v5')
-    if policy is not None:prompt=prompt.rstrip('\n')+generation_guidance(policy,edit_only=prompt_version in ('v3','v4','v5'))+'\n'
+            edit_only=prompt_version in ('v3','v4','v5','v6'),
+            exclude_scene=prompt_version in ('v4','v5','v6'),
+            explicit_text_removal=prompt_version in ('v5','v6'))
+    if policy is not None:prompt=prompt.rstrip('\n')+generation_guidance(policy,edit_only=prompt_version in ('v3','v4','v5','v6'))+'\n'
     if texture_doc is not None:
         prompt=prompt.rstrip('\n')+'\nSource-bound raster textures on this board only: '
         prompt+=('Each boardBoxNorm is normalized to the entire attached layout board, not original context coordinates. '

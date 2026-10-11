@@ -108,7 +108,7 @@ class MinorLayoutPolicyTests(unittest.TestCase):
         self.assertEqual((snapshot/'visual-policy.json').read_bytes(), fixture.policy_file.read_bytes())
         self.assertEqual(preflight(snapshot, result['snapshotDigest'])['inputChecks'], 'passed')
         request = next(row for row in read(snapshot/'requests.json')['requests'] if row.get('kind') == 'sheet')
-        self.assertIn(vp.generation_guidance(policy()).strip(), (snapshot/request['prompt']).read_text('utf-8'))
+        self.assertIn(vp.generation_guidance(policy(),edit_only=True).strip(), (snapshot/request['prompt']).read_text('utf-8'))
         pinned = run/'.dag/inputs/visual-policy.json'
         changed = read(pinned); changed['minorLayout'] = 'strict'
         visual_fixtures.overwrite(pinned, changed)

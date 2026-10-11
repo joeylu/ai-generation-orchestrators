@@ -178,6 +178,8 @@ class SheetLayoutReferenceTests(unittest.TestCase):
             board.verify(job, self.snapshot, self.row, changed)
 
     def test_singleton_and_unfit_grid_are_rejected(self):
+        with self.assertRaisesRegex(ValueError,'REVIEWED_TEXTURE_SHEET_REQUIRED'):
+            board.build(self.snapshot,self.row,prompt_version='v6')
         singleton = copy.deepcopy(self.row)
         singleton['materialIds'] = singleton['materialIds'][:1]
         singleton['references'] = singleton['references'][:1]
@@ -230,6 +232,8 @@ class CandidateTextureBoardTests(unittest.TestCase):
         self.assertEqual(board.build(self.snapshot,self.row,prompt_version='v2'),(metadata,png,prompt))
 
     def test_strict_texture_snapshot_still_rejects_layout_board(self):
+        with self.assertRaisesRegex(ValueError,'REVIEWED_TEXTURE_SHEET_REQUIRED'):
+            board.build(self.snapshot,self.row,prompt_version='v6')
         from ai_ui_layers import experimental_executor as exchange
         strict_row=next(r for r in read(self.strict/'requests.json')['requests'] if r.get('kind')=='sheet')
         with self.assertRaisesRegex(ValueError,'VISUAL_TEXTURE_VARIANTS_UNSUPPORTED'):

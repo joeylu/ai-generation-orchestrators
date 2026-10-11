@@ -87,8 +87,16 @@ class MinorStyleTests(unittest.TestCase):
         snapshot=root/'frozen'
         self.assertEqual((snapshot/'visual-policy.json').read_bytes(),fixture.policy_file.read_bytes())
         self.assertEqual(preflight(snapshot,result['snapshotDigest'])['inputChecks'],'passed')
+        backgrounds={a['id'] for a in read(snapshot/'execution-plan.candidate.json')['assets'] if a['role']=='background'}
         for row in read(snapshot/'requests.json')['requests']:
-            self.assertIn(generation_guidance(policy()).strip(),(snapshot/row['prompt']).read_text('utf-8'))
+            prompt=(snapshot/row['prompt']).read_text('utf-8')
+            if row['asset'] in backgrounds:
+                # v13 keeps the background request concise; the exact policy
+                # remains bound to the snapshot and independent review.
+                self.assertIn('保持原图画布、构图、视角',prompt)
+                self.assertNotIn('显式视觉策略',prompt)
+            else:
+                self.assertIn(generation_guidance(policy(),edit_only=True).strip(),prompt)
         pinned=root/'.dag/inputs/visual-policy.json'
         changed=read(pinned);changed['minorStyle']='strict'
         pinned.write_text(json.dumps(changed),encoding='utf-8')

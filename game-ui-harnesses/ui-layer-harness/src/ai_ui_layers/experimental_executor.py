@@ -124,6 +124,8 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         if not override.decode('utf-8').strip():raise ValueError('EMPTY_PROMPT_VARIANT')
     board_rows=[r for r in all_rows if r['asset'] in selected and r.get('kind')=='sheet'] if context and not layout else []
     board_prompt_version='v5' if manifest.get('contextPromptVersion')=='v13' else 'v3' if manifest.get('contextPromptVersion')=='v12' else 'v2'
+    if texture_doc is not None and manifest.get('policy')!='deferred-visual-candidate-plan-v1':
+        board_prompt_version='v6'
     if board_rows:
         # Validate every combined input before creating a job. No fallback to
         # separate attachments is allowed under the new frozen input policy.

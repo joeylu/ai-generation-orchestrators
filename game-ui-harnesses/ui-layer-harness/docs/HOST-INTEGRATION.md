@@ -95,6 +95,14 @@ HOST-DELIVERY. Old adapters that only recognize `material_review` need updating
 before selecting this new policy. This policy is included in alpha.5; alpha.4
 retains its published defaults. Keep existing runs on their original release.
 
+Automatic combined sheets with source-bound, independently reviewed raster
+textures bind board prompt v6. It uses the v5 edit/remove/keep rules and maps
+each licensed texture region into its own cell using the common integer scale.
+The original texture review and source fingerprints remain authoritative; this
+mapping performs no new texture review. Arbitrary prompt overrides and explicit
+unreviewed texture-board variants remain rejected. Existing board descriptors
+replay their originally bound version.
+
 The one composite review must inspect actual residual ordinary labels and
 numbers, including labels copied unchanged from the original. Text removal is a
 requirement, not an assumed result. Only each material's exact `preserveText`

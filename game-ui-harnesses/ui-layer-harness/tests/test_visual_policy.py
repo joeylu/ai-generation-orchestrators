@@ -177,7 +177,7 @@ class VisualPolicyTests(unittest.TestCase):
         self.assertEqual(preflight(snapshot, manifest['digest'])['inputChecks'], 'passed')
         row = next(row for row in read(snapshot / 'requests.json')['requests']
                    if row.get('kind') == 'sheet')
-        guidance = generation_guidance(policy()).strip()
+        guidance = generation_guidance(policy(),edit_only=True).strip()
         self.assertIn(guidance, (snapshot / row['prompt']).read_text(encoding='utf-8'))
         job = root / 'board-job'
         job_config = exchange.prepare(snapshot, manifest['digest'], job, [row['asset']],
