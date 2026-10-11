@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:project-intents:1",
+  "$comment": "Optional intents for plan-project. Runtime requires unique panelId values belonging to the selected pending panels and verifies emphasisIds against each visible prototype. Omitted panels receive an empty intent.",
+  "type": "array",
+  "maxItems": 64,
+  "items": { "$ref": "intent.schema.json" }
+}

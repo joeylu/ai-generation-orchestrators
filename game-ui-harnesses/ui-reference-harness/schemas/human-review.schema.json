@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:human-review:1",
+  "$comment": "Program-owned record of an explicit human decision; matching schema does not prove human review. Acceptance also binds the verified plan and final image.",
+  "type": "object", "additionalProperties": false,
+  "required": ["kind", "planSha256", "imageSha256", "layout", "style", "copy", "decision", "note", "useAsAnchor", "sha256"],
+  "properties": {
+    "kind": { "const": "ui_reference_human_review_v1" },
+    "planSha256": { "$ref": "urn:ai-game-assets:ui-reference:common:1#/$defs/sha256" },
+    "imageSha256": { "$ref": "urn:ai-game-assets:ui-reference:common:1#/$defs/sha256" },
+    "sha256": { "$ref": "urn:ai-game-assets:ui-reference:common:1#/$defs/sha256" },
+    "layout": { "enum": ["pass", "fail"] }, "style": { "enum": ["pass", "fail"] }, "copy": { "enum": ["pass", "fail"] },
+    "decision": { "enum": ["accept", "reject"] }, "note": { "type": "string", "minLength": 1, "maxLength": 2000, "pattern": "\\S" },
+    "useAsAnchor": { "type": "boolean" }
+  },
+  "allOf": [
+    { "if": { "properties": { "decision": { "const": "accept" } } }, "then": { "properties": { "layout": { "const": "pass" }, "style": { "const": "pass" }, "copy": { "const": "pass" } } } },
+    { "if": { "properties": { "useAsAnchor": { "const": true } } }, "then": { "properties": { "decision": { "const": "accept" } } } }
+  ]
+}

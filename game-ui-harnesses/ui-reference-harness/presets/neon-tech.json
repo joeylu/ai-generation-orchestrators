@@ -1,0 +1,12 @@
+{
+  "id": "neon-tech", "version": "1.0.0", "name": "未来科技",
+  "rules": {
+    "palette": { "background": "#101827", "surface": "#1D2B42", "primary": "#55DDEA", "secondary": "#B18CF4", "text": "#ECF7FF" },
+    "material": "Dark opaque composite surfaces with restrained luminous trim.",
+    "shape": "Precise geometric panels, small corner cuts and consistent thin outlines.",
+    "typography": "Readable technical sans serif; clear title and data hierarchy.",
+    "icons": "Geometric line pictograms with uniform stroke weight.",
+    "decoration": "Sparse technical details; luminous accents identify hierarchy without obscuring content.",
+    "lighting": "Controlled cyan rim highlights and restrained glow on primary actions."
+  }
+}

@@ -3,6 +3,7 @@ export { APPEARANCE_KEYS, APPEARANCE_COLORS, APPEARANCE_RADII } from './appearan
 export { validateCatalog, searchCatalog, resolveRecipe, resolveTheme } from './catalog.mjs';
 export { PanelCompileError, compilePanel, controlId, choiceId, initialPanelState } from './compiler.mjs';
 export { createPanelBundle, validatePanelBundle, panelBundleAssetInputs } from './panel-bundle.mjs';
+export { createFixedReferenceBundle, validateFixedReferenceBundle, FIXED_REFERENCE_VERSION } from './fixed-reference-panel.mjs';
 export { validatePanelAssetClosure, validatePanelAssetInputs, panelAssetKeys, panelAssetPath } from './panel-assets.mjs';
 export { projectPanelEvent, attachPanelSession } from './state.mjs';
 export { validatePanelRequest, createPlanningContext, validatePlanningContext } from './planning-context.mjs';

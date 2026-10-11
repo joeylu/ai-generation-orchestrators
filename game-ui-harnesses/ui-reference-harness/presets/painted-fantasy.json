@@ -1,0 +1,12 @@
+{
+  "id": "painted-fantasy", "version": "1.0.0", "name": "手绘奇幻",
+  "rules": {
+    "palette": { "background": "#302A27", "surface": "#E7D6AF", "primary": "#926B32", "secondary": "#5B7764", "text": "#37271D" },
+    "material": "Hand-painted parchment, warm wood and aged brass, visible restrained brush texture.",
+    "shape": "Sturdy panel frames, softly bevelled rectangular buttons and coherent corner ornaments.",
+    "typography": "Readable fantasy serif titles and quiet body lettering; preserve exact requested copy.",
+    "icons": "Painted pictograms with readable silhouettes and restrained warm outlines.",
+    "decoration": "Moderate ornaments at structural corners; keep controls and text clear.",
+    "lighting": "Warm upper-left highlights, shallow bevels and soft ambient shadows."
+  }
+}

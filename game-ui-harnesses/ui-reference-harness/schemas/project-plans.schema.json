@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:project-plans:1",
+  "$comment": "Sealed project-local preparation record. Runtime reconstructs every plan, checks shared style/accepted-anchor identities and total maximumCalls. computeCalls=0 describes preparation only, not later execution. CLI return values also include batch/review paths; these are not part of the sealed file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "projectId", "runtimeSha256", "styleSha256", "anchor", "selection", "plans", "maximumCalls", "computeCalls", "sha256"],
+  "properties": {
+    "kind": { "const": "ui_reference_project_plans_v1" },
+    "projectId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z][A-Za-z0-9_-]*$(?![\\s\\S])" },
+    "runtimeSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+    "styleSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+    "anchor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["imageSha256", "planSha256", "reviewSha256"],
+      "properties": {
+        "imageSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+        "planSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+        "reviewSha256": { "$ref": "common.schema.json#/$defs/sha256" }
+      }
+    },
+    "selection": { "enum": ["pending", "explicit-subset"] },
+    "plans": {
+      "type": "array", "minItems": 1, "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["panelId", "prototypeSha256", "run", "planSha256", "requestSha256", "maximumCalls"],
+        "properties": {
+          "panelId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z][A-Za-z0-9_-]*$(?![\\s\\S])" },
+          "prototypeSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+          "run": { "type": "string", "pattern": "^runs/[a-f0-9-]{36}$(?![\\s\\S])" },
+          "planSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+          "requestSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+          "maximumCalls": { "const": 1 }
+        }
+      }
+    },
+    "maximumCalls": { "type": "integer", "minimum": 1, "maximum": 64 },
+    "computeCalls": { "const": 0 },
+    "sha256": { "$ref": "common.schema.json#/$defs/sha256" }
+  }
+}

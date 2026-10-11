@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:intent:1",
+  "$comment": "The compiler also verifies panelId and emphasisIds against the imported visible prototype. Notes are subordinate to project style and prototype structure; natural-language conflicts require Agent/human interpretation.",
+  "type": "object", "additionalProperties": false, "required": ["kind", "panelId", "note", "emphasisIds"],
+  "properties": {
+    "kind": { "const": "ui_reference_intent_v1" },
+    "panelId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z][A-Za-z0-9_-]*$(?![\\s\\S])" },
+    "note": { "type": "string", "maxLength": 8000 },
+    "emphasisIds": { "type": "array", "maxItems": 32, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  }
+}

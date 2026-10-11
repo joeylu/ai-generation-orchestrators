@@ -15,6 +15,28 @@ permissions:
   contents: read
 
 jobs:
+  ui-references:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: game-ui-harnesses/ui-reference-harness/web/package-lock.json
+      - name: Verify reference core and fixed prototype intake offline
+        run: |
+          node --test game-ui-harnesses/ui-panel-harness/tests/fixed-reference-panel.test.mjs
+          npm --prefix game-ui-harnesses/ui-reference-harness test
+          npm --prefix game-ui-harnesses/ui-reference-harness run self-test
+      - name: Verify and build the loopback reference studio
+        working-directory: game-ui-harnesses/ui-reference-harness/web
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm test
+          npm run format:check
+          npm run build
+
   ui-components:
     runs-on: ubuntu-latest
     defaults:

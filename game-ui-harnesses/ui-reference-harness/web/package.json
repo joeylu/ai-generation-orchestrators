@@ -1,0 +1,25 @@
+{
+  "name": "ui-reference-local-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs --dev",
+    "build": "vite build",
+    "start": "node server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "format:check": "prettier --check src examples host.mjs image-export.mjs panel-sessions.mjs server.mjs style-resolution.mjs style-previews.mjs template-previews.mjs adapters tests index.html package.json",
+    "format": "prettier --write src examples host.mjs image-export.mjs panel-sessions.mjs server.mjs style-resolution.mjs style-previews.mjs template-previews.mjs adapters tests index.html package.json"
+  },
+  "dependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2",
+    "vite": "8.2.2"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

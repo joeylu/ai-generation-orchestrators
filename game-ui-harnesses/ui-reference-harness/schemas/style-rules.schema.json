@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:style-rules:1",
+  "type": "object", "additionalProperties": false,
+  "required": ["palette", "material", "shape", "typography", "icons", "decoration", "lighting"],
+  "properties": {
+    "palette": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "object", "additionalProperties": false,
+          "required": ["background", "surface", "primary", "secondary", "text"],
+          "properties": {
+            "background": { "$ref": "#/$defs/color" }, "surface": { "$ref": "#/$defs/color" },
+            "primary": { "$ref": "#/$defs/color" }, "secondary": { "$ref": "#/$defs/color" }, "text": { "$ref": "#/$defs/color" }
+          }
+        }
+      ]
+    },
+    "material": { "$ref": "#/$defs/text" }, "shape": { "$ref": "#/$defs/text" },
+    "typography": { "$ref": "#/$defs/text" }, "icons": { "$ref": "#/$defs/text" },
+    "decoration": { "$ref": "#/$defs/text" }, "lighting": { "$ref": "#/$defs/text" }
+  },
+  "$defs": {
+    "color": { "type": "string", "minLength": 7, "maxLength": 7, "pattern": "^#[a-fA-F0-9]{6}$" },
+    "text": { "type": "string", "minLength": 1, "maxLength": 2000, "pattern": "\\S" }
+  }
+}

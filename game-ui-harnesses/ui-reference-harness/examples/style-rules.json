@@ -1,0 +1,9 @@
+{
+  "palette": { "background": "#1D293D", "surface": "#E7D6AF", "primary": "#376BA5", "secondary": "#B89858", "text": "#263447" },
+  "material": "Hand-painted parchment, warm wood and restrained aged brass.",
+  "shape": "Sturdy softly bevelled panels and buttons with consistent corner ornaments.",
+  "typography": "Readable fantasy serif titles; quiet body lettering and clear hierarchy.",
+  "icons": "Simple painted pictograms with coherent outlines.",
+  "decoration": "Low to moderate density, leaving text and controls clear.",
+  "lighting": "Soft upper-left highlights with shallow bevels."
+}

@@ -1,0 +1,9 @@
+{
+  "kind": "ui_reference_style_pack_v1",
+  "metadata": { "id": "jade-custom-ui", "name": "玉色定制 UI 示例", "version": "1.0.0" },
+  "base_style": { "id": "chinese-fantasy", "version": "1.0.0" },
+  "palette": { "background": "#E5E8DE", "surface": "#FAF6E9", "primary": "#347E70", "secondary": "#AD8A4C", "text": "#253D36" },
+  "render_style": { "texture": "轻纸感，控件与文字区域保持干净。" },
+  "ui_rules": { "decoration": "少量玉石边角，省略复杂云纹。" },
+  "negative_rules": ["禁止加入龙纹或角色肖像。"]
+}

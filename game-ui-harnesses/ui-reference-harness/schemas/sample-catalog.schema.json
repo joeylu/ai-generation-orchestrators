@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:local-sample-catalog:1",
+  "$comment": "Trusted explicit local package. Runtime verifies seal, six ordered built-in identities, equal prototype/logical canvas, exact artifact bytes and each complete delivery/ZIP. This shape is not authorship or human approval proof.",
+  "type": "object", "additionalProperties": false,
+  "required": ["kind", "usage", "sampleSetSha256", "sampleIsProjectAnchor", "projectStylePolicy", "palettePolicy", "entries", "sha256"],
+  "properties": {
+    "kind": { "const": "ui_reference_local_sample_catalog_v1" },
+    "usage": { "const": "style-selection-preview" },
+    "sampleSetSha256": { "$ref": "#/$defs/sha256" },
+    "sampleIsProjectAnchor": { "const": false },
+    "projectStylePolicy": { "const": "one-reviewed-style-revision-per-project" },
+    "palettePolicy": { "const": "sample-recommendation-project-may-create-reviewed-overrides" },
+    "sha256": { "$ref": "#/$defs/sha256" },
+    "entries": { "type": "array", "minItems": 6, "maxItems": 6,
+      "items": { "$ref": "#/$defs/entry" },
+      "prefixItems": [
+        { "properties": { "id": { "const": "concept-art" } } },
+        { "properties": { "id": { "const": "pixel-cartoon" } } },
+        { "properties": { "id": { "const": "anime-cel" } } },
+        { "properties": { "id": { "const": "western-cartoon" } } },
+        { "properties": { "id": { "const": "fantasy-handpainted" } } },
+        { "properties": { "id": { "const": "chinese-fantasy" } } }
+      ]
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[a-f0-9]{64}$" },
+    "canvas": { "type": "object", "additionalProperties": false, "required": ["width", "height"],
+      "properties": { "width": { "type": "integer", "minimum": 1, "maximum": 4096 }, "height": { "type": "integer", "minimum": 1, "maximum": 4096 } } },
+    "artifact": { "type": "object", "additionalProperties": false, "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$(?![\\s\\S])" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1, "maximum": 67108864 }
+      } },
+    "entry": { "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "version", "styleSha256", "prototypeSha256", "visualReview", "image", "logicalCanvas", "pixelCanvas", "style", "manifest"],
+      "properties": {
+        "id": { "enum": ["concept-art", "pixel-cartoon", "anime-cel", "western-cartoon", "fantasy-handpainted", "chinese-fantasy"] },
+        "name": { "type": "string", "minLength": 1 }, "version": { "const": "1.0.0" },
+        "styleSha256": { "$ref": "#/$defs/sha256" }, "prototypeSha256": { "$ref": "#/$defs/sha256" },
+        "visualReview": { "const": "accepted" },
+        "image": { "$ref": "#/$defs/artifact" }, "style": { "$ref": "#/$defs/artifact" }, "manifest": { "$ref": "#/$defs/artifact" },
+        "logicalCanvas": { "$ref": "#/$defs/canvas" }, "pixelCanvas": { "$ref": "#/$defs/canvas" }
+      } }
+  }
+}

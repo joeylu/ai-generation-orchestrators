@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:coordinate-mapping:1",
+  "$comment": "Core recomputes the whole transform from the decoded PNG, prototype and frozen resolution policy. This transform alone does not prove generated control geometry.",
+  "type": "object", "additionalProperties": false,
+  "required": ["kind", "logicalCanvas", "pixelCanvas", "origin", "offset", "scale", "geometryEvidence"],
+  "properties": {
+    "kind": { "const": "ui_reference_coordinate_mapping_v1" },
+    "logicalCanvas": { "$ref": "#/$defs/canvas" }, "pixelCanvas": { "$ref": "#/$defs/canvas" },
+    "origin": { "const": "top-left" },
+    "offset": { "type": "object", "additionalProperties": false, "required": ["x", "y"], "properties": { "x": { "const": 0 }, "y": { "const": 0 } } },
+    "scale": { "type": "object", "additionalProperties": false, "required": ["x", "y"], "properties": { "x": { "$ref": "#/$defs/ratio" }, "y": { "$ref": "#/$defs/ratio" } } },
+    "geometryEvidence": { "const": "canvas-transform-only-human-layout-review-required" }
+  },
+  "$defs": {
+    "canvas": { "type": "object", "additionalProperties": false, "required": ["width", "height"], "properties": { "width": { "type": "integer", "minimum": 1, "maximum": 4096 }, "height": { "type": "integer", "minimum": 1, "maximum": 4096 } } },
+    "ratio": { "type": "object", "additionalProperties": false, "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "integer", "minimum": 1, "maximum": 4096 }, "denominator": { "type": "integer", "minimum": 1, "maximum": 4096 } } }
+  }
+}

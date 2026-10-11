@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:style-pack:1",
+  "$comment": "Data-only UI style pack. Character packs and provider configuration are not accepted. Relative PNG references are validated for traversal, reserved names and links by the runtime.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "const": "ui_reference_style_pack_v1"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "version"
+      ]
+    },
+    "base_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "concept-art",
+            "pixel-cartoon",
+            "anime-cel",
+            "western-cartoon",
+            "fantasy-handpainted",
+            "chinese-fantasy"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ]
+    },
+    "render_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visual_identity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "line": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "shape_language": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "material": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "lighting": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "texture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "render_finish": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "ui_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "frame": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "controls": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "icons": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "typography": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "decoration": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "background": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "palette": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "background": {
+              "type": "string",
+              "pattern": "^#[a-fA-F0-9]{6}$"
+            },
+            "surface": {
+              "type": "string",
+              "pattern": "^#[a-fA-F0-9]{6}$"
+            },
+            "primary": {
+              "type": "string",
+              "pattern": "^#[a-fA-F0-9]{6}$"
+            },
+            "secondary": {
+              "type": "string",
+              "pattern": "^#[a-fA-F0-9]{6}$"
+            },
+            "text": {
+              "type": "string",
+              "pattern": "^#[a-fA-F0-9]{6}$"
+            }
+          },
+          "required": [
+            "background",
+            "surface",
+            "primary",
+            "secondary",
+            "text"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "negative_rules": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "references": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9._/-]+\\.png$"
+        }
+      },
+      "required": [
+        "primary"
+      ]
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "sha256"
+      ]
+    }
+  },
+  "required": [
+    "kind",
+    "metadata"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "not": {
+          "required": [
+            "base_style"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "render_style",
+          "ui_rules"
+        ],
+        "properties": {
+          "render_style": {
+            "required": [
+              "visual_identity",
+              "line",
+              "shape_language",
+              "color",
+              "material",
+              "lighting",
+              "texture",
+              "render_finish"
+            ]
+          },
+          "ui_rules": {
+            "required": [
+              "frame",
+              "controls",
+              "icons",
+              "typography",
+              "decoration",
+              "background"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

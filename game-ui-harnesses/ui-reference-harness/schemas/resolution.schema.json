@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:ui-reference:resolution:1",
+  "oneOf": [
+    { "type": "object", "additionalProperties": false, "required": ["mode"], "properties": { "mode": { "const": "exact" } } },
+    { "type": "object", "additionalProperties": false, "required": ["mode", "minEdge", "maxEdge", "maxAspectRatioErrorBps"],
+      "properties": { "mode": { "const": "native" }, "minEdge": { "const": 256 }, "maxEdge": { "const": 4096 }, "maxAspectRatioErrorBps": { "const": 100 } } }
+  ]
+}

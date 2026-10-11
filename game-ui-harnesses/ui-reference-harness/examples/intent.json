@@ -1,0 +1,6 @@
+{
+  "kind": "ui_reference_intent_v1",
+  "panelId": "audio-settings",
+  "note": "突出已有的声音开关，保持原型结构和项目风格。",
+  "emphasisIds": []
+}

@@ -109,6 +109,11 @@ alpha correctness, checksum correctness, or path safety.
   queues, or changes to other Harness runtimes. Deterministic programmatic UI
   fixtures and separate component/canvas motion configurations are permitted;
   tests must not call image/video generation or private model services.
+- User-approved exception for `game-ui-harnesses/ui-reference-harness/web/`:
+  a loopback-only local reference-image workbench, static frontend builds and
+  offline browser/API tests are permitted. Reuse the existing Harness core;
+  retain its style, compute, retry, review and delivery contracts. This does not
+  permit deployment, authentication, databases, queues or private provider setup.
 - Do not copy a production directory wholesale. Port only allowlisted behavior
   that is covered by public contract and regression tests.
 - A decoded handoff is public only when it contains provider-neutral artifact and

@@ -14,7 +14,7 @@ implementation claim.
 | --- | --- |
 | [Artwork](artwork-harnesses/) | Image background removal and character video sequences implemented; image generation, direct image sequences, and prop video sequences planned. |
 | [Audio](audio-harnesses/) | Planned. |
-| [Game UI](game-ui-harnesses/) | UI layer generation and packaging preview, plus local UI component compiler, PixiJS workbench and offline CLI implemented. |
+| [Game UI](game-ui-harnesses/) | Panel prototypes, local UI reference CLI and workbench with six default/custom style packs and external generation exchange, UI layer packaging preview, and local UI component compiler implemented; six reference samples and one same-project three-panel pilot accepted. |
 | [Game scene](game-scene-harnesses/) | Planned. |
 
 Independent runtimes implement the current public paths:

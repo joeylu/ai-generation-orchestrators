@@ -1,0 +1,25 @@
+{
+  "panelSpecVersion": "0.10",
+  "id": "main-menu",
+  "title": "游戏大厅",
+  "theme": { "id": "modern-mint-light", "version": "0.5.0" },
+  "canvas": { "width": 960, "height": 800 },
+  "layout": {
+    "width": 480, "padding": 32, "gap": 16, "sectionGap": 24,
+    "labelWidth": 160, "rowHeight": 56, "titleHeight": 48, "sectionTitleHeight": 32,
+    "maxHeight": 640, "overflow": "error",
+    "body": { "id": "menu-body", "kind": "column", "width": "fill", "gap": 24, "align": "start",
+      "children": [ { "kind": "section", "sectionId": "navigation", "width": "fill" } ] }
+  },
+  "state": [],
+  "sections": [ { "id": "navigation", "title": "主菜单", "rows": [
+    { "id": "start-row", "kind": "button", "recipe": { "id": "settings.button.primary", "version": "0.1.0" }, "label": "", "buttonLabel": "开始游戏", "enabled": true, "event": "menu.start", "action": { "kind": "emit" } },
+    { "id": "settings-row", "kind": "button", "recipe": { "id": "settings.button.secondary", "version": "0.1.0" }, "label": "", "buttonLabel": "游戏设置", "enabled": true, "event": "menu.settings", "action": { "kind": "emit" } },
+    { "id": "exit-row", "kind": "button", "recipe": { "id": "settings.button.secondary", "version": "0.1.0" }, "label": "", "buttonLabel": "退出游戏", "enabled": true, "event": "menu.exit", "action": { "kind": "emit" } }
+  ] } ],
+  "tabs": null, "appearance": null, "buttonStyles": [],
+  "actionLayouts": [ { "sectionId": "navigation", "direction": "column", "align": "center", "gap": 16, "buttonWidth": 320, "buttonHeight": 56, "shape": "default" } ],
+  "assets": null,
+  "provenance": { "kind": "programmatic-fixture", "description": "Owned multi-panel consistency fixture; no production artwork or model output.",
+    "assumptions": ["Three vertical navigation buttons; no icons or game scene.", "Events are prototype-only; no game actions are executed."] }
+}

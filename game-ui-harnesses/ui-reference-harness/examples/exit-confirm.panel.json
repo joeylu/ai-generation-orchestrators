@@ -1,0 +1,24 @@
+{
+  "panelSpecVersion": "0.10",
+  "id": "exit-confirm",
+  "title": "退出确认",
+  "theme": { "id": "modern-mint-light", "version": "0.5.0" },
+  "canvas": { "width": 960, "height": 800 },
+  "layout": {
+    "width": 544, "padding": 32, "gap": 16, "sectionGap": 24,
+    "labelWidth": 160, "rowHeight": 56, "titleHeight": 48, "sectionTitleHeight": 32,
+    "maxHeight": 480, "overflow": "error",
+    "body": { "id": "confirm-body", "kind": "column", "width": "fill", "gap": 24, "align": "start",
+      "children": [ { "kind": "section", "sectionId": "decision", "width": "fill" } ] }
+  },
+  "state": [],
+  "sections": [ { "id": "decision", "title": "确定退出游戏吗？", "rows": [
+    { "id": "cancel-row", "kind": "button", "recipe": { "id": "settings.button.secondary", "version": "0.1.0" }, "label": "", "buttonLabel": "取消", "enabled": true, "event": "confirm.cancel", "action": { "kind": "emit" } },
+    { "id": "confirm-row", "kind": "button", "recipe": { "id": "settings.button.primary", "version": "0.1.0" }, "label": "", "buttonLabel": "确认退出", "enabled": true, "event": "confirm.exit", "action": { "kind": "emit" } }
+  ] } ],
+  "tabs": null, "appearance": null, "buttonStyles": [],
+  "actionLayouts": [ { "sectionId": "decision", "direction": "row", "align": "center", "gap": 16, "buttonWidth": 232, "buttonHeight": 56, "shape": "default" } ],
+  "assets": null,
+  "provenance": { "kind": "programmatic-fixture", "description": "Owned compact confirmation-panel consistency fixture; no production artwork or model output.",
+    "assumptions": ["Centered compact panel on the same full canvas; no scene or modal overlay.", "Two horizontal buttons; events are prototype-only."] }
+}

@@ -3,9 +3,14 @@ import { validateCatalog } from './catalog.mjs';
 import { compilePanel, defaultPanelCompilerVersion, PANEL_COMPILER_VERSION, ASSET_PANEL_COMPILER_VERSION, CONTROLS_PANEL_COMPILER_VERSION, FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, GROUPED_PANEL_COMPILER_VERSION, PLAIN_ICON_PANEL_COMPILER_VERSION, RAISED_SLIDER_PANEL_COMPILER_VERSION, GROUPED_CONTENT_PANEL_COMPILER_VERSION, ALIGNED_SETTINGS_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION, SECTION_HEADING_PANEL_COMPILER_VERSION, SECTION_GEOMETRY_PANEL_COMPILER_VERSION } from './compiler.mjs';
 import { canonicalJson, digestJson } from './canonical.mjs';
 import { validatePanelAssetInputs, panelAssetPath } from './panel-assets.mjs';
+import { FIXED_REFERENCE_VERSION, createFixedReferenceBundle, validateFixedReferenceBundle } from './fixed-reference-panel.mjs';
 
 /** An envelope around the unchanged component bundle, not a new UiBundle version. */
 export async function createPanelBundle(specInput, catalogInput, core, stateInput, assetInput, compilerVersionInput) {
+  if (specInput?.panelSpecVersion === FIXED_REFERENCE_VERSION) {
+    if (catalogInput != null || stateInput !== undefined || assetInput !== undefined || compilerVersionInput !== undefined) throw new Error('FIXED_REFERENCE_OVERRIDES');
+    return createFixedReferenceBundle(specInput, core);
+  }
   const spec = validatePanelSpec(specInput), catalog = validateCatalog(catalogInput);
   const sized = spec.panelSpecVersion === '0.14', wrapping = sized || spec.panelSpecVersion === '0.13', titled = wrapping || spec.panelSpecVersion === '0.12', typography = titled || spec.panelSpecVersion === '0.11', individual = typography || spec.panelSpecVersion === '0.10', arranged = individual || spec.panelSpecVersion === '0.9', styled = arranged || spec.panelSpecVersion === '0.8', forms = styled || spec.panelSpecVersion === '0.7', tabbed = forms || spec.panelSpecVersion === '0.6', progress = tabbed || spec.panelSpecVersion === '0.5', flow = progress || spec.panelSpecVersion === '0.4', controls = flow || spec.panelSpecVersion === '0.3';
   const state = stateInput === undefined ? undefined : snapshotJson(stateInput);
@@ -30,6 +35,7 @@ export async function createPanelBundle(specInput, catalogInput, core, stateInpu
 }
 
 export async function validatePanelBundle(input, core) {
+  if (input?.panelBundleVersion === FIXED_REFERENCE_VERSION) return validateFixedReferenceBundle(input, core);
   input = snapshotJson(input);
   if (!input || Object.getPrototypeOf(input) !== Object.prototype) throw new Error('PANEL_BUNDLE_OBJECT');
   // Recompile the embedded authored inputs: hashes alone do not prove that output follows the spec.

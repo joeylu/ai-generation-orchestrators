@@ -1,0 +1,12 @@
+{
+  "id": "casual-clean", "version": "1.0.0", "name": "清新休闲",
+  "rules": {
+    "palette": { "background": "#E9F3F1", "surface": "#FFFFFF", "primary": "#228578", "secondary": "#E8B65C", "text": "#173B38" },
+    "material": "Clean matte surfaces, soft plastic controls, restrained shading.",
+    "shape": "Rounded panels and buttons, consistent medium corner radii and thin borders.",
+    "typography": "Friendly sans serif; clearly separated title, section and body hierarchy.",
+    "icons": "Simple rounded pictograms with consistent stroke weight.",
+    "decoration": "Low density; generous breathing room, no ornate framing.",
+    "lighting": "Soft upper-left highlights and subtle short shadows."
+  }
+}

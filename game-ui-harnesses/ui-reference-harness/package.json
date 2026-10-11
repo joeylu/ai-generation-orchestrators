@@ -1,0 +1,13 @@
+{
+  "name": "ai-ui-reference-harness",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18.0" },
+  "exports": "./src/index.mjs",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "self-test": "node ui-reference.mjs self-test",
+    "doctor": "node ui-reference.mjs doctor"
+  }
+}

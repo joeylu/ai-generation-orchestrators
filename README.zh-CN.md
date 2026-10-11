@@ -7,6 +7,13 @@
 [游戏 UI](game-ui-harnesses/)和[游戏场景](game-scene-harnesses/)四大类。
 未实现能力只提供明确标记为 `planned` 的文档，不伪装成可调用 Skill。
 
+新增 [UI 参考图 Harness](game-ui-harnesses/ui-reference-harness/) 源码预览：
+接入面板原型、管理项目统一风格、六种默认 UI 包／定制规则包／用户风格 PNG、冻结生图交换及同风格整套交付。
+支持原生分辨率与原型逻辑坐标映射、首图锚点及同项目计划集合；真实生成需要外部适配器或宿主工具。
+六种默认样本和概念图风格同项目三面板试跑已按参考图用途验收，整套交付通过校验。
+可选 [本地参考图工作台](game-ui-harnesses/ui-reference-harness/web/README.md)
+已接入项目／风格／原型管理、冻结请求与单次生成交换、图片验收和 ZIP 下载，仅监听本机。
+
 各 Harness 可独立安装：`ai-image-background-removal` 负责单图抠图，
 `ai-frame-animation` 负责视频计划、生成尝试、后处理与透明序列交付。
 [UI 图层 Harness](game-ui-harnesses/ui-layer-harness/) 负责原图规划、生图、归位与 PNG 图层包；

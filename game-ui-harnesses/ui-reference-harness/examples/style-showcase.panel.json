@@ -1,0 +1,52 @@
+{
+  "panelSpecVersion": "0.10",
+  "id": "style-showcase",
+  "title": "游戏设置",
+  "theme": { "id": "modern-mint-light", "version": "0.5.0" },
+  "canvas": { "width": 960, "height": 800 },
+  "layout": {
+    "width": 704, "padding": 32, "gap": 16, "sectionGap": 24,
+    "labelWidth": 160, "rowHeight": 56, "titleHeight": 48, "sectionTitleHeight": 32,
+    "maxHeight": 640, "overflow": "error",
+    "body": { "id": "showcase-body", "kind": "column", "width": "fill", "gap": 24, "align": "start",
+      "children": [
+        { "kind": "section", "sectionId": "preferences", "width": "fill" },
+        { "kind": "section", "sectionId": "actions", "width": "fill" },
+        { "kind": "section", "sectionId": "display", "width": "fill" }
+      ] }
+  },
+  "state": [
+    { "id": "volume", "type": "number", "initial": 70, "min": 0, "max": 100, "step": 1 },
+    { "id": "enabled", "type": "boolean", "initial": true },
+    { "id": "quality", "type": "enum", "initial": "high", "options": [
+      { "id": "low", "label": "流畅" }, { "id": "high", "label": "高清" }
+    ] },
+    { "id": "brightness", "type": "number", "initial": 60, "min": 0, "max": 100, "step": 1 },
+    { "id": "navigation", "type": "enum", "initial": "general", "options": [
+      { "id": "general", "label": "常规" }, { "id": "display", "label": "显示" }
+    ] }
+  ],
+  "sections": [
+    { "id": "preferences", "title": "偏好设置", "rows": [
+      { "id": "volume-row", "kind": "slider", "recipe": { "id": "settings.slider", "version": "0.1.0" }, "label": "主音量", "bind": "volume", "enabled": true, "event": "settings.volume", "format": { "fractionDigits": 0, "prefix": "", "suffix": "%" } },
+      { "id": "enabled-row", "kind": "switch", "recipe": { "id": "settings.switch", "version": "0.1.0" }, "label": "启用声音", "bind": "enabled", "enabled": true, "event": "settings.enabled" },
+      { "id": "quality-row", "kind": "select", "recipe": { "id": "settings.select", "version": "0.1.0" }, "label": "画面质量", "bind": "quality", "enabled": true, "event": "settings.quality" }
+    ] },
+    { "id": "actions", "title": "操作", "rows": [
+      { "id": "reset-row", "kind": "button", "recipe": { "id": "settings.button.secondary", "version": "0.1.0" }, "label": "", "buttonLabel": "恢复默认", "enabled": true, "event": "settings.reset", "action": { "kind": "reset-initial", "fields": ["volume", "enabled", "quality"] } },
+      { "id": "save-row", "kind": "button", "recipe": { "id": "settings.button.primary", "version": "0.1.0" }, "label": "", "buttonLabel": "保存设置", "enabled": true, "event": "settings.save", "action": { "kind": "emit" } }
+    ] },
+    { "id": "display", "title": "显示设置", "rows": [
+      { "id": "brightness-row", "kind": "slider", "recipe": { "id": "settings.slider", "version": "0.1.0" }, "label": "亮度", "bind": "brightness", "enabled": true, "event": "settings.brightness", "format": { "fractionDigits": 0, "prefix": "", "suffix": "%" } }
+    ] }
+  ],
+  "tabs": { "id": "navigation", "bind": "navigation", "event": "settings.navigation", "enabled": true, "recipe": { "id": "navigation.tabs", "version": "0.1.0" }, "pages": [
+    { "id": "general", "label": "常规", "sections": ["preferences", "actions"] },
+    { "id": "display", "label": "显示", "sections": ["display"] }
+  ] },
+  "appearance": null,
+  "buttonStyles": [],
+  "actionLayouts": [ { "sectionId": "actions", "direction": "row", "align": "end", "gap": 16, "buttonWidth": 232, "buttonHeight": 56, "shape": "default" } ],
+  "assets": null,
+  "provenance": { "kind": "programmatic-fixture", "description": "Owned uniform UI style comparison fixture; no production artwork or model output.", "assumptions": ["All six styles use this same saved general-tab view, copy and geometry.", "Hidden display controls stay hidden; the closed quality dropdown is not an expanded list.", "This first comparison prototype has no asset-backed icons or item list."] }
+}
