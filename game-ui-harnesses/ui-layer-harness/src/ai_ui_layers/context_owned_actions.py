@@ -20,13 +20,14 @@ def _json(value):
     return json.dumps(value, ensure_ascii=False, separators=(',', ':'))
 
 
-def build(visual, entries, layout, group=None):
+def build(visual, entries, layout, group=None, *, isolated_contacts=False, scoped_appearance=False):
     """Keep appearance evidence for owners, never promote foreign prose to drawing text.
 
     Every foreign object retains its owner, identity, kind and reference locator.
     Repeated instances are not deduplicated. Reference boxes remain locators.
     """
     objects = {obj['id']: obj for obj in visual['objects']}
+    from .ownership_prompt_scope import project, visual_name, SCOPE_RULE
     lines = [
         'OWNERSHIP FIRST. Generate only the assigned independent material in each cell.',
         OWNERSHIP_PRIORITY,
@@ -35,6 +36,7 @@ def build(visual, entries, layout, group=None):
         'Identical-looking objects with separate IDs are distinct instances; keep their individual assignments. '
         'Use one common uniform scale for a sheet; unused cells must remain fully transparent.',
     ]
+    if scoped_appearance:lines.append(SCOPE_RULE)
     for entry in entries:
         removed = []
         for owner in entry['exclude']:
@@ -44,11 +46,17 @@ def build(visual, entries, layout, group=None):
                 obj = objects[member['id']]
                 if obj['materialId'] != owner['materialId']:
                     raise ValueError('GENERATION_FOREIGN_OWNER_MISMATCH')
-                removed.append(dict(materialId=owner['materialId'], objectId=member['id'],
+                action=dict(materialId=owner['materialId'], objectId=member['id'],
                     kind=obj['kind'], relation=owner['relation'],
-                    referenceBox=member.get('referenceBox', owner['referenceBox'])))
+                    referenceBox=member.get('referenceBox', owner['referenceBox']))
+                if scoped_appearance:
+                    action['visualName']=visual_name(dict(objectId=member['id'],appearance=obj['label']))
+                removed.append(action)
         if not entry['keepOnly']:
             raise ValueError('GENERATION_OWNED_OBJECTS_REQUIRED')
+        owned=project(entry['keepOnly'],[
+            dict(objectId=row['objectId'],appearance=row['visualName']) for row in removed
+        ]) if scoped_appearance else entry['keepOnly']
         lines.extend([
             f'CELL {entry["cellIndex"]}; attached reference {entry["referenceIndex"]}; owner {entry["materialId"]}.',
             'DELETE every listed foreign unit completely, including its body, backing, frame, '
@@ -56,8 +64,14 @@ def build(visual, entries, layout, group=None):
             *['DELETE '+_json(item) for item in removed],
             FOREIGN_REMOVAL_RULES,
             'KEEP exactly these owned objects; preserve their appearance only within this ownership scope:',
-            *['KEEP '+_json(part) for part in entry['keepOnly']],
+            *['KEEP '+_json(part) for part in owned],
         ])
+        if isolated_contacts:
+            lines.append('CONTACT OWNERSHIP: a neighboring unit remains foreign even where it touches an owned '
+                'edge or appears as a narrow clipped strip in this crop. Do not attach that strip, its selected '
+                'underline, border or shadow to KEEP. If a handle, knob or icon is assigned to another owner, '
+                'exclude its entire graphic here; do not output an assembled control plus a second separate part. '
+                'Continue only the existing KEEP surface beneath a removed overlay, using the original reference.')
         if group:
             columns=group['grid'][0];index=entry['cellIndex']
             lines.append(f'Cell {index} uses zero-based column {index%columns}, row {index//columns}.')

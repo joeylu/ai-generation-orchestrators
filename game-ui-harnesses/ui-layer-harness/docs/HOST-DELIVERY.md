@@ -6,6 +6,37 @@ and measurable uniform fitting, and uses a shared prompt contract to prevent
 duplicate ownership and surface/detail confusion. Technical integrity remains
 mandatory; see [visual warning policy](VISUAL-WARNING-POLICY.md).
 
+New fresh-reference host runs freeze
+`planningCapacityPolicy=source-geometry-request-capacity-v1` and, for sheets,
+default to `generationGroupingPolicy=compact-controls-context-grid-v3`.
+The latter admits compatible complete cards that own illustrations, keeping
+each card's frame, illustration and attached symbols together. These cards use
+their own grouping family, conservative size/aspect compatibility, full reference
+resolution, transparent margins and at most six members. Flat controls, scenes,
+logos, unknown artwork and incompatible large materials do not join that family.
+Explicit older grouping policies retain their original results.
+
+M1 receives the frozen image/review limits. After its original answer is verified,
+the program writes `planning-capacity.json` from source pixel geometry **before
+preparing or reserving M2**. `host-status.planningCapacity` reports material count,
+actual grouped request count, sheets/standalone counts and downstream budgets.
+The estimate does not certify visual correctness. If a true capacity shortage
+remains, it is terminal before M2 or images: the program never silently raises
+the budget, omits materials, downsamples them or retries a model. After M2, the
+actual frozen groups must exactly match this report before image execution is
+prepared. Historical jobs without this policy are not migrated.
+
+New warning reviews bind `coverageTextPolicy=exact-fragments-occurrences-v3`.
+Retained sign lettering and removed business titles can share word fragments.
+The program preserves the original plan and response, records each overlapping
+pair as `COVERAGE_PRESERVED_TEXT_CONFLICT`, and carries it into the delivery's
+planning warnings under the explicit v5 policy. It never asserts a visual pass
+or silently resolves that ambiguity. Invalid owners, missing fragments, invalid
+schemas, evidence changes and accepted/indeterminate requests still fail.
+Repeated fragments are retained as separate occurrences in their original order;
+they are not deduplicated or repaired. Strict reviews and historical v1/v2 text
+contracts keep their original behavior.
+
 New local warning runs freeze `bodyReviewPolicy=final-composite-first-v1` by
 default. Material review remains one call per generated request, including a
 whole sheet. After those reviews the program exports all layers, viewport and
@@ -15,6 +46,26 @@ visual acceptance remain unverified. The terminal status is diagnostic, even if
 all sheet cuts succeeded. Set `bodyReviewPolicy=every-reviewed-foreground-v1`
 in a new configuration to request the exhaustive observation path. Historical
 configurations missing this field retain that path.
+
+New fast warning runs with fresh reference planning default to
+`layoutPlanningPolicy=fresh-m1-layout-contract-v1` when no layout sidecar is
+supplied. M1 then produces
+`layoutRegistration` with its material plan, M2 checks the original declarations,
+and the program freezes them before the first image reservation. This requires
+no old layout sidecar or extra planning call. Declared panel structure also
+enters the initial generation prompt, including section bands and surface gaps.
+See
+[automatic layout](HOST-LAYOUT-AUTOMATION.md).
+
+New host planning reviews with `layoutRegistration` bind
+`reviewIssueIdPolicy=declared-layout-issue-ids-v1`. Finding IDs may name materials,
+objects or exact constraint IDs declared in that source plan. The response schema,
+receiver and offline freeze verification share that whitelist; invented IDs still
+fail. The review packet also binds a byte-identical clean full reference beside
+its overlay and focus images. Geometry findings remain warnings only under the
+explicit warning policy. Historical packets without this field retain their
+original schemas and identifier scope; failed answers are never repaired or
+received again in place.
 
 The same new local warning configurations freeze
 `materialPreparationPolicy=record-native-clipping-for-diagnostic-v1` and
@@ -30,6 +81,61 @@ observations and changed evidence still stop. No retry or answer repair occurs.
 Batch verification shares a verified source job and snapshot only within one
 read operation, then hashes the input set again before returning. There is no
 trust cache across operations.
+
+New local warning runs freeze `maximumConcurrentMaterialReviews=3`; other new
+runs default to 1. An explicit integer from 1 to 4 overrides this limit before
+the configuration and authorization scope are frozen. This changes dispatch
+concurrency, not the number of model calls: every generation request, including
+a whole sheet, still gets one independent review. Planning and body observation
+retain serial reservations.
+
+New local warning runs also freeze `maximumConcurrentImageCalls=3`; other new
+runs default to 1. An explicit integer from 1 to 4 overrides the image limit.
+In the image stage, `host-next --count 3` reserves up to three distinct image
+requests with individual frozen arguments and submission digests. The host
+dispatches those image-tool calls concurrently and receives each original PNG
+separately, in any order. `availableImageSlots` exposes free usable slots.
+One receipt frees only its own slot; pending requests are never eligible again.
+The total `maximumImageCalls` budget and sheets grouping remain unchanged.
+An unknown or failed request stops new dispatch; preserve late actual results
+at the host without resubmitting. Historical image jobs missing a concurrency
+field remain serial. Direct experimental jobs are serial unless prepared with
+`--max-concurrent-calls`; their `next --count` uses the same bounded reservations.
+
+New runs also freeze `materialReviewDispatchPolicy=inline-material-review-packet-v1`.
+Each material scope row supplies `reviewPacketPath` and `reviewPacketSha256`.
+The program-produced `dispatch.json` contains the exact frozen prompt, response
+schema, comparison metadata and ordered image list with fingerprints. The host
+passes its contents and **all** listed images directly to one independent visual
+call. The reviewer returns JSON; it does not need a shell, Python discovery,
+repository reads or local schema validation. The receiving program validates
+the original answer bytes. Ownership evidence remains mandatory for every
+assigned object; keep each observation concise and concrete. Protected regions,
+texture exceptions, reuse rules and extra diagnostic images remain bound.
+The host must bind the actual outer request hash and preserve the genuine
+dispatch, return and original response evidence as before. A packet is input
+preparation, not proof that any model executed or accepted the result.
+
+After authorizing the scope, `host-next --run RUN --count 3` reserves up to three
+distinct available material requests under one lock and checkpoint. It returns
+`reservations`, each with its own `currentRequest` and `submissionDigest`.
+Without `--count`, the single-request response shape is unchanged. The host may
+dispatch reserved reviews concurrently and call `host-receive` separately in any
+return order. `host-status` exposes `outstandingRequestIds`,
+`unreservedRequestCount` and `availableReviewSlots`; `ready` can coexist with
+outstanding calls when another unreserved request fits the bound. Once all slots
+are occupied it reports `awaiting_result`. Never submit an outstanding request
+again. A count exceeding free concurrency slots fails before any reservation;
+fewer remaining unreserved requests yield a smaller batch. Unknown acceptance,
+timeout or technical failure remains terminal for the run, including when other
+reviews are outstanding. Preserve late answers at the host; do not redispatch.
+
+To retain serial dispatch and separate reviewer files in a new run, set
+`maximumConcurrentMaterialReviews=1` and
+`materialReviewDispatchPolicy=separate-material-review-files-v1`. Historical
+configurations/scopes without these fields retain their serial behavior and are
+never migrated. The CLI prepares reservations only; the host must actually use
+concurrent calls to realize the wall-clock improvement.
 
 Fresh approximate runs use [body observation v3](BODY-SOFT-EFFECTS.md), separating
 the semantic body anchor from explicitly observed external shadows/glow. The
@@ -47,8 +153,8 @@ strict runs and candidate runs retain their behavior.
 
 For new workflows, explicitly set `generationMode=sheets`, which is also the
 runtime default. The workflow performs independent planning review, freezes
-grouped requests with context crops and v8 ownership-first prompts,
-acquires all native images serially, reviews every
+grouped requests with context crops and v10 owner-scoped prompts,
+acquires native images within the frozen concurrency limit, reviews every
 actual image request, extracts materials, observes foreground whole bodies,
 preserves complete material storage, packages an original-size viewport, and
 creates a three-way comparison. It never calls a model or native generation tool.
@@ -149,7 +255,8 @@ host independently invokes its configured tool. Repeated `host-next` cannot
 resubmit a pending request. Fresh M1, planning review, native images, material review, and
 body observation have separate fresh authorizations. Material review is one
 aggregate scope frozen after all images are received; it binds every actual
-request and attachment, then reserves one review at a time.
+request and attachment, then reserves distinct reviews within its frozen
+concurrency limit. Every request remains single-use.
 
 New material review reference/generated observation attachments display native
 PNG alpha composited on an opaque neutral checkerboard. Their mapping metadata
@@ -183,6 +290,17 @@ workflow. A failed or unknown dispatch is terminal through `host-fail --run RUN
 --digest SUBMISSION_DIGEST --reason TEXT`.
 
 ## Formal body observations and uniform fitting
+
+Diagnostic placement gaps are now measured after rendering and recorded as
+nonblocking warnings. For an existing sample, the independent
+[`revise-layout-candidate` step](DECLARED-LAYOUT-CANDIDATES.md) can reuse verified
+sources with explicitly declared frame sizing, internal row landmarks and
+related-control constraints. This candidate does not replace formal body
+observation or alter a historical frozen run's preserve-sizing contract.
+New fast warning runs can now execute it automatically using a frozen
+[`layoutContract` planning sidecar](HOST-LAYOUT-AUTOMATION.md), with no additional
+model calls. The selected delivery path and final comparison follow the corrected
+candidate; absent declarations retain the base diagnostic with a warning.
 
 Fresh approximate host runs default to
 `bodyObservationPolicy=host-body-observation-soft-effects-v3` and the explicit

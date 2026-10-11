@@ -104,6 +104,47 @@ class MaterialCleanupTests(unittest.TestCase):
         request=ex.next_request(job);ex.fail(job,request['submissionDigest'],'fixture unknown receipt')
         with self.assertRaisesRegex(ValueError,'NOT_READY_NO_RESUBMIT'):ex.next_request(job)
 
+    def test_sheet_snapshot_derives_one_bound_edit_without_recompiling_or_authorizing(self):
+        from ai_ui_layers.sheet_pixels import prepare, NEAREST_SEAM
+        from ai_ui_layers.extract_sheets import partition_cells
+        snapshot=self.root/'sheet-only';frozen=freeze(self.run,snapshot,5,generation_mode='sheets')
+        row=next(r for r in read(snapshot/'requests.json')['requests'] if r.get('kind')=='sheet')
+        mid=row['materialIds'][0];source=self.root/'sheet-received'
+        self.make_source(snapshot,frozen['digest'],source,row['asset'])
+        before={p.relative_to(snapshot).as_posix():digest(p) for p in snapshot.rglob('*') if p.is_file()}
+        job=self.root/'one-sheet-cell'
+        import io
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        from ai_ui_layers.delivery_dag import main
+        output=io.StringIO()
+        args=['ui_layer.py','prepare-material-cleanup','--snapshot',str(snapshot),
+            '--snapshot-digest',frozen['digest'],'--output',str(job),'--material-id',mid,
+            '--received-job',str(source),'--request-id',row['asset'],
+            '--cleanup-source-cell-policy',cleanup.PREPARED_CELL_POLICY]
+        with patch('sys.argv',args),redirect_stdout(output):main()
+        config=json.loads(output.getvalue())
+        actual,index=ex.load_job(job)
+        self.assertEqual(actual['generationMode'],'sheets');self.assertEqual(actual['materialCount'],1)
+        self.assertEqual(actual['assets'],[mid]);self.assertEqual(actual['maximumCalls'],1)
+        self.assertNotIn('kind',index[mid]);self.assertFalse((job/'authorization.json').exists())
+        self.assertEqual(ex.status(job)['status'],'awaiting_authorization')
+        lineage=read(job/'cleanup/source-lineage.json')
+        self.assertEqual(lineage['materialSourceSha256'],digest(job/'cleanup/cleanup-source.png'))
+        prepared=self.root/'prepared-sheet.png';prepare(source/'attempts'/row['asset']/'raw.png',prepared)
+        with Image.open(prepared) as image, Image.open(job/'cleanup/cleanup-source.png') as cell:
+            boxes,_=partition_cells(image,row,NEAREST_SEAM)
+            self.assertEqual(cell.tobytes(),image.crop(boxes[0]).tobytes())
+        self.assertEqual(before,{p.relative_to(snapshot).as_posix():digest(p) for p in snapshot.rglob('*') if p.is_file()})
+        # A rehashed arbitrary output size cannot escape the frozen owner plan.
+        changed={k:v for k,v in config.items() if k!='digest'}
+        changed['cleanupRequest']['outputSize']=[1,1]
+        changed['digest']=ex.body_digest(changed)
+        (job/'job.json').write_text(json.dumps(changed),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'DERIVED_REQUEST_CHANGED'):
+            ex.authorize(job,changed['digest'],'offline forged edit approval')
+        self.assertFalse((job/'authorization.json').exists())
+
     def test_interrupted_preparation_cannot_authorize_or_dispatch_ordinary_job(self):
         from unittest.mock import patch
         job=self.root/'interrupted-cleanup'
@@ -157,7 +198,8 @@ class MaterialCleanupTests(unittest.TestCase):
             item['appearance']='FOREIGN_APPEARANCE_MUST_NOT_BE_A_DRAWING_INSTRUCTION; preserve shiny details. '*30
         # Foreign descriptions remain complete in frozen inputs but cannot affect
         # the new drawing prompt or make it request those visual details.
-        self.assertEqual(cleanup._prompt(altered,cleanup.PROMPT_VERSION),prompt)
+        historical=cleanup._prompt(inputs,cleanup.OWNERSHIP_PROMPT_VERSION)
+        self.assertEqual(cleanup._prompt(altered,cleanup.OWNERSHIP_PROMPT_VERSION),historical)
         self.assertLess(len(prompt),len(cleanup._prompt(altered)))
         self.assertNotIn('FOREIGN_APPEARANCE_MUST_NOT',prompt)
 
@@ -181,7 +223,7 @@ class MaterialCleanupTests(unittest.TestCase):
                 objectId='foreign_object_'+str(index),relation=relation,
                 referenceBox=[.1,.2,.3,.4],appearance='preserve foreign artwork'))
         inputs['ownedOnly'][0]['appearance']='Assembled control with its parent track and button.'
-        prompt=cleanup._prompt(inputs,cleanup.PROMPT_VERSION)
+        prompt=cleanup._prompt(inputs,cleanup.OWNERSHIP_PROMPT_VERSION)
         self.assertIn(OWNERSHIP_PRIORITY,prompt)
         self.assertIn(FOREIGN_REMOVAL_RULES,prompt)
         self.assertLess(prompt.index(OWNERSHIP_PRIORITY),prompt.index('ownedOnly'))
@@ -193,7 +235,7 @@ class MaterialCleanupTests(unittest.TestCase):
         self.assertIn(inputs['ownedOnly'][0]['appearance'],prompt)
         changed=json.loads(json.dumps(inputs))
         for item in changed['removeForeign']:item['appearance']='NEW FOREIGN INSTRUCTION'
-        self.assertEqual(cleanup._prompt(changed,cleanup.PROMPT_VERSION),prompt)
+        self.assertEqual(cleanup._prompt(changed,cleanup.OWNERSHIP_PROMPT_VERSION),prompt)
         changed['removeForeign'][0]['relation']='unknown'
         with self.assertRaisesRegex(ValueError,'CLEANUP_FOREIGN_RELATION'):
             cleanup._prompt(changed,cleanup.PROMPT_VERSION)

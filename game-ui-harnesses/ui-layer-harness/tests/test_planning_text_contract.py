@@ -7,12 +7,13 @@ import tempfile
 import unittest
 
 from jsonschema import Draft202012Validator, ValidationError
-from ai_ui_layers.coverage_review import REGIONS, EXACT_TEXT_POLICY, coverage_findings
+from ai_ui_layers.coverage_review import REGIONS, EXACT_TEXT_POLICY, TEXT_FINDINGS_POLICY, TEXT_OCCURRENCES_POLICY, coverage_findings
 from ai_ui_layers.evaluate import digest, read, save
 from ai_ui_layers.planning_normalization import (
     POLICY, provider_schema, normalize, derive, verified_plan_path, m1_plan_path)
 from ai_ui_layers.review_evidence import build_catalog, build_review_schema, resolve_review, PROTOCOL_V3
 from ai_ui_layers.planning_review_policy import split
+from ai_ui_layers.visual_policy import warning_policy
 
 FIXTURES = Path(__file__).parent/'fixtures/planning-fad597a0'
 FIXTURE_SHA256 = {
@@ -72,6 +73,65 @@ class TextContractTests(unittest.TestCase):
         old['coverageAudit'][0]['observedArtwork'][0].pop('businessText')
         with self.assertRaisesRegex(ValueError, 'COVERAGE_PRESERVED_TEXT_CONFLICT'):
             coverage_findings(old, self.mixed_plan())
+
+    def test_shared_sign_and_title_words_are_visible_findings_under_new_policy(self):
+        plan=self.mixed_plan();plan['materials'][1]['preserveText']=['KOI','JOURNAL']
+        review=self.typed_text_audit(plan,'Koi Journal');before=copy.deepcopy(review)
+        blockers,warnings=split(review,plan,warning_policy(),TEXT_FINDINGS_POLICY)
+        self.assertEqual(blockers,[])
+        self.assertEqual(warnings[0]['code'],'COVERAGE_PRESERVED_TEXT_CONFLICT')
+        self.assertEqual(warnings[0]['ids'],['asset-panel'])
+        self.assertEqual(warnings[0]['textConflicts'],[
+            dict(preservedText='KOI',businessText='Koi Journal'),
+            dict(preservedText='JOURNAL',businessText='Koi Journal')])
+        self.assertEqual(review,before)
+        self.assertEqual(plan['materials'][1]['preserveText'],['KOI','JOURNAL'])
+        self.assertEqual(split(review,plan,coverage_text_policy=TEXT_FINDINGS_POLICY)[0],warnings)
+        with self.assertRaisesRegex(ValueError,'COVERAGE_PRESERVED_TEXT_CONFLICT'):
+            split(review,plan,warning_policy(),EXACT_TEXT_POLICY)
+
+    def test_new_text_findings_policy_still_rejects_invalid_owner_and_empty_fragments(self):
+        for changes in (dict(materialId='invented'),dict(materialId=None),dict(textFragments=[' '])):
+            review=self.typed_text_audit(self.mixed_plan())
+            review['coverageAudit'][0]['businessText'][0].update(changes)
+            with self.assertRaises((ValueError,ValidationError)):
+                split(review,self.mixed_plan(),warning_policy(),TEXT_FINDINGS_POLICY)
+
+    def typed_text_audit(self,plan,fragment='Recipes'):
+        return dict(issues=[],cosmeticIssues=[],planEvidenceCatalogDigest=build_catalog(plan)['digest'],
+            planEvidenceProtocol=PROTOCOL_V3,coverageAudit=[dict(region=name,observedArtwork=[],
+                businessText=[dict(artwork='Floating title',materialId='asset-panel',
+                    evidence='Title is separate from the physical sign.',textFragments=[fragment])] if i==0 else [],
+                emptyRegionEvidence=None if i==0 else 'No artwork here.') for i,name in enumerate(REGIONS)])
+
+    def test_occurrence_policy_accepts_repeated_fragments_without_rewriting_answer(self):
+        plan=self.mixed_plan();review=self.typed_text_audit(plan)
+        fragments=['Recipes','Recipes','•','•']
+        review['coverageAudit'][0]['businessText'][0]['textFragments']=fragments
+        before=copy.deepcopy(review)
+        schema=build_review_schema(build_catalog(plan),None,None,coverage_text_policy=TEXT_OCCURRENCES_POLICY)
+        Draft202012Validator(schema).validate(review)
+        resolved=resolve_review(review,plan,TEXT_OCCURRENCES_POLICY)
+        self.assertEqual(resolved['coverageAudit'][0]['observedArtwork'][0]['businessText'],fragments)
+        self.assertEqual(split(review,plan,warning_policy(),TEXT_OCCURRENCES_POLICY),([],[]))
+        self.assertEqual(review,before)
+        for legacy in (EXACT_TEXT_POLICY,TEXT_FINDINGS_POLICY):
+            with self.subTest(policy=legacy),self.assertRaises(ValidationError):
+                split(review,plan,warning_policy(),legacy)
+
+    def test_occurrences_keep_text_conflicts_ownership_and_empty_checks(self):
+        plan=self.mixed_plan();review=self.typed_text_audit(plan,'Happiness in Every Roll')
+        review['coverageAudit'][0]['businessText'][0]['textFragments']*=2
+        blockers,warnings=split(review,plan,warning_policy(),TEXT_OCCURRENCES_POLICY)
+        self.assertEqual(blockers,[])
+        self.assertEqual(warnings[0]['code'],'COVERAGE_PRESERVED_TEXT_CONFLICT')
+        self.assertEqual(len(warnings[0]['textConflicts']),2)
+        self.assertEqual(split(review,plan,coverage_text_policy=TEXT_OCCURRENCES_POLICY)[0],warnings)
+        for changes in (dict(materialId='invented'),dict(materialId=None),
+                        dict(textFragments=[' ']),dict(textFragments=[]),dict(textFragments=[1])):
+            invalid=copy.deepcopy(review);invalid['coverageAudit'][0]['businessText'][0].update(changes)
+            with self.subTest(changes=changes),self.assertRaises((ValueError,ValidationError)):
+                split(invalid,plan,warning_policy(),TEXT_OCCURRENCES_POLICY)
 
     def test_fragments_are_required_and_cannot_bypass_owner_or_policy(self):
         for fragments in (None, [], [' ']):

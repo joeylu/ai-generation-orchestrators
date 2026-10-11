@@ -55,6 +55,13 @@ class HostOwnershipTests(HostEvidence,unittest.TestCase):
         schema=folder/'review/schema.json';schema.write_text(json.dumps(schema_for(policy)),encoding='utf-8')
         prompt=folder/'review/prompt.md'
         prompt.write_text(prompt.read_text('utf-8').split('Return required ownershipObservations')[0],encoding='utf-8')
+        # The constructed legacy fixture must also freeze its nested producer
+        # inputs. Keeping v2 schema/prompt hashes creates corrupt evidence, not
+        # a historical v1 request. This never edits a real frozen run.
+        nested_path=folder/'review/request.json';nested=read(nested_path)
+        nested['inputs']={name:digest(folder/'review'/name) for name in nested['inputs']
+                          if name!='ownership-inventory.json'}
+        nested_path.write_text(json.dumps(nested),encoding='utf-8')
         request['kind']='ui_host_output_review_request_v1';request.pop('ownershipInventorySha256')
         request['inputs']=host.files(folder)
         request['inputs'].pop('request.json');request['inputs'].pop('preparation.json')

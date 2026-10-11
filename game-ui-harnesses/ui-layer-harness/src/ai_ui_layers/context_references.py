@@ -19,9 +19,11 @@ PROMPT_PREFIX_V5 = 'visual-material-context-prompt-v5:\n'
 PROMPT_PREFIX_V6 = 'visual-material-context-prompt-v6:\n'
 PROMPT_PREFIX_V7 = 'visual-material-context-prompt-v7:\n'
 PROMPT_PREFIX_V8 = 'visual-material-context-prompt-v8:\n'
-VERSIONS = ('v1','v2','v3','v4','v5','v6','v7','v8')
-DEFAULT_VERSION = 'v8'
-PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7, PROMPT_PREFIX_V8)
+PROMPT_PREFIX_V9 = 'visual-material-context-prompt-v9:\n'
+PROMPT_PREFIX_V10 = 'visual-material-context-prompt-v10:\n'
+VERSIONS = ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10')
+DEFAULT_VERSION = 'v10'
+PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7, PROMPT_PREFIX_V8, PROMPT_PREFIX_V9, PROMPT_PREFIX_V10)
 # Historical callers and frozen plans used this name for v1.
 PROMPT_PREFIX = PROMPT_PREFIX_V1
 
@@ -231,22 +233,23 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     if any('preserveText' not in materials[key] for key in material_ids):raise ValueError('EXPLICIT_TEXT_EXCEPTIONS_REQUIRED')
     if len(material_ids)==1 and assets[material_ids[0]]['role']=='background':
         result = full_prompt(visual,material_ids[0],plan['canvas'])
-        if version == 'v8':
+        if version in ('v8','v9','v10'):
             result += (' COMPOSITION LOCK: remove the assigned UI without reframing the scene. '
                 'Preserve the original full-canvas camera, perspective and every already visible scene subject\'s '
                 'position, apparent size and silhouette. Do not zoom, enlarge, recenter or relocate the main subject '
                 'to fill removed UI space. Reconstruct only areas hidden by the removed foreground; '
                 'visible scene outside those footprints remains the layout anchor.')
         return result
-    from .generation_groups import COMPACT_CONTROL_POLICY
-    reference_limit=6 if group and group.get('groupingPolicy')==COMPACT_CONTROL_POLICY else 4
+    from .generation_groups import COMPACT_CONTROL_POLICIES
+    reference_limit=6 if group and group.get('groupingPolicy') in COMPACT_CONTROL_POLICIES else 4
     if not 1<=len(material_ids)<=reference_limit:raise ValueError('CONTEXT_REFERENCE_LIMIT')
-    builder=action_entry if version in ('v4','v5','v6','v7','v8') else entry
+    builder=action_entry if version in ('v4','v5','v6','v7','v8','v9','v10') else entry
     entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i)
              for i,key in enumerate(material_ids)]
-    if version=='v8':
+    if version in ('v8','v9','v10'):
         from .context_owned_actions import build
-        return build(visual,entries,_sheet_layout(group) if group else 'One complete material; cell 0.',group)
+        return build(visual,entries,_sheet_layout(group) if group else 'One complete material; cell 0.',group,
+                     isolated_contacts=version in ('v9','v10'),scoped_appearance=version=='v10')
     if version=='v7':
         from .context_short_actions import build
         short=build(visual,materials[material_ids[0]],entries,group)

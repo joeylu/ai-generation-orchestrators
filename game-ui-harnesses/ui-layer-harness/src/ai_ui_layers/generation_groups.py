@@ -23,7 +23,10 @@ DEFAULT_GROUP_POLICY='compatible-size-and-kind-grid-v1'
 LEGACY_CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v1'
 CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v2'
 COMPACT_CONTROL_POLICY='compact-controls-context-grid-v1'
-CONTEXT_GROUP_POLICIES={LEGACY_CONTEXT_GROUP_POLICY,CONTEXT_GROUP_POLICY,COMPACT_CONTROL_POLICY}
+COMPACT_CONTROL_V2='compact-controls-context-grid-v2'
+COMPACT_CONTROL_V3='compact-controls-context-grid-v3'
+COMPACT_CONTROL_POLICIES={COMPACT_CONTROL_POLICY,COMPACT_CONTROL_V2,COMPACT_CONTROL_V3}
+CONTEXT_GROUP_POLICIES={LEGACY_CONTEXT_GROUP_POLICY,CONTEXT_GROUP_POLICY,*COMPACT_CONTROL_POLICIES}
 GROUP_POLICIES.update({policy:1.5 for policy in CONTEXT_GROUP_POLICIES})
 
 
@@ -31,7 +34,7 @@ def configured_policy(config, generation_mode, generation_reference):
     """New opt-in grouping; an absent field reconstructs historical behavior."""
     policy=config.get('generationGroupingPolicy')
     if policy is not None:
-        if (policy != COMPACT_CONTROL_POLICY or generation_mode != 'sheets'
+        if (policy not in COMPACT_CONTROL_POLICIES or generation_mode != 'sheets'
                 or generation_reference != 'context-crops'):
             raise ValueError('CONTEXT_CONTROL_GROUPING_REQUIRED')
         return policy
@@ -39,7 +42,7 @@ def configured_policy(config, generation_mode, generation_reference):
 
 
 def maximum_members(policy):
-    return 6 if policy==COMPACT_CONTROL_POLICY or policy not in CONTEXT_GROUP_POLICIES else 4
+    return 6 if policy in COMPACT_CONTROL_POLICIES or policy not in CONTEXT_GROUP_POLICIES else 4
 
 
 def full_grid(members):
@@ -73,10 +76,20 @@ def _canvas(members):
     return [columns,rows],canvas
 
 
-def _control_family(visual, asset):
-    kinds={o['kind'] for o in visual['objects'] if o['materialId']==asset['id']}
+def _control_family(visual, asset, policy=COMPACT_CONTROL_POLICY):
+    objects=[o for o in visual['objects'] if o['materialId']==asset['id']]
+    kinds={o['kind'] for o in objects}
+    allowed={'panel','button','icon','badge','decoration'}
+    if policy in (COMPACT_CONTROL_V2,COMPACT_CONTROL_V3):allowed.add('card')
+    # An illustration owned by one complete card does not turn that card into
+    # a standalone scene. Keep these cards separate from flat controls and use
+    # the conservative size/aspect test as well as the full-resolution test.
+    if (policy==COMPACT_CONTROL_V3 and asset['role']!='background'
+            and kinds <= allowed|{'illustration'} and 'illustration' in kinds
+            and sum(o['kind']=='card' for o in objects)==1 and 'panel' not in kinds):
+        return 'illustrated-card'
     if (asset['role']=='background' or not kinds
-            or not kinds <= {'panel','button','icon','badge','decoration'}):
+            or not kinds <= allowed):
         return None
     width,height=asset['output_size'];aspect=width/height
     if aspect>=8:return 'horizontal-strip'
@@ -98,14 +111,16 @@ def _control_fits(members):
     return min(.8*(canvas[0]//grid[0])/width,.8*(canvas[1]//grid[1])/height)>=1
 
 
-def _control_groups(visual, plan):
+def _control_groups(visual, plan, policy=COMPACT_CONTROL_POLICY):
     pending=list(plan['assets']);groups=[];known={a['id'] for a in pending}
     while pending:
-        first=pending.pop(0);members=[first];kind=_control_family(visual,first)
+        first=pending.pop(0);members=[first];kind=_control_family(visual,first,policy)
         if kind:
             for other in list(pending):
-                if len(members)==maximum_members(COMPACT_CONTROL_POLICY):break
-                if _control_family(visual,other)==kind and _control_fits(members+[other]):
+                if len(members)==maximum_members(policy):break
+                if (_control_family(visual,other,policy)==kind
+                        and (kind!='illustrated-card' or all(compatible(a,other,1.5) for a in members))
+                        and _control_fits(members+[other])):
                     members.append(other);pending.remove(other)
         ids=[a['id'] for a in members]
         if len(ids)==1:
@@ -114,14 +129,14 @@ def _control_groups(visual, plan):
         if key in known:raise ValueError('GENERATION_GROUP_ID_COLLISION')
         grid,canvas=_canvas(members)
         groups.append(dict(id=key,mode='sheet',materialIds=ids,grid=grid,outputSize=canvas,
-            groupingPolicy=COMPACT_CONTROL_POLICY))
-    return dict(kind='ui_generation_groups_v1',policy=COMPACT_CONTROL_POLICY,
+            groupingPolicy=policy))
+    return dict(kind='ui_generation_groups_v1',policy=policy,
                 materialCount=len(plan['assets']),plannedCalls=len(groups),groups=groups)
 
 
 def build_groups(visual, plan, policy=DEFAULT_GROUP_POLICY):
     if policy not in GROUP_POLICIES:raise ValueError('UNKNOWN_GROUP_POLICY')
-    if policy==COMPACT_CONTROL_POLICY:return _control_groups(visual,plan)
+    if policy in COMPACT_CONTROL_POLICIES:return _control_groups(visual,plan,policy)
     max_aspect=GROUP_POLICIES[policy]
     pending=list(plan['assets']);groups=[];known={a['id'] for a in pending}
     while pending:

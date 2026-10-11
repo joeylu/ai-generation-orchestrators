@@ -1,7 +1,10 @@
-# UI Layer Harness — 0.1.0a3 preview
+# UI Layer Harness — 0.1.0a4 preview
 
-固定发布标签：`ui-layers-v0.1.0-alpha.3`。
-服务接入与升级参数见[本版发布说明](docs/release-0.1.0a3.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+固定发布标签：`ui-layers-v0.1.0-alpha.4`。
+服务接入与升级参数见[本版发布说明](docs/release-0.1.0a4.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+
+新服务集成使用 `host-run` 及 `host-*` 交换协议，见[宿主接入流程](docs/HOST-INTEGRATION.md)。
+该入口以持久化阶段状态机编排全链路并复用规划、冻结与交付原语；既有 `run/resume/status` DAG 入口继续保留。
 
 独立 UI 拆分入口：参考图 → M1/M2 规划 → M3 冻结 → 宿主生图交换 → 归位 → UI 图层 ZIP。
 
@@ -94,8 +97,9 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py run --image REFERENCE.png 
 python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 ```
 
-入口为源码分发，尚不提供独立 wheel。服务必须安装并配置可用的 Codex CLI 规划/定位适配器，
-以及自己的生图调用能力；桌面工具不会自动进入容器。新任务的 Codex CLI session
+入口为源码分发，尚不提供独立 wheel。上述旧 `run` 路径需要可用的 Codex CLI 规划/定位适配器，
+以及宿主自己的生图调用能力；新 `host-run` 路径由宿主直接交换模型和生图回执，不要求 Codex CLI。
+桌面工具不会自动进入容器。新任务的 Codex CLI session
 默认配置为 `gpt-6-luna` / `xhigh`；新 `run` 可显式冻结 `--planning-model`、`--planning-effort`、
 `--planning-timeout`，见适配器合同。旧冻结任务按其原运行时指纹处理。
 不要将本地登录凭证、会话目录或样本加入分发制品。

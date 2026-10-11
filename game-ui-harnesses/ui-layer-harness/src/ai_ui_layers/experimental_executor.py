@@ -1,4 +1,4 @@
-"""Independent serial image exchange. Host invokes image tool; no automatic retries."""
+"""Bounded image reservations. Host invokes image tools; no automatic retries."""
 import argparse
 from contextlib import contextmanager
 import io
@@ -13,6 +13,16 @@ from .freeze_visual import inspect, body_digest
 from .execution_preflight import preflight
 from .visual_policy import snapshot_policy
 from . import visual_textures as textures
+
+MAX_CONCURRENT = 4
+
+
+def concurrency(config):
+    """Historical jobs without a bound remain serial."""
+    limit=config.get('maximumConcurrentCalls',1)
+    if type(limit) is not int or not 1 <= limit <= MAX_CONCURRENT:
+        raise ValueError('FINITE_IMAGE_CONCURRENCY_REQUIRED')
+    return limit
 
 
 def record(path, body):
@@ -35,8 +45,10 @@ def lock(job):
 
 
 def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None, reference_mode=None,
-            *, _cleanup_material_id=None):
+            *, _cleanup_material_id=None, layout_contract=None, maximum_concurrent_calls=None):
     snapshot=Path(snapshot);output=Path(output)
+    if maximum_concurrent_calls is not None:
+        concurrency(dict(maximumConcurrentCalls=maximum_concurrent_calls))
     cleanup_reference_override=reference_mode is not None
     checked=preflight(snapshot,expected_digest);manifest=inspect(snapshot,expected_digest)
     policy=snapshot_policy(snapshot,manifest)
@@ -62,8 +74,10 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     if reference_mode not in ('full-and-crop','full-only','crop-only','sheet-crops-only','context-crops','sheet-layout-board'):raise ValueError('REFERENCE_MODE')
     known={r['asset'] for r in all_rows};selected=assets or [r['asset'] for r in all_rows]
     cleanup_required=_cleanup_material_id is not None
+    cleanup_row=None
     if cleanup_required:
-        row=next((r for r in all_rows if r['asset']==_cleanup_material_id),None)
+        from .material_cleanup import cleanup_request
+        row=cleanup_request(snapshot,_cleanup_material_id)
         asset=next((a for a in read(snapshot/'execution-plan.candidate.json')['assets']
                     if a['id']==_cleanup_material_id),None)
         if (assets!=[_cleanup_material_id] or row is None or row.get('kind')=='sheet' or
@@ -71,10 +85,17 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
                 asset is None or asset['role']=='background' or
                 prompt_override is not None or cleanup_reference_override or layout):
             raise ValueError('CLEANUP_SINGLE_FOREGROUND_REQUEST_REQUIRED')
+        if _cleanup_material_id not in known:
+            cleanup_row=row;all_rows=[*all_rows,row];known.add(_cleanup_material_id)
     if manifest.get('materialReusePolicy') and not cleanup_required and (assets is not None or prompt_override is not None or layout):
         raise ValueError('REUSE_VARIANTS_UNSUPPORTED')
     if len(selected)!=len(set(selected)) or not set(selected)<=known:
         raise ValueError('INVALID_ASSET_SELECTION')
+    if layout_contract is not None:
+        if not context or layout or prompt_override is not None:
+            raise ValueError('GENERATION_LAYOUT_CONTEXT_REQUIRED')
+        from . import layout_generation
+        layout_generation.checked(snapshot,layout_contract,[r for r in all_rows if r['asset'] in selected])
     if layout:
         if len(selected)!=1:raise ValueError('SINGLE_SHEET_LAYOUT_REQUIRED')
         from .sheet_layout_reference import build
@@ -106,6 +127,10 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     inspect(copied,expected_digest)
     (output/'attempts').mkdir()
     variant={}
+    if layout_contract is not None:
+        binding=layout_generation.materialize(copied,layout_contract,output,
+            [r for r in all_rows if r['asset'] in selected],reference_structure=not cleanup_required)
+        if binding is not None:variant['layoutGeneration']=binding
     if layout:
         from .sheet_layout_reference import materialize
         variant['sheetLayoutReference']=materialize(output,copied,next(r for r in all_rows if r['asset']==selected[0]))
@@ -125,8 +150,11 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     return record(output/'job.json',{'kind':'ui_experimental_image_job_v1','snapshotDigest':expected_digest,
         'policy':'independent-visual-plan-v5-v1','referenceMode':reference_mode,'assets':selected,'maximumCalls':len(selected),
         'automaticRetries':0,'inputChecks':checked['inputChecks'],'createdAt':time.time(),
+        **({'maximumConcurrentCalls':min(maximum_concurrent_calls,len(selected))}
+           if maximum_concurrent_calls is not None else {}),
         'scope':'Raw image acquisition only; old brief evidence is not claimed. Postprocessing and visual acceptance are separate.',
         **({'cleanupRequired':_cleanup_material_id} if cleanup_required else {}),
+        **({'cleanupRequest':cleanup_row} if cleanup_row is not None else {}),
         **({'visualPolicySha256':manifest['visualPolicySha256']} if policy is not None else {}),
         **({key:manifest[key] for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')} if texture_doc is not None else {}),
         **({'generationReference':'sheet-layout-board' if layout else 'context-crops'} if context else {}),
@@ -138,6 +166,7 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
 def load_job(job):
     config=verified(job/'job.json')
     if config.get('kind')!='ui_experimental_image_job_v1':raise ValueError('JOB_KIND')
+    concurrency(config)
     if 'cleanupRequired' in config and (not isinstance(config['cleanupRequired'],str) or
             not config['cleanupRequired'] or not isinstance(config.get('cleanup'),dict) or
             config['cleanup'].get('materialId')!=config['cleanupRequired']):
@@ -176,6 +205,14 @@ def load_job(job):
     elif config.get('generationReference') in ('context-crops','sheet-layout-board') or config.get('referenceMode') in ('context-crops','sheet-layout-board'):
         raise ValueError('CONTEXT_SNAPSHOT_REQUIRED')
     index={r['asset']:r for r in rows}
+    if 'cleanupRequest' in config:
+        from .material_cleanup import cleanup_request
+        mid=config.get('cleanupRequired')
+        if (not mid or mid in index or config.get('assets')!=[mid] or
+                config.get('cleanup',{}).get('materialId')!=mid or
+                config['cleanupRequest']!=cleanup_request(job/'snapshot',mid)):
+            raise ValueError('CLEANUP_DERIVED_REQUEST_CHANGED')
+        index[mid]=config['cleanupRequest']
     if not set(config['assets'])<=index.keys():raise ValueError('JOB_ASSETS')
     if 'contextBoardReferences' in config:
         expected={k for k in config['assets'] if len(index[k].get('references',[]))>5}
@@ -204,6 +241,9 @@ def load_job(job):
     if 'cleanup' in config:
         from .material_cleanup import verify_cleanup
         verify_cleanup(job,config,index)
+    if 'layoutGeneration' in config:
+        from .layout_generation import verify
+        verify(job,config,[index[key] for key in config['assets']])
     return config,index
 
 
@@ -244,12 +284,19 @@ def status(job):
             else:states[asset]='failed_no_resubmit'
         else:states[asset]='awaiting_result_no_resubmit'
     values=list(states.values())
+    outstanding=[k for k,v in states.items() if v=='awaiting_result_no_resubmit']
+    ready=[k for k,v in states.items() if v=='prepared']
+    limit=concurrency(config);slots=max(0,limit-len(outstanding))
+    blocked=any(v in ('interrupted_no_resubmit','failed_no_resubmit') for v in values)
     current=('awaiting_authorization' if not auth else
-             'blocked_no_resubmit' if any(v in ('interrupted_no_resubmit','failed_no_resubmit') for v in values) else
-             'awaiting_result' if 'awaiting_result_no_resubmit' in values else
-             'raw_complete' if all(v=='raw_received' for v in values) else 'ready')
+             'blocked_no_resubmit' if blocked else
+             'raw_complete' if all(v=='raw_received' for v in values) else
+             'ready' if ready and slots else 'awaiting_result')
     return {'status':current,'jobDigest':config['digest'],'maximumCalls':config['maximumCalls'],
             'assignedCalls':sum(v!='prepared' for v in values),'requests':states,
+            'maximumConcurrentCalls':limit,'outstandingRequestIds':outstanding,
+            'unreservedRequestCount':len(ready),
+            'availableImageSlots':0 if blocked else min(slots,len(ready)),
             **({'generationMode':'sheets','materialCount':config['materialCount'],
                 'requestMaterials':{k:index[k].get('materialIds',[k]) for k in config['assets']}} if config.get('generationMode')=='sheets' else {}),
             **({'generationReference':'context-crops'} if config.get('generationReference')=='context-crops' else {}),
@@ -258,36 +305,59 @@ def status(job):
             'postprocessing':'not_run','humanVisualAcceptance':False}
 
 
-def next_request(job):
+def next_request(job, *, count=1):
     job=Path(job)
+    if type(count) is not int or not 1 <= count <= MAX_CONCURRENT:
+        raise ValueError('FINITE_IMAGE_RESERVATION_COUNT_REQUIRED')
     with lock(job):
         current=status(job)
         if current['status']!='ready':raise ValueError('NOT_READY_NO_RESUBMIT')
+        if count>current['maximumConcurrentCalls']-len(current['outstandingRequestIds']):
+            raise ValueError('IMAGE_CONCURRENCY_LIMIT_NO_RESUBMIT')
         config,index=load_job(job);auth=verified(job/'authorization.json')
-        asset=next(k for k,v in current['requests'].items() if v=='prepared')
-        row=index[asset];folder=job/'attempts'/asset;folder.mkdir()
-        submission=record(folder/'submission.json',{'asset':asset,'authorizationDigest':auth['digest'],
-            'requestDigest':body_digest(row),'nonce':secrets.token_hex(16),'createdAt':time.time(),
-            'evidenceBasis':'One invocation intent reserved; not proof of a provider call.'})
-        return {'asset':asset,'submissionDigest':submission['digest'],
+        selected=[k for k,v in current['requests'].items() if v=='prepared'][:count]
+        # Resolve every immutable attachment before reserving any invocation.
+        arguments={asset:frozen_request_arguments(job,config,index[asset]) for asset in selected}
+        reservations=[]
+        for asset in selected:
+            row=index[asset];folder=job/'attempts'/asset;folder.mkdir()
+            submission=record(folder/'submission.json',{'asset':asset,'authorizationDigest':auth['digest'],
+                'requestDigest':body_digest(row),'nonce':secrets.token_hex(16),'createdAt':time.time(),
+                'evidenceBasis':'One invocation intent reserved; not proof of a provider call.'})
+            reservations.append({'asset':asset,'submissionDigest':submission['digest'],
                 **({'backgroundRegionPolicy':config.get('backgroundRegionPolicy')} if config.get('backgroundRegionMaterialId')==asset else {}),
                 **({'materialIds':row['materialIds'],'grid':row['grid']} if row.get('kind')=='sheet' else {}),
                 **({'generationReference':'context-crops','references':row['references']}
                    if config.get('generationReference')=='context-crops' else {}),
                 **({'generationReference':'sheet-layout-board','sheetLayoutReference':config['sheetLayoutReference']}
                    if config.get('referenceMode')=='sheet-layout-board' else {}),
-                'arguments':frozen_request_arguments(job,config,row),
-                'automaticRetries':0}
+                'arguments':arguments[asset],
+                'automaticRetries':0})
+        return reservations[0] if count==1 else dict(reservations=reservations,
+            maximumConcurrentCalls=current['maximumConcurrentCalls'],automaticRetries=0)
+
+
+def _pending_submission(job, current, submission_digest):
+    pending=[k for k,v in current['requests'].items() if v=='awaiting_result_no_resubmit']
+    if not pending:raise ValueError('NO_PENDING_REQUEST')
+    matches=[k for k in pending if verified(job/'attempts'/k/'submission.json')['digest']==submission_digest]
+    if len(matches)!=1:raise ValueError('WRONG_SUBMISSION')
+    return matches[0]
 
 
 def frozen_request_arguments(job, config, row):
     """Replay immutable input selection without reserving or submitting a call."""
+    arguments=_frozen_request_arguments(job,config,row)
+    if 'layoutGeneration' in config:
+        from .layout_generation import guidance
+        arguments['prompt']+=guidance(job,config,row)
+    return arguments
+
+
+def _frozen_request_arguments(job, config, row):
     if 'cleanup' in config:
-        from .material_cleanup import verify_cleanup
-        verify_cleanup(Path(job),config,{row['asset']:row})
-        return {'prompt':(Path(job)/'cleanup/prompt.txt').read_text(encoding='utf-8').rstrip('\n'),
-                'referenced_image_paths':[str((Path(job)/'cleanup'/name).resolve())
-                                          for name in ('cleanup-source.png','reference-context.png')]}
+        from .material_cleanup import frozen_arguments
+        return frozen_arguments(job,config,{row['asset']:row})
     snapshot=(Path(job)/'snapshot').resolve()
     prompt_path=Path(job)/'prompt-variant.txt' if 'promptVariant' in config else snapshot/row['prompt']
     mode=config.get('referenceMode','full-and-crop')
@@ -321,11 +391,8 @@ def receive(job, submission_digest, source):
     job=Path(job);source=Path(source)
     with lock(job):
         current=status(job)
-        if current['status']!='awaiting_result':raise ValueError('NO_PENDING_REQUEST')
-        pending=[k for k,v in current['requests'].items() if v=='awaiting_result_no_resubmit']
-        if len(pending)!=1:raise ValueError('PENDING_COUNT')
-        asset=pending[0];folder=job/'attempts'/asset;submission=verified(folder/'submission.json')
-        if submission['digest']!=submission_digest:raise ValueError('WRONG_SUBMISSION')
+        asset=_pending_submission(job,current,submission_digest)
+        folder=job/'attempts'/asset
         bound_config,bound_index=load_job(job)
         protected=(bound_config.get('backgroundRegionPolicy') is not None and
                    bound_config.get('backgroundRegionMaterialId')==asset)
@@ -372,10 +439,8 @@ def fail(job, submission_digest, reason):
     job=Path(job)
     with lock(job):
         current=status(job)
-        if current['status']!='awaiting_result':raise ValueError('NO_PENDING_REQUEST')
-        asset=next(k for k,v in current['requests'].items() if v=='awaiting_result_no_resubmit')
+        asset=_pending_submission(job,current,submission_digest)
         folder=job/'attempts'/asset
-        if verified(folder/'submission.json')['digest']!=submission_digest:raise ValueError('WRONG_SUBMISSION')
         return record(folder/'failed.json',{'submissionDigest':submission_digest,'reason':reason,
                                           'status':'indeterminate_no_resubmit'})
 
@@ -404,11 +469,13 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);sub=parser.add_subparsers(dest='cmd',required=True)
     p=sub.add_parser('prepare');p.add_argument('--snapshot',required=True);p.add_argument('--expected-digest',required=True)
     p.add_argument('--output',required=True);p.add_argument('--asset',action='append')
+    p.add_argument('--max-concurrent-calls',type=int,help='Freeze a 1-4 image concurrency bound; omitted means serial')
     p.add_argument('--prompt-override',help='UTF-8 prompt variant for one selected request in a new job')
     p.add_argument('--reference-mode',choices=['full-only','full-and-crop','crop-only','sheet-crops-only','context-crops','sheet-layout-board'],
                    help='Explicit isolated reference experiment; context-crops requires an immutable context-crops snapshot')
     for name in ('status','authorize','next','receive','fail','review-sheet','review-material'):
         p=sub.add_parser(name);p.add_argument('--job',required=True)
+        if name=='next':p.add_argument('--count',type=int,default=1)
         if name in ('review-sheet','review-material'):
             p.add_argument('--output',required=True)
             p.add_argument('--request-id',help='Explicit request in a complete multi-request job')
@@ -417,9 +484,10 @@ if __name__=='__main__':
         if name=='receive':p.add_argument('--source',required=True)
         if name=='fail':p.add_argument('--reason',required=True)
     a=parser.parse_args()
-    if a.cmd=='prepare':result=prepare(a.snapshot,a.expected_digest,a.output,a.asset,a.prompt_override,a.reference_mode)
+    if a.cmd=='prepare':result=prepare(a.snapshot,a.expected_digest,a.output,a.asset,a.prompt_override,a.reference_mode,
+                                     maximum_concurrent_calls=a.max_concurrent_calls)
     elif a.cmd=='authorize':result=authorize(a.job,a.job_digest,a.approval)
-    elif a.cmd=='next':result=next_request(a.job)
+    elif a.cmd=='next':result=next_request(a.job,count=a.count)
     elif a.cmd=='receive':result=receive(a.job,a.submission_digest,a.source)
     elif a.cmd=='fail':result=fail(a.job,a.submission_digest,a.reason)
     elif a.cmd=='review-sheet':result=review_sheet(a.job,a.output,request_id=a.request_id)

@@ -41,8 +41,8 @@ def init(image, root, viewer=None, target='ui-layers', max_calls=12, generation_
     from .context_references import validate_mode
     validate_mode(generation_reference)
     if generation_reference == 'context-crops':
-        context_prompt_version = context_prompt_version or 'v8'
-        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8'):
+        context_prompt_version = context_prompt_version or planning.DEFAULT_CONTEXT_PROMPT_VERSION
+        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10'):
             raise ValueError('CONTEXT_PROMPT_VERSION')
     elif context_prompt_version is not None:
         raise ValueError('CONTEXT_PROMPT_REQUIRES_CONTEXT_CROPS')
@@ -111,7 +111,7 @@ class DeliveryDag(planning.Dag):
         if self.config['runtime'] != runtime_files(): raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
         version = self.config.get('contextPromptVersion')
         if version is not None and (self.config.get('generationReference') != 'context-crops' or
-                version not in ('v1','v2','v3','v4','v5','v6','v7','v8')):
+                version not in ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10')):
             raise ValueError('CONTEXT_PROMPT_VERSION')
         policy = self.config.get('registrationPolicy', 'legacy-region-fit')
         if policy not in ('legacy-region-fit', body.POLICY):
@@ -274,6 +274,11 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('action', choices=['run','resume','status','authorize','authorize-body','next','receive','fail','register-materials','preview-groups','freeze-reviewed','prepare-host-review','receive-host-review','status-host-review','prepare-output-review','receive-output-review','extract-reviewed-output','package-reviewed-output','prepare-material-cleanup','freeze-candidate-plan','prepare-candidate-delivery','deliver-candidate-layers','revise-frozen-crops','finish-received','finish-bundle','finish-variants','revise-package','adjust-opacity','freeze-background-region','inspect-background-region','apply-background-region'])
     p.add_argument('--material-id',help='For prepare-material-cleanup: exact material owned by the real received source')
+    p.add_argument('--layout-contract',help='For material cleanup: frozen host layout contract bound to the reviewed snapshot')
+    p.add_argument('--cleanup-input-policy',choices=['reference-only-owned-extraction-v1'],
+                   help='For material cleanup: reconstruct owned structure using only original reference images')
+    p.add_argument('--cleanup-source-cell-policy',choices=['prepared-owned-sheet-cell-v1'],
+                   help='For material cleanup: replay the prepared owned sheet cell and its fingerprint')
     p.add_argument('--review-registry',help='Independent shared registry for single-use received-request reviews')
     p.add_argument('--material-author',action='append',help='Opaque actual generated-material author identity')
     p.add_argument('--request-id',help='Actual received generation request ID')
@@ -321,8 +326,8 @@ def main():
                    help='New runs default to context-crops; freeze-reviewed inherits the source mode')
     p.add_argument('--regroup-generation-mode', choices=['single','sheets'],
                    help='For freeze-reviewed only: compile a fresh request layout from reviewed materials')
-    p.add_argument('--context-prompt-version',choices=['v1','v2','v3','v4','v5','v6','v7','v8'],
-                   help='For new run or freeze-reviewed: frozen context prompt version; new context runs default to v8')
+    p.add_argument('--context-prompt-version',choices=['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10'],
+                   help='For new run or freeze-reviewed: frozen context prompt version; new context runs default to v10')
     p.add_argument('--registration-policy',choices=['legacy-region-fit',body.POLICY],
                    help='For new runs: default reference-body-auto-v1; historical runs retain their old policy')
     p.add_argument('--candidate-registration-policy',choices=['uniform-alpha-contain-v1','measured-alpha-support-v1','measured-alpha-anchor-locked-v2'],
@@ -340,14 +345,19 @@ def main():
     try:
         if a.material_id and a.action!='prepare-material-cleanup':p.error('--material-id is only valid for prepare-material-cleanup')
         if a.action=='prepare-material-cleanup':
-            allowed={'--snapshot','--snapshot-digest','--output','--material-id','--received-job','--request-id'}
+            allowed={'--snapshot','--snapshot-digest','--output','--material-id','--received-job','--request-id','--layout-contract','--cleanup-input-policy','--cleanup-source-cell-policy'}
             if any(token.split('=',1)[0] not in allowed for token in sys.argv[1:] if token.startswith('--')):
                 p.error('material cleanup accepts only its source-bound preparation inputs')
             if not all((a.snapshot,a.snapshot_digest,a.material_id,a.received_job)):
                 p.error('--snapshot, --snapshot-digest, --material-id and --received-job required')
             from .material_cleanup import prepare_cleanup
-            result=prepare_cleanup(a.snapshot,a.snapshot_digest,a.output,a.material_id,a.received_job,a.request_id)
+            result=prepare_cleanup(a.snapshot,a.snapshot_digest,a.output,a.material_id,a.received_job,a.request_id,
+                                   layout_contract=a.layout_contract,input_policy=a.cleanup_input_policy,
+                                   source_cell_policy=a.cleanup_source_cell_policy)
             print(json.dumps(result,ensure_ascii=False,indent=2));return
+        if a.layout_contract:p.error('--layout-contract is only valid for prepare-material-cleanup')
+        if a.cleanup_input_policy:p.error('--cleanup-input-policy is only valid for prepare-material-cleanup')
+        if a.cleanup_source_cell_policy:p.error('--cleanup-source-cell-policy is only valid for prepare-material-cleanup')
         if a.prior_texture_review and a.action!='freeze-candidate-plan':
             p.error('--prior-texture-review is only valid for freeze-candidate-plan')
         if a.received_material and a.action!='deliver-candidate-layers':
@@ -420,7 +430,7 @@ def main():
             if any(value is not None for value in (a.planning_model,a.planning_effort,a.planning_timeout)):
                 p.error('host review does not accept CLI planning model settings')
             if a.context_prompt_version is not None:
-                p.error('host review preparation freezes context prompt v8; no override accepted')
+                p.error('host review preparation freezes context prompt v10; no override accepted')
             if a.generation_reference is not None or a.regroup_generation_mode is not None or a.generation_mode!='sheets':
                 p.error('host review preparation freezes sheets and context-crops; no override accepted')
         if a.action=='status-host-review':

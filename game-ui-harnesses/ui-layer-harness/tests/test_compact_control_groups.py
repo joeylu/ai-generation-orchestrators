@@ -3,7 +3,7 @@ import _bootstrap
 import unittest
 from PIL import Image
 from ai_ui_layers.generation_groups import (
-    build_groups, configured_policy, COMPACT_CONTROL_POLICY, CONTEXT_GROUP_POLICY,
+    build_groups, configured_policy, COMPACT_CONTROL_POLICY, COMPACT_CONTROL_V2, COMPACT_CONTROL_V3, CONTEXT_GROUP_POLICY,
 )
 from ai_ui_layers import host_delivery as host, host_m1, sheet_layout_reference, experimental_executor
 from ai_ui_layers.evaluate import read, save
@@ -31,6 +31,66 @@ def controls():
 
 
 class CompactControlGroupTests(unittest.TestCase):
+    def illustrated_cards(self, sizes, extra_kinds=()):
+        visual=dict(objects=[dict(materialId=str(i),kind=kind) for i in range(len(sizes))
+            for kind in ('card','illustration','icon',*extra_kinds)])
+        plan=dict(assets=[dict(id=str(i),role='important_component',output_size=list(size))
+            for i,size in enumerate(sizes)])
+        return visual,plan
+
+    def test_v3_keeps_complete_illustrated_cards_in_full_resolution_sheets(self):
+        visual,plan=self.illustrated_cards([(206,176)]*13)
+        self.assertEqual(build_groups(visual,plan,COMPACT_CONTROL_V2)['plannedCalls'],13)
+        groups=build_groups(visual,plan,COMPACT_CONTROL_V3)
+        self.assertEqual(groups['plannedCalls'],3)
+        self.assertEqual([len(g['materialIds']) for g in groups['groups']],[6,6,1])
+        self.assertEqual([mid for g in groups['groups'] for mid in g['materialIds']],
+            [a['id'] for a in plan['assets']])
+        for g in groups['groups']:
+            if g['mode']!='sheet':continue
+            self.assertEqual(g['grid'][0]*g['grid'][1],len(g['materialIds']))
+            for mid in g['materialIds']:
+                w,h=plan['assets'][int(mid)]['output_size']
+                self.assertGreaterEqual(.8*(g['outputSize'][0]//g['grid'][0])/w,1)
+                self.assertGreaterEqual(.8*(g['outputSize'][1]//g['grid'][1])/h,1)
+
+    def test_v3_does_not_mix_illustrated_cards_with_flat_controls_or_unrelated_artwork(self):
+        for extra in ('panel','logo','unknown','background','card'):
+            visual,plan=self.illustrated_cards([(200,160)]*2,(extra,))
+            with self.subTest(extra=extra):
+                self.assertEqual(build_groups(visual,plan,COMPACT_CONTROL_V3)['plannedCalls'],2)
+        visual,plan=self.illustrated_cards([(200,160)]*2)
+        visual['objects'] += [dict(materialId='flat',kind='card'),dict(materialId='art',kind='illustration')]
+        plan['assets'] += [dict(id=key,role='important_component',output_size=[200,160]) for key in ('flat','art')]
+        self.assertEqual([g['materialIds'] for g in build_groups(visual,plan,COMPACT_CONTROL_V3)['groups']],
+            [['0','1'],['flat'],['art']])
+
+    def test_v3_incompatible_aspects_large_artwork_and_backgrounds_stay_standalone(self):
+        for sizes in ([(200,100),(100,200)],[(1013,822)]*2):
+            visual,plan=self.illustrated_cards(sizes)
+            self.assertEqual(build_groups(visual,plan,COMPACT_CONTROL_V3)['plannedCalls'],2)
+        visual,plan=self.illustrated_cards([(200,160)]*2)
+        for a in plan['assets']:a['role']='background'
+        self.assertEqual(build_groups(visual,plan,COMPACT_CONTROL_V3)['plannedCalls'],2)
+
+    def test_card_typed_rail_and_readout_join_compatible_groups_only_in_v2(self):
+        rows=[('background',1374,1145),('panel',1015,828),('panel',938,577),
+            ('panel',940,73),('button',620,70),('button',352,84),('button',337,84),
+            ('button',116,62),('button',472,73),('button',468,73),
+            ('card',112,57),('card',487,24),('button',53,53)]
+        visual=dict(objects=[dict(materialId=str(i),kind=k) for i,(k,w,h) in enumerate(rows)])
+        plan=dict(assets=[dict(id=str(i),role='background' if i==0 else 'important_component',
+            output_size=[w,h]) for i,(k,w,h) in enumerate(rows)])
+        self.assertEqual(build_groups(visual,plan,COMPACT_CONTROL_POLICY)['plannedCalls'],8)
+        current=build_groups(visual,plan,COMPACT_CONTROL_V2)
+        self.assertEqual(current['plannedCalls'],6)
+        self.assertEqual([len(g['materialIds']) for g in current['groups']],[1,1,1,3,4,3])
+        self.assertEqual(configured_policy(dict(generationGroupingPolicy=COMPACT_CONTROL_V2),
+            'sheets','context-crops'),COMPACT_CONTROL_V2)
+        visual['objects'].append(dict(materialId='10',kind='illustration'))
+        excluded=build_groups(visual,plan,COMPACT_CONTROL_V2)
+        self.assertTrue(any(g['mode']=='single' and g['materialIds']==['10'] for g in excluded['groups']))
+
     def test_nineteen_settings_materials_use_six_requests_without_downsampling(self):
         visual,plan=controls()
         self.assertEqual(build_groups(visual,plan,CONTEXT_GROUP_POLICY)['plannedCalls'],12)

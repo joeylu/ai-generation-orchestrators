@@ -2,6 +2,7 @@ import _bootstrap
 from pathlib import Path
 import tempfile
 import unittest
+import hashlib
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -13,6 +14,13 @@ from ai_ui_layers.evaluate import read
 
 
 class CoreContractTests(unittest.TestCase):
+    def test_locked_planning_contract_uses_canonical_lf_and_matching_digests(self):
+        for name, expected in host_review.CONTRACT_DIGESTS.items():
+            with self.subTest(name=name):
+                data=(HARNESS/'planning-harness'/name).read_bytes()
+                self.assertNotIn(b'\r\n',data)
+                self.assertEqual(hashlib.sha256(data).hexdigest(),expected)
+
     def test_local_core_and_planning_are_bound_without_retired_imports(self):
         self.assertEqual(HARNESS.name, 'ui-layer-harness')
         retired = HARNESS.parent / 'ui-decomposition-harness'

@@ -1,5 +1,151 @@
 # Release notes
 
+## 0.1.0a4 release: host orchestration and declared layout
+
+Tag: `ui-layers-v0.1.0-alpha.4`. See the [release and consumer notes](release-0.1.0a4.md)
+and [host integration flow](HOST-INTEGRATION.md). The changes below, previously
+listed as unreleased, are included in this preview.
+
+- New warning planning reviews preserve repeated exact text fragments as
+  occurrences under `exact-fragments-occurrences-v3`. Original answers remain
+  unchanged; historical v1/v2 validation and strict rejection remain enforced.
+- Fresh M1 layout declarations are validated before preparing M2. New fast
+  warning jobs allow uniform illustrated artwork to declare internal geometry
+  targets for generation guidance and post-render measurements, without warping
+  that artwork. See [uniform internal targets](UNIFORM-INTERNAL-TARGETS.md).
+- `host-run` remains the integrated host state machine; legacy DAG commands are
+  retained. Image and material review concurrency is bounded independently.
+  Host state mutations must be serialized even when tool calls run concurrently.
+- This is an integration preview. A complex portrait reference reached diagnostic
+  delivery after separate pre-image failures and explicit snapshot continuation:
+  7 image calls and 5 independent material reviews, with 11 of 26 materials still
+  unresolved for independent extraction. Truncation, duplicated graphics and
+  background/layout deviations remain. This is not evidence of a successful
+  first attempt, complete independent material delivery or visual acceptance.
+- Release attachments contain committed public source, its offline viewer,
+  regression evidence and SHA-256 checksums. They contain no user sample media,
+  private run configuration or new Docker service implementation.
+- The locked planning schema uses canonical LF bytes and the matching digest,
+  so source archives and Windows development copies share the same contract.
+
+## Unreleased: complex-reference capacity and warning continuation
+
+- Fresh host M1 receives the immutable compute limits. Source-geometry request
+  accounting runs before M2 and is compared against the final frozen groups
+  before any image reservation. True shortages fail early without extra review,
+  hidden budget growth, material removal, downsampling or automatic retries.
+- New fresh host sheets use compact grouping v3. Compatible complete cards with
+  owned illustrations share sheets while keeping independent delivery identities
+  and original pixel resolution. Explicit historical grouping is unchanged.
+- New warning reviews derive conflicting decorative/business text fragments as
+  explicit semantic warnings, retained through final packaging. Strict and v1
+  rejection, original answers and evidence-integrity gates are preserved.
+- Offline fixtures cover 17/19-request failures under the original 16-call
+  ceiling, same-run fresh M1/M2 through viewport ZIP, legacy rejection, and
+  technical failures before model/image reservation.
+
+## Unreleased: declared layout IDs in independent planning review
+
+- New host reviews of plans declaring layout registration allow findings to
+  reference their exact constraint IDs, as well as material and object IDs.
+  Schema validation, receiving and offline freeze verification use the same
+  bound whitelist. Unknown IDs and strict geometry gates remain enforced.
+- These review packets include the clean full reference with its fingerprint.
+  Historical schemas and failed runs stay unchanged. Offline regression fixtures
+  cover warning continuation, strict blocking, invented IDs and legacy behavior.
+- Fresh layout prompts use one rigid-frame measurement for targets and gaps
+  while retaining complete shadows. They distinguish interior paired bands from
+  bands adjoining the outer frame; the latter remain precisely described owned
+  artwork instead of receiving unsupported interior remapping targets.
+
+## Unreleased: bounded image dispatch
+
+- New local warning host runs freeze at most three concurrent image requests
+  by default, configurable from one to four. `host-next --count` reserves exact
+  image arguments in one locked batch; the host performs the actual parallel
+  calls. Total generation budgets, sheets grouping and independent reviews are
+  unchanged.
+- Image receipts bind to their individual submission digests and may return
+  in any order. An unknown result blocks new dispatch and never permits retry.
+  Historical image jobs without a bound retain serial behavior. Offline fixtures
+  cover overflow, wrong/duplicate receipts, out-of-order completion and failure.
+
+## Unreleased: owner-only appearance prompts
+
+- New integrated host runs default to context v10. Normal sheets and source-bound
+  cleanup edits share a limited projection that removes explicit foreign
+  assembly/occlusion suffixes from model-facing KEEP descriptions. Foreign
+  DELETE entries use bounded visual names instead of relying only on internal
+  IDs; foreign drawing instructions are not copied into those names.
+- Fresh M1 requests ask for owner-only labels. Original catalogs, coordinates,
+  per-cell identities and source images remain unchanged. Historical context
+  v1-v9 and cleanup v1-v4 retain their original prompt rendering.
+- New cleanup jobs bind v5, or v6 for original-reference structure extraction.
+  No extra model calls, automatic retries or visual success assertions are added.
+
+## Unreleased: declared panel structure generation and repair
+
+- An explicit reference-only structure repair mode sends original crop/full
+  reference evidence instead of a previously malformed generated panel. The
+  old source remains pinned provenance. Exact inputs and a versioned prompt
+  are verified before dispatch; default and historical cleanup jobs replay
+  unchanged. Preparation adds no compute, authorization or retry.
+- New host image jobs bind the frozen internal divider count and positions into
+  the tool prompt without changing historical context prompts or adding calls.
+  Optional host layout metadata no longer becomes mandatory in legacy CLI model
+  transport schemas.
+- Divider detection excludes outlined section-band transitions. Selected package
+  pixels are checked again for line count and position independently of external
+  frame constraints. Missing or ambiguous internal lines remain warnings.
+- A source-bound singleton edit can replace one declared material after genuine
+  image receipt and independent material review. The program verifies its native
+  lineage against the source archive and preserves other layer bytes and
+  placements. New image compute still requires fresh bound approval.
+
+## Unreleased: card-typed control grouping
+
+- Opt-in compact-control v2 includes card-typed UI rails and readout frames in
+  compatible sheets. V1 remains unchanged. Reviewed snapshot regrouping preserves
+  the actual M1/M2 answers and requires a new image authorization; no model retry
+  or source-plan repair is performed. See [regrouping](REGROUP-REVIEWED-SNAPSHOT.md).
+
+## Unreleased: declared layout correction candidates
+
+- Fresh M1 can produce the typed layout declaration in the same original model
+  answer as its material plan. Independent M2 checks it, and the program freezes
+  all foreground declarations before image compute. This opt-in path removes
+  dependence on a previous run's IDs or preplanned sidecar without extra calls.
+- New fast warning host workflows can freeze a layout planning sidecar before
+  image compute, then automatically correct and compare the verified candidate
+  after material review. Internal full-width divider rows use count-bound
+  deterministic correspondence. Missing declarations and ambiguous rows retain
+  warnings, while source/contract/package failures still stop. The selected
+  delivery is explicit; old output and strict/exhaustive behavior are preserved.
+  See [host layout automation](HOST-LAYOUT-AUTOMATION.md).
+- Independent zero-compute correction reuses verified PNGs in a fresh viewport
+  package. Explicit frame sizing retains ends/corners; icons and knobs can keep
+  uniform scaling. Monotone source/reference landmarks correct integrated panel
+  rows, while related-control constraints measure actual post-render alpha
+  proxies. These declarations are not semantic body observations or visual passes.
+- New diagnostic exports report large contain-fit gaps as nonblocking layout
+  warnings. Source identity, native lineage, checksum, path and recomposition
+  checks remain mandatory; original plans, attempts and preserve contracts are
+  unchanged. See [declared layout candidates](DECLARED-LAYOUT-CANDIDATES.md).
+
+## Unreleased: faster material review dispatch
+
+- New local warning host runs default to at most three concurrent independent
+  material reviews; strict runs default to one. Batch reservation reduces repeat
+  source validation/checkpoint overhead. The call budget and per-object review
+  coverage are unchanged, and pending requests can never be reserved again.
+- Bound review packets inline the original prompt, schema and comparison
+  metadata, with every image fingerprint, so reviewers need no repository reads,
+  runtime discovery or shell validation. Original response/provenance checks
+  remain mandatory. No answer repair, retry or visual acceptance is introduced.
+- Offline tests cover out-of-order receipt, complete diagnostic delivery,
+  concurrency limits, terminal unknown acceptance, packet tampering and explicit
+  serial compatibility. Actual concurrent model latency is not yet measured.
+
 ## 0.1.0a3 release: bounded sheets and warning delivery
 
 Tag: `ui-layers-v0.1.0-alpha.3`. See the [release and consumer notes](release-0.1.0a3.md).

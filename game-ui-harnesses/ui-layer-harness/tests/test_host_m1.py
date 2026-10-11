@@ -120,6 +120,76 @@ class FreshHostM1Tests(unittest.TestCase):
         proof.write_bytes(proof.read_bytes()+b' ')
         with self.assertRaisesRegex(ValueError,'CHANGED'):inspect(frozen,snapshot['digest'])
 
+    def test_layout_guidance_separates_rigid_edges_shadows_and_edge_attached_bands(self):
+        config=read(self.fresh_config)
+        config.update(visualReviewMode='warning',bodyReviewPolicy='final-composite-first-v1',
+            sheetFailurePolicy='continue-reviewed-materials-on-sheet-warning-v2')
+        path=self.base/'layout-guidance-config.json';save(path,config)
+        target=self.base/'layout-guidance-run';host.prepare(path,target)
+        prompt=(target/'planning-m1/prompt.md').read_text('utf-8')
+        for text in ('同一刚性主体边框口径','阴影仍须完整保留','top+3 与 bottom-3',
+                     '贴顶部或底部外框的色带','不能为凑内部目标而添加原图不存在的留白'):
+            self.assertIn(text,prompt)
+        self.assertEqual(read(target/'planning-m1/request.json')['inputs']['prompt.md'],
+                         digest(target/'planning-m1/prompt.md'))
+        self.assertFalse(host.status(target)['m1ModelExecuted'])
+
+    def test_default_fast_fresh_layout_is_original_model_output_and_freezes_before_images(self):
+        from ai_ui_layers import host_layout_registration as layout
+        from ai_ui_layers.host_sheet_fallback import FAST
+        config=read(self.fresh_config)
+        config.update(visualReviewMode='warning',bodyReviewPolicy=FAST,
+            sheetFailurePolicy='continue-reviewed-materials-on-sheet-warning-v2')
+        path=self.base/'fresh-layout-config.json';save(path,config)
+        self.run=self.base/'fresh-layout-run';host.prepare(path,self.run);self.root=self.run/'planning'
+        self.assertEqual(read(self.run/'config.json')['layoutPlanningPolicy'],layout.PLANNING)
+        schema=read(self.run/'planning-m1/schema.json')
+        self.assertIn('layoutRegistration',schema['required'])
+        with self.assertRaises(ValidationError):Draft202012Validator(schema).validate(self.plan)
+        self.plan['layoutRegistration']=dict(kind=layout.KIND,referenceSha256=digest(self.reference),
+            materials=[dict(materialId=m['id'],mode='frame',measurementAlphaThreshold=128)
+                for m in self.plan['materials'] if m['role']=='foreground'],constraints=[],knownDifferences=[])
+        panel=next(m for m in self.plan['materials'] if m['id']=='asset-panel')
+        top,bottom=[round(panel['bboxNorm'][i]*1000) for i in (1,3)]
+        next(m for m in self.plan['layoutRegistration']['materials'] if m['materialId']==panel['id'])[
+            'horizontalDividerTargets']=[top+(bottom-top)*i//4 for i in (1,2,3)]
+        self.generate()
+        self.assertEqual((self.run/'planning-m1/draft.json').read_bytes(),self.response.read_bytes())
+        self.assertIn('layoutRegistration',(self.root/'m2/prompt.md').read_text('utf-8'))
+        original=delivery_fixtures.review_fixtures.HostReviewTests.response_doc
+        def warning_response(owner):
+            answer=original(owner)
+            for entry in answer['smallMaterialAudit'].values():
+                for part in entry['parts']:part['deferredAppearance']=None
+            return answer
+        with patch.object(delivery_fixtures.review_fixtures.HostReviewTests,'response_doc',warning_response):
+            self.review()
+        frozen=read(self.run/'frozen-layout-contract.json')
+        self.assertEqual(frozen['contractOrigin'],'reviewed-visual-plan')
+        self.assertEqual({m['materialId'] for m in frozen['materials']},
+            {m['id'] for m in self.plan['materials'] if m['role']=='foreground'})
+        self.assertEqual(list((self.run/'images/attempts').rglob('submission.json')),[])
+        from ai_ui_layers import experimental_executor as exchange, layout_generation
+        from test_host_sheet_fallback import HostSheetFallbackTests
+        from test_material_review_dispatch import HostReviewSchedulingTests
+        job,index=exchange.load_job(self.run/'images')
+        self.assertEqual(job['layoutGeneration']['promptPolicy'],layout_generation.REFERENCE_STRUCTURE)
+        row=next(r for r in index.values() if panel['id'] in r.get('materialIds',[r['asset']]))
+        self.assertIn('REFERENCE STRUCTURE RECONSTRUCTION',
+            exchange.frozen_request_arguments(self.run/'images',job,row)['prompt'])
+        HostSheetFallbackTests.acquire(self,False)
+        self.root=self.base
+        host.authorize(self.run,host.status(self.run)['scopeDigest'],'Offline independent review fixtures only')
+        while host.status(self.run)['stage']=='material_review':
+            for reservation in host.next_request(self.run,count=3)['reservations']:
+                HostReviewSchedulingTests.receive(self,reservation)
+        current=host.status(self.run)
+        self.assertEqual(current['stage'],'diagnostic_complete')
+        self.assertEqual(Path(current['diagnosticDelivery']),self.run/'layout-output/delivery')
+        self.assertTrue((self.run/'layout-output/delivery/viewport-ui-layers.zip').is_file())
+        self.assertFalse((self.run/'body').exists())
+        self.assertFalse(read(self.run/'layout-output/host-layout-summary.json')['internalDividerChecksPassed'])
+
     def test_archived_frozen_inspection_uses_bound_runtime_but_active_m1_requires_current_runtime(self):
         self.generate();self.review()
         frozen=self.run/'frozen';snapshot=read(frozen/'snapshot.json')

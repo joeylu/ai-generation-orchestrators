@@ -35,6 +35,12 @@ def configure(config):
     if local(config):
         config.setdefault('materialPreparationPolicy',PREPARATION_POLICY)
         config.setdefault('identityObservationPolicy',IDENTITY_POLICY)
+        from .material_repair_plan import POLICY as repair_policy
+        config.setdefault('materialRepairPolicy',repair_policy)
+    if 'materialRepairPolicy' in config:
+        from .material_repair_plan import POLICY as repair_policy
+        if config['materialRepairPolicy']!=repair_policy or not local(config):
+            raise ValueError('BOUND_WARNING_MATERIAL_REPAIR_POLICY_REQUIRED')
     if 'materialPreparationPolicy' in config and (config['materialPreparationPolicy']!=PREPARATION_POLICY or not local(config)):
         raise ValueError('BOUND_WARNING_PREPARATION_POLICY_REQUIRED')
     if 'identityObservationPolicy' in config and (config['identityObservationPolicy']!=IDENTITY_POLICY or not local(config)):
@@ -167,10 +173,16 @@ def build(root, config, warnings):
             raise ValueError('SHEET_FALLBACK_REVIEW_COVERAGE_CHANGED')
     result = diagnostic.deliver(root / 'diagnostic-contract', frozen['diagnosticDigest'],
         root / 'diagnostic-output', config['viewer'])
+    from . import host_layout_registration
+    layout = host_layout_registration.finish(root,config)
     planning = read(root / 'frozen/planning-warnings.json')['warnings']
-    records = [*warnings, *[w for w in result['qualityWarnings'] if w['requestId'] not in {r['requestId'] for r in warnings}]]
+    warned_requests={r['requestId'] for r in warnings if r.get('requestId') is not None}
+    records = [*warnings, *[w for w in result['qualityWarnings']
+        if w.get('requestId') is None or w['requestId'] not in warned_requests]]
     review = result.get('materialReviewReplay', {})
     material_warnings = review.get('warnings', [])
+    from .material_repair_plan import finish as finish_repair_plan
+    repair_plan=finish_repair_plan(root,config,material_warnings)
     body = result.get('bodyReplay', {})
     unresolved_warnings = [dict(category='body-correspondence',severity='warning',
         code='BODY_OBSERVATION_UNRESOLVED',materialIds=[r['materialId']],
@@ -185,14 +197,15 @@ def build(root, config, warnings):
     report = dict(kind='ui_visual_warning_report_v1', deliveryMode='diagnostic',
         bodyReviewPolicy=config.get('bodyReviewPolicy',EXHAUSTIVE),
         sheetFailurePolicy=config['sheetFailurePolicy'], planning=planning, material=[*records,*material_warnings],
-        body=body_warnings, placement=placement_warnings,
-        warningCount=len(planning) + len(records) + len(material_warnings) + body_count + len(placement_warnings),
+        body=body_warnings, placement=[*placement_warnings,*layout['warnings']],
+        warningCount=len(planning) + len(records) + len(material_warnings) + body_count + len(placement_warnings) + len(layout['warnings']),
         diagnosticExecutionCompleted=True,
         executionCompleted=False, fullAutomaticDagPassed=False,
         strictVisualReviewPassed=False, humanVisualAcceptance=False,
         finalCompositeVisualAcceptancePending=True,
         unresolvedMaterialIds=sorted({mid for w in records for mid in w.get('materialIds', [])}),
-        diagnosticDelivery='diagnostic-output/delivery', additionalGenerationCalls=0,
+        diagnosticDelivery=layout['delivery'], layoutRegistration=layout, additionalGenerationCalls=0,
+        **({'materialRepairPlan':repair_plan} if repair_plan is not None else {}),
         replayGenerationCalls=0, replayModelCalls=0,
         **({'additionalModelCalls':0} if not local(config) else {}),
         reviewedRequestIds=review.get('reviewedRequestIds', []),

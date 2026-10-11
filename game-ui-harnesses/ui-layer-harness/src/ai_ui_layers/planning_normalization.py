@@ -18,6 +18,11 @@ def provider_schema(storage_schema, policy=None):
     """Copy strict storage schema; relax only exact license-array uniqueness."""
     validate_policy(policy)
     result = copy.deepcopy(storage_schema)
+    # Host layout declarations are opt-in. transport_schema makes every exposed
+    # property required, so exposing this optional storage extension would force
+    # old CLI planners to emit a contract that they were never asked to plan.
+    if 'layoutRegistration' not in result.get('required',[]):
+        result.get('properties',{}).pop('layoutRegistration',None)
     if policy is None:
         return result
     properties = result['properties']

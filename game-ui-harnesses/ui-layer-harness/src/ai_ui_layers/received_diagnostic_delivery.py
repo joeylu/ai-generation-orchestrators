@@ -184,6 +184,21 @@ def _portable_bindings(bindings):
     return [dict(b) for b in bindings]
 
 
+def proxy_layout_audit(rendered, fitting):
+    """Measure placement gaps after rendering without claiming semantic geometry."""
+    box=rendered.getchannel('A').point(lambda a:255 if a>=8 else 0).getbbox()
+    if box is None:box=rendered.getchannel('A').getbbox()
+    if box is None:raise ValueError('EMPTY_DIAGNOSTIC_RENDER')
+    region=fitting['layerCanvasRegion'];target=fitting['ownershipRegion']
+    actual=[box[i]+region[i%2] for i in range(4)]
+    residual=[actual[i]-target[i] for i in range(4)]
+    maximum=max(abs(v) for v in residual)
+    return dict(registeredAlphaProxyBox=actual,targetBoxResidualPixels=residual,
+        maximumTargetBoxResidualPixels=maximum,
+        layoutGapWarning='PROXY_FIT_LEAVES_TARGET_GAPS' if maximum>1 else None,
+        layoutMeasurementBasis='post-render-alpha-proxy; not an observed body')
+
+
 def _sources_archive(output, rows, job, split_records, reuse_records, background_proof, cleanup_bindings=(), replay_evidence=None, warnings=()):
     """Preserve every genuine raw file and every cell, including unowned sidecars."""
     root = output / 'source-evidence'
@@ -327,6 +342,8 @@ def deliver(contract_dir, expected_digest, output, viewer):
             protectedChangedPixels=report['protectedChangedPixels'], coreMatchesProposal=report['coreMatchesProposal'],
             reviewPerformed=False, maskCoverageProven=False)
     rendered_dir = output / 'materials'; rendered_dir.mkdir()
+    save(output/'native-material-sources.json',dict(kind='ui_diagnostic_native_material_sources_v1',
+        materials={mid:dict(path=str(Path(path).resolve()),sha256=digest(Path(path))) for mid,path in sources.items()}))
     with Image.open(snapshot / 'reference.png') as im:
         width, height = im.size
     layers = []; package_sources = {}; geometry = []; regions = []
@@ -357,6 +374,8 @@ def deliver(contract_dir, expected_digest, output, viewer):
             rendered, fitted = viewport.transform(path, fitting)
         else:
             rendered, fitted = background_render, fitting
+        if fitted.get('positionBasis')==GEOMETRY_POLICY:
+            fitted.update(proxy_layout_audit(rendered,fitted))
         region = fitted['layerCanvasRegion']; regions.append(region)
         target = rendered_dir / (mid+'.png')
         if background is not None and mid == background['materialId']:
@@ -396,6 +415,13 @@ def deliver(contract_dir, expected_digest, output, viewer):
         sourceCompletenessAccepted=False, rawSha256=s['sourceSha256'])
         for s in splits if s['strictExtractionIssue'] is not None and (material_replay is None or
             s['requestId'] not in material_replay['reviewedRequestIds'])]
+    quality_warnings += [dict(category='layout-placement',severity='warning',code=g['layoutGapWarning'],
+        materialId=g['materialId'],positionBasis=g['positionBasis'],
+        targetBox=g['ownershipRegion'],registeredAlphaProxyBox=g['registeredAlphaProxyBox'],
+        targetBoxResidualPixels=g['targetBoxResidualPixels'],
+        maximumResidualPixels=g['maximumTargetBoxResidualPixels'],observedBody=False,
+        suggestion='Declare frame sizing and related anchors for a separate layout candidate.')
+        for g in geometry if g.get('layoutGapWarning')]
     replay_evidence = None
     from .postprocess_visual import assess
     targets={a['id']:a['output_size'] for a in read(snapshot/'execution-plan.candidate.json')['assets']}

@@ -8,10 +8,12 @@ REGIONS = tuple(f'{vertical}-{horizontal}' for vertical in ('top', 'middle', 'bo
                 for horizontal in ('left', 'center', 'right'))
 DISPOSITIONS = ('covered', 'missing', 'uncertain', 'business-text', 'optional-shadow')
 EXACT_TEXT_POLICY = 'exact-fragments-v1'
+TEXT_FINDINGS_POLICY = 'exact-fragments-findings-v2'
+TEXT_OCCURRENCES_POLICY = 'exact-fragments-occurrences-v3'
 
 
 def validate_text_policy(policy):
-    if policy not in (None, EXACT_TEXT_POLICY):
+    if policy not in (None, EXACT_TEXT_POLICY, TEXT_FINDINGS_POLICY, TEXT_OCCURRENCES_POLICY):
         raise ValueError('COVERAGE_TEXT_POLICY_UNKNOWN')
 
 
@@ -33,8 +35,13 @@ def coverage_schema(coverage_text_policy=None):
     if coverage_text_policy is not None:
         entry['required'].append('businessText')
         entry['properties']['businessText'] = {'type': ['array', 'null'],
-            'minItems': 1, 'maxItems': 64, 'uniqueItems': True,
+            'minItems': 1, 'maxItems': 64,
             'items': {'type': 'string', 'minLength': 1, 'maxLength': 200}}
+        # Repeated visible lettering is occurrence evidence, not a set. The
+        # native transport also permits duplicates. Keep archived v1/v2 strict;
+        # only new explicitly selected v3 jobs share the transport semantics.
+        if coverage_text_policy != TEXT_OCCURRENCES_POLICY:
+            entry['properties']['businessText']['uniqueItems'] = True
     return {'type': 'object', 'additionalProperties': False,
             'required': ['region', 'observedArtwork', 'emptyRegionEvidence'],
             'properties': {
@@ -60,7 +67,7 @@ def _text_key(value):
     return ''.join(unicodedata.normalize('NFKC', value).casefold().split())
 
 
-def _business_text_conflict(entry, material, plan):
+def _business_text_conflicts(entry, material, plan):
     fragments = entry['businessText']
     if not isinstance(fragments, list) or not fragments or any(
             not isinstance(text, str) or not text.strip() for text in fragments):
@@ -68,9 +75,8 @@ def _business_text_conflict(entry, material, plan):
     retained = list(material.get('preserveText', []))
     # Some explicit future schemas may hold scene-wide licenses separately.
     retained.extend(plan.get('scene', {}).get('preserveText', []))
-    if any(_text_key(kept) in _text_key(text) or _text_key(text) in _text_key(kept)
-           for kept in retained for text in fragments):
-        raise ValueError('COVERAGE_PRESERVED_TEXT_CONFLICT')
+    return [dict(preservedText=kept,businessText=text) for kept in retained for text in fragments
+            if _text_key(kept) in _text_key(text) or _text_key(text) in _text_key(kept)]
 
 
 def _new_findings(regions, plan, policy, coverage_text_policy):
@@ -137,7 +143,14 @@ def _new_findings(regions, plan, policy, coverage_text_policy):
                     # Free source prose cannot prove which lettering an exclusion
                     # refers to; leave mixed retained/business text unverified.
                     if coverage_text_policy is not None:
-                        _business_text_conflict(entry, material, plan)
+                        conflicts=_business_text_conflicts(entry, material, plan)
+                        if conflicts:
+                            if coverage_text_policy not in (TEXT_FINDINGS_POLICY,TEXT_OCCURRENCES_POLICY):
+                                raise ValueError('COVERAGE_PRESERVED_TEXT_CONFLICT')
+                            findings.append(dict(code='COVERAGE_PRESERVED_TEXT_CONFLICT',category='semantic',
+                                ids=[material['id']],description=row['region']+': '+entry['artwork'],
+                                sourceEvidence=entry['evidence'],textConflicts=conflicts,
+                                suggestedChange='Compare the retained decorative instance and removed business instance in the original reference; resolve their lettering ownership without changing graphic coverage.'))
                     elif material.get('preserveText'):
                         raise ValueError('COVERAGE_PRESERVED_TEXT_CONFLICT')
                 else:

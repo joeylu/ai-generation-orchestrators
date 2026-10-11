@@ -2,6 +2,7 @@
 import _bootstrap
 import hashlib
 from pathlib import Path
+import tempfile
 import unittest
 import zipfile
 from PIL import Image, ImageDraw
@@ -177,8 +178,21 @@ class ReceivedDiagnosticTests(unittest.TestCase):
 
 
 class ExpandedProxyTests(unittest.TestCase):
+    def test_contain_gap_is_measured_and_warned_without_changing_pixels_or_fitting(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary)/'source.png'
+            image=Image.new('RGBA',(64,48));image.paste((40,60,80,255),(10,10,50,30));image.save(path)
+            fitting=diagnostic.proxy_geometry(image,[30,40,110,60])
+            rendered,geometry=transform(path,fitting);before=rendered.tobytes()
+            audit=diagnostic.proxy_layout_audit(rendered,geometry)
+            self.assertEqual(audit['registeredAlphaProxyBox'],[50,40,90,60])
+            self.assertEqual(audit['targetBoxResidualPixels'],[20,0,-20,0])
+            self.assertEqual(audit['layoutGapWarning'],'PROXY_FIT_LEAVES_TARGET_GAPS')
+            self.assertEqual(rendered.tobytes(),before)
+            self.assertEqual(fitting['uniformScale'],1)
+            self.assertFalse(fitting['observedBody'])
+
     def test_storage_retains_support_without_relocating_proxy_or_claiming_completeness(self):
-        import tempfile
         with tempfile.TemporaryDirectory() as temporary:
             path=Path(temporary)/'source.png'
             image=Image.new('RGBA',(200,100));draw=ImageDraw.Draw(image)

@@ -1,6 +1,9 @@
 """Bounded single-material edit exchange; preparation and replay never call a model."""
 import json
+import io
+import hashlib
 import re
+import tempfile
 from pathlib import Path
 
 from PIL import Image
@@ -11,9 +14,14 @@ from . import ownership_observation as ownership
 
 
 KIND = 'ui_material_cleanup_v1'
-PROMPT_VERSION = 'cleanup-ownership-first-v3'
+PROMPT_VERSION = 'cleanup-owned-appearance-v5'
+REFERENCE_PROMPT_VERSION = 'cleanup-reference-owned-appearance-v6'
+OWNERSHIP_PROMPT_VERSION = 'cleanup-ownership-first-v3'
+STRUCTURE_PROMPT_VERSION = 'cleanup-reference-structure-v4'
+REFERENCE_INPUT_POLICY = 'reference-only-owned-extraction-v1'
 DIRECT_PROMPT_VERSION = 'cleanup-delete-direct-v2'
 LEGACY_PROMPT_VERSION = 'cleanup-catalog-v1'
+PREPARED_CELL_POLICY = 'prepared-owned-sheet-cell-v1'
 SCHEMA = dict(type='object', additionalProperties=False,
     required=['kind','materialId','ownedOnly','removeForeign','sourceSize','contextGeometry','ownershipRegion','preserveText'],
     properties=dict(kind=dict(const=KIND),materialId=dict(type='string',minLength=1),
@@ -43,11 +51,32 @@ def _same_origin(snapshot, manifest, old_snapshot, old_manifest):
             raise ValueError('CLEANUP_COMPILED_STRUCTURE_CHANGED')
 
 
-def _source(source_job, request_id, material_id):
+def cleanup_request(snapshot, material_id):
+    """Derive one edit request without changing the frozen sheet or owner plan."""
+    rows=read(snapshot/'requests.json')['requests']
+    if any(r['asset']==material_id for r in rows):
+        return next(r for r in rows if r['asset']==material_id)
+    owners=[r for r in rows if r.get('kind')=='sheet' and material_id in r['materialIds']]
+    assets=read(snapshot/'execution-plan.candidate.json')['assets']
+    asset=next((a for a in assets if a['id']==material_id),None)
+    if len(owners)!=1 or asset is None or asset['role']=='background':
+        raise ValueError('CLEANUP_SINGLE_FOREGROUND_REQUEST_REQUIRED')
+    row=dict(asset=material_id,reference='reference.png',crop='materials/'+material_id+'/reference-crop.png',
+        prompt='materials/'+material_id+'/prompt.txt',outputSize=asset['output_size'],
+        sourceRegion=asset['source_region'],plannedCalls=1,automaticRetries=0)
+    if read(snapshot/'requests.json').get('generationReference')=='context-crops':
+        from .context_references import request_references
+        row.update(generationReference='context-crops',
+            references=request_references(read(snapshot/'generation-references.json'),[material_id]))
+    return row
+
+
+def _source(source_job, request_id, material_id, source_cell_policy=None):
     # Delayed imports keep the executor/host helper dependency acyclic.
     from . import experimental_executor as ex
     from .host_material_review import source, candidate_sheet_cells
     config,row,receipt,raw=source(source_job,request_id)
+    if source_cell_policy not in (None,PREPARED_CELL_POLICY):raise ValueError('CLEANUP_SOURCE_CELL_POLICY')
     if 'cleanup' in config:raise ValueError('CLEANUP_RECURSIVE_SOURCE_UNSUPPORTED')
     if material_id not in row.get('materialIds',[request_id]):
         raise ValueError('CLEANUP_SOURCE_MATERIAL_MISMATCH')
@@ -58,14 +87,28 @@ def _source(source_job, request_id, material_id):
             submission['authorizationDigest']!=auth['digest'] or
             receipt.get('status')!='raw_received'):
         raise ValueError('CLEANUP_SOURCE_AUTHORIZATION_MISMATCH')
-    with Image.open(raw) as image:
-        image.load();image=image.convert('RGBA')
-        if row.get('kind')=='sheet':
-            boxes,split=candidate_sheet_cells(image,row)
-            box=boxes[row['materialIds'].index(material_id)]
-            cell=image.crop(box)
-        else:
-            box=[0,0,image.width,image.height];split=None;cell=image.copy()
+    preparation=None
+    if source_cell_policy:
+        if row.get('kind')!='sheet':raise ValueError('CLEANUP_PREPARED_SHEET_REQUIRED')
+        material=next(m for m in _visual(source_job/'snapshot')['materials'] if m['id']==material_id)
+        if material.get('adaptationPolicy','preserve')!='preserve':
+            raise ValueError('CLEANUP_ADAPTED_SOURCE_UNSUPPORTED')
+        from .sheet_pixels import prepare, NEAREST_SEAM
+        from .extract_sheets import partition_cells
+        with tempfile.TemporaryDirectory(prefix='ui-cleanup-source-') as tmp:
+            prepared=Path(tmp)/'sheet.png';preparation=prepare(raw,prepared)
+            with Image.open(prepared) as image:
+                boxes,split=partition_cells(image,row,NEAREST_SEAM)
+                box=boxes[row['materialIds'].index(material_id)];cell=image.crop(box).convert('RGBA')
+    else:
+        with Image.open(raw) as image:
+            image.load();image=image.convert('RGBA')
+            if row.get('kind')=='sheet':
+                boxes,split=candidate_sheet_cells(image,row)
+                box=boxes[row['materialIds'].index(material_id)]
+                cell=image.crop(box)
+            else:
+                box=[0,0,image.width,image.height];split=None;cell=image.copy()
     paths={'job.json':source_job/'job.json','authorization.json':source_job/'authorization.json',
            'submission.json':source_job/'attempts'/request_id/'submission.json',
            'received.json':source_job/'attempts'/request_id/'received.json',
@@ -75,6 +118,10 @@ def _source(source_job, request_id, material_id):
         submissionDigest=submission['digest'],rawSha256=receipt['rawSha256'],
         files={name:digest(path) for name,path in paths.items()},sourceBox=list(box),sheetSplit=split,
         originalSheetExtractionPromoted=False)
+    if source_cell_policy:
+        encoded=io.BytesIO();cell.save(encoded,format='PNG')
+        lineage.update(sourceCellPolicy=source_cell_policy,sourceCellPreparation=preparation,
+            materialSourceSha256=hashlib.sha256(encoded.getvalue()).hexdigest())
     return config,lineage,cell
 
 
@@ -157,9 +204,11 @@ def _prompt_v2(inputs):
     return '\n'.join(lines)+'\n'
 
 
-def _prompt_v3(inputs):
+def _prompt_v3(inputs, *, scoped=False):
     from .context_owned_actions import OWNERSHIP_PRIORITY, FOREIGN_REMOVAL_RULES
+    from .ownership_prompt_scope import project, visual_name, SCOPE_RULE
     width,height=inputs['sourceSize']
+    owned=project(inputs['ownedOnly'],inputs['removeForeign']) if scoped else inputs['ownedOnly']
     lines=[
         'CLEAN-PLATE EDIT: DELETE the listed foreign objects from image 1.',
         'Return one PNG containing ONLY the owned objects below. Everything else must be absent.',
@@ -176,12 +225,14 @@ def _prompt_v3(inputs):
         if relation not in ('overlay','underlay','same-depth'):
             raise ValueError('CLEANUP_FOREIGN_RELATION')
         locator=json.dumps(item['referenceBox'],separators=(',', ':'))
-        lines.append('- DELETE '+_name(item['objectId'])+' ['+item['materialId']+'/'+item['objectId']+
+        identity=json.dumps(visual_name(item),ensure_ascii=False) if scoped else _name(item['objectId'])
+        lines.append('- DELETE '+identity+' ['+item['materialId']+'/'+item['objectId']+
                      ']. relation='+relation+'; referenceBox='+locator+'.')
+    if scoped:lines.append(SCOPE_RULE)
     lines.extend([
         FOREIGN_REMOVAL_RULES,
         'ownedOnly — the ONLY KEEP list:',
-        *['- KEEP '+item['objectId']+': '+item['appearance'] for item in inputs['ownedOnly']],
+        *['- KEEP '+item['objectId']+': '+item['appearance'] for item in owned],
         'Correct an incorrect owned body shape using image 2. Preserve owned identity, texture, '
         'decorations, lighting, genuine holes and translucency, proportions and relative offsets. '
         'Do not move decorations independently. A parent owns only its substrate and explicitly '
@@ -199,34 +250,91 @@ def _prompt_v3(inputs):
     return '\n'.join(lines)+'\n'
 
 
+def _prompt_v4(inputs, *, scoped=False):
+    from .context_owned_actions import OWNERSHIP_PRIORITY, FOREIGN_REMOVAL_RULES
+    from .ownership_prompt_scope import project, visual_name, SCOPE_RULE
+    geometry=inputs['contextGeometry']
+    owned=project(inputs['ownedOnly'],inputs['removeForeign']) if scoped else inputs['ownedOnly']
+    lines=[
+        'REFERENCE STRUCTURE RECONSTRUCTION: extract one complete independent owned material from the original reference.',
+        'Image 1 is the original local reference crop and the primary geometry and appearance target. '
+        'Image 2 is the unchanged full original reference, providing placement and actual clipping context.',
+        'The previous generated material is deliberately NOT an image input. Reconstruct the owned '
+        'visible structure from these original references, including every owned divider, section '
+        'band and intervening surface gap. The original reference is the sole geometry target.',
+        OWNERSHIP_PRIORITY,
+        'ownedOnly — reconstruct every member completely:',
+        *['- KEEP '+item['objectId']+': '+item['appearance'] for item in owned],
+        'Match the reference visible silhouette, proportions, colors, border weight, corners and '
+        'relative internal spacing. Keep actual reference-supported shadows, translucent edges '
+        'and genuine holes. Do not invent hidden edges or decorations.',
+        'removeForeign — exclude each complete separately owned unit, including its body, backing, '
+        'frame, contents, ornaments, outline, shadow and text:',
+    ]
+    for item in inputs['removeForeign']:
+        relation=item['relation']
+        if relation not in ('overlay','underlay','same-depth'):
+            raise ValueError('CLEANUP_FOREIGN_RELATION')
+        identity=json.dumps(visual_name(item),ensure_ascii=False) if scoped else _name(item['objectId'])
+        lines.append('- DELETE '+identity+' ['+item['materialId']+'/'+item['objectId']+
+                     ']. relation='+relation+'; referenceBox='+
+                     json.dumps(item['referenceBox'],separators=(',', ':'))+'.')
+    if scoped:lines.append(SCOPE_RULE)
+    lines.extend([
+        FOREIGN_REMOVAL_RULES,
+        'Remove ordinary business labels and numbers. Text allowed to remain: '+
+            (json.dumps(inputs['preserveText'],ensure_ascii=False) if inputs['preserveText'] else 'NONE')+'.',
+        'Return one native transparent RGBA PNG in the same aspect ratio as image 1, reference size '+
+        str(geometry['referenceSize'])+'. Retain the original local composition of the owned '
+        'material within that canvas; the remaining canvas is transparent. Preserve continuous '
+        'soft alpha; zero RGB where alpha is zero. Do not assemble a full UI or a sheet.',
+        'Image 1 ownership targetBox (pixels): '+str(geometry['targetBox'])+'. referenceBox values '
+        'locate objects within image 1; these locators are not masks or measured body bounds. '
+        'Do not fill them, stretch artwork to them, or cut foreign rectangles from an owned surface.',
+        'Final check: every KEEP member is complete, every DELETE member is absent, and all '
+        'declared internal lines and surface gaps follow the original reference.',
+    ])
+    return '\n'.join(lines)+'\n'
+
+
 def _prompt(inputs, version=LEGACY_PROMPT_VERSION):
     """Version dispatch preserves byte-for-byte replay of historical frozen prompts."""
     if version==LEGACY_PROMPT_VERSION:return _prompt_v1(inputs)
     if version==DIRECT_PROMPT_VERSION:return _prompt_v2(inputs)
-    if version==PROMPT_VERSION:return _prompt_v3(inputs)
+    if version==OWNERSHIP_PROMPT_VERSION:return _prompt_v3(inputs)
+    if version==STRUCTURE_PROMPT_VERSION:return _prompt_v4(inputs)
+    if version==PROMPT_VERSION:return _prompt_v3(inputs,scoped=True)
+    if version==REFERENCE_PROMPT_VERSION:return _prompt_v4(inputs,scoped=True)
     raise ValueError('CLEANUP_PROMPT_VERSION')
 
 
 def prepare_cleanup(snapshot, expected_digest, output, material_id, source_job,
-                    source_request_id=None):
+                    source_request_id=None, *, layout_contract=None, input_policy=None, source_cell_policy=None):
     """Create one fresh ordinary exchange job with frozen edit inputs and source lineage."""
     from . import experimental_executor as ex
+    if input_policy not in (None,REFERENCE_INPUT_POLICY):raise ValueError('CLEANUP_INPUT_POLICY')
+    if input_policy and not layout_contract:raise ValueError('CLEANUP_REFERENCE_STRUCTURE_REQUIRES_LAYOUT')
     snapshot=Path(snapshot).resolve();output=Path(output).resolve();source_job=Path(source_job).resolve()
     request_id=source_request_id or material_id
     if output.exists() or output.is_relative_to(source_job) or output.is_relative_to(snapshot):
         raise ValueError('FRESH_INDEPENDENT_OUTPUT_REQUIRED')
     manifest=inspect(snapshot,expected_digest)
-    old_config,lineage,cell=_source(source_job,request_id,material_id)
+    old_config,lineage,cell=_source(source_job,request_id,material_id,source_cell_policy)
     old_snapshot=source_job/'snapshot'
     _same_origin(snapshot,manifest,old_snapshot,inspect(old_snapshot,old_config['snapshotDigest']))
-    rows=read(snapshot/'requests.json')['requests']
-    row=next((r for r in rows if r['asset']==material_id),None)
+    row=cleanup_request(snapshot,material_id)
     if row is None or row.get('kind')=='sheet' or row.get('materialIds',[material_id])!=[material_id]:
         raise ValueError('CLEANUP_SINGLETON_SNAPSHOT_REQUIRED')
     inputs=_inputs(snapshot,material_id,cell)
+    if input_policy:
+        from .layout_generation import checked
+        _,layout_binding=checked(snapshot,layout_contract,[row])
+        if material_id not in layout_binding['materialIds']:
+            raise ValueError('CLEANUP_REFERENCE_STRUCTURE_REQUIRES_LAYOUT')
     # Mark the initial record unusable before writing edit artifacts. An
     # interrupted preparation must never become an ordinary acquisition job.
-    config=ex.prepare(snapshot,expected_digest,output,[material_id],_cleanup_material_id=material_id)
+    config=ex.prepare(snapshot,expected_digest,output,[material_id],_cleanup_material_id=material_id,
+                      layout_contract=layout_contract)
     folder=output/'cleanup';folder.mkdir()
     cell.save(folder/'cleanup-source.png')
     from .context_references import png_bytes
@@ -234,11 +342,14 @@ def prepare_cleanup(snapshot, expected_digest, output, material_id, source_job,
         (folder/'reference-context.png').write_bytes(png_bytes(reference.crop(inputs['contextGeometry']['cropRegion'])))
     save(folder/'inputs.json',inputs);save(folder/'schema.json',SCHEMA)
     save(folder/'source-lineage.json',lineage)
-    (folder/'prompt.txt').write_text(_prompt(inputs,PROMPT_VERSION),encoding='utf-8')
-    binding=dict(kind=KIND,promptVersion=PROMPT_VERSION,materialId=material_id,sourceJob=str(source_job),
+    version=REFERENCE_PROMPT_VERSION if input_policy else PROMPT_VERSION
+    (folder/'prompt.txt').write_text(_prompt(inputs,version),encoding='utf-8')
+    binding=dict(kind=KIND,promptVersion=version,materialId=material_id,sourceJob=str(source_job),
         sourceRequestId=request_id,sourceLineageSha256=digest(folder/'source-lineage.json'),
         sourceCellSha256=digest(folder/'cleanup-source.png'),
         files={p.name:digest(p) for p in sorted(folder.iterdir())})
+    if input_policy:binding['inputPolicy']=input_policy
+    if source_cell_policy:binding['sourceCellPolicy']=source_cell_policy
     config={k:v for k,v in config.items() if k!='digest'}
     config['cleanup']=binding
     # The output was exclusively created above. This is the same deterministic
@@ -253,6 +364,12 @@ def prepare_cleanup(snapshot, expected_digest, output, material_id, source_job,
 def verify_cleanup(job, config, index):
     """Replay every source/input binding before authorization or dispatch."""
     job=Path(job).resolve();binding=config['cleanup'];mid=binding['materialId']
+    policy=binding.get('inputPolicy');version=binding.get('promptVersion',LEGACY_PROMPT_VERSION)
+    if (policy not in (None,REFERENCE_INPUT_POLICY) or
+            (version in (REFERENCE_PROMPT_VERSION,STRUCTURE_PROMPT_VERSION))!=(policy==REFERENCE_INPUT_POLICY)):
+        raise ValueError('CLEANUP_INPUT_POLICY_BINDING')
+    if policy and mid not in config.get('layoutGeneration',{}).get('materialIds',[]):
+        raise ValueError('CLEANUP_REFERENCE_STRUCTURE_REQUIRES_LAYOUT')
     if (binding.get('kind')!=KIND or config['assets']!=[mid] or
             config.get('maximumCalls')!=1 or config.get('automaticRetries')!=0 or
             mid not in index or index[mid].get('kind')=='sheet' or 'promptVariant' in config):
@@ -267,7 +384,7 @@ def verify_cleanup(job, config, index):
             binding['sourceLineageSha256']!=digest(folder/'source-lineage.json')):
         raise ValueError('CLEANUP_FINGERPRINT_CHANGED')
     source_job=Path(binding['sourceJob'])
-    old_config,lineage,cell=_source(source_job,binding['sourceRequestId'],mid)
+    old_config,lineage,cell=_source(source_job,binding['sourceRequestId'],mid,binding.get('sourceCellPolicy'))
     if read(folder/'source-lineage.json')!=lineage:raise ValueError('CLEANUP_SOURCE_CHANGED')
     snapshot=job/'snapshot'
     _same_origin(snapshot,inspect(snapshot,config['snapshotDigest']),source_job/'snapshot',
@@ -284,9 +401,19 @@ def verify_cleanup(job, config, index):
     if read(folder/'inputs.json')!=inputs or read(folder/'schema.json')!=SCHEMA:
         raise ValueError('CLEANUP_CATALOG_CHANGED')
     # Jobs frozen before prompt versioning have the exact historical v1 prompt.
-    if (folder/'prompt.txt').read_text(encoding='utf-8')!=_prompt(inputs,binding.get('promptVersion',LEGACY_PROMPT_VERSION)):
+    if (folder/'prompt.txt').read_text(encoding='utf-8')!=_prompt(inputs,version):
         raise ValueError('CLEANUP_PROMPT_CHANGED')
     return binding
+
+
+def frozen_arguments(job, config, index):
+    """Replay the exact versioned native input scope; old source bytes stay sealed."""
+    job=Path(job).resolve();binding=verify_cleanup(job,config,index)
+    references=([job/'cleanup/reference-context.png',job/'snapshot/reference.png']
+                if binding.get('inputPolicy')==REFERENCE_INPUT_POLICY else
+                [job/'cleanup/cleanup-source.png',job/'cleanup/reference-context.png'])
+    return dict(prompt=(job/'cleanup/prompt.txt').read_text(encoding='utf-8').rstrip('\n'),
+                referenced_image_paths=[str(path.resolve()) for path in references])
 
 
 if __name__=='__main__':
@@ -297,6 +424,11 @@ if __name__=='__main__':
     p.add_argument('--expected-digest',required=True);p.add_argument('--output',required=True)
     p.add_argument('--material-id',required=True);p.add_argument('--source-job',required=True)
     p.add_argument('--source-request-id')
+    p.add_argument('--layout-contract')
+    p.add_argument('--cleanup-input-policy',choices=[REFERENCE_INPUT_POLICY])
+    p.add_argument('--cleanup-source-cell-policy',choices=[PREPARED_CELL_POLICY])
     args=parser.parse_args()
     print(json.dumps(prepare_cleanup(args.snapshot,args.expected_digest,args.output,args.material_id,
-                                    args.source_job,args.source_request_id),ensure_ascii=True,indent=2))
+                                    args.source_job,args.source_request_id,layout_contract=args.layout_contract,
+                                    input_policy=args.cleanup_input_policy,
+                                    source_cell_policy=args.cleanup_source_cell_policy),ensure_ascii=True,indent=2))

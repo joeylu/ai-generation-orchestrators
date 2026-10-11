@@ -17,6 +17,7 @@ from .extract_sheets import cells, partition_cells, _review_variant, prepare_she
 from .sheet_pixels import prepare as prepare_pixels, STRICT_SEAM, validate_seam_policy
 from .single_material_review import prepare_review
 from . import ownership_observation as ownership
+from . import material_review_dispatch as dispatch
 from . import material_reuse as reuse, reuse_pipeline, reuse_image_review
 
 BACKGROUND_VISUAL_POLICY = 'record-until-final-composite-v1'
@@ -67,9 +68,11 @@ def source(job, request_id, *, source_batch=None):
 
 
 def prepare(job, request_id, output, *, material_authors, review_registry, background_visual_review_policy=None,
-            sheet_seam_policy=STRICT_SEAM, identity_observation_policy=None, source_batch=None):
+            sheet_seam_policy=STRICT_SEAM, identity_observation_policy=None, source_batch=None,
+            review_dispatch_policy=None):
     job=Path(job).resolve();output=Path(output).resolve()
     validate_seam_policy(sheet_seam_policy)
+    dispatch.validate_policy(review_dispatch_policy)
     authors=list(material_authors)
     if not authors or len(authors)!=len(set(authors)):raise ValueError('MATERIAL_AUTHORS_REQUIRED')
     for author in authors:_identity(author)
@@ -162,6 +165,9 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
         if row.get('kind')=='sheet' and (output/'sheet-partition.json').is_file():
             shutil.copyfile(output/'sheet-partition.json',folder/'sheet-partition.json')
             nested_request['inputs']['sheet-partition.json']=digest(folder/'sheet-partition.json')
+        if review_dispatch_policy == dispatch.POLICY:
+            nested_request['inputs'][dispatch.NAME]=dispatch.prepare(
+                folder,request_id,mids,nested_request['inputs'])
         (folder/'request.json').write_text(json.dumps(nested_request,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         save(output/'extraction-candidate.json',extraction)
         # Every immutable producer file is pinned, including source crop and raw/receipt chain.
@@ -176,6 +182,8 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
             request['backgroundVisualReviewPolicy']=background_visual_review_policy
         if identity_observation_policy is not None:
             request['identityObservationPolicy']=identity_observation_policy
+        if review_dispatch_policy is not None:
+            request['materialReviewDispatchPolicy']=review_dispatch_policy
         if row.get('kind')=='sheet' and (output/'sheet-partition.json').is_file():
             request['sheetSeamPolicy']=sheet_seam_policy
         save(output/'request.json',request)
@@ -205,6 +213,9 @@ def verify_prepared(output, *, source_batch=None):
             'schema.json','prompt.md','ownership-inventory.json'}<=set(nested_inputs):
         raise ValueError('OUTPUT_NESTED_REVIEW_INPUTS_MISSING')
     _bound_files(output/'review',nested_inputs)
+    dispatch.validate_policy(request.get('materialReviewDispatchPolicy'))
+    if request.get('materialReviewDispatchPolicy') == dispatch.POLICY:
+        dispatch.verify(output/'review',request['requestId'],request['materialIds'],nested_inputs)
     config,row,receipt,raw=source(job,request['requestId'],source_batch=source_batch)
     snapshot=job/'snapshot';manifest=source_batch.manifest if source_batch else inspect(snapshot,config['snapshotDigest'])
     if (request['jobDigest']!=config['digest'] or request['snapshotDigest']!=config['snapshotDigest'] or
@@ -609,7 +620,7 @@ def candidate_cell(image, box, split):
 
 def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, output, max_calls,
                           visual_policy=None, visual_textures=None, prior_texture_review=None,generation_mode='sheets',
-                          context_prompt_version='v8'):
+                          context_prompt_version='v10'):
     """Schema-checked deterministic candidate snapshot, explicitly without M2 approval."""
     from .host_review import CONTRACT_DIGESTS
     from .compile_visual import compile_plan, render_prompt, validate
@@ -626,7 +637,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
     if visual['unknowns']:raise ValueError('UNRESOLVED_UNKNOWNS')
     if type(max_calls) is not int or not 1<=max_calls<=128:raise ValueError('CALL_LIMIT_REQUIRED')
     if generation_mode not in ('single','sheets'):raise ValueError('GENERATION_MODE')
-    if context_prompt_version not in ('v7','v8'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if context_prompt_version not in ('v7','v8','v9','v10'):raise ValueError('CONTEXT_PROMPT_VERSION')
     source_sha=digest(reference);plan_sha=digest(plan_path)
     if source_sha!=reference_sha256:raise ValueError('REFERENCE_CHANGED')
     with Image.open(reference) as image:

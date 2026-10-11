@@ -1,4 +1,4 @@
-"""Explicit serial host workflow. Reservations are local attestations, not receipts.
+"""Explicit host workflow with bounded independent material review reservations.
 
 This module neither invokes a model nor assembles its answers. The host dispatches
 the exact reserved request and returns original bytes from an independent caller.
@@ -19,9 +19,13 @@ from . import host_body_observation, body_viewport_delivery, host_m1
 from .refreeze import freeze_reviewed
 from .sheet_pixels import NEAREST_SEAM, STRICT_SEAM, validate_seam_policy
 from . import host_sheet_fallback
+from . import material_review_dispatch
+from . import host_layout_registration
+from . import planning_capacity
 
 KIND = 'ui_integrated_host_delivery_v1'
 POLICY = 'expanded-support-original-viewport-v1'
+PLANNING_REUSE='verified-planning-snapshot-reuse-v1'
 CONTROL = {'state.json', 'checkpoint.json', 'exchange.lock', 'transaction.json'}
 MODEL_STAGES = ('planning_generate', 'planning_review', 'material_review')
 
@@ -105,13 +109,20 @@ def _reviewed_snapshot(source):
     from .execution_preflight import preflight
     folder=Path(source['reviewedSnapshot']).resolve()
     manifest=inspect(folder,source['reviewedSnapshotDigest'])
-    if (source.get('backgroundVisualReviewPolicy')!=host_material_review.BACKGROUND_VISUAL_POLICY or
+    explicit_reuse=source.get('reviewedSnapshotPolicy')==PLANNING_REUSE
+    if 'reviewedSnapshotPolicy' in source and not explicit_reuse:raise ValueError('REVIEWED_SNAPSHOT_POLICY_UNKNOWN')
+    from .visual_policy import snapshot_policy, warnings_only
+    if explicit_reuse and (not host_sheet_fallback.final_composite_first(source) or
+            manifest.get('m1ModelExecuted') is not True or source.get('backgroundRegion') or
+            source.get('backgroundVisualReviewPolicy') or not warnings_only(snapshot_policy(folder,manifest))):
+        raise ValueError('REVIEWED_SNAPSHOT_WARNING_M1_REQUIRED')
+    if (not explicit_reuse and source.get('backgroundVisualReviewPolicy')!=host_material_review.BACKGROUND_VISUAL_POLICY or
             source.get('planningNotes') or manifest.get('planningDriver')!='host-model-exchange-v1' or
             manifest.get('policy')!='visual-plan-v5-experiment-v1' or
             source.get('generationMode','sheets')!='sheets' or
             'generation-groups.json' not in manifest['files'] or
             manifest.get('generationReference')!='context-crops' or
-            manifest.get('contextPromptVersion') not in ('v7','v8') or
+            manifest.get('contextPromptVersion') not in ('v7','v8','v9','v10') or
             manifest.get('contextPromptVersion')!=source.get('contextPromptVersion',manifest.get('contextPromptVersion')) or
             digest(folder/'reference.png')!=digest(Path(source['original'])) or
             manifest['sourcePlanSha256']!=digest(Path(source['seed'])) or
@@ -121,9 +132,9 @@ def _reviewed_snapshot(source):
         if bool(source.get(key))!=(name in manifest['files']) or source.get(key) and digest(Path(source[key]))!=digest(folder/name):
             raise ValueError('PRIOR_REVIEWED_INPUT_CHANGED')
     preflight(folder,manifest['digest'])
-    from .generation_groups import COMPACT_CONTROL_POLICY
+    from .generation_groups import COMPACT_CONTROL_POLICIES
     actual_group_policy=read(folder/'generation-groups.json')['policy']
-    if ((source.get('generationGroupingPolicy') is not None or actual_group_policy==COMPACT_CONTROL_POLICY)
+    if ((source.get('generationGroupingPolicy') is not None or actual_group_policy in COMPACT_CONTROL_POLICIES)
             and source.get('generationGroupingPolicy')!=actual_group_policy):
         raise ValueError('PRIOR_REVIEWED_GROUPING_POLICY_CHANGED')
     visual=read(folder/'evidence/m1-draft.json')
@@ -157,10 +168,13 @@ def prepare(config_path, output):
             raise ValueError('PROTECTED_BACKGROUND_VISUAL_POLICY_REQUIRED')
     if bool(source.get('reviewedSnapshot'))!=bool(source.get('reviewedSnapshotDigest')):
         raise ValueError('PRIOR_REVIEWED_SNAPSHOT_PAIR_REQUIRED')
+    if source.get('reviewedSnapshotPolicy') and not source.get('reviewedSnapshot'):
+        raise ValueError('REVIEWED_SNAPSHOT_POLICY_REQUIRES_SNAPSHOT')
     if root.exists(): raise ValueError('FRESH_HOST_RUN_REQUIRED')
     source.setdefault('generationMode','sheets')
     if source['generationMode'] not in ('single','sheets'):
         raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
+    planning_capacity.configure(source,fresh_m1)
     from .generation_groups import configured_policy
     configured_policy(source,source['generationMode'],'context-crops')
     for key,default in (('maximumModelCallSeconds',1800),('maximumImageCallSeconds',900)):
@@ -203,6 +217,10 @@ def prepare(config_path, output):
     if warnings_only(visual_policy):
         source['visualReviewMode']='warning'
     host_sheet_fallback.configure(source)
+    material_review_dispatch.configure(source,fast=host_sheet_fallback.local(source))
+    source.setdefault('maximumConcurrentImageCalls',3 if host_sheet_fallback.local(source) else 1)
+    experimental_executor.concurrency(dict(maximumConcurrentCalls=source['maximumConcurrentImageCalls']))
+    host_layout_registration.configure(source,fast=host_sheet_fallback.final_composite_first(source))
     if host_sheet_fallback.local(source):
         source.setdefault('bodyUnresolvedPolicy',host_body_observation.UNRESOLVED_POLICY)
     if 'bodyUnresolvedPolicy' in source and (source['bodyUnresolvedPolicy']!=host_body_observation.UNRESOLVED_POLICY
@@ -222,12 +240,12 @@ def prepare(config_path, output):
     body_registration.validate_fit_policy(source.get('bodyFitPolicy'), visual_policy)
     host_body_profile.validate_binding(source['bodyObservationPolicy'], source.get('bodyFitPolicy'), source.get('bodyCoveragePolicy'))
     prior=_reviewed_snapshot(source) if source.get('reviewedSnapshot') else None
-    version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v8')
-    if version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v10')
+    if version not in ('v7','v8','v9','v10'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     source.setdefault('sheetSeamPolicy',NEAREST_SEAM)
     validate_seam_policy(source['sheetSeamPolicy'])
     root.mkdir(parents=True); inputs=root/'inputs';inputs.mkdir()
-    for key in ('seed','original','planningNotes','visualPolicy','visualTextures','materialReuse'):
+    for key in ('seed','original','planningNotes','visualPolicy','visualTextures','materialReuse','layoutContract'):
         if source.get(key):
             path=Path(source[key]);target=inputs/(key+path.suffix)
             target.write_bytes(path.read_bytes());source[key]=str(target)
@@ -273,7 +291,11 @@ def prepare(config_path, output):
                 target=frozen/path;target.parent.mkdir(parents=True,exist_ok=True)
                 target.write_bytes((prior[0]/path).read_bytes())
             inspect(frozen,prior[1]['digest']);preflight(frozen,prior[1]['digest'])
-            experimental_executor.prepare(frozen,prior[1]['digest'],root/'images')
+            host_layout_registration.freeze(root,config)
+            layout_path=root/'frozen-layout-contract.json'
+            experimental_executor.prepare(frozen,prior[1]['digest'],root/'images',
+                layout_contract=layout_path if layout_path.exists() else None,
+                maximum_concurrent_calls=config.get('maximumConcurrentImageCalls',1))
             _state(root,config,'images');_checkpoint(root)
             return status(root)
         host_review.prepare(config['seed'],config['original'],root/'planning',config['contract'],
@@ -305,8 +327,14 @@ def status(run):
         if proof.is_file():host_m1.verify_exchange(root/'planning-m1')
         result['FullReferenceToDeliveryExecutionCompleted']=stage=='complete' and proof.is_file()
     result.update(maximumModelCallSeconds=config['maximumModelCallSeconds'],maximumImageCallSeconds=config['maximumImageCallSeconds'])
+    if (root/planning_capacity.NAME).is_file():
+        capacity=verified(root/planning_capacity.NAME)
+        result['planningCapacity']={key:capacity[key] for key in (
+            'materialCount','plannedCalls','sheetCalls','standaloneCalls','requiredCalls','maximumCalls','exceeded','status')}
     if 'bodyReviewPolicy' in config:
         result['bodyReviewPolicy']=config['bodyReviewPolicy']
+    if 'layoutRegistrationPolicy' in config:
+        result['layoutRegistrationPolicy']=config['layoutRegistrationPolicy']
     if config.get('visualReviewMode')=='warning':
         result.update(visualReviewMode='warning',strictVisualReviewPassed=False,
                       finalCompositeVisualAcceptancePending=True)
@@ -323,11 +351,17 @@ def status(run):
             host_review._bound_files(Path(row['requestDirectory']),row['inputs'])
             if digest(Path(row['requestPath']))!=row['requestSha256']:raise ValueError('HOST_SCOPE_REQUEST_CHANGED')
         result.update(scopeDigest=bound['digest'],scopeDirectory=str(scope),maximumCalls=bound['maximumCalls'])
-        pending=[row for row in rows if not (scope/(row.get('requestId','planning')+'-received.json')).exists()]
-        outstanding=[row for row in pending if (scope/(row.get('requestId','planning')+'-submission.json')).exists()]
-        if pending:result['requestSha256']=pending[0]['requestSha256']
-        result['status']='awaiting_result' if outstanding else (
-            'ready' if (scope/'authorization.json').exists() else 'awaiting_authorization')
+        pending,outstanding,ready,slots=material_review_dispatch.availability(bound,rows,
+            {row.get('requestId','planning') for row in rows if (scope/(row.get('requestId','planning')+'-received.json')).exists()},
+            {row.get('requestId','planning') for row in rows if (scope/(row.get('requestId','planning')+'-submission.json')).exists()})
+        if ready:result['requestSha256']=ready[0]['requestSha256']
+        elif pending:result['requestSha256']=pending[0]['requestSha256']
+        result['status']=('awaiting_authorization' if not (scope/'authorization.json').exists() else
+            'ready' if ready and slots else 'awaiting_result')
+        if stage=='material_review':
+            result.update(maximumConcurrentCalls=bound.get('maximumConcurrentCalls',1),
+                outstandingRequestIds=[row['requestId'] for row in outstanding],
+                unreservedRequestCount=len(ready),availableReviewSlots=min(slots,len(ready)))
     elif stage=='images':
         result.update(experimental_executor.status(root/'images'))
         result['scopeDigest']=verified(root/'images/job.json')['digest']
@@ -340,6 +374,8 @@ def status(run):
             diagnosticExecutionCompleted=True,independentMaterialDeliveryComplete=False,
             unresolvedMaterialIds=report['unresolvedMaterialIds'],
             diagnosticDelivery=str(root/report['diagnosticDelivery']))
+        if 'layoutRegistration' in report:result['layoutRegistration']=report['layoutRegistration']
+        if 'materialRepairPlan' in report:result['materialRepairPlan']=report['materialRepairPlan']
     else: result['status']='complete_pending_visual_acceptance' if stage=='complete' else 'failed_no_retry'
     if 'reason' in state: result['reason']=state['reason']
     if (root/'transaction.json').exists(): result['status']='interrupted_transaction_resume_required'
@@ -363,29 +399,48 @@ def authorize(run, scope_digest, approval):
     return status(root)
 
 
-def next_request(run):
+def next_request(run, *, count=1):
     root=Path(run).resolve()
+    if type(count) is not int or not 1 <= count <= material_review_dispatch.MAX_CONCURRENT:
+        raise ValueError('FINITE_HOST_RESERVATION_COUNT_REQUIRED')
     with lock(root):
         config,state=_load(root);stage=state['stage']
         if (root/'transaction.json').exists():raise ValueError('HOST_RESUME_REQUIRED')
+        if stage in ('failed','complete','diagnostic_complete'):raise ValueError('HOST_NO_NEXT_REQUEST')
+        if count!=1 and stage not in ('material_review','images'):
+            raise ValueError('MULTIPLE_RESERVATIONS_ONLY_FOR_IMAGES_OR_MATERIAL_REVIEW')
         if stage in MODEL_STAGES:
             folder=root/state['scope'];scope=verified(folder/'scope.json')
             if not (folder/'authorization.json').exists():raise ValueError('HOST_SCOPE_AUTHORIZATION_REQUIRED')
             auth=verified(folder/'authorization.json')
             if auth['scopeDigest']!=scope['digest']:raise ValueError('HOST_AUTHORIZATION_CHANGED')
             rows=scope.get('requests',[scope])
-            pending=[row for row in rows if not (folder/(row.get('requestId','planning')+'-received.json')).exists()]
+            pending,outstanding,ready,slots=material_review_dispatch.availability(scope,rows,
+                {row.get('requestId','planning') for row in rows if (folder/(row.get('requestId','planning')+'-received.json')).exists()},
+                {row.get('requestId','planning') for row in rows if (folder/(row.get('requestId','planning')+'-submission.json')).exists()})
             if not pending:raise ValueError('HOST_SCOPE_COMPLETE')
-            if any((folder/(row.get('requestId','planning')+'-submission.json')).exists() for row in pending):
+            if not ready or not slots:
                 raise ValueError('HOST_RESERVED_NO_RESUBMIT')
-            row=pending[0];key=row.get('requestId','planning')
-            submission=record(folder/(key+'-submission.json'),dict(scopeDigest=scope['digest'],requestId=key,
-                authorizationDigest=auth['digest'],nonce=secrets.token_hex(16),
-                evidenceBasis='Local reservation only; not proof of model execution.'))
-            result=dict(scope,**({'currentRequest':row} if stage=='material_review' else {}),submissionDigest=submission['digest'])
+            if count>slots:raise ValueError('HOST_REVIEW_CONCURRENCY_LIMIT_NO_RESUBMIT')
+            reservations=[]
+            for row in ready[:count]:
+                key=row.get('requestId','planning')
+                submission=record(folder/(key+'-submission.json'),dict(scopeDigest=scope['digest'],requestId=key,
+                    authorizationDigest=auth['digest'],nonce=secrets.token_hex(16),
+                    evidenceBasis='Local reservation only; not proof of model execution.'))
+                reservations.append(dict(currentRequest=row,submissionDigest=submission['digest']))
+            result=(dict(scope,reservations=reservations) if count!=1 else
+                dict(scope,**({'currentRequest':reservations[0]['currentRequest']} if stage=='material_review' else {}),
+                    submissionDigest=reservations[0]['submissionDigest']))
         elif stage=='images':
-            result=experimental_executor.next_request(root/'images')
-            result.update(destination=config['imageDestination'],maximumCalls=1,maximumCallSeconds=config['maximumImageCallSeconds'])
+            result=experimental_executor.next_request(root/'images',count=count)
+            metadata=dict(destination=config['imageDestination'],maximumCalls=1,
+                maximumCallSeconds=config['maximumImageCallSeconds'])
+            if count!=1:
+                result['reservations']=[dict(currentRequest=dict(row,**metadata),
+                    submissionDigest=row['submissionDigest']) for row in result['reservations']]
+                metadata['maximumCalls']=len(result['reservations'])
+            result.update(metadata)
         elif stage=='body_observation':
             result=host_body_observation.next_request(root/'body')
             if result is None:raise ValueError('HOST_BODY_FINISH_REQUIRED')
@@ -520,6 +575,7 @@ def _prepare_material_stage(root,config,keys,source_batch):
         prepared=host_material_review.prepare(root/'images',key,folder,material_authors=config['materialAuthors'],
                                      review_registry=root/'review-registry',
                                      source_batch=source_batch,
+                                     review_dispatch_policy=config.get('materialReviewDispatchPolicy'),
                                      identity_observation_policy=config.get('identityObservationPolicy'),
                                      sheet_seam_policy=config.get('sheetSeamPolicy',STRICT_SEAM),
                                      **({'background_visual_review_policy':config['backgroundVisualReviewPolicy']}
@@ -542,16 +598,21 @@ def _prepare_material_stage(root,config,keys,source_batch):
                 except (OSError,ValueError,AttributeError):issues=None
                 if issues:reason+=':issues='+json.dumps(issues,separators=(',',':'))
             raise ValueError(reason)
-        rows.append(dict(requestId=key,requestPath=str(folder/'request.json'),requestSha256=digest(folder/'request.json'),
-                         requestDirectory=str(folder/'review'),inputs=_files(folder/'review')))
+        row=dict(requestId=key,requestPath=str(folder/'request.json'),requestSha256=digest(folder/'request.json'),
+                 requestDirectory=str(folder/'review'),inputs=_files(folder/'review'))
+        if config.get('materialReviewDispatchPolicy')==material_review_dispatch.POLICY:
+            row.update(reviewPacketPath=str(folder/'review'/material_review_dispatch.NAME),
+                       reviewPacketSha256=digest(folder/'review'/material_review_dispatch.NAME))
+        rows.append(row)
     if preparation_warnings:
         record(root/'material-preparation-fallback.json',dict(policy=config['materialPreparationPolicy'],warnings=preparation_warnings))
     if not rows:
         return False
-    scope=root/'scopes/material_review';scope.mkdir()
+    scope=root/'scopes/material_review';scope.mkdir(parents=True)
     record(scope/'scope.json',dict(kind='ui_host_material_batch_scope_v1',stage='material_review',requests=rows,
         destination=config['materialDestination'],model=config['materialModel'],effort=config['materialEffort'],
         reviewerId=config['materialReviewer'],maximumCalls=len(rows),automaticRetries=0,
+        maximumConcurrentCalls=min(config.get('maximumConcurrentMaterialReviews',1),len(rows)),
         maximumCallSeconds=config['maximumModelCallSeconds'],
         stops=(['failed','unknown-receipt','invalid-technical-contract','indeterminate','timeout']
             if config.get('visualReviewMode')=='warning' else ['failed','unknown','unresolved','indeterminate','timeout']),notProviderReceipt=True,
@@ -586,6 +647,14 @@ def _comparison(root, *, diagnostic=False):
          files={p.name:digest(p) for p in folder.iterdir() if p.is_file()}))
 
 
+def _diagnostic_comparison(root):
+    report=read(root/'visual-warning-report.json')
+    delivery=Path(report['diagnosticDelivery'])
+    if delivery not in (Path('diagnostic-output/delivery'),Path('layout-output/delivery')):
+        raise ValueError('HOST_DIAGNOSTIC_DELIVERY_PATH')
+    _comparison(root/delivery.parent,diagnostic=True)
+
+
 def resume(run):
     """Advance only deterministic stages. A pending reservation is never rebuilt."""
     root=Path(run).resolve()
@@ -609,6 +678,8 @@ def resume(run):
         try:
             if stage=='planning_generate':
                 host_m1.verify(root/'planning-m1')
+                host_layout_registration.preflight_plan(root,config)
+                planning_capacity.prepare(root,config)
                 host_review.prepare(root/'planning-m1/draft.json',config['original'],root/'planning',config['contract'],
                     seed_author=config['candidateAuthors'],planning_notes=config.get('planningNotes'),
                     visual_policy=config.get('visualPolicy'),max_calls=config['maximumImageCalls'],
@@ -619,12 +690,17 @@ def resume(run):
             elif stage=='planning_review':
                 frozen=freeze_reviewed(root/'planning',root/'frozen',config['maximumImageCalls'],
                     generation_mode=config.get('generationMode','sheets'),generation_reference='context-crops',context_prompt_version=config['contextPromptVersion'])
+                planning_capacity.verify_frozen(root,config)
                 requests=read(root/'frozen/requests.json')['requests']
                 visual=read(root/'planning/m1/draft.json')
                 bodies=sum(m['role']=='foreground' for m in visual['materials'])
                 if len(requests)>config['maximumMaterialReviews'] or not host_sheet_fallback.final_composite_first(config) and bodies>config['maximumBodyCalls']:
                     raise ValueError('FINITE_DOWNSTREAM_CAPACITY_EXCEEDED')
-                experimental_executor.prepare(root/'frozen',frozen['digest'],root/'images')
+                host_layout_registration.freeze(root,config)
+                layout_path=root/'frozen-layout-contract.json'
+                experimental_executor.prepare(root/'frozen',frozen['digest'],root/'images',
+                    layout_contract=layout_path if layout_path.exists() else None,
+                    maximum_concurrent_calls=config.get('maximumConcurrentImageCalls',1))
                 _state(root,config,'images')
             elif stage=='images':
                 job,_=experimental_executor.load_job(root/'images')
@@ -636,20 +712,20 @@ def resume(run):
                     if keys:
                         if not _material_stage(root,config,keys):
                             host_sheet_fallback.build(root,config,host_sheet_fallback.warnings(root))
-                            _comparison(root/'diagnostic-output',diagnostic=True)
+                            _diagnostic_comparison(root)
                             _state(root,config,'diagnostic_complete')
                     else:
                         host_sheet_fallback.build(root,config,warnings)
-                        _comparison(root/'diagnostic-output',diagnostic=True)
+                        _diagnostic_comparison(root)
                         _state(root,config,'diagnostic_complete')
                 elif warnings:
                     host_sheet_fallback.build(root,config,warnings)
-                    _comparison(root/'diagnostic-output',diagnostic=True)
+                    _diagnostic_comparison(root)
                     _state(root,config,'diagnostic_complete')
                 else:
                     if not _material_stage(root,config,job['assets']):
                         host_sheet_fallback.build(root,config,host_sheet_fallback.warnings(root))
-                        _comparison(root/'diagnostic-output',diagnostic=True)
+                        _diagnostic_comparison(root)
                         _state(root,config,'diagnostic_complete')
             elif stage=='material_review':
                 job,_=experimental_executor.load_job(root/'images');keys=job['assets']
@@ -658,7 +734,7 @@ def resume(run):
                         _state(root,config,'body_observation')
                     else:
                         host_sheet_fallback.build(root,config,host_sheet_fallback.warnings(root))
-                        _comparison(root/'diagnostic-output',diagnostic=True)
+                        _diagnostic_comparison(root)
                         _state(root,config,'diagnostic_complete')
                     (root/'transaction.json').unlink();_checkpoint(root)
                     return status(root)
@@ -688,7 +764,7 @@ def resume(run):
                         host_body_observation.status(root/'body').get('unresolvedMaterialIds')):
                     warnings=host_sheet_fallback.warnings(root)
                     host_sheet_fallback.build(root,config,warnings)
-                    _comparison(root/'diagnostic-output',diagnostic=True)
+                    _diagnostic_comparison(root)
                     _state(root,config,'diagnostic_complete')
                     (root/'transaction.json').unlink();_checkpoint(root)
                     return status(root)
@@ -732,6 +808,7 @@ def main():
         else:child.add_argument('--run',required=True)
         if command in ('host-authorize','host-receive','host-fail'):child.add_argument('--digest',required=True)
         if command=='host-authorize':child.add_argument('--approval',required=True)
+        if command=='host-next':child.add_argument('--count',type=int,default=1)
         if command=='host-fail':child.add_argument('--reason',required=True)
         if command=='host-receive':
             child.add_argument('--response',required=True)
@@ -742,5 +819,6 @@ def main():
     elif command=='host-receive':result=receive(args.run,args.digest,args.response,host_attestation=args.host_attestation,
         dispatch_evidence=args.dispatch_evidence,return_evidence=args.return_evidence)
     elif command=='host-fail':result=fail(args.run,args.digest,args.reason)
-    else:result={'host-status':status,'host-next':next_request,'host-resume':resume}[command](args.run)
+    elif command=='host-next':result=next_request(args.run,count=args.count)
+    else:result={'host-status':status,'host-resume':resume}[command](args.run)
     print(json.dumps(result,ensure_ascii=False,allow_nan=False))

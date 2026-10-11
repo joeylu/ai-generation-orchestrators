@@ -8,6 +8,7 @@ from .evaluate import read, save, digest, check_relations
 from . import relation_review, visual_textures as textures
 from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME, warnings_only
 from .planning_review_policy import split
+from .coverage_review import EXACT_TEXT_POLICY, TEXT_FINDINGS_POLICY, TEXT_OCCURRENCES_POLICY
 from .review_evidence import build_catalog, build_review_schema, PROTOCOL_V4
 from .review_focus import make_focus, make_small_material_focus
 from .sequence_focus import make_sequence_focus
@@ -19,8 +20,9 @@ from .planning_dag import (BOX_TEXT_GUIDANCE, itemized_coverage_prompt, read_not
                            locked)
 
 DRIVER = 'host-model-exchange-v1'
+LAYOUT_ISSUE_IDS = 'declared-layout-issue-ids-v1'
 CONTRACT_DIGESTS = {
-    'schemas/visual-plan.schema.json':'e9f5fd26fed4f432d35d8a323e3dba322aafd635ac5a7349a5b0ed437c4ff0e5',
+    'schemas/visual-plan.schema.json':'e0c10af38b2c95c628b6c88a04acaf7979fa92a5719ddab7425e4c5348ff8982',
     'prompts/visual-plan.md':'01a6838e147cd3ce9b885bda2486e90b7e60dc5ea1ff365733d8fc4348c0f6a6',
     'prompts/visual-review.md':'6a8acae3d168bf1d365b18bd145ce49f9e79dd7fcee145dfed956d3ea306a150'}
 
@@ -29,6 +31,26 @@ def _identity(value):
     if not isinstance(value,str) or re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}',value) is None:
         raise ValueError('HOST_OPAQUE_ID_REQUIRED')
     return value
+
+
+def _review_issue_ids(plan, config):
+    """Only identifiers declared by this source plan may target a finding."""
+    known={row['id'] for key in ('materials','objects') for row in plan[key]}
+    policy=config.get('reviewIssueIdPolicy')
+    if policy is not None:
+        if policy!=LAYOUT_ISSUE_IDS or 'layoutRegistration' not in plan:
+            raise ValueError('HOST_REVIEW_ISSUE_ID_POLICY')
+        known.update(row['id'] for row in plan['layoutRegistration']['constraints'])
+    return known
+
+
+def _bind_issue_ids(schema, plan, config):
+    # Historical schemas remain byte-equivalent when the policy is absent.
+    if config.get('reviewIssueIdPolicy') is not None:
+        identifiers=sorted(_review_issue_ids(plan,config))
+        for field in ('issues','cosmeticIssues'):
+            schema['properties'][field]['items']['properties']['ids']['items']['enum']=identifiers
+    return schema
 
 
 def validate_attestation(attestation, request, response_sha):
@@ -83,7 +105,7 @@ def verify_prepared(root):
     config=read(root/'.dag/config.json')
     if config.get('planningDriver')!=DRIVER:raise ValueError('HOST_DRIVER_REQUIRED')
     if (config.get('reviewEvidenceProtocol')!=PROTOCOL_V4 or
-            config.get('coverageTextPolicy')!='exact-fragments-v1' or
+            config.get('coverageTextPolicy') not in (EXACT_TEXT_POLICY,TEXT_FINDINGS_POLICY,TEXT_OCCURRENCES_POLICY) or
             config.get('relationReviewPolicy')!=relation_review.POLICY):
         raise ValueError('HOST_REVIEW_POLICY_CHANGED')
     if any((root/name).exists() for name in ('session.json','m1/transport.json','m2/transport.json',
@@ -120,7 +142,7 @@ def verify_frozen(folder, snapshot, plan):
     folder=Path(folder);evidence=folder/'evidence'
     config=read(evidence/'host-review-config.json')
     if (config.get('planningDriver')!=DRIVER or config.get('reviewEvidenceProtocol')!=PROTOCOL_V4 or
-            config.get('coverageTextPolicy')!='exact-fragments-v1' or
+            config.get('coverageTextPolicy') not in (EXACT_TEXT_POLICY,TEXT_FINDINGS_POLICY,TEXT_OCCURRENCES_POLICY) or
             config.get('relationReviewPolicy')!=relation_review.POLICY):
         raise ValueError('HOST_FROZEN_POLICY_CHANGED')
     if (snapshot.get('notProviderReceipt') is not True or snapshot.get('cliSessionAsserted') is not False or
@@ -182,7 +204,8 @@ def verify_frozen(folder, snapshot, plan):
             context=[max(0,box[0]-margin),max(0,box[1]-margin),min(width,box[2]+margin),min(height,box[3]+margin)]
             if row['sourceBox']!=box or row['contextBox']!=context:
                 raise ValueError('SMALL_BOUNDARY_FOCUS_PLAN_MISMATCH')
-    schema=build_review_schema(catalog,focus,policy,PROTOCOL_V4,'exact-fragments-v1')
+    schema=build_review_schema(catalog,focus,policy,PROTOCOL_V4,config['coverageTextPolicy'])
+    schema=_bind_issue_ids(schema,plan,config)
     schema=textures.bind_review_schema(schema,texture_doc,plan)
     schema=relation_review.bind_schema(schema,relation_review.catalog(plan,digest(folder/'reference.png')))
     reuse_doc=None
@@ -195,11 +218,11 @@ def verify_frozen(folder, snapshot, plan):
     review=read(response_path);Draft202012Validator(schema).validate(review)
     reuse.validate_review(review,reuse_doc)
     bg_region.validate_review(review,bg_bound)
-    resolve_review(review,plan,'exact-fragments-v1')
+    resolve_review(review,plan,config['coverageTextPolicy'])
     if focus:
         from .boundary_evidence import validate_boundaries
         validate_boundaries(review,focus)
-    if split(review,plan,policy,'exact-fragments-v1',texture_doc)[0]:raise ValueError('M2_UNRESOLVED')
+    if split(review,plan,policy,config['coverageTextPolicy'],texture_doc)[0]:raise ValueError('M2_UNRESOLVED')
 
 
 def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archived_runtime=None):
@@ -212,11 +235,11 @@ def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archive
 
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
-            background_region=None, background_region_digest=None, context_prompt_version='v8',m1_source=None,
+            background_region=None, background_region_digest=None, context_prompt_version='v10',m1_source=None,
             generation_mode='sheets',generation_grouping_policy=None):
     """Snapshot an explicit seed or source-bound host M1 and prepare independent M2."""
     root=Path(output).resolve();contract=Path(contract_dir)
-    if context_prompt_version not in ('v7','v8'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    if context_prompt_version not in ('v7','v8','v9','v10'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     if generation_mode not in ('single','sheets'):raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
     from .generation_groups import configured_policy
     if generation_grouping_policy is not None:
@@ -247,7 +270,6 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     reuse_bytes=None
     if material_reuse is not None:
         reuse_bytes=Path(material_reuse).read_bytes()
-        import json
         reuse.validate(json.loads(reuse_bytes),plan,digest(Path(reference)),digest(Path(candidate)))
     inputs=root/'.dag/inputs';inputs.mkdir(parents=True)
     for name,source in [('reference.png',Path(reference)),('source-plan.json',Path(candidate)),
@@ -265,7 +287,8 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
         runtime=runtime_files(),
         generationMode=generation_mode,generationReference='context-crops',contextPromptVersion=context_prompt_version,
         maxCalls=max_calls,relationReviewPolicy=relation_review.POLICY,
-        reviewEvidenceProtocol=PROTOCOL_V4,coverageTextPolicy='exact-fragments-v1',
+        reviewEvidenceProtocol=PROTOCOL_V4,
+        coverageTextPolicy=TEXT_OCCURRENCES_POLICY if policy_bytes is not None and warnings_only(json.loads(policy_bytes.decode('utf-8-sig'))) else EXACT_TEXT_POLICY,
         inputs={p.name:digest(p) for p in inputs.iterdir()},
         mediaGenerationCalls=0,maximumRepairs=0,
         **({'hostM1Exchange':m1_binding,'candidateAuthors':authors} if m1_binding else
@@ -273,6 +296,7 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
                                   candidateAuthors=authors,m1ModelExecuted=False)}),
         **({'visualTexturePolicy':textures.POLICY} if texture_bytes is not None else {}))
     if generation_grouping_policy is not None:config['generationGroupingPolicy']=generation_grouping_policy
+    if 'layoutRegistration' in plan:config['reviewIssueIdPolicy']=LAYOUT_ISSUE_IDS
     if background_region is not None:config['backgroundRegionDigest']=background_region_digest
     save(root/'.dag/config.json',config)
     save(root/'.dag/config-digest.json',dict(sha256=digest(root/'.dag/config.json')))
@@ -306,10 +330,13 @@ def _prepare_review(root, plan):
     catalog=build_catalog(plan);save(p/'plan-evidence-catalog.json',catalog)
     (p/'review-overlay.png').write_bytes((root/'m1/preview/materials-overlay.png').read_bytes())
     (p/'review-source.md').write_bytes((inputs/'visual-review.md').read_bytes())
+    if config.get('reviewIssueIdPolicy')==LAYOUT_ISSUE_IDS:
+        (p/'reference.png').write_bytes(reference.read_bytes())
     focus=make_focus(reference,p/'review-overlay.png',plan,p)
     small=make_small_material_focus(reference,plan,p)
     sequence=make_sequence_focus(reference,plan,p)
     schema=build_review_schema(catalog,small,policy,PROTOCOL_V4,coverage_text_policy=config['coverageTextPolicy'])
+    schema=_bind_issue_ids(schema,plan,config)
     schema=textures.bind_review_schema(schema,texture_doc,plan)
     relations=relation_review.catalog(plan,digest(reference))
     save(p/relation_review.NAME,relations)
@@ -324,10 +351,32 @@ def _prepare_review(root, plan):
     checks=checks.replace('证据逐字引用所属素材/对象 label；',
         '覆盖项由程序按 materialId/objectId 还原本轮计划目录原文；小素材部件另选所属 planEvidenceId；',1)
     prompt=BOX_TEXT_GUIDANCE+itemized_coverage_prompt(checks,PROTOCOL_V4)
+    if config['coverageTextPolicy'] in (TEXT_FINDINGS_POLICY,TEXT_OCCURRENCES_POLICY):
+        prompt+=('\nRecord each actual business lettering instance with exact textFragments and its original-image location. '
+            'A retained physical sign and a floating title may share words; do not relabel the sign as business copy. '
+            'The program records overlapping text licenses as semantic findings under the bound visual policy; '
+            'it does not rewrite the candidate, erase evidence or retry the review.\n')
+    if config['coverageTextPolicy']==TEXT_OCCURRENCES_POLICY:
+        prompt+=('\nRepeated identical textFragments may describe separate visible occurrences; '
+            'their original order and bytes are retained. Graphic symbols remain artwork rather than business copy.\n')
+    prompt+=('\nThe frozen request directory and its enclosing host run are read-only. '
+        'Write any requested response file, helper script or scratch file outside the host run. '
+        'Do not add files beside the frozen inputs.\n')
     prompt+=('\nIndependent review of the freshly generated host M1 plan. Its original response and source-bound exchange evidence are preserved. No CLI session is asserted.\n'
         if config.get('hostM1Exchange') else '\nIndependent review of an explicitly supplied offline candidate seed. No prior model session is asserted.\n')
     prompt+='\nReview the clean original reference, every material and object, all nine coverage regions, and every required small-material part. Use the exact typed response schema.\n'
     prompt+='\nCandidate plan:\n'+json.dumps(plan,ensure_ascii=False)
+    if 'layoutRegistration' in plan:
+        prompt+=('\nReview the candidate layoutRegistration against the clean reference: every foreground ID, '
+            'frame/uniform permission, declared internal divider row, both edges of every horizontalBandTargets '
+            'section band, intervening light strips and related-control constraint. Check that a static complete '
+            'control is not unnecessarily split into its base and handle without a user requirement. '
+            'expectedDelta is a.edge minus b.edge in original-reference pixels. Report unsupported geometry '
+            'as typed geometry issues with the affected owned material IDs. Finding IDs may also name '
+            'the exact constraint IDs declared by this candidate; do not invent IDs. '
+            'Inspect reference.png for the clean full reference; overlays are annotations, not source pixels. '
+            'This declaration is frozen '
+            'before image generation; do not invent or silently repair a replacement layout.\n')
     prompt+='\nPlan evidence catalog:\n'+json.dumps(catalog,ensure_ascii=False)
     if focus:prompt+='\nBoundary context focus:\n'+json.dumps(focus,ensure_ascii=False)
     if small:
@@ -378,8 +427,8 @@ def _assess(root, plan):
     bg_region.validate_review(review,bg_region.planning_input(root,plan))
     verify_plan_evidence(folder,review,bound,plan)
     verify_boundary_evidence(folder,review,bound,plan,root/'m1/reference.png')
-    blockers,warnings=split(review,plan,planning_policy(root),'exact-fragments-v1',textures.planning_input(root))
-    known={row['id'] for key in ('materials','objects') for row in plan[key]}
+    blockers,warnings=split(review,plan,planning_policy(root),read(root/'.dag/config.json')['coverageTextPolicy'],textures.planning_input(root))
+    known=_review_issue_ids(plan,read(root/'.dag/config.json'))
     if any(set(item['ids'])-known for item in blockers+warnings):raise ValueError('UNKNOWN_REVIEW_IDS')
     relations=relation_review.assess(plan,digest(root/'m1/reference.png'),review,planning_policy(root))
     return dict(blockers=blockers,warnings=warnings,relationBlockers=relations['blockers'],

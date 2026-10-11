@@ -24,6 +24,17 @@ This conservative comparison can block short shared phrases; a reviewer must sup
 unambiguous complete lettering, rather than bypass the conflict. Material ownership,
 text policy, graphic coverage, unknowns, and all other release gates still apply.
 
+New host warning reviews select `exact-fragments-findings-v2`. It uses the same
+explicit fragments, ownership checks and conservative Unicode comparison, but
+returns overlaps as semantic findings containing the owner, source evidence and
+every `preservedText`/`businessText` pair. The explicit v5 visual policy records
+these as warnings; a strict assessment of this new policy keeps them blocking.
+This handles a physical decorative sign and a separate floating business title
+sharing words without misclassifying a semantic ambiguity as malformed transport.
+Neither plan nor response bytes are rewritten and neither lettering decision is
+silently invented. Unknown owners, malformed fragments and missing evidence
+remain technical failures. V1 and absent policies retain their rejection rules.
+
 ## License set normalization
 
 `normalizationPolicy: preserve-text-set-v1` permits duplicate exact strings only
@@ -45,6 +56,18 @@ are never rewritten. Downstream planning must use `verified_plan_path` and pin t
 returned derived file digest. The reader recomputes the derivation and validates
 both report and plan. Legacy jobs return the strictly validated raw draft path.
 Normalization is not a new compute authorization or a failed-job recovery mechanism.
+
+## Repeated text occurrence evidence
+
+New warning-mode host jobs select `exact-fragments-occurrences-v3`. Identical
+`textFragments` may represent multiple visible instances. Transport and resolved
+coverage validation both accept those occurrences in their original order;
+neither the raw answer nor the derived fragment list is deduplicated or rewritten.
+Repeated fragments do not change ownership checks, nonblank/type/length bounds,
+graphic coverage, or preserved-text conflict findings. Strict visual policies
+still block those findings. Existing `exact-fragments-v1` and
+`exact-fragments-findings-v2` configurations retain their uniqueness requirements.
+This change does not resume a terminal failed run or authorize any retry.
 
 ## Source-bound visual textures
 
