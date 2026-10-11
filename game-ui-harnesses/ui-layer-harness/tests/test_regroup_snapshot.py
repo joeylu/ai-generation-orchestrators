@@ -79,9 +79,10 @@ class RegroupTests(unittest.TestCase):
                 ImageDraw.Draw(image).rectangle((20,20,w+19,h+19),fill=(80,90,100,255))
             image.save(raw);host.receive(run,request['submissionDigest'],raw)
         current=host.status(run)
-        self.assertEqual(current['stage'],'material_review')
+        self.assertEqual(current['stage'],'composite_review')
         self.assertEqual(current['status'],'awaiting_authorization')
-        self.assertTrue((run/'scopes/material_review/scope.json').is_file())
+        self.assertTrue((run/'scopes/composite_review-composite/scope.json').is_file())
+        self.assertTrue((run/'final-review/dispatch.json').is_file())
         self.assertFalse(current['newM2ReviewPerformed'])
 
     def test_mutated_parent_or_regrouped_prompt_rejected(self):
