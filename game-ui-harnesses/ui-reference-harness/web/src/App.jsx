@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Empty, Hash, Icon, Modal } from "./ui.jsx";
+import { Button, Empty, Hash, Icon, Modal, Toast } from "./ui.jsx";
 import { Inspector, Panels, Sidebar, TrashList } from "./StudioShell.jsx";
 import {
   ImportDialog,
   NewProjectDialog,
   StyleDialog,
   DeleteProjectDialog,
+  DeletePanelDialog,
 } from "./ProjectDialogs.jsx";
 import { PanelDialog } from "./PanelDialog.jsx";
 import {
@@ -44,6 +45,8 @@ export default function App() {
     exportOptionsRef = useRef(null),
     projectOptionsRef = useRef(null);
   const [reload, setReload] = useState(0);
+  const [panelMutation, setPanelMutation] = useState(false);
+  const panelMutationRef = useRef(false);
   const notify = useCallback(
     (text, error = false) => setToast({ text, error, key: Date.now() }),
     [],
@@ -201,6 +204,33 @@ export default function App() {
     if (value) {
       setPage("panels");
       notify(`「${target.name}」已恢复。`);
+    }
+  }
+  async function changePanelVisibility(target, trashed) {
+    if (panelMutationRef.current) return;
+    panelMutationRef.current = true;
+    setPanelMutation(true);
+    const id = project.id;
+    try {
+      await mutateAndRefresh(
+        () =>
+          request(
+            `${projectPath(id)}/panels/${target.panelId}/${trashed ? "trash" : "restore"}`,
+            {},
+          ),
+        () => refresh(id),
+      );
+      setModal(null);
+      notify(
+        trashed
+          ? `「${target.title}」已删除，可在“已删除”中恢复。`
+          : `「${target.title}」已恢复。`,
+      );
+    } catch (error) {
+      notify(errorText(error), true);
+    } finally {
+      panelMutationRef.current = false;
+      setPanelMutation(false);
     }
   }
   const selectedPanel = modal?.panelId
@@ -398,6 +428,11 @@ export default function App() {
             key={project.id}
             project={project}
             busy={busy}
+            panelMutation={panelMutation}
+            onDelete={(panel) =>
+              setModal({ type: "delete-panel", target: panel })
+            }
+            onRestore={(panel) => changePanelVisibility(panel, false)}
             onImport={() => setModal({ type: "import" })}
             onPanel={(panel) =>
               panel && setModal({ type: "panel", panelId: panel.panelId })
@@ -428,18 +463,7 @@ export default function App() {
           onAnchor={() => setModal({ type: "anchor" })}
         />
       )}
-      {toast && (
-        <div
-          className={`toast ${toast.error ? "error" : ""}`}
-          role={toast.error ? "alert" : "status"}
-        >
-          <Icon name={toast.error ? "info" : "check"} />
-          <span>{toast.text}</span>
-          <button aria-label="关闭提示" onClick={() => setToast(null)}>
-            <Icon name="close" size={16} />
-          </button>
-        </div>
-      )}
+      {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
       {modal?.type === "new" && (
         <NewProjectDialog
           busy={busy}
@@ -453,6 +477,15 @@ export default function App() {
           busy={busy}
           onClose={() => setModal(null)}
           onDelete={() => deleteProject(modal.target)}
+        />
+      )}
+      {modal?.type === "delete-panel" && project && (
+        <DeletePanelDialog
+          panel={modal.target}
+          isAnchor={project.anchor?.panelId === modal.target.panelId}
+          busy={panelMutation}
+          onClose={() => setModal(null)}
+          onDelete={() => changePanelVisibility(modal.target, true)}
         />
       )}
       {modal?.type === "style" && project && (

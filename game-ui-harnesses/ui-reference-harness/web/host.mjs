@@ -34,7 +34,11 @@ import {
   templatePreview,
 } from "./template-previews.mjs";
 import { panelSessions } from "./panel-sessions.mjs";
-import { createImageExport } from "./image-export.mjs";
+import {
+  attachmentDisposition,
+  createImageExport,
+  projectExportFilename,
+} from "./image-export.mjs";
 import { panelDisplayTitle } from "./examples/panel-names.mjs";
 import { resolvedStylePack } from "./style-resolution.mjs";
 import { stylePreviews } from "./style-previews.mjs";
@@ -107,7 +111,7 @@ function send(
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
     ...(filename
-      ? { "Content-Disposition": `attachment; filename="${filename}"` }
+      ? { "Content-Disposition": attachmentDisposition(filename) }
       : {}),
   });
   res.end(type.startsWith("application/json") ? JSON.stringify(value) : value);
@@ -195,12 +199,28 @@ export function createStudio({
       return { id, name: "概念图示例", readOnly: true };
     const file = local(root, `metadata/${id}.json`);
     const meta = readJson(file);
-    exact(meta, ["id", "name", "readOnly"], ["deletedAt"]);
+    exact(meta, ["id", "name", "readOnly"], ["deletedAt", "deletedPanels"]);
     requireThat(
       meta.id === id && meta.readOnly === false,
       "STUDIO_METADATA_INVALID",
     );
     textValue(meta.name, 80);
+    if (Object.hasOwn(meta, "deletedPanels")) {
+      requireThat(
+        meta.deletedPanels &&
+          typeof meta.deletedPanels === "object" &&
+          !Array.isArray(meta.deletedPanels),
+        "STUDIO_METADATA_INVALID",
+      );
+      for (const [panelId, deletedAt] of Object.entries(meta.deletedPanels))
+        requireThat(
+          isId(panelId) &&
+            typeof deletedAt === "string" &&
+            Number.isFinite(Date.parse(deletedAt)) &&
+            new Date(deletedAt).toISOString() === deletedAt,
+          "STUDIO_METADATA_INVALID",
+        );
+    }
     if (Object.hasOwn(meta, "deletedAt"))
       requireThat(
         typeof meta.deletedAt === "string" &&
@@ -234,12 +254,12 @@ export function createStudio({
   }
   function validatedView(id) {
     const directory = projectRoot(id),
-      identity = stamp(directory);
+      meta = metadata(id),
+      identity = canonical([stamp(directory), meta]);
     const old = viewCache.get(id);
     if (old?.identity === identity) return old.value;
     const project = loadProject(directory),
-      state = api.projectStatus(directory),
-      meta = metadata(id);
+      state = api.projectStatus(directory);
     const style = project.activeStyle
       ? api.loadStyle(directory, project.activeStyle)
       : null;
@@ -399,7 +419,17 @@ export function createStudio({
       style,
       styleImage,
       anchor,
-      panels,
+      panels: panels.filter(
+        (panel) => !Object.hasOwn(meta.deletedPanels ?? {}, panel.panelId),
+      ),
+      deletedPanels: panels
+        .filter((panel) =>
+          Object.hasOwn(meta.deletedPanels ?? {}, panel.panelId),
+        )
+        .map((panel) => ({
+          ...panel,
+          deletedAt: meta.deletedPanels[panel.panelId],
+        })),
     };
     viewCache.set(id, { identity, value });
     return value;
@@ -470,6 +500,50 @@ export function createStudio({
         return { id, status: trashed ? "trashed" : "restored" };
       }),
     );
+  }
+  function requireVisiblePanel(id, panelId) {
+    requireThat(
+      isId(panelId) &&
+        Object.hasOwn(loadProject(projectRoot(id)).panels, panelId),
+      "PANEL_UNKNOWN",
+    );
+    requireThat(
+      !Object.hasOwn(metadata(id).deletedPanels ?? {}, panelId),
+      "PANEL_TRASHED",
+    );
+  }
+  function selectedPanels(id, requested = null) {
+    const project = loadProject(projectRoot(id)),
+      hidden = metadata(id).deletedPanels ?? {};
+    if (requested !== null) {
+      requireThat(Array.isArray(requested), "EXPORT_PANELS_INVALID");
+      for (const panelId of requested) requireVisiblePanel(id, panelId);
+      return requested;
+    }
+    // Null preserves the core's all-registered selection when nothing is hidden.
+    return Object.keys(hidden).length
+      ? Object.keys(project.panels).filter(
+          (panelId) => !Object.hasOwn(hidden, panelId),
+        )
+      : null;
+  }
+  function setPanelTrashed(id, panelId, trashed) {
+    const directory = projectRoot(id, true);
+    requireThat(
+      isId(panelId) && Object.hasOwn(loadProject(directory).panels, panelId),
+      "PANEL_UNKNOWN",
+    );
+    // Workbench visibility only: do not remove core inputs/results or interrupt
+    // an already reserved provider request, even while generation is in flight.
+    return withLock(root, () => {
+      const meta = metadata(id);
+      meta.deletedPanels ??= {};
+      if (trashed) meta.deletedPanels[panelId] ??= new Date().toISOString();
+      else delete meta.deletedPanels[panelId];
+      atomicJson(root, `metadata/${id}.json`, meta);
+      viewCache.delete(id);
+      return { panelId, status: trashed ? "trashed" : "restored" };
+    });
   }
   function image(id, query, res) {
     const directory = projectRoot(id),
@@ -749,15 +823,43 @@ export function createStudio({
           options.preview = local(root, relative);
         }
       }
+      const inputId = options.spec
+        ? readJson(options.spec).id
+        : readJson(options.bundle).spec?.id;
+      requireThat(
+        !Object.hasOwn(metadata(id).deletedPanels ?? {}, inputId),
+        "PANEL_TRASHED",
+      );
       return api.addPanel(directory, options);
     }
     if (action === "plan") {
       exact(payload, ["panelId"], ["note", "resolution", "parentRun"]);
+      requireVisiblePanel(id, payload.panelId);
       return api.createPlan(directory, payload);
     }
     if (action === "plan-project") {
       exact(payload, [], ["panelIds", "intents", "resolution"]);
-      return api.createProjectPlans(directory, payload);
+      let panelIds = selectedPanels(id, payload.panelIds ?? null);
+      if (payload.panelIds == null && panelIds !== null) {
+        const pending = api
+          .projectStatus(directory)
+          .panels.filter((panel) => panel.status !== "accepted_current_style");
+        panelIds = panelIds.filter((id) =>
+          pending.some((panel) => panel.panelId === id),
+        );
+        if (!panelIds.length) {
+          const project = loadProject(directory);
+          return {
+            status: "nothing_to_plan",
+            projectId: project.id,
+            styleSha256: project.activeStyle,
+            plans: [],
+            maximumCalls: 0,
+            computeCalls: 0,
+          };
+        }
+      }
+      return api.createProjectPlans(directory, { ...payload, panelIds });
     }
     throw new Error("ACTION_UNKNOWN");
   }
@@ -765,8 +867,14 @@ export function createStudio({
   const sessions = panelSessions({
     workspace: root,
     projectRoot,
-    history: (id, panelId) =>
-      view(id).panels.find((panel) => panel.panelId === panelId)?.history ?? [],
+    history: (id, panelId) => {
+      const project = view(id);
+      return (
+        [...project.panels, ...project.deletedPanels].find(
+          (panel) => panel.panelId === panelId,
+        )?.history ?? []
+      );
+    },
     preflight: async () => {
       requireThat(adapter, "GENERATION_ADAPTER_NOT_CONFIGURED");
       await adapter.preflight?.();
@@ -958,17 +1066,32 @@ export function createStudio({
       if (req.method === "GET" && parts.length === 4 && parts[3] === "image")
         return image(id, url.searchParams, res);
       if (
+        req.method === "POST" &&
+        parts.length === 6 &&
+        parts[3] === "panels" &&
+        ["trash", "restore"].includes(parts[5])
+      ) {
+        exact(await bodyJson(req), []);
+        return send(
+          res,
+          200,
+          setPanelTrashed(id, parts[4], parts[5] === "trash"),
+        );
+      }
+      if (
         parts[3] === "panels" &&
         parts[5] === "session" &&
         parts.length >= 6
       ) {
         const panelId = parts[4];
         requireThat(isId(panelId), "PANEL_UNKNOWN");
+        requireVisiblePanel(id, panelId);
         if (req.method === "GET" && parts.length === 6)
           return send(res, 200, sessions.read(id, panelId));
         if (req.method === "POST" && parts.length === 7) {
           projectRoot(id, true);
           const payload = await bodyJson(req);
+          requireVisiblePanel(id, panelId);
           if (parts[6] === "draft")
             return send(res, 200, sessions.save(id, panelId, payload));
           if (parts[6] === "generate") {
@@ -1021,7 +1144,7 @@ export function createStudio({
         const delivery = api.exportProject(
           directory,
           output,
-          payload.panels ?? null,
+          selectedPanels(id, payload.panels ?? null),
         );
         api.validateDelivery(output);
         return send(res, 200, {
@@ -1029,6 +1152,9 @@ export function createStudio({
           format,
           download: `/api/projects/${id}/exports/${exportId}?format=${format}`,
           exportId,
+          excludedPanelIds: Object.keys(
+            metadata(id).deletedPanels ?? {},
+          ).sort(),
         });
       }
       if (
@@ -1044,13 +1170,14 @@ export function createStudio({
           ["images", "complete"].includes(format),
           "EXPORT_FORMAT_INVALID",
         );
+        const filename = projectExportFilename(metadata(id).name, format);
         if (format === "images")
           return send(
             res,
             200,
             createImageExport(output),
             "application/zip",
-            "reference-images.zip",
+            filename,
           );
         api.validateDelivery(output);
         return send(
@@ -1058,7 +1185,7 @@ export function createStudio({
           200,
           readBytes(local(output, "references.zip")),
           "application/zip",
-          "references.zip",
+          filename,
         );
       }
       if (parts[3] === "runs" && parts.length >= 5) {
@@ -1142,6 +1269,11 @@ export function createStudio({
         if (req.method === "POST" && parts.length === 6) {
           const payload = await bodyJson(req);
           projectRoot(id, true);
+          if (!["receive", "finish", "stop"].includes(parts[5]))
+            requireVisiblePanel(
+              id,
+              api.verifyPlan(directory, run, { allowLegacy: true }).panelId,
+            );
           let result;
           if (parts[5] === "authorize") {
             exact(payload, ["planSha256", "approval"]);
@@ -1269,7 +1401,7 @@ export function createStudio({
         res,
         denied
           ? 403
-          : code === "PROJECT_TRASHED"
+          : ["PROJECT_TRASHED", "PANEL_TRASHED"].includes(code)
             ? 410
             : /UNKNOWN|MISSING/.test(code)
               ? 404

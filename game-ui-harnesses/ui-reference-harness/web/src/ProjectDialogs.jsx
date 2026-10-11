@@ -56,6 +56,45 @@ function StyleRules({ draft }) {
   );
 }
 
+export function DeletePanelDialog({
+  panel,
+  isAnchor,
+  busy,
+  onClose,
+  onDelete,
+}) {
+  return (
+    <Modal
+      title="删除面板"
+      subtitle="可在当前项目的“已删除”中恢复。"
+      onClose={onClose}
+      closeDisabled={busy}
+    >
+      <div className="modal-body delete-project-copy">
+        <h3>{panel.title}</h3>
+        <p>删除后不再参与后续项目导出，原型、图片和生成记录都会保留。</p>
+        <p>
+          已经提交的生成任务会继续收尾，结果保留在已删除面板中，不会自动重新生成。
+        </p>
+        {isAnchor && <p>此面板的固定锚点图会继续用于项目风格一致性。</p>}
+      </div>
+      <div className="modal-footer">
+        <Button disabled={busy} onClick={onClose}>
+          取消
+        </Button>
+        <Button
+          variant="danger"
+          icon="trash"
+          disabled={busy}
+          onClick={onDelete}
+        >
+          确认删除
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 export function DeleteProjectDialog({ project, busy, onClose, onDelete }) {
   return (
     <Modal

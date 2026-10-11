@@ -1,4 +1,4 @@
-# 宿主接入 · 源码发布 0.7.0
+# 宿主接入 · 源码发布 0.7.1
 
 新接入优先使用 [项目级 DAG](project-dag.md) 的核心函数或 dag-* CLI；下文的单面板和
 plan-project 合同继续有效。DAG 是文件工作区中的确定性编排，不附带 Docker、WebSocket、
@@ -9,8 +9,34 @@ plan-project 合同继续有效。DAG 是文件工作区中的确定性编排，
 本 Harness 提供本地文件合同，并有可选的 [本地参考图工作台](../web/README.md)：
 项目与面板管理、默认／自定义风格、原型导入、冻结请求、单次生成交换、人工验收及 ZIP 下载。
 工作台仅监听 127.0.0.1，直接复用核心，不提供部署、账号或任务队列。
-生产安装须固定 `ui-reference-harness-v0.7.0` 及其源码附件 SHA-256，逐项验证 release-manifest.json；
-保留附件原始字节及兄弟 Harness 目录关系。升级说明见 [0.7.0 发布说明](release-0.7.0.md)。
+生产安装须固定 `ui-reference-harness-v0.7.1` 及其源码附件 SHA-256，逐项验证 release-manifest.json；
+保留附件原始字节及兄弟 Harness 目录关系。升级说明见 [0.7.1 发布说明](release-0.7.1.md)。
+该补丁的面板可见性、下载命名与前端同步边界见下文；消费服务须实现自己的实际 API 合同。
+
+## 0.7.1 宿主与前端同步
+
+- 面板删除是宿主持久化的可恢复可见性，不删除核心注册原型、计划、会话、原图或验收记录。
+  本地 Studio 提供 `POST /api/projects/:id/panels/:panelId/trash` 和 `/restore`，请求体为 `{}`。
+  项目读取返回 `panels` 与 `deletedPanels`；后者附带 `deletedAt`。只读示例拒绝写入。
+- 任意面板状态均可删除；已提交的任务继续收尾，不能取消、重投或使面板自动恢复。
+  删除后拒绝新计划、生成、修改、草稿和验收，返回 `410 PANEL_TRASHED`；恢复沿用原会话与修改轮数。
+  已验证任务的接收、收尾和终止记录仍可完成；固定项目锚点继续保留。
+- 新导出按未删除面板显式选择核心子集，响应披露 `excludedPanelIds`；已有交付包不变。
+  DAG 宿主也须在创建新 DAG 时选择可见面板，保留原冻结 DAG 和所有在途请求，不改写定义或历史。
+  本补丁没有增加核心删除 API 或自动重建 DAG。
+- `web/image-export.mjs` 导出 `projectExportFilename(projectName, format)`，`format` 为 `images` 或 `complete`。
+  名称分别为「项目名称-reference-images.zip」和「项目名称-references.zip」，替换非法字符并限制长度。
+  HTTP 下载可用 `attachmentDisposition(filename)` 保留 UTF-8；WebSocket／Blob 前端须使用相同规则设置下载名。
+- 已完成的旧风格预览允许验证后读取和采用。旧计划继续禁止生成；升级前保留原始工作区和固定版本。
+  已发布 0.7.0 的运行时摘要 `05670ece585e72d03092564678e49a4b6423e487bf8336c5b626d7faf50b818c`
+  被明确识别为可复核、可交付的历史证据；未知摘要仍拒绝。
+- 验收必须等待当前大图成功加载；切换结果、图片失败和旧界面操作应清除就绪状态。
+  已归档未完成任务保持只读；报错及关闭按钮须在当前模态框之上显示且可操作。
+
+以上 `/api` 路由是 loopback Studio 的参考接口。消费服务和 Web 独立同步各自的协议、持久化、
+能力声明和界面；升级源码附件不会自动部署这些实现，也不允许修改安装的核心 vendor。
+
+## 核心流程
 
 | 阶段 | 入口 | 宿主需要呈现的内容 |
 | --- | --- | --- |

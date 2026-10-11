@@ -9,11 +9,10 @@ import {
   sha256,
 } from "../src/common.mjs";
 
-function imageName(title, fallback) {
+function filenameStem(title, fallback) {
   let name = String(title || fallback)
     .normalize("NFC")
     .replace(/[\u0000-\u001f\u007f-\u009f<>:"/\\|?*]/gu, "_")
-    .replace(/\.png$/iu, "")
     .replace(/[. ]+$/u, "")
     .trim();
   if (!name || /^\.+$/u.test(name)) name = fallback;
@@ -25,6 +24,23 @@ function imageName(title, fallback) {
   return name;
 }
 
+export function projectExportFilename(projectName, format) {
+  requireThat(["images", "complete"].includes(format), "EXPORT_FORMAT_INVALID");
+  const prefix = filenameStem(projectName, "project");
+  return `${prefix}-${format === "images" ? "reference-images" : "references"}.zip`;
+}
+
+/** HTTP headers must stay ASCII; filename* carries the actual UTF-8 name. */
+export function attachmentDisposition(filename) {
+  const name = String(filename).toWellFormed();
+  const fallback = name.replace(/[^\x20-\x7e]|["\\]/gu, "_");
+  const encoded = encodeURIComponent(name).replace(
+    /[!'()*]/gu,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
+}
+
 /** Keep the public writer's payloads/CRCs and deterministic metadata. Only rename
  * its safe ASCII entries and set ZIP's UTF-8 flag for user-facing panel titles. */
 export function namedImageZip(images) {
@@ -32,7 +48,10 @@ export function namedImageZip(images) {
     names = new Map(),
     files = new Map();
   for (const [index, image] of images.entries()) {
-    const base = imageName(panelDisplayTitle(image), image.panelId);
+    const base = filenameStem(
+      String(panelDisplayTitle(image) || image.panelId).replace(/\.png$/iu, ""),
+      image.panelId,
+    );
     let name = `${base}.png`,
       suffix = 2;
     while (used.has(name.toLowerCase())) name = `${base} (${suffix++}).png`;

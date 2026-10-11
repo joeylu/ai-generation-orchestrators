@@ -74,7 +74,10 @@ export function stylePreviews({ workspace, adapter }) {
         isDigest(value.planSha256),
       "STYLE_PREVIEW_RECORD_INVALID",
     );
-    const plan = api.verifyPlan(target.directory, value.run);
+    // Reading/adopting verified output is not another generation attempt.
+    const plan = api.verifyPlan(target.directory, value.run, {
+      allowLegacy: true,
+    });
     requireThat(
       plan.sha256 === value.planSha256 &&
         plan.projectId === `preview-${operationId}` &&

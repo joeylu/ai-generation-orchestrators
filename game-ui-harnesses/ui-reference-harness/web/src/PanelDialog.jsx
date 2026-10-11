@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Field, Modal } from "./ui.jsx";
+import {
+  Button,
+  Field,
+  Modal,
+  ReviewImageStatus,
+  useReviewImage,
+} from "./ui.jsx";
 import { GenerationProgress } from "./GenerationProgress.jsx";
 import { generationProgress } from "./generation-progress.js";
 import {
@@ -169,6 +175,9 @@ function SessionPanelDialog({
   const versions = session?.turns.filter((turn) => turn.image) ?? [];
   const selected = versions.find((turn) => turn.run === selectedRun) ?? current;
   const image = selected?.image ?? panel.image;
+  const displayedImage =
+    preview === "reference" && image ? image : panel.prototypeImage;
+  const reviewImage = useReviewImage(displayedImage);
   const outdatedImage =
     !current &&
     panel.image &&
@@ -219,7 +228,7 @@ function SessionPanelDialog({
         },
         async () => {
           if (alive.current) setOperation({ ...pending, phase: "finishing" });
-          await read();
+          if (alive.current) await read();
           await onRefresh();
         },
       ),
@@ -227,7 +236,13 @@ function SessionPanelDialog({
     if (alive.current) setSubmitting(false);
   }
   async function accept() {
-    if (!selected || !editable) return;
+    if (
+      !selected ||
+      !editable ||
+      preview !== "reference" ||
+      !reviewImage.isReady()
+    )
+      return;
     await perform(() =>
       mutateAndRefresh(
         () =>
@@ -285,12 +300,18 @@ function SessionPanelDialog({
           </div>
           <div className="detail-image">
             <img
-              src={
-                preview === "reference" && image ? image : panel.prototypeImage
-              }
+              key={displayedImage}
+              src={displayedImage}
+              {...reviewImage.props}
               alt={`${panel.title}${preview === "reference" && image ? "参考图" : "原型"}`}
             />
           </div>
+          {preview === "reference" && image && (
+            <ReviewImageStatus
+              image={reviewImage}
+              reviewing={selected?.status === "pending_visual_review"}
+            />
+          )}
           {image && (
             <a
               className="image-download"
@@ -412,7 +433,9 @@ function SessionPanelDialog({
                   <Button
                     variant="primary"
                     icon="check"
-                    disabled={!editable || preview !== "reference"}
+                    disabled={
+                      !editable || preview !== "reference" || !reviewImage.ready
+                    }
                     onClick={accept}
                   >
                     接受这张图

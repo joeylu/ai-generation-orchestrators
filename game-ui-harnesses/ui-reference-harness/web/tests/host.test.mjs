@@ -12,10 +12,287 @@ import { readJson, local, sha256, verifyBlob } from "../../src/common.mjs";
 import { builtinPack } from "../../src/packs.mjs";
 import { loadProject } from "../../src/project.mjs";
 import { loadPrototype } from "../../src/panel.mjs";
-import { syntheticImage } from "../../tests/helpers.mjs";
+import { archiveSyntheticRun, syntheticImage } from "../../tests/helpers.mjs";
+import {
+  DEVELOPMENT_0_7_RUNTIME_SHA256,
+  SOURCE_0_6_RUNTIME_SHA256,
+  SOURCE_0_7_RUNTIME_SHA256,
+} from "../../src/compiler.mjs";
 import { readImageZip } from "./read-image-zip.mjs";
 import { templateInput } from "../template-previews.mjs";
 import { styleDraftInput } from "../src/style-input.js";
+
+function fileSnapshot(directory) {
+  return Object.fromEntries(
+    fs
+      .readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => {
+        const file = path.join(entry.parentPath, entry.name);
+        return [path.relative(directory, file), sha256(fs.readFileSync(file))];
+      }),
+  );
+}
+
+test("panel trash is reversible in every manual workflow state and leaves core files unchanged", async (t) => {
+  const { call, configured, workspace, restart } = await host(t),
+    id = await configured();
+  const base = `/projects/${id}`,
+    panelRoute = `${base}/panels/main-menu`,
+    directory = local(workspace, `projects/${id}`);
+  async function cycle() {
+    const before = fileSnapshot(directory),
+      original = (await call(base)).panels[0];
+    assert.equal((await call(`${panelRoute}/trash`, {})).status, "trashed");
+    await call(`${panelRoute}/trash`, {});
+    restart();
+    const hidden = await call(base);
+    assert.equal(hidden.panels.length, 0);
+    assert.equal(hidden.deletedPanels[0].panelId, "main-menu");
+    assert.deepEqual(hidden.deletedPanels[0].history, original.history);
+    assert.equal(
+      (await call("/bootstrap")).projects.find((project) => project.id === id)
+        .panelCount,
+      0,
+    );
+    assert.equal(
+      (await call(`${panelRoute}/session`, undefined, 410)).error,
+      "PANEL_TRASHED",
+    );
+    assert.equal(
+      (await call(`${base}/plan`, { panelId: "main-menu" }, 410)).error,
+      "PANEL_TRASHED",
+    );
+    assert.deepEqual(fileSnapshot(directory), before);
+    await call(`${panelRoute}/restore`, {});
+    await call(`${panelRoute}/restore`, {});
+    assert.deepEqual((await call(base)).panels[0], original);
+    assert.deepEqual(fileSnapshot(directory), before);
+  }
+  await cycle(); // No plan / needs generation.
+  const plan = await call(`${base}/plan`, { panelId: "main-menu" }),
+    route = `${base}/runs/${plan.run.slice(5)}`;
+  await cycle(); // Awaiting authorization.
+  await call(`${route}/authorize`, {
+    planSha256: plan.planSha256,
+    approval: "Synthetic test authorization.",
+  });
+  await cycle(); // Authorized.
+  const reserved = await call(`${route}/request`, {});
+  await cycle(); // Reserved manual exchange.
+  await call(`${panelRoute}/trash`, {});
+  const result = await call(`${route}/receive`, {
+    requestSha256: reserved.requestSha256,
+    image: syntheticImage(960, 800).toString("base64"),
+  });
+  assert.equal(result.status, "pending_visual_review"); // Already submitted external results may still finish.
+  assert.equal((await call(base)).panels.length, 0);
+  const review = {
+    imageSha256: result.imageSha256,
+    layout: "pass",
+    style: "pass",
+    copy: "pass",
+    decision: "accept",
+    note: "Synthetic test acceptance.",
+  };
+  assert.equal(
+    (await call(`${route}/review`, review, 410)).error,
+    "PANEL_TRASHED",
+  );
+  assert.equal(
+    (await call(`${route}/generate`, {}, 410)).error,
+    "PANEL_TRASHED",
+  );
+  await call(`${panelRoute}/restore`, {});
+  await cycle(); // Pending review.
+  await call(`${route}/review`, {
+    ...review,
+    layout: "fail",
+    decision: "reject",
+  });
+  await cycle(); // Rejected review.
+  assert.equal(
+    (await call(`${base}/panels/missing/trash`, {}, 404)).error,
+    "PANEL_UNKNOWN",
+  );
+});
+
+for (const outcome of ["completed", "unknown"]) {
+  test(`deleting a panel during session generation preserves the ${outcome} outcome without resubmitting`, async (t) => {
+    let release,
+      began,
+      calls = 0;
+    const gate = new Promise((resolve) => {
+        release = resolve;
+      }),
+      started = new Promise((resolve) => {
+        began = resolve;
+      });
+    const { call, configured, workspace, restart } = await host(t, {
+      adapter: {
+        generate: async ({ width, height }) => {
+          calls++;
+          began();
+          await gate;
+          if (outcome === "unknown")
+            throw new Error("Synthetic provider outcome unknown.");
+          return syntheticImage(width, height);
+        },
+      },
+    });
+    const id = await configured(),
+      base = `/projects/${id}`,
+      panelRoute = `${base}/panels/main-menu`,
+      route = `${panelRoute}/session`;
+    const session = await call(route),
+      payload = sessionBody(session);
+    const generating = call(
+      `${route}/generate`,
+      payload,
+      outcome === "completed" ? 200 : 400,
+    );
+    await started;
+    try {
+      assert.equal((await call(`${panelRoute}/trash`, {})).status, "trashed");
+      assert.equal((await call(base)).panels.length, 0);
+      assert.equal(
+        (await call(`${route}/generate`, payload, 410)).error,
+        "PANEL_TRASHED",
+      );
+      assert.equal(calls, 1);
+    } finally {
+      release();
+    }
+    const result = await generating;
+    assert.equal(
+      outcome === "completed" ? result.source.status : result.error,
+      outcome === "completed"
+        ? "pending_visual_review"
+        : "ADAPTER_INDETERMINATE_NO_RESUBMIT",
+    );
+    restart();
+    const hidden = await call(base);
+    assert.equal(hidden.panels.length, 0);
+    assert.equal(
+      hidden.deletedPanels[0].latestRun.status,
+      outcome === "completed" ? "pending_visual_review" : "indeterminate",
+    );
+    const before = fileSnapshot(local(workspace, `projects/${id}`));
+    await call(`${panelRoute}/restore`, {});
+    const restored = await call(route);
+    assert.equal(restored.key, session.key);
+    assert.equal(restored.turns.length, 1);
+    assert.equal(restored.revisionsRemaining, 3);
+    assert.equal(restored.active, false);
+    assert.equal(calls, 1);
+    assert.deepEqual(fileSnapshot(local(workspace, `projects/${id}`)), before);
+  });
+}
+
+test("deleting an accepted anchor excludes its panel from new exports while preserving anchor, history and old deliveries", async (t) => {
+  let calls = 0;
+  const { call, configured, workspace, origin, restart } = await host(t, {
+    adapter: {
+      generate: async ({ width, height }) => {
+        calls++;
+        return syntheticImage(width, height);
+      },
+    },
+  });
+  const id = await configured(),
+    base = `/projects/${id}`;
+  const beforeSession = await call(`${base}/panels/main-menu/session`);
+  async function generateAndAccept(panelId, anchor = false) {
+    const route = `${base}/panels/${panelId}/session`,
+      session = await call(route),
+      generated = await call(`${route}/generate`, sessionBody(session));
+    await call(`${base}/runs/${generated.source.run.slice(5)}/review`, {
+      imageSha256: generated.source.imageSha256,
+      layout: "pass",
+      style: "pass",
+      copy: "pass",
+      decision: "accept",
+      note: "Synthetic fixture visual review.",
+      useAsAnchor: anchor,
+    });
+  }
+  await generateAndAccept("main-menu", true);
+  await call(`${base}/import`, { template: "sdk-settings" });
+  await generateAndAccept("sdk-settings");
+  // A second image consumes one revision; trash/restore must preserve that count.
+  const first = await call(`${base}/panels/sdk-settings/session`);
+  await call(
+    `${base}/panels/sdk-settings/session/generate`,
+    sessionBody(first, "Synthetic revision."),
+  );
+  await call(`${base}/panels/sdk-settings/trash`, {});
+  await call(`${base}/panels/sdk-settings/restore`, {});
+  assert.equal(
+    (await call(`${base}/panels/sdk-settings/session`)).revisionsRemaining,
+    2,
+  );
+  const before = await call(base),
+    all = await call(`${base}/export`, { format: "complete" });
+  const deliveryBefore = fileSnapshot(
+    local(workspace, `exports/${id}/${all.exportId}`),
+  );
+  const coreBefore = fileSnapshot(local(workspace, `projects/${id}`));
+  await call(`${base}/panels/main-menu/trash`, {});
+  restart();
+  const hidden = await call(base);
+  assert.equal(hidden.panels.length, 1);
+  assert.deepEqual(hidden.anchor, before.anchor);
+  assert.equal(
+    sha256(
+      Buffer.from(
+        await (await fetch(`${origin}${hidden.anchor.image}`)).arrayBuffer(),
+      ),
+    ),
+    before.anchor.imageSha256,
+  );
+  assert.equal(
+    (await call(`${base}/import`, { template: "main-menu" }, 410)).error,
+    "PANEL_TRASHED",
+  );
+  const exported = await call(`${base}/export`, {});
+  assert.deepEqual(exported.panelIds, ["sdk-settings"]);
+  assert.deepEqual(exported.excludedPanelIds, ["main-menu"]);
+  assert.equal(
+    api.validateDelivery(local(workspace, `exports/${id}/${exported.exportId}`))
+      .status,
+    "valid",
+  );
+  assert.equal(
+    (await call(`${base}/export`, { panels: ["main-menu"] }, 410)).error,
+    "PANEL_TRASHED",
+  );
+  assert.equal(
+    (await call(`${base}/plan-project`, {})).status,
+    "nothing_to_plan",
+  );
+  assert.equal(
+    (await call(`${base}/plan-project`, { panelIds: null })).status,
+    "nothing_to_plan",
+  );
+  assert.deepEqual(
+    fileSnapshot(local(workspace, `projects/${id}`)),
+    coreBefore,
+  );
+  assert.deepEqual(
+    fileSnapshot(local(workspace, `exports/${id}/${all.exportId}`)),
+    deliveryBefore,
+  );
+  await call(`${base}/panels/main-menu/restore`, {});
+  assert.equal(
+    (await call(`${base}/panels/main-menu/session`)).key,
+    beforeSession.key,
+  );
+  assert.deepEqual((await call(`${base}/export`, {})).panelIds, [
+    "main-menu",
+    "sdk-settings",
+  ]);
+  assert.equal(calls, 3);
+});
 
 const sessionBody = (session, feedback = "") => ({
   sessionKey: session.key,
@@ -25,6 +302,187 @@ const sessionBody = (session, feedback = "") => ({
   feedback,
   sourceImageSha256: session.source?.imageSha256 ?? null,
 });
+
+for (const runtime of [
+  SOURCE_0_6_RUNTIME_SHA256,
+  DEVELOPMENT_0_7_RUNTIME_SHA256,
+  SOURCE_0_7_RUNTIME_SHA256,
+]) {
+  test(`completed archived Studio image remains reviewable after restart: ${runtime.slice(0, 8)}`, async (t) => {
+    let calls = 0;
+    const { call, configured, restart, workspace } = await host(t, {
+      adapter: {
+        generate: async () => {
+          calls++;
+          return syntheticImage(384, 320);
+        },
+      },
+    });
+    const id = await configured(),
+      sessionRoute = `/projects/${id}/panels/main-menu/session`;
+    let session = await call(sessionRoute);
+    session = await call(`${sessionRoute}/generate`, sessionBody(session));
+    const { run, imageSha256 } = session.source,
+      directory = local(workspace, `projects/${id}`),
+      route = `/projects/${id}/runs/${run.slice(5)}`;
+    archiveSyntheticRun(directory, run, runtime);
+    const immutableNames = [
+      "plan.json",
+      "authorization.json",
+      "attempt.json",
+      "request.json",
+      "raw.png",
+      "receipt.json",
+      "technical.json",
+      "reference.png",
+    ];
+    const before = immutableNames.map((name) =>
+      fs.readFileSync(local(directory, `${run}/${name}`)),
+    );
+    restart();
+    const state = (await call(route)).state;
+    assert.equal(state.status, "pending_visual_review");
+    assert.equal(state.executable, false);
+    assert.equal((await call(sessionRoute)).source.imageSha256, imageSha256);
+    const review = {
+      imageSha256,
+      layout: "pass",
+      style: "pass",
+      copy: "pass",
+      decision: "accept",
+      note: "Synthetic archived image acceptance.",
+      useAsAnchor: true,
+    };
+    assert.equal(
+      (
+        await call(
+          `${route}/review`,
+          { ...review, imageSha256: "0".repeat(64) },
+          400,
+        )
+      ).error,
+      "REVIEW_IMAGE_MISMATCH",
+    );
+    assert.equal(fs.existsSync(local(directory, `${run}/review.json`)), false);
+    assert.equal(
+      (await call(`${route}/generate`, {}, 400)).error,
+      "PLAN_CONTRACT_OR_RUNTIME_CHANGED",
+    );
+    assert.equal((await call(`${route}/review`, review)).status, "accepted");
+    assert.equal((await call(sessionRoute)).source.status, "accepted");
+    const project = await call(`/projects/${id}`);
+    assert.equal(project.anchor.imageSha256, imageSha256);
+    assert.equal(project.panels[0].acceptedRun, run);
+    const exported = await call(`/projects/${id}/export`, {});
+    assert.equal(
+      api.validateDelivery(
+        local(workspace, `exports/${id}/${exported.exportId}`),
+      ).status,
+      "valid",
+    );
+    assert.equal(calls, 1);
+    immutableNames.forEach((name, index) =>
+      assert.ok(
+        fs
+          .readFileSync(local(directory, `${run}/${name}`))
+          .equals(before[index]),
+      ),
+    );
+  });
+}
+
+for (const [scope, runtime] of [
+  ["project-drafts", SOURCE_0_6_RUNTIME_SHA256],
+  ["projects", DEVELOPMENT_0_7_RUNTIME_SHA256],
+  ["project-drafts", SOURCE_0_7_RUNTIME_SHA256],
+  ["projects", SOURCE_0_7_RUNTIME_SHA256],
+]) {
+  test(`archived style preview stays readable and adoptable without generation: ${scope}/${runtime.slice(0, 8)}`, async (t) => {
+    let calls = 0;
+    const { call, configured, restart, workspace, origin } = await host(t, {
+      adapter: {
+        generate: async (input) => {
+          calls++;
+          return syntheticImage(input.width, input.height);
+        },
+      },
+    });
+    const draft =
+      scope === "project-drafts"
+        ? await call("/project-drafts", {
+            name: "Archived preview fixture",
+            style: { preset: "fantasy-handpainted" },
+          })
+        : { id: await configured() };
+    const style =
+      draft.style ??
+      (await call(`/projects/${draft.id}/style-draft`, {
+        preset: "fantasy-handpainted",
+      }));
+    const route = `/${scope}/${draft.id}/style-preview`,
+      operationId = randomUUID();
+    const body = {
+      styleSha256: style.sha256,
+      operationId,
+      approval: "Synthetic preview compute decision.",
+    };
+    const preview = await call(route, body);
+    const relative = `style-previews/${scope}/${draft.id}/${operationId}`;
+    const recordFile = local(workspace, `${relative}/record.json`),
+      record = readJson(recordFile);
+    const directory = local(workspace, `${relative}/project`);
+    record.planSha256 = archiveSyntheticRun(
+      directory,
+      record.run,
+      runtime,
+    ).sha256;
+    fs.writeFileSync(recordFile, JSON.stringify(record)); // Historical synthetic fixture only.
+    const before = fs.readFileSync(local(directory, `${record.run}/raw.png`));
+    restart();
+    const saved = await call(`${route}/${operationId}`);
+    assert.equal(saved.imageSha256, preview.imageSha256);
+    assert.equal(saved.status, "pending_visual_review");
+    assert.deepEqual(await call(route, body), saved);
+    const image = await fetch(`${origin}${saved.image}`);
+    assert.equal(image.status, 200);
+    assert.equal(
+      sha256(Buffer.from(await image.arrayBuffer())),
+      saved.imageSha256,
+    );
+    const confirmation = {
+      styleSha256: style.sha256,
+      approval: "Synthetic archived preview visual acceptance.",
+      preview: { operationId, imageSha256: saved.imageSha256 },
+    };
+    const adopted =
+      scope === "project-drafts"
+        ? await call(
+            "/projects",
+            {
+              name: "Archived preview fixture",
+              draftId: draft.id,
+              ...confirmation,
+            },
+            201,
+          )
+        : await call(`/projects/${draft.id}/style-activate`, confirmation);
+    const project = await call(`/projects/${draft.id}`);
+    assert.equal(project.activeStyle, adopted.activeStyle);
+    assert.equal(
+      api.loadStyle(
+        local(workspace, `projects/${draft.id}`),
+        project.activeStyle,
+      ).references[0].artifact.sha256,
+      saved.imageSha256,
+    );
+    assert.equal(api.inspectRun(directory, record.run).status, "accepted");
+    assert.equal(api.inspectRun(directory, record.run).executable, false);
+    assert.ok(
+      fs.readFileSync(local(directory, `${record.run}/raw.png`)).equals(before),
+    );
+    assert.equal(calls, 1);
+  });
+}
 
 test("custom reference previews do not inherit the previously selected default style", async (t) => {
   let captured,
@@ -798,12 +1256,8 @@ async function host(t, options = {}) {
     assert.equal(response.status, expected, JSON.stringify(value));
     return value;
   }
-  async function configured() {
-    const project = await call(
-        "/projects",
-        { name: "Synthetic fixture only" },
-        201,
-      ),
+  async function configured(name = "Synthetic fixture only") {
+    const project = await call("/projects", { name }, 201),
       id = project.id;
     const draft = await call(`/projects/${id}/style-draft`, {
       preset: "concept-art",
@@ -1289,7 +1743,7 @@ test("project drafts, prototype import and plan preparation never authorize or g
 
 test("manual exchange preserves one reservation, requires explicit review and exports only the accepted project set", async (t) => {
   const { origin, call, configured, workspace } = await host(t);
-  const id = await configured();
+  const id = await configured("幻想冒险：UI / 展示");
   const first = await call(`/projects/${id}/plan`, { panelId: "main-menu" }),
     route = `/projects/${id}/runs/${first.run.slice(5)}`;
   await call(
@@ -1353,6 +1807,14 @@ test("manual exchange preserves one reservation, requires explicit review and ex
   assert.equal(downloaded.status, 200);
   assert.equal(exported.panelIds.length, 2);
   assert.equal(exported.format, "images");
+  const downloadFilename = (response) =>
+    decodeURIComponent(
+      response.headers.get("content-disposition").split("UTF-8''")[1],
+    );
+  assert.equal(
+    downloadFilename(downloaded),
+    "幻想冒险：UI _ 展示-reference-images.zip",
+  );
   const images = readImageZip(Buffer.from(await downloaded.arrayBuffer()));
   assert.deepEqual([...images.keys()].sort(), ["游戏大厅.png", "退出确认.png"]);
   assert.ok(
@@ -1365,6 +1827,7 @@ test("manual exchange preserves one reservation, requires explicit review and ex
   const complete = await call(`/projects/${id}/export`, { format: "complete" });
   assert.equal(complete.format, "complete");
   const fullZip = await fetch(`${origin}${complete.download}`);
+  assert.equal(downloadFilename(fullZip), "幻想冒险：UI _ 展示-references.zip");
   assert.deepEqual(
     Buffer.from(await fullZip.arrayBuffer()),
     fs.readFileSync(
@@ -1372,6 +1835,7 @@ test("manual exchange preserves one reservation, requires explicit review and ex
     ),
   );
   const legacy = await fetch(`${origin}${complete.download.split("?")[0]}`);
+  assert.equal(downloadFilename(legacy), "幻想冒险：UI _ 展示-references.zip");
   assert.deepEqual(
     Buffer.from(await legacy.arrayBuffer()),
     fs.readFileSync(local(directory, "references.zip")),
@@ -1429,6 +1893,8 @@ test("a supplied showcase is read-only, while its accepted reference assets rema
   await call("/projects/showcase/style-draft", { preset: "concept-art" }, 403);
   await call("/projects/showcase/trash", {}, 403);
   await call("/projects/showcase/restore", {}, 403);
+  await call("/projects/showcase/panels/main-menu/trash", {}, 403);
+  await call("/projects/showcase/panels/main-menu/restore", {}, 403);
   const unchanged = readJson(local(projectRoot, "project.json"));
   assert.equal(Object.keys(unchanged.panels).length, 1);
 });

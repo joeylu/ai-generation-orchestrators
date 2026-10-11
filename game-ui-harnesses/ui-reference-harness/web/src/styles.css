@@ -555,6 +555,33 @@ svg {
   flex-wrap: wrap;
   gap: 7px;
 }
+.panel-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.panel-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.panel-delete-button:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.panel-delete-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .tag {
   display: inline-flex;
   align-items: center;
@@ -1544,7 +1571,7 @@ details summary {
   padding: 13px 16px;
   border-radius: 8px;
   font-size: 13px;
-  z-index: 10;
+  z-index: 1000;
 }
 .style-preview-actions {
   display: grid;

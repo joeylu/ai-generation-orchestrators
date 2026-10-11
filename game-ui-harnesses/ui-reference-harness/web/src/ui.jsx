@@ -1,4 +1,81 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+export function Toast({ toast, onClose }) {
+  const [target, setTarget] = useState(document.body);
+  useEffect(() => {
+    const syncTarget = () => {
+      // A native modal is in the browser top layer. Its active subtree also
+      // keeps the notification accessible and clickable while the page is inert.
+      const dialogs = [...document.querySelectorAll("dialog.modal[open]")];
+      setTarget(dialogs.at(-1) ?? document.body);
+    };
+    const observer = new MutationObserver(syncTarget);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["open"],
+    });
+    syncTarget();
+    return () => observer.disconnect();
+  }, []);
+  return createPortal(
+    <div
+      className={`toast ${toast.error ? "error" : ""}`}
+      role={toast.error ? "alert" : "status"}
+    >
+      <Icon name={toast.error ? "info" : "check"} />
+      <span>{toast.text}</span>
+      <button type="button" aria-label="关闭提示" onClick={onClose}>
+        <Icon name="close" size={16} />
+      </button>
+    </div>,
+    target,
+  );
+}
+
+// Bind readiness to the displayed full-size image, never a loaded thumbnail or
+// the image that was visible before switching versions.
+export function useReviewImage(src) {
+  const ref = useRef(null);
+  const [loaded, setLoaded] = useState(null),
+    [failed, setFailed] = useState(null);
+  const ready = Boolean(src) && loaded === src && failed !== src;
+  return {
+    ready,
+    failed: Boolean(src) && failed === src,
+    isReady: () =>
+      ready &&
+      ref.current?.getAttribute("src") === src &&
+      ref.current.complete &&
+      ref.current.naturalWidth > 0,
+    props: {
+      ref,
+      onLoad: () => {
+        setLoaded(src);
+        setFailed(null);
+      },
+      onError: () => {
+        setLoaded(null);
+        setFailed(src);
+      },
+    },
+  };
+}
+
+export function ReviewImageStatus({ image, reviewing }) {
+  if (image.ready) return null;
+  return (
+    <p className="muted" role={image.failed ? "alert" : "status"}>
+      {image.failed
+        ? "参考图加载失败，请关闭面板后重新打开；图片与记录已保留。"
+        : reviewing
+          ? "正在加载参考图，加载完成后可验收。"
+          : "正在加载参考图…"}
+    </p>
+  );
+}
 
 const paths = {
   trash: (

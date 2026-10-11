@@ -26,6 +26,9 @@ export const SOURCE_0_6_RUNTIME_SHA256 = 'aea380f8fbec3cee4e941494662300ea037578
 // The distributed 0.7.0 development snapshot remains read-only after release.
 // Its verified output may be inspected, reviewed and delivered, never dispatched.
 export const DEVELOPMENT_0_7_RUNTIME_SHA256 = '4d9860b276acdc6153a8ea000925abcf3bf3b0c2e3153a4a429641b97adbb6cd';
+// Released 0.7.0 results remain reviewable and deliverable after the patch.
+// Archived plans are evidence only, never authorization to submit again.
+export const SOURCE_0_7_RUNTIME_SHA256 = '05670ece585e72d03092564678e49a4b6423e487bf8336c5b626d7faf50b818c';
 
 function verifyAnchor(root, anchor, styleSha256) {
   if (!anchor) return;
@@ -330,8 +333,9 @@ function verifyPlanEvidence(root, run, allowLegacy) {
   const studio = !revisionPlan && current && allowLegacy && plan.runtimeSha256 === STUDIO_RUNTIME_SHA256;
   const source06 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_6_RUNTIME_SHA256;
   const development07 = current && allowLegacy && plan.runtimeSha256 === DEVELOPMENT_0_7_RUNTIME_SHA256;
+  const source07 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_RUNTIME_SHA256;
   requireThat((legacy ? allowLegacy && plan.runtimeSha256 === LEGACY_RUNTIME_SHA256
-    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
+    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
     && run === `runs/${plan.nonce}` && plan.qualityPolicy === 'strict'
     && (plan.parentPlanSha256 === null || isDigest(plan.parentPlanSha256)), 'PLAN_CONTRACT_OR_RUNTIME_CHANGED');
   const prototype = loadPrototype(root, plan.prototype), style = loadStyle(root, plan.styleSha256);

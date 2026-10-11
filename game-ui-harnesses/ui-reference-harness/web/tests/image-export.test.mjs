@@ -1,7 +1,56 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { namedImageZip } from "../image-export.mjs";
+import {
+  attachmentDisposition,
+  namedImageZip,
+  projectExportFilename,
+} from "../image-export.mjs";
 import { readImageZip } from "./read-image-zip.mjs";
+
+test("project downloads retain Unicode prefixes with filesystem-safe names and ASCII headers", () => {
+  const cases = [
+    ["幻想冒险", "幻想冒险"],
+    ["  My Game  ", "My Game"],
+    ['A"/B\\C:*?<>|\r\n', "A__B_C________"],
+    ["CON", "_CON"],
+    ["...", "project"],
+    ["游戏.png", "游戏.png"],
+    ["e\u0301", "é"],
+    ["", "project"],
+  ];
+  for (const [projectName, prefix] of cases) {
+    for (const [format, suffix] of [
+      ["images", "reference-images"],
+      ["complete", "references"],
+    ]) {
+      const filename = projectExportFilename(projectName, format);
+      assert.equal(filename, `${prefix}-${suffix}.zip`);
+      assert.ok(!/[\u0000-\u001f\u007f-\u009f<>:"/\\|?*]/u.test(filename));
+      const header = attachmentDisposition(filename);
+      assert.match(
+        header,
+        /^attachment; filename="[\x20-\x7e]+"; filename\*=UTF-8''/u,
+      );
+      assert.equal(decodeURIComponent(header.split("UTF-8''")[1]), filename);
+    }
+  }
+  const long = projectExportFilename("冒险🌟".repeat(100), "images");
+  assert.ok(Buffer.byteLength(long) < 240);
+  assert.ok(!long.includes("�"));
+  assert.equal(
+    decodeURIComponent(attachmentDisposition(long).split("UTF-8''")[1]),
+    long,
+  );
+  assert.ok(
+    !/[!'()*]/u.test(
+      attachmentDisposition("玩家的 UI (2)'!.zip").split("UTF-8''")[1],
+    ),
+  );
+  assert.throws(
+    () => projectExportFilename("Game", "other"),
+    /EXPORT_FORMAT_INVALID/u,
+  );
+});
 
 test("image archive preserves Chinese names, deduplicates titles and preserves payload bytes", () => {
   const images = [

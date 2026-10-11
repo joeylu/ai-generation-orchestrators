@@ -175,9 +175,18 @@ export function Inspector({ project, onStyle, onAnchor, busy = false }) {
     </aside>
   );
 }
-export function Panels({ project, busy, onImport, onPanel }) {
+export function Panels({
+  project,
+  busy,
+  panelMutation,
+  onImport,
+  onPanel,
+  onDelete,
+  onRestore,
+}) {
   const [filter, setFilter] = useState("all");
-  const panels = project.panels
+  const deleted = filter === "deleted";
+  const panels = (deleted ? (project.deletedPanels ?? []) : project.panels)
     .toSorted(
       (a, b) =>
         Number(b.isAnchor) - Number(a.isAnchor) ||
@@ -185,6 +194,7 @@ export function Panels({ project, busy, onImport, onPanel }) {
     )
     .filter(
       (panel) =>
+        deleted ||
         filter === "all" ||
         (filter === "accepted"
           ? ["accepted", "accepted_current_style"].includes(panelStatus(panel))
@@ -214,6 +224,9 @@ export function Panels({ project, busy, onImport, onPanel }) {
           ["pending", "待生成"],
           ["review", "待验收"],
           ["accepted", "已接受"],
+          ...(!project.readOnly
+            ? [["deleted", `已删除（${project.deletedPanels?.length ?? 0}）`]]
+            : []),
         ].map(([id, title]) => (
           <button
             key={id}
@@ -226,7 +239,7 @@ export function Panels({ project, busy, onImport, onPanel }) {
           </button>
         ))}
       </div>
-      {!project.panels.length ? (
+      {!deleted && !project.panels.length ? (
         <Empty
           title="从第一个面板开始"
           action={
@@ -251,14 +264,18 @@ export function Panels({ project, busy, onImport, onPanel }) {
           )}
         </Empty>
       ) : !panels.length ? (
-        <Empty title="这里暂时没有面板">切换筛选查看其他面板。</Empty>
+        <Empty title={deleted ? "没有已删除的面板" : "这里暂时没有面板"}>
+          {deleted
+            ? "删除的面板会保留在这里，可以随时恢复。"
+            : "切换筛选查看其他面板。"}
+        </Empty>
       ) : (
         <div className="panel-grid">
           {panels.map((panel) => (
             <article className="panel-card" key={panel.panelId}>
               <button
                 className="panel-preview"
-                disabled={busy}
+                disabled={busy || deleted}
                 onClick={() => onPanel(panel)}
                 aria-label={`查看${panel.title}`}
               >
@@ -293,19 +310,50 @@ export function Panels({ project, busy, onImport, onPanel }) {
                         }
                         size={14}
                       />
-                      {labels[panelStatus(panel)] ?? "待处理"}
+                      {deleted
+                        ? "已删除"
+                        : (labels[panelStatus(panel)] ?? "待处理")}
                     </span>
                   </div>
                 </div>
-                <button
-                  disabled={busy}
-                  className="view-button"
-                  onClick={() => onPanel(panel)}
-                  aria-label={`${panelActionLabel(panel, project.readOnly)}：${panel.title}`}
+                <section
+                  className="panel-card-actions"
+                  aria-label={`${panel.title}操作`}
                 >
-                  {panelActionLabel(panel, project.readOnly)}
-                  <Icon name="chevron" size={16} />
-                </button>
+                  {deleted ? (
+                    <Button
+                      icon="restore"
+                      disabled={panelMutation}
+                      onClick={() => onRestore(panel)}
+                      aria-label={`恢复面板：${panel.title}`}
+                    >
+                      恢复
+                    </Button>
+                  ) : (
+                    <>
+                      <button
+                        disabled={busy}
+                        className="view-button"
+                        onClick={() => onPanel(panel)}
+                        aria-label={`${panelActionLabel(panel, project.readOnly)}：${panel.title}`}
+                      >
+                        {panelActionLabel(panel, project.readOnly)}
+                        <Icon name="chevron" size={16} />
+                      </button>
+                      {!project.readOnly && (
+                        <button
+                          className="panel-delete-button"
+                          disabled={panelMutation}
+                          onClick={() => onDelete(panel)}
+                          aria-label={`删除面板：${panel.title}`}
+                          title="删除面板"
+                        >
+                          <Icon name="trash" size={16} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </section>
               </div>
             </article>
           ))}

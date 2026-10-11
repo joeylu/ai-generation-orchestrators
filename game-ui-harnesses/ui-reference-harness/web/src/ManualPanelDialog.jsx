@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Button, Field, Hash, Icon, Modal } from "./ui.jsx";
+import {
+  Button,
+  Field,
+  Hash,
+  Icon,
+  Modal,
+  ReviewImageStatus,
+  useReviewImage,
+} from "./ui.jsx";
 import {
   download,
   errorText,
@@ -76,6 +84,9 @@ export function PanelDialog({
   const current =
     plan?.styleSha256 === project.activeStyle &&
     plan?.prototype.sha256 === panel.prototypeSha256;
+  const displayedImage =
+    preview === "reference" && panel.image ? panel.image : panel.prototypeImage;
+  const reviewImage = useReviewImage(displayedImage);
   async function refreshRun() {
     const value = await request(runPath(project.id, run));
     setDetails(value);
@@ -136,6 +147,7 @@ export function PanelDialog({
     if (value) setPreview("reference");
   }
   async function submitReview(decision) {
+    if (!reviewingResult || !reviewImage.isReady()) return;
     const value = await action("review", {
       imageSha256: state.imageSha256,
       ...review,
@@ -153,6 +165,7 @@ export function PanelDialog({
   const allPass = Object.values(review).every((value) => value === "pass");
   const reviewingResult =
     preview === "reference" &&
+    reviewImage.ready &&
     panel.displayRun === run &&
     panel.displayImageSha256 === state?.imageSha256;
   const finalState = [
@@ -199,14 +212,18 @@ export function PanelDialog({
           )}
           <div className="detail-image">
             <img
-              src={
-                preview === "reference" && panel.image
-                  ? panel.image
-                  : panel.prototypeImage
-              }
+              key={displayedImage}
+              src={displayedImage}
+              {...reviewImage.props}
               alt={`${panel.title}${preview === "reference" ? "参考图" : "原型"}`}
             />
           </div>
+          {preview === "reference" && panel.image && (
+            <ReviewImageStatus
+              image={reviewImage}
+              reviewing={state?.status === "pending_visual_review"}
+            />
+          )}
           {panel.image && (
             <a
               className="image-download"
@@ -345,22 +362,35 @@ export function PanelDialog({
                   本次尝试已结束，不能再次提交或替换结果。需要调整时，请准备新的计划并重新决定。
                 </p>
               )}
-              {state?.status === "raw_received_needs_finish" && (
-                <>
-                  <p className="muted">
-                    原始图片已保存，可以对同一份字节完成本地处理，不会再次生图。
+              {state &&
+                !state.executable &&
+                [
+                  "awaiting_authorization",
+                  "authorized",
+                  "reserved_no_resubmit",
+                  "raw_received_needs_finish",
+                ].includes(state.status) && (
+                  <p className="muted" role="status">
+                    此任务来自旧版服务，当前仅可查看记录。完成原任务需使用生成时的服务版本；新生成请创建新计划。
                   </p>
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      action("finish", { rawSha256: state.rawSha256 })
-                    }
-                  >
-                    完成本地处理
-                  </Button>
-                </>
-              )}
-              {state?.status === "reserved_no_resubmit" && (
+                )}
+              {state?.executable &&
+                state.status === "raw_received_needs_finish" && (
+                  <>
+                    <p className="muted">
+                      原始图片已保存，可以对同一份字节完成本地处理，不会再次生图。
+                    </p>
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        action("finish", { rawSha256: state.rawSha256 })
+                      }
+                    >
+                      完成本地处理
+                    </Button>
+                  </>
+                )}
+              {state?.executable && state.status === "reserved_no_resubmit" && (
                 <div className="result-intake">
                   {matching.execution?.active ? (
                     <p role="status">

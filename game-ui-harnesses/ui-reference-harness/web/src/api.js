@@ -86,6 +86,7 @@ export const errorText = (error) =>
   ({
     SHOWCASE_READ_ONLY: "示例项目只读。请新建项目开始制作。",
     PROJECT_TRASHED: "项目已移入回收站，恢复后可继续使用。",
+    PANEL_TRASHED: "面板已删除，请在项目的“已删除”中恢复后继续。",
     PROJECT_BUSY: "项目正在处理操作，请完成后再试。",
     STYLE_PREVIEW_ALREADY_STARTED:
       "此预览请求已开始，不会重复提交。请读取生成结果。",
@@ -115,8 +116,11 @@ export const errorText = (error) =>
       "请先生成代表面板，验收时将它设为项目锚点。",
     PROJECT_PLAN_PANEL_ALREADY_ACCEPTED:
       "该面板已接受；如需改进，请明确创建新的优化计划。",
-    PLAN_STYLE_STALE: "项目风格已更新，请重新准备计划。",
-    PLAN_PROTOTYPE_STALE: "面板原型已更新，请重新准备计划。",
+    PLAN_STYLE_STALE: "项目风格已更新，请重新打开面板后生成。",
+    PLAN_PROTOTYPE_STALE: "面板原型已更新，请重新打开面板后生成。",
+    PLAN_CONTRACT_OR_RUNTIME_CHANGED:
+      "任务版本与当前服务不兼容。图片和记录已保留，请检查服务版本后重新读取。",
+    REVIEW_IMAGE_MISMATCH: "待验收图片已更新，请重新打开面板后核对。",
     ATTEMPT_ALREADY_RESERVED_NO_RESUBMIT: "该请求已经保留，不能再次提交。",
     GENERATION_ADAPTER_NOT_CONFIGURED:
       "当前使用生成输入包交换，请下载输入并导入返回的 PNG。",
