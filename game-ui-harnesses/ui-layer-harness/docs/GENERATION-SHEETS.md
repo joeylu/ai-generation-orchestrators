@@ -4,15 +4,32 @@ Delivery materials and generation requests are separate identities. A material
 keeps its own ownership, visible state, target geometry and final PNG. A sheet is
 one provider request containing several materials, never one merged UI layer.
 
-New `run` jobs default to `sheets`. Use `--generation-mode single` explicitly
-when each material needs its own image request or the host cannot handle sheets.
-New planning and delivery initializers use the same default. Existing configs
+New automation uses `sheets`, including both `host-run` and the compatible `run`
+initializer. Standalone requests for backgrounds or incompatible materials
+remain within sheets mode. Existing configs
 retain their recorded mode; historical configs without a mode remain `single`.
 Offline `freeze-reviewed` retains the source mode unless explicitly regrouped.
 `--max-calls` limits actual image requests in either mode, not final layer count.
 No existing frozen job, approval or receipt can be converted in place.
 
-## Frozen grouping
+## Current host profile
+
+The formal host loop is documented in [HOST-INTEGRATION](HOST-INTEGRATION.md).
+Fresh reference runs use `compact-controls-context-grid-v5`, including compatible
+complete illustrated cards as a separate family, size/aspect limits and balanced
+grids that can include an unused slot. Capacity includes context rims and board
+padding before M2. Each sheet receives one [combined original-crop board](SHEET-LAYOUT-REFERENCE.md),
+with v13 context instructions and board prompt v5 (v6 for reviewed textures).
+Counts distinguish delivery materials from real image requests.
+
+Fast warning runs preserve raw RGBA and use an alpha-0/1 detection copy for seam
+search. They split, register and package before one independent full-composite
+review; per-request review and body model calls are zero. Historical strict
+extraction, per-request review and explicit variant operations below remain
+available under their own frozen profiles. Their pixel cleanup and control loop
+must not be substituted for the current host policy.
+
+## Compatible DAG grouping
 
 M1/M2 continue to plan delivery materials. The deterministic compiler groups at
 most six compatible foreground materials, using visual kind, declared aspect and
@@ -38,14 +55,15 @@ grid cells and suggested canvas size. `ui_visual_requests_preview_v2` contains
 both single requests and sheet requests. A sheet request's `asset` is a request
 ID; `materialIds` maps it to delivery assets. Its prompt, ordering and grouping
 are hashed before authorization. Preflight reconstructs the groups and prompts
-and requires every material exactly once. All requests use the full reference.
+and requires every material exactly once. Full-reference snapshots use the full
+reference; context snapshots use their bound context/board strategy.
 
-No sheet crop is dispatched as an additional reference. Grid indices are prompt
+Full-reference sheets do not dispatch extra crop references. Grid indices are prompt
 metadata, never visible numbers to draw. The model must preserve each material's
 state, proportion, decorations and internal icon offset; every cell has clear
 transparent margins. Unused cells stay empty. There is no shared backing.
 
-## Receive, review and extract
+## Compatible strict DAG receive, review and extract
 
 One `next` reserves one sheet request; one `receive` binds the unchanged raw PNG.
 An uncertain/failed request cannot be automatically resubmitted. Receiving a
@@ -131,7 +149,7 @@ crop but owned by another material must be absent from the isolated backing;
 requiring its restoration is a false ownership finding. A second review, if
 authorized, uses a new evidence directory and preserves the first result.
 
-The default sheet image prompt starts with the actionable full-reference
+The full-reference sheet image prompt starts with the actionable full-reference
 instruction, without a `visual-sheet-prompt-v2:` protocol header. A real CLI
 image tool call omitted that header while otherwise forwarding the frozen
 prompt exactly, making the received image unusable under the exact-prompt gate.

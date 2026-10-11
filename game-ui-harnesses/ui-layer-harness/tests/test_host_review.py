@@ -24,7 +24,7 @@ def save(path, value):
 class HostReviewTests(unittest.TestCase):
     def setUp(self):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
-        self.base=Path(temp.name);self.reference=self.base/'source.png'
+        self.base=Path(temp.name).resolve();self.reference=self.base/'source.png'
         Image.new('RGB',(1000,1000),(30,40,50)).save(self.reference)
         self.contract=HARNESS/'planning-harness'
         self.plan=read(self.contract/'examples/visual-plan-scoped.json')

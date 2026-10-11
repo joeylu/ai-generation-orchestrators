@@ -9,12 +9,12 @@ from ai_ui_layers.layer_package import write_package,validate_archive,composite
 from ai_ui_layers import host_geometry_observation as observation
 from ai_ui_layers import viewport_geometry_revision as viewport
 from ai_ui_layers import archive_material_edit as edit
-from test_host_geometry_observation import HostGeometryTests
+import test_host_geometry_observation as geometry_fixtures
 
 
 class ViewportRevisionTests(unittest.TestCase):
     def setUp(self):
-        HostGeometryTests.setUp(self)
+        geometry_fixtures.HostGeometryTests.setUp(self)
         raw=self.root/'faint.png';image=Image.new('RGBA',(16,16))
         image.paste((30,60,90,255),(8,2,14,14));image.putpixel((0,0),(20,30,40,1));image.save(raw)
         composition=read(self.root/'package/package/composition.json')
@@ -25,7 +25,7 @@ class ViewportRevisionTests(unittest.TestCase):
         self.item=self.root/'faint-observation'/prepared['items'][0]['directory']
         self.request=observation.verify_prepared(self.item)
         self.answer.update(sourceBodyBox=[8,2,14,14],targetBodyBox=[0,2,6,14])
-        HostGeometryTests.receive(self)
+        geometry_fixtures.HostGeometryTests.receive(self)
         self.selection=self.root/'selection.json'
         save(self.selection,dict(kind='ui_observed_geometry_revision_v1',sourceArchive=str(self.archive),
             sourceArchiveSha256=digest(self.archive),fitPolicy=dict(maximumResidualPixels=32),
@@ -104,7 +104,7 @@ class ViewportRevisionTests(unittest.TestCase):
         self.item=self.root/'edited-observation'/prepared['items'][0]['directory'];self.request=observation.verify_prepared(self.item)
         self.answer.update(sourceBodyBox=[10,4,16,16],targetBodyBox=[0,4,6,16])
         for name in ('response.json','attestation.json'): (self.root/name).unlink()
-        HostGeometryTests.receive(self)
+        geometry_fixtures.HostGeometryTests.receive(self)
         spec=read(self.selection);spec['observations']=[dict(layerId='panel',directory=str(self.item),
             requestSha256=digest(self.item/'request.json'),resultSha256=digest(self.item/'result.json'))]
         self.selection.unlink();save(self.selection,spec)

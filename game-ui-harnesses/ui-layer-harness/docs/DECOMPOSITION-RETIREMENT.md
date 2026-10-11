@@ -49,7 +49,12 @@ test doubles. Repository checks reject runtime references to the retired package
 No model, image generation, private service or GPU request is part of retirement
 verification. Existing visual acceptance evidence keeps its original version.
 
-### Known baseline test failures
+### Historical baseline test failures
+
+The figures and failures below describe the retirement verification at its
+committed baseline, not the current CI result. Later compatibility and fixture
+fixes are recorded in [protocol maintenance](PROTOCOL-AUDIT.md); keep the original
+failed evidence rather than retroactively treating that invocation as green.
 
 Retirement verification covers 1,016 distinct Layer cases across logged runs:
 1,006 pass and ten fail. Each failing case also fails on the original committed

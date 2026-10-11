@@ -5,12 +5,12 @@ from PIL import Image
 from ai_ui_layers import archive_component_exchange as component
 from ai_ui_layers import archive_material_edit as legacy
 from ai_ui_layers.evaluate import read,save,digest
-from test_host_geometry_observation import HostGeometryTests
+import test_host_geometry_observation as geometry_fixtures
 
 
 class ComponentExchangeTests(unittest.TestCase):
     def setUp(self):
-        HostGeometryTests.setUp(self)
+        geometry_fixtures.HostGeometryTests.setUp(self)
 
     def freeze(self,job=None,child='child',archive=None):
         job=job or self.root/'component'

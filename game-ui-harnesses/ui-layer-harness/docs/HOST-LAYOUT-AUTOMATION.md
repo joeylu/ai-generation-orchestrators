@@ -131,9 +131,11 @@ geometric heuristic, not whole-image visual acceptance. Its measurement scope
 is explicitly limited to declared bands and dividers; undeclared geometry is
 not accepted by an empty or passing check list.
 
-New host runs default to `contextPromptVersion=v9`. This preserves the v8 owner
-catalog and adds explicit treatment of narrow neighboring strips and separately
-owned knobs/handles at contact edges. Frozen v8 prompts replay unchanged. Fresh
+New host runs default to `contextPromptVersion=v13`; see
+[current context actions](CONTEXT-REFERENCES.md#current-v13-reference-edit-actions).
+The historical v9 extension of the v8 owner catalog adds explicit treatment of
+narrow neighboring strips and separately owned knobs/handles at contact edges.
+Frozen v8/v9 prompts replay unchanged. Fresh
 M1/M2 planning prefers one complete static control unless separate movement or
 control was requested; it does not rewrite an already supplied plan.
 

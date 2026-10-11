@@ -16,7 +16,7 @@ class BackgroundExchangeTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
         self.viewer = self.root/'viewer'
         self.viewer.mkdir()
         (self.viewer/'viewer.html').write_text('<html></html>')

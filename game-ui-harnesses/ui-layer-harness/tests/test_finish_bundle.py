@@ -2,13 +2,13 @@ import _bootstrap
 from unittest.mock import patch
 from PIL import Image
 
-from test_received_bundle import ReceivedBundleTests
+import test_received_bundle as bundle_fixtures
 from ai_ui_layers.evaluate import read, digest
 from ai_ui_layers.experimental_executor import prepare, authorize, next_request, receive
 from ai_ui_layers.finish_bundle import finish
 
 
-class FinishBundleTests(ReceivedBundleTests):
+class FinishBundleTests(bundle_fixtures.ReceivedBundleTests):
     def complete_selection(self):
         rows=read(self.snapshot/'requests.json')['requests']
         rest=[row['asset'] for row in rows if row['asset']!=self.asset]

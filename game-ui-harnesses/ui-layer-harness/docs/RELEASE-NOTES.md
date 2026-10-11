@@ -1,5 +1,25 @@
 # Release notes
 
+## 0.1.0a6 release: compatibility and protocol maintenance
+
+Tag: `ui-layers-v0.1.0-alpha.6`. See [upgrade notes](release-0.1.0a6.md).
+
+- Preserve explicit legacy amendment/merge snapshots without weakening ordinary
+  snapshot or texture metadata checks. Current typed-review fixtures and v1
+  cross-platform prompt assertions match their frozen contracts.
+- Automatic combined sheets support independently reviewed source-bound textures
+  with board prompt v6 and canonical cell mappings. Source/review identities stay
+  bound; arbitrary prompt overrides and unreviewed variants remain rejected.
+- Document `host-run` as the current entry, v13 context defaults, automatic boards,
+  and the boundary between final-composite review and compatible DAG profiles.
+- Remove 126 repeated imported-TestCase executions while retaining the same
+  1,207 unique test IDs. Canonicalize temporary fixture roots so Windows 8.3 aliases
+  do not invalidate path assertions or bypass a mocked path-escape check.
+- No change to service commands, required host fields, delivery format, image
+  concurrency, final-composite review counts, compute or no-resubmit rules.
+  Docker consumers update their immutable release pin and digest for new jobs;
+  existing jobs keep their original version. No Docker deployment is performed.
+
 ## 0.1.0a5 release: reference edits and one composite review
 
 Tag: `ui-layers-v0.1.0-alpha.5`. See the [release and upgrade notes](release-0.1.0a5.md).

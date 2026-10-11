@@ -2,11 +2,13 @@
 
 `--generation-reference context-crops` compiles foreground generation requests
 from deterministic expanded crops. New public runs and planning initialization
-default to `context-crops` with v8 ownership actions; explicit `full` remains available. Historical
+default to `context-crops` with v13 reference-edit actions; explicit `full` remains available. Historical
 configs and snapshots without this field keep their full-reference behavior.
 Low-level compile/freeze defaults remain unchanged, and `freeze-reviewed`
 inherits the source mode unless explicitly overridden. This is an
-input and prompt experiment, not evidence of visual acceptance or fidelity.
+input contract, not evidence of visual acceptance or fidelity. New integrated
+automation uses [host-run](HOST-INTEGRATION.md); the example below is the
+compatible `run` DAG, whose control and review loop remains separate.
 
 ```text
 python game-ui-harnesses/ui-layer-harness/ui_layer.py run --image REFERENCE.png --output NEW_RUN --target ui-layers --viewer BUILT_VIEWER --max-calls 16 --generation-mode sheets --generation-reference context-crops
@@ -170,11 +172,28 @@ a length target.
 
 ## Authorization, exact transport and quality gates
 
-### Current v8 ownership actions
+### Current v13 reference-edit actions
 
-New planning, public delivery and integrated host jobs default to v8. Low-level
-historical compile defaults remain unchanged; explicit v1-v7 snapshots replay
-their original rendering. v8 applies to foreground singletons and sheets without
+New planning, public delivery and integrated host jobs default to v13.
+Backgrounds receive the full original once with a concise remove-UI edit prompt.
+Foregrounds remove background-owned people and scenery, including scene content
+seen through gaps and translucent surfaces; owned illustrations retain their
+subjects. Prompts preserve the assigned original artwork without reconstruction
+or surface-completion requests. Ordinary text and numbers are removed except for
+exact licensed `preserveText` entries and owned icon pictograms.
+
+Automatic sheets combine original crops in one integer-scale reference board.
+Board prompt v5 places each cell's text-removal instructions before KEEP; v6
+adds canonical cell mapping for independently reviewed source-bound textures.
+Context prompt versions and board prompt versions are separate identifiers.
+See [sheet reference boards](SHEET-LAYOUT-REFERENCE.md). Actual review follows
+the frozen host profile; new fast warning jobs use one final composite review.
+Historical v1-v12 prompts and low-level compile defaults retain their original
+bytes and behavior. They are not upgraded when inspecting an old snapshot.
+
+### Historical v8 ownership actions
+
+Explicit v8 applies to foreground singletons and sheets without
 falling back to v6 for repeated descriptions, multiple objects, logos or offsets.
 
 Each cell starts with one DELETE action per foreign object, including its owner,

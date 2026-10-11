@@ -1,11 +1,11 @@
 import _bootstrap
 from unittest.mock import patch
-from test_received_bundle import ReceivedBundleTests
+import test_received_bundle as bundle_fixtures
 from ai_ui_layers.finish_received import finish
 from ai_ui_layers.evaluate import read
 
 
-class FinishReceivedTests(ReceivedBundleTests):
+class FinishReceivedTests(bundle_fixtures.ReceivedBundleTests):
     def test_incomplete_bundle_never_starts_postprocessing(self):
         with patch('ai_ui_layers.finish_received.extract') as extract:
             with self.assertRaisesRegex(ValueError, 'INCOMPLETE_RECEIVED_BUNDLE'):

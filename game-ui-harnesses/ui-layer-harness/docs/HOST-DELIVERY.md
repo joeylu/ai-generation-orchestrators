@@ -231,7 +231,7 @@ strict runs and candidate runs retain their behavior.
 
 For new workflows, explicitly set `generationMode=sheets`, which is also the
 runtime default. The workflow performs independent planning review, freezes
-grouped requests with context crops and v12 reference-edit prompts,
+grouped requests with context crops and v13 reference-edit prompts,
 acquires native images within the frozen concurrency limit and follows the
 frozen review profile: one final composite review for new fast warning jobs,
 or explicit per-request review and exhaustive foreground body observation.

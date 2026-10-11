@@ -14,7 +14,7 @@ from ai_ui_layers import observed_geometry_revision as revision
 class HostGeometryTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         ref = self.root/'reference.png'; Image.new('RGBA',(32,32),(25,35,45,255)).save(ref)
         source = self.root/'material.png'; Image.new('RGBA',(16,16),(30,60,90,128)).save(source)
         viewer = self.root/'viewer'; viewer.mkdir()

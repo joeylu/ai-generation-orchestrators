@@ -1,5 +1,16 @@
 # UI layer host contract v1 (preview)
 
+## Entry points and current defaults
+
+New integrations start with [HOST-INTEGRATION](HOST-INTEGRATION.md) and the
+`ui_layer.py host-run` / `host-*` protocol defined in [HOST-DELIVERY](HOST-DELIVERY.md).
+New automation uses sheets, context prompt v13, and one final composite review
+under the fast warning profile. This page also retains the compatible
+`run/resume/status` DAG, explicit candidate/revision operations and historical
+contracts. Their separate body authorization, bounded planning repair and
+per-request review rules do not describe the fast host loop. Never mix their
+controllers in one run directory. See [protocol maintenance](PROTOCOL-AUDIT.md).
+
 ## Optional protected source background
 
 Fresh integrated host configs may bind `backgroundRegion`,
@@ -135,7 +146,7 @@ originalSheetDelivered=false，原 alpha 像素继续按完整支持与透明采
 v5 存储 schema；非空 unknowns 可准备供审查，但冻结仍阻断。合同目录中的 schema 与
 两份规划／审查 prompt 仅接受固定共享合同 fad597a0 的公开字节指纹并按字节快照，
 不得通过外部弱 schema 放宽 v5 验证；运行时公共程序代码指纹也绑定配置。仅生成确定性
-附件，默认冻结 sheets、context-crops、v8、typed-review-v4 与 exact-fragments-v1。
+附件，默认冻结 sheets、context-crops、v13、typed-review-v4 与 exact-fragments-v1。
 候选明确标记 offline seed，既不调用模型，也不声称原 M1 运行成功。
 
 宿主读取返回的 `requestSha256`、`m1/reference.png` 与 `m2` 全部请求附件，独立调用
@@ -189,12 +200,12 @@ host 入口拒绝 CLI-only model/effort/timeout、context 版本和生成策略�
 新 `run` 的自动主体观察与支持画布策略见 [BODY-REGISTRATION.md](BODY-REGISTRATION.md)：
 真实素材收到后另行冻结摘要和一次调用预算，等待授权再观察，不复用生图或旧作业授权。
 
-新 `context-crops` run 默认冻结 `contextPromptVersion: v8`，可显式传
-`--context-prompt-version v1|v2|v3|v4|v5|v6|v7|v8`；根与嵌套规划版本必须一致。
-v8 在每格 KEEP 前逐对象编译 DELETE；外来对象只传身份、类别、关系及定位，
-不把其完整外观描述带入绘制指令。父底板排除独立子单元，子层排除独立父底材；
-合板和复杂素材均不回退 v6。所属外观、装饰、锚点、许可文字与真实开孔不删减。
-此规则仍须实际素材归属复审及整图验收，不能保证生成模型服从。
+新 `context-crops` run 默认冻结 `contextPromptVersion: v13`，可显式传
+`--context-prompt-version v1|v2|v3|v4|v5|v6|v7|v8|v9|v10|v11|v12|v13`；根与嵌套规划版本必须一致。
+v13 按原参考图编辑，删除普通文字、外来单元和背景所属人物景物，保留自身主体及许可装饰；
+不要求重建或重绘。背景使用整图去 UI 的简短提示词，合板使用逐格删除／保留清单。
+版本细节和历史 v8 规则见 [CONTEXT-REFERENCES](CONTEXT-REFERENCES.md)。
+实际视觉验收遵循冻结的复审策略，提示词不能保证生成模型服从。
 `full` 拒绝显式 context 版本；历史配置缺版本仍按 v3 冻结，旧 snapshot 字节不转换，
 `freeze-reviewed`、显式恢复和修订继承原策略。
 

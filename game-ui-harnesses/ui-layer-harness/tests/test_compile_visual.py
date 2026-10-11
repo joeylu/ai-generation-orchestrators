@@ -10,7 +10,7 @@ from ai_ui_layers.compile_visual import compile_plan, compile_run, HARNESS
 class VisualCompileTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
-        self.root=Path(self.tmp.name);self.run=self.root/'run'
+        self.root=Path(self.tmp.name).resolve();self.run=self.root/'run'
         for stage in ('m1','m2'): (self.run/stage).mkdir(parents=True)
         self.visual=read(HARNESS/'planning-harness/examples/visual-plan.json')
         self.visual['unknowns']=[]

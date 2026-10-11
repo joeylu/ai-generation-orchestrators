@@ -12,9 +12,9 @@ from ai_ui_layers import host_material_review as host
 from ai_ui_layers.evaluate import read, save, digest
 from ai_ui_layers import experimental_executor as exchange
 from ai_ui_layers.freeze_visual import freeze
-from test_single_material_review import SingleMaterialReviewTests
-from test_sheet_delivery import SheetDeliveryTests
-from test_compile_visual import VisualCompileTests
+import test_single_material_review as material_fixtures
+import test_sheet_delivery as sheet_fixtures
+import test_compile_visual as compile_fixtures
 
 
 class HostEvidence:
@@ -50,7 +50,7 @@ class HostEvidence:
 
 
 class HostSingleTests(HostEvidence,unittest.TestCase):
-    def setUp(self):SingleMaterialReviewTests.setUp(self)
+    def setUp(self):material_fixtures.SingleMaterialReviewTests.setUp(self)
 
     def test_nested_request_binds_final_ownership_schema_and_prompt(self):
         folder=self.prepare('asset-coin-a')
@@ -175,9 +175,9 @@ class HostSingleTests(HostEvidence,unittest.TestCase):
 
 class HostSheetTests(HostEvidence,unittest.TestCase):
     def setUp(self):
-        self.review=SheetDeliveryTests.review.__get__(self)
-        SheetDeliveryTests.setUp(self)
-        SheetDeliveryTests.media(self)
+        self.review=sheet_fixtures.SheetDeliveryTests.review.__get__(self)
+        sheet_fixtures.SheetDeliveryTests.setUp(self)
+        sheet_fixtures.SheetDeliveryTests.media(self)
 
     def test_every_nested_request_binds_final_ownership_attachments(self):
         for key in read(self.job/'job.json')['assets']:
@@ -279,7 +279,7 @@ class HostSheetTests(HostEvidence,unittest.TestCase):
         self.assertFalse((new_snapshot/'evidence/m2-draft.json').exists())
         inspect(new_snapshot,manifest['digest'])
         self.job=self.root/'new-candidate-job';exchange.prepare(new_snapshot,manifest['digest'],self.job)
-        SheetDeliveryTests.media(self)
+        sheet_fixtures.SheetDeliveryTests.media(self)
         frozen=host.prepare_candidate(new_snapshot,manifest['digest'],self.root/'candidate')
         jobs={key:self.job for key in read(self.job/'job.json')['assets']}
         result=host.deliver_candidate(self.root/'candidate',frozen['candidateDigest'],jobs,
@@ -466,7 +466,7 @@ class CandidateSingletonSubstitutionTests(unittest.TestCase):
     """Complete-sheet replacement uses fresh real fixture authorizations and receipts."""
     def setUp(self):
         from ai_ui_layers.compile_visual import HARNESS
-        VisualCompileTests.setUp(self)
+        compile_fixtures.VisualCompileTests.setUp(self)
         self.contract=HARNESS/'planning-harness'
         self.visual=read(self.contract/'examples/visual-plan-scoped.json');self.visual['unknowns']=[]
         self.seed=self.root/'seed.json';save(self.seed,self.visual);self.reference=self.run/'m1/reference.png'
@@ -783,7 +783,7 @@ class CandidateSheetSplitTests(unittest.TestCase):
 
 class HostStripTests(HostEvidence,unittest.TestCase):
     def setUp(self):
-        VisualCompileTests.setUp(self)
+        compile_fixtures.VisualCompileTests.setUp(self)
         visual=self.visual;background=next(m for m in visual['materials'] if m['role']=='background');visual['materials']=[background,dict(visual['materials'][0],id='strip',role='foreground',
             bboxNorm=[.1,.1,.9,.2],zOrder=1,adaptationPolicy='simple-strip',preserveText=[])]
         visual['backgroundMode']='scene-only';visual['textPolicy']='remove-business-text';background['preserveText']=[]

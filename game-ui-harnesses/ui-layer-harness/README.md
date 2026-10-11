@@ -1,7 +1,7 @@
-# UI Layer Harness — 0.1.0a5 preview
+# UI Layer Harness — 0.1.0a6 preview
 
-固定发布标签：`ui-layers-v0.1.0-alpha.5`。
-服务接入与升级参数见[本版发布说明](docs/release-0.1.0a5.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+固定发布标签：`ui-layers-v0.1.0-alpha.6`。
+服务接入与升级参数见[本版发布说明](docs/release-0.1.0a6.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
 
 本版包含[复杂参考图一致性修复](docs/FIDELITY-FIXES.md)：背景改为原图去 UI 的简短编辑提示词，
 合板限制尺寸差距并采用均衡网格；切分不确定的裁片仅保留为诊断证据，不进入回拼，也不算完整交付。
@@ -44,7 +44,7 @@ M1、生图与复审共用唯一归属、父板排除子元素、完整主体比
 新任务默认采用 sheets 合板策略，保留独立交付素材身份；背景及不兼容素材仍由分组程序单独请求。
 最终整图人工验收可设置 `visualReviewMode=warning`，不改变真实 M1 要求。该正式入口使用仓库内运行时，
 宿主负责实际模型和生图调用，可接入独立模型代理，无须使用 Codex CLI 适配器。
-正式独立素材交付中，每份前景都要完成真实主体观察，不能以 alpha 范围代理或诊断包代替。
+显式严格独立素材交付中，每份前景都要完成真实主体观察；上述一次整图复审配置输出待人工验收的诊断包。
 执行完成、严格视觉通过与人工验收的判定见[链路检查点](docs/DELIVERY-CHAIN-CHECKPOINT.md#completion-and-acceptance)。
 
 新 `run` 默认以 v13 编译局部参考提示词，并使用 `reference-body-auto-v1`：
@@ -79,7 +79,8 @@ ui-layer-harness/
 ├── src/ai_ui_layers/        # 规划、执行、定位、打包与可选模型适配器
 ├── tests/                   # 离线测试及测试导入配置
 └── docs/
-    ├── SERVICE-CONTRACT.md  # Docker / Web 接入边界
+    ├── HOST-INTEGRATION.md  # 新宿主接入与阶段循环
+    ├── SERVICE-CONTRACT.md  # 兼容入口及公共产物边界
     └── RELEASE-NOTES.md     # 版本变化与验证范围
 ```
 
@@ -105,21 +106,26 @@ node scripts/build-layer-viewer.mjs
 回到归档根目录：
 
 ```text
-python game-ui-harnesses/ui-layer-harness/ui_layer.py run --image REFERENCE.png --output NEW_RUN --target ui-layers --viewer game-ui-harnesses/ui-component-harness/dist-layers --max-calls 12
-python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
+python game-ui-harnesses/ui-layer-harness/ui_layer.py host-run --config CONFIG.json --output NEW_RUN
+python game-ui-harnesses/ui-layer-harness/ui_layer.py host-status --run NEW_RUN
 ```
 
-入口为源码分发，尚不提供独立 wheel。上述旧 `run` 路径需要可用的 Codex CLI 规划/定位适配器，
-以及宿主自己的生图调用能力；新 `host-run` 路径由宿主直接交换模型和生图回执，不要求 Codex CLI。
-桌面工具不会自动进入容器。新任务的 Codex CLI session
-默认配置为 `gpt-6-luna` / `xhigh`；新 `run` 可显式冻结 `--planning-model`、`--planning-effort`、
-`--planning-timeout`，见适配器合同。旧冻结任务按其原运行时指纹处理。
+`CONFIG.json` 按 [HOST-DELIVERY](docs/HOST-DELIVERY.md) 提供完整配置；
+推荐的新任务参数及授权、预留、接收循环见 [HOST-INTEGRATION](docs/HOST-INTEGRATION.md)。
+准备命令本身不调用模型或生图，后续由宿主交换真实回执。
+入口为源码分发，尚不提供独立 wheel。`host-run` 不要求 Codex CLI；
+模型身份、调用预算与并发由宿主显式配置。桌面工具不会自动进入容器。
 不要将本地登录凭证、会话目录或样本加入分发制品。
 可选 CLI 生图适配器通过本次调用临时配置的本地参数读取工具转发冻结参数，
 模型无需重抄长提示词；接收前仍验证参数、读取记录和固定转发代码。
 它不改变生图授权或失败后禁止重投的规则。本版已验证 CLI 原生生图的冻结参数转发与回执接收，
 仍由宿主提供调用协调，视觉效果按样本验收，见
 [精确参数转发](docs/GENERATION-SHEETS.md#exact-image-call-transport)。
+
+兼容 `run/resume/status` DAG 仍可用，需要 Codex CLI 规划/定位适配器及宿主生图能力。
+其新会话默认 `gpt-6-luna` / `xhigh`，可冻结 `--planning-model`、`--planning-effort`、
+`--planning-timeout`；命令和单独主体授权见 [SERVICE-CONTRACT](docs/SERVICE-CONTRACT.md)。
+它与 `host-*` 不共用控制循环，旧任务始终按原指纹与策略处理。
 
 ## 接入合同
 
@@ -131,14 +137,12 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 重复平底槽位的小图标可先运行只读[原像素候选检查](docs/SOURCE-SLOT-AUDIT.md)，核对裁框与模板证据；它不提取图层，也不改变规划或质量门。
 单份完整已接收作业也可用 `finish-variants --received-job JOB --job-digest DIGEST`
 自动完成确定性切板、预览、来源重放及待验收打包；原严格 DAG 的视觉阻断不会被改写。
-新任务默认 `sheets`，将兼容的独立素材同板生成后逐份提取，见
-[素材板合同](docs/GENERATION-SHEETS.md)。需要逐素材生成时显式传 `--generation-mode single`。
+新自动化任务使用 `sheets`，将兼容的独立素材同板生成后逐份提取，见
+[素材板合同](docs/GENERATION-SHEETS.md)。历史 `single` 配置按原合同回放。
 新 `run` 默认 `--generation-reference context-crops`，使用有指纹的外扩局部参考和对应生成提示词；背景仍用整图，合板最多四份素材。可显式选择 `full`；旧配置缺省仍解释为 `full`，旧快照和授权不转换，`freeze-reviewed` 缺省继承源模式。见[局部参考合同](docs/CONTEXT-REFERENCES.md)。
 
-新局部参考任务默认 `--context-prompt-version v8`：先逐对象明确删除外来单元，再保留所属对象；
-外来对象只传身份、类别、关系和定位，不把其外观长描述当作生成指令。父底板必须为空净底，
-子层不得携带独立父轨道或底板；合板和复杂素材使用同一规则，不退回 v6。完整所属装饰仍须保留。
-这不保证模型服从；实际归属复审、主体观察及最终回拼验收仍必需。
+新局部参考任务默认 `--context-prompt-version v13`，使用原图编辑、文字删除及场景归属规则，
+详见 [局部参考合同](docs/CONTEXT-REFERENCES.md)。实际视觉验收仍按冻结复审策略执行。
 可显式选历史版本；`full` 不接受该参数。`--registration-policy legacy-region-fit` 可显式选旧归位策略，
 不允许失败后自动降级。默认 `--max-body-calls 12`，每份前景最多一次观察，超过上限在生图前停止。
 等待主体授权时，状态提供 `bodyObservation.jobDigest`；用
@@ -147,7 +151,8 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 
 新任务可用 `--visual-policy FILE` 明确外观证据与容差：短标签锁定结构、身份、数量、状态、连接及显著外观，`bound-reference` 仅让绑定局部参考承载细微表面。策略可分别选择轻微色差仅记录、孤立柔影可选；实体轮廓、描边、缺件、错归属、比例、裁切和透明度仍须审查。文件随规划、冻结、生成和输出审查绑定，旧任务不转换。详见[显式视觉策略](docs/SERVICE-CONTRACT.md#显式视觉策略)。离线检查不证明真实生图或回拼质量。
 最终图层仍各自独立；旧任务沿用其冻结模式，不因新默认值改变。
-内部独立交换另有可选[原裁片布局参考板实验](docs/SHEET-LAYOUT-REFERENCE.md)：从局部参考快照派生单张合板作业，以统一整数比例排版原裁片。它需要新摘要授权，不改变公开入口或质量门，真实比例保真尚待验证。
+当前合板自动将原裁片以统一整数比例排成一张输入板，见[合板参考板合同](docs/SHEET-LAYOUT-REFERENCE.md)。
+显式单板变体仍是独立实验作业，不转换已有快照或放宽质量门。
 背景局部修正可先离线冻结显式编辑区与混合权重，再将同画布不透明候选合成到该区域；
 保护区原像素必须完全不变。它不识别遮挡、不生图、不解除旧任务阻断，结果仍待视觉审查，
 见[背景区域合同](docs/BACKGROUND-REGIONS.md)。
@@ -176,4 +181,7 @@ python -m unittest discover -s game-ui-harnesses/ui-layer-harness/tests -p "test
 
 所有测试离线，使用替身及程序图形，不调用生成服务。首次上线需在外部服务环境完成真实任务联调。
 
-新规划 DAG 最多两轮局部修补与复审（最多 6 次规划模型调用）；旧会话授权和冻结记录不扩充。轻微规划告警随报告保留，重复阻断或超过两轮停止。详见 docs/SERVICE-CONTRACT.md 的 Bounded planning convergence。
+兼容 `run` 的规划 DAG 最多两轮局部修补与复审（最多 6 次规划模型调用）；其授权和冻结记录不扩充。
+正式宿主链路按冻结范围执行 M1/M2，无自动模型重投。兼容策略见 SERVICE-CONTRACT 的 Bounded planning convergence。
+
+当前协议、兼容入口及可清理项的审计见[协议维护记录](docs/PROTOCOL-AUDIT.md)。

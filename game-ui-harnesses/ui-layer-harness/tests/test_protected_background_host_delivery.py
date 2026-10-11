@@ -11,13 +11,13 @@ from ai_ui_layers.evaluate import read, save, digest
 from ai_ui_layers.execution_preflight import preflight
 from ai_ui_layers.host_material_review import verify_prepared, verify_extraction
 from ai_ui_layers.frozen_image_arguments import tool_arguments, validate, TRANSPORT
-from test_host_delivery import HostDeliveryTests
+import test_host_delivery as delivery_fixtures
 import test_host_review as fixtures
 
 
 class ProtectedHostDeliveryTests(unittest.TestCase):
     def setUp(self):
-        HostDeliveryTests.setUp(self)
+        delivery_fixtures.HostDeliveryTests.setUp(self)
         # Use a smaller complete canvas to limit repeated PNG verification cost.
         # Planning geometry remains normalized; the full workflow stays real.
         with Image.open(self.reference) as image:image.resize((500,500)).save(self.reference)
@@ -56,7 +56,7 @@ class ProtectedHostDeliveryTests(unittest.TestCase):
             if mode=='RGB' and size==(240,240):size=(500,500)
             return original_new(mode,size,*args,**kwargs)
         with patch('PIL.Image.new',side_effect=fixture_new):
-            HostDeliveryTests.test_complete_sheet_workflow_separate_scopes_and_delivered_comparison(self)
+            delivery_fixtures.HostDeliveryTests.test_complete_sheet_workflow_separate_scopes_and_delivered_comparison(self)
         frozen=self.run/'frozen';manifest=read(frozen/'snapshot.json');preflight(frozen,manifest['digest'])
         review=self.run/'reviews/asset-scene';verify_prepared(review)
         candidate=review/'protected-background/candidate.png';raw=self.run/'images/attempts/asset-scene/raw.png'

@@ -8,14 +8,14 @@ from ai_ui_layers import material_reuse as reuse
 from ai_ui_layers.evaluate import read,save,digest
 from ai_ui_layers.execution_preflight import preflight
 from ai_ui_layers.host_material_review import verify_prepared
-from test_host_delivery import HostDeliveryTests
+import test_host_delivery as delivery_fixtures
 import test_host_review as review_fixtures
 
 
 class ReusedDeliveryTests(unittest.TestCase):
     sheet=False
     def setUp(self):
-        HostDeliveryTests.setUp(self)
+        delivery_fixtures.HostDeliveryTests.setUp(self)
         for obj in self.plan['objects']:
             if obj['materialId'] in ('asset-coin-a','asset-coin-b'):
                 obj['kind']='badge';obj['bboxNorm']=None
@@ -44,7 +44,7 @@ class ReusedDeliveryTests(unittest.TestCase):
             dispatch_evidence=self.dispatch,return_evidence=self.response)
 
     def test_complete_reused_workflow_all_layers_body_and_portable_lineage(self):
-        HostDeliveryTests.test_complete_sheet_workflow_separate_scopes_and_delivered_comparison(self)
+        delivery_fixtures.HostDeliveryTests.test_complete_sheet_workflow_separate_scopes_and_delivered_comparison(self)
         snapshot=self.run/'frozen';manifest=read(snapshot/'snapshot.json')
         self.assertEqual(manifest['materialCount'],len(self.plan['materials']))
         self.assertEqual(manifest['generatedMaterialCount'],len(self.plan['materials'])-1)

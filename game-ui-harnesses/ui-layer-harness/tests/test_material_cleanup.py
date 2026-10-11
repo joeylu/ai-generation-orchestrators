@@ -9,12 +9,12 @@ from ai_ui_layers import experimental_executor as ex
 from ai_ui_layers import material_cleanup as cleanup
 from ai_ui_layers.evaluate import digest, read, save
 from ai_ui_layers.freeze_visual import freeze
-from test_compile_visual import VisualCompileTests
+import test_compile_visual as compile_fixtures
 
 
 class MaterialCleanupTests(unittest.TestCase):
     def setUp(self):
-        VisualCompileTests.setUp(self)
+        compile_fixtures.VisualCompileTests.setUp(self)
         self.snapshot=self.root/'snapshot'
         self.frozen=freeze(self.run,self.snapshot,5)
         self.mid='asset-panel';self.source=self.root/'source-job'

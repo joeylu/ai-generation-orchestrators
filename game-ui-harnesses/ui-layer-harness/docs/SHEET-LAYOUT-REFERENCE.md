@@ -1,10 +1,31 @@
-# Source-layout board experiment
+# Combined sheet reference boards
+
+## Current automatic input
+
+New `context-crops` sheet jobs automatically combine their original reference
+crops into one board, in frozen material order, using one common integer scale.
+Each sheet receives that board once; standalone backgrounds/materials retain
+their own input strategy. The host does not dispatch each sheet crop separately.
+The job binds `sheetReferencePolicy` and `contextBoardReferences`; verification
+rebuilds the board and prompt from the immutable snapshot. There is no silent
+fallback to separate crop attachments. See [host integration](HOST-INTEGRATION.md).
+
+For context prompt v13, automatic boards use board prompt v5: each cell's
+ordinary-text removal precedes KEEP, and foreign scene people/scenery are removed
+while assigned illustrations retain their own subjects. Independently reviewed
+source-bound textures select board prompt v6, which additionally binds canonical
+texture-to-cell mapping and preserves the original review evidence. It performs
+no new texture review. Context and board prompt versions are separate contracts;
+historical descriptors rebuild their own versions without conversion.
+
+## Explicit single-board variant
 
 The internal independent image exchange accepts an opt-in
 `prepare --reference-mode sheet-layout-board` for exactly one reviewed sheet
-of two to four materials from a `context-crops` snapshot. This is a separate
-experiment job, not a new default for `run`, a conversion of the parent snapshot,
-or a public service command. No grouping or prompt-writing model is added.
+from a `context-crops` snapshot. This creates a separate experiment job rather
+than converting the parent snapshot or exposing a new public service command.
+It is distinct from the automatic multi-request policy above. No grouping or
+prompt-writing model is added.
 
 The question is whether a single visible layout helps image generation preserve
 material proportions better than separate crop attachments. The board and its
@@ -38,7 +59,7 @@ foreign context, and preserve contours, proportions and continuous transparency.
 It accepts no arbitrary prompt override. Prompt length is measured rather than
 assumed to be shorter.
 
-Newly prepared board jobs use prompt version `v2`: each cell places its KEEP,
+Historical board prompt `v2` places each cell's KEEP,
 REMOVE, AFTER REMOVAL, exact text exceptions and LOCATION instructions together.
 Only KEEP artwork inherits reference geometry; foreign exclusions take precedence
 over copying the assembled reference. Removal includes the original per-object
@@ -47,12 +68,12 @@ Exposed owned surfaces continue through removed footprints, while genuine gaps
 and translucency remain. A parent panel's exclusion box is a locator, never a
 mask that erases the assigned artwork.
 
-The job's board descriptor binds `promptVersion: v2`. Historical descriptors
+The board descriptor binds its selected `promptVersion`. Historical descriptors
 without that field rebuild the exact original `v1` prompt. Validation rejects
 unknown versions, version substitution and changed action instructions even if
-stored hashes are recomputed. Board pixels, metadata, grouping and target sizes
-are identical across the two versions. Existing context prompt versions remain
-unchanged. Shorter wording or explicit actions are not proof of model compliance.
+stored hashes are recomputed. The v1/v2 replay behavior remains unchanged;
+current automatic selection is described above. Shorter wording or explicit
+actions are not proof of model compliance.
 
 The board changes only generation input. Original target crops, material IDs,
 output dimensions, placement, grouping and review evidence stay frozen. Context
@@ -66,8 +87,9 @@ Collection verifies the arguments and board descriptor; old crop-reference
 metadata cannot masquerade as the actual attachment. Persistent session rules,
 native alpha checks and terminal no-resubmit behavior remain unchanged.
 
-Any subsequent sheet review receives the original reference and existing review
-evidence. Geometry findings still block under the existing policy. A failed or
+Any explicit per-request sheet review receives the original reference and
+existing review evidence. Strict geometry findings still block under that
+profile; fast warning jobs instead use one final composite review. A failed or
 uncertain result stops; no alternate prompt, regenerated board or second image
 is automatically submitted. Passing offline tests or image collection does not
 authorize extraction, registration or delivery beyond their existing gates.

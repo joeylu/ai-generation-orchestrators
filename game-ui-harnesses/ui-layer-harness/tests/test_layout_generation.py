@@ -12,13 +12,13 @@ from ai_ui_layers import experimental_executor as ex, host_layout_registration a
 from ai_ui_layers import layout_generation as generation, material_cleanup as cleanup
 from ai_ui_layers.evaluate import read, save, digest
 from ai_ui_layers.freeze_visual import freeze
-from test_material_cleanup import MaterialCleanupTests
-from test_context_references import ContextReferencesTests
+import test_material_cleanup as cleanup_fixtures
+import test_context_references as context_fixtures
 from test_host_material_review import HostEvidence
 
 
 class LayoutGenerationTests(unittest.TestCase):
-    bind=ContextReferencesTests.bind
+    bind=context_fixtures.ContextReferencesTests.bind
 
     def test_optional_layout_metadata_does_not_become_required_in_legacy_transport(self):
         from ai_ui_layers.planning_normalization import provider_schema
@@ -33,7 +33,7 @@ class LayoutGenerationTests(unittest.TestCase):
         self.assertIn('layoutRegistration',transport_schema(provider_schema(schema))['required'])
 
     def setUp(self):
-        ContextReferencesTests.setUp(self)
+        context_fixtures.ContextReferencesTests.setUp(self)
         self.snapshot=self.root/'frozen'
         self.frozen=freeze(self.run,self.snapshot,16,generation_mode='sheets',
                            generation_reference='context-crops',context_prompt_version='v8')
@@ -148,7 +148,7 @@ class LayoutGenerationTests(unittest.TestCase):
 
     def test_cleanup_edit_uses_same_structure_binding_and_two_real_images(self):
         source=self.root/'source'
-        MaterialCleanupTests.make_source(self,self.snapshot,self.frozen['digest'],source,self.mid)
+        cleanup_fixtures.MaterialCleanupTests.make_source(self,self.snapshot,self.frozen['digest'],source,self.mid)
         job=self.root/'edit'
         config=cleanup.prepare_cleanup(self.snapshot,self.frozen['digest'],job,self.mid,source,
                                        layout_contract=self.contract)
@@ -168,7 +168,7 @@ class LayoutGenerationTests(unittest.TestCase):
         from ai_ui_layers import viewport_geometry_revision as viewport
         from ai_ui_layers.layer_package import write_package
         source=self.root/'source'
-        MaterialCleanupTests.make_source(self,self.snapshot,self.frozen['digest'],source,self.mid)
+        cleanup_fixtures.MaterialCleanupTests.make_source(self,self.snapshot,self.frozen['digest'],source,self.mid)
         job=self.root/'edit'
         config=cleanup.prepare_cleanup(self.snapshot,self.frozen['digest'],job,self.mid,source,
                                        layout_contract=self.contract,input_policy=cleanup.REFERENCE_INPUT_POLICY)

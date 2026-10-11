@@ -7,12 +7,12 @@ from ai_ui_layers.evaluate import read, save, digest
 from ai_ui_layers import archive_material_edit as edit
 from ai_ui_layers import host_geometry_observation as geometry
 from ai_ui_layers.layer_package import write_package
-from test_host_geometry_observation import HostGeometryTests
+import test_host_geometry_observation as geometry_fixtures
 
 
 class ArchiveMaterialEditTests(unittest.TestCase):
     def setUp(self):
-        HostGeometryTests.setUp(self)
+        geometry_fixtures.HostGeometryTests.setUp(self)
         self.job=self.root/'edit'
         self.frozen=edit.freeze(self.archive,'panel',self.job,purpose='Remove duplicate children.',
             owned=['outer owned panel and texture'],delete=['all child icons and their empty frames'],

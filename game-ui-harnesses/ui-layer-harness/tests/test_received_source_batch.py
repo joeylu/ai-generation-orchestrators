@@ -4,11 +4,11 @@ import unittest
 from unittest.mock import patch
 
 from ai_ui_layers import received_source_batch as batch, host_material_review as host
-from test_single_material_review import SingleMaterialReviewTests
+import test_single_material_review as material_fixtures
 
 
 class ReceivedBatchTests(unittest.TestCase):
-    setUp=SingleMaterialReviewTests.setUp
+    setUp=material_fixtures.SingleMaterialReviewTests.setUp
 
     def test_multiple_source_reads_verify_job_once_per_operation(self):
         with patch.object(batch,'load_job',wraps=batch.load_job) as load,patch.object(batch,'status',wraps=batch.status) as status:
