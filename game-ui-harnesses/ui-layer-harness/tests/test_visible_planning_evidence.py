@@ -99,7 +99,7 @@ class VisiblePlanningEvidenceTests(unittest.TestCase):
                 return
             answer = read(folder/'draft.json')
             answer['issues'] = []
-            answer['coverageAudit'][8]['observedArtwork'].append(missing_artwork(
+            answer['coverageAudit'][8]['unresolvedArtwork'].append(missing_artwork(
                 'A separate green glyph at the lower end of the list has no owned object; the backing alone is not its owner.',
                 'asset-panel', 'Add the missing visible instance with its own content ownership.'))
             self.response(folder, answer)

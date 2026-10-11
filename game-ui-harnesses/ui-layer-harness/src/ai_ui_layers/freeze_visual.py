@@ -207,6 +207,13 @@ def inspect(folder, expected_digest=None):
         blockers,expected=visual_textures.assess(texture_doc,read(visual_path),read(folder/review_name))
         if blockers or bindings!=expected:raise ValueError('VISUAL_TEXTURE_FINAL_REVIEW_MISMATCH')
     for name in ('requests.json','compile-report.json'):
+        # The original explicit amendment/merge producers did not emit a compile
+        # report. Keep those non-texture snapshots readable without synthesizing
+        # evidence or weakening the checks on ordinary/texture-bound snapshots.
+        if (name=='compile-report.json' and name not in snapshot['files'] and not (folder/name).exists() and
+                texture_doc is None and snapshot.get('policy') in
+                ('explicit-user-amendment-v1','user-directed-contained-merge-v1')):
+            continue
         metadata=read(folder/name)
         if any(metadata.get(key)!=snapshot.get(key) for key in ('visualTexturePolicy','visualTexturesSha256','visualTextureBindingsSha256')):
             raise ValueError('VISUAL_TEXTURE_METADATA_MISMATCH')

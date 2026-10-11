@@ -115,22 +115,35 @@ jobs:
           npm ci --ignore-scripts
           npm run build
       - name: Install independent Harness packages
+        id: harness-packages
         run: >-
           python -m pip install
           "./artwork-harnesses/image-background-removal-harness[test]"
           "./artwork-harnesses/video-sequence-harness/character[test]"
-      - name: Run offline fixtures and test doubles
-        run: |
-          python -m pip install -r game-ui-harnesses/ui-layer-harness/requirements.txt
-          python -m unittest discover -s game-ui-harnesses/ui-layer-harness/tests -p "test_*.py" -v
-          python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
-          python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
-          python -m unittest discover -s .github/repository-tests -p "test_*.py" -v
+      - name: Install UI Layer test dependencies
+        id: ui-layer-dependencies
+        run: python -m pip install -r game-ui-harnesses/ui-layer-harness/requirements.txt
+      # Keep each suite's failure visible without suppressing its nonzero exit.
+      # A failed UI suite must not hide the background/video/repository results.
+      - name: Run UI Layer offline fixtures and test doubles
+        if: ${{ !cancelled() && steps.ui-layer-dependencies.outcome == 'success' }}
+        run: python -m unittest discover -s game-ui-harnesses/ui-layer-harness/tests -p "test_*.py" -v
+      - name: Run background removal offline fixtures and test doubles
+        if: ${{ !cancelled() && steps.harness-packages.outcome == 'success' }}
+        run: python -m unittest discover -s artwork-harnesses/image-background-removal-harness/tests -p "test_*.py" -v
+      - name: Run character animation offline fixtures and test doubles
+        if: ${{ !cancelled() && steps.harness-packages.outcome == 'success' }}
+        run: python -m unittest discover -s artwork-harnesses/video-sequence-harness/character/tests -p "test_*.py" -v
+      - name: Run repository boundary and release tests
+        if: ${{ !cancelled() && steps.harness-packages.outcome == 'success' }}
+        run: python -m unittest discover -s .github/repository-tests -p "test_*.py" -v
       - name: Check installed offline contract
+        if: ${{ !cancelled() && steps.harness-packages.outcome == 'success' }}
         run: |
           ai-image-background-removal self-test
           ai-frame-animation self-test
       - name: Check redacted doctor
+        if: ${{ !cancelled() && steps.harness-packages.outcome == 'success' }}
         run: |
           ai-image-background-removal doctor
           ai-frame-animation doctor

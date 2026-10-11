@@ -1,4 +1,5 @@
 import _bootstrap
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -175,12 +176,15 @@ class ContextReferencesTests(unittest.TestCase):
         self.assertTrue(all(a['prompt'].startswith(context.PROMPT_PREFIX_V3) for a in new_plan['assets']))
         old_sheet=next(r for r in read(old/'requests.json')['requests'] if r.get('kind')=='sheet')
         new_sheet=next(r for r in read(new/'requests.json')['requests'] if r.get('kind')=='sheet')
-        # These are historical d7 prompt bytes from this fixed fixture, not
-        # another call to the v1 renderer under test.
-        self.assertEqual(digest(old/'materials/asset-panel/prompt.txt'),
-                         'ab67b1c41c8a295e6477e53bd4d49b928454fba201965894c130d2faae686808')
-        self.assertEqual(digest(old/old_sheet['prompt']),
-                         '327db8028fc12cf1fe7ba87a4914fd413c3dbfd1235a70854f29d682a6bbfa44')
+        # Historical d7 content, pinned independently of the renderer. The old
+        # writer uses native newlines; compare LF content on both platforms while
+        # leaving snapshot files and their authoritative byte hashes untouched.
+        def content_digest(path):
+            return hashlib.sha256(path.read_text(encoding='utf-8').encode('utf-8')).hexdigest()
+        self.assertEqual(content_digest(old/'materials/asset-panel/prompt.txt'),
+                         '8410d148b6091e8aa9a274c669d25fcd889951a7fc2b4ef4da6311e37f0f966a')
+        self.assertEqual(content_digest(old/old_sheet['prompt']),
+                         '5d96f9cfd8a67c13277c53f826dfbc6ed499272f03b1e41c803bf767f64b9f8f')
         old_text=(old/old_sheet['prompt']).read_text(encoding='utf-8')
         new_text=(new/new_sheet['prompt']).read_text(encoding='utf-8')
         self.assertLess(len(new_text),len(old_text))
