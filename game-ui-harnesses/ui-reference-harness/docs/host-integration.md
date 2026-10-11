@@ -1,4 +1,4 @@
-# 宿主接入 · 源码发布 0.7.2
+# 宿主接入 · 源码发布 0.7.3
 
 新接入优先使用 [项目级 DAG](project-dag.md) 的核心函数或 dag-* CLI；下文的单面板和
 plan-project 合同继续有效。DAG 是文件工作区中的确定性编排，不附带 Docker、WebSocket、
@@ -9,8 +9,8 @@ plan-project 合同继续有效。DAG 是文件工作区中的确定性编排，
 本 Harness 提供本地文件合同，并有可选的 [本地参考图工作台](../web/README.md)：
 项目与面板管理、默认／自定义风格、原型导入、冻结请求、单次生成交换、人工验收及 ZIP 下载。
 工作台仅监听 127.0.0.1，直接复用核心，不提供部署、账号或任务队列。
-生产安装须固定 `ui-reference-harness-v0.7.2` 及其源码附件 SHA-256，逐项验证 release-manifest.json；
-保留附件原始字节及兄弟 Harness 目录关系。升级说明见 [0.7.2 发布说明](release-0.7.2.md)。
+生产安装须固定 `ui-reference-harness-v0.7.3` 及其源码附件 SHA-256，逐项验证 release-manifest.json；
+保留附件原始字节及兄弟 Harness 目录关系。升级说明见 [0.7.3 发布说明](release-0.7.3.md)。
 该补丁的面板可见性、下载命名与前端同步边界见下文；消费服务须实现自己的实际 API 合同。
 
 ## 0.7.2 原生生图参数兼容
@@ -24,6 +24,35 @@ Codex 图片 Hook 仅重建冻结 `prompt` 和存在时的 `referenced_image_pat
 本补丁不放宽 trusted Hook 门禁，不修改全局信任设置，也不重试已失败或未知的旧任务。
 已发布 0.7.1 的历史输出可继续复核、复用和交付，旧计算计划不再派发。
 本版不新增服务／前端 API；已完成 0.7.1 接入的消费者仅需更新固定包、Hook 信任记录并回归。
+
+## 0.7.3 可选 CLI Code-mode 转发
+
+源码新增 `web/adapters/codex-cli-relay.mjs`，通过 `createCodexCliRelayAdapter(options)`
+提供现有 `metadata`、`preflight()`、`generate(input)` 和 `resolveStyle(input)` 接口。
+该入口随 `ui-reference-harness-v0.7.3` 发布，0.7.2 附件不含该模块；生产消费者须固定
+新标签和附件摘要，不能把工作区文件复制进已安装的 vendor 目录。
+
+它显式使用 CLI Code-mode 的嵌套生图工具，传递冻结的
+`{ prompt, num_last_images_to_include, transparent_background: false }`，按序附带原图。
+这不是给严格原生工具追加参数：原生 `codex-cli.mjs` 仍保留 0.7.2 的参数合同。
+入口由宿主配置选择；已有任务提交后，不能自动换入口重新生成。
+
+工厂配置包括 `executable`、`workspace`、可选 `codexHome`、`model`、`effort` 和 `timeoutMs`；
+默认模型为 `gpt-6-luna / xhigh`。`codexHome` 必须与实际 CLI 的 `CODEX_HOME` 一致，
+用于只读定位该会话的原始记录与图片；不能向公共客户端暴露这些私有路径。
+预检只运行登录状态、功能、模型目录、帮助和 `hooks/list`，不启动模型回合。
+只为当前适配器生成的确切两份 Hook 定义设置本次启动范围内的可信摘要，
+不改全局配置、不绕过信任门禁。消费者须在自己的执行环境验证功能与信任结果。
+
+生成输入沿用核心合同。宿主必须传入本次 `attemptSha256`，为同一面板、风格和原型
+提供稳定的 `sessionKey`，串行执行该面板的操作并持久化首图加最多三轮修改的预算。
+单次尝试由独占文件防重；只恢复正常完成的线程，审计仅匹配本轮新增记录和图片。
+失败或不明结果保留原图、线程与执行记录，不恢复提交，不切换入口，不自动重试。
+新计划必须有新的明确计算决定；核心 PNG 检查、编码规范化、人工验收和交付均保持原样。
+
+该源码变化不新增服务 API 或前端操作。服务侧可沿用原有生成、进度、修改、验收及下载
+合同，Web 继续参考 Studio UX。实际部署、登录、运行目录和 API 合同由消费仓库实现。
+离线回归使用合成图和替身；本地一次真实转发不代表其他宿主已经通过生图或多轮修改验收。
 
 ## 0.7.1 宿主与前端同步
 

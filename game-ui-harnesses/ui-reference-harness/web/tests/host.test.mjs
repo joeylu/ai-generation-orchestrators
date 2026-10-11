@@ -18,6 +18,7 @@ import {
   SOURCE_0_6_RUNTIME_SHA256,
   SOURCE_0_7_RUNTIME_SHA256,
   SOURCE_0_7_1_RUNTIME_SHA256,
+  SOURCE_0_7_2_RUNTIME_SHA256,
 } from "../../src/compiler.mjs";
 import { readImageZip } from "./read-image-zip.mjs";
 import { templateInput } from "../template-previews.mjs";
@@ -309,6 +310,7 @@ for (const runtime of [
   DEVELOPMENT_0_7_RUNTIME_SHA256,
   SOURCE_0_7_RUNTIME_SHA256,
   SOURCE_0_7_1_RUNTIME_SHA256,
+  SOURCE_0_7_2_RUNTIME_SHA256,
 ]) {
   test(`completed archived Studio image remains reviewable after restart: ${runtime.slice(0, 8)}`, async (t) => {
     let calls = 0;
@@ -400,6 +402,8 @@ for (const [scope, runtime] of [
   ["projects", SOURCE_0_7_RUNTIME_SHA256],
   ["project-drafts", SOURCE_0_7_1_RUNTIME_SHA256],
   ["projects", SOURCE_0_7_1_RUNTIME_SHA256],
+  ["project-drafts", SOURCE_0_7_2_RUNTIME_SHA256],
+  ["projects", SOURCE_0_7_2_RUNTIME_SHA256],
 ]) {
   test(`archived style preview stays readable and adoptable without generation: ${scope}/${runtime.slice(0, 8)}`, async (t) => {
     let calls = 0;

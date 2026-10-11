@@ -31,6 +31,8 @@ export const DEVELOPMENT_0_7_RUNTIME_SHA256 = '4d9860b276acdc6153a8ea000925abcf3
 export const SOURCE_0_7_RUNTIME_SHA256 = '05670ece585e72d03092564678e49a4b6423e487bf8336c5b626d7faf50b818c';
 // Preserve released 0.7.1 output evidence after the native-tool Hook patch.
 export const SOURCE_0_7_1_RUNTIME_SHA256 = '3774c4f9bad8111d849fe59d55d2247323bd86ffed64414bd1ff12212ff71a87';
+// Preserve released 0.7.2 output evidence after adding the optional relay.
+export const SOURCE_0_7_2_RUNTIME_SHA256 = 'd57e7b3098ce843c1e5f57506767d6f86bc603e13f997b6441ad5e2eec8c9b63';
 
 function verifyAnchor(root, anchor, styleSha256) {
   if (!anchor) return;
@@ -337,8 +339,9 @@ function verifyPlanEvidence(root, run, allowLegacy) {
   const development07 = current && allowLegacy && plan.runtimeSha256 === DEVELOPMENT_0_7_RUNTIME_SHA256;
   const source07 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_RUNTIME_SHA256;
   const source071 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_1_RUNTIME_SHA256;
+  const source072 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_2_RUNTIME_SHA256;
   requireThat((legacy ? allowLegacy && plan.runtimeSha256 === LEGACY_RUNTIME_SHA256
-    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
+    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
     && run === `runs/${plan.nonce}` && plan.qualityPolicy === 'strict'
     && (plan.parentPlanSha256 === null || isDigest(plan.parentPlanSha256)), 'PLAN_CONTRACT_OR_RUNTIME_CHANGED');
   const prototype = loadPrototype(root, plan.prototype), style = loadStyle(root, plan.styleSha256);

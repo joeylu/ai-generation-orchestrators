@@ -122,6 +122,38 @@ node game-ui-harnesses/ui-reference-harness/web/server.mjs --adapter game-ui-har
 私有目录保留有上限的执行阶段和结构化错误类型，不记录提示词、图片、凭证、原始错误消息或 stderr。
 页面展示模型及实际准备状态，失败不重试。
 
+### 可选的 Code-mode 转发入口（0.7.3）
+
+当前源码另提供 `adapters/codex-cli-relay.mjs`，显式通过 CLI 的
+`functions.exec → image_gen.imagegen` 转发 `transparent_background=false`。
+它随 `ui-reference-harness-v0.7.3` 发布，0.7.2 附件不含该入口。原生入口继续使用上文的
+`adapters/codex-cli.mjs`；两者由启动参数选择，任务提交后不会自动切换入口。
+
+```powershell
+$env:UI_REFERENCE_CODEX_BIN = (Get-Command codex).Source
+$env:UI_REFERENCE_CODEX_WORKSPACE = Join-Path (Get-Location) 'work/ui-reference-studio/codex-relay/jobs'
+node game-ui-harnesses/ui-reference-harness/web/server.mjs --adapter game-ui-harnesses/ui-reference-harness/web/adapters/codex-cli-relay.mjs
+```
+
+转发入口默认仍为 `gpt-6-luna / xhigh`。预检要求 CLI 支持 `code_mode_host`、生图、Hook、
+严格配置及忽略用户配置，并验证离线模型目录中的推理级别。它只核对当前适配器生成的
+两份限定 Hook 定义，将其确切可信摘要绑定到本次启动参数；不改全局信任配置，
+不信任其他脚本，不使用信任或沙箱绕过开关。预检不启动模型回合或生成图片。
+不同宿主须自行预检，当前登录状态和可用工具不会随源码包迁移。
+
+每次生成冻结完整参数、输入图顺序与原始字节。数据型 stdio MCP 只可返回这份参数一次；
+真正的限制位于嵌套生图调用前后，拒绝改参和第二次调用。完成后核对本轮固定程序、
+前后 Hook 凭据、实际模型与推理级别、只读沙箱及恰好一张新增 PNG，再交给原核心
+执行 PNG 检查、编码规范化、人工验收和交付。已返回的原图先保存，随后审计失败也保留。
+任一工具缺失、参数被拒绝、超时或结果不明均停止，不自动重试或切换原生入口。
+
+私有执行目录按 `attemptSha256` 独占，面板线程映射存于 `relay-sessions/`，与原生适配器
+的 `sessions/` 分开。只恢复正常结束的线程；修改仍绑定新的冻结计划，审计只读取本轮
+新增的会话记录和图片。旧结果不覆盖，不明线程不恢复提交；用户为另一份计划作出新的
+明确决定后，使用新线程。工作台原有首图加最多三轮修改、保存进度和验收操作继续适用。
+CLI 原始会话与生成文件留在宿主的 `CODEX_HOME`，适配器只读取和复制所需原图，
+不把原始模型文本、凭证或私有路径写进公开日志或交付。
+
 可选适配器可以提供 `resolveStyle({ base, notes })`，返回完整 `render_style`、`ui_rules`、五色 `palette`、`negative_rules` 和中文 `summary`。它只供显式带 `resolveNotes: true` 的风格草案请求使用，旧 API 的 notes 仍保留原先的补充语义。
 Codex 适配器使用同一 Luna/xhigh 配置启动一次独立、临时的文本回合；禁用生图、shell、外部插件与传输重试，使用 JSON Schema 约束结果。它不恢复或占用面板的图片 session，不生成媒体。
 完整合并结果通过现有核心冻结为新的自定义风格包，替换发生冲突的规则（包含限制规则）；原始包、参考图和基础风格修订保留。只有用户核对并最终确认才激活。文本解析的输入／输出记录放在私有 CLI 工作目录的 `style-drafts/` 下，不进入公共交付或日志。
