@@ -23,7 +23,7 @@ snapshot and never submits a provider request:
 ui_layer.py regroup-reviewed-snapshot --source PARENT --digest PARENT_DIGEST --output NEW --max-calls 6
 ```
 
-This narrow route accepts reviewed host context snapshots using v7/v8, without
+This narrow route accepts reviewed host context snapshots using v7–v10, without
 texture/reuse/protected-background extensions. It verifies the parent and its
 archived original M1/M2 evidence, rebuilds only the grouping, sheet prompts and
 requests, preserves original answers, placements, crops and reference bytes,
@@ -38,6 +38,12 @@ A new fast warning host can select
 route requires an actual source-bound M1 and retains M2's original evidence.
 It does not make a new model call or assert a new M2 review. A layout sidecar may
 be extracted unchanged from that original plan's declared layout contract.
+
+Construct a new configuration rather than copying the frozen host configuration
+unchanged. In particular omit the fresh-only `planningMode`, `m1Planner`,
+`layoutPlanningPolicy` and `planningCapacityPolicy`, along with old `planningNotes`
+and the producer-owned `digest`. The reviewed-snapshot workflow does not execute
+fresh M1 or its pre-M2 capacity stage; passing that stage policy remains an error.
 
 The new image job starts unauthorized. A fresh immutable compute proposal and
 user authorization are still required. Parent attempts and prior approvals are

@@ -47,7 +47,7 @@ class RegroupTests(unittest.TestCase):
         self.assertFalse(lineage['originalAnswersChanged']);self.assertEqual(result['modelCalls'],0)
         contract=self.f.base/'layout.json';save(contract,self.f.plan['layoutRegistration'])
         config=read(self.f.run/'config.json')
-        for key in ('planningMode','m1Planner','layoutPlanningPolicy','planningNotes','digest'):config.pop(key,None)
+        for key in ('planningMode','m1Planner','layoutPlanningPolicy','planningCapacityPolicy','planningNotes','digest'):config.pop(key,None)
         config.update(seed=str(self.source/'evidence/m1-draft.json'),reviewedSnapshot=str(self.output),
             reviewedSnapshotDigest=new['digest'],reviewedSnapshotPolicy=host.PLANNING_REUSE,
             visualPolicy=str(self.output/'visual-policy.json'),layoutContract=str(contract),
