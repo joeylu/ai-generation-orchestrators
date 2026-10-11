@@ -2092,3 +2092,14 @@ test("optimizing an anchor panel preserves the fixed anchor and exports only its
   assert.equal(accepted.panels[0].acceptedRun, second.plan.run);
   assert.equal(accepted.anchor, null);
 });
+
+test("text-only custom style bootstraps an isolated preview without inventing a primary image", async t => {
+  let captured, calls = 0;
+  const { call } = await host(t, { adapter: { resolveStyle: async ({ base }) => ({ render_style: base.pack.render_style, ui_rules: base.pack.ui_rules, palette: { background: '#112233', surface: '#223344', primary: '#336699', secondary: '#CCDDEE', text: '#FFFFFF' }, negative_rules: ['Keep layout and opaque background.'], summary: 'Blue and silver.' }), generate: async input => { captured = input; calls++; return syntheticImage(input.width, input.height); } } });
+  const draft = await call("/project-drafts", { name: "Text preview", style: styleDraftInput({ custom: true, notes: "Blue and silver custom interface." }) });
+  assert.equal(draft.style.references.length, 0);
+  await call(`/project-drafts/${draft.id}/style-preview`, { styleSha256: draft.style.sha256, operationId: randomUUID(), approval: "One synthetic preview decision." });
+  assert.equal(calls, 1); assert.equal(captured.images.some(image => image.role === "primary-style"), false);
+  assert.equal(captured.images.length, 1); assert.equal(captured.images[0].role, "layout-reference");
+  assert.equal((await call("/bootstrap")).projects.length, 0);
+});

@@ -37,6 +37,11 @@ export const SOURCE_0_7_2_RUNTIME_SHA256 = 'd57e7b3098ce843c1e5f57506767d6f86bc6
 // Released 0.7.3 plans are immutable read-only evidence after the primary-reference upgrade.
 export const SOURCE_0_7_3_RUNTIME_SHA256 = 'd7e7365f4a79fcd0e1ef9fbd92b3fd8f67f1d772e65085ff40095ce7a6407ddd';
 
+// Only the isolated, UUID-bound fixed showcase preview may bootstrap from text.
+// Project DAGs always require a confirmed primary image, including this context.
+const isStylePreview = (projectId, panelId) => /^preview-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(projectId) && panelId === 'style-showcase';
+export const SOURCE_0_8_RUNTIME_SHA256 = '9e15ec537195d76861a3353147ac48bb60819cb7f3e756f404b9970ffc273bd4';
+
 function verifyAnchor(root, anchor, styleSha256) {
   if (!anchor) return;
   exact(anchor, ['image', 'run', 'planSha256', 'reviewSha256']);
@@ -184,7 +189,7 @@ function buildPlan(root, project, { panelId, note = '', intent = null, parentRun
   const entry = project.panels[panelId]; requireThat(entry, 'PANEL_UNKNOWN');
   const prototype = loadPrototype(root, entry.prototype), style = loadStyle(root, project.activeStyle);
   const resolved = intent ?? { kind: 'ui_reference_intent_v1', panelId, note, emphasisIds: [] };
-  primaryStyleReference(root, style.sha256);
+  if (!isStylePreview(project.id, panelId)) primaryStyleReference(root, style.sha256);
   const anchor = null;
   let parentPlanSha256 = null;
   if (parentRun) {
@@ -344,9 +349,10 @@ function verifyPlanEvidence(root, run, allowLegacy) {
   const source07 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_RUNTIME_SHA256;
   const source071 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_1_RUNTIME_SHA256;
   const source072 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_2_RUNTIME_SHA256;
+  const source080 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_8_RUNTIME_SHA256;
   const source073 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_3_RUNTIME_SHA256;
   requireThat((legacy ? allowLegacy && plan.runtimeSha256 === LEGACY_RUNTIME_SHA256
-    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || source073 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
+    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || source073 || source080 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
     && run === `runs/${plan.nonce}` && plan.qualityPolicy === 'strict'
     && (plan.parentPlanSha256 === null || isDigest(plan.parentPlanSha256)), 'PLAN_CONTRACT_OR_RUNTIME_CHANGED');
   const prototype = loadPrototype(root, plan.prototype), style = loadStyle(root, plan.styleSha256);
@@ -354,7 +360,7 @@ function verifyPlanEvidence(root, run, allowLegacy) {
   requireThat(canonical(JSON.parse(verifyBlob(root, plan.style))) === canonical(style), 'PLAN_STYLE_MISMATCH');
   if (plan.runtimeSha256 === runtimeDigest()) {
     requireThat(plan.anchor === null, 'PROJECT_ANCHOR_REMOVED');
-    primaryStyleReference(root, plan.styleSha256);
+    if (!isStylePreview(plan.projectId, plan.panelId)) primaryStyleReference(root, plan.styleSha256);
   }
   verifyAnchor(root, plan.anchor, style.sha256);
   requireThat(canonical(plan.stages) === canonical(['intent', 'compiler-prompt', plan.rawSource ? 'raw-reuse' : 'generation', 'qa', 'post-process', 'qa', 'output']), 'PLAN_STAGES_INVALID');
