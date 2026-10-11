@@ -133,7 +133,10 @@ function fixture(
               input.prompt,
             );
             assert.equal(
-              hook.hookSpecificOutput.updatedInput.transparent_background,
+              Object.hasOwn(
+                hook.hookSpecificOutput.updatedInput,
+                "transparent_background",
+              ),
               false,
             );
             assert.deepEqual(
@@ -228,6 +231,63 @@ test("one frozen CLI request preserves reference bytes/order, writes raw PNG and
     /CODEX_REQUEST_ALREADY_DISPATCHED/,
   );
   assert.equal(calls.filter((call) => call.method === "turn/start").length, 1);
+});
+
+test("the hook satisfies strict native arguments with or without references and strips model extras", (t) => {
+  const { root, input } = fixture(t);
+  for (const includeReference of [false, true]) {
+    const job = path.join(
+      root,
+      includeReference ? "with-reference" : "without-reference",
+    );
+    fs.mkdirSync(job);
+    const imagePath = path.join(job, "reference.png");
+    if (includeReference) fs.writeFileSync(imagePath, input.images[0].bytes);
+    const prompt = "Return one complete opaque PNG. Preserve the frozen UI.";
+    fs.writeFileSync(
+      path.join(job, "input.json"),
+      JSON.stringify({
+        requestSha256: input.requestSha256,
+        prompt,
+        images: includeReference
+          ? [{ path: imagePath, sha256: input.images[0].sha256 }]
+          : [],
+      }),
+    );
+    const result = imageHook(job, {
+      hook_event_name: "PreToolUse",
+      tool_name: "image_gen.imagegen",
+      tool_use_id: "strict-native-call",
+      tool_input: {
+        prompt: "Untrusted replacement",
+        transparent_background: true,
+        referenced_image_paths: ["untrusted.png"],
+        num_last_images_to_include: 5,
+        extra: "unsupported",
+      },
+    });
+    assert.equal(result.hookSpecificOutput.permissionDecision, "allow");
+    const args = result.hookSpecificOutput.updatedInput;
+    // A native schema with additionalProperties:false rejects the old field,
+    // even when its value is false. No media generation occurs in this fixture.
+    const allowed = new Set(["prompt", "referenced_image_paths"]);
+    assert.ok(Object.keys(args).every((key) => allowed.has(key)));
+    assert.deepEqual(args, {
+      prompt,
+      ...(includeReference ? { referenced_image_paths: [imagePath] } : {}),
+    });
+    const claim = JSON.parse(
+      fs.readFileSync(path.join(job, "image-call.json")),
+    );
+    assert.equal(claim.inputSha256, hash(Buffer.from(JSON.stringify(args))));
+    assert.equal(
+      imageHook(job, {
+        hook_event_name: "PreToolUse",
+        tool_name: "image_gen.imagegen",
+      }).hookSpecificOutput.permissionDecision,
+      "deny",
+    );
+  }
 });
 
 test("the deterministic hook refuses a second call, unrelated tools and changed references", async (t) => {

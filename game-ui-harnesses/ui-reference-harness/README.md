@@ -1,4 +1,4 @@
-# UI Reference Harness · 0.7.1 source release
+# UI Reference Harness · 0.7.2 source release
 
 把 `ui-panel-harness` 的面板原型，按一个游戏项目固定的风格转成 UI 参考图。
 支持六种默认风格、定制 UI 风格包、用户主风格 PNG、可选自然语言补充、风格修订及同风格整套交付。
@@ -9,8 +9,9 @@
 首张设置图作为视觉锚点；已观察到的字号与比例偏差保留，不承诺像素级还原。
 按源码附件分发；生产接入需固定不可变仓库标签及归档摘要，不复制第二份源码维护。
 
-当前发布标签为 `ui-reference-harness-v0.7.1`；附件校验、启动与升级边界见 [0.7.1 发布说明](docs/release-0.7.1.md)。
-本版修复 Studio 验收、风格预览读取和报错提示，增加面板删除／恢复及项目名称 ZIP 前缀。
+当前发布标签为 `ui-reference-harness-v0.7.2`；附件校验、启动与升级边界见 [0.7.2 发布说明](docs/release-0.7.2.md)。
+本版修复原生生图 Hook 的参数兼容，移除 `transparent_background` 注入，保留不透明 PNG 检查。
+包含 [0.7.1](docs/release-0.7.1.md) 的 Studio 验收、删除／恢复、报错提示和 ZIP 命名补丁。
 项目级 DAG 自 [0.7.0](docs/release-0.7.0.md) 提供；旧 `ui-reference-harness-v0.6.0` 不含 DAG。开发快照不能替代正式发布附件。
 
 ## 项目级 DAG

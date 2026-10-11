@@ -95,6 +95,9 @@ JSON 包仅为数据，不执行脚本，不接受角色专用包或提供商配
 
 ## Codex CLI 适配器
 
+图片 Hook 仅传冻结提示词和有序本地参考图，不注入 `transparent_background`，以兼容严格原生工具。
+不透明要求仍由提示词和核心逐像素 PNG 检查保证；Hook 改版后须重新核对可信摘要，旧失败任务不自动重试。
+
 `adapters/codex-cli.mjs` 是可选的本机适配器，默认使用 `gpt-6-luna`、`xhigh`。
 通过安装好的 Codex CLI 的 stdio app-server 协议调用内置生图工具，无额外网络监听、API 密钥或网页凭证输入。
 CLI 需要已通过 ChatGPT 登录，并支持内置生图与 hooks。

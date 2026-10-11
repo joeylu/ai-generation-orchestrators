@@ -41,7 +41,8 @@ export function imageHook(job, input) {
     }
     const updatedInput = {
       prompt: frozen.prompt,
-      transparent_background: false,
+      // Native image tools may reject transparency options entirely. Keep the
+      // frozen opaque-image instruction; core PNG QA still enforces alpha=255.
       ...(frozen.images.length
         ? { referenced_image_paths: frozen.images.map((image) => image.path) }
         : {}),
