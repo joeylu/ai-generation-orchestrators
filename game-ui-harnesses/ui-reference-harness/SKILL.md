@@ -7,6 +7,14 @@ Use the sibling `ui-reference.mjs` CLI; read [README.md](README.md) for command
 arguments and [docs/contracts.md](docs/contracts.md) for intake, exchange and QA.
 This source preview has no built-in online image provider.
 
+For a project-level reference-only workflow, use the public dag-* commands and
+[project DAG contract](docs/project-dag.md). Create/inspect/advance never compute.
+Keep the current DAG ID across reload/restart, use stable operation IDs for replay,
+and explicitly accept the representative image as anchor before preparing other
+panels. Each generation still needs a fresh plan-bound decision. Do not recreate a
+DAG or operation to bypass uncertain results or the three-revision session limit.
+The existing Studio is the UX reference; deployment belongs in consumer repositories.
+
 Choose the game project first. Import a validated PanelBundle or PanelSpec plus
 catalog; inspect the neutral prototype and any supplied original screenshot.
 The saved selected tab and scroll origin define the reference view.

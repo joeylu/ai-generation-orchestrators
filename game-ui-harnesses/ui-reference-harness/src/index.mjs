@@ -7,3 +7,6 @@ export { createPlan, createProjectPlans, inspectProjectPlans, createReprocessPla
 export { authorize, reserve, receive, finish, stopAttempt, inspectRun, reviewRun, generateWithAdapter, reprocessRaw } from './generation.mjs';
 export { resolutionPolicy, coordinateMapping } from './resolution.mjs';
 export { exportProject, validateDelivery } from './output.mjs';
+export { createProjectDag, inspectProjectDag, advanceProjectDag, prepareProjectDagPanel, authorizeProjectDagPanel,
+  generateProjectDagPanel, requestProjectDagPanel, actProjectDagPanel, reviseProjectDagPanel,
+  retryProjectDagPanel, exportProjectDag } from './dag.mjs';

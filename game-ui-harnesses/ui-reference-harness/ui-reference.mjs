@@ -2,7 +2,7 @@
 import * as fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import * as api from './src/index.mjs';
-import { readBytes, readJson, requireThat, withLock } from './src/common.mjs';
+import { readBytes, readJson, requireThat, sha256, withLock } from './src/common.mjs';
 import { runtimeDigest } from './src/compiler.mjs';
 import { validateRules } from './src/styles.mjs';
 
@@ -13,6 +13,18 @@ const commandOptions = {
   'import-panel': ['root', 'bundle', 'spec', 'catalog', 'preview'], status: ['root'],
   plan: ['root', 'panel', 'note', 'intent', 'parent-run', 'resolution'], optimize: ['root', 'panel', 'note', 'intent', 'parent-run', 'resolution'],
   'plan-project': ['root', 'panels', 'intents', 'resolution'], 'inspect-project-plans': ['root', 'batch'],
+  'dag-create': ['root', 'anchor-panel', 'panels', 'intents', 'resolution'], 'dag-inspect': ['root', 'dag'],
+  'dag-advance': ['root', 'dag', 'operation-id'], 'dag-prepare': ['root', 'dag', 'panel', 'operation-id'],
+  'dag-authorize': ['root', 'dag', 'panel', 'operation-id', 'run', 'plan-sha256', 'approval'],
+  'dag-generate': ['root', 'dag', 'panel', 'operation-id', 'run', 'adapter'],
+  'dag-request': ['root', 'dag', 'panel', 'operation-id', 'run'],
+  'dag-receive': ['root', 'dag', 'panel', 'operation-id', 'run', 'request-sha256', 'image'],
+  'dag-finish': ['root', 'dag', 'panel', 'operation-id', 'run', 'raw-sha256'],
+  'dag-stop': ['root', 'dag', 'panel', 'operation-id', 'run', 'request-sha256', 'outcome'],
+  'dag-review': ['root', 'dag', 'panel', 'operation-id', 'run', 'image-sha256', 'layout', 'style', 'copy', 'decision', 'note', 'anchor'],
+  'dag-revise': ['root', 'dag', 'panel', 'operation-id', 'source-run', 'note'],
+  'dag-retry': ['root', 'dag', 'panel', 'operation-id', 'source-run', 'decision'],
+  'dag-export': ['root', 'dag', 'operation-id'],
   'reprocess-plan': ['root', 'source-run', 'raw-sha256'], reprocess: ['root', 'run', 'plan-sha256'],
   'correct-select-plan': ['root', 'source-run', 'targets', 'note'],
   authorize: ['root', 'run', 'plan-sha256', 'approval'], request: ['root', 'run'],
@@ -49,6 +61,39 @@ export async function main(argv = process.argv.slice(2)) {
     generation: 'external-adapter-required', networkCalls: 0, computeCalls: 0 };
   if (command === 'validate') { need('delivery'); return api.validateDelivery(o.delivery); }
   need('root');
+  if (command.startsWith('dag-')) {
+    if (command === 'dag-create') return api.createProjectDag(o.root, { anchorPanelId: o['anchor-panel'], panelIds: o.panels?.split(','),
+      intents: o.intents ? readJson(o.intents) : [], resolution: o.resolution ?? 'native' });
+    need('dag');
+    if (command === 'dag-inspect') return api.inspectProjectDag(o.root, o.dag);
+    need('operation-id');
+    const operation = { operationId: o['operation-id'] };
+    if (command === 'dag-advance') return api.advanceProjectDag(o.root, o.dag, operation);
+    if (command === 'dag-export') return api.exportProjectDag(o.root, o.dag, operation);
+    need('panel');
+    if (command === 'dag-prepare') return api.prepareProjectDagPanel(o.root, o.dag, o.panel, operation);
+    if (command === 'dag-revise') { need('source-run', 'note'); return api.reviseProjectDagPanel(o.root, o.dag, o.panel, { ...operation, sourceRun: o['source-run'], note: o.note }); }
+    if (command === 'dag-retry') { need('source-run', 'decision'); return api.retryProjectDagPanel(o.root, o.dag, o.panel, { ...operation, sourceRun: o['source-run'], decision: o.decision }); }
+    need('run'); operation.run = o.run;
+    if (command === 'dag-authorize') { need('plan-sha256', 'approval'); return api.authorizeProjectDagPanel(o.root, o.dag, o.panel, { ...operation, planSha256: o['plan-sha256'], approval: o.approval }); }
+    if (command === 'dag-request') return api.requestProjectDagPanel(o.root, o.dag, o.panel, operation);
+    if (command === 'dag-generate') {
+      need('adapter'); let adapter;
+      try { adapter = await import(pathToFileURL(o.adapter).href); } catch { throw new Error('ADAPTER_LOAD_FAILED'); }
+      return api.generateProjectDagPanel(o.root, o.dag, o.panel, operation, adapter);
+    }
+    const action = command.slice(4); let payload, bytes = null;
+    if (action === 'receive') { need('request-sha256', 'image'); bytes = readBytes(o.image); payload = { requestSha256: o['request-sha256'], rawSha256: sha256(bytes) }; }
+    if (action === 'finish') { need('raw-sha256'); payload = { rawSha256: o['raw-sha256'] }; }
+    if (action === 'stop') { need('request-sha256', 'outcome'); payload = { requestSha256: o['request-sha256'], outcome: o.outcome }; }
+    if (action === 'review') {
+      need('image-sha256', 'layout', 'style', 'copy', 'decision', 'note');
+      requireThat(o.anchor === undefined || ['true', 'false'].includes(o.anchor), 'ANCHOR_FLAG_INVALID');
+      payload = { imageSha256: o['image-sha256'], layout: o.layout, style: o.style, copy: o.copy,
+        decision: o.decision, note: o.note, useAsAnchor: o.anchor === 'true' };
+    }
+    return api.actProjectDagPanel(o.root, o.dag, o.panel, { ...operation, action, payload }, bytes);
+  }
   switch (command) {
     case 'init': need('id'); return api.initialize(o.root, o.id);
     case 'samples-plan': return api.planSamples(o.root);

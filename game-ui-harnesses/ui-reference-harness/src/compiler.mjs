@@ -20,6 +20,12 @@ export const CLOSED_SELECT_RUNTIME_SHA256 = '0e82b4f1182bfcb95ae17bb4ddaa9cbcae4
 export const SAMPLE_INTAKE_RUNTIME_SHA256 = '86e9351cfc69272b1825776e59d36220474823547c6efdca9c1926adc08ee40c';
 // Known local-studio/CLI results remain reviewable after the session upgrade.
 export const STUDIO_RUNTIME_SHA256 = 'f0204159b7ac84753a5988a5e9eaabc38295b755b4d30c7f933d09ed8deffb33';
+// Released 0.6.0 CLI/Studio evidence remains readable after the DAG upgrade.
+// This compatibility never authorizes execution of an archived plan.
+export const SOURCE_0_6_RUNTIME_SHA256 = 'aea380f8fbec3cee4e941494662300ea037578e8e9fb625344867e9fc2d6deaa';
+// The distributed 0.7.0 development snapshot remains read-only after release.
+// Its verified output may be inspected, reviewed and delivered, never dispatched.
+export const DEVELOPMENT_0_7_RUNTIME_SHA256 = '4d9860b276acdc6153a8ea000925abcf3bf3b0c2e3153a4a429641b97adbb6cd';
 
 function verifyAnchor(root, anchor, styleSha256) {
   if (!anchor) return;
@@ -322,8 +328,10 @@ function verifyPlanEvidence(root, run, allowLegacy) {
   const closedSelect = current && allowLegacy && plan.runtimeSha256 === CLOSED_SELECT_RUNTIME_SHA256;
   const sampleIntake = current && allowLegacy && plan.runtimeSha256 === SAMPLE_INTAKE_RUNTIME_SHA256;
   const studio = !revisionPlan && current && allowLegacy && plan.runtimeSha256 === STUDIO_RUNTIME_SHA256;
+  const source06 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_6_RUNTIME_SHA256;
+  const development07 = current && allowLegacy && plan.runtimeSha256 === DEVELOPMENT_0_7_RUNTIME_SHA256;
   requireThat((legacy ? allowLegacy && plan.runtimeSha256 === LEGACY_RUNTIME_SHA256
-    : current ? plan.runtimeSha256 === runtimeDigest() || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
+    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
     && run === `runs/${plan.nonce}` && plan.qualityPolicy === 'strict'
     && (plan.parentPlanSha256 === null || isDigest(plan.parentPlanSha256)), 'PLAN_CONTRACT_OR_RUNTIME_CHANGED');
   const prototype = loadPrototype(root, plan.prototype), style = loadStyle(root, plan.styleSha256);
