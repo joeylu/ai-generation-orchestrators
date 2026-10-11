@@ -62,6 +62,8 @@ class BoardActionCompatibilityTests(unittest.TestCase):
         old=board.build(self.snapshot,self.row)
         self.assertEqual(hashlib.sha256(old[2].encode()).hexdigest(),
             'ed7fb67cde99e2beba0b3563c42a3c9b01ddcd1c774dd97ec50b834e170a5bd6')
+        self.assertEqual(hashlib.sha256(board.build(self.snapshot,self.row,prompt_version='v4')[2].encode()).hexdigest(),
+            'a35176e1137bed9439e07ddd6e6eaa8a60013c9a120a5dca863243f9ebfc12e1')
         new=board.build(self.snapshot,self.row,prompt_version='v2')
         self.assertEqual(old[:2],new[:2])
         self.assertNotEqual(old[2],new[2])

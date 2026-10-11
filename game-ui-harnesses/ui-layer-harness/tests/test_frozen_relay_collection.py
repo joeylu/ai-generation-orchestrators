@@ -50,6 +50,10 @@ class FrozenRelayCollectionTests(unittest.TestCase):
             requests={asset:'awaiting_result_no_resubmit'})))
         stack.enter_context(patch.object(collector,'verified',return_value={'digest':submission}))
         stack.enter_context(patch.object(collector,'load_job',return_value=({'referenceMode':'full-only'},{asset:row})))
+        # The miniature snapshot is intentionally not a full executor fixture.
+        # Pin independent arguments so mutated session requests are still rejected.
+        expected_arguments=json.loads(json.dumps(request['arguments']))
+        stack.enter_context(patch.object(collector,'frozen_request_arguments',return_value=expected_arguments))
         receive=stack.enter_context(patch.object(collector,'receive',return_value={'digest':'synthetic-receipt'}))
         process=stack.enter_context(patch.object(collector,'process',return_value={'status':'passed','issues':[]}))
         return dict(job=job,home=home,folder=folder,log=log,event=event,request=request,
@@ -65,6 +69,18 @@ class FrozenRelayCollectionTests(unittest.TestCase):
             self.assertTrue(audit['exactPromptMatch'])
             self.assertTrue(audit['transparentBackgroundVerified'])
             self.assertEqual(audit['argumentsSha256'],relay.fingerprint(relay.tool_arguments(f['request'],True)))
+            self.assertEqual(audit['image'],dict(size=[64,64],mode='RGBA',alphaRange=[128,128]))
+
+    def test_corrupt_png_never_receives_or_postprocesses(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f=self.fixture(Path(tmp))
+            data=bytearray(f['image'].read_bytes())
+            data[data.index(b'IDAT')+4]^=1
+            f['image'].write_bytes(data)
+            with self.assertRaises((OSError,ValueError,SyntaxError)):
+                collector.collect(f['job'],f['home'])
+            f['receive'].assert_not_called();f['process'].assert_not_called()
+            self.assertFalse((f['folder']/'image-call-audit.json').exists())
 
     def test_single_materials_keep_existing_postprocess_and_background_modes(self):
         for transparency in (True,False):

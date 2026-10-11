@@ -2,6 +2,14 @@
 
 VERSION = 'ui-visual-prompt-contract-v1'
 
+# New reference-edit prompts do not reuse the historical surface-completion rules.
+EDIT_GENERATION = '''
+显式视觉策略：基于所附参考图编辑，只去掉非本素材的元素、普通文字和数字，保留指定主体。
+主体的外观、状态、数量、轮廓、比例和内部相对位置保持原样；确切 preserveText 例外照原图保留。
+前景主体以外使用原生透明 alpha，保留自身半透明区域；不把共享背景并入前景。
+单素材输出一张 PNG；合板遵循冻结格位和统一比例，空格透明。最终缩放和平移由程序归位。
+'''
+
 OWNERSHIP = '''
 视觉提示词规范 ui-visual-prompt-contract-v1：
 逐个可见对象建立唯一归属和实例数量。父底板只拥有自身连续表面、边框及明确归属的装饰；

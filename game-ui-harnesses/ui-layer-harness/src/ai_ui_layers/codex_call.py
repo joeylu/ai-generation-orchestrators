@@ -42,6 +42,18 @@ def transport_schema(schema):
     result=copy.deepcopy(schema)
     def visit(node):
         if isinstance(node,dict):
+            if 'type' not in node and ('const' in node or 'enum' in node):
+                values=[node['const']] if 'const' in node else node['enum']
+                types=[]
+                for value in values:
+                    kind=('null' if value is None else 'boolean' if isinstance(value,bool)
+                          else 'string' if isinstance(value,str) else 'integer' if isinstance(value,int)
+                          else 'number' if isinstance(value,float) else None)
+                    if kind is None:raise ValueError('UNSUPPORTED_TRANSPORT_LITERAL_SCHEMA')
+                    if kind not in types:types.append(kind)
+                if not types:raise ValueError('UNSUPPORTED_TRANSPORT_LITERAL_SCHEMA')
+                if 'number' in types and 'integer' in types:types.remove('integer')
+                node['type']=types[0] if len(types)==1 else types
             node.pop('uniqueItems',None)
             if any(k in node for k in ('allOf','if','then','else')):raise ValueError('UNSUPPORTED_TRANSPORT_SCHEMA')
             if node.get('type')=='object':

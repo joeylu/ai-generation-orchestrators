@@ -11,6 +11,55 @@ from ai_ui_layers import collect_session
 
 
 class CollectSessionTests(unittest.TestCase):
+    def test_rgba_inspection_verifies_before_alpha_and_preserves_soft_pixels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source=Path(tmp)/'soft-fixture.png'
+            image=Image.new('RGBA',(4,1))
+            image.putdata([(10,20,30,0),(40,50,60,1),(70,80,90,128),(100,110,120,255)])
+            image.save(source)
+            before=source.read_bytes()
+            # Reproduce the failed adapter sequence with this same PNG.
+            with Image.open(source) as reader:
+                reader.getchannel('A').getextrema()
+                with self.assertRaisesRegex(RuntimeError,'verify must be called directly after open'):
+                    reader.verify()
+            self.assertEqual(collect_session.inspect_png(source),dict(
+                size=[4,1],mode='RGBA',alphaRange=[0,255]))
+            self.assertEqual(source.read_bytes(),before)
+            with Image.open(source) as reader:
+                self.assertEqual(reader.tobytes(),image.tobytes())
+
+    def test_png_inspection_handles_opaque_and_palette_alpha_without_reencoding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for mode in ('RGB','P'):
+                with self.subTest(mode=mode):
+                    source=Path(tmp)/(mode+'.png')
+                    image=Image.new(mode,(3,2))
+                    if mode=='P':
+                        image.putpalette([0,0,0,255,255,255]+[0]*762)
+                        image.putpixel((1,1),1)
+                        image.save(source,transparency=0)
+                    else:image.save(source)
+                    before=source.read_bytes()
+                    self.assertEqual(collect_session.inspect_png(source),dict(
+                        size=[3,2],mode=mode,alphaRange=[0,255] if mode=='P' else [255,255]))
+                    self.assertEqual(source.read_bytes(),before)
+
+    def test_png_inspection_rejects_corrupt_crc_and_other_formats(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source=Path(tmp)/'bad.png'
+            Image.new('RGBA',(4,4),(10,20,30,128)).save(source)
+            data=bytearray(source.read_bytes())
+            index=data.index(b'IDAT')+4
+            data[index]^=1  # Keep the original CRC: structural verification must reject.
+            source.write_bytes(data)
+            with self.assertRaises((OSError,ValueError,SyntaxError)):
+                collect_session.inspect_png(source)
+            source=Path(tmp)/'not-png.jpg'
+            Image.new('RGB',(4,4)).save(source)
+            with self.assertRaisesRegex(ValueError,'PNG_REQUIRED'):
+                collect_session.inspect_png(source)
+
     def test_literal_tool_background_mode_must_be_explicit_and_unique(self):
         self.assertTrue(collect_session.literal_transparency(
             'tools.image_gen__imagegen({transparent_background: true})'))
@@ -66,6 +115,8 @@ class CollectSessionTests(unittest.TestCase):
             self.assertEqual(result['postprocess'],'deferred_to_sheet_extraction')
             self.assertEqual(result['issues'],[])
             self.assertTrue(json.loads((folder/'image-call-audit.json').read_text())['transparentBackgroundVerified'])
+            self.assertEqual(json.loads((folder/'image-call-audit.json').read_text())['image'],
+                             dict(size=[64,64],mode='RGBA',alphaRange=[0,0]))
             log.write_text(json.dumps(dict(payload=dict(type='custom_tool_call',input=(
                 'tools.image_gen__imagegen({prompt: "Exact prompt", num_last_images_to_include: 1, transparent_background: false})'))))+'\n',encoding='utf-8')
             with patch.object(collect_session,'status',return_value=pending), \

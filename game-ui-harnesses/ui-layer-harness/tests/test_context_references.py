@@ -296,12 +296,13 @@ class ContextReferencesTests(unittest.TestCase):
             exchange.authorize(job,'old-job-digest','fixture')
         exchange.authorize(job,config['digest'],'offline fixture only')
         request=exchange.next_request(job)
-        expected=[str((job/'snapshot'/r['reference']).resolve()) for r in sheet['references']]
+        board_job=job/'context-boards'/sheet['asset']
+        expected=[str((board_job/'sheet-layout/board.png').resolve())]
         self.assertEqual(request['arguments']['referenced_image_paths'],expected)
-        self.assertEqual(request['arguments']['prompt'],(folder/sheet['prompt']).read_text(encoding='utf-8').rstrip('\n'))
+        self.assertEqual(request['arguments']['prompt'],(board_job/'sheet-layout/prompt.txt').read_text(encoding='utf-8').rstrip('\n'))
         self.assertEqual(request['references'],sheet['references'])
         relay=tool_arguments(request,True)
-        self.assertEqual(relay['num_last_images_to_include'],2)
+        self.assertEqual(relay['num_last_images_to_include'],1)
         self.assertEqual(relay['prompt'],request['arguments']['prompt'])
         message=build_session_prompt(request['arguments'],'context-crops',True)
         self.assertIn('expanded context crops',message)

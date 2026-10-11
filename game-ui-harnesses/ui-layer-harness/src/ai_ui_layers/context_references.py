@@ -21,9 +21,12 @@ PROMPT_PREFIX_V7 = 'visual-material-context-prompt-v7:\n'
 PROMPT_PREFIX_V8 = 'visual-material-context-prompt-v8:\n'
 PROMPT_PREFIX_V9 = 'visual-material-context-prompt-v9:\n'
 PROMPT_PREFIX_V10 = 'visual-material-context-prompt-v10:\n'
-VERSIONS = ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10')
-DEFAULT_VERSION = 'v10'
-PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7, PROMPT_PREFIX_V8, PROMPT_PREFIX_V9, PROMPT_PREFIX_V10)
+PROMPT_PREFIX_V11 = 'visual-material-context-prompt-v11:\n'
+PROMPT_PREFIX_V12 = 'visual-material-context-prompt-v12:\n'
+PROMPT_PREFIX_V13 = 'visual-material-context-prompt-v13:\n'
+VERSIONS = ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11','v12','v13')
+DEFAULT_VERSION = 'v13'
+PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7, PROMPT_PREFIX_V8, PROMPT_PREFIX_V9, PROMPT_PREFIX_V10, PROMPT_PREFIX_V11, PROMPT_PREFIX_V12, PROMPT_PREFIX_V13)
 # Historical callers and frozen plans used this name for v1.
 PROMPT_PREFIX = PROMPT_PREFIX_V1
 
@@ -100,7 +103,28 @@ def local_box(box, reference, size):
             round((r*width-x)/w,8),round((b*height-y)/h,8)]
 
 
-def entry(visual, material, asset, reference, size, index, *, include_exclusion_details=False):
+def scene_exclusions(visual, material, reference, size):
+    """Background-owned subjects visible in a foreground crop, never KEEP prose.
+
+    Unknown object bounds conservatively use this crop as a locator. They do
+    not transfer scene ownership or license removal of another cell's KEEP.
+    """
+    if material['role']=='background':return []
+    x,y,r,b=reference['cropRegion'];width,height=size
+    scope=[x/width,y/height,r/width,b/height]
+    owners={m['id'] for m in visual['materials'] if m['role']=='background'}
+    result=[]
+    for obj in visual['objects']:
+        if obj['materialId'] not in owners or obj['kind']=='background':continue
+        box=obj.get('bboxNorm') or scope
+        if max(scope[0],box[0])>=min(scope[2],box[2]) or max(scope[1],box[1])>=min(scope[3],box[3]):continue
+        result.append(dict(materialId=obj['materialId'],objectId=obj['id'],
+            appearance=obj['label'],referenceBox=local_box(box,reference,size)))
+    return result
+
+
+def entry(visual, material, asset, reference, size, index, *, include_exclusion_details=False,
+          exclude_scene=False):
     l,t,r,b=material['bboxNorm'];parts=[]
     for obj in visual['objects']:
         if obj['materialId']!=material['id']:continue
@@ -122,6 +146,10 @@ def entry(visual, material, asset, reference, size, index, *, include_exclusion_
         for removed_item, source in zip(removed, foreign):
             # Preserve every object description, including repeated independent instances.
             removed_item['excludeArtwork']=list(source['excludeArtwork'])
+    if exclude_scene:
+        removed.extend(dict(materialId=row['materialId'],objectId=row['objectId'],
+            material='Background-owned scene subject',referenceBox=row['referenceBox'],
+            excludeArtwork=[row['appearance']]) for row in scene_exclusions(visual,material,reference,size))
     summary={} if any(part['appearance']==material['label'] for part in parts) else {'artwork':material['label']}
     return dict(referenceIndex=index+1,cellIndex=index,materialId=material['id'],**summary,
         targetBox=reference['targetBoxNorm'],artworkPixelSize=asset['output_size'],
@@ -129,7 +157,7 @@ def entry(visual, material, asset, reference, size, index, *, include_exclusion_
         surface='continuous-panel' if carries_foreground(visual,material) else 'owned-artwork')
 
 
-def action_entry(visual, material, asset, reference, size, index):
+def action_entry(visual, material, asset, reference, size, index, *, exclude_scene=False):
     """v4 ownership actions from reviewed z order; boxes remain locators, not masks."""
     own=entry(visual,material,asset,reference,size,index)
     if own['parts']:
@@ -154,6 +182,11 @@ def action_entry(visual, material, asset, reference, size, index):
         foreign.append(dict(materialId=other['id'],relation=relation,
                             referenceBox=local_box(other['bboxNorm'],reference,size),members=members))
     own['exclude']=foreign
+    if exclude_scene:
+        for row in scene_exclusions(visual,material,reference,size):
+            foreign.append(dict(materialId=row['materialId'],relation='underlay',
+                referenceBox=row['referenceBox'],members=[dict(id=row['objectId'],
+                    appearance=row['appearance'],referenceBox=row['referenceBox'])]))
     return own
 
 
@@ -224,6 +257,25 @@ def reconstruct_prompt(entries, group, *, version='v5'):
             'fully transparent margin each side, uniform scale, no stretch. No added UI/backing/borders/glow/bridges.')
 
 
+def background_edit_prompt(visual, material, *, edit_only=False):
+    """Direct full-reference edit; descriptions must not become redraw instructions."""
+    if visual['backgroundMode']=='scene-only':
+        task='去掉原参考图中的所有 UI，只保留背景。'
+    else:
+        excluded=[m['label'] for m in visual['materials'] if m['role']=='foreground']
+        task=('去掉原参考图中这些单独导出的前景 UI：'+json.dumps(excluded,ensure_ascii=False,separators=(',',':'))+
+              '。其余底图内容（包括未导出的 UI 和遮暗）保持原样。')
+    text=('去掉普通文字和数字，文字位置留空。' if not material['preserveText'] else
+          '去掉普通文字和数字，文字位置留空；仅保留这些确切文字：'+
+          json.dumps(material['preserveText'],ensure_ascii=False,separators=(',',':'))+'。')
+    if edit_only:
+        return (task+'保持原图画布、构图、视角，以及人物和景物的位置、大小、轮廓、颜色不变。'+text+
+                '输出与原图比例一致的不透明 PNG。')
+    return (task+'保持原图画布、构图、视角，以及已可见人物和景物的位置、大小、轮廓、颜色不变。'
+            '只补全被移除内容遮挡的背景，不移动、放大、重画或复制已可见的景物。'+text+
+            '输出与原图比例一致的完整不透明 PNG。')
+
+
 def prompt(visual, plan, material_ids, group=None, version='v3'):
     """Compile frozen plan data once, with no LLM rewriting or extra grouping call."""
     if version not in VERSIONS:raise ValueError('CONTEXT_PROMPT_VERSION')
@@ -232,6 +284,8 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
     if any('preserveText' not in materials[key] for key in material_ids):raise ValueError('EXPLICIT_TEXT_EXCEPTIONS_REQUIRED')
     if len(material_ids)==1 and assets[material_ids[0]]['role']=='background':
+        if version in ('v11','v12','v13'):
+            return background_edit_prompt(visual,materials[material_ids[0]],edit_only=version in ('v12','v13'))
         result = full_prompt(visual,material_ids[0],plan['canvas'])
         if version in ('v8','v9','v10'):
             result += (' COMPOSITION LOCK: remove the assigned UI without reframing the scene. '
@@ -243,13 +297,19 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     from .generation_groups import COMPACT_CONTROL_POLICIES
     reference_limit=6 if group and group.get('groupingPolicy') in COMPACT_CONTROL_POLICIES else 4
     if not 1<=len(material_ids)<=reference_limit:raise ValueError('CONTEXT_REFERENCE_LIMIT')
-    builder=action_entry if version in ('v4','v5','v6','v7','v8','v9','v10') else entry
-    entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i)
+    builder=action_entry if version in ('v4','v5','v6','v7','v8','v9','v10','v11','v12','v13') else entry
+    entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i,**({'exclude_scene':True} if version=='v13' else {}))
              for i,key in enumerate(material_ids)]
-    if version in ('v8','v9','v10'):
+    if version in ('v8','v9','v10','v11','v12','v13'):
         from .context_owned_actions import build
-        return build(visual,entries,_sheet_layout(group) if group else 'One complete material; cell 0.',group,
-                     isolated_contacts=version in ('v9','v10'),scoped_appearance=version=='v10')
+        result=build(visual,entries,_sheet_layout(group) if group else 'One complete material; cell 0.',group,
+                     isolated_contacts=version in ('v9','v10','v11','v12','v13'),scoped_appearance=version in ('v10','v11','v12','v13'),
+                     edit_only=version in ('v12','v13'),exclude_scene=version=='v13')
+        if version in ('v11','v12','v13'):
+            result+='\nOWNED PROPORTIONS BEFORE PADDING: '+json.dumps([
+                dict(materialId=e['materialId'],width=e['artworkPixelSize'][0],height=e['artworkPixelSize'][1])
+                for e in entries],separators=(',',':'))+'. Match each owned region aspect; the output canvas is not its body.'
+        return result
     if version=='v7':
         from .context_short_actions import build
         short=build(visual,materials[material_ids[0]],entries,group)

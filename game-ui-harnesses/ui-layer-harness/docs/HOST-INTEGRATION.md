@@ -14,8 +14,12 @@ host-run
   -> planning_generate (fresh M1)
   -> planning_review (independent M2)
   -> images (bounded parallel tool calls)
-  -> material_review (bounded parallel independent model calls)
-  -> diagnostic registration, comparison and packaging
+  -> deterministic diagnostic registration, comparison and packaging
+  -> composite_review (one independent call; warning mode default)
+  -> diagnostic_complete (human visual acceptance pending)
+
+Explicit per-request profile:
+  images -> material_review -> diagnostic packaging
      or explicit exhaustive body_observation, then packaging
 ```
 
@@ -70,11 +74,12 @@ This fragment supplements the required full configuration from HOST-DELIVERY:
 {
   "planningMode": "fresh-host-m1-independent-review",
   "generationMode": "sheets",
-  "generationGroupingPolicy": "compact-controls-context-grid-v3",
+  "generationGroupingPolicy": "compact-controls-context-grid-v5",
   "visualReviewMode": "warning",
   "bodyReviewPolicy": "final-composite-first-v1",
+  "materialReviewPolicy": "final-composite-once-v1",
   "maximumConcurrentImageCalls": 3,
-  "maximumConcurrentMaterialReviews": 3
+  "maximumMaterialReviews": 1
 }
 ```
 
@@ -83,6 +88,40 @@ material identities; backgrounds and incompatible materials can use standalone
 requests. Ordinary business text/numbers remain blank. Capacity and layout checks
 run after fresh M1 and before M2; grouped request counts are reported before image
 dispatch. Bounds and checks do not guarantee a visually correct generation.
+Hosts must recognize `composite_review` as a model stage and reserve it once;
+the original, recomposition and atlas are attachments to that one request.
+Use its exact inline packet/schema and the composite attestation format in
+HOST-DELIVERY. Old adapters that only recognize `material_review` need updating
+before selecting this new policy. This policy is included in alpha.5; alpha.4
+retains its published defaults. Keep existing runs on their original release.
+
+The one composite review must inspect actual residual ordinary labels and
+numbers, including labels copied unchanged from the original. Text removal is a
+requirement, not an assumed result. Only each material's exact `preserveText`
+entries may remain; expected removal is not a visual defect. Text findings stay
+warnings and do not add review calls or trigger generation retries.
+
+The optional CLI collector and image adapters can use
+`collect_session.inspect_png(path)` for read-only PNG inspection. It verifies
+structure immediately after opening, then decodes and reads alpha with a second
+reader over the same bytes. Calling Pillow `verify()` after `load()` or
+`getchannel()` can reject a valid PNG. This inspection does not accept a material
+visually, replace `host-receive`, or rewrite original pixels.
+
+## Rolling image execution
+
+For image execution use a rolling coordinator. Reserve the initial bounded
+requests, then receive each returned original PNG immediately using
+`host-receive --refill-images`. Invoke its optional `nextImageRequest` once without
+waiting for the other calls. Python adapters can instead use
+`ai_ui_layers.host_image_dispatch.run_images(run, invoke)`, where `invoke` is the
+host's explicit async image-tool adapter. Both routes retain immutable arguments,
+single-use authorization, original source evidence and no-resubmit rules. See
+[host delivery](HOST-DELIVERY.md) for failure/drain behavior and result fields.
+
+Pure validation results are reused only within one host operation after hashing
+current input bytes and inventory. Final package validation remains complete.
+This does not reduce model review coverage or skip M1/M2.
 
 ## Terminal outcomes
 

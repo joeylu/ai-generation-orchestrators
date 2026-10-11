@@ -176,18 +176,19 @@ class SheetLayoutExchangeTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'SESSION_SHEET_LAYOUT_MISMATCH'):
                     audit_relay(job, session, changed, dispatch, events, frozen.RELAY_CODE)
 
-    def test_original_context_exchange_keeps_multiple_frozen_references(self):
+    def test_new_context_exchange_uses_one_board_for_all_sheet_references(self):
         job = self.root / 'context-job'
         config = exchange.prepare(self.snapshot, self.manifest['digest'], job,
                                   [self.sheet['asset']])
         self.assertEqual(config['referenceMode'], 'context-crops')
         self.assertEqual(config['generationReference'], 'context-crops')
         self.assertNotIn('sheetLayoutReference', config)
+        self.assertEqual(config['sheetReferencePolicy'],exchange.SHEET_REFERENCE_POLICY)
+        self.assertIn(self.sheet['asset'],config['contextBoardReferences'])
         exchange.authorize(job, config['digest'], 'offline fixture')
         request = exchange.next_request(job)
         self.assertEqual(request['references'], self.sheet['references'])
-        self.assertEqual(len(request['arguments']['referenced_image_paths']),
-                         len(self.sheet['references']))
+        self.assertEqual(len(request['arguments']['referenced_image_paths']),1)
         self.assertNotIn('sheetLayoutReference', request)
 
     def test_board_collection_rejects_legacy_literal_transport_before_receiving(self):

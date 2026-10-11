@@ -20,7 +20,7 @@ from ._core.prompts import _prompt
 
 PROMPT_V2 = 'visual-material-prompt-v2:\n'
 PROMPT_V3 = 'visual-material-prompt-v3:\n'
-from .context_references import PROMPT_PREFIXES, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7, PROMPT_PREFIX_V8, PROMPT_PREFIX_V9, PROMPT_PREFIX_V10, validate_mode
+from .context_references import PROMPT_PREFIXES, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7, PROMPT_PREFIX_V8, PROMPT_PREFIX_V9, PROMPT_PREFIX_V10, PROMPT_PREFIX_V11, PROMPT_PREFIX_V12, PROMPT_PREFIX_V13, validate_mode
 
 def render_prompt(asset):
     # Historical immutable snapshots retain their original legacy rendering.
@@ -111,13 +111,17 @@ def compile_plan(visual, size, source_sha, plan_id='visual-candidate', generatio
                 document=dict(name=plan_id, format='png_zip'), delivery_policy='unreviewed_draft')
     if generation_reference=='context-crops':
         from .context_references import PROMPT_PREFIX_V1, prompt as context_prompt
-        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10'):raise ValueError('CONTEXT_PROMPT_VERSION')
+        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11','v12','v13'):raise ValueError('CONTEXT_PROMPT_VERSION')
         prefix={'v1':PROMPT_PREFIX_V1,'v2':PROMPT_PREFIX_V2,'v3':PROMPT_PREFIX_V3,
-                'v4':PROMPT_PREFIX_V4,'v5':PROMPT_PREFIX_V5,'v6':PROMPT_PREFIX_V6,'v7':PROMPT_PREFIX_V7,'v8':PROMPT_PREFIX_V8,'v9':PROMPT_PREFIX_V9,'v10':PROMPT_PREFIX_V10}[context_prompt_version]
+                'v4':PROMPT_PREFIX_V4,'v5':PROMPT_PREFIX_V5,'v6':PROMPT_PREFIX_V6,'v7':PROMPT_PREFIX_V7,'v8':PROMPT_PREFIX_V8,'v9':PROMPT_PREFIX_V9,'v10':PROMPT_PREFIX_V10,'v11':PROMPT_PREFIX_V11,'v12':PROMPT_PREFIX_V12,'v13':PROMPT_PREFIX_V13}[context_prompt_version]
         for asset in assets:
             asset['prompt']=prefix+context_prompt(visual,plan,[asset['id']],version=context_prompt_version)
     if visual_policy is not None:
-        for asset in assets:asset['prompt']+=generation_guidance(visual_policy)
+        for asset in assets:
+            # Foreground reconstruction rules contradict a minimal background
+            # edit and reintroduce the descriptions deliberately removed in v11.
+            if context_prompt_version in ('v11','v12','v13') and generation_reference=='context-crops' and asset['role']=='background':continue
+            asset['prompt']+=generation_guidance(visual_policy,edit_only=generation_reference=='context-crops' and context_prompt_version in ('v12','v13'))
     visual_textures.validate_bindings(texture_doc,visual,texture_bindings)
     if texture_doc is not None:
         from .context_references import geometry
@@ -336,7 +340,7 @@ def verify_run(run, *, _allow_issues=False):
 def compile_run(run, output, max_calls=128, generation_mode="single", generation_reference="full",
                 context_prompt_version='v3'):
     validate_mode(generation_reference)
-    if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11','v12','v13'):raise ValueError('CONTEXT_PROMPT_VERSION')
     started = time.perf_counter(); run=Path(run); output=Path(output)
     if max_calls < 1:
         raise ValueError('INVALID_CALL_LIMIT')

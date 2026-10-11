@@ -1,7 +1,11 @@
-# UI Layer Harness — 0.1.0a4 preview
+# UI Layer Harness — 0.1.0a5 preview
 
-固定发布标签：`ui-layers-v0.1.0-alpha.4`。
-服务接入与升级参数见[本版发布说明](docs/release-0.1.0a4.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+固定发布标签：`ui-layers-v0.1.0-alpha.5`。
+服务接入与升级参数见[本版发布说明](docs/release-0.1.0a5.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+
+本版包含[复杂参考图一致性修复](docs/FIDELITY-FIXES.md)：背景改为原图去 UI 的简短编辑提示词，
+合板限制尺寸差距并采用均衡网格；切分不确定的裁片仅保留为诊断证据，不进入回拼，也不算完整交付。
+已完成一次从原图开始的 CLI 整链验证及一次文字去除补图验证；验证范围和保留的风格 warning 见发布说明。
 
 新服务集成使用 `host-run` 及 `host-*` 交换协议，见[宿主接入流程](docs/HOST-INTEGRATION.md)。
 该入口以持久化阶段状态机编排全链路并复用规划、冻结与交付原语；既有 `run/resume/status` DAG 入口继续保留。
@@ -11,13 +15,21 @@
 新宿主作业可设置 `visualReviewMode=warning`：视觉差异全部记录为 warning，继续到回拼后人工验收；
 M1、生图与复审共用唯一归属、父板排除子元素、完整主体比例及高光分类规范。
 技术完整性仍校验，旧任务和旧策略不改写，见[视觉 warning 策略](docs/VISUAL-WARNING-POLICY.md)。
+新任务默认冻结 `contextPromptVersion=v13`：前景裁片及合板输入明确删除背景所属人物与景物，
+包括连接线空隙和半透明底板中透见的场景；背景仍保留原主体，独立插画保留自身画面。
+合板使用 v5 逐格文字删除与归属清单，同一张裁片输入板；旧版本提示词及参考像素不改写。
+新 warning 作业统一在检测副本中忽略 alpha 0/1 杂点来寻找切线；交付素材保留全部非零原始 RGBA，
+包括 alpha=1 的外发光尾部，并加透明留边。原始合板、全部原始裁片及检测副本分别归档，旧策略不改写。
 新 warning 作业遇到合板贴边、透明缝缺失／歧义或空余格残留时，仅对异常合板局部兜底；
-其他素材继续按生成请求复审，默认随后直接输出诊断回拼和 ZIP。
+新 warning 作业默认冻结 `materialReviewPolicy=final-composite-once-v1`：先自动切分、归位、回拼和打包，
+再将原图、最终回拼与完整素材总览放入同一个独立复审请求，最多调用 1 次。
+不再按每个生图请求复审；例如 10 次生图也只有 1 次整图复审。视觉发现只记录 warning，无自动补图。
 保留原始合板与全部像素，标注未验证素材，终态为 `diagnostic_complete_pending_visual_acceptance`。
 不追加生图；复审调用计入原预算。新 warning 作业默认冻结 `bodyReviewPolicy=final-composite-first-v1`，
 不创建逐素材主体观察任务，位置使用明确标注的 alpha 估算并等待整图人工验收。
 疑似原生透明素材裁边、无法区分的同形空白实例保留 warning 和原始答复，不重试、不伪造身份。
-需要完整主体观察时可在新配置中显式选择 `every-reviewed-foreground-v1`；旧配置维持原策略。
+需要逐请求复审时可显式设置 `materialReviewPolicy=per-request-v1`；需要完整主体观察时再选择
+`bodyReviewPolicy=every-reviewed-foreground-v1`。旧配置维持原策略。
 诊断交付不宣称全部切分或正式链路通过。
 本入口从本地实验链路收口；旧拆分 Harness 已退役，迁移边界见[退役说明](docs/DECOMPOSITION-RETIREMENT.md)。
 它不是旧包 0.5.0 的新模式，也不是组件化交付；普通业务文字被移除。
@@ -35,7 +47,7 @@ M1、生图与复审共用唯一归属、父板排除子元素、完整主体比
 正式独立素材交付中，每份前景都要完成真实主体观察，不能以 alpha 范围代理或诊断包代替。
 执行完成、严格视觉通过与人工验收的判定见[链路检查点](docs/DELIVERY-CHAIN-CHECKPOINT.md#completion-and-acceptance)。
 
-新 `run` 默认以 v8 编译局部参考提示词，并使用 `reference-body-auto-v1`：
+新 `run` 默认以 v13 编译局部参考提示词，并使用 `reference-body-auto-v1`：
 素材接收及既有审查完成后，冻结主体观察请求，取得对应摘要的授权才执行，随后归位并打包。
 主体确定尺寸与锚点，完整 alpha 支持确定 PNG 存储画布；扩展只允许在原图画布内。
 上述限制属于普通 `run`；正式宿主链路显式冻结
@@ -105,7 +117,8 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py status --output NEW_RUN
 不要将本地登录凭证、会话目录或样本加入分发制品。
 可选 CLI 生图适配器通过本次调用临时配置的本地参数读取工具转发冻结参数，
 模型无需重抄长提示词；接收前仍验证参数、读取记录和固定转发代码。
-它不改变生图授权或失败后禁止重投的规则，也不表示真实生图链路已验收，见
+它不改变生图授权或失败后禁止重投的规则。本版已验证 CLI 原生生图的冻结参数转发与回执接收，
+仍由宿主提供调用协调，视觉效果按样本验收，见
 [精确参数转发](docs/GENERATION-SHEETS.md#exact-image-call-transport)。
 
 ## 接入合同

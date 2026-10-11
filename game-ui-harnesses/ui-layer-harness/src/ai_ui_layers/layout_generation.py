@@ -8,6 +8,7 @@ from .experimental_executor import verified
 KIND='ui_generation_layout_binding_v1'
 POLICY='declared-internal-structure-v1'
 REFERENCE_STRUCTURE='reference-owned-structure-v2'
+REFERENCE_EDIT='reference-owned-structure-edit-v3'
 FILE='generation-layout.json'
 
 
@@ -42,13 +43,14 @@ def checked(snapshot, path, requests):
                       referenceSha256=value['referenceSha256'],materialIds=ids)
 
 
-def materialize(snapshot, path, output, requests, *, reference_structure=False):
+def materialize(snapshot, path, output, requests, *, reference_structure=False, edit_only=False):
     value,binding=checked(snapshot,path,requests)
     if not binding['materialIds']:return None
     target=Path(output)/FILE
     target.write_bytes(Path(path).read_bytes())
     if digest(target)!=binding['sha256']:raise ValueError('GENERATION_LAYOUT_CHANGED')
-    if reference_structure:binding['promptPolicy']=REFERENCE_STRUCTURE
+    if edit_only:binding['promptPolicy']=REFERENCE_EDIT
+    elif reference_structure:binding['promptPolicy']=REFERENCE_STRUCTURE
     return binding
 
 
@@ -56,9 +58,10 @@ def verify(job, config, requests):
     binding=config['layoutGeneration']
     _,expected=checked(Path(job)/'snapshot',Path(job)/FILE,requests)
     if 'promptPolicy' in binding:
-        if binding['promptPolicy']!=REFERENCE_STRUCTURE or 'cleanup' in config or config.get('cleanupRequired'):
+        if (binding['promptPolicy'] not in (REFERENCE_STRUCTURE,REFERENCE_EDIT) or
+                (binding['promptPolicy']==REFERENCE_STRUCTURE and ('cleanup' in config or config.get('cleanupRequired')))):
             raise ValueError('GENERATION_LAYOUT_PROMPT_POLICY')
-        expected['promptPolicy']=REFERENCE_STRUCTURE
+        expected['promptPolicy']=binding['promptPolicy']
     if binding!=expected or not binding['materialIds']:
         raise ValueError('GENERATION_LAYOUT_BINDING_CHANGED')
     return verified(Path(job)/FILE)
@@ -74,11 +77,17 @@ def guidance(job, config, row):
     with Image.open(snapshot/'reference.png') as image:width,height=image.size
     ids=row.get('materialIds',[row['asset']]);lines=[]
     reconstruct=config['layoutGeneration'].get('promptPolicy')==REFERENCE_STRUCTURE
+    edit_only=config['layoutGeneration'].get('promptPolicy')==REFERENCE_EDIT
     for declaration in value['materials']:
         key=declaration['materialId'];targets=declaration.get('horizontalDividerTargets',[])
         bands=declaration.get('horizontalBandTargets',[])
         if key not in ids or not (targets or bands):continue
         left,top,right,bottom=declaration['targetBox']
+        if edit_only:
+            lines.append('REFERENCE EDIT for material '+key+': keep the original owned subject, silhouette, '
+                'borders, corners, colors, section bands and surface gaps. Remove DELETE units and ordinary '
+                'text; keep all other owned elements fixed. Preserve owned region proportions '+
+                str(right-left)+':'+str(bottom-top)+' before transparent padding.')
         if reconstruct:
             lines.append('REFERENCE STRUCTURE RECONSTRUCTION for material '+key+
                 ': reconstruct its complete owned visible structure from the attached original reference '
@@ -113,6 +122,11 @@ def guidance(job, config, row):
             parts.append(dict(objectId=obj['id'],withinMaterialBox=local))
         if parts:lines.append('Preserve these reviewed owned element locators: '+json.dumps(parts,separators=(',',':'))+'.')
     if not lines:return ''
+    if edit_only:
+        return ('\nDECLARED INTERNAL STRUCTURE (reference locators for preservation):\n'+'\n'.join(lines)+
+            '\nY fractions are within the original owned region before transparent padding. Keep the '
+            'original lines, bands and intervening gaps at their reference spacing. Band boundaries and '
+            'the outer border are distinct from divider lines. DELETE ownership still takes priority.\n')
     return ('\nDECLARED INTERNAL STRUCTURE (reviewed geometry, part of the owned material):\n'+
         '\n'.join(lines)+'\nThese Y fractions are measured from the top of the owned region before '
         'transparent padding, not from the output canvas. Preserve the reference spacing and every '

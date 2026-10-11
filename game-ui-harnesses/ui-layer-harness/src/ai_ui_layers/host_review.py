@@ -22,7 +22,7 @@ from .planning_dag import (BOX_TEXT_GUIDANCE, itemized_coverage_prompt, read_not
 DRIVER = 'host-model-exchange-v1'
 LAYOUT_ISSUE_IDS = 'declared-layout-issue-ids-v1'
 CONTRACT_DIGESTS = {
-    'schemas/visual-plan.schema.json':'e0c10af38b2c95c628b6c88a04acaf7979fa92a5719ddab7425e4c5348ff8982',
+    'schemas/visual-plan.schema.json':'ac45ff3de6fd18211cb7ee783aba1b9fe99c10efa9c339ec74663da89bd27003',
     'prompts/visual-plan.md':'01a6838e147cd3ce9b885bda2486e90b7e60dc5ea1ff365733d8fc4348c0f6a6',
     'prompts/visual-review.md':'6a8acae3d168bf1d365b18bd145ce49f9e79dd7fcee145dfed956d3ea306a150'}
 
@@ -235,11 +235,11 @@ def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archive
 
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
-            background_region=None, background_region_digest=None, context_prompt_version='v10',m1_source=None,
+            background_region=None, background_region_digest=None, context_prompt_version='v13',m1_source=None,
             generation_mode='sheets',generation_grouping_policy=None):
     """Snapshot an explicit seed or source-bound host M1 and prepare independent M2."""
     root=Path(output).resolve();contract=Path(contract_dir)
-    if context_prompt_version not in ('v7','v8','v9','v10'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    if context_prompt_version not in ('v7','v8','v9','v10','v11','v12','v13'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     if generation_mode not in ('single','sheets'):raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
     from .generation_groups import configured_policy
     if generation_grouping_policy is not None:

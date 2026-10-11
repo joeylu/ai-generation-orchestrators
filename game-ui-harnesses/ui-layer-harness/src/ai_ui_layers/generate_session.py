@@ -69,7 +69,9 @@ def run(job):
         if len(matched)!=1 or matched[0]['output_mode'] not in ('opaque_canvas','keyed_component'):
             raise ValueError('UNKNOWN_OUTPUT_MODE')
         transparent_background=matched[0]['output_mode']=='keyed_component'
-    prompt=build_session_prompt(arguments,config['referenceMode'],transparent_background)
+    session_mode=('sheet-layout-board' if request['asset'] in config.get('contextBoardReferences',{})
+                  else config['referenceMode'])
+    prompt=build_session_prompt(arguments,session_mode,transparent_background)
     (folder/'session-prompt.txt').write_text(prompt,encoding='utf-8')
     payload_sha=frozen_args.prepare(folder,request,transparent_background)
     before=time.perf_counter()

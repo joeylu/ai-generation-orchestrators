@@ -12,13 +12,11 @@ def validate_seam_policy(policy):
         raise ValueError('SHEET_SEAM_POLICY')
 
 
-def prepare(source, target):
-    """Only clear alpha 0/1 noise; all channels at alpha > 1 remain exact."""
-    before = digest(source)
-    with Image.open(source) as im:
-        if 'A' not in im.getbands():
-            raise ValueError('SHEET_NATIVE_ALPHA_REQUIRED')
-        pixels = np.array(im.convert('RGBA'))
+def prepared_image(image):
+    """Shared preparation for sheet checks and delivery; never alter alpha > 1."""
+    if 'A' not in image.getbands():
+        raise ValueError('SHEET_NATIVE_ALPHA_REQUIRED')
+    pixels = np.array(image.convert('RGBA'))
     alpha = pixels[:, :, 3]
     if alpha.min() != 0 or alpha.max() <= 1:
         raise ValueError('SHEET_NATIVE_ALPHA_REQUIRED')
@@ -27,14 +25,38 @@ def prepare(source, target):
     faint = int(np.count_nonzero(alpha == 1))
     hidden = int(np.count_nonzero((alpha == 0) & np.any(pixels[:, :, :3] != 0, axis=2)))
     pixels[clear] = 0
-    Image.fromarray(pixels).save(target)
+    return Image.fromarray(pixels), dict(policy='sheet-alpha-floor-v1', alphaFloor=1,
+        changedPixels=changed, faintAlphaPixels=faint, hiddenRgbPixels=hidden)
+
+
+def prepare(source, target):
+    """Only clear alpha 0/1 noise; all channels at alpha > 1 remain exact."""
+    before = digest(source)
+    with Image.open(source) as im:
+        image, evidence = prepared_image(im)
+    image.save(target)
     if digest(source) != before:
         raise ValueError('SHEET_INPUT_CHANGED')
-    evidence = dict(policy='sheet-alpha-floor-v1', alphaFloor=1,
-                    changedPixels=changed, faintAlphaPixels=faint, hiddenRgbPixels=hidden, sourceSha256=before,
-                    preparedSha256=digest(target))
+    evidence.update(sourceSha256=before, preparedSha256=digest(target))
     save(target.with_suffix('.json'), evidence)
     return evidence
+
+
+def guarded_cell(image, guard=2):
+    """Keep every nonzero source RGBA pixel, including alpha=1 glow tails."""
+    if type(guard) is not int or guard < 2:
+        raise ValueError('SHEET_CELL_SAMPLING_GUARD_REQUIRED')
+    original = np.array(image.convert('RGBA'))
+    pixels = original.copy()
+    pixels[pixels[:, :, 3] == 0] = 0
+    cell = Image.fromarray(pixels)
+    padded = Image.new('RGBA', (cell.width+2*guard, cell.height+2*guard))
+    padded.paste(cell, (guard, guard))
+    replay = np.asarray(padded.crop((guard, guard, guard+cell.width, guard+cell.height)))
+    visible = original[:, :, 3] > 0
+    if not np.array_equal(replay[visible], original[visible]):
+        raise ValueError('SHEET_CELL_NONZERO_PIXELS_CHANGED')
+    return padded
 
 
 def axis_cuts(alpha, count, axis, policy=STRICT_SEAM):

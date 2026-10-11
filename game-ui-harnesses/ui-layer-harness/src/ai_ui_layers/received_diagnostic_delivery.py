@@ -118,10 +118,13 @@ def _portable_cleanup(bindings):
 
 
 def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_jobs=None, *, body_job=None,
-            background_policy=None, review_runs=None):
+            background_policy=None, review_runs=None, sheet_composite_policy=None):
     """Freeze a zero-compute diagnostic contract, independently of strict delivery."""
     checked = _checked(job, expected_digest)
     job, config, snapshot, manifest, rows, visual, reuse, background, bindings = checked
+    from .host_sheet_fallback import COMPOSITE_POLICIES
+    if sheet_composite_policy not in (None,*COMPOSITE_POLICIES):
+        raise ValueError('DIAGNOSTIC_SHEET_COMPOSITE_POLICY')
     from .body_viewport_delivery import BACKGROUND_POLICY
     if background_policy is not None and (background_policy != BACKGROUND_POLICY or background is not None):
         raise ValueError('DIAGNOSTIC_BACKGROUND_POLICY')
@@ -147,6 +150,7 @@ def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_job
         receivedJobDigest=expected_digest, receivedJobFiles=files(job),
         snapshotDigest=manifest['digest'], runtime=runtime_files(), sourceBindings=bindings,
         **({'backgroundPolicy':background_policy} if background_policy is not None else {}),
+        **({'sheetCompositePolicy':sheet_composite_policy} if sheet_composite_policy is not None else {}),
         **({'cleanupBindings':cleanup_bindings} if cleanup_bindings else {}),
         **({'bodyReplay':body_replay} if body_replay else {}),
         **({'materialReplay':material_replay} if material_replay else {}),
@@ -155,6 +159,15 @@ def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_job
         scope='Independent diagnostic only; unresolved sheet, ownership, clipping and visual findings remain unresolved.',
         **FLAGS))
     return dict(status='diagnostic_policy_frozen', diagnosticDigest=value['digest'], **FLAGS)
+
+
+def excluded_sheet_materials(contract, uncertain):
+    """Keep historical diagnostics unchanged unless the new policy was frozen."""
+    from .host_sheet_fallback import COMPOSITE_POLICIES
+    policy=contract.get('sheetCompositePolicy')
+    if policy not in (None,*COMPOSITE_POLICIES):
+        raise ValueError('DIAGNOSTIC_SHEET_COMPOSITE_POLICY')
+    return set(uncertain) if policy in COMPOSITE_POLICIES else set()
 
 
 def proxy_geometry(image, owner):
@@ -239,6 +252,7 @@ def deliver(contract_dir, expected_digest, output, viewer):
     """Render a new diagnostic artifact, without editing receipts or failed states."""
     contract_dir = Path(contract_dir).resolve()
     contract = verified(contract_dir / 'diagnostic.json')
+    excluded_sheet_materials(contract,set())
     if (contract['digest'] != expected_digest or contract['kind'] not in (
             'ui_received_diagnostic_delivery_v1','ui_received_diagnostic_delivery_v2','ui_received_diagnostic_delivery_v3',
             'ui_received_diagnostic_delivery_v4')
@@ -296,21 +310,57 @@ def deliver(contract_dir, expected_digest, output, viewer):
     output.mkdir(parents=True)
     cuts = output / 'source-evidence/cells'
     cuts.mkdir(parents=True)
-    sources = {}; provenance = {}; splits = []
+    from .host_sheet_fallback import PREPARED_COMPOSITE_POLICY
+    prepare_sheets = contract.get('sheetCompositePolicy') == PREPARED_COMPOSITE_POLICY
+    if prepare_sheets:
+        (output / 'source-evidence/prepared-sheets').mkdir()
+        (output / 'source-evidence/prepared-cells').mkdir()
+        (output / 'source-evidence/render-cells').mkdir()
+    sources = {}; provenance = {}; splits = []; uncertain = set()
     by_key = {b['requestId']:b for b in bindings}
     for row in rows:
         key = row['asset']; raw = job / 'attempts' / key / 'raw.png'
         with Image.open(raw) as opened:
             image = opened.convert('RGBA')
         if row.get('kind') == 'sheet':
-            boxes, evidence = partition(image, row)
-            splits.append(dict(requestId=key, sourceSha256=digest(raw), **evidence))
+            sheet_image = image
+            preparation = None
+            if prepare_sheets:
+                from .sheet_pixels import prepare as prepare_sheet
+                prepared_path = output / 'source-evidence/prepared-sheets' / (key+'.png')
+                preparation = prepare_sheet(raw, prepared_path)
+                with Image.open(prepared_path) as prepared:
+                    sheet_image = prepared.convert('RGBA')
+            boxes, evidence = partition(sheet_image, row)
+            if not evidence['candidateExtractionPassed']:
+                uncertain.update(row['materialIds'])
+            raw_rebuilt = Image.new('RGBA', image.size)
             for i, box in enumerate(evidence['partitionBoxes']):
                 path = cuts / (key+'-cell-'+str(i)+'.png')
-                image.crop(box).save(path)
+                raw_cell = image.crop(box)
+                raw_cell.save(path)
+                raw_rebuilt.paste(raw_cell, box[:2])
+                if prepare_sheets:
+                    sheet_image.crop(box).save(output / 'source-evidence/prepared-cells' / path.name)
+                    from .sheet_pixels import guarded_cell
+                    guarded_cell(raw_cell).save(output / 'source-evidence/render-cells' / path.name)
+            if raw_rebuilt.tobytes() != image.tobytes():
+                raise ValueError('DIAGNOSTIC_RAW_SOURCE_PIXEL_PARTITION_MISMATCH')
+            splits.append(dict(requestId=key, sourceSha256=digest(raw), **evidence,
+                **(dict(preparation=preparation, partitionSource='prepared-alpha-floor',
+                    preparationScope='seam-detection-only', materialSourceAlphaThreshold=0,
+                    materialSourceSamplingGuard=2, allNonzeroRawCellPixelsRetained=True,
+                    rawCellPartitionPixelExact=True,
+                    rawRgbaPixelsSha256=hashlib.sha256(image.tobytes()).hexdigest(),
+                    reconstructedRawRgbaPixelsSha256=hashlib.sha256(raw_rebuilt.tobytes()).hexdigest())
+                   if preparation is not None else {})))
             for i, (mid, box) in enumerate(zip(row['materialIds'], boxes)):
-                sources[mid] = str(cuts / (key+'-cell-'+str(i)+'.png'))
+                cell_root = output / 'source-evidence/render-cells' if prepare_sheets else cuts
+                sources[mid] = str(cell_root / (key+'-cell-'+str(i)+'.png'))
                 provenance[mid] = dict(by_key[key], sourceBox=box)
+                if preparation is not None:
+                    provenance[mid]['sheetPreparation'] = preparation
+                    provenance[mid].update(materialSourceAlphaThreshold=0, materialSourceSamplingGuard=2)
         else:
             sources[key] = str(raw)
             provenance[key] = dict(by_key[key])
@@ -322,12 +372,20 @@ def deliver(contract_dir, expected_digest, output, viewer):
     sources = derived['materials']
     if material_replay is not None:
         sources.update(material_replay['materials'])
+        uncertain.difference_update(material_replay['materials'])
         reviewed_dir = output/'source-evidence/reviewed-materials'
         reviewed_dir.mkdir()
         for mid, source in material_replay['materials'].items():
             shutil.copyfile(source, reviewed_dir/(mid+'.png'))
     if set(sources) != set(owned):
         raise ValueError('COMPLETE_LAYER_SET_REQUIRED')
+    # Reused instances inherit their prototype's unverified partition. A good
+    # replayed instance is exempt; neither path authorizes guessing cutouts.
+    for derivation in derived['records']:
+        if derivation['prototypeMaterialId'] in uncertain:
+            uncertain.add(derivation['materialId'])
+    if material_replay is not None:uncertain.difference_update(material_replay['materials'])
+    excluded=excluded_sheet_materials(contract,uncertain)
     bg_proof = None
     if background is not None:
         mid = background['materialId']
@@ -349,6 +407,7 @@ def deliver(contract_dir, expected_digest, output, viewer):
     layers = []; package_sources = {}; geometry = []; regions = []
     for index, placement in enumerate(placements):
         mid = placement['id']; path = Path(sources[mid])
+        if mid in excluded:continue
         with Image.open(path) as im:
             image = im.convert('RGBA')
         background_render = None
@@ -436,6 +495,11 @@ def deliver(contract_dir, expected_digest, output, viewer):
             quality_warnings.append(dict(category='material-preparation',severity='warning',
                 code='POSSIBLY_CLIPPED_SOURCE',requestId=key,materialIds=[key],rawSha256=digest(raw),
                 independentSeparationVerified=False,sourceCompletenessAccepted=False,finalCompositeReviewPending=True))
+    if excluded:
+        quality_warnings.append(dict(category='sheet-partition',severity='warning',
+            code='UNCERTAIN_SHEET_CELLS_EXCLUDED_FROM_COMPOSITE',materialIds=sorted(excluded),
+            rawSheetsAndAllCapacityCropsRetained=True,independentSeparationVerified=False,
+            sourceCompletenessAccepted=False,finalCompositeReviewPending=True))
     all_warnings = list(quality_warnings)
     unobserved=sorted(mid for mid in owned if owned[mid]['role']=='foreground' and mid not in observed)
     if unobserved:
@@ -482,6 +546,7 @@ def deliver(contract_dir, expected_digest, output, viewer):
     result.update(status='diagnostic-pending-human-review', policy=POLICY, geometryPolicy=GEOMETRY_POLICY,
         diagnosticDigest=expected_digest, snapshotDigest=manifest['digest'], sourceBindings=_portable_bindings(bindings),
         geometry=geometry, sheetPartitions=splits, reuseDerivations=derived['records'], backgroundProtection=bg_proof,
+        excludedUncertainMaterialIds=sorted(excluded),
         viewport=view, viewportArchive=wrapper, sourceArchive=archive, qualityWarnings=quality_warnings, **FLAGS)
     if cleanup_bindings:result['cleanupReplacements']=_portable_cleanup(cleanup_bindings)
     if body_replay:
@@ -505,6 +570,8 @@ def main():
     p.add_argument('--cleanup-jobs',help='JSON list of source-bound received foreground singleton cleanup selections')
     p.add_argument('--body-job',help='Read-only genuine host body returns for partial diagnostic replay; never resumes the job')
     p.add_argument('--review-runs',help='JSON list of genuine partial material review directories')
+    from .host_sheet_fallback import COMPOSITE_POLICIES
+    p.add_argument('--sheet-composite-policy',choices=COMPOSITE_POLICIES)
     p.add_argument('--background-policy', choices=['uniform-whole-canvas-opaque-contain-edgepad-v1'],
                    help='Explicit uniform whole opaque background fit; protected backgrounds retain exact identity')
     p.add_argument('--output',required=True); p.add_argument('--viewer')
@@ -515,9 +582,10 @@ def main():
         result = prepare(a.received_job,a.job_digest,a.output,a.canvas_policy_instruction,
                          read(Path(a.cleanup_jobs)) if a.cleanup_jobs else None,body_job=a.body_job,
                          background_policy=a.background_policy,
-                         review_runs=read(Path(a.review_runs)) if a.review_runs else None)
+                         review_runs=read(Path(a.review_runs)) if a.review_runs else None,
+                         sheet_composite_policy=a.sheet_composite_policy)
     else:
-        if not all((a.contract,a.diagnostic_digest,a.viewer)) or any((a.received_job,a.job_digest,a.canvas_policy_instruction,a.cleanup_jobs,a.body_job,a.background_policy,a.review_runs)):
+        if not all((a.contract,a.diagnostic_digest,a.viewer)) or any((a.received_job,a.job_digest,a.canvas_policy_instruction,a.cleanup_jobs,a.body_job,a.background_policy,a.review_runs,a.sheet_composite_policy)):
             p.error('deliver requires only contract, diagnostic-digest, viewer and output')
         result = deliver(a.contract,a.diagnostic_digest,a.output,a.viewer)
     print(json.dumps(result,ensure_ascii=False))

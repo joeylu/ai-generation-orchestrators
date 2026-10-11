@@ -20,23 +20,29 @@ def _json(value):
     return json.dumps(value, ensure_ascii=False, separators=(',', ':'))
 
 
-def build(visual, entries, layout, group=None, *, isolated_contacts=False, scoped_appearance=False):
+def build(visual, entries, layout, group=None, *, isolated_contacts=False, scoped_appearance=False, edit_only=False, exclude_scene=False):
     """Keep appearance evidence for owners, never promote foreign prose to drawing text.
 
     Every foreign object retains its owner, identity, kind and reference locator.
     Repeated instances are not deduplicated. Reference boxes remain locators.
     """
     objects = {obj['id']: obj for obj in visual['objects']}
-    from .ownership_prompt_scope import project, visual_name, SCOPE_RULE
+    from .ownership_prompt_scope import project, visual_name, SCOPE_RULE, EDIT_SCOPE_RULE
     lines = [
-        'OWNERSHIP FIRST. Generate only the assigned independent material in each cell.',
+        ('Edit the attached reference crops: remove unnecessary elements and keep only the assigned '
+         'KEEP subject in each cell. Preserve its original appearance. Descriptions identify reference '
+         'content; they are not instructions to add artwork.' if edit_only else
+         'OWNERSHIP FIRST. Generate only the assigned independent material in each cell.'),
         OWNERSHIP_PRIORITY,
         layout,
         'Each DELETE applies only inside its own cell; never delete another cell\'s KEEP. '
         'Identical-looking objects with separate IDs are distinct instances; keep their individual assignments. '
         'Use one common uniform scale for a sheet; unused cells must remain fully transparent.',
     ]
-    if scoped_appearance:lines.append(SCOPE_RULE)
+    if exclude_scene:
+        from .ownership_actions import SCENE_REMOVAL
+        lines.append(SCENE_REMOVAL)
+    if scoped_appearance:lines.append(EDIT_SCOPE_RULE if edit_only else SCOPE_RULE)
     for entry in entries:
         removed = []
         for owner in entry['exclude']:
@@ -62,7 +68,8 @@ def build(visual, entries, layout, group=None, *, isolated_contacts=False, scope
             'DELETE every listed foreign unit completely, including its body, backing, frame, '
             'contents, ornaments, outline, shadow and glow. Removing its text alone is insufficient.',
             *['DELETE '+_json(item) for item in removed],
-            FOREIGN_REMOVAL_RULES,
+            ('Remove foreign overlays, underlays and neighboring units; keep the original owned subject '
+             'and its genuine contours, openings and translucency.' if edit_only else FOREIGN_REMOVAL_RULES),
             'KEEP exactly these owned objects; preserve their appearance only within this ownership scope:',
             *['KEEP '+_json(part) for part in owned],
         ])
@@ -71,21 +78,26 @@ def build(visual, entries, layout, group=None, *, isolated_contacts=False, scope
                 'edge or appears as a narrow clipped strip in this crop. Do not attach that strip, its selected '
                 'underline, border or shadow to KEEP. If a handle, knob or icon is assigned to another owner, '
                 'exclude its entire graphic here; do not output an assembled control plus a second separate part. '
-                'Continue only the existing KEEP surface beneath a removed overlay, using the original reference.')
+                + ('Keep the original KEEP appearance fixed.' if edit_only else
+                   'Continue only the existing KEEP surface beneath a removed overlay, using the original reference.'))
         if group:
             columns=group['grid'][0];index=entry['cellIndex']
             lines.append(f'Cell {index} uses zero-based column {index%columns}, row {index//columns}.')
         if entry['surface'] == 'continuous-panel':
-            lines.append('CLEAN PLATE: render the owned substrate and explicitly owned decorations only. '
+            lines.append(('KEEP PLATE: keep the original owned substrate and explicitly owned decorations only. '
+                         'Remove all separately assigned children; preserve genuine owned openings and translucency. '
+                         if edit_only else
+                         'CLEAN PLATE: render the owned substrate and explicitly owned decorations only. '
                          'All separately assigned children must be absent. Restore the existing surface '
-                         'through their footprints; retain genuine owned openings and translucency. '
+                         'through their footprints; retain genuine owned openings and translucency. ')+
                          'Scene visible THROUGH a translucent panel belongs to the background, never to this plate. '
                          'Do not bake visible scenery, vehicles, pillars or furniture into its RGB; '
                          'represent the panel tint and opacity in alpha so the shared scene shows through once.')
         lines.extend([
             'TEXT: remove ordinary labels and numbers except this exact preserveText list: '+
-            _json(entry['preserveText'])+'. Retain owned single-character icon pictograms. '
-            'Fill removed glyphs with owned surface, keep text space empty and other parts fixed.',
+            _json(entry['preserveText'])+'. Retain owned single-character icon pictograms. '+
+            ('Keep text space empty and all other owned parts fixed.' if edit_only else
+             'Fill removed glyphs with owned surface, keep text space empty and other parts fixed.'),
             'LOCATION: '+_json({key: entry[key] for key in
                 ('targetBox', 'artworkPixelSize')}),
             'FINAL CONTENT CHECK: every DELETE unit is absent, every KEEP object is complete, '

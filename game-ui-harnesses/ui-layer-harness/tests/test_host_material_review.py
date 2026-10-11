@@ -579,7 +579,7 @@ class CandidateSingletonSubstitutionTests(unittest.TestCase):
         visual=strict/'evidence/revised-visual-plan.json'
         if not visual.exists():visual=strict/'evidence/m1-draft.json'
         policy=self.root/'texture-policy.json';save(policy,{field:values[0] for field,values in FIELDS.items()})
-        kwargs=dict(visual_policy=policy,visual_textures=sample.input,
+        kwargs=dict(visual_policy=policy,visual_textures=sample.input,context_prompt_version='v8',
                     prior_texture_review=strict/'evidence/visual-texture-final-review.json')
         sheets=self.root/'texture-sheets';singles=self.root/'texture-singles'
         a=host.freeze_candidate_plan(visual,sample.source,digest(sample.source),self.contract,sheets,16,**kwargs)

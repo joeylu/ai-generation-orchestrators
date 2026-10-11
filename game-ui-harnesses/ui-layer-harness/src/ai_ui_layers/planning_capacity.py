@@ -13,8 +13,8 @@ def configure(config, fresh):
     if fresh:
         config.setdefault('planningCapacityPolicy',POLICY)
         if config['generationMode']=='sheets':
-            from .generation_groups import COMPACT_CONTROL_V3
-            config.setdefault('generationGroupingPolicy',COMPACT_CONTROL_V3)
+            from .generation_groups import COMPACT_CONTROL_V5
+            config.setdefault('generationGroupingPolicy',COMPACT_CONTROL_V5)
     if 'planningCapacityPolicy' in config and (not fresh or config['planningCapacityPolicy']!=POLICY):
         raise ValueError('FRESH_PLANNING_CAPACITY_POLICY_REQUIRED')
 
@@ -39,7 +39,8 @@ def estimate(visual, size, config):
             id=a['id'],mode='single',materialIds=[a['id']]) for a in assets]))
     from .host_sheet_fallback import final_composite_first
     bodies=0 if final_composite_first(config) else sum(m['role']=='foreground' for m in visual['materials'])
-    required=dict(images=groups['plannedCalls'],materialReviews=groups['plannedCalls'],bodyObservations=bodies)
+    from .composite_review import required_calls
+    required=dict(images=groups['plannedCalls'],materialReviews=required_calls(config,groups['plannedCalls']),bodyObservations=bodies)
     limits=dict(images=config['maximumImageCalls'],materialReviews=config['maximumMaterialReviews'],
         bodyObservations=config['maximumBodyCalls'])
     exceeded=[key for key,value in required.items() if value>limits[key]]

@@ -177,10 +177,13 @@ def planning_guidance(policy):
     return '\n本次显式视觉策略：' + appearance + color + shadow + style + geometry + layout + '\n'
 
 
-def generation_guidance(policy):
+def generation_guidance(policy, *, edit_only=False):
     if policy is None:
         return ''
     validate(policy)
+    if edit_only:
+        from .visual_prompt_contract import EDIT_GENERATION
+        return EDIT_GENERATION
     if warnings_only(policy):
         from .visual_prompt_contract import GENERATION
         return '\n显式视觉策略 v5：整体基本还原。\n' + GENERATION

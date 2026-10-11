@@ -10,8 +10,10 @@ from .compile_visual import validate, render_prompt
 from .evaluate import read
 from . import visual_textures
 from .visual_policy import snapshot_policy, generation_guidance
+from .validation_scope import tree_result
 
 
+@tree_result
 def preflight(folder, expected_digest):
     started=time.perf_counter();folder=Path(folder)
     snapshot=inspect(folder,expected_digest)
@@ -66,7 +68,7 @@ def preflight(folder, expected_digest):
     if policy is not None and policy['appearanceEvidence']=='bound-reference' and not context:
         raise ValueError('BOUND_REFERENCE_REQUIRES_CONTEXT_CROPS')
     if context:
-        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10'):
+        if context_prompt_version not in ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11','v12','v13'):
             raise ValueError('CONTEXT_PROMPT_VERSION')
         report=read(folder/'compile-report.json')
         if report.get('contextPromptVersion', 'v1')!=context_prompt_version:
@@ -93,7 +95,10 @@ def preflight(folder, expected_digest):
                                       'visual-material-context-prompt-v7:\n',
                                       'visual-material-context-prompt-v8:\n',
                                       'visual-material-context-prompt-v9:\n',
-                                      'visual-material-context-prompt-v10:\n')) for a in assets) or
+                                      'visual-material-context-prompt-v10:\n',
+                                      'visual-material-context-prompt-v11:\n',
+                                      'visual-material-context-prompt-v12:\n',
+                                      'visual-material-context-prompt-v13:\n')) for a in assets) or
           any('generationReference' in row or 'references' in row for row in rows)):
         raise ValueError('CONTEXT_REFERENCE_MODE_MISMATCH')
     if (policy is not None or texture_doc is not None) and not context:
@@ -132,7 +137,7 @@ def preflight(folder, expected_digest):
                                       legacy_without_attached_props=True)+'\n')
                 if context:allowed=(context_prompt(visual,plan,group['materialIds'],group,
                                                    version=context_prompt_version)+'\n',)
-                if policy is not None:allowed=tuple(p[:-1]+generation_guidance(policy)+'\n' for p in allowed)
+                if policy is not None:allowed=tuple(p[:-1]+generation_guidance(policy,edit_only=context and context_prompt_version in ('v12','v13'))+'\n' for p in allowed)
                 if texture_doc is not None:
                     suffix=visual_textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,context=request_references(context_document,group['materialIds']) if context else None,group=group)
                     allowed=tuple(p[:-1]+suffix+'\n' for p in allowed)

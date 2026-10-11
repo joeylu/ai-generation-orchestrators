@@ -17,7 +17,7 @@ def regroup(source, expected_digest, output, maximum_calls):
         raise ValueError('FRESH_SEPARATE_REGROUP_OUTPUT_REQUIRED')
     if (type(maximum_calls) is not int or not 1<=maximum_calls<=128 or
             parent.get('generationReference')!='context-crops' or
-            parent.get('contextPromptVersion') not in ('v7','v8','v9','v10') or
+            parent.get('contextPromptVersion') not in ('v7','v8','v9','v10','v11','v12','v13') or
             parent.get('planningDriver')!='host-model-exchange-v1' or
             parent.get('policy')!='visual-plan-v5-experiment-v1' or
             any(parent.get(key) for key in ('visualTexturePolicy','materialReusePolicy','backgroundRegionPolicy'))):
@@ -48,7 +48,7 @@ def regroup(source, expected_digest, output, maximum_calls):
                 plannedCalls=1,automaticRetries=0)
         else:
             folder=output/'sheets'/key;folder.mkdir(parents=True)
-            text=prompt(visual,plan,mids,group,version=parent['contextPromptVersion'])+generation_guidance(policy)+'\n'
+            text=prompt(visual,plan,mids,group,version=parent['contextPromptVersion'])+generation_guidance(policy,edit_only=parent['contextPromptVersion'] in ('v12','v13'))+'\n'
             (folder/'prompt.txt').write_text(text,encoding='utf-8')
             row=dict(asset=key,kind='sheet',materialIds=mids,grid=group['grid'],reference='reference.png',
                 prompt='sheets/'+key+'/prompt.txt',outputSize=group['outputSize'],plannedCalls=1,automaticRetries=0)

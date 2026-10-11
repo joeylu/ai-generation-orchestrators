@@ -73,6 +73,11 @@ def prepare(root, config):
             '卡片内部插画、卡框和附属图标仍归同一完整素材，不因插画存在额外拆层。'
             '保持全部原图可见图形、独立归属和原始尺寸，不为凑预算删除素材、缩图或强拼不兼容大图。'
             '程序会在独立M2之前按真实尺寸核算请求数；预算确实不足时明确失败，不会自动增加预算或重试。\n')
+        from .composite_review import enabled as composite_review_enabled
+        if composite_review_enabled(config):
+            prompt+=('本轮素材复审采用 final-composite-once-v1：全部素材生成并自动回拼后，只做一次整图独立复审。'
+                     '复审预算不随素材或生图请求数增长；不能因为只复审一次而减少素材或限制为一次生图。'
+                     '逐生图请求复审和逐主体观察均为零次。\n')
     if notes:prompt+='\n用户规划约束：\n'+notes.decode('utf-8-sig')
     if layout:
         prompt+=('\n本轮须在 layoutRegistration 中同时声明归位合同；它是本次计划的一部分，'
@@ -97,6 +102,10 @@ def prepare(root, config):
             '静态完整控件的底座、旋钮、状态填充和附属图形优先归同一素材；只有用户明确要求分别控制或运动时'
             '才拆开，并明确各自唯一归属，禁止为了合板把一个完整控件无理由拆碎。只声明参考图支持的几何关系，'
             '不得把文字留白当作缺失图形，也不要创建额外素材补空白。\n')
+        prompt+=('底板归位须区分可伸缩表面与完整插画：独立导出的背包底壳、详情面板、导航底条等'
+            '可伸缩面板表面优先声明 frame，不能因为它承载插画卡片就把底板也设成 uniform；'
+            '那些单独导出的插画卡片仍为 uniform。若面板自身拥有不可变形插画或复杂装饰，使用 uniform，'
+            '并在 knownDifferences 明确其等比适配可能无法同时贴合四边，不能假设目标框会自动补齐差异。\n')
         if config.get('layoutInternalTargetsPolicy')=='uniform-internal-targets-observe-only-v1':
             prompt+=('完整插图卡片使用 uniform，禁止为对齐内部行线改成 frame。'
                 'uniform 也可声明原图清晰可见的内部行线和色带：它们约束生成并在回拼后测量，'

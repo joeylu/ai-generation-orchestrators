@@ -620,7 +620,7 @@ def candidate_cell(image, box, split):
 
 def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, output, max_calls,
                           visual_policy=None, visual_textures=None, prior_texture_review=None,generation_mode='sheets',
-                          context_prompt_version='v10'):
+                          context_prompt_version='v13'):
     """Schema-checked deterministic candidate snapshot, explicitly without M2 approval."""
     from .host_review import CONTRACT_DIGESTS
     from .compile_visual import compile_plan, render_prompt, validate
@@ -637,7 +637,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
     if visual['unknowns']:raise ValueError('UNRESOLVED_UNKNOWNS')
     if type(max_calls) is not int or not 1<=max_calls<=128:raise ValueError('CALL_LIMIT_REQUIRED')
     if generation_mode not in ('single','sheets'):raise ValueError('GENERATION_MODE')
-    if context_prompt_version not in ('v7','v8','v9','v10'):raise ValueError('CONTEXT_PROMPT_VERSION')
+    if context_prompt_version not in ('v7','v8','v9','v10','v11','v12','v13'):raise ValueError('CONTEXT_PROMPT_VERSION')
     source_sha=digest(reference);plan_sha=digest(plan_path)
     if source_sha!=reference_sha256:raise ValueError('REFERENCE_CHANGED')
     with Image.open(reference) as image:
@@ -692,7 +692,7 @@ def freeze_candidate_plan(plan_path, reference, reference_sha256, contract_dir, 
         else:
             folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
             (folder/'prompt.txt').write_text(prompt(visual,plan,group['materialIds'],group,version=context_prompt_version)+
-                generation_guidance(policy)+textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,
+                generation_guidance(policy,edit_only=context_prompt_version in ('v12','v13'))+textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,
                     context=request_references(references,group['materialIds']),group=group)+'\n',encoding='utf-8')
             row=dict(asset=group['id'],kind='sheet',materialIds=group['materialIds'],grid=group['grid'],
                 reference='reference.png',prompt=(folder/'prompt.txt').relative_to(output).as_posix(),

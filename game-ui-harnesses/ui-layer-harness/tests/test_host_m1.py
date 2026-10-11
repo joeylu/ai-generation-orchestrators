@@ -128,7 +128,8 @@ class FreshHostM1Tests(unittest.TestCase):
         target=self.base/'layout-guidance-run';host.prepare(path,target)
         prompt=(target/'planning-m1/prompt.md').read_text('utf-8')
         for text in ('同一刚性主体边框口径','阴影仍须完整保留','top+3 与 bottom-3',
-                     '贴顶部或底部外框的色带','不能为凑内部目标而添加原图不存在的留白'):
+                     '贴顶部或底部外框的色带','不能为凑内部目标而添加原图不存在的留白',
+                     '可伸缩面板表面优先声明 frame','单独导出的插画卡片仍为 uniform'):
             self.assertIn(text,prompt)
         self.assertEqual(read(target/'planning-m1/request.json')['inputs']['prompt.md'],
                          digest(target/'planning-m1/prompt.md'))
@@ -173,16 +174,14 @@ class FreshHostM1Tests(unittest.TestCase):
         from test_host_sheet_fallback import HostSheetFallbackTests
         from test_material_review_dispatch import HostReviewSchedulingTests
         job,index=exchange.load_job(self.run/'images')
-        self.assertEqual(job['layoutGeneration']['promptPolicy'],layout_generation.REFERENCE_STRUCTURE)
+        self.assertEqual(job['layoutGeneration']['promptPolicy'],layout_generation.REFERENCE_EDIT)
         row=next(r for r in index.values() if panel['id'] in r.get('materialIds',[r['asset']]))
-        self.assertIn('REFERENCE STRUCTURE RECONSTRUCTION',
+        self.assertIn('REFERENCE EDIT',
             exchange.frozen_request_arguments(self.run/'images',job,row)['prompt'])
         HostSheetFallbackTests.acquire(self,False)
         self.root=self.base
-        host.authorize(self.run,host.status(self.run)['scopeDigest'],'Offline independent review fixtures only')
-        while host.status(self.run)['stage']=='material_review':
-            for reservation in host.next_request(self.run,count=3)['reservations']:
-                HostReviewSchedulingTests.receive(self,reservation)
+        from test_composite_review import finish_composite
+        finish_composite(self)
         current=host.status(self.run)
         self.assertEqual(current['stage'],'diagnostic_complete')
         self.assertEqual(Path(current['diagnosticDelivery']),self.run/'layout-output/delivery')

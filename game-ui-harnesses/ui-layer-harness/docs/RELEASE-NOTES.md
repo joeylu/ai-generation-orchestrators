@@ -1,5 +1,89 @@
 # Release notes
 
+## 0.1.0a5 release: reference edits and one composite review
+
+Tag: `ui-layers-v0.1.0-alpha.5`. See the [release and upgrade notes](release-0.1.0a5.md).
+The changes in this section are included in this source preview. Offline release
+regression results and archive smoke checks are published with the release.
+
+- New v13 sheet jobs freeze board prompt v5. Per-cell text removal precedes KEEP
+  descriptions and explicitly covers Chinese/other-language labels, numbers and
+  their outlines, shadows and glow. Only the cell's exact `preserveText` entries
+  are exceptions; a single-character label is not automatically an icon. Input
+  pixels, ownership exclusions, geometry and review counts remain unchanged.
+  Existing board v1-v4 descriptors retain their original prompt bytes. A bounded
+  native CLI sheet validation removed both CJK button labels with one image call
+  and one final composite review. Button edge/highlight differences remain
+  recorded as style warnings; this does not certify whole-reference fidelity.
+
+- Optional CLI PNG inspection verifies structure before reading pixels, then
+  opens a second reader over the same original bytes for alpha inspection.
+  RGB, native RGBA soft alpha and palette transparency remain unchanged; corrupt
+  PNGs are rejected. Host adapters can reuse `collect_session.inspect_png` rather
+  than calling Pillow `verify()` after alpha access.
+- Final composite review treats text removal as a requirement to inspect,
+  rather than assuming labels are already blank. Retained or invented ordinary
+  labels/numbers are explicit text warnings; only each material's exact
+  `preserveText` entries are exceptions. Review remains one call with no retries.
+
+- The optional Codex CLI schema adapter adds explicit primitive types to
+  `const`/`enum` nodes in dynamically extended host plans. Layout declarations
+  accept empty internal-target arrays as the explicit equivalent of absent
+  targets, so strict structured output does not force invented divider lines
+  or bands. Storage validation, geometry checks and original model replies stay
+  authoritative; offline regressions reproduce the rejected layout `kind`.
+
+- Host image receipts can reserve one immediate refill with `--refill-images`.
+  The provider-neutral async `host_image_dispatch.run_images` helper keeps at
+  most three adapters active, preserves each frozen argument set, and stops new
+  invocations on failure while retaining other returned original sources.
+- Pure frozen-input validation and reference-board building reuse results within
+  one operation only after hashing current tree contents and inventory. Attempt
+  state and final package validation remain uncached. M1/M2, prompts, sheet inputs,
+  review coverage, alpha and layout processing are unchanged.
+
+- New warning composites apply the same alpha 0/1 preparation as sheet checks
+  to detection copies (`detect-alpha-floor-preserve-raw-sheet-cells-v2`).
+  Faint native PNG noise no longer falsely excludes entire sheets. All channels
+  at nonzero alpha remain exact in guarded rendering sources, including alpha=1
+  glow tails. Raw PNGs and raw capacity crops stay unchanged; detection copies,
+  rendering sources and reconstruction evidence are stored separately. Genuine
+  ambiguous partitions still remain excluded. Explicit historical v1 is retained.
+
+- New v13 foreground edits explicitly remove background-owned people and scenery,
+  including unknown-bounds scene subjects visible in sparse connection-line crops.
+  The combined input board uses v4 ownership exclusions. Background exports keep
+  their subjects; owned card illustrations keep their own artwork. Historical
+  v12 prompts and source-board pixels are unchanged.
+
+- New fast warning jobs default to one final composite review after deterministic
+  registration and packaging (`materialReviewPolicy=final-composite-once-v1`).
+  Original reference, recomposition and candidate atlas form one independent
+  request; per-generation material review calls and body calls are zero. Visual
+  findings stay warnings, never trigger generation retries, and never certify
+  independent cutouts. Explicit per-request and historical protocols remain.
+- New v12 requests edit supplied references by removing unnecessary elements
+  and keeping the assigned subject. Backgrounds, foregrounds, board v3 and
+  appended policy/layout guidance contain no reconstruction or completion demand.
+  Background scope, exact text exceptions and original reference pixels remain.
+- New context sheets always merge their crops into one input board, bound by
+  `sheetReferencePolicy=all-context-sheets-board-v1`; historical jobs replay
+  their frozen transport. This preparation adds no image generation calls.
+- Fresh host sheets default to compact-controls v5: compatible control dimensions,
+  balanced grids with at most one unused slot and full-resolution context-board
+  capacity checks for all sheet sizes before M2.
+- New local warning runs exclude failed, unreviewed sheet partitions from the
+  composition. Raw sheets and every capacity crop remain in diagnostic evidence;
+  omitted materials and unresolved layout constraints are explicit warnings.
+- M1 guidance distinguishes stretchable carrier surfaces from separately owned
+  illustrated cards. v12 foreground prompts bind owned aspect before padding.
+- These changes do not modify alpha.4 or historical frozen runs. A fresh-reference
+  native CLI run completed with three concurrent image calls and one composite
+  review; a subsequent one-sheet test removed the remaining two button labels.
+  Style warnings remain recorded. These bounded checks do not establish visual
+  fidelity for every reference or Linux/Docker deployment acceptance.
+  See [details](FIDELITY-FIXES.md).
+
 ## 0.1.0a4 release: host orchestration and declared layout
 
 Tag: `ui-layers-v0.1.0-alpha.4`. See the [release and consumer notes](release-0.1.0a4.md)

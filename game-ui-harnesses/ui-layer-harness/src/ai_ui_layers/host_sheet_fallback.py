@@ -1,13 +1,12 @@
 """Bound warning-mode fallback; a diagnostic export never certifies cutouts."""
 from pathlib import Path
 
-import numpy as np
 from PIL import Image
 
 from .evaluate import read, save, digest
 from .experimental_executor import load_job, status, verified
 from .extract_sheets import partition_cells
-from .sheet_pixels import STRICT_SEAM
+from .sheet_pixels import STRICT_SEAM, prepared_image
 
 
 POLICY = 'diagnostic-on-sheet-partition-warning-v1'
@@ -16,6 +15,9 @@ STOP = 'stop-v1'
 FAST = 'final-composite-first-v1'
 EXHAUSTIVE = 'every-reviewed-foreground-v1'
 PREPARATION_POLICY = 'record-native-clipping-for-diagnostic-v1'
+COMPOSITE_POLICY = 'exclude-uncertain-sheet-cells-v1'
+PREPARED_COMPOSITE_POLICY = 'detect-alpha-floor-preserve-raw-sheet-cells-v2'
+COMPOSITE_POLICIES = (COMPOSITE_POLICY, PREPARED_COMPOSITE_POLICY)
 RECOVERABLE = frozenset(('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY',
     'SHEET_AMBIGUOUS_EMPTY_BANDS', 'SHEET_NEAREST_TRANSPARENT_SEAM_TIE',
     'SHEET_UNUSED_CELL_NOT_EMPTY'))
@@ -33,6 +35,7 @@ def configure(config):
         raise ValueError('BOUND_WARNING_BODY_REVIEW_POLICY_REQUIRED')
     from .host_material_review import IDENTITY_POLICY
     if local(config):
+        config.setdefault('sheetCompositePolicy',PREPARED_COMPOSITE_POLICY)
         config.setdefault('materialPreparationPolicy',PREPARATION_POLICY)
         config.setdefault('identityObservationPolicy',IDENTITY_POLICY)
         from .material_repair_plan import POLICY as repair_policy
@@ -41,6 +44,8 @@ def configure(config):
         from .material_repair_plan import POLICY as repair_policy
         if config['materialRepairPolicy']!=repair_policy or not local(config):
             raise ValueError('BOUND_WARNING_MATERIAL_REPAIR_POLICY_REQUIRED')
+    if 'sheetCompositePolicy' in config and (config['sheetCompositePolicy'] not in COMPOSITE_POLICIES or not local(config)):
+        raise ValueError('BOUND_WARNING_SHEET_COMPOSITE_POLICY_REQUIRED')
     if 'materialPreparationPolicy' in config and (config['materialPreparationPolicy']!=PREPARATION_POLICY or not local(config)):
         raise ValueError('BOUND_WARNING_PREPARATION_POLICY_REQUIRED')
     if 'identityObservationPolicy' in config and (config['identityObservationPolicy']!=IDENTITY_POLICY or not local(config)):
@@ -130,15 +135,9 @@ def findings(job, config):
             if ('A' not in source.getbands() or source.format != 'PNG'
                     or source.getexif().get(274, 1) != 1 or list(source.size) != receipt['size']):
                 raise ValueError('RECEIVED_PNG_MISMATCH')
-            pixels = np.array(source.convert('RGBA'))
-        alpha = pixels[:, :, 3]
-        if alpha.min() != 0 or alpha.max() <= 1:
-            raise ValueError('SHEET_NATIVE_ALPHA_REQUIRED')
-        # Mirror the existing preparation only in memory. Diagnostic exports
-        # retain the *raw* RGBA, including these faint and hidden-RGB pixels.
-        pixels[alpha <= 1] = 0
+            prepared, _ = prepared_image(source)
         try:
-            partition_cells(Image.fromarray(pixels), row, config.get('sheetSeamPolicy', STRICT_SEAM))
+            partition_cells(prepared, row, config.get('sheetSeamPolicy', STRICT_SEAM))
         except ValueError as error:
             if str(error) not in RECOVERABLE:
                 raise
@@ -164,12 +163,14 @@ def build(root, config, warnings):
     runs = review_runs(root) if local(config) else []
     frozen = diagnostic.prepare(root / 'images', job['digest'], root / 'diagnostic-contract',
         config['canvasPolicyInstruction'],
+        sheet_composite_policy=config.get('sheetCompositePolicy'),
         background_policy=BACKGROUND_POLICY if config['backgroundPolicy'] == BACKGROUND_POLICY else None,
         review_runs=runs or None, body_job=root/'body' if local(config) and (root/'body/job.json').exists() else None)
     if local(config):
         replay=verified(root/'diagnostic-contract/diagnostic.json').get('materialReplay')
         unreviewed=set(replay['unreviewedRequestIds']) if replay else set(job['assets'])
-        if unreviewed!={w['requestId'] for w in warnings}:
+        from . import composite_review
+        if not composite_review.enabled(config) and unreviewed!={w['requestId'] for w in warnings}:
             raise ValueError('SHEET_FALLBACK_REVIEW_COVERAGE_CHANGED')
     result = diagnostic.deliver(root / 'diagnostic-contract', frozen['diagnosticDigest'],
         root / 'diagnostic-output', config['viewer'])
@@ -197,6 +198,7 @@ def build(root, config, warnings):
     report = dict(kind='ui_visual_warning_report_v1', deliveryMode='diagnostic',
         bodyReviewPolicy=config.get('bodyReviewPolicy',EXHAUSTIVE),
         sheetFailurePolicy=config['sheetFailurePolicy'], planning=planning, material=[*records,*material_warnings],
+        excludedUncertainMaterialIds=result.get('excludedUncertainMaterialIds',[]),
         body=body_warnings, placement=[*placement_warnings,*layout['warnings']],
         warningCount=len(planning) + len(records) + len(material_warnings) + body_count + len(placement_warnings) + len(layout['warnings']),
         diagnosticExecutionCompleted=True,

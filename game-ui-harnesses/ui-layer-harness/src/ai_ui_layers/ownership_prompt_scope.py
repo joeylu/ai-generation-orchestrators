@@ -97,3 +97,10 @@ SCOPE_RULE = (
     'not a target to reproduce as a complete control. For a removed overlay, return the complete '
     'owned substrate with its existing surface continued through the occluded area; '
     'no foreign disk, handle, outline, shadow, recess or duplicate may remain.')
+
+EDIT_SCOPE_RULE = (
+    'KEEP descriptions identify only original owned artwork. DELETE names identify elements to remove, '
+    'never elements to keep. Remove the assigned foreign units from the reference while preserving '
+    'the original KEEP subject, its contours, appearance, openings and translucency. '
+    'A parent keeps its own substrate and decorations; separately assigned children and foreign backing '
+    'are absent. Descriptive text does not change ownership.')

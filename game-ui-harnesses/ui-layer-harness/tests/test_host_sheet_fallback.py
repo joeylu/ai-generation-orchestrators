@@ -22,6 +22,8 @@ class HostSheetFallbackTests(unittest.TestCase):
     def prepare(self, warning=True, **changes):
         config=read(self.config_path)
         if warning:config['visualReviewMode']='warning'
+        # These fixtures exercise the historical per-request fallback protocol.
+        config['materialReviewPolicy']='per-request-v1'
         config.update(changes)
         path=self.base/'fallback-config.json';save(path,config)
         self.run=self.base/'fallback-host';host.prepare(path,self.run)

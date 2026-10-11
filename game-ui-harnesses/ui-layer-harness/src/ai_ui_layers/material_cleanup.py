@@ -16,6 +16,8 @@ from . import ownership_observation as ownership
 KIND = 'ui_material_cleanup_v1'
 PROMPT_VERSION = 'cleanup-owned-appearance-v5'
 REFERENCE_PROMPT_VERSION = 'cleanup-reference-owned-appearance-v6'
+EDIT_PROMPT_VERSION = 'cleanup-reference-edit-v7'
+REFERENCE_EDIT_PROMPT_VERSION = 'cleanup-reference-only-edit-v8'
 OWNERSHIP_PROMPT_VERSION = 'cleanup-ownership-first-v3'
 STRUCTURE_PROMPT_VERSION = 'cleanup-reference-structure-v4'
 REFERENCE_INPUT_POLICY = 'reference-only-owned-extraction-v1'
@@ -297,6 +299,33 @@ def _prompt_v4(inputs, *, scoped=False):
     return '\n'.join(lines)+'\n'
 
 
+def _prompt_edit(inputs, *, reference_only=False):
+    from .ownership_prompt_scope import project, visual_name, EDIT_SCOPE_RULE
+    from .context_owned_actions import OWNERSHIP_PRIORITY
+    if any(item['relation'] not in ('overlay','underlay','same-depth') for item in inputs['removeForeign']):
+        raise ValueError('CLEANUP_FOREIGN_RELATION')
+    owned=project(inputs['ownedOnly'],inputs['removeForeign'])
+    reference=('Image 1 is the original local reference crop; image 2 is the full original reference.'
+        if reference_only else
+        'Image 2 is the original local reference crop to edit; image 1 shows the prior material for comparison.')
+    return ('Edit the original reference: remove unnecessary elements and keep only the assigned owned subject. '+
+        reference+' Preserve its original appearance, contours, state, count, proportions and internal spacing. '+
+        OWNERSHIP_PRIORITY+' '+EDIT_SCOPE_RULE+'\nKEEP: '+json.dumps(owned,ensure_ascii=False,separators=(',',':'))+
+        '\nDELETE complete foreign units, including their backing, frame, contents, ornaments and shadow: '+
+        json.dumps([dict(materialId=item['materialId'],objectId=item['objectId'],relation=item['relation'],
+                        visualName=visual_name(item),referenceBox=item['referenceBox'])
+                    for item in inputs['removeForeign']],ensure_ascii=False,separators=(',',':'))+
+        '\nRemove ordinary labels and numbers, leaving text space empty; keep only exact preserveText '+
+        json.dumps(inputs['preserveText'],ensure_ascii=False)+'. Keep owned single-character icon pictograms '
+        'and all other owned parts fixed. '+
+        'Output one transparent RGBA PNG; preserve original owned openings, soft alpha and translucency. '+
+        ('Keep the original local reference aspect.' if reference_only else
+         'Use the same '+str(inputs['sourceSize'][0])+' x '+str(inputs['sourceSize'][1])+' pixel canvas.')+
+        ' Zero RGB where alpha is zero. Preserve owned illustration interiors; the remaining canvas is '
+        'transparent. No added objects or sheet. Reference ownership locators identify the subject, '
+        'not masks or measured body bounds: '+json.dumps(inputs['contextGeometry'],separators=(',',':'))+'.')
+
+
 def _prompt(inputs, version=LEGACY_PROMPT_VERSION):
     """Version dispatch preserves byte-for-byte replay of historical frozen prompts."""
     if version==LEGACY_PROMPT_VERSION:return _prompt_v1(inputs)
@@ -305,6 +334,8 @@ def _prompt(inputs, version=LEGACY_PROMPT_VERSION):
     if version==STRUCTURE_PROMPT_VERSION:return _prompt_v4(inputs)
     if version==PROMPT_VERSION:return _prompt_v3(inputs,scoped=True)
     if version==REFERENCE_PROMPT_VERSION:return _prompt_v4(inputs,scoped=True)
+    if version==EDIT_PROMPT_VERSION:return _prompt_edit(inputs)
+    if version==REFERENCE_EDIT_PROMPT_VERSION:return _prompt_edit(inputs,reference_only=True)
     raise ValueError('CLEANUP_PROMPT_VERSION')
 
 
@@ -342,7 +373,9 @@ def prepare_cleanup(snapshot, expected_digest, output, material_id, source_job,
         (folder/'reference-context.png').write_bytes(png_bytes(reference.crop(inputs['contextGeometry']['cropRegion'])))
     save(folder/'inputs.json',inputs);save(folder/'schema.json',SCHEMA)
     save(folder/'source-lineage.json',lineage)
-    version=REFERENCE_PROMPT_VERSION if input_policy else PROMPT_VERSION
+    if manifest.get('contextPromptVersion') in ('v12','v13'):
+        version=REFERENCE_EDIT_PROMPT_VERSION if input_policy else EDIT_PROMPT_VERSION
+    else:version=REFERENCE_PROMPT_VERSION if input_policy else PROMPT_VERSION
     (folder/'prompt.txt').write_text(_prompt(inputs,version),encoding='utf-8')
     binding=dict(kind=KIND,promptVersion=version,materialId=material_id,sourceJob=str(source_job),
         sourceRequestId=request_id,sourceLineageSha256=digest(folder/'source-lineage.json'),
@@ -366,7 +399,7 @@ def verify_cleanup(job, config, index):
     job=Path(job).resolve();binding=config['cleanup'];mid=binding['materialId']
     policy=binding.get('inputPolicy');version=binding.get('promptVersion',LEGACY_PROMPT_VERSION)
     if (policy not in (None,REFERENCE_INPUT_POLICY) or
-            (version in (REFERENCE_PROMPT_VERSION,STRUCTURE_PROMPT_VERSION))!=(policy==REFERENCE_INPUT_POLICY)):
+            (version in (REFERENCE_PROMPT_VERSION,STRUCTURE_PROMPT_VERSION,REFERENCE_EDIT_PROMPT_VERSION))!=(policy==REFERENCE_INPUT_POLICY)):
         raise ValueError('CLEANUP_INPUT_POLICY_BINDING')
     if policy and mid not in config.get('layoutGeneration',{}).get('materialIds',[]):
         raise ValueError('CLEANUP_REFERENCE_STRUCTURE_REQUIRES_LAYOUT')

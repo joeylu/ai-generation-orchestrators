@@ -1,12 +1,34 @@
 """Collect one completed image session after verifying its logged call."""
 import argparse
+import io
 import json
 import re
 from pathlib import Path
+from PIL import Image
 from .evaluate import read,save,digest
 from .experimental_executor import receive, status, verified, load_job, frozen_request_arguments
 from .postprocess_visual import process
 from . import frozen_image_arguments as frozen_args
+
+
+def inspect_png(path):
+    """Inspect unchanged PNG bytes, verifying before any pixel access.
+
+    Pillow PNG verify must run directly after open. Decode and alpha inspection
+    use a separate reader over the same bytes, never the verified reader.
+    """
+    path=Path(path)
+    if path.stat().st_size>64*1024*1024:raise ValueError('IMAGE_TOO_LARGE')
+    data=path.read_bytes()
+    if len(data)>64*1024*1024:raise ValueError('IMAGE_TOO_LARGE')
+    with Image.open(io.BytesIO(data)) as image:
+        if image.format!='PNG' or image.width*image.height>67108864:
+            raise ValueError('PNG_REQUIRED')
+        image.verify()
+    with Image.open(io.BytesIO(data)) as image:
+        image.load()
+        alpha=image.convert('RGBA').getchannel('A').getextrema()
+        return dict(size=list(image.size),mode=image.mode,alphaRange=list(alpha))
 
 
 def audit_relay(job, folder, request, dispatch, events, code):
@@ -122,8 +144,10 @@ def collect(job, codex_home):
         transparency=dispatch.get('transparentBackground')
     images=list((home/'generated_images'/sid).glob('*.png'))
     if len(images)!=1:raise ValueError('AMBIGUOUS_OUTPUT')
+    image_info=inspect_png(images[0])
     audit={'observedImageCalls':1,'exactPromptMatch':prompt==expected,'promptMatchIgnoringTrailingNewline':True,
-           'sessionId':sid,'sourceSha256':digest(images[0]),'transparentBackgroundVerified':transparency}
+           'sessionId':sid,'sourceSha256':digest(images[0]),'transparentBackgroundVerified':transparency,
+           'image':image_info}
     if dispatch.get('argumentTransport')==frozen_args.TRANSPORT:
         audit.update(argumentTransport=frozen_args.TRANSPORT,
                      argumentsSha256=frozen_args.fingerprint(frozen_args.tool_arguments(request,transparency)))

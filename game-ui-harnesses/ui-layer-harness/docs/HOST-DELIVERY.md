@@ -8,13 +8,35 @@ mandatory; see [visual warning policy](VISUAL-WARNING-POLICY.md).
 
 New fresh-reference host runs freeze
 `planningCapacityPolicy=source-geometry-request-capacity-v1` and, for sheets,
-default to `generationGroupingPolicy=compact-controls-context-grid-v3`.
+default to `generationGroupingPolicy=compact-controls-context-grid-v5`.
 The latter admits compatible complete cards that own illustrations, keeping
 each card's frame, illustration and attached symbols together. These cards use
 their own grouping family, conservative size/aspect compatibility, full reference
 resolution, transparent margins and at most six members. Flat controls, scenes,
 logos, unknown artwork and incompatible large materials do not join that family.
 Explicit older grouping policies retain their original results.
+
+v5 applies size/aspect compatibility to flat controls too, preventing a large
+rail and tiny readouts from sharing one common-scale sheet. It permits one unused
+slot to keep prime member counts in a balanced grid; the unused slot must still
+pass the empty-cell gate. Some plans need more calls than v3. Actual counts are
+reported before M2 and compute; the frozen budget is never increased silently.
+All sheet sizes now budget the original context rim and board padding before
+M2, so every planned sheet fits its combined input board at full resolution.
+Explicit v4 grouping retains its previous dense-only board budget.
+
+New context runs use `contextPromptVersion=v13`. Backgrounds receive the original
+full reference once and a direct UI-removal edit prompt, with composition and
+visible-subject positions held fixed. Scene descriptions and generic foreground
+reconstruction guidance are omitted. `preserve-underlay` and exact `preserveText`
+exceptions remain explicit; v1–v12 prompts retain their original bytes.
+Foregrounds, sheets, cleanup edits and appended policy/layout instructions also
+remove unnecessary elements and preserve the original assigned subject, without
+reconstruction or surface-completion requirements. Owned width/height stays bound
+before transparent padding. Foregrounds explicitly remove background-owned people
+and scenery; owned illustrations retain their subjects. Sheet board prompt v5
+places each cell's text-removal requirement before KEEP, including CJK labels
+and glyph effects. See [fidelity fixes](FIDELITY-FIXES.md).
 
 M1 receives the frozen image/review limits. After its original answer is verified,
 the program writes `planning-capacity.json` from source pixel geometry **before
@@ -37,15 +59,41 @@ Repeated fragments are retained as separate occurrences in their original order;
 they are not deduplicated or repaired. Strict reviews and historical v1/v2 text
 contracts keep their original behavior.
 
-New local warning runs freeze `bodyReviewPolicy=final-composite-first-v1` by
-default. Material review remains one call per generated request, including a
-whole sheet. After those reviews the program exports all layers, viewport and
-comparison directly, without a body job, authorization or per-material model
-calls. Placement uses explicitly unobserved alpha proxies; completeness and
+New local warning runs freeze `bodyReviewPolicy=final-composite-first-v1` and
+`materialReviewPolicy=final-composite-once-v1` by default. After native images
+arrive, the program checks sheets and exports the candidate layers, registered
+viewport, comparison and ZIP before any visual material review. It then enters
+`composite_review`, a single independent model scope (`maximumCalls=1`). No
+per-request material model calls or body jobs are created. Placement uses
+explicitly unobserved alpha proxies; completeness and
 visual acceptance remain unverified. The terminal status is diagnostic, even if
-all sheet cuts succeeded. Set `bodyReviewPolicy=every-reviewed-foreground-v1`
-in a new configuration to request the exhaustive observation path. Historical
-configurations missing this field retain that path.
+all sheet cuts succeeded. Set `materialReviewPolicy=per-request-v1` for the
+previous review protocol; additionally set `bodyReviewPolicy=every-reviewed-foreground-v1`
+to request exhaustive body observations. Historical configurations missing the
+new material policy retain their frozen per-request behavior.
+
+The final scope supplies `currentRequest.requestPath` pointing to
+`final-review/request.json`. Its `packetPath` contains one inline prompt/schema
+and three ordered images: full original reference, final recomposition, and
+candidate material atlas. Known material IDs include excluded candidates so a
+reviewer can report missing layers. Return the unchanged JSON answer with
+`summary` and `findings` (`category`, `materialIds`, `evidence`). The response
+schema is in the packet; do not invent acceptance fields or exhaustive per-item
+observations. The independent call uses the frozen material model/reviewer.
+An empty findings list never certifies every cutout or human acceptance.
+
+The host attestation kind is `ui_host_composite_review_attestation_v1`, with
+`requestSha256`, `responseSha256`, `reviewerId`, `materialAuthors`, `model`,
+`effort`, `independentCall=true`, `hostAssertedModelResponse=true`,
+`notProviderReceipt=true`, `notCryptographicallyPlatformVerified=true`, and
+distinct `dispatchEvidenceSha256` / `returnEvidenceSha256`. Model review costs
+one slot in `maximumMaterialReviews`; it does not consume one slot per image.
+Visual findings are warnings; schema, identity, receipt and hash errors remain
+terminal without resubmission. The immutable pre-review report is retained;
+`final-composite-warning-report.json` adds the actual final findings. Review
+never mutates the candidate artwork or ZIP. `host-status` reports
+`compositeReviewCalls`, `compositeReviewCompleted` and
+`perRequestMaterialReviewCalls=0` separately from visual acceptance.
 
 New fast warning runs with fresh reference planning default to
 `layoutPlanningPolicy=fresh-m1-layout-contract-v1` when no layout sidecar is
@@ -82,12 +130,13 @@ Batch verification shares a verified source job and snapshot only within one
 read operation, then hashes the input set again before returning. There is no
 trust cache across operations.
 
-New local warning runs freeze `maximumConcurrentMaterialReviews=3`; other new
+The explicit `materialReviewPolicy=per-request-v1` path retains the following
+per-request scheduling protocol. New local warning runs freeze `maximumConcurrentMaterialReviews=3`; other new
 runs default to 1. An explicit integer from 1 to 4 overrides this limit before
 the configuration and authorization scope are frozen. This changes dispatch
 concurrency, not the number of model calls: every generation request, including
-a whole sheet, still gets one independent review. Planning and body observation
-retain serial reservations.
+a whole sheet, still gets one independent review in this explicit profile.
+Planning, final composite review and body observation retain serial reservations.
 
 New local warning runs also freeze `maximumConcurrentImageCalls=3`; other new
 runs default to 1. An explicit integer from 1 to 4 overrides the image limit.
@@ -101,6 +150,35 @@ An unknown or failed request stops new dispatch; preserve late actual results
 at the host without resubmitting. Historical image jobs missing a concurrency
 field remain serial. Direct experimental jobs are serial unless prepared with
 `--max-concurrent-calls`; their `next --count` uses the same bounded reservations.
+
+Use a rolling host loop rather than a barrier after each group of three. Call
+`host-receive --run RUN --digest SUBMISSION --response ORIGINAL.png --refill-images`
+as soon as one native image returns. After committing that receipt, if the image
+scope has another ready request, the result includes `nextImageRequest`: a new
+reservation with exact frozen arguments and its own submission digest. Invoke it
+once immediately while the other calls continue. The final image receipt advances
+to the usual downstream stage and has no refill. This flag grants no authorization
+and does not change prompts, reference boards, counts or concurrency limits.
+The returned status describes the receipt; use `host-status` when a fresh snapshot
+after the refill reservation is needed. Keep one coordinator per run.
+
+Python hosts can use `host_image_dispatch.run_images(run, invoke)` for this loop.
+Its explicit async adapter receives the reservation and returns the original PNG
+path; the host remains responsible for invoking its configured tool, time bounds
+and original tool evidence. The helper uses at most three calls or the smaller
+frozen limit. It never authorizes a scope or replays an outstanding reservation.
+Adapter failure stops refilling, drains other original returns, then terminalizes
+the run. A failure observed during receipt verification prevents invocation of a
+refill already reserved in that interval; its digest is reported separately.
+Interrupted/invalid receipts remain subject to the existing terminal rules.
+
+Host operations reuse pure snapshot, preflight and board-building results within
+that one operation. Every reuse hashes the current complete input tree, including
+optional file inventory; size/mtime alone never establishes identity. Changed,
+added or removed inputs invalidate reuse. Linked trees fall back to full checks.
+The cache is discarded at operation end; attempts, receipts, authorization and
+final package/checksum checks are never cached. M1/M2 content and review coverage
+are unchanged. This optimization is not cross-run planning/material reuse.
 
 New runs also freeze `materialReviewDispatchPolicy=inline-material-review-packet-v1`.
 Each material scope row supplies `reviewPacketPath` and `reviewPacketSha256`.
@@ -153,10 +231,11 @@ strict runs and candidate runs retain their behavior.
 
 For new workflows, explicitly set `generationMode=sheets`, which is also the
 runtime default. The workflow performs independent planning review, freezes
-grouped requests with context crops and v10 owner-scoped prompts,
-acquires native images within the frozen concurrency limit, reviews every
-actual image request, extracts materials, observes foreground whole bodies,
-preserves complete material storage, packages an original-size viewport, and
+grouped requests with context crops and v12 reference-edit prompts,
+acquires native images within the frozen concurrency limit and follows the
+frozen review profile: one final composite review for new fast warning jobs,
+or explicit per-request review and exhaustive foreground body observation.
+It preserves material storage, packages an original-size viewport, and
 creates a three-way comparison. It never calls a model or native generation tool.
 
 The JSON configuration requires `original`, `contract`, `viewer`,
@@ -193,15 +272,29 @@ New `visualReviewMode=warning` runs additionally freeze
 `sheetFailurePolicy=continue-reviewed-materials-on-sheet-warning-v2`. After all native
 images arrive, the program checks every sheet before reserving material reviews.
 Contour/boundary contact, ambiguous gaps, nearest-cut ties and nonempty unused
-cells produce warnings for the affected requests. All other requests continue
+cells produce warnings for the affected requests. With `materialReviewPolicy=per-request-v1`, all other requests continue
 their independent material reviews and, when explicitly requested, genuine body observations within the
-frozen budgets. The program then exports a mixed diagnostic: reviewed sources
-and observed geometry for unaffected materials, explicitly unverified candidates
-and proxy placement only for unresolved materials. No generation is repeated.
+frozen budgets. The program then exports a mixed diagnostic using reviewed
+sources and available observed geometry for unaffected materials. New local runs
+freeze `sheetCompositePolicy=detect-alpha-floor-preserve-raw-sheet-cells-v2`:
+sheet checks and diagnostic splitting share `sheet-alpha-floor-v1`, clearing
+only alpha 0/1 pixels in a detection copy before finding seams. Material sources
+retain every nonzero raw RGBA pixel, including alpha=1 glow tails, with two-pixel
+transparent guards; hidden RGB at alpha zero is cleared. Raw sheets/capacity crops,
+detection sheets/cells and guarded rendering cells are archived separately;
+both raw and detection partitions have reconstruction evidence. Explicit
+historical `exclude-uncertain-sheet-cells-v1` retains its raw partition behavior.
+Failed candidate
+partitions are preserved as evidence, excluded from the composition and listed
+in `excludedUncertainMaterialIds`. Constraints requiring those missing materials
+remain unresolved. No generation is repeated.
 It retains all original PNGs and pixel-exact capacity cells, including unused
 sidecars, and produces an original-size viewport, comparison and ZIPs under
-`diagnostic-output/`. The original raw alpha is retained; equal-grid diagnostic
-crops may cross artwork and are explicitly **unverified candidates**.
+`diagnostic-output/`. Original raw alpha is retained in evidence; equal-grid diagnostic
+crops may cross artwork and are explicitly **unverified candidates**, never
+normal independent layers under the new policy. Older contracts without this
+field retain their previous diagnostic rendering. Missing materials do not count
+as a complete delivery; see [fidelity fixes](FIDELITY-FIXES.md).
 
 The terminal status is `diagnostic_complete_pending_visual_acceptance`, with
 `diagnosticExecutionCompleted=true`, `independentMaterialDeliveryComplete=false`
@@ -252,8 +345,9 @@ Use `host-status --run RUN` to inspect the next stage and its scope digest.
 `host-authorize --run RUN --digest DIGEST --approval TEXT` binds explicit approval
 to that exact scope. `host-next --run RUN` reserves one exact request before the
 host independently invokes its configured tool. Repeated `host-next` cannot
-resubmit a pending request. Fresh M1, planning review, native images, material review, and
-body observation have separate fresh authorizations. Material review is one
+resubmit a pending request. Each enabled stage has its own bound scope authorization.
+The new final composite policy creates one model reservation after packaging.
+Under the explicit per-request policy, material review is one
 aggregate scope frozen after all images are received; it binds every actual
 request and attachment, then reserves distinct reviews within its frozen
 concurrency limit. Every request remains single-use.
@@ -381,11 +475,18 @@ report it as false even when their downstream delivery finishes.
 
 ## Native reference attachment capacity
 
-New image jobs pack context sheets with more than five reference crops into a
-canonical source board before authorization. The board preserves every source
+Every sheet in a new context job packs its reference crops into one canonical
+source board before authorization, whether it has two, three, four, five or six
+materials. Jobs bind `sheetReferencePolicy=all-context-sheets-board-v1` and an
+exact `contextBoardReferences` entry for every selected sheet. Missing or changed
+boards fail verification; the runtime never falls back to separate attachments.
+The board preserves every source
 crop at one common integer scale and binds its PNG, metadata and ownership prompt
 in `contextBoardReferences`. Request count and independent material ownership do
 not change. Board bytes are rebuilt and verified before dispatch and receipt;
-historical jobs retain their frozen transport. Received-bundle evidence records
+historical jobs without this policy retain their frozen transport, including
+multiple attachments for smaller sheets. Received-bundle evidence records
 the actual board prompt and descriptor instead of reporting the crop prompt as
-the native prompt. This preparation performs no generation.
+the native prompt. v12 jobs use edit-only board prompt v3; historical prompt
+versions retain their exact bytes. Background and standalone foreground requests
+keep their existing references. This preparation performs no generation.

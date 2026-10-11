@@ -22,12 +22,14 @@ from . import host_sheet_fallback
 from . import material_review_dispatch
 from . import host_layout_registration
 from . import planning_capacity
+from . import composite_review
+from .validation_scope import operation
 
 KIND = 'ui_integrated_host_delivery_v1'
 POLICY = 'expanded-support-original-viewport-v1'
 PLANNING_REUSE='verified-planning-snapshot-reuse-v1'
 CONTROL = {'state.json', 'checkpoint.json', 'exchange.lock', 'transaction.json'}
-MODEL_STAGES = ('planning_generate', 'planning_review', 'material_review')
+MODEL_STAGES = ('planning_generate', 'planning_review', 'material_review', composite_review.STAGE)
 
 
 def _files(root):
@@ -95,6 +97,9 @@ def _scope(root, config, stage, request, request_dir, key=None):
            {'reviewerId':config[prefix+'Reviewer']}),
         maximumCallSeconds=config['maximumModelCallSeconds'],
         maximumCalls=1, automaticRetries=0,
+        **({'requestId':key} if key else {}),
+        **({'reviewPacketPath':str(request_dir/'dispatch.json'),
+            'reviewPacketSha256':digest(request_dir/'dispatch.json')} if stage==composite_review.STAGE else {}),
         stops=(['failed', 'unknown-receipt', 'invalid-technical-contract', 'indeterminate', 'timeout']
                if config.get('visualReviewMode')=='warning' else
                ['failed', 'unknown', 'unresolved', 'indeterminate', 'timeout']),
@@ -122,7 +127,7 @@ def _reviewed_snapshot(source):
             source.get('generationMode','sheets')!='sheets' or
             'generation-groups.json' not in manifest['files'] or
             manifest.get('generationReference')!='context-crops' or
-            manifest.get('contextPromptVersion') not in ('v7','v8','v9','v10') or
+            manifest.get('contextPromptVersion') not in ('v7','v8','v9','v10','v11','v12','v13') or
             manifest.get('contextPromptVersion')!=source.get('contextPromptVersion',manifest.get('contextPromptVersion')) or
             digest(folder/'reference.png')!=digest(Path(source['original'])) or
             manifest['sourcePlanSha256']!=digest(Path(source['seed'])) or
@@ -139,13 +144,14 @@ def _reviewed_snapshot(source):
         raise ValueError('PRIOR_REVIEWED_GROUPING_POLICY_CHANGED')
     visual=read(folder/'evidence/m1-draft.json')
     requests=read(folder/'requests.json')['requests']
-    if (len(requests)>source['maximumImageCalls'] or len(requests)>source['maximumMaterialReviews'] or
+    if (len(requests)>source['maximumImageCalls'] or composite_review.required_calls(source,len(requests))>source['maximumMaterialReviews'] or
             not host_sheet_fallback.final_composite_first(source) and
             sum(m['role']=='foreground' for m in visual['materials'])>source['maximumBodyCalls']):
         raise ValueError('FINITE_DOWNSTREAM_CAPACITY_EXCEEDED')
     return folder,manifest
 
 
+@operation
 def prepare(config_path, output):
     """Freeze a fresh M1 request or an explicitly supplied candidate seed."""
     source = read(Path(config_path)); root = Path(output).resolve()
@@ -217,6 +223,7 @@ def prepare(config_path, output):
     if warnings_only(visual_policy):
         source['visualReviewMode']='warning'
     host_sheet_fallback.configure(source)
+    composite_review.configure(source,fast=host_sheet_fallback.final_composite_first(source))
     material_review_dispatch.configure(source,fast=host_sheet_fallback.local(source))
     source.setdefault('maximumConcurrentImageCalls',3 if host_sheet_fallback.local(source) else 1)
     experimental_executor.concurrency(dict(maximumConcurrentCalls=source['maximumConcurrentImageCalls']))
@@ -240,8 +247,8 @@ def prepare(config_path, output):
     body_registration.validate_fit_policy(source.get('bodyFitPolicy'), visual_policy)
     host_body_profile.validate_binding(source['bodyObservationPolicy'], source.get('bodyFitPolicy'), source.get('bodyCoveragePolicy'))
     prior=_reviewed_snapshot(source) if source.get('reviewedSnapshot') else None
-    version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v10')
-    if version not in ('v7','v8','v9','v10'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v13')
+    if version not in ('v7','v8','v9','v10','v11','v12','v13'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     source.setdefault('sheetSeamPolicy',NEAREST_SEAM)
     validate_seam_policy(source['sheetSeamPolicy'])
     root.mkdir(parents=True); inputs=root/'inputs';inputs.mkdir()
@@ -312,6 +319,12 @@ def prepare(config_path, output):
     return status(root)
 
 
+def _warning_report(root):
+    return read(root/('final-composite-warning-report.json' if (root/'final-composite-warning-report.json').exists()
+                      else 'visual-warning-report.json'))
+
+
+@operation
 def status(run):
     root=Path(run).resolve();config,state=_load(root);stage=state['stage']
     result=dict(stage=stage,configDigest=config['digest'],
@@ -339,7 +352,19 @@ def status(run):
         result.update(visualReviewMode='warning',strictVisualReviewPassed=False,
                       finalCompositeVisualAcceptancePending=True)
         if stage in ('complete','diagnostic_complete'):
-            result['visualWarningCount']=read(root/'visual-warning-report.json')['warningCount']
+            result['visualWarningCount']=_warning_report(root)['warningCount']
+    if composite_review.FIELD in config:
+        result[composite_review.FIELD]=config[composite_review.FIELD]
+    if composite_review.enabled(config):
+        completed=(root/'final-review/result.json').is_file()
+        reservations=len(list((root/'scopes'/(composite_review.STAGE+'-'+composite_review.KEY)).glob('*-submission.json')))
+        result.update(perRequestMaterialReviewCalls=0,maximumCompositeReviewCalls=1,
+                      compositeReviewCompleted=completed,compositeReviewCalls=reservations,
+                      completedCompositeReviewCalls=1 if completed else 0,
+                      compositeReviewCallCountBasis='consumed-local-reservations; not provider execution telemetry')
+        if (root/'final-composite-warning-report.json').is_file():
+            result['finalCompositeReviewReport']=dict(path='final-composite-warning-report.json',
+                sha256=digest(root/'final-composite-warning-report.json'))
     if 'newM2ReviewPerformed' in config:result['newM2ReviewPerformed']=config['newM2ReviewPerformed']
     if config.get('backgroundVisualReviewPolicy'):
         result.update(deferredBackgroundVisualReview=True,
@@ -369,7 +394,7 @@ def status(run):
         result.update(host_body_observation.status(root/'body'))
         result['scopeDigest']=verified(root/'body/job.json')['digest']
     elif stage=='diagnostic_complete':
-        report=read(root/'visual-warning-report.json')
+        report=_warning_report(root)
         result.update(status='diagnostic_complete_pending_visual_acceptance',deliveryMode='diagnostic',
             diagnosticExecutionCompleted=True,independentMaterialDeliveryComplete=False,
             unresolvedMaterialIds=report['unresolvedMaterialIds'],
@@ -382,6 +407,7 @@ def status(run):
     return result
 
 
+@operation
 def authorize(run, scope_digest, approval):
     root=Path(run).resolve()
     with lock(root):
@@ -399,6 +425,7 @@ def authorize(run, scope_digest, approval):
     return status(root)
 
 
+@operation
 def next_request(run, *, count=1):
     root=Path(run).resolve()
     if type(count) is not int or not 1 <= count <= material_review_dispatch.MAX_CONCURRENT:
@@ -430,7 +457,7 @@ def next_request(run, *, count=1):
                     evidenceBasis='Local reservation only; not proof of model execution.'))
                 reservations.append(dict(currentRequest=row,submissionDigest=submission['digest']))
             result=(dict(scope,reservations=reservations) if count!=1 else
-                dict(scope,**({'currentRequest':reservations[0]['currentRequest']} if stage=='material_review' else {}),
+                dict(scope,**({'currentRequest':reservations[0]['currentRequest']} if stage in ('material_review',composite_review.STAGE) else {}),
                     submissionDigest=reservations[0]['submissionDigest']))
         elif stage=='images':
             result=experimental_executor.next_request(root/'images',count=count)
@@ -456,8 +483,11 @@ def _terminal(root,config,reason):
     _checkpoint(root)
 
 
-def receive(run, submission_digest, response, *, host_attestation=None, dispatch_evidence=None, return_evidence=None):
+@operation
+def receive(run, submission_digest, response, *, host_attestation=None, dispatch_evidence=None, return_evidence=None,
+            refill_images=False):
     root=Path(run).resolve()
+    if type(refill_images) is not bool:raise ValueError('HOST_IMAGE_REFILL_BOOLEAN_REQUIRED')
     if not isinstance(submission_digest,str) or re.fullmatch('[0-9a-f]{64}',submission_digest) is None:
         raise ValueError('HOST_SUBMISSION_DIGEST_REQUIRED')
     with lock(root):
@@ -484,7 +514,7 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
             if stage!='images':
                 attestation=read(Path(host_attestation))
                 actor=attestation.get('plannerId') if stage=='planning_generate' else attestation.get('reviewerId')
-                expected=config['m1Planner'] if stage=='planning_generate' else config[('planning' if stage=='planning_review' else 'material' if stage=='material_review' else 'body')+'Reviewer']
+                expected=config['m1Planner'] if stage=='planning_generate' else config[('planning' if stage=='planning_review' else 'material' if stage in ('material_review',composite_review.STAGE) else 'body')+'Reviewer']
                 if actor!=expected:
                     raise ValueError('FROZEN_HOST_REVIEWER_REQUIRED')
             if stage=='planning_generate':
@@ -515,6 +545,10 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
                     _,review_result=host_material_review.verify_run(root/'reviews'/key)
                     if review_result['status'] not in ('reviewed_pending_visual_acceptance',host_material_review.BACKGROUND_DEFERRED_STATUS):raise ValueError('HOST_MATERIAL_REVIEW_BLOCKED')
                 record(scope/(key+'-received.json'),dict(submissionDigest=submission_digest,responseSha256=digest(Path(response))))
+            elif stage==composite_review.STAGE:
+                composite_review.receive(root,response,host_attestation=host_attestation,
+                    dispatch_evidence=dispatch_evidence,return_evidence=return_evidence)
+                record(scope/(key+'-received.json'),dict(submissionDigest=submission_digest,responseSha256=digest(Path(response))))
             elif stage=='images':experimental_executor.receive(root/'images',submission_digest,response)
             else:
                 try:
@@ -534,7 +568,10 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
                 if path is not None and Path(path).is_file():(rejected/name).write_bytes(Path(path).read_bytes())
             (root/'transaction.json').unlink(missing_ok=True)
             _terminal(root,config,str(exc));raise
-    return resume(root)
+    result=resume(root)
+    if refill_images and result['stage']=='images' and result['status']=='ready':
+        result=dict(result,nextImageRequest=next_request(root))
+    return result
 
 
 def fail(run, submission_digest, reason):
@@ -655,6 +692,7 @@ def _diagnostic_comparison(root):
     _comparison(root/delivery.parent,diagnostic=True)
 
 
+@operation
 def resume(run):
     """Advance only deterministic stages. A pending reservation is never rebuilt."""
     root=Path(run).resolve()
@@ -669,6 +707,8 @@ def resume(run):
         if stage=='material_review':
             scope=root/state['scope'];rows=verified(scope/'scope.json')['requests']
             advancing=all((scope/(row['requestId']+'-received.json')).exists() for row in rows)
+        if stage==composite_review.STAGE:
+            advancing=(root/state['scope']/(composite_review.KEY+'-received.json')).exists()
         if stage=='images':advancing=experimental_executor.status(root/'images')['status']=='raw_complete'
         if stage=='body_observation':
             current=host_body_observation.status(root/'body')
@@ -694,7 +734,7 @@ def resume(run):
                 requests=read(root/'frozen/requests.json')['requests']
                 visual=read(root/'planning/m1/draft.json')
                 bodies=sum(m['role']=='foreground' for m in visual['materials'])
-                if len(requests)>config['maximumMaterialReviews'] or not host_sheet_fallback.final_composite_first(config) and bodies>config['maximumBodyCalls']:
+                if composite_review.required_calls(config,len(requests))>config['maximumMaterialReviews'] or not host_sheet_fallback.final_composite_first(config) and bodies>config['maximumBodyCalls']:
                     raise ValueError('FINITE_DOWNSTREAM_CAPACITY_EXCEEDED')
                 host_layout_registration.freeze(root,config)
                 layout_path=root/'frozen-layout-contract.json'
@@ -705,7 +745,14 @@ def resume(run):
             elif stage=='images':
                 job,_=experimental_executor.load_job(root/'images')
                 warnings=host_sheet_fallback.findings(root/'images',config)
-                if warnings and host_sheet_fallback.local(config):
+                if composite_review.enabled(config):
+                    if warnings:
+                        record(root/'sheet-fallback.json',dict(policy=config['sheetFailurePolicy'],warnings=warnings))
+                    host_sheet_fallback.build(root,config,warnings)
+                    _diagnostic_comparison(root)
+                    folder,_=composite_review.prepare(root,config)
+                    _scope(root,config,composite_review.STAGE,folder/'request.json',folder,key=composite_review.KEY)
+                elif warnings and host_sheet_fallback.local(config):
                     record(root/'sheet-fallback.json',dict(policy=config['sheetFailurePolicy'],warnings=warnings))
                     unresolved={w['requestId'] for w in warnings}
                     keys=[key for key in job['assets'] if key not in unresolved]
@@ -727,6 +774,18 @@ def resume(run):
                         host_sheet_fallback.build(root,config,host_sheet_fallback.warnings(root))
                         _diagnostic_comparison(root)
                         _state(root,config,'diagnostic_complete')
+            elif stage==composite_review.STAGE:
+                _,request,_=composite_review.verify(root)
+                result=verified(root/'final-review/result.json')
+                if result['requestSha256']!=digest(root/'final-review/request.json') or result['responseSha256']!=digest(root/'final-review/response.json'):
+                    raise ValueError('COMPOSITE_REVIEW_RESULT_CHANGED')
+                report=read(root/'visual-warning-report.json')
+                record(root/'final-composite-warning-report.json',dict(report,
+                    materialReviewPolicy=composite_review.POLICY,composite=result['warnings'],
+                    compositeReviewCompleted=True,compositeReviewCalls=1,perRequestMaterialReviewCalls=0,
+                    warningCount=report['warningCount']+len(result['warnings']),
+                    compositeReviewResultSha256=digest(root/'final-review/result.json')))
+                _state(root,config,'diagnostic_complete')
             elif stage=='material_review':
                 job,_=experimental_executor.load_job(root/'images');keys=job['assets']
                 if host_sheet_fallback.local(config) and (host_sheet_fallback.warnings(root) or host_sheet_fallback.final_composite_first(config)):
@@ -812,12 +871,13 @@ def main():
         if command=='host-fail':child.add_argument('--reason',required=True)
         if command=='host-receive':
             child.add_argument('--response',required=True)
+            child.add_argument('--refill-images',action='store_true')
             for key in ('host-attestation','dispatch-evidence','return-evidence'):child.add_argument('--'+key)
     args=parser.parse_args();command=args.command
     if command=='host-run':result=prepare(args.config,args.output)
     elif command=='host-authorize':result=authorize(args.run,args.digest,args.approval)
     elif command=='host-receive':result=receive(args.run,args.digest,args.response,host_attestation=args.host_attestation,
-        dispatch_evidence=args.dispatch_evidence,return_evidence=args.return_evidence)
+        dispatch_evidence=args.dispatch_evidence,return_evidence=args.return_evidence,refill_images=args.refill_images)
     elif command=='host-fail':result=fail(args.run,args.digest,args.reason)
     elif command=='host-next':result=next_request(args.run,count=args.count)
     else:result={'host-status':status,'host-resume':resume}[command](args.run)

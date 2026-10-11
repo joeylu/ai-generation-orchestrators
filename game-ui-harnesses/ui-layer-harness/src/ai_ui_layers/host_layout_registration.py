@@ -23,9 +23,9 @@ SCHEMA=dict(type='object',additionalProperties=False,
             required=['materialId','mode','measurementAlphaThreshold'],properties=dict(
                 materialId=dict(type='string',minLength=1),mode=dict(enum=['frame','uniform']),
                 measurementAlphaThreshold=dict(type='integer',minimum=1,maximum=255),
-                horizontalDividerTargets=dict(type='array',minItems=1,maxItems=32,uniqueItems=True,
+                horizontalDividerTargets=dict(type='array',minItems=0,maxItems=32,uniqueItems=True,
                     items=dict(type='integer',minimum=1)),
-                horizontalBandTargets=dict(type='array',minItems=1,maxItems=16,
+                horizontalBandTargets=dict(type='array',minItems=0,maxItems=16,
                     items=dict(type='array',minItems=2,maxItems=2,
                         items=dict(type='integer',minimum=1)))))),
         constraints=revision.SCHEMA['properties']['constraints'],
@@ -285,8 +285,20 @@ def finish(root, config):
     for name,sha in frozen['planningBindings'].items():
         if digest(root/'frozen'/name)!=sha:raise ValueError('HOST_LAYOUT_PLANNING_CHANGED')
     base=root/'diagnostic-output';sources=read(base/'native-material-sources.json')['materials']
+    excluded=set(read(base/'result.json').get('excludedUncertainMaterialIds',[])) if (base/'result.json').exists() else set()
+    if excluded:
+        from .host_sheet_fallback import COMPOSITE_POLICIES
+        if config.get('sheetCompositePolicy') not in COMPOSITE_POLICIES:
+            raise ValueError('HOST_LAYOUT_UNBOUND_EXCLUDED_MATERIALS')
     warnings=[];materials=[]
+    constraints=[c for c in frozen['constraints'] if all(c[end]['materialId'] not in excluded for end in ('a','b'))]
+    missing_constraints=[c for c in frozen['constraints'] if c not in constraints]
+    if excluded:
+        warnings.append(dict(category='layout-placement',severity='warning',
+            code='LAYOUT_EXCLUDED_UNCERTAIN_SHEET_MATERIALS',materialIds=sorted(excluded),
+            unresolvedConstraintIds=[c['id'] for c in missing_constraints],layoutAccepted=False))
     for declaration in frozen['materials']:
+        if declaration['materialId'] in excluded:continue
         row=deepcopy(declaration);targets=row.pop('horizontalDividerTargets',[])
         bands=row.pop('horizontalBandTargets',[]);landmarks=[]
         value=sources[row['materialId']]
@@ -322,9 +334,12 @@ def finish(root, config):
         if landmarks:row['yLandmarks']=sorted(landmarks)
         materials.append(row)
     archive=base/'delivery/viewport-ui-layers.zip'
+    if not materials:
+        return dict(status='unresolved',delivery='diagnostic-output/delivery',warnings=warnings,
+            layoutConstraintsPassed=False,generationCalls=0,modelCalls=0,humanVisualAcceptance=False)
     plan=dict(kind=revision.KIND,policy=revision.POLICY,sourceArchive=str(archive),
         sourceArchiveSha256=digest(archive),originalReferenceSha256=frozen['referenceSha256'],
-        materials=materials,constraints=frozen['constraints'],knownDifferences=[*frozen['knownDifferences'],
+        materials=materials,constraints=constraints,knownDifferences=[*frozen['knownDifferences'],
             *['Layout warning: '+row['code'] for row in warnings]])
     save(root/'layout-selection.json',plan)
     # Only geometry-unresolved outcomes may retain the verified base delivery.
@@ -340,8 +355,9 @@ def finish(root, config):
             generationCalls=0,modelCalls=0,humanVisualAcceptance=False)
     warnings.extend(dict(category='layout-placement',severity='warning',code='LAYOUT_CONSTRAINT_RESIDUAL',
         constraint=row) for row in result['constraints'] if not row['passed'])
-    internal=rendered_divider_checks(root/'layout-output/delivery',frozen['materials'])
-    band_checks=rendered_band_checks(root/'layout-output/delivery',frozen['materials'])
+    measured=[row for row in frozen['materials'] if row['materialId'] not in excluded]
+    internal=rendered_divider_checks(root/'layout-output/delivery',measured)
+    band_checks=rendered_band_checks(root/'layout-output/delivery',measured)
     unresolved={w.get('materialId') for w in warnings if w['code']!='LAYOUT_UNIFORM_INTERNAL_TARGETS_OBSERVE_ONLY'}
     warnings.extend(dict(category='layout-placement',severity='warning',code='LAYOUT_RENDERED_DIVIDERS_UNRESOLVED',
         **row,internalRowsAccepted=False) for row in internal if not row['geometryPassed'] and row['materialId'] not in unresolved)
@@ -355,7 +371,8 @@ def finish(root, config):
         internalBandChecks=band_checks,internalBandChecksPassed=all(row['geometryPassed'] for row in band_checks),
         internalStructureChecksPassed=all(row['geometryPassed'] for row in [*internal,*band_checks]),
         structureMeasurementScope='declared-bands-and-dividers-only',unmodeledGeometryAccepted=False,
-        layoutConstraintsPassed=result['layoutConstraintsPassed'],
+        layoutConstraintsPassed=result['layoutConstraintsPassed'] and not excluded,
+        excludedUncertainMaterialIds=sorted(excluded),unresolvedConstraintIds=[c['id'] for c in missing_constraints],
         generationCalls=0,modelCalls=0,humanVisualAcceptance=False)
     save(root/'layout-output/host-layout-summary.json',summary)
     return summary

@@ -119,7 +119,13 @@ def frozen_schema(folder,config,visual,reference_sha,base):
     return schema(base,bound),bound
 
 
-def generation_guidance(bound):
+def generation_guidance(bound, *, edit_only=False):
+    if edit_only:
+        return ('\nEdit only within the declared removal scope on the original opaque canvas '+
+            str(bound['plan']['size'])+' pixels. The attached mask and tinted preview identify that scope. '
+            'Remove separately owned UI/characters there; keep the original scene, composition, colors '
+            'and all remaining subjects fixed. A deterministic program preserves source pixels outside '
+            'the scope. Keep the exact text exceptions and remove ordinary UI text.\n')
     return ('\nProtected background proposal: return an opaque PNG on the EXACT original source canvas '
         +str(bound['plan']['size'])+' pixels, without resizing or color-profile changes. Added binary edit '
         'mask and tinted preview are visual reference attachments only; no API inpainting mask is supplied. '

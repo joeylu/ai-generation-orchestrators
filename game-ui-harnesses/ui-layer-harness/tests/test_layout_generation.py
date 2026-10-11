@@ -66,7 +66,9 @@ class LayoutGenerationTests(unittest.TestCase):
             actual=ex.frozen_request_arguments(job,config,row)
             previous=ex.frozen_request_arguments(old,old_config,old_rows[key])
             self.assertEqual(actual['referenced_image_paths'],
-                [str(job/'snapshot'/Path(p).relative_to(old/'snapshot')) for p in previous['referenced_image_paths']])
+                [str(job/Path(p).relative_to(old)) for p in previous['referenced_image_paths']])
+            self.assertEqual([digest(Path(p)) for p in actual['referenced_image_paths']],
+                             [digest(Path(p)) for p in previous['referenced_image_paths']])
             if self.mid in row.get('materialIds',[key]):
                 self.assertIn('exactly 3 independent thin horizontal divider lines',actual['prompt'])
                 self.assertIn(str(self.targets).replace(' ',''),actual['prompt'])
@@ -124,8 +126,8 @@ class LayoutGenerationTests(unittest.TestCase):
         job,config=self.prepare()
         _,rows=ex.load_job(job);actual=ex.frozen_request_arguments(job,config,rows[sheet['asset']])
         self.assertIn('REFERENCE STRUCTURE RECONSTRUCTION for material '+mid,actual['prompt'])
-        for key in sheet['materialIds']:
-            self.assertIn('owner '+key,actual['prompt'])
+        for index,key in enumerate(sheet['materialIds']):
+            self.assertIn('Cell '+str(index)+' / '+key,actual['prompt'])
         self.assertIn('frozen cell layout and uniform scale unchanged',actual['prompt'])
         self.assertEqual(rows[sheet['asset']]['grid'],sheet['grid'])
 

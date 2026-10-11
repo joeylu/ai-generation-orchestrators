@@ -6,11 +6,44 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from ai_ui_layers.codex_call import command, inspect_events, CLI_MODEL, CLI_EFFORT
+from ai_ui_layers.codex_call import command, inspect_events, transport_schema, CLI_MODEL, CLI_EFFORT
 from jsonschema import Draft202012Validator
 
 
 class TransportTests(unittest.TestCase):
+    def test_fresh_host_layout_literals_have_explicit_provider_types(self):
+        from copy import deepcopy
+        from ai_ui_layers import host_layout_registration as layout
+        original=deepcopy(layout.SCHEMA)
+        strict=transport_schema(original)
+        self.assertEqual(original,layout.SCHEMA)
+        self.assertEqual(strict['properties']['kind']['type'],'string')
+        material=strict['properties']['materials']['items']['properties']
+        self.assertEqual(material['mode']['type'],'string')
+        self.assertEqual(material['mode']['enum'],['frame','uniform'])
+        def visit(node):
+            if isinstance(node,dict):
+                if 'const' in node or 'enum' in node:self.assertIn('type',node)
+                for value in node.values():visit(value)
+            elif isinstance(node,list):
+                for value in node:visit(value)
+        visit(strict)
+        value=dict(kind=layout.KIND,referenceSha256='a'*64,
+            materials=[dict(materialId='synthetic-panel',mode='uniform',measurementAlphaThreshold=128,
+                            horizontalDividerTargets=[],horizontalBandTargets=[])],
+            constraints=[],knownDifferences=[])
+        Draft202012Validator(strict).validate(value)
+        layout.validate_contract(value,'a'*64)
+
+    def test_literal_inference_preserves_boolean_numeric_and_nullable_values(self):
+        for schema,expected in (({'const':False},'boolean'),({'enum':[1,2]},'integer'),
+                                ({'enum':[1,2.5]},'number'),({'enum':['x',None]},['string','null'])):
+            with self.subTest(schema=schema):
+                adapted=transport_schema(schema)
+                self.assertEqual(adapted['type'],expected)
+                for value in ([schema['const']] if 'const' in schema else schema['enum']):
+                    Draft202012Validator(adapted).validate(value)
+
     @patch('ai_ui_layers.codex_call.skill_overrides', return_value='skills.config=[]')
     def test_isolation_and_literal_arguments(self, _):
         args = command('codex', Path('dir with spaces'), Path('empty'), CLI_MODEL, CLI_EFFORT)

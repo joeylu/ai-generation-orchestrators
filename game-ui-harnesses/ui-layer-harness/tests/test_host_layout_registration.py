@@ -68,6 +68,42 @@ class HostLayoutTests(unittest.TestCase):
         self.assertFalse(result['humanVisualAcceptance']);self.assertFalse(result['fullAutomaticDagPassed'])
         self.assertTrue((self.root/'diagnostic-output/delivery/viewport-ui-layers.zip').is_file())
 
+    def test_all_excluded_uncertain_cells_keep_diagnostic_and_unresolved_layout(self):
+        from ai_ui_layers.host_sheet_fallback import COMPOSITE_POLICY
+        self.config['sheetCompositePolicy']=COMPOSITE_POLICY
+        save(self.root/'diagnostic-output/result.json',dict(excludedUncertainMaterialIds=['panel']))
+        layout.freeze(self.root,self.config)
+        result=layout.finish(self.root,self.config)
+        self.assertEqual(result['delivery'],'diagnostic-output/delivery')
+        self.assertFalse(result['layoutConstraintsPassed'])
+        self.assertEqual(result['warnings'][0]['code'],'LAYOUT_EXCLUDED_UNCERTAIN_SHEET_MATERIALS')
+        self.assertFalse((self.root/'layout-output').exists())
+        self.config.pop('sheetCompositePolicy')
+        with self.assertRaisesRegex(ValueError,'UNBOUND_EXCLUDED'):
+            layout.finish(self.root,self.config)
+
+    def test_partial_layout_does_not_pass_original_contract_with_excluded_materials(self):
+        from ai_ui_layers.host_sheet_fallback import COMPOSITE_POLICY
+        self.config['sheetCompositePolicy']=COMPOSITE_POLICY
+        self.contract['materials'].append(dict(materialId='missing',mode='uniform',measurementAlphaThreshold=128))
+        self.path.unlink()
+        save(self.path,self.contract);self.config['layoutContractSha256']=digest(self.path)
+        (self.root/'frozen/placements.json').unlink()
+        save(self.root/'frozen/placements.json',dict(materials=[
+            dict(id='panel',sourceRegion=[30,40,110,60]),dict(id='missing',sourceRegion=[120,80,140,100])]))
+        (self.root/'frozen/evidence/m1-draft.json').unlink()
+        save(self.root/'frozen/evidence/m1-draft.json',dict(materials=[
+            dict(id='panel',role='foreground'),dict(id='missing',role='foreground')]))
+        save(self.root/'diagnostic-output/result.json',dict(excludedUncertainMaterialIds=['missing']))
+        layout.freeze(self.root,self.config)
+        summary=layout.finish(self.root,self.config)
+        self.assertEqual(summary['delivery'],'layout-output/delivery')
+        self.assertEqual(summary['excludedUncertainMaterialIds'],['missing'])
+        self.assertFalse(summary['layoutConstraintsPassed'])
+        selection=read(self.root/'layout-selection.json')
+        self.assertEqual([r['materialId'] for r in selection['materials']],['panel'])
+        self.assertTrue(read(self.root/'layout-output/result.json')['layoutConstraintsPassed'])
+
     def test_missing_declaration_warns_and_old_config_retains_delivery(self):
         old=layout.finish(self.root,{})
         self.assertEqual(old['status'],'preserved');self.assertEqual(old['warnings'],[])
@@ -210,7 +246,7 @@ class HostLayoutWorkflowTests(unittest.TestCase):
         self.assertTrue(frozen.is_file());self.assertEqual(list((self.run/'images/attempts').rglob('submission.json')),[])
         image_job=read(self.run/'images/job.json')
         self.assertEqual(image_job['layoutGeneration']['materialIds'],['asset-panel'])
-        self.assertEqual(image_job['layoutGeneration']['promptPolicy'],'reference-owned-structure-v2')
+        self.assertEqual(image_job['layoutGeneration']['promptPolicy'],'reference-owned-structure-edit-v3')
         self.assertEqual(read(self.run/'config.json')['layoutRegistrationPolicy'],layout.POLICY)
         self.acquire(False);self.root=self.base
         host.authorize(self.run,host.status(self.run)['scopeDigest'],'Offline independent review fixtures only')

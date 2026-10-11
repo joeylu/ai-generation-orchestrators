@@ -13,8 +13,10 @@ from .freeze_visual import inspect, body_digest
 from .execution_preflight import preflight
 from .visual_policy import snapshot_policy
 from . import visual_textures as textures
+from .validation_scope import operation
 
 MAX_CONCURRENT = 4
+SHEET_REFERENCE_POLICY='all-context-sheets-board-v1'
 
 
 def concurrency(config):
@@ -120,6 +122,13 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         # the immutable frozen sheet and its default delivery request stay intact.
         override=Path(prompt_override).read_bytes()
         if not override.decode('utf-8').strip():raise ValueError('EMPTY_PROMPT_VARIANT')
+    board_rows=[r for r in all_rows if r['asset'] in selected and r.get('kind')=='sheet'] if context and not layout else []
+    board_prompt_version='v5' if manifest.get('contextPromptVersion')=='v13' else 'v3' if manifest.get('contextPromptVersion')=='v12' else 'v2'
+    if board_rows:
+        # Validate every combined input before creating a job. No fallback to
+        # separate attachments is allowed under the new frozen input policy.
+        from .sheet_layout_reference import build
+        for row in board_rows:build(snapshot,row,prompt_version=board_prompt_version)
     output.mkdir(parents=True,exist_ok=False);copied=output/'snapshot';copied.mkdir()
     for name in [*manifest['files'],'snapshot.json']:
         target=copied/name;target.parent.mkdir(parents=True,exist_ok=True)
@@ -127,23 +136,25 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     inspect(copied,expected_digest)
     (output/'attempts').mkdir()
     variant={}
+    edit_only=manifest.get('contextPromptVersion') in ('v12','v13') and context
     if layout_contract is not None:
         binding=layout_generation.materialize(copied,layout_contract,output,
-            [r for r in all_rows if r['asset'] in selected],reference_structure=not cleanup_required)
+            [r for r in all_rows if r['asset'] in selected],reference_structure=not cleanup_required,
+            edit_only=edit_only)
         if binding is not None:variant['layoutGeneration']=binding
     if layout:
         from .sheet_layout_reference import materialize
-        variant['sheetLayoutReference']=materialize(output,copied,next(r for r in all_rows if r['asset']==selected[0]))
+        variant['sheetLayoutReference']=materialize(output,copied,next(r for r in all_rows if r['asset']==selected[0]),
+            prompt_version=board_prompt_version)
     elif context:
-        # Native tools accept at most five reference images. Preserve a dense
-        # sheet's owners and pixels in one canonical board before authorization.
-        dense=[r for r in all_rows if r['asset'] in selected and len(r.get('references',[]))>5]
-        if dense:
+        variant['sheetReferencePolicy']=SHEET_REFERENCE_POLICY
+        if board_rows:
             from .sheet_layout_reference import materialize
             variant['contextBoardReferences']={}
-            for row in dense:
+            for row in board_rows:
                 folder=output/'context-boards'/row['asset'];folder.mkdir(parents=True)
-                variant['contextBoardReferences'][row['asset']]=materialize(folder,copied,row)
+                variant['contextBoardReferences'][row['asset']]=materialize(folder,copied,row,
+                    prompt_version=board_prompt_version)
     if override is not None:
         (output/'prompt-variant.txt').write_bytes(override)
         variant={'promptVariant':{'asset':selected[0],'sha256':digest(output/'prompt-variant.txt')}}
@@ -163,6 +174,7 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         **({key:manifest[key] for key in ('backgroundRegionPolicy','backgroundRegionDigest','backgroundRegionMaterialId')} if manifest.get('backgroundRegionPolicy') else {}),**variant})
 
 
+@operation
 def load_job(job):
     config=verified(job/'job.json')
     if config.get('kind')!='ui_experimental_image_job_v1':raise ValueError('JOB_KIND')
@@ -214,11 +226,19 @@ def load_job(job):
             raise ValueError('CLEANUP_DERIVED_REQUEST_CHANGED')
         index[mid]=config['cleanupRequest']
     if not set(config['assets'])<=index.keys():raise ValueError('JOB_ASSETS')
+    sheet_policy=config.get('sheetReferencePolicy')
+    if 'sheetReferencePolicy' in config and (sheet_policy!=SHEET_REFERENCE_POLICY or
+            config.get('referenceMode')!='context-crops'):
+        raise ValueError('SHEET_REFERENCE_POLICY_CHANGED')
+    expected_boards=({k for k in config['assets'] if index[k].get('kind')=='sheet'}
+        if sheet_policy==SHEET_REFERENCE_POLICY else
+        {k for k in config['assets'] if len(index[k].get('references',[]))>5})
+    if sheet_policy==SHEET_REFERENCE_POLICY and expected_boards and 'contextBoardReferences' not in config:
+        raise ValueError('CONTEXT_BOARD_SCOPE_CHANGED')
     if 'contextBoardReferences' in config:
-        expected={k for k in config['assets'] if len(index[k].get('references',[]))>5}
-        if (config.get('referenceMode')!='context-crops' or not expected
+        if (config.get('referenceMode')!='context-crops' or not expected_boards
                 or not isinstance(config['contextBoardReferences'],dict)
-                or set(config['contextBoardReferences'])!=expected):
+                or set(config['contextBoardReferences'])!=expected_boards):
             raise ValueError('CONTEXT_BOARD_SCOPE_CHANGED')
         from .sheet_layout_reference import verify
         for key,descriptor in config['contextBoardReferences'].items():
@@ -247,6 +267,7 @@ def load_job(job):
     return config,index
 
 
+@operation
 def authorize(job, job_digest, approval):
     job=Path(job)
     with lock(job):
@@ -258,8 +279,14 @@ def authorize(job, job_digest, approval):
             'maximumCalls':config['maximumCalls'],'automaticRetries':0})
 
 
+@operation
 def status(job):
     job=Path(job);config,index=load_job(job)
+    return _status(job,config,index)
+
+
+def _status(job,config,index):
+    """Read current attempt state against inputs verified by this operation."""
     auth=verified(job/'authorization.json') if (job/'authorization.json').exists() else None
     if auth and (auth['jobDigest']!=config['digest'] or auth['maximumCalls']!=config['maximumCalls']):
         raise ValueError('AUTHORIZATION_CHANGED')
@@ -305,16 +332,17 @@ def status(job):
             'postprocessing':'not_run','humanVisualAcceptance':False}
 
 
+@operation
 def next_request(job, *, count=1):
     job=Path(job)
     if type(count) is not int or not 1 <= count <= MAX_CONCURRENT:
         raise ValueError('FINITE_IMAGE_RESERVATION_COUNT_REQUIRED')
     with lock(job):
-        current=status(job)
+        config,index=load_job(job);current=_status(job,config,index)
         if current['status']!='ready':raise ValueError('NOT_READY_NO_RESUBMIT')
         if count>current['maximumConcurrentCalls']-len(current['outstandingRequestIds']):
             raise ValueError('IMAGE_CONCURRENCY_LIMIT_NO_RESUBMIT')
-        config,index=load_job(job);auth=verified(job/'authorization.json')
+        auth=verified(job/'authorization.json')
         selected=[k for k,v in current['requests'].items() if v=='prepared'][:count]
         # Resolve every immutable attachment before reserving any invocation.
         arguments={asset:frozen_request_arguments(job,config,index[asset]) for asset in selected}
@@ -381,19 +409,19 @@ def _frozen_request_arguments(job, config, row):
     from . import background_region_pipeline as bg_region
     manifest=inspect(snapshot,config['snapshotDigest']);bound=bg_region.snapshot_input(snapshot,manifest)
     if bound is not None and row['asset']==bound['materialId']:
-        prompt+=bg_region.generation_guidance(bound)
+        prompt+=bg_region.generation_guidance(bound,edit_only=manifest.get('contextPromptVersion') in ('v12','v13'))
         references.extend(str(snapshot/'background-region'/n) for n in ('edit-mask.png','preview.png'))
     return {'prompt':prompt,
             'referenced_image_paths':references}
 
 
+@operation
 def receive(job, submission_digest, source):
     job=Path(job);source=Path(source)
     with lock(job):
-        current=status(job)
+        bound_config,index=load_job(job);current=_status(job,bound_config,index)
         asset=_pending_submission(job,current,submission_digest)
         folder=job/'attempts'/asset
-        bound_config,bound_index=load_job(job)
         protected=(bound_config.get('backgroundRegionPolicy') is not None and
                    bound_config.get('backgroundRegionMaterialId')==asset)
         data=None
@@ -404,7 +432,7 @@ def receive(job, submission_digest, source):
                 if image.format!='PNG' or image.width*image.height>67108864:raise ValueError('PNG_REQUIRED')
                 image.load();width,height=image.size
                 if image.getexif().get(274,1)!=1:raise ValueError('IMAGE_ORIENTATION')
-                _,index=load_job(job);w,h=index[asset]['outputSize']
+                w,h=index[asset]['outputSize']
                 alpha=image.convert('RGBA').getchannel('A').getextrema()
                 if alpha[1]==0:raise ValueError('EMPTY_IMAGE')
                 plan=read(job/'snapshot/execution-plan.candidate.json')

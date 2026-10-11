@@ -7,7 +7,7 @@ from unittest.mock import patch
 from ai_ui_layers import host_delivery as host, host_m1, host_review, host_layout_registration as layout
 from ai_ui_layers import planning_capacity as capacity
 from ai_ui_layers.coverage_review import TEXT_OCCURRENCES_POLICY
-from ai_ui_layers.generation_groups import COMPACT_CONTROL_V2, COMPACT_CONTROL_V3
+from ai_ui_layers.generation_groups import COMPACT_CONTROL_V2, COMPACT_CONTROL_V3, COMPACT_CONTROL_V5
 from ai_ui_layers.evaluate import read, save, digest, pixel_box
 from ai_ui_layers.execution_preflight import preflight
 from ai_ui_layers.viewport_geometry_revision import validate_viewport_archive
@@ -67,14 +67,14 @@ class FreshCapacityHostTests(unittest.TestCase):
         self.start();state=self.generate()
         self.assertEqual(state['stage'],'planning_review')
         config=read(self.run/'config.json')
-        self.assertEqual(config['generationGroupingPolicy'],COMPACT_CONTROL_V3)
+        self.assertEqual(config['generationGroupingPolicy'],COMPACT_CONTROL_V5)
         self.assertEqual(config['planningCapacityPolicy'],capacity.POLICY)
         self.assertEqual(state['planningCapacity']['materialCount'],len(self.plan['materials']))
         self.assertEqual(state['planningCapacity']['status'],'within_capacity')
         self.assertFalse((self.run/'planning/m2/draft.json').exists())
         prompt=(self.run/'planning-m1/prompt.md').read_text('utf-8')
         self.assertIn('生图最多 16 次',prompt)
-        self.assertIn(COMPACT_CONTROL_V3,prompt)
+        self.assertIn(COMPACT_CONTROL_V5,prompt)
         self.assertIn('keep every helper script',prompt)
         review_prompt=(self.root/'m2/prompt.md').read_text('utf-8')
         self.assertIn('helper script or scratch file outside the host run',review_prompt)
@@ -96,10 +96,18 @@ class FreshCapacityHostTests(unittest.TestCase):
         self.assertEqual(host._files(self.run),before)
 
     def test_material_review_budget_is_checked_before_m2_as_well(self):
-        self.start(maximumMaterialReviews=1)
+        self.start(maximumMaterialReviews=1,materialReviewPolicy='per-request-v1')
         with self.assertRaisesRegex(ValueError,'CAPACITY_EXCEEDED_BEFORE_M2'):self.generate()
         self.assertIn('materialReviews',host.status(self.run)['planningCapacity']['exceeded'])
         self.assertFalse((self.run/'planning').exists())
+
+    def test_one_composite_review_budget_does_not_limit_image_groups(self):
+        self.start(maximumMaterialReviews=1)
+        state=self.generate()
+        self.assertEqual(state['stage'],'planning_review')
+        self.assertGreater(state['planningCapacity']['plannedCalls'],1)
+        self.assertEqual(state['planningCapacity']['requiredCalls']['materialReviews'],1)
+        self.assertIn('只做一次整图独立复审',(self.run/'planning-m1/prompt.md').read_text('utf-8'))
 
     def test_invalid_layout_target_stops_before_m2_without_rewriting_original_answer(self):
         self.start()
@@ -146,7 +154,8 @@ class FreshCapacityHostTests(unittest.TestCase):
         for stage in ('planning_generate','planning_review'):
             self.assertEqual(len(list((self.run/'scopes'/stage).glob('*-submission.json'))),1)
         sheet_fixtures.HostSheetFallbackTests.acquire(self,False)
-        fast_fixtures.FastWarningDeliveryTests.finish(self)
+        from test_composite_review import finish_composite
+        finish_composite(self)
         result=host.status(self.run)
         self.assertEqual(result['stage'],'diagnostic_complete')
         self.assertFalse(result['humanVisualAcceptance'])

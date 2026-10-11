@@ -25,7 +25,9 @@ CONTEXT_GROUP_POLICY='compatible-size-and-kind-context-grid-v2'
 COMPACT_CONTROL_POLICY='compact-controls-context-grid-v1'
 COMPACT_CONTROL_V2='compact-controls-context-grid-v2'
 COMPACT_CONTROL_V3='compact-controls-context-grid-v3'
-COMPACT_CONTROL_POLICIES={COMPACT_CONTROL_POLICY,COMPACT_CONTROL_V2,COMPACT_CONTROL_V3}
+COMPACT_CONTROL_V4='compact-controls-context-grid-v4'
+COMPACT_CONTROL_V5='compact-controls-context-grid-v5'
+COMPACT_CONTROL_POLICIES={COMPACT_CONTROL_POLICY,COMPACT_CONTROL_V2,COMPACT_CONTROL_V3,COMPACT_CONTROL_V4,COMPACT_CONTROL_V5}
 CONTEXT_GROUP_POLICIES={LEGACY_CONTEXT_GROUP_POLICY,CONTEXT_GROUP_POLICY,*COMPACT_CONTROL_POLICIES}
 GROUP_POLICIES.update({policy:1.5 for policy in CONTEXT_GROUP_POLICIES})
 
@@ -67,8 +69,19 @@ def compatible(left, right, max_aspect):
     return max(w/ww,ww/w,h/hh,hh/h)<=2 and max((w/h)/(ww/hh),(ww/hh)/(w/h))<=max_aspect
 
 
-def _canvas(members):
+def _canvas(members, policy=None):
     columns,rows=full_grid(members)
+    if policy in (COMPACT_CONTROL_V4,COMPACT_CONTROL_V5):
+        # Prime member counts need not force a tall one-column canvas. At most
+        # one unused slot; it remains subject to the empty-cell extraction gate.
+        count=len(members);w=max(a['output_size'][0] for a in members)
+        h=max(a['output_size'][1] for a in members);choices=[]
+        for c in range(1,count+1):
+            r=math.ceil(count/c)
+            if c*r>count+1:continue
+            aspect=w*c/(h*r)
+            choices.append((max(aspect,1/aspect),c*r-count,r,c))
+        _,_,rows,columns=min(choices)
     width=max(a['output_size'][0] for a in members)*columns*1.4
     height=max(a['output_size'][1] for a in members)*rows*1.4
     scale=1536/max(width,height)
@@ -80,11 +93,11 @@ def _control_family(visual, asset, policy=COMPACT_CONTROL_POLICY):
     objects=[o for o in visual['objects'] if o['materialId']==asset['id']]
     kinds={o['kind'] for o in objects}
     allowed={'panel','button','icon','badge','decoration'}
-    if policy in (COMPACT_CONTROL_V2,COMPACT_CONTROL_V3):allowed.add('card')
+    if policy in (COMPACT_CONTROL_V2,COMPACT_CONTROL_V3,COMPACT_CONTROL_V4,COMPACT_CONTROL_V5):allowed.add('card')
     # An illustration owned by one complete card does not turn that card into
     # a standalone scene. Keep these cards separate from flat controls and use
     # the conservative size/aspect test as well as the full-resolution test.
-    if (policy==COMPACT_CONTROL_V3 and asset['role']!='background'
+    if (policy in (COMPACT_CONTROL_V3,COMPACT_CONTROL_V4,COMPACT_CONTROL_V5) and asset['role']!='background'
             and kinds <= allowed|{'illustration'} and 'illustration' in kinds
             and sum(o['kind']=='card' for o in objects)==1 and 'panel' not in kinds):
         return 'illustrated-card'
@@ -99,16 +112,25 @@ def _control_family(visual, asset, policy=COMPACT_CONTROL_POLICY):
     return 'vertical-strip'
 
 
-def _control_fits(members):
+def _control_fits(members, policy=None):
     """Equal cells, common uniform scale, at least 10% free on every side.
 
     Never buy fewer calls by reducing an owned material below its reference
     resolution. This is a planning budget, not proof of model fidelity.
     """
-    grid,canvas=_canvas(members)
+    grid,canvas=_canvas(members,policy)
     width=max(a['output_size'][0] for a in members)
     height=max(a['output_size'][1] for a in members)
-    return min(.8*(canvas[0]//grid[0])/width,.8*(canvas[1]//grid[1])/height)>=1
+    if min(.8*(canvas[0]//grid[0])/width,.8*(canvas[1]//grid[1])/height)<1:return False
+    if policy==COMPACT_CONTROL_V5 or (policy==COMPACT_CONTROL_V4 and len(members)>5):
+        # v5 uses an integer-copy reference board for every sheet, including
+        # two-to-five owners. v4 retains its historical dense-only budget.
+        cw,ch=canvas[0]//grid[0],canvas[1]//grid[1]
+        pad=math.ceil(.10*min(cw,ch))
+        for asset in members:
+            w,h=asset['output_size'];margin=min(64,max(8,math.ceil(.10*min(w,h))))
+            if w+2*margin>cw-2*pad or h+2*margin>ch-2*pad:return False
+    return True
 
 
 def _control_groups(visual, plan, policy=COMPACT_CONTROL_POLICY):
@@ -119,15 +141,16 @@ def _control_groups(visual, plan, policy=COMPACT_CONTROL_POLICY):
             for other in list(pending):
                 if len(members)==maximum_members(policy):break
                 if (_control_family(visual,other,policy)==kind
-                        and (kind!='illustrated-card' or all(compatible(a,other,1.5) for a in members))
-                        and _control_fits(members+[other])):
+                        and (kind!='illustrated-card' and policy not in (COMPACT_CONTROL_V4,COMPACT_CONTROL_V5)
+                             or all(compatible(a,other,1.5) for a in members))
+                        and _control_fits(members+[other],policy)):
                     members.append(other);pending.remove(other)
         ids=[a['id'] for a in members]
         if len(ids)==1:
             groups.append(dict(id=ids[0],mode='single',materialIds=ids));continue
         key='sheet-'+hashlib.sha256('\n'.join(ids).encode()).hexdigest()[:16]
         if key in known:raise ValueError('GENERATION_GROUP_ID_COLLISION')
-        grid,canvas=_canvas(members)
+        grid,canvas=_canvas(members,policy)
         groups.append(dict(id=key,mode='sheet',materialIds=ids,grid=grid,outputSize=canvas,
             groupingPolicy=policy))
     return dict(kind='ui_generation_groups_v1',policy=policy,

@@ -61,10 +61,14 @@ class ReviewSchemaTransportTests(unittest.TestCase):
             if folder.name == 'm2':
                 part_schema = schema['$defs']['smallMaterialAuditEntry']['properties']['parts']['items']
                 if with_policy:
-                    self.assertIn('deferredAppearance', part_schema['required'])
-                    self.assertIn('deferredAppearance', part_schema['properties'])
-                    self.assertEqual(part_schema['properties']['deferredAppearance']['type'], ['string','null'])
-                    self.assertIn('reference-bound', part_schema['properties']['descriptionStatus']['enum'])
+                    ordinary,deferred = part_schema['anyOf']
+                    for branch in (ordinary,deferred):
+                        self.assertIn('deferredAppearance', branch['required'])
+                    self.assertEqual(ordinary['properties']['deferredAppearance']['type'], 'null')
+                    self.assertNotIn('reference-bound', ordinary['properties']['descriptionStatus']['enum'])
+                    self.assertEqual(deferred['properties']['deferredAppearance']['type'], 'string')
+                    self.assertEqual(deferred['properties']['descriptionStatus']['enum'], ['reference-bound'])
+                    self.assertEqual(deferred['properties']['deferredAppearance']['pattern'], r'\S')
                 else:
                     self.assertNotIn('deferredAppearance', part_schema['properties'])
                     self.assertNotIn('reference-bound', part_schema['properties']['descriptionStatus']['enum'])
