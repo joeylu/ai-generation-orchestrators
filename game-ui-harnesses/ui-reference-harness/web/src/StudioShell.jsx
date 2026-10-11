@@ -144,30 +144,6 @@ export function Inspector({ project, onStyle, onAnchor, busy = false }) {
       )}
       <Swatches palette={project.style?.rules.palette} />
       <div className="inspector-divider" />
-      <h3>项目锚点</h3>
-      {project.anchor ? (
-        <>
-          <img
-            className="inspector-image"
-            src={project.anchor.image}
-            alt="本项目已接受的视觉锚点"
-          />
-          <h4>{project.anchor.title}</h4>
-          <p className="muted">后续面板沿用此视觉锚点</p>
-          <Button disabled={busy} onClick={onAnchor}>
-            查看锚点
-          </Button>
-        </>
-      ) : (
-        <div className="anchor-empty">
-          <Icon name="anchor" size={28} />
-          <p>
-            首张参考图验收后
-            <br />
-            可设为项目视觉锚点
-          </p>
-        </div>
-      )}
       <div className="inspector-note">
         <Icon name="info" size={17} />
         <span>修改风格会保留旧图，并标记需要更新的面板。</span>
@@ -188,9 +164,7 @@ export function Panels({
   const deleted = filter === "deleted";
   const panels = (deleted ? (project.deletedPanels ?? []) : project.panels)
     .toSorted(
-      (a, b) =>
-        Number(b.isAnchor) - Number(a.isAnchor) ||
-        (a.latestRun?.created ?? 0) - (b.latestRun?.created ?? 0),
+      (a, b) => (a.latestRun?.created ?? 0) - (b.latestRun?.created ?? 0),
     )
     .filter(
       (panel) =>
@@ -291,12 +265,6 @@ export function Panels({
                 <div>
                   <h3>{panel.title}</h3>
                   <div className="panel-tags">
-                    {panel.isAnchor && (
-                      <span className="tag anchor">
-                        <Icon name="anchor" size={14} />
-                        项目锚点
-                      </span>
-                    )}
                     <span
                       className={`tag ${["accepted", "accepted_current_style"].includes(panelStatus(panel)) ? "accepted" : "pending"}`}
                     >

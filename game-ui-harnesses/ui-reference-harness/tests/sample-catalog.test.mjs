@@ -10,32 +10,10 @@ import { CLOSED_SELECT_RUNTIME_SHA256 } from '../src/compiler.mjs';
 import { accepted, secondPanel, setup, syntheticImage } from './helpers.mjs';
 
 async function syntheticCatalog(temp) {
-  const drafts = path.join(temp, 'drafts'), prepared = await api.prepareSamples(drafts);
-  const output = path.join(temp, 'catalog'); fs.mkdirSync(output);
-  const entries = [];
-  for (const item of prepared.samples) {
-    const root = path.join(drafts, item.id);
-    api.activateStyle(root, item.styleSha256, 'Synthetic fixture approval; no real art evidence.');
-    const plan = api.createPlan(root, { panelId: 'style-showcase' });
-    api.authorize(root, plan.run, plan.planSha256, 'Synthetic provider double only.');
-    const request = api.reserve(root, plan.run);
-    const result = api.receive(root, plan.run, request.requestSha256, syntheticImage(960, 800));
-    api.reviewRun(root, plan.run, { imageSha256: result.imageSha256, layout: 'pass', style: 'pass', copy: 'pass',
-      decision: 'accept', note: 'Synthetic fixture acceptance; not real art evidence.' });
-    api.exportProject(root, path.join(output, item.id));
-    const artifact = name => { const relative = `${item.id}/${name}`, bytes = fs.readFileSync(local(output, relative));
-      return { path: relative, sha256: sha256(bytes), bytes: bytes.length }; };
-    const preset = api.presetList().find(p => p.id === item.id);
-    entries.push({ id: item.id, name: preset.name, version: preset.version, styleSha256: item.styleSha256,
-      prototypeSha256: item.prototypeSha256, visualReview: 'accepted', image: artifact('panels/style-showcase/reference.png'),
-      logicalCanvas: { width: 960, height: 800 }, pixelCanvas: { width: 960, height: 800 },
-      style: artifact('style.json'), manifest: artifact('manifest.json') });
-  }
-  const catalog = seal({ kind: 'ui_reference_local_sample_catalog_v1', usage: 'style-selection-preview',
-    sampleSetSha256: digestJson(prepared), sampleIsProjectAnchor: false,
-    projectStylePolicy: 'one-reviewed-style-revision-per-project',
-    palettePolicy: 'sample-recommendation-project-may-create-reviewed-overrides', entries });
-  const file = path.join(output, 'catalog.json'); fs.writeFileSync(file, jsonBytes(catalog));
+  // Immutable historical, synthetic 0.7.3 deliveries; no bootstrap model call.
+  const output = path.join(temp, 'catalog');
+  fs.cpSync(new URL('./fixtures/legacy-sample-catalog/', import.meta.url), output, { recursive: true });
+  const file = path.join(output, 'catalog.json'), catalog = readJson(file);
   return { file, catalog, output };
 }
 
@@ -64,12 +42,12 @@ test('explicit external sample catalog validates deliveries and freezes style PN
     assert.deepEqual(first.request.images.map(i => i.role), ['layout-reference', 'primary-style']);
     assert.ok(!fs.existsSync(local(root, `${first.run}/authorization.json`)));
     assert.throws(() => api.reserve(root, first.run));
-    const anchor = accepted(root, 'audio-settings', true);
+    const anchor = accepted(root, 'audio-settings');
     await secondPanel(root, temp);
     const next = api.createPlan(root, { panelId: 'audio-secondary' });
-    assert.deepEqual(next.request.images.map(i => i.role), ['layout-reference', 'primary-style', 'accepted-project-anchor']);
+    assert.deepEqual(next.request.images.map(i => i.role), ['layout-reference', 'primary-style']);
     assert.equal(next.request.images[1].artifact.sha256, catalog.entries[0].image.sha256);
-    assert.equal(next.request.images[2].artifact.sha256, anchor.result.imageSha256);
+    assert.equal(api.verifyPlan(root, next.run).anchor, null);
     const imagePath = local(output, catalog.entries[0].image.path), original = fs.readFileSync(imagePath);
     fs.writeFileSync(imagePath, 'external source changed');
     try {

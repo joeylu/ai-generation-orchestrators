@@ -25,26 +25,26 @@ async function generated(root, dag, id, turn) {
 
 test('project DAG freezes an acyclic anchor dependency, unlocks later panels and delivers actual accepted evidence', async t => {
   const { root, temp } = await setup(t); await secondPanel(root, temp);
-  assert.throws(() => api.createProjectDag(root), /ANCHOR_PANEL_REQUIRED/);
+  assert.equal(api.createProjectDag(root).primaryReference.sha256.length, 64);
   const created = await main(['dag-create', '--root', root, '--anchor-panel', 'audio-settings']);
   const { dag } = created;
   assert.equal(created.computeCalls, 0);
   assert.equal(fs.existsSync(local(root, 'runs')), false);
   assert.equal(created.nodes.find(n => n.id === 'panel/audio-settings/plan').status, 'ready');
-  assert.equal(created.nodes.find(n => n.id === 'panel/audio-secondary/plan').status, 'blocked');
+  assert.equal(created.nodes.find(n => n.id === 'panel/audio-secondary/plan').status, 'ready');
   const snapshot = fs.readFileSync(local(root, dag));
-  assert.throws(() => prepare(root, dag, 'audio-secondary'), /ANCHOR_NOT_ACCEPTED/);
   assert.throws(() => api.exportProjectDag(root, dag, operation()), /DELIVERY_NOT_READY/);
   let first = prepare(root, dag, 'audio-settings');
   assert.throws(() => api.authorizeProjectDagPanel(root, dag, 'audio-settings', { ...operation(), run: first.run,
     planSha256: created.dagSha256, approval: 'A DAG digest is not compute approval.' }), /AUTHORIZATION/);
   first = await generated(root, dag, 'audio-settings', first);
-  assert.throws(() => review(root, dag, 'audio-settings', first), /EXPLICIT_ANCHOR/);
-  const anchored = review(root, dag, 'audio-settings', first, true);
-  assert.equal(anchored.anchor.imageSha256, first.imageSha256);
+  assert.throws(() => review(root, dag, 'audio-settings', first, true), /PROJECT_ANCHOR_REMOVED/);
+  const anchored = review(root, dag, 'audio-settings', first);
+  assert.equal(anchored.anchor, null);
   const advanced = await main(['dag-advance', '--root', root, '--dag', dag, '--operation-id', randomUUID()]);
   const second = advanced.panels.find(p => p.panelId === 'audio-secondary').latest;
-  assert.equal(api.verifyPlan(root, second.run).anchor.image.sha256, first.imageSha256);
+  assert.equal(api.verifyPlan(root, second.run).anchor, null);
+  assert.equal(api.verifyPlan(root, second.run).request.images.find(image => image.role === 'primary-style').artifact.sha256, created.primaryReference.sha256);
   assert.equal(advanced.computeCalls, 1);
   const result = await generated(root, dag, 'audio-secondary', second);
   review(root, dag, 'audio-secondary', result);
@@ -113,7 +113,7 @@ test('host exchange and recovery retain a reservation; an unknown attempt needs 
 test('three persistent revisions count failed submissions and retain the last accepted image for Studio-compatible export', async t => {
   const { root } = await setup(t), { dag } = api.createProjectDag(root, { anchorPanelId: 'audio-settings' });
   const initial = await generated(root, dag, 'audio-settings', prepare(root, dag, 'audio-settings'));
-  review(root, dag, 'audio-settings', initial, true);
+  review(root, dag, 'audio-settings', initial);
   const originalOutput = api.exportProjectDag(root, dag, operation()).output.delivery;
   let source = initial, last;
   for (let round = 1; round <= 3; round++) {
@@ -143,7 +143,7 @@ test('three persistent revisions count failed submissions and retain the last ac
     { ...operation(), sourceRun: initial.run, note: 'Recreating a graph cannot reset the budget.' }), /REVISION_LIMIT/);
   assert.throws(() => api.reviseProjectDagPanel(root, dag, 'audio-settings', { ...operation(), sourceRun: source.run, note: 'Fourth' }), /REVISION_LIMIT/);
   const reviewed = review(root, dag, 'audio-settings', source);
-  assert.equal(reviewed.anchor.imageSha256, initial.imageSha256);
+  assert.equal(reviewed.anchor, null);
   const exported = api.exportProjectDag(root, dag, operation());
   assert.notEqual(exported.output.delivery, originalOutput);
   assert.equal(exported.output.status, 'valid'); assert.equal(exported.computeCalls, 4);
@@ -156,7 +156,7 @@ test('after a verified anchor, independent panel branches can be dispatched conc
   const third = readJson(panelFile); third.id = 'audio-third';
   fs.writeFileSync(`${temp}/third.json`, jsonBytes(third));
   await api.addPanel(root, { spec: `${temp}/third.json`, catalog: catalogFile });
-  accepted(root, 'audio-settings', true);
+  accepted(root, 'audio-settings');
   const { dag } = api.createProjectDag(root);
   const ready = api.advanceProjectDag(root, dag, operation());
   const turns = ready.panels.filter(panel => panel.panelId !== 'audio-settings');
@@ -175,7 +175,7 @@ test('after a verified anchor, independent panel branches can be dispatched conc
 
 test('accepted CLI projects adopt verified results without generation; explicit subsets are disclosed and input changes block mutation', async t => {
   const { root, temp } = await setup(t); await secondPanel(root, temp);
-  accepted(root, 'audio-settings', true); accepted(root, 'audio-secondary');
+  accepted(root, 'audio-settings'); accepted(root, 'audio-secondary');
   const { dag } = api.createProjectDag(root, { panelIds: ['audio-secondary'] });
   const before = fs.readdirSync(local(root, 'runs'));
   const advanced = api.advanceProjectDag(root, dag, operation());

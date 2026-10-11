@@ -31,9 +31,10 @@
   reprocess plan after the user chooses that policy. Keep the failed source and
   its exact raw fingerprint; never dispatch a provider for a reprocess plan or
   treat it as human acceptance. Do not reuse indeterminate or invalid sources.
-- An accepted anchor is fixed for its style revision and must trace to an accepted
-  result of that same style. Whole-project export defaults to every registered
-  panel; an explicit subset is allowed and must be disclosed.
+- New plans use the confirmed style primary PNG for every panel; no accepted
+  panel can become a project anchor. Preserve historical anchor evidence read-only.
+  Whole-project export defaults to every registered panel; an explicit subset is
+  allowed and must be disclosed.
 - Keep all references, requests, approvals and generated outputs in an ignored
   private workspace such as repository `work/`. Public fixtures are synthetic.
 - The user's local-workbench request permits the loopback-only `web/` frontend

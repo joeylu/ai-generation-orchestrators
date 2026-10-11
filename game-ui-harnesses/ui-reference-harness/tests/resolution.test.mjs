@@ -24,7 +24,7 @@ function exactRejection(root, raw = syntheticImage(1920, 1280)) {
 }
 function accept(root, plan, result) {
   api.reviewRun(root, plan.run, { imageSha256: result.imageSha256, layout: 'pass', style: 'pass', copy: 'pass',
-    decision: 'accept', note: 'Synthetic fixture review only.', useAsAnchor: true });
+    decision: 'accept', note: 'Synthetic fixture review only.', useAsAnchor: false });
 }
 function rewriteDelivery(output, changes) {
   for (const [name, change] of Object.entries(changes)) {
@@ -132,12 +132,12 @@ test('reprocess rejects corrupt source bytes, style changes, blank/transparent o
 
 test('raw reuse keeps its original conditioning, even when a project anchor was accepted later', async t => {
   const { root } = await setup(t), source = exactRejection(root);
-  const anchor = accepted(root, 'audio-settings', true);
+  const anchor = accepted(root, 'audio-settings');
   const reused = api.createReprocessPlan(root, { sourceRun: source.plan.run, rawSha256: source.rawSha256 });
   assert.equal(api.verifyPlan(root, reused.run).anchor, null);
   assert.ok(!reused.request.images.some(i => i.role === 'accepted-project-anchor'));
   const next = api.createPlan(root, { panelId: 'audio-settings' });
-  assert.equal(api.verifyPlan(root, next.run).anchor.image.sha256, anchor.result.imageSha256);
+  assert.equal(api.verifyPlan(root, next.run).anchor, null);
 });
 
 test('interrupted local reuse resumes the same source; a self-referential source is rejected without recursion', async t => {

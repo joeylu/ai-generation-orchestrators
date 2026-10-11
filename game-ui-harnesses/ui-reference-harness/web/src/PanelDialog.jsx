@@ -45,8 +45,7 @@ function SessionPanelDialog({
   const [preview, setPreview] = useState(
     panel.image ? "reference" : "prototype",
   );
-  const [selectedRun, setSelectedRun] = useState(null),
-    [anchor, setAnchor] = useState(false);
+  const [selectedRun, setSelectedRun] = useState(null);
   const [submitting, setSubmitting] = useState(false),
     [saveState, setSaveState] = useState("");
   const [operation, setOperation] = useState(null);
@@ -253,7 +252,6 @@ function SessionPanelDialog({
             copy: "pass",
             decision: "accept",
             note: "用户点击接受，确认当前图片的布局、风格与文案均符合要求。",
-            useAsAnchor: anchor,
           }),
         async () => {
           await read();
@@ -419,17 +417,6 @@ function SessionPanelDialog({
                   <p className="muted">
                     点击接受，确认当前图片的布局、风格和文案均符合要求。
                   </p>
-                  {!project.anchor && (
-                    <label className="checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={anchor}
-                        disabled={!editable}
-                        onChange={(event) => setAnchor(event.target.checked)}
-                      />
-                      <span>将这张图设为项目风格锚点</span>
-                    </label>
-                  )}
                   <Button
                     variant="primary"
                     icon="check"

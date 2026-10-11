@@ -1,4 +1,4 @@
-# 项目级 UI 参考图 DAG · v1
+# 项目级 UI 参考图 DAG · v2
 
 0.7.0 源码提供可执行、可检查、可恢复的项目级依赖图。它只编排 UI 参考图，不调用
 ui-panel 的生成任务，不启动 ui-layer，不提供服务端账号、数据库、队列或部署实现。
@@ -6,34 +6,12 @@ ui-panel 的生成任务，不启动 ui-layer，不提供服务端账号、数�
 
 ## 图与人工边界
 
-```mermaid
-flowchart LR
-  I[已确认风格与已导入原型] --> P[代表面板冻结计划]
-  P --> G[单次授权与生图]
-  G --> Q[PNG 检查与编码规范化]
-  Q --> R[人工验收并明确设为锚点]
-  R --> A[同风格固定锚点]
-  A --> B[其他面板各自冻结计划]
-  B --> C[各自授权与单次生图]
-  C --> D[技术检查与人工验收]
-  R --> E[选择各面板最近接受版本]
-  D --> E
-  E --> O[完整交付及 ZIP 校验]
-```
-
-`dag.json` 冻结项目 ID、运行时、风格、面板原型、面板意图、分辨率、代表面板、
-已有锚点和 `nodes[].dependsOn`。程序校验图无环，并逐次重放核心证据。
-没有已有锚点时必须明确传入 `anchorPanelId`，程序不替人选择。
-已有同风格锚点时复用它；不能以默认风格样本冒充项目锚点。
-
-每个面板包括 plan、generation、raw-qa、post-process、post-qa、visual-review
-及 accepted-selection 节点。核心 receive/finish 一次完成技术处理，DAG 展示其中真实
-检查阶段；它们不是多个模型调用。后续面板的计划必须包含固定锚点，不能提前冻结后再
-偷偷追加。已有技术合格成图不等于人工接受；验收仍绑定最终图片 SHA-256。
-
-全项目默认包括全部注册面板，显式子集返回 `selection=explicit-subset`。
-更换风格、修改原型、或向全项目增加面板使旧 DAG `currentContext=false`，旧记录保留，
-必须重新创建对应输入的 DAG。源码变化使 `runtimeCurrent=false`，不派发旧计划。
+0.8.0 创建 ui_reference_project_dag_v2，冻结项目、运行时、风格、primaryReference、原型、意图和分辨率。
+所有面板 plan 节点依赖同一个 confirmed-primary-style 节点，没有代表面板或已接受图片锚点门。
+每个面板独立通过计划、单次计算授权、生成、PNG alpha=255 技术检查与人工验收。
+默认选择全部注册面板；显式子集披露 selection=explicit-subset。
+风格/原型变更使旧 DAG 失效但不改写旧快照。旧运行时只允许完成图片的显式复核和导出，禁止计算。
+接受图片不改变主参考；主参考只通过确认新风格版本更新。缺少完整主参考时要求修复风格。
 
 ## 初始化、查看与准备
 
@@ -42,14 +20,14 @@ flowchart LR
 ```powershell
 $Cli = 'game-ui-harnesses/ui-reference-harness/ui-reference.mjs'
 $Project = 'work/my-game-ui'
-$Created = node $Cli dag-create --root $Project --anchor-panel main-menu | ConvertFrom-Json
+$Created = node $Cli dag-create --root $Project | ConvertFrom-Json
 $Dag = $Created.dag
 node $Cli dag-inspect --root $Project --dag $Dag
 node $Cli dag-advance --root $Project --dag $Dag --operation-id ([guid]::NewGuid().ToString())
 ```
 
 dag-create、dag-inspect、dag-advance 不生成图片。advance 仅为当前依赖已满足且未准备的面板
-创建冻结计划：最初只有代表面板，首图接受并设为锚点后才有其余面板。它不授权、不提交、
+创建冻结计划：任意面板均可准备，不依赖另一面板验收。它不授权、不提交、
 不处理未知结果、不创建重试、不自动导出。导入、保存草稿、轮询、刷新和恢复均不得授权生图。
 单个面板可用 dag-prepare，参数为 `--panel` 和 `--operation-id`。
 
@@ -62,7 +40,7 @@ dag-create、dag-inspect、dag-advance 不生成图片。advance 仅为当前依
 node $Cli inspect --root $Project --run runs/RUN_UUID
 node $Cli dag-authorize --root $Project --dag $Dag --panel main-menu --run runs/RUN_UUID --operation-id OP_UUID --plan-sha256 PLAN_SHA256 --approval '用户针对该冻结计划的一次生成决定'
 node $Cli dag-generate --root $Project --dag $Dag --panel main-menu --run runs/RUN_UUID --operation-id ANOTHER_OP_UUID --adapter work/provider-adapter.mjs
-node $Cli dag-review --root $Project --dag $Dag --panel main-menu --run runs/RUN_UUID --operation-id REVIEW_OP_UUID --image-sha256 IMAGE_SHA256 --layout pass --style pass --copy pass --decision accept --note '用户对这张图的实际验收意见' --anchor true
+node $Cli dag-review --root $Project --dag $Dag --panel main-menu --run runs/RUN_UUID --operation-id REVIEW_OP_UUID --image-sha256 IMAGE_SHA256 --layout pass --style pass --copy pass --decision accept --note '用户对这张图的实际验收意见' --anchor false
 ```
 
 命令中的占位 UUID 与摘要必须替换为实际值。DAG SHA 不能代替单份计划摘要。

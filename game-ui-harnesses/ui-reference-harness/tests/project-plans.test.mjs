@@ -18,18 +18,14 @@ async function threePanels(t) {
   return context;
 }
 
-test('project planning requires an explicitly accepted anchor and never selects or approves one itself', async t => {
+test('project planning uses confirmed primary reference without a panel acceptance prerequisite', async t => {
   const { root, temp } = await setup(t);
-  assert.throws(() => api.createProjectPlans(root), /ACCEPTED_ANCHOR_REQUIRED/);
-  assert.deepEqual(runNames(root), []);
-  accepted(root); // An accepted image without the human anchor choice is insufficient.
-  const done = api.createProjectPlans(root);
-  assert.equal(done.status, 'nothing_to_plan'); assert.equal(done.computeCalls, 0);
+  const batch = api.createProjectPlans(root);
+  assert.equal(batch.plans.length, 1); assert.equal(batch.computeCalls, 0);
+  accepted(root);
+  assert.equal(api.createProjectPlans(root).status, 'nothing_to_plan');
   await secondPanel(root, temp);
-  const before = runNames(root);
-  assert.throws(() => api.createProjectPlans(root), /ACCEPTED_ANCHOR_REQUIRED/);
-  assert.deepEqual(runNames(root), before);
-  assert.equal(fs.existsSync(local(root, 'project-plans')), false);
+  assert.equal(api.createProjectPlans(root).plans[0].panelId, 'audio-secondary');
 });
 
 test('CLI freezes two pending panels with one style and anchor, retaining per-panel intents and no compute decisions', async t => {
@@ -37,18 +33,18 @@ test('CLI freezes two pending panels with one style and anchor, retaining per-pa
   const primary = path.join(temp, 'primary.png'); fs.writeFileSync(primary, syntheticImage(160, 100));
   const style = api.createStyle(root, { preset: 'concept-art', reference: primary });
   api.activateStyle(root, style.sha256, 'Synthetic project-style approval.');
-  const anchor = accepted(root, 'audio-settings', true);
+  const anchor = accepted(root, 'audio-settings');
   const intent = { kind: 'ui_reference_intent_v1', panelId: 'audio-third', note: 'Emphasize existing hierarchy.', emphasisIds: [] };
   const file = path.join(temp, 'intents.json'); fs.writeFileSync(file, jsonBytes([intent]));
   const batch = await main(['plan-project', '--root', root, '--intents', file, '--resolution', 'exact']);
-  assert.equal(batch.kind, 'ui_reference_project_plans_v1'); assert.equal(batch.selection, 'pending');
+  assert.equal(batch.kind, 'ui_reference_project_plans_v2'); assert.equal(batch.selection, 'pending');
   assert.equal(batch.computeCalls, 0); assert.equal(batch.maximumCalls, 2); assert.equal(batch.styleSha256, style.sha256);
   assert.deepEqual(batch.plans.map(plan => plan.panelId), ['audio-secondary', 'audio-third']);
   const report = fs.readFileSync(local(root, batch.review), 'utf8'); assert.ok(report.includes(batch.sha256));
   for (const item of batch.plans) {
     const plan = api.verifyPlan(root, item.run);
-    assert.equal(plan.styleSha256, style.sha256); assert.equal(plan.anchor.image.sha256, anchor.result.imageSha256);
-    assert.deepEqual(plan.request.images.map(image => image.role), ['layout-reference', 'primary-style', 'accepted-project-anchor']);
+    assert.equal(plan.styleSha256, style.sha256); assert.equal(plan.anchor, null);
+    assert.deepEqual(plan.request.images.map(image => image.role), ['layout-reference', 'primary-style']);
     assert.equal(plan.request.resolution.mode, 'exact'); assert.equal(digestJson(plan.request), item.requestSha256);
     assert.equal(report.includes(item.planSha256), true);
     assert.deepEqual(fs.readdirSync(local(root, item.run)), ['plan.json']);
@@ -67,7 +63,7 @@ test('CLI freezes two pending panels with one style and anchor, retaining per-pa
 });
 
 test('all selections and intents are checked before publishing any run, and planning honors the project lock', async t => {
-  const { root } = await threePanels(t); accepted(root, 'audio-settings', true);
+  const { root } = await threePanels(t); accepted(root, 'audio-settings');
   const before = runNames(root), good = { kind: 'ui_reference_intent_v1', panelId: 'audio-third', note: '', emphasisIds: [] };
   const invalid = [
     { panelIds: [] }, { panelIds: ['missing'] }, { panelIds: ['audio-secondary', 'audio-secondary'] },
@@ -85,7 +81,7 @@ test('all selections and intents are checked before publishing any run, and plan
 });
 
 test('explicit subsets are disclosed, snapshots remain immutable, and style/prototype changes are reported as stale', async t => {
-  const { root, temp } = await threePanels(t); accepted(root, 'audio-settings', true);
+  const { root, temp } = await threePanels(t); accepted(root, 'audio-settings');
   const batch = await main(['plan-project', '--root', root, '--panels', 'audio-third']);
   assert.equal(batch.selection, 'explicit-subset'); assert.equal(batch.maximumCalls, 1);
   assert.equal(batch.plans[0].panelId, 'audio-third');
@@ -97,15 +93,15 @@ test('explicit subsets are disclosed, snapshots remain immutable, and style/prot
   assert.throws(() => api.authorize(root, batch.plans[0].run, batch.plans[0].planSha256, 'Stale prototype.'), /PROTOTYPE_STALE/);
   const changed = api.createStyle(root, { preset: 'chinese-fantasy' }); api.activateStyle(root, changed.sha256, 'Synthetic new style.');
   assert.equal(api.inspectProjectPlans(root, batch.batch).currentContext, false);
-  assert.throws(() => api.createProjectPlans(root), /ACCEPTED_ANCHOR_REQUIRED/);
+  assert.throws(() => api.createProjectPlans(root), /STYLE_PRIMARY_REFERENCE_REQUIRED/);
   assert.ok(fs.readFileSync(local(root, batch.batch)).equals(snapshot));
 });
 
 test('batch inspection rejects resealed substitutions and path traversal instead of trusting its own digest', async t => {
-  const { root } = await threePanels(t); accepted(root, 'audio-settings', true);
+  const { root } = await threePanels(t); accepted(root, 'audio-settings');
   const batch = api.createProjectPlans(root), file = local(root, batch.batch), original = readJson(file);
   for (const edit of [
-    value => { value.anchor.imageSha256 = '0'.repeat(64); },
+    value => { value.primaryReference.sha256 = '0'.repeat(64); },
     value => { value.plans[1].requestSha256 = value.plans[0].requestSha256; },
     value => { value.plans[1].run = value.plans[0].run; },
     value => { value.plans[0].maximumCalls = 0; },
@@ -113,7 +109,7 @@ test('batch inspection rejects resealed substitutions and path traversal instead
     value => { value.styleSha256 = '0'.repeat(64); }, value => { value.provider = 'private'; },
   ]) {
     const payload = structuredClone(original); delete payload.sha256; edit(payload); fs.writeFileSync(file, jsonBytes(seal(payload)));
-    assert.throws(() => api.inspectProjectPlans(root, batch.batch), /BATCH|FIELDS/);
+    assert.throws(() => api.inspectProjectPlans(root, batch.batch), /BATCH|FIELDS|JSON_READ_FAILED/);
   }
   fs.writeFileSync(file, jsonBytes(original));
   for (const relative of ['../project.json', '/project.json', 'project-plans/../project.json']) {
@@ -124,7 +120,7 @@ test('batch inspection rejects resealed substitutions and path traversal instead
 
 test('fully accepted projects are a zero-write no-op rather than an implicit regeneration', async t => {
   const { root, temp } = await setup(t); await secondPanel(root, temp);
-  accepted(root, 'audio-settings', true); accepted(root, 'audio-secondary');
+  accepted(root, 'audio-settings'); accepted(root, 'audio-secondary');
   const before = runNames(root), project = fs.readFileSync(local(root, 'project.json'));
   const result = await main(['plan-project', '--root', root]);
   assert.equal(result.status, 'nothing_to_plan'); assert.equal(result.maximumCalls, 0); assert.deepEqual(result.plans, []);
@@ -154,9 +150,9 @@ test('known 0.5 results stay reviewable and supply an accepted anchor without re
   assert.throws(() => api.reserve(root, plan.run), /RUNTIME_CHANGED/);
   assert.throws(() => api.finish(root, plan.run, result.rawSha256), /RUNTIME_CHANGED/);
   api.reviewRun(root, plan.run, { imageSha256: result.imageSha256, layout: 'pass', style: 'pass', copy: 'pass',
-    decision: 'accept', note: 'Synthetic historical fixture decision.', useAsAnchor: true });
+    decision: 'accept', note: 'Synthetic historical fixture decision.', useAsAnchor: false });
   const batch = api.createProjectPlans(root);
-  assert.equal(batch.anchor.imageSha256, result.imageSha256); assert.equal(batch.maximumCalls, 1);
+  assert.equal(batch.primaryReference.sha256, api.verifyPlan(root, plan.run, { allowLegacy: true }).request.images.find(item => item.role === 'primary-style').artifact.sha256); assert.equal(batch.maximumCalls, 1);
   const output = path.join(temp, 'archived-export'); api.exportProject(root, output, ['audio-settings']);
   assert.equal(api.validateDelivery(output).status, 'valid');
 });

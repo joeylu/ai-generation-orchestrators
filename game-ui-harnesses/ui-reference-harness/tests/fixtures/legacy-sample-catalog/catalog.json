@@ -1,0 +1,197 @@
+{
+  "kind": "ui_reference_local_sample_catalog_v1",
+  "usage": "style-selection-preview",
+  "sampleSetSha256": "9863103aa73f799a5cf5cb4eb59aad7ad636c0c41a9268d0e2ff60742fbe6f5b",
+  "sampleIsProjectAnchor": false,
+  "projectStylePolicy": "one-reviewed-style-revision-per-project",
+  "palettePolicy": "sample-recommendation-project-may-create-reviewed-overrides",
+  "entries": [
+    {
+      "id": "concept-art",
+      "name": "概念图风格",
+      "version": "1.0.0",
+      "styleSha256": "443e4254fced2b9b50c0dd53094443c3c9d1943587a18742bba18a8f0eeb9b51",
+      "prototypeSha256": "b5fd28ac17fbe42bafdebb69f9ff28f36de4d5559fc953629e839aa4c7717786",
+      "visualReview": "accepted",
+      "image": {
+        "path": "concept-art/panels/style-showcase/reference.png",
+        "sha256": "341e47b0cbcde460415f5939e7bc37b1664545203e540989595d092501ee2fd7",
+        "bytes": 4563
+      },
+      "logicalCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "pixelCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "style": {
+        "path": "concept-art/style.json",
+        "sha256": "2473ae3fc27938ea6937bf8cebaebdb1024e1d5bf84c7ad1ec8e5c495bcdcef4",
+        "bytes": 3257
+      },
+      "manifest": {
+        "path": "concept-art/manifest.json",
+        "sha256": "9dad05ed4207a042ae92785e5508495af00ff88f390dae77c248441d8ddacfaa",
+        "bytes": 1226
+      }
+    },
+    {
+      "id": "pixel-cartoon",
+      "name": "像素卡通",
+      "version": "1.0.0",
+      "styleSha256": "c9ca51fa2b53c4255bf6685b5623572e7a18428d6bddb0f70351c65ac38386e8",
+      "prototypeSha256": "b5fd28ac17fbe42bafdebb69f9ff28f36de4d5559fc953629e839aa4c7717786",
+      "visualReview": "accepted",
+      "image": {
+        "path": "pixel-cartoon/panels/style-showcase/reference.png",
+        "sha256": "341e47b0cbcde460415f5939e7bc37b1664545203e540989595d092501ee2fd7",
+        "bytes": 4563
+      },
+      "logicalCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "pixelCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "style": {
+        "path": "pixel-cartoon/style.json",
+        "sha256": "f4e814a3f0ac8f5695171cbb71592a78c080c8efdf5a764be4f5d06131c37364",
+        "bytes": 3388
+      },
+      "manifest": {
+        "path": "pixel-cartoon/manifest.json",
+        "sha256": "7db8d44cc9dae6824064e1634caf8d280cff03fa1322266bc7856e87c36345c9",
+        "bytes": 1228
+      }
+    },
+    {
+      "id": "anime-cel",
+      "name": "日系赛璐璐",
+      "version": "1.0.0",
+      "styleSha256": "f70587c57a8b8964128fb76010d7aafe225c8f66cb5045baf0644ccb45083c42",
+      "prototypeSha256": "b5fd28ac17fbe42bafdebb69f9ff28f36de4d5559fc953629e839aa4c7717786",
+      "visualReview": "accepted",
+      "image": {
+        "path": "anime-cel/panels/style-showcase/reference.png",
+        "sha256": "341e47b0cbcde460415f5939e7bc37b1664545203e540989595d092501ee2fd7",
+        "bytes": 4563
+      },
+      "logicalCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "pixelCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "style": {
+        "path": "anime-cel/style.json",
+        "sha256": "9f60a0321340afa6ab368da1d9b06df68f07614c6109d81b6e5848bb6d118395",
+        "bytes": 3203
+      },
+      "manifest": {
+        "path": "anime-cel/manifest.json",
+        "sha256": "cc5341260a24fcc6951961fb42c7056aecba89b8b599504f3165c2312c613fd0",
+        "bytes": 1224
+      }
+    },
+    {
+      "id": "western-cartoon",
+      "name": "欧美卡通",
+      "version": "1.0.0",
+      "styleSha256": "1cd65647c80c5a139c34d1ff8f8c825abbc3a8e385ca2703d7e00d1cc8645661",
+      "prototypeSha256": "b5fd28ac17fbe42bafdebb69f9ff28f36de4d5559fc953629e839aa4c7717786",
+      "visualReview": "accepted",
+      "image": {
+        "path": "western-cartoon/panels/style-showcase/reference.png",
+        "sha256": "341e47b0cbcde460415f5939e7bc37b1664545203e540989595d092501ee2fd7",
+        "bytes": 4563
+      },
+      "logicalCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "pixelCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "style": {
+        "path": "western-cartoon/style.json",
+        "sha256": "c778922a5e32ec9924a31ab4ea6c1127b7f98b125fde636874feae344d6aef9d",
+        "bytes": 3239
+      },
+      "manifest": {
+        "path": "western-cartoon/manifest.json",
+        "sha256": "4c409e76dab9a41e29fe5682f3f2ad4e603e02e60fe4414f5c61e5b92937aa15",
+        "bytes": 1230
+      }
+    },
+    {
+      "id": "fantasy-handpainted",
+      "name": "幻想手绘",
+      "version": "1.0.0",
+      "styleSha256": "9d9c8bb1932d046078a9cbf0bce2d112bbdad9cd7d72d51147a5760d419e259d",
+      "prototypeSha256": "b5fd28ac17fbe42bafdebb69f9ff28f36de4d5559fc953629e839aa4c7717786",
+      "visualReview": "accepted",
+      "image": {
+        "path": "fantasy-handpainted/panels/style-showcase/reference.png",
+        "sha256": "341e47b0cbcde460415f5939e7bc37b1664545203e540989595d092501ee2fd7",
+        "bytes": 4563
+      },
+      "logicalCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "pixelCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "style": {
+        "path": "fantasy-handpainted/style.json",
+        "sha256": "a59f05aaebe1ccb84a44981fbce4f407ec926ad4ca1486ad73d71923edccbabb",
+        "bytes": 3316
+      },
+      "manifest": {
+        "path": "fantasy-handpainted/manifest.json",
+        "sha256": "e339b4018d419df1c475ada9ede1c925ff3ac0947fbf69b7841e81dcef327b3f",
+        "bytes": 1234
+      }
+    },
+    {
+      "id": "chinese-fantasy",
+      "name": "国风幻想",
+      "version": "1.0.0",
+      "styleSha256": "326ce547d48616f1a1941032c4cac77921ba2cd62f1270c6574eea932016d1b7",
+      "prototypeSha256": "b5fd28ac17fbe42bafdebb69f9ff28f36de4d5559fc953629e839aa4c7717786",
+      "visualReview": "accepted",
+      "image": {
+        "path": "chinese-fantasy/panels/style-showcase/reference.png",
+        "sha256": "341e47b0cbcde460415f5939e7bc37b1664545203e540989595d092501ee2fd7",
+        "bytes": 4563
+      },
+      "logicalCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "pixelCanvas": {
+        "width": 960,
+        "height": 800
+      },
+      "style": {
+        "path": "chinese-fantasy/style.json",
+        "sha256": "f72571b16fe720e9fc5e476397413e80970bcedad27d0c00692c397218e560fa",
+        "bytes": 3367
+      },
+      "manifest": {
+        "path": "chinese-fantasy/manifest.json",
+        "sha256": "aa369fec666c360de958d1cf53ff9cc7872ceec9413198c2d87f8d4c0816656b",
+        "bytes": 1230
+      }
+    }
+  ],
+  "sha256": "18c8873742be2226f0629e215238e4cc14f141027c9a27d222cbdf27afab20ea"
+}

@@ -10,11 +10,12 @@ import { setup, accepted, secondPanel, syntheticImage, panelFile, catalogFile } 
 
 test('two panels inherit one project style, accept independently and export a deterministic portable set', async t => {
   const { root, temp, style } = await setup(t); await secondPanel(root, temp);
-  const first = accepted(root, 'audio-settings', true), second = accepted(root, 'audio-secondary');
+  const first = accepted(root, 'audio-settings'), second = accepted(root, 'audio-secondary');
   assert.equal(first.plan.styleSha256, style.sha256); assert.equal(second.plan.styleSha256, style.sha256);
   const frozen = api.verifyPlan(root, second.plan.run);
-  assert.equal(frozen.anchor.image.sha256, first.result.imageSha256);
-  assert.ok(frozen.request.images.some(item => item.role === 'accepted-project-anchor'));
+  assert.equal(frozen.anchor, null);
+  assert.ok(!frozen.request.images.some(item => item.role === 'accepted-project-anchor'));
+  assert.equal(frozen.request.images.find(item => item.role === 'primary-style').artifact.sha256, style.references[0].artifact.sha256);
   assert.deepEqual(api.projectStatus(root).panels.map(p => p.status), ['accepted_current_style', 'accepted_current_style']);
   const a = path.join(temp, 'export-a'), b = path.join(temp, 'export-b');
   const left = api.exportProject(root, a), right = api.exportProject(root, b);

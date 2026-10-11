@@ -80,6 +80,15 @@ export function validateStyleDocument(style) {
   }
   return style;
 }
+// New compute requires the exact primary PNG of the confirmed style revision.
+// Historical rule-only styles remain readable; never manufacture a replacement.
+export function primaryStyleReference(root, styleSha256) {
+  const style = loadStyle(root, styleSha256);
+  const references = style.references.filter(item => item.role === 'primary-style');
+  requireThat(references.length === 1, 'STYLE_PRIMARY_REFERENCE_REQUIRED');
+  decodePng(verifyBlob(root, references[0].artifact));
+  return references[0].artifact;
+}
 export function loadStyle(root, digest) {
   requireThat(isDigest(digest), 'STYLE_DIGEST');
   const style = validateStyleDocument(readJson(local(root, `styles/${digest}.json`)));

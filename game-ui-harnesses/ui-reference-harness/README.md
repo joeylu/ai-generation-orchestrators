@@ -1,4 +1,19 @@
-# UI Reference Harness · 0.7.3 source release
+# UI Reference Harness · 0.8.0 source release
+
+## 0.8.0：统一项目主参考
+
+所有新面板计划共用已确认风格版本的完整 primary-style PNG；任何面板都可以先生成。
+默认无备注使用完整默认样本，衍生或自定义风格使用确认后的完整预览，不使用卡片缩略图。
+项目主参考只通过风格确认/修订改变。接受面板图片只接受该 run，不能设定项目锚点。
+旧 anchorPanelId 仅作为惰性兼容输入；useAsAnchor: true 明确返回 PROJECT_ANCHOR_REMOVED。
+新 DAG 为 ui_reference_project_dag_v2，含 primaryReference、无 anchor 依赖。
+修改请求依次冻结 revision-source、layout-reference、primary-style（及已有原型上下文）。
+风格缺少主参考时返回 STYLE_PRIMARY_REFERENCE_REQUIRED，须明确修复风格；不自动补图。
+旧 DAG、计划、锚点、原图、原生会话和 ZIP 均保留。已完成旧结果可显式验收/导出；旧计划不执行。
+新 DAG 不重置项目/面板/风格/原型会话的三轮修改预算，失败和不明状态不自动重投。
+规则风格与六种样本准备仍可读取；无主参考的规则草案不能再冻结新计算计划。
+真实模型调用 0；替身与 PNG 技术检查不代表人工视觉验收或 Docker 实际部署。
+
 
 把 `ui-panel-harness` 的面板原型，按一个游戏项目固定的风格转成 UI 参考图。
 支持六种默认风格、定制 UI 风格包、用户主风格 PNG、可选自然语言补充、风格修订及同风格整套交付。
@@ -9,7 +24,7 @@
 首张设置图作为视觉锚点；已观察到的字号与比例偏差保留，不承诺像素级还原。
 按源码附件分发；生产接入需固定不可变仓库标签及归档摘要，不复制第二份源码维护。
 
-当前发布标签为 `ui-reference-harness-v0.7.3`；附件校验、启动与升级边界见 [0.7.3 发布说明](docs/release-0.7.3.md)。
+当前发布标签为 `ui-reference-harness-v0.8.0`；附件校验、启动与升级边界见 [0.8.0 发布说明](docs/release-0.8.0.md)。
 
 当前源码另包含可选 CLI Code-mode 转发适配器，可显式传递
 `transparent_background=false`；原生适配器继续沿用 0.7.2 合同。配置与单次调用门禁见
@@ -21,7 +36,7 @@
 
 ## 项目级 DAG
 
-已实现显式无环依赖、冻结项目上下文、首图人工接受与锚点门、后续面板计划解锁、逐面板
+已实现显式无环依赖、冻结项目上下文、已确认主参考与独立面板计划、逐面板
 单次生成交换／适配器、持久化操作重放、三轮修改、最近接受版本选择及可验证整套交付。
 已有 CLI 接受图可以直接接入，不重新生成。创建、检查和 advance 均为零计算；授权、
 生成、验收和导出仍有明确入口。提供核心函数与 `dag-*` CLI，消费服务自行接入。
@@ -218,16 +233,15 @@ node $ReferenceCli reprocess --root $ProjectRoot --run runs/NEW_UUID --plan-sha2
 技术 QA 后仍是 pending_visual_review。展示 reference.png、原型和风格，由用户逐项决定：
 
 ```powershell
-node $ReferenceCli review --root $ProjectRoot --run runs/RUN_UUID --image-sha256 IMAGE_SHA256 --layout pass --style pass --copy pass --decision accept --note "用户针对这张图的真实验收意见" --anchor true
+node $ReferenceCli review --root $ProjectRoot --run runs/RUN_UUID --image-sha256 IMAGE_SHA256 --layout pass --style pass --copy pass --decision accept --note "用户针对这张图的真实验收意见" --anchor false
 ```
 
 三项均 pass 才能 accept。拒绝时 decision=reject，失败项传 fail。审查记录不可覆盖。
-可用 `--anchor true` 把首张已接受的代表面板固定为该风格的样板，后续新计划引用它。
+接受图片只更新该面板已接受版本，后续计划继续引用已确认的项目主参考。
 已固定样板不可替换；改变样板需要新的风格修订。各计划记录是否附加样板。
 
 同项目验证可使用已有设置展示原型及 [主菜单](examples/main-menu.panel.json)、[确认弹窗](examples/exit-confirm.panel.json)，
-均经公开 ui-panel 编译器导入，统一 960×800 逻辑画布。先生成并接受代表面板、显式设为 anchor，
-再冻结其他面板计划，确认其同时引用同一 styleSha256、primary-style 和 accepted-project-anchor。
+均经公开 ui-panel 编译器导入，统一 960×800 逻辑画布。任选面板生成，其他面板无需等待其验收；确认各份新计划共用同一 styleSha256 与 primary-style。
 设定样板之前冻结的计划不会自动追加新样板；需要为后续面板创建新计划。
 
 首图接受并选为样板后，可一次准备当前项目待生成面板的计划：
@@ -239,7 +253,7 @@ node $ReferenceCli inspect-project-plans --root $ProjectRoot --batch $Batch.batc
 
 默认跳过 `accepted_current_style`，包含未生成和需更新风格的面板；一次最多 64 个。
 也可显式 `--panels main-menu,exit-confirm`，集合会标记子集；已接受面板的改进继续使用 optimize。
-没有已接受的当前风格样板时，先通过单面板 plan 生成代表图，不自动替用户挑选样板。
+风格确认完整主参考后可直接冻结任意面板的计划，无需先验收代表图。
 全部完成则返回 `nothing_to_plan`，不新增计划文件。
 
 可选 `--intents FILE` 接收 [project-intents.schema.json](schemas/project-intents.schema.json)

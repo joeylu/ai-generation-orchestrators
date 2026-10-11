@@ -43,6 +43,7 @@ test('three frozen visual revisions preserve the initial intent, source bytes an
     assert.throws(() => api.verifyPlan(root, plan.run), /REVISION|BLOB|PLAN_REQUEST/);
   }
   fs.writeFileSync(file, jsonBytes(original));
-  const style = api.createStyle(root, { preset: 'pixel-cartoon' }); api.activateStyle(root, style.sha256, 'Synthetic style change.');
+  const reference = path.join(temp, 'changed-style.png'); fs.writeFileSync(reference, syntheticImage(96, 64));
+  const style = api.createStyle(root, { preset: 'pixel-cartoon', reference }); api.activateStyle(root, style.sha256, 'Synthetic style change.');
   assert.throws(() => api.createRevisionPlan(root, { sourceRun: originalRun, note: 'stale style' }), /REVISION_SOURCE/);
 });

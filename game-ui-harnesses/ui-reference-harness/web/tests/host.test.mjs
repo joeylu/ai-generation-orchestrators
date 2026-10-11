@@ -215,7 +215,7 @@ test("deleting an accepted anchor excludes its panel from new exports while pres
       copy: "pass",
       decision: "accept",
       note: "Synthetic fixture visual review.",
-      useAsAnchor: anchor,
+      useAsAnchor: false,
     });
   }
   await generateAndAccept("main-menu", true);
@@ -247,10 +247,10 @@ test("deleting an accepted anchor excludes its panel from new exports while pres
   assert.equal(
     sha256(
       Buffer.from(
-        await (await fetch(`${origin}${hidden.anchor.image}`)).arrayBuffer(),
+        await (await fetch(`${origin}${hidden.styleImage}`)).arrayBuffer(),
       ),
     ),
-    before.anchor.imageSha256,
+    before.style.references[0].artifact.sha256,
   );
   assert.equal(
     (await call(`${base}/import`, { template: "main-menu" }, 410)).error,
@@ -355,7 +355,7 @@ for (const runtime of [
       copy: "pass",
       decision: "accept",
       note: "Synthetic archived image acceptance.",
-      useAsAnchor: true,
+      useAsAnchor: false,
     };
     assert.equal(
       (
@@ -375,7 +375,7 @@ for (const runtime of [
     assert.equal((await call(`${route}/review`, review)).status, "accepted");
     assert.equal((await call(sessionRoute)).source.status, "accepted");
     const project = await call(`/projects/${id}`);
-    assert.equal(project.anchor.imageSha256, imageSha256);
+    assert.equal(project.anchor, null);
     assert.equal(project.panels[0].acceptedRun, run);
     const exported = await call(`/projects/${id}/export`, {});
     assert.equal(
@@ -419,13 +419,17 @@ for (const [scope, runtime] of [
       scope === "project-drafts"
         ? await call("/project-drafts", {
             name: "Archived preview fixture",
-            style: { preset: "fantasy-handpainted" },
+            style: {
+              preset: "fantasy-handpainted",
+              reference: syntheticImage(96, 64).toString("base64"),
+            },
           })
         : { id: await configured() };
     const style =
       draft.style ??
       (await call(`/projects/${draft.id}/style-draft`, {
         preset: "fantasy-handpainted",
+        reference: syntheticImage(96, 64).toString("base64"),
       }));
     const route = `/${scope}/${draft.id}/style-preview`,
       operationId = randomUUID();
@@ -684,6 +688,7 @@ test("existing project style previews leave the current project intact and rejec
   const before = await call(`/projects/${id}`),
     draft = await call(`/projects/${id}/style-draft`, {
       preset: "pixel-cartoon",
+      reference: syntheticImage(96, 64).toString("base64"),
     });
   const body = {
     styleSha256: draft.sha256,
@@ -695,6 +700,7 @@ test("existing project style previews leave the current project intact and rejec
   assert.deepEqual((await call(`/projects/${id}`)).panels, before.panels);
   const otherDraft = await call(`/projects/${other}/style-draft`, {
     preset: "pixel-cartoon",
+    reference: syntheticImage(96, 64).toString("base64"),
   });
   await call(
     `/projects/${other}/style-activate`,
@@ -739,7 +745,10 @@ test("failed style previews are terminal, survive restart and never automaticall
   });
   const draft = await call("/project-drafts", {
     name: "Failure preview",
-    style: { preset: "concept-art" },
+    style: {
+      preset: "concept-art",
+      reference: syntheticImage(96, 64).toString("base64"),
+    },
   });
   const route = `/project-drafts/${draft.id}/style-preview`,
     body = {
@@ -789,7 +798,10 @@ test("pending style preview blocks competing generation and final adoption until
   });
   const draft = await call("/project-drafts", {
     name: "Pending preview",
-    style: { preset: "concept-art" },
+    style: {
+      preset: "concept-art",
+      reference: syntheticImage(96, 64).toString("base64"),
+    },
   });
   const route = `/project-drafts/${draft.id}/style-preview`,
     body = {
@@ -986,6 +998,7 @@ test("pending style resolution blocks competing writes and an invalid result lea
   assert.equal((await call(`/projects/${id}`)).activeStyle, before.activeStyle);
   const next = await call(`/projects/${id}/style-draft`, {
     preset: "pixel-cartoon",
+    reference: syntheticImage(96, 64).toString("base64"),
   });
   assert.ok(next.sha256);
 });
@@ -1269,6 +1282,7 @@ async function host(t, options = {}) {
       id = project.id;
     const draft = await call(`/projects/${id}/style-draft`, {
       preset: "concept-art",
+      reference: syntheticImage(96, 64).toString("base64"),
     });
     await call(`/projects/${id}/style-activate`, {
       styleSha256: draft.sha256,
@@ -1579,7 +1593,7 @@ test("trash and restore preserve every project and export byte, reject archived 
     copy: "pass",
     decision: "accept",
     note: "Synthetic recovery fixture.",
-    useAsAnchor: true,
+    useAsAnchor: false,
   });
   const before = await call(`/projects/${id}`);
   const exported = await call(`/projects/${id}/export`, {});
@@ -1614,7 +1628,7 @@ test("trash and restore preserve every project and export byte, reject archived 
   );
   await call(`${route}/request`, {}, 410);
   await call(`/projects/${id}/plan`, { panelId: "main-menu" }, 410);
-  assert.equal((await fetch(`${origin}${before.anchor.image}`)).status, 410);
+  assert.equal((await fetch(`${origin}${before.styleImage}`)).status, 410);
   assert.equal((await fetch(`${origin}${exported.download}`)).status, 410);
   assert.deepEqual(snapshot(projectDirectory), originalProject);
   assert.deepEqual(snapshot(exportDirectory), originalExports);
@@ -1745,7 +1759,10 @@ test("project drafts, prototype import and plan preparation never authorize or g
   assert.deepEqual(fs.readdirSync(local(root, plan.run)), ["plan.json"]);
   await call(`/projects/${id}/runs/${plan.run.slice(5)}/generate`, {}, 400);
   await call(`/projects/${id}/runs/${plan.run.slice(5)}/request`, {}, 400);
-  await call(`/projects/${id}/plan-project`, {}, 400);
+  assert.equal(
+    (await call(`/projects/${id}/plan-project`, {})).computeCalls,
+    0,
+  );
   assert.equal(calls, 0);
 });
 
@@ -1784,12 +1801,15 @@ test("manual exchange preserves one reservation, requires explicit review and ex
     copy: "pass",
     decision: "accept",
     note: "Synthetic reference acceptance.",
-    useAsAnchor: true,
+    useAsAnchor: false,
   });
   await call(`/projects/${id}/import`, { template: "exit-confirm" });
   const batch = await call(`/projects/${id}/plan-project`, {});
   assert.equal(batch.maximumCalls, 1);
-  assert.equal(batch.anchor.imageSha256, generated.imageSha256);
+  assert.equal(
+    batch.primaryReference.sha256,
+    (await call(`/projects/${id}`)).style.references[0].artifact.sha256,
+  );
   await call(`/projects/${id}/export`, {}, 400);
   const second = batch.plans[0],
     nextRoute = `/projects/${id}/runs/${second.run.slice(5)}`;
@@ -2037,19 +2057,19 @@ test("optimizing an anchor panel preserves the fixed anchor and exports only its
     copy: "pass",
     decision: "accept",
     note: "Synthetic anchor acceptance.",
-    useAsAnchor: true,
+    useAsAnchor: false,
   });
   const second = await generate(1200, 1000),
     project = await call(`/projects/${id}`);
-  assert.equal(project.anchor.run, first.plan.run);
-  assert.equal(project.anchor.imageSha256, first.result.imageSha256);
+  assert.equal(project.anchor, null);
+  assert.equal(project.style.references[0].artifact.sha256.length, 64);
   assert.equal(project.panels[0].displayRun, second.plan.run);
   assert.equal(project.panels[0].displayImageSha256, second.result.imageSha256);
   assert.equal(project.panels[0].isAnchor, false);
-  const anchor = await fetch(`${origin}${project.anchor.image}`);
+  const anchor = await fetch(`${origin}${project.styleImage}`);
   assert.equal(
     sha256(Buffer.from(await anchor.arrayBuffer())),
-    first.result.imageSha256,
+    project.style.references[0].artifact.sha256,
   );
   const exported = await call(`/projects/${id}/export`, {}),
     output = local(workspace, `exports/${id}/${exported.exportId}`);
@@ -2070,5 +2090,5 @@ test("optimizing an anchor panel preserves the fixed anchor and exports only its
   });
   const accepted = await call(`/projects/${id}`);
   assert.equal(accepted.panels[0].acceptedRun, second.plan.run);
-  assert.equal(accepted.anchor.imageSha256, first.result.imageSha256);
+  assert.equal(accepted.anchor, null);
 });

@@ -56,13 +56,7 @@ function StyleRules({ draft }) {
   );
 }
 
-export function DeletePanelDialog({
-  panel,
-  isAnchor,
-  busy,
-  onClose,
-  onDelete,
-}) {
+export function DeletePanelDialog({ panel, busy, onClose, onDelete }) {
   return (
     <Modal
       title="删除面板"
@@ -76,7 +70,6 @@ export function DeletePanelDialog({
         <p>
           已经提交的生成任务会继续收尾，结果保留在已删除面板中，不会自动重新生成。
         </p>
-        {isAnchor && <p>此面板的固定锚点图会继续用于项目风格一致性。</p>}
       </div>
       <div className="modal-footer">
         <Button disabled={busy} onClick={onClose}>

@@ -37,11 +37,8 @@ test('new rule-only presets freeze zero style images and compile UI-specific ren
     assert.equal(style.kind, 'ui_reference_style_v2'); assert.deepEqual(style.references, []);
     assert.equal(api.loadStyle(root, style.sha256).pack.metadata.id, id);
     api.activateStyle(root, style.sha256, 'Offline fixture style review.');
-    const plan = api.createPlan(root, { panelId: 'audio-settings' });
-    assert.deepEqual(plan.request.images.map(i => i.role), ['layout-reference']);
-    assert.ok(plan.request.prompt.includes(`STYLE_PACK=${canonical(style.pack)}`));
-    assert.ok(!plan.request.prompt.includes('rpg_8dir_idle'));
-    assert.ok(!fs.existsSync(local(root, `${plan.run}/authorization.json`)));
+    assert.throws(() => api.createPlan(root, { panelId: 'audio-settings' }), /STYLE_PRIMARY_REFERENCE_REQUIRED/);
+    assert.equal(fs.existsSync(local(root, 'runs')), false);
   }
 });
 
@@ -123,7 +120,8 @@ test('resolved pack tampering fails against the frozen raw source even after res
 
 test('custom pack identity and original bytes ship with accepted panels; source edits fail delivery validation', async t => {
   const { root, temp } = await setup(t), file = customFile(temp), original = fs.readFileSync(file);
-  const style = api.createStyle(root, { pack: file }); api.activateStyle(root, style.sha256, 'Offline style review.');
+  const reference = path.join(temp, "primary.png"); fs.writeFileSync(reference, syntheticImage(96, 64));
+  const style = api.createStyle(root, { pack: file, reference }); api.activateStyle(root, style.sha256, 'Offline style review.');
   accepted(root);
   const output = path.join(temp, 'pack-delivery'); api.exportProject(root, output);
   assert.equal(api.validateDelivery(output).status, 'valid');
@@ -158,11 +156,11 @@ test('known 0.2.0 outputs remain reviewable but old runtime plans can never disp
   assert.equal(api.inspectRun(root, plan.run).executable, false); assert.equal(verifyResult(root, plan.run).technical.imageSha256, result.imageSha256);
   for (const call of [() => api.reserve(root, plan.run), () => api.finish(root, plan.run, result.rawSha256),
     () => api.authorize(root, plan.run, archived.sha256, 'No permission to run archived compute.')]) assert.throws(call, /RUNTIME_CHANGED/);
-  api.reviewRun(root, plan.run, { imageSha256: result.imageSha256, layout: 'pass', style: 'pass', copy: 'pass', decision: 'accept', note: 'Historical fixture review.', useAsAnchor: true });
+  api.reviewRun(root, plan.run, { imageSha256: result.imageSha256, layout: 'pass', style: 'pass', copy: 'pass', decision: 'accept', note: 'Historical fixture review.', useAsAnchor: false });
   assert.equal(api.projectStatus(root).panels[0].status, 'accepted_current_style');
   const next = api.createPlan(root, { panelId: 'audio-settings' });
-  assert.equal(next.request.images.at(-1).role, 'accepted-project-anchor');
-  assert.equal(next.request.images.at(-1).artifact.sha256, result.imageSha256);
+  assert.equal(next.request.images.at(-1).role, 'primary-style');
+  assert.equal(next.request.images.at(-1).artifact.sha256, api.loadStyle(root, api.projectStatus(root).activeStyle).references[0].artifact.sha256);
 });
 
 test('six sample drafts share one prototype and cannot freeze plans until all styles are reviewed', async t => {
@@ -177,15 +175,6 @@ test('six sample drafts share one prototype and cannot freeze plans until all st
     assert.ok(!fs.existsSync(path.join(root, 'runs')));
     api.activateStyle(root, s.styleSha256, 'Synthetic sample style review, not real acceptance.');
   }
-  const batch = api.planSamples(output); assert.equal(batch.computeCalls, 0); assert.equal(batch.plans.length, 6);
-  const reviewFile = fs.readdirSync(path.join(output, 'plans')).find(f => f.endsWith('.md'));
-  const review = fs.readFileSync(path.join(output, 'plans', reviewFile), 'utf8');
-  assert.ok(review.includes(batch.sha256)); assert.ok(batch.plans.every(p => review.includes(p.planSha256)));
-  assert.equal(new Set(batch.plans.map(p => p.request.images[0].artifact.sha256)).size, 1);
-  for (const p of batch.plans) {
-    assert.equal(p.request.width, 960); assert.equal(p.request.height, 800);
-    assert.equal(api.inspectRun(path.join(output, p.id), p.run).status, 'awaiting_authorization');
-    assert.ok(p.request.prompt.includes('保存设置')); assert.ok(p.request.prompt.includes('70'));
-    assert.ok(!fs.existsSync(local(path.join(output, p.id), `${p.run}/attempt.json`)));
-  }
+  assert.throws(() => api.planSamples(output), /STYLE_PRIMARY_REFERENCE_REQUIRED/);
+  assert.ok(prepared.samples.every(item => !fs.existsSync(local(path.join(output, item.id), 'runs'))));
 });

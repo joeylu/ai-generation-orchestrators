@@ -203,6 +203,7 @@ export function verifyReview(root, run, result = verifyResult(root, run)) {
 }
 export function reviewRun(root, run, { imageSha256, layout, style, copy, decision, note, useAsAnchor = false }) {
   textValue(note, 2000);
+  requireThat(!useAsAnchor, 'PROJECT_ANCHOR_REMOVED');
   requireThat(['pass', 'fail'].includes(layout) && ['pass', 'fail'].includes(style) && ['pass', 'fail'].includes(copy)
     && ['accept', 'reject'].includes(decision) && typeof useAsAnchor === 'boolean'
     && (!useAsAnchor || decision === 'accept'), 'REVIEW_FIELDS_INVALID');
@@ -213,15 +214,9 @@ export function reviewRun(root, run, { imageSha256, layout, style, copy, decisio
     const project = decision === 'accept' ? assertCurrent(root, plan) : loadProject(root);
     const review = seal({ kind: 'ui_reference_human_review_v1', planSha256: plan.sha256, imageSha256,
       layout, style, copy, decision, note, useAsAnchor });
-    let baseline;
-    if (useAsAnchor) {
-      baseline = { image: storeBlob(root, reference, 'png'), run, planSha256: plan.sha256, reviewSha256: review.sha256 };
-      requireThat(!project.baselines[plan.styleSha256] || canonical(project.baselines[plan.styleSha256]) === canonical(baseline), 'STYLE_ANCHOR_ALREADY_FIXED');
-    }
     sameOrNew(root, `${run}/review.json`, jsonBytes(review)); verifyReview(root, run, result);
     if (decision === 'accept') {
       project.panels[plan.panelId].acceptedRun = run;
-      if (baseline) project.baselines[plan.styleSha256] = baseline;
       saveProject(root, project);
     }
     return { status: decision === 'accept' ? 'accepted' : 'rejected_visual', imageSha256, useAsAnchor };

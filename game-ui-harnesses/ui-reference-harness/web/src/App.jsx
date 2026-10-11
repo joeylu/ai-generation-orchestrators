@@ -460,7 +460,6 @@ export default function App() {
           project={project}
           busy={busy || loading}
           onStyle={() => setModal({ type: "style" })}
-          onAnchor={() => setModal({ type: "anchor" })}
         />
       )}
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
@@ -482,7 +481,6 @@ export default function App() {
       {modal?.type === "delete-panel" && project && (
         <DeletePanelDialog
           panel={modal.target}
-          isAnchor={project.anchor?.panelId === modal.target.panelId}
           busy={panelMutation}
           onClose={() => setModal(null)}
           onDelete={() => changePanelVisibility(modal.target, true)}
@@ -532,25 +530,6 @@ export default function App() {
           onRefresh={refresh}
           onClose={() => setModal(null)}
         />
-      )}
-      {modal?.type === "anchor" && project?.anchor && (
-        <Modal
-          title={`固定项目锚点 · ${project.anchor.title}`}
-          subtitle="后续面板使用这张已接受图片；面板的新尝试不会替换此锚点。"
-          onClose={() => setModal(null)}
-        >
-          <div className="modal-body">
-            <img
-              className="draft-image"
-              src={project.anchor.image}
-              alt="固定项目锚点原图"
-            />
-            <Hash label="锚点图片摘要" value={project.anchor.imageSha256} />
-          </div>
-          <div className="modal-footer">
-            <Button onClick={() => setModal(null)}>关闭</Button>
-          </div>
-        </Modal>
       )}
     </div>
   );

@@ -21,7 +21,8 @@ const select = (selectedId = 'quality-b') => ({ id: 'quality', type: 'Select', b
 
 async function sourceFixture(t) {
   const context = await setup(t);
-  const style = api.createStyle(context.root, { preset: 'concept-art' });
+  const reference = path.join(context.temp, 'primary.png'); fs.writeFileSync(reference, syntheticImage(96, 64));
+  const style = api.createStyle(context.root, { preset: 'concept-art', reference });
   api.activateStyle(context.root, style.sha256, 'Synthetic fixture approval.');
   await api.addPanel(context.root, { spec: showcase, catalog });
   const plan = api.createPlan(context.root, { panelId: 'style-showcase' });
@@ -58,7 +59,7 @@ test('scoped correction snapshots a verified unaccepted image, preserves old fil
   const frozen = api.verifyPlan(root, plan.run);
   assert.equal(frozen.kind, 'ui_reference_plan_v3'); assert.equal(frozen.parentPlanSha256, parent.planSha256);
   assert.equal(frozen.correction.image.sha256, result.imageSha256); assert.equal(frozen.anchor, null);
-  assert.deepEqual(plan.request.images.map(image => image.role), ['correction-source', 'layout-reference']);
+  assert.deepEqual(plan.request.images.map(image => image.role), ['correction-source', 'layout-reference', 'primary-style']);
   assert.equal(sha256(fs.readFileSync(local(root, plan.request.images[0].artifact.path))), result.imageSha256);
   assert.ok(plan.request.prompt.includes('Do not redesign')); assert.ok(!plan.request.prompt.includes('流畅'));
   assert.equal(api.inspectRun(root, plan.run).status, 'awaiting_authorization');
@@ -87,7 +88,7 @@ test('scoped correction snapshots a verified unaccepted image, preserves old fil
 });
 
 test('correction rejects non-Select targets, mismatched source context, rehashed tampering and recursive sources', async t => {
-  const { root, plan: parent } = await sourceFixture(t);
+  const { root, temp, plan: parent } = await sourceFixture(t);
   const prototype = loadPrototype(root, api.verifyPlan(root, parent.run).prototype);
   const nonSelect = prototype.nodes.find(node => node.type !== 'Select').id;
   for (const targetIds of [[], ['missing'], [nonSelect], ['missing', 'missing']]) {
@@ -101,7 +102,8 @@ test('correction rejects non-Select targets, mismatched source context, rehashed
     assert.throws(() => api.verifyPlan(root, plan.run), /CORRECTION|BLOB/);
   }
   fs.writeFileSync(file, jsonBytes(original));
-  const changed = api.createStyle(root, { preset: 'chinese-fantasy' }); api.activateStyle(root, changed.sha256, 'Synthetic changed style.');
+  const reference = path.join(temp, 'changed-primary.png'); fs.writeFileSync(reference, syntheticImage(128, 96));
+  const changed = api.createStyle(root, { preset: 'chinese-fantasy', reference }); api.activateStyle(root, changed.sha256, 'Synthetic changed style.');
   assert.throws(() => api.createSelectCorrectionPlan(root, { sourceRun: parent.run }), /CORRECTION_SOURCE/);
   assert.throws(() => api.authorize(root, plan.run, plan.planSha256, 'Stale correction.'), /STYLE_STALE/);
 });
@@ -130,6 +132,6 @@ test('known 0.3 style-pack output reconstructs its historical prompt and remains
   assert.equal(api.verifyPlan(root, correction.run).parentPlanSha256, archived.sha256);
   assert.ok(!correction.request.prompt.includes('流畅'));
   api.reviewRun(root, parent.run, { imageSha256: result.imageSha256, layout: 'pass', style: 'pass', copy: 'pass',
-    decision: 'accept', note: 'Offline historical fixture review.', useAsAnchor: true });
+    decision: 'accept', note: 'Offline historical fixture review.', useAsAnchor: false });
   assert.equal(api.projectStatus(root).panels.find(p => p.panelId === 'style-showcase').status, 'accepted_current_style');
 });

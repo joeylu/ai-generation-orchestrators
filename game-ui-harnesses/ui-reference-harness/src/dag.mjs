@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { atomicJson, canonical, digestJson, exact, isDigest, isId, local, readJson, requireThat, seal, sha256, textValue, unseal, validationScope, withLock, writeJsonNew } from './common.mjs';
 import { loadProject, projectStatus } from './project.mjs';
+import { loadStyle, primaryStyleReference } from './styles.mjs';
 import { loadPrototype } from './panel.mjs';
 import { createPlan, createRevisionPlan, runtimeDigest, validateIntent, verifyPlan } from './compiler.mjs';
 import { authorize, finish, generateWithAdapter, inspectRun, receive, reserve, reviewRun, stopAttempt, verifyResult, verifyReview } from './generation.mjs';
@@ -16,6 +17,12 @@ const ACTIONS = [...TURN, 'authorize', 'generate', 'request', 'receive', 'finish
 const stages = ['plan', 'generation', 'raw-qa', 'post-process', 'post-qa', 'visual-review'];
 const panelNode = (id, stage) => `panel/${id}/${stage}`;
 
+function primaryTopology(panels) {
+  const nodes = topology(panels, null, true).filter(node => node.id !== 'anchor');
+  nodes.splice(1, 0, { id: 'primary-reference', type: 'confirmed-primary-style', panelId: null, dependsOn: ['inputs'] });
+  for (const node of nodes) node.dependsOn = node.dependsOn.map(id => id === 'anchor' ? 'primary-reference' : id);
+  return nodes;
+}
 function topology(panels, anchorPanelId, initialAnchor) {
   const nodes = [{ id: 'inputs', type: 'frozen-project-inputs', panelId: null, dependsOn: [] }];
   for (const panel of panels) {
@@ -66,25 +73,27 @@ export function createProjectDag(root, { anchorPanelId = null, panelIds = null, 
       && new Set(selected).size === selected.length && selected.every(id => isId(id) && Object.hasOwn(project.panels, id)), 'DAG_PANEL_SELECTION');
     requireThat(Array.isArray(intents) && intents.every(intent => selected.includes(intent?.panelId))
       && new Set(intents.map(intent => intent.panelId)).size === intents.length, 'DAG_INTENTS');
-    const initialAnchor = anchorEvidence(root, project, project.activeStyle);
-    anchorPanelId ??= initialAnchor?.panelId ?? null;
-    requireThat(initialAnchor ? anchorPanelId === initialAnchor.panelId : selected.includes(anchorPanelId), 'DAG_ANCHOR_PANEL_REQUIRED');
+    // Legacy representative selection is accepted as an inert compatibility input.
+    // It cannot select or replace the confirmed project primary reference.
+    requireThat(anchorPanelId === null || selected.includes(anchorPanelId), 'DAG_PANEL_SELECTION');
+    const primaryReference = primaryStyleReference(root, project.activeStyle);
+    anchorPanelId = null; const initialAnchor = null;
     const status = projectStatus(root);
     const panels = selected.map(panelId => {
       const prototype = project.panels[panelId].prototype;
       const accepted = status.panels.find(item => item.panelId === panelId);
       // The representative panel needs a fresh explicit anchor choice unless a
       // same-style anchor already exists. Never promote a prior accepted image.
-      const adoptedRun = accepted.status === 'accepted_current_style' && (initialAnchor || panelId !== anchorPanelId) ? accepted.acceptedRun : null;
+      const adoptedRun = accepted.status === 'accepted_current_style' ? accepted.acceptedRun : null;
       const previousIntent = adoptedRun ? verifyPlan(root, adoptedRun, { allowLegacy: true }).intent : null;
       const intent = intents.find(item => item.panelId === panelId) ?? previousIntent ?? { kind: 'ui_reference_intent_v1', panelId, note: '', emphasisIds: [] };
       validateIntent(intent, loadPrototype(root, prototype));
       requireThat(!previousIntent || canonical(previousIntent) === canonical(intent), 'DAG_ADOPTED_INTENT_CHANGED');
       return { panelId, prototype, intent, adoptedRun };
     });
-    const definition = seal({ kind: 'ui_reference_project_dag_v1', id: randomUUID(), projectId: project.id,
+    const definition = seal({ kind: 'ui_reference_project_dag_v2', id: randomUUID(), projectId: project.id,
       runtimeSha256: runtimeDigest(), styleSha256: project.activeStyle, selection: panelIds === null ? 'all-registered' : 'explicit-subset',
-      resolution, anchorPanelId, initialAnchor, maximumRevisions: 3, panels, nodes: topology(panels, anchorPanelId, initialAnchor) });
+      resolution, anchorPanelId, initialAnchor, primaryReference, maximumRevisions: 3, panels, nodes: primaryTopology(panels) });
     verifyGraph(definition.nodes);
     const dag = `dags/${definition.id}/dag.json`; writeJsonNew(root, dag, definition);
     return { dag, dagSha256: definition.sha256, computeCalls: 0, ...inspectProjectDag(root, dag) };
@@ -94,8 +103,9 @@ export function createProjectDag(root, { anchorPanelId = null, panelIds = null, 
 function readDefinition(root, dag) {
   requireThat(typeof dag === 'string' && /^dags\/[a-f0-9-]{36}\/dag\.json$/.test(dag), 'DAG_PATH_INVALID');
   const definition = readJson(local(root, dag)); unseal(definition);
-  exact(definition, ['kind', 'id', 'projectId', 'runtimeSha256', 'styleSha256', 'selection', 'resolution', 'anchorPanelId', 'initialAnchor', 'maximumRevisions', 'panels', 'nodes', 'sha256']);
-  requireThat(definition.kind === 'ui_reference_project_dag_v1' && UUID.test(definition.id)
+  const primaryPolicy = definition.kind === 'ui_reference_project_dag_v2';
+  exact(definition, ['kind', 'id', 'projectId', 'runtimeSha256', 'styleSha256', 'selection', 'resolution', 'anchorPanelId', 'initialAnchor', 'maximumRevisions', 'panels', 'nodes', 'sha256', ...(primaryPolicy ? ['primaryReference'] : [])]);
+  requireThat((primaryPolicy || definition.kind === 'ui_reference_project_dag_v1') && UUID.test(definition.id)
     && dag === `dags/${definition.id}/dag.json` && isId(definition.projectId) && isDigest(definition.runtimeSha256)
     && isDigest(definition.styleSha256) && definition.maximumRevisions === 3
     && ['all-registered', 'explicit-subset'].includes(definition.selection)
@@ -113,9 +123,11 @@ function readDefinition(root, dag) {
         && result.plan.prototype.sha256 === panel.prototype.sha256, 'DAG_ADOPTED_IMAGE_INVALID');
     }
   }
-  requireThat(definition.initialAnchor ? definition.initialAnchor.panelId === definition.anchorPanelId
+  requireThat(primaryPolicy ? definition.anchorPanelId === null && definition.initialAnchor === null
+    && canonical(definition.primaryReference) === canonical(primaryStyleReference(root, definition.styleSha256))
+    : definition.initialAnchor ? definition.initialAnchor.panelId === definition.anchorPanelId
     : definition.panels.some(item => item.panelId === definition.anchorPanelId), 'DAG_ANCHOR_PANEL_REQUIRED');
-  requireThat(canonical(definition.nodes) === canonical(topology(definition.panels, definition.anchorPanelId, definition.initialAnchor)), 'DAG_TOPOLOGY_CHANGED');
+  requireThat(canonical(definition.nodes) === canonical(primaryPolicy ? primaryTopology(definition.panels) : topology(definition.panels, definition.anchorPanelId, definition.initialAnchor)), 'DAG_TOPOLOGY_CHANGED');
   verifyGraph(definition.nodes); return definition;
 }
 const directory = (root, dag) => local(root, dag.replace('/dag.json', ''));
@@ -144,7 +156,8 @@ function readContextEvidence(root, dag) {
   const currentContext = project.id === definition.projectId && project.activeStyle === definition.styleSha256
     && definition.panels.every(panel => project.panels[panel.panelId]?.prototype.sha256 === panel.prototype.sha256)
     && (definition.selection !== 'all-registered' || Object.keys(project.panels).length === definition.panels.length);
-  const anchor = anchorEvidence(root, project, definition.styleSha256);
+  const primaryPolicy = definition.kind === 'ui_reference_project_dag_v2';
+  const anchor = primaryPolicy ? null : anchorEvidence(root, project, definition.styleSha256);
   if (definition.initialAnchor) requireThat(canonical(anchor) === canonical(definition.initialAnchor), 'DAG_ANCHOR_CHANGED');
   if (anchor && !definition.initialAnchor) requireThat(anchor.panelId === definition.anchorPanelId, 'DAG_ANCHOR_PANEL_MISMATCH');
   // Revision budget belongs to the project/style/prototype session, not to a
@@ -167,7 +180,10 @@ function readContextEvidence(root, dag) {
         && plan.request.resolution.mode === definition.resolution, 'DAG_RUN_CONTEXT_MISMATCH');
       requireThat(op.action !== 'revise' || (plan.revision?.round === op.input.round
         && plan.revision.run === op.input.sourceRun && plan.revision.note === op.input.note), 'DAG_REVISION_BINDING');
-      if (panel.panelId !== definition.anchorPanelId || definition.initialAnchor) {
+      if (primaryPolicy) {
+        requireThat(plan.anchor === null && plan.request.images.some(image => image.role === 'primary-style'
+          && image.artifact.sha256 === definition.primaryReference.sha256), 'DAG_RUN_PRIMARY_MISMATCH');
+      } else if (panel.panelId !== definition.anchorPanelId || definition.initialAnchor) {
         requireThat(anchor && plan.anchor?.image.sha256 === anchor.imageSha256 && plan.anchor.planSha256 === anchor.planSha256, 'DAG_RUN_ANCHOR_MISMATCH');
       }
       return { operationId: op.operationId, run: op.run, round: plan.revision?.round ?? 0, ...inspectRun(root, op.run) };
@@ -189,7 +205,7 @@ function readContextEvidence(root, dag) {
       turns, latest, source, accepted,
       revisionsUsed: used, revisionsRemaining: 3 - used, deliveryUsesOlderAccepted: !!accepted && !!latest && accepted.run !== latest.run };
   });
-  return { definition, project, ops, anchor, panels, currentContext, runtimeCurrent: definition.runtimeSha256 === runtimeDigest() };
+  return { definition, project, ops, anchor, panels, currentContext, primaryPolicy, runtimeCurrent: definition.runtimeSha256 === runtimeDigest() };
 }
 function assertWritable(context) {
   requireThat(context.currentContext, 'DAG_CONTEXT_STALE');
@@ -197,10 +213,10 @@ function assertWritable(context) {
 }
 function nodeStates(context) {
   const { definition, panels, anchor } = context;
-  const state = new Map([['inputs', context.currentContext ? 'complete' : 'stale'], ['anchor', anchor ? 'complete' : 'waiting_review']]);
+  const state = new Map([['inputs', context.currentContext ? 'complete' : 'stale'], ['primary-reference', 'complete'], ['anchor', anchor ? 'complete' : 'waiting_review']]);
   for (const panel of panels) {
     const status = panel.latest?.status;
-    const eligible = !!anchor || panel.panelId === definition.anchorPanelId;
+    const eligible = context.primaryPolicy || !!anchor || panel.panelId === definition.anchorPanelId;
     const values = ['blocked', 'blocked', 'blocked', 'blocked', 'blocked', 'blocked'];
     values[0] = panel.latest ? 'complete' : eligible ? 'ready' : 'blocked';
     if (panel.latest) {
@@ -239,7 +255,7 @@ export function inspectProjectDag(root, dag) {
       : nodes.some(node => node.status === 'ready') ? 'ready' : waiting.length ? 'waiting' : 'ready';
     return { kind: 'ui_reference_project_dag_status_v1', dag, dagSha256: context.definition.sha256, projectId: context.definition.projectId,
       styleSha256: context.definition.styleSha256, selection: context.definition.selection, currentContext: context.currentContext,
-      runtimeCurrent: context.runtimeCurrent, status, anchor: context.anchor, panels: context.panels, nodes, output,
+      runtimeCurrent: context.runtimeCurrent, primaryReference: context.definition.primaryReference ?? null, status, anchor: context.anchor, panels: context.panels, nodes, output,
       interruptedOperations: context.ops.filter(op => op.state === 'started' && (!op.run
         || ['authorized', 'awaiting_authorization', 'reserved_no_resubmit', 'raw_received_needs_finish'].includes(inspectRun(root, op.run).status)))
         .map(op => ({ operationId: op.operationId, action: op.action, panelId: op.panelId, run: op.run })),
@@ -251,7 +267,11 @@ export function inspectProjectDag(root, dag) {
 function begin(root, dag, action, panelId, operationId, input, work) {
   requireThat(UUID.test(operationId), 'DAG_OPERATION_ID_REQUIRED');
   return withLock(directory(root, dag), () => {
-    const context = readContext(root, dag); assertWritable(context);
+    const context = readContext(root, dag);
+    // Archived compute is forbidden. Explicit human review and verified export
+    // remain available for completed images of the current project context.
+    requireThat(context.currentContext, 'DAG_CONTEXT_STALE');
+    if (!['review', 'export'].includes(action)) assertWritable(context);
     requireThat(panelId === null || context.panels.some(panel => panel.panelId === panelId), 'DAG_PANEL_UNKNOWN');
     const previous = context.ops.find(op => op.operationId === operationId);
     if (previous) {
@@ -277,7 +297,7 @@ function end(root, dag, op, error = null) {
 }
 const selected = (context, panelId) => context.panels.find(panel => panel.panelId === panelId);
 function ready(context, panelId) {
-  requireThat(context.anchor || panelId === context.definition.anchorPanelId, 'DAG_ANCHOR_NOT_ACCEPTED');
+  requireThat(context.primaryPolicy || context.anchor || panelId === context.definition.anchorPanelId, 'DAG_ANCHOR_NOT_ACCEPTED');
 }
 export function prepareProjectDagPanel(root, dag, panelId, { operationId }) {
   begin(root, dag, 'prepare', panelId, operationId, {}, (context, op) => {
@@ -291,7 +311,7 @@ export function prepareProjectDagPanel(root, dag, panelId, { operationId }) {
 export function advanceProjectDag(root, dag, { operationId }) {
   requireThat(UUID.test(operationId), 'DAG_OPERATION_ID_REQUIRED');
   const context = readContext(root, dag); assertWritable(context);
-  for (const panel of context.panels.filter(panel => !panel.latest && (context.anchor || panel.panelId === context.definition.anchorPanelId))) {
+  for (const panel of context.panels.filter(panel => !panel.latest && (context.primaryPolicy || context.anchor || panel.panelId === context.definition.anchorPanelId))) {
     const hash = digestJson({ operationId, panelId: panel.panelId });
     const childId = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
     prepareProjectDagPanel(root, dag, panel.panelId, { operationId: childId });
@@ -340,10 +360,8 @@ export function actProjectDagPanel(root, dag, panelId, { operationId, run, actio
     if (action === 'finish') { exact(payload, ['rawSha256']); finish(root, run, payload.rawSha256); }
     if (action === 'stop') { exact(payload, ['requestSha256', 'outcome']); stopAttempt(root, run, payload.requestSha256, payload.outcome); }
     if (action === 'review') {
-      exact(payload, ['imageSha256', 'layout', 'style', 'copy', 'decision', 'note', 'useAsAnchor']);
-      requireThat(!payload.useAsAnchor || panelId === context.definition.anchorPanelId, 'DAG_ANCHOR_PANEL_MISMATCH');
-      if (payload.decision === 'accept' && panelId === context.definition.anchorPanelId && !context.anchor)
-        requireThat(payload.useAsAnchor, 'DAG_EXPLICIT_ANCHOR_CHOICE_REQUIRED');
+      exact(payload, ['imageSha256', 'layout', 'style', 'copy', 'decision', 'note'], ['useAsAnchor']);
+      requireThat(!payload.useAsAnchor, 'PROJECT_ANCHOR_REMOVED');
       reviewRun(root, run, payload);
     }
     op.state = 'complete';

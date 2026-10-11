@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { canonical, digestJson, exact, isDigest, jsonBytes, local, readBytes, readJson, requireThat, seal, storeBlob, textValue, unseal, validationMemo, validationScope, verifyBlob, withLock, writeJsonNew, writeNew } from './common.mjs';
 import { loadProject, projectStatus } from './project.mjs';
-import { loadStyle, styleArtifact } from './styles.mjs';
+import { loadStyle, styleArtifact, primaryStyleReference } from './styles.mjs';
 import { loadPrototype } from './panel.mjs';
 import { inspectRun, verifyResult, verifyReview, verifyRawSource } from './generation.mjs';
 import { resolutionPolicy, validateResolution } from './resolution.mjs';
@@ -33,6 +33,9 @@ export const SOURCE_0_7_RUNTIME_SHA256 = '05670ece585e72d03092564678e49a4b6423e4
 export const SOURCE_0_7_1_RUNTIME_SHA256 = '3774c4f9bad8111d849fe59d55d2247323bd86ffed64414bd1ff12212ff71a87';
 // Preserve released 0.7.2 output evidence after adding the optional relay.
 export const SOURCE_0_7_2_RUNTIME_SHA256 = 'd57e7b3098ce843c1e5f57506767d6f86bc603e13f997b6441ad5e2eec8c9b63';
+
+// Released 0.7.3 plans are immutable read-only evidence after the primary-reference upgrade.
+export const SOURCE_0_7_3_RUNTIME_SHA256 = 'd7e7365f4a79fcd0e1ef9fbd92b3fd8f67f1d772e65085ff40095ce7a6407ddd';
 
 function verifyAnchor(root, anchor, styleSha256) {
   if (!anchor) return;
@@ -181,8 +184,8 @@ function buildPlan(root, project, { panelId, note = '', intent = null, parentRun
   const entry = project.panels[panelId]; requireThat(entry, 'PANEL_UNKNOWN');
   const prototype = loadPrototype(root, entry.prototype), style = loadStyle(root, project.activeStyle);
   const resolved = intent ?? { kind: 'ui_reference_intent_v1', panelId, note, emphasisIds: [] };
-  const anchor = rawSource ? verifyRawSource(root, rawSource).plan.anchor : project.baselines[style.sha256] ?? null;
-  verifyAnchor(root, anchor, style.sha256);
+  primaryStyleReference(root, style.sha256);
+  const anchor = null;
   let parentPlanSha256 = null;
   if (parentRun) {
     const parent = verifyPlan(root, parentRun, { allowLegacy: true });
@@ -237,9 +240,7 @@ export function createProjectPlans(root, { panelIds = null, intents = [], resolu
       && new Set(intents.map(intent => intent.panelId)).size === intents.length, 'PROJECT_PLAN_INTENTS_INVALID');
     if (selected.length === 0) return { status: 'nothing_to_plan', projectId: project.id,
       styleSha256: project.activeStyle, plans: [], maximumCalls: 0, computeCalls: 0 };
-    const anchor = project.baselines[project.activeStyle];
-    requireThat(anchor, 'PROJECT_PLAN_ACCEPTED_ANCHOR_REQUIRED');
-    verifyAnchor(root, anchor, project.activeStyle);
+    const primaryReference = primaryStyleReference(root, project.activeStyle);
     // Build and validate every request under one project lock before publishing any run.
     // A failed write may leave unapproved plans, but can never submit a provider call.
     const frozen = selected.map(panelId => buildPlan(root, project, { panelId, resolution,
@@ -249,15 +250,15 @@ export function createProjectPlans(root, { panelIds = null, intents = [], resolu
       return { panelId: plan.panelId, prototypeSha256: plan.prototype.sha256, run: result.run,
         planSha256: plan.sha256, requestSha256: digestJson(plan.request), maximumCalls: 1 };
     });
-    const batch = seal({ kind: 'ui_reference_project_plans_v1', projectId: project.id,
+    const batch = seal({ kind: 'ui_reference_project_plans_v2', projectId: project.id,
       runtimeSha256: frozen[0].runtimeSha256, styleSha256: project.activeStyle,
-      anchor: { imageSha256: anchor.image.sha256, planSha256: anchor.planSha256, reviewSha256: anchor.reviewSha256 },
+      primaryReference,
       selection: panelIds === null ? 'pending' : 'explicit-subset', plans, maximumCalls: plans.length, computeCalls: 0 });
     const relative = `project-plans/${randomUUID()}.json`, review = relative.replace(/\.json$/, '.md');
     writeJsonNew(root, relative, batch);
     const markdown = ['# 同项目面板冻结计划', '', `集合摘要：\`${batch.sha256}\``, '',
       `项目：${project.id}；固定风格：\`${batch.styleSha256}\``, '',
-      `已接受项目锚点：\`${batch.anchor.imageSha256}\``, '',
+      `已确认项目主参考：\`${batch.primaryReference.sha256}\``, '',
       `最多 ${batch.maximumCalls} 次生图，每份计划一次。此次只准备计划，计算调用为零。`,
       '本集合不记录计算授权，也不提交或重试。须展示每份 plan.json 的完整提示词、有序图片、分辨率及摘要后取得明确决定。', '',
       '| 面板 | 计划摘要 | 请求摘要 | 冻结计划 |', '| --- | --- | --- | --- |',
@@ -271,10 +272,12 @@ export function createProjectPlans(root, { panelIds = null, intents = [], resolu
 export function inspectProjectPlans(root, relative) {
   requireThat(typeof relative === 'string' && /^project-plans\/[a-f0-9-]{36}\.json$/.test(relative), 'PROJECT_PLAN_BATCH_PATH_INVALID');
   const batch = readJson(local(root, relative)); unseal(batch);
-  exact(batch, ['kind', 'projectId', 'runtimeSha256', 'styleSha256', 'anchor', 'selection', 'plans', 'maximumCalls', 'computeCalls', 'sha256']);
-  exact(batch.anchor, ['imageSha256', 'planSha256', 'reviewSha256']);
-  requireThat(batch.kind === 'ui_reference_project_plans_v1' && isDigest(batch.runtimeSha256) && isDigest(batch.styleSha256)
-    && Object.values(batch.anchor).every(isDigest) && ['pending', 'explicit-subset'].includes(batch.selection)
+  const primaryPolicy = batch.kind === 'ui_reference_project_plans_v2';
+  exact(batch, ['kind', 'projectId', 'runtimeSha256', 'styleSha256', primaryPolicy ? 'primaryReference' : 'anchor', 'selection', 'plans', 'maximumCalls', 'computeCalls', 'sha256']);
+  if (!primaryPolicy) exact(batch.anchor, ['imageSha256', 'planSha256', 'reviewSha256']);
+  else requireThat(canonical(batch.primaryReference) === canonical(primaryStyleReference(root, batch.styleSha256)), 'PROJECT_PLAN_BATCH_PRIMARY_MISMATCH');
+  requireThat((primaryPolicy || batch.kind === 'ui_reference_project_plans_v1') && isDigest(batch.runtimeSha256) && isDigest(batch.styleSha256)
+    && (primaryPolicy || Object.values(batch.anchor).every(isDigest)) && ['pending', 'explicit-subset'].includes(batch.selection)
     && Array.isArray(batch.plans) && batch.plans.length > 0 && batch.plans.length <= 64
     && batch.plans.every(plan => plan && typeof plan.panelId === 'string')
     && new Set(batch.plans.map(plan => plan.panelId)).size === batch.plans.length
@@ -287,12 +290,13 @@ export function inspectProjectPlans(root, relative) {
     requireThat(plan.projectId === batch.projectId && plan.runtimeSha256 === batch.runtimeSha256
       && plan.panelId === item.panelId && plan.prototype.sha256 === item.prototypeSha256
       && plan.sha256 === item.planSha256 && digestJson(plan.request) === item.requestSha256
-      && plan.styleSha256 === batch.styleSha256 && plan.anchor?.image.sha256 === batch.anchor.imageSha256
-      && plan.anchor.planSha256 === batch.anchor.planSha256 && plan.anchor.reviewSha256 === batch.anchor.reviewSha256
+      && plan.styleSha256 === batch.styleSha256 && (primaryPolicy
+        ? plan.anchor === null && plan.request.images.some(image => image.role === 'primary-style' && image.artifact.sha256 === batch.primaryReference.sha256)
+        : plan.anchor?.image.sha256 === batch.anchor.imageSha256 && plan.anchor.planSha256 === batch.anchor.planSha256 && plan.anchor.reviewSha256 === batch.anchor.reviewSha256)
       && !plan.rawSource && !plan.correction && plan.request.maximumCalls === 1 && item.maximumCalls === 1,
       'PROJECT_PLAN_BATCH_MISMATCH');
     currentContext &&= Boolean(project.panels[item.panelId]?.prototype.sha256 === item.prototypeSha256
-      && canonical(project.baselines[batch.styleSha256] ?? null) === canonical(plan.anchor));
+      && (primaryPolicy || canonical(project.baselines[batch.styleSha256] ?? null) === canonical(plan.anchor)));
     return { ...item, status: inspectRun(root, item.run).status };
   });
   return { ...batch, batch: relative, currentContext, runtimeCurrent: batch.runtimeSha256 === runtimeDigest(), runs };
@@ -340,20 +344,25 @@ function verifyPlanEvidence(root, run, allowLegacy) {
   const source07 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_RUNTIME_SHA256;
   const source071 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_1_RUNTIME_SHA256;
   const source072 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_2_RUNTIME_SHA256;
+  const source073 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_3_RUNTIME_SHA256;
   requireThat((legacy ? allowLegacy && plan.runtimeSha256 === LEGACY_RUNTIME_SHA256
-    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
+    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || source073 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
     && run === `runs/${plan.nonce}` && plan.qualityPolicy === 'strict'
     && (plan.parentPlanSha256 === null || isDigest(plan.parentPlanSha256)), 'PLAN_CONTRACT_OR_RUNTIME_CHANGED');
   const prototype = loadPrototype(root, plan.prototype), style = loadStyle(root, plan.styleSha256);
   requireThat(!(legacy || previous) || style.kind === 'ui_reference_style_v1', 'ARCHIVED_STYLE_CONTRACT');
   requireThat(canonical(JSON.parse(verifyBlob(root, plan.style))) === canonical(style), 'PLAN_STYLE_MISMATCH');
+  if (plan.runtimeSha256 === runtimeDigest()) {
+    requireThat(plan.anchor === null, 'PROJECT_ANCHOR_REMOVED');
+    primaryStyleReference(root, plan.styleSha256);
+  }
   verifyAnchor(root, plan.anchor, style.sha256);
   requireThat(canonical(plan.stages) === canonical(['intent', 'compiler-prompt', plan.rawSource ? 'raw-reuse' : 'generation', 'qa', 'post-process', 'qa', 'output']), 'PLAN_STAGES_INVALID');
   if (!legacy && plan.rawSource) {
     const source = verifyRawSource(root, plan.rawSource);
     requireThat(source.plan.projectId === plan.projectId && source.plan.panelId === plan.panelId
       && source.plan.prototype.sha256 === plan.prototype.sha256 && source.plan.styleSha256 === plan.styleSha256
-      && canonical(source.plan.anchor) === canonical(plan.anchor)
+      && (plan.runtimeSha256 === runtimeDigest() || canonical(source.plan.anchor) === canonical(plan.anchor))
       && source.plan.sha256 === plan.parentPlanSha256 && canonical(source.plan.intent) === canonical(plan.intent)
       && plan.request.resolution.mode === 'native', 'RAW_SOURCE_CONTEXT_MISMATCH');
   }

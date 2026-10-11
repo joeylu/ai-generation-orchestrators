@@ -1,4 +1,19 @@
-# 宿主接入 · 源码发布 0.7.3
+# 宿主接入 · 源码发布 0.8.0
+
+## 0.8.0：统一项目主参考
+
+所有新面板计划共用已确认风格版本的完整 primary-style PNG；任何面板都可以先生成。
+默认无备注使用完整默认样本，衍生或自定义风格使用确认后的完整预览，不使用卡片缩略图。
+项目主参考只通过风格确认/修订改变。接受面板图片只接受该 run，不能设定项目锚点。
+旧 anchorPanelId 仅作为惰性兼容输入；useAsAnchor: true 明确返回 PROJECT_ANCHOR_REMOVED。
+新 DAG 为 ui_reference_project_dag_v2，含 primaryReference、无 anchor 依赖。
+修改请求依次冻结 revision-source、layout-reference、primary-style（及已有原型上下文）。
+风格缺少主参考时返回 STYLE_PRIMARY_REFERENCE_REQUIRED，须明确修复风格；不自动补图。
+旧 DAG、计划、锚点、原图、原生会话和 ZIP 均保留。已完成旧结果可显式验收/导出；旧计划不执行。
+新 DAG 不重置项目/面板/风格/原型会话的三轮修改预算，失败和不明状态不自动重投。
+规则风格与六种样本准备仍可读取；无主参考的规则草案不能再冻结新计算计划。
+真实模型调用 0；替身与 PNG 技术检查不代表人工视觉验收或 Docker 实际部署。
+
 
 新接入优先使用 [项目级 DAG](project-dag.md) 的核心函数或 dag-* CLI；下文的单面板和
 plan-project 合同继续有效。DAG 是文件工作区中的确定性编排，不附带 Docker、WebSocket、
@@ -9,8 +24,8 @@ plan-project 合同继续有效。DAG 是文件工作区中的确定性编排，
 本 Harness 提供本地文件合同，并有可选的 [本地参考图工作台](../web/README.md)：
 项目与面板管理、默认／自定义风格、原型导入、冻结请求、单次生成交换、人工验收及 ZIP 下载。
 工作台仅监听 127.0.0.1，直接复用核心，不提供部署、账号或任务队列。
-生产安装须固定 `ui-reference-harness-v0.7.3` 及其源码附件 SHA-256，逐项验证 release-manifest.json；
-保留附件原始字节及兄弟 Harness 目录关系。升级说明见 [0.7.3 发布说明](release-0.7.3.md)。
+生产安装须固定 `ui-reference-harness-v0.8.0` 及其源码附件 SHA-256，逐项验证 release-manifest.json；
+保留附件原始字节及兄弟 Harness 目录关系。升级说明见 [0.8.0 发布说明](release-0.8.0.md)。
 该补丁的面板可见性、下载命名与前端同步边界见下文；消费服务须实现自己的实际 API 合同。
 
 ## 0.7.2 原生生图参数兼容
@@ -86,13 +101,13 @@ Codex 图片 Hook 仅重建冻结 `prompt` 和存在时的 `referenced_image_pat
 | 激活风格 | style-activate | 记录用户针对该修订的实际决定，不因此授权生图 |
 | 导入面板 | import-panel | ui-panel 原型、当前可见状态及中性布局图 |
 | 首张参考图 | plan | 单张冻结请求、有序输入、分辨率及摘要 |
-| 首图接受 | review --anchor true | 展示结果；由人决定布局／风格／文案并明确选择项目样板 |
+| 首图接受 | review --anchor false | 展示完整结果；由人决定布局／风格／文案，不改变主参考 |
 | 其余面板 | plan-project / inspect-project-plans | 待生成面板、共同风格及样板、逐份计划／请求摘要和完整请求 |
 | 单次执行 | authorize → request/generate → receive | 明确计算范围，一份计划最多一次；结果或未知状态均保留 |
 | 接受与交付 | review → status → export → validate | 每张参考图的真实决定和整套交付；任何显式子集准确披露 |
 
 默认样本是项目主风格参考，项目样板是本项目同风格的已接受成图。
-新项目不能直接把默认样本当作已接受项目样板；plan-project 在缺少样板时停止，先完成首张代表面板。
+默认完整样本或已确认完整预览是新计划的项目主参考。plan-project 不依赖面板验收；缺少主参考时停止并要求明确修复风格。
 更换风格后沿用已有原型，但旧图标记 needs_style_update；新风格也须建立自己的样板。
 
 首图接受后，宿主可运行：

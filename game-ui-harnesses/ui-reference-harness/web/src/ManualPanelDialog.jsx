@@ -41,8 +41,7 @@ export function PanelDialog({
     [resultFile, setResultFile] = useState(null);
   const [notSubmitted, setNotSubmitted] = useState(false);
   const [review, setReview] = useState({ layout: "", style: "", copy: "" }),
-    [reviewNote, setReviewNote] = useState(""),
-    [anchor, setAnchor] = useState(false);
+    [reviewNote, setReviewNote] = useState("");
   const [runError, setRunError] = useState(null),
     [loadingRun, setLoadingRun] = useState(!!run),
     [readVersion, setReadVersion] = useState(0);
@@ -153,7 +152,6 @@ export function PanelDialog({
       ...review,
       decision,
       note: reviewNote,
-      useAsAnchor: decision === "accept" && anchor,
     });
     if (value) {
       setReviewNote("");
@@ -233,12 +231,6 @@ export function PanelDialog({
               <Icon name="download" size={16} />
               下载参考图 PNG
             </a>
-          )}
-          {panel.isAnchor && (
-            <p className="detail-anchor">
-              <Icon name="anchor" size={17} />
-              此图是当前项目的固定视觉锚点
-            </p>
           )}
           {panel.image &&
             panel.acceptedRun &&
@@ -517,16 +509,6 @@ export function PanelDialog({
                       placeholder="记录你对这张参考图的实际意见"
                     />
                   </Field>
-                  {!project.anchor && (
-                    <label className="checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={anchor}
-                        onChange={(event) => setAnchor(event.target.checked)}
-                      />
-                      <span>接受后设为项目视觉锚点</span>
-                    </label>
-                  )}
                   <div className="actions">
                     <Button
                       disabled={busy || !canReview || !reviewingResult}
