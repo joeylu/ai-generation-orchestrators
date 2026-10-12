@@ -18,6 +18,11 @@ const fail = code => { throw new Error(code); };
 const safePath = value => typeof value === 'string' && /^[A-Za-z0-9_.@/-]+$/.test(value)
   && value.split('/').every(part => part && part !== '.' && part !== '..');
 
+/** Bundler module labels must not disclose the build machine's absolute paths. */
+export function verifyBrowserRuntimePortability(code) {
+  if (/^[ \t]*\/\/#region\s+(?:[A-Za-z]:[\\/]|\/|\\\\)/m.test(code)) fail('RELEASE_BROWSER_HOST_PATH');
+}
+
 /** The digest is checked before parsing. Never extract links, traversal paths or executable hooks. */
 export function readPinnedTar(bytes) {
   const tar = gunzipSync(bytes, { maxOutputLength: 64 * 1024 * 1024 }), files = new Map();
@@ -147,13 +152,16 @@ export const componentCore=createComponentCore(compiler,contract,bundle);`;
     plugins: [{ name: 'panel-pinned-component', resolveId(id) { if (id === target || id.endsWith('/workspace/component-browser.mjs')) return '\0panel-pinned-component'; },
       load(id) { if (id === '\0panel-pinned-component') return bridge; } }],
     build: { write: false, target: 'es2022', minify: true, sourcemap: false,
-      rolldownOptions: { output: { codeSplitting: false } },
+      // Vite otherwise disables ES library code generation minification, retaining absolute module labels.
+      // Full licenses are shipped separately in THIRD_PARTY_NOTICES.txt.
+      rolldownOptions: { output: { codeSplitting: false, comments: false, minify: true } },
       lib: { entry: fileURLToPath(new URL('../src/delivery-runtime.mjs', import.meta.url)), name: 'PanelDelivery',
         formats: ['es', 'iife'], fileName: format => format === 'es' ? 'index.js' : 'panel-runtime.js' } } });
   const chunks = (Array.isArray(result) ? result : [result]).flatMap(value => value.output);
   if (chunks.length !== 2 || chunks.some(chunk => chunk.type !== 'chunk' || chunk.imports.length
     || chunk.dynamicImports.some(name => name !== chunk.fileName))) throw new Error('RELEASE_BROWSER_SHAPE', {
       cause: chunks.map(chunk => ({ name: chunk.fileName, type: chunk.type, imports: chunk.imports, dynamicImports: chunk.dynamicImports })) });
+  for (const chunk of chunks) verifyBrowserRuntimePortability(chunk.code);
   return { code: new Map(chunks.map(chunk => [chunk.fileName, utf8(chunk.code)])),
     notices: await noticesFor(chunks.flatMap(chunk => Object.keys(chunk.modules)), componentLicense, licenseSources) };
 }
