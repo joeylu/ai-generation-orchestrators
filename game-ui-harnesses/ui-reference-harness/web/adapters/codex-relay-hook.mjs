@@ -42,6 +42,49 @@ const stop = () => ({
   stopReason: "The single image attempt has ended. Do not submit again.",
 });
 
+export const relayHookInputLimits = Object.freeze({
+  pre: 2 * 1024 * 1024,
+  // A 64 MiB PNG can occupy about 86 MiB as base64 in the tool reply.
+  // Match the bounded CLI result envelope without enlarging request inputs.
+  post: 96 * 1024 * 1024,
+});
+
+/** Consume a bounded reply; only identity fields reach the post-image gate. */
+export async function readRelayHookEvent(input) {
+  const chunks = [];
+  let length = 0;
+  for await (const value of input) {
+    const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+    length += chunk.length;
+    if (length > relayHookInputLimits.post)
+      throw new Error("CODEX_RELAY_HOOK_INPUT_TOO_LARGE");
+    chunks.push(chunk);
+  }
+  const event = JSON.parse(
+    new TextDecoder("utf-8", { fatal: true }).decode(
+      Buffer.concat(chunks, length),
+    ),
+  );
+  if (
+    !event ||
+    Array.isArray(event) ||
+    typeof event !== "object" ||
+    !["PreToolUse", "PostToolUse"].includes(event.hook_event_name)
+  )
+    throw new Error("CODEX_RELAY_HOOK_EVENT_INVALID");
+  if (event.hook_event_name === "PreToolUse") {
+    if (length > relayHookInputLimits.pre)
+      throw new Error("CODEX_RELAY_HOOK_INPUT_TOO_LARGE");
+    return event;
+  }
+  return {
+    hook_event_name: event.hook_event_name,
+    session_id: event.session_id,
+    tool_use_id: event.tool_use_id,
+    tool_name: event.tool_name,
+  };
+}
+
 /** Code-mode enforcement belongs to the nested tool, not the freeform exec wrapper. */
 export function relayHook(job, expected, event) {
   try {
@@ -112,23 +155,11 @@ if (
   try {
     if (relayHash(fs.readFileSync(process.argv[1])) !== process.argv[2])
       throw new Error();
-    const chunks = [];
-    let length = 0;
-    for await (const chunk of process.stdin) {
-      length += chunk.length;
-      if (length > 2 * 1024 * 1024) throw new Error();
-      chunks.push(chunk);
-    }
+    const event = await readRelayHookEvent(process.stdin);
     process.stdout.write(
-      JSON.stringify(
-        relayHook(
-          process.argv[3],
-          process.argv[4],
-          JSON.parse(Buffer.concat(chunks)),
-        ),
-      ),
+      JSON.stringify(relayHook(process.argv[3], process.argv[4], event)),
     );
   } catch {
-    process.stdout.write(JSON.stringify(deny()));
+    process.stdout.write(JSON.stringify({ ...deny(), ...stop() }));
   }
 }

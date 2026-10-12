@@ -1,4 +1,11 @@
-# UI Reference Harness · 0.8.0 source release
+# UI Reference Harness · 0.8.2 source release
+
+## 0.8.2：修复图片工具大回执
+
+CLI 转发 Hook 的 PostToolUse 输入上限调整为 96 MiB，PreToolUse 请求仍为 2 MiB。
+大图片响应仅提取身份元数据，沿用原有冻结输入、原图保留和独占凭据检查。
+未知尝试保留原记录，不补写历史凭据或自动重投；Web/API 合同不变。
+详见 [大回执输入合同](docs/relay-hook-input.md) 和 [0.8.2 发布说明](docs/release-0.8.2.md)。
 
 ## 0.8.0：统一项目主参考
 
@@ -24,7 +31,7 @@
 首张设置图作为视觉锚点；已观察到的字号与比例偏差保留，不承诺像素级还原。
 按源码附件分发；生产接入需固定不可变仓库标签及归档摘要，不复制第二份源码维护。
 
-当前发布标签为 `ui-reference-harness-v0.8.0`；附件校验、启动与升级边界见 [0.8.0 发布说明](docs/release-0.8.0.md)。
+当前发布标签为 `ui-reference-harness-v0.8.2`；附件校验、启动与升级边界见 [0.8.2 发布说明](docs/release-0.8.2.md)。
 
 当前源码另包含可选 CLI Code-mode 转发适配器，可显式传递
 `transparent_background=false`；原生适配器继续沿用 0.7.2 合同。配置与单次调用门禁见

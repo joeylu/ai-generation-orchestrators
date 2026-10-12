@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import path from 'node:path';
 
-export const VERSION = '0.8.1';
+export const VERSION = '0.8.2';
 export const requireThat = (condition, code) => { if (!condition) throw new Error(code); };
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 export const isDigest = value => typeof value === 'string' && value.length === 64 && /^[a-f0-9]{64}$/.test(value);

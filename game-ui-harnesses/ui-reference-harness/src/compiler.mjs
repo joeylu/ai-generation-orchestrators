@@ -40,6 +40,8 @@ export const SOURCE_0_7_3_RUNTIME_SHA256 = 'd7e7365f4a79fcd0e1ef9fbd92b3fd8f67f1
 // Only the isolated, UUID-bound fixed showcase preview may bootstrap from text.
 // Project DAGs always require a confirmed primary image, including this context.
 const isStylePreview = (projectId, panelId) => /^preview-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(projectId) && panelId === 'style-showcase';
+// Released 0.8.1 output remains reviewable; archived compute stays forbidden.
+export const SOURCE_0_8_1_RUNTIME_SHA256 = 'd01196a94e202683c73362f9c0530263f88f6bc12ec96696bff85c801a17fd30';
 export const SOURCE_0_8_RUNTIME_SHA256 = '9e15ec537195d76861a3353147ac48bb60819cb7f3e756f404b9970ffc273bd4';
 
 function verifyAnchor(root, anchor, styleSha256) {
@@ -349,10 +351,11 @@ function verifyPlanEvidence(root, run, allowLegacy) {
   const source07 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_RUNTIME_SHA256;
   const source071 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_1_RUNTIME_SHA256;
   const source072 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_2_RUNTIME_SHA256;
+  const source081 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_8_1_RUNTIME_SHA256;
   const source080 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_8_RUNTIME_SHA256;
   const source073 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_3_RUNTIME_SHA256;
   requireThat((legacy ? allowLegacy && plan.runtimeSha256 === LEGACY_RUNTIME_SHA256
-    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || source073 || source080 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
+    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || source073 || source080 || source081 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
     && run === `runs/${plan.nonce}` && plan.qualityPolicy === 'strict'
     && (plan.parentPlanSha256 === null || isDigest(plan.parentPlanSha256)), 'PLAN_CONTRACT_OR_RUNTIME_CHANGED');
   const prototype = loadPrototype(root, plan.prototype), style = loadStyle(root, plan.styleSha256);
