@@ -106,7 +106,7 @@ HOST-DELIVERY. Old adapters that only recognize `material_review` need updating
 before selecting this new policy. This policy is included in alpha.5; alpha.4
 retains its published defaults. Keep existing runs on their original release.
 
-The source follow-up after alpha.7 also supports an explicit new-run option:
+Alpha.8 supports an explicit new-run option:
 
 ```json
 {
@@ -200,7 +200,7 @@ The source package contains no Docker service or model-provider implementation.
 The consuming service owns that integration and should install the tagged source
 and viewer by their published SHA-256 digests.
 
-Post-alpha.7 source follow-up adds optional
+Alpha.8 adds optional
 `host_image_dispatch.run_images(..., capture_timings=True)` coordinator timings
 and structured `partitionObservations` on sheet warnings. Neither adds a model
 stage, authorization or call; defaults, prompts, alpha preparation and extraction

@@ -86,7 +86,7 @@ diagnostic preview and ZIP without more generation or body-observation calls.
 This is an honest partial diagnostic, not a complete material delivery. Older
 contracts without this policy retain their existing behavior; strict gates remain.
 
-An opt-in source follow-up after alpha.7, `sheetSeamPolicy=faint-glow-preserving-seam-v3`,
+An opt-in alpha.8 policy, `sheetSeamPolicy=faint-glow-preserving-seam-v3`,
 permits a diagnostic split across an extremely faint glow without deleting it.
 It is limited to new warning-mode host jobs with the prepared-sheet composite
 policy and one final composite review. Transparent seams remain preferred;

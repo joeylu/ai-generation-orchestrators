@@ -117,7 +117,7 @@ noise pixels and binds an exact RGBA partition proof to independent review.
 Standalone extraction keeps the strict one-band rule described above. Neither
 policy accepts a nontransparent cut, changed alpha floor or nonempty unused cell.
 
-For the opt-in source follow-up after alpha.7, warning-mode host diagnostics may
+In alpha.8, warning-mode host diagnostics may explicitly
 select `faint-glow-preserving-seam-v3`. This separate policy retains raw RGBA
 pixels, records a warning for an internal cut below alpha 8 and still requires
 the one final composite review. It leaves standalone extraction unchanged. See

@@ -339,7 +339,7 @@ Old host configurations without the field replay v1; standalone extraction and
 existing frozen evidence retain their existing rules. Failed runs are not resumed
 under this new runtime.
 
-The source follow-up after alpha.7 offers the explicit diagnostic-only
+Alpha.8 offers the explicit diagnostic-only
 `sheetSeamPolicy=faint-glow-preserving-seam-v3` for new warning jobs with prepared
 raw cells and one final composite review. It preserves every nonzero source pixel
 while allowing a unique internal cut through full-span adjacent lines below alpha

@@ -1,7 +1,11 @@
-# UI Layer Harness — 0.1.0a7 preview
+# UI Layer Harness — 0.1.0a8 preview
 
-固定发布标签：`ui-layers-v0.1.0-alpha.7`。
-服务接入与升级参数见[本版发布说明](docs/release-0.1.0a7.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+固定发布标签：`ui-layers-v0.1.0-alpha.8`。
+服务接入与升级参数见[本版发布说明](docs/release-0.1.0a8.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+
+alpha.8 增加六样本基准、规划修复阶段及失败诊断包的真实计量、可选调度耗时诊断，
+以及保留原始像素的[极淡辉光切分选项](docs/HOST-INTEGRATION.md#recommended-new-diagnostic-configuration)。
+新切分策略须由新 warning 任务显式选择，仍只做一次最终整图复审；默认策略保持。
 
 官方 `host-run` 新任务增加[通用规划预检、派生修正及可选修复闭环](docs/PLANNING-REPAIR.md)。
 正常路径仍为 M1/M2 两次规划调用；可选模型修复须显式预留最多两次额外调用并绑定实际授权。
@@ -13,7 +17,8 @@
 
 本版包含[复杂参考图一致性修复](docs/FIDELITY-FIXES.md)：背景改为原图去 UI 的简短编辑提示词，
 合板限制尺寸差距并采用均衡网格；切分不确定的裁片仅保留为诊断证据，不进入回拼，也不算完整交付。
-alpha.5 曾完成一次从原图开始的 CLI 整链验证及一次文字去除补图验证；该历史范围不构成 alpha.7 真实模型验收。
+alpha.5 曾完成一次从原图开始的 CLI 整链验证及一次文字去除补图验证；该历史范围不构成 alpha.8 真实模型验收。
+alpha.7 的海洋规划、原始生图和独立补充复审证据另有记录；alpha.8 新切分仅做现有像素的离线验证，未新增模型或生图验收。
 
 新服务集成使用 `host-run` 及 `host-*` 交换协议，见[宿主接入流程](docs/HOST-INTEGRATION.md)。
 该入口以持久化阶段状态机编排全链路并复用规划、冻结与交付原语；既有 `run/resume/status` DAG 入口继续保留。

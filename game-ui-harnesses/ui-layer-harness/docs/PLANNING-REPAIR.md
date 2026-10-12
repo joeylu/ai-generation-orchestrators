@@ -1,6 +1,6 @@
 # Official host planning validation and repair
 
-This contract applies to **new fresh M1 `host-run` jobs in alpha.7**. It does not
+This contract applies to **new fresh M1 `host-run` jobs since alpha.7**, including alpha.8. It does not
 upgrade historical runs or dispatch a model. Use only `host-*` for this controller.
 Shared exchange directories retain their historical `.dag` storage name; the
 legacy DAG controller is never invoked.
