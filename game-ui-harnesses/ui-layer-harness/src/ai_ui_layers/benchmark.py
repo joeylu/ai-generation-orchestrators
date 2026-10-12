@@ -14,8 +14,8 @@ from .package_baseline_audit import _bound, _region
 from . import host_timing
 from .validation_scope import scope
 
-STAGES = ('planning_generate', 'planning_review', 'images', 'material_review',
-          'body_observation', 'composite_review')
+STAGES = ('planning_generate', 'planning_review', 'planning_repair', 'planning_rereview',
+          'images', 'material_review', 'body_observation', 'composite_review')
 
 
 def inspect_run(run):
@@ -48,6 +48,8 @@ def inspect_run(run):
         if not (folder/'scope.json').is_file():
             continue
         stage = verified(folder/'scope.json')['stage']
+        if stage not in counts:
+            raise ValueError('BENCHMARK_UNKNOWN_SCOPE_STAGE')
         counts[stage] += len(list(folder.glob('*-submission.json')))
     counts['images'] = len(list((root/'images/attempts').glob('*/submission.json')))
     counts['body_observation'] = len(list((root/'body/attempts').glob('*/submission.json')))
@@ -57,6 +59,7 @@ def inspect_run(run):
         runtimeDigest=hashlib.sha256(json.dumps(config['runtime'],sort_keys=True).encode()).hexdigest(),
         executionCompleted=completed, stage=state['stage'], callCounts=counts,
         checkpointIntegrityPassed=integrity, deliveryEvidenceUsable=integrity and completed,
+        diagnosticDeliveryEvidenceUsable=False,
         referenceSha256=digest(original),
         generationMode=config.get('generationMode'), automaticRetries=0,
         timing=host_timing.report(root), humanVisualAcceptance=False)
@@ -64,15 +67,28 @@ def inspect_run(run):
         reason=state.get('reason','unknown')
         result.update(failureCode=reason if re.fullmatch(r'[A-Z][A-Z0-9_]{0,127}',reason) else
                       'NON_CODE_FAILURE_PRESERVED_IN_SOURCE', inventory=None, geometry=None)
-        return result
+        if not integrity or state['stage'] != 'failed' or not (root/'final-review/request.json').is_file():
+            return result
+        # A failed final call does not invalidate already frozen delivery bytes.
+        # This is measurement only: execution stays failed and replay stays forbidden.
+        from . import composite_review
+        folder, request, _ = composite_review.verify(root)
+        review_scope = verified(root/'scopes/composite_review-composite/scope.json')
+        if (review_scope['stage'] != composite_review.STAGE or
+                review_scope['requestSha256'] != digest(folder/'request.json') or
+                Path(review_scope['requestPath']).resolve() != (folder/'request.json').resolve() or
+                Path(review_scope['requestDirectory']).resolve() != folder.resolve()):
+            raise ValueError('BENCHMARK_DIAGNOSTIC_SCOPE_CHANGED')
+        result['diagnosticDeliveryEvidenceUsable'] = True
     name = ('final-composite-warning-report.json' if (root/'final-composite-warning-report.json').is_file()
             else 'visual-warning-report.json')
     warning = read(root/name)
     delivery = root/warning.get('diagnosticDelivery', 'delivery')
     if not delivery.resolve().is_relative_to(root):
         raise ValueError('BENCHMARK_DELIVERY_PATH_ESCAPE')
-    result.update(measure_delivery(root/'frozen', delivery, root/'layout-output',
-                                  warning.get('excludedUncertainMaterialIds', [])))
+    excluded = set(warning.get('excludedUncertainMaterialIds', []))
+    excluded.update(warning.get('layoutRegistration', {}).get('excludedUncertainMaterialIds', []))
+    result.update(measure_delivery(root/'frozen', delivery, root/'layout-output', excluded))
     return result
 
 
@@ -111,11 +127,22 @@ def compare(expected, actual, tolerance=2):
     if expected['firstAttemptCompleted'] and not actual['firstAttemptCompleted']:
         regressions.append(dict(metric='firstAttempt', code='FIRST_ATTEMPT_STOPPED'))
     current = actual['selected']
-    if not current['executionCompleted']:
-        return [*regressions, dict(metric='execution', code='NO_COMPLETED_ATTEMPT')]
     baseline = expected['selected']
+    # Old fixed suites omit the two optional repair stages: their bound baseline is zero.
+    # Count regressions remain visible even when execution stopped before delivery.
+    for stage in STAGES:
+        old = expected['totalCallCounts'].get(stage, 0)
+        new = actual['totalCallCounts'].get(stage, 0)
+        if new > old:
+            regressions.append(dict(metric='calls', code='CALL_COUNT_INCREASED', stage=stage,
+                                    baseline=old, actual=new))
     if current['referenceSha256'] != baseline['referenceSha256']:
         raise ValueError('BENCHMARK_REFERENCE_CHANGED')
+    if not current['executionCompleted']:
+        if baseline['executionCompleted'] or not current.get('diagnosticDeliveryEvidenceUsable'):
+            regressions.append(dict(metric='execution', code='NO_COMPLETED_ATTEMPT'))
+        if not current.get('diagnosticDeliveryEvidenceUsable'):
+            return regressions
     required = set(baseline['inventory']['plannedMaterialIds'])
     for field, ids in (('plannedMaterialIds',required),
                        ('deliveredMaterialIds',set(baseline['inventory']['deliveredMaterialIds']))):
@@ -143,10 +170,6 @@ def compare(expected, actual, tolerance=2):
                     regressions.append(dict(metric='geometry',code='GEOMETRY_RESIDUAL_INCREASED',check=cid))
             elif old['residualPixels'] is not None and new['residualPixels'] is None:
                 regressions.append(dict(metric='geometry',code='GEOMETRY_MEASUREMENT_LOST',check=cid))
-    for stage in STAGES:
-        if actual['totalCallCounts'][stage] > expected['totalCallCounts'][stage]:
-            regressions.append(dict(metric='calls',code='CALL_COUNT_INCREASED',stage=stage,
-                                    baseline=expected['totalCallCounts'][stage],actual=actual['totalCallCounts'][stage]))
     return regressions
 
 
@@ -228,7 +251,10 @@ def run_suite(suite_path, evidence_path, output, *, replay_received=False, profi
         attempts = [inspect_run(path) for path in paths]
         if any(row['referenceSha256'] != baseline['reference']['sha256'] for row in attempts):
             raise ValueError('BENCHMARK_REFERENCE_CHANGED')
-        selected_index = max((i for i,row in enumerate(attempts) if row['executionCompleted']),default=len(attempts)-1)
+        selected_index = max((i for i,row in enumerate(attempts) if row['executionCompleted']),default=-1)
+        if selected_index == -1:
+            selected_index = max((i for i,row in enumerate(attempts) if row.get('diagnosticDeliveryEvidenceUsable')),
+                                 default=len(attempts)-1)
         selected = attempts[selected_index]
         if selected.get('referenceSha256') != baseline['reference']['sha256'] and selected['executionCompleted']:
             raise ValueError('BENCHMARK_REFERENCE_CHANGED')
@@ -253,12 +279,11 @@ def run_suite(suite_path, evidence_path, output, *, replay_received=False, profi
         actual['regressions'] = compare(baseline['baseline'],actual,suite.get('geometryTolerancePixels',2))
         if 'replayIdentity' in actual and not all(actual['replayIdentity'].values()):
             actual['regressions'].append(dict(metric='artifactIdentity',code='DETERMINISTIC_REPLAY_BYTES_CHANGED'))
-        if replay_received:
-            # Recheck immutable checkpoint AND inventory after all deterministic work.
-            after = [inspect_run(path) for path in paths]
-            if any(old[key] != new[key] for old,new in zip(attempts,after)
-                   for key in ('checkpointSha256','observedInventorySha256')):
-                raise ValueError('BENCHMARK_SOURCE_CHANGED')
+        # Recheck immutable checkpoint AND inventory after read-only measurement too.
+        after = [inspect_run(path) for path in paths]
+        if any(old[key] != new[key] for old,new in zip(attempts,after)
+               for key in ('checkpointSha256','observedInventorySha256')):
+            raise ValueError('BENCHMARK_SOURCE_CHANGED')
         cases.append(actual)
     constraints=[check for row in cases for check in (row['selected'].get('geometry') or {}).get('constraints',{}).values()]
     internal=[check for row in cases for check in (row['selected'].get('geometry') or {}).get('internalChecks',{}).values()]
@@ -266,6 +291,9 @@ def run_suite(suite_path, evidence_path, output, *, replay_received=False, profi
         evidenceSelectionSha256=digest(Path(evidence_path)),cases=cases,
         regressionCount=sum(len(row['regressions']) for row in cases),
         firstAttemptCompletedCount=sum(row['firstAttemptCompleted'] for row in cases),
+        selectedExecutionCompletedCount=sum(row['selected']['executionCompleted'] for row in cases),
+        failedDiagnosticMeasurementCount=sum(not row['selected']['executionCompleted'] and
+            row['selected'].get('diagnosticDeliveryEvidenceUsable',False) for row in cases),
         inventoryCompleteCount=sum(bool((row['selected'].get('inventory') or {}).get('complete')) for row in cases),
         geometrySummary=dict(checkedConstraintCount=len(constraints),passedConstraintCount=sum(c['passed'] for c in constraints),
             checkedInternalCount=len(internal),passedInternalCount=sum(c['passed'] for c in internal),

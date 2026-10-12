@@ -92,3 +92,43 @@ def axis_cuts(alpha, count, axis, policy=STRICT_SEAM):
         cuts.append(cut)
     cuts.append(length)
     return cuts
+
+
+def partition_observations(image, row, policy=STRICT_SEAM):
+    """Explain a failed partition without selecting new cuts or altering its gate."""
+    validate_seam_policy(policy)
+    if 'A' not in image.getbands():
+        raise ValueError('SHEET_NATIVE_ALPHA_REQUIRED')
+    alpha = np.asarray(image.getchannel('A'))
+    columns, rows = row['grid']
+    axes = {}
+    for name, count, axis in (('x', columns, 1), ('y', rows, 0)):
+        length = alpha.shape[axis]
+        occupied = np.any(alpha != 0, axis=1-axis)
+        seams = []
+        for index in range(1, count):
+            center = index*length//count
+            radius = max(2, length//count//4)
+            lo, hi = max(1, center-radius), min(length-1, center+radius)
+            longest = current = 0
+            for empty in ~occupied[lo:hi+1]:
+                current = current+1 if empty else 0
+                longest = max(longest, current)
+            seams.append(dict(index=index, nominalCut=center, searchRange=[lo, hi+1],
+                fullSpanEmptyLines=int(np.count_nonzero(~occupied[lo:hi+1])),
+                longestFullSpanEmptyBand=int(longest)))
+        observation = dict(requestedCells=count, seams=seams)
+        try:
+            observation['cuts'] = axis_cuts(alpha, count, axis, policy)
+            observation['failureCode'] = None
+        except ValueError as error:
+            observation.update(cuts=None, failureCode=str(error))
+        axes[name] = observation
+    edges = {name:dict(nonzeroAlphaPixels=int(np.count_nonzero(edge)), maximumAlpha=int(edge.max()))
+        for name, edge in (('top', alpha[0]), ('bottom', alpha[-1]),
+                           ('left', alpha[:, 0]), ('right', alpha[:, -1]))}
+    return dict(kind='ui_sheet_partition_observations_v1', imageSize=list(image.size),
+        grid=list(row['grid']), seamPolicy=policy, axes=axes, outerBoundary=edges,
+        measurementBasis='supplied detection alpha; full-span empty lines, not semantic contours',
+        diagnosticOnly=True, pixelsModified=False, transparentPartitionProven=False,
+        sourceCompletenessAccepted=False)

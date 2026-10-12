@@ -4,12 +4,47 @@ import unittest
 from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
-from ai_ui_layers.sheet_pixels import prepare, axis_cuts, NEAREST_SEAM
+from ai_ui_layers.sheet_pixels import prepare, prepared_image, axis_cuts, partition_observations, NEAREST_SEAM
 from ai_ui_layers.extract_sheets import cells, partition_cells
 from ai_ui_layers.evaluate import digest
 
 
 class SheetPixelTests(unittest.TestCase):
+    def test_connected_faint_glow_has_no_safe_seams_even_with_transparent_outer_edges(self):
+        image=Image.new('RGBA',(128,512));draw=ImageDraw.Draw(image)
+        for y in range(4):draw.rectangle((20,y*128+20,108,y*128+108),fill=(40,80,100,255))
+        draw.line((64,20,64,492),fill=(40,80,100,2))
+        row=dict(grid=[1,4],materialIds=['a','b','c','d'])
+        prepared,_=prepared_image(image);before=prepared.tobytes()
+        observations=partition_observations(prepared,row,NEAREST_SEAM)
+        self.assertEqual(observations['axes']['y']['failureCode'],'SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY')
+        self.assertTrue(all(s['longestFullSpanEmptyBand']==0 for s in observations['axes']['y']['seams']))
+        self.assertTrue(all(e['nonzeroAlphaPixels']==0 for e in observations['outerBoundary'].values()))
+        self.assertEqual(before,prepared.tobytes())
+        self.assertFalse(observations['transparentPartitionProven'])
+        self.assertFalse(observations['sourceCompletenessAccepted'])
+        with self.assertRaisesRegex(ValueError,'CONTOUR_TOUCHES'):partition_cells(prepared,row,NEAREST_SEAM)
+
+    def test_diagnostics_do_not_raise_the_existing_alpha_floor_to_cut_glow(self):
+        row=dict(grid=[1,2],materialIds=['a','b'])
+        for alpha,failed in ((1,False),(2,True)):
+            image=Image.new('RGBA',(128,256));draw=ImageDraw.Draw(image)
+            for y in (0,128):draw.rectangle((20,y+20,108,y+108),fill='white')
+            draw.line((64,20,64,236),fill=(40,80,100,alpha))
+            prepared,_=prepared_image(image)
+            observed=partition_observations(prepared,row,NEAREST_SEAM)
+            self.assertEqual(observed['axes']['y']['failureCode'] is not None,failed)
+            self.assertEqual(prepared.getpixel((64,128))[3],alpha if alpha>1 else 0)
+
+    def test_clipped_outer_edge_is_distinct_from_missing_internal_seams(self):
+        image=Image.new('RGBA',(128,256));draw=ImageDraw.Draw(image)
+        for y in (0,128):draw.rectangle((20,y+20,127,y+108),fill='white')
+        row=dict(grid=[1,2],materialIds=['a','b'])
+        observations=partition_observations(image,row,NEAREST_SEAM)
+        self.assertIsNone(observations['axes']['y']['failureCode'])
+        self.assertGreater(observations['outerBoundary']['right']['nonzeroAlphaPixels'],0)
+        with self.assertRaisesRegex(ValueError,'CONTOUR_TOUCHES'):partition_cells(image,row,NEAREST_SEAM)
+
     def test_cleanup_preserves_all_channels_above_floor_and_raw(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);raw=root/'raw.png';out=root/'clean.png'

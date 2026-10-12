@@ -166,3 +166,14 @@ formal host chain; ZIP method counts distinguish stored members from compression
 The source package contains no Docker service or model-provider implementation.
 The consuming service owns that integration and should install the tagged source
 and viewer by their published SHA-256 digests.
+
+Post-alpha.7 source follow-up adds optional
+`host_image_dispatch.run_images(..., capture_timings=True)` coordinator timings
+and structured `partitionObservations` on sheet warnings. Neither adds a model
+stage, authorization or call; defaults, prompts, alpha preparation and extraction
+gates are unchanged. Save optional coordinator reports outside the protected run.
+The offline benchmark also recognizes the two repair stages and can measure
+checkpoint-bound diagnostic delivery after a failed composite call without
+resuming or replaying that failed run. See [benchmark and timing](BENCHMARK-AND-TIMING.md).
+These additions require a new immutable runtime for new jobs; alpha.7 attachments
+and all historical tasks retain their original bytes and behavior.

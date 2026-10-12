@@ -58,6 +58,58 @@ class RollingImageDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['maximumObservedConcurrentCalls'],3)
         self.assertEqual(result['automaticRetries'],0)
         self.assertEqual(result['state']['stage'],'composite_review')
+        self.assertNotIn('dispatchTimings',result)
+
+    async def test_opt_in_timings_expose_returned_results_waiting_for_serial_receipts(self):
+        fake=FakeHost();committing=asyncio.Event();release=threading.Event()
+        loop=asyncio.get_running_loop();original=fake.receive
+        def receive(*args,**kwargs):
+            if args[1]=='2':
+                loop.call_soon_threadsafe(committing.set)
+                if not release.wait(5):raise AssertionError('fixture completion timeout')
+            return original(*args,**kwargs)
+        fake.receive=receive
+        async def invoke(row):
+            if row['asset'] in ('0','1'):await committing.wait()
+            if row['asset']=='1':release.set()
+            return Path('original-'+row['asset']+'.png')
+        with patch.object(dispatch,'host',fake):
+            result=await dispatch.run_images('fixture',invoke,capture_timings=True)
+        report=result['dispatchTimings'];rows={r['submissionDigest']:r for r in report['records']}
+        self.assertEqual(set(rows),{'0','1','2','3','4'})
+        for key in ('0','1'):
+            self.assertLessEqual(rows[key]['adapterFinishedAtSeconds'],rows['2']['receiptFinishedAtSeconds'])
+            self.assertGreaterEqual(rows[key]['receiptStartedAtSeconds'],rows['2']['receiptFinishedAtSeconds'])
+            self.assertGreater(rows[key]['receiptQueueSeconds'],0)
+        for row in rows.values():
+            self.assertGreaterEqual(row['adapterWaitSeconds'],0)
+            self.assertEqual(row['receiptOutcome'],'committed')
+            if 'refillStartDelaySeconds' in row:self.assertGreaterEqual(row['refillStartDelaySeconds'],0)
+        self.assertEqual(report['maximumAdapterCallsAwaitingReturn'],3)
+        self.assertLessEqual(report['adapterWaitUnionSeconds'],report['adapterWaitSumSeconds'])
+        self.assertFalse(report['overlappingCategoriesAddToWallTime'])
+        self.assertFalse(report['persistedInHostRun'])
+
+    async def test_timing_capture_does_not_retry_failed_adapters_or_add_refills(self):
+        fake=FakeHost();released=asyncio.Event()
+        async def invoke(row):
+            if row['asset']=='2':released.set();raise RuntimeError('unknown acceptance')
+            await released.wait();return Path('original-'+row['asset']+'.png')
+        with patch.object(dispatch,'host',fake):
+            result=await dispatch.run_images('fixture',invoke,capture_timings=True)
+        self.assertEqual(fake.assigned,['0','1','2'])
+        report=result['dispatchTimings']
+        self.assertEqual(len(report['records']),3)
+        self.assertEqual(next(r for r in report['records'] if r['submissionDigest']=='2')['adapterOutcome'],
+                         'failed_or_cancelled')
+        self.assertEqual(report['automaticRetries'],0)
+
+    async def test_non_boolean_timing_option_stops_before_reservation(self):
+        fake=FakeHost()
+        with patch.object(dispatch,'host',fake):
+            with self.assertRaisesRegex(ValueError,'TIMING_BOOLEAN'):
+                await dispatch.run_images('fixture',None,capture_timings=1)
+        self.assertFalse(fake.assigned)
 
     async def test_failure_stops_refill_and_drains_original_inflight_results(self):
         fake=FakeHost();released=asyncio.Event()

@@ -6,7 +6,7 @@ from PIL import Image
 from .evaluate import read, save, digest
 from .experimental_executor import load_job, status, verified
 from .extract_sheets import partition_cells
-from .sheet_pixels import STRICT_SEAM, prepared_image
+from .sheet_pixels import STRICT_SEAM, prepared_image, partition_observations
 
 
 POLICY = 'diagnostic-on-sheet-partition-warning-v1'
@@ -144,6 +144,7 @@ def findings(job, config):
             warnings.append(dict(category='sheet-partition', severity='warning',
                 code=str(error), requestId=key, materialIds=material_reuse.expanded_ids(reuse,row['materialIds']),
                 rawSha256=before, independentSeparationVerified=False,
+                partitionObservations=partition_observations(prepared,row,config.get('sheetSeamPolicy',STRICT_SEAM)),
                 finalCompositeReviewPending=True))
         if digest(raw) != before:
             raise ValueError('SHEET_INPUT_CHANGED')

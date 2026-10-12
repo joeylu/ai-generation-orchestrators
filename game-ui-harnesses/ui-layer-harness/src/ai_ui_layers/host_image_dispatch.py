@@ -4,11 +4,13 @@ The adapter invokes the exact reservation once and returns the original PNG path
 This module has no provider, network, authorization, retry or image editing logic.
 """
 import asyncio
+import time
 
 from . import host_delivery as host
+from .host_timing import _union
 
 
-async def run_images(run, invoke, *, maximum_concurrent_calls=3):
+async def run_images(run, invoke, *, maximum_concurrent_calls=3, capture_timings=False):
     """Drain a newly authorized image scope, refilling after each committed receipt.
 
     One coordinator owns this scope. Previously outstanding reservations require
@@ -18,6 +20,15 @@ async def run_images(run, invoke, *, maximum_concurrent_calls=3):
     """
     if type(maximum_concurrent_calls) is not int or not 1 <= maximum_concurrent_calls <= 3:
         raise ValueError('FINITE_ROLLING_IMAGE_CONCURRENCY_REQUIRED')
+    if type(capture_timings) is not bool:
+        raise ValueError('EXPLICIT_DISPATCH_TIMING_BOOLEAN_REQUIRED')
+    started = time.perf_counter() if capture_timings else None
+    timings = {}
+    active_adapter_calls = adapter_peak = 0
+
+    def clock():
+        return time.perf_counter()-started
+
     current = await asyncio.to_thread(host.status, run)
     if current['stage'] != 'images' or current['status'] != 'ready':
         raise ValueError('HOST_IMAGES_NOT_READY_NO_RESUBMIT')
@@ -34,12 +45,32 @@ async def run_images(run, invoke, *, maximum_concurrent_calls=3):
     received = []
     peak = 0
 
-    async def call(row):
-        return await invoke(row)
+    async def call(row, timing):
+        nonlocal active_adapter_calls, adapter_peak
+        if timing is None:
+            return await invoke(row)
+        timing['adapterStartedAtSeconds'] = clock()
+        active_adapter_calls += 1
+        adapter_peak = max(adapter_peak, active_adapter_calls)
+        try:
+            source = await invoke(row)
+            timing['adapterOutcome'] = 'returned'
+            return source
+        except BaseException:
+            timing['adapterOutcome'] = 'failed_or_cancelled'
+            raise
+        finally:
+            timing['adapterFinishedAtSeconds'] = clock()
+            active_adapter_calls -= 1
 
-    def start(row):
+    def start(row, previous=None):
         nonlocal peak
-        pending[asyncio.create_task(call(row))] = row
+        timing = None
+        if capture_timings:
+            timing = dict(submissionDigest=row['submissionDigest'], queuedAtSeconds=clock())
+            if previous is not None:timing['refillAfterSubmissionDigest'] = previous
+            timings[row['submissionDigest']] = timing
+        pending[asyncio.create_task(call(row, timing))] = row
         peak = max(peak, len(pending))
 
     for row in reservations:
@@ -57,18 +88,25 @@ async def run_images(run, invoke, *, maximum_concurrent_calls=3):
                 row = pending.pop(task)
                 source = task.result()
                 if current.get('stage') == 'failed':
+                    if capture_timings:timings[row['submissionDigest']]['receiptOutcome'] = 'uncommitted_after_failure'
                     uncommitted.append(dict(submissionDigest=row['submissionDigest'], response=source))
                     continue
+                timing = timings.get(row['submissionDigest'])
+                if timing is not None:timing['receiptStartedAtSeconds'] = clock()
                 try:
                     current = await asyncio.to_thread(host.receive, run, row['submissionDigest'], source,
                                                       refill_images=not failures)
+                    if timing is not None:timing['receiptOutcome'] = 'committed'
                 except Exception:
                     # The deterministic receiver preserves/terminalizes bad input.
                     # Keep subsequent original paths for explicit host recovery.
                     failures.append(row['submissionDigest'])
+                    if timing is not None:timing['receiptOutcome'] = 'failed'
                     current = await asyncio.to_thread(host.status, run)
                     uncommitted.append(dict(submissionDigest=row['submissionDigest'], response=source))
                     continue
+                finally:
+                    if timing is not None:timing['receiptFinishedAtSeconds'] = clock()
                 received.append(row['submissionDigest'])
                 if 'nextImageRequest' in current:
                     following=current.pop('nextImageRequest')
@@ -79,7 +117,7 @@ async def run_images(run, invoke, *, maximum_concurrent_calls=3):
                            for task in pending):
                         uninvoked.append(following['submissionDigest'])
                     else:
-                        start(following)
+                        start(following, row['submissionDigest'])
         if failures and current.get('stage') != 'failed':
             current = await asyncio.to_thread(host.fail, run, failures[0], 'HOST_IMAGE_CALL_FAILED_NO_RESUBMIT')
     except BaseException:
@@ -92,8 +130,30 @@ async def run_images(run, invoke, *, maximum_concurrent_calls=3):
             except ValueError:
                 pass  # A failed receiver may already have terminalized the run.
         raise
-    return dict(state=current, receivedSubmissionDigests=received,
+    result = dict(state=current, receivedSubmissionDigests=received,
                 failedSubmissionDigests=failures, uncommittedResults=uncommitted,
                 uninvokedReservationDigests=uninvoked,
                 maximumObservedConcurrentCalls=peak, automaticRetries=0,
                 countBasis='coordinator in-flight adapter tasks; not provider execution telemetry')
+    if capture_timings:
+        intervals=[];receipt_sum=queue_sum=0
+        for row in timings.values():
+            intervals.append((row['adapterStartedAtSeconds'],row['adapterFinishedAtSeconds']))
+            row['adapterWaitSeconds']=row['adapterFinishedAtSeconds']-row['adapterStartedAtSeconds']
+            row['coordinatorStartQueueSeconds']=row['adapterStartedAtSeconds']-row['queuedAtSeconds']
+            if 'receiptStartedAtSeconds' in row:
+                row['receiptQueueSeconds']=row['receiptStartedAtSeconds']-row['adapterFinishedAtSeconds']
+                row['receiptProcessingSeconds']=row['receiptFinishedAtSeconds']-row['receiptStartedAtSeconds']
+                queue_sum += row['receiptQueueSeconds'];receipt_sum += row['receiptProcessingSeconds']
+            if 'refillAfterSubmissionDigest' in row:
+                previous=timings[row['refillAfterSubmissionDigest']]
+                row['refillStartDelaySeconds']=row['adapterStartedAtSeconds']-previous['receiptFinishedAtSeconds']
+        result['dispatchTimings']=dict(kind='ui_host_image_dispatch_timings_v1',
+            elapsedSeconds=clock(), records=list(timings.values()),
+            adapterWaitUnionSeconds=_union(intervals), adapterWaitSumSeconds=sum(e-s for s,e in intervals),
+            receiptQueueSecondsSum=queue_sum, receiptProcessingSecondsSum=receipt_sum,
+            maximumAdapterCallsAwaitingReturn=adapter_peak,
+            timingBasis='coordinator perf_counter; adapter wait includes host/tool scheduling and transport; not provider latency',
+            overlappingCategoriesAddToWallTime=False, persistedInHostRun=False,
+            additionalGenerationCalls=0, additionalModelCalls=0, automaticRetries=0)
+    return result
