@@ -64,8 +64,13 @@ def prepare(root, config):
         (folder/name).write_bytes(source.read_bytes())
         images.append(dict(file=name, sha256=digest(folder/name), purpose=purpose))
     layers={row['id']:row for row in mapping['layers']}
+    modes={row['materialId']:row['mode'] for row in visual.get('layoutRegistration',{}).get('materials',[])}
     material_map = [dict(materialId=row['id'], referenceBoxNorm=row['bboxNorm'],
                          preserveText=row.get('preserveText',[]),
+                         ownedObjects=[dict(objectId=obj['id'],kind=obj['kind'],
+                             referenceBoxNorm=obj.get('bboxNorm'),appearance=obj['label'])
+                             for obj in visual['objects'] if obj['materialId']==row['id']],
+                         registrationMode=modes.get(row['id']),
                          delivered=row['id'] in layers,
                          path=layers[row['id']]['path'] if row['id'] in layers else None)
                     for row in visual['materials']]
@@ -74,6 +79,12 @@ def prepare(root, config):
         'Inspect the original and recomposition at full size; the material atlas is supplementary. '
         'Check missing/duplicate artwork, foreign subjects and backing retained in layers, placement, '
         'occlusion, frame/band alignment, proportions, appearance and transparency. '
+        'Compare internal artwork size and offsets, coin/icon scale, border thickness, protruding ornaments '
+        'and clearances to separately owned controls, not only outer frame alignment. Empty label space must '
+        'stay empty rather than being filled by enlarged or recentered graphics. The material map includes '
+        'original-plan owned object locators and appearance; they are unmeasured reference hints, not masks '
+        'or observations of the generated content. A uniform/frame registration mode or passed edge '
+        'constraint does not certify internal geometry or absence of occlusion. '
         'TEXT REQUIREMENT: ordinary labels and numbers must be removed; this is a target, not an assertion that removal succeeded. '
         'Inspect the actual recomposition for retained or newly invented labels and numbers before evaluating style. '
         'Report visible residual ordinary text as category text, including text copied unchanged from the original. '

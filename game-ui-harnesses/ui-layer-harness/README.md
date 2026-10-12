@@ -1,7 +1,7 @@
-# UI Layer Harness — 0.1.0a8 preview
+# UI Layer Harness — 0.1.0a9 preview
 
-固定发布标签：`ui-layers-v0.1.0-alpha.8`。
-服务接入与升级参数见[本版发布说明](docs/release-0.1.0a8.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+固定发布标签：`ui-layers-v0.1.0-alpha.9`。
+服务接入与升级参数见[本版发布说明](docs/release-0.1.0a9.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
 
 alpha.8 增加六样本基准、规划修复阶段及失败诊断包的真实计量、可选调度耗时诊断，
 以及保留原始像素的[极淡辉光切分选项](docs/HOST-INTEGRATION.md#recommended-new-diagnostic-configuration)。

@@ -71,8 +71,10 @@ def prepare(root, config):
         prompt+=('\n本轮有限调用预算：生图最多 '+str(config['maximumImageCalls'])+' 次，独立素材复审最多 '
             +str(config['maximumMaterialReviews'])+' 次；generationMode='+config['generationMode']
             +'，合板策略='+config.get('generationGroupingPolicy','none')+'。'
-            '素材数量不等于生图请求数量，同类完整卡片可合板生成后分别交付；'
-            '卡片内部插画、卡框和附属图标仍归同一完整素材，不因插画存在额外拆层。'
+            '素材数量不等于生图请求数量，同类素材可合板生成后分别交付；'
+            '合板只是传输与生图分组，不决定素材归属，也不要求把卡框、可替换内容和状态合为一张。'
+            '先按基础规划合同区分可替换内容槽与固定构图插画、固定读数卡，再确定唯一归属；'
+            '不得因调用预算强制合并或机械拆碎完整插画。'
             '保持全部原图可见图形、独立归属和原始尺寸，不为凑预算删除素材、缩图或强拼不兼容大图。'
             '程序会在独立M2之前按真实尺寸核算请求数；预算确实不足时明确失败，不会自动增加预算或重试。\n')
         from .composite_review import enabled as composite_review_enabled
@@ -108,6 +110,14 @@ def prepare(root, config):
             '可伸缩面板表面优先声明 frame，不能因为它承载插画卡片就把底板也设成 uniform；'
             '那些单独导出的插画卡片仍为 uniform。若面板自身拥有不可变形插画或复杂装饰，使用 uniform，'
             '并在 knownDifferences 明确其等比适配可能无法同时贴合四边，不能假设目标框会自动补齐差异。\n')
+        prompt+=('归位能力边界：程序只能缩放和平移一个素材整体，frame 只适配已许可的可伸缩表面；'
+            '它不能独立校正同图内被放大或移位的插画、金币、徽饰，也不能还原加粗边框。'
+            '可替换内容与槽底板按基础合同分别归属后，刚性内容使用 uniform、可伸缩空底板才可使用 frame。'
+            '固定读数卡和固定附饰仍遵守基础合同，不因这种能力边界一律拆开；'
+            '仅在用户约束提供了实际整卡比例或轮廓失败证据时，按基础合同复查是否应改为独立刚性图形与底板。'
+            '对仍整图保留的复杂素材，核对内部图形与另属按钮、状态标记的真实间隙、边框厚薄和文字留白；'
+            '需要定位的内嵌刚性图形给出完整辅助框。留白继续留空，不能把图形放大或移向去字区域。'
+            '底板 frame 与整图 uniform 都不证明内部几何已验收。\n')
         if config.get('layoutInternalTargetsPolicy')=='uniform-internal-targets-observe-only-v1':
             prompt+=('完整插图卡片使用 uniform，禁止为对齐内部行线改成 frame。'
                 'uniform 也可声明原图清晰可见的内部行线和色带：它们约束生成并在回拼后测量，'

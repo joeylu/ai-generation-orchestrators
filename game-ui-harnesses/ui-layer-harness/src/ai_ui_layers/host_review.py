@@ -434,6 +434,15 @@ def _prepare_review(root, plan):
             'Inspect reference.png for the clean full reference; overlays are annotations, not source pixels. '
             'This declaration is frozen '
             'before image generation; do not invent or silently repair a replacement layout.\n')
+        prompt+=('Grouping and call limits do not authorize merging material owners. Check replaceable content '
+            'slots separately from fixed illustrated compositions and fixed readout cards under the base contract. '
+            'A whole-material uniform/frame fit cannot correct enlarged or shifted internal artwork. '
+            'Inspect owned internal graphic locators, thin border weights, empty text space, protruding ornaments '
+            'and clearances to separately owned controls against reference.png. Bounding-box overlap is only a '
+            'locator hint, not proof of alpha occlusion. Do not approve internal geometry merely because outer '
+            'bounds or edge constraints agree. Do not demand that every fixed ornament be split. '
+            'Apply any actual prior whole-card geometry failure evidence in the user planning constraints under '
+            'the base contract; report unsupported ownership or geometry using the existing typed findings.\n')
     prompt+='\nPlan evidence catalog:\n'+json.dumps(catalog,ensure_ascii=False)
     if focus:prompt+='\nBoundary context focus:\n'+json.dumps(focus,ensure_ascii=False)
     if small:

@@ -7,6 +7,13 @@ registration and packaging primitives. The legacy `run/resume/status` route
 still uses `delivery_dag.py`; it is not the controller of an integrated host run.
 Do not mix these controllers in one run directory.
 
+Alpha.9 removes a contradictory ownership instruction from the M1 capacity
+prompt. Grouping never requires merging replaceable content into its carrier.
+M1/M2 check internal geometry as well as outer bounds; the one final review
+packet includes frozen owned-object locators and registration modes. These are
+unmeasured reference hints, not body observations. No stages, configurations or
+call budgets are added. See [geometry fidelity](GEOMETRY-FIDELITY.md).
+
 Alpha.7 adds program preflight and a bounded optional repair branch to this
 controller. Consumers enabling repair must recognize `planning_repair` and
 `planning_rereview`. See [planning repair](PLANNING-REPAIR.md) for configuration,
