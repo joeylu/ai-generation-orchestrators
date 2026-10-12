@@ -1,5 +1,11 @@
 # 参考图工作台 · 本地网站 0.1.0
 
+## 0.8.3：状态检查提速
+
+复用同一次同步检查内的 PNG/计划证据；后续文件变化仍会触发完整验证。
+API、界面与 Hook 合同不变；宿主须安装固定版本及新 runtime 摘要。
+详见 [验证回归](../docs/validation-performance.md) 和 [0.8.3 发布说明](../docs/release-0.8.3.md)。
+
 ## 0.8.2：修复图片工具大回执
 
 CLI 转发 Hook 的 PostToolUse 输入上限调整为 96 MiB，PreToolUse 请求仍为 2 MiB。

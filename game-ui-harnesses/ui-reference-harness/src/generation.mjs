@@ -1,12 +1,12 @@
 import * as fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { canonical, digestJson, exact, isDigest, jsonBytes, local, readBytes, readJson, requireThat, seal, sha256, storeBlob, textValue, unseal, validationMemo, validationScope, withLock, writeJsonNew, writeNew } from './common.mjs';
+import { canonical, digestJson, exact, fileExists, isDigest, jsonBytes, local, readBytes, readJson, requireThat, seal, sha256, storeBlob, textValue, unseal, validationEvent, validationMemo, validationScope, withLock, writeJsonNew, writeNew } from './common.mjs';
 import { assertCurrent, runtimeDigest, verifyPlan } from './compiler.mjs';
 import { loadProject, saveProject } from './project.mjs';
 import { decodePng, encodePng } from './png.mjs';
 import { coordinateMapping, resolutionPolicy, verifyMapping } from './resolution.mjs';
 
-const exists = (root, run, name) => fs.existsSync(local(root, `${run}/${name}`));
+const exists = (root, run, name) => fileExists(local(root, `${run}/${name}`));
 const checked = (root, run, name) => { const record = readJson(local(root, `${run}/${name}`)); unseal(record); return record; };
 function sameOrNew(root, relative, value) {
   if (fs.existsSync(local(root, relative))) requireThat(readBytes(local(root, relative)).equals(Buffer.from(value)), 'ARTIFACT_CHANGED');
@@ -69,6 +69,7 @@ function validateGenerated(bytes, plan) {
   coordinateMapping({ width: plan.request.width, height: plan.request.height }, { width: image.width, height: image.height },
     plan.request.resolution ?? resolutionPolicy('exact'));
   let first = null, varied = false;
+  validationEvent('alpha-scan', { width: image.width, height: image.height });
   for (let i = 0; i < image.rgba.length; i += 4) {
     requireThat(image.rgba[i + 3] === 255, 'GENERATED_NOT_OPAQUE');
     const pixel = image.rgba.readUInt32BE(i); if (first === null) first = pixel; else if (pixel !== first) varied = true;
@@ -169,9 +170,14 @@ export function reprocessRaw(root, run, planSha256) {
 }
 
 export function verifyResult(root, run) {
-  return validationScope(() => validationMemo(canonical(['result', root, run]), () => verifyResultEvidence(root, run)));
+  return validationScope(() => {
+    const result = validationMemo(canonical(['result', root, run]), () => verifyResultEvidence(root, run));
+    // Callers cannot mutate the private memoized evidence.
+    return { plan: structuredClone(result.plan), technical: structuredClone(result.technical), reference: Buffer.from(result.reference) };
+  });
 }
 function verifyResultEvidence(root, run) {
+  validationEvent('result-check');
   const plan = verifyPlan(root, run, { allowLegacy: true }); verifyAttempt(root, run, plan);
   requireThat(!exists(root, run, 'terminal.json'), 'ATTEMPT_TERMINAL_NO_RESUBMIT');
   const receipt = checked(root, run, 'receipt.json'), technical = checked(root, run, 'technical.json');
@@ -183,9 +189,18 @@ function verifyResultEvidence(root, run) {
     && technical.rawSha256 === receipt.rawSha256 && technical.imageSha256 === sha256(reference)
     && technical.rawValidation === 'PASS' && technical.postValidation === 'PASS'
     && technical.kind === 'ui_reference_technical_qa_v2' && receipt.kind === 'ui_reference_receipt_v1'
-    && technical.postProcess === 'png-metadata-strip-lossless-rgba-v1' && technical.humanVisualReview === 'NOT_RUN'
-    && encodePng(validateGenerated(raw, plan)).equals(reference), 'RESULT_INTEGRITY');
-  const image = decodePng(reference);
+    && technical.postProcess === 'png-metadata-strip-lossless-rgba-v1' && technical.humanVisualReview === 'NOT_RUN', 'RESULT_INTEGRITY');
+  const image = validationMemo(canonical(['normalized-pixels', receipt.rawSha256, technical.imageSha256,
+    plan.request.width, plan.request.height, plan.request.resolution ?? resolutionPolicy('exact')]), () => {
+    const source = validateGenerated(raw, plan);
+    // Keep the exact canonical bytes check at compression level 9. Identical
+    // raw/reference bytes need only one decode; other encodings are compared
+    // pixel-for-pixel as well as against the deterministic normalized output.
+    requireThat(encodePng(source).equals(reference), 'RESULT_INTEGRITY');
+    const post = raw.equals(reference) ? source : decodePng(reference);
+    requireThat(post.width === source.width && post.height === source.height && post.rgba.equals(source.rgba), 'POST_PROCESS_CHANGED_PIXELS');
+    return { width: post.width, height: post.height };
+  });
   requireThat(canonical(technical.dimensions) === canonical({ width: image.width, height: image.height }), 'RESULT_DIMENSIONS_MISMATCH');
   verifyMapping(technical.coordinateMapping, { width: plan.request.width, height: plan.request.height }, technical.dimensions, plan.request.resolution);
   requireThat(!plan.rawSource || receipt.rawSha256 === plan.rawSource.rawSha256, 'RAW_SOURCE_DIGEST_MISMATCH');
@@ -223,6 +238,9 @@ export function reviewRun(root, run, { imageSha256, layout, style, copy, decisio
   });
 }
 export function inspectRun(root, run) {
+  return validationScope(() => inspectRunEvidence(root, run));
+}
+function inspectRunEvidence(root, run) {
   const plan = verifyPlan(root, run, { allowLegacy: true });
   const legacy = plan.kind === 'ui_reference_plan_v1';
   let status = legacy ? 'legacy_read_only' : plan.rawSource ? 'ready_for_reprocess' : exists(root, run, 'authorization.json') ? 'authorized' : 'awaiting_authorization';

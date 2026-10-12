@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { canonical, digestJson, exact, isDigest, local, readBytes, readJson, requireThat, seal, sha256, storeBlob, textValue, unseal, verifyBlob, writeJsonNew, jsonBytes } from './common.mjs';
+import { canonical, digestJson, exact, isDigest, local, readBytes, readJson, requireThat, seal, sha256, storeBlob, textValue, unseal, validationMemo, validationScope, verifyBlob, writeJsonNew, jsonBytes } from './common.mjs';
 import { canvas, decodePng, encodePng, rectangle } from './png.mjs';
 import { BUILTIN_IDS, applyProjectRules, builtinPack, catalogList, packRules, resolvePack } from './packs.mjs';
 import { readSampleCatalog } from './sample-catalog.mjs';
@@ -90,6 +90,9 @@ export function primaryStyleReference(root, styleSha256) {
   return references[0].artifact;
 }
 export function loadStyle(root, digest) {
+  return validationScope(() => structuredClone(validationMemo(canonical(['style', root, digest]), () => loadStyleEvidence(root, digest))));
+}
+function loadStyleEvidence(root, digest) {
   requireThat(isDigest(digest), 'STYLE_DIGEST');
   const style = validateStyleDocument(readJson(local(root, `styles/${digest}.json`)));
   requireThat(style.sha256 === digest, 'STYLE_DIGEST');

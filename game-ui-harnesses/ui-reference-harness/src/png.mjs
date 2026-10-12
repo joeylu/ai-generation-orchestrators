@@ -1,5 +1,5 @@
 import { deflateSync, inflateSync } from 'node:zlib';
-import { requireThat } from './common.mjs';
+import { requireThat, validationEvent } from './common.mjs';
 
 const SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const TABLE = Uint32Array.from({ length: 256 }, (_, n) => {
@@ -18,12 +18,14 @@ function chunk(type, data) {
   return result;
 }
 export function encodePng({ width, height, rgba }) {
+  validationEvent('png-encode', { width, height });
   requireThat(Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0
     && width <= 4096 && height <= 4096 && rgba.length === width * height * 4, 'PNG_SIZE');
   const header = Buffer.alloc(13); header.writeUInt32BE(width); header.writeUInt32BE(height, 4);
   header[8] = 8; header[9] = 6;
   const rows = Buffer.alloc(height * (width * 4 + 1));
-  for (let y = 0; y < height; y++) Buffer.from(rgba.subarray(y * width * 4, (y + 1) * width * 4)).copy(rows, y * (width * 4 + 1) + 1);
+  const pixels = Buffer.isBuffer(rgba) ? rgba : Buffer.from(rgba);
+  for (let y = 0; y < height; y++) pixels.copy(rows, y * (width * 4 + 1) + 1, y * width * 4, (y + 1) * width * 4);
   return Buffer.concat([SIGNATURE, chunk('IHDR', header), chunk('IDAT', deflateSync(rows, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 const paeth = (a, b, c) => {
@@ -32,7 +34,7 @@ const paeth = (a, b, c) => {
 };
 // Bounded PNG decoding, no external processes, metadata retention or network.
 export function decodePng(input) {
-  const bytes = Buffer.from(input);
+  const bytes = Buffer.isBuffer(input) ? input : Buffer.from(input);
   requireThat(bytes.length <= 64 * 1024 * 1024 && bytes.subarray(0, 8).equals(SIGNATURE), 'PNG_SIGNATURE');
   let offset = 8, header, palette, transparency, ended = false, idatEnded = false;
   const parts = [];
@@ -55,6 +57,7 @@ export function decodePng(input) {
   }
   requireThat(ended && offset === bytes.length, 'PNG_TRAILING_OR_MISSING_END');
   const width = header.readUInt32BE(0), height = header.readUInt32BE(4), color = header[9];
+  validationEvent('png-decode', { width, height });
   requireThat(width > 0 && height > 0 && width <= 4096 && height <= 4096 && header[8] === 8
     && [0, 2, 3, 4, 6].includes(color) && header[10] === 0 && header[11] === 0 && header[12] === 0, 'PNG_FORMAT_UNSUPPORTED');
   requireThat(color !== 3 || palette, 'PNG_PALETTE_MISSING');
@@ -63,29 +66,39 @@ export function decodePng(input) {
   const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[color], stride = width * channels, expected = (stride + 1) * height;
   const raw = inflateSync(Buffer.concat(parts), { maxOutputLength: expected });
   requireThat(raw.length === expected, 'PNG_DECODE_SIZE');
-  const pixels = Buffer.alloc(stride * height), rgba = Buffer.alloc(width * height * 4);
+  const pixels = Buffer.alloc(stride * height);
   for (let y = 0; y < height; y++) {
     const filter = raw[y * (stride + 1)]; requireThat(filter <= 4, 'PNG_FILTER');
+    if (filter === 0) {
+      raw.copy(pixels, y * stride, y * (stride + 1) + 1, (y + 1) * (stride + 1));
+      continue;
+    }
     for (let x = 0; x < stride; x++) {
       const i = y * stride + x, a = x >= channels ? pixels[i - channels] : 0;
       const b = y ? pixels[i - stride] : 0, c = y && x >= channels ? pixels[i - stride - channels] : 0;
-      const predict = [0, a, b, Math.floor((a + b) / 2), paeth(a, b, c)][filter];
+      const predict = filter === 1 ? a : filter === 2 ? b : filter === 3 ? (a + b) >>> 1 : paeth(a, b, c);
       pixels[i] = (raw[y * (stride + 1) + 1 + x] + predict) & 255;
     }
   }
+  // RGBA scanlines already have the delivery layout. Preserve zero RGB under
+  // fully transparent pixels without allocating/converting every opaque pixel.
+  if (color === 6) {
+    for (let q = 0; q < pixels.length; q += 4) if (pixels[q + 3] === 0) pixels[q] = pixels[q + 1] = pixels[q + 2] = 0;
+    return { width, height, rgba: pixels };
+  }
+  const rgba = Buffer.alloc(width * height * 4);
   for (let i = 0; i < width * height; i++) {
     const p = i * channels, q = i * 4;
     let r, g, b, a = 255;
     if (color === 3) {
       const index = pixels[p]; requireThat(index * 3 + 2 < palette.length, 'PNG_PALETTE_INDEX');
-      [r, g, b] = palette.subarray(index * 3, index * 3 + 3); a = transparency?.[index] ?? 255;
+      r = palette[index * 3]; g = palette[index * 3 + 1]; b = palette[index * 3 + 2]; a = transparency?.[index] ?? 255;
     } else if (color === 0 || color === 4) {
       r = g = b = pixels[p]; if (color === 4) a = pixels[p + 1];
       else if (transparency && r === transparency.readUInt16BE(0)) a = 0;
     } else {
-      [r, g, b] = pixels.subarray(p, p + 3);
-      if (color === 6) a = pixels[p + 3];
-      else if (transparency && r === transparency.readUInt16BE(0) && g === transparency.readUInt16BE(2) && b === transparency.readUInt16BE(4)) a = 0;
+      r = pixels[p]; g = pixels[p + 1]; b = pixels[p + 2];
+      if (transparency && r === transparency.readUInt16BE(0) && g === transparency.readUInt16BE(2) && b === transparency.readUInt16BE(4)) a = 0;
     }
     rgba[q] = a ? r : 0; rgba[q + 1] = a ? g : 0; rgba[q + 2] = a ? b : 0; rgba[q + 3] = a;
   }

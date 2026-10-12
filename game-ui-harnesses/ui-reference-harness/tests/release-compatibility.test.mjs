@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import * as api from '../src/index.mjs';
-import { DEVELOPMENT_0_7_RUNTIME_SHA256, SOURCE_0_7_RUNTIME_SHA256, SOURCE_0_7_1_RUNTIME_SHA256, SOURCE_0_7_2_RUNTIME_SHA256, SOURCE_0_7_3_RUNTIME_SHA256, SOURCE_0_8_RUNTIME_SHA256, SOURCE_0_8_1_RUNTIME_SHA256 } from '../src/compiler.mjs';
+import { DEVELOPMENT_0_7_RUNTIME_SHA256, SOURCE_0_7_RUNTIME_SHA256, SOURCE_0_7_1_RUNTIME_SHA256, SOURCE_0_7_2_RUNTIME_SHA256, SOURCE_0_7_3_RUNTIME_SHA256, SOURCE_0_8_RUNTIME_SHA256, SOURCE_0_8_1_RUNTIME_SHA256, SOURCE_0_8_2_RUNTIME_SHA256 } from '../src/compiler.mjs';
 import { accepted, archiveSyntheticRun, setup, syntheticImage } from './helpers.mjs';
 
-for (const runtime of [DEVELOPMENT_0_7_RUNTIME_SHA256, SOURCE_0_7_RUNTIME_SHA256, SOURCE_0_7_1_RUNTIME_SHA256, SOURCE_0_7_2_RUNTIME_SHA256, SOURCE_0_7_3_RUNTIME_SHA256, SOURCE_0_8_RUNTIME_SHA256, SOURCE_0_8_1_RUNTIME_SHA256]) {
+for (const runtime of [DEVELOPMENT_0_7_RUNTIME_SHA256, SOURCE_0_7_RUNTIME_SHA256, SOURCE_0_7_1_RUNTIME_SHA256, SOURCE_0_7_2_RUNTIME_SHA256, SOURCE_0_7_3_RUNTIME_SHA256, SOURCE_0_8_RUNTIME_SHA256, SOURCE_0_8_1_RUNTIME_SHA256, SOURCE_0_8_2_RUNTIME_SHA256]) {
   test(`archived released results and revision budgets survive release as read-only evidence: ${runtime.slice(0, 8)}`, async t => {
     const { root, temp } = await setup(t), first = accepted(root);
     archiveSyntheticRun(root, first.plan.run, runtime);

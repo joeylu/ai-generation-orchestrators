@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { canonical, digestJson, exact, isDigest, jsonBytes, local, readBytes, readJson, requireThat, seal, storeBlob, textValue, unseal, validationMemo, validationScope, verifyBlob, withLock, writeJsonNew, writeNew } from './common.mjs';
+import { canonical, digestJson, exact, isDigest, jsonBytes, local, readBytes, readDirectory, readJson, requireThat, seal, storeBlob, textValue, unseal, validationMemo, validationScope, verifyBlob, withLock, writeJsonNew, writeNew } from './common.mjs';
 import { loadProject, projectStatus } from './project.mjs';
 import { loadStyle, styleArtifact, primaryStyleReference } from './styles.mjs';
 import { loadPrototype } from './panel.mjs';
@@ -42,6 +42,8 @@ export const SOURCE_0_7_3_RUNTIME_SHA256 = 'd7e7365f4a79fcd0e1ef9fbd92b3fd8f67f1
 const isStylePreview = (projectId, panelId) => /^preview-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(projectId) && panelId === 'style-showcase';
 // Released 0.8.1 output remains reviewable; archived compute stays forbidden.
 export const SOURCE_0_8_1_RUNTIME_SHA256 = 'd01196a94e202683c73362f9c0530263f88f6bc12ec96696bff85c801a17fd30';
+// Released 0.8.2 results retain strict read-only verification after optimization.
+export const SOURCE_0_8_2_RUNTIME_SHA256 = '141ac0980eb796f08c98de8c0598b3830d3feb3eebe727c0efec592a3af6c21c';
 export const SOURCE_0_8_RUNTIME_SHA256 = '9e15ec537195d76861a3353147ac48bb60819cb7f3e756f404b9970ffc273bd4';
 
 function verifyAnchor(root, anchor, styleSha256) {
@@ -59,7 +61,7 @@ export function runtimeDigest() {
 }
 function calculateRuntimeDigest() {
   const roots = [new URL('./', import.meta.url), new URL('../presets/', import.meta.url)];
-  const records = roots.flatMap((url, index) => fs.readdirSync(url).filter(name => /\.(mjs|json)$/.test(name)).sort()
+  const records = roots.flatMap((url, index) => readDirectory(url).filter(name => /\.(mjs|json)$/.test(name)).sort()
     .map(name => ({ path: `${index}/${name}`, sha256: digestJson({ bytes: readBytes(fileURLToPath(new URL(name, url))).toString('base64') }) })));
   for (const [name, url] of [
     ['cli', new URL('../ui-reference.mjs', import.meta.url)],
@@ -331,7 +333,7 @@ export function createReprocessPlan(root, { sourceRun, rawSha256 }) {
   return createPlan(root, { panelId: sourcePlan.panelId, intent: sourcePlan.intent, resolution: 'native', rawSource });
 }
 export function verifyPlan(root, run, { allowLegacy = false } = {}) {
-  return validationScope(() => validationMemo(canonical(['plan', root, run, allowLegacy]), () => verifyPlanEvidence(root, run, allowLegacy)));
+  return validationScope(() => structuredClone(validationMemo(canonical(['plan', root, run, allowLegacy]), () => verifyPlanEvidence(root, run, allowLegacy))));
 }
 function verifyPlanEvidence(root, run, allowLegacy) {
   requireThat(typeof run === 'string' && /^runs\/[a-f0-9-]{36}$/.test(run), 'RUN_PATH_INVALID');
@@ -352,10 +354,11 @@ function verifyPlanEvidence(root, run, allowLegacy) {
   const source071 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_1_RUNTIME_SHA256;
   const source072 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_2_RUNTIME_SHA256;
   const source081 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_8_1_RUNTIME_SHA256;
+  const source082 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_8_2_RUNTIME_SHA256;
   const source080 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_8_RUNTIME_SHA256;
   const source073 = current && allowLegacy && plan.runtimeSha256 === SOURCE_0_7_3_RUNTIME_SHA256;
   requireThat((legacy ? allowLegacy && plan.runtimeSha256 === LEGACY_RUNTIME_SHA256
-    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || source073 || source080 || source081 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
+    : current ? plan.runtimeSha256 === runtimeDigest() || source06 || development07 || source07 || source071 || source072 || source073 || source080 || source081 || source082 || (!revisionPlan && (closedSelect || sampleIntake || studio)) : plan.kind === 'ui_reference_plan_v2' && (previous || catalog))
     && run === `runs/${plan.nonce}` && plan.qualityPolicy === 'strict'
     && (plan.parentPlanSha256 === null || isDigest(plan.parentPlanSha256)), 'PLAN_CONTRACT_OR_RUNTIME_CHANGED');
   const prototype = loadPrototype(root, plan.prototype), style = loadStyle(root, plan.styleSha256);

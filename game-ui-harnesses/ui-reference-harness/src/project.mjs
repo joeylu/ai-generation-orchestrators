@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { atomicJson, exact, isDigest, isId, local, readJson, requireThat, seal, textValue, unseal, withLock, writeJsonNew } from './common.mjs';
+import { atomicJson, canonical, exact, isDigest, isId, local, readJson, requireThat, seal, textValue, unseal, validationMemo, validationScope, withLock, writeJsonNew } from './common.mjs';
 import { loadStyle } from './styles.mjs';
 import { importPanel, loadPrototype } from './panel.mjs';
 import { verifyResult, verifyReview } from './generation.mjs';
@@ -14,6 +14,9 @@ export function initialize(root, projectId) {
   writeJsonNew(root, 'project.json', project); return project;
 }
 export function loadProject(root) {
+  return validationScope(() => structuredClone(validationMemo(canonical(['project', root]), () => loadProjectEvidence(root))));
+}
+function loadProjectEvidence(root) {
   const project = readJson(local(root, 'project.json')); unseal(project);
   exact(project, ['kind', 'id', 'activeStyle', 'activation', 'panels', 'baselines', 'sha256']);
   requireThat(project.kind === 'ui_reference_project_v1' && isId(project.id)
@@ -48,6 +51,9 @@ export async function addPanel(root, options) {
   });
 }
 export function projectStatus(root) {
+  return validationScope(() => projectStatusEvidence(root));
+}
+function projectStatusEvidence(root) {
   const project = loadProject(root);
   const panels = Object.entries(project.panels).map(([id, entry]) => {
     loadPrototype(root, entry.prototype);

@@ -1,0 +1,457 @@
+{
+  "status": "pass",
+  "methodology": "Serial before/after on the same host and Node, one warmup and three independent synchronous checks per entry, median wall time. Initial run plus one revision, distinct deterministic 3072x2048 opaque noisy RGBA PNGs with tEXt metadata. No elapsed-time gate in CI. Non-UI processes may vary machine load.",
+  "dimensions": {
+    "width": 3072,
+    "height": 2048
+  },
+  "rawBytes": 21524845,
+  "rawSha256": "08765e11b382ec30f4e0d6756c5284f912ea354b8251fe0b4bc98097b215a54b",
+  "normalizedSha256": "2f92af83d29e7a1befee4839d3fa77fd85dcbe9393391b5e15cd0ddd5d1afeb9",
+  "node": "v25.9.0",
+  "comparisons": [
+    {
+      "name": "verifyResult",
+      "beforeMs": 4098.722,
+      "afterMs": 2133.388,
+      "speedup": 1.92,
+      "beforeCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      },
+      "afterCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      }
+    },
+    {
+      "name": "projectStatus",
+      "beforeMs": 3347.487,
+      "afterMs": 2033.897,
+      "speedup": 1.65,
+      "beforeCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      },
+      "afterCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      }
+    },
+    {
+      "name": "inspectRun",
+      "beforeMs": 5177.449,
+      "afterMs": 2092.789,
+      "speedup": 2.47,
+      "beforeCounts": {
+        "result-check": 3,
+        "alpha-scan": 3,
+        "png-decode": 6,
+        "png-encode": 3
+      },
+      "afterCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      }
+    },
+    {
+      "name": "inspectProjectDag",
+      "beforeMs": 3432.805,
+      "afterMs": 2685.935,
+      "speedup": 1.28,
+      "beforeCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      },
+      "afterCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      }
+    },
+    {
+      "name": "combinedQuery",
+      "beforeMs": 3925.462,
+      "afterMs": 2456.82,
+      "speedup": 1.6,
+      "beforeCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      },
+      "afterCounts": {
+        "result-check": 2,
+        "alpha-scan": 2,
+        "png-decode": 4,
+        "png-encode": 2
+      }
+    }
+  ],
+  "before": {
+    "mode": "baseline",
+    "baselineCommit": "41ac69a2d512a7f9cf41a0c423797c75b09dffc8",
+    "width": 3072,
+    "height": 2048,
+    "imageBytes": 21524845,
+    "imageSha256": "08765e11b382ec30f4e0d6756c5284f912ea354b8251fe0b4bc98097b215a54b",
+    "revisedImageSha256": "1520a49712a65f211b5e3b63a07c53c5502c2c46ea025ac00325b6c5d92a286c",
+    "normalizedSha256": "2f92af83d29e7a1befee4839d3fa77fd85dcbe9393391b5e15cd0ddd5d1afeb9",
+    "trials": 3,
+    "warmups": 1,
+    "node": "v25.9.0",
+    "modelCalls": 0,
+    "measurements": {
+      "verifyResult": {
+        "medianMs": 4098.722,
+        "trials": [
+          {
+            "elapsedMs": 4797.447,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 4098.722,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 3624.577,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      },
+      "projectStatus": {
+        "medianMs": 3347.487,
+        "trials": [
+          {
+            "elapsedMs": 3347.487,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 3394.041,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 3344.612,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      },
+      "inspectRun": {
+        "medianMs": 5177.449,
+        "trials": [
+          {
+            "elapsedMs": 5037.824,
+            "counts": {
+              "result-check": 3,
+              "alpha-scan": 3,
+              "png-decode": 6,
+              "png-encode": 3
+            }
+          },
+          {
+            "elapsedMs": 5177.449,
+            "counts": {
+              "result-check": 3,
+              "alpha-scan": 3,
+              "png-decode": 6,
+              "png-encode": 3
+            }
+          },
+          {
+            "elapsedMs": 6094.446,
+            "counts": {
+              "result-check": 3,
+              "alpha-scan": 3,
+              "png-decode": 6,
+              "png-encode": 3
+            }
+          }
+        ]
+      },
+      "inspectProjectDag": {
+        "medianMs": 3432.805,
+        "trials": [
+          {
+            "elapsedMs": 3566.704,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 3419.275,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 3432.805,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      },
+      "combinedQuery": {
+        "medianMs": 3925.462,
+        "trials": [
+          {
+            "elapsedMs": 3521.219,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 3925.462,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 4330.304,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      }
+    }
+  },
+  "after": {
+    "mode": "optimized",
+    "baselineCommit": "41ac69a2d512a7f9cf41a0c423797c75b09dffc8",
+    "width": 3072,
+    "height": 2048,
+    "imageBytes": 21524845,
+    "imageSha256": "08765e11b382ec30f4e0d6756c5284f912ea354b8251fe0b4bc98097b215a54b",
+    "revisedImageSha256": "1520a49712a65f211b5e3b63a07c53c5502c2c46ea025ac00325b6c5d92a286c",
+    "normalizedSha256": "2f92af83d29e7a1befee4839d3fa77fd85dcbe9393391b5e15cd0ddd5d1afeb9",
+    "trials": 3,
+    "warmups": 1,
+    "node": "v25.9.0",
+    "modelCalls": 0,
+    "measurements": {
+      "verifyResult": {
+        "medianMs": 2133.388,
+        "trials": [
+          {
+            "elapsedMs": 2147.645,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2133.388,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2040.63,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      },
+      "projectStatus": {
+        "medianMs": 2033.897,
+        "trials": [
+          {
+            "elapsedMs": 2033.897,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2044.23,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2020.627,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      },
+      "inspectRun": {
+        "medianMs": 2092.789,
+        "trials": [
+          {
+            "elapsedMs": 2073.328,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2141.926,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2092.789,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      },
+      "inspectProjectDag": {
+        "medianMs": 2685.935,
+        "trials": [
+          {
+            "elapsedMs": 2685.935,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 3402.692,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2361.186,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      },
+      "combinedQuery": {
+        "medianMs": 2456.82,
+        "trials": [
+          {
+            "elapsedMs": 2452.732,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2470.232,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          },
+          {
+            "elapsedMs": 2456.82,
+            "counts": {
+              "result-check": 2,
+              "alpha-scan": 2,
+              "png-decode": 4,
+              "png-encode": 2
+            }
+          }
+        ]
+      }
+    }
+  },
+  "modelCalls": 0
+}

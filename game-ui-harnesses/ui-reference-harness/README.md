@@ -1,4 +1,11 @@
-# UI Reference Harness · 0.8.2 source release
+# UI Reference Harness · 0.8.3 source release
+
+## 0.8.3：同步验证复用与 PNG 解码优化
+
+同一次同步状态/DAG 检查复用已验证证据；缓存命中仍核对源文件完整字节与路径安全，
+不依赖修改时间，不跨请求或 await。保留 SHA-256、逐像素不透明、原图/规范化像素一致及
+level 9 确定性 PNG 完整字节检查。已完成的 0.8.2 结果可继续验收与交付，旧计划不执行。
+详见 [0.8.3 发布说明](docs/release-0.8.3.md) 和 [验证与离线性能回归](docs/validation-performance.md)。
 
 ## 0.8.2：修复图片工具大回执
 
@@ -31,7 +38,7 @@ CLI 转发 Hook 的 PostToolUse 输入上限调整为 96 MiB，PreToolUse 请求
 首张设置图作为视觉锚点；已观察到的字号与比例偏差保留，不承诺像素级还原。
 按源码附件分发；生产接入需固定不可变仓库标签及归档摘要，不复制第二份源码维护。
 
-当前发布标签为 `ui-reference-harness-v0.8.2`；附件校验、启动与升级边界见 [0.8.2 发布说明](docs/release-0.8.2.md)。
+当前发布标签为 `ui-reference-harness-v0.8.3`；附件校验、启动与升级边界见 [0.8.3 发布说明](docs/release-0.8.3.md)。
 
 当前源码另包含可选 CLI Code-mode 转发适配器，可显式传递
 `transparent_background=false`；原生适配器继续沿用 0.7.2 合同。配置与单次调用门禁见

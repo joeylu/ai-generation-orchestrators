@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import path from 'node:path';
+import { channel } from 'node:diagnostics_channel';
 
-export const VERSION = '0.8.2';
+export const VERSION = '0.8.3';
 export const requireThat = (condition, code) => { if (!condition) throw new Error(code); };
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 export const isDigest = value => typeof value === 'string' && value.length === 64 && /^[a-f0-9]{64}$/.test(value);
@@ -19,22 +20,50 @@ export function canonical(value) {
 export const jsonBytes = value => Buffer.from(canonical(value) + '\n');
 export const digestJson = value => sha256(jsonBytes(value));
 let validationCache = null;
-// Reuse immutable evidence only within one synchronous validation traversal.
-// Nothing survives a request, a mutation or an await; subsequent checks reread
-// and rehash the files, so external tampering cannot hide behind a stale cache.
+const validationChannel = channel('ui-reference.validation');
+export function validationEvent(type, dimensions = {}) {
+  if (validationChannel.hasSubscribers) validationChannel.publish({ type, ...dimensions });
+}
+function dependency(key, matches) {
+  for (const frame of validationCache?.frames ?? []) if (!frame.has(key)) frame.set(key, matches);
+}
+// A cache lives only for this synchronous traversal. Hits recheck exact source
+// bytes and path safety, not timestamps; even same-size/mtime edits invalidate
+// them. Nested memo dependencies propagate to their parents, including absences.
 export function validationScope(operation) {
-  if (validationCache) return operation();
-  validationCache = new Map();
+  const owner = !validationCache;
+  if (owner) validationCache = { values: new Map(), frames: [] };
   try {
     const result = operation();
     requireThat(!result || typeof result.then !== 'function', 'VALIDATION_SCOPE_SYNC_REQUIRED');
     return result;
-  } finally { validationCache = null; }
+  } finally { if (owner) validationCache = null; }
 }
 export function validationMemo(key, operation) {
   if (!validationCache) return operation();
-  if (validationCache.has(key)) return validationCache.get(key);
-  const value = operation(); validationCache.set(key, value); return value;
+  const { values, frames } = validationCache, cached = values.get(key);
+  if (cached && [...cached.dependencies.values()].every(matches => matches())) {
+    for (const [name, matches] of cached.dependencies) dependency(name, matches);
+    return cached.value;
+  }
+  values.delete(key);
+  const dependencies = new Map(); frames.push(dependencies);
+  try {
+    const value = operation();
+    requireThat(!value || typeof value.then !== 'function', 'VALIDATION_SCOPE_SYNC_REQUIRED');
+    requireThat([...dependencies.values()].every(matches => matches()), 'VALIDATION_EVIDENCE_CHANGED');
+    values.set(key, { value, dependencies }); return value;
+  } finally { frames.pop(); }
+}
+export function fileExists(file) {
+  const exists = fs.existsSync(file);
+  dependency(`exists:${file}`, () => fs.existsSync(file) === exists);
+  return exists;
+}
+export function readDirectory(directory) {
+  const names = fs.readdirSync(directory).sort();
+  dependency(`directory:${directory}`, () => canonical(fs.readdirSync(directory).sort()) === canonical(names));
+  return names;
 }
 export function exact(value, required, optional = []) {
   requireThat(value && Object.getPrototypeOf(value) === Object.prototype, 'OBJECT_REQUIRED');
@@ -47,9 +76,36 @@ export function textValue(value, max = 8000, empty = false) {
   return value;
 }
 export function readBytes(file, max = 64 * 1024 * 1024) {
+  const bytes = readFileBytes(file, max);
+  if (validationCache?.frames.length) {
+    const snapshot = Buffer.from(bytes);
+    dependency(`bytes:${file}`, () => matchesFileBytes(file, max, snapshot));
+  }
+  return bytes;
+}
+function readFileBytes(file, max) {
   const stat = fs.statSync(file);
   requireThat(stat.isFile() && stat.size <= max, 'FILE_SIZE_OR_TYPE');
   return fs.readFileSync(file);
+}
+function matchesFileBytes(file, max, snapshot) {
+  const stat = fs.statSync(file);
+  requireThat(stat.isFile() && stat.size <= max, 'FILE_SIZE_OR_TYPE');
+  if (stat.size !== snapshot.length) return false;
+  // Still compare every byte on a hit. Reuse a bounded scratch buffer rather
+  // than repeatedly allocating entire large PNGs while traversing dependencies.
+  const scratch = validationCache.scratch ??= Buffer.allocUnsafe(1024 * 1024);
+  const fd = fs.openSync(file, 'r');
+  try {
+    let offset = 0;
+    while (offset < snapshot.length) {
+      const length = Math.min(scratch.length, snapshot.length - offset);
+      const read = fs.readSync(fd, scratch, 0, length, offset);
+      if (read !== length || !scratch.subarray(0, read).equals(snapshot.subarray(offset, offset + read))) return false;
+      offset += read;
+    }
+    return fs.readSync(fd, scratch, 0, 1, offset) === 0;
+  } finally { fs.closeSync(fd); }
 }
 export function readJson(file) {
   try { return JSON.parse(readBytes(file, 16 * 1024 * 1024).toString('utf8')); }
@@ -57,6 +113,11 @@ export function readJson(file) {
 }
 // All core-owned paths are portable and reject links, including junctions.
 export function local(root, relative) {
+  const file = resolveLocal(root, relative);
+  dependency(`path:${file}`, () => resolveLocal(root, relative) === file);
+  return file;
+}
+function resolveLocal(root, relative) {
   requireThat(typeof relative === 'string' && /^[A-Za-z0-9._/-]+$/.test(relative)
     && !/[^\x21-\x7e]/.test(relative)
     && relative.split('/').every(part => part && part !== '.' && part !== '..' && !/[. ]$/.test(part)
@@ -106,6 +167,9 @@ export function storeBlob(root, bytes, extension) {
   return { path: relative, sha256: digest, bytes: bytes.length };
 }
 export function verifyBlob(root, record) {
+  return validationScope(() => Buffer.from(validationMemo(canonical(['blob', root, record]), () => verifyBlobEvidence(root, record))));
+}
+function verifyBlobEvidence(root, record) {
   exact(record, ['path', 'sha256', 'bytes']);
   requireThat(isDigest(record.sha256) && Number.isSafeInteger(record.bytes) && record.bytes > 0
     && record.path === `blobs/${record.sha256}.${record.path.endsWith('.png') ? 'png' : 'json'}`, 'BLOB_RECORD');

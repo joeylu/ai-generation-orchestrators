@@ -1,4 +1,4 @@
-import { isId, readBytes, readJson, requireThat, seal, storeBlob, jsonBytes, verifyBlob, exact, unseal } from './common.mjs';
+import { canonical, isId, readBytes, readJson, requireThat, seal, storeBlob, jsonBytes, validationMemo, validationScope, verifyBlob, exact, unseal } from './common.mjs';
 import { canvas, decodePng, encodePng, rectangle } from './png.mjs';
 
 const intersect = (a, b) => {
@@ -62,6 +62,9 @@ export async function importPanel(root, { bundle = null, spec = null, catalog = 
   return { prototype, artifact: storeBlob(root, jsonBytes(prototype), 'json') };
 }
 export function loadPrototype(root, artifact) {
+  return validationScope(() => structuredClone(validationMemo(canonical(['prototype', root, artifact]), () => loadPrototypeEvidence(root, artifact))));
+}
+function loadPrototypeEvidence(root, artifact) {
   const prototype = JSON.parse(verifyBlob(root, artifact)); unseal(prototype);
   exact(prototype, ['kind', 'panelId', 'title', 'canvas', 'producer', 'source', 'layout', 'screenshot', 'nodes', 'textPolicy', 'view', 'neutralDisclosure', 'sha256']);
   requireThat(prototype.kind === 'ui_reference_prototype_v1', 'PROTOTYPE_KIND');

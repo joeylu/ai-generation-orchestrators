@@ -21,6 +21,7 @@ import {
   SOURCE_0_7_2_RUNTIME_SHA256,
   SOURCE_0_8_RUNTIME_SHA256,
   SOURCE_0_8_1_RUNTIME_SHA256,
+  SOURCE_0_8_2_RUNTIME_SHA256,
 } from "../../src/compiler.mjs";
 import { readImageZip } from "./read-image-zip.mjs";
 import { templateInput } from "../template-previews.mjs";
@@ -315,6 +316,7 @@ for (const runtime of [
   SOURCE_0_7_2_RUNTIME_SHA256,
   SOURCE_0_8_RUNTIME_SHA256,
   SOURCE_0_8_1_RUNTIME_SHA256,
+  SOURCE_0_8_2_RUNTIME_SHA256,
 ]) {
   test(`completed archived Studio image remains reviewable after restart: ${runtime.slice(0, 8)}`, async (t) => {
     let calls = 0;
