@@ -55,6 +55,16 @@ coordinates and constrained parents retain their errors for the optional model
 branch or terminal failure. No object is shrunk, reassigned or silently erased.
 Errors are never converted to warnings merely to pass.
 
+The model branch also preserves every uniquely identified original object. A
+valid original object box must remain contained by its repaired box; shrinking,
+dropping or replacing it with an absent locator is a technical blocker before
+rereview. Invalid original coordinates have no valid contour authority and must
+be corrected against the source. Ownership revisions are listed in the bound
+`planning-repair-catalog.json`; the independent reviewer must explicitly confirm
+each revision with source and ownership evidence in `planningRepairAudit`.
+Unconfirmed changes block even in visual warning mode. This is authorization of
+a changed ownership contract, not promotion of ordinary visual warnings.
+
 ## Host / Docker consumer configuration and authorization
 
 This documents an external consumer integration. The release adds no Docker
@@ -142,6 +152,10 @@ through `host-receive`, with actual distinct dispatch/return evidence:
 
 `planning_rereview` uses the existing `ui_host_review_attestation_v1`, the
 **candidateAuthors from that exact request**, and the frozen repair reviewer.
+The exact schema additionally requires `planningRepairAudit.catalogDigest` and
+`ownershipChanges`, keyed by every changed object ID with `status`
+(`confirmed`, `uncertain`, `rejected`), `sourceEvidence`, and `ownershipEvidence`.
+Both evidence strings must be nonblank, and only `confirmed` permits freezing.
 Never reuse the first M2 answer or assemble an agent-authored answer. Each
 individual `host_review` exchange still has `maximumRepairs=0`: the outer host
 controller owns the repair budget and creates a separate exchange.

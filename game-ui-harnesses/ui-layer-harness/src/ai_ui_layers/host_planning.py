@@ -194,6 +194,83 @@ def model_changes(before, after, path=''):
     return [dict(path=path,operation='replace',beforeDigest=body_digest(before),afterDigest=body_digest(after))]
 
 
+def _valid_box(box):
+    return (isinstance(box,list) and len(box)==4 and all(type(v) in (int,float) and 0<=v<=1 for v in box)
+            and box[0]<box[2] and box[1]<box[3])
+
+
+def transition_errors(parent, candidate):
+    """A valid uniquely identified original contour may expand, never shrink away."""
+    if not isinstance(parent,dict) or not isinstance(candidate,dict):return []
+    old=parent.get('objects',[]);new=candidate.get('objects',[])
+    if not isinstance(old,list) or not isinstance(new,list):return []
+    known={o['id']:o for o in new if isinstance(o,dict) and isinstance(o.get('id'),str)};errors=[]
+    for obj in old:
+        if not isinstance(obj,dict):continue
+        key=obj.get('id')
+        if not isinstance(key,str):continue
+        if sum(isinstance(o,dict) and o.get('id')==key for o in old)!=1:continue
+        target=known.get(key)
+        if target is None:errors.append(dict(code='PLANNING_REPAIR_OBJECT_REMOVED',id=key));continue
+        if not _valid_box(obj.get('bboxNorm')):continue
+        box=target.get('bboxNorm');original=obj['bboxNorm']
+        if box is None:errors.append(dict(code='PLANNING_REPAIR_OBJECT_CONTOUR_REMOVED',id=key))
+        elif _valid_box(box) and not (box[0]<=original[0] and box[1]<=original[1] and
+                                     box[2]>=original[2] and box[3]>=original[3]):
+            errors.append(dict(code='PLANNING_REPAIR_OBJECT_CONTOUR_SHRUNK',id=key))
+    return errors
+
+
+def _after(plan,schema,bound,parent=None):
+    report=assess(plan,schema,bound)
+    if parent is not None:report['technicalErrors'].extend(transition_errors(parent,plan))
+    if report['technicalErrors']:report['status']='blocked'
+    return report
+
+
+def repair_catalog(folder):
+    """Ownership revisions need explicit independent confirmation, even in warning mode."""
+    folder=Path(folder)
+    if not read(folder/'derivation.json')['modelRepairPerformed']:return None
+    parent=read(folder/'repair/parent.json');candidate=read(folder/'candidate.json')
+    rows=parent.get('objects',[]) if isinstance(parent,dict) else []
+    old={o['id']:o for o in (rows if isinstance(rows,list) else [])
+         if isinstance(o,dict) and isinstance(o.get('id'),str)}
+    changes=[dict(objectId=o['id'],oldMaterialId=old[o['id']].get('materialId'),newMaterialId=o['materialId'])
+             for o in candidate['objects'] if o['id'] in old and old[o['id']].get('materialId')!=o['materialId']]
+    body=dict(kind='ui_host_planning_repair_review_v1',sourcePlanSha256=digest(folder/'candidate.json'),
+        parentCandidateSha256=digest(folder/'repair/parent.json'),repairResponseSha256=digest(folder/'repair/response.json'),
+        changes=changes)
+    return dict(body,digest=body_digest(body))
+
+
+def bind_repair_review(schema,catalog):
+    if catalog is None:return schema
+    schema=deepcopy(schema);schema['required'].append('planningRepairAudit')
+    entries={row['objectId']:dict(type='object',additionalProperties=False,
+        required=['status','sourceEvidence','ownershipEvidence'],properties=dict(
+            status=dict(enum=['confirmed','uncertain','rejected']),sourceEvidence=dict(type='string',minLength=1),
+            ownershipEvidence=dict(type='string',minLength=1))) for row in catalog['changes']}
+    schema['properties']['planningRepairAudit']=dict(type='object',additionalProperties=False,
+        required=['catalogDigest','ownershipChanges'],properties=dict(catalogDigest=dict(const=catalog['digest']),
+            ownershipChanges=dict(type='object',additionalProperties=False,required=list(entries),properties=entries)))
+    return schema
+
+
+def repair_review_errors(review,folder):
+    catalog=repair_catalog(folder)
+    if catalog is None:return []
+    schema=bind_repair_review(dict(required=[],properties={}),catalog)['properties']['planningRepairAudit']
+    Draft202012Validator(schema).validate(review.get('planningRepairAudit'))
+    errors=[]
+    for key,row in review['planningRepairAudit']['ownershipChanges'].items():
+        if row['status']!='confirmed' or not row['sourceEvidence'].strip() or not row['ownershipEvidence'].strip():
+            errors.append(dict(code='PLANNING_REPAIR_OWNERSHIP_NOT_CONFIRMED',category='semantic',ids=[key],
+                description='Revised ownership requires explicit independent source-bound confirmation.',
+                suggestedChange='Stop without another repair; preserve evidence and request a new decision.'))
+    return errors
+
+
 @measured('planning_preflight')
 def derive(output, origin, config, *, repair=None, prior_review=None):
     output=Path(output);output.mkdir(parents=True,exist_ok=False)
@@ -204,14 +281,14 @@ def derive(output, origin, config, *, repair=None, prior_review=None):
     source=output/('repair/response.json' if repair is not None else 'origin/draft.json')
     raw=read(source);schema=read(output/'origin/schema.json')
     normalized,changes,refusals=normalize(raw,schema,bound)
-    before=assess(raw,schema,bound);after=assess(normalized,schema,bound)
+    before=assess(raw,schema,bound);after=_after(normalized,schema,bound,read(output/'repair/parent.json') if repair is not None else None)
     if changes:save(output/'candidate.json',normalized)
     else:(output/'candidate.json').write_bytes(source.read_bytes())
     save(output/'report.json',dict(kind='ui_host_candidate_changes_v1',rule=RULE,limits=LIMITS,
         sourceSha256=digest(source),candidateSha256=digest(output/'candidate.json'),
         originalM1ResponseSha256=digest(output/'origin/draft.json'),changes=changes,refusals=refusals,
         modelChanges=model_changes(read(output/'repair/parent.json'),raw) if repair is not None else [],
-        before=before,after=after,objectsModified=False,ownershipModified=False))
+        before=before,after=after,deterministicObjectsModified=False,deterministicOwnershipModified=False))
     authors=list(config['candidateAuthors'])
     if repair is not None and config['planningRepairer'] not in authors:authors.append(config['planningRepairer'])
     body=dict(kind='ui_host_candidate_derivation_v1',policy=PREFLIGHT,candidateAuthors=authors,
@@ -277,7 +354,8 @@ def verify_derivation(folder, *, archived_runtime=None):
         sourceSha256=digest(source),candidateSha256=digest(folder/'candidate.json'),
         originalM1ResponseSha256=origin['responseSha256'],changes=changes,refusals=refusals,
         modelChanges=model_changes(read(folder/'repair/parent.json'),raw) if repaired else [],
-        before=assess(raw,schema,bound),after=assess(normalized,schema,bound),objectsModified=False,ownershipModified=False)
+        before=assess(raw,schema,bound),after=_after(normalized,schema,bound,read(folder/'repair/parent.json') if repaired else None),
+        deterministicObjectsModified=False,deterministicOwnershipModified=False)
     if read(folder/'candidate.json')!=normalized or read(folder/'report.json')!=expected:
         raise ValueError('HOST_CANDIDATE_DERIVATION_CHANGED')
     return manifest,expected

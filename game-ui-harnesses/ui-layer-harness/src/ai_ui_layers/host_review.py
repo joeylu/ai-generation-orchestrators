@@ -215,6 +215,12 @@ def verify_frozen(folder, snapshot, plan):
     schema=_bind_issue_ids(schema,plan,config)
     schema=textures.bind_review_schema(schema,texture_doc,plan)
     schema=relation_review.bind_schema(schema,relation_review.catalog(plan,digest(folder/'reference.png')))
+    if config.get('candidateDerivation'):
+        from . import host_planning
+        repair_catalog=host_planning.repair_catalog(evidence/'prepared/m1/derivation')
+        schema=host_planning.bind_repair_review(schema,repair_catalog)
+        if repair_catalog is not None and read(evidence/'m2-planning-repair-catalog.json')!=repair_catalog:
+            raise ValueError('HOST_FROZEN_REPAIR_CATALOG_CHANGED')
     reuse_doc=None
     if reuse_pipeline.INPUT_NAME in config['inputs']:
         reuse_doc=reuse.validate(read(evidence/('host-input-'+reuse_pipeline.INPUT_NAME)),plan,
@@ -230,6 +236,8 @@ def verify_frozen(folder, snapshot, plan):
         from .boundary_evidence import validate_boundaries
         validate_boundaries(review,focus)
     if split(review,plan,policy,config['coverageTextPolicy'],texture_doc)[0]:raise ValueError('M2_UNRESOLVED')
+    if config.get('candidateDerivation') and host_planning.repair_review_errors(review,evidence/'prepared/m1/derivation'):
+        raise ValueError('M2_UNRESOLVED')
 
 
 def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archived_runtime=None,
@@ -378,10 +386,16 @@ def _prepare_review(root, plan):
     schema=textures.bind_review_schema(schema,texture_doc,plan)
     relations=relation_review.catalog(plan,digest(reference))
     save(p/relation_review.NAME,relations)
+    schema=relation_review.bind_schema(schema,relations)
+    if config.get('candidateDerivation'):
+        from . import host_planning
+        repair_catalog=host_planning.repair_catalog(root/'m1/derivation')
+        schema=host_planning.bind_repair_review(schema,repair_catalog)
+        if repair_catalog is not None:save(p/'planning-repair-catalog.json',repair_catalog)
     reuse_doc=reuse_pipeline.planning_input(root,plan)
     reuse_pipeline.source_focus(reference,plan,reuse_doc,p)
     bg_bound=bg_region.planning_input(root,plan)
-    save(p/'schema.json',bg_region.schema(reuse.review_schema(relation_review.bind_schema(schema,relations),reuse_doc),bg_bound))
+    save(p/'schema.json',bg_region.schema(reuse.review_schema(schema,reuse_doc),bg_bound))
     if bg_bound is not None:
         for name in ('edit-mask.png','blend-mask.png','preview.png'):
             (p/(bg_region.PREFIX+name)).write_bytes((inputs/(bg_region.PREFIX+name)).read_bytes())
@@ -403,6 +417,11 @@ def _prepare_review(root, plan):
     prompt+=('\nIndependent review of the freshly generated host M1 plan. Its original response and source-bound exchange evidence are preserved. No CLI session is asserted.\n'
         if config.get('hostM1Exchange') else '\nIndependent review of an explicitly supplied offline candidate seed. No prior model session is asserted.\n')
     prompt+='\nReview the clean original reference, every material and object, all nine coverage regions, and every required small-material part. Use the exact typed response schema.\n'
+    if (p/'planning-repair-catalog.json').exists():
+        prompt+=('\nInspect planning-repair-catalog.json. For every ownership revision, explicitly confirm '
+            'the new owner against visible source contours and state sourceEvidence and ownershipEvidence. '
+            'Use uncertain or rejected when unsupported. This change authorization is mandatory even in warning mode; '
+            'ordinary visual findings retain their existing warning policy. Do not infer approval from repaired JSON.\n')
     prompt+='\nCandidate plan:\n'+json.dumps(plan,ensure_ascii=False)
     if 'layoutRegistration' in plan:
         prompt+=('\nReview the candidate layoutRegistration against the clean reference: every foreground ID, '
@@ -466,6 +485,9 @@ def _assess(root, plan):
     verify_plan_evidence(folder,review,bound,plan)
     verify_boundary_evidence(folder,review,bound,plan,root/'m1/reference.png')
     blockers,warnings=split(review,plan,planning_policy(root),read(root/'.dag/config.json')['coverageTextPolicy'],textures.planning_input(root))
+    if read(root/'.dag/config.json').get('candidateDerivation'):
+        from . import host_planning
+        blockers+=host_planning.repair_review_errors(review,root/'m1/derivation')
     known=_review_issue_ids(plan,read(root/'.dag/config.json'))
     if any(set(item['ids'])-known for item in blockers+warnings):raise ValueError('UNKNOWN_REVIEW_IDS')
     relations=relation_review.assess(plan,digest(root/'m1/reference.png'),review,planning_policy(root))

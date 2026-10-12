@@ -157,6 +157,16 @@ class PlanningPreflightTests(unittest.TestCase):
         self.assertNotEqual(next(r for r in rows if r['path']=='/flag')['beforeDigest'],
                             next(r for r in rows if r['path']=='/flag')['afterDigest'])
 
+    def test_model_repair_cannot_shrink_drop_or_hide_original_contours(self):
+        self.child()['bboxNorm']=[.099,.1,.9,.9]
+        for change,code in ((lambda p:p['objects'][1].update(bboxNorm=[.1,.1,.9,.9]),'PLANNING_REPAIR_OBJECT_CONTOUR_SHRUNK'),
+                (lambda p:p['objects'][1].update(bboxNorm=None),'PLANNING_REPAIR_OBJECT_CONTOUR_REMOVED'),
+                (lambda p:p['objects'].pop(1),'PLANNING_REPAIR_OBJECT_REMOVED')):
+            result=deepcopy(self.plan);change(result)
+            self.assertIn(code,[r['code'] for r in planning.transition_errors(self.plan,result)])
+        expanded=deepcopy(self.plan);expanded['objects'][1]['bboxNorm']=[.09,.09,.91,.91]
+        self.assertFalse(planning.transition_errors(self.plan,expanded))
+
 
 class HostPlanningRepairTests(unittest.TestCase):
     setUp=fixtures.HostDeliveryTests.setUp
@@ -196,13 +206,20 @@ class HostPlanningRepairTests(unittest.TestCase):
         return host.receive(self.run,request['submissionDigest'],response,host_attestation=att,
             dispatch_evidence=self.dispatch,return_evidence=response)
 
-    def review(self, blocked=False):
+    def review(self, blocked=False, ownership_confirmed=True):
         current=host.status(self.run);stage=current['stage']
         self.root=self.run/('planning-rereview' if stage=='planning_rereview' else 'planning')
         if current['status']=='awaiting_authorization':host.authorize(self.run,current['scopeDigest'],'Offline M2 fixture')
         request=host.next_request(self.run)
         self.plan=read(self.root/'m1/draft.json')
         answer=fixtures.review_fixtures.HostReviewTests.response_doc(self)
+        catalog_path=self.root/'m2/planning-repair-catalog.json'
+        if catalog_path.exists():
+            catalog=read(catalog_path)
+            answer['planningRepairAudit']=dict(catalogDigest=catalog['digest'],ownershipChanges={row['objectId']:dict(
+                status='confirmed' if ownership_confirmed else 'uncertain',
+                sourceEvidence='Offline source fixture identifies this complete contour.',
+                ownershipEvidence='Offline fixture independently confirms the revised owner.') for row in catalog['changes']})
         if read(self.run/'config.json').get('visualReviewMode')=='warning':
             for row in answer['smallMaterialAudit'].values():
                 for part in row['parts']:part['deferredAppearance']=None
@@ -416,6 +433,23 @@ class HostPlanningRepairTests(unittest.TestCase):
             path=folder/name;raw=path.read_bytes();path.write_bytes(raw+b' ')
             with self.assertRaisesRegex(ValueError,'CHANGED'):planning.verify_derivation(folder)
             path.write_bytes(raw)
+
+    def test_shrinking_object_to_clear_containment_stops_before_rereview(self):
+        self.start();obj=next(o for o in self.plan['objects'] if o['id']=='panel')
+        obj['bboxNorm']=[.05,.05,.9,.9];self.generate()
+        answer=deepcopy(self.plan);answer['objects'][1]['bboxNorm']=[.1,.05,.9,.9]
+        with self.assertRaisesRegex(ValueError,'PLANNING_REPAIR_UNRESOLVED'):self.repair(answer)
+        current=host.status(self.run);self.assertEqual(current['status'],'failed_no_retry')
+        self.assertIn('PLANNING_REPAIR_OBJECT_CONTOUR_SHRUNK',[r['code'] for r in current['planningPreflight']['technicalErrors']])
+        self.assertFalse((self.run/'planning-rereview').exists());self.assertFalse((self.run/'images').exists())
+
+    def test_unconfirmed_reassignment_blocks_even_in_visual_warning_mode(self):
+        self.start();self.malformed();self.generate();self.repair()
+        with self.assertRaisesRegex(ValueError,'REREVIEW_UNRESOLVED_BUDGET_EXHAUSTED'):
+            self.review(ownership_confirmed=False)
+        self.assertEqual(host.status(self.run)['status'],'failed_no_retry');self.assertFalse((self.run/'images').exists())
+        blockers=read(self.run/'planning-rereview/m2/assessment.json')['blockers']
+        self.assertIn('PLANNING_REPAIR_OWNERSHIP_NOT_CONFIRMED',[r['code'] for r in blockers])
 
 
 if __name__=='__main__':unittest.main()

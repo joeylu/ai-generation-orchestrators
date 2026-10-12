@@ -203,6 +203,12 @@ def verify_plan_evidence(folder, review, bound, visual):
     if relation_review.policy(folder.parent):
         expected_schema=relation_review.bind_schema(expected_schema,relation_review.catalog(visual,digest(folder.parent/'m1/reference.png')))
     if config.get('planningDriver')=='host-model-exchange-v1':
+        if config.get('candidateDerivation'):
+            from . import host_planning
+            repair_catalog=host_planning.repair_catalog(folder.parent/'m1/derivation')
+            expected_schema=host_planning.bind_repair_review(expected_schema,repair_catalog)
+            if repair_catalog is not None and read(folder/'planning-repair-catalog.json')!=repair_catalog:
+                raise ValueError('HOST_REPAIR_CATALOG_CHANGED')
         from . import material_reuse, reuse_pipeline
         expected_schema=material_reuse.review_schema(expected_schema,reuse_pipeline.planning_input(folder.parent,visual))
         from . import background_region_pipeline
