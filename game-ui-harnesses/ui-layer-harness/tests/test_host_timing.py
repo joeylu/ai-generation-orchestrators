@@ -54,7 +54,7 @@ class PhaseTimingTests(unittest.TestCase):
 
     def test_tampered_timing_record_is_rejected(self):
         self.journal([(100,110)])
-        path=next(p for p in (self.root/'.journal'/timing.NAME).glob('*.json') if read(p).get('action')=='initialized')
+        path=next(p for p in (self.root/'.journal'/timing.NAME).glob('*.json') if read(p)['value'].get('action')=='initialized')
         path.write_bytes(path.read_bytes().replace(b'initialized',b'manipulated'))
         with self.assertRaisesRegex(ValueError,'RECORD_CHANGED'):timing.report(self.root)
 
