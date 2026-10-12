@@ -339,6 +339,16 @@ Old host configurations without the field replay v1; standalone extraction and
 existing frozen evidence retain their existing rules. Failed runs are not resumed
 under this new runtime.
 
+The source follow-up after alpha.7 offers the explicit diagnostic-only
+`sheetSeamPolicy=faint-glow-preserving-seam-v3` for new warning jobs with prepared
+raw cells and one final composite review. It preserves every nonzero source pixel
+while allowing a unique internal cut through full-span adjacent lines below alpha
+8. Such cuts emit `SHEET_FAINT_GLOW_SPLIT`; they do not certify silhouette
+completeness or human acceptance. Strict and standalone material review paths
+cannot select it. Configuration, proof and refusal conditions are documented in
+[HOST-INTEGRATION](HOST-INTEGRATION.md#recommended-new-diagnostic-configuration).
+The default and historical policies remain unchanged.
+
 Set `canvasPolicy` to `expanded-support-original-viewport-v1`,
 `canvasPolicyInstruction` to the actual approved user instruction, and
 `canvasPolicyInstructionSha256` to SHA-256 of its raw UTF-8 bytes. Set

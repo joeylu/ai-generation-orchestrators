@@ -17,7 +17,7 @@ from .freeze_visual import body_digest
 from . import host_review, host_material_review, experimental_executor
 from . import host_body_observation, body_viewport_delivery, host_m1
 from .refreeze import freeze_reviewed
-from .sheet_pixels import NEAREST_SEAM, STRICT_SEAM, validate_seam_policy
+from .sheet_pixels import NEAREST_SEAM, STRICT_SEAM, FAINT_GLOW_SEAM, validate_seam_policy
 from . import host_sheet_fallback
 from . import material_review_dispatch
 from . import host_layout_registration
@@ -274,6 +274,10 @@ def prepare(config_path, output):
     if version not in ('v7','v8','v9','v10','v11','v12','v13'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     source.setdefault('sheetSeamPolicy',NEAREST_SEAM)
     validate_seam_policy(source['sheetSeamPolicy'])
+    if source['sheetSeamPolicy'] == FAINT_GLOW_SEAM and (
+            not composite_review.enabled(source) or not host_sheet_fallback.final_composite_first(source) or
+            source.get('sheetCompositePolicy') != host_sheet_fallback.PREPARED_COMPOSITE_POLICY):
+        raise ValueError('FAINT_GLOW_SEAM_REQUIRES_BOUND_WARNING_FINAL_COMPOSITE')
     root.mkdir(parents=True); inputs=root/'inputs';inputs.mkdir()
     for key in ('seed','original','planningNotes','visualPolicy','visualTextures','materialReuse','layoutContract'):
         if source.get(key):

@@ -5,10 +5,12 @@ from .evaluate import digest, save
 
 STRICT_SEAM = 'strict-unique-empty-band-v1'
 NEAREST_SEAM = 'nearest-unique-transparent-seam-v2'
+FAINT_GLOW_SEAM = 'faint-glow-preserving-seam-v3'
+CONTOUR_ALPHA = 8
 
 
 def validate_seam_policy(policy):
-    if policy not in (STRICT_SEAM, NEAREST_SEAM):
+    if policy not in (STRICT_SEAM, NEAREST_SEAM, FAINT_GLOW_SEAM):
         raise ValueError('SHEET_SEAM_POLICY')
 
 
@@ -80,6 +82,24 @@ def axis_cuts(alpha, count, axis, policy=STRICT_SEAM):
                 if pos-start >= 2: bands.append((start,pos))
                 start=None
         if start is not None and hi+1-start >= 2: bands.append((start,hi+1))
+        if not bands and policy == FAINT_GLOW_SEAM:
+            # Detection only: preserve every original RGBA value in the crops.
+            # Both adjoining full-span rows must remain below the existing
+            # diagnostic contour measurement threshold. Never cut solid art.
+            candidates = []
+            for candidate in range(lo + 1, hi + 1):
+                pair = alpha[candidate-1:candidate+1, :] if axis == 0 else alpha[:, candidate-1:candidate+1]
+                maximum = int(pair.max())
+                if maximum < CONTOUR_ALPHA:
+                    candidates.append(((maximum, int(pair.sum()), abs(candidate-center)), candidate))
+            if not candidates:
+                raise ValueError('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY')
+            score = min(item[0] for item in candidates)
+            best = [cut for item, cut in candidates if item == score]
+            if len(best) != 1:
+                raise ValueError('SHEET_FAINT_GLOW_SEAM_TIE')
+            cuts.append(best[0])
+            continue
         if not bands or policy == STRICT_SEAM and len(bands) != 1:
             raise ValueError('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY' if not bands else 'SHEET_AMBIGUOUS_EMPTY_BANDS')
         # Both pixels adjoining the half-open cut must be empty.
@@ -92,6 +112,17 @@ def axis_cuts(alpha, count, axis, policy=STRICT_SEAM):
         cuts.append(cut)
     cuts.append(length)
     return cuts
+
+
+def internal_seams(alpha, xs, ys):
+    """Report unchanged alpha along both rows/columns adjoining every cut."""
+    records = []
+    for axis, cuts in (('x', xs[1:-1]), ('y', ys[1:-1])):
+        for cut in cuts:
+            values = alpha[:, cut-1:cut+1] if axis == 'x' else alpha[cut-1:cut+1, :]
+            records.append(dict(axis=axis, cut=cut, nonzeroAlphaCount=int(np.count_nonzero(values)),
+                maximumAlpha=int(values.max()), bothAdjacentLinesTransparent=not bool(values.any())))
+    return records
 
 
 def partition_observations(image, row, policy=STRICT_SEAM):

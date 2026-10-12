@@ -10,7 +10,8 @@ from jsonschema import Draft202012Validator
 from .evaluate import read, save, digest
 from .freeze_visual import inspect
 from .automatic_registration import observation_image, call_model
-from .sheet_pixels import prepare, axis_cuts, STRICT_SEAM, validate_seam_policy
+from .sheet_pixels import (prepare, axis_cuts, STRICT_SEAM, validate_seam_policy,
+                           FAINT_GLOW_SEAM, CONTOUR_ALPHA, internal_seams)
 from .short_prompt import exclusions
 from .sheet_review_policy import PROMPT as REVIEW_PROMPT, classify, schema_for
 from .review_image import fit_resampling, ALPHA_VISIBILITY_GUIDANCE
@@ -120,9 +121,11 @@ def cells(image, row, actual_gaps=False, seam_policy=STRICT_SEAM):
             if a.any():raise ValueError('SHEET_UNUSED_CELL_NOT_EMPTY')
             continue
         if not (a>=8).any():raise ValueError('SHEET_MISSING_MATERIAL')
-        # Every cut must still be transparent on the prepared pixels.
-        if a[0,:].any() or a[-1,:].any() or a[:,0].any() or a[:,-1].any():
-            raise ValueError('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY')
+        for edge, outer in ((a[0,:], t==0), (a[-1,:], b==image.height),
+                            (a[:,0], l==0), (a[:,-1], r==image.width)):
+            threshold = CONTOUR_ALPHA if seam_policy == FAINT_GLOW_SEAM and not outer else 1
+            if (edge >= threshold).any():
+                raise ValueError('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY')
         bounds.append(box)
     return bounds
 
@@ -145,6 +148,14 @@ def partition_cells(image, row, seam_policy):
         alphaThresholdChanged=False,sourceBoundaryRelaxed=False,
         sourceRgbaPixelsSha256=hashlib.sha256(original.tobytes()).hexdigest(),
         reconstructedRgbaPixelsSha256=hashlib.sha256(rebuilt.tobytes()).hexdigest())
+    if seam_policy == FAINT_GLOW_SEAM:
+        seams = internal_seams(alpha, xs, ys)
+        faint = any(not s['bothAdjacentLinesTransparent'] for s in seams)
+        evidence.update(internalSeams=seams, contourMeasurementThreshold=CONTOUR_ALPHA,
+            sourceThresholdApplied=False, faintGlowBoundarySplit=faint,
+            transparentPartitionProven=not faint, sourceCompletenessAccepted=False,
+            humanVisualAcceptance=False,
+            warnings=['SHEET_FAINT_GLOW_SPLIT'] if faint else [])
     return bounds,evidence
 
 

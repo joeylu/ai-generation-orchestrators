@@ -106,6 +106,39 @@ HOST-DELIVERY. Old adapters that only recognize `material_review` need updating
 before selecting this new policy. This policy is included in alpha.5; alpha.4
 retains its published defaults. Keep existing runs on their original release.
 
+The source follow-up after alpha.7 also supports an explicit new-run option:
+
+```json
+{
+  "sheetSeamPolicy": "faint-glow-preserving-seam-v3",
+  "sheetCompositePolicy": "detect-alpha-floor-preserve-raw-sheet-cells-v2"
+}
+```
+
+Use it with the warning configuration above and its one final composite review.
+The default remains `nearest-unique-transparent-seam-v2`. The new policy prefers
+existing transparent cuts. Where none exist, it may choose a unique cut whose
+two adjoining full-span lines have alpha below 8, within the existing quarter-cell
+search radius. It ranks those cuts by maximum alpha, alpha sum, then distance to
+the nominal grid boundary; tied best candidates remain unresolved. Alpha 8 is
+the existing diagnostic contour measurement boundary, not permission to erase
+pixels. The raw crops and guarded rendering sources retain all nonzero RGBA
+values, including alpha 1 through 7. Every raw capacity crop is archived and
+must reconstruct the original sheet exactly. `SHEET_FAINT_GLOW_SPLIT` remains
+a visual warning with recorded cut coordinates and adjacent-line opacity.
+
+The policy rejects cuts through alpha 8 or greater, nontransparent detected outer
+canvas edges, nonempty unused cells and missing material contours. Such findings
+retain the existing warning-mode exclusion behavior; they are not accepted
+cutouts. Low opacity does not prove semantic ownership, silhouette completeness
+or alpha quality. The final review receives the actual new composition, and
+human visual acceptance remains pending. This adds no stages, authorizations,
+generation calls, individual reviews or body observations. The frozen host
+configuration and diagnostic contract both bind the policy. Changed contracts,
+raw files or review artifacts still fail integrity checks. Keep historical runs
+on their original runtime; create a new run to select this option. It is not
+present in the already published alpha.7 release assets.
+
 Automatic combined sheets with source-bound, independently reviewed raster
 textures bind board prompt v6. It uses the v5 edit/remove/keep rules and maps
 each licensed texture region into its own cell using the common integer scale.

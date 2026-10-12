@@ -8,7 +8,7 @@ from PIL import Image
 POLICY = 'pixel-exact-frozen-grid-diagnostic-v1'
 
 
-def partition(image, row):
+def partition(image, row, *, seam_policy=None):
     """Return used boxes and evidence for *all* capacity cells, including orphans.
 
     Callers must retain independent unmodified crops for every partitionBoxes
@@ -30,10 +30,19 @@ def partition(image, row):
             or image.width // columns < 32 or image.height // rows < 32):
         raise ValueError('DIAGNOSTIC_SHEET_SIZE_UNSAFE')
     before = image.tobytes()
+    from .sheet_pixels import FAINT_GLOW_SEAM
+    if seam_policy not in (None, FAINT_GLOW_SEAM):
+        raise ValueError('DIAGNOSTIC_SHEET_SEAM_POLICY')
     from .host_material_review import candidate_sheet_cells
     candidate_issue = None
     try:
-        used, candidate = candidate_sheet_cells(image, row)
+        if seam_policy is None:
+            used, candidate = candidate_sheet_cells(image, row)
+        else:
+            from .extract_sheets import partition_cells
+            used, candidate = partition_cells(image, row, seam_policy)
+            candidate = dict(candidate, candidateSheetSplitPolicy=seam_policy,
+                strictExtractionIssue='SHEET_FAINT_GLOW_SPLIT' if candidate['faintGlowBoundarySplit'] else None)
     except ValueError as exc:
         candidate_issue = str(exc)
         candidate = None

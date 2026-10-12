@@ -120,13 +120,14 @@ def _portable_cleanup(bindings):
 
 @measured('registration')
 def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_jobs=None, *, body_job=None,
-            background_policy=None, review_runs=None, sheet_composite_policy=None):
+            background_policy=None, review_runs=None, sheet_composite_policy=None, sheet_seam_policy=None):
     """Freeze a zero-compute diagnostic contract, independently of strict delivery."""
     checked = _checked(job, expected_digest)
     job, config, snapshot, manifest, rows, visual, reuse, background, bindings = checked
     from .host_sheet_fallback import COMPOSITE_POLICIES
     if sheet_composite_policy not in (None,*COMPOSITE_POLICIES):
         raise ValueError('DIAGNOSTIC_SHEET_COMPOSITE_POLICY')
+    _seam_policy(dict(sheetSeamPolicy=sheet_seam_policy, sheetCompositePolicy=sheet_composite_policy))
     from .body_viewport_delivery import BACKGROUND_POLICY
     if background_policy is not None and (background_policy != BACKGROUND_POLICY or background is not None):
         raise ValueError('DIAGNOSTIC_BACKGROUND_POLICY')
@@ -153,6 +154,7 @@ def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_job
         snapshotDigest=manifest['digest'], runtime=runtime_files(), sourceBindings=bindings,
         **({'backgroundPolicy':background_policy} if background_policy is not None else {}),
         **({'sheetCompositePolicy':sheet_composite_policy} if sheet_composite_policy is not None else {}),
+        **({'sheetSeamPolicy':sheet_seam_policy} if sheet_seam_policy is not None else {}),
         **({'cleanupBindings':cleanup_bindings} if cleanup_bindings else {}),
         **({'bodyReplay':body_replay} if body_replay else {}),
         **({'materialReplay':material_replay} if material_replay else {}),
@@ -161,6 +163,16 @@ def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_job
         scope='Independent diagnostic only; unresolved sheet, ownership, clipping and visual findings remain unresolved.',
         **FLAGS))
     return dict(status='diagnostic_policy_frozen', diagnosticDigest=value['digest'], **FLAGS)
+
+
+def _seam_policy(contract):
+    from .sheet_pixels import FAINT_GLOW_SEAM
+    from .host_sheet_fallback import PREPARED_COMPOSITE_POLICY
+    value = contract.get('sheetSeamPolicy')
+    if value is not None and (value != FAINT_GLOW_SEAM or
+            contract.get('sheetCompositePolicy') != PREPARED_COMPOSITE_POLICY):
+        raise ValueError('DIAGNOSTIC_SHEET_SEAM_POLICY')
+    return value
 
 
 def excluded_sheet_materials(contract, uncertain):
@@ -257,6 +269,7 @@ def deliver(contract_dir, expected_digest, output, viewer):
     contract_dir = Path(contract_dir).resolve()
     contract = verified(contract_dir / 'diagnostic.json')
     excluded_sheet_materials(contract,set())
+    seam_policy = _seam_policy(contract)
     if (contract['digest'] != expected_digest or contract['kind'] not in (
             'ui_received_diagnostic_delivery_v1','ui_received_diagnostic_delivery_v2','ui_received_diagnostic_delivery_v3',
             'ui_received_diagnostic_delivery_v4')
@@ -335,7 +348,7 @@ def deliver(contract_dir, expected_digest, output, viewer):
                 preparation = prepare_sheet(raw, prepared_path)
                 with Image.open(prepared_path) as prepared:
                     sheet_image = prepared.convert('RGBA')
-            boxes, evidence = partition(sheet_image, row)
+            boxes, evidence = partition(sheet_image, row, **({'seam_policy':seam_policy} if seam_policy else {}))
             if not evidence['candidateExtractionPassed']:
                 uncertain.update(row['materialIds'])
             raw_rebuilt = Image.new('RGBA', image.size)

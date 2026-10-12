@@ -6,7 +6,7 @@ from PIL import Image
 from .evaluate import read, save, digest
 from .experimental_executor import load_job, status, verified
 from .extract_sheets import partition_cells
-from .sheet_pixels import STRICT_SEAM, prepared_image, partition_observations
+from .sheet_pixels import STRICT_SEAM, FAINT_GLOW_SEAM, prepared_image, partition_observations
 
 
 POLICY = 'diagnostic-on-sheet-partition-warning-v1'
@@ -20,7 +20,7 @@ PREPARED_COMPOSITE_POLICY = 'detect-alpha-floor-preserve-raw-sheet-cells-v2'
 COMPOSITE_POLICIES = (COMPOSITE_POLICY, PREPARED_COMPOSITE_POLICY)
 RECOVERABLE = frozenset(('SHEET_CONTOUR_TOUCHES_CELL_BOUNDARY',
     'SHEET_AMBIGUOUS_EMPTY_BANDS', 'SHEET_NEAREST_TRANSPARENT_SEAM_TIE',
-    'SHEET_UNUSED_CELL_NOT_EMPTY'))
+    'SHEET_UNUSED_CELL_NOT_EMPTY', 'SHEET_FAINT_GLOW_SEAM_TIE'))
 
 
 def configure(config):
@@ -137,7 +137,14 @@ def findings(job, config):
                 raise ValueError('RECEIVED_PNG_MISMATCH')
             prepared, _ = prepared_image(source)
         try:
-            partition_cells(prepared, row, config.get('sheetSeamPolicy', STRICT_SEAM))
+            _, split = partition_cells(prepared, row, config.get('sheetSeamPolicy', STRICT_SEAM))
+            if split.get('faintGlowBoundarySplit'):
+                warnings.append(dict(category='sheet-partition', severity='warning',
+                    code='SHEET_FAINT_GLOW_SPLIT', requestId=key,
+                    materialIds=material_reuse.expanded_ids(reuse,row['materialIds']),
+                    rawSha256=before, independentSeparationVerified=False,
+                    partitionUsableForDiagnostic=True, sourceCompletenessAccepted=False,
+                    partitionEvidence=split, finalCompositeReviewPending=True))
         except ValueError as error:
             if str(error) not in RECOVERABLE:
                 raise
@@ -165,6 +172,7 @@ def build(root, config, warnings):
     frozen = diagnostic.prepare(root / 'images', job['digest'], root / 'diagnostic-contract',
         config['canvasPolicyInstruction'],
         sheet_composite_policy=config.get('sheetCompositePolicy'),
+        **({'sheet_seam_policy':FAINT_GLOW_SEAM} if config.get('sheetSeamPolicy')==FAINT_GLOW_SEAM else {}),
         background_policy=BACKGROUND_POLICY if config['backgroundPolicy'] == BACKGROUND_POLICY else None,
         review_runs=runs or None, body_job=root/'body' if local(config) and (root/'body/job.json').exists() else None)
     if local(config):

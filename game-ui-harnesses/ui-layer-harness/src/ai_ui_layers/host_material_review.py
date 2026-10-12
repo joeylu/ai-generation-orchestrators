@@ -14,7 +14,7 @@ from .host_review import runtime_files, _bound_files, _identity
 from .visual_policy import snapshot_policy, warnings_only
 from .sheet_review_policy import classify, classify_findings, schema_for
 from .extract_sheets import cells, partition_cells, _review_variant, prepare_sheet_review
-from .sheet_pixels import prepare as prepare_pixels, STRICT_SEAM, validate_seam_policy
+from .sheet_pixels import prepare as prepare_pixels, STRICT_SEAM, FAINT_GLOW_SEAM, validate_seam_policy
 from .single_material_review import prepare_review
 from . import ownership_observation as ownership
 from . import material_review_dispatch as dispatch
@@ -24,6 +24,12 @@ BACKGROUND_VISUAL_POLICY = 'record-until-final-composite-v1'
 BACKGROUND_DEFERRED_STATUS = 'background_observed_pending_final_composite'
 IDENTITY_POLICY = 'record-observed-subset-for-diagnostic-v1'
 IDENTITY_UNRESOLVED_STATUS = 'diagnostic_unresolved_material_identity'
+
+
+def _review_seam_policy(value):
+    validate_seam_policy(value)
+    if value == FAINT_GLOW_SEAM:
+        raise ValueError('FAINT_GLOW_SEAM_DIAGNOSTIC_FINAL_COMPOSITE_ONLY')
 
 
 def validate_identity_policy(value, policy):
@@ -71,7 +77,7 @@ def prepare(job, request_id, output, *, material_authors, review_registry, backg
             sheet_seam_policy=STRICT_SEAM, identity_observation_policy=None, source_batch=None,
             review_dispatch_policy=None):
     job=Path(job).resolve();output=Path(output).resolve()
-    validate_seam_policy(sheet_seam_policy)
+    _review_seam_policy(sheet_seam_policy)
     dispatch.validate_policy(review_dispatch_policy)
     authors=list(material_authors)
     if not authors or len(authors)!=len(set(authors)):raise ValueError('MATERIAL_AUTHORS_REQUIRED')
@@ -225,7 +231,7 @@ def verify_prepared(output, *, source_batch=None):
     policy=snapshot_policy(snapshot,manifest)
     validate_identity_policy(request.get('identityObservationPolicy'),policy)
     if 'sheetSeamPolicy' in request:
-        validate_seam_policy(request['sheetSeamPolicy'])
+        _review_seam_policy(request['sheetSeamPolicy'])
         if row.get('kind')!='sheet':raise ValueError('OUTPUT_SHEET_POLICY_ON_SINGLE')
         with Image.open(output/'prepared/sheet.png') as image:
             boxes,partition=partition_cells(image,row,request['sheetSeamPolicy'])

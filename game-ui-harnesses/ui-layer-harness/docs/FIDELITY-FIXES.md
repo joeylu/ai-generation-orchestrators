@@ -86,6 +86,21 @@ diagnostic preview and ZIP without more generation or body-observation calls.
 This is an honest partial diagnostic, not a complete material delivery. Older
 contracts without this policy retain their existing behavior; strict gates remain.
 
+An opt-in source follow-up after alpha.7, `sheetSeamPolicy=faint-glow-preserving-seam-v3`,
+permits a diagnostic split across an extremely faint glow without deleting it.
+It is limited to new warning-mode host jobs with the prepared-sheet composite
+policy and one final composite review. Transparent seams remain preferred;
+otherwise both full-span lines adjacent to the cut must have alpha below 8.
+Ranking is deterministic (maximum alpha, total alpha, then nominal-boundary
+distance), ambiguous best cuts are refused, and the existing quarter-cell search
+window remains. Neither the detection alpha floor nor any source pixel value
+is changed by this policy. Raw capacity crops reconstruct all source RGBA pixels
+exactly; guarded rendering retains every nonzero raw pixel. A
+`SHEET_FAINT_GLOW_SPLIT` warning discloses the segmentation of the faint tail,
+without certifying semantic separation, complete silhouettes or human acceptance.
+Solid bridges, clipped detected outer edges, missing bodies and nonempty unused
+cells remain unresolved. Historical policies and the new-run default stay unchanged.
+
 ## Carrier registration
 
 M1 now receives explicit guidance to use frame adaptation for stretchable carrier
