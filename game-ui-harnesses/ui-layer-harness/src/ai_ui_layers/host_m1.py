@@ -5,6 +5,7 @@ import re
 from jsonschema import Draft202012Validator
 from PIL import Image
 from .evaluate import read, save, digest
+from .host_timing import measured
 from . import host_review
 from .planning_dag import BOX_TEXT_GUIDANCE, read_notes
 from .visual_policy import load_input, planning_guidance, warnings_only
@@ -35,6 +36,7 @@ VISUAL_DESCRIPTION_CHECK = (
     '描述已有可见属性，不新增图形、样本答案、绘制指令或 schema 字段。\n\n')
 
 
+@measured('planning')
 def prepare(root, config):
     root=Path(root);contract=Path(config['contract'])
     for name,sha in host_review.CONTRACT_DIGESTS.items():

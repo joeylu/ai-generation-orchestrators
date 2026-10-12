@@ -5,6 +5,7 @@ import re
 from jsonschema import Draft202012Validator
 from PIL import Image
 from .evaluate import read, save, digest, check_relations
+from .host_timing import measured
 from . import relation_review, visual_textures as textures
 from .visual_policy import load_input, planning_policy, planning_guidance, INPUT_NAME, warnings_only
 from .planning_review_policy import split
@@ -233,6 +234,7 @@ def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archive
         raise ValueError('HOST_M1_REVIEW_SOURCE_CHANGED')
 
 
+@measured('planning_review')
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
             background_region=None, background_region_digest=None, context_prompt_version='v13',m1_source=None,

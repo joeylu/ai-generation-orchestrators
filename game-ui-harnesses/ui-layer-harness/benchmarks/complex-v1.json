@@ -1,0 +1,2604 @@
+{
+  "kind": "ui_layer_complex_suite_v1",
+  "baselineRelease": "ui-layers-v0.1.0-alpha.6",
+  "artifactProvenance": "Historical studies selected at the alpha.6 source baseline; not all produced by that release.",
+  "geometryTolerancePixels": 2,
+  "cases": [
+    {
+      "id": "orbital-hangar",
+      "reference": {
+        "file": "01-landscape-orbital-hangar.png",
+        "sha256": "879be4d1981b3bf9d3bfc7761d4ae722a9be984d7681722bb68ef0b6406f568c",
+        "size": [
+          1672,
+          941
+        ]
+      },
+      "baseline": {
+        "firstAttemptCompleted": true,
+        "selected": {
+          "executionCompleted": true,
+          "referenceSha256": "879be4d1981b3bf9d3bfc7761d4ae722a9be984d7681722bb68ef0b6406f568c",
+          "referenceSize": [
+            1672,
+            941
+          ],
+          "inventory": {
+            "plannedMaterialIds": [
+              "bottom_bar",
+              "brand_plate",
+              "currency_credit",
+              "currency_crystal",
+              "currency_metal",
+              "currency_token",
+              "defense_module",
+              "dock_scene",
+              "edit_defense",
+              "edit_primary",
+              "edit_propulsion",
+              "edit_secondary",
+              "edit_special",
+              "edit_utility",
+              "equipment_board",
+              "hangar_rail",
+              "hangar_slogan",
+              "launch_button",
+              "mass_meter",
+              "pilot_readout",
+              "primary_weapon",
+              "propulsion_module",
+              "quick_equip_button",
+              "secondary_weapon",
+              "settings_button",
+              "ship_aegis",
+              "ship_nimble",
+              "ship_raven",
+              "ship_tempest",
+              "ship_vanguard",
+              "ship_wraith",
+              "special_module",
+              "stat_armor",
+              "stat_cargo",
+              "stat_hull",
+              "stat_recharge",
+              "stat_sensor",
+              "stat_shield",
+              "stat_speed",
+              "stat_turn",
+              "stat_weapon",
+              "station_card",
+              "tab_appearance",
+              "tab_details",
+              "tab_loadout",
+              "tab_stats",
+              "top_hud",
+              "upgrade_button",
+              "utility_module"
+            ],
+            "deliveredMaterialIds": [
+              "bottom_bar",
+              "brand_plate",
+              "currency_credit",
+              "currency_crystal",
+              "currency_metal",
+              "currency_token",
+              "defense_module",
+              "dock_scene",
+              "edit_defense",
+              "edit_primary",
+              "edit_propulsion",
+              "edit_secondary",
+              "edit_special",
+              "edit_utility",
+              "equipment_board",
+              "hangar_rail",
+              "hangar_slogan",
+              "launch_button",
+              "mass_meter",
+              "pilot_readout",
+              "primary_weapon",
+              "propulsion_module",
+              "quick_equip_button",
+              "secondary_weapon",
+              "settings_button",
+              "ship_aegis",
+              "ship_nimble",
+              "ship_raven",
+              "ship_tempest",
+              "ship_vanguard",
+              "ship_wraith",
+              "special_module",
+              "stat_armor",
+              "stat_cargo",
+              "stat_hull",
+              "stat_recharge",
+              "stat_sensor",
+              "stat_shield",
+              "stat_speed",
+              "stat_turn",
+              "stat_weapon",
+              "station_card",
+              "tab_appearance",
+              "tab_details",
+              "tab_loadout",
+              "tab_stats",
+              "top_hud",
+              "upgrade_button",
+              "utility_module"
+            ],
+            "missingMaterialIds": [],
+            "excludedMaterialIds": [],
+            "complete": true,
+            "completenessBasis": "material identities only; source artwork completeness not accepted"
+          },
+          "geometry": {
+            "storageRegions": {
+              "dock_scene": [
+                0,
+                0,
+                1672,
+                941
+              ],
+              "bottom_bar": [
+                -17,
+                597,
+                1704,
+                570
+              ],
+              "equipment_board": [
+                924,
+                27,
+                784,
+                847
+              ],
+              "hangar_rail": [
+                -159,
+                70,
+                487,
+                740
+              ],
+              "top_hud": [
+                859,
+                -159,
+                830,
+                281
+              ],
+              "brand_plate": [
+                -2,
+                -30,
+                400,
+                121
+              ],
+              "defense_module": [
+                987,
+                339,
+                332,
+                159
+              ],
+              "hangar_slogan": [
+                140,
+                747,
+                251,
+                56
+              ],
+              "launch_button": [
+                1284,
+                817,
+                432,
+                100
+              ],
+              "mass_meter": [
+                1448,
+                125,
+                298,
+                105
+              ],
+              "primary_weapon": [
+                998,
+                179,
+                310,
+                152
+              ],
+              "propulsion_module": [
+                1328,
+                336,
+                330,
+                162
+              ],
+              "quick_equip_button": [
+                988,
+                815,
+                418,
+                103
+              ],
+              "secondary_weapon": [
+                1340,
+                177,
+                307,
+                153
+              ],
+              "ship_aegis": [
+                10,
+                125,
+                96,
+                90
+              ],
+              "ship_nimble": [
+                8,
+                543,
+                98,
+                96
+              ],
+              "ship_raven": [
+                9,
+                223,
+                98,
+                97
+              ],
+              "ship_tempest": [
+                10,
+                654,
+                95,
+                95
+              ],
+              "ship_vanguard": [
+                9,
+                436,
+                98,
+                96
+              ],
+              "ship_wraith": [
+                10,
+                331,
+                95,
+                95
+              ],
+              "special_module": [
+                1330,
+                512,
+                330,
+                142
+              ],
+              "stat_armor": [
+                995,
+                786,
+                23,
+                22
+              ],
+              "stat_cargo": [
+                1217,
+                786,
+                20,
+                20
+              ],
+              "stat_hull": [
+                996,
+                722,
+                21,
+                21
+              ],
+              "stat_recharge": [
+                1459,
+                754,
+                24,
+                23
+              ],
+              "stat_sensor": [
+                1460,
+                786,
+                22,
+                21
+              ],
+              "stat_shield": [
+                996,
+                754,
+                21,
+                22
+              ],
+              "stat_speed": [
+                1216,
+                725,
+                23,
+                17
+              ],
+              "stat_turn": [
+                1214,
+                752,
+                26,
+                26
+              ],
+              "stat_weapon": [
+                1456,
+                724,
+                31,
+                19
+              ],
+              "station_card": [
+                12,
+                830,
+                201,
+                94
+              ],
+              "tab_appearance": [
+                1198,
+                57,
+                414,
+                72
+              ],
+              "tab_details": [
+                1374,
+                55,
+                406,
+                81
+              ],
+              "tab_loadout": [
+                869,
+                62,
+                402,
+                86
+              ],
+              "tab_stats": [
+                1121,
+                7,
+                228,
+                156
+              ],
+              "upgrade_button": [
+                803,
+                785,
+                282,
+                204
+              ],
+              "utility_module": [
+                1004,
+                509,
+                300,
+                149
+              ],
+              "currency_credit": [
+                897,
+                16,
+                40,
+                37
+              ],
+              "currency_crystal": [
+                1035,
+                15,
+                37,
+                38
+              ],
+              "currency_metal": [
+                1150,
+                21,
+                28,
+                27
+              ],
+              "currency_token": [
+                1238,
+                20,
+                31,
+                30
+              ],
+              "edit_defense": [
+                1275,
+                352,
+                29,
+                28
+              ],
+              "edit_primary": [
+                1275,
+                194,
+                28,
+                28
+              ],
+              "edit_propulsion": [
+                1614,
+                352,
+                29,
+                29
+              ],
+              "edit_secondary": [
+                1614,
+                193,
+                29,
+                29
+              ],
+              "edit_special": [
+                1614,
+                525,
+                29,
+                28
+              ],
+              "edit_utility": [
+                1275,
+                525,
+                28,
+                28
+              ],
+              "pilot_readout": [
+                1346,
+                10,
+                234,
+                66
+              ],
+              "settings_button": [
+                1609,
+                13,
+                49,
+                41
+              ]
+            },
+            "constraints": {
+              "ship_aegis_left_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ship_aegis_gap": {
+                "residualPixels": 4,
+                "passed": false
+              },
+              "ship_raven_left_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ship_raven_gap": {
+                "residualPixels": 5,
+                "passed": false
+              },
+              "ship_wraith_left_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ship_wraith_gap": {
+                "residualPixels": 7,
+                "passed": false
+              },
+              "ship_vanguard_left_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ship_vanguard_gap": {
+                "residualPixels": 9,
+                "passed": false
+              },
+              "ship_nimble_left_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ship_nimble_gap": {
+                "residualPixels": 10,
+                "passed": false
+              },
+              "tab_loadout_tab_gap": {
+                "residualPixels": -2,
+                "passed": true
+              },
+              "tab_loadout_tab_baseline": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "tab_stats_tab_gap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "tab_stats_tab_baseline": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "tab_appearance_tab_gap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "tab_appearance_tab_baseline": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "primary_weapon_row_top": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "primary_weapon_row_bottom": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "primary_weapon_column_gap": {
+                "residualPixels": 23,
+                "passed": false
+              },
+              "defense_module_row_top": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "defense_module_row_bottom": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "defense_module_column_gap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "utility_module_row_top": {
+                "residualPixels": -3,
+                "passed": false
+              },
+              "utility_module_row_bottom": {
+                "residualPixels": 3,
+                "passed": false
+              },
+              "utility_module_column_gap": {
+                "residualPixels": 14,
+                "passed": false
+              },
+              "primary_weapon_column_left": {
+                "residualPixels": 11,
+                "passed": false
+              },
+              "primary_weapon_row_gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "defense_module_column_left": {
+                "residualPixels": -15,
+                "passed": false
+              },
+              "defense_module_row_gap": {
+                "residualPixels": 2,
+                "passed": true
+              },
+              "secondary_weapon_column_left": {
+                "residualPixels": 13,
+                "passed": false
+              },
+              "secondary_weapon_row_gap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "propulsion_module_column_left": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "propulsion_module_row_gap": {
+                "residualPixels": 4,
+                "passed": false
+              },
+              "edit_primary_right_inset": {
+                "residualPixels": 12,
+                "passed": false
+              },
+              "edit_primary_top_inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "edit_secondary_right_inset": {
+                "residualPixels": 13,
+                "passed": false
+              },
+              "edit_secondary_top_inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "edit_defense_right_inset": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "edit_defense_top_inset": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "edit_propulsion_right_inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "edit_propulsion_top_inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "edit_utility_right_inset": {
+                "residualPixels": 16,
+                "passed": false
+              },
+              "edit_utility_top_inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "edit_special_right_inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "edit_special_top_inset": {
+                "residualPixels": -3,
+                "passed": false
+              },
+              "stat_hull_stat_row": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_speed_stat_row": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_shield_stat_row": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_turn_stat_row": {
+                "residualPixels": 0.5,
+                "passed": true
+              },
+              "stat_armor_stat_row": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_cargo_stat_row": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_hull_stat_axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_shield_stat_axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_speed_stat_axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_turn_stat_axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "stat_weapon_stat_axis": {
+                "residualPixels": 0.5,
+                "passed": true
+              },
+              "stat_recharge_stat_axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "equipment_bottom_contact": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "equipment_top_contact": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "bottom_upgrade_equip_gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "bottom_equip_launch_gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "bottom_upgrade_axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "bottom_launch_axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "equipment_cards_left_inset": {
+                "residualPixels": 10,
+                "passed": false
+              },
+              "equipment_cards_right_inset": {
+                "residualPixels": -12,
+                "passed": false
+              },
+              "tab_first_card_alignment": {
+                "residualPixels": -11,
+                "passed": false
+              },
+              "tab_last_card_alignment": {
+                "residualPixels": 13,
+                "passed": false
+              }
+            },
+            "internalChecks": {
+              "equipment_board:divider": {
+                "passed": false,
+                "residualPixels": [
+                  -21,
+                  -52
+                ]
+              }
+            },
+            "scope": "stored support in original coordinates plus declared constraints/bands/dividers; no semantic body observation",
+            "semanticGeometryAccepted": false
+          }
+        },
+        "totalCallCounts": {
+          "planning_generate": 1,
+          "planning_review": 1,
+          "images": 15,
+          "material_review": 15,
+          "body_observation": 0,
+          "composite_review": 0
+        }
+      }
+    },
+    {
+      "id": "bakery-orders",
+      "reference": {
+        "file": "02-landscape-bakery-orders.png",
+        "sha256": "3bf23acb316b38dbcbc486de0555116e9317404470b408c93ddc67782e4240e2",
+        "size": [
+          1672,
+          941
+        ]
+      },
+      "baseline": {
+        "firstAttemptCompleted": false,
+        "selected": {
+          "executionCompleted": true,
+          "referenceSha256": "3bf23acb316b38dbcbc486de0555116e9317404470b408c93ddc67782e4240e2",
+          "referenceSize": [
+            1672,
+            941
+          ],
+          "inventory": {
+            "plannedMaterialIds": [
+              "bake-action",
+              "bakery-scene",
+              "category-all",
+              "category-bread",
+              "category-cake",
+              "category-cookie",
+              "category-pastry",
+              "category-seasonal",
+              "currency-counter",
+              "currency-plus",
+              "energy-counter",
+              "energy-plus",
+              "foreground-baking-tools",
+              "foreground-flowers",
+              "foreground-muffin-display",
+              "foreground-right-display",
+              "hero-cinnamon-roll",
+              "ingredient-cinnamon",
+              "ingredient-flour",
+              "ingredient-milk",
+              "ingredient-sugar",
+              "open-recipe-book",
+              "order-george",
+              "order-lily",
+              "order-maya",
+              "orders-board",
+              "quantity-minus",
+              "quantity-plus",
+              "quantity-tray",
+              "ready-timer",
+              "recipe-cookie",
+              "recipe-croissant",
+              "recipe-loaf",
+              "recipe-muffin",
+              "recipe-roll",
+              "recipe-tart",
+              "refill-tag",
+              "roll-note",
+              "utility-mail",
+              "utility-paw",
+              "utility-settings"
+            ],
+            "deliveredMaterialIds": [
+              "bake-action",
+              "bakery-scene",
+              "category-all",
+              "category-bread",
+              "category-cake",
+              "category-cookie",
+              "category-pastry",
+              "category-seasonal",
+              "currency-counter",
+              "currency-plus",
+              "energy-counter",
+              "energy-plus",
+              "foreground-baking-tools",
+              "foreground-flowers",
+              "foreground-muffin-display",
+              "foreground-right-display",
+              "hero-cinnamon-roll",
+              "ingredient-cinnamon",
+              "ingredient-flour",
+              "ingredient-milk",
+              "ingredient-sugar",
+              "open-recipe-book",
+              "order-george",
+              "order-lily",
+              "order-maya",
+              "orders-board",
+              "quantity-minus",
+              "quantity-plus",
+              "quantity-tray",
+              "ready-timer",
+              "recipe-cookie",
+              "recipe-croissant",
+              "recipe-loaf",
+              "recipe-muffin",
+              "recipe-roll",
+              "recipe-tart",
+              "refill-tag",
+              "roll-note",
+              "utility-mail",
+              "utility-paw",
+              "utility-settings"
+            ],
+            "missingMaterialIds": [],
+            "excludedMaterialIds": [],
+            "complete": true,
+            "completenessBasis": "material identities only; source artwork completeness not accepted"
+          },
+          "geometry": {
+            "storageRegions": {
+              "bakery-scene": [
+                0,
+                0,
+                1672,
+                941
+              ],
+              "open-recipe-book": [
+                6,
+                128,
+                1170,
+                739
+              ],
+              "orders-board": [
+                1151,
+                128,
+                437,
+                739
+              ],
+              "category-bread": [
+                100,
+                333,
+                32,
+                28
+              ],
+              "category-cake": [
+                99,
+                492,
+                31,
+                33
+              ],
+              "category-cookie": [
+                97,
+                438,
+                35,
+                33
+              ],
+              "category-pastry": [
+                99,
+                385,
+                32,
+                31
+              ],
+              "category-seasonal": [
+                95,
+                547,
+                31,
+                32
+              ],
+              "hero-cinnamon-roll": [
+                682,
+                269,
+                346,
+                227
+              ],
+              "ingredient-cinnamon": [
+                979,
+                504,
+                126,
+                137
+              ],
+              "ingredient-flour": [
+                597,
+                507,
+                125,
+                131
+              ],
+              "ingredient-milk": [
+                725,
+                508,
+                123,
+                129
+              ],
+              "ingredient-sugar": [
+                850,
+                507,
+                128,
+                131
+              ],
+              "order-george": [
+                1183,
+                392,
+                381,
+                158
+              ],
+              "order-lily": [
+                1182,
+                555,
+                383,
+                160
+              ],
+              "order-maya": [
+                1183,
+                228,
+                381,
+                157
+              ],
+              "quantity-tray": [
+                525,
+                607,
+                576,
+                139
+              ],
+              "recipe-cookie": [
+                255,
+                495,
+                275,
+                87
+              ],
+              "recipe-croissant": [
+                260,
+                414,
+                265,
+                83
+              ],
+              "recipe-loaf": [
+                256,
+                663,
+                273,
+                90
+              ],
+              "recipe-muffin": [
+                258,
+                333,
+                269,
+                82
+              ],
+              "recipe-roll": [
+                247,
+                245,
+                286,
+                91
+              ],
+              "recipe-tart": [
+                229,
+                578,
+                326,
+                76
+              ],
+              "bake-action": [
+                630,
+                724,
+                358,
+                80
+              ],
+              "category-all": [
+                47,
+                172,
+                179,
+                181
+              ],
+              "currency-counter": [
+                459,
+                15,
+                206,
+                50
+              ],
+              "energy-counter": [
+                666,
+                15,
+                219,
+                52
+              ],
+              "quantity-minus": [
+                723,
+                573,
+                179,
+                177
+              ],
+              "quantity-plus": [
+                864,
+                576,
+                172,
+                173
+              ],
+              "ready-timer": [
+                962,
+                701,
+                157,
+                108
+              ],
+              "refill-tag": [
+                644,
+                48,
+                258,
+                76
+              ],
+              "roll-note": [
+                1002,
+                252,
+                125,
+                150
+              ],
+              "utility-mail": [
+                1478,
+                -18,
+                145,
+                98
+              ],
+              "utility-paw": [
+                1546,
+                -17,
+                149,
+                96
+              ],
+              "utility-settings": [
+                1407,
+                -17,
+                144,
+                96
+              ],
+              "currency-plus": [
+                561,
+                -12,
+                140,
+                93
+              ],
+              "energy-plus": [
+                771,
+                -13,
+                143,
+                95
+              ],
+              "foreground-baking-tools": [
+                494,
+                737,
+                812,
+                205
+              ],
+              "foreground-flowers": [
+                0,
+                608,
+                206,
+                281
+              ],
+              "foreground-muffin-display": [
+                53,
+                716,
+                343,
+                220
+              ],
+              "foreground-right-display": [
+                1458,
+                709,
+                214,
+                224
+              ]
+            },
+            "constraints": {
+              "recipe-left-1": {
+                "residualPixels": 4,
+                "passed": false
+              },
+              "recipe-gap-1": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "recipe-left-2": {
+                "residualPixels": 2,
+                "passed": true
+              },
+              "recipe-gap-2": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "recipe-left-3": {
+                "residualPixels": -5,
+                "passed": false
+              },
+              "recipe-gap-3": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "recipe-left-4": {
+                "residualPixels": -24,
+                "passed": false
+              },
+              "recipe-gap-4": {
+                "residualPixels": 8,
+                "passed": false
+              },
+              "recipe-left-5": {
+                "residualPixels": 25,
+                "passed": false
+              },
+              "recipe-gap-5": {
+                "residualPixels": 9,
+                "passed": false
+              },
+              "ingredient-top-1": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "ingredient-gap-1": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "ingredient-bottom-1": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "ingredient-top-2": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "ingredient-gap-2": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "ingredient-bottom-2": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "ingredient-top-3": {
+                "residualPixels": -2,
+                "passed": true
+              },
+              "ingredient-gap-3": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "ingredient-bottom-3": {
+                "residualPixels": 2,
+                "passed": true
+              },
+              "quantity-buttons-axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "quantity-minus-inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "quantity-plus-inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "bake-timer-gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "bake-timer-bottom": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "order-left-1": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "order-right-1": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "order-gap-1": {
+                "residualPixels": 6,
+                "passed": false
+              },
+              "order-left-2": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "order-right-2": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "order-gap-2": {
+                "residualPixels": 6,
+                "passed": false
+              },
+              "orders-left-inset": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "orders-right-inset": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "currency-plus-axis": {
+                "residualPixels": 0.5,
+                "passed": true
+              },
+              "currency-plus-right": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "energy-plus-axis": {
+                "residualPixels": 0.5,
+                "passed": true
+              },
+              "energy-plus-right": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "hud-top-axis": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "refill-attachment": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "refill-axis": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "utility-mail-top": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "utility-paw-top": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "utility-mail-gap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "utility-paw-gap": {
+                "residualPixels": -1,
+                "passed": true
+              }
+            },
+            "internalChecks": {},
+            "scope": "stored support in original coordinates plus declared constraints/bands/dividers; no semantic body observation",
+            "semanticGeometryAccepted": false
+          }
+        },
+        "totalCallCounts": {
+          "planning_generate": 1,
+          "planning_review": 1,
+          "images": 17,
+          "material_review": 14,
+          "body_observation": 0,
+          "composite_review": 0
+        }
+      }
+    },
+    {
+      "id": "alchemy-research",
+      "reference": {
+        "file": "04-landscape-alchemy-research.png",
+        "sha256": "df9c091e188a9da46c5b450bba62a2936142b84045accd782fdeb852c44bc900",
+        "size": [
+          1672,
+          941
+        ]
+      },
+      "baseline": {
+        "firstAttemptCompleted": true,
+        "selected": {
+          "executionCompleted": true,
+          "referenceSha256": "df9c091e188a9da46c5b450bba62a2936142b84045accd782fdeb852c44bc900",
+          "referenceSize": [
+            1672,
+            941
+          ],
+          "inventory": {
+            "plannedMaterialIds": [
+              "archive-sigil",
+              "crystals",
+              "detail-parchment",
+              "difficulty-glyphs",
+              "draught-portrait",
+              "ingredient-bloom",
+              "ingredient-bloom-status",
+              "ingredient-moss",
+              "ingredient-moss-status",
+              "ingredient-table",
+              "ingredient-water",
+              "ingredient-water-status",
+              "leaves",
+              "node-antidote",
+              "node-fire",
+              "node-frost",
+              "node-healing",
+              "node-herbal",
+              "node-invisible",
+              "node-leviathan",
+              "node-mind",
+              "node-night",
+              "node-phoenix",
+              "node-purifying",
+              "node-stamina",
+              "node-stoneflesh",
+              "patience-note",
+              "quick-blue",
+              "quick-empty",
+              "quick-gold",
+              "quick-green",
+              "quick-purple",
+              "quick-red",
+              "quickbrew-board",
+              "research-action",
+              "research-branches",
+              "research-progress",
+              "settings",
+              "study-scene",
+              "tab-artifacts",
+              "tab-elixirs",
+              "tab-oils",
+              "tab-potions",
+              "tab-tinctures",
+              "wealth"
+            ],
+            "deliveredMaterialIds": [
+              "archive-sigil",
+              "crystals",
+              "detail-parchment",
+              "difficulty-glyphs",
+              "draught-portrait",
+              "ingredient-bloom",
+              "ingredient-bloom-status",
+              "ingredient-moss",
+              "ingredient-moss-status",
+              "ingredient-table",
+              "ingredient-water",
+              "ingredient-water-status",
+              "leaves",
+              "node-antidote",
+              "node-fire",
+              "node-frost",
+              "node-healing",
+              "node-herbal",
+              "node-invisible",
+              "node-leviathan",
+              "node-mind",
+              "node-night",
+              "node-phoenix",
+              "node-purifying",
+              "node-stamina",
+              "node-stoneflesh",
+              "patience-note",
+              "quick-blue",
+              "quick-empty",
+              "quick-gold",
+              "quick-green",
+              "quick-purple",
+              "quick-red",
+              "quickbrew-board",
+              "research-action",
+              "research-branches",
+              "research-progress",
+              "settings",
+              "study-scene",
+              "tab-artifacts",
+              "tab-elixirs",
+              "tab-oils",
+              "tab-potions",
+              "tab-tinctures",
+              "wealth"
+            ],
+            "missingMaterialIds": [],
+            "excludedMaterialIds": [],
+            "complete": true,
+            "completenessBasis": "material identities only; source artwork completeness not accepted"
+          },
+          "geometry": {
+            "storageRegions": {
+              "study-scene": [
+                0,
+                0,
+                1672,
+                941
+              ],
+              "research-branches": [
+                149,
+                166,
+                844,
+                457
+              ],
+              "detail-parchment": [
+                1050,
+                19,
+                645,
+                849
+              ],
+              "quickbrew-board": [
+                473,
+                729,
+                548,
+                234
+              ],
+              "archive-sigil": [
+                43,
+                -1,
+                76,
+                78
+              ],
+              "crystals": [
+                1290,
+                -8,
+                178,
+                79
+              ],
+              "ingredient-table": [
+                1152,
+                400,
+                511,
+                242
+              ],
+              "leaves": [
+                1413,
+                -8,
+                180,
+                79
+              ],
+              "node-antidote": [
+                141,
+                510,
+                116,
+                116
+              ],
+              "node-fire": [
+                584,
+                343,
+                145,
+                131
+              ],
+              "node-frost": [
+                355,
+                337,
+                124,
+                138
+              ],
+              "node-healing": [
+                489,
+                137,
+                133,
+                133
+              ],
+              "node-herbal": [
+                305,
+                205,
+                123,
+                106
+              ],
+              "node-invisible": [
+                443,
+                500,
+                149,
+                143
+              ],
+              "node-leviathan": [
+                748,
+                523,
+                121,
+                101
+              ],
+              "node-mind": [
+                611,
+                524,
+                105,
+                117
+              ],
+              "node-night": [
+                799,
+                370,
+                132,
+                133
+              ],
+              "node-phoenix": [
+                916,
+                522,
+                119,
+                117
+              ],
+              "node-purifying": [
+                163,
+                361,
+                160,
+                148
+              ],
+              "node-stamina": [
+                668,
+                206,
+                141,
+                115
+              ],
+              "node-stoneflesh": [
+                299,
+                522,
+                111,
+                105
+              ],
+              "settings": [
+                1596,
+                12,
+                49,
+                46
+              ],
+              "tab-artifacts": [
+                712,
+                61,
+                190,
+                94
+              ],
+              "tab-elixirs": [
+                308,
+                64,
+                192,
+                87
+              ],
+              "tab-oils": [
+                576,
+                67,
+                196,
+                87
+              ],
+              "tab-potions": [
+                170,
+                67,
+                196,
+                89
+              ],
+              "tab-tinctures": [
+                408,
+                52,
+                262,
+                94
+              ],
+              "wealth": [
+                1137,
+                -9,
+                282,
+                98
+              ],
+              "difficulty-glyphs": [
+                1525,
+                361,
+                103,
+                18
+              ],
+              "draught-portrait": [
+                1122,
+                100,
+                346,
+                376
+              ],
+              "ingredient-bloom": [
+                1184,
+                446,
+                93,
+                61
+              ],
+              "ingredient-bloom-status": [
+                1586,
+                452,
+                40,
+                36
+              ],
+              "ingredient-moss": [
+                1184,
+                499,
+                95,
+                46
+              ],
+              "ingredient-moss-status": [
+                1596,
+                514,
+                21,
+                21
+              ],
+              "ingredient-water": [
+                1155,
+                539,
+                124,
+                60
+              ],
+              "ingredient-water-status": [
+                1596,
+                567,
+                21,
+                20
+              ],
+              "patience-note": [
+                1462,
+                672,
+                183,
+                120
+              ],
+              "quick-blue": [
+                587,
+                820,
+                77,
+                73
+              ],
+              "quick-empty": [
+                907,
+                819,
+                77,
+                89
+              ],
+              "quick-gold": [
+                668,
+                819,
+                91,
+                75
+              ],
+              "quick-green": [
+                810,
+                819,
+                93,
+                75
+              ],
+              "quick-purple": [
+                731,
+                791,
+                114,
+                129
+              ],
+              "quick-red": [
+                489,
+                791,
+                114,
+                127
+              ],
+              "research-action": [
+                1135,
+                654,
+                364,
+                144
+              ],
+              "research-progress": [
+                1164,
+                581,
+                427,
+                156
+              ]
+            },
+            "constraints": {
+              "resource-row-y": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "resource-row-z": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "resource-gap-one": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "resource-gap-two": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "tab-potions-next": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "tab-elixirs-next": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "tab-tinctures-next": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "tab-oils-next": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "tab-tinctures-baseline": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "tab-oils-baseline": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "tab-artifacts-baseline": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "node-herbal-row": {
+                "residualPixels": -0.5,
+                "passed": true
+              },
+              "node-frost-row": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "node-mind-row": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "node-leviathan-row": {
+                "residualPixels": 0.0,
+                "passed": true
+              },
+              "node-herbal-gap-node-purifying": {
+                "residualPixels": -2,
+                "passed": true
+              },
+              "node-healing-gap-node-fire": {
+                "residualPixels": -3,
+                "passed": false
+              },
+              "node-stamina-gap-node-night": {
+                "residualPixels": -5,
+                "passed": false
+              },
+              "node-stoneflesh-gap-node-invisible": {
+                "residualPixels": -2,
+                "passed": true
+              },
+              "node-invisible-gap-node-mind": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "node-mind-gap-node-leviathan": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "node-leviathan-gap-node-phoenix": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "quick-red-next": {
+                "residualPixels": -2,
+                "passed": true
+              },
+              "quick-red-align": {
+                "residualPixels": -2,
+                "passed": true
+              },
+              "quick-blue-next": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "quick-blue-align": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "quick-gold-next": {
+                "residualPixels": -2,
+                "passed": true
+              },
+              "quick-gold-align": {
+                "residualPixels": 2,
+                "passed": true
+              },
+              "quick-purple-next": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "quick-purple-align": {
+                "residualPixels": -2,
+                "passed": true
+              },
+              "quick-green-next": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "quick-green-align": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ingredient-bloom-status-row": {
+                "residualPixels": 1.0,
+                "passed": true
+              },
+              "ingredient-moss-status-row": {
+                "residualPixels": 0.5,
+                "passed": true
+              },
+              "ingredient-water-status-row": {
+                "residualPixels": -0.5,
+                "passed": true
+              },
+              "ingredient-icons-left": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ingredient-icons-last": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ingredient-checks-right": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "ingredient-checks-last": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "detail-portrait-inset": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "detail-table-progress-left": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "detail-progress-button-left": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "detail-progress-button-gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "detail-button-note-gap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "quickboard-under-tree": {
+                "residualPixels": 1,
+                "passed": true
+              }
+            },
+            "internalChecks": {
+              "ingredient-table:divider": {
+                "passed": true,
+                "residualPixels": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "scope": "stored support in original coordinates plus declared constraints/bands/dividers; no semantic body observation",
+            "semanticGeometryAccepted": false
+          }
+        },
+        "totalCallCounts": {
+          "planning_generate": 1,
+          "planning_review": 1,
+          "images": 18,
+          "material_review": 0,
+          "body_observation": 0,
+          "composite_review": 1
+        }
+      }
+    },
+    {
+      "id": "koi-collection",
+      "reference": {
+        "file": "07-portrait-koi-collection.png",
+        "sha256": "27968d01f36e8783ed377e65b1b4f518ad206ef955ebe2f0623ab79f153eddf8",
+        "size": [
+          1024,
+          1536
+        ]
+      },
+      "baseline": {
+        "firstAttemptCompleted": false,
+        "selected": {
+          "executionCompleted": true,
+          "referenceSha256": "27968d01f36e8783ed377e65b1b4f518ad206ef955ebe2f0623ab79f153eddf8",
+          "referenceSize": [
+            1024,
+            1536
+          ],
+          "inventory": {
+            "plannedMaterialIds": [
+              "coin_counter",
+              "collection_header",
+              "collection_progress",
+              "forest_pond_card",
+              "garden_scene",
+              "gem_counter",
+              "journal_added_button",
+              "journal_backing",
+              "kohaku_card",
+              "lotus_counter",
+              "moonlit_pond_card",
+              "mountain_pond_card",
+              "nav_achievements",
+              "nav_items",
+              "nav_koi",
+              "nav_notes",
+              "nav_ponds",
+              "ogon_card",
+              "open_journal",
+              "sanke_card",
+              "sanke_detail",
+              "settings_round",
+              "showa_card",
+              "sidebar_panel",
+              "temple_pond_card",
+              "visit_pond_button"
+            ],
+            "deliveredMaterialIds": [
+              "coin_counter",
+              "collection_header",
+              "collection_progress",
+              "forest_pond_card",
+              "garden_scene",
+              "gem_counter",
+              "journal_added_button",
+              "journal_backing",
+              "kohaku_card",
+              "lotus_counter",
+              "moonlit_pond_card",
+              "mountain_pond_card",
+              "nav_achievements",
+              "nav_items",
+              "nav_koi",
+              "nav_notes",
+              "nav_ponds",
+              "ogon_card",
+              "open_journal",
+              "sanke_card",
+              "sanke_detail",
+              "settings_round",
+              "showa_card",
+              "sidebar_panel",
+              "temple_pond_card",
+              "visit_pond_button"
+            ],
+            "missingMaterialIds": [],
+            "excludedMaterialIds": [],
+            "complete": true,
+            "completenessBasis": "material identities only; source artwork completeness not accepted"
+          },
+          "geometry": {
+            "storageRegions": {
+              "garden_scene": [
+                0,
+                0,
+                1024,
+                1536
+              ],
+              "journal_backing": [
+                80,
+                147,
+                965,
+                1057
+              ],
+              "sidebar_panel": [
+                -175,
+                304,
+                513,
+                395
+              ],
+              "nav_achievements": [
+                31,
+                565,
+                34,
+                34
+              ],
+              "nav_items": [
+                32,
+                496,
+                31,
+                38
+              ],
+              "nav_koi": [
+                -61,
+                272,
+                272,
+                221
+              ],
+              "nav_notes": [
+                31,
+                631,
+                33,
+                33
+              ],
+              "nav_ponds": [
+                29,
+                434,
+                38,
+                32
+              ],
+              "collection_header": [
+                247,
+                204,
+                651,
+                132
+              ],
+              "forest_pond_card": [
+                285,
+                1128,
+                223,
+                174
+              ],
+              "moonlit_pond_card": [
+                749,
+                1127,
+                223,
+                176
+              ],
+              "mountain_pond_card": [
+                50,
+                1122,
+                231,
+                182
+              ],
+              "open_journal": [
+                182,
+                322,
+                780,
+                512
+              ],
+              "temple_pond_card": [
+                517,
+                1129,
+                223,
+                173
+              ],
+              "visit_pond_button": [
+                340,
+                1330,
+                342,
+                85
+              ],
+              "coin_counter": [
+                681,
+                -81,
+                261,
+                201
+              ],
+              "collection_progress": [
+                339,
+                272,
+                320,
+                37
+              ],
+              "gem_counter": [
+                769,
+                -83,
+                250,
+                202
+              ],
+              "kohaku_card": [
+                183,
+                352,
+                364,
+                219
+              ],
+              "lotus_counter": [
+                569,
+                -83,
+                257,
+                202
+              ],
+              "ogon_card": [
+                213,
+                584,
+                332,
+                208
+              ],
+              "sanke_card": [
+                601,
+                352,
+                332,
+                205
+              ],
+              "sanke_detail": [
+                179,
+                766,
+                785,
+                348
+              ],
+              "settings_round": [
+                959,
+                3,
+                59,
+                79
+              ],
+              "showa_card": [
+                599,
+                558,
+                336,
+                258
+              ],
+              "journal_added_button": [
+                750,
+                1024,
+                250,
+                100
+              ]
+            },
+            "constraints": {
+              "resources_top_one": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "resources_top_two": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "resource_gap_one": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "resource_gap_two": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "gear_resource_gap": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "header_book_overlap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "progress_header_inset": {
+                "residualPixels": -76,
+                "passed": false
+              },
+              "sidebar_book_contact": {
+                "residualPixels": -48,
+                "passed": false
+              },
+              "koi_sidebar_left": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "cards_book_top_inset": {
+                "residualPixels": 12,
+                "passed": false
+              },
+              "cards_top_alignment": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "cards_bottom_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "cards_left_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "cards_right_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "cards_top_gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "cards_bottom_gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "cards_left_vertical_gap": {
+                "residualPixels": 21,
+                "passed": false
+              },
+              "cards_right_vertical_gap": {
+                "residualPixels": 20,
+                "passed": false
+              },
+              "detail_book_overlap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "detail_backing_bottom_inset": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "added_detail_right_inset": {
+                "residualPixels": 14,
+                "passed": false
+              },
+              "added_detail_bottom_inset": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "forest_pond_card_gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "forest_pond_card_bottom": {
+                "residualPixels": -3,
+                "passed": false
+              },
+              "temple_pond_card_gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "temple_pond_card_bottom": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "moonlit_pond_card_gap": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "moonlit_pond_card_bottom": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "pond_detail_gap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "visit_pond_gap": {
+                "residualPixels": 1,
+                "passed": true
+              }
+            },
+            "internalChecks": {},
+            "scope": "stored support in original coordinates plus declared constraints/bands/dividers; no semantic body observation",
+            "semanticGeometryAccepted": false
+          }
+        },
+        "totalCallCounts": {
+          "planning_generate": 1,
+          "planning_review": 2,
+          "images": 13,
+          "material_review": 12,
+          "body_observation": 0,
+          "composite_review": 0
+        }
+      }
+    },
+    {
+      "id": "arctic-loadout",
+      "reference": {
+        "file": "10-portrait-arctic-loadout.png",
+        "sha256": "85d30f3e2177a9a4df454478643b5345a37e17600784bbfdea546f9c9d24a454",
+        "size": [
+          1024,
+          1536
+        ]
+      },
+      "baseline": {
+        "firstAttemptCompleted": false,
+        "selected": {
+          "executionCompleted": true,
+          "referenceSha256": "85d30f3e2177a9a4df454478643b5345a37e17600784bbfdea546f9c9d24a454",
+          "referenceSize": [
+            1024,
+            1536
+          ],
+          "inventory": {
+            "plannedMaterialIds": [
+              "axe_detail_card",
+              "axe_item",
+              "backpack_shell",
+              "blanket_item",
+              "body_card",
+              "body_link",
+              "camp_navigation",
+              "detail_shell",
+              "drop_action",
+              "durability_meter",
+              "equip_action",
+              "equipment_navigation",
+              "expedition_header",
+              "feet_card",
+              "feet_link",
+              "flare_item",
+              "flask_item",
+              "hands_card",
+              "hands_link",
+              "head_card",
+              "head_link",
+              "load_readout",
+              "map_navigation",
+              "medkit_item",
+              "navigation_shell",
+              "quests_navigation",
+              "rations_item",
+              "rope_item",
+              "scene",
+              "settings_navigation",
+              "stove_item",
+              "survival_readout"
+            ],
+            "deliveredMaterialIds": [
+              "axe_detail_card",
+              "axe_item",
+              "backpack_shell",
+              "blanket_item",
+              "body_card",
+              "detail_shell",
+              "drop_action",
+              "durability_meter",
+              "equip_action",
+              "equipment_navigation",
+              "expedition_header",
+              "feet_card",
+              "flare_item",
+              "load_readout",
+              "navigation_shell",
+              "scene",
+              "stove_item",
+              "survival_readout"
+            ],
+            "missingMaterialIds": [
+              "body_link",
+              "camp_navigation",
+              "feet_link",
+              "flask_item",
+              "hands_card",
+              "hands_link",
+              "head_card",
+              "head_link",
+              "map_navigation",
+              "medkit_item",
+              "quests_navigation",
+              "rations_item",
+              "rope_item",
+              "settings_navigation"
+            ],
+            "excludedMaterialIds": [
+              "body_link",
+              "camp_navigation",
+              "feet_link",
+              "flask_item",
+              "hands_card",
+              "hands_link",
+              "head_card",
+              "head_link",
+              "map_navigation",
+              "medkit_item",
+              "quests_navigation",
+              "rations_item",
+              "rope_item",
+              "settings_navigation"
+            ],
+            "complete": false,
+            "completenessBasis": "material identities only; source artwork completeness not accepted"
+          },
+          "geometry": {
+            "storageRegions": {
+              "scene": [
+                0,
+                0,
+                1024,
+                1536
+              ],
+              "backpack_shell": [
+                -17,
+                550,
+                1057,
+                601
+              ],
+              "detail_shell": [
+                -18,
+                1064,
+                1060,
+                333
+              ],
+              "navigation_shell": [
+                -13,
+                1219,
+                1049,
+                437
+              ],
+              "axe_detail_card": [
+                -29,
+                1056,
+                275,
+                275
+              ],
+              "axe_item": [
+                8,
+                646,
+                285,
+                250
+              ],
+              "blanket_item": [
+                705,
+                829,
+                240,
+                270
+              ],
+              "body_card": [
+                583,
+                66,
+                247,
+                219
+              ],
+              "drop_action": [
+                645,
+                1183,
+                421,
+                133
+              ],
+              "durability_meter": [
+                473,
+                1253,
+                239,
+                104
+              ],
+              "equip_action": [
+                643,
+                1107,
+                425,
+                116
+              ],
+              "equipment_navigation": [
+                321,
+                1378,
+                183,
+                130
+              ],
+              "feet_card": [
+                623,
+                312,
+                202,
+                243
+              ],
+              "flare_item": [
+                446,
+                848,
+                293,
+                270
+              ],
+              "stove_item": [
+                256,
+                845,
+                287,
+                267
+              ],
+              "load_readout": [
+                605,
+                592,
+                443,
+                133
+              ],
+              "expedition_header": [
+                -58,
+                -20,
+                640,
+                119
+              ],
+              "survival_readout": [
+                450,
+                -9,
+                699,
+                117
+              ]
+            },
+            "constraints": {
+              "equipment_right_vertical_gap": {
+                "residualPixels": 18,
+                "passed": false
+              },
+              "shell_detail_connection": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "detail_navigation_connection": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "load_shell_top_offset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "load_shell_right_inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "stove_item_to_flare_item_gap": {
+                "residualPixels": 15,
+                "passed": false
+              },
+              "stove_item_to_flare_item_top": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "stove_item_to_flare_item_bottom": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "flare_item_to_blanket_item_gap": {
+                "residualPixels": 35,
+                "passed": false
+              },
+              "flare_item_to_blanket_item_top": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "flare_item_to_blanket_item_bottom": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "action_left_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "action_right_alignment": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "action_vertical_gap": {
+                "residualPixels": -1,
+                "passed": true
+              },
+              "preview_shell_left_inset": {
+                "residualPixels": 1,
+                "passed": true
+              },
+              "preview_shell_top_inset": {
+                "residualPixels": 0,
+                "passed": true
+              },
+              "meter_action_gap": {
+                "residualPixels": 0,
+                "passed": true
+              }
+            },
+            "internalChecks": {
+              "axe_item:divider": {
+                "passed": false,
+                "residualPixels": null
+              },
+              "stove_item:divider": {
+                "passed": false,
+                "residualPixels": null
+              },
+              "flare_item:divider": {
+                "passed": false,
+                "residualPixels": null
+              },
+              "blanket_item:divider": {
+                "passed": false,
+                "residualPixels": null
+              },
+              "body_card:band": {
+                "passed": false,
+                "residualPixels": [
+                  [
+                    4,
+                    -12
+                  ]
+                ]
+              },
+              "feet_card:band": {
+                "passed": false,
+                "residualPixels": [
+                  [
+                    2,
+                    -11
+                  ]
+                ]
+              },
+              "axe_item:band": {
+                "passed": false,
+                "residualPixels": null
+              },
+              "stove_item:band": {
+                "passed": false,
+                "residualPixels": null
+              },
+              "flare_item:band": {
+                "passed": false,
+                "residualPixels": null
+              },
+              "blanket_item:band": {
+                "passed": false,
+                "residualPixels": null
+              }
+            },
+            "scope": "stored support in original coordinates plus declared constraints/bands/dividers; no semantic body observation",
+            "semanticGeometryAccepted": false
+          }
+        },
+        "totalCallCounts": {
+          "planning_generate": 2,
+          "planning_review": 2,
+          "images": 13,
+          "material_review": 0,
+          "body_observation": 0,
+          "composite_review": 1
+        }
+      }
+    }
+  ]
+}

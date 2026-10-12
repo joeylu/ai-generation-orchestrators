@@ -5,8 +5,10 @@ from .evaluate import read, digest
 from .visual_textures import planning_input
 from .freeze_visual import freeze
 from .planning_dag import locked
+from .host_timing import measured
 
 
+@measured('planning_review')
 def freeze_reviewed(source, output, max_calls, generation_mode=None, generation_reference=None,
                     context_prompt_version=None):
     source=Path(source).resolve();output=Path(output).resolve()

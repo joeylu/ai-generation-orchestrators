@@ -9,6 +9,7 @@ from copy import deepcopy
 from functools import wraps
 import hashlib
 import json
+import os
 from pathlib import Path
 
 
@@ -41,18 +42,33 @@ def _fingerprint(folder):
     if not folder.is_dir():
         return None
     rows = []
-    for path in sorted(folder.rglob('*')):
-        # Do not memoize trees whose dependency closure needs link traversal.
-        if path.is_symlink() or getattr(path, 'is_junction', lambda: False)():
-            return None
-        name = path.relative_to(folder).as_posix()
-        if path.is_file():
-            rows.append((name, hashlib.sha256(path.read_bytes()).hexdigest()))
-        elif path.is_dir():
-            rows.append((name, 'directory'))
-        else:
-            return None
-    return str(folder), tuple(rows)
+    pending = [(str(folder), '')]
+    while pending:
+        directory, prefix = pending.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                # DirEntry shares directory metadata across these queries. Never
+                # follow links or reuse a result from a linked dependency tree.
+                if entry.is_symlink():
+                    return None
+                junction = getattr(entry, 'is_junction', None)
+                if junction is not None:
+                    if junction():
+                        return None
+                elif os.name == 'nt' and getattr(
+                        entry.stat(follow_symlinks=False), 'st_file_attributes', 0) & 0x400:
+                    # Python 3.10 has no is_junction; reject reparse points there.
+                    return None
+                name = prefix + entry.name
+                if entry.is_file(follow_symlinks=False):
+                    with open(entry.path, 'rb') as source:
+                        rows.append((name, hashlib.sha256(source.read()).hexdigest()))
+                elif entry.is_dir(follow_symlinks=False):
+                    rows.append((name, 'directory'))
+                    pending.append((entry.path, name + '/'))
+                else:
+                    return None
+    return str(folder), tuple(sorted(rows))
 
 
 def tree_result(function):

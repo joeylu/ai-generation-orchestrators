@@ -7,6 +7,7 @@ from PIL import Image
 from jsonschema import Draft202012Validator
 
 from .evaluate import read, save, digest, pixel_box
+from .host_timing import measured
 from .experimental_executor import record, verified
 from .freeze_visual import body_digest
 from . import layout_registration_revision as revision
@@ -267,6 +268,7 @@ def rendered_band_checks(delivery, declarations):
     return checks
 
 
+@measured('registration')
 def finish(root, config):
     """Run the bound candidate step; never catch hash/path/package failures."""
     root=Path(root)

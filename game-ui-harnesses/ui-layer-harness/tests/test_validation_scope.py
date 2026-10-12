@@ -1,6 +1,8 @@
 """Content changes cannot inherit a pure validation result, even in one operation."""
 import _bootstrap
 import os
+from contextlib import contextmanager
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -13,6 +15,49 @@ import test_context_references as fixtures
 
 
 class ValidationScopeTests(unittest.TestCase):
+    def test_fingerprint_includes_nested_names_empty_directories_and_current_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary).resolve();(root/'nested/empty').mkdir(parents=True)
+            (root/'nested/input').write_bytes(b'content');(root/'other').write_bytes(b'different')
+            expected=[('nested','directory'),('nested/empty','directory'),
+                      ('nested/input',hashlib.sha256(b'content').hexdigest()),
+                      ('other',hashlib.sha256(b'different').hexdigest())]
+            self.assertEqual(reuse._fingerprint(root),(str(root),tuple(sorted(expected))))
+
+    def test_empty_directory_inventory_changes_invalidate_cached_result(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);calls=[]
+            @reuse.tree_result
+            def validate(folder):
+                calls.append(1)
+                return sorted(p.relative_to(root).as_posix() for p in root.rglob('*'))
+            with reuse.scope():
+                self.assertEqual(validate(root),[])
+                (root/'empty').mkdir();self.assertEqual(validate(root),['empty'])
+                (root/'empty').rename(root/'renamed');self.assertEqual(validate(root),['renamed'])
+                (root/'renamed').rmdir();self.assertEqual(validate(root),[])
+            self.assertEqual(len(calls),3)
+
+    def test_link_junction_and_special_entries_cannot_produce_cached_trust(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);(root/'input').write_bytes(b'fixture')
+            for kind in ('symlink','junction','special'):
+                with self.subTest(kind=kind):
+                    class Entry:
+                        name='input';path=str(root/'input')
+                        def is_symlink(self):return kind=='symlink'
+                        def is_junction(self):return kind=='junction'
+                        def is_file(self,**kwargs):return False
+                        def is_dir(self,**kwargs):return False
+                    @contextmanager
+                    def scan(directory):yield iter([Entry()])
+                    calls=[]
+                    @reuse.tree_result
+                    def validate(folder):calls.append(1);return True
+                    with patch.object(reuse.os,'scandir',side_effect=scan),reuse.scope():
+                        self.assertTrue(validate(root));self.assertTrue(validate(root))
+                    self.assertEqual(len(calls),2)
+
     def test_hashes_bytes_not_size_or_mtime_and_copies_results(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);path=root/'input';path.write_text('first')

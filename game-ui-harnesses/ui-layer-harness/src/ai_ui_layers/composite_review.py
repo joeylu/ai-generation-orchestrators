@@ -4,6 +4,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from .evaluate import read, save, digest
+from .host_timing import measured
 from .experimental_executor import record, verified
 from . import host_review
 
@@ -40,6 +41,7 @@ def schema(material_ids):
                 evidence=dict(type='string', minLength=1, maxLength=2000))))))
 
 
+@measured('composite_review')
 def prepare(root, config):
     root = Path(root)
     report = read(root/'visual-warning-report.json')

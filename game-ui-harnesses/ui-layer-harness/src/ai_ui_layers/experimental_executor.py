@@ -202,20 +202,17 @@ def load_job(job):
                        and config.get('referenceMode')=='sheet-layout-board')
         if 'promptVariant' in config or (config.get('referenceMode') not in ('full-only','full-and-crop','context-crops') and not texture_board):
             raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
-        preflight(job/'snapshot',config['snapshotDigest'])
     if config.get('visualPolicySha256')!=manifest.get('visualPolicySha256'):
         raise ValueError('VISUAL_POLICY_JOB_MISMATCH')
     if policy is not None:
         if 'promptVariant' in config or config.get('referenceMode') not in ('full-only','full-and-crop','context-crops','sheet-layout-board'):
             raise ValueError('FROZEN_VISUAL_POLICY_REFERENCE_REQUIRED')
-        preflight(job/'snapshot',config['snapshotDigest'])
     requests=read(job/'snapshot/requests.json');rows=requests['requests']
     layout=config.get('referenceMode')=='sheet-layout-board'
     if requests.get('generationReference')=='context-crops':
         expected='sheet-layout-board' if layout else 'context-crops'
         if (config.get('generationReference')!=expected or config.get('referenceMode')!=expected
                 or 'promptVariant' in config):raise ValueError('FROZEN_CONTEXT_REFERENCE_REQUIRED')
-        preflight(job/'snapshot',config['snapshotDigest'])
     elif config.get('generationReference') in ('context-crops','sheet-layout-board') or config.get('referenceMode') in ('context-crops','sheet-layout-board'):
         raise ValueError('CONTEXT_SNAPSHOT_REQUIRED')
     index={r['asset']:r for r in rows}
@@ -266,6 +263,11 @@ def load_job(job):
     if 'layoutGeneration' in config:
         from .layout_generation import verify
         verify(job,config,[index[key] for key in config['assets']])
+    # Each policy needs the same complete snapshot validation. Run it once,
+    # after the board/variant checks, against current bytes and inventory.
+    # No trust survives this operation; later loads repeat every check.
+    if texture_doc is not None or policy is not None or requests.get('generationReference')=='context-crops':
+        preflight(job/'snapshot',config['snapshotDigest'])
     return config,index
 
 

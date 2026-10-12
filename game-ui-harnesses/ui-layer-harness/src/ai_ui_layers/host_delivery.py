@@ -24,6 +24,7 @@ from . import host_layout_registration
 from . import planning_capacity
 from . import composite_review
 from .validation_scope import operation
+from . import host_timing
 
 KIND = 'ui_integrated_host_delivery_v1'
 POLICY = 'expanded-support-original-viewport-v1'
@@ -33,9 +34,12 @@ MODEL_STAGES = ('planning_generate', 'planning_review', 'material_review', compo
 
 
 def _files(root):
+    control = CONTROL
+    if (root/'config.json').is_file() and read(root/'config.json').get('timingPolicy') == host_timing.POLICY:
+        control = CONTROL | {host_timing.NAME}
     return {p.relative_to(root).as_posix(): digest(p) for p in sorted(root.rglob('*'))
             if p.is_file() and '.journal' not in p.relative_to(root).parts
-            and not (p.parent == root and p.name in CONTROL)}
+            and not (p.parent == root and p.name in control)}
 
 
 def _control(root, name, value):
@@ -62,10 +66,12 @@ def _verify_control(root,name):
     return pointer
 
 
+@host_timing.measured('orchestration')
 def _checkpoint(root):
     _control(root,'checkpoint.json', dict(files=_files(root)))
 
 
+@host_timing.measured('orchestration')
 def _load(root):
     config = verified(root/'config.json')
     if config['kind'] != KIND or config['runtime'] != host_review.runtime_files():
@@ -77,6 +83,9 @@ def _load(root):
     state = _verify_control(root,'state.json')
     if state['configDigest'] != config['digest']:
         raise ValueError('HOST_STATE_CONFIG_CHANGED')
+    if config.get('timingPolicy') == host_timing.POLICY:
+        _verify_control(root, host_timing.NAME)
+    host_timing.bound(root, config, state['stage'])
     return config, state
 
 
@@ -151,6 +160,7 @@ def _reviewed_snapshot(source):
     return folder,manifest
 
 
+@host_timing.track('prepare')
 @operation
 def prepare(config_path, output):
     """Freeze a fresh M1 request or an explicitly supplied candidate seed."""
@@ -177,6 +187,9 @@ def prepare(config_path, output):
     if source.get('reviewedSnapshotPolicy') and not source.get('reviewedSnapshot'):
         raise ValueError('REVIEWED_SNAPSHOT_POLICY_REQUIRES_SNAPSHOT')
     if root.exists(): raise ValueError('FRESH_HOST_RUN_REQUIRED')
+    source.setdefault('timingPolicy', host_timing.POLICY)
+    if source['timingPolicy'] != host_timing.POLICY:
+        raise ValueError('HOST_TIMING_POLICY_UNKNOWN')
     source.setdefault('generationMode','sheets')
     if source['generationMode'] not in ('single','sheets'):
         raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
@@ -281,6 +294,8 @@ def prepare(config_path, output):
         planningMode=host_m1.MODE if fresh_m1 else 'verified-prior-independent-host-review' if prior else 'offline-agent-seed-independent-host-review', m1ModelExecuted=False,
         **(dict(newM2ReviewPerformed=False,priorReviewedSnapshotDigest=prior[1]['digest'],priorM2ResponseSha256=prior[1]['reviewSha256']) if prior else {}),
         generationReference='context-crops', contextPromptVersion=version))
+    _control(root, host_timing.NAME, dict(kind='ui_host_timing_event_v1', action='initialized'))
+    host_timing.bound(root, config, 'planning_generate' if fresh_m1 else 'planning_review')
     try:
         if fresh_m1:
             host_m1.prepare(root/'planning-m1',config)
@@ -407,6 +422,7 @@ def status(run):
     return result
 
 
+@host_timing.track('authorize')
 @operation
 def authorize(run, scope_digest, approval):
     root=Path(run).resolve()
@@ -425,6 +441,7 @@ def authorize(run, scope_digest, approval):
     return status(root)
 
 
+@host_timing.track('next')
 @operation
 def next_request(run, *, count=1):
     root=Path(run).resolve()
@@ -483,6 +500,7 @@ def _terminal(root,config,reason):
     _checkpoint(root)
 
 
+@host_timing.track('receive')
 @operation
 def receive(run, submission_digest, response, *, host_attestation=None, dispatch_evidence=None, return_evidence=None,
             refill_images=False):
@@ -509,6 +527,7 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
         elif stage=='body_observation':
             host_body_observation._reserved(root/'body',submission_digest);bound=None
         else:raise ValueError('HOST_TERMINAL_NO_RETRY')
+        host_timing.consumed(submission_digest)
         record(root/'transaction.json',dict(operation='receive',stage=stage,submissionDigest=submission_digest))
         try:
             if stage!='images':
@@ -574,6 +593,7 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
     return result
 
 
+@host_timing.track('fail')
 def fail(run, submission_digest, reason):
     root=Path(run).resolve()
     if not isinstance(submission_digest,str) or re.fullmatch('[0-9a-f]{64}',submission_digest) is None:
@@ -590,6 +610,7 @@ def fail(run, submission_digest, reason):
         elif state['stage']=='images':experimental_executor.fail(root/'images',submission_digest,reason)
         elif state['stage']=='body_observation':host_body_observation.fail(root/'body',submission_digest,reason)
         else:raise ValueError('HOST_TERMINAL_NO_RETRY')
+        host_timing.consumed(submission_digest)
         _terminal(root,config,reason)
     return status(root)
 
@@ -692,6 +713,7 @@ def _diagnostic_comparison(root):
     _comparison(root/delivery.parent,diagnostic=True)
 
 
+@host_timing.track('resume')
 @operation
 def resume(run):
     """Advance only deterministic stages. A pending reservation is never rebuilt."""
@@ -861,7 +883,7 @@ def resume(run):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);commands=parser.add_subparsers(dest='command',required=True)
-    for command in ('host-run','host-status','host-next','host-authorize','host-receive','host-fail','host-resume'):
+    for command in ('host-run','host-status','host-next','host-authorize','host-receive','host-fail','host-resume','host-timings'):
         child=commands.add_parser(command)
         if command=='host-run':child.add_argument('--config',required=True);child.add_argument('--output',required=True)
         else:child.add_argument('--run',required=True)
@@ -880,5 +902,5 @@ def main():
         dispatch_evidence=args.dispatch_evidence,return_evidence=args.return_evidence,refill_images=args.refill_images)
     elif command=='host-fail':result=fail(args.run,args.digest,args.reason)
     elif command=='host-next':result=next_request(args.run,count=args.count)
-    else:result={'host-status':status,'host-resume':resume}[command](args.run)
+    else:result={'host-status':status,'host-resume':resume,'host-timings':host_timing.report}[command](args.run)
     print(json.dumps(result,ensure_ascii=False,allow_nan=False))

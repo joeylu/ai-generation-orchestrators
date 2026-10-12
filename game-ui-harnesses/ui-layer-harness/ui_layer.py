@@ -12,7 +12,9 @@ if __name__ == '__main__':
     if sys.argv[1:] == ['--version']:
         print(VERSION)
     else:
-        if len(sys.argv)>1 and sys.argv[1] in ('prepare-received-diagnostic','deliver-received-diagnostic'):
+        if len(sys.argv)>1 and sys.argv[1]=='benchmark':
+            from ai_ui_layers.benchmark import main
+        elif len(sys.argv)>1 and sys.argv[1] in ('prepare-received-diagnostic','deliver-received-diagnostic'):
             from ai_ui_layers.received_diagnostic_delivery import main
         elif len(sys.argv)>1 and sys.argv[1]=='compare-package-baseline':
             from ai_ui_layers.package_baseline_audit import main
@@ -20,7 +22,7 @@ if __name__ == '__main__':
             from ai_ui_layers.layout_registration_revision import main
         elif len(sys.argv)>1 and sys.argv[1]=='regroup-reviewed-snapshot':
             from ai_ui_layers.regroup_snapshot import main
-        elif len(sys.argv)>1 and sys.argv[1] in ('host-run','host-status','host-next','host-authorize','host-receive','host-fail','host-resume'):
+        elif len(sys.argv)>1 and sys.argv[1] in ('host-run','host-status','host-next','host-authorize','host-receive','host-fail','host-resume','host-timings'):
             from ai_ui_layers.host_delivery import main
         else:
             from ai_ui_layers.delivery_dag import main

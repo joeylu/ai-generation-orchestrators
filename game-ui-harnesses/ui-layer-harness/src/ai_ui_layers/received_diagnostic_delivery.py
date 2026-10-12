@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image
 
 from .evaluate import read, save, digest
+from .host_timing import measured
 from .experimental_executor import record, verified
 from .freeze_visual import inspect
 from .host_review import runtime_files, _bound_files
@@ -117,6 +118,7 @@ def _portable_cleanup(bindings):
             for b in bindings]
 
 
+@measured('registration')
 def prepare(job, expected_digest, output, canvas_policy_instruction, cleanup_jobs=None, *, body_job=None,
             background_policy=None, review_runs=None, sheet_composite_policy=None):
     """Freeze a zero-compute diagnostic contract, independently of strict delivery."""
@@ -212,6 +214,7 @@ def proxy_layout_audit(rendered, fitting):
         layoutMeasurementBasis='post-render-alpha-proxy; not an observed body')
 
 
+@measured('packaging')
 def _sources_archive(output, rows, job, split_records, reuse_records, background_proof, cleanup_bindings=(), replay_evidence=None, warnings=()):
     """Preserve every genuine raw file and every cell, including unowned sidecars."""
     root = output / 'source-evidence'
@@ -248,6 +251,7 @@ def _sources_archive(output, rows, job, split_records, reuse_records, background
     return dict(sha256=digest(archive), bytes=archive.stat().st_size, files=len(inventory)+1)
 
 
+@measured('registration')
 def deliver(contract_dir, expected_digest, output, viewer):
     """Render a new diagnostic artifact, without editing receipts or failed states."""
     contract_dir = Path(contract_dir).resolve()

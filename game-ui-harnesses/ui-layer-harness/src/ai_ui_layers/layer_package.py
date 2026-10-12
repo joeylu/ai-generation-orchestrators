@@ -10,6 +10,7 @@ from PIL import Image,ImageChops
 from jsonschema import Draft202012Validator
 from .compile_visual import HARNESS
 from .evaluate import read,save,digest
+from .host_timing import measured
 from .freeze_visual import inspect, body_digest
 from .body_registration import POLICY_SUPPORT
 
@@ -248,6 +249,7 @@ def build(snapshot, sources_path, output, viewer):
     return result
 
 
+@measured('packaging')
 def write_package(reference, composition, sources, output, viewer, issues):
     """Shared deterministic writer; callers own planning/acceptance provenance."""
     output=Path(output);viewer=Path(viewer);reference=Path(reference)

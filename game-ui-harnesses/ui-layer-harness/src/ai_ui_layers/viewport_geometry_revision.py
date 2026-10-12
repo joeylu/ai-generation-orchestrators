@@ -11,6 +11,7 @@ import zipfile
 import numpy as np
 from PIL import Image
 from .evaluate import read,save,digest
+from .host_timing import measured
 from .experimental_executor import record,verified
 from .layer_package import composite,write_package,validate_archive,check_composition
 from . import observed_geometry_revision as observed
@@ -75,6 +76,7 @@ def validate_viewport_archive(archive):
                 innerPackageSha256=validated['sha256'],**FLAGS)
 
 
+@measured('packaging')
 def _wrapper(delivery):
     names=WRAPPER_FILES-{'viewport-checksums.json'}
     values={name:(delivery/('ui-layers.zip' if name=='world-ui-layers.zip' else name)).read_bytes() for name in names}

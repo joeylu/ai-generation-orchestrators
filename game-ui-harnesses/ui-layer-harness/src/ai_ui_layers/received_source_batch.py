@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image
 
 from .evaluate import digest
-from .experimental_executor import load_job, status, verified
+from .experimental_executor import load_job, _status, verified
 from .freeze_visual import inspect
 
 
@@ -13,10 +13,13 @@ class ReceivedSources:
     def __init__(self, job):
         from .host_material_review import files
         self.job = Path(job).resolve()
-        self.config, self.index = load_job(self.job)
-        self.states = status(self.job)['requests']
-        self.manifest = inspect(self.job/'snapshot', self.config['snapshotDigest'])
+        # Cover validation itself with the batch's final byte/inventory check.
         self.file_hashes = files(self.job)
+        self.config, self.index = load_job(self.job)
+        # _status still verifies authorization, submissions, receipts and raw
+        # hashes. Reuse only this operation's freshly verified job inputs.
+        self.states = _status(self.job, self.config, self.index)['requests']
+        self.manifest = inspect(self.job/'snapshot', self.config['snapshotDigest'])
 
     def check_files(self, job, expected):
         if Path(job).resolve() != self.job or any(self.file_hashes.get(n) != sha for n, sha in expected.items()):

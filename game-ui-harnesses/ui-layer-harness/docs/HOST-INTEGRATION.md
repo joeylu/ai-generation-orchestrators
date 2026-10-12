@@ -131,6 +131,16 @@ Pure validation results are reused only within one host operation after hashing
 current input bytes and inventory. Final package validation remains complete.
 This does not reduce model review coverage or skip M1/M2.
 
+The post-alpha.6 source adds read-only `host-timings` for newly created runs and
+an offline fixed-reference `benchmark` command. See
+[benchmark and timing](BENCHMARK-AND-TIMING.md) for phase boundaries, historical
+availability and regression scope. These commands make no external calls and do
+not change review, reference-edit prompts, rolling concurrency or retry policy.
+Offline `benchmark --replay-received --profile-local` additionally writes a
+SHA-256-bound cost report with function self times and per-operation wall/CPU
+clocks. Profiling is opt-in, includes overhead, and never installs hooks in the
+formal host chain; ZIP method counts distinguish stored members from compression.
+
 ## Terminal outcomes
 
 - `diagnostic_complete_pending_visual_acceptance`: expose the generated viewport,
