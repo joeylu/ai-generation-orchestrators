@@ -1,5 +1,6 @@
 """Read-only request accounting before independent M2; never changes a plan."""
 from PIL import Image
+from pathlib import Path
 
 from .evaluate import read, digest, pixel_box
 from .experimental_executor import record, verified
@@ -53,7 +54,8 @@ def estimate(visual, size, config):
 
 
 def _expected(root,config):
-    source=root/'planning-m1/draft.json';reference=root/'planning-m1/reference.png'
+    from .host_planning import candidate
+    source=candidate(root);reference=root/'planning-m1/reference.png'
     with Image.open(reference) as image:size=image.size
     return dict(kind='ui_planning_capacity_v1',policy=POLICY,configDigest=config['digest'],
         sourcePlanSha256=digest(source),referenceSha256=digest(reference),canvas=list(size),
@@ -63,14 +65,14 @@ def _expected(root,config):
 
 def prepare(root,config):
     if config.get('planningCapacityPolicy')!=POLICY:return
-    result=record(root/NAME,_expected(root,config))
+    result=record(report_path(root),_expected(root,config))
     if result['exceeded']:
         raise ValueError('FINITE_DOWNSTREAM_CAPACITY_EXCEEDED_BEFORE_M2')
 
 
 def verify_frozen(root,config):
     if config.get('planningCapacityPolicy')!=POLICY:return
-    report=verified(root/NAME)
+    report=verified(report_path(root))
     if {k:v for k,v in report.items() if k!='digest'}!=_expected(root,config):
         raise ValueError('PLANNING_CAPACITY_REPORT_CHANGED')
     frozen=root/'frozen'
@@ -83,3 +85,8 @@ def verify_frozen(root,config):
             raise ValueError('FROZEN_PLANNING_GROUPS_CHANGED')
     elif [r['asset'] for r in rows]!=[g['id'] for g in report['groups']]:
         raise ValueError('FROZEN_PLANNING_GROUPS_CHANGED')
+
+
+def report_path(root):
+    root=Path(root)
+    return root/'planning-repaired-capacity.json' if (root/'planning-candidates/repaired').exists() else root/NAME

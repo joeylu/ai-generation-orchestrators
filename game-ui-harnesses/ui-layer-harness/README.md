@@ -1,15 +1,19 @@
-# UI Layer Harness — 0.1.0a6 preview
+# UI Layer Harness — 0.1.0a7 preview
 
-固定发布标签：`ui-layers-v0.1.0-alpha.6`。
-服务接入与升级参数见[本版发布说明](docs/release-0.1.0a6.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+固定发布标签：`ui-layers-v0.1.0-alpha.7`。
+服务接入与升级参数见[本版发布说明](docs/release-0.1.0a7.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
 
-alpha.6 后的未发布源码增加[固定复杂样本离线基准与阶段计时](docs/BENCHMARK-AND-TIMING.md)。
+官方 `host-run` 新任务增加[通用规划预检、派生修正及可选修复闭环](docs/PLANNING-REPAIR.md)。
+正常路径仍为 M1/M2 两次规划调用；可选模型修复须显式预留最多两次额外调用并绑定实际授权。
+原始回答与失败证据不覆盖，修复候选通过程序校验和独立复审后才能冻结。
+
+本版也包含 alpha.6 之后的[固定复杂样本离线基准与阶段计时](docs/BENCHMARK-AND-TIMING.md)。
 `benchmark` 对照已有证据并可重放确定性归位；新任务可用 `host-timings` 查看阶段开销，均不调用生图。
 离线重放可选 `--profile-local`，按操作细分 PNG、文件 I/O、哈希与 ZIP 成本；诊断报告包含 profiler 开销。
 
 本版包含[复杂参考图一致性修复](docs/FIDELITY-FIXES.md)：背景改为原图去 UI 的简短编辑提示词，
 合板限制尺寸差距并采用均衡网格；切分不确定的裁片仅保留为诊断证据，不进入回拼，也不算完整交付。
-已完成一次从原图开始的 CLI 整链验证及一次文字去除补图验证；验证范围和保留的风格 warning 见发布说明。
+alpha.5 曾完成一次从原图开始的 CLI 整链验证及一次文字去除补图验证；该历史范围不构成 alpha.7 真实模型验收。
 
 新服务集成使用 `host-run` 及 `host-*` 交换协议，见[宿主接入流程](docs/HOST-INTEGRATION.md)。
 该入口以持久化阶段状态机编排全链路并复用规划、冻结与交付原语；既有 `run/resume/status` DAG 入口继续保留。

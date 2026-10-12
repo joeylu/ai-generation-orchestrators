@@ -1,5 +1,11 @@
 # Explicit host delivery
 
+Alpha.7 fresh-reference jobs add [planning validation and repair](PLANNING-REPAIR.md).
+Program preflight precedes M2. Safe parent-envelope corrections are derived
+without changing original answers. Optional model repair requires an explicit
+two-call conditional budget and separate independent rereview. Each individual
+review exchange still has `maximumRepairs=0`.
+
 For final-composite human acceptance, new runs can set `visualReviewMode=warning`.
 This freezes v5 visual findings as warnings throughout planning, material review
 and measurable uniform fitting, and uses a shared prompt contract to prevent

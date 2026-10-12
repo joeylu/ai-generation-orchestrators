@@ -101,17 +101,15 @@ def _contract(root, config):
     return read(path),config['layoutContractSha256'],'input-sidecar'
 
 
-def preflight_plan(root, config):
-    """Check fresh declarations before spending the independent M2 call."""
-    if config.get('layoutPlanningPolicy')!=PLANNING:return
-    root=Path(root);visual=read(root/'planning-m1/draft.json')
+def preflight_visual(visual, reference_sha, size, internal_policy=None):
+    """Shared validation of a declared candidate, independent of controller paths."""
     contract=visual.get('layoutRegistration')
     if contract is None:raise ValueError('HOST_LAYOUT_M1_DECLARATION_REQUIRED')
-    validate_contract(contract,digest(Path(config['original'])),config.get('layoutInternalTargetsPolicy'))
+    validate_contract(contract,reference_sha,internal_policy)
     foreground={m['id']:m for m in visual['materials'] if m['role']=='foreground'}
     if {m['materialId'] for m in contract['materials']}!=set(foreground):
         raise ValueError('HOST_LAYOUT_ALL_FOREGROUND_REQUIRED')
-    with Image.open(config['original']) as image:width,height=image.size
+    width,height=size
     for row in contract['materials']:
         box=foreground[row['materialId']]['bboxNorm']
         target=pixel_box(box,width,height)
@@ -120,6 +118,14 @@ def preflight_plan(root, config):
             raise ValueError('HOST_LAYOUT_DIVIDER_OUTSIDE_TARGET')
         if any(not target[1]+3<y<target[3]-3 for band in row.get('horizontalBandTargets',[]) for y in band):
             raise ValueError('HOST_LAYOUT_BAND_OUTSIDE_TARGET')
+
+
+def preflight_plan(root, config):
+    """Check the selected candidate before spending an independent review call."""
+    if config.get('layoutPlanningPolicy')!=PLANNING:return
+    from .host_planning import candidate
+    with Image.open(config['original']) as image:size=image.size
+    preflight_visual(read(candidate(root)),digest(Path(config['original'])),size,config.get('layoutInternalTargetsPolicy'))
 
 
 def freeze(root, config):

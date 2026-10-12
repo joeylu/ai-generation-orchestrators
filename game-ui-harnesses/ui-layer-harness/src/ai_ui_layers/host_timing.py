@@ -11,7 +11,7 @@ import time
 
 POLICY = 'local-exclusive-phases-v1'
 NAME = 'timing.json'
-STAGES = ('planning', 'planning_review', 'image_wait', 'receipt_processing',
+STAGES = ('planning', 'planning_preflight', 'planning_repair', 'planning_review', 'image_wait', 'receipt_processing',
           'registration', 'composite_review', 'packaging', 'orchestration')
 _ACTIVE = ContextVar('ui_layer_timing', default=None)
 
@@ -151,6 +151,7 @@ def report(run):
     intervals = {stage:[] for stage in STAGES}
     invalid = 0
     mapping = dict(planning_generate='planning', planning_review='planning_review',
+                   planning_repair='planning_repair',planning_rereview='planning_review',
                    images='image_wait', composite_review='composite_review')
     for event in events:
         for stage, seconds in event.get('localSeconds', {}).items():

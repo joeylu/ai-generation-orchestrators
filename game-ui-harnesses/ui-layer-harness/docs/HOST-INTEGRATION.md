@@ -7,11 +7,17 @@ registration and packaging primitives. The legacy `run/resume/status` route
 still uses `delivery_dag.py`; it is not the controller of an integrated host run.
 Do not mix these controllers in one run directory.
 
+Alpha.7 adds program preflight and a bounded optional repair branch to this
+controller. Consumers enabling repair must recognize `planning_repair` and
+`planning_rereview`. See [planning repair](PLANNING-REPAIR.md) for configuration,
+conditional authorization, budgets and immutable upgrade/recovery rules.
+
 ## Stage flow
 
 ```text
 host-run
   -> planning_generate (fresh M1)
+  -> planning_preflight (program checks; optional safe candidate derivation)
   -> planning_review (independent M2)
   -> images (bounded parallel tool calls)
   -> deterministic diagnostic registration, comparison and packaging
@@ -21,6 +27,11 @@ host-run
 Explicit per-request profile:
   images -> material_review -> diagnostic packaging
      or explicit exhaustive body_observation, then packaging
+
+Explicitly preauthorized repair branch (at most once):
+  preflight or verified planning_review blocker
+  -> planning_repair -> planning_preflight -> planning_rereview
+  -> freeze only if program checks and independent review pass
 ```
 
 The CLI prepares requests and verifies receipts. The host supplies the actual
@@ -131,7 +142,7 @@ Pure validation results are reused only within one host operation after hashing
 current input bytes and inventory. Final package validation remains complete.
 This does not reduce model review coverage or skip M1/M2.
 
-The post-alpha.6 source adds read-only `host-timings` for newly created runs and
+Alpha.7 adds read-only `host-timings` for newly created runs and
 an offline fixed-reference `benchmark` command. See
 [benchmark and timing](BENCHMARK-AND-TIMING.md) for phase boundaries, historical
 availability and regression scope. These commands make no external calls and do

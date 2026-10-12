@@ -25,12 +25,14 @@ from . import planning_capacity
 from . import composite_review
 from .validation_scope import operation
 from . import host_timing
+from . import host_planning
 
 KIND = 'ui_integrated_host_delivery_v1'
 POLICY = 'expanded-support-original-viewport-v1'
 PLANNING_REUSE='verified-planning-snapshot-reuse-v1'
 CONTROL = {'state.json', 'checkpoint.json', 'exchange.lock', 'transaction.json'}
-MODEL_STAGES = ('planning_generate', 'planning_review', 'material_review', composite_review.STAGE)
+MODEL_STAGES = ('planning_generate', 'planning_review', 'planning_repair', 'planning_rereview',
+                'material_review', composite_review.STAGE)
 
 
 def _files(root):
@@ -103,9 +105,16 @@ def _scope(root, config, stage, request, request_dir, key=None):
         destination=config[prefix+'Destination'], model=config[prefix+'Model'],
         effort=config[prefix+'Effort'],
         **({'plannerId':config['m1Planner']} if stage=='planning_generate' else
+           {'repairerId':config['planningRepairer']} if stage=='planning_repair' else
+           {'reviewerId':config['planningRepairReviewer']} if stage=='planning_rereview' else
            {'reviewerId':config[prefix+'Reviewer']}),
         maximumCallSeconds=config['maximumModelCallSeconds'],
         maximumCalls=1, automaticRetries=0,
+        **({'conditionalPlanningRepair':dict(policy=host_planning.REPAIR,
+            maximumAdditionalCalls=2,maximumRepairs=1,maximumIndependentRereviews=1,
+            repairerId=config['planningRepairer'],reviewerId=config['planningRepairReviewer'],
+            trigger='received-verified-planning-errors-only',unknownResultsTerminal=True)}
+            if stage=='planning_generate' and host_planning.enabled(config) else {}),
         **({'requestId':key} if key else {}),
         **({'reviewPacketPath':str(request_dir/'dispatch.json'),
             'reviewPacketSha256':digest(request_dir/'dispatch.json')} if stage==composite_review.STAGE else {}),
@@ -194,6 +203,7 @@ def prepare(config_path, output):
     if source['generationMode'] not in ('single','sheets'):
         raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
     planning_capacity.configure(source,fresh_m1)
+    host_planning.configure(source,fresh_m1)
     from .generation_groups import configured_policy
     configured_policy(source,source['generationMode'],'context-crops')
     for key,default in (('maximumModelCallSeconds',1800),('maximumImageCallSeconds',900)):
@@ -355,8 +365,22 @@ def status(run):
         if proof.is_file():host_m1.verify_exchange(root/'planning-m1')
         result['FullReferenceToDeliveryExecutionCompleted']=stage=='complete' and proof.is_file()
     result.update(maximumModelCallSeconds=config['maximumModelCallSeconds'],maximumImageCallSeconds=config['maximumImageCallSeconds'])
-    if (root/planning_capacity.NAME).is_file():
-        capacity=verified(root/planning_capacity.NAME)
+    if config.get('planningPreflightPolicy'):
+        repairs=len(list((root/'scopes/planning_repair').glob('*-submission.json')))
+        rereviews=len(list((root/'scopes/planning_rereview').glob('*-submission.json')))
+        planning_calls=len(list((root/'scopes').glob('planning*/*-submission.json')))
+        result.update(planningPreflightPolicy=config['planningPreflightPolicy'],
+            planningRepairPolicy=config['planningRepairPolicy'],maximumPlanningRepairCalls=config['maximumPlanningRepairCalls'],
+            maximumPlanningModelCalls=2+config['maximumPlanningRepairCalls'],planningModelCallsUsed=planning_calls,
+            planningRepairCallsUsed=repairs,planningRereviewCallsUsed=rereviews,
+            planningCallCountBasis='consumed-local-reservations; not provider execution telemetry')
+        selection=host_planning.selected(root)
+        if selection:
+            manifest,report=host_planning.verify_derivation(selection)
+            result.update(candidatePlan=dict(path=str(selection/'candidate.json'),sha256=report['candidateSha256']),
+                planningPreflight=report['after'],candidateDerivationSha256=digest(selection/'derivation.json'))
+    if planning_capacity.report_path(root).is_file():
+        capacity=verified(planning_capacity.report_path(root))
         result['planningCapacity']={key:capacity[key] for key in (
             'materialCount','plannedCalls','sheetCalls','standaloneCalls','requiredCalls','maximumCalls','exceeded','status')}
     if 'bodyReviewPolicy' in config:
@@ -465,6 +489,12 @@ def next_request(run, *, count=1):
             if not pending:raise ValueError('HOST_SCOPE_COMPLETE')
             if not ready or not slots:
                 raise ValueError('HOST_RESERVED_NO_RESUBMIT')
+            if stage in ('planning_repair','planning_rereview'):
+                used=len(list((root/'scopes').glob('planning*/*-submission.json')))
+                extra=sum(len(list((root/'scopes'/s).glob('*-submission.json')))
+                    for s in ('planning_repair','planning_rereview'))
+                if (not host_planning.enabled(config) or used>=4 or extra>=config['maximumPlanningRepairCalls']):
+                    raise ValueError('PLANNING_REPAIR_BUDGET_EXHAUSTED')
             if count>slots:raise ValueError('HOST_REVIEW_CONCURRENCY_LIMIT_NO_RESUBMIT')
             reservations=[]
             for row in ready[:count]:
@@ -532,19 +562,27 @@ def receive(run, submission_digest, response, *, host_attestation=None, dispatch
         try:
             if stage!='images':
                 attestation=read(Path(host_attestation))
-                actor=attestation.get('plannerId') if stage=='planning_generate' else attestation.get('reviewerId')
-                expected=config['m1Planner'] if stage=='planning_generate' else config[('planning' if stage=='planning_review' else 'material' if stage in ('material_review',composite_review.STAGE) else 'body')+'Reviewer']
+                actor=attestation.get('plannerId') if stage=='planning_generate' else attestation.get('repairerId') if stage=='planning_repair' else attestation.get('reviewerId')
+                expected=(config['m1Planner'] if stage=='planning_generate' else
+                    config['planningRepairer'] if stage=='planning_repair' else
+                    config['planningRepairReviewer'] if stage=='planning_rereview' else
+                    config[('planning' if stage=='planning_review' else 'material' if stage in ('material_review',composite_review.STAGE) else 'body')+'Reviewer'])
                 if actor!=expected:
                     raise ValueError('FROZEN_HOST_REVIEWER_REQUIRED')
             if stage=='planning_generate':
                 host_m1.receive(root/'planning-m1',response,host_attestation=host_attestation,
                     dispatch_evidence=dispatch_evidence,return_evidence=return_evidence)
                 record(scope/'planning-received.json',dict(submissionDigest=submission_digest,responseSha256=digest(Path(response))))
-            elif stage=='planning_review':
-                host_review.receive(root/'planning',response,bound['requestSha256'],
+            elif stage in ('planning_review','planning_rereview'):
+                planning=root/('planning' if stage=='planning_review' else 'planning-rereview')
+                host_review.receive(planning,response,bound['requestSha256'],
                     response_sha256=digest(Path(response)),host_attestation=host_attestation,
                     dispatch_evidence=dispatch_evidence,return_evidence=return_evidence)
-                host_review.verify_run(root/'planning')
+                host_review.verify_run(planning,allow_issues=host_planning.enabled(config))
+                record(scope/'planning-received.json',dict(submissionDigest=submission_digest,responseSha256=digest(Path(response))))
+            elif stage=='planning_repair':
+                host_planning.receive_repair(root/'planning-repair',response,host_attestation=host_attestation,
+                    dispatch_evidence=dispatch_evidence,return_evidence=return_evidence)
                 record(scope/'planning-received.json',dict(submissionDigest=submission_digest,responseSha256=digest(Path(response))))
             elif stage=='material_review':
                 host_material_review.receive(root/'reviews'/key,response,bound['requestSha256'],
@@ -713,6 +751,48 @@ def _diagnostic_comparison(root):
     _comparison(root/delivery.parent,diagnostic=True)
 
 
+def _planning_review_stage(root,config,bundle,stage):
+    manifest,report=host_planning.verify_derivation(bundle)
+    if report['after']['technicalErrors']:raise ValueError('PLANNING_PREFLIGHT_BLOCKED')
+    host_layout_registration.preflight_plan(root,config)
+    planning_capacity.prepare(root,config)
+    target=root/('planning' if stage=='planning_review' else 'planning-rereview')
+    host_review.prepare(bundle/'candidate.json',config['original'],target,config['contract'],
+        seed_author=manifest['candidateAuthors'],planning_notes=config.get('planningNotes'),
+        visual_policy=config.get('visualPolicy'),max_calls=config['maximumImageCalls'],
+        generation_mode=config.get('generationMode','sheets'),context_prompt_version=config['contextPromptVersion'],
+        m1_source=root/'planning-m1',candidate_derivation=bundle,
+        generation_grouping_policy=config.get('generationGroupingPolicy'))
+    _scope(root,config,stage,target/'m2/request.json',target/'m2')
+    if stage=='planning_rereview':_planning_branch_authorization(root,config,stage)
+
+
+def _planning_branch_authorization(root,config,stage):
+    """Bind the conditional M1 approval to this exact derived request once."""
+    original=verified(root/'scopes/planning_generate/scope.json')
+    auth=verified(root/'scopes/planning_generate/authorization.json')
+    if (not host_planning.enabled(config) or auth['scopeDigest']!=original['digest'] or
+            original.get('conditionalPlanningRepair',{}).get('maximumAdditionalCalls')!=2):
+        raise ValueError('PLANNING_REPAIR_PREAUTHORIZATION_REQUIRED')
+    scope=verified(root/'scopes'/stage/'scope.json')
+    record(root/'scopes'/stage/'authorization.json',dict(scopeDigest=scope['digest'],
+        approval='Conditional planning repair approval inherited from the immutable M1 scope.',
+        maximumCalls=1,parentAuthorizationDigest=auth['digest'],parentScopeDigest=original['digest'],
+        triggerSha256=digest(root/'planning-repair/trigger.json'),configDigest=config['digest']))
+
+
+def _planning_repair_stage(root,config,bundle, *, prior_review=None):
+    if not host_planning.enabled(config):
+        report=read(bundle/'report.json')
+        raise ValueError('PLANNING_PREFLIGHT_BLOCKED_REPAIR_DISABLED:'+report['after']['technicalErrors'][0]['code'])
+    if (root/'scopes/planning_repair').exists() or (root/'planning-repair').exists():
+        raise ValueError('PLANNING_REPAIR_BUDGET_EXHAUSTED')
+    _,report=host_planning.verify_derivation(bundle)
+    host_planning.prepare_repair(root/'planning-repair',config,bundle,report,prior_review=prior_review)
+    _scope(root,config,'planning_repair',root/'planning-repair/request.json',root/'planning-repair')
+    _planning_branch_authorization(root,config,'planning_repair')
+
+
 @host_timing.track('resume')
 @operation
 def resume(run):
@@ -725,7 +805,7 @@ def resume(run):
             _terminal(root,config,'INTERRUPTED_TRANSACTION_NO_RESUBMIT')
             (root/'transaction.json').unlink();return status(root)
         if stage in ('failed','complete','diagnostic_complete'):return status(root)
-        advancing=stage in ('planning_generate','planning_review') and (root/state['scope']/'planning-received.json').exists()
+        advancing=stage in ('planning_generate','planning_review','planning_repair','planning_rereview') and (root/state['scope']/'planning-received.json').exists()
         if stage=='material_review':
             scope=root/state['scope'];rows=verified(scope/'scope.json')['requests']
             advancing=all((scope/(row['requestId']+'-received.json')).exists() for row in rows)
@@ -740,21 +820,46 @@ def resume(run):
         try:
             if stage=='planning_generate':
                 host_m1.verify(root/'planning-m1')
-                host_layout_registration.preflight_plan(root,config)
-                planning_capacity.prepare(root,config)
-                host_review.prepare(root/'planning-m1/draft.json',config['original'],root/'planning',config['contract'],
-                    seed_author=config['candidateAuthors'],planning_notes=config.get('planningNotes'),
-                    visual_policy=config.get('visualPolicy'),max_calls=config['maximumImageCalls'],
-                    generation_mode=config.get('generationMode','sheets'),
-                    context_prompt_version=config['contextPromptVersion'],m1_source=root/'planning-m1',
-                    generation_grouping_policy=config.get('generationGroupingPolicy'))
-                _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
-            elif stage=='planning_review':
-                frozen=freeze_reviewed(root/'planning',root/'frozen',config['maximumImageCalls'],
+                if config.get('planningPreflightPolicy')==host_planning.PREFLIGHT:
+                    _state(root,config,'planning_preflight',sourceStage=stage,generationCalls=0,modelCalls=0)
+                    bundle=host_planning.derive(root/'planning-candidates/initial',root/'planning-m1',config)
+                    report=read(bundle/'report.json')
+                    if report['after']['technicalErrors']:_planning_repair_stage(root,config,bundle)
+                    else:_planning_review_stage(root,config,bundle,'planning_review')
+                else:
+                    host_layout_registration.preflight_plan(root,config)
+                    planning_capacity.prepare(root,config)
+                    host_review.prepare(root/'planning-m1/draft.json',config['original'],root/'planning',config['contract'],
+                        seed_author=config['candidateAuthors'],planning_notes=config.get('planningNotes'),
+                        visual_policy=config.get('visualPolicy'),max_calls=config['maximumImageCalls'],
+                        generation_mode=config.get('generationMode','sheets'),context_prompt_version=config['contextPromptVersion'],
+                        m1_source=root/'planning-m1',generation_grouping_policy=config.get('generationGroupingPolicy'))
+                    _scope(root,config,'planning_review',root/'planning/m2/request.json',root/'planning/m2')
+            elif stage=='planning_repair':
+                host_planning.verify_repair(root/'planning-repair')
+                _state(root,config,'planning_preflight',sourceStage=stage,generationCalls=0,modelCalls=0)
+                prior=root/'planning' if (root/'planning/.dag/received.json').exists() else None
+                bundle=host_planning.derive(root/'planning-candidates/repaired',root/'planning-m1',config,
+                    repair=root/'planning-repair',prior_review=prior)
+                report=read(bundle/'report.json')
+                if report['after']['technicalErrors']:
+                    previous=read(root/'planning-repair/trigger.json')['technicalErrors']
+                    repeated={e['code'] for e in previous}&{e['code'] for e in report['after']['technicalErrors']}
+                    raise ValueError('PLANNING_REPAIR_REPEATED_BLOCKER' if repeated else 'PLANNING_REPAIR_UNRESOLVED')
+                _planning_review_stage(root,config,bundle,'planning_rereview')
+            elif stage in ('planning_review','planning_rereview'):
+                planning=root/('planning' if stage=='planning_review' else 'planning-rereview')
+                checked=host_review.status(planning)
+                if checked['status']=='review_blocked':
+                    if stage=='planning_rereview':raise ValueError('PLANNING_REREVIEW_UNRESOLVED_BUDGET_EXHAUSTED')
+                    _planning_repair_stage(root,config,host_planning.selected(root),prior_review=planning)
+                    (root/'transaction.json').unlink();_checkpoint(root)
+                    return status(root)
+                frozen=freeze_reviewed(planning,root/'frozen',config['maximumImageCalls'],
                     generation_mode=config.get('generationMode','sheets'),generation_reference='context-crops',context_prompt_version=config['contextPromptVersion'])
                 planning_capacity.verify_frozen(root,config)
                 requests=read(root/'frozen/requests.json')['requests']
-                visual=read(root/'planning/m1/draft.json')
+                visual=read(planning/'m1/draft.json')
                 bodies=sum(m['role']=='foreground' for m in visual['materials'])
                 if composite_review.required_calls(config,len(requests))>config['maximumMaterialReviews'] or not host_sheet_fallback.final_composite_first(config) and bodies>config['maximumBodyCalls']:
                     raise ValueError('FINITE_DOWNSTREAM_CAPACITY_EXCEEDED')

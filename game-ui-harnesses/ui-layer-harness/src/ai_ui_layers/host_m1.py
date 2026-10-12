@@ -124,7 +124,8 @@ def prepare(root, config):
         plannerId=config['m1Planner'],candidateAuthors=config['candidateAuthors'],
         model=config['planningModel'],effort=config['planningEffort'],
         runtime=host_review.runtime_files(),mediaGenerationCalls=0,maximumCalls=1,
-        oldPlanInputReused=False,oldImageReused=False,notProviderReceipt=True))
+        oldPlanInputReused=False,oldImageReused=False,notProviderReceipt=True,
+        **({'schemaErrorsRepairable':True} if config.get('planningRepairPolicy')=='one-repair-independent-rereview-v1' else {})))
 
 
 def _request(root, *, archived_runtime=None):
@@ -187,8 +188,9 @@ def receive(root, response, *, host_attestation, dispatch_evidence, return_evide
     provenance=verify_exchange(root)
     save(root/'exchange-provenance.json',provenance)
     plan=read(root/'draft.json')
-    Draft202012Validator(read(root/'schema.json')).validate(plan)
-    if plan.get('kind')!='ui_visual_plan_v5':raise ValueError('V5_REQUIRED')
+    if not _request(root).get('schemaErrorsRepairable'):
+        Draft202012Validator(read(root/'schema.json')).validate(plan)
+        if plan.get('kind')!='ui_visual_plan_v5':raise ValueError('V5_REQUIRED')
     save(root/'accepted.json',dict(kind='ui_host_m1_accepted_v1',responseSha256=digest(root/'draft.json'),
         requestSha256=digest(root/'request.json'),provenanceSha256=digest(root/'exchange-provenance.json')))
     return verify(root)
@@ -200,7 +202,9 @@ def verify(root, *, archived_runtime=None):
     expected=dict(kind='ui_host_m1_accepted_v1',responseSha256=digest(root/'draft.json'),
         requestSha256=digest(root/'request.json'),provenanceSha256=digest(root/'exchange-provenance.json'))
     if read(root/'accepted.json')!=expected:raise ValueError('HOST_M1_ACCEPTANCE_CHANGED')
-    plan=read(root/'draft.json');Draft202012Validator(read(root/'schema.json')).validate(plan)
+    plan=read(root/'draft.json')
+    if not _request(root,archived_runtime=archived_runtime).get('schemaErrorsRepairable'):
+        Draft202012Validator(read(root/'schema.json')).validate(plan)
     return plan,provenance
 
 

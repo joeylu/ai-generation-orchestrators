@@ -101,7 +101,7 @@ def _bound_files(root, files):
         if digest(path)!=sha:raise ValueError('HOST_EVIDENCE_CHANGED:'+name)
 
 
-def verify_prepared(root):
+def verify_prepared(root, *, archived_runtime=None):
     root=Path(root)
     config=read(root/'.dag/config.json')
     if config.get('planningDriver')!=DRIVER:raise ValueError('HOST_DRIVER_REQUIRED')
@@ -114,7 +114,7 @@ def verify_prepared(root):
         raise ValueError('HOST_EXCHANGE_FORBIDS_CLI_RECEIPTS')
     if digest(root/'.dag/config.json')!=read(root/'.dag/config-digest.json')['sha256']:
         raise ValueError('CONFIG_CHANGED')
-    if config.get('runtime')!=runtime_files():raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
+    if config.get('runtime')!=(runtime_files() if archived_runtime is None else archived_runtime):raise ValueError('RUNTIME_CHANGED_NEW_RUN_REQUIRED')
     prep=read(root/'.dag/exchange-preparation.json')
     _bound_files(root,prep['files'])
     if prep.get('requestSha256')!=digest(root/'m2/request.json'):
@@ -132,7 +132,9 @@ def verify_prepared(root):
     if plan.get('kind')!='ui_visual_plan_v5':raise ValueError('V5_REQUIRED')
     if config.get('hostM1Exchange'):
         _verify_m1_source(root/'m1/source',root/'m1/draft.json',request['candidateAuthors'],
-                          digest(root/'m1/reference.png'),config['hostM1Exchange'])
+                          digest(root/'m1/reference.png'),config['hostM1Exchange'],archived_runtime=archived_runtime,
+                          derivation=root/'m1/derivation' if config.get('candidateDerivation') else None,
+                          derivation_binding=config.get('candidateDerivation'))
     reuse_pipeline.planning_input(root,plan)
     bg_region.planning_input(root,plan)
     return plan
@@ -167,7 +169,11 @@ def verify_frozen(folder, snapshot, plan):
     if config.get('hostM1Exchange'):
         _verify_m1_source(evidence/'prepared/m1/source',evidence/'m1-draft.json',
             request['candidateAuthors'],digest(folder/'reference.png'),config['hostM1Exchange'],
-            archived_runtime=config['runtime'])
+            archived_runtime=config['runtime'],
+            derivation=evidence/'prepared/m1/derivation' if config.get('candidateDerivation') else None,
+            derivation_binding=config.get('candidateDerivation'))
+    if config.get('candidateDerivation'):
+        _verify_derived_reviewer(evidence/'prepared/m1/derivation',evidence/'m2-host-attestation.json')
     if (request.get('sourcePlanSha256')!=digest(evidence/'m1-draft.json') or
             request.get('originalReferenceSha256')!=digest(folder/'reference.png')):
         raise ValueError('HOST_FROZEN_INPUT_CHANGED')
@@ -226,19 +232,38 @@ def verify_frozen(folder, snapshot, plan):
     if split(review,plan,policy,config['coverageTextPolicy'],texture_doc)[0]:raise ValueError('M2_UNRESOLVED')
 
 
-def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archived_runtime=None):
+def _verify_m1_source(source,candidate,authors,reference_sha,binding, *, archived_runtime=None,
+                      derivation=None,derivation_binding=None):
     from . import host_m1
-    _,provenance=host_m1.bind_candidate(source,candidate,authors,reference_sha,archived_runtime=archived_runtime)
+    if derivation is None:
+        _,provenance=host_m1.bind_candidate(source,candidate,authors,reference_sha,archived_runtime=archived_runtime)
+    else:
+        from . import host_planning
+        manifest,report=host_planning.verify_derivation(derivation,archived_runtime=archived_runtime)
+        _,provenance=host_m1.verify(source,archived_runtime=archived_runtime)
+        if (derivation_binding!=dict(sha256=digest(Path(derivation)/'derivation.json'),digest=manifest['digest']) or
+                authors!=manifest['candidateAuthors'] or digest(Path(candidate))!=report['candidateSha256'] or
+                provenance['responseSha256']!=report['originalM1ResponseSha256'] or
+                reference_sha!=provenance['originalReferenceSha256'] or report['after']['technicalErrors']):
+            raise ValueError('HOST_DERIVED_CANDIDATE_BINDING_CHANGED')
     if binding!=dict(requestSha256=provenance['requestSha256'],responseSha256=provenance['responseSha256'],
             plannerId=provenance['plannerId'],m1ModelExecuted=True):
         raise ValueError('HOST_M1_REVIEW_SOURCE_CHANGED')
+
+
+def _verify_derived_reviewer(derivation, attestation):
+    root=Path(derivation)
+    if read(root/'derivation.json')['modelRepairPerformed']:
+        expected=read(root/'repair/preauthorization.json')['scope']['conditionalPlanningRepair']['reviewerId']
+        if read(attestation)['reviewerId']!=expected:
+            raise ValueError('HOST_REPAIR_INDEPENDENT_REVIEWER_CHANGED')
 
 
 @measured('planning_review')
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
             background_region=None, background_region_digest=None, context_prompt_version='v13',m1_source=None,
-            generation_mode='sheets',generation_grouping_policy=None):
+            generation_mode='sheets',generation_grouping_policy=None,candidate_derivation=None):
     """Snapshot an explicit seed or source-bound host M1 and prepare independent M2."""
     root=Path(output).resolve();contract=Path(contract_dir)
     if context_prompt_version not in ('v7','v8','v9','v10','v11','v12','v13'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
@@ -252,9 +277,14 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     if not authors or len(set(authors))!=len(authors):raise ValueError('HOST_CANDIDATE_AUTHORS_REQUIRED')
     for author in authors:_identity(author)
     m1_binding=None
+    if candidate_derivation is not None and m1_source is None:
+        raise ValueError('HOST_DERIVATION_REQUIRES_ORIGINAL_M1')
     if m1_source is not None:
         from . import host_m1
-        _,provenance=host_m1.bind_candidate(m1_source,candidate,authors,digest(Path(reference)))
+        if candidate_derivation is None:
+            _,provenance=host_m1.bind_candidate(m1_source,candidate,authors,digest(Path(reference)))
+        else:
+            _,provenance=host_m1.verify(m1_source)
         m1_binding=dict(requestSha256=provenance['requestSha256'],responseSha256=provenance['responseSha256'],
             plannerId=provenance['plannerId'],m1ModelExecuted=True)
     if root.exists():raise ValueError('FRESH_OUTPUT_REQUIRED')
@@ -299,6 +329,10 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
         **({'visualTexturePolicy':textures.POLICY} if texture_bytes is not None else {}))
     if generation_grouping_policy is not None:config['generationGroupingPolicy']=generation_grouping_policy
     if 'layoutRegistration' in plan:config['reviewIssueIdPolicy']=LAYOUT_ISSUE_IDS
+    if candidate_derivation is not None:
+        from . import host_planning
+        manifest,_=host_planning.verify_derivation(candidate_derivation)
+        config['candidateDerivation']=dict(sha256=digest(Path(candidate_derivation)/'derivation.json'),digest=manifest['digest'])
     if background_region is not None:config['backgroundRegionDigest']=background_region_digest
     save(root/'.dag/config.json',config)
     save(root/'.dag/config-digest.json',dict(sha256=digest(root/'.dag/config.json')))
@@ -309,6 +343,8 @@ def prepare(candidate, reference, output, contract_dir, *, seed_author, planning
     if m1_source is not None:
         copied=m1/'source';copied.mkdir()
         for name in host_m1.FILES:(copied/name).write_bytes((Path(m1_source)/name).read_bytes())
+    if candidate_derivation is not None:
+        host_planning._copy_tree(candidate_derivation,m1/'derivation')
     save(m1/'seed.json',dict(kind='ui_host_generated_candidate_v1' if m1_binding else 'ui_offline_candidate_seed_v1',
          candidateSha256=digest(m1/'draft.json'),referenceSha256=digest(m1/'reference.png'),
          candidateAuthors=authors,m1ModelExecuted=bool(m1_binding),originalM1SuccessAsserted=False,
@@ -483,13 +519,15 @@ def receive(root, response, request_sha256, *, host_attestation, dispatch_eviden
                 unknowns=plan['unknowns'],generationCalls=0)
 
 
-def verify_run(root, allow_issues=False):
-    root=Path(root);plan=verify_prepared(root)
+def verify_run(root, allow_issues=False, *, archived_runtime=None):
+    root=Path(root);plan=verify_prepared(root,archived_runtime=archived_runtime)
     if (root/'.dag/receive-failed.json').exists():raise ValueError('HOST_REVIEW_RECEIVE_FAILED')
     received=read(root/'.dag/received.json')
     _bound_files(root/'m2',received['outputs'])
     verify_exchange(read(root/'m2/exchange-provenance.json'),root/'m2/request.json',root/'m2/draft.json')
     assessment,relations=_assess(root,plan)
+    if read(root/'.dag/config.json').get('candidateDerivation'):
+        _verify_derived_reviewer(root/'m1/derivation',root/'m2/host-attestation.json')
     if read(root/'m2/assessment.json')!=assessment or read(root/'m2/relation-assessment.json')!=relations:
         raise ValueError('HOST_REVIEW_ASSESSMENT_CHANGED')
     if not allow_issues and (assessment['blockers'] or relations['blockers']):raise ValueError('M2_UNRESOLVED')
