@@ -17,6 +17,22 @@ save=fixtures.review_fixtures.save
 
 
 class PlanningPreflightTests(unittest.TestCase):
+    def test_snapshot_continuation_strips_only_complete_disabled_defaults(self):
+        base=dict(seed='offline-seed.json',reviewedSnapshot='reviewed-snapshot')
+        passive=dict(planningPreflightPolicy=planning.PREFLIGHT,planningRepairPolicy=planning.DISABLED,
+                     maximumPlanningRepairCalls=0)
+        carried=dict(base,**passive);planning.configure(carried,False)
+        self.assertEqual(carried,base)
+        unchanged=deepcopy(base);planning.configure(unchanged,False);self.assertEqual(unchanged,base)
+        for change in (dict(planningRepairPolicy=planning.REPAIR),dict(maximumPlanningRepairCalls=2),
+                dict(maximumPlanningRepairCalls=False),dict(planningRepairer='fixture-author'),
+                dict(planningPreflightPolicy='unknown')):
+            config=dict(base,**passive);config.update(change);before=deepcopy(config)
+            with self.assertRaisesRegex(ValueError,'REQUIRES_FRESH_HOST_M1'):planning.configure(config,False)
+            self.assertEqual(config,before)
+        with self.assertRaisesRegex(ValueError,'REQUIRES_FRESH_HOST_M1'):
+            planning.configure(dict(base,planningRepairPolicy=planning.DISABLED),False)
+
     def setUp(self):
         fixtures.review_fixtures.HostReviewTests.setUp(self)
         # The original fixture also owns a protruding crest at y=.05. Keep its

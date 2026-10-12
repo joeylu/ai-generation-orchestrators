@@ -24,9 +24,16 @@ LIMITS = dict(maximumEdgePixels=2, maximumEdgeFraction=.01,
 
 def configure(config, fresh):
     if not fresh:
-        if any(k in config for k in ('planningPreflightPolicy','planningRepairPolicy',
-                'maximumPlanningRepairCalls','planningRepairer','planningRepairReviewer')):
-            raise ValueError('PLANNING_REPAIR_REQUIRES_FRESH_HOST_M1')
+        passive=dict(planningPreflightPolicy=PREFLIGHT,planningRepairPolicy=DISABLED,maximumPlanningRepairCalls=0)
+        fields=set(passive)|{'planningRepairer','planningRepairReviewer'}
+        present=fields.intersection(config)
+        if present:
+            # A new snapshot continuation may copy fresh-run defaults. They
+            # convey no repair authorization and must not enable fresh stages.
+            if (present!=set(passive) or any(config[k]!=v for k,v in passive.items()) or
+                    type(config['maximumPlanningRepairCalls']) is not int):
+                raise ValueError('PLANNING_REPAIR_REQUIRES_FRESH_HOST_M1')
+            for key in passive:config.pop(key)
         return
     config.setdefault('planningPreflightPolicy', PREFLIGHT)
     config.setdefault('planningRepairPolicy', DISABLED)

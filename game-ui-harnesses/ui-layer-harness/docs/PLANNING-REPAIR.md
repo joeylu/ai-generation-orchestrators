@@ -184,6 +184,13 @@ snapshots retain their inspection contracts. There is no in-place run migration.
 Alpha.7 also includes the preceding offline benchmark/timing work, documented in
 [benchmark and timing](BENCHMARK-AND-TIMING.md).
 
+A new reviewed-snapshot continuation may copy the complete disabled fresh-run
+defaults (`planningPreflightPolicy`, `planningRepairPolicy=disabled`,
+`maximumPlanningRepairCalls=0`). Preparation removes only these passive fields
+from its new configuration. It does not change the source configuration or
+snapshot, enable repair, or authorize generation. Active repair, repair actors,
+unknown policies and incomplete policy sets still require a fresh M1 job.
+
 Serialize run mutations. After restart, `host-status` / `host-resume` inspect a
 pending reservation without redispatch. A fully received checkpoint can advance
 deterministically once. An interrupted receive/advance transaction retains the
