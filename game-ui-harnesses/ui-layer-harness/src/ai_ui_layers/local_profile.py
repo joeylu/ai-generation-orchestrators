@@ -28,7 +28,7 @@ def _category(path, name):
         if 'ImagingEncoder' in name:return 'image_buffers'  # Split by caller below.
         if 'ImagingCore' in name or '_imaging.' in name:return 'image_pixels'
         if '_io.BytesIO' in name:return 'memory_io'
-        if '_io.open' in name:return 'file_open'
+        if '_io.open' in name or name=='<built-in method io.open>':return 'file_open'
         if '_io.' in name:
             if any("'"+verb+"'" in name for verb in ('read','readinto','readline','readlines')):return 'file_read'
             if any("'"+verb+"'" in name for verb in ('write','writelines')):return 'file_write'

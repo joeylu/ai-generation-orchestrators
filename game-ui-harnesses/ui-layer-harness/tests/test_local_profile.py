@@ -59,6 +59,14 @@ class LocalProfileTests(unittest.TestCase):
         self.assertGreater(categories['zip_decompression']['functionCalls'],0)
         self.assertEqual(profile.archive_methods(self.root/'deflated')['memberCountsByMethod'],{'8':1})
 
+    def test_file_open_builtin_aliases_have_identical_cost_attribution(self):
+        for name in ('<built-in method io.open>','<built-in method _io.open>'):
+            stats={('~',0,name):(3,3,1.25,1.25,{})}
+            row=profile.summarize(stats,operation='fixture',wall=2,cpu=1.5,outcome='returned')
+            self.assertEqual(row['categories']['file_open'],dict(selfSeconds=1.25,functionCalls=3))
+            self.assertEqual(row['categories']['other']['functionCalls'],0)
+            self.assertEqual(sum(c['selfSeconds'] for c in row['categories'].values()),1.25)
+
     def test_disabled_profile_does_not_install_or_construct_a_profiler(self):
         recorder=profile.LocalProfile()
         with patch.object(profile.cProfile,'Profile',side_effect=AssertionError('Disabled profiler')):
