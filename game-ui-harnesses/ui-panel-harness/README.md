@@ -5,6 +5,8 @@
 
 ## 从这里开始
 
+- [固定 SDK rc.4](docs/sdk-rc4.md)：静态图片槽、卡片对齐、旧包兼容和正式安装入口。
+
 - [使用与启动](docs/start-here.md)：构建 Studio、生成、修改、试玩、撤销和下载。
 - [文档索引](docs/index.md)：按生成编辑、资源交付和历史验收查阅。
 - [目录与依赖边界](docs/structure.md)、[命令索引](docs/commands.md)：维护入口及只读依赖预检。
@@ -34,7 +36,7 @@
 
 | 能力 | 说明 |
 | --- | --- |
-| 控件 | Slider、Switch、Select、Button、静态Text、Progress、单行Input |
+| 控件 | Slider、Switch、Select、Button、静态Text、Progress、单行Input、静态Image；[与底层16类组件的对应范围](docs/panel-component-coverage.md) |
 | 主题 | 浅色／深色 × 薄荷绿、蓝、紫、橙；在需求描述中指定 |
 | 自定义样式 | 已生成的modern-v3面板可编辑不透明颜色与统一圆角；生成仍使用预设主题 |
 | 布局 | 横排、纵排、双列、嵌套分组、垂直滚动、2–8页签Tabs |
@@ -46,8 +48,10 @@
 | Web交付 | 离线Pixi预览、可挂载适配器、字段/事件接线说明 |
 | Unity交付 | 原生UGUI控件、共享状态/事件适配脚本、Prefab与unitypackage的编辑器导入工具；统一Assets/PanelHarness目录 |
 
+当前默认链路的[五类代表面板对照](docs/panel-samples.md)包含10份浅深色可试玩夹具：声音设置、创建角色、角色卡片、下载进度、综合页签。44项实际浏览器检查及1523项回归通过，真实模型调用0；视觉效果和真实输入理解仍需分别验收。
+
 Studio首页保留需求描述、生成按钮、修改要求和修改按钮；右侧是实际Pixi交互预览。
-新生成默认目录为 `modern-menu-headings`，沿用 `modern-menu` 的颜色和配方，增加[版本化分组标题展示](docs/section-headings.md)：单组单控件收起额外标题和占位，多组及Tabs保留，明确要求显示时可选择匹配主题。旧面板保持原目录和编译版本，显式采用才计一次编辑。新增[24种输入场景](docs/input-coverage-v2.md)为夹具覆盖，真实理解效果未新验收。下列美术试稿记录中的“未改默认”描述其各自执行时状态。
+源码 SDK 与 Studio 启动器的新生成默认目录为 `modern-centered-cards`，沿用 `modern-image-slots` 的颜色、配方、[静态图片槽](docs/image-slots.md)和[版本化分组标题展示](docs/section-headings.md)，增加[图片卡片文字居中](docs/card-alignment.md)。卡片名称与缺图提示和按钮共用中心线，设置与表单字段保持左对齐；1537项回归及26项实际浏览器检查通过，本轮模型调用0。单组单控件收起额外标题和占位，多组及Tabs保留，明确要求显示时可选择匹配主题。旧面板保持原目录和编译版本。新增[24种输入场景](docs/input-coverage-v2.md)为夹具覆盖，真实理解效果未新验收。下列美术试稿记录中的“未改默认”描述其各自执行时状态；已发布 SDK 不随工作区源码更新。
 用户认为该版美术仍一般；最新[声音设置美术试稿](docs/crafted-audio-study.md)参考Impeccable，提供薄荷紧凑、温润留白、横向分栏三款可试玩候选及浅深色切换。首稿获“有好一些”反馈，尚未选定或替换日常默认主题。
 上述三款是视觉变体；[不同 Skill 独立对照](docs/art-skill-comparison.md)现已完成 frontend-design / Taste / Impeccable 三次独立真实调用，6份浅深色结果及20组汇总检查通过。入口 `output/skill-art-real-v2/review/index.html`，先匿名比较、可显示名称；未设为默认主题，审美效果待用户选择。此前schema失败原记录保留。
 用户认为三种结果基本相同，继续提出布局与Apple方向；新增[Apple风格分组布局试稿](docs/apple-grouped-layout.md)，将音量、静音与恢复默认分组，提供浅深色实际Pixi与离线包。入口 `output/apple-grouped-audio-review-v3/review/index.html`；本轮模型调用0，未设为日常默认。
@@ -60,7 +64,7 @@ Studio首页保留需求描述、生成按钮、修改要求和修改按钮；�
 最新[Apple风格整套精修](docs/apple-suite-polish.md)包含主菜单、暂停、声音、画质、角色信息及退出确认，共12份浅深色候选；入口 `output/apple-suite-polish-v2/review/overview.html` 可进入前后试玩对比。统一完整底板、文字层级与按钮比例，保留清晰滑块和退出精修；31项对应回归、66组浏览器检查、12份实际下载ZIP往返和24份源包重放通过，模型调用0，默认未切换。
 另提供[字体对比](docs/apple-typography-study.md)，入口 `output/apple-typography-review-v2/review/index.html?panel=audio-dark-noto`：中文Noto Sans SC/等线与当前字体在三类浅深色面板中对照，字号、字重与布局保持；43项对应回归、76组浏览器检查及12份实际下载包往返通过。使用本机已有字体，未内嵌，默认未切换；首轮字体槽溢出FAIL与高DPI清晰度边界保留记录。
 打开、下载和撤销位于「面板操作」，规划/资源/属性及调试工具折叠在「高级工具」。
-Studio的modern-v3生成运输格式为PanelIntent 0.10 / PlanningContext 0.9，静态正文可直接多段换行；编辑为CodexEditDraft 0.3。已保存协议继续按其版本严格校验。
+新图片目录的生成运输格式为 PanelIntent 0.11 / PlanningContext 0.10，编辑为 CodexEditDraft 0.3 / EditContext 0.15；包含静态图片行的保存协议为 Spec/Bundle 0.15、编译器 0.29.0。此前 modern-v3 目录继续使用其原来的 PanelIntent 0.10 / PlanningContext 0.9 等版本，静态正文可直接多段换行。已保存协议继续按其版本严格校验。
 modern-v3 的新编辑使用 EditContext 0.14，可选择单控件，并独立核对明确的属性、[精确按钮文案](docs/button-copy-checks.md)、[同名按钮分组定位](docs/scoped-button-copy.md)与完整指定的修改范围；统一自定义样式使用 Spec/Bundle 0.8，同组按钮排列使用 0.9，单按钮样式使用 0.10，独立按钮文字／符号字号使用 0.11 与编译器 0.11.0；标题对齐与底板使用 0.12 与编译器 0.12.0；正文换行使用 0.13 与编译器 0.13.0；面板比例与固定尺寸使用 0.14 与编译器 0.14.0；保存的旧上下文和交付包保持原版本。详见[独立字号](docs/panel-button-font.md)、[正文换行](docs/panel-text-wrap.md)、[面板比例](docs/panel-frame.md)、[组合布局编辑](docs/panel-layout-details.md)和[修改结果核对](docs/panel-edit-request-checks.md)。
 核心检索、结构、状态、布局、校验及打包不依赖模型提供方，可选本地Codex适配使用`gpt-6-luna / xhigh`。
 

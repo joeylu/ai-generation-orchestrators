@@ -155,7 +155,7 @@ function exactAssetKey(value, path) {
   }
 }
 
-function panelAssets(value, rowIds) {
+function panelAssets(value, rowIds, hasImages = false) {
   object(value, ['library', 'panelSurface', 'rowIcons'], '$.assets');
   object(value.library, ['id', 'sha256'], '$.assets.library');
   if (typeof value.library.id !== 'string' || !ASSET_SLUG.test(value.library.id)) {
@@ -175,7 +175,7 @@ function panelAssets(value, rowIds) {
     unique(entry.rowId, assignedRows, `${path}.rowId`);
     exactAssetKey(entry.asset, `${path}.asset`);
   });
-  if (value.panelSurface === null && value.rowIcons.length === 0) {
+  if (value.panelSurface === null && value.rowIcons.length === 0 && !hasImages) {
     fail('asset-selection', '$.assets', 'An assets object requires a panel surface or at least one row icon');
   }
 }
@@ -213,7 +213,7 @@ function layoutBody(value, sectionIds) {
 /** Return an isolated, validated JSON value; throw PanelSpecError on failure. */
 export function validatePanelSpec(input) {
   const spec = snapshotJson(input);
-  const sized = spec?.panelSpecVersion === '0.14', wrapping = sized || spec?.panelSpecVersion === '0.13', titled = wrapping || spec?.panelSpecVersion === '0.12', typography = titled || spec?.panelSpecVersion === '0.11', individual = typography || spec?.panelSpecVersion === '0.10', arranged = individual || spec?.panelSpecVersion === '0.9', styled = arranged || spec?.panelSpecVersion === '0.8';
+  const images = spec?.panelSpecVersion === '0.15', sized = images || spec?.panelSpecVersion === '0.14', wrapping = sized || spec?.panelSpecVersion === '0.13', titled = wrapping || spec?.panelSpecVersion === '0.12', typography = titled || spec?.panelSpecVersion === '0.11', individual = typography || spec?.panelSpecVersion === '0.10', arranged = individual || spec?.panelSpecVersion === '0.9', styled = arranged || spec?.panelSpecVersion === '0.8';
   const forms = styled || spec?.panelSpecVersion === '0.7';
   const tabbed = forms || spec?.panelSpecVersion === '0.6';
   const progress = tabbed || spec?.panelSpecVersion === '0.5';
@@ -221,7 +221,7 @@ export function validatePanelSpec(input) {
   const controls = spec?.panelSpecVersion === '0.3' || containers;
   const hasAssetsField = spec?.panelSpecVersion === '0.2' || controls;
   object(spec, ['panelSpecVersion', 'id', 'title', 'theme', 'canvas', 'layout', 'state', 'sections', 'provenance', ...(hasAssetsField ? ['assets'] : []), ...(tabbed ? ['tabs'] : []), ...(styled ? ['appearance'] : []), ...(arranged ? ['actionLayouts'] : []), ...(individual ? ['buttonStyles'] : []), ...(typography ? ['buttonFonts'] : []), ...(titled ? ['titleBar'] : []), ...(wrapping ? ['textLayouts'] : []), ...(sized ? ['frame'] : [])], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) fail('version', '$.panelSpecVersion', 'only PanelSpec 0.1 through 0.14 are supported');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14', '0.15'].includes(spec.panelSpecVersion)) fail('version', '$.panelSpecVersion', 'only PanelSpec 0.1 through 0.15 are supported');
   if (styled) checkAppearance(spec.appearance, fail);
   identifier(spec.id, '$.id');
   text(spec.title, '$.title');
@@ -287,16 +287,24 @@ export function validatePanelSpec(input) {
     array(section.rows, `${sectionPath}.rows`, 1, 128);
     section.rows.forEach((row, rowIndex) => {
       const path = `${sectionPath}.rows[${rowIndex}]`;
-      const kinds = forms ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'] : progress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : containers ? ['slider', 'switch', 'select', 'button', 'text'] : controls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'];
+      const kinds = images ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input', 'image'] : forms ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'] : progress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : containers ? ['slider', 'switch', 'select', 'button', 'text'] : controls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'];
       if (!row || !kinds.includes(row.kind)) {
         fail('row-kind', `${path}.kind`, `must be ${kinds.join(', ')}`);
       }
-      object(row, row.kind === 'progress' ? ['id', 'kind', 'recipe', 'label', 'bind', 'format'] : row.kind === 'text' ? ['id', 'kind', 'recipe', 'label', 'text']
+      object(row, row.kind === 'image' ? ['id', 'kind', 'recipe', 'label', 'source', 'width', 'height', 'fit'] : row.kind === 'progress' ? ['id', 'kind', 'recipe', 'label', 'bind', 'format'] : row.kind === 'text' ? ['id', 'kind', 'recipe', 'label', 'text']
         : ['id', 'kind', 'recipe', 'label', 'enabled', 'event', ...(row.kind === 'button' ? ['buttonLabel', 'action'] : ['bind']), ...(row.kind === 'slider' ? ['format'] : row.kind === 'input' ? ['placeholder', 'inputType', 'readOnly', 'validation'] : [])], path);
       identifier(row.id, `${path}.id`);
       unique(row.id, rowIds, `${path}.id`);
       if (rowIds.size > 128) fail('structure-limit', '$.sections', 'at most 128 rows are supported');
       if (!(containers && row.kind === 'button' && row.label === '')) text(row.label, `${path}.label`);
+      if (row.kind === 'image') {
+        if (row.source !== null) exactAssetKey(row.source, `${path}.source`);
+        if (row.width !== 'fill') integer(row.width, `${path}.width`, 16, 2048);
+        integer(row.height, `${path}.height`, 16, 2048);
+        if (!['contain', 'cover', 'stretch'].includes(row.fit)) fail('image-fit', `${path}.fit`, 'must be contain, cover or stretch');
+        reference(row.recipe, `${path}.recipe`);
+        return;
+      }
       if (row.kind === 'text') {
         if (wrapping && hasTextWrap(spec,row.id)) checkWrappedText(row.text,fail,`${path}.text`); else text(row.text, `${path}.text`);
         if (!hasTextWrap(spec,row.id) && /[\u2028\u2029]/u.test(row.text)) fail('text', `${path}.text`, 'must be a single line');
@@ -388,7 +396,10 @@ export function validatePanelSpec(input) {
     if (covered.size !== sectionIds.size || field.options.length !== tabs.pages.length) fail('tabs-coverage', path, 'every section must belong to exactly one declared page');
   }
   for (const id of states.keys()) if (!bindings.has(id)) fail('unused-state', '$.state', `state field ${id} is not bound to a row`);
-  if (hasAssetsField && !(controls && spec.assets === null)) panelAssets(spec.assets, rowIds);
+  const selectedImages = spec.sections.flatMap(section => section.rows).filter(row => row.kind === 'image' && row.source !== null);
+  if (selectedImages.length && !spec.assets) fail('asset-selection', '$.assets', 'Image sources require a pinned asset library');
+  if (hasAssetsField && !(controls && spec.assets === null)) panelAssets(spec.assets, rowIds, selectedImages.length > 0);
+  if (images && spec.assets?.rowIcons.some(icon=>spec.sections.some(section=>section.rows.some(row=>row.id===icon.rowId&&row.kind==='image')))) fail('asset-binding','$.assets.rowIcons','Image rows use source, not row icons');
   object(spec.provenance, ['kind', 'description', 'assumptions'], '$.provenance');
   if (!['programmatic-fixture', 'user-authored', 'agent-authored'].includes(spec.provenance.kind)) fail('provenance', '$.provenance.kind', 'must identify a fixture, user-authored, or agent-authored source');
   text(spec.provenance.description, '$.provenance.description', 1000);

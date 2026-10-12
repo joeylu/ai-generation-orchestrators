@@ -79,6 +79,12 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
   const hydrated = {};
   for (const row of rows) {
     const node = nodes.get(controlId(spec.id, row.id)), field = fieldMap.get(row.bind);
+    if (row.kind === 'image') {
+      if (!node || node.type !== (row.source === null ? 'Container' : 'Image')
+        || row.source !== null && node.props.fit !== row.fit
+        || row.source === null && nodes.get(`${node.id}.placeholder`)?.props.text !== row.label) throw new Error('PANEL_RUNTIME_MISMATCH');
+      continue;
+    }
     if (row.kind === 'text') {
       if (!node || node.type !== 'Text') throw new Error('PANEL_RUNTIME_MISMATCH');
       const section=spec.sections.find(section=>section.rows.some(item=>item.id===row.id));

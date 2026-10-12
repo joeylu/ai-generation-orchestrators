@@ -47,10 +47,16 @@ export const ALIGNED_SETTINGS_PANEL_COMPILER_VERSION = '0.25.0';
 export const POLISHED_MENU_PANEL_COMPILER_VERSION = '0.26.0';
 export const SECTION_HEADING_PANEL_COMPILER_VERSION = '0.27.0';
 export const SECTION_GEOMETRY_PANEL_COMPILER_VERSION = '0.28.0';
+export const IMAGE_PANEL_COMPILER_VERSION = '0.29.0';
+export const CENTERED_CARDS_PANEL_COMPILER_VERSION = '0.30.0';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
   const theme = resolveTheme(catalog, spec.theme), profile = theme.visualStyle;
+  if (spec.panelSpecVersion === '0.15') {
+    if (profile !== 'modern-v3') throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Image slots require modern-v3');
+    return theme.cardAlignment === 'centered-v1' ? CENTERED_CARDS_PANEL_COMPILER_VERSION : IMAGE_PANEL_COMPILER_VERSION;
+  }
   if (theme.controlStyle === 'semantic-v1') {
     if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(spec.panelSpecVersion)) throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Semantic controls require PanelSpec 0.7 or later');
     if (['concise-v2','visible-v2'].includes(theme.headingStyle)) return SECTION_GEOMETRY_PANEL_COMPILER_VERSION;
@@ -131,14 +137,14 @@ export function initialPanelState(spec) {
 /** Pure lowering. Renderer-free; core functions are supplied by the host adapter. */
 export function compilePanel(input, catalogInput, core, stateInput, assetClosureInput, compilerVersionInput) {
   const spec = validatePanelSpec(input), catalog = validateCatalog(catalogInput);
-  const sized = spec.panelSpecVersion === '0.14', wrapping = sized || spec.panelSpecVersion === '0.13', titled = wrapping || spec.panelSpecVersion === '0.12', typography = titled || spec.panelSpecVersion === '0.11', individual = typography || spec.panelSpecVersion === '0.10', arranged = individual || spec.panelSpecVersion === '0.9', styled = arranged || spec.panelSpecVersion === '0.8', appearance = styled ? spec.appearance : null;
+  const images = spec.panelSpecVersion === '0.15', sized = images || spec.panelSpecVersion === '0.14', wrapping = sized || spec.panelSpecVersion === '0.13', titled = wrapping || spec.panelSpecVersion === '0.12', typography = titled || spec.panelSpecVersion === '0.11', individual = typography || spec.panelSpecVersion === '0.10', arranged = individual || spec.panelSpecVersion === '0.9', styled = arranged || spec.panelSpecVersion === '0.8', appearance = styled ? spec.appearance : null;
   const formsVersion = styled || spec.panelSpecVersion === '0.7';
   const tabsVersion = formsVersion || spec.panelSpecVersion === '0.6';
   const progressVersion = tabsVersion || spec.panelSpecVersion === '0.5';
   const flowVersion = progressVersion || spec.panelSpecVersion === '0.4';
   const controls = flowVersion || spec.panelSpecVersion === '0.3';
   const compilerVersion = compilerVersionInput ?? defaultPanelCompilerVersion(spec, catalog);
-  const allowedVersions = sized ? [FRAME_PANEL_COMPILER_VERSION] : wrapping ? [TEXT_WRAP_PANEL_COMPILER_VERSION] : titled ? [TITLE_BAR_PANEL_COMPILER_VERSION] : typography ? [BUTTON_FONT_PANEL_COMPILER_VERSION] : individual ? [BUTTON_STYLE_PANEL_COMPILER_VERSION] : arranged ? [ACTION_LAYOUT_PANEL_COMPILER_VERSION] : styled ? [APPEARANCE_PANEL_COMPILER_VERSION] : formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
+  const allowedVersions = images ? [IMAGE_PANEL_COMPILER_VERSION, CENTERED_CARDS_PANEL_COMPILER_VERSION] : sized ? [FRAME_PANEL_COMPILER_VERSION] : wrapping ? [TEXT_WRAP_PANEL_COMPILER_VERSION] : titled ? [TITLE_BAR_PANEL_COMPILER_VERSION] : typography ? [BUTTON_FONT_PANEL_COMPILER_VERSION] : individual ? [BUTTON_STYLE_PANEL_COMPILER_VERSION] : arranged ? [ACTION_LAYOUT_PANEL_COMPILER_VERSION] : styled ? [APPEARANCE_PANEL_COMPILER_VERSION] : formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
     : [controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION];
   const semantic = resolveTheme(catalog, spec.theme).controlStyle === 'semantic-v1';
   if (semantic ? compilerVersion !== defaultPanelCompilerVersion(spec, catalog) : !allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec and pinned theme');
@@ -161,6 +167,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   const groupedBackground = grouped && appearance?.panelColor == null ? t.background : t.surface;
   const minimal = crafted || ['minimal-v1','minimal-v2'].includes(theme.surfaceStyle), refined = minimal || theme.surfaceStyle === 'refined-v1';
   const adaptive = theme.visualStyle === 'modern-v3', themed = adaptive || theme.visualStyle === 'modern-v2', modern = themed || theme.visualStyle === 'modern-v1';
+  if(images&&!adaptive)fail('VISUAL_STYLE_VERSION','$.theme','Image slots require a modern-v3 theme');
   const presentationPolicy = adaptive ? createPresentationPolicy(spec, t, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle, catalog) : undefined;
   const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec, presentationPolicy) : flowVersion ? measureFlowLayout(spec, presentationPolicy) : null;
   const l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
@@ -251,8 +258,23 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     for (const [index, row] of section.rows.entries()) {
       const rowId = `${spec.id}.row.${row.id}`, id = controlId(spec.id, row.id), field = fields.get(row.bind);
       const placement = presentation?.rows[index], rowHeight = placement?.height ?? l.rowHeight;
-      select(row.recipe, `${row.kind}-row`, contentWidth, rowHeight);
+      select(row.recipe, `${row.kind}-row`, row.kind==='image' ? row.width==='fill' ? contentWidth-24 : row.width : contentWidth, rowHeight);
       const textHeight = Math.ceil(t.fontSize * 1.3);
+      if (row.kind === 'image') {
+        const width = row.width === 'fill' ? contentWidth - 24 : row.width;
+        if (width < 16 || width > contentWidth - 24 || rowHeight !== row.height) fail('IMAGE_GEOMETRY', '$.layout', 'Image must fit its measured content slot');
+        const rect = {x:(contentWidth-width)/2,y:placement.y,width,height:row.height};
+        if (row.source === null) {
+          if (presentationTextWidth(row.label, t.fontSize) + 24 > width || textHeight + 16 > row.height) fail('IMAGE_PLACEHOLDER_LABEL', '$.sections', 'Placeholder label must fit the image slot');
+          sectionChildren.push(node(id, 'Container', rect, {style:style(t.control,{borderWidth:1,cornerRadius:t.radius})},
+            [text(`${id}.placeholder`, row.label, {x:12,y:(row.height-textHeight)/2,width:width-24,height:textHeight},t.fontSize,t.muted)]));
+        } else {
+          const record = assets.get(row.source), source = panelAssetPath(record);
+          imageFacts[source] = {width:record.width,height:record.height};
+          sectionChildren.push(node(id, 'Image', rect, {source,fit:row.fit,drawBackground:false,style:style(t.surface)}));
+        }
+        continue;
+      }
       const icon = assets.get(rowIcons.get(row.id)), iconOffset = icon ? placement?.iconOffset ?? 40 : 0;
       const fullButton = flowVersion && row.kind === 'button' && row.label === '';
       const stacked = placement?.stacked === true;
@@ -386,7 +408,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION, SECTION_HEADING_PANEL_COMPILER_VERSION, SECTION_GEOMETRY_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION, SECTION_HEADING_PANEL_COMPILER_VERSION, SECTION_GEOMETRY_PANEL_COMPILER_VERSION, IMAGE_PANEL_COMPILER_VERSION, CENTERED_CARDS_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {

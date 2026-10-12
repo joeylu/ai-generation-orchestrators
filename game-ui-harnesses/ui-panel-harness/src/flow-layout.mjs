@@ -6,7 +6,7 @@ const positive = value => Number.isFinite(value) && value > 0;
 
 export function measureFlowLayout(spec, presentationPolicy) {
   const l = spec.layout, width = Math.min(l.width, spec.canvas.width);
-  const frame = spec.panelSpecVersion === '0.14' ? spec.frame : null;
+  const frame = ['0.14','0.15'].includes(spec.panelSpecVersion) ? spec.frame : null;
   const bodyWidth = width - l.padding * 2;
   const bodyY = l.padding + l.titleHeight + l.gap;
   const chromeHeight = bodyY + l.padding;

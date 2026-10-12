@@ -8,7 +8,8 @@ const exact = (v, keys) => {
 };
 export const panelAssetPath = record => `textures/${record.sha256}.png`;
 export function panelAssetKeys(spec) {
-  return spec.assets ? [...new Set([spec.assets.panelSurface, ...spec.assets.rowIcons.map(x => x.asset)].filter(Boolean))].sort() : [];
+  return spec.assets ? [...new Set([spec.assets.panelSurface, ...spec.assets.rowIcons.map(x => x.asset),
+    ...spec.sections.flatMap(section => section.rows).filter(row => row.kind === 'image').map(row => row.source)].filter(Boolean))].sort() : [];
 }
 
 /** Portable selection only. Library membership is checked by the filesystem loader at compile time. */

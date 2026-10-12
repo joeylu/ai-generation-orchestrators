@@ -16,7 +16,12 @@ export function sectionHeadingVisible(spec, section, headingStyle, legacyVisible
 export function headingThemeTarget(spec, sourceCatalog, targetCatalog, mode) {
   if (!['auto', 'show'].includes(mode)) throw new Error('HEADING_MODE_INVALID');
   const policies = mode === 'show' ? ['visible-v2','visible-v1'] : ['concise-v2','concise-v1'];
-  const visual = ({ version, headingStyle, ...theme }) => canonicalJson(theme);
+  const visual = ({ version, headingStyle, ...theme }) => {
+    // Image cards are a 0.15 presentation feature. Older Specs cannot contain
+    // those rows; their explicit heading adoption retains its original geometry.
+    if (spec.panelSpecVersion !== '0.15') delete theme.cardAlignment;
+    return canonicalJson(theme);
+  };
   const current = resolveTheme(sourceCatalog, spec.theme);
   const target = policies.flatMap(policy => targetCatalog.themes.filter(theme => theme.headingStyle === policy && visual(theme) === visual(current)))[0];
   if (!target || sourceCatalog.recipes.some(recipe => !targetCatalog.recipes.some(other => canonicalJson(recipe) === canonicalJson(other))))

@@ -119,8 +119,8 @@ export function explicitPropertyRequirements(request,spec,catalog,selection=null
 
 /** Studio-only assistance for one exact duplicate-name rename. No public gate or context mutation. */
 export function ambiguousButtonCopyChoices(context){
- if(context?.editContextVersion!=='0.14'||context.requestChecks?.policy!==EDIT_SCOPED_COPY_CHECK_POLICY||context.selection
-  ||!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(context.spec.panelSpecVersion)
+ if(!['0.14','0.15'].includes(context?.editContextVersion)||context.requestChecks?.policy!==EDIT_SCOPED_COPY_CHECK_POLICY||context.selection
+  ||!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14','0.15'].includes(context.spec.panelSpecVersion)
   ||!context.catalog.themes.some(t=>t.id===context.spec.theme.id&&t.version===context.spec.theme.version&&t.visualStyle==='modern-v3'))return [];
  const requirements=explicitPropertyRequirements(context.request.text,context.spec,context.catalog,null,EDIT_SCOPED_COPY_CHECK_POLICY);
  if(requirements.items.length||requirements.unverified.length!==1)return [];
@@ -194,7 +194,7 @@ export function checkExplicitPropertyRequirements(requirements,spec,catalog,befo
 /** Studio preflight only: all bounded facts already match and the rest is explicitly preserved.
  * Recompute from the request, never trust cached items. This is not a model proposal or edit commit. */
 export function alreadySatisfiedEditRequirements(context){
- if(context?.editContextVersion!=='0.14'||context.requestChecks?.policy!==EDIT_SCOPED_COPY_CHECK_POLICY)return null;
+ if(!['0.14','0.15'].includes(context?.editContextVersion)||context.requestChecks?.policy!==EDIT_SCOPED_COPY_CHECK_POLICY)return null;
  const requirements=explicitPropertyRequirements(context.request.text,context.spec,context.catalog,context.selection,EDIT_SCOPED_COPY_CHECK_POLICY);
  if(!requirements.items.length||requirements.unverified.length||!requirements.preserveRest.enforced)return null;
  const report=checkExplicitPropertyRequirements(requirements,context.spec,context.catalog,context.spec);
@@ -205,7 +205,7 @@ export function alreadySatisfiedEditRequirements(context){
  * explicit requirements that the selected-row contract cannot perform. Unknown
  * prose and corrections remain unverified; never infer or change the target. */
 export function selectedEditScopeConflicts(context){
- if(context?.editContextVersion!=='0.14'||context.requestChecks?.policy!==EDIT_SCOPED_COPY_CHECK_POLICY||!context.selection)return [];
+ if(!['0.14','0.15'].includes(context?.editContextVersion)||context.requestChecks?.policy!==EDIT_SCOPED_COPY_CHECK_POLICY||!context.selection)return [];
  const selected=explicitPropertyRequirements(context.request.text,context.spec,context.catalog,context.selection,EDIT_SCOPED_COPY_CHECK_POLICY);
  const whole=explicitPropertyRequirements(context.request.text,context.spec,context.catalog,null,EDIT_SCOPED_COPY_CHECK_POLICY);
  return whole.items.filter(item=>{

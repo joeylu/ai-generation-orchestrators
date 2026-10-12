@@ -11,12 +11,7 @@ import { createWorkbenchModel } from '../src/workbench-model.mjs';
 import { materializeCodexEditDraft } from '../src/codex-edit-draft.mjs';
 import { applyPanelPatch } from '../src/patch.mjs';
 import { inputInterpretationGuide } from '../src/input-interpretation.mjs';
-const catalog=JSON.parse(await readFile(new URL('../examples/modern-refined.catalog.json',import.meta.url),'utf8'));
 const request=item=>({requestVersion:'0.1',id:item.id,target:'pixi',text:item.text});
-const generate=item=>createPlanningContext(request(item),catalog,undefined,{actionLayouts:true,textWrap:true});
-async function fixtureSpec(item) {const c=await generate(item);return (await materializePanelIntent(c,coverageIntent(c,item))).spec;}
-const base=await fixtureSpec(INPUT_COVERAGE_V2.cases.find(c=>c.id==='G02'));
-const duplicate=await fixtureSpec(INPUT_COVERAGE_V2.cases.find(c=>c.id==='G06'));
 function expectFacts(item,spec) {
   assert.equal(spec.title,item.expected.title); const rows=spec.sections.flatMap(s=>s.rows);
   assert.equal(rows.length,item.expected.rows.length);
@@ -30,7 +25,13 @@ function expectFacts(item,spec) {
   }
   if(item.expected.groups)assert.deepEqual(spec.sections.map(s=>s.rows.map(r=>rows.indexOf(r))),item.expected.groups);
 }
-for(const item of INPUT_COVERAGE_V2.cases) test(`${item.id} ${item.category}: authored ${item.expected.outcome} fixture traverses public gates`,async()=>{
+for(const catalogName of ['modern-refined','modern-image-slots']) {
+const catalog=JSON.parse(await readFile(new URL(`../examples/${catalogName}.catalog.json`,import.meta.url),'utf8'));
+const generate=item=>createPlanningContext(request(item),catalog,undefined,{actionLayouts:true,textWrap:true});
+async function fixtureSpec(item) {const c=await generate(item);return (await materializePanelIntent(c,coverageIntent(c,item))).spec;}
+const base=await fixtureSpec(INPUT_COVERAGE_V2.cases.find(c=>c.id==='G02'));
+const duplicate=await fixtureSpec(INPUT_COVERAGE_V2.cases.find(c=>c.id==='G06'));
+for(const item of INPUT_COVERAGE_V2.cases) test(`${catalogName} ${item.id} ${item.category}: authored ${item.expected.outcome} fixture traverses public gates`,async()=>{
   if(item.mode==='generate') {
     const context=await generate(item),intent=coverageIntent(context,item);validateNativePanelIntentEvidence(context,intent);
     const proposal=await materializePanelIntent(context,intent),report=await checkPanelProposal(context,proposal);
@@ -68,12 +69,13 @@ for(const item of INPUT_COVERAGE_V2.cases) test(`${item.id} ${item.category}: au
   } finally {model.dispose();}
 });
 
-test('coverage oracle detects stale corrections, omitted qualifiers, added controls and collapsed duplicate labels',async()=>{
+test(`${catalogName} coverage oracle detects stale corrections, omitted qualifiers, added controls and collapsed duplicate labels`,async()=>{
   for(const [id,mutate]of [
     ['G01',s=>s.state[0].initial=70],['G03',s=>s.sections[0].rows[1].label='打扰'],
     ['G02',s=>s.sections[0].rows.push(structuredClone(s.sections[0].rows[0]))],['G06',s=>s.sections[1].rows=[]],
   ]) {const item=INPUT_COVERAGE_V2.cases.find(c=>c.id===id),spec=await fixtureSpec(item);mutate(spec);assert.throws(()=>expectFacts(item,spec));}
 });
+}
 
 test('reading guide explicitly covers correction, exclusion, whole-request gates and editing identity without claiming classification',()=>{
   assert.equal(INPUT_COVERAGE_V2.cases.length,24);assert.equal(INPUT_COVERAGE_V2.modelCalls,0);

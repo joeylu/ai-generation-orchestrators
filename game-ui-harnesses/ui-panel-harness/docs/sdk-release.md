@@ -7,9 +7,9 @@ and Unity UGUI import-kit source. It does not start a service or invoke a model.
 
 The release contract is `release/contract.json`. Install only an immutable tagged
 release after checking its archive bytes and SHA-256 against the published receipt.
-The release tag is `ui-panel-harness-v0.1.0-rc.3`; the archive and verification
-receipt belong to its [GitHub release](https://github.com/joeylu/ai-generation-orchestrators/releases/tag/ui-panel-harness-v0.1.0-rc.3).
-The rc.1 and rc.2 tags and assets remain unchanged.
+The release tag is `ui-panel-harness-v0.1.0-rc.4`; the archive and verification
+receipt belong to its [GitHub release](https://github.com/joeylu/ai-generation-orchestrators/releases/tag/ui-panel-harness-v0.1.0-rc.4).
+The rc.1, rc.2 and rc.3 tags and assets remain unchanged.
 Extract the entire archive. No package install, sibling checkout, Vite, browser,
 TypeScript loader, or network access is needed to load the Node SDK.
 
@@ -29,15 +29,23 @@ exposes the same browser API as the `PanelDelivery` global, version 0.1.0.
 Use `createPixiPanelHost`, `validateBundle`, and the returned instance's state,
 export and cleanup methods. Importing it does not automatically mount a panel.
 
-The default seed uses modern-menu-headings 0.20.0 and the complete authenticated builtin asset
-pool. Existing imported bundles retain their own catalog, assets and compiler.
-Compiler 0.28.0 retains [versioned section-heading presentation](section-headings.md):
+The default seed uses modern-centered-cards 0.1.0 and the complete verified builtin asset
+pool. PanelSpec/Bundle 0.15 adds [static image rows](image-slots.md): fixed PNG
+assets or labeled placeholders, without image generation or image-click actions.
+Compiler 0.30.0 applies [card text alignment](card-alignment.md) in 0.21.0/0.21.1
+themes: one image plus one standalone emit button aligns its title and placeholder
+on the center line. Settings, form labels and descriptions retain their alignment.
+Existing imported bundles retain their own catalog, assets and compiler.
+The compiler retains [versioned section-heading presentation](section-headings.md):
 new single-control panels omit the extra section-title band, while multiple
 groups and Tabs keep their headings. The [recipe-aware geometry fix](section-geometry.md)
 keeps the first hidden-title row at y=0 while meeting the pinned section recipe's
 minimum height, including single Select, Switch and Progress groups. Existing
-0.27.0 catalogs/bundles retain their exact meaning. Explicit adoption preserves state/history
-and consumes one of the original ten successful edits; loading never migrates.
+0.27.0, 0.28.0 and 0.29.0 catalogs/bundles retain their exact meaning. UGUI source
+is version 0.1.6; use its matching runtime files and published ES/IIFE digests.
+Explicit heading adoption preserves state/history and does not adopt card alignment
+on an existing image bundle. Adoption consumes one of the original ten successful
+edits; loading never migrates.
 The optional planner fixes gpt-6-luna/xhigh, one invocation and zero retries.
 Each call needs an absolute, explicitly owned `outputRoot`, an available logged-in
 CLI and fresh task-specific compute authorization enforced by the calling host.
@@ -67,12 +75,12 @@ It records file bytes, hashes, licenses, source commit and dirty state. A dirty
 candidate is for local verification only and is not eligible for publication.
 The builder never uploads, tags, publishes or calls a model.
 
-Installed-artifact acceptance uses a fresh system temporary directory, two explicit
+Installed-artifact acceptance uses a fresh system temporary directory, six explicit
 fake CLI generation/edit transports, real compilation and ZIP re-reading. Browser acceptance opens
 the actual exported ZIP offline and serves the ES module on loopback only:
 
 ```sh
-node scripts/check-release.mjs --package output/sdk-release/ai-ui-panel-harness-0.1.0-rc.3.zip --output output/sdk-installed-check
+node scripts/check-release.mjs --package output/sdk-release/ai-ui-panel-harness-0.1.0-rc.4.zip --output output/sdk-installed-check
 node scripts/check-release-browser.mjs --acceptance output/sdk-installed-check --output output/sdk-browser-check
 node scripts/check-heading-browser.mjs --acceptance output/sdk-installed-check --output output/sdk-heading-browser-check
 ```

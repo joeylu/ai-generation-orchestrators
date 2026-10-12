@@ -110,6 +110,12 @@
           },
           {
             "$ref": "#/$defs/setLayoutDetails"
+          },
+          {
+            "$ref": "#/$defs/setImageProperties"
+          },
+          {
+            "$ref": "#/$defs/addImageRow"
           }
         ]
       }
@@ -876,6 +882,177 @@
           }
         }
       }
+    },
+    "setImageProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "source",
+        "width",
+        "height",
+        "fit",
+        "assetLibrary"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-image-properties"
+        },
+        "rowId": {
+          "$ref": "#/$defs/id"
+        },
+        "source": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/exactAssetKey"
+            }
+          ]
+        },
+        "width": {
+          "oneOf": [
+            {
+              "const": "fill"
+            },
+            {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 2048
+            }
+          ]
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 2048
+        },
+        "fit": {
+          "enum": [
+            "contain",
+            "cover",
+            "stretch"
+          ]
+        },
+        "assetLibrary": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "sha256"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/assetSlug"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "addImageRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "sectionId",
+        "afterRowId",
+        "row",
+        "state",
+        "assetLibrary"
+      ],
+      "properties": {
+        "op": {
+          "const": "add-row"
+        },
+        "sectionId": {
+          "$ref": "#/$defs/id"
+        },
+        "afterRowId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "row": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.15#/$defs/imageRow"
+        },
+        "state": {
+          "type": "null"
+        },
+        "assetLibrary": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "sha256"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/assetSlug"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "row": {
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "button",
+                      "text"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "state": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

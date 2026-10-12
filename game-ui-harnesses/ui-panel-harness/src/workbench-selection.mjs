@@ -1,7 +1,7 @@
 import { controlId } from './compiler.mjs';
 
 export function selectionLabel(row) {
-  const kinds = { button: '按钮', input: '输入框', text: '说明', slider: '滑条', switch: '开关', select: '下拉框', progress: '进度条' };
+  const kinds = { image:'图片', button: '按钮', input: '输入框', text: '说明', slider: '滑条', switch: '开关', select: '下拉框', progress: '进度条' };
   return `${row.label || row.buttonLabel || row.text || row.id} · ${kinds[row.kind] ?? row.kind}`;
 }
 

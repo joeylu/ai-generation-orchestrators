@@ -1,12 +1,12 @@
-# Unity UGUI adapter contract 0.1.5
+# Unity UGUI adapter contract 0.1.6
 
 Implementation target: Unity 6 / UGUI 2.0. This adapter consumes a verified
-PanelBundle 0.1–0.14 and exports a local import kit. The kit does not itself count
+PanelBundle 0.1–0.15 and exports a local import kit. The kit does not itself count
 as a Unity-validated Prefab. Unity creates the native Prefab with its own API.
 
 `panel.unity.json` contains a flat, parent-before-child `PanelDocument`:
 
-- `formatVersion`: `"0.1"`; current `adapterVersion`: `"0.1.5"`.
+- `formatVersion`: `"0.1"`; current `adapterVersion`: `"0.1.6"`.
 - `panelId`, `panelSha256`, `panelSpecVersion`: source identity.
 - `canvasWidth`, `canvasHeight`: positive logical pixels.
 - `nodes`: `PanelNode[]` below, including the source canvas root.
@@ -25,7 +25,7 @@ float borderWidth, cornerRadius, opacity
 int fontSize
 bool bold, drawBackground
 string text, source, fit
-string textAlignment                # optional; explicit anchor for the panel title
+string textAlignment                # optional; title, slider value, or versioned card text anchor
 bool hasRegion
 float regionX, regionY, regionWidth, regionHeight
 float contentWidth, contentHeight
@@ -40,6 +40,21 @@ Image source paths are `textures/<sha256>.png`. Regions use top-left PNG pixels;
 Unity Sprite rect y is `imageHeight - regionY - regionHeight`. Icons retain
 contain aspect, while individual nine-slice regions stretch. White image tint
 preserves PNG colors; optional badge is a separate background.
+
+PanelSpec 0.15 static image rows use these existing nodes and assets, without a
+PanelControl or state field. `contain` preserves the full image, `stretch` fills
+the slot, and `cover` is lowered to a centered sprite region with `stretch`.
+Missing image sources are labeled Container/Text placeholders. These export
+rules and version gates have deterministic coverage; native Unity import remains
+a separate acceptance step.
+
+Adapter 0.1.6 accepts `MiddleCenter` for versioned PanelSpec 0.15 image-card
+section titles and missing-image placeholder Text nodes. The exporter emits
+these anchors only for `cardAlignment: centered-v1` themes with one image and
+one standalone emit button per section. Description and settings Text nodes
+retain their existing alignment. Saved Bundles without that theme flag retain
+their previous presentation. Import kit/source checks do not confirm native
+Unity font rendering or Prefab import; that acceptance remains separate.
 
 `PanelField` fields (unused values are zero/false/empty):
 

@@ -36,7 +36,7 @@ export async function createAssetPlanningContext(requestInput, catalog, director
   // Isolate caller values before filesystem work.
   const base = await createPlanningContext(request, catalog);
   const verified = await verifyAssetLibrary(directory, adapter);
-  return createPlanningContext(base.request, base.catalog, createAssetRetrieval(base.request.text, verified.index, { style }));
+  return createPlanningContext(base.request, base.catalog, createAssetRetrieval(base.request.text, verified.index, { style, images:base.capabilities.images==='static-image-slots-v1' }));
 }
 
 /** Recompute against real library bytes; offline context checks alone cannot authenticate candidates. */
@@ -44,7 +44,7 @@ export async function loadPanelPlanAssets(contextInput, specInput, directory, ad
   const spec = validatePanelSpec(specInput), context = await validatePlanningContext(contextInput);
   if (!context.assetRetrieval) throw new Error('PLAN_ASSET_CONTEXT_REQUIRED');
   const verified = await verifyAssetLibrary(directory, adapter);
-  const retrieval = createAssetRetrieval(context.request.text, verified.index, { style: context.assetRetrieval.policy.style });
+  const retrieval = createAssetRetrieval(context.request.text, verified.index, { style: context.assetRetrieval.policy.style, images:context.assetRetrieval.assetRetrievalVersion==='0.2' });
   if (canonicalJson(retrieval) !== canonicalJson(context.assetRetrieval)) throw new Error('PLAN_ASSET_RETRIEVAL_MISMATCH');
   const assets = spec.assets ? await selectVerifiedAssets(spec, verified) : undefined;
   const receipt = { assetBuildVerificationVersion: '0.1', status: 'VERIFIED', contextSha256: context.sha256,

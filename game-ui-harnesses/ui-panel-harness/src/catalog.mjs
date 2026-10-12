@@ -1,5 +1,5 @@
 /** A local, data-only catalog. No downloads, model calls, or implicit version selection. */
-const KINDS = new Set(['panel', 'section', 'slider-row', 'switch-row', 'select-row', 'button-row', 'text-row', 'progress-row', 'input-row', 'tabs']);
+const KINDS = new Set(['panel', 'section', 'slider-row', 'switch-row', 'select-row', 'button-row', 'text-row', 'progress-row', 'input-row', 'image-row', 'tabs']);
 const STATES = new Set(['idle', 'hover', 'pressed', 'disabled', 'dragging', 'checked']);
 const ID = /^[a-z][a-z0-9._-]{0,95}$/;
 const VERSION = /^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$/;
@@ -85,13 +85,15 @@ export function validateCatalog(value) {
   array(value.recipes, 'catalog.recipes', 1, 256);
   value.themes.forEach((theme, index) => {
     const path = `catalog.themes[${index}]`;
-    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle', 'controlStyle', 'presentationStyle', 'navigationStyle', 'surfaceStyle', 'iconStyle', 'sliderStyle', 'menuTokens', 'headingStyle']);
+    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle', 'controlStyle', 'presentationStyle', 'navigationStyle', 'surfaceStyle', 'iconStyle', 'sliderStyle', 'menuTokens', 'headingStyle', 'cardAlignment']);
     identity(theme, path);
     if (Object.hasOwn(theme, 'visualStyle') && !['modern-v1', 'modern-v2', 'modern-v3'].includes(theme.visualStyle)) fail(`${path}.visualStyle`, 'unsupported visual style');
     if (Object.hasOwn(theme, 'controlStyle') && (theme.controlStyle !== 'semantic-v1' || theme.visualStyle !== 'modern-v3')) fail(`${path}.controlStyle`, 'semantic-v1 requires modern-v3');
     if (Object.hasOwn(theme, 'presentationStyle') && (theme.presentationStyle !== 'focused-v1' || theme.controlStyle !== 'semantic-v1')) fail(`${path}.presentationStyle`, 'focused-v1 requires semantic-v1 controls');
     if (Object.hasOwn(theme, 'headingStyle') && (!['concise-v1', 'visible-v1', 'concise-v2', 'visible-v2'].includes(theme.headingStyle) || theme.controlStyle !== 'semantic-v1' || theme.surfaceStyle !== 'minimal-v2'))
       fail(`${path}.headingStyle`, 'Versioned heading presentation requires semantic-v1 and minimal-v2');
+    if (Object.hasOwn(theme, 'cardAlignment') && (theme.cardAlignment !== 'centered-v1' || !['concise-v2','visible-v2'].includes(theme.headingStyle)))
+      fail(`${path}.cardAlignment`, 'centered-v1 cards require versioned v2 headings');
     if (Object.hasOwn(theme, 'navigationStyle') && (theme.navigationStyle !== 'tabs-v1' || theme.presentationStyle !== 'focused-v1')) fail(`${path}.navigationStyle`, 'tabs-v1 requires focused-v1 presentation');
     if (Object.hasOwn(theme, 'surfaceStyle') && (!['refined-v1','minimal-v1','minimal-v2','crafted-v1','grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle) || theme.navigationStyle !== 'tabs-v1')) fail(`${path}.surfaceStyle`, 'Surface styles require tabs-v1 navigation');
     if ((theme.surfaceStyle === 'minimal-v2') !== Object.hasOwn(theme, 'menuTokens')) fail(`${path}.menuTokens`, 'minimal-v2 requires its exact menu token set');

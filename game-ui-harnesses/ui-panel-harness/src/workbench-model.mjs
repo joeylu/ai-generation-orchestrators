@@ -117,7 +117,7 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         guardEdit();
         const request = validatePanelRequest(requestInput), panel = clone(state.panel);
         if (!panel) fail('WORKBENCH_PANEL_REQUIRED');
-          const context = await createPanelEditContext(panel.spec, panel.catalog, request, selectionInput, {panelFrame:true,layoutDetails:true,requestChecks:'properties-v4'});
+          const context = await createPanelEditContext(panel.spec, panel.catalog, request, selectionInput, {panelFrame:true,layoutDetails:true,requestChecks:'properties-v4',assetRetrieval:panel.spec.panelSpecVersion==='0.15'&&pool&&(!panel.spec.assets||canonicalJson(panel.spec.assets.library)===canonicalJson({id:pool.index.id,sha256:pool.index.sha256}))?workbenchRetrieval(request.text,pool,{images:true}):null});
         if (!isCurrent(ticket)) return stale();
         edit = { context, proposal: null, report: null };
         return getEditSnapshot();
@@ -156,7 +156,7 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         if (options.style !== null && (typeof options.style !== 'string'
           || !/^[a-z0-9.-]{1,96}$(?![\s\S])/.test(options.style))) fail('WORKBENCH_PREPARE_STYLE');
         const base = clone(state);
-        const retrieval = pool && options.retrieveAssets !== false ? workbenchRetrieval(request.text, pool, { style: options.style }) : undefined;
+        const retrieval = pool && options.retrieveAssets !== false ? workbenchRetrieval(request.text, pool, { style: options.style, images:catalog.recipes.some(recipe=>recipe.kind==='image-row') }) : undefined;
         planning = true;
         const context = await createPlanningContext(request, catalog, retrieval, { actionLayouts: true, textWrap: true });
         return commit(ticket, { ...base, phase: 'awaiting-proposal', context, proposal: null, report: null });
@@ -170,7 +170,7 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         planning = true;
         const request = await createClarifiedRequest(visible.context, visible.proposal, input);
         if (!isCurrent(ticket)) return stale();
-        const options = { style: visible.context.assetRetrieval?.policy.style ?? null };
+        const options = { style: visible.context.assetRetrieval?.policy.style ?? null, images:catalog.recipes.some(recipe=>recipe.kind==='image-row') };
         const retrieval = pool ? workbenchRetrieval(request.text, pool, options) : undefined;
         const context = await createPlanningContext(request, catalog, retrieval, { actionLayouts: true, textWrap: true });
         return commit(ticket, { ...base, phase: 'awaiting-proposal', context, proposal: null, report: null });
@@ -218,19 +218,25 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         const base = clone(state), previousUndo = clone(undoEntries);
         if (!base.panel) fail('WORKBENCH_PANEL_REQUIRED');
         if (previousUndo.length >= 16) fail('WORKBENCH_HISTORY_LIMIT');
-        const theme = headingThemeTarget(base.panel.spec, base.panel.catalog, catalog, mode);
+        // A heading-only action must not adopt a newer image-card presentation.
+        // The saved 0.15 catalog already carries its concise/visible theme pair.
+        const currentTheme = base.panel.catalog.themes.find(theme => theme.id === base.panel.spec.theme.id && theme.version === base.panel.spec.theme.version);
+        const headingCatalog = base.panel.spec.panelSpecVersion === '0.15'
+          && !currentTheme.cardAlignment && catalog.themes.some(theme => theme.cardAlignment === 'centered-v1')
+          ? base.panel.catalog : catalog;
+        const theme = headingThemeTarget(base.panel.spec, base.panel.catalog, headingCatalog, mode);
         const values = validatePanelState(base.panel.spec, stateInput === undefined ? base.panel.state : stateInput);
-        if (canonicalJson(theme) === canonicalJson(base.panel.spec.theme) && canonicalJson(catalog) === canonicalJson(base.panel.catalog)) return getSnapshot();
+        if (canonicalJson(theme) === canonicalJson(base.panel.spec.theme) && canonicalJson(headingCatalog) === canonicalJson(base.panel.catalog)) return getSnapshot();
         const assets = await assetsFor(base.panel.spec, base.panel);
         const before = await createPanelBundle(base.panel.spec, base.panel.catalog, core, values, assets, base.panel.compilerVersion);
         const patch = { patchVersion: '0.1', baseSpecSha256: await digestJson(before.spec),
           reason: `Explicit section-heading presentation adoption: ${mode}.`, operations: [{ op: 'set-theme', theme }] };
         const { spec, receipt } = await applyPanelPatch(before.spec, patch);
-        const panel = await packagePanel(spec, catalog, values, assets);
+        const panel = await packagePanel(spec, headingCatalog, values, assets);
         if (!isCurrent(ticket)) return stale();
         const entry = { patch, receipt, changes: describePanelChanges(before.spec, spec),
           headingUpgrade: { version: '0.1', mode, fromCompiler: before.compilerVersion, toCompiler: panel.compilerVersion,
-            fromCatalogSha256: await digestJson(before.catalog), toCatalogSha256: await digestJson(catalog) } };
+            fromCatalogSha256: await digestJson(before.catalog), toCatalogSha256: await digestJson(headingCatalog) } };
         return await commitPanel(ticket, { ...base, phase: 'ready', context: null, proposal: null, report: null,
           panel, history: [...base.history, entry], canUndo: true }, [...previousUndo, before], editCount() + 1);
       } catch (error) { return recover(ticket, error); }

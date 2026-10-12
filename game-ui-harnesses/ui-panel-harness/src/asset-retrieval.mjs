@@ -115,7 +115,7 @@ function containsTerm(query, term) {
 // weight (name=8, tag=4, family=2); equality with the whole request adds 4.
 // Generic role/file terms are ignored; appearance terms need a semantic match.
 // Repeated words never multiply scores. Matching is over the complete request.
-function rank(query, assets, style) {
+function rank(query, assets, style, images = false) {
   const latest = new Map();
   for (const asset of assets) {
     const parts = keyParts(asset.key, '$.asset.key'), old = latest.get(parts.identity);
@@ -124,7 +124,7 @@ function rank(query, assets, style) {
   const matched = new Map(), candidates = [];
   for (const { asset } of latest.values()) {
     const slot = slotFor(asset);
-    if (!slot || (style !== null && asset.style !== style)) continue;
+    if ((!slot && !images) || (style !== null && asset.style !== style)) continue;
     const terms = new Map();
     for (const [raw, weight] of [[asset.name, 8], ...asset.tags.map(tag => [tag, 4]), [asset.family, 2]]) {
       const term = normalize(raw);
@@ -137,7 +137,8 @@ function rank(query, assets, style) {
     }).sort(compare);
     if (!matchedTerms.some(term => !APPEARANCE_TERMS.has(term))) continue;
     const score = matchedTerms.reduce((sum, term) => sum + terms.get(term) + (query === term ? 4 : 0), 0);
-    candidates.push({ slot, score, matchedTerms, asset });
+    if (slot) candidates.push({ slot, score, matchedTerms, asset });
+    if (images) candidates.push({ slot:'content-image', score, matchedTerms, asset });
   }
   candidates.sort((a, b) => compare(a.slot, b.slot) || b.score - a.score || compare(a.asset.key, b.asset.key));
   const counts = new Map();
@@ -180,7 +181,9 @@ export function rankPortableAssets(requestText, input, style = null) {
 /** Requires an already verified library index; this pure function does not verify files or the library digest. */
 export function createAssetRetrieval(requestText, verifiedIndex, options = {}) {
   const query = request(requestText), checkedOptions = snapshot(options);
-  exact(checkedOptions, [], ['style'], '$.options');
+  exact(checkedOptions, [], ['style','images'], '$.options');
+  const images = checkedOptions.images ?? false;
+  if (typeof images !== 'boolean') fail('POLICY', '$.options.images', 'boolean required');
   const style = Object.hasOwn(checkedOptions, 'style') ? checkedOptions.style : null;
   styleFilter(style, '$.options.style');
   const fields = dataFields(verifiedIndex, false, '$.index');
@@ -206,9 +209,9 @@ export function createAssetRetrieval(requestText, verifiedIndex, options = {}) {
     keys.add(asset.key); assets.push(asset);
   }
   return {
-    assetRetrievalVersion: '0.1', library: selectedLibrary,
+    assetRetrievalVersion: images ? '0.2' : '0.1', library: selectedLibrary,
     policy: { algorithm: 'lexical-v1', latestOnly: true, limitPerSlot: 16, style },
-    candidates: rank(query, assets, style),
+    candidates: rank(query, assets, style, images),
   };
 }
 
@@ -220,22 +223,24 @@ export function createAssetRetrieval(requestText, verifiedIndex, options = {}) {
 export function validateAssetRetrieval(requestText, input) {
   const query = request(requestText), value = snapshot(input);
   exact(value, ['assetRetrievalVersion', 'library', 'policy', 'candidates'], [], '$');
-  if (value.assetRetrievalVersion !== '0.1') fail('VERSION', '$.assetRetrievalVersion', 'only retrieval 0.1 is supported');
+  if (!['0.1','0.2'].includes(value.assetRetrievalVersion)) fail('VERSION', '$.assetRetrievalVersion', 'only retrieval 0.1/0.2 is supported');
+  const images = value.assetRetrievalVersion === '0.2';
   library(value.library);
   exact(value.policy, ['algorithm', 'latestOnly', 'limitPerSlot', 'style'], [], '$.policy');
   if (value.policy.algorithm !== 'lexical-v1' || value.policy.latestOnly !== true || value.policy.limitPerSlot !== 16) {
     fail('POLICY', '$.policy', 'only fixed lexical-v1 latest-only retrieval with 16 results per slot is supported');
   }
   styleFilter(value.policy.style, '$.policy.style');
-  if (!Array.isArray(value.candidates) || value.candidates.length > 32) fail('CANDIDATES', '$.candidates', 'expected at most 32 candidates');
+  if (!Array.isArray(value.candidates) || value.candidates.length > (images ? 48 : 32)) fail('CANDIDATES', '$.candidates', 'candidate count exceeds per-slot limits');
   const keys = new Set(), counts = new Map();
   for (const [index, candidate] of value.candidates.entries()) {
     const path = `$.candidates[${index}]`;
     exact(candidate, ['slot', 'score', 'matchedTerms', 'asset'], [], path);
     portableAsset(candidate.asset, `${path}.asset`);
-    if (!['row-icon', 'panel-surface'].includes(candidate.slot) || slotFor(candidate.asset) !== candidate.slot) fail('SLOT', `${path}.slot`, 'asset is not eligible for this slot');
-    if (keys.has(candidate.asset.key)) fail('DUPLICATE', path, 'candidate asset key is duplicated');
-    keys.add(candidate.asset.key);
+    if (!(images && candidate.slot === 'content-image') && (!['row-icon', 'panel-surface'].includes(candidate.slot) || slotFor(candidate.asset) !== candidate.slot)) fail('SLOT', `${path}.slot`, 'asset is not eligible for this slot');
+    const key = images ? candidate.slot + ':' + candidate.asset.key : candidate.asset.key;
+    if (keys.has(key)) fail('DUPLICATE', path, 'candidate asset key is duplicated within a slot');
+    keys.add(key);
     counts.set(candidate.slot, (counts.get(candidate.slot) ?? 0) + 1);
     if (counts.get(candidate.slot) > 16) fail('CANDIDATES', '$.candidates', 'at most 16 candidates per slot');
     if (!Number.isSafeInteger(candidate.score) || candidate.score < 1) fail('SCORE', `${path}.score`, 'positive integer score required');
@@ -244,7 +249,12 @@ export function validateAssetRetrieval(requestText, input) {
       fail('TERMS', `${path}.matchedTerms`, 'expected a bounded list of matching normalized terms');
     }
   }
-  const expected = rank(query, value.candidates.map(candidate => candidate.asset), value.policy.style);
+  const assets = new Map();
+  for (const candidate of value.candidates) {
+    if (assets.has(candidate.asset.key) && !same(assets.get(candidate.asset.key),candidate.asset)) fail('MISMATCH','$.candidates','same asset must have identical facts across slots');
+    assets.set(candidate.asset.key,candidate.asset);
+  }
+  const expected = rank(query, [...assets.values()], value.policy.style, images);
   if (!same(expected, value.candidates)) fail('MISMATCH', '$.candidates', 'embedded candidate scores, terms, latest versions or order do not follow the retrieval policy');
   return value;
 }

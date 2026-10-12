@@ -57,7 +57,7 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
   for (let i = 0; i < bundles.length; i++) {
     const bundle = bundles[i], source = request.sources[i], spec = bundle.spec, ns = source.namespace;
     if (bundle.sha256 !== source.bundleSha256) fail('COMPOSITION_SOURCE_MISMATCH');
-    if (!['0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(spec.panelSpecVersion)) fail('COMPOSITION_SPEC_VERSION');
+    if (!['0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15'].includes(spec.panelSpecVersion)) fail('COMPOSITION_SPEC_VERSION');
     if (spec.tabs) fail('COMPOSITION_NESTED_TABS_UNSUPPORTED');
     if (!equal(bundle.catalog, catalog)) fail('COMPOSITION_CATALOG');
     if (!equal(spec.theme, themeRef)) fail('COMPOSITION_THEME');
@@ -109,7 +109,8 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
       }
     } else if (request.surfaceFrom === ns) fail('COMPOSITION_SURFACE');
   }
-  const wrapping = bundles.some(bundle => ['0.13','0.14'].includes(bundle.spec.panelSpecVersion));
+  const images = bundles.some(bundle=>bundle.spec.panelSpecVersion==='0.15');
+  const wrapping = bundles.some(bundle => ['0.13','0.14','0.15'].includes(bundle.spec.panelSpecVersion));
   const titled = wrapping || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.12');
   const typography = titled || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.11');
   const individual = typography || bundles.some(bundle => bundle.spec.panelSpecVersion === '0.10');
@@ -124,11 +125,12 @@ export async function composePanelBundles(requestInput, bundlesInput, core) {
     state.push({ id: 'navigation', type: 'enum', initial: pages[0].id, options: pages.map(({id,label}) => ({id,label})) });
     current.navigation = pages[0].id;
   }
-  const spec = arrangeIntentSpec({ panelSpecVersion: wrapping ? '0.13' : titled ? '0.12' : typography ? '0.11' : individual ? '0.10' : arranged ? '0.9' : styled ? '0.8' : forms ? '0.7' : modern ? '0.6' : bundles.some(bundle => bundle.spec.panelSpecVersion === '0.5') ? '0.5' : '0.4', id: request.id, title: request.title, theme: themeRef, state, sections,
+  const spec = arrangeIntentSpec({ panelSpecVersion: images ? '0.15' : wrapping ? '0.13' : titled ? '0.12' : typography ? '0.11' : individual ? '0.10' : arranged ? '0.9' : styled ? '0.8' : forms ? '0.7' : modern ? '0.6' : bundles.some(bundle => bundle.spec.panelSpecVersion === '0.5') ? '0.5' : '0.4', id: request.id, title: request.title, theme: themeRef, state, sections,
+    ...(images?{frame:null}:{}),
     ...(arranged ? { actionLayouts } : {}), ...(individual ? { buttonStyles } : {}), ...(typography ? { buttonFonts } : {}), ...(titled ? { titleBar } : {}), ...(wrapping ? {textLayouts} : {}),
     ...(styled ? { appearance } : {}),
     ...(modern ? { tabs: tabbed ? { id: 'navigation', recipe: {id:tabsRecipe.id,version:tabsRecipe.version}, bind:'navigation', event:'panel.navigation', enabled:true, pages } : null } : {}),
-    assets: panelSurface || rowIcons.length ? { library, panelSurface, rowIcons } : null,
+    assets: panelSurface || rowIcons.length || sections.some(section=>section.rows.some(row=>row.kind==='image'&&row.source!==null)) ? { library, panelSurface, rowIcons } : null,
     provenance: { kind: bundles.some(bundle => bundle.spec.provenance.kind === 'agent-authored') ? 'agent-authored'
       : bundles.every(bundle => bundle.spec.provenance.kind === 'programmatic-fixture') ? 'programmatic-fixture' : 'user-authored',
       description: 'Deterministic composition of verified source bundles under an explicit composition request. Source provenance is retained in the composition receipt.',

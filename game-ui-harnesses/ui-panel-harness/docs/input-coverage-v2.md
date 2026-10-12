@@ -10,6 +10,8 @@
 
 完整请求、独立预期和夹具生产器在 `examples/input-coverage-v2/suite.mjs`。测试使用当前 PanelIntent 0.10、CodexEditDraft 0.3、真实上下文摘要与公共校验/编译/工作台接口；不会调用CLI模型。
 
+2026-10-12 补充：同一套 24 个场景现同时复核旧 `modern-refined` 目录和当前默认 `modern-image-slots` 目录，分别使用 PanelIntent 0.10 / 0.11。两目录的独立期望与反例检查保持一致，合计 51 项检查；另有[当前8种内容控件及混合 Tabs 样本](panel-component-coverage.md)的10项检查。此次没有新增真实模型验收。
+
 | ID | 输入情形 | 预期路径 |
 | --- | --- | --- |
 | G01 | 明确纠正默认70为50 | 生成 |
