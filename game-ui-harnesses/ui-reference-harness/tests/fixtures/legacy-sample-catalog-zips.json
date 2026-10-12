@@ -1,0 +1,32 @@
+[
+  {
+    "path": "concept-art/references.zip",
+    "bytes": 25937,
+    "sha256": "ed39181478db234b60743217d745faad2d7b7a2b89c490958411fce96956b954"
+  },
+  {
+    "path": "pixel-cartoon/references.zip",
+    "bytes": 26177,
+    "sha256": "d9b9561a13e0fddb227e92c725d2f648b51910025a00c52d06afaa9cf21bd3ee"
+  },
+  {
+    "path": "anime-cel/references.zip",
+    "bytes": 25794,
+    "sha256": "28317b0c96821a36990f14118f533a40744105ba106a7f8fd320843d9e605ba0"
+  },
+  {
+    "path": "western-cartoon/references.zip",
+    "bytes": 25869,
+    "sha256": "aacf760cfa15711ef52fed697bd030a02fef007ec502d2ab061ef4e368ef8baa"
+  },
+  {
+    "path": "fantasy-handpainted/references.zip",
+    "bytes": 26012,
+    "sha256": "230adef42fe888620cfb2c4e96b6077838d76d70c3cb35a9fd92e91ad37b9f6c"
+  },
+  {
+    "path": "chinese-fantasy/references.zip",
+    "bytes": 26092,
+    "sha256": "fdc40dde29ff976b07841eb256f996956c522cc354f4c2362ed7ea1f0f1cd888"
+  }
+]

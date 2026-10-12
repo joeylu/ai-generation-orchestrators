@@ -19,6 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Verify reference fixture publication boundary
+        run: python -m unittest discover -s .github/repository-tests -p "test_public_boundary.py" -v
       - uses: actions/setup-node@v6
         with:
           node-version: "24"

@@ -8,14 +8,27 @@ import { readSampleCatalog } from '../src/sample-catalog.mjs';
 import { digestJson, jsonBytes, local, readJson, seal, sha256 } from '../src/common.mjs';
 import { CLOSED_SELECT_RUNTIME_SHA256 } from '../src/compiler.mjs';
 import { accepted, secondPanel, setup, syntheticImage } from './helpers.mjs';
+import { materializeLegacyCatalog } from './fixtures/materialize-legacy-catalog.mjs';
 
 async function syntheticCatalog(temp) {
   // Immutable historical, synthetic 0.7.3 deliveries; no bootstrap model call.
-  const output = path.join(temp, 'catalog');
-  fs.cpSync(new URL('./fixtures/legacy-sample-catalog/', import.meta.url), output, { recursive: true });
-  const file = path.join(output, 'catalog.json'), catalog = readJson(file);
-  return { file, catalog, output };
+  return materializeLegacyCatalog(path.join(temp, 'catalog'));
 }
+
+test('historical fixture ZIPs are temporary, byte-identical and still checked for tampering', async t => {
+  const { temp } = await setup(t), { catalog, output } = await syntheticCatalog(temp);
+  for (const entry of catalog.entries) {
+    assert.equal(fs.existsSync(new URL(`./fixtures/legacy-sample-catalog/${entry.id}/references.zip`, import.meta.url)), false);
+    const directory = local(output, entry.id), file = local(directory, 'references.zip');
+    assert.equal(api.validateDelivery(directory).status, 'valid');
+    const original = fs.readFileSync(file), changed = Buffer.from(original);
+    changed[changed.length - 1] ^= 1;
+    fs.writeFileSync(file, changed);
+    assert.throws(() => api.validateDelivery(directory), /DELIVERY_ZIP_MISMATCH/);
+    fs.writeFileSync(file, original);
+  }
+  assert.throws(() => materializeLegacyCatalog(output), /must be fresh/);
+});
 
 test('explicit external sample catalog validates deliveries and freezes style PNGs without approving or dispatching', async t => {
   const { root, temp } = await setup(t), { file, catalog, output } = await syntheticCatalog(temp);
