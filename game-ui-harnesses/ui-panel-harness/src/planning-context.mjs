@@ -1,3 +1,4 @@
+import { CONTENT_KINDS } from './component-capabilities.mjs';
 import { PanelSpecError, snapshotJson } from './spec.mjs';
 import { searchCatalog, validateCatalog } from './catalog.mjs';
 import { canonicalJson, digestJson } from './canonical.mjs';
@@ -70,9 +71,11 @@ export async function createPlanningContext(requestInput, catalogInput, assetRet
 async function buildPlanningContext(requestInput, catalogInput, assetRetrievalInput, retrievalVersion, actionLayouts = false, textWrap = false) {
   const request = validatePanelRequest(requestInput);
   const catalog = validateCatalog(snapshotJson(catalogInput));
+  const supportsFull = ['checkbox-row','radio-row','list-row','dialog-row'].every(kind=>catalog.recipes.some(recipe=>recipe.kind===kind));
+  const supportsImages = catalog.recipes.some(recipe => recipe.kind === 'image-row');
   const supportsForms = catalog.recipes.some(recipe => recipe.kind === 'input-row');
-  const supportsActions = actionLayouts && supportsForms && catalog.themes.some(theme => theme.visualStyle === 'modern-v3');
-  const supportsTextWrap = textWrap && supportsActions && catalog.recipes.some(recipe => recipe.kind === 'text-row');
+  const supportsActions = (actionLayouts || supportsImages) && supportsForms && catalog.themes.some(theme => theme.visualStyle === 'modern-v3');
+  const supportsTextWrap = (textWrap || supportsImages) && supportsActions && catalog.recipes.some(recipe => recipe.kind === 'text-row');
   const supportsTabs = catalog.recipes.some(recipe => recipe.kind === 'tabs');
   const supportsProgress = catalog.recipes.some(recipe => recipe.kind === 'progress-row');
   const supportsLayout = supportsForms || supportsTabs || supportsProgress || catalog.recipes.some(recipe => recipe.kind === 'text-row');
@@ -92,15 +95,16 @@ async function buildPlanningContext(requestInput, catalogInput, assetRetrievalIn
     || compare(left.id, right.id) || compare(left.version, right.version));
   const [requestSha256, catalogSha256] = await Promise.all([digestJson(request), digestJson(catalog)]);
   const payload = {
-    planningContextVersion: supportsTextWrap ? '0.9' : supportsActions ? '0.8' : supportsForms ? '0.7' : supportsTabs ? '0.6' : supportsProgress ? '0.5' : supportsLayout ? '0.4' : supportsControls ? '0.3' : assetRetrieval ? '0.2' : '0.1', request, requestSha256, catalog, catalogSha256, candidates,
+    planningContextVersion: supportsFull ? '0.11' : supportsImages ? '0.10' : supportsTextWrap ? '0.9' : supportsActions ? '0.8' : supportsForms ? '0.7' : supportsTabs ? '0.6' : supportsProgress ? '0.5' : supportsLayout ? '0.4' : supportsControls ? '0.3' : assetRetrieval ? '0.2' : '0.1', request, requestSha256, catalog, catalogSha256, candidates,
     ...(retrievalVersion === '0.2' ? { recipeRetrievalVersion: '0.2' } : {}),
     ...(supportsControls ? { assetRetrieval: assetRetrieval ?? null } : assetRetrieval ? { assetRetrieval } : {}),
     capabilities: {
-      rowKinds: supportsForms ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'] : supportsProgress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : supportsLayout ? ['slider', 'switch', 'select', 'button', 'text'] : supportsControls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'],
+      rowKinds: supportsFull ? CONTENT_KINDS : supportsImages ? ['slider','switch','select','button','text','progress','input','image'] : supportsForms ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'] : supportsProgress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : supportsLayout ? ['slider', 'switch', 'select', 'button', 'text'] : supportsControls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'],
       layout: supportsLayout ? 'flow-containers-v1' : 'fixed-viewport-stacks', target: 'pixi',
       naturalLanguageInterpreter: 'external-agent', semanticReview: 'NOT_RUN',
+      ...(supportsImages ? {images:'static-image-slots-v1'} : {}),
       ...(supportsTextWrap ? { textWrap: 'static-text-wrap-v1' } : {}),
-      ...(supportsControls ? { ...(supportsTabs ? { navigation: 'horizontal-tabs-v1' } : {}), ...(supportsForms ? { forms: 'single-line-inputs-v1' } : {}), ...(supportsActions ? { actionLayouts: 'section-buttons-v1' } : {}), panelSpecVersions: supportsTextWrap ? ['0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.9','0.13'] : supportsActions ? ['0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.9'] : supportsForms ? ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'] : supportsTabs ? ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6'] : supportsProgress ? ['0.1', '0.2', '0.3', '0.4', '0.5'] : supportsLayout ? ['0.1', '0.2', '0.3', '0.4'] : ['0.1', '0.2', '0.3'], actions: supportsForms ? ['emit', 'reset-initial', 'submit'] : ['emit', 'reset-initial'] } : {}),
+      ...(supportsControls ? { ...(supportsTabs ? { navigation: 'horizontal-tabs-v1' } : {}), ...(supportsForms ? { forms: 'single-line-inputs-v1' } : {}), ...(supportsActions ? { actionLayouts: 'section-buttons-v1' } : {}), panelSpecVersions: supportsFull ? ['0.16'] : supportsImages ? ['0.15'] : supportsTextWrap ? ['0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.9','0.13'] : supportsActions ? ['0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.9'] : supportsForms ? ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7'] : supportsTabs ? ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6'] : supportsProgress ? ['0.1', '0.2', '0.3', '0.4', '0.5'] : supportsLayout ? ['0.1', '0.2', '0.3', '0.4'] : ['0.1', '0.2', '0.3'], actions: supportsForms ? ['emit', 'reset-initial', 'submit'] : ['emit', 'reset-initial'] } : {}),
     },
   };
   return { ...payload, sha256: await digestJson(payload) };
@@ -110,12 +114,12 @@ async function buildPlanningContext(requestInput, catalogInput, assetRetrievalIn
 export async function validatePlanningContext(input) {
   const context = snapshotJson(input);
   if (!context || typeof context !== 'object' || Array.isArray(context)) fail('object', '$', 'must be an object');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(context?.planningContextVersion)) fail('context-version', '$.planningContextVersion', 'only planning context 0.1 through 0.9 are supported');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10','0.11'].includes(context?.planningContextVersion)) fail('context-version', '$.planningContextVersion', 'only planning context 0.1 through 0.11 are supported');
   const versionedRetrieval = Object.hasOwn(context, 'recipeRetrievalVersion');
   if (versionedRetrieval && context.recipeRetrievalVersion !== '0.2') fail('retrieval-version', '$.recipeRetrievalVersion', 'only recipe retrieval 0.2 is supported');
   exactObject(context, ['planningContextVersion', 'request', 'requestSha256', 'catalog', 'catalogSha256', 'candidates', 'capabilities', 'sha256', ...(versionedRetrieval ? ['recipeRetrievalVersion'] : []), ...(context.planningContextVersion !== '0.1' ? ['assetRetrieval'] : [])], '$');
   // Old frozen contexts replay their original ranking and digest, never today's aliases.
-  const expected = await buildPlanningContext(context.request, context.catalog, context.assetRetrieval, versionedRetrieval ? '0.2' : '0.1', ['0.8','0.9'].includes(context.planningContextVersion), context.planningContextVersion === '0.9');
+  const expected = await buildPlanningContext(context.request, context.catalog, context.assetRetrieval, versionedRetrieval ? '0.2' : '0.1', ['0.8','0.9','0.10','0.11'].includes(context.planningContextVersion), ['0.9','0.10','0.11'].includes(context.planningContextVersion));
   if (canonicalJson(context) !== canonicalJson(expected)) fail('context-mismatch', '$', 'PLANNING_CONTEXT_MISMATCH: generated fields do not match the request and catalog');
   return expected;
 }

@@ -1,7 +1,9 @@
+import { CONTENT_KINDS, CHOICE_KINDS, choiceLimit } from './component-capabilities.mjs';
 /** Typed natural-language intent. Programs own geometry/bindings; Agents own explicit business facts. */
 import { snapshotJson, validatePanelSpec } from './spec.mjs';
 import { validatePlanningContext } from './planning-context.mjs';
 import { validatePanelProposal, PanelPlanningError } from './proposal.mjs';
+import { labelBoundaryQuestions } from './input-interpretation.mjs';
 import { measureFlowLayout, measureTabbedLayout } from './flow-layout.mjs';
 import { createPresentationPolicy, sectionPurpose } from './panel-presentation.mjs';
 import { sectionHeadingVisible } from './section-headings.mjs';
@@ -13,9 +15,10 @@ import { literalBodyCopies, nativeLiteralBodyMismatch } from './literal-body-tex
 import { checkWrappedText, hasTextWrap } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
 
-const kinds = ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'];
+const presentationImageWidth=(label,size)=>Math.max(160,conservativeTextWidth(label,size)+24);
+const kinds = CONTENT_KINDS;
 const common = ['id', 'kind', 'label', 'recipeKey', 'sourceQuote', 'icon'];
-const rowKeys = { slider: [...common, 'enabled', 'min', 'max', 'step', 'initial', 'prefix', 'suffix'],
+const rowKeys = { checkbox:[...common,'enabled','initial'], radio:[...common,'enabled','options','initialLabel'], list:[...common,'enabled','options','initialLabel','itemHeight','visibleItems'], dialog:[...common,'enabled','initial','title','text','closeLabel','modal','dialogWidth','dialogHeight'], image:[...common,'source','width','height','fit'], slider: [...common, 'enabled', 'min', 'max', 'step', 'initial', 'prefix', 'suffix'],
   switch: [...common, 'enabled', 'initial'], select: [...common, 'enabled', 'options', 'initialLabel'],
   button: [...common, 'enabled', 'action', 'resetRows'], text: [...common, 'text'],
   progress: [...common, 'max', 'initial', 'display', 'fractionDigits'],
@@ -34,7 +37,7 @@ const nullable = schema => ({ anyOf: [{ type: 'null' }, schema] });
 
 /** Direct native JSON schema: no encoded JSON string, parallel evidence lists or invented readiness. */
 export function buildPanelIntentResponseSchema(context) {
-  const forms = ['0.7','0.8','0.9'].includes(context.planningContextVersion);
+  const forms = ['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion);
   const programIds = forms;
   const rowIds = Array.from({ length: 128 }, (_, i) => `row${i}`), sectionIds = Array.from({ length: 32 }, (_, i) => `section${i}`);
   const recipes = kind => context.catalog.recipes.filter(recipe => recipe.kind === `${kind}-row`).map(refKey);
@@ -45,13 +48,16 @@ export function buildPanelIntentResponseSchema(context) {
   const quote = forms ? { $ref: '#/$defs/exactRequestQuote' } : str;
   const rows = kinds.filter(kind => recipes(kind).length).map(kind => objectSchema({ kind: { type: 'string', enum: [kind] },
     ...(programIds ? {} : { id: { type: 'string', enum: rowIds } }), label: str, recipeKey: { type: 'string', enum: recipes(kind) }, sourceQuote: quote,
-    icon: asset('row-icon'), ...(kind === 'text' ? { text: str } : kind === 'progress' ? {} : { enabled: bool }),
+    icon: asset('row-icon'), ...(kind === 'text' ? { text: str } : ['progress','image'].includes(kind) ? {} : { enabled: bool }),
+    ...(kind === 'image' ? {source:asset('content-image'),width:{anyOf:[{type:'string',enum:['fill']},{type:'integer',minimum:16,maximum:2048}]},height:{type:'integer',minimum:16,maximum:2048},fit:{type:'string',enum:['contain','cover','stretch']}} : {}),
     ...(kind === 'progress' ? { max: num, initial: num, display: { type: 'string', enum: ['percent', 'value'] }, fractionDigits: { type: 'integer', minimum: 0, maximum: 6 } } : {}),
     ...(kind === 'slider' ? { min: num, max: num, step: num, initial: num, prefix: str, suffix: str } : {}),
     ...(kind === 'input' ? { initial: str, placeholder: str, inputType: { type: 'string', enum: ['text', 'password'] }, readOnly: bool,
       maxLength: { type: 'integer', minimum: 1, maximum: 512 }, required: bool, minLength: { type: 'integer', minimum: 0, maximum: 512 } } : {}),
-    ...(kind === 'switch' ? { initial: bool } : {}),
-    ...(kind === 'select' ? { options: arraySchema(objectSchema({ label: str, initial: bool }), 1, 8) } : {}),
+    ...(kind === 'dialog' ? {initial:bool,title:str,text:str,closeLabel:str,modal:bool,dialogWidth:{type:'integer',minimum:240,maximum:2048},dialogHeight:{type:'integer',minimum:160,maximum:2048}} : {}),
+    ...(kind === 'list' ? {itemHeight:{type:'integer',minimum:32,maximum:96},visibleItems:{type:'integer',minimum:1,maximum:12}} : {}),
+    ...(['switch','checkbox'].includes(kind) ? { initial: bool } : {}),
+    ...(CHOICE_KINDS.includes(kind) ? { options: arraySchema(objectSchema({ label: str, initial: bool }), 1, choiceLimit(kind)) } : {}),
     ...(kind === 'button' ? { action: { type: 'string', enum: forms ? ['emit', 'reset-initial', 'submit'] : ['emit', 'reset-initial'] }, resetRows: arraySchema(programIds ? { type: 'integer', minimum: 0, maximum: 127 } : { type: 'string', enum: rowIds }, 0, 128),
       ...(forms ? { submitRows: arraySchema({ type: 'integer', minimum: 0, maximum: 127 }, 0, 128) } : {}) } : {}) }));
   const dimensions = nullable({ type: 'integer' });
@@ -77,7 +83,7 @@ export function buildPanelIntentResponseSchema(context) {
  * The older constructor remains available for saved 0.7 schema verification. */
 export function buildNativePanelIntentResponseSchema(context) {
   const schema = buildPanelIntentResponseSchema(context);
-  if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) return schema;
+  if (!['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)) return schema;
   const replace = value => {
     if (Array.isArray(value)) return value.map(replace);
     if (!value || typeof value !== 'object') return value;
@@ -88,15 +94,21 @@ export function buildNativePanelIntentResponseSchema(context) {
     ]));
   };
   const current = replace(schema);
-  current.properties.panelIntentVersion.enum = [context.planningContextVersion === '0.9' ? '0.10' : context.planningContextVersion === '0.8' ? '0.9' : '0.8'];
-  if (['0.8','0.9'].includes(context.planningContextVersion)) {
+  const buttonSchema=current.$defs.body.anyOf[0].properties.rows.items.anyOf.find(row=>row.properties.kind.enum[0]==='button');
+  if(buttonSchema){
+    buttonSchema.properties.action.description='emit notifies the host (including save/apply of settings). submit validates and submits Input string fields only; never use it for switches, sliders or selects. reset-initial resets existing state rows.';
+    buttonSchema.properties.resetRows.description='Unique global depth-first row indices of existing stateful controls; never text/image/button rows. Nonempty only for reset-initial.';
+    buttonSchema.properties.submitRows.description='Unique global depth-first row indices of Input rows only, including forward references. Nonempty only for submit. For a settings save/apply button use emit with both lists empty.';
+  }
+  current.properties.panelIntentVersion.enum = [context.planningContextVersion === '0.11' ? '0.12' : context.planningContextVersion === '0.10' ? '0.11' : ['0.9','0.10','0.11'].includes(context.planningContextVersion) ? '0.10' : context.planningContextVersion === '0.8' ? '0.9' : '0.8'];
+  if (['0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)) {
     const section = current.$defs.body.anyOf[0]; section.required.push('actionLayout');
     section.properties.actionLayout = nullable(objectSchema({direction:{type:'string',enum:['row','column']},align:{type:'string',enum:['start','center','end']},gap:{type:'integer',minimum:0,maximum:128},buttonWidth:{type:'integer',minimum:44,maximum:512},buttonHeight:{type:'integer',minimum:44,maximum:512},shape:{type:'string',enum:['default','circle']},sourceRef:{$ref:'#/$defs/requestSourceRef'}}));
   }
   current.$defs.requestSourceRef = { type: 'string', enum: ['request'] };
   current.properties.panel.anyOf[1].properties.title.description = 'The overall panel name requested by the user, distinct from a section heading and a read-only field value. For "任务详情先展示任务名称：森林巡逻", the panel name is "任务详情" and "森林巡逻" is the task-name field content. A request to retain the panel name refers to the panel, not its first named field. Preserve explicit later title corrections or explicit requests to use a field value as the title.';
   current.$defs.body.anyOf[0].properties.title.description = 'A section heading inside the panel. Setting this heading does not replace the overall panel.title.';
-  if (['0.8','0.9'].includes(context.planningContextVersion)) {
+  if (['0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)) {
     // Spec requires a semantic, bounded section name. State this at dispatch,
     // rather than allowing an empty native string that can only fail later.
     Object.assign(current.$defs.body.anyOf[0].properties.title, { minLength: 1, maxLength: 120, pattern: '\\S',
@@ -104,17 +116,17 @@ export function buildNativePanelIntentResponseSchema(context) {
   }
   const textRow = current.$defs.body.anyOf[0].properties.rows.items.anyOf.find(row => row.properties.kind.enum[0] === 'text');
   if (textRow) {
-    if (context.planningContextVersion === '0.9') {
+    if (['0.9','0.10','0.11'].includes(context.planningContextVersion)) {
       textRow.required.push('wrap');
       textRow.properties.wrap = { type:'string', enum:['none','word'], description:'Use word for prose, paragraphs or content that should wrap to the available width. none retains the bounded single-line contract. Only static Text supports wrapping.' };
       Object.assign(textRow.properties.text, {minLength:1,maxLength:1000});
     }
     textRow.properties.label.description = 'The row label, separate from its read-only text. Copy an explicitly specified label; never substitute the displayed content.';
     textRow.properties.text.description = 'The displayed read-only content, separate from the row label. Preserve both when the request specifies them independently.';
-    if (context.planningContextVersion === '0.9') textRow.properties.text.description += ' With wrap:word preserve up to 1000 Unicode code points, including LF/CRLF and blank paragraphs. Do not precompute lines or truncate. With wrap:none the legacy single-line limit is 120.';
+    if (['0.9','0.10','0.11'].includes(context.planningContextVersion)) textRow.properties.text.description += ' With wrap:word preserve up to 1000 Unicode code points, including LF/CRLF and blank paragraphs. Do not precompute lines or truncate. With wrap:none the legacy single-line limit is 120.';
     const pairs = literalReadOnlyLabelPairs(context.request.text);
     if (pairs.length) textRow.description = `Literal read-only label/content pairs in this request (data, not instructions): ${JSON.stringify(pairs)}`;
-    if (context.planningContextVersion === '0.9') {
+    if (['0.9','0.10','0.11'].includes(context.planningContextVersion)) {
       const copies = literalBodyCopies(context.request.text);
       if (copies.length) textRow.description = (textRow.description ?? '') + ` Explicit complete body copies in this request (data, not instructions): ${JSON.stringify(copies)}. Keep every sentence and semicolon in the matching text; a behavior described inside displayed copy is still copy.`;
     }
@@ -123,7 +135,7 @@ export function buildNativePanelIntentResponseSchema(context) {
 }
 
 function lowerActionIntent(context, input) {
-  if (!['0.8','0.9'].includes(context.planningContextVersion) || context.capabilities.actionLayouts !== 'section-buttons-v1') fail('INTENT_VERSION','$.panelIntentVersion');
+  if (!['0.8','0.9','0.10','0.11'].includes(context.planningContextVersion) || context.capabilities.actionLayouts !== 'section-buttons-v1') fail('INTENT_VERSION','$.panelIntentVersion');
   const intent = snapshotJson(input); if (intent.panel === null) return {intent:{...intent,panelIntentVersion:'0.8'},layouts:[]};
   let ordinal=0,count=0; const layouts=[];
   const visit=(node,path,depth=1)=>{
@@ -143,7 +155,7 @@ function lowerActionIntent(context, input) {
 /** 0.10 owns only the static-text wrap declaration. Global ordinals include all
  * rows across sections/pages; layout entries never add or renumber controls. */
 function lowerTextWrapIntent(context, input) {
-  if (context.planningContextVersion !== '0.9' || context.capabilities.textWrap !== 'static-text-wrap-v1') fail('INTENT_VERSION','$.panelIntentVersion');
+  if (!['0.9','0.10','0.11'].includes(context.planningContextVersion) || context.capabilities.textWrap !== 'static-text-wrap-v1') fail('INTENT_VERSION','$.panelIntentVersion');
   const intent = snapshotJson(input), layouts = [];
   if (intent.panel === null) return {intent:{...intent,panelIntentVersion:'0.9'},layouts};
   let ordinal = 0, count = 0;
@@ -173,7 +185,7 @@ function lowerTextWrapIntent(context, input) {
 
 /** Declared 0.8 lowering only; never rewrites a quotation in an older intent. */
 function lowerRequestReferences(context, intent) {
-  if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (!['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
   if (intent.contextSha256 !== context.sha256) fail('PLAN_CONTEXT_MISMATCH', '$.contextSha256');
   if (intent.panel === null) return { ...intent, panelIntentVersion: '0.7' };
   exact(intent.panel, ['id', 'title', 'themeKey', 'panelSurface', 'layout', 'body'], '$.panel');
@@ -186,7 +198,7 @@ function lowerRequestReferences(context, intent) {
       return { ...node, rows: node.rows.map((row, i) => {
         const p = `${path}.rows[${i}]`;
         if (!kinds.includes(row?.kind)) fail('row-kind', `${p}.kind`);
-        const keys = row.kind === 'select' ? [...common, 'enabled', 'options'] : rowKeys[row.kind];
+        const keys = CHOICE_KINDS.includes(row.kind) ? [...rowKeys[row.kind].filter(key=>key!=='initialLabel')] : rowKeys[row.kind];
         exact(row, [...keys.filter(key => key !== 'id').map(key => key === 'sourceQuote' ? 'sourceRef' : key),
           ...(row.kind === 'button' ? ['submitRows'] : [])], p);
         const { sourceRef, ...rest } = row;
@@ -215,8 +227,10 @@ function lowerRequestReferences(context, intent) {
 /** Run after materialization at the current native accepting boundary. Accepted
  * older 0.7 responses still need exact full quotes; no failed quote is repaired. */
 export function validateNativePanelIntentEvidence(context, intent) {
-  if (intent.panelIntentVersion === '0.10' && context.planningContextVersion !== '0.9') fail('INTENT_VERSION', '$.panelIntentVersion');
-  if (context.planningContextVersion === '0.9') {
+  if(context.planningContextVersion==='0.11'){if(intent.panelIntentVersion!=='0.12')fail('INTENT_VERSION','$.panelIntentVersion');intent={...intent,panelIntentVersion:'0.10'};}
+  if(context.planningContextVersion==='0.10'){if(intent.panelIntentVersion!=='0.11')fail('INTENT_VERSION','$.panelIntentVersion');intent={...intent,panelIntentVersion:'0.10'};}
+  if (intent.panelIntentVersion === '0.10' && !['0.9','0.10','0.11'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (['0.9','0.10','0.11'].includes(context.planningContextVersion)) {
     if (intent.panelIntentVersion !== '0.10') fail('INTENT_VERSION', '$.panelIntentVersion');
     validateNativePanelIntentQuotes(context, lowerRequestReferences(context, lowerActionIntent(context, lowerTextWrapIntent(context,intent).intent).intent));
   } else
@@ -227,10 +241,10 @@ export function validateNativePanelIntentEvidence(context, intent) {
   } else if (intent.panelIntentVersion === '0.8') {
     validateNativePanelIntentQuotes(context, lowerRequestReferences(context, intent));
   } else validateNativePanelIntentQuotes(context, intent);
-  if (['0.7','0.8','0.9'].includes(context.planningContextVersion) && intent.panel !== null) {
+  if (['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion) && intent.panel !== null) {
     const path = nativeReadOnlyLabelMismatch(context.request.text, intent.panel.body);
     if (path) fail('INTENT_TEXT_LABEL', path);
-    if (context.planningContextVersion === '0.9') {
+    if (['0.9','0.10','0.11'].includes(context.planningContextVersion)) {
       const bodyPath = nativeLiteralBodyMismatch(context.request.text, intent.panel.body);
       if (bodyPath) fail('INTENT_TEXT_CONTENT',bodyPath);
     }
@@ -240,7 +254,7 @@ export function validateNativePanelIntentEvidence(context, intent) {
 /** Current CLI-only evidence contract. Run after public intent shape validation;
  * saved/imported intents keep their valid unique-short-quote compatibility. */
 export function validateNativePanelIntentQuotes(context, intent) {
-  if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) return;
+  if (!['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)) return;
   if (intent.panelIntentVersion !== '0.7') fail('INTENT_VERSION', '$.panelIntentVersion');
   if (intent.panel === null) return;
   const check = (quote, path) => { if (quote !== context.request.text) fail('INTENT_NATIVE_QUOTE', path); };
@@ -260,6 +274,7 @@ function lowerOrdinalIntent(intent) {
   if (intent.panel === null) return { ...intent, panelIntentVersion: '0.6' };
   exact(intent.panel, ['id', 'title', 'themeKey', 'panelSurface', 'layout', 'body'], '$.panel');
   let sections = 0, rows = 0, nodes = 0;
+  const actionTargets=[];
   const references = (values, path) => {
     bounded(values, 0, 128, path);
     return values.map((value, i) => {
@@ -276,9 +291,10 @@ function lowerOrdinalIntent(intent) {
       return { ...node, id: `section${sections++}`, rows: node.rows.map((row, i) => {
         const p = `${path}.rows[${i}]`;
         if (!kinds.includes(row?.kind)) fail('row-kind', `${p}.kind`);
-        const keys = row.kind === 'select' ? [...common, 'enabled', 'options'] : rowKeys[row.kind];
+        const keys = CHOICE_KINDS.includes(row.kind) ? rowKeys[row.kind].filter(key=>key!=='initialLabel') : rowKeys[row.kind];
         exact(row, [...keys.filter(key => key !== 'id'), ...(row.kind === 'button' ? ['submitRows'] : [])], p);
         if (rows >= 128) fail('INTENT_COUNT', p);
+        actionTargets.push({row,path:p});
         return { ...row, id: `row${rows++}`, ...(row.kind === 'button' ? {
           resetRows: references(row.resetRows, `${p}.resetRows`), submitRows: references(row.submitRows, `${p}.submitRows`),
         } : {}) };
@@ -300,6 +316,19 @@ function lowerOrdinalIntent(intent) {
       return { ...page, id: `page${i}`, body: visit(page.body, `${path}.body`) };
     }) };
   } else body = visit(root, '$.panel.body');
+  for(const {row,path} of actionTargets){
+    if(row.kind!=='button')continue;
+    for(const key of ['resetRows','submitRows']){
+      const seen=new Set();
+      row[key].forEach((index,offset)=>{
+        const targetPath=`${path}.${key}[${offset}]`,target=actionTargets[index]?.row;
+        if(seen.has(index))fail('INTENT_ACTION_DUPLICATE',targetPath);seen.add(index);
+        if(!target)fail('INTENT_ACTION_TARGET_MISSING',targetPath);
+        if(key==='submitRows'&&target.kind!=='input')fail('INTENT_SUBMIT_REQUIRES_INPUT',targetPath);
+        if(key==='resetRows'&&['button','text','image'].includes(target.kind))fail('INTENT_RESET_REQUIRES_STATE',targetPath);
+      });
+    }
+  }
   return { ...intent, panelIntentVersion: '0.6', panel: { ...intent.panel, body } };
 }
 
@@ -346,17 +375,18 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
   const adaptive = theme.visualStyle === 'modern-v3';
   const focused = theme.presentationStyle === 'focused-v1', minimal = ['minimal-v1','minimal-v2','crafted-v1','grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle);
   const purposes = new Map(spec.sections.flatMap(section => section.rows.map(row => [row.id, sectionPurpose(section)])));
-  const labelWidth = Math.max(112, ...rows.filter(row => row.kind !== 'button' && !(adaptive && row.kind === 'input' && purposes.get(row.id) === 'form')).map(row => conservativeTextWidth(row.label, size) + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0)));
+  const labelWidth = Math.max(112, ...rows.filter(row => !['button','image'].includes(row.kind) && !(adaptive && row.kind === 'input' && purposes.get(row.id) === 'form')).map(row => conservativeTextWidth(row.label, size) + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0)));
   const fields = new Map(spec.state.map(field => [field.id, field]));
   const rowWidths = rows.map(row => {
+    if(row.kind==='image')return Math.max(280,(row.width==='fill'?presentationImageWidth(row.label,size):row.width)+24);
     if (focused && row.kind === 'text' && ['form','dialog'].includes(purposes.get(row.id))) return Math.max(280, conservativeTextWidth(row.label,size)+24,hasTextWrap(spec,row.id)?0:conservativeTextWidth(row.text,size)+24);
     if (focused && row.kind === 'button') return 24 + (spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 40 : 0)
       + Math.max(spec.buttonStyles?.find(entry=>entry.rowId===row.id)?.style.width ?? 0,120,conservativeTextWidth(row.buttonLabel,buttonFontSize(spec,row.id,size))+32);
     if (hasTextWrap(spec,row.id)) return Math.max(280, conservativeTextWidth(row.label,size) + 24);
     const content = row.kind === 'slider' ? 96 + Math.max(64, size * 4) + 12
       : row.kind === 'progress' ? 96 + progressValueWidth(row, fields.get(row.bind), size) + 12
-      : row.kind === 'select' ? Math.max(120, ...fields.get(row.bind).options.map(option => conservativeTextWidth(option.label, size) + 56))
-      : row.kind === 'text' ? conservativeTextWidth(row.text, size) + 8 : row.kind === 'input' ? Math.max(200, ...[row.validation.requiredMessage, row.validation.minLengthMessage].map(message => conservativeTextWidth(message, size) + 8)) : row.kind === 'switch' ? 76 : Math.max(120, conservativeTextWidth(row.buttonLabel, size) + 32);
+      : CHOICE_KINDS.includes(row.kind) ? Math.max(180, ...fields.get(row.bind).options.map(option => conservativeTextWidth(option.label, size) + 56))
+      : row.kind === 'text' ? conservativeTextWidth(row.text, size) + 8 : row.kind === 'input' ? Math.max(200, ...[row.validation.requiredMessage, row.validation.minLengthMessage].map(message => conservativeTextWidth(message, size) + 8)) : ['switch','checkbox'].includes(row.kind) ? 76 : row.kind==='dialog' ? Math.max(160,conservativeTextWidth(row.label,size)+32) : Math.max(120, conservativeTextWidth(row.buttonLabel, size) + 32);
     if (adaptive && row.kind === 'input' && purposes.get(row.id) === 'form') return Math.max(280, content + 24, conservativeTextWidth(row.label, size) + 24 + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0));
     return (row.kind === 'button' ? 24 + (adaptive && spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0) : labelWidth + 36) + content;
   });
@@ -366,7 +396,7 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
     const actionWidth = actions ? actions.direction === 'row' ? section.rows.length * actions.buttonWidth + (section.rows.length - 1) * actions.gap : actions.buttonWidth : 0;
     return [section.id, Math.max(adaptive ? 280 : 320, actionWidth, ...section.rows.map(row => widths.get(row.id)), adaptive && sectionHeadingVisible(spec, section, theme.headingStyle) ? conservativeTextWidth(section.title, theme.tokens.headingSize) : 0)];
   }));
-  const minWidth = Math.max(...sectionWidths.values());
+  const minWidth = Math.max(...sectionWidths.values(),...rows.filter(row=>row.kind==='dialog').map(row=>row.dialogWidth));
   let counter = 0, count = 0;
   const convert = (node, depth = 1) => {
     if (++count > 96 || depth > 8) fail('layout-structure', '$.panel.layout.body');
@@ -386,8 +416,14 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
   const compact = adaptive && spec.sections.every(section => sectionPurpose(section) !== 'settings');
   const width = settings.width ?? Math.max(polishedMenu ? 428 : compact ? focused && spec.sections.some(section=>sectionPurpose(section)==='dialog') ? 480 : minimal ? 448 : 420 : minimal ? 560 : 640, requiredWidth(body) + (polishedMenu ? 56 : minimal ? 64 : adaptive ? 48 : 64), tabWidth + 48, adaptive ? conservativeTextWidth(spec.title, tokens.titleSize) + 48 : 0);
   const maxHeight = settings.maxHeight ?? 560;
-  const popup = Math.max(0, ...spec.state.filter(field => field.type === 'enum' && field.id !== spec.tabs?.bind).map(field => field.options.length * 40 + 2));
-  spec.canvas = { width: settings.canvasWidth ?? Math.min(4096, width + 64), height: settings.canvasHeight ?? Math.max(640, maxHeight + popup * 2 + 96) };
+  // Only Select opens a popup. RadioGroup and List keep their options in the row/viewport.
+  // Retain legacy sizing for prior intents; saved specs already contain their exact canvas.
+  const popupFields = spec.panelSpecVersion === '0.16'
+    ? rows.filter(row=>row.kind==='select').map(row=>fields.get(row.bind))
+    : spec.state.filter(field=>field.type==='enum'&&field.id!==spec.tabs?.bind);
+  const popup = Math.max(0, ...popupFields.map(field => field.options.length * 40 + 2));
+  const dialogClearance = rows.filter(row=>row.kind==='dialog').map(row=>row.dialogHeight+64);
+  spec.canvas = { width: settings.canvasWidth ?? Math.min(4096, width + 64), height: settings.canvasHeight ?? Math.max(640, maxHeight + popup * 2 + 96, ...dialogClearance) };
   spec.layout = { width, padding: polishedMenu ? 28 : minimal ? 32 : 24, gap: minimal ? 16 : 12, sectionGap: 20, labelWidth, rowHeight: Math.max(!adaptive && rows.some(row => row.kind === 'input') ? 80 : 56, Math.ceil(size * 1.3) + (!adaptive && rows.some(row => row.kind === 'input') ? 48 : 16)),
     titleHeight: Math.max(polishedMenu ? 34 : adaptive ? 40 : 48, Math.ceil(tokens.titleSize * 1.3)), sectionTitleHeight: Math.max(32, Math.ceil(tokens.headingSize * 1.3)),
     maxHeight, overflow: settings.overflow === 'auto' ? 'scroll' : settings.overflow, body };
@@ -396,7 +432,7 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
   const measure = checked.tabs ? measureTabbedLayout : measureFlowLayout;
   const measured = measure(checked, adaptive ? createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle, catalog) : undefined);
   if (adaptive && settings.canvasHeight === null) {
-    checked.canvas.height = Math.ceil(measured.panelHeight + 64 + popup * 2);
+    checked.canvas.height = Math.max(Math.ceil(measured.panelHeight + 64 + popup * 2),...rows.filter(row=>row.kind==='dialog').map(row=>row.dialogHeight+64));
     checked = validatePanelSpec(checked);
     measure(checked, createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle, catalog));
   }
@@ -409,19 +445,21 @@ export async function materializePanelIntent(contextInput, input) {
 async function materializeIntent(contextInput, input, progressTransport, navigation = null, formsTransport = false, generatedLayouts = null, generatedTextLayouts = null) {
   const context = await validatePlanningContext(contextInput), intent = snapshotJson(input);
   exact(intent, ['panelIntentVersion', 'contextSha256', 'panel', 'unresolved'], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10'].includes(intent.panelIntentVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12'].includes(intent.panelIntentVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (intent.panelIntentVersion === '0.12') { if(context.planningContextVersion!=='0.11')fail('INTENT_VERSION','$.panelIntentVersion'); return materializeIntent(context,{...intent,panelIntentVersion:'0.10'},progressTransport,navigation,formsTransport,generatedLayouts,generatedTextLayouts); }
+  if (intent.panelIntentVersion === '0.11') { if(context.planningContextVersion!=='0.10')fail('INTENT_VERSION','$.panelIntentVersion'); return materializeIntent(context,{...intent,panelIntentVersion:'0.10'},progressTransport,navigation,formsTransport,generatedLayouts,generatedTextLayouts); }
   if (intent.panelIntentVersion === '0.10') { const next = lowerTextWrapIntent(context,intent); return materializeIntent(context,next.intent,true,navigation,true,generatedLayouts,next.layouts); }
   if (intent.panelIntentVersion === '0.9') { const next = lowerActionIntent(context, intent); return materializeIntent(context, next.intent, true, navigation, true, next.layouts, generatedTextLayouts); }
   if (intent.panelIntentVersion === '0.8') return materializeIntent(context, lowerRequestReferences(context, intent), true, navigation, true, generatedLayouts, generatedTextLayouts);
   if (intent.panelIntentVersion === '0.7') {
-    if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+    if (!['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
     return materializeIntent(context, lowerOrdinalIntent(intent), true, navigation, true, generatedLayouts, generatedTextLayouts);
   }
   if (intent.panelIntentVersion === '0.6') {
-    if (!['0.7','0.8','0.9'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+    if (!['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
     return materializeIntent(context, { ...intent, panelIntentVersion: '0.5' }, true, navigation, true, generatedLayouts, generatedTextLayouts);
   }
-  if (intent.panelIntentVersion === '0.5' && !['0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
+  if (intent.panelIntentVersion === '0.5' && !['0.6', '0.7', '0.8', '0.9','0.10','0.11'].includes(context.planningContextVersion)) fail('INTENT_VERSION', '$.panelIntentVersion');
   if (intent.panelIntentVersion === '0.4' && context.planningContextVersion !== '0.5') fail('INTENT_VERSION', '$.panelIntentVersion');
   progressTransport ||= ['0.4', '0.5'].includes(intent.panelIntentVersion);
   if (intent.contextSha256 !== context.sha256) fail('PLAN_CONTEXT_MISMATCH', '$.contextSha256');
@@ -473,9 +511,9 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
         const { kind, ...section } = node;
         bounded(section.rows, 1, 128, '$.panel.body.rows');
         section.rows = section.rows.map(row => {
-          if (row?.kind !== 'select') return row;
-          exact(row, [...common, 'enabled', 'options'], '$.panel.body.rows');
-          bounded(row.options, 1, 8, '$.panel.body.rows.options');
+          if (!CHOICE_KINDS.includes(row?.kind)) return row;
+          exact(row, rowKeys[row.kind].filter(key=>key!=='initialLabel'), '$.panel.body.rows');
+          bounded(row.options, 1, choiceLimit(row.kind), '$.panel.body.rows.options');
           for (const option of row.options) { exact(option, ['label', 'initial'], '$.panel.body.rows.options');
             if (typeof option.initial !== 'boolean') fail('boolean', '$.panel.body.rows.options.initial'); }
           const selected = row.options.filter(option => option.initial);
@@ -494,7 +532,7 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
     // Spec references are generated from embedded leaves, never authored in a parallel collection.
     return materializeIntent(context, { ...intent, panelIntentVersion: '0.1', panel: { ...rest, sections, layout: { ...panel.layout, body } } }, progressTransport, navigation, formsTransport, generatedLayouts, generatedTextLayouts);
   }
-  if (!['0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.panel');
+  if (!['0.4', '0.5', '0.6', '0.7', '0.8', '0.9','0.10','0.11'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.panel');
   const panel = intent.panel;
   exact(panel, ['id', 'title', 'sourceQuote', 'themeKey', 'panelSurface', 'layout', 'sections'], '$.panel');
   identity(panel.id, '$.panel.id'); display(panel.title, '$.panel.title');
@@ -510,6 +548,8 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
     const rows = section.rows.map((inputRow, j) => {
       const p = `${path}.rows[${j}]`, r = inputRow; if (!kinds.includes(r?.kind)) fail('row-kind', `${p}.kind`);
       exact(r, [...rowKeys[r.kind], ...(formsTransport && r.kind === 'button' ? ['submitRows'] : [])], p); identity(r.id, `${p}.id`); display(r.label, `${p}.label`);
+      if (r.kind === 'image' && !['0.10','0.11'].includes(context.planningContextVersion)) fail('INTENT_VERSION',`${p}.kind`);
+      if (['checkbox','radio','list','dialog'].includes(r.kind) && context.planningContextVersion!=='0.11') fail('INTENT_VERSION',`${p}.kind`);
       if (r.kind === 'input' && !formsTransport) fail('INTENT_VERSION', `${p}.kind`);
       if (rowsById.has(r.id) || rowsById.size >= 128) fail('duplicate', `${p}.id`);
       const recipe = context.catalog.recipes.find(recipe => recipe.kind === `${r.kind}-row` && refKey(recipe) === r.recipeKey);
@@ -517,7 +557,10 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
       const source = basis(r.sourceQuote, `${p}.sourceQuote`), row = { id: r.id, kind: r.kind, recipe: { id: recipe.id, version: recipe.version }, label: r.kind === 'button' ? '' : r.label };
       preserveLiteralQualifier(context.request.text, r, `${p}.label`);
       decisions.push({ target: `row:${r.id}`, basis: source });
-      if (r.kind === 'text') {
+      if (r.kind === 'image') {
+        if(r.icon!==null)fail('INTENT_IMAGE_ICON',p+'.icon');
+        Object.assign(row,{source:r.source,width:r.width,height:r.height,fit:r.fit});
+      } else if (r.kind === 'text') {
         if (generatedTextLayouts?.some(value=>value.rowId===r.id)) checkWrappedText(r.text,fail,`${p}.text`);
         else display(r.text, `${p}.text`);
         row.text = r.text;
@@ -549,12 +592,14 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
             field = { id: r.id, type: 'string', initial: r.initial, maxLength: r.maxLength };
             Object.assign(row, { placeholder: r.placeholder, inputType: r.inputType, readOnly: r.readOnly,
               validation: { required: r.required, minLength: r.minLength, requiredMessage: '此项不能为空', minLengthMessage: `至少输入 ${r.minLength} 个字符` } });
-          } else if (r.kind === 'switch') field = { id: r.id, type: 'boolean', initial: r.initial };
+          } else if (['switch','checkbox','dialog'].includes(r.kind)) field = { id: r.id, type: 'boolean', initial: r.initial };
           else {
-            bounded(r.options, 1, 8, `${p}.options`); r.options.forEach((option, k) => display(option, `${p}.options[${k}]`));
+            bounded(r.options, 1, choiceLimit(r.kind), `${p}.options`); r.options.forEach((option, k) => display(option, `${p}.options[${k}]`));
             if (new Set(r.options).size !== r.options.length || !r.options.includes(r.initialLabel)) fail('enum-value', `${p}.initialLabel`);
             field = { id: r.id, type: 'enum', initial: `option${r.options.indexOf(r.initialLabel)}`, options: r.options.map((label, k) => ({ id: `option${k}`, label })) };
           }
+          if(r.kind==='list')Object.assign(row,{itemHeight:r.itemHeight,visibleItems:r.visibleItems});
+          if(r.kind==='dialog')for(const key of ['title','text','closeLabel','modal','dialogWidth','dialogHeight'])row[key]=r[key];
           state.push(field); decisions.push({ target: `state:${r.id}`, basis: source });
         }
       }
@@ -564,7 +609,7 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
     });
     return { id: section.id, title: section.title, rows };
   });
-  const assets = panel.panelSurface === null && !rowIcons.length ? null : { library: context.assetRetrieval?.library,
+  const assets = panel.panelSurface === null && !rowIcons.length && !sections.some(section=>section.rows.some(row=>row.kind==='image'&&row.source!==null)) ? null : { library: context.assetRetrieval?.library,
     panelSurface: panel.panelSurface, rowIcons };
   let tabs = null;
   if (navigation) {
@@ -575,7 +620,7 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
     decisions.push({target:'tabs',basis:source},{target:`state:${tabs.bind}`,basis:source});
     for(const page of navigation.pages)decisions.push({target:`tab:${page.id}`,basis:basis(page.sourceQuote,'$.panel.body.pages.sourceQuote')});
   }
-  let spec = { panelSpecVersion: ['0.7','0.8','0.9'].includes(context.planningContextVersion) ? '0.7' : context.planningContextVersion === '0.6' ? '0.6' : context.planningContextVersion === '0.5' ? '0.5' : '0.4', ...(['0.6','0.7','0.8','0.9'].includes(context.planningContextVersion)?{tabs}:{}), id: panel.id, title: panel.title, theme: { id: theme.id, version: theme.version },
+  let spec = { panelSpecVersion: ['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion) ? '0.7' : context.planningContextVersion === '0.6' ? '0.6' : context.planningContextVersion === '0.5' ? '0.5' : '0.4', ...(['0.6','0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)?{tabs}:{}), id: panel.id, title: panel.title, theme: { id: theme.id, version: theme.version },
     state, sections, assets, provenance: { kind: 'agent-authored', description: 'Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.',
       assumptions: ['Preview actions notify the host; no actual game business is executed.', 'Geometry follows deterministic intent layout policy 0.1.',
         ...(state.some(field => field.type === 'progress') ? ['Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence.'] : [])] } };
@@ -586,6 +631,7 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
     Object.assign(spec,{panelSpecVersion:'0.13',appearance:null,actionLayouts:generatedLayouts??[],buttonStyles:[],buttonFonts:[],titleBar:null,textLayouts:generatedTextLayouts});
     for(const value of generatedTextLayouts) decisions.push({target:'text-layout:'+value.rowId,basis:basis(context.request.text,'$.panel.body.rows.wrap')});
   }
+  if(['0.10','0.11'].includes(context.planningContextVersion))Object.assign(spec,{panelSpecVersion:context.planningContextVersion==='0.11'?'0.16':'0.15',appearance:spec.appearance??null,actionLayouts:spec.actionLayouts??[],buttonStyles:[],buttonFonts:[],titleBar:null,textLayouts:spec.textLayouts??[],frame:null});
   spec = arrangeIntentSpec(spec, panel.layout, theme, context.catalog);
   const top = [ { target: 'panel', basis: basis(panel.sourceQuote, '$.panel.sourceQuote', 'Panel title and identity are presentation choices.') },
     { target: 'theme', basis: design('Selected exact theme from the pinned complete catalog.') },
@@ -594,8 +640,12 @@ async function materializeIntent(contextInput, input, progressTransport, navigat
   if (assets) {
     top.push({ target: 'assets', basis: design('Selected exact assets from the pinned planning candidates.') });
     if (assets.panelSurface) top.push({ target: 'asset:surface', basis: design('Pinned surface candidate selected for panel appearance.') });
+    for(const row of sections.flatMap(section=>section.rows).filter(row=>row.kind==='image'&&row.source!==null))top.push({target:`asset:image:${row.id}`,basis:design('Pinned content image selected without modifying its artwork.')});
     for (const icon of rowIcons) top.push({ target: `asset:row:${icon.rowId}`, basis: design('Pinned row icon candidate selected for appearance.') });
   }
   proposal.spec = spec; proposal.decisions = [...top, ...decisions];
+  const boundaries = labelBoundaryQuestions(context.request.text, spec);
+  if (boundaries.length) return validatePanelProposal(context, { ...proposal, spec: null, decisions: [],
+    unresolved: [...proposal.unresolved, ...boundaries.map((question, index) => ({ ...question, id: `label_boundary_${index}_${proposal.unresolved.length}` }))] });
   return validatePanelProposal(context, proposal);
 }

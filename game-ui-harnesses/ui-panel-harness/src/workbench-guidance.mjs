@@ -80,7 +80,9 @@ export function summarizePanel(spec) {
     const field = state.get(row.bind), label = name(row), disabled = row.enabled === false ? '（不可操作）' : '';
     if (row.kind === 'slider') details.push(`${label}${disabled}：${field.min}～${field.max}，每次变化 ${field.step}，默认 ${field.initial}。`);
     else if (row.kind === 'switch') details.push(`${label}${disabled}：默认${field.initial ? '开启' : '关闭'}。`);
-    else if (row.kind === 'select') details.push(`${label}${disabled}：可选${field.options.map(option => option.label).join('、')}；默认${field.options.find(option => option.id === field.initial)?.label}。`);
+    else if (row.kind === 'checkbox') details.push(`${label}${disabled}：复选框默认${field.initial ? '勾选' : '未勾选'}。`);
+    else if (['select','radio','list'].includes(row.kind)) details.push(`${label}${disabled}：可选${field.options.map(option => option.label).join('、')}；默认${field.options.find(option => option.id === field.initial)?.label}。`);
+    else if (row.kind === 'dialog') details.push(`${label}${disabled}：${row.modal?'模态':'非模态'}弹窗“${row.title}”，默认${field.initial?'打开':'关闭'}；“${row.closeLabel}”关闭。`);
     else if (row.kind === 'progress') details.push(`${label}：0～${field.max}，初始 ${field.initial}；${row.format.mode === 'percent' ? '显示百分比' : '显示数值'}，由游戏更新。`);
     else if (row.kind === 'input') {
       const initial = row.inputType === 'password' ? field.initial ? '已设置' : '为空' : field.initial ? `“${field.initial}”` : '为空';

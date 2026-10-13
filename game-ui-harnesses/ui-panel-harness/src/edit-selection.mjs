@@ -10,11 +10,15 @@ export function selectedEditRow(spec, selection) {
 export function selectedEditOperations(spec, selection, operations) {
   const row = selectedEditRow(spec, selection);
   const allowed = new Set(['set-row-label', 'remove-row',
-    ...(!['text', 'progress'].includes(row.kind) ? ['set-row-enabled'] : []),
+    ...(!['text', 'progress', 'image'].includes(row.kind) ? ['set-row-enabled'] : []),
     ...(row.bind ? ['set-state-initial'] : []),
     ...(row.kind === 'button' ? ['set-button-label', 'set-button-action', 'set-button-style', 'set-button-font-size'] : []),
     ...(row.kind === 'text' ? ['set-text','set-text-wrap'] : []),
     ...(row.kind === 'input' ? ['set-input-properties'] : []),
+    ...(row.kind === 'image' ? ['set-image-properties'] : []),
+    ...(['select','radio','list'].includes(row.kind)?['set-choice-options']:[]),
+    ...(row.kind==='list'?['set-list-properties']:[]),
+    ...(row.kind==='dialog'?['set-dialog-properties']:[]),
   ]);
   return operations.filter(op => allowed.has(op));
 }

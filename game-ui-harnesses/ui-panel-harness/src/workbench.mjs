@@ -350,7 +350,7 @@ function updateButtons() {
   const ready = Boolean(model && !disposed), context = ready && snapshot?.context && !draftDirty;
   const panel = ready && snapshot?.panel && renderedSha === snapshot.panel.sha256;
   const budget = model?.getEditBudget(), editLimitReached = budget?.remaining === 0;
-  const selectionSupported = panel && ['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14'].includes(snapshot.panel.spec.panelSpecVersion)
+  const selectionSupported = panel && ['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16'].includes(snapshot.panel.spec.panelSpecVersion)
     && snapshot.panel.catalog.themes.some(theme => theme.id === snapshot.panel.spec.theme.id && theme.version === snapshot.panel.spec.theme.version && theme.visualStyle === 'modern-v3');
   if (!selectionSupported) { selecting = false; selectedRowId = null; }
   const selectedRow = panel ? snapshot.panel.spec.sections.flatMap(section => section.rows).find(row => row.id === selectedRowId) : null;
@@ -419,9 +419,13 @@ function readRow() {
 function fillRow() {
   const row = readRow(); if (!row) return;
   el('edit-label').value = row.label; el('edit-enabled').checked = row.enabled;
-  el('edit-enabled').disabled = ['text', 'progress'].includes(row.kind);
-  el('edit-enabled').closest('label').hidden = ['text', 'progress'].includes(row.kind);
+  el('edit-enabled').disabled = ['text', 'progress', 'image'].includes(row.kind);
+  el('edit-enabled').closest('label').hidden = ['text', 'progress', 'image'].includes(row.kind);
   el('initial-field').replaceChildren(); el('action-description').textContent = '';
+  if (row.kind === 'image') {
+    el('action-description').textContent = `静态图片：${row.source ?? '待添加素材'} · ${row.width} × ${row.height} · ${row.fit}`;
+    return;
+  }
   if (row.kind === 'text') {
     el('action-description').textContent = `只读内容：${row.text}`;
     return;
@@ -813,7 +817,7 @@ el('editor-form').addEventListener('submit', event => { event.preventDefault(); 
   const panel = snapshot.panel, row = readRow(), operations = [];
   if (el('edit-title').value !== panel.spec.title) operations.push({ op: 'set-panel-title', title: el('edit-title').value });
   if (el('edit-label').value !== row.label) operations.push({ op: 'set-row-label', rowId: row.id, label: el('edit-label').value });
-  if (!['text', 'progress'].includes(row.kind) && el('edit-enabled').checked !== row.enabled) operations.push({ op: 'set-row-enabled', rowId: row.id, enabled: el('edit-enabled').checked });
+  if (!['text', 'progress', 'image'].includes(row.kind) && el('edit-enabled').checked !== row.enabled) operations.push({ op: 'set-row-enabled', rowId: row.id, enabled: el('edit-enabled').checked });
   if (row.bind) {
     const field = panel.spec.state.find(f => f.id === row.bind), raw = el('edit-initial').value;
     const value = ['number', 'progress'].includes(field.type) ? (raw.trim() ? Number(raw) : NaN) : field.type === 'boolean' ? raw === 'true' : raw;

@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-game-assets:panel-spec:0.15",
+  "title": "PanelSpec 0.15",
+  "description": "Static image slots with exact library sources or labeled placeholders.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "panelSpecVersion",
+    "id",
+    "title",
+    "theme",
+    "canvas",
+    "layout",
+    "state",
+    "sections",
+    "provenance",
+    "assets",
+    "tabs",
+    "appearance",
+    "actionLayouts",
+    "buttonStyles",
+    "buttonFonts",
+    "titleBar",
+    "textLayouts",
+    "frame"
+  ],
+  "properties": {
+    "panelSpecVersion": {
+      "const": "0.15"
+    },
+    "id": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/id"
+    },
+    "title": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/title"
+    },
+    "theme": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/theme"
+    },
+    "canvas": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/canvas"
+    },
+    "layout": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/layout"
+    },
+    "state": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/state"
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "rows"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+          },
+          "title": {
+            "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/text"
+          },
+          "rows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/sliderRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/switchRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.3#/$defs/selectRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/buttonRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.13#/$defs/textRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/progressRow"
+                },
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/inputRow"
+                },
+                {
+                  "$ref": "#/$defs/imageRow"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/provenance"
+    },
+    "assets": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "library",
+            "panelSurface",
+            "rowIcons"
+          ],
+          "properties": {
+            "library": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "sha256"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/assetSlug"
+                },
+                "sha256": {
+                  "type": "string",
+                  "minLength": 64,
+                  "maxLength": 64,
+                  "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+                }
+              }
+            },
+            "panelSurface": {
+              "anyOf": [
+                {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/exactAssetKey"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rowIcons": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 128,
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "rowId",
+                  "asset"
+                ],
+                "properties": {
+                  "rowId": {
+                    "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/id"
+                  },
+                  "asset": {
+                    "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/exactAssetKey"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "tabs": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/tabs"
+    },
+    "appearance": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/appearance"
+    },
+    "actionLayouts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/actionLayouts"
+    },
+    "buttonStyles": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/buttonStyles"
+    },
+    "buttonFonts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/buttonFonts"
+    },
+    "titleBar": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/titleBar"
+    },
+    "textLayouts": {
+      "$ref": "urn:ai-game-assets:panel-spec:0.13#/properties/textLayouts"
+    },
+    "frame": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "height": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "imageRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "label",
+        "source",
+        "width",
+        "height",
+        "fit"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/id"
+        },
+        "kind": {
+          "const": "image"
+        },
+        "recipe": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/reference"
+        },
+        "label": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/text"
+        },
+        "source": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/exactAssetKey"
+            }
+          ]
+        },
+        "width": {
+          "oneOf": [
+            {
+              "const": "fill"
+            },
+            {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 2048
+            }
+          ]
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 2048
+        },
+        "fit": {
+          "enum": [
+            "contain",
+            "cover",
+            "stretch"
+          ]
+        }
+      }
+    }
+  }
+}

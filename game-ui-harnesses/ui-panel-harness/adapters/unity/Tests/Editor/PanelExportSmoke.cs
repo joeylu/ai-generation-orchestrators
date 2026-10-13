@@ -31,6 +31,7 @@ namespace GameUi.PanelHarness.Editor
             public int sourceNodes, textNodes, readOnlyControls, scrollViews, images, spriteRegions, currentValuesDifferentFromInitial;
             public int sliders, switches, selects, buttons, progressBars, disabledControls, resetFields, preservedResetFields;
             public int visibleTextMeshes, sliderThumbs, tabNavigations, tabPages, inputFields, submitButtons;
+            public int checkBoxes, radioGroups, lists, dialogs;
         }
         [Serializable] private sealed class Report
         {
@@ -431,7 +432,7 @@ namespace GameUi.PanelHarness.Editor
                 Ensure(controller.SetState(exported), "progress-test-state-restored");
                 VerifyTabs(document, controller, nodes);
                 VerifyForms(document, controller, nodes);
-                foreach (PanelControl control in document.controls.Where(item => item.enabled && item.kind != "button" && item.kind != "progress" && !(item.kind == "input" && item.readOnly)))
+                foreach (PanelControl control in document.controls.Where(item => item.enabled && item.kind != "button" && item.kind != "progress" && item.kind != "dialog" && !(item.kind == "input" && item.readOnly)))
                 {
                     currentStage = "native-" + control.kind + ":" + control.rowId;
                     PanelField field = document.fields.Single(item => item.id == control.fieldId);
@@ -455,6 +456,9 @@ namespace GameUi.PanelHarness.Editor
                     if (control.kind == "slider") report.coverage.sliders++;
                     else if (control.kind == "switch") report.coverage.switches++;
                     else if (control.kind == "select") report.coverage.selects++;
+                    else if (control.kind == "checkbox") report.coverage.checkBoxes++;
+                    else if (control.kind == "radio") report.coverage.radioGroups++;
+                    else if (control.kind == "list") report.coverage.lists++;
                 }
                 if (report.coverage.selects > 0) CheckPass("native-dropdown-template-expands-options-and-closes");
                 if (document.controls.Any(item => item.enabled && item.kind != "button" && item.kind != "progress" && !(item.kind == "input" && item.readOnly))) CheckPass("native-slider-toggle-dropdown-callbacks-map-to-business-state");
@@ -491,6 +495,7 @@ namespace GameUi.PanelHarness.Editor
                 }
                 VerifyDisabledControls(document);
                 VerifyScrollReveal(document, nodes);
+                VerifyDialogs(document, controller, nodes);
                 currentStage = "restore-fixture-state";
                 Ensure(controller.SetState(exported) && controller.GetStateJson() == exportedJson, "fixture-state-restored-after-tests");
             }
@@ -815,7 +820,14 @@ namespace GameUi.PanelHarness.Editor
                 slider.value = slider.value == 0 ? slider.maxValue : 0;
             }
             else if (control.kind == "input") { InputField input = node.GetComponent<InputField>(); input.text = OtherText(field, input.text); }
-            else if (control.kind == "switch") { Toggle toggle = node.GetComponent<Toggle>(); toggle.isOn = !toggle.isOn; }
+            else if (control.kind == "switch" || control.kind == "checkbox") { Toggle toggle = node.GetComponent<Toggle>(); toggle.isOn = !toggle.isOn; }
+            else if (control.kind == "radio" || control.kind == "list")
+            {
+                Button[] choices = node.GetComponentsInChildren<Button>(true);
+                Assert(choices.Length == field.options.Length, "native-choice-button-count");
+                int selected = Array.FindIndex(choices, button => button.transform.Find(button.name + ".__marker").gameObject.activeSelf);
+                ExecuteEvents.Execute(choices[(selected + 1) % choices.Length].gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            }
             else if (control.kind == "tabs")
             {
                 int current = Array.FindIndex(field.options, option => node.transform.Find(control.contentIds[Array.IndexOf(field.options, option)]).gameObject.activeSelf);
@@ -833,9 +845,10 @@ namespace GameUi.PanelHarness.Editor
 
         private static void RevealPage(PanelDocument document, PanelController controller, Dictionary<string, GameObject> nodes, PanelControl control)
         {
+            foreach (PanelControl dialog in document.controls.Where(item => item.kind == "dialog")) Assert(controller.SetBoolean(dialog.fieldId, false), "native-dialog-reveal-close");
             foreach (PanelControl tabs in document.controls.Where(item => item.kind == "tabs"))
                 for (int i = 0; i < tabs.contentIds.Length; i++)
-                    if (nodes[control.nodeId].transform.IsChildOf(nodes[tabs.contentIds[i]].transform))
+                    if (nodes[control.kind == "dialog" ? control.nodeId + ".open" : control.nodeId].transform.IsChildOf(nodes[tabs.contentIds[i]].transform))
                         Assert(controller.SetChoice(tabs.fieldId, document.fields.Single(field => field.id == tabs.fieldId).options[i].id), "native-silent-reveal-page");
         }
 
@@ -900,7 +913,8 @@ namespace GameUi.PanelHarness.Editor
                         && input.readOnly == control.readOnly && ((Text)input.placeholder).text == control.placeholder
                         && input.contentType == (control.inputType == "password" ? InputField.ContentType.Password : InputField.ContentType.Standard), "native-inputfield-properties");
                     Assert(controller.SetText(field.id, ""), "native-input-empty-preview-allowed");
-                    Assert(nodes[control.requiredErrorTextId].activeSelf == control.validation.required && !nodes[control.minLengthErrorTextId].activeSelf, "native-required-message");
+                    Assert(nodes[control.requiredErrorTextId].activeSelf == (control.validation.required && !control.deferEmptyError)
+                        && !nodes[control.minLengthErrorTextId].activeSelf, "native-untouched-required-message-policy");
                     if (control.validation.minLength > 1)
                     {
                         Assert(controller.SetText(field.id, "名"), "native-short-preview-allowed");
@@ -940,6 +954,18 @@ namespace GameUi.PanelHarness.Editor
                     Assert(controller.Activate(control.rowId) && events == 1 && last.Action == "submit" && last.Values != null
                         && last.Values.Count == control.submitFields.Length && control.submitFields.All(id => last.Values[id] == controller.GetState().Single(item => item.fieldId == id).stringValue), "native-submit-exact-scoped-values");
                     events = 0; report.coverage.submitButtons++;
+                }
+                foreach (PanelControl control in document.controls.Where(item => item.kind == "input" && item.enabled && !item.readOnly && item.deferEmptyError))
+                {
+                    RevealPage(document, controller, nodes, control);
+                    InputField input = nodes[control.nodeId].GetComponent<InputField>();
+                    Assert(controller.SetText(control.fieldId, ""), "native-deferred-input-prepare");
+                    int previousEvents = events;
+                    input.text = "名";
+                    input.text = "";
+                    Assert(events == previousEvents + 2 && nodes[control.requiredErrorTextId].activeSelf == control.validation.required
+                        && !nodes[control.minLengthErrorTextId].activeSelf, "native-edited-empty-input-shows-required-message");
+                    CheckPass("native-required-message-deferred-until-user-edit");
                 }
                 if (report.coverage.inputFields > 0) CheckPass("native-inputfield-validation-raw-values-readonly-and-submit-scope");
             }
@@ -989,6 +1015,36 @@ namespace GameUi.PanelHarness.Editor
             }
         }
 
+        private static void VerifyDialogs(PanelDocument document, PanelController controller, Dictionary<string, GameObject> nodes)
+        {
+            foreach (PanelControl control in document.controls.Where(item => item.kind == "dialog" && item.enabled))
+            {
+                RevealPage(document, controller, nodes, control);
+                GameObject opener = nodes[control.nodeId + ".open"], closer = nodes[control.nodeId + ".close"];
+                int count = 0; PanelHostEvent last = null;
+                Action<PanelHostEvent> listener = value => { count++; last = value; };
+                controller.EventRaised += listener;
+                try {
+                    EventSystem.current.SetSelectedGameObject(opener);
+                    ExecuteEvents.Execute(opener, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                    Assert(nodes[control.nodeId].activeSelf && count == 1 && last.BooleanValue, "native-dialog-open-event");
+                    Assert(EventSystem.current.currentSelectedGameObject == closer, "native-dialog-focus-transferred");
+                    if (document.nodes.Single(node => node.id == control.nodeId).modal) {
+                        string state = controller.GetStateJson();
+                        foreach (PanelControl button in document.controls.Where(item => item.kind == "button")) Assert(!controller.Activate(button.rowId), "native-modal-blocks-background-action");
+                        Assert(state == controller.GetStateJson() && count == 1, "native-modal-background-silent");
+                    }
+                    ExecuteEvents.Execute(closer, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                    Assert(!nodes[control.nodeId].activeSelf && count == 2 && !last.BooleanValue, "native-dialog-close-event");
+                    Assert(EventSystem.current.currentSelectedGameObject == opener, "native-dialog-focus-restored");
+                    Assert(controller.SetBoolean(control.fieldId, true) && controller.SetBoolean(control.fieldId, false) && count == 2, "native-dialog-host-state-silent");
+                    report.coverage.dialogs++;
+                } finally { controller.EventRaised -= listener; }
+            }
+            if (report.coverage.dialogs > 0) CheckPass("native-dialog-lifecycle-modal-boundary-and-focus");
+            if (report.coverage.checkBoxes > 0 && report.coverage.radioGroups > 0 && report.coverage.lists > 0) CheckPass("native-checkbox-radio-and-list-state-and-events");
+        }
+
         private static void VerifyDisabledControls(PanelDocument source)
         {
             if (source.controls.Length == 0) return;
@@ -1007,6 +1063,13 @@ namespace GameUi.PanelHarness.Editor
                     slider = nodes[control.nodeId].GetComponent<Slider>(), toggle = nodes[control.nodeId].GetComponent<Toggle>(),
                     dropdown = nodes[control.nodeId].GetComponent<Dropdown>(), button = nodes[control.nodeId].GetComponent<Button>(),
                     input = nodes[control.nodeId].GetComponent<InputField>(),
+                    choiceButtons = control.kind == "radio" || control.kind == "list" ? nodes[control.nodeId].GetComponentsInChildren<Button>(true) : null,
+                    choiceIndicators = control.kind == "radio" || control.kind == "list" ? nodes[control.nodeId].GetComponentsInChildren<Button>(true).Select(button => button.transform.Find(button.name + ".__marker").gameObject).ToArray() : null,
+                    dialog = control.kind == "dialog" ? nodes[control.nodeId] : null,
+                    dialogOpenButton = control.kind == "dialog" ? nodes[control.nodeId + ".open"].GetComponent<Button>() : null,
+                    dialogCloseButton = control.kind == "dialog" ? nodes[control.nodeId + ".close"].GetComponent<Button>() : null,
+                    dialogModal = control.kind == "dialog" && disabled.nodes.Single(node => node.id == control.nodeId).modal,
+                    dialogBlocker = control.kind == "dialog" && disabled.nodes.Single(node => node.id == control.nodeId).modal ? clone.GetComponentsInChildren<Transform>(true).Single(item => item.name.EndsWith(control.nodeId + ".__blocker", StringComparison.Ordinal)).gameObject : null,
                     requiredErrorText = control.kind == "input" ? nodes[control.requiredErrorTextId].GetComponent<Text>() : null,
                     minLengthErrorText = control.kind == "input" ? nodes[control.minLengthErrorTextId].GetComponent<Text>() : null,
                     progressFill = control.kind == "progress" ? nodes[control.nodeId].transform.Find(control.nodeId + ".__progress-fill").GetComponent<Image>() : null,
@@ -1030,7 +1093,9 @@ namespace GameUi.PanelHarness.Editor
                     }
                     else if (view.definition.kind == "input") view.input.onValueChanged.Invoke("变更");
                     else if (view.definition.kind == "slider") view.slider.onValueChanged.Invoke(view.slider.value == 0 ? view.slider.maxValue : 0);
-                    else if (view.definition.kind == "switch") view.toggle.onValueChanged.Invoke(!view.toggle.isOn);
+                    else if (view.definition.kind == "switch" || view.definition.kind == "checkbox") view.toggle.onValueChanged.Invoke(!view.toggle.isOn);
+                    else if (view.definition.kind == "radio" || view.definition.kind == "list") view.choiceButtons[0].onClick.Invoke();
+                    else if (view.definition.kind == "dialog") view.dialogOpenButton.onClick.Invoke();
                     else if (view.definition.kind == "select") view.dropdown.onValueChanged.Invoke((view.dropdown.value + 1) % view.dropdown.options.Count);
                     else if (view.definition.kind == "tabs") view.tabButtons[1].onClick.Invoke();
                     Assert(controller.GetStateJson() == before && events == 0, "disabled-user-callback-rejected");

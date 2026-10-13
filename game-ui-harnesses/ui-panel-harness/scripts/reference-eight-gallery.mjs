@@ -1,0 +1,23 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {resolve,relative} from 'node:path';
+import assert from 'node:assert/strict';
+import {REFERENCE_EIGHT_CASES} from '../examples/reference-eight-v1/suite.mjs';
+const args=process.argv.slice(2);assert([6,8].includes(args.length)&&args[0]==='--run'&&args[2]==='--browser'&&args[4]==='--output');
+if(args.length===8)assert.equal(args[6],'--before-browser');
+const run=resolve(args[1]),browser=resolve(args[3]),output=resolve(args[5]);
+const report=JSON.parse(await readFile(resolve(run,'input-adaptability-report.json'))),checks=JSON.parse(await readFile(resolve(browser,'browser-report.json')));
+assert.equal(report.cohort,'reference-eight-v1');assert.equal(checks.planSha256,report.planSha256);
+await mkdir(output);
+const href=path=>relative(output,path).replaceAll('\\','/');
+const escape=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
+const names=['开始页','设置','在线暂停','本地暂停','通关结算','未通关结算','加载中','加载失败'];
+const replay=report.kind==='DETERMINISTIC_REPLAY_NOT_NEW_MODEL_RESULTS';
+const description=replay?`原批真实调用${report.originalRealModelCalls}次。本页为相同业务结果的标题修复重建，新增模型调用0。`:`真实调用${report.realModelCalls}次。`;
+const cards=await Promise.all(REFERENCE_EIGHT_CASES.map(async(item,index)=>{
+  const result=report.results.find(r=>r.id===item.id),check=checks.results.find(r=>r.id===item.id);
+  const screenshot=resolve(browser,item.id+'-initial.png');await readFile(screenshot);
+  const before=args[7]?`<p>修复前</p><img src="${href(resolve(args[7],item.id+'-initial.png'))}" alt="${names[index]}修复前" loading="lazy"><p>修复后</p>`:'';
+  return `<article><h2>${item.id} · ${names[index]}</h2><p>业务 ${escape(result.status)} · 浏览器 ${escape(check.status)}</p>${before}<a href="${href(resolve(run,item.id,'delivery/pixi/index.html'))}"><img src="${href(screenshot)}" alt="${names[index]}实际生成截图" loading="lazy"></a><p><a href="${href(resolve(run,item.id,'delivery/pixi/index.html'))}">打开试玩</a> · <a href="${href(resolve(run,item.id,'panel.zip'))}" download>下载ZIP</a></p><details><summary>模拟需求</summary><p>${escape(item.request.text)}</p></details></article>`;
+}));
+await writeFile(resolve(output,'index.html'),`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>8套面板${replay?'标题修复对照':'真实生成结果'}</title><style>body{margin:32px auto;padding:0 24px;max-width:1300px;font:16px/1.65 system-ui;background:#f2f6f4;color:#193c33}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}article{background:white;padding:20px;border-radius:16px;border:1px solid #d1dfd8}img{width:100%;height:auto}a{color:#086b55}h2{font-size:21px;text-align:center}</style><h1>8套面板${replay?'标题修复对照':'真实生成结果'}</h1><p>${description}业务${report.pass}/8通过；浏览器${checks.checks}项检查，${checks.status}。零自动重试。</p><p>这是参考内容的流式生成版本。静态圆形占位使用文字○；按钮仅发出宿主事件，未接入实际游戏。</p><main>${cards.join('')}</main></html>`,{flag:'wx'});
+console.log(JSON.stringify({status:'GALLERY_CREATED',panels:cards.length,realModelCalls:0}));

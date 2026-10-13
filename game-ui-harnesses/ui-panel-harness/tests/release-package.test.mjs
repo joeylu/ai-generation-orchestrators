@@ -4,7 +4,7 @@ import { gzipSync } from 'node:zlib';
 import { mkdtemp, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { harnessRoot } from '../src/io.mjs';
-import { readPinnedTar, packagePanelRelease } from '../scripts/package-release.mjs';
+import { readPinnedTar, packagePanelRelease, verifyBrowserRuntimePortability } from '../scripts/package-release.mjs';
 import { verifyPanelSdk } from '../src/sdk.mjs';
 
 function tar(name, content = 'fixture', type = '0') {
@@ -17,6 +17,12 @@ function tar(name, content = 'fixture', type = '0') {
   header.write(checksum.toString(8).padStart(6, '0') + '\0 ', 148);
   return gzipSync(Buffer.concat([header, payload, Buffer.alloc((512 - payload.length % 512) % 512), Buffer.alloc(1024)]));
 }
+
+test('browser release rejects absolute bundler module labels on Windows and POSIX', () => {
+  for (const label of ['C:/workspace/dependency.js', 'D:\\workspace\\dependency.js', '/tmp/build/dependency.js', '\\\\host\\share\\dependency.js'])
+    assert.throws(() => verifyBrowserRuntimePortability('const value=1;\n//#region ' + label + '\n'), /RELEASE_BROWSER_HOST_PATH/);
+  assert.doesNotThrow(() => verifyBrowserRuntimePortability('//#region src/runtime.mjs\nexport const url="https://example.invalid";'));
+});
 
 test('dependency archive reader preserves bytes and rejects unsafe paths and links', () => {
   assert.equal(new TextDecoder().decode(readPinnedTar(tar('package/lib/fixture.js')).get('package/lib/fixture.js')), 'fixture');

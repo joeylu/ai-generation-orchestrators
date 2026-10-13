@@ -41,10 +41,11 @@ export const INPUT_COVERAGE_V2 = {
 
 /** Fixture proposal construction only; never used to produce or repair a model response. */
 export function coverageIntent(context,item) {
-  if(item.expected.outcome==='NEEDS_INPUT') return {panelIntentVersion:'0.10',contextSha256:context.sha256,panel:null,unresolved:[{id:'q0',question:item.question}]};
+  const panelIntentVersion=context.capabilities.images==='static-image-slots-v1'?'0.11':'0.10';
+  if(item.expected.outcome==='NEEDS_INPUT') return {panelIntentVersion,contextSha256:context.sha256,panel:null,unresolved:[{id:'q0',question:item.question}]};
   const rows=item.expected.rows.map(row=>({...row,recipeKey:`settings.${row.kind==='button'?'button.secondary':row.kind}@0.1.0`,sourceRef:'request',icon:null,enabled:true,
     ...(row.kind==='slider'?{prefix:'',suffix:''}:{}),...(row.kind==='button'?{submitRows:[]}: {})}));
-  return {panelIntentVersion:'0.10',contextSha256:context.sha256,unresolved:[],panel:{id:context.request.id,title:item.expected.title,
+  return {panelIntentVersion,contextSha256:context.sha256,unresolved:[],panel:{id:context.request.id,title:item.expected.title,
     themeKey:`${context.catalog.themes[0].id}@${context.catalog.themes[0].version}`,panelSurface:null,
     layout:{width:null,canvasWidth:null,canvasHeight:null,maxHeight:null,overflow:'auto'},
     body:{kind:'column',children:(item.expected.groups??[rows.map((_,i)=>i)]).map((indices,i)=>({kind:'section',title:item.expected.groups?['左声道','右声道','操作'][i]:item.expected.title,actionLayout:null,rows:indices.map(index=>rows[index])}))}}};

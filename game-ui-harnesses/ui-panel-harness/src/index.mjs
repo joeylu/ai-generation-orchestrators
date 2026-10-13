@@ -21,3 +21,4 @@ export { validateGameBinding, attachPanelGameBinding } from './game-binding.mjs'
 export { createMemoryGamePort } from './game-port.mjs';
 export { createUnityGameBinding } from './unity-game-binding.mjs';
 export { createPanelDelivery, createPanelIntegrationContract } from './panel-delivery.mjs';
+export { fitDraftPanelLayout } from './draft-layout.mjs';

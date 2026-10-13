@@ -1,3 +1,6 @@
+import { missingExplicitComponents } from './component-capabilities.mjs';
+import { labelBoundaryQuestions, contradictsInputCapabilities } from './input-interpretation.mjs';
+import {panelAssetKeys} from './panel-assets.mjs';
 import { snapshotJson, validatePanelSpec } from './spec.mjs';
 import { validatePlanningContext } from './planning-context.mjs';
 import { resolveRecipe, resolveTheme } from './catalog.mjs';
@@ -22,9 +25,10 @@ export function proposalTargets(spec, proposalVersion = '0.1') {
   const checked = validatePanelSpec(spec);
   return ['panel', 'theme', 'canvas', 'layout',
     ...(checked.assets ? ['assets'] : []),
-    ...(checked.assets && ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(proposalVersion) ? [
+    ...(checked.assets && ['0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10','0.11'].includes(proposalVersion) ? [
       ...(checked.assets.panelSurface ? ['asset:surface'] : []),
       ...checked.assets.rowIcons.map(icon => `asset:row:${icon.rowId}`),
+      ...checked.sections.flatMap(section=>section.rows).filter(row=>row.kind==='image'&&row.source!==null).map(row=>`asset:image:${row.id}`),
     ] : []),
     ...(checked.actionLayouts ?? []).map(value => 'action-layout:' + value.sectionId),
     ...(checked.textLayouts ?? []).map(value => 'text-layout:' + value.rowId),
@@ -38,7 +42,7 @@ export async function validatePanelProposal(contextInput, proposalInput) {
   const contextSnapshot = snapshotJson(contextInput), proposal = snapshotJson(proposalInput);
   const context = await validatePlanningContext(contextSnapshot);
   exact(proposal, ['proposalVersion', 'contextSha256', 'spec', 'decisions', 'unresolved'], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(proposal.proposalVersion)) fail('PLAN_VERSION', '$.proposalVersion', 'Only proposal 0.1 through 0.9 are supported');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10','0.11'].includes(proposal.proposalVersion)) fail('PLAN_VERSION', '$.proposalVersion', 'Only proposal 0.1 through 0.10 are supported');
   if (proposal.proposalVersion !== context.planningContextVersion) {
     fail('PLAN_ASSET_CONTEXT_VERSION', '$.proposalVersion', 'Proposal and planning context versions must match');
   }
@@ -53,21 +57,26 @@ export async function validatePanelProposal(contextInput, proposalInput) {
     unknownIds.add(unknown.id);
   }
   list(proposal.decisions, '$.decisions', 512);
+  if (contradictsInputCapabilities(context, proposal.unresolved)) fail('PLAN_CAPABILITY_CONTRADICTION', '$.unresolved', 'Input supports required, minLength and maxLength; do not ask to omit supported validation.');
   if (proposal.spec === null) {
     if (!proposal.unresolved.length || proposal.decisions.length) fail('PLAN_EMPTY_SPEC', '$.spec', 'An empty spec must have questions and no claimed decisions');
     return proposal;
   }
   const spec = validatePanelSpec(proposal.spec);
+  const boundaries = labelBoundaryQuestions(context.request.text, spec);
+  if (boundaries.length) fail('PLAN_LABEL_BOUNDARY', '$.spec.sections', boundaries[0].question);
+  const missing = missingExplicitComponents(context.request.text,spec);
+  if(missing.length)fail('PLAN_COMPONENT_REQUIREMENT','$.spec.sections','Required component types missing: '+missing.join(', '));
   if (context.capabilities.panelSpecVersions && !context.capabilities.panelSpecVersions.includes(spec.panelSpecVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Spec version was not advertised by this context');
-  if (spec.panelSpecVersion === '0.7' && !['0.7','0.8','0.9'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Forms requires context 0.7');
-  if (spec.panelSpecVersion === '0.6' && !['0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Tabs requires context 0.6');
-  if (spec.panelSpecVersion === '0.5' && !['0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) {
+  if (spec.panelSpecVersion === '0.7' && !['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Forms requires context 0.7');
+  if (spec.panelSpecVersion === '0.6' && !['0.6', '0.7', '0.8', '0.9','0.10','0.11'].includes(context.planningContextVersion)) fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'Tabs requires context 0.6');
+  if (spec.panelSpecVersion === '0.5' && !['0.5', '0.6', '0.7', '0.8', '0.9','0.10','0.11'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.5 requires planning context 0.5');
   }
-  if (spec.panelSpecVersion === '0.4' && !['0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) {
+  if (spec.panelSpecVersion === '0.4' && !['0.4', '0.5', '0.6', '0.7', '0.8', '0.9','0.10','0.11'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.4 requires planning context 0.4');
   }
-  if (spec.panelSpecVersion === '0.3' && !['0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'].includes(context.planningContextVersion)) {
+  if (spec.panelSpecVersion === '0.3' && !['0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9','0.10','0.11'].includes(context.planningContextVersion)) {
     fail('PLAN_SPEC_CONTEXT_VERSION', '$.spec.panelSpecVersion', 'PanelSpec 0.3 requires planning context 0.3 or 0.4');
   }
   if (!['agent-authored', 'programmatic-fixture'].includes(spec.provenance.kind)) fail('PLAN_PROVENANCE', '$.spec.provenance.kind', 'Agent proposals must identify their author; user-authored documents use direct compile');
@@ -86,6 +95,9 @@ export async function validatePanelProposal(contextInput, proposalInput) {
     };
     if (spec.assets.panelSurface) requireCandidate(spec.assets.panelSurface, 'panel-surface', '$.spec.assets.panelSurface');
     for (const [i, icon] of spec.assets.rowIcons.entries()) requireCandidate(icon.asset, 'row-icon', `$.spec.assets.rowIcons[${i}].asset`);
+  }
+  for (const row of spec.sections.flatMap(section=>section.rows).filter(row=>row.kind==='image'&&row.source!==null)) {
+    if (!context.assetRetrieval?.candidates.some(candidate=>candidate.slot==='content-image'&&candidate.asset.key===row.source)) fail('PLAN_ASSET_CANDIDATE','$.spec.sections','Exact image must be a pinned content-image candidate');
   }
   const required = new Set(proposalTargets(spec, proposal.proposalVersion)), seen = new Set();
   for (const [index, decision] of proposal.decisions.entries()) {
@@ -134,8 +146,7 @@ export async function checkPanelProposal(contextInput, proposalInput) {
     ...(context.assetRetrieval ? { assetEvidence: {
       library: context.assetRetrieval.library, libraryVerification: 'REQUIRES_BUILD_VERIFICATION',
       candidateCount: context.assetRetrieval.candidates.length,
-      selectedKeys: proposal.spec?.assets ? [...new Set([proposal.spec.assets.panelSurface,
-        ...proposal.spec.assets.rowIcons.map(icon => icon.asset)].filter(Boolean))].sort() : [],
+      selectedKeys: proposal.spec ? panelAssetKeys(proposal.spec) : [],
     } } : {}),
   };
 }

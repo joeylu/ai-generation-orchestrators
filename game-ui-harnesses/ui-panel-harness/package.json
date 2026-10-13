@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.mjs",
+  "exports": { ".": "./src/index.mjs", "./planning/v1": "./src/planning-api-v1.mjs", "./planning/codex/v1": "./src/planning-codex-v1.mjs" },
   "engines": { "node": ">=22.18.0" },
   "scripts": {
     "studio": "node scripts/start-studio.mjs",

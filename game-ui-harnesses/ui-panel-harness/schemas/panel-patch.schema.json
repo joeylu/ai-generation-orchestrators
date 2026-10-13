@@ -110,6 +110,21 @@
           },
           {
             "$ref": "#/$defs/setLayoutDetails"
+          },
+          {
+            "$ref": "#/$defs/setImageProperties"
+          },
+          {
+            "$ref": "#/$defs/addImageRow"
+          },
+          {
+            "$ref": "#/$defs/setChoiceOptions"
+          },
+          {
+            "$ref": "#/$defs/setListProperties"
+          },
+          {
+            "$ref": "#/$defs/setDialogProperties"
           }
         ]
       }
@@ -874,6 +889,291 @@
               ]
             }
           }
+        }
+      }
+    },
+    "setImageProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "source",
+        "width",
+        "height",
+        "fit",
+        "assetLibrary"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-image-properties"
+        },
+        "rowId": {
+          "$ref": "#/$defs/id"
+        },
+        "source": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/exactAssetKey"
+            }
+          ]
+        },
+        "width": {
+          "oneOf": [
+            {
+              "const": "fill"
+            },
+            {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 2048
+            }
+          ]
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 2048
+        },
+        "fit": {
+          "enum": [
+            "contain",
+            "cover",
+            "stretch"
+          ]
+        },
+        "assetLibrary": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "sha256"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/assetSlug"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "addImageRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "sectionId",
+        "afterRowId",
+        "row",
+        "state",
+        "assetLibrary"
+      ],
+      "properties": {
+        "op": {
+          "const": "add-row"
+        },
+        "sectionId": {
+          "$ref": "#/$defs/id"
+        },
+        "afterRowId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "row": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.15#/$defs/imageRow"
+        },
+        "state": {
+          "type": "null"
+        },
+        "assetLibrary": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "sha256"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/assetSlug"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "row": {
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "button",
+                      "text"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "state": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "setChoiceOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "options",
+        "initial"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-choice-options"
+        },
+        "rowId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "label"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+              },
+              "label": {
+                "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/text"
+              }
+            }
+          }
+        },
+        "initial": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        }
+      }
+    },
+    "setListProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "itemHeight",
+        "visibleItems"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-list-properties"
+        },
+        "rowId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "itemHeight": {
+          "type": "integer",
+          "minimum": 32,
+          "maximum": 96
+        },
+        "visibleItems": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        }
+      }
+    },
+    "setDialogProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "title",
+        "text",
+        "closeLabel",
+        "modal",
+        "dialogWidth",
+        "dialogHeight"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-dialog-properties"
+        },
+        "rowId": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/id"
+        },
+        "title": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/text"
+        },
+        "text": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.13#/$defs/textRow/properties/text"
+        },
+        "closeLabel": {
+          "$ref": "urn:ai-game-assets:panel-spec:0.7#/$defs/text"
+        },
+        "modal": {
+          "type": "boolean"
+        },
+        "dialogWidth": {
+          "type": "integer",
+          "minimum": 240,
+          "maximum": 2048
+        },
+        "dialogHeight": {
+          "type": "integer",
+          "minimum": 160,
+          "maximum": 2048
         }
       }
     }

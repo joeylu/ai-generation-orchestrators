@@ -23,7 +23,7 @@ export function recommendPanelIcons(specInput, requestText, retrievalInput) {
       const text = row.kind === 'button' ? row.buttonLabel : row.label;
       let reason = null;
       if (explicitLayout) reason = 'EXPLICIT_ACTION_LAYOUT';
-      else if (['text', 'progress'].includes(row.kind)) reason = 'READ_ONLY_CONTENT';
+      else if (['text', 'progress', 'image'].includes(row.kind)) reason = 'READ_ONLY_CONTENT';
       else if (row.kind === 'button' && (purpose !== 'menu' || panelPurpose !== 'menu')) reason = 'TEXT_ACTION';
       else if (!/[\p{L}\p{N}]/u.test(text)) reason = 'INLINE_GLYPH';
       const matches = reason ? [] : rankPortableAssets(text, candidates, retrieval.policy.style);

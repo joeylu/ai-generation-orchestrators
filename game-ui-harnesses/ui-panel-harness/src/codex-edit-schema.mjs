@@ -8,11 +8,13 @@ import { buildCodexQuestionsResponseSchema } from './codex-questions-schema.mjs'
 // come from the existing public schemas; conditional/range/source checks still
 // run in the public validators, never in a model-produced success claim.
 export async function buildCodexEditResponseSchema({ draft = false, context } = {}) {
-  const forms = draft && ['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14'].includes(context?.spec?.panelSpecVersion);
+  const forms = draft && ['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16'].includes(context?.spec?.panelSpecVersion);
   const files = [...(draft ? ['codex-edit-draft-v0.3.schema.json', 'codex-edit-draft-v0.2.schema.json', 'codex-edit-draft.schema.json'] : []), 'panel-edit-proposal.schema.json', 'panel-patch.schema.json',
     'panel-spec.schema.json', 'panel-spec-v0.2.schema.json',
-    'panel-spec-v0.3.schema.json', 'panel-spec-v0.4.schema.json', 'panel-spec-v0.5.schema.json', 'panel-spec-v0.6.schema.json', 'panel-spec-v0.7.schema.json', 'panel-spec-v0.8.schema.json', 'panel-spec-v0.9.schema.json', 'panel-spec-v0.10.schema.json', 'panel-spec-v0.11.schema.json', 'panel-spec-v0.12.schema.json', 'panel-spec-v0.13.schema.json', 'panel-spec-v0.14.schema.json'];
+    'panel-spec-v0.3.schema.json', 'panel-spec-v0.4.schema.json', 'panel-spec-v0.5.schema.json', 'panel-spec-v0.6.schema.json', 'panel-spec-v0.7.schema.json', 'panel-spec-v0.8.schema.json', 'panel-spec-v0.9.schema.json', 'panel-spec-v0.10.schema.json', 'panel-spec-v0.11.schema.json', 'panel-spec-v0.12.schema.json', 'panel-spec-v0.13.schema.json', 'panel-spec-v0.14.schema.json', 'panel-spec-v0.15.schema.json','panel-spec-v0.16.schema.json'];
   const documents = await Promise.all(files.map(async file => JSON.parse(await readFile(join(harnessRoot, 'schemas', file), 'utf8'))));
+  const full=context?.spec?.panelSpecVersion==='0.16';
+  const images=context?.capabilities?.imagePolicy==='static-image-slots-v1';
   const appearance = context?.capabilities?.operations.includes('set-appearance') === true;
   const patchDocument = documents.find(document => document.$id === 'urn:ai-game-assets:panel-patch:0.1');
   // Saved contexts retain the old text contract; only v0.8 advertises multiline text.
@@ -29,14 +31,22 @@ export async function buildCodexEditResponseSchema({ draft = false, context } = 
   if (!appearance) patchDocument.properties.operations.items.oneOf = patchDocument.properties.operations.items.oneOf.filter(branch => branch.$ref !== '#/$defs/setAppearance');
   if (appearance && forms) documents.find(document => document.$id === 'urn:ai-game-assets:codex-edit-draft:0.2')
     .$defs.patch.properties.operations.items.oneOf.push({ $ref: 'urn:ai-game-assets:panel-patch:0.1#/$defs/setAppearance' });
+  for(const document of [patchDocument,...documents.filter(d=>d.$id==='urn:ai-game-assets:codex-edit-draft:0.2')]){
+    if(images&&document!==patchDocument)document.$defs.patch.properties.operations.items.oneOf.push({$ref:'urn:ai-game-assets:panel-patch:0.1#/$defs/addImageRow'});
+    else if(document===patchDocument)document.properties.operations.items.oneOf=document.properties.operations.items.oneOf.filter(branch=>branch.$ref!=='#/$defs/addImageRow');
+  }
   const actionLayout = context?.capabilities?.operations.includes('set-action-layout') === true;
   if (!actionLayout) patchDocument.properties.operations.items.oneOf = patchDocument.properties.operations.items.oneOf.filter(branch => branch.$ref !== '#/$defs/setActionLayout');
   if (actionLayout && forms) documents.find(document => document.$id === 'urn:ai-game-assets:codex-edit-draft:0.2')
     .$defs.patch.properties.operations.items.oneOf.push({ $ref: 'urn:ai-game-assets:panel-patch:0.1#/$defs/setActionLayout' });
-  for (const [op, name] of [['set-row-order','setRowOrder'],['set-text','setText'],['set-button-style','setButtonStyle'],['set-button-font-size','setButtonFontSize'],['set-title-bar','setTitleBar'],['set-text-wrap','setTextWrap'],['set-panel-frame','setPanelFrame'],['set-panel-ratio','setPanelRatio'],['set-layout-details','setLayoutDetails']]) {
+  for (const [op, name] of [['set-row-order','setRowOrder'],['set-text','setText'],['set-button-style','setButtonStyle'],['set-button-font-size','setButtonFontSize'],['set-title-bar','setTitleBar'],['set-text-wrap','setTextWrap'],['set-panel-frame','setPanelFrame'],['set-panel-ratio','setPanelRatio'],['set-layout-details','setLayoutDetails'],['set-image-properties','setImageProperties'],['set-choice-options','setChoiceOptions'],['set-list-properties','setListProperties'],['set-dialog-properties','setDialogProperties']]) {
     const allowed = context?.capabilities?.operations.includes(op) === true;
     if (!allowed) patchDocument.properties.operations.items.oneOf = patchDocument.properties.operations.items.oneOf.filter(branch => branch.$ref !== '#/$defs/' + name);
     if (allowed && forms) documents.find(document => document.$id === 'urn:ai-game-assets:codex-edit-draft:0.2').$defs.patch.properties.operations.items.oneOf.push({$ref:'urn:ai-game-assets:panel-patch:0.1#/$defs/' + name});
+  }
+  if(full)for(const document of [patchDocument,...documents.filter(d=>d.$id==='urn:ai-game-assets:codex-edit-draft:0.2')]){
+    document.$defs.addRow.properties.row.oneOf.push(...['checkbox','radio','list','dialog'].map(kind=>({$ref:'urn:ai-game-assets:panel-spec:0.16#/$defs/'+kind+'Row'})));
+    const states=document.$defs.addRow.properties.state.oneOf;const choice=states.find(branch=>branch.$ref?.endsWith('#/$defs/enumState'));if(choice)choice.$ref='urn:ai-game-assets:panel-spec:0.16#/$defs/choiceState';
   }
   const registry = new Map(documents.map(document => [document.$id, document]));
   const definitions = {}, references = new Map();

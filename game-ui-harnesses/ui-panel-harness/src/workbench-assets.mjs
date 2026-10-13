@@ -190,7 +190,7 @@ export async function verifyWorkbenchContextPool(contextInput, pool) {
   requirePool(pool);
   const context = await validatePlanningContext(contextInput);
   if (!context.assetRetrieval) fail('PLAN_ASSET_CONTEXT_REQUIRED');
-  const retrieval = workbenchRetrieval(context.request.text, pool, { style: context.assetRetrieval.policy.style });
+  const retrieval = workbenchRetrieval(context.request.text, pool, { style: context.assetRetrieval.policy.style, images:context.assetRetrieval.assetRetrievalVersion==='0.2' });
   if (!same(retrieval, context.assetRetrieval)) fail('PLAN_ASSET_RETRIEVAL_MISMATCH');
   return retrieval;
 }

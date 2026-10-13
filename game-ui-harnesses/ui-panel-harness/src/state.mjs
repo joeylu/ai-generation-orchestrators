@@ -9,7 +9,7 @@ import {measureGroupedSection} from './grouped-presentation.mjs';
 
 const userSources = new Set(['mouse', 'touch', 'pen', 'keyboard']);
 const rowsOf = spec => [...spec.sections.flatMap(section => section.rows), ...navigationRows(spec)];
-const runtimeTypes = { slider: 'Slider', switch: 'Switch', select: 'Select', button: 'Button', tabs: 'Tabs', progress: 'ProgressBar', input: 'Input' };
+const runtimeTypes = { checkbox:'CheckBox',radio:'RadioGroup',list:'List',dialog:'Dialog', slider: 'Slider', switch: 'Switch', select: 'Select', button: 'Button', tabs: 'Tabs', progress: 'ProgressBar', input: 'Input' };
 
 function semanticChoice(spec, row, field, value, error = 'PANEL_CHOICE_VALUE') {
   const option = field.options.find(option => choiceId(spec.id, row.id, option.id) === value);
@@ -21,6 +21,15 @@ function semanticChoice(spec, row, field, value, error = 'PANEL_CHOICE_VALUE') {
 export function projectPanelEvent(specInput, stateInput, input) {
   const spec = validatePanelSpec(specInput), state = validatePanelState(spec, stateInput);
   if (!input || !['change', 'activate'].includes(input.type)) return { state, event: null };
+  const modal=rowsOf(spec).filter(row=>row.kind==='dialog'&&row.modal&&state[row.bind]).at(-1);
+  if(modal&&userSources.has(input.source)&&!input.id?.startsWith(controlId(spec.id,modal.id)+'.'))return {state,event:null};
+  const dialog=rowsOf(spec).find(row=>row.kind==='dialog'&&[controlId(spec.id,row.id)+'.open',controlId(spec.id,row.id)+'.close'].includes(input.id));
+  if(dialog&&input.type==='activate'&&userSources.has(input.source)){
+    if(input.id.endsWith('.open')&&!dialog.enabled)return {state,event:null};
+    const open=input.id.endsWith('.open'),next=validatePanelState(spec,{...state,[dialog.bind]:open});
+    if(open&&spec.tabs){const section=spec.sections.find(section=>section.rows.some(row=>row.id===dialog.id));if(!spec.tabs.pages.find(page=>page.id===state[spec.tabs.bind]).sections.includes(section.id))return {state,event:null};}
+    return {state:next,event:{name:dialog.event,fieldId:dialog.bind,value:open,source:input.source}};
+  }
   const row = rowsOf(spec).find(row => controlId(spec.id, row.id) === input.id);
   if (!row || ['text', 'progress'].includes(row.kind)) return { state, event: null };
   if (input.type !== (row.kind === 'button' ? 'activate' : 'change')) return { state, event: null };
@@ -48,7 +57,7 @@ export function projectPanelEvent(specInput, stateInput, input) {
     } };
   }
   const field = spec.state.find(field => field.id === row.bind);
-  const value = ['select', 'tabs'].includes(row.kind) ? semanticChoice(spec, row, field, input.value) : input.value;
+  const value = ['select', 'radio', 'list', 'tabs'].includes(row.kind) ? semanticChoice(spec, row, field, input.value) : input.value;
   const next = validatePanelState(spec, { ...state, [row.bind]: value });
   const changed = state[row.bind] !== next[row.bind];
   return {
@@ -79,6 +88,12 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
   const hydrated = {};
   for (const row of rows) {
     const node = nodes.get(controlId(spec.id, row.id)), field = fieldMap.get(row.bind);
+    if (row.kind === 'image') {
+      if (!node || node.type !== (row.source === null ? 'Container' : 'Image')
+        || row.source !== null && node.props.fit !== row.fit
+        || row.source === null && nodes.get(`${node.id}.placeholder`)?.props.text !== row.label) throw new Error('PANEL_RUNTIME_MISMATCH');
+      continue;
+    }
     if (row.kind === 'text') {
       if (!node || node.type !== 'Text') throw new Error('PANEL_RUNTIME_MISMATCH');
       const section=spec.sections.find(section=>section.rows.some(item=>item.id===row.id));
@@ -103,7 +118,7 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
       continue;
     }
     const expectedEnabled = row.kind === 'button' && row.action.kind === 'submit' ? buttonEnabled(spec, row, suppliedState) : row.enabled;
-    if (!node || node.type !== runtimeTypes[row.kind] || node.props?.enabled !== expectedEnabled) throw new Error('PANEL_RUNTIME_MISMATCH');
+    if (!node || node.type !== runtimeTypes[row.kind] || (row.kind==='dialog'?nodes.get(node.id+'.open')?.props.enabled:node.props?.enabled) !== expectedEnabled) throw new Error('PANEL_RUNTIME_MISMATCH');
     if (row.kind === 'progress') {
       if (node.props.max !== progressDisplayMax(row, field)) throw new Error('PANEL_RUNTIME_MISMATCH');
       // Percent painting is scaled. Exact host values come from the verified bundle,
@@ -122,12 +137,13 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
     if (row.kind === 'tabs') {
       if (!Array.isArray(node.props.tabs) || node.props.tabs.length !== field.options.length || node.props.tabs.some((option, i) => option.id !== choiceId(spec.id, row.id, field.options[i].id) || option.label !== field.options[i].label || option.contentId !== tabPageId(spec.id, field.options[i].id))) throw new Error('PANEL_RUNTIME_MISMATCH');
       hydrated[row.bind] = semanticChoice(spec, row, field, node.props.activeId, 'PANEL_RUNTIME_MISMATCH');
-    } else if (row.kind === 'select') {
-      if (!Array.isArray(node.props.options) || node.props.options.length !== field.options.length
-        || node.props.options.some((option, index) => option?.id !== choiceId(spec.id, row.id, field.options[index].id)
+    } else if (['select','radio','list'].includes(row.kind)) {
+      const options=row.kind==='list'?node.props.items:node.props.options;
+      if (!Array.isArray(options) || options.length !== field.options.length
+        || options.some((option, index) => option?.id !== choiceId(spec.id, row.id, field.options[index].id)
           || option.label !== field.options[index].label)) throw new Error('PANEL_RUNTIME_MISMATCH');
       hydrated[row.bind] = semanticChoice(spec, row, field, node.props.selectedId, 'PANEL_RUNTIME_MISMATCH');
-    } else hydrated[row.bind] = node.props[['slider', 'input'].includes(row.kind) ? 'value' : 'checked'];
+    } else hydrated[row.bind] = node.props[row.kind==='dialog'?'open':['slider', 'input'].includes(row.kind) ? 'value' : 'checked'];
   }
   let state = validatePanelState(spec, hydrated), alive = true, updating = false, interactionLocked = false;
   const editedInputs = new Set();
@@ -157,7 +173,7 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
     try {
       for (const row of boundRows) if (state[row.bind] !== next[row.bind]) {
         const value = row.kind === 'progress' ? progressDisplayValue(row, fieldMap.get(row.bind), next[row.bind])
-          : ['select', 'tabs'].includes(row.kind) ? choiceId(spec.id, row.id, next[row.bind]) : next[row.bind];
+          : ['select', 'radio', 'list', 'tabs'].includes(row.kind) ? choiceId(spec.id, row.id, next[row.bind]) : next[row.bind];
         runtime.setValue(controlId(spec.id, row.id), value);
         guard();
       }
@@ -197,6 +213,7 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
       if (fieldMap.get(fieldId)?.type !== 'progress') throw new Error('PANEL_PROGRESS_FIELD');
       applyState({ ...state, [fieldId]: value });
     },
+    setDialog(fieldId, open) { guard(); if(!rows.some(row=>row.kind==='dialog'&&row.bind===fieldId))throw new Error('PANEL_DIALOG_FIELD'); applyState({...state,[fieldId]:open}); },
     setText(fieldId, value) {
       guard();
       if (fieldMap.get(fieldId)?.type !== 'string') throw new Error('PANEL_INPUT_FIELD');

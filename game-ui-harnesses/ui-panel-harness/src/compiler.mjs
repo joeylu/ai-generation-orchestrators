@@ -1,3 +1,5 @@
+import { fullComponents, CHOICE_KINDS } from './component-capabilities.mjs';
+import { wrapStaticText } from './text-wrap.mjs';
 import { validatePanelSpec, validatePanelState } from './spec.mjs';
 import { validateCatalog, resolveRecipe, resolveTheme } from './catalog.mjs';
 import { validatePanelAssetClosure, panelAssetPath } from './panel-assets.mjs';
@@ -47,10 +49,24 @@ export const ALIGNED_SETTINGS_PANEL_COMPILER_VERSION = '0.25.0';
 export const POLISHED_MENU_PANEL_COMPILER_VERSION = '0.26.0';
 export const SECTION_HEADING_PANEL_COMPILER_VERSION = '0.27.0';
 export const SECTION_GEOMETRY_PANEL_COMPILER_VERSION = '0.28.0';
+export const IMAGE_PANEL_COMPILER_VERSION = '0.29.0';
+export const CENTERED_CARDS_PANEL_COMPILER_VERSION = '0.30.0';
+export const FULL_COMPONENT_PANEL_COMPILER_VERSION = '0.31.0';
+export const CENTERED_TITLE_PANEL_COMPILER_VERSION = '0.32.0';
+export const ACTION_HEADING_PANEL_COMPILER_VERSION = '0.33.0';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
   const theme = resolveTheme(catalog, spec.theme), profile = theme.visualStyle;
+  if (['concise-v3','visible-v3'].includes(theme.headingStyle)) {
+    if (!fullComponents(spec)) throw new PanelCompileError('VISUAL_STYLE_VERSION','$.theme','Heading v3 requires PanelSpec 0.16');
+    return ACTION_HEADING_PANEL_COMPILER_VERSION;
+  }
+  if(fullComponents(spec)){if(profile!=='modern-v3')throw new PanelCompileError('VISUAL_STYLE_VERSION','$.theme','Full components require modern-v3');return CENTERED_TITLE_PANEL_COMPILER_VERSION;}
+  if (['0.15','0.16'].includes(spec.panelSpecVersion)) {
+    if (profile !== 'modern-v3') throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Image slots require modern-v3');
+    return theme.cardAlignment === 'centered-v1' ? CENTERED_CARDS_PANEL_COMPILER_VERSION : IMAGE_PANEL_COMPILER_VERSION;
+  }
   if (theme.controlStyle === 'semantic-v1') {
     if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14'].includes(spec.panelSpecVersion)) throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Semantic controls require PanelSpec 0.7 or later');
     if (['concise-v2','visible-v2'].includes(theme.headingStyle)) return SECTION_GEOMETRY_PANEL_COMPILER_VERSION;
@@ -131,17 +147,17 @@ export function initialPanelState(spec) {
 /** Pure lowering. Renderer-free; core functions are supplied by the host adapter. */
 export function compilePanel(input, catalogInput, core, stateInput, assetClosureInput, compilerVersionInput) {
   const spec = validatePanelSpec(input), catalog = validateCatalog(catalogInput);
-  const sized = spec.panelSpecVersion === '0.14', wrapping = sized || spec.panelSpecVersion === '0.13', titled = wrapping || spec.panelSpecVersion === '0.12', typography = titled || spec.panelSpecVersion === '0.11', individual = typography || spec.panelSpecVersion === '0.10', arranged = individual || spec.panelSpecVersion === '0.9', styled = arranged || spec.panelSpecVersion === '0.8', appearance = styled ? spec.appearance : null;
+  const images = ['0.15','0.16'].includes(spec.panelSpecVersion), sized = images || spec.panelSpecVersion === '0.14', wrapping = sized || spec.panelSpecVersion === '0.13', titled = wrapping || spec.panelSpecVersion === '0.12', typography = titled || spec.panelSpecVersion === '0.11', individual = typography || spec.panelSpecVersion === '0.10', arranged = individual || spec.panelSpecVersion === '0.9', styled = arranged || spec.panelSpecVersion === '0.8', appearance = styled ? spec.appearance : null;
   const formsVersion = styled || spec.panelSpecVersion === '0.7';
   const tabsVersion = formsVersion || spec.panelSpecVersion === '0.6';
   const progressVersion = tabsVersion || spec.panelSpecVersion === '0.5';
   const flowVersion = progressVersion || spec.panelSpecVersion === '0.4';
   const controls = flowVersion || spec.panelSpecVersion === '0.3';
   const compilerVersion = compilerVersionInput ?? defaultPanelCompilerVersion(spec, catalog);
-  const allowedVersions = sized ? [FRAME_PANEL_COMPILER_VERSION] : wrapping ? [TEXT_WRAP_PANEL_COMPILER_VERSION] : titled ? [TITLE_BAR_PANEL_COMPILER_VERSION] : typography ? [BUTTON_FONT_PANEL_COMPILER_VERSION] : individual ? [BUTTON_STYLE_PANEL_COMPILER_VERSION] : arranged ? [ACTION_LAYOUT_PANEL_COMPILER_VERSION] : styled ? [APPEARANCE_PANEL_COMPILER_VERSION] : formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
+  const allowedVersions = images ? [IMAGE_PANEL_COMPILER_VERSION, CENTERED_CARDS_PANEL_COMPILER_VERSION, FULL_COMPONENT_PANEL_COMPILER_VERSION, CENTERED_TITLE_PANEL_COMPILER_VERSION, ACTION_HEADING_PANEL_COMPILER_VERSION] : sized ? [FRAME_PANEL_COMPILER_VERSION] : wrapping ? [TEXT_WRAP_PANEL_COMPILER_VERSION] : titled ? [TITLE_BAR_PANEL_COMPILER_VERSION] : typography ? [BUTTON_FONT_PANEL_COMPILER_VERSION] : individual ? [BUTTON_STYLE_PANEL_COMPILER_VERSION] : arranged ? [ACTION_LAYOUT_PANEL_COMPILER_VERSION] : styled ? [APPEARANCE_PANEL_COMPILER_VERSION] : formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
     : [controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION];
   const semantic = resolveTheme(catalog, spec.theme).controlStyle === 'semantic-v1';
-  if (semantic ? compilerVersion !== defaultPanelCompilerVersion(spec, catalog) : !allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec and pinned theme');
+  if (semantic ? compilerVersion !== defaultPanelCompilerVersion(spec, catalog) && !(fullComponents(spec) && !['concise-v3','visible-v3'].includes(resolveTheme(catalog,spec.theme).headingStyle) && compilerVersion === FULL_COMPONENT_PANEL_COMPILER_VERSION) : !allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec and pinned theme');
   const assetClosure = validatePanelAssetClosure(spec, assetClosureInput);
   const assets = new Map((assetClosure?.records ?? []).map(r => [r.key, r]));
   const rowIcons = new Map((spec.assets?.rowIcons ?? []).map(r => [r.rowId, r.asset]));
@@ -161,6 +177,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   const groupedBackground = grouped && appearance?.panelColor == null ? t.background : t.surface;
   const minimal = crafted || ['minimal-v1','minimal-v2'].includes(theme.surfaceStyle), refined = minimal || theme.surfaceStyle === 'refined-v1';
   const adaptive = theme.visualStyle === 'modern-v3', themed = adaptive || theme.visualStyle === 'modern-v2', modern = themed || theme.visualStyle === 'modern-v1';
+  if(images&&!adaptive)fail('VISUAL_STYLE_VERSION','$.theme','Image slots require a modern-v3 theme');
   const presentationPolicy = adaptive ? createPresentationPolicy(spec, t, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle, catalog) : undefined;
   const flow = tabsVersion && spec.tabs ? measureTabbedLayout(spec, presentationPolicy) : flowVersion ? measureFlowLayout(spec, presentationPolicy) : null;
   const l = { ...spec.layout, width: flow?.width ?? spec.layout.width };
@@ -220,6 +237,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   const hasPlate = titleBar?.backgroundColor != null;
   const titleNode = text(`${spec.id}.title`, spec.title,
     { x: (hasPlate ? 0 : l.padding) + titlePadding, y: (hasPlate ? 0 : l.padding) + titlePadding, width: titleWidth, height: titleHeight }, titleSize, titleBar?.textColor ?? t.text, minimal && !crafted && !polishedMenu ? 'normal' : 'bold');
+  const dialogs = [];
   const children = [hasPlate ? node(`${spec.id}.title-bar`, 'Container', { x:l.padding, y:l.padding, width:contentWidth, height:l.titleHeight },
     { style:style(titleBar.backgroundColor,{cornerRadius:titleBar.cornerRadius ?? t.radius}) }, [titleNode]) : titleNode];
   if (refined && !minimal && !titleBar && l.gap >= 4) children.push(node(`${spec.id}.title-accent`, 'Container',
@@ -251,10 +269,25 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     for (const [index, row] of section.rows.entries()) {
       const rowId = `${spec.id}.row.${row.id}`, id = controlId(spec.id, row.id), field = fields.get(row.bind);
       const placement = presentation?.rows[index], rowHeight = placement?.height ?? l.rowHeight;
-      select(row.recipe, `${row.kind}-row`, contentWidth, rowHeight);
+      select(row.recipe, `${row.kind}-row`, row.kind==='image' ? row.width==='fill' ? contentWidth-24 : row.width : contentWidth, rowHeight);
       const textHeight = Math.ceil(t.fontSize * 1.3);
+      if (row.kind === 'image') {
+        const width = row.width === 'fill' ? contentWidth - 24 : row.width;
+        if (width < 16 || width > contentWidth - 24 || rowHeight !== row.height) fail('IMAGE_GEOMETRY', '$.layout', 'Image must fit its measured content slot');
+        const rect = {x:(contentWidth-width)/2,y:placement.y,width,height:row.height};
+        if (row.source === null) {
+          if (presentationTextWidth(row.label, t.fontSize) + 24 > width || textHeight + 16 > row.height) fail('IMAGE_PLACEHOLDER_LABEL', '$.sections', 'Placeholder label must fit the image slot');
+          sectionChildren.push(node(id, 'Container', rect, {style:style(t.control,{borderWidth:1,cornerRadius:t.radius})},
+            [text(`${id}.placeholder`, row.label, {x:12,y:(row.height-textHeight)/2,width:width-24,height:textHeight},t.fontSize,t.muted)]));
+        } else {
+          const record = assets.get(row.source), source = panelAssetPath(record);
+          imageFacts[source] = {width:record.width,height:record.height};
+          sectionChildren.push(node(id, 'Image', rect, {source,fit:row.fit,drawBackground:false,style:style(t.surface)}));
+        }
+        continue;
+      }
       const icon = assets.get(rowIcons.get(row.id)), iconOffset = icon ? placement?.iconOffset ?? 40 : 0;
-      const fullButton = flowVersion && row.kind === 'button' && row.label === '';
+      const fullButton = flowVersion && (row.kind === 'button' && row.label === '' || row.kind === 'dialog');
       const stacked = placement?.stacked === true;
       if (icon && (rowHeight < 40 || (!fullButton && !stacked && l.labelWidth - iconOffset < t.fontSize * 2))) fail('ICON_GEOMETRY', '$.layout', 'Icon needs a 28px slot and a readable label');
       const rowChildren = fullButton || (placement?.copy && !row.label) ? [] : [text(`${rowId}.label`, row.label,
@@ -301,6 +334,38 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           { x: placement?.valueX ?? contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, appearance?.textColor ?? t.accent));
         textBindings.push({ sourceId: id, targetId: valueId, parts: [
           { field: 'value', fractionDigits: row.format.fractionDigits, grouping: 'none' }, suffix] });
+      } else if (row.kind === 'checkbox') {
+        rowChildren.push(node(id,'CheckBox',{x:controlX,y:0,width:48,height:rowHeight},{label:'',checked:state[row.bind],enabled:row.enabled,style:style(t.control,{borderColor:iconBadgeColor(t.accent)})}));
+      } else if (['radio','list'].includes(row.kind)) {
+        const options=field.options.map(option=>({id:choiceId(spec.id,row.id,option.id),label:option.label}));
+        const rect={x:12,y:textHeight+16,width:contentWidth-24,height:row.kind==='radio'?options.length*36:row.visibleItems*row.itemHeight};
+        if(options.some(option=>presentationTextWidth(option.label,t.fontSize)+48>rect.width))fail('CHOICE_LABEL_FIT','$.sections','Choice labels must fit their row');
+        // The shared text-row List paints white/light-green rows; preserve contrast
+        // there just as the existing Select adapter does for its popup.
+        const palette=navigationPalette(t);
+        const props={selectedId:choiceId(spec.id,row.id,state[row.bind]),enabled:row.enabled,style:style(row.kind==='list'?palette.background:t.control,{borderColor:palette.accent,borderWidth:1,...(row.kind==='list'?{textColor:palette.text}:{})})};
+        if(row.kind==='radio')rowChildren.push(node(id,'RadioGroup',rect,{...props,options}));
+        else {
+          const height=Math.max(rect.height,options.length*row.itemHeight),selected=field.options.findIndex(option=>option.id===state[row.bind]);
+          const list=node(id,'List',{x:0,y:0,width:rect.width,height},{...props,items:options,itemTemplate:'text-row',itemHeight:row.itemHeight},[]);
+          rowChildren.push(node(id+'.viewport','ScrollView',rect,{contentWidth:rect.width,contentHeight:height,scrollX:0,scrollY:Math.min(selected*row.itemHeight,height-rect.height),style:style(t.surface)},[list]));
+        }
+      } else if (row.kind === 'dialog') {
+        const width=row.dialogWidth,height=row.dialogHeight,block=wrapStaticText(row.text,width-48,t.fontSize);
+        if(block.height+120>height||presentationTextWidth(row.title,t.headingSize)+48>width||presentationTextWidth(row.closeLabel,t.fontSize)+32>width-48)fail('DIALOG_CONTENT_FIT','$.sections','Dialog copy and controls must fit explicit dimensions');
+        const buttonStyle=style(t.accent,{textColor:buttonForeground(t.accent)});
+        const dialogButton=(buttonId,label,rect,open,enabled)=>{
+          if(presentationTextWidth(label,t.fontSize)+16>rect.width)fail('DIALOG_CONTENT_FIT','$.sections','Dialog button label must fit');
+          const height=Math.ceil(t.fontSize*1.3);
+          return node(buttonId,'Button',rect,{label,enabled,style:buttonStyle,interaction:{version:'1.0',mode:'internal',effects:[{kind:'dialog-open',targetId:id,open}]}},[
+            node(buttonId+'.center-label','Text',{x:8,y:(rect.height-height)/2,width:rect.width-16,height},{text:label,wrap:'none',overflow:'error',lineHeight:height,drawBackground:false,style:buttonStyle})
+          ]);
+        };
+        rowChildren.push(dialogButton(id+'.open',row.label,{x:controlX,y:(rowHeight-44)/2,width:available,height:44},true,row.enabled));
+        dialogs.push(node(id,'Dialog',{x:(spec.canvas.width-width)/2,y:(spec.canvas.height-height)/2,width,height},{title:row.title,open:state[row.bind],modal:row.modal,style:style(t.surface,{borderWidth:1}),...(row.modal?{backdrop:{color:'#000000',opacity:.35}}:{})},[
+          ...block.lines.map((line,index)=>text(id+'.body.'+index,line,{x:24,y:52+index*block.lineHeight,width:width-48,height:block.lineHeight+4},t.fontSize)),
+          dialogButton(id+'.close',row.closeLabel,{x:24,y:height-68,width:width-48,height:44},false,true)
+        ]));
       } else if (row.kind === 'switch') {
         if (available < 76) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Switch needs at least 76 logical pixels');
         rowChildren.push(node(id, 'Switch', { x: placement?.controlX ?? contentWidth - 88, y: 0, width: 76, height: rowHeight }, {
@@ -386,7 +451,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION, SECTION_HEADING_PANEL_COMPILER_VERSION, SECTION_GEOMETRY_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION, SECTION_HEADING_PANEL_COMPILER_VERSION, SECTION_GEOMETRY_PANEL_COMPILER_VERSION, IMAGE_PANEL_COMPILER_VERSION, CENTERED_CARDS_PANEL_COMPILER_VERSION, FULL_COMPONENT_PANEL_COMPILER_VERSION, CENTERED_TITLE_PANEL_COMPILER_VERSION, ACTION_HEADING_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {
@@ -444,16 +509,16 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     }
     children.unshift(...slices);
   }
-  const card = node(`${spec.id}.panel`, 'Container', {
+  const card = node(`${spec.id}.panel`, fullComponents(spec) ? 'Panel' : 'Container', {
     x: flow?.panelX ?? (spec.canvas.width - l.width) / 2, y: flow?.panelY ?? (spec.canvas.height - panelHeight) / 2, width: l.width, height: panelHeight,
-  }, { style: style(groupedBackground, { borderWidth: crafted || polishedMenu ? 0 : 1, cornerRadius: appearance?.panelRadius ?? (grouped?0:t.radius) }) }, children);
+  }, { ...(fullComponents(spec)?{title:''}:{}), style: style(groupedBackground, { borderWidth: crafted || polishedMenu ? 0 : 1, cornerRadius: appearance?.panelRadius ?? (grouped?0:t.radius) }) }, children);
   const shadow = refined && !crafted && !polishedMenu && !surface && appearance?.panelColor == null ? [2].flatMap((spread, index) => {
     const rect = layouts[card.id], x = rect.x - spread, y = rect.y - spread + 3;
     if (x < 0 || y < 0 || x + rect.width + spread * 2 > spec.canvas.width || y + rect.height + spread * 2 > spec.canvas.height) return [];
     return [node(`${spec.id}.panel-shadow.${index}`, 'Container', { x, y, width: rect.width + spread * 2, height: rect.height + spread * 2 },
       { style: style('#000000', { opacity: .05, cornerRadius: (appearance?.panelRadius ?? t.radius) + spread }) }, [])];
   }) : [];
-  const root = node(`${spec.id}.canvas`, 'Container', { x: 0, y: 0, ...spec.canvas }, { style: style(t.background, { cornerRadius: 0 }) }, [...shadow, card]);
+  const root = node(`${spec.id}.canvas`, 'Container', { x: 0, y: 0, ...spec.canvas }, { style: style(t.background, { cornerRadius: 0 }) }, [...shadow, card, ...dialogs]);
   const intent = { intentVersion: '0.2', id: spec.id, root };
   const policy = { canvas: spec.canvas, layout: layouts, layoutSource: {
     kind: 'explicit', description: `Explicit rectangles produced by UI Panel compiler ${compilerVersion} from declared ${flowVersion ? 'flow container' : 'stack'} rules; not image measurements.`,

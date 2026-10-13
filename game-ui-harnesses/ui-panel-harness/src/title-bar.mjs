@@ -16,3 +16,13 @@ export function checkTitleBar(value, fail, path = '$.titleBar') {
 export function nativeTitleAlignment(style) {
   return ({top:'Upper',middle:'Middle',bottom:'Lower'})[style.verticalAlign ?? 'middle'] + ({left:'Left',center:'Center',right:'Right'})[style.horizontalAlign ?? 'left'];
 }
+
+/** Versioned presentation default; explicit axes win and saved older bundles replay unchanged. */
+export function effectivePanelTitleStyle(bundle) {
+  const style = bundle.spec.titleBar;
+  if (['0.32.0','0.33.0'].includes(bundle.compilerVersion)) return { ...style,
+    horizontalAlign: style?.horizontalAlign ?? 'center', verticalAlign: style?.verticalAlign ?? 'middle' };
+  const menu = ['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0'].includes(bundle.compilerVersion)
+    && bundle.spec.sections.length === 1 && bundle.spec.sections[0].rows.every(row => row.kind === 'button' && row.label === '');
+  return style ?? (menu ? { horizontalAlign: 'center', verticalAlign: 'middle' } : null);
+}

@@ -222,6 +222,7 @@ namespace GameUi.PanelHarness.Editor
                     PanelControlView view = definition == null ? null : new PanelControlView { definition = definition };
                     switch (node.type)
                     {
+                        case "Panel":
                         case "Container":
                             if (node.drawBackground) AddBackground(current, node);
                             break;
@@ -237,8 +238,23 @@ namespace GameUi.PanelHarness.Editor
                         case "ProgressBar":
                             BuildProgress(current, node, view, outputAssetFolder);
                             break;
+                        case "CheckBox":
                         case "Switch":
                             BuildToggle(current, node, view);
+                            break;
+                        case "RadioGroup": case "List":
+                            BuildChoices(current, node, view, fields[definition.fieldId], font);
+                            break;
+                        case "Dialog":
+                            AddBackground(current, node);
+                            view.dialog = current; view.dialogModal = node.modal;
+                            if (node.modal) {
+                                GameObject blocker = Child(root, node.id + ".__blocker", 0, 0, document.canvasWidth, document.canvasHeight);
+                                AddGraphic(blocker, new Color(0, 0, 0, 0.35f), Color.clear, 0, 0);
+                                blocker.transform.SetSiblingIndex(current.transform.GetSiblingIndex()); view.dialogBlocker = blocker;
+                            }
+                            GameObject title = Child(current, "__dialog_title", 24, 12, node.width - 48, 32);
+                            AddText(title, node.text, node, font, TextAnchor.MiddleLeft);
                             break;
                         case "Select":
                             BuildDropdown(current, node, view, fields[definition.fieldId], font);
@@ -267,6 +283,10 @@ namespace GameUi.PanelHarness.Editor
                         view.minLengthErrorText = objects[view.definition.minLengthErrorTextId].GetComponent<Text>();
                     }
                     if (view.definition.kind == "tabs") view.tabPages = view.definition.contentIds.Select(id => objects[id]).ToArray();
+                    if (view.definition.kind == "dialog") {
+                        view.dialogOpenButton = objects[view.definition.nodeId + ".open"].GetComponent<Button>();
+                        view.dialogCloseButton = objects[view.definition.nodeId + ".close"].GetComponent<Button>();
+                    }
                     GameObject control = objects[view.definition.nodeId];
                     ScrollRect scroll = control.GetComponentInParent<ScrollRect>(true);
                     if (scroll != null) control.AddComponent<PanelScrollReveal>().Configure(scroll);
@@ -386,7 +406,7 @@ namespace GameUi.PanelHarness.Editor
 
         private static void ValidateDocument(PanelDocument document)
         {
-            if (document == null || document.formatVersion != "0.1" || document.adapterVersion != PanelController.ADAPTER_VERSION || !new[] { "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13", "0.14" }.Contains(document.panelSpecVersion) || !ValidId(document.panelId) || !IsSha(document.panelSha256)) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_VERSION");
+            if (document == null || document.formatVersion != "0.1" || document.adapterVersion != PanelController.ADAPTER_VERSION || !new[] { "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0.10", "0.11", "0.12", "0.13", "0.14", "0.15", "0.16" }.Contains(document.panelSpecVersion) || !ValidId(document.panelId) || !IsSha(document.panelSha256)) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_VERSION");
             if (!Positive(document.canvasWidth, 4096) || !Positive(document.canvasHeight, 4096) || document.nodes == null || document.nodes.Length < 1 || document.nodes.Length > 2048 || document.fields == null || document.fields.Length > 128 || document.controls == null || document.controls.Length > 128 || document.assets == null || document.assets.Length > 129) throw new InvalidDataException("PANEL_IMPORT_DOCUMENT_LIMIT");
             Dictionary<string, PanelAsset> assets = new Dictionary<string, PanelAsset>(StringComparer.Ordinal);
             foreach (PanelAsset asset in document.assets)
@@ -398,10 +418,13 @@ namespace GameUi.PanelHarness.Editor
             Dictionary<string, int> depths = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (PanelNode node in document.nodes)
             {
-                if (node == null || !ValidId(node.id) || nodes.ContainsKey(node.id) || !new[] { "Container", "Text", "Image", "Slider", "Switch", "Select", "Button", "ProgressBar", "ScrollView", "Tabs", "Input" }.Contains(node.type)) throw new InvalidDataException("PANEL_IMPORT_NODE_ID_TYPE");
+                if (node == null || !ValidId(node.id) || nodes.ContainsKey(node.id) || !new[] { "Panel", "Dialog", "CheckBox", "RadioGroup", "List", "Container", "Text", "Image", "Slider", "Switch", "Select", "Button", "ProgressBar", "ScrollView", "Tabs", "Input" }.Contains(node.type)) throw new InvalidDataException("PANEL_IMPORT_NODE_ID_TYPE");
                 if (!Finite(node.x) || !Finite(node.y) || node.x < 0 || node.y < 0 || !Positive(node.width, 65536) || !Positive(node.height, 65536) || !Finite(node.opacity) || node.opacity < 0 || node.opacity > 1 || !Finite(node.borderWidth) || node.borderWidth < 0 || node.borderWidth > 256 || !Finite(node.cornerRadius) || node.cornerRadius < 0 || node.cornerRadius > 4096 || !ValidColor(node.backgroundColor) || !ValidColor(node.borderColor) || !ValidColor(node.textColor) || node.fontSize < 1 || node.fontSize > 256 || !ValidText(node.text, 512)) throw new InvalidDataException("PANEL_IMPORT_NODE_STYLE_GEOMETRY");
                 if (!string.IsNullOrEmpty(node.textAlignment) && (node.type != "Text" ||
-                    !(node.id == document.panelId + ".title" && new[] { "0.12", "0.13", "0.14" }.Contains(document.panelSpecVersion) || node.textAlignment == "MiddleRight" && document.controls.Any(control => control != null && control.kind == "slider" && control.valueTextId == node.id)) ||
+                    !(node.id == document.panelId + ".title" && new[] { "0.12", "0.13", "0.14", "0.15", "0.16" }.Contains(document.panelSpecVersion) || node.textAlignment == "MiddleRight" && document.controls.Any(control => control != null && control.kind == "slider" && control.valueTextId == node.id) ||
+                      (document.panelSpecVersion == "0.15" || document.panelSpecVersion == "0.16") && node.textAlignment == "MiddleCenter" &&
+                      (node.id == node.parentId + ".title" && node.parentId.StartsWith(document.panelId + ".section.", StringComparison.Ordinal) ||
+                       node.id == node.parentId + ".placeholder" && node.parentId.StartsWith(document.panelId + ".row.", StringComparison.Ordinal) && node.parentId.EndsWith(".control", StringComparison.Ordinal))) ||
                     !new[] { "UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight" }.Contains(node.textAlignment))) throw new InvalidDataException("PANEL_IMPORT_TEXT_ALIGNMENT");
                 if (nodes.Count == 0)
                 {
@@ -411,7 +434,7 @@ namespace GameUi.PanelHarness.Editor
                 else
                 {
                     PanelNode parent;
-                    if (node.parentId == null || !nodes.TryGetValue(node.parentId, out parent) || (parent.type != "Container" && parent.type != "ScrollView" && parent.type != "Tabs")) throw new InvalidDataException("PANEL_IMPORT_PARENT_ORDER");
+                    if (node.parentId == null || !nodes.TryGetValue(node.parentId, out parent) || !new[] { "Container", "Panel", "Dialog", "ScrollView", "Tabs" }.Contains(parent.type)) throw new InvalidDataException("PANEL_IMPORT_PARENT_ORDER");
                     int depth = depths[parent.id] + 1;
                     if (depth > 32) throw new InvalidDataException("PANEL_IMPORT_NODE_DEPTH");
                     depths.Add(node.id, depth);
@@ -432,7 +455,7 @@ namespace GameUi.PanelHarness.Editor
             Dictionary<string, PanelField> fields = new Dictionary<string, PanelField>(StringComparer.Ordinal);
             foreach (PanelField field in document.fields)
             {
-                if (field == null || !ValidId(field.id) || fields.ContainsKey(field.id) || field.options == null || field.options.Length > 8) throw new InvalidDataException("PANEL_IMPORT_FIELD_ID");
+                if (field == null || !ValidId(field.id) || fields.ContainsKey(field.id) || field.options == null || field.options.Length > (document.panelSpecVersion == "0.16" ? 64 : 8)) throw new InvalidDataException("PANEL_IMPORT_FIELD_ID");
                 if (field.type == "number")
                 {
                     double steps = (field.max - field.min) / field.step;
@@ -440,7 +463,7 @@ namespace GameUi.PanelHarness.Editor
                 }
                 else if (field.type == "progress")
                 {
-                    if ((document.panelSpecVersion != "0.5" && document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14") || field.min != 0 || field.step != 0 || !Finite(field.max) || field.max <= 0
+                    if ((document.panelSpecVersion != "0.5" && document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14" && document.panelSpecVersion != "0.15" && document.panelSpecVersion != "0.16") || field.min != 0 || field.step != 0 || !Finite(field.max) || field.max <= 0
                         || !ValidProgress(field, field.initialNumber) || !ValidProgress(field, field.numberValue)) throw new InvalidDataException("PANEL_IMPORT_PROGRESS_FIELD");
                 }
                 else if (field.type == "enum")
@@ -451,7 +474,7 @@ namespace GameUi.PanelHarness.Editor
                 }
                 else if (field.type == "string")
                 {
-                    if ((document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14") || !PanelController.StringValid(field.initialString, field.maxLength)
+                    if ((document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14" && document.panelSpecVersion != "0.15" && document.panelSpecVersion != "0.16") || !PanelController.StringValid(field.initialString, field.maxLength)
                         || !PanelController.StringValid(field.stringValue, field.maxLength)) throw new InvalidDataException("PANEL_IMPORT_STRING_FIELD");
                 }
                 else if (field.type != "boolean") throw new InvalidDataException("PANEL_IMPORT_FIELD_TYPE");
@@ -471,14 +494,14 @@ namespace GameUi.PanelHarness.Editor
                         || (control.displayMode != "percent" && control.displayMode != "value")) throw new InvalidDataException("PANEL_IMPORT_PROGRESS_CONTROL");
                 }
                 else if (!ValidId(control.eventName) || !events.Add(control.eventName)) throw new InvalidDataException("PANEL_IMPORT_CONTROL_EVENT");
-                string type = control.kind == "slider" ? "Slider" : control.kind == "switch" ? "Switch" : control.kind == "select" ? "Select" : control.kind == "button" ? "Button" : control.kind == "progress" ? "ProgressBar" : control.kind == "tabs" ? "Tabs" : control.kind == "input" ? "Input" : "";
+                string type = control.kind == "checkbox" ? "CheckBox" : control.kind == "radio" ? "RadioGroup" : control.kind == "list" ? "List" : control.kind == "dialog" ? "Dialog" : control.kind == "slider" ? "Slider" : control.kind == "switch" ? "Switch" : control.kind == "select" ? "Select" : control.kind == "button" ? "Button" : control.kind == "progress" ? "ProgressBar" : control.kind == "tabs" ? "Tabs" : control.kind == "input" ? "Input" : "";
                 if (type == "" || node.type != type) throw new InvalidDataException("PANEL_IMPORT_CONTROL_TYPE");
                 if (control.kind == "button")
                 {
                     if (control.fieldId != "" || (control.action != "emit" && control.action != "reset-initial" && control.action != "submit") || (control.action == "emit" && control.resetFields.Length != 0) || (control.action == "reset-initial" && control.resetFields.Length == 0)) throw new InvalidDataException("PANEL_IMPORT_BUTTON_ACTION");
                     if (control.action == "submit")
                     {
-                        if ((document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14") || control.resetFields.Length != 0 || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) throw new InvalidDataException("PANEL_IMPORT_SUBMIT_SCOPE");
+                        if ((document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14" && document.panelSpecVersion != "0.15" && document.panelSpecVersion != "0.16") || control.resetFields.Length != 0 || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) throw new InvalidDataException("PANEL_IMPORT_SUBMIT_SCOPE");
                         HashSet<string> submitted = new HashSet<string>(StringComparer.Ordinal);
                         foreach (string id in control.submitFields)
                             if (id == null || !fields.ContainsKey(id) || fields[id].type != "string" || !submitted.Add(id)
@@ -491,9 +514,24 @@ namespace GameUi.PanelHarness.Editor
                 else
                 {
                     PanelField field;
-                    string expected = control.kind == "slider" ? "number" : control.kind == "switch" ? "boolean" : control.kind == "progress" ? "progress" : control.kind == "input" ? "string" : "enum";
+                    string expected = control.kind == "slider" ? "number" : (control.kind == "switch" || control.kind == "checkbox" || control.kind == "dialog") ? "boolean" : control.kind == "progress" ? "progress" : control.kind == "input" ? "string" : "enum";
                     if (control.fieldId == null || !fields.TryGetValue(control.fieldId, out field) || field.type != expected || control.action != "" || control.resetFields.Length != 0) throw new InvalidDataException("PANEL_IMPORT_BINDING");
                     if (!usedFields.Add(field.id)) throw new InvalidDataException("PANEL_IMPORT_DUPLICATE_BINDING");
+                    if (new[] { "checkbox", "radio", "list", "dialog" }.Contains(control.kind) && document.panelSpecVersion != "0.16") throw new InvalidDataException("PANEL_IMPORT_COMPONENT_VERSION");
+                    if (new[] { "radio", "select", "tabs" }.Contains(control.kind) && field.options.Length > 8) throw new InvalidDataException("PANEL_IMPORT_CHOICE_LIMIT");
+                    if (control.kind == "list") {
+                        PanelNode viewport;
+                        if (!Finite(node.itemHeight) || node.itemHeight < 32 || node.itemHeight > 96 || node.itemHeight != Mathf.Floor(node.itemHeight)
+                            || !nodes.TryGetValue(node.parentId, out viewport) || viewport.type != "ScrollView" || viewport.id != node.id + ".viewport"
+                            || node.x != 0 || node.y != 0 || node.height < field.options.Length * node.itemHeight || node.width != viewport.width) throw new InvalidDataException("PANEL_IMPORT_LIST_GEOMETRY");
+                    }
+                    if (control.kind == "dialog") {
+                        PanelNode opener, closer;
+                        if (node.parentId != document.nodes[0].id || node.width < 240 || node.height < 160
+                            || !nodes.TryGetValue(node.id + ".open", out opener) || !nodes.TryGetValue(node.id + ".close", out closer)
+                            || opener.type != "Button" || closer.type != "Button" || opener.dialogTargetId != node.id || closer.dialogTargetId != node.id
+                            || !opener.dialogOpen || closer.dialogOpen || closer.parentId != node.id) throw new InvalidDataException("PANEL_IMPORT_DIALOG_CONTROLS");
+                    }
                     if (control.kind == "progress" && control.displayMode == "value" && field.max >= 1E21) throw new InvalidDataException("PANEL_IMPORT_PROGRESS_FORMAT_LIMIT");
                     if (control.kind == "input")
                     {
@@ -510,7 +548,7 @@ namespace GameUi.PanelHarness.Editor
                     }
                     if (control.kind == "tabs")
                     {
-                        if ((document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14") || field.options.Length < 2 || node.height < 104 || node.width / field.options.Length < 24
+                        if ((document.panelSpecVersion != "0.6" && document.panelSpecVersion != "0.7" && document.panelSpecVersion != "0.8" && document.panelSpecVersion != "0.9" && document.panelSpecVersion != "0.10" && document.panelSpecVersion != "0.11" && document.panelSpecVersion != "0.12" && document.panelSpecVersion != "0.13" && document.panelSpecVersion != "0.14" && document.panelSpecVersion != "0.15" && document.panelSpecVersion != "0.16") || field.options.Length < 2 || node.height < 104 || node.width / field.options.Length < 24
                             || control.contentIds == null || control.contentIds.Length != field.options.Length
                             || control.contentIds.Distinct(StringComparer.Ordinal).Count() != control.contentIds.Length) throw new InvalidDataException("PANEL_IMPORT_TABS_RECORD");
                         foreach (string id in control.contentIds)
@@ -528,7 +566,15 @@ namespace GameUi.PanelHarness.Editor
                 }
                 else if (control.valueTextId != "") throw new InvalidDataException("PANEL_IMPORT_VALUE_TEXT_UNEXPECTED");
             }
-            foreach (PanelNode node in document.nodes) if (new[] { "Slider", "Switch", "Select", "Button", "ProgressBar", "Tabs", "Input" }.Contains(node.type) && !controlNodes.Contains(node.id)) throw new InvalidDataException("PANEL_IMPORT_UNBOUND_CONTROL");
+            foreach (PanelNode node in document.nodes) {
+                if (!string.IsNullOrEmpty(node.dialogTargetId)) {
+                    PanelNode target;
+                    if (document.panelSpecVersion != "0.16" || node.type != "Button" || !nodes.TryGetValue(node.dialogTargetId, out target) || target.type != "Dialog"
+                        || node.id != target.id + (node.dialogOpen ? ".open" : ".close") || !controlNodes.Contains(target.id)) throw new InvalidDataException("PANEL_IMPORT_DIALOG_LINK");
+                    continue;
+                }
+                if (new[] { "CheckBox", "RadioGroup", "List", "Dialog", "Slider", "Switch", "Select", "Button", "ProgressBar", "Tabs", "Input" }.Contains(node.type) && !controlNodes.Contains(node.id)) throw new InvalidDataException("PANEL_IMPORT_UNBOUND_CONTROL");
+            }
             if (usedFields.Count != fields.Count) throw new InvalidDataException("PANEL_IMPORT_UNUSED_FIELD");
         }
 
@@ -684,10 +730,12 @@ namespace GameUi.PanelHarness.Editor
         private static void BuildToggle(GameObject target, PanelNode node, PanelControlView view)
         {
             Toggle toggle = target.AddComponent<Toggle>();
-            GameObject track = Child(target, "__track", 0, (node.height - 30) / 2, node.width, 30);
-            PanelRoundedGraphic background = AddGraphic(track, ParseColor(node.backgroundColor, node.opacity), ParseColor(node.borderColor, node.opacity), 1, 15);
-            GameObject mark = Child(track, "__checked", node.width - 26, 4, 22, 22);
-            PanelRoundedGraphic markGraphic = AddGraphic(mark, ParseColor(node.borderColor, node.opacity), Color.clear, 0, 11);
+            bool checkBox = node.type == "CheckBox";
+            float trackWidth = checkBox ? 28 : node.width;
+            GameObject track = Child(target, "__track", 0, (node.height - 30) / 2, trackWidth, 30);
+            PanelRoundedGraphic background = AddGraphic(track, ParseColor(node.backgroundColor, node.opacity), ParseColor(node.borderColor, node.opacity), 1, checkBox ? 4 : 15);
+            GameObject mark = Child(track, "__checked", checkBox ? 5 : node.width - 26, checkBox ? 6 : 4, checkBox ? 18 : 22, checkBox ? 18 : 22);
+            PanelRoundedGraphic markGraphic = AddGraphic(mark, ParseColor(node.borderColor, node.opacity), Color.clear, 0, checkBox ? 2 : 11);
             toggle.targetGraphic = background;
             toggle.graphic = markGraphic;
             toggle.toggleTransition = Toggle.ToggleTransition.None;
@@ -722,10 +770,31 @@ namespace GameUi.PanelHarness.Editor
             PanelRoundedGraphic background = AddBackground(target, node);
             Button button = target.AddComponent<Button>();
             button.targetGraphic = background;
-            ConfigureSelectable(button, view.definition.enabled);
+            ConfigureSelectable(button, view == null || view.definition.enabled);
             GameObject label = Child(target, "__label", 8, 0, Math.Max(1, node.width - 16), node.height);
             AddText(label, node.text, node, font, TextAnchor.MiddleCenter);
-            view.button = button;
+            if (view != null) view.button = button;
+        }
+
+        private static void BuildChoices(GameObject target, PanelNode node, PanelControlView view, PanelField field, Font font)
+        {
+            bool radio = node.type == "RadioGroup";
+            float itemHeight = radio ? node.height / field.options.Length : node.itemHeight;
+            GameObject content = target;
+            AddBackground(target, node);
+            view.choiceButtons = new Button[field.options.Length]; view.choiceIndicators = new GameObject[field.options.Length];
+            for (int i = 0; i < field.options.Length; i++) {
+                GameObject item = Child(content, node.id + ".__choice_" + field.options[i].id, 0, i * itemHeight, node.width, itemHeight);
+                PanelRoundedGraphic background = AddGraphic(item, ParseColor(node.backgroundColor, node.opacity), ParseColor(node.borderColor, node.opacity), 1, 4);
+                Button button = item.AddComponent<Button>(); button.targetGraphic = background; ConfigureSelectable(button, view.definition.enabled);
+                ScrollRect scroll = target.GetComponentInParent<ScrollRect>(true);
+                if (scroll != null) item.AddComponent<PanelScrollReveal>().Configure(scroll);
+                GameObject marker = Child(item, "__marker", 8, (itemHeight - 16) / 2, 16, 16);
+                AddGraphic(marker, ParseColor(node.borderColor, node.opacity), Color.clear, 0, radio ? 8 : 2).raycastTarget = false;
+                GameObject label = Child(item, "__label", 32, 0, Math.Max(1, node.width - 40), itemHeight);
+                AddText(label, field.options[i].label, node, font, TextAnchor.MiddleLeft);
+                view.choiceButtons[i] = button; view.choiceIndicators[i] = marker;
+            }
         }
 
         private static void BuildTabs(GameObject target, PanelNode node, PanelControlView view, PanelField field, Font font)

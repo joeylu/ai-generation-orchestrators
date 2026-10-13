@@ -16,6 +16,11 @@ namespace GameUi.PanelHarness
         public Text requiredErrorText, minLengthErrorText;
         public Image progressFill;
         public Text valueText;
+        public Button[] choiceButtons;
+        public GameObject[] choiceIndicators;
+        public GameObject dialog, dialogBlocker, previousFocus;
+        public Button dialogOpenButton, dialogCloseButton;
+        public bool dialogModal;
         public Button[] tabButtons;
         public GameObject[] tabPages;
         public Color tabActiveColor, tabIdleColor;

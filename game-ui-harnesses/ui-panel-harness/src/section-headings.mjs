@@ -3,8 +3,9 @@ import { resolveTheme } from './catalog.mjs';
 
 /** Versioned presentation only. Semantic titles and tab labels remain intact. */
 export function sectionHeadingVisible(spec, section, headingStyle, legacyVisible = true) {
-  if (['visible-v1','visible-v2'].includes(headingStyle)) return true;
-  if (!['concise-v1','concise-v2'].includes(headingStyle)) return legacyVisible;
+  if (['visible-v1','visible-v2','visible-v3'].includes(headingStyle)) return true;
+  if (headingStyle === 'concise-v3' && !spec.tabs && (spec.sections.length === 1 || section.rows.every(row => row.kind === 'button'))) return false;
+  if (!['concise-v1','concise-v2','concise-v3'].includes(headingStyle)) return legacyVisible;
   if (spec.tabs || spec.sections.length !== 1) return true;
   if (section.rows.length === 1) return false;
   // Exact comparison after the same bounded terminal type suffix used by legacy themes.
@@ -15,8 +16,13 @@ export function sectionHeadingVisible(spec, section, headingStyle, legacyVisible
 /** Explicit adoption can change only the heading policy of an otherwise equal theme. */
 export function headingThemeTarget(spec, sourceCatalog, targetCatalog, mode) {
   if (!['auto', 'show'].includes(mode)) throw new Error('HEADING_MODE_INVALID');
-  const policies = mode === 'show' ? ['visible-v2','visible-v1'] : ['concise-v2','concise-v1'];
-  const visual = ({ version, headingStyle, ...theme }) => canonicalJson(theme);
+  const policies = mode === 'show' ? ['visible-v3','visible-v2','visible-v1'] : ['concise-v3','concise-v2','concise-v1'];
+  const visual = ({ version, headingStyle, ...theme }) => {
+    // Image cards are a 0.15 presentation feature. Older Specs cannot contain
+    // those rows; their explicit heading adoption retains its original geometry.
+    if (!['0.15','0.16'].includes(spec.panelSpecVersion)) delete theme.cardAlignment;
+    return canonicalJson(theme);
+  };
   const current = resolveTheme(sourceCatalog, spec.theme);
   const target = policies.flatMap(policy => targetCatalog.themes.filter(theme => theme.headingStyle === policy && visual(theme) === visual(current)))[0];
   if (!target || sourceCatalog.recipes.some(recipe => !targetCatalog.recipes.some(other => canonicalJson(recipe) === canonicalJson(other))))

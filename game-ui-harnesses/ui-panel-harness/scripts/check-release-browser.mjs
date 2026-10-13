@@ -15,15 +15,19 @@ const { chromium } = await loadWorkspaceTool('@playwright/test');
 const checks = [], errors = [], pass = name => checks.push({ name, status: 'PASS' });
 const runtime = await readFile(resolve(input, 'browser-runtime.js'));
 const bundle = await readFile(resolve(input, 'pixi/panel.bundle.json'));
+let imageReport={artifacts:[]};
+try{imageReport=JSON.parse(await readFile(resolve(input,'image-report.json'),'utf8'));assert.equal(imageReport.status,'PASS');}catch(error){if(error.code!=='ENOENT')throw error;}
+const imageBundles=Object.fromEntries(await Promise.all(imageReport.artifacts.map(async item=>[item.id,await readFile(resolve(input,item.pixiDirectory,'panel.bundle.json'))])));
 const html = `<!doctype html><meta charset="utf-8"><div id="surface"></div><script type="module">
 import * as runtime from './browser-runtime.js';
-const bundle=await runtime.validateBundle(await(await fetch('./panel.bundle.json')).json());
-const host=runtime.createPixiPanelHost();const panel=await host.add('module',bundle,{container:document.getElementById('surface')});
-window.sdkModule={runtime,host,panel,bundle};</script>`;
+const path=new URL(location.href).searchParams.get('bundle')??'panel.bundle.json';
+const bundle=await runtime.validateBundle(await(await fetch('./'+path)).json());
+const events=[];const host=runtime.createPixiPanelHost({onEvent:event=>events.push(event)});const panel=await host.add('module',bundle,{container:document.getElementById('surface')});
+window.sdkModule={runtime,host,panel,bundle,events};</script>`;
 const server = createServer((request, response) => {
   const resources = { '/': ['text/html; charset=utf-8', html], '/browser-runtime.js': ['text/javascript; charset=utf-8', runtime],
-    '/panel.bundle.json': ['application/json', bundle] };
-  const item = resources[request.url];
+    '/panel.bundle.json': ['application/json', bundle],...Object.fromEntries(Object.entries(imageBundles).map(([id,bytes])=>['/'+id+'.bundle.json',['application/json',bytes]])) };
+  const item = resources[new URL(request.url,'http://localhost').pathname];
   response.writeHead(item ? 200 : 404, { 'Content-Type': item?.[0] ?? 'text/plain' }); response.end(item?.[1] ?? 'not found');
 });
 let browser, page, report;
@@ -61,6 +65,39 @@ try {
   assert.equal(await page.locator('canvas').count(), 0);
   assert.deepEqual(errors, []);
   pass('module-cleanup-and-both-runtimes-have-no-browser-errors-or-remote-requests');
+  for(const item of imageReport.artifacts)for(const format of ['IIFE','ES']){
+    if(format==='IIFE'){
+      await page.goto(pathToFileURL(resolve(input,item.pixiDirectory,'index.html')).href);
+      await page.waitForFunction(()=>document.getElementById('status')?.dataset.state==='ready');
+    }else{
+      await page.goto(`http://127.0.0.1:${server.address().port}/?bundle=${item.id}.bundle.json`);
+      await page.waitForFunction(()=>window.sdkModule?.panel.status==='OPEN');
+    }
+    const actual=await page.evaluate(format=>format==='IIFE'?{bundle:window.panelDelivery.bundle,inspection:window.panelDelivery.inspect()}:{bundle:window.sdkModule.bundle,inspection:window.sdkModule.panel.inspect()},format);
+    assert.equal(actual.bundle.sha256,item.bundleSha256);const spec=actual.bundle.spec,nodes=actual.inspection.nodes;
+    for(const section of spec.sections){
+      const image=section.rows.find(row=>row.kind==='image'),plate=nodes.find(node=>node.id===`${spec.id}.row.${image.id}.control`);
+      const ids=[`${spec.id}.section.${section.id}.title`,...(image.source===null?[plate.id+'.placeholder']:[])];
+      if(item.compilerVersion==='0.30.0')for(const id of ids){
+        const text=nodes.find(node=>node.id===id)?.renderedTextBounds?.[0];assert(text);
+        assert(Math.abs(text.bounds.x+text.bounds.width/2-plate.bounds.x-plate.bounds.width/2)<1);
+      }
+    }
+    pass('installed-image-card-actual-glyph-centers-'+item.id+'-'+format);
+    await page.screenshot({path:resolve(output,item.id+'-'+format+'.png'),fullPage:true});
+    const canvas=page.locator('canvas'),button=spec.sections[0].rows.find(row=>row.kind==='button'),buttonId=`${spec.id}.row.${button.id}.control`;
+    await canvas.focus();
+    for(let count=0;count<24&&await canvas.getAttribute('data-focused-component')!==buttonId;count++)await page.keyboard.press('Tab');
+    assert.equal(await canvas.getAttribute('data-focused-component'),buttonId);await page.keyboard.press('Enter');
+    await page.waitForFunction(format=>format==='IIFE'?window.panelDelivery.events().length===1:window.sdkModule.events.length===1,format);
+    const eventName=await page.evaluate(format=>format==='IIFE'?window.panelDelivery.events()[0].event.name:window.sdkModule.events[0].event.name,format);
+    assert.equal(eventName,spec.sections[0].rows.find(row=>row.kind==='button').event);
+    const exported=await page.evaluate(format=>format==='IIFE'?window.panelDelivery.panel.exportBundle():window.sdkModule.panel.exportBundle(),format);
+    assert.deepEqual(exported.spec,spec);assert.deepEqual(exported.state,actual.bundle.state);
+    await page.evaluate(format=>format==='IIFE'?window.panelDelivery.destroy():window.sdkModule.host.destroy(),format);assert.equal(await page.locator('canvas').count(),0);
+    pass('installed-image-keyboard-export-and-cleanup-'+item.id+'-'+format);
+  }
+  assert.deepEqual(errors,[]);
   report = { status: 'PASS', browser: browser.version(), checks, errors, realModelCalls: 0, unityNative: 'NOT_RUN' };
 } catch (error) {
   report = { status: 'FAIL', checks, errors, code: String(error.message), realModelCalls: 0, unityNative: 'NOT_RUN' };

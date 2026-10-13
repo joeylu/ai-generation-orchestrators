@@ -18,6 +18,11 @@ const fail = code => { throw new Error(code); };
 const safePath = value => typeof value === 'string' && /^[A-Za-z0-9_.@/-]+$/.test(value)
   && value.split('/').every(part => part && part !== '.' && part !== '..');
 
+/** Bundler module labels must not disclose the build machine's absolute paths. */
+export function verifyBrowserRuntimePortability(code) {
+  if (/^[ \t]*\/\/#region\s+(?:[A-Za-z]:[\\/]|\/|\\\\)/m.test(code)) fail('RELEASE_BROWSER_HOST_PATH');
+}
+
 /** The digest is checked before parsing. Never extract links, traversal paths or executable hooks. */
 export function readPinnedTar(bytes) {
   const tar = gunzipSync(bytes, { maxOutputLength: 64 * 1024 * 1024 }), files = new Map();
@@ -147,13 +152,16 @@ export const componentCore=createComponentCore(compiler,contract,bundle);`;
     plugins: [{ name: 'panel-pinned-component', resolveId(id) { if (id === target || id.endsWith('/workspace/component-browser.mjs')) return '\0panel-pinned-component'; },
       load(id) { if (id === '\0panel-pinned-component') return bridge; } }],
     build: { write: false, target: 'es2022', minify: true, sourcemap: false,
-      rolldownOptions: { output: { codeSplitting: false } },
+      // Vite otherwise disables ES library code generation minification, retaining absolute module labels.
+      // Full licenses are shipped separately in THIRD_PARTY_NOTICES.txt.
+      rolldownOptions: { output: { codeSplitting: false, comments: false, minify: true } },
       lib: { entry: fileURLToPath(new URL('../src/delivery-runtime.mjs', import.meta.url)), name: 'PanelDelivery',
         formats: ['es', 'iife'], fileName: format => format === 'es' ? 'index.js' : 'panel-runtime.js' } } });
   const chunks = (Array.isArray(result) ? result : [result]).flatMap(value => value.output);
   if (chunks.length !== 2 || chunks.some(chunk => chunk.type !== 'chunk' || chunk.imports.length
     || chunk.dynamicImports.some(name => name !== chunk.fileName))) throw new Error('RELEASE_BROWSER_SHAPE', {
       cause: chunks.map(chunk => ({ name: chunk.fileName, type: chunk.type, imports: chunk.imports, dynamicImports: chunk.dynamicImports })) });
+  for (const chunk of chunks) verifyBrowserRuntimePortability(chunk.code);
   return { code: new Map(chunks.map(chunk => [chunk.fileName, utf8(chunk.code)])),
     notices: await noticesFor(chunks.flatMap(chunk => Object.keys(chunk.modules)), componentLicense, licenseSources) };
 }
@@ -168,15 +176,15 @@ export async function packagePanelRelease({ componentPackage, output }) {
   const readComponent = name => upstream.get('package/' + name);
   const componentNode = await closure(['lib/tree-compiler.js', 'lib/tree-contract.js', 'lib/bundle.js'], readComponent);
   const componentBrowser = await closure(['lib/tree-runtime.js', 'lib/motion-system.js', ...componentNode.keys()], readComponent, name => name === 'pixi.js');
-  const files = await closure(['src/sdk.mjs'], sourceFile, name => name.startsWith('../vendor/component/'));
+  const files = await closure(['src/sdk.mjs', 'src/planning-api-v1.mjs', 'src/planning-codex-v1.mjs'], sourceFile, name => name.startsWith('../vendor/component/'));
   for (const name of files.keys()) if (!name.startsWith('src/')) fail('RELEASE_SOURCE_SCOPE');
   await addTree(files, 'prompts', ['.md']);
   await addTree(files, 'schemas', ['.json']);
   await addTree(files, 'assets/core-v1', ['.json', '.md', '.png', '.svg']);
   await addTree(files, 'release/licenses', ['.txt']);
-  for (const name of ['catalog/modern-core.json', 'examples/modern-menu.catalog.json', 'examples/modern-menu-headings.catalog.json', 'examples/modern-menu-headings-v2.catalog.json', 'examples/audio-settings.panel.json',
+  for (const name of ['catalog/modern-core.json', 'examples/modern-menu.catalog.json', 'examples/modern-menu-headings.catalog.json', 'examples/modern-menu-headings-v2.catalog.json', 'examples/modern-image-slots.catalog.json', 'examples/modern-centered-cards.catalog.json', 'examples/modern-all-components.catalog.json', 'examples/modern-action-headings.catalog.json', 'examples/audio-settings.panel.json',
     'examples/layout-v1/settings.panel.json', 'examples/controls-planning/proposal.json', 'examples/asset-planning/proposal.json',
-    'docs/sdk-release.md', 'docs/section-headings.md', 'docs/section-geometry.md', 'release/contract.json']) files.set(name, await sourceFile(name));
+    'docs/sdk-rc5.md', 'docs/action-heading-policy-2026-10-14.md', 'docs/short-draft-fit-results-2026-10-13.md', 'docs/all-components.md', 'docs/centered-title-default.md', 'docs/input-adaptability-results-2026-10-13.md', 'docs/input-adaptability-recheck-results-2026-10-13.md', 'docs/input-label-boundary.md', 'docs/input-label-boundary-real-results-2026-10-13.md', 'docs/input-capability-real-results-2026-10-13.md', 'docs/input-adaptability-closeout-2026-10-13.md', 'docs/sdk-release.md', 'docs/sdk-rc4.md', 'docs/section-headings.md', 'docs/section-geometry.md', 'docs/image-slots.md', 'docs/card-alignment.md', 'release/contract.json']) files.set(name, await sourceFile(name));
   for (const name of UNITY_SOURCE_PATHS) files.set('adapters/unity/' + name, await sourceFile('adapters/unity/' + name));
   const sourceFiles = [...files.keys()];
   let commit, dirty;
@@ -200,7 +208,7 @@ export async function packagePanelRelease({ componentPackage, output }) {
   files.set('LICENSE', new Uint8Array(await readFile(new URL('../../../LICENSE', import.meta.url))));
   files.set('README.md', files.get('docs/sdk-release.md'));
   files.set('package.json', json({ name: contract.name, version: contract.version, type: 'module', private: true, license: 'MIT',
-    engines: { node: contract.runtime.node }, exports: { '.': './src/index.mjs', './sdk': './src/sdk.mjs', './browser/standalone': './dist-browser/index.js' } }));
+    engines: { node: contract.runtime.node }, exports: { '.': './src/index.mjs', './sdk': './src/sdk.mjs', './planning/v1': './src/planning-api-v1.mjs', './planning/codex/v1': './src/planning-codex-v1.mjs', './browser/standalone': './dist-browser/index.js' } }));
   const manifest = { releaseManifestVersion: '0.1', package: { name: contract.name, version: contract.version, tag: contract.tag },
     source: { repository: contract.repository, commit, dirty, baselineCommit: contract.baselineCommit },
     dependencies: [contract.component], runtime: contract.runtime, modelCalls: 0,

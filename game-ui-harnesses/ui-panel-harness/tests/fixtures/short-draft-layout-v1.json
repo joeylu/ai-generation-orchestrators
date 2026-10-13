@@ -1,0 +1,1154 @@
+{
+  "kind": "SAVED_REAL_SPEC_REGRESSION_FIXTURES",
+  "originalPlanSha256": "d16d871a68157910b77eb90b79e49c7b1f30a79aa6d5b8684c537013cc43a6ba",
+  "fixtures": [
+    {
+      "id": "U0_P07",
+      "sourceFileSha256": "8fcaa4db552ed820e31048de53aa248e96c74f1816cdfc957a08e617a004debf",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 264,
+          "width": 424
+        },
+        "frame": null,
+        "id": "P07",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 360
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1.",
+            "Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "format": {
+                  "fractionDigits": 0,
+                  "mode": "percent"
+                },
+                "id": "row0",
+                "kind": "progress",
+                "label": "加载进度",
+                "recipe": {
+                  "id": "settings.progress",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "加载进度"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": 0,
+            "max": 100,
+            "type": "progress"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.21.0"
+        },
+        "title": "加载中",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "U1_P07",
+      "sourceFileSha256": "0cd9eda4fbf1cdcf00d1eebb0d1bc0b9a6ba130dc7be8d84bff82e113c50093c",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 304,
+          "width": 464
+        },
+        "frame": null,
+        "id": "P07",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 240,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 400
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1.",
+            "Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "format": {
+                  "fractionDigits": 0,
+                  "mode": "percent"
+                },
+                "id": "row0",
+                "kind": "progress",
+                "label": "示例加载进度",
+                "recipe": {
+                  "id": "settings.progress",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "提示",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例提示：加载进度将由宿主更新。"
+              }
+            ],
+            "title": "加载状态"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": 0,
+            "max": 100,
+            "type": "progress"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row1",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.21.0"
+        },
+        "title": "加载面板",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "U1_P05",
+      "sourceFileSha256": "0cbd22486eaf7916695e2ff049726b19b94196df1b7879d7aa3cbb6ded2d259c",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 52,
+            "buttonWidth": 160,
+            "direction": "row",
+            "gap": 12,
+            "sectionId": "section1",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 664,
+          "width": 504
+        },
+        "frame": null,
+        "id": "P05",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section1",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 600,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 440
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "通关状态",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：已通关"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "关卡",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：关卡 01"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "通关时间",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：03:28"
+              },
+              {
+                "id": "row3",
+                "kind": "text",
+                "label": "得分",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：8,420"
+              },
+              {
+                "id": "row4",
+                "kind": "text",
+                "label": "奖励",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例奖励：星币 ×120"
+              }
+            ],
+            "title": "本次成绩"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "下一关",
+                "enabled": true,
+                "event": "panel.row5",
+                "id": "row5",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "再玩一次",
+                "enabled": true,
+                "event": "panel.row6",
+                "id": "row6",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "结算操作"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.21.0"
+        },
+        "title": "通关结算",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "U2_P05",
+      "sourceFileSha256": "98d1c323151e5db35efee6df5fcbccf4cb48ac390c6e3a7586f306008438ae67",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 56,
+            "buttonWidth": 148,
+            "direction": "row",
+            "gap": 12,
+            "sectionId": "section2",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 744,
+          "width": 624
+        },
+        "frame": null,
+        "id": "P05",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section1",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section2",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 680,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "关卡状态",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：已通关"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "评价",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：S 级"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "得分",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：12,480 分"
+              }
+            ],
+            "title": "示例通关结果"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "id": "row3",
+                "kind": "text",
+                "label": "用时",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：03:42"
+              },
+              {
+                "id": "row4",
+                "kind": "text",
+                "label": "获得奖励",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：120 金币"
+              }
+            ],
+            "title": "本局记录"
+          },
+          {
+            "id": "section2",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "继续",
+                "enabled": true,
+                "event": "panel.row5",
+                "id": "row5",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "再玩一次",
+                "enabled": true,
+                "event": "panel.row6",
+                "id": "row6",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "返回关卡",
+                "enabled": true,
+                "event": "panel.row7",
+                "id": "row7",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "下一步"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.21.0"
+        },
+        "title": "通关结算",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "U2_P06",
+      "sourceFileSha256": "98ecfe05479d10f68e5e9674cab71271ad3de1a2a2d6fecfdc5426af3faaf9c8",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 52,
+            "buttonWidth": 320,
+            "direction": "column",
+            "gap": 12,
+            "sectionId": "section1",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 624,
+          "width": 484
+        },
+        "frame": null,
+        "id": "P06",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section1",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "挑战结果",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "挑战失败"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "得分",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：0"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "挑战用时",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：00:00"
+              },
+              {
+                "id": "row3",
+                "kind": "text",
+                "label": "奖励",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：无"
+              }
+            ],
+            "title": "结算结果"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "再次挑战",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "返回",
+                "enabled": true,
+                "event": "panel.row5",
+                "id": "row5",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "下一步"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.21.0"
+        },
+        "title": "挑战结算",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "U1_P08",
+      "sourceFileSha256": "fc9047f52ced7a3d8fd1157ec7a92a054e943b95ec0938da811bc0ab66b1074e",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 48,
+            "buttonWidth": 144,
+            "direction": "row",
+            "gap": 12,
+            "sectionId": "section1",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 424,
+          "width": 484
+        },
+        "frame": null,
+        "id": "P08",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section1",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 360,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "状态",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "加载失败"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "提示",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "请检查网络连接后重试。"
+              }
+            ],
+            "title": "加载状态"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "重试",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "返回",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "操作"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row1",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.21.0"
+        },
+        "title": "加载失败",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "U2_P09",
+      "sourceFileSha256": "912968ac45b45fc36d1bbe3c9b0543afa0a92c179b9ea2905a76a361176d67de",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 48,
+            "buttonWidth": 160,
+            "direction": "row",
+            "gap": 12,
+            "sectionId": "section1",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 424,
+          "width": 424
+        },
+        "frame": null,
+        "id": "P09",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section1",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 360,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 360
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "kind": "switch",
+                "label": "音乐",
+                "recipe": {
+                  "id": "settings.switch",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "bind": "row1",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "switch",
+                "label": "音效",
+                "recipe": {
+                  "id": "settings.switch",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "声音"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "关闭",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "操作"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": true,
+            "type": "boolean"
+          },
+          {
+            "id": "row1",
+            "initial": true,
+            "type": "boolean"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.21.0"
+        },
+        "title": "设置",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "U0_P09",
+      "sourceFileSha256": "06c17d996056e2edf7ff9826c24bf37a67a94be47d9178217ea78c06b93a6049",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 48,
+            "buttonWidth": 160,
+            "direction": "row",
+            "gap": 12,
+            "sectionId": "section1",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 424,
+          "width": 464
+        },
+        "frame": null,
+        "id": "P09",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section1",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 360,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 400
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "kind": "switch",
+                "label": "音乐",
+                "recipe": {
+                  "id": "settings.switch",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "bind": "row1",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "switch",
+                "label": "音效",
+                "recipe": {
+                  "id": "settings.switch",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "音频设置"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "关闭",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "操作"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": true,
+            "type": "boolean"
+          },
+          {
+            "id": "row1",
+            "initial": true,
+            "type": "boolean"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.21.0"
+        },
+        "title": "设置",
+        "titleBar": null
+      }
+    }
+  ]
+}

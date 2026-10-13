@@ -11,6 +11,7 @@ CODES.add('INTENT_NATIVE_QUOTE');
 CODES.add('INTENT_SOURCE_REFERENCE'); FIELDS.add('sourceRef');
 CODES.add('INTENT_TEXT_LABEL');
 CODES.add('INTENT_TEXT_CONTENT');
+for(const code of ['INTENT_ACTION_DUPLICATE','INTENT_ACTION_TARGET_MISSING','INTENT_SUBMIT_REQUIRES_INPUT','INTENT_RESET_REQUIRES_STATE','INTENT_ROW_INDEX'])CODES.add(code);
 for (const code of ['DRAFT_FIELDS', 'DRAFT_COUNT', 'DRAFT_VERSION', 'INTENT_FIELDS', 'INTENT_COUNT', 'INTENT_QUOTE', 'INTENT_VERSION', 'INTENT_REFERENCE', 'INTENT_PRECISION', 'INTENT_DEFAULT', ...OUTPUT_CODES]) CODES.add(code);
 for (const field of ['codexPanelDraftVersion', 'codexEditDraftVersion', 'bases', 'overall', 'surface', 'proposalJson', 'panelIntentVersion', 'panel', 'sourceQuote', 'themeKey', 'recipeKey', 'icon', 'canvasWidth', 'canvasHeight', 'initialLabel', 'resetRows']) FIELDS.add(field);
 for (const code of ['EDIT_INPUT_RECIPE', 'EDIT_NO_CHANGE', 'EDIT_PLAN_NO_CHANGES', 'input-value', 'input-type']) CODES.add(code);

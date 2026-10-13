@@ -1,14 +1,15 @@
 import { validatePanelBundle } from './panel-bundle.mjs';
 import { controlId } from './compiler.mjs';
-import { nativeTitleAlignment } from './title-bar.mjs';
+import { nativeTitleAlignment, effectivePanelTitleStyle } from './title-bar.mjs';
 import { formErrorId } from './forms.mjs';
 import { tabPageId } from './tabs.mjs';
 import {resolveTheme} from './catalog.mjs';
 import {appearanceTokens} from './appearance.mjs';
 import {tabPalette} from './tabs-skin.mjs';
+import {centeredCardTextIds} from './card-alignment.mjs';
 
-export const UNITY_ADAPTER_VERSION = '0.1.5';
-const supported = new Set(['Container', 'Text', 'Image', 'Slider', 'Switch', 'Select', 'Button', 'ProgressBar', 'ScrollView', 'Tabs', 'Input']);
+export const UNITY_ADAPTER_VERSION = '0.1.7';
+const supported = new Set(['Panel','CheckBox','RadioGroup','List','Dialog','Container', 'Text', 'Image', 'Slider', 'Switch', 'Select', 'Button', 'ProgressBar', 'ScrollView', 'Tabs', 'Input']);
 const fail = code => { const error = new Error(code); error.code = code; throw error; };
 
 /** Native target lowering from a recompiled bundle; source capabilities remain unchanged. */
@@ -42,7 +43,7 @@ export async function createUnityDocument(input, core) {
       ...(field.type === 'string' ? { maxLength: field.maxLength } : {}),
     };
   });
-  const controls = spec.sections.flatMap(section => section.rows).filter(row => row.kind !== 'text').map(row => ({
+  const controls = spec.sections.flatMap(section => section.rows).filter(row => !['text','image'].includes(row.kind)).map(row => ({
     nodeId: controlId(spec.id, row.id), rowId: row.id, kind: row.kind, fieldId: row.bind ?? '',
     eventName: row.event ?? '', enabled: row.enabled ?? false, action: row.action?.kind ?? '',
     resetFields: row.action?.kind === 'reset-initial' ? [...row.action.fields] : [], valueTextId: ['slider', 'progress'].includes(row.kind) ? `${spec.id}.row.${row.id}.value` : '',
@@ -50,29 +51,40 @@ export async function createUnityDocument(input, core) {
     ...(row.kind === 'progress' ? { displayMode: row.format.mode } : {}),
     ...(row.action?.kind === 'submit' ? { submitFields: [...row.action.fields] } : {}),
     ...(row.kind === 'input' ? { placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
-      ...(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)?{deferEmptyError:true}:{}),
+      ...(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion)?{deferEmptyError:true}:{}),
       validation: structuredClone(row.validation), requiredErrorTextId: formErrorId(spec.id,row.id,'required'),
       minLengthErrorTextId: formErrorId(spec.id,row.id,'min-length') } : {}),
   }));
   const nodes = [];
-  const centeredMenuTitle=['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)&&!spec.titleBar&&spec.sections.length===1&&spec.sections[0].rows.every(row=>row.kind==='button'&&row.label==='');
+  const cardTexts = new Set(centeredCardTextIds(spec, resolveTheme(bundle.catalog, spec.theme)));
+  const titleStyle=effectivePanelTitleStyle(bundle);
   const selectSkinPaths = new Set();
-  const themedTabs = ['0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion) ? tabPalette(appearanceTokens(resolveTheme(bundle.catalog,spec.theme).tokens,spec.appearance)) : null;
+  const themedTabs = ['0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion) ? tabPalette(appearanceTokens(resolveTheme(bundle.catalog,spec.theme).tokens,spec.appearance)) : null;
   if (spec.tabs) controls.push({nodeId:controlId(spec.id,spec.tabs.id),rowId:spec.tabs.id,kind:'tabs',fieldId:spec.tabs.bind,eventName:spec.tabs.event,
     enabled:spec.tabs.enabled,action:'',resetFields:[],valueTextId:'',prefix:'',suffix:'',fractionDigits:0,
     contentIds:spec.tabs.pages.map(page=>tabPageId(spec.id,page.id))});
   function visit(node, parentId) {
     if (!supported.has(node.type)) fail('UNITY_COMPONENT_UNSUPPORTED');
-    const p = node.props, s = p.style, region = p.region;
+    const p = node.props, s = p.style;
+    let region = p.region, fit = p.fit;
+    if (node.type === 'Image' && fit === 'cover') {
+      const asset = bundle.assetClosure?.records.find(record => `textures/${record.sha256}.png` === p.source);
+      if (!asset) fail('UNITY_IMAGE_FACTS');
+      const source = region ?? {x:0,y:0,width:asset.width,height:asset.height}, aspect = node.layout.width/node.layout.height;
+      const width = Math.min(source.width,source.height*aspect), height = Math.min(source.height,source.width/aspect);
+      // The existing UGUI sprite-region contract accepts this centered crop.
+      region = {x:source.x+(source.width-width)/2,y:source.y+(source.height-height)/2,width,height};
+      fit = 'stretch';
+    }
     // Native Dropdown already paints its field and menu from this same style.
     // Deterministic Pixi Select skins are bundled for replay, not imported as Unity assets.
-    if (['0.15.0','0.16.0','0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion) && node.type === 'Select' && p.appearance) {
+    if (['0.15.0','0.16.0','0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion) && node.type === 'Select' && p.appearance) {
       for (const key of ['fieldImage','popupImage','arrowImage']) selectSkinPaths.add(p.appearance[key]);
     }
     if (themedTabs && node.type === 'Tabs' && p.appearance) {
       selectSkinPaths.add(p.appearance.tabImage);selectSkinPaths.add(p.appearance.activeTabImage);
     }
-    if(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion)&&['Input','Slider','Switch','ProgressBar'].includes(node.type)&&p.appearance) {
+    if(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion)&&['Input','Slider','Switch','ProgressBar'].includes(node.type)&&p.appearance) {
       const collect=value=>{
         if(typeof value==='string'&&(value.startsWith('generated/minimal-v1/')||value.startsWith('generated/grouped-v1/')||value.startsWith('generated/raised-slider-v1/')))selectSkinPaths.add(value);
         else if(value&&typeof value==='object')for(const child of Object.values(value))collect(child);
@@ -87,18 +99,21 @@ export async function createUnityDocument(input, core) {
       borderWidth: s.borderWidth, cornerRadius: s.cornerRadius, opacity: s.opacity,
       fontSize: s.fontSize, bold: s.fontWeight === 'bold', drawBackground: p.drawBackground ?? true,
       ...(themedTabs && node.type==='Tabs' ? {tabActiveColor:themedTabs.active,tabActiveTextColor:themedTabs.activeText,tabIndicatorColor:themedTabs.indicator} : {}),
-      ...(spec.titleBar && node.id === `${spec.id}.title` ? { textAlignment: nativeTitleAlignment(spec.titleBar) } : {}),
+      ...(titleStyle && node.id === `${spec.id}.title` ? { textAlignment: nativeTitleAlignment(titleStyle) } : {}),
       ...(bundle.compilerVersion==='0.25.0'&&controls.some(control=>control.kind==='slider'&&control.valueTextId===node.id)?{textAlignment:'MiddleRight'}:{}),
-      ...(centeredMenuTitle&&node.id===`${spec.id}.title`?{textAlignment:'MiddleCenter'}:{}),
-      text: p.text ?? p.label ?? '', source: p.source ?? '', fit: p.fit ?? '',
+      ...(cardTexts.has(node.id)?{textAlignment:'MiddleCenter'}:{}),
+      text: p.text ?? p.label ?? '', source: p.source ?? '', fit: fit ?? '',
       hasRegion: Boolean(region), regionX: region?.x ?? 0, regionY: region?.y ?? 0,
       regionWidth: region?.width ?? 0, regionHeight: region?.height ?? 0,
       contentWidth: p.contentWidth ?? 0, contentHeight: p.contentHeight ?? 0,
+      ...(node.type==='List'?{itemHeight:p.itemHeight}:{}),
+      ...(node.type==='Dialog'?{text:p.title,modal:p.modal}:{}),
+      ...(p.interaction?.mode==='internal'?{dialogTargetId:p.interaction.effects[0].targetId,dialogOpen:p.interaction.effects[0].open}:{}),
     });
     for (const child of node.children ?? []) {
       // The modern Pixi label is centered from environment glyph measurements.
       // Native Button already paints node.text at MiddleCenter; keep one label.
-      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
+      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
       visit(child, node.id);
     }
   }

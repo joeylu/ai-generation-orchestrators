@@ -29,6 +29,9 @@ namespace GameUi.PanelHarness
         public bool hasRegion;
         public float regionX, regionY, regionWidth, regionHeight;
         public float contentWidth, contentHeight;
+        public float itemHeight;
+        public string dialogTargetId;
+        public bool dialogOpen, modal;
     }
 
     [Serializable]

@@ -1,3 +1,4 @@
+import { extendedRowHeight } from './component-capabilities.mjs';
 import { hasTextWrap,wrapStaticText } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
 import { measureFocusedSection } from './focused-presentation.mjs';
@@ -21,7 +22,7 @@ export function sectionPurpose(section) {
 }
 
 export function createPresentationPolicy(spec, tokens, presentationStyle, surfaceStyle, headingStyle, catalog) {
-  const sectionMinimum = ['concise-v2','visible-v2'].includes(headingStyle)
+  const sectionMinimum = ['concise-v2','visible-v2','concise-v3','visible-v3'].includes(headingStyle)
     ? resolveRecipe(catalog, {id:'settings.section',version:'0.1.0'}, 'section').minHeight : 0;
   const polishedMenu = surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec);
   if (surfaceStyle === 'minimal-v2') surfaceStyle = 'minimal-v1';
@@ -43,6 +44,25 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
       && (crafted ? true : ['refined-v1','minimal-v1'].includes(surfaceStyle) ? section.id === spec.sections[0].id : compact && spec.sections.length === 1);
     const showTitle = sectionHeadingVisible(spec, section, headingStyle, !redundantHeading);
     const titleHeight = showTitle ? l.sectionTitleHeight + l.gap : 0;
+    if (section.rows.some(row => ['image','radio','list','dialog','checkbox'].includes(row.kind))) {
+      // Static image content owns its full row. No extra label band or icon badge.
+      let y = titleHeight;
+      const rows = section.rows.map((row, index) => {
+        const image = row.kind === 'image', copy = row.kind === 'text';
+        const textBlock = copy && hasTextWrap(spec,row.id) ? wrapStaticText(row.text,width-24,tokens.fontSize) : null;
+        const button = row.kind==='button'&&row.label==='' ? geometry(row,width-24,44) : null;
+        if(button&&button.width>width-24)reject('ACTION_LAYOUT_OVERFLOW','Button size exceeds its available section width');
+        const extended=extendedRowHeight(spec,row,textHeight);
+        const height = extended ?? (image ? row.height : copy ? Math.max(l.rowHeight,24+textHeight+8+(textBlock?.height??textHeight)) : row.kind === 'input' ? Math.max(l.rowHeight,2*textHeight+(spec.panelSpecVersion==='0.16'?80:60)) : Math.max(l.rowHeight,56,button?.height??0));
+        const place = {y,height,stacked:row.kind==='input',...(textBlock?{textBlock}:{}),...(image?{allowPartialScroll:true}:{}),
+          ...(copy?{copy:true,labelY:12,labelWidth:width-24,copyTextY:12+textHeight+8,controlX:12,controlWidth:width-24}:{}),
+          ...(extended?{labelY:0,labelX:12,labelWidth:width-24,controlX:12,controlWidth:width-24,allowPartialScroll:true}:{}),
+          ...(button?{controlX:(width-button.width)/2,controlWidth:button.width,controlHeight:button.height,circle:button.circle,explicitAction:true}: {})};
+        y += height + (index<section.rows.length-1?l.gap:0);
+        return place;
+      });
+      return {purpose:'content',showTitle,height:Math.max(resolveRecipe(catalog,{id:'settings.section',version:'0.1.0'},'section').minHeight,y),rows};
+    }
     const explicit = spec.actionLayouts?.find(value => value.sectionId === section.id);
     if (explicit) {
       const { buttonWidth, buttonHeight, gap, direction, align, shape } = explicit;

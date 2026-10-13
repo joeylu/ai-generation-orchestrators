@@ -1,7 +1,7 @@
 import { controlId } from './compiler.mjs';
 
 export function selectionLabel(row) {
-  const kinds = { button: '按钮', input: '输入框', text: '说明', slider: '滑条', switch: '开关', select: '下拉框', progress: '进度条' };
+  const kinds = { checkbox:'复选框',radio:'单选按钮组',list:'列表',dialog:'弹窗',image:'图片', button: '按钮', input: '输入框', text: '说明', slider: '滑条', switch: '开关', select: '下拉框', progress: '进度条' };
   return `${row.label || row.buttonLabel || row.text || row.id} · ${kinds[row.kind] ?? row.kind}`;
 }
 
@@ -22,7 +22,8 @@ export function previewSelectionTargets(spec, document, inspection) {
   };
   visit(document.root, []);
   return spec.sections.flatMap(section => section.rows).flatMap(row => {
-    const node = nodes.get(`${spec.id}.row.${row.id}`) ?? nodes.get(controlId(spec.id, row.id));
+    const dialog=nodes.get(controlId(spec.id,row.id));
+    const node = row.kind==='dialog' ? dialog?.visible ? dialog : nodes.get(controlId(spec.id,row.id)+'.open') : nodes.get(`${spec.id}.row.${row.id}`) ?? dialog;
     if (!node?.visible) return [];
     let bounds = intersect(node.bounds, { x: 0, y: 0, ...spec.canvas });
     for (const id of clips.get(node.id) ?? []) {
@@ -85,7 +86,7 @@ export function attachWorkbenchSelection(host, spec, preview, onSelect, onExit) 
   // Selection must not start a Pixi drag or a page swipe through the canvas.
   for (const type of ['pointerdown', 'pointerup', 'click']) layer.addEventListener(type, event => event.stopPropagation());
   const observer = new ResizeObserver(update); observer.observe(preview.canvas);
-  const unsubscribe = preview.subscribe(event => { if (['change', 'scroll'].includes(event.type)) update(); });
+  const unsubscribe = preview.subscribe(event => { if (['change', 'scroll', 'open', 'close', 'activate'].includes(event.type)) update(); });
   return Object.freeze({
     setActive(value) { const entering = value && !active; active = value; update(); if (entering && !suspended) layer.querySelector('button')?.focus(); },
     setSelectedRow(rowId) { if (rowId === selectedRowId) return; selectedRowId = rowId; update(); },

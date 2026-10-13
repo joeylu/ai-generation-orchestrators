@@ -1,12 +1,12 @@
-# Unity UGUI adapter contract 0.1.5
+# Unity UGUI adapter contract 0.1.7
 
 Implementation target: Unity 6 / UGUI 2.0. This adapter consumes a verified
-PanelBundle 0.1–0.14 and exports a local import kit. The kit does not itself count
+PanelBundle 0.1–0.16 and exports a local import kit. The kit does not itself count
 as a Unity-validated Prefab. Unity creates the native Prefab with its own API.
 
 `panel.unity.json` contains a flat, parent-before-child `PanelDocument`:
 
-- `formatVersion`: `"0.1"`; current `adapterVersion`: `"0.1.5"`.
+- `formatVersion`: `"0.1"`; current `adapterVersion`: `"0.1.7"`.
 - `panelId`, `panelSha256`, `panelSpecVersion`: source identity.
 - `canvasWidth`, `canvasHeight`: positive logical pixels.
 - `nodes`: `PanelNode[]` below, including the source canvas root.
@@ -25,21 +25,39 @@ float borderWidth, cornerRadius, opacity
 int fontSize
 bool bold, drawBackground
 string text, source, fit
-string textAlignment                # optional; explicit anchor for the panel title
+string textAlignment                # optional; title, slider value, or versioned card text anchor
 bool hasRegion
 float regionX, regionY, regionWidth, regionHeight
 float contentWidth, contentHeight
+float itemHeight                    # List only
+string dialogTargetId                # Dialog lifecycle Buttons only
+bool dialogOpen, modal               # lifecycle target value / Dialog modality
 ```
 
 The root has `parentId:""`; all other parents precede their children. Types are
 Container, Text, Image, Slider, Switch, Select, Button, ProgressBar, ScrollView,
-Tabs and Input. Coordinates
+Tabs, Input, Panel, CheckBox, RadioGroup, List and Dialog. Coordinates
 are top-left, y-down, relative to the declared parent. ScrollView children attach
 under its Content transform; the declared viewport remains at the node ID.
 Image source paths are `textures/<sha256>.png`. Regions use top-left PNG pixels;
 Unity Sprite rect y is `imageHeight - regionY - regionHeight`. Icons retain
 contain aspect, while individual nine-slice regions stretch. White image tint
 preserves PNG colors; optional badge is a separate background.
+
+PanelSpec 0.15 static image rows use these existing nodes and assets, without a
+PanelControl or state field. `contain` preserves the full image, `stretch` fills
+the slot, and `cover` is lowered to a centered sprite region with `stretch`.
+Missing image sources are labeled Container/Text placeholders. These export
+rules and version gates have deterministic coverage; native Unity import remains
+a separate acceptance step.
+
+Adapter 0.1.6 accepts `MiddleCenter` for versioned PanelSpec 0.15 image-card
+section titles and missing-image placeholder Text nodes. The exporter emits
+these anchors only for `cardAlignment: centered-v1` themes with one image and
+one standalone emit button per section. Description and settings Text nodes
+retain their existing alignment. Saved Bundles without that theme flag retain
+their previous presentation. Import kit/source checks do not confirm native
+Unity font rendering or Prefab import; that acceptance remains separate.
 
 `PanelField` fields (unused values are zero/false/empty):
 
@@ -153,3 +171,5 @@ Bindings pin panel identity, route explicit field/row IDs, silently synchronize 
 and cancel owned commands when disposed. The game owns its business port, persistence,
 audio sources and main-thread scheduling. See docs/unity-game-binding.md for the native
 payload lowering, installation and isolated Play Mode acceptance scope.
+
+PanelSpec 0.16 uses native CheckBox Toggle, RadioGroup/List choice Buttons and a separate Dialog overlay. List content is under its declared ScrollView; option IDs remain enum state. Dialog opening/closing controls carry explicit target IDs and boolean values. Modal dialogs block background Selectables and restore the opener focus after close. Host SetBoolean / SetChoice remain silent; player callbacks deliver one event. All new view references are retained when PanelController.Configure clones its input.

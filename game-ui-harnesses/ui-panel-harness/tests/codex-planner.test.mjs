@@ -286,6 +286,8 @@ test('native 0.9 initial layout and per-button editing use the actual CLI bounda
     generatedSchema = await json(call.args[call.args.indexOf('--output-schema') + 1]);
     assert(call.prompt.includes('Intent 0.9')); assert(call.prompt.includes('actionLayout'));
     assert(call.prompt.includes('Icon usage: restrained-v1'));
+    assert(call.prompt.includes('Current Input capability check (derived from this invocation schema)'));
+    assert(call.prompt.includes('row-level output properties'));
     assert(call.prompt.includes('Whole-request interpretation'));
     assert(call.prompt.includes('Panel composition by purpose'));
     assert(call.prompt.includes('New-panel scope'));
