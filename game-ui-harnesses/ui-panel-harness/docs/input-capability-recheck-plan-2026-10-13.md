@@ -12,7 +12,7 @@
 
 计划：`output/input-capability-real-plan-v1/input-adaptability-plan.json`。
 SHA-256：`c89b1ccde5fa5ef78ed92557c6a9437c3e44a06cd7e79efaa19db419e1fd60a5`。
-[逐项输入与独立预期](../output/input-capability-real-plan-v1/index.html)。
+逐项输入与独立预期（本地生成产物：`../output/input-capability-real-plan-v1/index.html`，不随源码提交）。
 
 | ID | 预期 |
 | --- | --- |

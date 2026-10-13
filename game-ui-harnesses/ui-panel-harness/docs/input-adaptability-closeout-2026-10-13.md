@@ -22,10 +22,10 @@ SDK与Studio仍属于本地验收范围，不发布、推送或创建正式版�
 
 ## 最后一次真实续接计划
 
-[冻结审阅页](../output/input-closeout-real-plan-v1/index.html)，计划SHA-256：`28ed534a2ce449d51a36cece1736e4ffb37d64ede294d373fb648084772605a0`。
+冻结审阅页（本地生成产物：`../output/input-closeout-real-plan-v1/index.html`，不随源码提交），计划SHA-256：`28ed534a2ce449d51a36cece1736e4ffb37d64ede294d373fb648084772605a0`。
 
 已执行F01一次，gpt-6-luna/xhigh，真实调用1次、零自动重试，授权已消费。名称为“玩家名”，其余原始业务事实逐项不变，直接生成通过。实际ZIP下载摘要、初始状态、输入交互、宿主状态与重新打开、离线重载5项通过，页面错误0。冻结源码、调用回执和交付证据审计PASS。
 
-- [最终真实审计](../output/input-closeout-real-audit-v1/index.html)
-- [实际续接交付与下载](../output/input-closeout-real-browser-v1/index.html)
+- 最终真实审计（本地生成产物：`../output/input-closeout-real-audit-v1/index.html`，不随源码提交）
+- 实际续接交付与下载（本地生成产物：`../output/input-closeout-real-browser-v1/index.html`，不随源码提交）
 - 原始生产结果：`output/input-closeout-real-v1/input-adaptability-report.json`。

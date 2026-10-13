@@ -32,8 +32,8 @@
 
 ## 审阅与授权
 
-- [五组完整提示与长度对照](../output/concise-skill-layout-plan-v1/design-review.html)。
-- [40条需求与独立业务预期](../output/concise-skill-layout-plan-v1/index.html)。
+- 五组完整提示与长度对照（本地生成产物：`../output/concise-skill-layout-plan-v1/design-review.html`，不随源码提交）。
+- 40条需求与独立业务预期（本地生成产物：`../output/concise-skill-layout-plan-v1/index.html`，不随源码提交）。
 - 冻结计划：`output/concise-skill-layout-plan-v1/input-adaptability-plan.json`。
 - 摘要：`25c4252783c8c9ddf4ebcbd1d8ffcdf82c859e982976ce805080daa079010cf3`。
 

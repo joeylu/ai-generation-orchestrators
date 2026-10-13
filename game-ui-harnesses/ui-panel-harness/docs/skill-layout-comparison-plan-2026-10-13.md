@@ -18,8 +18,8 @@
 
 ## 审阅与授权绑定
 
-[完整需求及独立业务预期](../output/skill-layout-real-plan-v1/index.html)。
-[四组实际摘录与完整提示](../output/skill-layout-real-plan-v1/design-review.html)。
+完整需求及独立业务预期（本地生成产物：`../output/skill-layout-real-plan-v1/index.html`，不随源码提交）。
+四组实际摘录与完整提示（本地生成产物：`../output/skill-layout-real-plan-v1/design-review.html`，不随源码提交）。
 
 冻结计划：`output/skill-layout-real-plan-v1/input-adaptability-plan.json`。
 SHA-256：`cb251b66f1c5f3a8f213d7259a04886d318e75ff4296b1add58e0e94cabec6ea`。

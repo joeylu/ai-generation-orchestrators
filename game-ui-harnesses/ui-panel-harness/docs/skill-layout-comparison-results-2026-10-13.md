@@ -6,10 +6,10 @@
 
 ## 直接查看
 
-- [8类×4组截图、试玩和本地评分](../output/skill-layout-review-v1/index.html)。候选隐藏为A—D，可评价后查看映射；仅界面隐藏标签。
-- [完整审计](../output/skill-layout-audit-v1/index.html)、[浏览器报告](../output/skill-layout-browser-v1/browser-report.json)。
-- [几何、样式与文案差异证据](../output/skill-layout-analysis-v1/layout-analysis.json)。
-- [原始批次结果](../output/skill-layout-real-v1/input-adaptability-report.json)、[冻结计划](skill-layout-comparison-plan-2026-10-13.md)。
+- 8类×4组截图、试玩和本地评分（本地生成产物：`../output/skill-layout-review-v1/index.html`，不随源码提交）。候选隐藏为A—D，可评价后查看映射；仅界面隐藏标签。
+- 完整审计（本地生成产物：`../output/skill-layout-audit-v1/index.html`，不随源码提交）、浏览器报告（本地生成产物：`../output/skill-layout-browser-v1/browser-report.json`，不随源码提交）。
+- 几何、样式与文案差异证据（本地生成产物：`../output/skill-layout-analysis-v1/layout-analysis.json`，不随源码提交）。
+- 原始批次结果（本地生成产物：`../output/skill-layout-real-v1/input-adaptability-report.json`，不随源码提交）、[冻结计划](skill-layout-comparison-plan-2026-10-13.md)。
 
 本轮未填写用户美术评分。对照页支持用户主动保存评分并导出JSON；技术通过不替代用户验收。
 

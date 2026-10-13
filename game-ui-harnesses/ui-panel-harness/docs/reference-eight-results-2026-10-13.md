@@ -21,8 +21,8 @@
 
 ## 查看结果
 
-- [8张截图、逐项需求、试玩与ZIP汇总](../output/reference-eight-gallery-v1/index.html)
-- [最终审计](../output/reference-eight-audit-v1/index.html)
+- 8张截图、逐项需求、试玩与ZIP汇总（本地生成产物：`../output/reference-eight-gallery-v1/index.html`，不随源码提交）
+- 最终审计（本地生成产物：`../output/reference-eight-audit-v1/index.html`，不随源码提交）
 - 原始模型结果：`output/reference-eight-real-v1/input-adaptability-report.json`。
 - 浏览器记录：`output/reference-eight-browser-v1/browser-report.json`。
 - [执行前计划及范围](reference-eight-plan-2026-10-13.md)。

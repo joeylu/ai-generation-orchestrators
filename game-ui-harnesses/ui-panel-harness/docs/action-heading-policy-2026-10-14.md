@@ -25,7 +25,7 @@
 - 检视了暂停与设置初始截图：冗余操作标题消失，设置内容标题保留。未执行Unity原生运行测试；未声称模型遵循率提高。
 - 不额外调整草稿尺寸，原有滚动仍可能存在，尤其显式显示模式；浏览器交互通过不是所有首屏按钮可见的保证。
 
-[三栏对照页](../output/action-heading-review-v1/index.html) · [重放记录](../output/action-heading-replay-v1/input-adaptability-report.json) · [浏览器证据](../output/action-heading-browser-v1/browser-report.json) · [完整回归](../output/action-heading-full-regression-v2.log)
+三栏对照页（本地生成产物：`../output/action-heading-review-v1/index.html`，不随源码提交） · 重放记录（本地生成产物：`../output/action-heading-replay-v1/input-adaptability-report.json`，不随源码提交） · 浏览器证据（本地生成产物：`../output/action-heading-browser-v1/browser-report.json`，不随源码提交） · 完整回归（本地生成产物：`../output/action-heading-full-regression-v2.log`，不随源码提交）
 
 ## 使用
 

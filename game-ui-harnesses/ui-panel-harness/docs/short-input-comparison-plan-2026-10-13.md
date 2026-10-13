@@ -37,8 +37,8 @@ P01—P08没有预设应有几个开关、几个按钮或什么默认值，也�
 
 ## 审阅入口与授权
 
-- [完整短需求与三组实际提示](../output/short-input-plan-v1/design-review.html)。
-- [36项冻结条目](../output/short-input-plan-v1/index.html)。
+- 完整短需求与三组实际提示（本地生成产物：`../output/short-input-plan-v1/design-review.html`，不随源码提交）。
+- 36项冻结条目（本地生成产物：`../output/short-input-plan-v1/index.html`，不随源码提交）。
 - 冻结计划：`output/short-input-plan-v1/input-adaptability-plan.json`。
 - SHA-256：`d16d871a68157910b77eb90b79e49c7b1f30a79aa6d5b8684c537013cc43a6ba`。
 

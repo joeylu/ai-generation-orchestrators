@@ -21,11 +21,11 @@
 
 这只是单次、未完成批次。相较上批还包含新增动作约束，并非标题提示单变量实验；不能给skill排名。明确副标题保留仍仅有离线证据。Unity原生未运行。
 
-- [36项完整对照页（含未运行项）](../output/heading-short-input-review-v1/index.html)
-- [原始报告](../output/heading-short-input-real-v1/input-adaptability-report.json)
-- [浏览器证据](../output/heading-short-input-browser-v1/browser-report.json)
-- [审计](../output/heading-short-input-audit-v1/audit.json)
-- [实际标题与历史配对观察](../output/heading-short-input-observations-v1/heading-observations.json)
+- 36项完整对照页（含未运行项）（本地生成产物：`../output/heading-short-input-review-v1/index.html`，不随源码提交）
+- 原始报告（本地生成产物：`../output/heading-short-input-real-v1/input-adaptability-report.json`，不随源码提交）
+- 浏览器证据（本地生成产物：`../output/heading-short-input-browser-v1/browser-report.json`，不随源码提交）
+- 审计（本地生成产物：`../output/heading-short-input-audit-v1/audit.json`，不随源码提交）
+- 实际标题与历史配对观察（本地生成产物：`../output/heading-short-input-observations-v1/heading-observations.json`，不随源码提交）
 - [原冻结计划及授权摘要](heading-short-input-verification-2026-10-13.md)
 
 本次仅新增只读标题观察脚本并完成验收，未修改冻结运行源码、默认Studio策略或历史交付。

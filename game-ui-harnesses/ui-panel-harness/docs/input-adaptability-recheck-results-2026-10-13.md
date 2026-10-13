@@ -23,8 +23,8 @@ R03协议结果是READY_TO_COMPILE，但独立业务检查失败。失败候选�
 
 首次浏览器检查及一次原样复现均在R02的输入修改处失败，原始记录保留在`output/input-adaptability-repair-browser-v1`和`v2`。定位到验收脚本的焦点导航：调用canvas.focus()后直接信任残留的data-focused-component标记，没有通过键盘重新进入原生输入编辑器。修正脚本为先Tab再判定焦点后，同一批未修改的交付包通过，未改变组件运行时代码。
 
-- [原始完整审计](../output/input-adaptability-repair-audit-v1/index.html)：冻结源码、一次性消费和8份回执完整性通过；业务7/8，绑定的是首次浏览器失败记录，原报告保持FAIL。
-- [最终浏览器记录与7份实际交付](../output/input-adaptability-repair-browser-v3/index.html)：47项通过，`browser-report.json`为程序产生的补充证据。
+- 原始完整审计（本地生成产物：`../output/input-adaptability-repair-audit-v1/index.html`，不随源码提交）：冻结源码、一次性消费和8份回执完整性通过；业务7/8，绑定的是首次浏览器失败记录，原报告保持FAIL。
+- 最终浏览器记录与7份实际交付（本地生成产物：`../output/input-adaptability-repair-browser-v3/index.html`，不随源码提交）：47项通过，`browser-report.json`为程序产生的补充证据。
 - 原始模型结果：`output/input-adaptability-repair-real-v1/input-adaptability-report.json`。
 - 失败候选：`output/input-adaptability-repair-real-v1/R03/candidate.panel.bundle.json`。
 

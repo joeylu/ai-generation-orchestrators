@@ -9,7 +9,7 @@ Compiler 0.32.0 将PanelSpec 0.16的主标题统一默认水平居中、垂直�
 - 完整源码回归1638/1638通过，无跳过：`output/centered-title-regression-v1.log`。
 - 8份交付53项浏览器检查通过、错误0：`output/reference-eight-centered-browser-v1/browser-report.json`。新增主标题字形中心与Panel中心偏差小于1像素的检查，重新打开和离线重载后复查。
 - Unity文档导出对齐检查通过，本轮未运行Unity原生编辑器验收。
-- [8套前后对照、试玩与下载](../output/reference-eight-gallery-centered-v1/index.html)。
+- 8套前后对照、试玩与下载（本地生成产物：`../output/reference-eight-gallery-centered-v1/index.html`，不随源码提交）。
 
 原始8次真实模型的业务成绩不因重建而增加。这项展示修复无需重新向模型提交同样需求。原始审计仍绑定原源码和原输出；新版重建证据逐面板位于`output/reference-eight-centered-v1/<ID>/replay-evidence.json`。
 

@@ -6,7 +6,7 @@
 
 计划文件：`output/input-adaptability-repair-plan-v1/input-adaptability-plan.json`。
 计划SHA-256：`0d6f90ddf3c9770dc504154bbed9e4724222cd48e0299a266db2818d3b8f9e4f`。
-完整输入、上下文摘要与独立业务预期见[审阅页](../output/input-adaptability-repair-plan-v1/index.html)。
+完整输入、上下文摘要与独立业务预期见审阅页（本地生成产物：`../output/input-adaptability-repair-plan-v1/index.html`，不随源码提交）。
 
 | ID | 要验证的行为 |
 | --- | --- |

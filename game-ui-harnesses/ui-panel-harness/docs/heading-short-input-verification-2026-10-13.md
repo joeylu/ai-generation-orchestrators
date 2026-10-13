@@ -6,14 +6,14 @@
 
 ## 已完成的离线验证
 
-138项通过，见 [测试记录](../output/heading-verification-v1.log)。新增四项检查开始、暂停、加载、加载失败的意图到编译交付链路：采用同名语义标题后，无额外分组标题，业务内容、状态、动作一致，交付可重新验证。既有用例覆盖明确显示、多组和页签标题保留。这些是程序夹具，不是模型遵循率证明。
+138项通过，见 测试记录（本地生成产物：`../output/heading-verification-v1.log`，不随源码提交）。新增四项检查开始、暂停、加载、加载失败的意图到编译交付链路：采用同名语义标题后，无额外分组标题，业务内容、状态、动作一致，交付可重新验证。既有用例覆盖明确显示、多组和页签标题保留。这些是程序夹具，不是模型遵循率证明。
 
 ## 冻结真实复测
 
 沿用上一轮12条用户输入×3组（严格精简、草稿优先、草稿优先加game-ui-design摘录），最多36次、串行、每项一次、无自动重试；连接结果不确定即停止。模型gpt-6-luna/xhigh。用户输入不追加尺寸或排版指令。
 
-- [完整请求列表](../output/heading-short-input-plan-v1/index.html)
-- [冻结计划](../output/heading-short-input-plan-v1/input-adaptability-plan.json)
+- 完整请求列表（本地生成产物：`../output/heading-short-input-plan-v1/index.html`，不随源码提交）
+- 冻结计划（本地生成产物：`../output/heading-short-input-plan-v1/input-adaptability-plan.json`，不随源码提交）
 - SHA-256：`a9e6604935de811f0a5e202820da54a168b08e8c522a5e814d2fe0635948c856`
 - 准备时36项驱动夹具通过，只读预检PASS。
 

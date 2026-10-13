@@ -6,9 +6,9 @@
 
 ## 查看证据
 
-- [12条需求×3组：截图、澄清、失败与试玩](../output/short-input-review-v1/index.html)。失败和未运行均保留；展示字母与候选映射单独提供。
-- [逐项审计](../output/short-input-audit-v1/index.html)、[实际批次记录](../output/short-input-real-v1/input-adaptability-report.json)。
-- [按组与输入类型统计](../output/short-input-analysis-v1/summary.json)、[浏览器证据](../output/short-input-browser-v1/browser-report.json)。
+- 12条需求×3组：截图、澄清、失败与试玩（本地生成产物：`../output/short-input-review-v1/index.html`，不随源码提交）。失败和未运行均保留；展示字母与候选映射单独提供。
+- 逐项审计（本地生成产物：`../output/short-input-audit-v1/index.html`，不随源码提交）、实际批次记录（本地生成产物：`../output/short-input-real-v1/input-adaptability-report.json`，不随源码提交）。
+- 按组与输入类型统计（本地生成产物：`../output/short-input-analysis-v1/summary.json`，不随源码提交）、浏览器证据（本地生成产物：`../output/short-input-browser-v1/browser-report.json`，不随源码提交）。
 - [原计划与完整短输入](short-input-comparison-plan-2026-10-13.md)。
 
 ## 已完整执行的8条开放需求

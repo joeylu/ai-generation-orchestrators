@@ -6,7 +6,7 @@
 
 已冻结的计划：`output/input-adaptability-plan-v2/input-adaptability-plan.json`。
 SHA-256：`d496e3a502fc605d825fbba4583a482fdc6888ba856444cbcaf3167f8015725a`。
-完整输入与独立预期可在 [批次审阅页](../output/input-adaptability-plan-v2/index.html) 查看。
+完整输入与独立预期可在 批次审阅页（本地生成产物：`../output/input-adaptability-plan-v2/index.html`，不随源码提交） 查看。
 
 本批 16 项生成、8 项独立编辑，预计 17 项生成/修改成功，7 项针对缺失、矛盾或不支持内容作具体澄清。正确澄清不算生成成功；报告分别列出结果。编辑来源为明确标记的程序夹具，不把它计作真实生成；每项从同一冻结起点独立开始，避免前项结果污染后项。
 

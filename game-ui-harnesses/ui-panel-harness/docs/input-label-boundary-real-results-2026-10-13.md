@@ -29,8 +29,8 @@ R03模型原生输出就已经是panel:null、unresolved:q0：
 
 首次离线浏览器在沙箱内启动Edge时退出，尚未检查任何面板，记录保留在`output/input-label-boundary-real-browser-v1`。同一脚本和交付包在沙箱外完成检查，记录为v2；这不是模型重试。
 
-- [完整审计](../output/input-label-boundary-real-audit-v1/index.html)：整体FAIL，业务7/8、浏览器PASS，原始证据未改写。
-- [7份实际交付与下载](../output/input-label-boundary-real-browser-v2/index.html)：47项检查通过，报告为同目录`browser-report.json`。
+- 完整审计（本地生成产物：`../output/input-label-boundary-real-audit-v1/index.html`，不随源码提交）：整体FAIL，业务7/8、浏览器PASS，原始证据未改写。
+- 7份实际交付与下载（本地生成产物：`../output/input-label-boundary-real-browser-v2/index.html`，不随源码提交）：47项检查通过，报告为同目录`browser-report.json`。
 - 真实结果：`output/input-label-boundary-real-v1/input-adaptability-report.json`。
 - 冻结计划：`output/input-label-boundary-real-plan-v1/input-adaptability-plan.json`。
 

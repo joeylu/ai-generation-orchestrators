@@ -17,7 +17,7 @@
 | P07 | sdk-loading | 静态○；进度60%；正在准备图片；无按钮 |
 | P08 | sdk-loading-failed | 静态○；进度40%；场景资源加载失败；重试、返回，无旧阶段文字 |
 
-完整8条输入和独立参考位于[冻结审阅页](../output/reference-eight-real-plan-v2/index.html)。模型只收到需求及正常目录/协议上下文，不提供独立参考答案。原型来源文件摘要一并冻结，不能运行中改变。
+完整8条输入和独立参考位于冻结审阅页（本地生成产物：`../output/reference-eight-real-plan-v2/index.html`，不随源码提交）。模型只收到需求及正常目录/协议上下文，不提供独立参考答案。原型来源文件摘要一并冻结，不能运行中改变。
 
 计划：`output/reference-eight-real-plan-v2/input-adaptability-plan.json`。
 SHA-256：`21644c289809b91b1b3b17fddfb584b0e87c0abd8ae73c6757b2ca96d8828a6d`。

@@ -10,7 +10,7 @@
 - 22份面板通过177项实际浏览器检查。首次交互前检查无正文滚动、每个按钮有非零渲染边界且完整位于面板与画布内；继续检查标题居中、保存状态、交互、重开、离线重载及实际ZIP下载校验。测试视口1120×1150，不代表所有设备尺寸均已验证。
 - 全量离线回归1768/1768通过。没有运行Unity原生验收。
 
-[修复前后对照（36项，含未成功项）](../output/short-draft-fit-review-v1/index.html) · [浏览器证据](../output/short-draft-fit-browser-v2/browser-report.json) · [重放记录](../output/short-draft-fit-v2/input-adaptability-report.json) · [全量测试](../output/short-draft-fit-regression-v2.log)
+修复前后对照（36项，含未成功项）（本地生成产物：`../output/short-draft-fit-review-v1/index.html`，不随源码提交） · 浏览器证据（本地生成产物：`../output/short-draft-fit-browser-v2/browser-report.json`，不随源码提交） · 重放记录（本地生成产物：`../output/short-draft-fit-v2/input-adaptability-report.json`，不随源码提交） · 全量测试（本地生成产物：`../output/short-draft-fit-regression-v2.log`，不随源码提交）
 
 ## 实现与边界
 

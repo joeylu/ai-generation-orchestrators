@@ -31,8 +31,8 @@
 
 4份实际交付、28项浏览器检查全部通过，页面错误0，包括实际ZIP下载摘要、保存状态、输入、选择、列表、弹窗、宿主状态、重新打开与离线重载。该批没有Unity原生验证。
 
-- [完整审计](../output/input-capability-real-audit-v1/index.html)：业务分项、冻结输入、回执与浏览器绑定，整批保留FAIL。
-- [4份实际交付与下载](../output/input-capability-real-browser-v1/index.html)：实际交付包及程序浏览器报告。
+- 完整审计（本地生成产物：`../output/input-capability-real-audit-v1/index.html`，不随源码提交）：业务分项、冻结输入、回执与浏览器绑定，整批保留FAIL。
+- 4份实际交付与下载（本地生成产物：`../output/input-capability-real-browser-v1/index.html`，不随源码提交）：实际交付包及程序浏览器报告。
 - 原始回执与方案：`output/input-capability-real-v1`。
 - 冻结计划：`output/input-capability-real-plan-v1/input-adaptability-plan.json`。
 

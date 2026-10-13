@@ -40,9 +40,9 @@ G01明确组件名和G02口语改写都实际生成全部16种底层节点。G03
 ## 证据与试玩
 
 - `output/input-adaptability-real-v1`：24项原始生产回执、方案、逐项结果及失败候选；总结果FAIL。
-- [原始审计与逐项差异](../output/input-adaptability-audit-v1/index.html)：核对冻结源码、一次性消费、24份生产回执和浏览器证据；`audit.json`记录各层结果。
-- [原始16份交付及下载](../output/input-adaptability-browser-v1/index.html)：154项浏览器检查、实际下载与截图。
-- [修复后布局的10份确定性重放](../output/input-adaptability-layout-browser-v2/index.html)：新布局包与浏览器记录；新增模型调用0，原失败保留。
+- 原始审计与逐项差异（本地生成产物：`../output/input-adaptability-audit-v1/index.html`，不随源码提交）：核对冻结源码、一次性消费、24份生产回执和浏览器证据；`audit.json`记录各层结果。
+- 原始16份交付及下载（本地生成产物：`../output/input-adaptability-browser-v1/index.html`，不随源码提交）：154项浏览器检查、实际下载与截图。
+- 修复后布局的10份确定性重放（本地生成产物：`../output/input-adaptability-layout-browser-v2/index.html`，不随源码提交）：新布局包与浏览器记录；新增模型调用0，原失败保留。
 - 当前修复后的本地SDK候选为 `output/input-adaptability-sdk-final/ai-ui-panel-harness-0.1.0-rc.5.zip`，字节与摘要见同目录 `package-report.json`；未发布。安装验收为 `output/input-adaptability-sdk-installed-final`，使用替身调用，不能增加本批真实通过数。
 
 本批没有执行Unity原生验收或人工美术批准，没有把此前程序夹具的Unity通过数算入本批。23/24只描述这批固定样本，不是总体成功率，也没有测同一输入重复多次的稳定性。
