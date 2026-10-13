@@ -71,6 +71,10 @@ class CompositeReviewTests(unittest.TestCase):
         self.assertIn('an empty list permits no ordinary text',packet['prompt'])
         self.assertIn('Keep owned single-character icon pictograms as artwork',packet['prompt'])
         self.assertNotIn('are intentionally blank',packet['prompt'])
+        self.assertIn('OUTPUT-ROLE COVERAGE',packet['prompt'])
+        self.assertIn('hidden by upper opaque layers',packet['prompt'])
+        self.assertTrue(all('outputRole' in row for row in packet['materials']))
+        self.assertIn('preserve-underlay-background',{row['outputRole'] for row in packet['materials']})
         hashes={p.parent.name:digest(p) for p in (self.run/'images/attempts').glob('*/raw.png')}
         zip_hash=digest(delivery/'viewport-ui-layers.zip')
         answer=dict(summary='Visible duplicate subject in assembled fixture.',findings=[dict(

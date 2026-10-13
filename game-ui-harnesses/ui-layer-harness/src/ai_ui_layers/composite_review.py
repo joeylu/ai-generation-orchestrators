@@ -74,6 +74,12 @@ def prepare(root, config):
                          delivered=row['id'] in layers,
                          path=layers[row['id']]['path'] if row['id'] in layers else None)
                     for row in visual['materials']]
+    output_roles=config.get('contextPromptVersion') in ('v14','v15','v16')
+    if output_roles:
+        from .output_role_prompt import is_substrate
+        for row,material in zip(material_map,visual['materials']):
+            row['outputRole']=(visual['backgroundMode']+'-background' if material['role']=='background' else
+                'clean-substrate' if is_substrate(visual,material) else 'owned-artwork')
     prompt = (
         'Compare the original reference with the final recomposition in ONE independent visual review. '
         'Inspect the original and recomposition at full size; the material atlas is supplementary. '
@@ -95,6 +101,18 @@ def prepare(root, config):
         'No per-material checklist, separate review calls, repair proposal, regeneration, or self-granted acceptance. '
         'Findings are warnings and do not stop packaging or authorize a retry. Return only responseSchema JSON. '
         'An empty findings list does not certify every individual cutout or human acceptance.')
+    if output_roles:
+        prompt += (
+            ' OUTPUT-ROLE COVERAGE: inspect the atlas as well as the recomposition for each role present: '
+            'background, clean-substrate, owned-artwork, controls and status decorations. '
+            'A background or substrate can retain forbidden content hidden by upper opaque layers; '
+            'report this as ownership even when the assembled viewport conceals it. '
+            'In scene-only-background the entire UI is absent; preserve-underlay-background keeps '
+            'unexported UI. A clean-substrate contains no separately owned child illustrations, icons, '
+            'buttons or badges. Distinguish a duplicated illustration from an enlarged single illustration '
+            'before judging scale. Check every repeated control for text residue, not just one example. '
+            'In summary state which present roles could be checked and which could not be resolved from '
+            'these images. Do not infer that a hidden or tiny layer passed. Use the same one call and schema.')
     packet = dict(kind='ui_final_composite_review_packet_v1', prompt=prompt,
                   images=images, materials=material_map, responseSchema=schema(material_ids),
                   maximumCalls=1, perRequestReviewCalls=0, bodyObservationCalls=0, automaticRetries=0)

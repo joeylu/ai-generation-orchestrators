@@ -54,6 +54,7 @@ class LayerPackageTests(unittest.TestCase):
         with zipfile.ZipFile(out/'ui-layers.zip') as source,zipfile.ZipFile(changed,'w') as target:
             for name in source.namelist():target.writestr(name,b'changed' if name=='preview.png' else source.read(name))
         with self.assertRaisesRegex(ValueError,'PACKAGE_HASH'):validate_archive(changed)
+        with self.assertRaisesRegex(ValueError,'PACKAGE_HASH'):validate_archive(changed.read_bytes())
 
     def test_preview_adapter_checks_complete_material_fingerprints(self):
         from ai_ui_layers.preview_partial import preview

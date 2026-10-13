@@ -2,6 +2,7 @@ import _bootstrap
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 import zipfile
 from PIL import Image
 from ai_ui_layers.evaluate import read,save,digest
@@ -77,6 +78,15 @@ class ViewportRevisionTests(unittest.TestCase):
         with zipfile.ZipFile(delivery/'viewport-ui-layers.zip') as source,zipfile.ZipFile(self.root/'tampered.zip','w') as target:
             for name in source.namelist():target.writestr(name,b'changed' if name=='viewport-preview.png' else source.read(name))
         with self.assertRaisesRegex(ValueError,'CHECKSUM'):viewport.validate_viewport_archive(self.root/'tampered.zip')
+
+    def test_validation_needs_no_writable_temporary_directory(self):
+        self.export()
+        delivery=self.root/'revised/delivery'
+        with patch('tempfile.TemporaryDirectory',side_effect=PermissionError('unavailable temp')):
+            result=viewport.validate_viewport_archive(delivery/'viewport-ui-layers.zip')
+            self.assertEqual(result['status'],'viewport-wrapper-integrity-passed')
+            self.assertEqual(validate_archive((delivery/'ui-layers.zip').read_bytes()),
+                             validate_archive(delivery/'ui-layers.zip'))
 
     def test_approval_and_sealed_source_changes_rejected(self):
         config=viewport.freeze(self.selection,self.root/'frozen','Fixture explicit policy approval')

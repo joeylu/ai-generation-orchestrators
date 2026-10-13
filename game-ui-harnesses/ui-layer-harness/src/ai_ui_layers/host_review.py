@@ -24,8 +24,8 @@ DRIVER = 'host-model-exchange-v1'
 LAYOUT_ISSUE_IDS = 'declared-layout-issue-ids-v1'
 CONTRACT_DIGESTS = {
     'schemas/visual-plan.schema.json':'ac45ff3de6fd18211cb7ee783aba1b9fe99c10efa9c339ec74663da89bd27003',
-    'prompts/visual-plan.md':'01a6838e147cd3ce9b885bda2486e90b7e60dc5ea1ff365733d8fc4348c0f6a6',
-    'prompts/visual-review.md':'6a8acae3d168bf1d365b18bd145ce49f9e79dd7fcee145dfed956d3ea306a150'}
+    'prompts/visual-plan.md':'2b9158b9492748c4f19ee8d653bdd6b821037f1fcc3c515e7644c5766be59c4c',
+    'prompts/visual-review.md':'f8ead3e628981b8fb6172dee88f868dc6374b44ca9eca56316bac24f3c5edb05'}
 
 
 def _identity(value):
@@ -270,11 +270,11 @@ def _verify_derived_reviewer(derivation, attestation):
 @measured('planning_review')
 def prepare(candidate, reference, output, contract_dir, *, seed_author, planning_notes=None,
             visual_policy=None, visual_textures=None, material_reuse=None, max_calls=128,
-            background_region=None, background_region_digest=None, context_prompt_version='v13',m1_source=None,
+            background_region=None, background_region_digest=None, context_prompt_version='v14',m1_source=None,
             generation_mode='sheets',generation_grouping_policy=None,candidate_derivation=None):
     """Snapshot an explicit seed or source-bound host M1 and prepare independent M2."""
     root=Path(output).resolve();contract=Path(contract_dir)
-    if context_prompt_version not in ('v7','v8','v9','v10','v11','v12','v13'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    if context_prompt_version not in ('v7','v8','v9','v10','v11','v12','v13','v14','v15','v16'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
     if generation_mode not in ('single','sheets'):raise ValueError('HOST_GENERATION_MODE_UNSUPPORTED')
     from .generation_groups import configured_policy
     if generation_grouping_policy is not None:

@@ -38,20 +38,20 @@ class RunPromptVersionTests(unittest.TestCase):
         (run/'.dag/config-digest.json').write_text(
             json.dumps({'sha256':digest(path)}),encoding='utf-8')
 
-    def test_new_context_run_defaults_to_v13_and_freezes_version(self):
+    def test_new_context_run_defaults_to_v14_and_freezes_version(self):
         run,status=self.plan('default')
         config=read(run/'.dag/config.json')
         snapshot=read(run/'frozen/snapshot.json')
         compiled=read(run/'frozen/compile-report.json')
         plan=read(run/'frozen/execution-plan.candidate.json')
         self.assertEqual(config['generationReference'],'context-crops')
-        self.assertEqual(config['contextPromptVersion'],'v13')
-        self.assertEqual(snapshot['contextPromptVersion'],'v13')
-        self.assertEqual(compiled['contextPromptVersion'],'v13')
-        self.assertEqual(status['contextPromptVersion'],'v13')
-        self.assertTrue(all(asset['prompt'].startswith('visual-material-context-prompt-v13:\n')
+        self.assertEqual(config['contextPromptVersion'],'v14')
+        self.assertEqual(snapshot['contextPromptVersion'],'v14')
+        self.assertEqual(compiled['contextPromptVersion'],'v14')
+        self.assertEqual(status['contextPromptVersion'],'v14')
+        self.assertTrue(all(asset['prompt'].startswith('visual-material-context-prompt-v14:\n')
                             for asset in plan['assets']))
-        self.assertEqual(planning.Dag(run,FakeModel()).status()['contextPromptVersion'],'v13')
+        self.assertEqual(planning.Dag(run,FakeModel()).status()['contextPromptVersion'],'v14')
 
     def test_explicit_context_version_is_bound_without_changing_default(self):
         run,status=self.plan('v6',generation_mode='single',context_prompt_version='v6')

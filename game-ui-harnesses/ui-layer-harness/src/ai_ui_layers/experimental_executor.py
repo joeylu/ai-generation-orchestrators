@@ -38,6 +38,21 @@ def verified(path):
     return value
 
 
+def delivery_variants(value, manifest, rows, selected):
+    """Canonical board choices for a complete independent diagnostic job."""
+    if value is None:return {}
+    sheets={r['asset'] for r in rows if r.get('kind')=='sheet'}
+    if (manifest.get('contextPromptVersion')!='v16' or not isinstance(value,dict) or not value or
+            set(selected)!={r['asset'] for r in rows} or not set(value)<=sheets):
+        raise ValueError('COMPLETE_V16_DELIVERY_BOARD_VARIANTS_REQUIRED')
+    for choice in value.values():
+        if (not isinstance(choice,dict) or set(choice)!={'promptVersion','referencePolicy'} or
+                choice['promptVersion']!='v11' or choice['referencePolicy'] not in
+                (None,'target-context-eight-source-pixels-v1')):
+            raise ValueError('CANONICAL_DELIVERY_BOARD_VARIANT_REQUIRED')
+    return value
+
+
 @contextmanager
 def lock(job):
     path=job/'exchange.lock'
@@ -47,8 +62,15 @@ def lock(job):
 
 
 def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None, reference_mode=None,
-            *, _cleanup_material_id=None, layout_contract=None, maximum_concurrent_calls=None):
+            *, _cleanup_material_id=None, layout_contract=None, maximum_concurrent_calls=None,
+            local_edit_comparison=False, narrow_context_comparison=False, contour_edit_comparison=False,
+            delivery_board_variants=None):
     snapshot=Path(snapshot);output=Path(output)
+    if narrow_context_comparison and not local_edit_comparison:
+        raise ValueError('NARROW_CONTEXT_REQUIRES_LOCAL_EDIT_COMPARISON')
+    if contour_edit_comparison and not local_edit_comparison:
+        raise ValueError('CONTOUR_EDIT_REQUIRES_LOCAL_EDIT_COMPARISON')
+    reference_policy='target-context-eight-source-pixels-v1' if narrow_context_comparison else None
     if maximum_concurrent_calls is not None:
         concurrency(dict(maximumConcurrentCalls=maximum_concurrent_calls))
     cleanup_reference_override=reference_mode is not None
@@ -123,14 +145,26 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
         override=Path(prompt_override).read_bytes()
         if not override.decode('utf-8').strip():raise ValueError('EMPTY_PROMPT_VARIANT')
     board_rows=[r for r in all_rows if r['asset'] in selected and r.get('kind')=='sheet'] if context and not layout else []
-    board_prompt_version='v5' if manifest.get('contextPromptVersion')=='v13' else 'v3' if manifest.get('contextPromptVersion')=='v12' else 'v2'
-    if texture_doc is not None and manifest.get('policy')!='deferred-visual-candidate-plan-v1':
+    choices=delivery_variants(delivery_board_variants,manifest,all_rows,selected)
+    if choices and (not context or layout or layout_contract is not None or cleanup_required or
+            prompt_override is not None or local_edit_comparison or narrow_context_comparison or contour_edit_comparison):
+        raise ValueError('DELIVERY_BOARD_VARIANTS_CANNOT_MIX_EXPERIMENTS')
+    if local_edit_comparison and (manifest.get('contextPromptVersion')!='v16' or
+            len(selected)!=1 or len(board_rows)!=1 or layout_contract is not None or
+            cleanup_required or prompt_override is not None or layout):
+        raise ValueError('LOCAL_EDIT_COMPARISON_SINGLE_V16_SHEET_REQUIRED')
+    board_prompt_version='v9' if manifest.get('contextPromptVersion')=='v16' else 'v8' if manifest.get('contextPromptVersion')=='v15' else 'v7' if manifest.get('contextPromptVersion')=='v14' else 'v5' if manifest.get('contextPromptVersion')=='v13' else 'v3' if manifest.get('contextPromptVersion')=='v12' else 'v2'
+    if local_edit_comparison:board_prompt_version='v10'
+    if contour_edit_comparison:board_prompt_version='v11'
+    if board_prompt_version not in ('v7','v8','v9','v10','v11') and texture_doc is not None and manifest.get('policy')!='deferred-visual-candidate-plan-v1':
         board_prompt_version='v6'
     if board_rows:
         # Validate every combined input before creating a job. No fallback to
         # separate attachments is allowed under the new frozen input policy.
         from .sheet_layout_reference import build
-        for row in board_rows:build(snapshot,row,prompt_version=board_prompt_version)
+        for row in board_rows:
+            choice=choices.get(row['asset'],dict(promptVersion=board_prompt_version,referencePolicy=reference_policy))
+            build(snapshot,row,prompt_version=choice['promptVersion'],reference_policy=choice['referencePolicy'])
     output.mkdir(parents=True,exist_ok=False);copied=output/'snapshot';copied.mkdir()
     for name in [*manifest['files'],'snapshot.json']:
         target=copied/name;target.parent.mkdir(parents=True,exist_ok=True)
@@ -138,7 +172,14 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
     inspect(copied,expected_digest)
     (output/'attempts').mkdir()
     variant={}
-    edit_only=manifest.get('contextPromptVersion') in ('v12','v13') and context
+    if choices:variant['deliveryBoardVariants']=choices
+    if local_edit_comparison:
+        variant['localEditComparison']='same-v16-snapshot-board-v10-v1'
+    if contour_edit_comparison:
+        variant['contourEditComparison']='same-v16-snapshot-board-v11-v1'
+    if narrow_context_comparison:
+        variant['narrowContextComparison']=reference_policy
+    edit_only=manifest.get('contextPromptVersion') in ('v12','v13','v14','v15','v16') and context
     if layout_contract is not None:
         binding=layout_generation.materialize(copied,layout_contract,output,
             [r for r in all_rows if r['asset'] in selected],reference_structure=not cleanup_required,
@@ -155,8 +196,9 @@ def prepare(snapshot, expected_digest, output, assets=None, prompt_override=None
             variant['contextBoardReferences']={}
             for row in board_rows:
                 folder=output/'context-boards'/row['asset'];folder.mkdir(parents=True)
+                choice=choices.get(row['asset'],dict(promptVersion=board_prompt_version,referencePolicy=reference_policy))
                 variant['contextBoardReferences'][row['asset']]=materialize(folder,copied,row,
-                    prompt_version=board_prompt_version)
+                    prompt_version=choice['promptVersion'],reference_policy=choice['referencePolicy'])
     if override is not None:
         (output/'prompt-variant.txt').write_bytes(override)
         variant={'promptVariant':{'asset':selected[0],'sha256':digest(output/'prompt-variant.txt')}}
@@ -257,6 +299,34 @@ def load_job(job):
         variant=config['promptVariant']
         if config['assets']!=[variant['asset']] or digest(job/'prompt-variant.txt')!=variant['sha256']:
             raise ValueError('PROMPT_VARIANT_CHANGED')
+    if 'localEditComparison' in config:
+        boards=config.get('contextBoardReferences',{})
+        if (config['localEditComparison']!='same-v16-snapshot-board-v10-v1' or
+                manifest.get('contextPromptVersion')!='v16' or len(config['assets'])!=1 or
+                set(boards)!=set(config['assets']) or
+                any(d['promptVersion']!=('v11' if 'contourEditComparison' in config else 'v10') for d in boards.values()) or
+                any(k in config for k in ('promptVariant','layoutGeneration','cleanup'))):
+            raise ValueError('LOCAL_EDIT_COMPARISON_CHANGED')
+    if 'deliveryBoardVariants' in config:
+        choices=delivery_variants(config['deliveryBoardVariants'],manifest,rows,config['assets'])
+        boards=config.get('contextBoardReferences',{})
+        if (config.get('referenceMode')!='context-crops' or
+                any(k in config for k in ('localEditComparison','contourEditComparison',
+                    'narrowContextComparison','layoutGeneration','cleanup','promptVariant')) or
+                any(boards.get(key,{}).get('promptVersion')!=choice['promptVersion'] or
+                    boards.get(key,{}).get('referencePolicy')!=choice['referencePolicy']
+                    for key,choice in choices.items())):
+            raise ValueError('DELIVERY_BOARD_VARIANTS_CHANGED')
+    if 'contourEditComparison' in config and (
+            config.get('localEditComparison')!='same-v16-snapshot-board-v10-v1' or
+            config['contourEditComparison']!='same-v16-snapshot-board-v11-v1'):
+        raise ValueError('CONTOUR_EDIT_COMPARISON_CHANGED')
+    if 'narrowContextComparison' in config:
+        if (config.get('localEditComparison')!='same-v16-snapshot-board-v10-v1' or
+                config['narrowContextComparison']!='target-context-eight-source-pixels-v1' or
+                any(d.get('referencePolicy')!=config['narrowContextComparison']
+                    for d in config.get('contextBoardReferences',{}).values())):
+            raise ValueError('NARROW_CONTEXT_COMPARISON_CHANGED')
     if 'cleanup' in config:
         from .material_cleanup import verify_cleanup
         verify_cleanup(job,config,index)
@@ -413,7 +483,7 @@ def _frozen_request_arguments(job, config, row):
     from . import background_region_pipeline as bg_region
     manifest=inspect(snapshot,config['snapshotDigest']);bound=bg_region.snapshot_input(snapshot,manifest)
     if bound is not None and row['asset']==bound['materialId']:
-        prompt+=bg_region.generation_guidance(bound,edit_only=manifest.get('contextPromptVersion') in ('v12','v13'))
+        prompt+=bg_region.generation_guidance(bound,edit_only=manifest.get('contextPromptVersion') in ('v12','v13','v14','v15','v16'))
         references.extend(str(snapshot/'background-region'/n) for n in ('edit-mask.png','preview.png'))
     return {'prompt':prompt,
             'referenced_image_paths':references}
@@ -503,6 +573,13 @@ if __name__=='__main__':
     p.add_argument('--output',required=True);p.add_argument('--asset',action='append')
     p.add_argument('--max-concurrent-calls',type=int,help='Freeze a 1-4 image concurrency bound; omitted means serial')
     p.add_argument('--prompt-override',help='UTF-8 prompt variant for one selected request in a new job')
+    p.add_argument('--local-edit-comparison',action='store_true',
+                   help='One v16 sheet with canonical v10 prompt; same snapshot and reference pixels, new job only')
+    p.add_argument('--narrow-context-comparison',action='store_true',
+                   help='With local-edit comparison, retain target plus eight source pixels of context; reference only')
+    p.add_argument('--contour-edit-comparison',action='store_true',
+                   help='With local-edit comparison, use v11 closed-border scope; new selected-sheet job only')
+    p.add_argument('--delivery-board-variants',help='JSON canonical v11 board choices for a complete v16 diagnostic job')
     p.add_argument('--reference-mode',choices=['full-only','full-and-crop','crop-only','sheet-crops-only','context-crops','sheet-layout-board'],
                    help='Explicit isolated reference experiment; context-crops requires an immutable context-crops snapshot')
     for name in ('status','authorize','next','receive','fail','review-sheet','review-material'):
@@ -517,7 +594,11 @@ if __name__=='__main__':
         if name=='fail':p.add_argument('--reason',required=True)
     a=parser.parse_args()
     if a.cmd=='prepare':result=prepare(a.snapshot,a.expected_digest,a.output,a.asset,a.prompt_override,a.reference_mode,
-                                     maximum_concurrent_calls=a.max_concurrent_calls)
+                                     maximum_concurrent_calls=a.max_concurrent_calls,
+                                     local_edit_comparison=a.local_edit_comparison,
+                                     narrow_context_comparison=a.narrow_context_comparison,
+                                     contour_edit_comparison=a.contour_edit_comparison,
+                                     delivery_board_variants=read(Path(a.delivery_board_variants)) if a.delivery_board_variants else None)
     elif a.cmd=='authorize':result=authorize(a.job,a.job_digest,a.approval)
     elif a.cmd=='next':result=next_request(a.job,count=a.count)
     elif a.cmd=='receive':result=receive(a.job,a.submission_digest,a.source)

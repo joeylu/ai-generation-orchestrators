@@ -145,7 +145,7 @@ def _reviewed_snapshot(source):
             source.get('generationMode','sheets')!='sheets' or
             'generation-groups.json' not in manifest['files'] or
             manifest.get('generationReference')!='context-crops' or
-            manifest.get('contextPromptVersion') not in ('v7','v8','v9','v10','v11','v12','v13') or
+            manifest.get('contextPromptVersion') not in ('v7','v8','v9','v10','v11','v12','v13','v14','v15','v16') or
             manifest.get('contextPromptVersion')!=source.get('contextPromptVersion',manifest.get('contextPromptVersion')) or
             digest(folder/'reference.png')!=digest(Path(source['original'])) or
             manifest['sourcePlanSha256']!=digest(Path(source['seed'])) or
@@ -270,8 +270,17 @@ def prepare(config_path, output):
     body_registration.validate_fit_policy(source.get('bodyFitPolicy'), visual_policy)
     host_body_profile.validate_binding(source['bodyObservationPolicy'], source.get('bodyFitPolicy'), source.get('bodyCoveragePolicy'))
     prior=_reviewed_snapshot(source) if source.get('reviewedSnapshot') else None
-    version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v13')
-    if version not in ('v7','v8','v9','v10','v11','v12','v13'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    version=source.get('contextPromptVersion',prior[1]['contextPromptVersion'] if prior else 'v14')
+    if version not in ('v7','v8','v9','v10','v11','v12','v13','v14','v15','v16'):raise ValueError('HOST_CONTEXT_PROMPT_VERSION')
+    if 'deliveryBoardVariants' in source:
+        # Exact sheet IDs belong to one reviewed inventory, never a future M1 plan.
+        if (prior is None or source.get('reviewedSnapshotPolicy')!=PLANNING_REUSE or
+                not composite_review.enabled(source) or source.get('layoutContract') or
+                source.get('layoutPlanningPolicy')):
+            raise ValueError('HOST_BOARD_VARIANTS_REQUIRE_REVIEWED_FINAL_COMPOSITE')
+        rows=read(prior[0]/'requests.json')['requests']
+        experimental_executor.delivery_variants(source['deliveryBoardVariants'],prior[1],rows,
+                                                [r['asset'] for r in rows])
     source.setdefault('sheetSeamPolicy',NEAREST_SEAM)
     validate_seam_policy(source['sheetSeamPolicy'])
     if source['sheetSeamPolicy'] == FAINT_GLOW_SEAM and (
@@ -331,6 +340,7 @@ def prepare(config_path, output):
             layout_path=root/'frozen-layout-contract.json'
             experimental_executor.prepare(frozen,prior[1]['digest'],root/'images',
                 layout_contract=layout_path if layout_path.exists() else None,
+                delivery_board_variants=config.get('deliveryBoardVariants'),
                 maximum_concurrent_calls=config.get('maximumConcurrentImageCalls',1))
             _state(root,config,'images');_checkpoint(root)
             return status(root)
@@ -740,6 +750,11 @@ def _comparison(root, *, diagnostic=False):
     for i,(label,image) in enumerate((('Original',original),(labels[0],atlas),(labels[1],preview))):
         combined.alpha_composite(image,(i*width,28));ImageDraw.Draw(combined).text((i*width+8,7),label,fill='black')
     combined.save(folder/'three-way-comparison.png')
+    paired=Image.new('RGBA',(width*2,height+28),'white')
+    for i,(label,image) in enumerate((('Original',original),(labels[1],preview))):
+        paired.paste(image,(i*width,28))
+        ImageDraw.Draw(paired).text((i*width+8,7),label,fill='black')
+    paired.save(folder/'source-vs-delivery.png')
     save(folder/'comparison.json',dict(kind='ui_host_three_way_comparison_v1',visualAcceptancePending=True,
          **({'diagnosticOnly':True,'independentSeparationVerified':False} if diagnostic else {}),
          originalSha256=digest(root/'delivery/original-reference.png'),viewportSha256=digest(root/'delivery/viewport-preview.png'),

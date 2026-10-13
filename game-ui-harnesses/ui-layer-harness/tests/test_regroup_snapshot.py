@@ -20,6 +20,7 @@ class RegroupTests(unittest.TestCase):
         self.f=fresh.FreshHostM1Tests();self.f.setUp();self.addCleanup(self.f.doCleanups)
         config=read(self.f.fresh_config)
         config.update(visualReviewMode='warning',bodyReviewPolicy='final-composite-first-v1',
+            contextPromptVersion='v16',
             generationGroupingPolicy=COMPACT_CONTROL_POLICY,layoutPlanningPolicy=layout.PLANNING)
         path=self.f.base/'fresh-warning.json';save(path,config)
         self.f.run=self.f.base/'fresh-warning';host.prepare(path,self.f.run);self.f.root=self.f.run/'planning'
@@ -93,6 +94,43 @@ class RegroupTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'ARTIFACT_CHANGED'):
             regroup(self.source,self.parent['digest'],self.f.base/'bad',16)
         self.assertFalse((self.f.base/'bad').exists())
+
+    def test_reviewed_board_choices_complete_host_and_source_comparison(self):
+        from ai_ui_layers import experimental_executor as exchange
+        from test_host_sheet_fallback import HostSheetFallbackTests
+        from test_composite_review import finish_composite
+        config=read(self.f.run/'config.json')
+        for key in ('planningMode','m1Planner','layoutPlanningPolicy','planningCapacityPolicy','planningNotes','digest'):
+            config.pop(key,None)
+        rows=read(self.source/'requests.json')['requests']
+        sheet=next(r for r in rows if r.get('kind')=='sheet')
+        choices={sheet['asset']:dict(promptVersion='v11',referencePolicy=None)}
+        config.update(seed=str(self.source/'evidence/m1-draft.json'),reviewedSnapshot=str(self.source),
+            reviewedSnapshotDigest=self.parent['digest'],reviewedSnapshotPolicy=host.PLANNING_REUSE,
+            visualPolicy=str(self.source/'visual-policy.json'),deliveryBoardVariants=choices)
+        path=self.f.base/'board-config.json';save(path,config)
+        self.base=self.f.base;self.run=self.base/'board-host'
+        current=host.prepare(path,self.run)
+        self.assertEqual(current['status'],'awaiting_authorization')
+        job,_=exchange.load_job(self.run/'images')
+        self.assertEqual(job['deliveryBoardVariants'],choices)
+        self.assertEqual(job['maximumCalls'],len(rows))
+        self.assertEqual(exchange.status(self.run/'images')['assignedCalls'],0)
+        HostSheetFallbackTests.acquire(self,False)
+        final=finish_composite(self)
+        self.assertEqual(final['stage'],'diagnostic_complete')
+        self.assertEqual(final['compositeReviewCalls'],1)
+        request=read(self.run/'final-review/request.json');folder=self.run/request['diagnosticDelivery']
+        with Image.open(folder/'comparison/source-vs-delivery.png') as paired:
+            for i,name in enumerate(('original-reference.png','viewport-preview.png')):
+                with Image.open(folder/name) as source:
+                    w,h=source.size
+                    self.assertEqual(paired.crop((i*w,28,(i+1)*w,h+28)).tobytes(),source.convert('RGBA').tobytes())
+        config['deliveryBoardVariants']={'unknown':dict(promptVersion='v11',referencePolicy=None)}
+        bad=self.base/'bad-board-config.json';save(bad,config)
+        with self.assertRaisesRegex(ValueError,'COMPLETE_V16'):
+            host.prepare(bad,self.base/'bad-board-host')
+        self.assertFalse((self.base/'bad-board-host').exists())
 
 
 if __name__=='__main__':unittest.main()

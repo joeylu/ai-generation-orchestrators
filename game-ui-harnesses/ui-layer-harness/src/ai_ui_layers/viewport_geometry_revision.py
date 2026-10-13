@@ -13,7 +13,7 @@ from PIL import Image
 from .evaluate import read,save,digest
 from .host_timing import measured
 from .experimental_executor import record,verified
-from .layer_package import composite,write_package,validate_archive,check_composition
+from .layer_package import composite,write_package,validate_archive,check_composition,composite_from_sources
 from . import observed_geometry_revision as observed
 
 POLICY='expanded-support-original-viewport-v1'
@@ -46,16 +46,13 @@ def validate_viewport_archive(archive):
             if entry!=dict(sha256=hashlib.sha256(data).hexdigest(),bytes=len(data)):
                 raise ValueError('VIEWPORT_WRAPPER_CHECKSUM_MISMATCH')
         viewport=json.loads(z.read('viewport.json'))
-        with tempfile.TemporaryDirectory(prefix='viewport-validate-') as temporary:
-            root=Path(temporary);inner=root/'world-ui-layers.zip';inner.write_bytes(z.read('world-ui-layers.zip'))
-            validated=validate_archive(inner)
-            with zipfile.ZipFile(inner) as layers:
-                package=root/'package';package.mkdir()
-                for name in layers.namelist():
-                    path=package/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(layers.read(name))
-                composition=read(package/'composition.json');world=composite(package,composition)
-                with Image.open(package/'preview.png') as image:
-                    if world.tobytes()!=image.convert('RGBA').tobytes():raise ValueError('WRAPPER_WORLD_RECOMPOSITION')
+        inner=z.read('world-ui-layers.zip')
+        validated=validate_archive(inner)
+        with zipfile.ZipFile(io.BytesIO(inner)) as layers:
+            composition=json.loads(layers.read('composition.json'))
+            world=composite_from_sources(composition,lambda name: io.BytesIO(layers.read(name)))
+            with Image.open(io.BytesIO(layers.read('preview.png'))) as image:
+                if world.tobytes()!=image.convert('RGBA').tobytes():raise ValueError('WRAPPER_WORLD_RECOMPOSITION')
             w,h=viewport['originalSize'];shift=viewport['worldShift'];box=viewport['worldViewportBox']
             if (viewport.get('policy')!=POLICY or viewport['worldSize']!=list(world.size) or
                 box!=[shift[0],shift[1],shift[0]+w,shift[1]+h] or
@@ -70,7 +67,7 @@ def validate_viewport_archive(archive):
             with Image.open(io.BytesIO(original)) as image:
                 if image.size!=(w,h):raise ValueError('WRAPPER_ORIGINAL_REFERENCE_SIZE')
                 expected=Image.new('RGBA',world.size);expected.paste(image.convert('RGBA'),tuple(shift))
-            with Image.open(package/'reference.png') as image:
+            with Image.open(io.BytesIO(layers.read('reference.png'))) as image:
                 if image.convert('RGBA').tobytes()!=expected.tobytes():raise ValueError('WRAPPER_REFERENCE_EXTENSION')
     return dict(status='viewport-wrapper-integrity-passed',sha256=digest(archive),bytes=archive.stat().st_size,
                 innerPackageSha256=validated['sha256'],**FLAGS)

@@ -75,12 +75,19 @@ def _frozen(snapshot, row):
 
 
 @tree_result
-def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, bytes, str]:
+def build(snapshot: Path, row: dict, *, prompt_version='v1', reference_policy=None) -> tuple[dict, bytes, str]:
     """Rebuild canonical metadata, PNG and prompt entirely from a frozen snapshot."""
-    if prompt_version not in ('v1', 'v2', 'v3', 'v4', 'v5', 'v6'):
+    if prompt_version not in ('v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7','v8','v9','v10','v11'):
         raise ValueError('SHEET_LAYOUT_PROMPT_VERSION')
     snapshot = Path(snapshot)
     manifest, visual, plan = _frozen(snapshot, row)
+    if reference_policy is not None:
+        if reference_policy!='target-context-eight-source-pixels-v1' or prompt_version not in ('v10','v11'):
+            raise ValueError('SHEET_CONTEXT_COMPARISON_POLICY')
+        from .output_role_prompt import is_substrate
+        owners={m['id']:m for m in visual['materials']}
+        if not all(is_substrate(visual,owners[mid]) for mid in row['materialIds']):
+            raise ValueError('SHEET_CONTEXT_COMPARISON_SUBSTRATES_REQUIRED')
     texture_doc=snapshot_input(snapshot,manifest)
     texture_bindings=None
     deferred_textures=manifest.get('policy')=='deferred-visual-candidate-plan-v1'
@@ -89,9 +96,9 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
     if texture_doc is not None:
         # v6 binds an automatic combined input to already reviewed textures.
         # Historical board versions retain their original variant restrictions.
-        if not deferred_textures and prompt_version!='v6':
+        if not deferred_textures and prompt_version not in ('v6','v7','v8','v9','v10','v11'):
             raise ValueError('VISUAL_TEXTURE_VARIANTS_UNSUPPORTED')
-        if prompt_version not in ('v2','v3','v4','v5','v6'):raise ValueError('TEXTURE_SHEET_LAYOUT_PROMPT_V2_REQUIRED')
+        if prompt_version not in ('v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'):raise ValueError('TEXTURE_SHEET_LAYOUT_PROMPT_V2_REQUIRED')
         texture_bindings=snapshot_bindings(snapshot,manifest,visual)
     policy=snapshot_policy(snapshot,manifest)
     width, height = row['outputSize']
@@ -132,6 +139,15 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
                 placement[2] > cell[2] - pad or placement[3] > cell[3] - pad):
             raise ValueError('SHEET_LAYOUT_PADDING')
         # No alpha mask: the crop's RGBA samples are copied, including genuine gaps.
+        retained_context=None
+        if reference_policy is not None:
+            l,t,r,b=reference['targetBox']
+            retained_context=[max(0,l-8),max(0,t-8),min(crop_width,r+8),min(crop_height,b+8)]
+            # Narrow reference context only. Never treat this rectangle as an
+            # output alpha mask or claim it measures the owned shadow boundary.
+            focused=Image.new('RGBA',crop.size,NEUTRAL_GRAY)
+            focused.paste(crop.crop(tuple(retained_context)),tuple(retained_context[:2]))
+            crop=focused
         board.paste(crop.resize((scaled_width, scaled_height), Image.Resampling.NEAREST), (x, y))
         metadata_cells.append(dict(cellIndex=i, materialId=reference['materialId'],
                                    reference=reference['reference'],
@@ -143,11 +159,14 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
                                    cellBox=cell, padding=pad, integerScale=scale,
                                    boardCropBox=placement,
                                    boardCropBoxNorm=_norm(placement, (width, height))))
+        if retained_context is not None:
+            metadata_cells[-1]['retainedContextBox']=retained_context
     metadata = dict(kind=KIND, policy='common-integer-context-grid-v1',
                     snapshotDigest=manifest['digest'], requestAsset=row['asset'],
                     grid=row['grid'], outputSize=row['outputSize'],
                     background=list(NEUTRAL_GRAY), materialIds=row['materialIds'],
                     integerScale=scale, cells=metadata_cells)
+    if reference_policy is not None:metadata['referencePolicy']=reference_policy
     if policy is not None:metadata['visualPolicySha256']=manifest['visualPolicySha256']
     texture_regions=[]
     if texture_doc is not None:
@@ -160,6 +179,11 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
             cell=owned_cells.get(region['materialId'])
             if cell is None:continue
             crop=cell['cropRegion'];box=region['sourceBox']
+            if 'retainedContextBox' in cell:
+                retained=cell['retainedContextBox']
+                if not (crop[0]+retained[0]<=box[0]<box[2]<=crop[0]+retained[2] and
+                        crop[1]+retained[1]<=box[1]<box[3]<=crop[1]+retained[3]):
+                    raise ValueError('SHEET_CONTEXT_COMPARISON_TEXTURE_CLIPPED')
             if (cell['originalSourceSha256']!=source_sha or
                     not crop[0]<=box[0]<box[2]<=crop[2] or not crop[1]<=box[1]<box[3]<=crop[3]):
                 raise ValueError('SHEET_LAYOUT_TEXTURE_OUTSIDE_CONTEXT')
@@ -180,23 +204,29 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
     entries = []
     for i, (reference, item) in enumerate(zip(row['references'], metadata_cells)):
         key = reference['materialId']
-        entry = context_references.entry(visual, materials[key], assets[key], reference,
+        builder = context_references.action_entry if prompt_version in ('v7','v8','v9','v10','v11') else context_references.entry
+        entry = builder(visual, materials[key], assets[key], reference,
                                          plan['canvas'], i,
-                                         include_exclusion_details=prompt_version in ('v2','v3','v4','v5','v6'),
-                                         exclude_scene=prompt_version in ('v4','v5','v6'))
+                                         **({} if prompt_version in ('v7','v8','v9','v10','v11') else dict(
+                                             include_exclusion_details=prompt_version in ('v2','v3','v4','v5','v6'))),
+                                         exclude_scene=prompt_version in ('v4','v5','v6','v7','v8','v9','v10','v11'))
         placement = item['boardCropBox'][:2]
         crop_size = [*reference['referenceSize'], scale]
         entry['referenceIndex'] = 1
         entry['cropIndex'] = i + 1
         entry['boardCropBox'] = item['boardCropBoxNorm']
         entry['targetBox'] = _map_box(entry['targetBox'], placement, crop_size, (width, height))
-        for part in entry['parts']:
+        for part in entry.get('parts',entry.get('keepOnly',[])):
             if 'referenceBox' in part:
                 part['referenceBox'] = _map_box(part['referenceBox'], placement,
                                                 crop_size, (width, height))
         for excluded in entry['exclude']:
             excluded['referenceBox'] = _map_box(excluded['referenceBox'], placement,
                                                 crop_size, (width, height))
+            for member in excluded.get('members',[]):
+                if 'referenceBox' in member:
+                    member['referenceBox'] = _map_box(member['referenceBox'], placement,
+                                                    crop_size, (width, height))
         entries.append(entry)
     surface = ('For continuous-panel, fill removed foreign footprints with matching panel surface, '
                'preserving genuine openings and translucency. ' if any(
@@ -232,7 +262,18 @@ def build(snapshot: Path, row: dict, *, prompt_version='v1') -> tuple[dict, byte
             edit_only=prompt_version in ('v3','v4','v5','v6'),
             exclude_scene=prompt_version in ('v4','v5','v6'),
             explicit_text_removal=prompt_version in ('v5','v6'))
-    if policy is not None:prompt=prompt.rstrip('\n')+generation_guidance(policy,edit_only=prompt_version in ('v3','v4','v5','v6'))+'\n'
+    if prompt_version=='v7':
+        from .output_role_prompt import foreground
+        prompt=foreground(visual,entries,
+            f'One attached board; aspect {width}:{height}; grid {columns} columns by {rows} rows, row-major. '
+            'One independent asset per cell; use one common uniform scale.',board=True)+'\n'
+    if prompt_version in ('v8','v9'):
+        from .cell_locked_prompt import foreground
+        prompt=foreground(visual,entries,(width,height),(columns,rows),ownership_scoped=prompt_version=='v9')+'\n'
+    if prompt_version in ('v10','v11'):
+        from .local_edit_prompt import foreground
+        prompt=foreground(visual,entries,(width,height),(columns,rows),contour_scope=prompt_version=='v11')+'\n'
+    if policy is not None:prompt=prompt.rstrip('\n')+generation_guidance(policy,edit_only=prompt_version in ('v3','v4','v5','v6','v7','v8','v9','v10','v11'))+'\n'
     if texture_doc is not None:
         prompt=prompt.rstrip('\n')+'\nSource-bound raster textures on this board only: '
         prompt+=('Each boardBoxNorm is normalized to the entire attached layout board, not original context coordinates. '
@@ -255,16 +296,17 @@ def _descriptor(metadata, board_bytes, prompt, prompt_version='v1'):
     return dict(kind=KIND, mode=MODE, snapshotDigest=metadata['snapshotDigest'],
                 requestAsset=metadata['requestAsset'], board=BOARD, metadata=METADATA,
                 prompt=PROMPT, sha256={name: _sha(payload) for name, payload in payloads.items()},
+                **({'referencePolicy':metadata['referencePolicy']} if 'referencePolicy' in metadata else {}),
                 **({'visualPolicySha256':metadata['visualPolicySha256']} if 'visualPolicySha256' in metadata else {}),
                 **({key:metadata[key] for key in ('textureMappingPolicy','originalReferenceSha256',
                     'visualTexturesSha256','visualTextureBindingsSha256')} if 'textureMappingPolicy' in metadata else {}),
                 **({'promptVersion': prompt_version} if prompt_version != 'v1' else {}))
 
 
-def materialize(job: Path, snapshot: Path, row: dict, *, prompt_version='v2') -> dict:
+def materialize(job: Path, snapshot: Path, row: dict, *, prompt_version='v2', reference_policy=None) -> dict:
     """Write one fresh, fixed-path board without touching the frozen snapshot."""
     job = Path(job)
-    metadata, board_bytes, prompt = build(snapshot, row, prompt_version=prompt_version)
+    metadata, board_bytes, prompt = build(snapshot, row, prompt_version=prompt_version,reference_policy=reference_policy)
     descriptor = _descriptor(metadata, board_bytes, prompt, prompt_version)
     folder = job / ROOT
     folder.mkdir(exist_ok=False)
@@ -280,7 +322,7 @@ def verify(job: Path, snapshot: Path, row: dict, descriptor: dict) -> None:
     if not isinstance(descriptor, dict):
         raise ValueError('SHEET_LAYOUT_DESCRIPTOR_CHANGED')
     prompt_version = descriptor.get('promptVersion', 'v1')
-    metadata, board_bytes, prompt = build(snapshot, row, prompt_version=prompt_version)
+    metadata, board_bytes, prompt = build(snapshot, row, prompt_version=prompt_version,reference_policy=descriptor.get('referencePolicy'))
     expected = _descriptor(metadata, board_bytes, prompt, prompt_version)
     if descriptor != expected:
         raise ValueError('SHEET_LAYOUT_DESCRIPTOR_CHANGED')

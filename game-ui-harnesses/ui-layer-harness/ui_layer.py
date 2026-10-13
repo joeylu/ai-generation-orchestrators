@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent/"src"))
 
-VERSION = '0.1.0a9'
+VERSION = '0.1.0a10'
 
 if __name__ == '__main__':
     # Service consumers decode the JSON protocol as UTF-8, regardless of host locale.
@@ -18,6 +18,8 @@ if __name__ == '__main__':
             from ai_ui_layers.received_diagnostic_delivery import main
         elif len(sys.argv)>1 and sys.argv[1]=='compare-package-baseline':
             from ai_ui_layers.package_baseline_audit import main
+        elif len(sys.argv)>1 and sys.argv[1]=='audit-native-alpha':
+            from ai_ui_layers.native_alpha_audit import main
         elif len(sys.argv)>1 and sys.argv[1]=='revise-layout-candidate':
             from ai_ui_layers.layout_registration_revision import main
         elif len(sys.argv)>1 and sys.argv[1]=='regroup-reviewed-snapshot':

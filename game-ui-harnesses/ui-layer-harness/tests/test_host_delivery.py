@@ -55,14 +55,14 @@ class HostDeliveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'CHANGED'):host.status(self.run)
 
     def test_new_default_uses_ownership_actions_and_explicit_v7_is_frozen(self):
-        self.assertEqual(read(self.run/'config.json')['contextPromptVersion'],'v13')
+        self.assertEqual(read(self.run/'config.json')['contextPromptVersion'],'v14')
         self.assertEqual(read(self.run/'config.json')['sheetSeamPolicy'],'nearest-unique-transparent-seam-v2')
         self.assertEqual(read(self.run/'config.json')['bodyObservationPolicy'],'host-body-observation-alpha-v2')
         self.assertNotIn('bodyFitPolicy',read(self.run/'config.json'))  # strict remains strict
-        self.assertEqual(read(self.run/'planning/.dag/config.json')['contextPromptVersion'],'v13')
+        self.assertEqual(read(self.run/'planning/.dag/config.json')['contextPromptVersion'],'v14')
         self.planning()
-        self.assertEqual(read(self.run/'frozen/snapshot.json')['contextPromptVersion'],'v13')
-        self.assertTrue((self.run/'frozen/materials/asset-panel/prompt.txt').read_text('utf-8').startswith('Edit the attached reference crops:'))
+        self.assertEqual(read(self.run/'frozen/snapshot.json')['contextPromptVersion'],'v14')
+        self.assertTrue((self.run/'frozen/materials/asset-panel/prompt.txt').read_text('utf-8').startswith('Edit the attached reference crops.'))
         legacy=read(self.config_path);legacy['contextPromptVersion']='v7'
         legacy_path=self.base/'legacy-config.json';save(legacy_path,legacy)
         other=self.base/'explicit-legacy';host.prepare(legacy_path,other)

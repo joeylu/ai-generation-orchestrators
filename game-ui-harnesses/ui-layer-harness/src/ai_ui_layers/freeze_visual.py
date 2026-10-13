@@ -127,7 +127,7 @@ def freeze(run, output, max_calls, generation_mode="single", generation_referenc
             folder=output/'sheets'/group['id'];folder.mkdir(parents=True)
             prompt=folder/'prompt.txt';prompt.write_text((context_prompt(visual,plan,group['materialIds'],group,
                     version=context_prompt_version) if generation_reference=='context-crops' else
-                    sheet_prompt(visual,plan,group))+generation_guidance(policy,edit_only=generation_reference=='context-crops' and context_prompt_version in ('v12','v13'))+visual_textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,context=request_references(context_document,group['materialIds']) if context_document is not None else None,group=group)+'\n',encoding='utf-8')
+                    sheet_prompt(visual,plan,group))+generation_guidance(policy,edit_only=generation_reference=='context-crops' and context_prompt_version in ('v12','v13','v14','v15','v16'))+visual_textures.generation_guidance(texture_doc,texture_bindings,group['materialIds'],visual,context=request_references(context_document,group['materialIds']) if context_document is not None else None,group=group)+'\n',encoding='utf-8')
             requests.append(dict(asset=group['id'],kind='sheet',materialIds=group['materialIds'],grid=group['grid'],
                 reference='reference.png',prompt=prompt.relative_to(output).as_posix(),outputSize=group['outputSize'],
                 plannedCalls=1,automaticRetries=0))

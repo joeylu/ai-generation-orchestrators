@@ -2,7 +2,7 @@
 
 `--generation-reference context-crops` compiles foreground generation requests
 from deterministic expanded crops. New public runs and planning initialization
-default to `context-crops` with v13 reference-edit actions; explicit `full` remains available. Historical
+default to `context-crops` with v14 output-role edits; explicit `full` remains available. Historical
 configs and snapshots without this field keep their full-reference behavior.
 Low-level compile/freeze defaults remain unchanged, and `freeze-reviewed`
 inherits the source mode unless explicitly overridden. This is an
@@ -172,9 +172,21 @@ a length target.
 
 ## Authorization, exact transport and quality gates
 
-### Current v13 reference-edit actions
+### Current v14 output-role actions
 
-New planning, public delivery and integrated host jobs default to v13.
+New source planning and host jobs freeze v14. Standalone requests and board v7
+use the same output-role, KEEP/REMOVE, text and fidelity compiler. A reviewed
+panel/card surface carrying separate overlaid owners becomes a clean substrate;
+an owned illustration or unknown content prevents that classification. Surface
+completion is limited to the original surface beneath removed foreign overlays;
+genuine openings, translucency and all fixed owned artwork remain intact.
+Backgrounds carry positive observed appearance and their scene-only or
+preserve-underlay scope. The change is source-only until separately released and
+live-tested; see [output-role prompts](OUTPUT-ROLE-PROMPTS.md).
+
+### Historical v13 reference-edit actions
+
+Explicit v13 retains its original reference-edit behavior.
 Backgrounds receive the full original once with a concise remove-UI edit prompt.
 Foregrounds remove background-owned people and scenery, including scene content
 seen through gaps and translucent surfaces; owned illustrations retain their

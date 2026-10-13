@@ -159,10 +159,10 @@ class DenseReferenceEditTests(unittest.TestCase):
     add_coins=fixtures.CompactControlHostTests.add_coins
     prepare=fixtures.CompactControlHostTests.prepare
 
-    def test_default_host_six_material_sheet_dispatches_one_v5_edit_board(self):
+    def test_historical_v13_host_six_material_sheet_dispatches_one_v5_edit_board(self):
         from ai_ui_layers.generation_groups import COMPACT_CONTROL_POLICY
         self.add_coins()
-        self.prepare(generationGroupingPolicy=COMPACT_CONTROL_POLICY,maximumBodyCalls=1)
+        self.prepare(generationGroupingPolicy=COMPACT_CONTROL_POLICY,maximumBodyCalls=1,contextPromptVersion='v13')
         snapshot=self.run/'frozen';self.assertEqual(read(snapshot/'snapshot.json')['contextPromptVersion'],'v13')
         job=self.run/'images';config,index=exchange.load_job(job)
         row=next(r for r in index.values() if len(r.get('materialIds',[]))==6)

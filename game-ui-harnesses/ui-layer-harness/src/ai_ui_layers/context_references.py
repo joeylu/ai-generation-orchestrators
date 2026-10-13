@@ -24,9 +24,12 @@ PROMPT_PREFIX_V10 = 'visual-material-context-prompt-v10:\n'
 PROMPT_PREFIX_V11 = 'visual-material-context-prompt-v11:\n'
 PROMPT_PREFIX_V12 = 'visual-material-context-prompt-v12:\n'
 PROMPT_PREFIX_V13 = 'visual-material-context-prompt-v13:\n'
-VERSIONS = ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11','v12','v13')
-DEFAULT_VERSION = 'v13'
-PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7, PROMPT_PREFIX_V8, PROMPT_PREFIX_V9, PROMPT_PREFIX_V10, PROMPT_PREFIX_V11, PROMPT_PREFIX_V12, PROMPT_PREFIX_V13)
+PROMPT_PREFIX_V14 = 'visual-material-context-prompt-v14:\n'
+PROMPT_PREFIX_V15 = 'visual-material-context-prompt-v15:\n'
+PROMPT_PREFIX_V16 = 'visual-material-context-prompt-v16:\n'
+VERSIONS = ('v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11','v12','v13','v14','v15','v16')
+DEFAULT_VERSION = 'v14'
+PROMPT_PREFIXES = (PROMPT_PREFIX_V1, PROMPT_PREFIX_V2, PROMPT_PREFIX_V3, PROMPT_PREFIX_V4, PROMPT_PREFIX_V5, PROMPT_PREFIX_V6, PROMPT_PREFIX_V7, PROMPT_PREFIX_V8, PROMPT_PREFIX_V9, PROMPT_PREFIX_V10, PROMPT_PREFIX_V11, PROMPT_PREFIX_V12, PROMPT_PREFIX_V13, PROMPT_PREFIX_V14, PROMPT_PREFIX_V15, PROMPT_PREFIX_V16)
 # Historical callers and frozen plans used this name for v1.
 PROMPT_PREFIX = PROMPT_PREFIX_V1
 
@@ -284,6 +287,9 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     materials={m['id']:m for m in visual['materials']};assets={a['id']:a for a in plan['assets']}
     if any('preserveText' not in materials[key] for key in material_ids):raise ValueError('EXPLICIT_TEXT_EXCEPTIONS_REQUIRED')
     if len(material_ids)==1 and assets[material_ids[0]]['role']=='background':
+        if version in ('v14','v15','v16'):
+            from .output_role_prompt import background
+            return background(visual, materials[material_ids[0]], ownership_scoped=version=='v16')
         if version in ('v11','v12','v13'):
             return background_edit_prompt(visual,materials[material_ids[0]],edit_only=version in ('v12','v13'))
         result = full_prompt(visual,material_ids[0],plan['canvas'])
@@ -297,6 +303,11 @@ def prompt(visual, plan, material_ids, group=None, version='v3'):
     from .generation_groups import COMPACT_CONTROL_POLICIES
     reference_limit=6 if group and group.get('groupingPolicy') in COMPACT_CONTROL_POLICIES else 4
     if not 1<=len(material_ids)<=reference_limit:raise ValueError('CONTEXT_REFERENCE_LIMIT')
+    if version in ('v14','v15','v16'):
+        from .output_role_prompt import foreground
+        entries=[action_entry(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),
+            plan['canvas'],i,exclude_scene=True) for i,key in enumerate(material_ids)]
+        return foreground(visual,entries,_sheet_layout(group) if group else 'One complete material; cell 0.', ownership_scoped=version=='v16')
     builder=action_entry if version in ('v4','v5','v6','v7','v8','v9','v10','v11','v12','v13') else entry
     entries=[builder(visual,materials[key],assets[key],geometry(assets[key],plan['canvas']),plan['canvas'],i,**({'exclude_scene':True} if version=='v13' else {}))
              for i,key in enumerate(material_ids)]

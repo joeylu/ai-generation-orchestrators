@@ -373,7 +373,7 @@ def prepare_cleanup(snapshot, expected_digest, output, material_id, source_job,
         (folder/'reference-context.png').write_bytes(png_bytes(reference.crop(inputs['contextGeometry']['cropRegion'])))
     save(folder/'inputs.json',inputs);save(folder/'schema.json',SCHEMA)
     save(folder/'source-lineage.json',lineage)
-    if manifest.get('contextPromptVersion') in ('v12','v13'):
+    if manifest.get('contextPromptVersion') in ('v12','v13','v14','v15','v16'):
         version=REFERENCE_EDIT_PROMPT_VERSION if input_policy else EDIT_PROMPT_VERSION
     else:version=REFERENCE_PROMPT_VERSION if input_policy else PROMPT_VERSION
     (folder/'prompt.txt').write_text(_prompt(inputs,version),encoding='utf-8')

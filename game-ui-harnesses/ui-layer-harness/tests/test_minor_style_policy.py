@@ -91,9 +91,9 @@ class MinorStyleTests(unittest.TestCase):
         for row in read(snapshot/'requests.json')['requests']:
             prompt=(snapshot/row['prompt']).read_text('utf-8')
             if row['asset'] in backgrounds:
-                # v13 keeps the background request concise; the exact policy
-                # remains bound to the snapshot and independent review.
-                self.assertIn('保持原图画布、构图、视角',prompt)
+                # v14 binds positive background evidence and removal scope;
+                # foreground-only policy guidance is still excluded.
+                self.assertIn('Preserve the full reference canvas, camera',prompt)
                 self.assertNotIn('显式视觉策略',prompt)
             else:
                 self.assertIn(generation_guidance(policy(),edit_only=True).strip(),prompt)

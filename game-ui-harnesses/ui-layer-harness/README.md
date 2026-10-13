@@ -1,7 +1,8 @@
-# UI Layer Harness — 0.1.0a9 preview
+# UI Layer Harness — 0.1.0a10 preview
 
 固定发布标签：`ui-layers-v0.1.0-alpha.9`。
-服务接入与升级参数见[本版发布说明](docs/release-0.1.0a9.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+服务接入与升级参数见[本版发布说明](docs/release-0.1.0a10.md)；下载发布附件并校验 SHA-256，旧任务继续使用旧版本。
+当前源码另含尚未发布的 [v14 提示编译修订](docs/OUTPUT-ROLE-PROMPTS.md)，真实生成质量待新样本验证。
 
 alpha.8 增加六样本基准、规划修复阶段及失败诊断包的真实计量、可选调度耗时诊断，
 以及保留原始像素的[极淡辉光切分选项](docs/HOST-INTEGRATION.md#recommended-new-diagnostic-configuration)。
@@ -28,9 +29,9 @@ alpha.7 的海洋规划、原始生图和独立补充复审证据另有记录；
 新宿主作业可设置 `visualReviewMode=warning`：视觉差异全部记录为 warning，继续到回拼后人工验收；
 M1、生图与复审共用唯一归属、父板排除子元素、完整主体比例及高光分类规范。
 技术完整性仍校验，旧任务和旧策略不改写，见[视觉 warning 策略](docs/VISUAL-WARNING-POLICY.md)。
-新任务默认冻结 `contextPromptVersion=v13`：前景裁片及合板输入明确删除背景所属人物与景物，
-包括连接线空隙和半透明底板中透见的场景；背景仍保留原主体，独立插画保留自身画面。
-合板使用 v5 逐格文字删除与归属清单，同一张裁片输入板；旧版本提示词及参考像素不改写。
+新任务默认冻结 `contextPromptVersion=v14`：独立请求与合板共用成品角色、唯一归属、去字及保真规则。
+独立底板明确清除另属子项并延续原有表面；完整固定插画仍保留自身内容。背景绑定可见外观与移除范围。
+合板使用 v7 提示及同一张原始裁片输入板，兼容已审核纹理绑定；旧版本提示词及参考像素不改写。
 新 warning 作业统一在检测副本中忽略 alpha 0/1 杂点来寻找切线；交付素材保留全部非零原始 RGBA，
 包括 alpha=1 的外发光尾部，并加透明留边。原始合板、全部原始裁片及检测副本分别归档，旧策略不改写。
 新 warning 作业遇到合板贴边、透明缝缺失／歧义或空余格残留时，仅对异常合板局部兜底；
@@ -60,7 +61,7 @@ M1、生图与复审共用唯一归属、父板排除子元素、完整主体比
 显式严格独立素材交付中，每份前景都要完成真实主体观察；上述一次整图复审配置输出待人工验收的诊断包。
 执行完成、严格视觉通过与人工验收的判定见[链路检查点](docs/DELIVERY-CHAIN-CHECKPOINT.md#completion-and-acceptance)。
 
-新 `run` 默认以 v13 编译局部参考提示词，并使用 `reference-body-auto-v1`：
+新 `run` 默认以 v14 编译局部参考提示词，并使用 `reference-body-auto-v1`：
 素材接收及既有审查完成后，冻结主体观察请求，取得对应摘要的授权才执行，随后归位并打包。
 主体确定尺寸与锚点，完整 alpha 支持确定 PNG 存储画布；扩展只允许在原图画布内。
 上述限制属于普通 `run`；正式宿主链路显式冻结
@@ -154,7 +155,7 @@ python game-ui-harnesses/ui-layer-harness/ui_layer.py host-status --run NEW_RUN
 [素材板合同](docs/GENERATION-SHEETS.md)。历史 `single` 配置按原合同回放。
 新 `run` 默认 `--generation-reference context-crops`，使用有指纹的外扩局部参考和对应生成提示词；背景仍用整图，合板最多四份素材。可显式选择 `full`；旧配置缺省仍解释为 `full`，旧快照和授权不转换，`freeze-reviewed` 缺省继承源模式。见[局部参考合同](docs/CONTEXT-REFERENCES.md)。
 
-新局部参考任务默认 `--context-prompt-version v13`，使用原图编辑、文字删除及场景归属规则，
+新局部参考任务默认 `--context-prompt-version v14`，使用统一成品角色、文字删除及场景归属规则，
 详见 [局部参考合同](docs/CONTEXT-REFERENCES.md)。实际视觉验收仍按冻结复审策略执行。
 可显式选历史版本；`full` 不接受该参数。`--registration-policy legacy-region-fit` 可显式选旧归位策略，
 不允许失败后自动降级。默认 `--max-body-calls 12`，每份前景最多一次观察，超过上限在生图前停止。

@@ -31,18 +31,32 @@ All sheet sizes now budget the original context rim and board padding before
 M2, so every planned sheet fits its combined input board at full resolution.
 Explicit v4 grouping retains its previous dense-only board budget.
 
-New context runs use `contextPromptVersion=v13`. Backgrounds receive the original
-full reference once and a direct UI-removal edit prompt, with composition and
-visible-subject positions held fixed. Scene descriptions and generic foreground
-reconstruction guidance are omitted. `preserve-underlay` and exact `preserveText`
-exceptions remain explicit; v1–v12 prompts retain their original bytes.
-Foregrounds, sheets, cleanup edits and appended policy/layout instructions also
-remove unnecessary elements and preserve the original assigned subject, without
-reconstruction or surface-completion requirements. Owned width/height stays bound
-before transparent padding. Foregrounds explicitly remove background-owned people
-and scenery; owned illustrations retain their subjects. Sheet board prompt v5
-places each cell's text-removal requirement before KEEP, including CJK labels
-and glyph effects. See [fidelity fixes](FIDELITY-FIXES.md).
+New source context runs use `contextPromptVersion=v14` and board prompt v7.
+Standalone and board generation share one output-role compiler. A clean substrate
+retains only its owned surface/decorations and continues that surface through
+removed children; fixed illustration cards keep their owned pictures. The
+background binds its observed appearance and exact removal scope. All paths share
+the text-exception, ownership, translucency and fidelity rules. Original input
+pixels, request grouping, call budgets and authorization remain unchanged.
+Historical v1–v13 and board v1–v6 renderings remain available; old host jobs reject
+a changed runtime and must use their original installation to resume.
+See [output-role prompts](OUTPUT-ROLE-PROMPTS.md) for evidence and validation limits.
+
+An explicit reviewed-snapshot continuation can freeze `deliveryBoardVariants`
+as a map of existing sheet request IDs to
+`{"promptVersion":"v11","referencePolicy":"target-context-eight-source-pixels-v1"}`
+(or a null reference policy). This requires v16, `reviewedSnapshotPolicy=
+verified-planning-snapshot-reuse-v1`, final-composite review and no layout prompt
+sidecar. The host validates choices before creating the run and passes them to
+the complete image inventory. New image authorization is required; no previous
+image receipts are reused. Unknown sheets and arbitrary prompts are rejected.
+Fresh M1 plans cannot use this exact-ID option because their sheet inventory is
+not known yet. Other sheets and historical defaults keep their frozen behavior.
+
+Every newly built comparison folder also contains `source-vs-delivery.png`,
+with the original and delivered viewport at native size and a 28-pixel label
+header. Its hash is included in `comparison.json`. The existing three-way
+comparison and independent final-review input contract remain available.
 
 M1 receives the frozen image/review limits. After its original answer is verified,
 the program writes `planning-capacity.json` from source pixel geometry **before
@@ -237,7 +251,7 @@ strict runs and candidate runs retain their behavior.
 
 For new workflows, explicitly set `generationMode=sheets`, which is also the
 runtime default. The workflow performs independent planning review, freezes
-grouped requests with context crops and v13 reference-edit prompts,
+grouped requests with context crops and v14 output-role reference-edit prompts,
 acquires native images within the frozen concurrency limit and follows the
 frozen review profile: one final composite review for new fast warning jobs,
 or explicit per-request review and exhaustive foreground body observation.

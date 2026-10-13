@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.1.0a10: ownership prompts and diagnostic delivery
+
+See [release and upgrade notes](release-0.1.0a10.md). Adds versioned output-role prompts, reviewed board variants, source comparisons and in-memory viewport archive verification. Three live sample deliveries completed with visual warnings retained; strict visual acceptance is not asserted.
+
 ## 0.1.0a6 release: compatibility and protocol maintenance
 
 Tag: `ui-layers-v0.1.0-alpha.6`. See [upgrade notes](release-0.1.0a6.md).

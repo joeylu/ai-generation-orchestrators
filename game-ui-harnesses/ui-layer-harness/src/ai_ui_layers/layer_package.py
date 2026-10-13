@@ -1,6 +1,7 @@
 """Portable UI artwork package only: no component semantics, model calls or UI drawing."""
 import argparse
 import hashlib
+import io
 import json
 import math
 from pathlib import Path
@@ -95,11 +96,16 @@ def check_composition(value):
 
 
 def composite(folder, composition):
+    return composite_from_sources(composition, lambda name: Path(folder)/name)
+
+
+def composite_from_sources(composition, source):
+    """Apply identical layer checks to filesystem and in-memory archive sources."""
     check_composition(composition)
     size=(composition['canvas']['width'],composition['canvas']['height'])
     canvas=Image.new('RGBA',size)
     for layer in composition['layers']:
-        with Image.open(Path(folder)/layer['path']) as im:
+        with Image.open(source(layer['path'])) as im:
             if im.format!='PNG' or im.mode!='RGBA' or im.size!=(layer['width'],layer['height']):
                 raise ValueError('LAYER_PNG_GEOMETRY')
             if not im.getchannel('A').getbbox():raise ValueError('EMPTY_LAYER')
@@ -109,7 +115,8 @@ def composite(folder, composition):
 
 
 def validate_archive(archive):
-    with zipfile.ZipFile(archive) as z:
+    memory=isinstance(archive,bytes)
+    with zipfile.ZipFile(io.BytesIO(archive) if memory else archive) as z:
         if z.testzip() is not None:raise ValueError('ZIP_CRC')
         names=z.namelist()
         if len(names)!=len(set(names)) or len(names)>262 or names!=sorted(names):raise ValueError('ZIP_MEMBERS')
@@ -123,7 +130,9 @@ def validate_archive(archive):
             data=z.read(name)
             if len(data)!=entry['bytes'] or hashlib.sha256(data).hexdigest()!=entry['sha256']:raise ValueError('PACKAGE_HASH')
         check_composition(json.loads(z.read('composition.json')))
-    return dict(status='package_integrity_passed',sha256=digest(Path(archive)),bytes=Path(archive).stat().st_size,
+    return dict(status='package_integrity_passed',
+                sha256=hashlib.sha256(archive).hexdigest() if memory else digest(Path(archive)),
+                bytes=len(archive) if memory else Path(archive).stat().st_size,
                 humanVisualAcceptance=False,generationCalls=0)
 
 
