@@ -1,0 +1,36 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readJson} from '../src/io.mjs';
+import {loadWorkspaceCore} from '../src/component-adapter.mjs';
+import {createPanelBundle,validatePanelBundle,panelBundleAssetInputs} from '../src/panel-bundle.mjs';
+import {headingThemeTarget,sectionHeadingVisible} from '../src/section-headings.mjs';
+import {createUnityDocument} from '../src/unity-export.mjs';
+import {themePlanningGuide} from '../src/theme-planning.mjs';
+import {effectivePanelTitleStyle} from '../src/title-bar.mjs';
+const core=await loadWorkspaceCore(),old=await readJson(new URL('../examples/modern-action-headings.catalog.json',import.meta.url));
+const catalog=await readJson(new URL('../examples/modern-tab-headings.catalog.json',import.meta.url));
+const {fixtures}=await readJson(new URL('./fixtures/common-draft-layout-v2.json',import.meta.url));
+const flatten=node=>[node,...(node.children??[]).flatMap(flatten)];
+const headings=bundle=>flatten(bundle.componentBundle.document.root).filter(node=>/\.section\.[^.]+\.title$/.test(node.id)).map(node=>node.props.text);
+for(const fixture of fixtures.filter(x=>['G21','G59'].includes(x.id)))test(`${fixture.id}: tab adoption removes redundant headings while preserving every saved field and explicit show`,async()=>{
+  const before=await createPanelBundle(fixture.spec,old,core),spec=structuredClone(before.spec);
+  assert(headings(before).length>0);spec.theme=headingThemeTarget(spec,old,catalog,'auto');
+  const after=await createPanelBundle(spec,catalog,core,before.state,panelBundleAssetInputs(before,core));
+  assert.equal(before.compilerVersion,'0.33.0');assert.equal(after.compilerVersion,'0.34.0');assert.deepEqual(headings(after),[]);
+  assert.deepEqual({...after.spec,theme:before.spec.theme},before.spec);
+  for(const key of ['actions','bindings','state','assetClosure'])assert.deepEqual(after[key],before[key]);
+  assert.deepEqual(await validatePanelBundle(before,core),before);assert.deepEqual(await validatePanelBundle(after,core),after);
+  assert.equal(effectivePanelTitleStyle(after).horizontalAlign,'center');
+  const native=await createUnityDocument(after,core);assert.equal(native.nodes.filter(node=>/\.section\.[^.]+\.title$/.test(node.id)).length,0);
+  spec.theme=headingThemeTarget(spec,catalog,catalog,'show');const shown=await createPanelBundle(spec,catalog,core);
+  assert.deepEqual(headings(shown),spec.sections.map(section=>section.title));
+});
+test('multiple meaningful content groups remain visible, and pure action groups never need a redundant heading',()=>{
+  const audio={id:'audio',title:'声音',rows:[{kind:'slider'}]},video={id:'video',title:'画面',rows:[{kind:'select'}]},actions={id:'actions',title:'设置操作',rows:[{kind:'button'}]};
+  const spec={title:'游戏设置',sections:[audio,video,actions],tabs:{pages:[{id:'settings',label:'设置',sections:['audio','video','actions']}]}};
+  assert(sectionHeadingVisible(spec,audio,'concise-v4'));assert(sectionHeadingVisible(spec,video,'concise-v4'));
+  assert.equal(sectionHeadingVisible(spec,actions,'concise-v4'),false);assert.equal(sectionHeadingVisible(spec,actions,'visible-v4'),true);
+  const duplicate={...audio,title:'设置面板'};assert.equal(sectionHeadingVisible(spec,duplicate,'concise-v4'),false);
+  assert.equal(sectionHeadingVisible(spec,duplicate,'concise-v3'),true);
+  assert(themePlanningGuide(catalog).includes('single-content-group titles within a tab page'));
+});

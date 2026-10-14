@@ -7,6 +7,7 @@ import {resolveTheme} from './catalog.mjs';
 import {appearanceTokens} from './appearance.mjs';
 import {tabPalette} from './tabs-skin.mjs';
 import {centeredCardTextIds} from './card-alignment.mjs';
+import {centeredMessageTextIds} from './compact-message.mjs';
 
 export const UNITY_ADAPTER_VERSION = '0.1.7';
 const supported = new Set(['Panel','CheckBox','RadioGroup','List','Dialog','Container', 'Text', 'Image', 'Slider', 'Switch', 'Select', 'Button', 'ProgressBar', 'ScrollView', 'Tabs', 'Input']);
@@ -51,15 +52,16 @@ export async function createUnityDocument(input, core) {
     ...(row.kind === 'progress' ? { displayMode: row.format.mode } : {}),
     ...(row.action?.kind === 'submit' ? { submitFields: [...row.action.fields] } : {}),
     ...(row.kind === 'input' ? { placeholder: row.placeholder, inputType: row.inputType, readOnly: row.readOnly,
-      ...(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion)?{deferEmptyError:true}:{}),
+      ...(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion)?{deferEmptyError:true}:{}),
       validation: structuredClone(row.validation), requiredErrorTextId: formErrorId(spec.id,row.id,'required'),
       minLengthErrorTextId: formErrorId(spec.id,row.id,'min-length') } : {}),
   }));
   const nodes = [];
   const cardTexts = new Set(centeredCardTextIds(spec, resolveTheme(bundle.catalog, spec.theme)));
+  const messageTexts=new Set(centeredMessageTextIds(bundle));
   const titleStyle=effectivePanelTitleStyle(bundle);
   const selectSkinPaths = new Set();
-  const themedTabs = ['0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion) ? tabPalette(appearanceTokens(resolveTheme(bundle.catalog,spec.theme).tokens,spec.appearance)) : null;
+  const themedTabs = ['0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion) ? tabPalette(appearanceTokens(resolveTheme(bundle.catalog,spec.theme).tokens,spec.appearance)) : null;
   if (spec.tabs) controls.push({nodeId:controlId(spec.id,spec.tabs.id),rowId:spec.tabs.id,kind:'tabs',fieldId:spec.tabs.bind,eventName:spec.tabs.event,
     enabled:spec.tabs.enabled,action:'',resetFields:[],valueTextId:'',prefix:'',suffix:'',fractionDigits:0,
     contentIds:spec.tabs.pages.map(page=>tabPageId(spec.id,page.id))});
@@ -78,13 +80,13 @@ export async function createUnityDocument(input, core) {
     }
     // Native Dropdown already paints its field and menu from this same style.
     // Deterministic Pixi Select skins are bundled for replay, not imported as Unity assets.
-    if (['0.15.0','0.16.0','0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion) && node.type === 'Select' && p.appearance) {
+    if (['0.15.0','0.16.0','0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion) && node.type === 'Select' && p.appearance) {
       for (const key of ['fieldImage','popupImage','arrowImage']) selectSkinPaths.add(p.appearance[key]);
     }
     if (themedTabs && node.type === 'Tabs' && p.appearance) {
       selectSkinPaths.add(p.appearance.tabImage);selectSkinPaths.add(p.appearance.activeTabImage);
     }
-    if(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion)&&['Input','Slider','Switch','ProgressBar'].includes(node.type)&&p.appearance) {
+    if(['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion)&&['Input','Slider','Switch','ProgressBar'].includes(node.type)&&p.appearance) {
       const collect=value=>{
         if(typeof value==='string'&&(value.startsWith('generated/minimal-v1/')||value.startsWith('generated/grouped-v1/')||value.startsWith('generated/raised-slider-v1/')))selectSkinPaths.add(value);
         else if(value&&typeof value==='object')for(const child of Object.values(value))collect(child);
@@ -101,7 +103,7 @@ export async function createUnityDocument(input, core) {
       ...(themedTabs && node.type==='Tabs' ? {tabActiveColor:themedTabs.active,tabActiveTextColor:themedTabs.activeText,tabIndicatorColor:themedTabs.indicator} : {}),
       ...(titleStyle && node.id === `${spec.id}.title` ? { textAlignment: nativeTitleAlignment(titleStyle) } : {}),
       ...(bundle.compilerVersion==='0.25.0'&&controls.some(control=>control.kind==='slider'&&control.valueTextId===node.id)?{textAlignment:'MiddleRight'}:{}),
-      ...(cardTexts.has(node.id)?{textAlignment:'MiddleCenter'}:{}),
+      ...(cardTexts.has(node.id)||messageTexts.has(node.id)?{textAlignment:'MiddleCenter'}:{}),
       text: p.text ?? p.label ?? '', source: p.source ?? '', fit: fit ?? '',
       hasRegion: Boolean(region), regionX: region?.x ?? 0, regionY: region?.y ?? 0,
       regionWidth: region?.width ?? 0, regionHeight: region?.height ?? 0,
@@ -113,7 +115,7 @@ export async function createUnityDocument(input, core) {
     for (const child of node.children ?? []) {
       // The modern Pixi label is centered from environment glyph measurements.
       // Native Button already paints node.text at MiddleCenter; keep one label.
-      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
+      if (['0.7.1', '0.7.2', '0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion) && node.type === 'Button' && child.id === `${node.id}.center-label`) continue;
       visit(child, node.id);
     }
   }

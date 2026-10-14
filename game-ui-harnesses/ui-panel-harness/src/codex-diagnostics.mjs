@@ -17,6 +17,12 @@ for (const field of ['codexPanelDraftVersion', 'codexEditDraftVersion', 'bases',
 for (const code of ['EDIT_INPUT_RECIPE', 'EDIT_NO_CHANGE', 'EDIT_PLAN_NO_CHANGES', 'input-value', 'input-type']) CODES.add(code);
 FIELDS.add('noChange');
 CODES.add('layout-details'); CODES.add('layout-details-version'); FIELDS.add('details');
+for(const code of ['action-layout','action-layout-target','action-layout-rows','action-layout-size','action-layout-circle','INTENT_TEXT_WRAP'])CODES.add(code);
+for(const field of ['actionLayouts','actionLayout','buttonWidth','buttonHeight','shape','wrap'])FIELDS.add(field);
+// Stable public validator constants. Messages, discarded values and unknown fields
+// never enter diagnostics, including when geometry lowering fails inside an intent.
+for(const code of `ALIGNED_SETTINGS_SCOPE BUTTON_FONT_FIT BUTTON_ROLE_THEME CAPABILITY_UNSUPPORTED CHOICE_LABEL_FIT COMPILER_VERSION COMPONENT_CORE_REQUIRED CONTROL_HEIGHT CONTROL_WIDTH DIALOG_CONTENT_FIT GENERATED_ID_COLLISION ICON_GEOMETRY IMAGE_GEOMETRY IMAGE_PLACEHOLDER_LABEL INPUT_GEOMETRY INTENT_IMAGE_ICON INTENT_LABEL_QUALIFIER INTENT_TEXT_WRAP_THEME LAYOUT_GEOMETRY LAYOUT_OVERFLOW RECIPE_GEOMETRY SELECT_POPUP_OVERFLOW SURFACE_GEOMETRY TABS_LABEL_WIDTH TEXT_HEIGHT TEXT_WRAP_REQUIRED TITLE_BAR_FIT VISUAL_STYLE_VERSION appearance-color appearance-object appearance-radius button-font-size button-font-target button-fonts button-style button-style-circle button-style-color button-style-geometry button-style-shape button-style-size button-style-target button-styles dialog-fit image-fit panel-frame-fields panel-frame-layout panel-frame-size panel-ratio progress-format tabs-coverage tabs-options tabs-section text-layout-fields text-layout-list text-layout-target title-bar-align title-bar-color title-bar-fields title-bar-range`.split(' '))CODES.add(code);
+for(const field of `appearance buttonStyles buttonFonts textLayouts frame fontSize horizontalAlign verticalAlign backgroundColor textColor borderColor radius ratio source fit dialogWidth dialogHeight modal closeLabel itemHeight visibleItems`.split(' '))FIELDS.add(field);
 for (const field of ['placeholder', 'inputType', 'readOnly', 'maxLength', 'validation', 'required', 'minLength',
   'requiredMessage', 'minLengthMessage', 'validationMessages', 'submitRows', 'tabs', 'pages', 'pageId']) FIELDS.add(field);
 const TARGET_ISSUES = new Set(['duplicate', 'unmatched', 'non-string']);

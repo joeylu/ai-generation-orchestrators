@@ -13,6 +13,7 @@ import { requestReading } from './request-reading.mjs';
 import { inputInterpretationGuide, nativeInputCapabilityGuide } from './input-interpretation.mjs';
 import { compositionPlanningGuide } from './composition-planning.mjs';
 import { themePlanningGuide } from './theme-planning.mjs';
+import {buildCommonGamePanelPrompt,usesGamePanelDraftPolicy} from './game-panel-prompt.mjs';
 import { buildCodexEditResponseSchema, codexEditOperationContracts } from './codex-edit-schema.mjs';
 import { CODEX_QUESTIONS_INSTRUCTION } from './codex-questions-schema.mjs';
 import { materializeCodexEditDraft } from './codex-edit-draft.mjs';
@@ -138,6 +139,7 @@ export async function buildCodexPlanningPrompt(contextInput) {
 }
 
 async function buildPrompt(context, responseSchema) {
+  if(usesGamePanelDraftPolicy(context))return buildCommonGamePanelPrompt(context);
   if (['0.4', '0.5', '0.6', '0.7', '0.8', '0.9','0.10','0.11'].includes(context.planningContextVersion)) {
     let instructions;
     try { instructions = await readFile(join(harnessRoot, ['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion) ? 'prompts/panel-intent-v0.8-panel-titles.md' : 'prompts/panel-intent.md'), 'utf8'); }

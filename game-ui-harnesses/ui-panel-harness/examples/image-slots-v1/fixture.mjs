@@ -20,7 +20,7 @@ export function imageSpec(panel,catalog,{source=null,fit='contain',mode='light',
 }
 export const imageRequest={requestVersion:'0.1',id:'role-images',text:'做一个角色选择界面，战士、魔法师、弓箭手三个角色并排，每个角色留肖像图片槽，显示名称和选择按钮，暂无肖像素材。',target:'pixi'};
 export function imageIntent(context,{source=null}={}) {
-  const theme=context.catalog.themes.find(value=>value.id==='modern-mint-light'&&value.headingStyle==='concise-v2');
+  const theme=context.catalog.themes.find(value=>value.id==='modern-mint-light'&&value.headingStyle?.startsWith('concise-v'));
   return {panelIntentVersion:'0.11',contextSha256:context.sha256,unresolved:[],panel:{id:context.request.id,title:'选择角色',themeKey:`${theme.id}@${theme.version}`,panelSurface:null,
     layout:{width:1000,canvasWidth:1120,canvasHeight:680,maxHeight:600,overflow:'error'},body:{kind:'row',children:['战士','魔法师','弓箭手'].map((name,index)=>({kind:'section',title:name,actionLayout:null,rows:[
       {kind:'image',label:name+'肖像',recipeKey:'content.image@0.1.0',sourceRef:'request',icon:null,source:Array.isArray(source)?source[index]:source,width:'fill',height:180,fit:'contain'},

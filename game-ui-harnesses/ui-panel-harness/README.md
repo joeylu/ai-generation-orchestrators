@@ -5,7 +5,9 @@
 
 ## 从这里开始
 
-- [16 种组件完整生成链路](docs/all-components.md)：新增 CheckBox、RadioGroup、List、Dialog，真实 Panel 节点；默认目录 modern-all-components，旧包保持。
+- [简短口令默认与 SDK rc.6](docs/sdk-rc6.md)：新生成使用简洁标题和紧凑确认正文，Studio／SDK 共用提示规则；旧包保持。
+- [选择默认项4条真实复测](docs/daily-choice-fix-results-2026-10-15.md)：背包、设置、角色、商店原短口令全部交付，34项浏览器、4份窄屏交互与完整性审计通过；1981项离线回归通过。
+- [16 种组件完整生成链路](docs/all-components.md)：CheckBox、RadioGroup、List、Dialog 等全部纳入真实 Panel 节点。
 - [输入适应性收尾](docs/input-adaptability-closeout-2026-10-13.md)：16种组件真实生成与交付已验收；接受合理澄清后，最后真实续接及5项浏览器检查通过。历史失败记录保留，SDK仍为未发布候选。
 - [固定 SDK rc.4](docs/sdk-rc4.md)：静态图片槽、卡片对齐、旧包兼容和正式安装入口。
 
@@ -53,7 +55,7 @@
 当前默认链路的[五类代表面板对照](docs/panel-samples.md)包含10份浅深色可试玩夹具：声音设置、创建角色、角色卡片、下载进度、综合页签。44项实际浏览器检查及1523项回归通过，真实模型调用0；视觉效果和真实输入理解仍需分别验收。
 
 Studio首页保留需求描述、生成按钮、修改要求和修改按钮；右侧是实际Pixi交互预览。
-此前默认目录为 `modern-centered-cards`；当前已升级到 [modern-all-components](docs/all-components.md)。此前版本，沿用 `modern-image-slots` 的颜色、配方、[静态图片槽](docs/image-slots.md)和[版本化分组标题展示](docs/section-headings.md)，增加[图片卡片文字居中](docs/card-alignment.md)。卡片名称与缺图提示和按钮共用中心线，设置与表单字段保持左对齐；1537项回归及26项实际浏览器检查通过，本轮模型调用0。单组单控件收起额外标题和占位，多组及Tabs保留，明确要求显示时可选择匹配主题。旧面板保持原目录和编译版本。新增[24种输入场景](docs/input-coverage-v2.md)为夹具覆盖，真实理解效果未新验收。下列美术试稿记录中的“未改默认”描述其各自执行时状态；已发布 SDK 不随工作区源码更新。
+此前默认目录为 `modern-centered-cards`，随后升级到 [modern-all-components](docs/all-components.md)；当前新生成使用 [modern-compact-message](docs/sdk-rc6.md)。此前版本，沿用 `modern-image-slots` 的颜色、配方、[静态图片槽](docs/image-slots.md)和[版本化分组标题展示](docs/section-headings.md)，增加[图片卡片文字居中](docs/card-alignment.md)。卡片名称与缺图提示和按钮共用中心线，设置与表单字段保持左对齐；1537项回归及26项实际浏览器检查通过，本轮模型调用0。单组单控件收起额外标题和占位，多组及Tabs保留，明确要求显示时可选择匹配主题。旧面板保持原目录和编译版本。新增[24种输入场景](docs/input-coverage-v2.md)为夹具覆盖，真实理解效果未新验收。下列美术试稿记录中的“未改默认”描述其各自执行时状态；已发布 SDK 不随工作区源码更新。
 用户认为该版美术仍一般；最新[声音设置美术试稿](docs/crafted-audio-study.md)参考Impeccable，提供薄荷紧凑、温润留白、横向分栏三款可试玩候选及浅深色切换。首稿获“有好一些”反馈，尚未选定或替换日常默认主题。
 上述三款是视觉变体；[不同 Skill 独立对照](docs/art-skill-comparison.md)现已完成 frontend-design / Taste / Impeccable 三次独立真实调用，6份浅深色结果及20组汇总检查通过。入口 `output/skill-art-real-v2/review/index.html`，先匿名比较、可显示名称；未设为默认主题，审美效果待用户选择。此前schema失败原记录保留。
 用户认为三种结果基本相同，继续提出布局与Apple方向；新增[Apple风格分组布局试稿](docs/apple-grouped-layout.md)，将音量、静音与恢复默认分组，提供浅深色实际Pixi与离线包。入口 `output/apple-grouped-audio-review-v3/review/index.html`；本轮模型调用0，未设为日常默认。

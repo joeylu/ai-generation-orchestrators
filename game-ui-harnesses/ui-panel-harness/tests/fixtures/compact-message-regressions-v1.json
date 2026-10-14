@@ -1,0 +1,1000 @@
+{
+  "kind": "PUBLIC_SPEC_AND_STATE_ONLY",
+  "catalog": {
+    "catalogVersion": "0.1",
+    "id": "modern-message-copy",
+    "recipes": [
+      {
+        "description": "自有程序化设置面板，包含标题及纵向内容区域。Procedural settings panel with a title and vertical content.",
+        "id": "settings.panel",
+        "kind": "panel",
+        "minHeight": 160,
+        "minWidth": 320,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "设置面板",
+          "设置页",
+          "settings panel",
+          "settings",
+          "panel"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化设置分组，包含分组标题和设置行。Procedural titled section for related settings rows.",
+        "id": "settings.section",
+        "kind": "section",
+        "minHeight": 80,
+        "minWidth": 280,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "设置分组",
+          "分组",
+          "section",
+          "group"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化数值设置行，组合标签、滑条和数值文字，适用于音量等有界数值。Procedural labeled slider with a value readout.",
+        "id": "settings.slider",
+        "kind": "slider-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "dragging",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "音量",
+          "声音大小",
+          "响度",
+          "滑条",
+          "百分比",
+          "volume",
+          "loudness",
+          "slider",
+          "range"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化布尔设置行，组合标签与开关；开关含义由面板方案显式声明。Procedural labeled switch for an explicit boolean setting.",
+        "id": "settings.switch",
+        "kind": "switch-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "checked",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "声音开关",
+          "开关",
+          "启用声音",
+          "静音",
+          "布尔",
+          "mute",
+          "toggle",
+          "switch",
+          "sound enabled"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化枚举设置行，组合标签与下拉菜单，适用于明确的画质档位等有限选项。Procedural labeled select for explicit enumerated settings.",
+        "id": "settings.select",
+        "kind": "select-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "画质",
+          "画质档位",
+          "下拉",
+          "选项",
+          "选择",
+          "quality",
+          "dropdown",
+          "select"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化只读信息行，组合标签与单行文字，不绑定可变状态，不发出事件。Procedural read-only labeled text for character and summary information.",
+        "id": "settings.text",
+        "kind": "text-row",
+        "minHeight": 40,
+        "minWidth": 240,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "角色信息",
+          "信息",
+          "文本",
+          "只读",
+          "character",
+          "text",
+          "information"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "只读确定进度加载条，由宿主更新连续数值，支持百分比或实际数值显示。Read-only determinate host-owned loading/progress bar.",
+        "id": "settings.progress",
+        "kind": "progress-row",
+        "minHeight": 40,
+        "minWidth": 280,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "加载条",
+          "加载",
+          "进度条",
+          "进度",
+          "loading",
+          "progress",
+          "下载",
+          "资源加载"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Horizontal tabs with persistent page state and independent scroll content.",
+        "id": "navigation.tabs",
+        "kind": "tabs",
+        "minHeight": 104,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "页签",
+          "分页",
+          "标签页",
+          "选项卡",
+          "tabs",
+          "tab",
+          "分类",
+          "声音",
+          "画面"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "单行文本输入及必填和最短长度校验，支持角色命名、兑换码与搜索。Single-line text/password entry with bounded validation.",
+        "id": "forms.input",
+        "kind": "input-row",
+        "minHeight": 72,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "输入框",
+          "文本输入",
+          "角色命名",
+          "名字",
+          "昵称",
+          "兑换码",
+          "搜索",
+          "input",
+          "text entry",
+          "form",
+          "name"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "buttonRole": "primary",
+        "description": "Explicit primary visual role. Appearance only; independent of label, action and events.",
+        "id": "settings.button.primary",
+        "kind": "button-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "primary"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "buttonRole": "secondary",
+        "description": "Explicit secondary visual role. Appearance only; independent of label, action and events.",
+        "id": "settings.button.secondary",
+        "kind": "button-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "secondary"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "buttonRole": "danger",
+        "description": "Explicit danger visual role. Appearance only; independent of label, action and events.",
+        "id": "settings.button.danger",
+        "kind": "button-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "danger"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Static content image or labeled placeholder. No state or event.",
+        "id": "content.image",
+        "kind": "image-row",
+        "minHeight": 16,
+        "minWidth": 16,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "图片",
+          "图像",
+          "肖像",
+          "头像",
+          "立绘",
+          "图片槽",
+          "角色卡",
+          "portrait",
+          "image",
+          "illustration"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Checkbox with explicit state and events.",
+        "id": "content.checkbox",
+        "kind": "checkbox-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "复选框",
+          "checkbox"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Radio group with explicit state and events.",
+        "id": "content.radio",
+        "kind": "radio-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "单选按钮组",
+          "radio"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Selectable list with explicit state and events.",
+        "id": "content.list",
+        "kind": "list-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "动态列表",
+          "列表组件",
+          "list"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Modal dialog with explicit state and events.",
+        "id": "content.dialog",
+        "kind": "dialog-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "模态弹窗",
+          "dialog"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "程序化无可见行标签的正文信息，用于Text/Button消息分组。保留非空语义label，只显示完整正文；明确要求的数据字段标签使用settings.text。Unlabeled message body; not for labeled data or editable controls.",
+        "id": "message.text",
+        "kind": "text-row",
+        "labelDisplay": "hidden",
+        "minHeight": 40,
+        "minWidth": 240,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "正文",
+          "确认",
+          "消息",
+          "段落",
+          "无标签",
+          "message",
+          "confirmation",
+          "body",
+          "prose"
+        ],
+        "version": "0.1.0"
+      }
+    ],
+    "themes": [
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "headingStyle": "concise-v4",
+        "id": "modern-mint-light",
+        "menuTokens": {
+          "accent": "#157C64",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 24
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#157C64",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 24
+        },
+        "version": "0.23.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "headingStyle": "visible-v4",
+        "id": "modern-mint-light",
+        "menuTokens": {
+          "accent": "#157C64",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 24
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#157C64",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 16,
+          "headingSize": 16,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 24
+        },
+        "version": "0.23.1",
+        "visualStyle": "modern-v3"
+      }
+    ],
+    "version": "0.1.0"
+  },
+  "records": [
+    {
+      "id": "S08",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 328,
+          "width": 544
+        },
+        "frame": null,
+        "id": "S08",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 480
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "确认消息",
+                "recipe": {
+                  "id": "message.text",
+                  "version": "0.1.0"
+                },
+                "text": "确定要退出游戏吗？"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.danger",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "继续游戏",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出游戏确认"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row0",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "退出游戏确认",
+        "titleBar": null
+      },
+      "state": {},
+      "originalBundleSha256": "f91c8002dbd2f696c014b91ff101570262501d559ebf2dfee2daa2e143fb1816"
+    },
+    {
+      "id": "S16",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 328,
+          "width": 544
+        },
+        "frame": null,
+        "id": "S16",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 480
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "确认消息",
+                "recipe": {
+                  "id": "message.text",
+                  "version": "0.1.0"
+                },
+                "text": "确定要退出游戏吗？"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "继续游戏",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出游戏"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row0",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "退出游戏",
+        "titleBar": null
+      },
+      "state": {},
+      "originalBundleSha256": "6d46e705bff1b05d819adce63a1b570b54c9f53483c5327e90a15384869bd283"
+    },
+    {
+      "id": "S24",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 328,
+          "width": 544
+        },
+        "frame": null,
+        "id": "S24",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 480
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "确认提示",
+                "recipe": {
+                  "id": "message.text",
+                  "version": "0.1.0"
+                },
+                "text": "确定要退出游戏吗？"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.danger",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "继续游戏",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出游戏确认"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row0",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "退出游戏确认",
+        "titleBar": null
+      },
+      "state": {},
+      "originalBundleSha256": "3c86cf62e30c2a044faaa39e3b9e9ad54df9dca75177182e87abcb464c6243cc"
+    },
+    {
+      "id": "S32",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 328,
+          "width": 544
+        },
+        "frame": null,
+        "id": "S32",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 480
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "确认提示",
+                "recipe": {
+                  "id": "message.text",
+                  "version": "0.1.0"
+                },
+                "text": "确定要退出游戏吗？"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "继续游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.danger",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出确认"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row0",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "退出确认",
+        "titleBar": null
+      },
+      "state": {},
+      "originalBundleSha256": "349e73efdb2fbfbcd09e9053458b86c6665066394a421466b538f2cac7146cf3"
+    }
+  ]
+}

@@ -10,20 +10,33 @@ import {loadWorkspaceCore} from '../src/component-adapter.mjs';
 import {validatePanelBundle} from '../src/panel-bundle.mjs';
 import {controlId} from '../src/compiler.mjs';
 import {digestBytes} from '../src/canonical.mjs';
+import {observeInitialPanel} from './lib/initial-panel-observation.mjs';
+import {acceptanceInputValue} from './lib/acceptance-input.mjs';
+import {observeStabilityInteractions} from './lib/stability-interactions.mjs';
+import {assessStabilityFix} from './lib/stability-fix-acceptance.mjs';
+import {observeCompactMessage} from './lib/compact-message-acceptance.mjs';
+import {assessPanelCopy} from './lib/panel-copy-acceptance.mjs';
 
 const args=process.argv.slice(2),snapshot=args.at(-1)==='--snapshot';if(snapshot)args.pop();assert(args.length===4&&args[0]==='--run'&&args[2]==='--output');
 const run=resolve(args[1]),output=await createOutputDirectory(args[3]);let report;
 if(snapshot){
   const plan=await readJson(resolve(run,'approved-plan.json')),results=[];
   for(const item of plan.cases){try{results.push(await readJson(resolve(run,item.id,'acceptance.json')));}catch(error){if(error.code!=='ENOENT')throw error;}}
-  report={planSha256:plan.sha256,results,realModelCalls:results.reduce((sum,item)=>sum+(item.receipt?.invocationCount??0),0),sourceCohortComplete:results.length===plan.cases.length};
+  report={cohort:plan.cohort,planSha256:plan.sha256,results,realModelCalls:results.reduce((sum,item)=>sum+(item.receipt?.invocationCount??0),0),sourceCohortComplete:results.length===plan.cases.length};
 }else report={...await readJson(resolve(run,'input-adaptability-report.json')),sourceCohortComplete:true};
 const artifacts=report.results.filter(item=>item.status==='PASS'&&item.delivery),results=[],errors=[];
+const focusedCohort=['panel-stability-fix-v1','panel-copy-fix-v1','panel-compact-message-v1'].includes(report.cohort),focusedResults=[],copyCohort=['panel-copy-fix-v1','panel-compact-message-v1'].includes(report.cohort),copyResults=[];
+const stabilityPlan=['panel-stability-v1','panel-stability-fix-v1','panel-copy-fix-v1','panel-compact-message-v1'].includes(report.cohort)?(report.kind==='DETERMINISTIC_REPLAY_NOT_NEW_MODEL_RESULTS'?{cases:report.sourceCases}:await readJson(resolve(run,'approved-plan.json'))):null;
+if(report.treatment==='EXPLICIT_PATCH_OF_AUDITED_STABILITY_FINDINGS')assert(Array.isArray(stabilityPlan?.cases)&&stabilityPlan.cases.length===report.results.length,'OFFLINE_PATCH_PURPOSE_BINDINGS_MISSING');
 assert(artifacts.length>0||report.evaluation==='TECHNICAL_AND_EXPLICIT_CONSTRAINTS_ONLY_HUMAN_REVIEW_REQUIRED','NO_SUCCESSFUL_DELIVERIES');
 const escape=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const links=report.results.map(item=>'<tr><td>'+escape(item.id)+'</td><td>'+escape(item.status)+'</td><td>'+escape(item.outcome??item.code??item.reason??'')+'</td><td>'+(item.delivery?
   '<a href="'+escape(relative(output,resolve(run,item.id,'delivery/pixi/index.html')).replaceAll('\\','/'))+'">试玩</a> · <a id="download-'+item.id+'" href="'+escape(relative(output,resolve(run,item.id,'panel.zip')).replaceAll('\\','/'))+'" download>下载实际 ZIP</a>':'')+'</td></tr>').join('');
-const cohortDescription=report.kind?.startsWith('DETERMINISTIC_')
+const cohortDescription=report.kind==='OFFLINE_BATCH_DRIVER_NOT_MODEL_RESULTS'
+  ? '程序替身驱动验收，真实模型调用0；不得把这些夹具或交互结果当成模型生成结果。'
+  :report.treatment==='EXPLICIT_PATCH_OF_AUDITED_STABILITY_FINDINGS'
+  ? '原批真实模型调用 '+report.originalRealModelCalls+' 次。本页为审阅后明确补丁的新离线交付，新增模型调用0；原失败及流程问题保留，修正不代表原模型结果正确。'
+  :report.kind?.startsWith('DETERMINISTIC_')
   ? '原批真实模型调用 '+report.originalRealModelCalls+' 次。本页为原始原生意图的确定性布局重放，新增模型调用0；原失败保留，重放不代表模型复测通过。'
   : '本批实际调用 '+report.realModelCalls+' 次，自动重试0次。案例结果来自原始模型输出与固定独立预期。编辑基准为程序夹具。';
 await writeFile(resolve(output,'index.html'),'<!doctype html><meta charset="utf-8"><title>输入适应性验收交付</title><style>body{max-width:1100px;margin:30px auto;font:16px/1.6 system-ui}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left}</style><h1>输入适应性验收交付</h1><p>'+escape(cohortDescription)+' 浏览器检查见 browser-report.json。</p><table><tr><th>案例</th><th>业务结果</th><th>路径</th><th>实际交付</th></tr>'+links+'</table>',{flag:'wx'});
@@ -42,7 +55,7 @@ async function focus(id){
 }
 async function closeDialogs(spec){const values=await state();for(const row of spec.sections.flatMap(section=>section.rows))if(row.kind==='dialog')values[row.bind]=false;await setState(values);}
 async function checkTitleCenter(bundle){
-  if(!['0.32.0','0.33.0'].includes(bundle.compilerVersion)||bundle.spec.titleBar?.horizontalAlign!=null&&bundle.spec.titleBar.horizontalAlign!=='center')return;
+  if(!['0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion)||bundle.spec.titleBar?.horizontalAlign!=null&&bundle.spec.titleBar.horizontalAlign!=='center')return;
   const nodes=(await inspect()).nodes,title=nodes.find(node=>node.id===bundle.spec.id+'.title'),panel=nodes.find(node=>node.id===bundle.spec.id+'.panel');
   const glyph=title?.renderedTextBounds?.[0]?.bounds;assert(glyph&&panel,'TITLE_MEASUREMENT_MISSING');
   assert(Math.abs(glyph.x+glyph.width/2-(panel.bounds.x+panel.bounds.width/2))<1,'MAIN_TITLE_NOT_CENTERED');
@@ -57,7 +70,7 @@ try{
   await context.route('**/*',route=>{if(['file:','data:','blob:'].includes(new URL(route.request().url()).protocol))return route.continue();errors.push('EXTERNAL_NETWORK');return route.abort();});
   page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
   for(const artifact of artifacts){
-    const checks=[];let phase='download',bundle;
+    const checks=[];let phase='download',bundle,initialPresentation,pagePresentations,interactionReview;
     try{
       await page.goto(pathToFileURL(resolve(output,'index.html')).href);
       const pending=page.waitForEvent('download');await page.locator('#download-'+artifact.id).click();
@@ -68,14 +81,31 @@ try{
       await page.waitForFunction(()=>['ready','error'].includes(document.getElementById('status')?.dataset.state));
       assert.equal(await page.locator('#status').getAttribute('data-state'),'ready');assert.equal(await page.locator('#panel-title').textContent(),bundle.spec.title);
       assert.deepEqual(await state(),bundle.state);checks.push('mount-exact-saved-state');
-      await checkTitleCenter(bundle);if(['0.32.0','0.33.0'].includes(bundle.compilerVersion))checks.push('measured-title-center');
+      await checkTitleCenter(bundle);if(['0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion))checks.push('measured-title-center');
       const spec=bundle.spec,rows=spec.sections.flatMap(section=>section.rows),fields=new Map(spec.state.map(field=>[field.id,field]));
+      if(['common-panels-v1','common-panels-fix-v1','panel-stability-v1','panel-stability-fix-v1','panel-copy-fix-v1','panel-compact-message-v1'].includes(report.cohort)){
+        initialPresentation=observeInitialPanel(bundle,await inspect(),await state());
+        await writeNewJson(output,artifact.id+'-initial-observation.json',initialPresentation);
+        checks.push('initial-presentation-recorded-before-navigation');
+        if(spec.tabs){
+          const initial=await state();pagePresentations=[];
+          for(const tab of spec.tabs.pages){
+            await setState({...initial,[spec.tabs.bind]:tab.id});
+            const observation=observeInitialPanel(bundle,await inspect(),await state());pagePresentations.push(observation);
+            await page.screenshot({path:resolve(output,artifact.id+'-'+tab.id+'-initial.png'),fullPage:true});
+          }
+          await setState(initial);await writeNewJson(output,artifact.id+'-page-observations.json',pagePresentations);
+          checks.push('all-page-presentations-recorded-before-navigation');
+        }
+      }
       if(report.kind==='DETERMINISTIC_REPLAY_NOT_NEW_MODEL_RESULTS'){
         phase='initial-actions-visible';
         const nodes=(await inspect()).nodes,panel=nodes.find(node=>node.id===spec.id+'.panel');
         assert(panel?.bounds,'PANEL_BOUNDS_MISSING');
         const flatten=node=>[node,...(node.children??[]).flatMap(flatten)];
-        assert(!flatten(bundle.componentBundle.document.root).some(node=>node.id===spec.id+'.body'&&node.type==='ScrollView'),'INITIAL_BODY_SCROLL');
+        const bodyIds=new Set(spec.tabs?spec.tabs.pages.map(tab=>spec.id+'.page.'+tab.id):[spec.id+'.body']);
+        assert(!flatten(bundle.componentBundle.document.root).some(node=>bodyIds.has(node.id)&&node.type==='ScrollView'),'INITIAL_BODY_SCROLL');
+        for(const observation of pagePresentations??[initialPresentation])if(observation)assert.equal(observation.clippedButtons.length,0,'INITIAL_PAGE_ACTION_CLIPPED');
         for(const row of rows.filter(row=>row.kind==='button')){
           const bounds=nodes.find(node=>node.id===controlId(spec.id,row.id))?.bounds;
           assert(bounds&&bounds.width>0&&bounds.height>0,'ACTION_BOUNDS_MISSING:'+row.id);
@@ -85,6 +115,12 @@ try{
         checks.push(phase);
       }
       await page.screenshot({path:resolve(output,artifact.id+'-initial.png'),fullPage:true});
+      if(stabilityPlan){
+        const purpose=stabilityPlan.cases.find(item=>item.id===artifact.id).stability.purpose;
+        phase='known-flow-observations';interactionReview=await observeStabilityInteractions(page,bundle,purpose);
+        await writeNewJson(output,artifact.id+'-flow-observation.json',interactionReview);checks.push(phase);
+        await page.reload();await page.waitForFunction(()=>document.getElementById('status')?.dataset.state==='ready');assert.deepEqual(await state(),bundle.state);
+      }
       for(const row of rows){
         if(!row.enabled||!['slider','switch','checkbox','radio','list','select','input','dialog','button'].includes(row.kind))continue;
         phase=row.kind+':'+row.id;await reveal(spec,row);const id=controlId(spec.id,row.id),field=fields.get(row.bind);
@@ -100,7 +136,8 @@ try{
           await focus(id);await page.keyboard.press(target===field.options[0].id?'Home':'End');assert.equal((await state())[row.bind],target);assert.equal((await events()).length,count+1);
           if(row.kind==='list'&&field.options.length>row.visibleItems&&target===field.options.at(-1).id){const viewport=(await inspect()).nodes.find(node=>node.id===id+'.viewport');assert(viewport.value.y>0,'LIST_SELECTION_REVEAL');}
         }else if(row.kind==='input'&&!row.readOnly){
-          await focus(id);const editor=page.locator('input');await editor.fill('验收');assert.equal((await state())[row.bind],'验收');assert.equal((await events()).length,count+1);
+          const value=acceptanceInputValue(row,field);
+          await focus(id);const editor=page.locator('input');await editor.fill(value);assert.equal((await state())[row.bind],value);assert.equal((await events()).length,count+1);
         }else if(row.kind==='button'){
           await focus(id);await page.keyboard.press('Enter');assert.equal((await events()).length,count+1);
           if(row.action.kind==='reset-initial')for(const bind of row.action.fields)assert.equal((await state())[bind],fields.get(bind).initial);
@@ -120,13 +157,25 @@ try{
       await checkTitleCenter(bundle);
       phase='offline-reload';await page.reload();await page.waitForFunction(()=>document.getElementById('status')?.dataset.state==='ready');assert.deepEqual(await state(),bundle.state);checks.push(phase);
       await checkTitleCenter(bundle);
-      results.push({id:artifact.id,status:'PASS',checks});
-    }catch(error){await page.screenshot({path:resolve(output,artifact.id+'-failure.png'),fullPage:true}).catch(()=>{});results.push({id:artifact.id,status:'FAIL',phase,message:error.message,checks});}
+      results.push({id:artifact.id,status:'PASS',checks,...(initialPresentation?{initialPresentation}: {}),...(pagePresentations?{pagePresentations}: {}),...(interactionReview?{interactionReview}: {})});
+    }catch(error){await page.screenshot({path:resolve(output,artifact.id+'-failure.png'),fullPage:true}).catch(()=>{});results.push({id:artifact.id,status:'FAIL',phase,message:error.message,checks,...(initialPresentation?{initialPresentation}: {}),...(pagePresentations?{pagePresentations}: {}),...(interactionReview?{interactionReview}: {})});}
+    if(focusedCohort){
+      const result=results.at(-1),purpose=stabilityPlan.cases.find(item=>item.id===artifact.id).stability.purpose;
+      result.focusedAcceptance=assessStabilityFix({purpose,bundle,browserStatus:result.status,interactionReview});
+      focusedResults.push({id:artifact.id,...result.focusedAcceptance});
+      if(copyCohort){result.copyAcceptance=assessPanelCopy({purpose,bundle,browserStatus:result.status});if(report.cohort==='panel-compact-message-v1'&&purpose==='exit-confirmation'&&result.status==='PASS'){result.copyAcceptance.compactLayout=await observeCompactMessage(page,bundle);if(result.copyAcceptance.compactLayout.status!=='PASS')result.copyAcceptance.status='FAIL';}copyResults.push({id:artifact.id,...result.copyAcceptance});}
+    }
     process.stdout.write(JSON.stringify(results.at(-1))+'\n');
   }
 }finally{
-  await browser?.close();const acceptance={status:results.length===artifacts.length&&results.every(item=>item.status==='PASS')&&!errors.length?'PASS':'FAIL',planSha256:report.planSha256,
+  await browser?.close();
+  if(focusedCohort)for(const entry of stabilityPlan.cases)if(!focusedResults.some(item=>item.id===entry.id))
+    focusedResults.push({id:entry.id,...assessStabilityFix({purpose:entry.stability.purpose,browserStatus:'NOT_DELIVERED'})});
+  if(copyCohort)for(const entry of stabilityPlan.cases)if(!copyResults.some(item=>item.id===entry.id))copyResults.push({id:entry.id,...assessPanelCopy({purpose:entry.stability.purpose,browserStatus:'NOT_DELIVERED'})});
+  const copyAcceptance=copyCohort?{status:copyResults.every(item=>item.status==='PASS')&&!errors.length?'PASS':'FAIL',cases:copyResults.length,results:copyResults,humanReview:'REQUIRED'}:null;
+  const focusedAcceptance=focusedCohort?{status:focusedResults.length===stabilityPlan.cases.length&&focusedResults.every(item=>item.status==='PASS')&&!errors.length?'PASS':'FAIL',cases:focusedResults.length,results:focusedResults,humanCopyAndVisualReview:'REQUIRED'}:null;
+  const acceptance={status:results.length===artifacts.length&&results.every(item=>item.status==='PASS')&&!errors.length?'PASS':'FAIL',planSha256:report.planSha256,
     panels:artifacts.length,checks:results.reduce((sum,item)=>sum+item.checks.length,0),results,errors,realModelCalls:0,sourceRealModelCalls:report.realModelCalls,
-    sourceKind:report.kind??'REAL_MODEL_COHORT',originalRealModelCalls:report.originalRealModelCalls??report.realModelCalls,sourceCohortComplete:report.sourceCohortComplete,unityNative:'NOT_RUN_THIS_COHORT'};
-  await writeNewJson(output,'browser-report.json',acceptance);process.stdout.write(JSON.stringify({status:acceptance.status,panels:acceptance.panels,checks:acceptance.checks,errors})+'\n');if(acceptance.status!=='PASS')process.exitCode=1;
+    sourceKind:report.kind??'REAL_MODEL_COHORT',originalRealModelCalls:report.originalRealModelCalls??report.realModelCalls,sourceCohortComplete:report.sourceCohortComplete,unityNative:'NOT_RUN_THIS_COHORT',...(focusedAcceptance?{focusedAcceptance}: {}),...(copyAcceptance?{copyAcceptance}: {})};
+  await writeNewJson(output,'browser-report.json',acceptance);process.stdout.write(JSON.stringify({status:acceptance.status,panels:acceptance.panels,checks:acceptance.checks,errors,...(focusedAcceptance?{focusedAcceptance:focusedAcceptance.status}: {})})+'\n');if(acceptance.status!=='PASS'||focusedAcceptance?.status==='FAIL'||copyAcceptance?.status==='FAIL')process.exitCode=1;
 }

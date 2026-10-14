@@ -1,13 +1,14 @@
 import { MotionAnimator, getMotionStyle } from './workspace/component-browser.mjs';
 import { alignCardText } from './card-alignment.mjs';
 import { effectivePanelTitleStyle } from './title-bar.mjs';
+import {alignCompactMessageText} from './compact-message.mjs';
 
 /** Presentation only. Semantic values/events are owned by the unchanged panel session. */
 export function panelVisualMotion(bundle) {
   const theme = bundle.catalog.themes.find(theme => theme.id === bundle.spec.theme.id && theme.version === bundle.spec.theme.version);
   if (!((theme?.visualStyle === 'modern-v1' && bundle.compilerVersion === '0.7.1')
     || (theme?.visualStyle === 'modern-v2' && bundle.compilerVersion === '0.7.2')
-    || (theme?.visualStyle === 'modern-v3' && ['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion)))) return null;
+    || (theme?.visualStyle === 'modern-v3' && ['0.7.3', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion)))) return null;
   // Native press and input focus stay immediate. Hover uses a per-button channel,
   // avoiding the shared runtime's whole-tree reset when installing a motion system.
   const actions = { Button: ['hover'] }, bindings = [];
@@ -26,6 +27,7 @@ export function attachPanelVisuals(bundle, runtime, media = globalThis.matchMedi
   const motion = panelVisualMotion(bundle);
   alignPanelTitle(bundle, runtime);
   alignCardText(bundle, runtime);
+  alignCompactMessageText(bundle,runtime);
   const alignValues=createPanelValueAlignment(bundle,runtime);alignValues();
   if (!motion) return () => {};
   const preference = typeof media === 'function' ? media.call(globalThis, '(prefers-reduced-motion: reduce)') : null;
@@ -52,7 +54,7 @@ export function attachPanelVisuals(bundle, runtime, media = globalThis.matchMedi
     for (const [id, button] of buttons) if (button.scale !== 1) paint(id, button, 1);
   };
   const sync = () => { if (preference?.matches) reset(); };
-  alignPanelButtonLabels(runtime,['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0'].includes(bundle.compilerVersion));
+  alignPanelButtonLabels(runtime,['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion));
   const unsubscribe = runtime.subscribe(event => {
     if(!disposed&&event.type==='change')alignValues();
     const button = buttons.get(event.id);

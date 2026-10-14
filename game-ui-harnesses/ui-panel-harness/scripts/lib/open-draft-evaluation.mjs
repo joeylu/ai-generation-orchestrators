@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {inspectPanelStability} from './panel-stability-review.mjs';
 
 /** Only protocol and explicit constraints. Relevance and necessity are NOT automatically certified. */
 export function checkOpenDraft(item,result){
@@ -28,5 +29,6 @@ export function draftReviewRecord(item,result,facts){
   return {kind:'OPEN_DRAFT_TECHNICAL_OBSERVATION',request:item.request.text,outcome:result.report.status,
     explicitConstraints:item.evaluation.explicit,observedFacts:facts??null,questions:result.proposal.unresolved,
     inferredChoicesNotice:'Unspecified controls, labels, values and design choices are unreviewed draft suggestions, not user-supplied requirements or real game data.',
-    contentReasonableness:'HUMAN_REVIEW_REQUIRED',clarificationNecessity:'HUMAN_REVIEW_REQUIRED',visualQuality:'HUMAN_REVIEW_REQUIRED'};
+    contentReasonableness:'HUMAN_REVIEW_REQUIRED',clarificationNecessity:'HUMAN_REVIEW_REQUIRED',visualQuality:'HUMAN_REVIEW_REQUIRED',
+    ...(item.stability?{stability:item.stability,knownReview:result.proposal.spec?inspectPanelStability(result.proposal.spec,Object.fromEntries(result.proposal.spec.state.map(field=>[field.id,field.initial])),item.stability.purpose):null}: {})};
 }

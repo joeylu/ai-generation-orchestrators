@@ -9,6 +9,8 @@ import { measureAlignedSettings } from './aligned-settings-presentation.mjs';
 import {isStandaloneMenu,measurePolishedMenu} from './menu-presentation.mjs';
 import { sectionHeadingVisible } from './section-headings.mjs';
 import { resolveRecipe } from './catalog.mjs';
+import {isMessageText} from './message-text.mjs';
+import {compactMessageSection,measureCompactMessage} from './compact-message.mjs';
 
 /** Opt-in modern-v3 geometry. Typed controls determine presentation; actions remain unchanged. */
 export const presentationTextWidth = (value, size) => Math.ceil([...value].reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * 0.8 : size * 1.1), 0));
@@ -22,7 +24,7 @@ export function sectionPurpose(section) {
 }
 
 export function createPresentationPolicy(spec, tokens, presentationStyle, surfaceStyle, headingStyle, catalog) {
-  const sectionMinimum = ['concise-v2','visible-v2','concise-v3','visible-v3'].includes(headingStyle)
+  const sectionMinimum = ['concise-v2','visible-v2','concise-v3','visible-v3','concise-v4','visible-v4'].includes(headingStyle)
     ? resolveRecipe(catalog, {id:'settings.section',version:'0.1.0'}, 'section').minHeight : 0;
   const polishedMenu = surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec);
   if (surfaceStyle === 'minimal-v2') surfaceStyle = 'minimal-v1';
@@ -44,6 +46,12 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
       && (crafted ? true : ['refined-v1','minimal-v1'].includes(surfaceStyle) ? section.id === spec.sections[0].id : compact && spec.sections.length === 1);
     const showTitle = sectionHeadingVisible(spec, section, headingStyle, !redundantHeading);
     const titleHeight = showTitle ? l.sectionTitleHeight + l.gap : 0;
+    const messages=new Set(section.rows.filter(row=>isMessageText(row,catalog)).map(row=>row.id));
+    if(messages.size){
+      if(section.rows.some(row=>!['text','button'].includes(row.kind))||[...messages].some(id=>icons.has(id)))reject('MESSAGE_TEXT_SCOPE','Message Text requires a plain Text/Button section without a message-row icon');
+      if(compactMessageSection(spec,section,catalog))return measureCompactMessage(spec,tokens,section,width,geometry,showTitle,catalog);
+      return measureFocusedSection(spec,tokens,section,width,'dialog',geometry,showTitle,messages);
+    }
     if (section.rows.some(row => ['image','radio','list','dialog','checkbox'].includes(row.kind))) {
       // Static image content owns its full row. No extra label band or icon badge.
       let y = titleHeight;

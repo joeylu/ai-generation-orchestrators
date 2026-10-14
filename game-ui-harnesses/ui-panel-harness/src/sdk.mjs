@@ -12,6 +12,8 @@ import { createUnityKitFiles } from './unity-kit.mjs';
 import { readUnityAdapterSources } from './unity-export-io.mjs';
 import { createStoredZip } from './zip-store.mjs';
 
+import {DEFAULT_PANEL_CATALOG} from './default-catalog.mjs';
+
 const root = new URL('../', import.meta.url);
 const fail = code => { throw new Error(code); };
 
@@ -45,7 +47,7 @@ export async function loadPanelSdk() {
     import('../vendor/component/lib/bundle.js'),
   ]);
   const core = createComponentCore(compiler, contract, bundle);
-  const seed = { catalog: validateCatalog(JSON.parse(await readFile(new URL('examples/modern-all-components.catalog.json', root), 'utf8'))),
+  const seed = { catalog: validateCatalog(JSON.parse(await readFile(new URL(DEFAULT_PANEL_CATALOG, root), 'utf8'))),
     pool: await loadBundledCoreAssets() };
   const [code, notices, sources] = await Promise.all([
     readFile(new URL('runtime/panel-runtime.js', root), 'utf8'), readFile(new URL('THIRD_PARTY_NOTICES.txt', root), 'utf8'),

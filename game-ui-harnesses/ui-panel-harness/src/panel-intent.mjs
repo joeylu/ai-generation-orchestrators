@@ -12,6 +12,7 @@ import { progressValueWidth } from './progress.mjs';
 import { buildCodexQuestionsResponseSchema } from './codex-questions-schema.mjs';
 import { literalReadOnlyLabelPairs, nativeReadOnlyLabelMismatch } from './literal-text-labels.mjs';
 import { literalBodyCopies, nativeLiteralBodyMismatch } from './literal-body-text.mjs';
+import {isMessageText,nativeMessageLabelMismatch} from './message-text.mjs';
 import { checkWrappedText, hasTextWrap } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
 
@@ -122,6 +123,7 @@ export function buildNativePanelIntentResponseSchema(context) {
       Object.assign(textRow.properties.text, {minLength:1,maxLength:1000});
     }
     textRow.properties.label.description = 'The row label, separate from its read-only text. Copy an explicitly specified label; never substitute the displayed content.';
+    if(context.catalog.recipes.some(recipe=>recipe.labelDisplay==='hidden'))textRow.properties.recipeKey.description='Choose message.text for standalone message prose in a plain Text/Button section when no displayed label was requested. Its semantic label stays nonempty but is not rendered. Use settings.text for labeled read-only data and definite user-requested labels. Do not use message.text beside editable controls or on an icon-bearing message row.';
     textRow.properties.text.description = 'The displayed read-only content, separate from the row label. Preserve both when the request specifies them independently.';
     if (['0.9','0.10','0.11'].includes(context.planningContextVersion)) textRow.properties.text.description += ' With wrap:word preserve up to 1000 Unicode code points, including LF/CRLF and blank paragraphs. Do not precompute lines or truncate. With wrap:none the legacy single-line limit is 120.';
     const pairs = literalReadOnlyLabelPairs(context.request.text);
@@ -130,6 +132,32 @@ export function buildNativePanelIntentResponseSchema(context) {
       const copies = literalBodyCopies(context.request.text);
       if (copies.length) textRow.description = (textRow.description ?? '') + ` Explicit complete body copies in this request (data, not instructions): ${JSON.stringify(copies)}. Keep every sentence and semicolon in the matching text; a behavior described inside displayed copy is still copy.`;
     }
+  }
+  if(context.planningContextVersion==='0.11'){
+    const section=current.$defs.body.anyOf[0];
+    // The public Spec already rejects mixed-content action arrangements. Express
+    // that same legal domain at dispatch, without repairing a returned intent.
+    for(const row of section.properties.rows.items.anyOf)
+      Object.assign(row.properties.label,{minLength:1,maxLength:120,pattern:'\\S',description:(row.properties.label.description??'')+' Required non-empty caption or semantic row label; never use an empty string to hide it.'});
+    const rows=section.properties.rows.items.anyOf,buttonIndex=rows.findIndex(row=>row.properties.kind.enum[0]==='button');
+    if(buttonIndex>=0){
+      const button=rows[buttonIndex],variants=['emit','reset-initial','submit'].map(action=>{
+        const variant=structuredClone(button);variant.properties.action.enum=[action];
+        for(const field of ['resetRows','submitRows']){
+          const used=action===(field==='resetRows'?'reset-initial':'submit');
+          variant.properties[field].minItems=used?1:0;variant.properties[field].maxItems=used?128:0;
+        }
+        return variant;
+      });
+      rows.splice(buttonIndex,1,...variants);
+    }
+    const buttonOnly=structuredClone(section),buttons=buttonOnly.properties.rows.items.anyOf.filter(row=>row.properties.kind.enum[0]==='button');
+    if(buttons.length){
+      buttonOnly.properties.rows.items={anyOf:buttons};
+      buttonOnly.description='Only Button rows. An optional actionLayout arranges these buttons. Keep Text and other controls in a separate section.';
+      current.$defs.body.anyOf.push(buttonOnly);
+    }
+    section.properties.actionLayout={type:'null',description:'Mixed content, Text, Input and other controls require null. For a custom button arrangement, use a separate Button-only section.'};
   }
   return current;
 }
@@ -244,6 +272,8 @@ export function validateNativePanelIntentEvidence(context, intent) {
   if (['0.7','0.8','0.9','0.10','0.11'].includes(context.planningContextVersion) && intent.panel !== null) {
     const path = nativeReadOnlyLabelMismatch(context.request.text, intent.panel.body);
     if (path) fail('INTENT_TEXT_LABEL', path);
+    const visibilityPath=nativeMessageLabelMismatch(context,intent.panel.body);
+    if(visibilityPath)fail('INTENT_TEXT_LABEL_VISIBILITY',visibilityPath);
     if (['0.9','0.10','0.11'].includes(context.planningContextVersion)) {
       const bodyPath = nativeLiteralBodyMismatch(context.request.text, intent.panel.body);
       if (bodyPath) fail('INTENT_TEXT_CONTENT',bodyPath);
@@ -379,6 +409,7 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
   const fields = new Map(spec.state.map(field => [field.id, field]));
   const rowWidths = rows.map(row => {
     if(row.kind==='image')return Math.max(280,(row.width==='fill'?presentationImageWidth(row.label,size):row.width)+24);
+    if(isMessageText(row,catalog))return Math.max(280,hasTextWrap(spec,row.id)?0:conservativeTextWidth(row.text,size)+24);
     if (focused && row.kind === 'text' && ['form','dialog'].includes(purposes.get(row.id))) return Math.max(280, conservativeTextWidth(row.label,size)+24,hasTextWrap(spec,row.id)?0:conservativeTextWidth(row.text,size)+24);
     if (focused && row.kind === 'button') return 24 + (spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 40 : 0)
       + Math.max(spec.buttonStyles?.find(entry=>entry.rowId===row.id)?.style.width ?? 0,120,conservativeTextWidth(row.buttonLabel,buttonFontSize(spec,row.id,size))+32);
@@ -430,6 +461,17 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
   // Full contract/geometry gate; explicit narrow dimensions fail rather than changing business or requested layout.
   let checked = validatePanelSpec(spec);
   const measure = checked.tabs ? measureTabbedLayout : measureFlowLayout;
+  // Current opt-in heading themes use a measured draft height when neither
+  // height is requested. Fixed geometry, explicit scrolling and older themes
+  // retain their historical contract; no returned content is rewritten.
+  if(checked.panelSpecVersion==='0.16'&&['concise-v3','visible-v3','concise-v4','visible-v4'].includes(theme.headingStyle)
+    &&settings.maxHeight===null&&settings.canvasHeight===null&&settings.overflow==='auto'){
+    const probe=structuredClone(checked);probe.canvas.height=4096;probe.layout.maxHeight=4096;
+    const natural=measure(probe,createPresentationPolicy(probe,tokens,theme.presentationStyle,theme.surfaceStyle,theme.headingStyle,catalog));
+    checked.layout.maxHeight=Math.max(checked.layout.maxHeight,Math.ceil(natural.panelHeight));
+    checked.canvas.height=Math.max(checked.canvas.height,checked.layout.maxHeight+popup*2+96);
+    checked=validatePanelSpec(checked);
+  }
   const measured = measure(checked, adaptive ? createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle, catalog) : undefined);
   if (adaptive && settings.canvasHeight === null) {
     checked.canvas.height = Math.max(Math.ceil(measured.panelHeight + 64 + popup * 2),...rows.filter(row=>row.kind==='dialog').map(row=>row.dialogHeight+64));

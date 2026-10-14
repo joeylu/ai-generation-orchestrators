@@ -2,7 +2,7 @@ import { hasTextWrap, wrapStaticText } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
 
 // Opt-in geometry only. Never changes order, labels, action scopes or values.
-export function measureFocusedSection(spec, tokens, section, width, purpose, geometry, titleOverride) {
+export function measureFocusedSection(spec, tokens, section, width, purpose, geometry, titleOverride, hiddenLabels = new Set()) {
   const l = spec.layout, line = Math.ceil(tokens.fontSize * 1.3);
   const textWidth = (value, size) => Math.ceil([...value].reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * .8 : size * 1.1), 0));
   const icons = new Set((spec.assets?.rowIcons ?? []).map(icon => icon.rowId));
@@ -29,14 +29,14 @@ export function measureFocusedSection(spec, tokens, section, width, purpose, geo
     if (index === footerStart && index > 0) y += Math.max(8, l.gap);
     const inset = icons.has(row.id) ? 12 : 0;
     const copy = row.kind === 'text', textBlock = copy && hasTextWrap(spec,row.id) ? wrapStaticText(row.text, width - inset * 2, tokens.fontSize) : null;
-    const copyTextY = row.label ? line + 8 : 0;
+    const copyTextY = row.label && !hiddenLabels.has(row.id) ? line + 8 : 0;
     const button = sizes.get(row.id), inFooter = index >= footerStart;
     const height = copy ? Math.max(l.rowHeight, 56, copyTextY + (textBlock?.height ?? line))
       : row.kind === 'input' ? Math.max(l.rowHeight, line * 2 + 60)
       : button ? grouped && inFooter ? footerHeight : Math.max(l.rowHeight, 56, button.height) : Math.max(l.rowHeight, 56);
     const placement = { y, height, stacked: copy || row.kind === 'input', buttonRole: null,
       ...(copy || row.kind === 'input' ? {labelX:inset, labelY:0, controlX:inset, controlWidth:width-inset*2} : {}),
-      ...(copy ? {copy:true, copyTextY, textBlock, allowPartialScroll:Boolean(textBlock)} : {}) };
+      ...(copy ? {copy:true, copyTextY, textBlock, allowPartialScroll:Boolean(textBlock),...(hiddenLabels.has(row.id)?{labelVisible:false}: {})} : {}) };
     if (button) {
       const icon = icons.has(row.id) ? 40 : 0;
       const cellX = grouped && inFooter ? width - footerWidth + footer.slice(0,index-footerStart).reduce((sum,r)=>sum+cellWidth(r)+l.gap,0)

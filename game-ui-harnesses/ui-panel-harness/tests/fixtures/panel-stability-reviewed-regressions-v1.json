@@ -1,0 +1,1536 @@
+{
+  "kind": "ALLOWLISTED_PUBLIC_SPECS_NO_PROVIDER_STATE",
+  "records": [
+    {
+      "id": "G02",
+      "purpose": "lobby",
+      "origin": "REVIEWED_REAL_OUTPUT_REGRESSION",
+      "sourceBundleSha256": "e3856e83070826335b4f0537f942007236c54a2427fb939c9439464397c00b56",
+      "sourceFileSha256": "172baa33b54a075e10079f16cc23253e0c4fbf0d1e6eecacbc4ccd101bc548cc",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 513,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G02",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "align": "start",
+                "children": [
+                  {
+                    "kind": "section",
+                    "sectionId": "section0",
+                    "width": "fill"
+                  }
+                ],
+                "gap": 20,
+                "id": "flow1",
+                "kind": "column",
+                "width": "fill"
+              },
+              {
+                "align": "start",
+                "children": [
+                  {
+                    "kind": "section",
+                    "sectionId": "section1",
+                    "width": "fill"
+                  }
+                ],
+                "gap": 20,
+                "id": "flow2",
+                "kind": "column",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 141,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "itemHeight": 48,
+                "kind": "list",
+                "label": "推荐游戏（示例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 3
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "开始游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "推荐"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "bind": "row2",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "itemHeight": 48,
+                "kind": "list",
+                "label": "游戏类型（示例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 3
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "查看游戏",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "游戏分类"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "示例：星际远征"
+              },
+              {
+                "id": "option1",
+                "label": "示例：像素冒险"
+              },
+              {
+                "id": "option2",
+                "label": "示例：赛车挑战"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "row2",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "示例：冒险"
+              },
+              {
+                "id": "option1",
+                "label": "示例：解谜"
+              },
+              {
+                "id": "option2",
+                "label": "示例：竞速"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "navigation",
+            "initial": "page0",
+            "options": [
+              {
+                "id": "page0",
+                "label": "推荐"
+              },
+              {
+                "id": "page1",
+                "label": "分类"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": {
+          "bind": "navigation",
+          "enabled": true,
+          "event": "panel.navigation",
+          "id": "navigation",
+          "pages": [
+            {
+              "id": "page0",
+              "label": "推荐",
+              "sections": [
+                "section0"
+              ]
+            },
+            {
+              "id": "page1",
+              "label": "分类",
+              "sections": [
+                "section1"
+              ]
+            }
+          ],
+          "recipe": {
+            "id": "navigation.tabs",
+            "version": "0.1.0"
+          }
+        },
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "游戏大厅",
+        "titleBar": null
+      },
+      "state": {
+        "navigation": "page0",
+        "row0": "option0",
+        "row2": "option0"
+      }
+    },
+    {
+      "id": "G17",
+      "purpose": "character-select",
+      "origin": "REVIEWED_REAL_OUTPUT_REGRESSION",
+      "sourceBundleSha256": "75ec4256fa15ac918ca4fcb0c4a4e561f7204e28f5b595ce8f1cbda9c107f60a",
+      "sourceFileSha256": "cc6e42c1d906894aa5e045b41fa3472febbf1b89abbaaec0509ef14afd06302d",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": {
+          "library": {
+            "id": "image-fixtures",
+            "sha256": "324ba85a531cce1a3292dc8cf10776f4d40cff1eea65c35713b09cbfaaee1b4e"
+          },
+          "panelSurface": null,
+          "rowIcons": []
+        },
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 1097,
+          "width": 708
+        },
+        "frame": null,
+        "id": "G17",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "align": "start",
+                "children": [
+                  {
+                    "kind": "section",
+                    "sectionId": "section0",
+                    "width": "fill"
+                  },
+                  {
+                    "kind": "section",
+                    "sectionId": "section1",
+                    "width": "fill"
+                  },
+                  {
+                    "kind": "section",
+                    "sectionId": "section2",
+                    "width": "fill"
+                  }
+                ],
+                "gap": 20,
+                "id": "flow1",
+                "kind": "grid",
+                "minColumnWidth": 328,
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section3",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 1033,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 644
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "fit": "contain",
+                "height": 144,
+                "id": "row0",
+                "kind": "image",
+                "label": "战士肖像",
+                "recipe": {
+                  "id": "content.image",
+                  "version": "0.1.0"
+                },
+                "source": "image-fixtures/image0@1.0.0",
+                "width": 96
+              }
+            ],
+            "title": "战士（示例）"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "fit": "contain",
+                "height": 144,
+                "id": "row1",
+                "kind": "image",
+                "label": "法师肖像",
+                "recipe": {
+                  "id": "content.image",
+                  "version": "0.1.0"
+                },
+                "source": "image-fixtures/image1@1.0.0",
+                "width": 96
+              }
+            ],
+            "title": "法师（示例）"
+          },
+          {
+            "id": "section2",
+            "rows": [
+              {
+                "fit": "contain",
+                "height": 144,
+                "id": "row2",
+                "kind": "image",
+                "label": "弓箭手肖像",
+                "recipe": {
+                  "id": "content.image",
+                  "version": "0.1.0"
+                },
+                "source": "image-fixtures/image2@1.0.0",
+                "width": 96
+              }
+            ],
+            "title": "弓箭手（示例）"
+          },
+          {
+            "id": "section3",
+            "rows": [
+              {
+                "bind": "row3",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "radio",
+                "label": "角色",
+                "recipe": {
+                  "id": "content.radio",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "确认选择",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "选择角色"
+          }
+        ],
+        "state": [
+          {
+            "id": "row3",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "战士（示例）"
+              },
+              {
+                "id": "option1",
+                "label": "法师（示例）"
+              },
+              {
+                "id": "option2",
+                "label": "弓箭手（示例）"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "角色选择",
+        "titleBar": null
+      },
+      "state": {
+        "row3": "option0"
+      }
+    },
+    {
+      "id": "G45",
+      "purpose": "mail-detail",
+      "origin": "REVIEWED_REAL_OUTPUT_REGRESSION",
+      "sourceBundleSha256": "284cf3bfe19cdfd02f6b6223f5928f991c9395a519a800486165348dab690830",
+      "sourceFileSha256": "15e34cb7ccc0e2aa99091d2df30bde9046552a7841c9eca248f920cb08763e36",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 569,
+          "width": 544
+        },
+        "frame": null,
+        "id": "G45",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 480
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "发件人",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例】巡逻队长"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "邮件主题",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例】边境巡逻补给已送达"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "收件时间",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例】刚刚"
+              },
+              {
+                "id": "row3",
+                "kind": "text",
+                "label": "邮件内容",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例邮件】感谢你参与边境巡逻。请查看邮件附件，并及时领取。"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "关闭",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "邮件详情"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row3",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "邮件详情",
+        "titleBar": null
+      },
+      "state": {}
+    },
+    {
+      "id": "G45-patched",
+      "purpose": "mail-detail",
+      "origin": "EXPLICIT_OFFLINE_PATCH_NOT_MODEL_RESULT",
+      "sourceBundleSha256": "c711b3cf4d42b5e0f4925b9bcebaf56a5e1d93372479b6c7b1095be08f081dd6",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 569,
+          "width": 544
+        },
+        "frame": null,
+        "id": "G45",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 480
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "发件人",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例】巡逻队长"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "邮件主题",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例】边境巡逻补给已送达"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "收件时间",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例】刚刚"
+              },
+              {
+                "id": "row3",
+                "kind": "text",
+                "label": "邮件内容",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例邮件】感谢你参与边境巡逻。祝你冒险顺利。"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "关闭",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "邮件详情"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row3",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "邮件详情",
+        "titleBar": null
+      },
+      "state": {}
+    },
+    {
+      "id": "G49",
+      "purpose": "login",
+      "origin": "REVIEWED_REAL_OUTPUT_REGRESSION",
+      "sourceBundleSha256": "ec325ed1781a51c5a9321f1dc3d1e7501095acc9aba8e4f027ff35250a607ddd",
+      "sourceFileSha256": "e5f84b954fed133b12de458d9b2f5e9131c0609f63fdaaca21622506fd25ac21",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 660,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G49",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 596,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "inputType": "text",
+                "kind": "input",
+                "label": "账号",
+                "placeholder": "请输入账号",
+                "readOnly": false,
+                "recipe": {
+                  "id": "forms.input",
+                  "version": "0.1.0"
+                },
+                "validation": {
+                  "minLength": 0,
+                  "minLengthMessage": "至少输入 0 个字符",
+                  "required": true,
+                  "requiredMessage": "此项不能为空"
+                }
+              },
+              {
+                "bind": "row1",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "inputType": "password",
+                "kind": "input",
+                "label": "密码",
+                "placeholder": "请输入密码",
+                "readOnly": false,
+                "recipe": {
+                  "id": "forms.input",
+                  "version": "0.1.0"
+                },
+                "validation": {
+                  "minLength": 0,
+                  "minLengthMessage": "至少输入 0 个字符",
+                  "required": true,
+                  "requiredMessage": "此项不能为空"
+                }
+              },
+              {
+                "bind": "row2",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "checkbox",
+                "label": "记住账号",
+                "recipe": {
+                  "id": "content.checkbox",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "登录",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "注册账号",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "游戏登录"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "",
+            "maxLength": 64,
+            "type": "string"
+          },
+          {
+            "id": "row1",
+            "initial": "",
+            "maxLength": 64,
+            "type": "string"
+          },
+          {
+            "id": "row2",
+            "initial": false,
+            "type": "boolean"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "游戏登录",
+        "titleBar": null
+      },
+      "state": {
+        "row0": "",
+        "row1": "",
+        "row2": false
+      }
+    },
+    {
+      "id": "G49-patched",
+      "purpose": "login",
+      "origin": "EXPLICIT_OFFLINE_PATCH_NOT_MODEL_RESULT",
+      "sourceBundleSha256": "fed071afa62d6635f481a7f5d671482538ecac349d2ff6042fa1d7f0a92ef83f",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 660,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G49",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 596,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "inputType": "text",
+                "kind": "input",
+                "label": "账号",
+                "placeholder": "请输入账号",
+                "readOnly": false,
+                "recipe": {
+                  "id": "forms.input",
+                  "version": "0.1.0"
+                },
+                "validation": {
+                  "minLength": 0,
+                  "minLengthMessage": "至少输入 0 个字符",
+                  "required": true,
+                  "requiredMessage": "此项不能为空"
+                }
+              },
+              {
+                "bind": "row1",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "inputType": "password",
+                "kind": "input",
+                "label": "密码",
+                "placeholder": "请输入密码",
+                "readOnly": false,
+                "recipe": {
+                  "id": "forms.input",
+                  "version": "0.1.0"
+                },
+                "validation": {
+                  "minLength": 0,
+                  "minLengthMessage": "至少输入 0 个字符",
+                  "required": true,
+                  "requiredMessage": "此项不能为空"
+                }
+              },
+              {
+                "bind": "row2",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "checkbox",
+                "label": "记住账号",
+                "recipe": {
+                  "id": "content.checkbox",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "fields": [
+                    "row0",
+                    "row1"
+                  ],
+                  "kind": "submit"
+                },
+                "buttonLabel": "登录",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "注册账号",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "游戏登录"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "",
+            "maxLength": 64,
+            "type": "string"
+          },
+          {
+            "id": "row1",
+            "initial": "",
+            "maxLength": 64,
+            "type": "string"
+          },
+          {
+            "id": "row2",
+            "initial": false,
+            "type": "boolean"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "游戏登录",
+        "titleBar": null
+      },
+      "state": {
+        "row0": "",
+        "row1": "",
+        "row2": false
+      }
+    },
+    {
+      "id": "G54",
+      "purpose": "exit-confirmation",
+      "origin": "REVIEWED_REAL_OUTPUT_REGRESSION",
+      "sourceBundleSha256": "5aed65596c24495be6b0fb4f9a90f38cf0c2f669db9e4803c141a022221cfc97",
+      "sourceFileSha256": "628bf50735b743757b119ef29a2be9dd4f779d7712c6918e38806d0e9c56425a",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 312,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G54",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "closeLabel": "继续游戏",
+                "dialogHeight": 220,
+                "dialogWidth": 420,
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "kind": "dialog",
+                "label": "确认对话框",
+                "modal": true,
+                "recipe": {
+                  "id": "content.dialog",
+                  "version": "0.1.0"
+                },
+                "text": "确定要退出当前游戏吗？",
+                "title": "退出游戏"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.danger",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出游戏确认"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": true,
+            "type": "boolean"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "退出游戏确认",
+        "titleBar": null
+      },
+      "state": {
+        "row0": true
+      }
+    },
+    {
+      "id": "G54-patched",
+      "purpose": "exit-confirmation",
+      "origin": "EXPLICIT_OFFLINE_PATCH_NOT_MODEL_RESULT",
+      "sourceBundleSha256": "2704caed1bd8c25e342bf185708bf5416849225bb931cc0f2eb0544ed824b457",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 312,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G54",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "confirmation-copy",
+                "kind": "text",
+                "label": "提示",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "确定要退出当前游戏吗？"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.danger",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "取消",
+                "enabled": true,
+                "event": "panel.cancel-exit",
+                "id": "cancel-exit",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出游戏确认"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "退出游戏确认",
+        "titleBar": null
+      },
+      "state": {}
+    },
+    {
+      "id": "S08",
+      "purpose": "exit-confirmation",
+      "origin": "REVIEWED_REAL_OUTPUT_REGRESSION",
+      "sourceBundleSha256": "d27353669c31214e9b0595f7f2a35719f0220508c79c505cea1e66fbce92eb81",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 312,
+          "width": 624
+        },
+        "frame": null,
+        "id": "S08",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "closeLabel": "取消",
+                "dialogHeight": 200,
+                "dialogWidth": 360,
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "kind": "dialog",
+                "label": "退出确认",
+                "modal": false,
+                "recipe": {
+                  "id": "content.dialog",
+                  "version": "0.1.0"
+                },
+                "text": "确定要退出游戏吗？",
+                "title": "退出游戏"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出游戏确认"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": true,
+            "type": "boolean"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "退出游戏确认",
+        "titleBar": null
+      },
+      "state": {
+        "row0": true
+      }
+    },
+    {
+      "id": "S08-patched",
+      "purpose": "exit-confirmation",
+      "origin": "EXPLICIT_OFFLINE_PATCH_NOT_MODEL_RESULT",
+      "sourceBundleSha256": "3b749266a83a4cdb1282a85cc585602d1a448d55f403ed0dbbf12578cf8deb2e",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 312,
+          "width": 624
+        },
+        "frame": null,
+        "id": "S08",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "confirmation-copy",
+                "kind": "text",
+                "label": "提示",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "确定要退出游戏吗？"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "取消",
+                "enabled": true,
+                "event": "panel.cancel-exit",
+                "id": "cancel-exit",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出游戏确认"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.23.0"
+        },
+        "title": "退出游戏确认",
+        "titleBar": null
+      },
+      "state": {}
+    }
+  ]
+}

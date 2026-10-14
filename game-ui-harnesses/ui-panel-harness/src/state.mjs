@@ -6,6 +6,7 @@ import { progressDisplayValue, progressDisplayMax } from './progress.mjs';
 import { formErrorId, inputError, formErrors, buttonEnabled } from './forms.mjs';
 import {sectionPurpose} from './panel-presentation.mjs';
 import {measureGroupedSection} from './grouped-presentation.mjs';
+import {isMessageText} from './message-text.mjs';
 
 const userSources = new Set(['mouse', 'touch', 'pen', 'keyboard']);
 const rowsOf = spec => [...spec.sections.flatMap(section => section.rows), ...navigationRows(spec)];
@@ -69,7 +70,7 @@ export function projectPanelEvent(specInput, stateInput, input) {
 }
 
 /** Attach to an already-loaded TreePreview. The caller retains renderer ownership. */
-export function attachPanelSession(specInput, runtime, onEvent, stateInput, presentationStyle) {
+export function attachPanelSession(specInput, runtime, onEvent, stateInput, presentationStyle, catalog) {
   if (presentationStyle !== undefined && !['focused-v1','minimal-v1','grouped-v2'].includes(presentationStyle)) throw new Error('PANEL_PRESENTATION_PROFILE');
   const minimalPresentation=['minimal-v1','grouped-v2'].includes(presentationStyle);
   const spec = validatePanelSpec(specInput);
@@ -99,15 +100,16 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
       const section=spec.sections.find(section=>section.rows.some(item=>item.id===row.id));
       const focusedCopy = ['focused-v1','minimal-v1','grouped-v2'].includes(presentationStyle) && ['form','dialog'].includes(sectionPurpose(section));
       const groupedCopy=presentationStyle==='grouped-v2'&&sectionPurpose(section)==='settings'&&section.rows.every(item=>['slider','switch','select','text','progress'].includes(item.kind));
+      const messageCopy=isMessageText(row,catalog);
       if (hasTextWrap(spec,row.id)) {
         const container=nodes.get(groupedCopy?`${spec.id}.section.${section.id}`:`${spec.id}.row.${row.id}`),fontSize=node.props.style.fontSize;
         if(container?.type!=='Container')throw new Error('PANEL_RUNTIME_MISMATCH');
-        const inset=groupedCopy?20:focusedCopy ? spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 12 : 0 : 12;
+        const inset=messageCopy?0:groupedCopy?20:focusedCopy ? spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 12 : 0 : 12;
         const width=container.layout.width-inset*2,expected=wrapStaticText(row.text,width,fontSize);
         const heading=value=>value.trim().replace(/(?:界面|面板)$/,'');
         const showTitle=Boolean(spec.tabs)||heading(spec.title)!==heading(section.title);
         const placement=groupedCopy?measureGroupedSection(spec,{fontSize},section,container.layout.width,'settings',showTitle,undefined,2).rows[section.rows.indexOf(row)]:null;
-        const top=placement?placement.y+placement.copyTextY:focusedCopy ? row.label ? Math.ceil(fontSize*1.3)+8 : 0 : 12+Math.ceil(fontSize*1.3)+8;
+        const top=messageCopy?0:placement?placement.y+placement.copyTextY:focusedCopy ? row.label ? Math.ceil(fontSize*1.3)+8 : 0 : 12+Math.ceil(fontSize*1.3)+8;
         if(expected.lines.some((line,i)=>{
           const child=nodes.get(i===0?node.id:node.id+'.line'+i),display=wrappedLinePresentation(line,fontSize);
           return child?.type!=='Text'||child.props.text!==display.text||child.layout.width!==width-display.indent

@@ -17,6 +17,7 @@ import { selectRequest, selectIntent } from '../examples/section-geometry-v2/fix
 import {imageRequest,imageIntent,conciseRoleSpec} from '../examples/image-slots-v1/fixture.mjs';
 import {imageAssetPool} from '../examples/image-slots-v1/assets.mjs';
 import {checkInstalledComponents} from './lib/all-components-release-check.mjs';
+import {checkInstalledCompactMessages} from './lib/compact-message-release-check.mjs';
 
 function fixtureProcess(reply, calls) {
   return (command, args, options) => {
@@ -49,8 +50,8 @@ for (const [name, bytes] of files) {
 }
 const sdk = await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).loadPanelSdk();
 assert.equal(sdk.seed.pool.index.records.length, 12); assert.equal(sdk.seed.pool.resources.length, 12);
-const full=sdk.seed.catalog.id==='modern-all-components',centered=full||sdk.seed.catalog.id==='modern-centered-cards',images=centered||sdk.seed.catalog.id==='modern-image-slots';
-assert.equal(sdk.seed.catalog.id, full?'modern-all-components':centered?'modern-centered-cards':images?'modern-image-slots':'modern-menu-headings');
+const compact=sdk.seed.catalog.id==='modern-compact-message',full=compact||sdk.seed.catalog.id==='modern-all-components',centered=full||sdk.seed.catalog.id==='modern-centered-cards',images=centered||sdk.seed.catalog.id==='modern-image-slots';
+assert.equal(sdk.seed.catalog.id, compact?'modern-compact-message':full?'modern-all-components':centered?'modern-centered-cards':images?'modern-image-slots':'modern-menu-headings');
 assert.equal(sdk.seed.catalog.version, images?'0.1.0':'0.20.0');
 assert.equal(files.has('package/src/component-adapter.mjs'), false);
 assert(![...files.keys()].some(name => /(?:node_modules|\.ts$|workbench-server|\.tmp\/|output\/)/.test(name)));
@@ -100,13 +101,15 @@ await sdk.panel.validatePanelBundle(JSON.parse(new TextDecoder().decode(reread.g
 pass('downloaded-bundle-reimports-without-a-separate-asset-library');
 await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk();
 pass('generation-edit-and-export-leave-installed-package-bytes-intact');
-checks.push(...await checkInstalledHeadings(sdk,output));
-checks.push(...await checkInstalledGeometry(sdk,output));
+const legacyCatalog=JSON.parse(Buffer.from(files.get('package/examples/modern-all-components.catalog.json')));
+const legacySdk=compact?{...sdk,seed:{...sdk.seed,catalog:legacyCatalog}}:sdk;
+checks.push(...await checkInstalledHeadings(legacySdk,output));
+checks.push(...await checkInstalledGeometry(legacySdk,output));
 const selectModel=await sdk.createWorkbenchModel(sdk.seed,sdk.core),selectPrepared=await selectModel.prepare(selectRequest);
 const selectPlan=await sdk.planner.planWithCodex(selectPrepared.context,options(nativeFixture(selectPrepared.context,selectIntent(selectPrepared.context))));
 assert.equal(selectPlan.receipt.invocationCount,1);assert.equal(selectPlan.receipt.automaticRetries,0);
 const selected=await selectModel.acceptProposal(selectPlan.proposal),field=selected.panel.spec.state.find(value=>value.type==='enum');
-assert.equal(selected.phase,'ready');assert.equal(selected.panel.compilerVersion,full?'0.32.0':centered?'0.30.0':images?'0.29.0':'0.28.0');
+assert.equal(selected.phase,'ready');assert.equal(selected.panel.compilerVersion,compact?'0.34.0':full?'0.32.0':centered?'0.30.0':images?'0.29.0':'0.28.0');
 assert.deepEqual(field.options.map(option=>option.label),['男','女']);assert.equal(selected.panel.state[field.id],field.options[0].id);
 pass('installed-reported-select-request-compiles-after-one-explicit-generation-fixture');
 const selectEditRequest={requestVersion:'0.1',id:'select-title-edit',target:'pixi',text:'只把面板标题改为“选择角色”，其他不变。'};
@@ -125,7 +128,7 @@ if(images){
   const imagePrepared=await imageModel.prepare(imageRequest);
   const imagePlanned=await sdk.planner.planWithCodex(imagePrepared.context,options(nativeFixture(imagePrepared.context,imageIntent(imagePrepared.context,{source:pool.index.records.map(record=>record.key)}))));
   const imageReady=await imageModel.acceptProposal(imagePlanned.proposal),before=imageReady.panel;
-  assert.equal(before.compilerVersion,full?'0.32.0':centered?'0.30.0':'0.29.0');assert.equal(before.assetClosure.records.length,3);
+  assert.equal(before.compilerVersion,compact?'0.34.0':full?'0.32.0':centered?'0.30.0':'0.29.0');assert.equal(before.assetClosure.records.length,3);
   const editRequest={...imageRequest,text:'把战士肖像高度改成200，其他不变。'},editing=(await imageModel.prepareEdit(editRequest,{rowId:'row0'})).context;
   const imageDraft={codexEditDraftVersion:'0.3',contextSha256:editing.sha256,unresolved:[],noChange:null,
     patch:{patchVersion:'0.1',baseSpecSha256:editing.baseSpecSha256,reason:editRequest.text,operations:[{op:'set-image-properties',rowId:'row0',source:before.spec.sections[0].rows[0].source,width:'fill',height:200,fit:'contain',assetLibrary:null}]},bases:[{kind:'request-interpretation',quote:editRequest.text}]};
@@ -139,7 +142,7 @@ if(images){
   const imageArtifacts=[];
   async function saveImageArtifact(id,bundle,zip,files,expectedCenters){
     const native=await sdk.panel.createUnityDocument(bundle,sdk.core);
-    if(bundle.compilerVersion==='0.32.0'){
+    if(['0.32.0','0.34.0','0.36.0'].includes(bundle.compilerVersion)){
       assert.equal(native.nodes.find(node=>node.id===`${bundle.spec.id}.title`).textAlignment,'MiddleCenter');
       expectedCenters++;
     }
@@ -151,7 +154,7 @@ if(images){
   }
   await saveImageArtifact('bound',result,imageZip,imageFiles,centered?3:0);
   for(const mode of ['light','dark']){
-    const placeholder=await sdk.panel.createPanelBundle(conciseRoleSpec(sdk.panel,sdk.seed.catalog,{mode}),sdk.seed.catalog,sdk.core);
+    const placeholder=await sdk.panel.createPanelBundle(conciseRoleSpec(sdk.panel,legacySdk.seed.catalog,{mode}),legacySdk.seed.catalog,sdk.core);
     const kit=await sdk.delivery.createUnityKitFiles(placeholder,sdk.core,sdk.delivery.sources);
     const delivery=await sdk.delivery.createPanelDelivery(placeholder,sdk.core,{runtime:sdk.delivery.runtime,unityKit:kit});
     const zip=sdk.delivery.createStoredZip(delivery.contents),files=readStoredZip(zip);
@@ -165,6 +168,7 @@ if(images){
 }
 await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk();
 if(full)checks.push(...await checkInstalledComponents(sdk,output,options));
+if(compact)checks.push(...await checkInstalledCompactMessages(sdk,output));
 await writeFile(join(temporary, 'package/prompts/panel-intent.md'), 'tampered');
 assert.throws(() => sdk.planner.planWithCodex(prepared.context, { outputRoot: 'relative' }), /SDK_OUTPUT_ROOT_REQUIRED/);
 await assert.rejects((await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk(), /SDK_FILE_INTEGRITY/);

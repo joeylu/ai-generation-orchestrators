@@ -8,6 +8,7 @@ import {digestJson,digestBytes,canonicalJson} from '../src/canonical.mjs';
 import {validateCodexReceipt,validateCodexEditReceipt} from '../src/codex-planner.mjs';
 import {checkAdaptabilityResult,businessFacts} from './lib/input-adaptability-oracle.mjs';
 import {draftReviewRecord} from './lib/open-draft-evaluation.mjs';
+import {adaptabilityDesignEvidence,adaptabilityPromptEvidence} from './input-adaptability.mjs';
 
 const args=process.argv.slice(2),options={};
 for(let i=0;i<args.length;i+=2){assert(['--prepared','--run','--browser','--output'].includes(args[i])&&args[i+1]&&!options[args[i]]);options[args[i]]=args[i+1];}
@@ -35,11 +36,11 @@ for(let i=0;i<plan.cases.length;i++){
   const expectation=await readJson(join(prepared,entry.id+'.expectation.json')),context=await readJson(join(prepared,entry.id+'.context.json'));
   if(entry.designArm&&result.status!=='NOT_RUN'){
     const design=await readJson(join(prepared,entry.id+'.design.json')),evidence=await readJson(join(run,entry.id,'design-evidence.json'));
-    assert.deepEqual(evidence,{arm:entry.designArm,panelCaseId:entry.panelCaseId,basePromptSha256:design.basePromptSha256,promptSha256:design.promptSha256,guidanceSha256:design.guidanceSha256});
+    assert.deepEqual(evidence,adaptabilityDesignEvidence(expectation.case,design));
     if(result.receipt?.invocationCount===1)assert.deepEqual(await readJson(join(run,entry.id,'prompt-sent.json')),
-      {promptSha256:design.promptSha256,bytes:Buffer.byteLength(design.prompt),arm:entry.designArm,panelCaseId:entry.panelCaseId});
+      await adaptabilityPromptEvidence(expectation.case,design.prompt));
   }
-  let nativeReceipt=null,proposal=null,candidate=null,delta=[];
+  let nativeReceipt=null,proposal=null,candidate=null,delta=[],knownReview=null;
   if(result.status!=='NOT_RUN'){
     assert.deepEqual(await readJson(join(run,entry.id,'acceptance.json')),result);
     const attempts=(await readdir(join(run,entry.id),{withFileTypes:true})).filter(item=>item.isDirectory()&&/^codex(?:-edit)?-/.test(item.name));
@@ -56,6 +57,7 @@ for(let i=0;i<plan.cases.length;i++){
       const before=entry.operation==='edit'?await readJson(join(prepared,entry.id+'.source.panel.bundle.json')):undefined;
       checkAdaptabilityResult(expectation.case,{proposal,report:caseReport},{expectedSpec:expectation.expectedSpec,before,after:candidate});
       if(expectation.case.evaluation)assert.deepEqual(await readJson(join(run,entry.id,'draft-review.json')),draftReviewRecord(expectation.case,{proposal,report:caseReport},proposal.spec?businessFacts(proposal.spec):null),'AUDIT_DRAFT_REVIEW_CHANGED');
+      if(expectation.case.stability)knownReview=(await readJson(join(run,entry.id,'draft-review.json'))).knownReview;
     }else if(candidate&&expectation.expectedSpec){
       delta=entry.operation==='generate'?differences(businessFacts(candidate.spec),businessFacts(expectation.expectedSpec)):differences(candidate.spec,expectation.expectedSpec);
     }
@@ -66,23 +68,26 @@ for(let i=0;i<plan.cases.length;i++){
     status:result.status,observed:result.outcome??nativeReceipt?.status??null,code:result.code??null,diagnostic:result.diagnostic??null,
     contextSha256:entry.contextSha256,request:context.request.text,invocations:nativeReceipt?.invocationCount??0,elapsedMs:nativeReceipt?.elapsedMs??null,
     differences:delta,browser:browserResult?.status??(result.delivery?'NOT_RUN':result.status==='PASS'?'NOT_APPLICABLE':'NOT_RUN'),
-    canvas:candidate?.spec.canvas??null,panelSha256:candidate?.sha256??null,zip:result.delivery??null});
+    canvas:candidate?.spec.canvas??null,panelSha256:candidate?.sha256??null,zip:result.delivery??null,
+    ...(entry.stability?{stability:entry.stability,knownReview,interactionReview:browserResult?.interactionReview??null}: {})});
 }
 assert.equal(invocations,report.realModelCalls);assert(invocations<=plan.policy.maxInvocations);
 const successfulDeliveries=report.results.filter(item=>item.status==='PASS'&&item.delivery).map(item=>item.id).sort();
 assert.deepEqual(browser.results.map(item=>item.id).sort(),successfulDeliveries);
 const tally=predicate=>({total:cases.filter(predicate).length,pass:cases.filter(item=>predicate(item)&&item.status==='PASS').length,
   fail:cases.filter(item=>predicate(item)&&item.status==='FAIL').length,notRun:cases.filter(item=>predicate(item)&&item.status==='NOT_RUN').length});
-const summary={inputAdaptabilityAuditVersion:'0.1',status:report.status==='PASS_BEFORE_BROWSER'&&browser.status==='PASS'?'PASS':'FAIL',planSha256:sha256,
+const summary={inputAdaptabilityAuditVersion:'0.1',status:report.status==='PASS_BEFORE_BROWSER'&&browser.status==='PASS'&&(!plan.focusedAcceptance?.required||browser.focusedAcceptance?.status==='PASS')&&(!plan.copyAcceptance?.required||browser.copyAcceptance?.status==='PASS')?'PASS':'FAIL',planSha256:sha256,
   ...(plan.evaluation?{evaluation:plan.evaluation,humanReview:'NOT_RECORDED',passMeaning:'Integrity, protocol, explicit constraints and applicable browser checks only. Not relevance, assumption quality or clarification necessity.'}:{}),
   sourceFingerprint:'PASS',singleUseClaim:'VERIFIED',receiptIntegrity:'PASS',realModelCalls:invocations,automaticRetries:0,
   overall:tally(()=>true),generation:tally(item=>item.operation==='generate'&&item.expected==='READY_TO_COMPILE'),
   generationClarification:tally(item=>item.operation==='generate'&&item.expected==='NEEDS_INPUT'),
   editing:tally(item=>item.operation==='edit'&&item.expected==='READY_TO_APPLY'),editingClarification:tally(item=>item.operation==='edit'&&item.expected==='NEEDS_INPUT'),
   browser:{status:browser.status,panels:browser.panels,checks:browser.checks,errors:browser.errors},
+  ...(plan.focusedAcceptance?.required?{focusedAcceptance:browser.focusedAcceptance??{status:'NOT_RUN'}}:{}),
+  ...(plan.copyAcceptance?.required?{copyAcceptance:browser.copyAcceptance??{status:'NOT_RUN'}}:{}),
   sourceReportSha256:await digestBytes(await readFile(join(run,'input-adaptability-report.json'))),browserReportSha256:await digestBytes(await readFile(join(browserPath,'browser-report.json'))),
   scope:'One frozen cohort. '+(plan.cases.some(item=>item.operation==='edit')?'Editing bases are programmatic fixtures. ':'No editing cases. ')
-    +'Not a population success rate or repeated-request stability measurement.',unityNative:'NOT_RUN_THIS_COHORT',cases};
+    +(plan.stabilityEvaluation?'Three repeats and one variant per purpose are finite samples; human semantic review is required and population reliability is not established.':'Not a population success rate or repeated-request stability measurement.'),unityNative:'NOT_RUN_THIS_COHORT',cases};
 const output=await createOutputDirectory(options['--output']);await writeNewJson(output,'audit.json',summary);
 const escape=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const blocks=cases.map(item=>'<section><h2>'+item.id+' · '+escape(item.status)+' · '+escape(item.category)+'</h2><p>预期 '+escape(item.expected)+'；实际 '+escape(item.observed)+'；浏览器 '+escape(item.browser)+'</p><p>'+escape(item.request)+'</p>'+

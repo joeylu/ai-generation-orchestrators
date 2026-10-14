@@ -1,0 +1,1613 @@
+{
+  "kind": "SAVED_REAL_GEOMETRY_FOR_OFFLINE_REGRESSION_NOT_NEW_MODEL_RESULTS",
+  "sourcePlanSha256": "2d00b6eeac00a058b27896d26189ea72682317e5300eb9728b11e24c78ff6e61",
+  "fixtures": [
+    {
+      "id": "G02",
+      "sourceBundleSha256": "032ebcae673b145ca795e7a8c1f70f51111f31dd072f4c4c466dba42f5237956",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 48,
+            "buttonWidth": 160,
+            "direction": "row",
+            "gap": 12,
+            "sectionId": "section2",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 868,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G02",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section1",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section2",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "房间编号",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：A1B2C3（占位）"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "玩家席位",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：1/4，等待中（占位）"
+              }
+            ],
+            "title": "房间状态"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "bind": "row2",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "select",
+                "label": "游戏模式",
+                "recipe": {
+                  "id": "settings.select",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "bind": "row3",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "select",
+                "label": "地图",
+                "recipe": {
+                  "id": "settings.select",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "bind": "row4",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "checkbox",
+                "label": "准备就绪",
+                "recipe": {
+                  "id": "content.checkbox",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "对局设置"
+          },
+          {
+            "id": "section2",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "邀请好友",
+                "enabled": true,
+                "event": "panel.row5",
+                "id": "row5",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "开始游戏",
+                "enabled": true,
+                "event": "panel.row6",
+                "id": "row6",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "大厅操作"
+          }
+        ],
+        "state": [
+          {
+            "id": "row2",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "经典模式"
+              },
+              {
+                "id": "option1",
+                "label": "团队模式"
+              },
+              {
+                "id": "option2",
+                "label": "训练模式"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "row3",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "森林"
+              },
+              {
+                "id": "option1",
+                "label": "遗迹"
+              },
+              {
+                "id": "option2",
+                "label": "沙漠"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "row4",
+            "initial": false,
+            "type": "boolean"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.22.0"
+        },
+        "title": "游戏大厅",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "G18",
+      "sourceBundleSha256": "8d4947aa3069ca48582fec1f9d22ab7d4e012f8ece9f684e87e78441a32e28ad",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": {
+          "library": {
+            "id": "image-fixtures",
+            "sha256": "324ba85a531cce1a3292dc8cf10776f4d40cff1eea65c35713b09cbfaaee1b4e"
+          },
+          "panelSurface": null,
+          "rowIcons": []
+        },
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 624,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G18",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1.",
+            "Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "fit": "contain",
+                "height": 192,
+                "id": "row0",
+                "kind": "image",
+                "label": "示例角色立绘",
+                "recipe": {
+                  "id": "content.image",
+                  "version": "0.1.0"
+                },
+                "source": "image-fixtures/image0@1.0.0",
+                "width": 128
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "等级",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例数据：Lv.12"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "职业",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例数据：战士"
+              },
+              {
+                "bind": "row3",
+                "format": {
+                  "fractionDigits": 0,
+                  "mode": "percent"
+                },
+                "id": "row3",
+                "kind": "progress",
+                "label": "示例生命值",
+                "recipe": {
+                  "id": "settings.progress",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "bind": "row4",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "inputType": "text",
+                "kind": "input",
+                "label": "角色昵称",
+                "placeholder": "请输入角色昵称",
+                "readOnly": false,
+                "recipe": {
+                  "id": "forms.input",
+                  "version": "0.1.0"
+                },
+                "validation": {
+                  "minLength": 0,
+                  "minLengthMessage": "至少输入 0 个字符",
+                  "required": false,
+                  "requiredMessage": "此项不能为空"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "保存资料",
+                "enabled": true,
+                "event": "panel.row5",
+                "id": "row5",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "角色详情"
+          }
+        ],
+        "state": [
+          {
+            "id": "row3",
+            "initial": 72,
+            "max": 100,
+            "type": "progress"
+          },
+          {
+            "id": "row4",
+            "initial": "",
+            "maxLength": 24,
+            "type": "string"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.22.0"
+        },
+        "title": "角色详情",
+        "titleBar": null
+      },
+      "assets": {
+        "closure": {
+          "assetClosureVersion": "0.1",
+          "library": {
+            "id": "image-fixtures",
+            "sha256": "324ba85a531cce1a3292dc8cf10776f4d40cff1eea65c35713b09cbfaaee1b4e"
+          },
+          "records": [
+            {
+              "bytes": 12608,
+              "height": 192,
+              "key": "image-fixtures/image0@1.0.0",
+              "role": "shape",
+              "sha256": "7c67a16e172d1ce9557140ecf268fe2b546b189931a6edda1ff95f35cc958736",
+              "slice": null,
+              "width": 128
+            }
+          ]
+        },
+        "resources": [
+          {
+            "path": "textures/7c67a16e172d1ce9557140ecf268fe2b546b189931a6edda1ff95f35cc958736.png",
+            "mime": "image/png",
+            "base64": "iVBORw0KGgoAAAANSUhEUgAAAIAAAADABAMAAAA+SHaUAAAAG1BMVEUAAADd6+bd6+bd6+bd6+ZZf3BZf3BZf3BZf3Cse32EAAAACXRSTlMAQIC//0CAv//HacvVAAAwy0lEQVR4AQHAMD/PAIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiACIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIAIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiACIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIAIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREiIiIiIiIiIREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERESIiIiIiIiIiIiIhERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERIiIiIiIiIiIiIiIiIiERERERERERERERERERERERERERERIiIiIgAiIiIiERERERERERERERERERERERERERERIiIiIiIiIiIiIiIiIiIhEREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIREREREREREREREREREREREREiIiIiACIiIiIREREREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERERERERESIiIiIAIiIiIhEREREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIREREREREREREREREREREREiIiIiACIiIiIREREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERERERIiIiIgAiIiIiERERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiEREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERERERIiIiIgAiIiIiERERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERESIiIiIAIiIiIhEREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERERIiIiIgAiIiIiERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiEREREREREREREREREREiIiIiACIiIiIRERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIREREREREREREREREREiIiIiACIiIiIREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERESIiIiIAIiIiIhERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERIiIiIgAiIiIiERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREREREiIiIiACIiIiIREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERESIiIiIAIiIiIhERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERIiIiIgAiIiIiERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREREREiIiIiACIiIiIREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERESIiIiIAIiIiIhERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERIiIiIgAiIiIiERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREREREiIiIiACIiIiIREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERESIiIiIAIiIiIhERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERIiIiIgAiIiIiERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREREREiIiIiACIiIiIREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERESIiIiIAIiIiIhERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERIiIiIgAiIiIiERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREREREiIiIiACIiIiIRERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERESIiIiIAIiIiIhEREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERERIiIiIgAiIiIiERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiEREREREREREREREREREiIiIiACIiIiIREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERERERIiIiIgAiIiIiERERERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERERERESIiIiIAIiIiIhEREREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERERERERIiIiIgAiIiIiERERERERERERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIhERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREiIiIiIiIiIiIiIiIiIiIiIREREREREREREREREREREREREREiIiIiACIiIiIREREREREREREREREREREREREREREiIiIiIiIiIiIiIiIiIiERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERIiIiIiIiIiIiIiIiIiERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREiIiIiIiIiIiIiIREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERESIiIiIiIiIhERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiERERERERERERERIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhEREREREREREREiIiIiACIiIiIREREREREREREREiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiERERERERERERESIiIiIAIiIiIhERERERERERERESIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIRERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiEREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREREiIiIiACIiIiIRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERESIiIiIAIiIiIhERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERIiIiIgAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiACIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIAIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiACIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIAIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiACIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIREZKV8JC5HQAAAAASUVORK5CYII="
+          }
+        ]
+      }
+    },
+    {
+      "id": "G21",
+      "sourceBundleSha256": "eff4a15d56caaf9e4dabd19578d8af031fbfa0322e820eeaf815d0da470839d2",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 624,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G21",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "align": "start",
+                "children": [
+                  {
+                    "kind": "section",
+                    "sectionId": "section0",
+                    "width": "fill"
+                  }
+                ],
+                "gap": 20,
+                "id": "flow1",
+                "kind": "column",
+                "width": "fill"
+              },
+              {
+                "align": "start",
+                "children": [
+                  {
+                    "kind": "section",
+                    "sectionId": "section1",
+                    "width": "fill"
+                  }
+                ],
+                "gap": 20,
+                "id": "flow2",
+                "kind": "column",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 159,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "itemHeight": 40,
+                "kind": "list",
+                "label": "已装备槽位（示例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 4
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "属性（示例）",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例：铁剑 · 攻击 +12 · 防御 +0"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "卸下所选",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "装备栏"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "bind": "row3",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "itemHeight": 40,
+                "kind": "list",
+                "label": "可用装备（示例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 4
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "穿戴所选",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "背包装备"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "武器 · 示例：铁剑"
+              },
+              {
+                "id": "option1",
+                "label": "头部 · 示例：旅者头盔"
+              },
+              {
+                "id": "option2",
+                "label": "胸部 · 示例：皮甲"
+              },
+              {
+                "id": "option3",
+                "label": "饰品 · 示例：青铜戒指"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "row3",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "示例：铁剑 · 攻击 +12"
+              },
+              {
+                "id": "option1",
+                "label": "示例：短弓 · 攻击 +9"
+              },
+              {
+                "id": "option2",
+                "label": "示例：旅者头盔 · 防御 +4"
+              },
+              {
+                "id": "option3",
+                "label": "示例：皮甲 · 防御 +8"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "navigation",
+            "initial": "page0",
+            "options": [
+              {
+                "id": "page0",
+                "label": "装备栏"
+              },
+              {
+                "id": "page1",
+                "label": "背包装备"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": {
+          "bind": "navigation",
+          "enabled": true,
+          "event": "panel.navigation",
+          "id": "navigation",
+          "pages": [
+            {
+              "id": "page0",
+              "label": "装备栏",
+              "sections": [
+                "section0"
+              ]
+            },
+            {
+              "id": "page1",
+              "label": "背包装备",
+              "sections": [
+                "section1"
+              ]
+            }
+          ],
+          "recipe": {
+            "id": "navigation.tabs",
+            "version": "0.1.0"
+          }
+        },
+        "textLayouts": [
+          {
+            "rowId": "row1",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.22.0"
+        },
+        "title": "装备",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "G26",
+      "sourceBundleSha256": "7c35c57a1dc830216d81e48c328fb8ce0e69936b2fff25eb73fa5683930d180f",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 624,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G26",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "fit": "contain",
+                "height": 180,
+                "id": "row0",
+                "kind": "image",
+                "label": "商品图片（示意占位）",
+                "recipe": {
+                  "id": "content.image",
+                  "version": "0.1.0"
+                },
+                "source": null,
+                "width": "fill"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "商品名称",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例商品"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "商品说明",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例商品介绍：展示商品的主要特点与用途。"
+              },
+              {
+                "id": "row3",
+                "kind": "text",
+                "label": "价格",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例价格：¥68"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "购买",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "商品详情"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row2",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.22.0"
+        },
+        "title": "商品详情",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "G41",
+      "sourceBundleSha256": "db80968d29a1a1cfacb4705b9a1f7c7c6ff892aa9c427e80e37341823edd4850",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 52,
+            "buttonWidth": 240,
+            "direction": "row",
+            "gap": 12,
+            "sectionId": "section1",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 624,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G41",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              },
+              {
+                "kind": "section",
+                "sectionId": "section1",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 210,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1.",
+            "Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "任务一",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例任务：完成1场对局 · 示例奖励：金币×20"
+              },
+              {
+                "bind": "row1",
+                "format": {
+                  "fractionDigits": 0,
+                  "mode": "value"
+                },
+                "id": "row1",
+                "kind": "progress",
+                "label": "示例进度 1/1（已完成）",
+                "recipe": {
+                  "id": "settings.progress",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "任务二",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例任务：累计登录3天 · 示例奖励：经验×50"
+              },
+              {
+                "bind": "row3",
+                "format": {
+                  "fractionDigits": 0,
+                  "mode": "value"
+                },
+                "id": "row3",
+                "kind": "progress",
+                "label": "示例进度 1/3",
+                "recipe": {
+                  "id": "settings.progress",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "今日目标"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "请求领取示例奖励",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "奖励"
+          }
+        ],
+        "state": [
+          {
+            "id": "row1",
+            "initial": 1,
+            "max": 1,
+            "type": "progress"
+          },
+          {
+            "id": "row3",
+            "initial": 1,
+            "max": 3,
+            "type": "progress"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row0",
+            "wrap": "word"
+          },
+          {
+            "rowId": "row2",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.22.0"
+        },
+        "title": "每日任务",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "G43",
+      "sourceBundleSha256": "257376ce46210f93387ee1843956903245039c94f6fa7e12a2956b85cba3501d",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 624,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G43",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1.",
+            "Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "活动名称",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例活动：春日寻宝"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "活动时间",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例时间：4月1日—4月7日"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "活动说明",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例说明：完成每日探索，收集活动徽记。"
+              },
+              {
+                "id": "row3",
+                "kind": "text",
+                "label": "活动奖励",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例奖励：限定头像框 ×1"
+              },
+              {
+                "bind": "row4",
+                "format": {
+                  "fractionDigits": 0,
+                  "mode": "value"
+                },
+                "id": "row4",
+                "kind": "progress",
+                "label": "示例活动进度",
+                "recipe": {
+                  "id": "settings.progress",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "查看活动",
+                "enabled": true,
+                "event": "panel.row5",
+                "id": "row5",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "活动详情"
+          }
+        ],
+        "state": [
+          {
+            "id": "row4",
+            "initial": 3,
+            "max": 7,
+            "type": "progress"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row2",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.22.0"
+        },
+        "title": "活动详情",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "G44",
+      "sourceBundleSha256": "989d30d1a722af2709080e1bd0988ab7ffb042ae114e8cf7f49c9641d4a7926d",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 624,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G44",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "itemHeight": 44,
+                "kind": "list",
+                "label": "邮件列表",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 3
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "邮件预览",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "【示例邮件】欢迎来到冒险世界！祝你旅途愉快。附件：新手补给 ×1"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "领取附件",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "删除邮件",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "邮件"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "【示例】欢迎来到冒险世界"
+              },
+              {
+                "id": "option1",
+                "label": "【示例】维护补偿"
+              },
+              {
+                "id": "option2",
+                "label": "【示例】活动奖励"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row1",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.22.0"
+        },
+        "title": "邮件",
+        "titleBar": null
+      }
+    },
+    {
+      "id": "G59",
+      "sourceBundleSha256": "0a0f91887b203c9863bb6397cfcd832c6172cd6da8a3d0dd902e752c341abb48",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 624,
+          "width": 624
+        },
+        "frame": null,
+        "id": "G59",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "align": "start",
+                "children": [
+                  {
+                    "kind": "section",
+                    "sectionId": "section0",
+                    "width": "fill"
+                  }
+                ],
+                "gap": 20,
+                "id": "flow1",
+                "kind": "column",
+                "width": "fill"
+              },
+              {
+                "align": "start",
+                "children": [
+                  {
+                    "kind": "section",
+                    "sectionId": "section1",
+                    "width": "fill"
+                  }
+                ],
+                "gap": 20,
+                "id": "flow2",
+                "kind": "column",
+                "width": "fill"
+              },
+              {
+                "align": "start",
+                "children": [
+                  {
+                    "kind": "section",
+                    "sectionId": "section2",
+                    "width": "fill"
+                  }
+                ],
+                "gap": 20,
+                "id": "flow3",
+                "kind": "column",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 32,
+          "rowHeight": 56,
+          "sectionGap": 20,
+          "sectionTitleHeight": 32,
+          "titleHeight": 40,
+          "width": 560
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "itemHeight": 48,
+                "kind": "list",
+                "label": "物品（示例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 5
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "使用所选",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "道具"
+          },
+          {
+            "id": "section1",
+            "rows": [
+              {
+                "bind": "row2",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "itemHeight": 48,
+                "kind": "list",
+                "label": "装备（示例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 5
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "装备所选",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "装备"
+          },
+          {
+            "id": "section2",
+            "rows": [
+              {
+                "bind": "row4",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "itemHeight": 48,
+                "kind": "list",
+                "label": "材料（示例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 5
+              }
+            ],
+            "title": "材料"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "生命药水"
+              },
+              {
+                "id": "option1",
+                "label": "魔力药水"
+              },
+              {
+                "id": "option2",
+                "label": "回城卷轴"
+              },
+              {
+                "id": "option3",
+                "label": "营火工具包"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "row2",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "旅行者之剑"
+              },
+              {
+                "id": "option1",
+                "label": "守护者头盔"
+              },
+              {
+                "id": "option2",
+                "label": "皮革护甲"
+              },
+              {
+                "id": "option3",
+                "label": "轻便靴"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "row4",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "铁矿石"
+              },
+              {
+                "id": "option1",
+                "label": "木材"
+              },
+              {
+                "id": "option2",
+                "label": "草药"
+              },
+              {
+                "id": "option3",
+                "label": "晶石碎片"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "navigation",
+            "initial": "page0",
+            "options": [
+              {
+                "id": "page0",
+                "label": "道具"
+              },
+              {
+                "id": "page1",
+                "label": "装备"
+              },
+              {
+                "id": "page2",
+                "label": "材料"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": {
+          "bind": "navigation",
+          "enabled": true,
+          "event": "panel.navigation",
+          "id": "navigation",
+          "pages": [
+            {
+              "id": "page0",
+              "label": "道具",
+              "sections": [
+                "section0"
+              ]
+            },
+            {
+              "id": "page1",
+              "label": "装备",
+              "sections": [
+                "section1"
+              ]
+            },
+            {
+              "id": "page2",
+              "label": "材料",
+              "sections": [
+                "section2"
+              ]
+            }
+          ],
+          "recipe": {
+            "id": "navigation.tabs",
+            "version": "0.1.0"
+          }
+        },
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.22.0"
+        },
+        "title": "背包",
+        "titleBar": null
+      }
+    }
+  ]
+}

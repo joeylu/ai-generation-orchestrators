@@ -90,10 +90,10 @@ export function validateCatalog(value) {
     if (Object.hasOwn(theme, 'visualStyle') && !['modern-v1', 'modern-v2', 'modern-v3'].includes(theme.visualStyle)) fail(`${path}.visualStyle`, 'unsupported visual style');
     if (Object.hasOwn(theme, 'controlStyle') && (theme.controlStyle !== 'semantic-v1' || theme.visualStyle !== 'modern-v3')) fail(`${path}.controlStyle`, 'semantic-v1 requires modern-v3');
     if (Object.hasOwn(theme, 'presentationStyle') && (theme.presentationStyle !== 'focused-v1' || theme.controlStyle !== 'semantic-v1')) fail(`${path}.presentationStyle`, 'focused-v1 requires semantic-v1 controls');
-    if (Object.hasOwn(theme, 'headingStyle') && (!['concise-v1', 'visible-v1', 'concise-v2', 'visible-v2', 'concise-v3', 'visible-v3'].includes(theme.headingStyle) || theme.controlStyle !== 'semantic-v1' || theme.surfaceStyle !== 'minimal-v2'))
+    if (Object.hasOwn(theme, 'headingStyle') && (!['concise-v1', 'visible-v1', 'concise-v2', 'visible-v2', 'concise-v3', 'visible-v3', 'concise-v4', 'visible-v4'].includes(theme.headingStyle) || theme.controlStyle !== 'semantic-v1' || theme.surfaceStyle !== 'minimal-v2'))
       fail(`${path}.headingStyle`, 'Versioned heading presentation requires semantic-v1 and minimal-v2');
-    if (Object.hasOwn(theme, 'cardAlignment') && (theme.cardAlignment !== 'centered-v1' || !['concise-v2','visible-v2','concise-v3','visible-v3'].includes(theme.headingStyle)))
-      fail(`${path}.cardAlignment`, 'centered-v1 cards require versioned v2 or v3 headings');
+    if (Object.hasOwn(theme, 'cardAlignment') && (theme.cardAlignment !== 'centered-v1' || !['concise-v2','visible-v2','concise-v3','visible-v3','concise-v4','visible-v4'].includes(theme.headingStyle)))
+      fail(`${path}.cardAlignment`, 'centered-v1 cards require versioned v2 through v4 headings');
     if (Object.hasOwn(theme, 'navigationStyle') && (theme.navigationStyle !== 'tabs-v1' || theme.presentationStyle !== 'focused-v1')) fail(`${path}.navigationStyle`, 'tabs-v1 requires focused-v1 presentation');
     if (Object.hasOwn(theme, 'surfaceStyle') && (!['refined-v1','minimal-v1','minimal-v2','crafted-v1','grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle) || theme.navigationStyle !== 'tabs-v1')) fail(`${path}.surfaceStyle`, 'Surface styles require tabs-v1 navigation');
     if ((theme.surfaceStyle === 'minimal-v2') !== Object.hasOwn(theme, 'menuTokens')) fail(`${path}.menuTokens`, 'minimal-v2 requires its exact menu token set');
@@ -117,10 +117,12 @@ export function validateCatalog(value) {
   });
   value.recipes.forEach((recipe, index) => {
     const path = `catalog.recipes[${index}]`;
-    object(recipe, path, ['id', 'version', 'kind', 'description', 'tags', 'states', 'supports', 'minWidth', 'minHeight'], ['buttonRole']);
+    object(recipe, path, ['id', 'version', 'kind', 'description', 'tags', 'states', 'supports', 'minWidth', 'minHeight'], ['buttonRole','labelDisplay','messageLayout']);
     identity(recipe, path);
     if (!KINDS.has(recipe.kind)) fail(`${path}.kind`, 'unsupported recipe kind');
     if (Object.hasOwn(recipe, 'buttonRole') && (recipe.kind !== 'button-row' || !['primary', 'secondary', 'danger'].includes(recipe.buttonRole))) fail(`${path}.buttonRole`, 'explicit button role requires a button-row recipe');
+    if(Object.hasOwn(recipe,'labelDisplay')&&(recipe.kind!=='text-row'||recipe.labelDisplay!=='hidden'))fail(`${path}.labelDisplay`,'hidden label presentation requires a text-row recipe');
+    if(Object.hasOwn(recipe,'messageLayout')&&(recipe.kind!=='text-row'||recipe.labelDisplay!=='hidden'||recipe.messageLayout!=='compact-centered-v1'))fail(`${path}.messageLayout`,'compact-centered-v1 requires a hidden-label text-row recipe');
     string(recipe.description, `${path}.description`, 512);
     strings(recipe.tags, `${path}.tags`, 32);
     strings(recipe.states, `${path}.states`, STATES.size, STATES);

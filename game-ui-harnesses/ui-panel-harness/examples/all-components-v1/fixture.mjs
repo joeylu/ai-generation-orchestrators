@@ -24,5 +24,6 @@ export function intent(context,{mode='light',tabs=true,rows=[...oldRows,...newRo
   {label:'选择',initial:false,sourceRef:'request',body:{kind:'column',children:[section('选择',rows.slice(8,11))]}},
   {label:'说明',initial:false,sourceRef:'request',body:{kind:'column',children:[section('说明',rows.slice(11))]}},
  ]}:{kind:'column',children:[section('组件',rows)]};
- return {panelIntentVersion:'0.12',contextSha256:context.sha256,unresolved:[],panel:{id:context.request.id,title:'组件验收',themeKey:`modern-mint-${mode}@0.21.0`,panelSurface:null,layout:{width:640,canvasWidth:720,canvasHeight:800,maxHeight:680,overflow:'auto'},body}};
+ const theme=context.catalog.themes.find(theme=>theme.id===`modern-mint-${mode}`&&theme.headingStyle?.startsWith('concise-v'));
+ return {panelIntentVersion:'0.12',contextSha256:context.sha256,unresolved:[],panel:{id:context.request.id,title:'组件验收',themeKey:`${theme.id}@${theme.version}`,panelSurface:null,layout:{width:640,canvasWidth:720,canvasHeight:800,maxHeight:680,overflow:'auto'},body}};
 }
