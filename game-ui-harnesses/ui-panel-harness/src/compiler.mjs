@@ -1,3 +1,6 @@
+import {hasSectionPanels} from './section-panels.mjs';
+import {hasHeadingPanels,HEADING_PANEL_PADDING} from './heading-panels.mjs';
+import {isReadableGameTheme,readableRadioHeight} from './readable-game.mjs';
 import {isMessageText} from './message-text.mjs';
 import {isCompactMessageText} from './compact-message.mjs';
 import { fullComponents, CHOICE_KINDS } from './component-capabilities.mjs';
@@ -59,10 +62,20 @@ export const ACTION_HEADING_PANEL_COMPILER_VERSION = '0.33.0';
 export const TAB_HEADING_PANEL_COMPILER_VERSION = '0.34.0';
 export const MESSAGE_TEXT_PANEL_COMPILER_VERSION = '0.35.0';
 export const COMPACT_MESSAGE_PANEL_COMPILER_VERSION = '0.36.0';
+export const READABLE_GAME_PANEL_COMPILER_VERSION = '0.37.0';
+export const CONTENT_HEADING_PANEL_COMPILER_VERSION = '0.38.0';
+export const READABLE_LAYOUT_PANEL_COMPILER_VERSION = '0.39.0';
+export const HEADING_PANELS_COMPILER_VERSION = '0.40.0';
+export const SECTION_PANELS_COMPILER_VERSION = '0.41.0';
+export const GROUPED_READABLE_COMPILER_VERSION = '0.42.0';
+export const READABLE_DATA_COMPILER_VERSION = '0.43.0';
+export const DATA_ITEM_PANELS_COMPILER_VERSION = '0.44.0';
+export const ITEM_GROUPS_COMPILER_VERSION = '0.45.0';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
   const theme = resolveTheme(catalog, spec.theme), profile = theme.visualStyle;
+  if(isReadableGameTheme(theme)){if(!fullComponents(spec))throw new PanelCompileError('VISUAL_STYLE_VERSION','$.theme','Readable games require PanelSpec 0.16');return ['concise-v6','visible-v6'].includes(theme.headingStyle)?ITEM_GROUPS_COMPILER_VERSION:theme.draftSizing==='game-readable-v5'?DATA_ITEM_PANELS_COMPILER_VERSION:theme.draftSizing==='game-readable-v4'?READABLE_DATA_COMPILER_VERSION:theme.draftSizing==='game-readable-v3'?GROUPED_READABLE_COMPILER_VERSION:hasSectionPanels(theme)?SECTION_PANELS_COMPILER_VERSION:hasHeadingPanels(theme)?HEADING_PANELS_COMPILER_VERSION:theme.draftSizing==='game-readable-v2'?READABLE_LAYOUT_PANEL_COMPILER_VERSION:['concise-v5','visible-v5','concise-v6','visible-v6'].includes(theme.headingStyle)?CONTENT_HEADING_PANEL_COMPILER_VERSION:READABLE_GAME_PANEL_COMPILER_VERSION;}
   if(spec.sections.some(section=>section.rows.some(row=>isMessageText(row,catalog)))){
     if(!fullComponents(spec)||!['concise-v4','visible-v4'].includes(theme.headingStyle))throw new PanelCompileError('MESSAGE_TEXT_VERSION','$.theme','Message Text requires PanelSpec 0.16 and heading v4');
     return spec.sections.some(section=>section.rows.some(row=>isCompactMessageText(row,catalog)))?COMPACT_MESSAGE_PANEL_COMPILER_VERSION:MESSAGE_TEXT_PANEL_COMPILER_VERSION;
@@ -167,10 +180,10 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   const flowVersion = progressVersion || spec.panelSpecVersion === '0.4';
   const controls = flowVersion || spec.panelSpecVersion === '0.3';
   const compilerVersion = compilerVersionInput ?? defaultPanelCompilerVersion(spec, catalog);
-  const allowedVersions = images ? [IMAGE_PANEL_COMPILER_VERSION, CENTERED_CARDS_PANEL_COMPILER_VERSION, FULL_COMPONENT_PANEL_COMPILER_VERSION, CENTERED_TITLE_PANEL_COMPILER_VERSION, ACTION_HEADING_PANEL_COMPILER_VERSION, TAB_HEADING_PANEL_COMPILER_VERSION, MESSAGE_TEXT_PANEL_COMPILER_VERSION, COMPACT_MESSAGE_PANEL_COMPILER_VERSION] : sized ? [FRAME_PANEL_COMPILER_VERSION] : wrapping ? [TEXT_WRAP_PANEL_COMPILER_VERSION] : titled ? [TITLE_BAR_PANEL_COMPILER_VERSION] : typography ? [BUTTON_FONT_PANEL_COMPILER_VERSION] : individual ? [BUTTON_STYLE_PANEL_COMPILER_VERSION] : arranged ? [ACTION_LAYOUT_PANEL_COMPILER_VERSION] : styled ? [APPEARANCE_PANEL_COMPILER_VERSION] : formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
+  const allowedVersions = images ? [IMAGE_PANEL_COMPILER_VERSION, CENTERED_CARDS_PANEL_COMPILER_VERSION, FULL_COMPONENT_PANEL_COMPILER_VERSION, CENTERED_TITLE_PANEL_COMPILER_VERSION, ACTION_HEADING_PANEL_COMPILER_VERSION, TAB_HEADING_PANEL_COMPILER_VERSION, MESSAGE_TEXT_PANEL_COMPILER_VERSION, COMPACT_MESSAGE_PANEL_COMPILER_VERSION, READABLE_GAME_PANEL_COMPILER_VERSION, CONTENT_HEADING_PANEL_COMPILER_VERSION, READABLE_LAYOUT_PANEL_COMPILER_VERSION, HEADING_PANELS_COMPILER_VERSION, SECTION_PANELS_COMPILER_VERSION, GROUPED_READABLE_COMPILER_VERSION, READABLE_DATA_COMPILER_VERSION, DATA_ITEM_PANELS_COMPILER_VERSION, ITEM_GROUPS_COMPILER_VERSION] : sized ? [FRAME_PANEL_COMPILER_VERSION] : wrapping ? [TEXT_WRAP_PANEL_COMPILER_VERSION] : titled ? [TITLE_BAR_PANEL_COMPILER_VERSION] : typography ? [BUTTON_FONT_PANEL_COMPILER_VERSION] : individual ? [BUTTON_STYLE_PANEL_COMPILER_VERSION] : arranged ? [ACTION_LAYOUT_PANEL_COMPILER_VERSION] : styled ? [APPEARANCE_PANEL_COMPILER_VERSION] : formsVersion ? [FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION] : tabsVersion ? [TABS_PANEL_COMPILER_VERSION] : progressVersion ? [PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION] : flowVersion ? [FLOW_PANEL_COMPILER_VERSION, LEGACY_FLOW_PANEL_COMPILER_VERSION]
     : [controls ? CONTROLS_PANEL_COMPILER_VERSION : spec.assets ? ASSET_PANEL_COMPILER_VERSION : PANEL_COMPILER_VERSION];
   const semantic = resolveTheme(catalog, spec.theme).controlStyle === 'semantic-v1';
-  if (semantic ? compilerVersion !== defaultPanelCompilerVersion(spec, catalog) && !(fullComponents(spec) && !['concise-v3','visible-v3','concise-v4','visible-v4'].includes(resolveTheme(catalog,spec.theme).headingStyle) && compilerVersion === FULL_COMPONENT_PANEL_COMPILER_VERSION) : !allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec and pinned theme');
+  if (semantic ? compilerVersion !== defaultPanelCompilerVersion(spec, catalog) && !(fullComponents(spec) && !['concise-v3','visible-v3','concise-v4','visible-v4','concise-v5','visible-v5','concise-v6','visible-v6'].includes(resolveTheme(catalog,spec.theme).headingStyle) && compilerVersion === FULL_COMPONENT_PANEL_COMPILER_VERSION) : !allowedVersions.includes(compilerVersion)) fail('COMPILER_VERSION', '$.compilerVersion', 'Compiler version must match the spec and pinned theme');
   const assetClosure = validatePanelAssetClosure(spec, assetClosureInput);
   const assets = new Map((assetClosure?.records ?? []).map(r => [r.key, r]));
   const rowIcons = new Map((spec.assets?.rowIcons ?? []).map(r => [r.rowId, r.asset]));
@@ -244,15 +257,15 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
     text: value, wrap: 'none', overflow: 'error', lineHeight: Math.ceil(fontSize * 1.3), drawBackground: false,
     style: style(t.surface, { textColor: color, fontSize, fontWeight: weight }),
   });
-  const titleBar = spec.titleBar, titlePadding = titleBar?.padding ?? 0, titleSize = titleBar?.fontSize ?? t.titleSize;
+  const titleBar = spec.titleBar, headingPanels=hasHeadingPanels(theme), titlePadding = titleBar?.padding ?? (headingPanels?HEADING_PANEL_PADDING:0), titleSize = titleBar?.fontSize ?? t.titleSize;
   const titleWidth = contentWidth - 2 * titlePadding, titleHeight = l.titleHeight - 2 * titlePadding;
-  if (titleBar && (Math.ceil(titleSize * 1.3) > titleHeight || presentationTextWidth(spec.title,titleSize) > titleWidth)) fail('TITLE_BAR_FIT', '$.titleBar', 'Title does not fit its existing slot; reduce font/padding or explicitly increase title height');
-  const hasPlate = titleBar?.backgroundColor != null;
+  if ((titleBar||headingPanels) && (Math.ceil(titleSize * 1.3) > titleHeight || presentationTextWidth(spec.title,titleSize) > titleWidth)) fail('TITLE_BAR_FIT', '$.titleBar', 'Title does not fit its existing slot; reduce font/padding or explicitly increase title height');
+  const hasPlate = headingPanels || titleBar?.backgroundColor != null;
   const titleNode = text(`${spec.id}.title`, spec.title,
     { x: (hasPlate ? 0 : l.padding) + titlePadding, y: (hasPlate ? 0 : l.padding) + titlePadding, width: titleWidth, height: titleHeight }, titleSize, titleBar?.textColor ?? t.text, minimal && !crafted && !polishedMenu ? 'normal' : 'bold');
   const dialogs = [];
-  const children = [hasPlate ? node(`${spec.id}.title-bar`, 'Container', { x:l.padding, y:l.padding, width:contentWidth, height:l.titleHeight },
-    { style:style(titleBar.backgroundColor,{cornerRadius:titleBar.cornerRadius ?? t.radius}) }, [titleNode]) : titleNode];
+  const children = [hasPlate ? node(`${spec.id}.title-bar`, headingPanels?'Panel':'Container', { x:l.padding, y:l.padding, width:contentWidth, height:l.titleHeight },
+    { ...(headingPanels?{title:''}:{}), style:style(titleBar?.backgroundColor ?? t.control,{borderWidth:headingPanels?1:0,cornerRadius:titleBar?.cornerRadius ?? (headingPanels?8:t.radius)}) }, [titleNode]) : titleNode];
   if (refined && !minimal && !titleBar && l.gap >= 4) children.push(node(`${spec.id}.title-accent`, 'Container',
     { x: l.padding, y: l.padding + l.titleHeight + l.gap / 2, width: Math.min(32, contentWidth), height: 3 },
     { style: style(t.accent, { cornerRadius: 1.5 }) }, []));
@@ -271,14 +284,21 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
   const orderedSections = flow ? flow.sections.map(place => spec.sections.find(section => section.id === place.id)) : spec.sections;
   for (const section of orderedSections) {
     const place = flow?.sections.find(value => value.id === section.id);
-    const contentWidth = place?.width ?? l.width - l.padding * 2;
+    const outerWidth = place?.width ?? l.width-l.padding*2;
+    const groupPanel=place?.presentation?.groupPanel;
+    const contentWidth=groupPanel?.contentWidth??outerWidth;
     const sectionY = place?.y ?? legacySectionY;
     const presentation = place?.presentation;
     const height = place?.height ?? sectionHeight(section);
     select({ id: 'settings.section', version: '0.1.0' }, 'section', contentWidth, height);
     const sectionId = `${spec.id}.section.${section.id}`;
-    const sectionChildren = presentation?.showTitle === false ? [] : [text(`${sectionId}.title`, section.title,
-      { x: 0, y: 0, width: contentWidth, height: l.sectionTitleHeight }, t.headingSize, t.muted, 'bold')];
+    const sectionHeading=()=>{
+      const padding=headingPanels?HEADING_PANEL_PADDING:0;
+      if(headingPanels&&(l.sectionTitleHeight-padding*2<Math.ceil(t.headingSize*1.3)||contentWidth<=padding*2))fail('TEXT_HEIGHT','$.layout.sectionTitleHeight','Heading panel padding must leave a readable text slot');
+      const heading=text(`${sectionId}.title`,section.title,{x:groupPanel?0:padding,y:padding,width:contentWidth-(groupPanel?0:padding*2),height:l.sectionTitleHeight-padding*2},t.headingSize,t.muted,'bold');
+      return headingPanels&&!groupPanel?[node(`${sectionId}.title-panel`,'Panel',{x:0,y:0,width:contentWidth,height:l.sectionTitleHeight},{title:'',style:style(t.control,{borderWidth:1,cornerRadius:8})},[heading])]:[heading];
+    };
+    const sectionChildren = presentation?.showTitle === false ? [] : sectionHeading();
     for (const [index, row] of section.rows.entries()) {
       const rowId = `${spec.id}.row.${row.id}`, id = controlId(spec.id, row.id), field = fields.get(row.bind);
       const placement = presentation?.rows[index], rowHeight = placement?.height ?? l.rowHeight;
@@ -320,7 +340,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         }));
         for (const [code, message] of [['required', row.validation.requiredMessage], ['min-length', row.validation.minLengthMessage]])
           rowChildren.push(text(formErrorId(spec.id, row.id, code), message,
-            { x: placement?.inputErrorInline ? contentWidth-placement.errorWidth : controlX, y: placement?.inputErrorInline ? 0 : stacked ? textHeight + (minimal ? 68 : 60) : 48, width: placement?.inputErrorInline ? placement.errorWidth : available, height: textHeight }, minimal ? 14 : t.fontSize, errorColor));
+            { x: placement?.inputErrorInline ? contentWidth-placement.errorWidth : controlX, y: placement?.inputErrorInline ? 0 : stacked ? textHeight + (minimal ? 68 : 60) : 48, width: placement?.inputErrorInline ? placement.errorWidth : available, height: textHeight }, [READABLE_GAME_PANEL_COMPILER_VERSION,CONTENT_HEADING_PANEL_COMPILER_VERSION, READABLE_LAYOUT_PANEL_COMPILER_VERSION, HEADING_PANELS_COMPILER_VERSION, SECTION_PANELS_COMPILER_VERSION, GROUPED_READABLE_COMPILER_VERSION, READABLE_DATA_COMPILER_VERSION, DATA_ITEM_PANELS_COMPILER_VERSION, ITEM_GROUPS_COMPILER_VERSION].includes(compilerVersion) ? t.fontSize : minimal ? 14 : t.fontSize, errorColor));
       } else if (row.kind === 'slider') {
         const valueWidth = placement?.valueWidth ?? Math.max(64, t.fontSize * 4), sliderWidth = placement?.sliderStack ? available : available - valueWidth - l.gap;
         if (sliderWidth < 96) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Slider needs at least 96 logical pixels after label and value slots');
@@ -336,32 +356,33 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       } else if (row.kind === 'progress') {
         const valueWidth = compilerVersion === LEGACY_PROGRESS_PANEL_COMPILER_VERSION
           ? Math.max(64, t.fontSize * (row.format.fractionDigits + 4)) : progressValueWidth(row, field, t.fontSize);
-        const barWidth = available - valueWidth - l.gap;
+        const barWidth = placement?.progressStack ? available : available - valueWidth - l.gap;
         if (barWidth < 96) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Progress needs a bar and a readable value slot');
-        rowChildren.push(node(id, 'ProgressBar', { x: controlX, y: (rowHeight - 16) / 2, width: barWidth, height: 16 }, {
+        rowChildren.push(node(id, 'ProgressBar', { x: controlX, y: placement?.controlY ?? (rowHeight - 16) / 2, width: barWidth, height: 16 }, {
           value: progressDisplayValue(row, field, state[row.bind]), max: progressDisplayMax(row, field),
           style: style(appearance?.controlColor ?? t.border, { borderColor: t.accent, cornerRadius: 8 }),
         }));
         const valueId = `${rowId}.value`, suffix = row.format.mode === 'percent' ? '%' : '';
         rowChildren.push(text(valueId, progressText(row, field, state[row.bind]),
-          { x: placement?.valueX ?? contentWidth - valueWidth - 12, y: (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, appearance?.textColor ?? t.accent));
+          { x: placement?.valueX ?? contentWidth - valueWidth - 12, y: placement?.valueY ?? (rowHeight - textHeight) / 2, width: valueWidth, height: textHeight }, t.fontSize, appearance?.textColor ?? t.accent));
         textBindings.push({ sourceId: id, targetId: valueId, parts: [
           { field: 'value', fractionDigits: row.format.fractionDigits, grouping: 'none' }, suffix] });
       } else if (row.kind === 'checkbox') {
         rowChildren.push(node(id,'CheckBox',{x:controlX,y:0,width:48,height:rowHeight},{label:'',checked:state[row.bind],enabled:row.enabled,style:style(t.control,{borderColor:iconBadgeColor(t.accent)})}));
       } else if (['radio','list'].includes(row.kind)) {
-        const options=field.options.map(option=>({id:choiceId(spec.id,row.id,option.id),label:option.label}));
-        const rect={x:12,y:textHeight+16,width:contentWidth-24,height:row.kind==='radio'?options.length*36:row.visibleItems*row.itemHeight};
-        if(options.some(option=>presentationTextWidth(option.label,t.fontSize)+48>rect.width))fail('CHOICE_LABEL_FIT','$.sections','Choice labels must fit their row');
+        const options=field.options.map((option,index)=>({id:choiceId(spec.id,row.id,option.id),label:placement?.choiceLayout?.labels[index]??option.label}));
+        const itemHeight=placement?.choiceLayout?.itemHeight??row.itemHeight;
+        const rect={x:placement?.choiceLayout?controlX+12:12,y:placement?.controlY??textHeight+16,width:placement?.choiceLayout?.controlWidth??contentWidth-24,height:placement?.choiceLayout?placement.controlHeight:row.kind==='radio'?options.length*readableRadioHeight([READABLE_GAME_PANEL_COMPILER_VERSION,CONTENT_HEADING_PANEL_COMPILER_VERSION, READABLE_LAYOUT_PANEL_COMPILER_VERSION, HEADING_PANELS_COMPILER_VERSION, SECTION_PANELS_COMPILER_VERSION, GROUPED_READABLE_COMPILER_VERSION, READABLE_DATA_COMPILER_VERSION, DATA_ITEM_PANELS_COMPILER_VERSION, ITEM_GROUPS_COMPILER_VERSION].includes(compilerVersion)):row.visibleItems*row.itemHeight};
+        if(!placement?.choiceLayout&&options.some(option=>presentationTextWidth(option.label,t.fontSize)+48>rect.width))fail('CHOICE_LABEL_FIT','$.sections','Choice labels must fit their row');
         // The shared text-row List paints white/light-green rows; preserve contrast
         // there just as the existing Select adapter does for its popup.
         const palette=navigationPalette(t);
         const props={selectedId:choiceId(spec.id,row.id,state[row.bind]),enabled:row.enabled,style:style(row.kind==='list'?palette.background:t.control,{borderColor:palette.accent,borderWidth:1,...(row.kind==='list'?{textColor:palette.text}:{})})};
         if(row.kind==='radio')rowChildren.push(node(id,'RadioGroup',rect,{...props,options}));
         else {
-          const height=Math.max(rect.height,options.length*row.itemHeight),selected=field.options.findIndex(option=>option.id===state[row.bind]);
-          const list=node(id,'List',{x:0,y:0,width:rect.width,height},{...props,items:options,itemTemplate:'text-row',itemHeight:row.itemHeight},[]);
-          rowChildren.push(node(id+'.viewport','ScrollView',rect,{contentWidth:rect.width,contentHeight:height,scrollX:0,scrollY:Math.min(selected*row.itemHeight,height-rect.height),style:style(t.surface)},[list]));
+          const height=Math.max(rect.height,options.length*itemHeight),selected=field.options.findIndex(option=>option.id===state[row.bind]);
+          const list=node(id,'List',{x:0,y:0,width:rect.width,height},{...props,items:options,itemTemplate:'text-row',itemHeight},[]);
+          rowChildren.push(node(id+'.viewport','ScrollView',rect,{contentWidth:rect.width,contentHeight:height,scrollX:0,scrollY:Math.min(selected*itemHeight,height-rect.height),style:style(t.surface)},[list]));
         }
       } else if (row.kind === 'dialog') {
         const width=row.dialogWidth,height=row.dialogHeight,block=wrapStaticText(row.text,width-48,t.fontSize);
@@ -397,7 +418,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           rowChildren.push(text(id, row.text, { x: controlX, y: placement?.copy ? placement.copyTextY : (rowHeight - textHeight) / 2, width: available, height: textHeight }, t.fontSize));
         }
       } else {
-        const controlHeight = placement?.controlHeight ?? (adaptive && row.kind === 'button' ? 44 : 40), controlY = (rowHeight - controlHeight) / 2;
+        const controlHeight = placement?.controlHeight ?? (adaptive && row.kind === 'button' ? 44 : 40), controlY = placement?.controlY ?? (rowHeight - controlHeight) / 2;
         if (available < (placement?.explicitAction ? 44 : 120)) fail('CONTROL_WIDTH', '$.layout.labelWidth', 'Select and Button need at least 120 logical pixels');
         if (controlY < 0 || controlHeight < t.fontSize * 1.3) fail('CONTROL_HEIGHT', '$.layout.rowHeight', 'Select and Button use a 40px control with a fitting text line');
         const rect = { x: controlX, y: controlY, width: available, height: controlHeight };
@@ -405,7 +426,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           // The sibling renderer opens an overlay below the field with a 2px gap.
           // Its default menu uses one max(32, fieldHeight) row per option and never flips.
           const pageFlow = spec.tabs ? flow.pages.find(page => page.id === place.pageId) : null;
-          const popupBottom = (flow ? flow.panelY + flow.body.y + (pageFlow ? flow.pageY : 0) : (spec.canvas.height - panelHeight) / 2) + sectionY + rowY + controlY
+          const popupBottom = (flow ? flow.panelY + flow.body.y + (pageFlow ? flow.pageY : 0) : (spec.canvas.height - panelHeight) / 2) + sectionY + rowY + controlY + ([GROUPED_READABLE_COMPILER_VERSION,READABLE_DATA_COMPILER_VERSION, DATA_ITEM_PANELS_COMPILER_VERSION, ITEM_GROUPS_COMPILER_VERSION].includes(compilerVersion)?(groupPanel?.padding??0):0)
             + controlHeight + 2 + Math.max(32, controlHeight) * field.options.length;
           if (!(pageFlow ? pageFlow.contentHeight > pageFlow.viewportHeight : flow?.scrollable) && popupBottom > spec.canvas.height) fail('SELECT_POPUP_OVERFLOW', '$.canvas.height', 'The open Select menu must fit below its field within the canvas');
           const skinTokens = { ...t, text: contrast(t.text,t.control) >= 4.5 ? t.text : buttonForeground(t.control) };
@@ -414,7 +435,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
           for (const resource of skin?.resources ?? []) generatedResources.set(resource.path,resource);
           rowChildren.push(node(id, 'Select', rect, {
             selectedId: choiceId(spec.id, row.id, state[row.bind]),
-            options: field.options.map(option => ({ id: choiceId(spec.id, row.id, option.id), label: option.label })),
+            options: field.options.map((option,index) => ({ id: choiceId(spec.id, row.id, option.id), label: placement?.choiceLayout?.labels[index]??option.label })),
             enabled: row.enabled,
             ...(skin ? { appearance: skin.appearance } : {}),
             // The default runtime popup is white/light green. An explicit light-field
@@ -464,7 +485,12 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       if (Object.hasOwn(row, 'bind')) bindings.push(row.kind === 'progress'
         ? { nodeId: id, fieldId: row.bind, type: 'progress', readOnly: true }
         : { nodeId: id, fieldId: row.bind, event: row.event, type: field.type, enabled: row.enabled });
-      if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION, SECTION_HEADING_PANEL_COMPILER_VERSION, SECTION_GEOMETRY_PANEL_COMPILER_VERSION, IMAGE_PANEL_COMPILER_VERSION, CENTERED_CARDS_PANEL_COMPILER_VERSION, FULL_COMPONENT_PANEL_COMPILER_VERSION, CENTERED_TITLE_PANEL_COMPILER_VERSION, ACTION_HEADING_PANEL_COMPILER_VERSION, TAB_HEADING_PANEL_COMPILER_VERSION, MESSAGE_TEXT_PANEL_COMPILER_VERSION, COMPACT_MESSAGE_PANEL_COMPILER_VERSION].includes(compilerVersion)) {
+      if(placement?.dataPanel){
+        const card=placement.dataPanel;
+        sectionChildren.push(node(rowId,'Panel',{x:0,y:rowY,width:contentWidth,height:rowHeight},{title:'',style:style(t.surface,{borderWidth:1,cornerRadius:8})},[
+          node(rowId+'.data-content','Container',{x:card.padding,y:card.padding,width:card.contentWidth,height:card.contentHeight},{style:style(t.surface)},rowChildren)
+        ]));
+      } else if (grouped || fullButton && [FLOW_PANEL_COMPILER_VERSION, PROGRESS_PANEL_COMPILER_VERSION, LEGACY_PROGRESS_PANEL_COMPILER_VERSION, TABS_PANEL_COMPILER_VERSION, FORMS_PANEL_COMPILER_VERSION, MODERN_PANEL_COMPILER_VERSION, THEMED_PANEL_COMPILER_VERSION, ADAPTIVE_PANEL_COMPILER_VERSION, APPEARANCE_PANEL_COMPILER_VERSION, ACTION_LAYOUT_PANEL_COMPILER_VERSION, BUTTON_STYLE_PANEL_COMPILER_VERSION, BUTTON_FONT_PANEL_COMPILER_VERSION, TITLE_BAR_PANEL_COMPILER_VERSION, TEXT_WRAP_PANEL_COMPILER_VERSION, FRAME_PANEL_COMPILER_VERSION, SEMANTIC_PANEL_COMPILER_VERSION, FOCUSED_PANEL_COMPILER_VERSION, NAVIGATION_PANEL_COMPILER_VERSION, REFINED_PANEL_COMPILER_VERSION, MINIMAL_PANEL_COMPILER_VERSION, CRAFTED_PANEL_COMPILER_VERSION, POLISHED_MENU_PANEL_COMPILER_VERSION, SECTION_HEADING_PANEL_COMPILER_VERSION, SECTION_GEOMETRY_PANEL_COMPILER_VERSION, IMAGE_PANEL_COMPILER_VERSION, CENTERED_CARDS_PANEL_COMPILER_VERSION, FULL_COMPONENT_PANEL_COMPILER_VERSION, CENTERED_TITLE_PANEL_COMPILER_VERSION, ACTION_HEADING_PANEL_COMPILER_VERSION, TAB_HEADING_PANEL_COMPILER_VERSION, MESSAGE_TEXT_PANEL_COMPILER_VERSION, COMPACT_MESSAGE_PANEL_COMPILER_VERSION, READABLE_GAME_PANEL_COMPILER_VERSION, CONTENT_HEADING_PANEL_COMPILER_VERSION, READABLE_LAYOUT_PANEL_COMPILER_VERSION, HEADING_PANELS_COMPILER_VERSION, SECTION_PANELS_COMPILER_VERSION, GROUPED_READABLE_COMPILER_VERSION, READABLE_DATA_COMPILER_VERSION, DATA_ITEM_PANELS_COMPILER_VERSION, ITEM_GROUPS_COMPILER_VERSION].includes(compilerVersion)) {
         // Container always paints in the shared contract. Emit the standalone button
         // (and optional icon) directly, preserving its ID and absolute geometry.
         for (const child of rowChildren) {
@@ -473,15 +499,16 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
         }
       } else sectionChildren.push(node(rowId, 'Container', {
         x: 0, y: rowY, width: contentWidth, height: rowHeight,
-      }, { style: style((refined && appearance?.controlColor == null) || stacked || (modern && row.kind === 'text') ? t.surface : t.control, { ...(modern ? { cornerRadius: appearance?.controlRadius ?? 8 } : {}) }) }, rowChildren));
+      }, { style: style((refined && appearance?.controlColor == null) || stacked || (modern && row.kind === 'text') ? (groupPanel?t.control:t.surface) : t.control, { ...(modern ? { cornerRadius: appearance?.controlRadius ?? 8 } : {}) }) }, rowChildren));
     }
     if(grouped&&presentation?.settingsGroup&&section.rows.length>1){
       for(let index=1;index<section.rows.length;index++)if(!presentation.dividerRows||presentation.dividerRows.includes(index))sectionChildren.push(node(`${sectionId}.divider.${index}`,'Container',
         {x:presentation.dividerInset,y:presentation.rows[index].y-presentation.dividerOffset,width:contentWidth-presentation.dividerInset-(presentation.dividerRightInset??presentation.dividerInset),height:1},
         {style:style(t.border,{cornerRadius:0})},[]));
     }
-    bodyChildren.push(node(sectionId, 'Container', { x: place?.x ?? l.padding, y: sectionY, width: contentWidth, height },
-      { style: style(grouped&&!presentation?.settingsGroup?groupedBackground:t.surface,{...(grouped?{cornerRadius:presentation?.settingsGroup?t.radius:0}:{})}) }, sectionChildren));
+    const content=groupPanel?[node(`${sectionId}.content`,'Container',{x:groupPanel.padding,y:groupPanel.padding,width:contentWidth,height:groupPanel.contentHeight},{style:style(t.control)},sectionChildren)]:sectionChildren;
+    bodyChildren.push(node(sectionId,groupPanel?'Panel':'Container',{x:place?.x??l.padding,y:sectionY,width:outerWidth,height},
+      { ...(groupPanel?{title:''}:{}),style:style(groupPanel?t.control:grouped&&!presentation?.settingsGroup?groupedBackground:t.surface,{...(groupPanel?{borderWidth:1,cornerRadius:12}:grouped?{cornerRadius:presentation?.settingsGroup?t.radius:0}:{})}) },content));
     legacySectionY += height + l.sectionGap;
   }
   if (spec.tabs) {

@@ -55,7 +55,7 @@ async function focus(id){
 }
 async function closeDialogs(spec){const values=await state();for(const row of spec.sections.flatMap(section=>section.rows))if(row.kind==='dialog')values[row.bind]=false;await setState(values);}
 async function checkTitleCenter(bundle){
-  if(!['0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion)||bundle.spec.titleBar?.horizontalAlign!=null&&bundle.spec.titleBar.horizontalAlign!=='center')return;
+  if(!['0.32.0','0.33.0','0.34.0','0.35.0','0.36.0','0.37.0','0.38.0','0.39.0','0.40.0','0.41.0','0.42.0','0.43.0','0.44.0','0.45.0'].includes(bundle.compilerVersion)||bundle.spec.titleBar?.horizontalAlign!=null&&bundle.spec.titleBar.horizontalAlign!=='center')return;
   const nodes=(await inspect()).nodes,title=nodes.find(node=>node.id===bundle.spec.id+'.title'),panel=nodes.find(node=>node.id===bundle.spec.id+'.panel');
   const glyph=title?.renderedTextBounds?.[0]?.bounds;assert(glyph&&panel,'TITLE_MEASUREMENT_MISSING');
   assert(Math.abs(glyph.x+glyph.width/2-(panel.bounds.x+panel.bounds.width/2))<1,'MAIN_TITLE_NOT_CENTERED');
@@ -81,7 +81,7 @@ try{
       await page.waitForFunction(()=>['ready','error'].includes(document.getElementById('status')?.dataset.state));
       assert.equal(await page.locator('#status').getAttribute('data-state'),'ready');assert.equal(await page.locator('#panel-title').textContent(),bundle.spec.title);
       assert.deepEqual(await state(),bundle.state);checks.push('mount-exact-saved-state');
-      await checkTitleCenter(bundle);if(['0.32.0','0.33.0','0.34.0','0.35.0','0.36.0'].includes(bundle.compilerVersion))checks.push('measured-title-center');
+      await checkTitleCenter(bundle);if(['0.32.0','0.33.0','0.34.0','0.35.0','0.36.0','0.37.0','0.38.0','0.39.0','0.40.0','0.41.0','0.42.0','0.43.0','0.44.0','0.45.0'].includes(bundle.compilerVersion))checks.push('measured-title-center');
       const spec=bundle.spec,rows=spec.sections.flatMap(section=>section.rows),fields=new Map(spec.state.map(field=>[field.id,field]));
       if(['common-panels-v1','common-panels-fix-v1','panel-stability-v1','panel-stability-fix-v1','panel-copy-fix-v1','panel-compact-message-v1'].includes(report.cohort)){
         initialPresentation=observeInitialPanel(bundle,await inspect(),await state());

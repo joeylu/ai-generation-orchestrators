@@ -5,6 +5,34 @@
 
 ## 从这里开始
 
+- [任务缺省目标与阶段收尾](docs/card-target-real-results-2026-10-15.md)：两次真实复测均交付；默认任务三列1000宽、明确手机单列420宽。结合前批共七次，六份最新原始样本逐项可审阅。
+
+- [多卡片按内容展开](docs/card-composition-results-2026-10-15.md)：新规划预设，商店三列1000宽、任务两列700宽；其余8份保持，2125项回归及28屏验收通过，新增模型0次。
+
+- [条目分组10条真实复测](docs/item-groups-real-results-2026-10-15.md)：Compiler0.45，10次调用、10份交付、零重试；原始结果与验收分别保留，COMPLETE_WITH_FINDINGS。
+
+- [同一条目共用底板](docs/item-groups-results-2026-10-15.md)：默认0.45，商品名称、价格和购买按钮归成一组；10份同源离线验收、2112项回归通过，新增模型0次。
+
+- [数据底板10条真实复测](docs/data-item-panels-real-results-2026-10-15.md)：Compiler0.44，10次调用、10份交付、零重试；原始结果与验收分别保留，COMPLETE_WITH_FINDINGS。
+
+- [每条数据独立底板](docs/data-item-panels-results-2026-10-15.md)：新默认0.44，标签和值共用内层Panel；10份同源样本、34屏、30组点击和2094项回归通过，新增模型0次。
+
+- [数据行排版修复](docs/readable-data-fix-results-2026-10-15.md)：新默认0.43，商店571→420、结算490→420；原文与不换行保留，其余8份画面结构不变；30屏与2079项测试通过，新增模型0次。
+
+- [新默认规则10条真实复测](docs/grouped-readable-ten-real-results-2026-10-15.md)：10次调用、零重试；原始结果和完整验收分别保留，整体COMPLETE_WITH_FINDINGS。
+
+- [十个面板的宽度与分组修复](docs/grouped-readable-fixes-2026-10-15.md)：默认规则0.42，商店／成就收至420、长选项完整换行、数据文字组也有底板；同源离线对照，新增模型0次，2064项测试通过。
+
+- [10条短口令原始真实样本](docs/section-panels-ten-real-results-2026-10-15.md)：10次调用全部交付、零重试，77项交互和SDK精确重开通过；30屏检查发现商店／成就偏宽字小，设置分组粗，原样保留供审阅。
+
+- [同类内容共用分组底板](docs/section-panels-2026-10-15.md)：音频／画面等内容组由一个真实Panel包住标题、标签和控件，组内不再叠标题小框；简短弹窗和操作区保持简洁，本轮模型0次。
+
+- [主标题与分组标题默认Panel](docs/heading-panels-2026-10-15.md)：新生成采用真实Panel → Text结构，统一底色、边框和留白；正文及控件标签保持原样，旧包不自动迁移，本轮真实调用0。
+
+- [混合设置排版4条真实复测](docs/readable-layout-real-results-2026-10-15.md)：4次调用、4份原始交付、零重试；34项浏览器、12屏标题、12屏字号、12组操作及491份来源／收据／ZIP审计通过。固定SDK精确重开4份实际包并通过另34项浏览器，rc.7尚未发布。
+- [分组标题4条真实结果与混合设置修正](docs/content-heading-real-results-2026-10-15.md)：4次调用、3份交付、设置宽度失败1项；新0.39离线修复通过2028项回归、11份129项浏览器及36屏标题／字号、33组操作，后续新授权的4条真实复测已单独通过，原失败保留。
+- [内容组与操作组标题修正](docs/content-heading-results-2026-10-15.md)：此前v5排除独立按钮组，修正背包重复小标题，保留多内容组和明确标题；2012项回归、11类36屏及安装包验收通过，新增真实调用0。
+- [游戏面板可读性8条真实复测](docs/readable-game-real-results-2026-10-15.md)：8份原始交付、0重试，宽度／字号与66项浏览器、24屏字号、24组操作及完整性审计通过；背包一处重复标题独立记录。[SDK rc.7候选](docs/sdk-rc7.md)尚未发布，旧包保持原样。
 - [简短口令默认与 SDK rc.6](docs/sdk-rc6.md)：新生成使用简洁标题和紧凑确认正文，Studio／SDK 共用提示规则；旧包保持。
 - [选择默认项4条真实复测](docs/daily-choice-fix-results-2026-10-15.md)：背包、设置、角色、商店原短口令全部交付，34项浏览器、4份窄屏交互与完整性审计通过；1981项离线回归通过。
 - [16 种组件完整生成链路](docs/all-components.md)：CheckBox、RadioGroup、List、Dialog 等全部纳入真实 Panel 节点。
@@ -55,7 +83,7 @@
 当前默认链路的[五类代表面板对照](docs/panel-samples.md)包含10份浅深色可试玩夹具：声音设置、创建角色、角色卡片、下载进度、综合页签。44项实际浏览器检查及1523项回归通过，真实模型调用0；视觉效果和真实输入理解仍需分别验收。
 
 Studio首页保留需求描述、生成按钮、修改要求和修改按钮；右侧是实际Pixi交互预览。
-此前默认目录为 `modern-centered-cards`，随后升级到 [modern-all-components](docs/all-components.md)；当前新生成使用 [modern-compact-message](docs/sdk-rc6.md)。此前版本，沿用 `modern-image-slots` 的颜色、配方、[静态图片槽](docs/image-slots.md)和[版本化分组标题展示](docs/section-headings.md)，增加[图片卡片文字居中](docs/card-alignment.md)。卡片名称与缺图提示和按钮共用中心线，设置与表单字段保持左对齐；1537项回归及26项实际浏览器检查通过，本轮模型调用0。单组单控件收起额外标题和占位，多组及Tabs保留，明确要求显示时可选择匹配主题。旧面板保持原目录和编译版本。新增[24种输入场景](docs/input-coverage-v2.md)为夹具覆盖，真实理解效果未新验收。下列美术试稿记录中的“未改默认”描述其各自执行时状态；已发布 SDK 不随工作区源码更新。
+此前默认目录为 `modern-centered-cards`，随后升级到 [modern-all-components](docs/all-components.md)及 [modern-compact-message](docs/sdk-rc6.md)；当前源码候选的新生成使用 [modern-readable-game-item-groups](docs/sdk-rc7.md)，已发布rc.6保持其原目录。此前版本，沿用 `modern-image-slots` 的颜色、配方、[静态图片槽](docs/image-slots.md)和[版本化分组标题展示](docs/section-headings.md)，增加[图片卡片文字居中](docs/card-alignment.md)。卡片名称与缺图提示和按钮共用中心线，设置与表单字段保持左对齐；1537项回归及26项实际浏览器检查通过，本轮模型调用0。单组单控件收起额外标题和占位，多组及Tabs保留，明确要求显示时可选择匹配主题。旧面板保持原目录和编译版本。新增[24种输入场景](docs/input-coverage-v2.md)为夹具覆盖，真实理解效果未新验收。下列美术试稿记录中的“未改默认”描述其各自执行时状态；已发布 SDK 不随工作区源码更新。
 用户认为该版美术仍一般；最新[声音设置美术试稿](docs/crafted-audio-study.md)参考Impeccable，提供薄荷紧凑、温润留白、横向分栏三款可试玩候选及浅深色切换。首稿获“有好一些”反馈，尚未选定或替换日常默认主题。
 上述三款是视觉变体；[不同 Skill 独立对照](docs/art-skill-comparison.md)现已完成 frontend-design / Taste / Impeccable 三次独立真实调用，6份浅深色结果及20组汇总检查通过。入口 `output/skill-art-real-v2/review/index.html`，先匿名比较、可显示名称；未设为默认主题，审美效果待用户选择。此前schema失败原记录保留。
 用户认为三种结果基本相同，继续提出布局与Apple方向；新增[Apple风格分组布局试稿](docs/apple-grouped-layout.md)，将音量、静音与恢复默认分组，提供浅深色实际Pixi与离线包。入口 `output/apple-grouped-audio-review-v3/review/index.html`；本轮模型调用0，未设为日常默认。
@@ -129,3 +157,5 @@ node scripts/serve-workbench.mjs --workbench output/my-studio --output-root outp
 Studio每个面板最多成功修改10轮，失败、澄清与无需修改不计数；撤销、恢复旧版本和同地址重新打开同一面板不返还轮次，成功生成新面板后重新开始。高级属性和补丁入口共用上限；达到上限仍可试玩、撤销和导出，无redo。Studio自动保存需求/修改草稿、轮次、最近面板和试玩值，跨刷新最多保留8个面板版本；容量不足时减少旧版本。入口在「面板操作 → 历史版本与本机存档」。记录仅限当前浏览器与地址，长期备份仍应导出；撤销栈、未完成的生成和方案上下文不跨刷新恢复。详见[Studio本机保存](docs/studio-storage.md)。
 默认值存于PanelSpec，试玩值存于PanelBundle，恢复默认才应用创作初值。
 `output/`、`.tmp/`、浏览器结果和模型运行记录保持为忽略的本地产物；源码提交不包含机器配置、认证文件或临时代理设置。
+
+- [多卡片与成就五条真实复测](docs/card-content-real-results-2026-10-15.md)：五次交付，成就内容完整；任务仍窄，发现保留。

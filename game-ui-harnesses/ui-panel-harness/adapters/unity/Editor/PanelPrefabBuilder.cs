@@ -469,7 +469,7 @@ namespace GameUi.PanelHarness.Editor
                 else if (field.type == "enum")
                 {
                     HashSet<string> options = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (PanelOption option in field.options) if (option == null || !ValidId(option.id) || !options.Add(option.id) || !ValidText(option.label, 120) || string.IsNullOrWhiteSpace(option.label)) throw new InvalidDataException("PANEL_IMPORT_ENUM_OPTION");
+                    foreach (PanelOption option in field.options) if (option == null || !ValidId(option.id) || !options.Add(option.id) || !ValidChoiceText(option.label) || string.IsNullOrWhiteSpace(option.label)) throw new InvalidDataException("PANEL_IMPORT_ENUM_OPTION");
                     if (options.Count < 1 || !options.Contains(field.initialString) || !options.Contains(field.stringValue)) throw new InvalidDataException("PANEL_IMPORT_ENUM_VALUE");
                 }
                 else if (field.type == "string")
@@ -1043,6 +1043,9 @@ namespace GameUi.PanelHarness.Editor
         private static bool ValidNumber(PanelField field, double value) { return Finite(value) && value >= field.min && value <= field.max && IsInteger((value - field.min) / field.step); }
         private static bool ValidProgress(PanelField field, double value) { return Finite(value) && value >= 0 && value <= field.max; }
         private static bool ValidText(string value, int maximum) { return value != null && value.Length <= maximum && !value.Any(character => char.IsControl(character)); }
+        // The 0.42 compiler inserts display-only LF into complete choice labels.
+        // Bound source text independently; other control characters remain invalid.
+        private static bool ValidChoiceText(string value) { return value != null && value.Replace("\n", "").Length <= 120 && !value.Any(character => char.IsControl(character) && character != '\n'); }
         private static Color ParseColor(string value, float opacity) { Color color; ColorUtility.TryParseHtmlString(value, out color); color.a = opacity; return color; }
         private static uint ReadBigEndian(byte[] bytes, int offset) { return ((uint)bytes[offset] << 24) | ((uint)bytes[offset + 1] << 16) | ((uint)bytes[offset + 2] << 8) | bytes[offset + 3]; }
         private static string Hash(byte[] bytes) { using (SHA256 sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant(); }

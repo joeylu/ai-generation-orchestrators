@@ -3,7 +3,21 @@ import { resolveTheme } from './catalog.mjs';
 
 /** Versioned presentation only. Semantic titles and tab labels remain intact. */
 export function sectionHeadingVisible(spec, section, headingStyle, legacyVisible = true) {
-  if (['visible-v1','visible-v2','visible-v3','visible-v4'].includes(headingStyle)) return true;
+  if (['visible-v1','visible-v2','visible-v3','visible-v4','visible-v5','visible-v6'].includes(headingStyle)) return true;
+  if(headingStyle==='concise-v6'){
+    // Exact data already names this group. Keep its authored title and data intact.
+    // Explicit visible-v6 overrides this; no entity inference or language matching.
+    if(!section.rows.some(row=>row.kind==='image')&&section.rows.some(row=>row.kind==='text'&&row.recipe.id==='settings.text'&&(section.title===row.label||section.title===row.text)))return false;
+    return sectionHeadingVisible(spec,section,'concise-v5',legacyVisible);
+  }
+  if(headingStyle==='concise-v5'){
+    if(section.rows.every(row=>row.kind==='button'))return false;
+    const page=spec.tabs?.pages.find(page=>page.sections.includes(section.id));
+    if(spec.tabs&&!page)return legacyVisible;
+    const content=spec.sections.filter(group=>(!page||page.sections.includes(group.id))&&!group.rows.every(row=>row.kind==='button'));
+    const heading=value=>value.trim().replace(/(?:界面|面板)$/,'');
+    return content.length>1&&heading(section.title)!==heading(spec.title)&&(!page||heading(section.title)!==heading(page.label));
+  }
   if(headingStyle==='concise-v4'){
     if(section.rows.every(row=>row.kind==='button'))return false;
     if(!spec.tabs)return spec.sections.length!==1;
@@ -25,7 +39,7 @@ export function sectionHeadingVisible(spec, section, headingStyle, legacyVisible
 /** Explicit adoption can change only the heading policy of an otherwise equal theme. */
 export function headingThemeTarget(spec, sourceCatalog, targetCatalog, mode) {
   if (!['auto', 'show'].includes(mode)) throw new Error('HEADING_MODE_INVALID');
-  const policies = mode === 'show' ? ['visible-v4','visible-v3','visible-v2','visible-v1'] : ['concise-v4','concise-v3','concise-v2','concise-v1'];
+  const policies = mode === 'show' ? ['visible-v6','visible-v5','visible-v4','visible-v3','visible-v2','visible-v1'] : ['concise-v6','concise-v5','concise-v4','concise-v3','concise-v2','concise-v1'];
   const visual = ({ version, headingStyle, ...theme }) => {
     // Image cards are a 0.15 presentation feature. Older Specs cannot contain
     // those rows; their explicit heading adoption retains its original geometry.

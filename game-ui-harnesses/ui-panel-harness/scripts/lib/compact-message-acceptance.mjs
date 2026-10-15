@@ -4,7 +4,7 @@ import {controlId} from '../../src/compiler.mjs';
 export async function observeCompactMessage(page,bundle){
   const section=bundle.spec.sections[0],ids=centeredMessageTextIds(bundle),checks=[];
   const check=(code,pass,evidence)=>checks.push({code,status:pass?'PASS':'FAIL',...(evidence===undefined?{}:{evidence})});
-  check('EXPLICIT_COMPACT_MESSAGE_RECIPE_AND_SCOPE',bundle.compilerVersion==='0.36.0'&&compactMessageSection(bundle.spec,section,bundle.catalog));
+  check('EXPLICIT_COMPACT_MESSAGE_RECIPE_AND_SCOPE',['0.36.0','0.37.0','0.38.0','0.39.0','0.40.0','0.41.0','0.42.0','0.43.0','0.44.0','0.45.0'].includes(bundle.compilerVersion)&&compactMessageSection(bundle.spec,section,bundle.catalog));
   const nodes=new Map((await page.evaluate(()=>window.panelDelivery.inspect())).nodes.map(node=>[node.id,node]));
   const bounds=nodes.get(`${bundle.spec.id}.section.${section.id}`)?.bounds,center=bounds?bounds.x+bounds.width/2:null;
   const flatten=node=>[node,...(node.children??[]).flatMap(flatten)],authored=flatten(bundle.componentBundle.document.root);

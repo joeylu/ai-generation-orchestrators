@@ -1,4 +1,9 @@
+import {hasDataItemPanels,isDataItem,DATA_ITEM_PADDING} from './data-item-panels.mjs';
+import {hasAdaptiveGameData,isSingleLineData} from './readable-data.mjs';
+import {sectionHasPanel,SECTION_PANEL_PADDING} from './section-panels.mjs';
+import {hasHeadingPanels,headingPanelHeights} from './heading-panels.mjs';
 import { CONTENT_KINDS, CHOICE_KINDS, choiceLimit } from './component-capabilities.mjs';
+import {isReadableGameTheme,isReadableGameLayoutTheme,hasWrappedGameChoices} from './readable-game.mjs';
 /** Typed natural-language intent. Programs own geometry/bindings; Agents own explicit business facts. */
 import { snapshotJson, validatePanelSpec } from './spec.mjs';
 import { validatePlanningContext } from './planning-context.mjs';
@@ -401,13 +406,21 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
   for (const key of ['width', 'canvasWidth', 'canvasHeight', 'maxHeight']) if (settings[key] !== null && (!Number.isInteger(settings[key]) || settings[key] < 1 || settings[key] > 4096)) fail('integer', `$.panel.layout.${key}`);
   if (!['auto', 'scroll', 'error'].includes(settings.overflow)) fail('INTENT_FIELDS', '$.panel.layout.overflow');
   const rows = spec.sections.flatMap(section => section.rows), tokens = panelThemeTokens(spec,theme), size = tokens.fontSize;
-  const polishedMenu = theme.surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec);
+  const polishedMenu = theme.surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec),readable=isReadableGameTheme(theme);
   const adaptive = theme.visualStyle === 'modern-v3';
   const focused = theme.presentationStyle === 'focused-v1', minimal = ['minimal-v1','minimal-v2','crafted-v1','grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle);
   const purposes = new Map(spec.sections.flatMap(section => section.rows.map(row => [row.id, sectionPurpose(section)])));
-  const labelWidth = Math.max(112, ...rows.filter(row => !['button','image'].includes(row.kind) && !(adaptive && row.kind === 'input' && purposes.get(row.id) === 'form')).map(row => conservativeTextWidth(row.label, size) + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0)));
+  const labelWidth = Math.max(112, ...rows.filter(row => !['button','image'].includes(row.kind) && !(hasAdaptiveGameData(theme)&&row.kind==='text') && !(adaptive && row.kind === 'input' && purposes.get(row.id) === 'form') && !(readable&&(['radio','list'].includes(row.kind)||hasTextWrap(spec,row.id)))).map(row => conservativeTextWidth(row.label, size) + (spec.assets?.rowIcons.some(icon => icon.rowId === row.id) ? 40 : 0)));
   const fields = new Map(spec.state.map(field => [field.id, field]));
   const rowWidths = rows.map(row => {
+    // Choice labels sit above their viewport; wrapping copy also owns its whole row.
+    // The old estimator added a second label column and widened the complete panel.
+    if(sectionHasPanel(spec.sections.find(section=>section.rows.includes(row)),theme)&&['slider','progress'].includes(row.kind)){const value=row.kind==='progress'?progressValueWidth(row,fields.get(row.bind),size):Math.max(96,size*4);return Math.max(280,conservativeTextWidth(row.label,size)+(spec.assets?.rowIcons.some(icon=>icon.rowId===row.id)?40:0)+value+16);}
+    if(hasDataItemPanels(theme)&&isDataItem(row,catalog)){const inset=spec.assets?.rowIcons.some(icon=>icon.rowId===row.id)?40:0;return Math.max(280,conservativeTextWidth(row.label,size)+DATA_ITEM_PADDING*2+inset,hasTextWrap(spec,row.id)?0:conservativeTextWidth(row.text,size)+DATA_ITEM_PADDING*2+inset);}
+    if(hasAdaptiveGameData(theme)&&isSingleLineData(spec,row,catalog)){const inset=spec.assets?.rowIcons.some(icon=>icon.rowId===row.id)?40:0;return Math.max(280,conservativeTextWidth(row.label,size)+24+inset,conservativeTextWidth(row.text,size)+24+inset);}
+    if(hasWrappedGameChoices(theme)&&CHOICE_KINDS.includes(row.kind))return Math.max(280,conservativeTextWidth(row.label,size)+24);
+    if(readable&&['radio','list'].includes(row.kind))return Math.max(280,conservativeTextWidth(row.label,size)+24,...fields.get(row.bind).options.map(option=>conservativeTextWidth(option.label,size)+72));
+    if(readable&&hasTextWrap(spec,row.id))return Math.max(280,conservativeTextWidth(row.label,size)+24);
     if(row.kind==='image')return Math.max(280,(row.width==='fill'?presentationImageWidth(row.label,size):row.width)+24);
     if(isMessageText(row,catalog))return Math.max(280,hasTextWrap(spec,row.id)?0:conservativeTextWidth(row.text,size)+24);
     if (focused && row.kind === 'text' && ['form','dialog'].includes(purposes.get(row.id))) return Math.max(280, conservativeTextWidth(row.label,size)+24,hasTextWrap(spec,row.id)?0:conservativeTextWidth(row.text,size)+24);
@@ -425,7 +438,7 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
   const sectionWidths = new Map(spec.sections.map(section => {
     const actions = spec.actionLayouts?.find(value => value.sectionId === section.id);
     const actionWidth = actions ? actions.direction === 'row' ? section.rows.length * actions.buttonWidth + (section.rows.length - 1) * actions.gap : actions.buttonWidth : 0;
-    return [section.id, Math.max(adaptive ? 280 : 320, actionWidth, ...section.rows.map(row => widths.get(row.id)), adaptive && sectionHeadingVisible(spec, section, theme.headingStyle) ? conservativeTextWidth(section.title, theme.tokens.headingSize) : 0)];
+    return [section.id, Math.max(adaptive ? 280 : 320, actionWidth, ...section.rows.map(row => widths.get(row.id)), adaptive && sectionHeadingVisible(spec, section, theme.headingStyle) ? conservativeTextWidth(section.title, theme.tokens.headingSize)+(hasHeadingPanels(theme)?16:0) : 0)+(sectionHasPanel(section,theme)?SECTION_PANEL_PADDING*2:0)];
   }));
   const minWidth = Math.max(...sectionWidths.values(),...rows.filter(row=>row.kind==='dialog').map(row=>row.dialogWidth));
   let counter = 0, count = 0;
@@ -445,18 +458,18 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
     : node.children.reduce((sum, child) => sum + requiredWidth(child), 20 * (node.children.length - 1));
   const tabWidth = spec.tabs ? Math.max(...spec.tabs.pages.map(page => conservativeTextWidth(page.label, size) + 24)) * spec.tabs.pages.length : 0;
   const compact = adaptive && spec.sections.every(section => sectionPurpose(section) !== 'settings');
-  const width = settings.width ?? Math.max(polishedMenu ? 428 : compact ? focused && spec.sections.some(section=>sectionPurpose(section)==='dialog') ? 480 : minimal ? 448 : 420 : minimal ? 560 : 640, requiredWidth(body) + (polishedMenu ? 56 : minimal ? 64 : adaptive ? 48 : 64), tabWidth + 48, adaptive ? conservativeTextWidth(spec.title, tokens.titleSize) + 48 : 0);
+  const width = settings.width ?? Math.max(readable ? polishedMenu ? 360 : 420 : polishedMenu ? 428 : compact ? focused && spec.sections.some(section=>sectionPurpose(section)==='dialog') ? 480 : minimal ? 448 : 420 : minimal ? 560 : 640, requiredWidth(body) + (readable ? 48 : polishedMenu ? 56 : minimal ? 64 : adaptive ? 48 : 64), tabWidth + 48, adaptive ? conservativeTextWidth(spec.title, tokens.titleSize) + 48+(hasHeadingPanels(theme)?16:0) : 0);
   const maxHeight = settings.maxHeight ?? 560;
   // Only Select opens a popup. RadioGroup and List keep their options in the row/viewport.
   // Retain legacy sizing for prior intents; saved specs already contain their exact canvas.
   const popupFields = spec.panelSpecVersion === '0.16'
     ? rows.filter(row=>row.kind==='select').map(row=>fields.get(row.bind))
     : spec.state.filter(field=>field.type==='enum'&&field.id!==spec.tabs?.bind);
-  const popup = Math.max(0, ...popupFields.map(field => field.options.length * 40 + 2));
+  let popup = Math.max(0, ...popupFields.map(field => field.options.length * 40 + 2));
   const dialogClearance = rows.filter(row=>row.kind==='dialog').map(row=>row.dialogHeight+64);
-  spec.canvas = { width: settings.canvasWidth ?? Math.min(4096, width + 64), height: settings.canvasHeight ?? Math.max(640, maxHeight + popup * 2 + 96, ...dialogClearance) };
-  spec.layout = { width, padding: polishedMenu ? 28 : minimal ? 32 : 24, gap: minimal ? 16 : 12, sectionGap: 20, labelWidth, rowHeight: Math.max(!adaptive && rows.some(row => row.kind === 'input') ? 80 : 56, Math.ceil(size * 1.3) + (!adaptive && rows.some(row => row.kind === 'input') ? 48 : 16)),
-    titleHeight: Math.max(polishedMenu ? 34 : adaptive ? 40 : 48, Math.ceil(tokens.titleSize * 1.3)), sectionTitleHeight: Math.max(32, Math.ceil(tokens.headingSize * 1.3)),
+  spec.canvas = { width: settings.canvasWidth ?? Math.min(4096, width + (readable?32:64)), height: settings.canvasHeight ?? Math.max(640, maxHeight + popup * 2 + 96, ...dialogClearance) };
+  spec.layout = { width, padding: readable ? 24 : polishedMenu ? 28 : minimal ? 32 : 24, gap: minimal ? 16 : 12, sectionGap: 20, labelWidth, rowHeight: Math.max(!adaptive && rows.some(row => row.kind === 'input') ? 80 : readable?64:56, Math.ceil(size * 1.3) + (!adaptive && rows.some(row => row.kind === 'input') ? 48 : 16)),
+    titleHeight: hasHeadingPanels(theme)?headingPanelHeights(tokens).title:Math.max(polishedMenu ? 34 : adaptive ? 40 : 48, Math.ceil(tokens.titleSize * 1.3)), sectionTitleHeight: hasHeadingPanels(theme)?headingPanelHeights(tokens).section:Math.max(32, Math.ceil(tokens.headingSize * 1.3)),
     maxHeight, overflow: settings.overflow === 'auto' ? 'scroll' : settings.overflow, body };
   // Full contract/geometry gate; explicit narrow dimensions fail rather than changing business or requested layout.
   let checked = validatePanelSpec(spec);
@@ -464,15 +477,17 @@ export function arrangeIntentSpec(spec, settings, theme, catalog) {
   // Current opt-in heading themes use a measured draft height when neither
   // height is requested. Fixed geometry, explicit scrolling and older themes
   // retain their historical contract; no returned content is rewritten.
-  if(checked.panelSpecVersion==='0.16'&&['concise-v3','visible-v3','concise-v4','visible-v4'].includes(theme.headingStyle)
+  if(checked.panelSpecVersion==='0.16'&&(['concise-v3','visible-v3','concise-v4','visible-v4'].includes(theme.headingStyle)||isReadableGameLayoutTheme(theme))
     &&settings.maxHeight===null&&settings.canvasHeight===null&&settings.overflow==='auto'){
     const probe=structuredClone(checked);probe.canvas.height=4096;probe.layout.maxHeight=4096;
     const natural=measure(probe,createPresentationPolicy(probe,tokens,theme.presentationStyle,theme.surfaceStyle,theme.headingStyle,catalog));
+    if(hasWrappedGameChoices(theme))popup=Math.max(popup,...natural.sections.flatMap(section=>section.presentation.rows.map((place,i)=>spec.sections.find(item=>item.id===section.id).rows[i].kind==='select'?place.controlHeight*fields.get(spec.sections.find(item=>item.id===section.id).rows[i].bind).options.length+2:0)));
     checked.layout.maxHeight=Math.max(checked.layout.maxHeight,Math.ceil(natural.panelHeight));
     checked.canvas.height=Math.max(checked.canvas.height,checked.layout.maxHeight+popup*2+96);
     checked=validatePanelSpec(checked);
   }
   const measured = measure(checked, adaptive ? createPresentationPolicy(checked, tokens, theme.presentationStyle, theme.surfaceStyle, theme.headingStyle, catalog) : undefined);
+  if(hasWrappedGameChoices(theme))popup=Math.max(popup,...measured.sections.flatMap(section=>section.presentation.rows.map((place,i)=>spec.sections.find(item=>item.id===section.id).rows[i].kind==='select'?place.controlHeight*fields.get(spec.sections.find(item=>item.id===section.id).rows[i].bind).options.length+2:0)));
   if (adaptive && settings.canvasHeight === null) {
     checked.canvas.height = Math.max(Math.ceil(measured.panelHeight + 64 + popup * 2),...rows.filter(row=>row.kind==='dialog').map(row=>row.dialogHeight+64));
     checked = validatePanelSpec(checked);

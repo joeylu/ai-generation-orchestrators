@@ -85,15 +85,23 @@ export function validateCatalog(value) {
   array(value.recipes, 'catalog.recipes', 1, 256);
   value.themes.forEach((theme, index) => {
     const path = `catalog.themes[${index}]`;
-    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle', 'controlStyle', 'presentationStyle', 'navigationStyle', 'surfaceStyle', 'iconStyle', 'sliderStyle', 'menuTokens', 'headingStyle', 'cardAlignment']);
+    object(theme, path, ['id', 'version', 'tokens'], ['visualStyle', 'controlStyle', 'presentationStyle', 'navigationStyle', 'surfaceStyle', 'iconStyle', 'sliderStyle', 'menuTokens', 'headingStyle', 'cardAlignment', 'draftSizing', 'headingSurface', 'sectionSurface']);
     identity(theme, path);
+    if(['concise-v6','visible-v6'].includes(theme.headingStyle)&&(theme.draftSizing!=='game-readable-v5'||theme.sectionSurface!=='panel-v2'))fail(`${path}.headingStyle`,'Item group headings require data item and category Panels');
+    if(theme.draftSizing==='game-readable-v5'&&theme.sectionSurface!=='panel-v2')fail(`${path}.draftSizing`,'Data item Panels require the shared panel-v2 category surface');
+    if(Object.hasOwn(theme,'sectionSurface')&&(!['panel-v1','panel-v2'].includes(theme.sectionSurface)||theme.headingSurface!=='panel-v1'))fail(`${path}.sectionSurface`,'panel-v1 content groups require headingSurface panel-v1');
+    if(theme.sectionSurface==='panel-v2'&&!['game-readable-v3','game-readable-v4','game-readable-v5'].includes(theme.draftSizing))fail(`${path}.sectionSurface`,'panel-v2 requires game-readable-v3');
+    if(Object.hasOwn(theme,'headingSurface')&&(theme.headingSurface!=='panel-v1'||!['game-readable-v2','game-readable-v3','game-readable-v4','game-readable-v5'].includes(theme.draftSizing)||!['concise-v5','visible-v5','concise-v6','visible-v6'].includes(theme.headingStyle)))fail(`${path}.headingSurface`,'panel-v1 requires readable-v2 and v5 headings');
+    if(['concise-v5','visible-v5','concise-v6','visible-v6'].includes(theme.headingStyle)&&!['game-readable-v1','game-readable-v2','game-readable-v3','game-readable-v4','game-readable-v5'].includes(theme.draftSizing))fail(`${path}.headingStyle`,'v5 headings require a versioned game-readable profile');
+    if(Object.hasOwn(theme,'draftSizing')&&(!['game-readable-v1','game-readable-v2','game-readable-v3','game-readable-v4','game-readable-v5'].includes(theme.draftSizing)||theme.visualStyle!=='modern-v3'||theme.surfaceStyle!=='minimal-v2'||!['concise-v4','visible-v4','concise-v5','visible-v5','concise-v6','visible-v6'].includes(theme.headingStyle)
+      ||['game-readable-v2','game-readable-v3','game-readable-v4','game-readable-v5'].includes(theme.draftSizing)&&!['concise-v5','visible-v5','concise-v6','visible-v6'].includes(theme.headingStyle)))fail(`${path}.draftSizing`,'Readable sizing requires a compatible versioned minimal game theme');
     if (Object.hasOwn(theme, 'visualStyle') && !['modern-v1', 'modern-v2', 'modern-v3'].includes(theme.visualStyle)) fail(`${path}.visualStyle`, 'unsupported visual style');
     if (Object.hasOwn(theme, 'controlStyle') && (theme.controlStyle !== 'semantic-v1' || theme.visualStyle !== 'modern-v3')) fail(`${path}.controlStyle`, 'semantic-v1 requires modern-v3');
     if (Object.hasOwn(theme, 'presentationStyle') && (theme.presentationStyle !== 'focused-v1' || theme.controlStyle !== 'semantic-v1')) fail(`${path}.presentationStyle`, 'focused-v1 requires semantic-v1 controls');
-    if (Object.hasOwn(theme, 'headingStyle') && (!['concise-v1', 'visible-v1', 'concise-v2', 'visible-v2', 'concise-v3', 'visible-v3', 'concise-v4', 'visible-v4'].includes(theme.headingStyle) || theme.controlStyle !== 'semantic-v1' || theme.surfaceStyle !== 'minimal-v2'))
+    if (Object.hasOwn(theme, 'headingStyle') && (!['concise-v1', 'visible-v1', 'concise-v2', 'visible-v2', 'concise-v3', 'visible-v3', 'concise-v4', 'visible-v4', 'concise-v5', 'visible-v5', 'concise-v6', 'visible-v6'].includes(theme.headingStyle) || theme.controlStyle !== 'semantic-v1' || theme.surfaceStyle !== 'minimal-v2'))
       fail(`${path}.headingStyle`, 'Versioned heading presentation requires semantic-v1 and minimal-v2');
-    if (Object.hasOwn(theme, 'cardAlignment') && (theme.cardAlignment !== 'centered-v1' || !['concise-v2','visible-v2','concise-v3','visible-v3','concise-v4','visible-v4'].includes(theme.headingStyle)))
-      fail(`${path}.cardAlignment`, 'centered-v1 cards require versioned v2 through v4 headings');
+    if (Object.hasOwn(theme, 'cardAlignment') && (theme.cardAlignment !== 'centered-v1' || !['concise-v2','visible-v2','concise-v3','visible-v3','concise-v4','visible-v4','concise-v5','visible-v5','concise-v6','visible-v6'].includes(theme.headingStyle)))
+      fail(`${path}.cardAlignment`, 'centered-v1 cards require versioned v2 through v5 headings');
     if (Object.hasOwn(theme, 'navigationStyle') && (theme.navigationStyle !== 'tabs-v1' || theme.presentationStyle !== 'focused-v1')) fail(`${path}.navigationStyle`, 'tabs-v1 requires focused-v1 presentation');
     if (Object.hasOwn(theme, 'surfaceStyle') && (!['refined-v1','minimal-v1','minimal-v2','crafted-v1','grouped-v1','grouped-v2','grouped-v3'].includes(theme.surfaceStyle) || theme.navigationStyle !== 'tabs-v1')) fail(`${path}.surfaceStyle`, 'Surface styles require tabs-v1 navigation');
     if ((theme.surfaceStyle === 'minimal-v2') !== Object.hasOwn(theme, 'menuTokens')) fail(`${path}.menuTokens`, 'minimal-v2 requires its exact menu token set');

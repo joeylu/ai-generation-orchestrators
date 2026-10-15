@@ -1,0 +1,2531 @@
+{
+  "kind": "PUBLIC_SPECS_FROM_TEN_ORIGINAL_REAL_RESULTS_NO_PROVIDER_TRANSPORT",
+  "catalog": {
+    "catalogVersion": "0.1",
+    "id": "modern-readable-game-section-panels",
+    "themes": [
+      {
+        "id": "modern-mint-light",
+        "version": "0.28.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#157C64",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#157C64",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-mint-dark",
+        "version": "0.28.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#90E6CF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#157C64",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-blue-light",
+        "version": "0.28.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#315FC7",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#0066CC",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-blue-dark",
+        "version": "0.28.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#A0BFFF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#2466C9",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-violet-light",
+        "version": "0.28.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#7051B5",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#6846B7",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-violet-dark",
+        "version": "0.28.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#C9B5FF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#6846B7",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-orange-light",
+        "version": "0.28.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#A85218",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#A95600",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-orange-dark",
+        "version": "0.28.0",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#FFBD86",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#A95600",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "concise-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-mint-light",
+        "version": "0.28.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#157C64",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#157C64",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-mint-dark",
+        "version": "0.28.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#90E6CF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#157C64",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-blue-light",
+        "version": "0.28.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#315FC7",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#0066CC",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-blue-dark",
+        "version": "0.28.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#A0BFFF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#2466C9",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-violet-light",
+        "version": "0.28.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#7051B5",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#6846B7",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-violet-dark",
+        "version": "0.28.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#C9B5FF",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#6846B7",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-orange-light",
+        "version": "0.28.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#EDF2F0",
+          "surface": "#FFFFFF",
+          "control": "#F3F7F5",
+          "accent": "#A85218",
+          "text": "#20332E",
+          "muted": "#5B7069",
+          "border": "#C4D3CD",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#E9EBEF",
+          "surface": "#FDFDFE",
+          "control": "#F0F1F4",
+          "accent": "#A95600",
+          "text": "#23262C",
+          "muted": "#5E626C",
+          "border": "#D4D7DE",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      },
+      {
+        "id": "modern-orange-dark",
+        "version": "0.28.1",
+        "visualStyle": "modern-v3",
+        "tokens": {
+          "background": "#101719",
+          "surface": "#1A2427",
+          "control": "#121C1F",
+          "accent": "#FFBD86",
+          "text": "#EDF5F3",
+          "muted": "#A5B9B4",
+          "border": "#35494A",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 16
+        },
+        "controlStyle": "semantic-v1",
+        "presentationStyle": "focused-v1",
+        "navigationStyle": "tabs-v1",
+        "surfaceStyle": "minimal-v2",
+        "menuTokens": {
+          "background": "#101216",
+          "surface": "#24272D",
+          "control": "#343840",
+          "accent": "#A95600",
+          "text": "#F5F6F8",
+          "muted": "#C3C7D0",
+          "border": "#454A54",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "titleSize": 32,
+          "spacing": 16,
+          "radius": 20
+        },
+        "headingStyle": "visible-v5",
+        "cardAlignment": "centered-v1",
+        "draftSizing": "game-readable-v2",
+        "headingSurface": "panel-v1",
+        "sectionSurface": "panel-v1"
+      }
+    ],
+    "recipes": [
+      {
+        "id": "settings.panel",
+        "version": "0.1.0",
+        "kind": "panel",
+        "description": "自有程序化设置面板，包含标题及纵向内容区域。Procedural settings panel with a title and vertical content.",
+        "tags": [
+          "设置面板",
+          "设置页",
+          "settings panel",
+          "settings",
+          "panel"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 320,
+        "minHeight": 160
+      },
+      {
+        "id": "settings.section",
+        "version": "0.1.0",
+        "kind": "section",
+        "description": "自有程序化设置分组，包含分组标题和设置行。Procedural titled section for related settings rows.",
+        "tags": [
+          "设置分组",
+          "分组",
+          "section",
+          "group"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 80
+      },
+      {
+        "id": "settings.slider",
+        "version": "0.1.0",
+        "kind": "slider-row",
+        "description": "自有程序化数值设置行，组合标签、滑条和数值文字，适用于音量等有界数值。Procedural labeled slider with a value readout.",
+        "tags": [
+          "音量",
+          "声音大小",
+          "响度",
+          "滑条",
+          "百分比",
+          "volume",
+          "loudness",
+          "slider",
+          "range"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "dragging",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.switch",
+        "version": "0.1.0",
+        "kind": "switch-row",
+        "description": "自有程序化布尔设置行，组合标签与开关；开关含义由面板方案显式声明。Procedural labeled switch for an explicit boolean setting.",
+        "tags": [
+          "声音开关",
+          "开关",
+          "启用声音",
+          "静音",
+          "布尔",
+          "mute",
+          "toggle",
+          "switch",
+          "sound enabled"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "checked",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.select",
+        "version": "0.1.0",
+        "kind": "select-row",
+        "description": "自有程序化枚举设置行，组合标签与下拉菜单，适用于明确的画质档位等有限选项。Procedural labeled select for explicit enumerated settings.",
+        "tags": [
+          "画质",
+          "画质档位",
+          "下拉",
+          "选项",
+          "选择",
+          "quality",
+          "dropdown",
+          "select"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "settings.text",
+        "version": "0.1.0",
+        "kind": "text-row",
+        "description": "自有程序化只读信息行，组合标签与单行文字，不绑定可变状态，不发出事件。Procedural read-only labeled text for character and summary information.",
+        "tags": [
+          "角色信息",
+          "信息",
+          "文本",
+          "只读",
+          "character",
+          "text",
+          "information"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 240,
+        "minHeight": 40
+      },
+      {
+        "id": "settings.progress",
+        "version": "0.1.0",
+        "kind": "progress-row",
+        "description": "只读确定进度加载条，由宿主更新连续数值，支持百分比或实际数值显示。Read-only determinate host-owned loading/progress bar.",
+        "tags": [
+          "加载条",
+          "加载",
+          "进度条",
+          "进度",
+          "loading",
+          "progress",
+          "下载",
+          "资源加载"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 40
+      },
+      {
+        "id": "navigation.tabs",
+        "version": "0.1.0",
+        "kind": "tabs",
+        "description": "Horizontal tabs with persistent page state and independent scroll content.",
+        "tags": [
+          "页签",
+          "分页",
+          "标签页",
+          "选项卡",
+          "tabs",
+          "tab",
+          "分类",
+          "声音",
+          "画面"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 104
+      },
+      {
+        "id": "forms.input",
+        "version": "0.1.0",
+        "kind": "input-row",
+        "description": "单行文本输入及必填和最短长度校验，支持角色命名、兑换码与搜索。Single-line text/password entry with bounded validation.",
+        "tags": [
+          "输入框",
+          "文本输入",
+          "角色命名",
+          "名字",
+          "昵称",
+          "兑换码",
+          "搜索",
+          "input",
+          "text entry",
+          "form",
+          "name"
+        ],
+        "states": [
+          "idle",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 72
+      },
+      {
+        "id": "settings.button.primary",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit primary visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "primary"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "primary"
+      },
+      {
+        "id": "settings.button.secondary",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit secondary visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "secondary"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "secondary"
+      },
+      {
+        "id": "settings.button.danger",
+        "version": "0.1.0",
+        "kind": "button-row",
+        "description": "Explicit danger visual role. Appearance only; independent of label, action and events.",
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "danger"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56,
+        "buttonRole": "danger"
+      },
+      {
+        "id": "content.image",
+        "version": "0.1.0",
+        "kind": "image-row",
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 16,
+        "minHeight": 16,
+        "description": "Static content image or labeled placeholder. No state or event.",
+        "tags": [
+          "图片",
+          "图像",
+          "肖像",
+          "头像",
+          "立绘",
+          "图片槽",
+          "角色卡",
+          "portrait",
+          "image",
+          "illustration"
+        ]
+      },
+      {
+        "id": "content.checkbox",
+        "version": "0.1.0",
+        "kind": "checkbox-row",
+        "description": "Checkbox with explicit state and events.",
+        "tags": [
+          "复选框",
+          "checkbox"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "content.radio",
+        "version": "0.1.0",
+        "kind": "radio-row",
+        "description": "Radio group with explicit state and events.",
+        "tags": [
+          "单选按钮组",
+          "radio"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "content.list",
+        "version": "0.1.0",
+        "kind": "list-row",
+        "description": "Selectable list with explicit state and events.",
+        "tags": [
+          "动态列表",
+          "列表组件",
+          "list"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "content.dialog",
+        "version": "0.1.0",
+        "kind": "dialog-row",
+        "description": "Modal dialog with explicit state and events.",
+        "tags": [
+          "模态弹窗",
+          "dialog"
+        ],
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 280,
+        "minHeight": 56
+      },
+      {
+        "id": "message.text",
+        "version": "0.2.0",
+        "kind": "text-row",
+        "description": "Compact standalone message prose with hidden semantic row label; short prose and the action group are centered, long or multi-paragraph prose stays left-aligned.",
+        "tags": [
+          "正文",
+          "确认",
+          "消息",
+          "段落",
+          "无标签",
+          "message",
+          "confirmation",
+          "body",
+          "prose"
+        ],
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "minWidth": 240,
+        "minHeight": 24,
+        "labelDisplay": "hidden",
+        "messageLayout": "compact-centered-v1"
+      }
+    ],
+    "version": "0.1.0"
+  },
+  "records": [
+    {
+      "id": "G03",
+      "sourceSha256": "8bf4a53e2bb002fdb8d35516f44abb93aed33bdb834265fd87cfa3c6af881915",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 980,
+          "width": 452
+        },
+        "frame": null,
+        "id": "G03",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 672,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "format": {
+                  "fractionDigits": 0,
+                  "prefix": "",
+                  "suffix": "%"
+                },
+                "id": "row0",
+                "kind": "slider",
+                "label": "音乐音量",
+                "recipe": {
+                  "id": "settings.slider",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "bind": "row1",
+                "enabled": true,
+                "event": "panel.row1",
+                "format": {
+                  "fractionDigits": 0,
+                  "prefix": "",
+                  "suffix": "%"
+                },
+                "id": "row1",
+                "kind": "slider",
+                "label": "音效音量",
+                "recipe": {
+                  "id": "settings.slider",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "bind": "row2",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "select",
+                "label": "画面质量",
+                "recipe": {
+                  "id": "settings.select",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "bind": "row3",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "switch",
+                "label": "全屏",
+                "recipe": {
+                  "id": "settings.switch",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "fields": [
+                    "row0",
+                    "row1",
+                    "row2",
+                    "row3"
+                  ],
+                  "kind": "reset-initial"
+                },
+                "buttonLabel": "恢复默认",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "应用设置",
+                "enabled": true,
+                "event": "panel.row5",
+                "id": "row5",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "设置"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": 70,
+            "max": 100,
+            "min": 0,
+            "step": 1,
+            "type": "number"
+          },
+          {
+            "id": "row1",
+            "initial": 80,
+            "max": 100,
+            "min": 0,
+            "step": 1,
+            "type": "number"
+          },
+          {
+            "id": "row2",
+            "initial": "option1",
+            "options": [
+              {
+                "id": "option0",
+                "label": "低"
+              },
+              {
+                "id": "option1",
+                "label": "中"
+              },
+              {
+                "id": "option2",
+                "label": "高"
+              }
+            ],
+            "type": "enum"
+          },
+          {
+            "id": "row3",
+            "initial": false,
+            "type": "boolean"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.28.0"
+        },
+        "title": "设置",
+        "titleBar": null
+      },
+      "state": {
+        "row0": 70,
+        "row1": 80,
+        "row2": "option1",
+        "row3": false
+      }
+    },
+    {
+      "id": "G22",
+      "sourceSha256": "9ae1dcdea2118dbcb18a34aae4722379f165c47609e07d9c67e4c49e39df2f18",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 636,
+          "width": 452
+        },
+        "frame": null,
+        "id": "G22",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 572,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "itemHeight": 40,
+                "kind": "list",
+                "label": "物品（样例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 5
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "使用",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "整理",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "背包"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "样例：生命药水 ×3"
+              },
+              {
+                "id": "option1",
+                "label": "样例：木材 ×12"
+              },
+              {
+                "id": "option2",
+                "label": "样例：铁矿 ×5"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.28.0"
+        },
+        "title": "背包",
+        "titleBar": null
+      },
+      "state": {
+        "row0": "option0"
+      }
+    },
+    {
+      "id": "G17",
+      "sourceSha256": "68ece92a59bbdbcf7bfc227a990f38947b30ee2f2f8b079ddd9cd5e8c533368c",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 776,
+          "width": 452
+        },
+        "frame": null,
+        "id": "G17",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 712,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "fit": "contain",
+                "height": 180,
+                "id": "row0",
+                "kind": "image",
+                "label": "角色立绘占位",
+                "recipe": {
+                  "id": "content.image",
+                  "version": "0.1.0"
+                },
+                "source": null,
+                "width": "fill"
+              },
+              {
+                "bind": "row1",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "itemHeight": 48,
+                "kind": "list",
+                "label": "选择角色",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 3
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "确认选择",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "返回",
+                "enabled": true,
+                "event": "panel.row3",
+                "id": "row3",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "角色选择"
+          }
+        ],
+        "state": [
+          {
+            "id": "row1",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "角色 A（占位）"
+              },
+              {
+                "id": "option1",
+                "label": "角色 B（占位）"
+              },
+              {
+                "id": "option2",
+                "label": "角色 C（占位）"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.28.0"
+        },
+        "title": "角色选择",
+        "titleBar": null
+      },
+      "state": {
+        "row1": "option0"
+      }
+    },
+    {
+      "id": "G25",
+      "sourceSha256": "18ab961583e766185548651c9d5a2d6d0ceba64c927b7da77e6b2f80cbe35032",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 604,
+          "width": 795
+        },
+        "frame": null,
+        "id": "G25",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 212,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 763
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "kind": "select",
+                "label": "选择商品（样例）",
+                "recipe": {
+                  "id": "settings.select",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "购买",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "游戏商店"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "生命药水 · 50金币（样例）"
+              },
+              {
+                "id": "option1",
+                "label": "体力补给 · 80金币（样例）"
+              },
+              {
+                "id": "option2",
+                "label": "外观染料 · 120金币（样例）"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.28.0"
+        },
+        "title": "游戏商店",
+        "titleBar": null
+      },
+      "state": {
+        "row0": "option0"
+      }
+    },
+    {
+      "id": "G14",
+      "sourceSha256": "37a33753880420e2f28f4903679b41cdd0a01dab4dec0d7d66b77b9799736e03",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 580,
+          "width": 452
+        },
+        "frame": null,
+        "id": "G14",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "itemHeight": 56,
+                "kind": "list",
+                "label": "任务（示例）",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 4
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "查看详情",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "任务列表"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "【示例】完成3场对局"
+              },
+              {
+                "id": "option1",
+                "label": "【示例】收集10枚徽章"
+              },
+              {
+                "id": "option2",
+                "label": "【示例】通过训练关卡"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.28.0"
+        },
+        "title": "任务列表",
+        "titleBar": null
+      },
+      "state": {
+        "row0": "option0"
+      }
+    },
+    {
+      "id": "G16",
+      "sourceSha256": "80f1fc969b663948d720ce8c8e7b32a66c130f1fc3bc3e457a69af7e305e2bb7",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 524,
+          "width": 541
+        },
+        "frame": null,
+        "id": "G16",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 509
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "bind": "row0",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "itemHeight": 56,
+                "kind": "list",
+                "label": "成就列表",
+                "recipe": {
+                  "id": "content.list",
+                  "version": "0.1.0"
+                },
+                "visibleItems": 3
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "查看详情",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "成就"
+          }
+        ],
+        "state": [
+          {
+            "id": "row0",
+            "initial": "option0",
+            "options": [
+              {
+                "id": "option0",
+                "label": "示例 · 首次胜利 — 0/1"
+              },
+              {
+                "id": "option1",
+                "label": "示例 · 收集新手 — 3/10"
+              },
+              {
+                "id": "option2",
+                "label": "示例 · 持之以恒 — 2/7"
+              }
+            ],
+            "type": "enum"
+          }
+        ],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-blue-dark",
+          "version": "0.28.0"
+        },
+        "title": "成就",
+        "titleBar": null
+      },
+      "state": {
+        "row0": "option0"
+      }
+    },
+    {
+      "id": "G31",
+      "sourceSha256": "3ef21f5d3962dde8e8f977298af2ca558db887a16b59f342ae886c2a8e4c01f8",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 368,
+          "width": 452
+        },
+        "frame": null,
+        "id": "G31",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "奖励预览",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "示例奖励：金币 ×100"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "签到",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "每日签到"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row0",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.28.0"
+        },
+        "title": "每日签到",
+        "titleBar": null
+      },
+      "state": {}
+    },
+    {
+      "id": "G06",
+      "sourceSha256": "fee9096eda3cadef8b92459dda299893d9ace0e59918efc35a458aa92f505529",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 816,
+          "width": 452
+        },
+        "frame": null,
+        "id": "G06",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 752,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "关卡（示例）",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "第 1 关（示例）"
+              },
+              {
+                "id": "row1",
+                "kind": "text",
+                "label": "通关状态",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "已通关（示例）"
+              },
+              {
+                "id": "row2",
+                "kind": "text",
+                "label": "用时（示例）",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "04:32（示例）"
+              },
+              {
+                "id": "row3",
+                "kind": "text",
+                "label": "得分（示例）",
+                "recipe": {
+                  "id": "settings.text",
+                  "version": "0.1.0"
+                },
+                "text": "12,840（示例）"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "下一关",
+                "enabled": true,
+                "event": "panel.row4",
+                "id": "row4",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "再玩一次",
+                "enabled": true,
+                "event": "panel.row5",
+                "id": "row5",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "返回大厅",
+                "enabled": true,
+                "event": "panel.row6",
+                "id": "row6",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "通关结算"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row0",
+            "wrap": "word"
+          },
+          {
+            "rowId": "row1",
+            "wrap": "word"
+          },
+          {
+            "rowId": "row2",
+            "wrap": "word"
+          },
+          {
+            "rowId": "row3",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-orange-dark",
+          "version": "0.28.0"
+        },
+        "title": "通关结算",
+        "titleBar": null
+      },
+      "state": {}
+    },
+    {
+      "id": "G05",
+      "sourceSha256": "d5a8788294c70bd5ea1e1122cbb4f47e33e9dee551ff17ab89a2d6ba2a5a9fb8",
+      "spec": {
+        "actionLayouts": [
+          {
+            "align": "center",
+            "buttonHeight": 56,
+            "buttonWidth": 280,
+            "direction": "column",
+            "gap": 12,
+            "sectionId": "section0",
+            "shape": "default"
+          }
+        ],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 384,
+          "width": 392
+        },
+        "frame": null,
+        "id": "G05",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 360
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "继续游戏",
+                "enabled": true,
+                "event": "panel.row0",
+                "id": "row0",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "设置",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "返回主菜单",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "暂停"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [],
+        "theme": {
+          "id": "modern-mint-dark",
+          "version": "0.28.0"
+        },
+        "title": "暂停",
+        "titleBar": null
+      },
+      "state": {}
+    },
+    {
+      "id": "G54",
+      "sourceSha256": "447fab6554c0895114ff8bc05bb2125f5dd2820f0205995f8707e941d452fb75",
+      "spec": {
+        "actionLayouts": [],
+        "appearance": null,
+        "assets": null,
+        "buttonFonts": [],
+        "buttonStyles": [],
+        "canvas": {
+          "height": 320,
+          "width": 452
+        },
+        "frame": null,
+        "id": "G54",
+        "layout": {
+          "body": {
+            "align": "start",
+            "children": [
+              {
+                "kind": "section",
+                "sectionId": "section0",
+                "width": "fill"
+              }
+            ],
+            "gap": 20,
+            "id": "flow0",
+            "kind": "column",
+            "width": "fill"
+          },
+          "gap": 16,
+          "labelWidth": 112,
+          "maxHeight": 560,
+          "overflow": "scroll",
+          "padding": 24,
+          "rowHeight": 64,
+          "sectionGap": 20,
+          "sectionTitleHeight": 48,
+          "titleHeight": 64,
+          "width": 420
+        },
+        "panelSpecVersion": "0.16",
+        "provenance": {
+          "assumptions": [
+            "Preview actions notify the host; no actual game business is executed.",
+            "Geometry follows deterministic intent layout policy 0.1."
+          ],
+          "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+          "kind": "agent-authored"
+        },
+        "sections": [
+          {
+            "id": "section0",
+            "rows": [
+              {
+                "id": "row0",
+                "kind": "text",
+                "label": "确认提示",
+                "recipe": {
+                  "id": "message.text",
+                  "version": "0.2.0"
+                },
+                "text": "确定要退出游戏吗？"
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "退出游戏",
+                "enabled": true,
+                "event": "panel.row1",
+                "id": "row1",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.primary",
+                  "version": "0.1.0"
+                }
+              },
+              {
+                "action": {
+                  "kind": "emit"
+                },
+                "buttonLabel": "继续游戏",
+                "enabled": true,
+                "event": "panel.row2",
+                "id": "row2",
+                "kind": "button",
+                "label": "",
+                "recipe": {
+                  "id": "settings.button.secondary",
+                  "version": "0.1.0"
+                }
+              }
+            ],
+            "title": "退出游戏确认"
+          }
+        ],
+        "state": [],
+        "tabs": null,
+        "textLayouts": [
+          {
+            "rowId": "row0",
+            "wrap": "word"
+          }
+        ],
+        "theme": {
+          "id": "modern-mint-light",
+          "version": "0.28.0"
+        },
+        "title": "退出游戏确认",
+        "titleBar": null
+      },
+      "state": {}
+    }
+  ]
+}

@@ -63,8 +63,7 @@ export function measureFlowLayout(spec, presentationPolicy) {
     if (!scrollable && naturalHeight > availableHeight) {
       if (l.overflow !== 'scroll') fail('LAYOUT_OVERFLOW', 'Flow content exceeds the declared panel height');
       scrollable = true;
-      reserve = Math.max(0, ...spec.sections.flatMap(section => section.rows)
-        .filter(row => row.kind === 'select').map(row => 40 * fields.get(row.bind).options.length + 2));
+      reserve = Math.max(0, ...measured.sections.flatMap(section=>{const rows=sectionsById.get(section.id).rows;return rows.flatMap((row,index)=>row.kind==='select'?[(section.presentation?.rows[index]?.choiceLayout?section.presentation.rows[index].controlHeight:40)*fields.get(row.bind).options.length+2]:[]);}));
       viewportWidth = bodyWidth - 16;
       if (!positive(viewportWidth)) fail('LAYOUT_GEOMETRY', 'The scroll gutter leaves no content width');
       measured = measure(l.body, viewportWidth);

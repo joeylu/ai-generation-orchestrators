@@ -50,8 +50,8 @@ for (const [name, bytes] of files) {
 }
 const sdk = await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).loadPanelSdk();
 assert.equal(sdk.seed.pool.index.records.length, 12); assert.equal(sdk.seed.pool.resources.length, 12);
-const compact=sdk.seed.catalog.id==='modern-compact-message',full=compact||sdk.seed.catalog.id==='modern-all-components',centered=full||sdk.seed.catalog.id==='modern-centered-cards',images=centered||sdk.seed.catalog.id==='modern-image-slots';
-assert.equal(sdk.seed.catalog.id, compact?'modern-compact-message':full?'modern-all-components':centered?'modern-centered-cards':images?'modern-image-slots':'modern-menu-headings');
+const cardLayout=sdk.seed.catalog.id==='modern-readable-game-card-layout',itemGroups=cardLayout||sdk.seed.catalog.id==='modern-readable-game-item-groups',dataPanels=itemGroups||sdk.seed.catalog.id==='modern-readable-game-data-panels',readableData=dataPanels||sdk.seed.catalog.id==='modern-readable-game-data-layout',groupedReadable=readableData||sdk.seed.catalog.id==='modern-readable-game-grouped-layout',sectionPanels=groupedReadable||sdk.seed.catalog.id==='modern-readable-game-section-panels',headingPanels=sectionPanels||sdk.seed.catalog.id==='modern-readable-game-heading-panels',readableLayout=headingPanels||sdk.seed.catalog.id==='modern-readable-game-layout',contentHeadings=readableLayout||sdk.seed.catalog.id==='modern-readable-game-headings',readable=contentHeadings||sdk.seed.catalog.id==='modern-readable-game',compact=readable||sdk.seed.catalog.id==='modern-compact-message',full=compact||sdk.seed.catalog.id==='modern-all-components',centered=full||sdk.seed.catalog.id==='modern-centered-cards',images=centered||sdk.seed.catalog.id==='modern-image-slots';
+assert.equal(sdk.seed.catalog.id, cardLayout?'modern-readable-game-card-layout':itemGroups?'modern-readable-game-item-groups':dataPanels?'modern-readable-game-data-panels':readableData?'modern-readable-game-data-layout':groupedReadable?'modern-readable-game-grouped-layout':sectionPanels?'modern-readable-game-section-panels':headingPanels?'modern-readable-game-heading-panels':readableLayout?'modern-readable-game-layout':contentHeadings?'modern-readable-game-headings':readable?'modern-readable-game':compact?'modern-compact-message':full?'modern-all-components':centered?'modern-centered-cards':images?'modern-image-slots':'modern-menu-headings');
 assert.equal(sdk.seed.catalog.version, images?'0.1.0':'0.20.0');
 assert.equal(files.has('package/src/component-adapter.mjs'), false);
 assert(![...files.keys()].some(name => /(?:node_modules|\.ts$|workbench-server|\.tmp\/|output\/)/.test(name)));
@@ -109,7 +109,7 @@ const selectModel=await sdk.createWorkbenchModel(sdk.seed,sdk.core),selectPrepar
 const selectPlan=await sdk.planner.planWithCodex(selectPrepared.context,options(nativeFixture(selectPrepared.context,selectIntent(selectPrepared.context))));
 assert.equal(selectPlan.receipt.invocationCount,1);assert.equal(selectPlan.receipt.automaticRetries,0);
 const selected=await selectModel.acceptProposal(selectPlan.proposal),field=selected.panel.spec.state.find(value=>value.type==='enum');
-assert.equal(selected.phase,'ready');assert.equal(selected.panel.compilerVersion,compact?'0.34.0':full?'0.32.0':centered?'0.30.0':images?'0.29.0':'0.28.0');
+assert.equal(selected.phase,'ready');assert.equal(selected.panel.compilerVersion,itemGroups?'0.45.0':dataPanels?'0.44.0':readableData?'0.43.0':groupedReadable?'0.42.0':sectionPanels?'0.41.0':headingPanels?'0.40.0':readableLayout?'0.39.0':contentHeadings?'0.38.0':readable?'0.37.0':compact?'0.34.0':full?'0.32.0':centered?'0.30.0':images?'0.29.0':'0.28.0');
 assert.deepEqual(field.options.map(option=>option.label),['男','女']);assert.equal(selected.panel.state[field.id],field.options[0].id);
 pass('installed-reported-select-request-compiles-after-one-explicit-generation-fixture');
 const selectEditRequest={requestVersion:'0.1',id:'select-title-edit',target:'pixi',text:'只把面板标题改为“选择角色”，其他不变。'};
@@ -126,9 +126,13 @@ pass('installed-explicit-edit-fixture-preserves-select-default-options-bindings-
 if(images){
   const pool=await imageAssetPool(),imageModel=await sdk.createWorkbenchModel({catalog:sdk.seed.catalog,pool},sdk.core);
   const imagePrepared=await imageModel.prepare(imageRequest);
-  const imagePlanned=await sdk.planner.planWithCodex(imagePrepared.context,options(nativeFixture(imagePrepared.context,imageIntent(imagePrepared.context,{source:pool.index.records.map(record=>record.key)}))));
+  const installedImageIntent=imageIntent(imagePrepared.context,{source:pool.index.records.map(record=>record.key)});
+  // This authored fixture exercises a later +20px portrait edit inside a fixed frame.
+  // Budget the new two-sided group padding explicitly; production geometry stays binding.
+  if(sectionPanels){installedImageIntent.panel.layout.maxHeight+=24;installedImageIntent.panel.layout.canvasHeight+=24;}
+  const imagePlanned=await sdk.planner.planWithCodex(imagePrepared.context,options(nativeFixture(imagePrepared.context,installedImageIntent)));
   const imageReady=await imageModel.acceptProposal(imagePlanned.proposal),before=imageReady.panel;
-  assert.equal(before.compilerVersion,compact?'0.34.0':full?'0.32.0':centered?'0.30.0':'0.29.0');assert.equal(before.assetClosure.records.length,3);
+  assert.equal(before.compilerVersion,itemGroups?'0.45.0':dataPanels?'0.44.0':readableData?'0.43.0':groupedReadable?'0.42.0':sectionPanels?'0.41.0':headingPanels?'0.40.0':readableLayout?'0.39.0':contentHeadings?'0.38.0':readable?'0.37.0':compact?'0.34.0':full?'0.32.0':centered?'0.30.0':'0.29.0');assert.equal(before.assetClosure.records.length,3);
   const editRequest={...imageRequest,text:'把战士肖像高度改成200，其他不变。'},editing=(await imageModel.prepareEdit(editRequest,{rowId:'row0'})).context;
   const imageDraft={codexEditDraftVersion:'0.3',contextSha256:editing.sha256,unresolved:[],noChange:null,
     patch:{patchVersion:'0.1',baseSpecSha256:editing.baseSpecSha256,reason:editRequest.text,operations:[{op:'set-image-properties',rowId:'row0',source:before.spec.sections[0].rows[0].source,width:'fill',height:200,fit:'contain',assetLibrary:null}]},bases:[{kind:'request-interpretation',quote:editRequest.text}]};
@@ -142,7 +146,7 @@ if(images){
   const imageArtifacts=[];
   async function saveImageArtifact(id,bundle,zip,files,expectedCenters){
     const native=await sdk.panel.createUnityDocument(bundle,sdk.core);
-    if(['0.32.0','0.34.0','0.36.0'].includes(bundle.compilerVersion)){
+    if(['0.32.0','0.34.0','0.36.0','0.37.0','0.38.0','0.39.0','0.40.0','0.41.0','0.42.0','0.43.0','0.44.0','0.45.0'].includes(bundle.compilerVersion)){
       assert.equal(native.nodes.find(node=>node.id===`${bundle.spec.id}.title`).textAlignment,'MiddleCenter');
       expectedCenters++;
     }

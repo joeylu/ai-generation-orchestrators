@@ -15,6 +15,10 @@ import { loadWorkspaceTool } from './lib/workspace-tools.mjs';
 const utf8 = text => new TextEncoder().encode(text);
 const json = value => utf8(canonicalJson(value) + '\n');
 const fail = code => { throw new Error(code); };
+/** The same document is shipped under docs/ and as the archive-root README. */
+export function portableSdkReadme(document) {
+  return document.replace(/\]\((?![A-Za-z][A-Za-z0-9+.-]*:|#|\/)([^)]+\.md(?:#[^)]*)?)\)/g, '](docs/$1)');
+}
 const safePath = value => typeof value === 'string' && /^[A-Za-z0-9_.@/-]+$/.test(value)
   && value.split('/').every(part => part && part !== '.' && part !== '..');
 
@@ -182,9 +186,9 @@ export async function packagePanelRelease({ componentPackage, output }) {
   await addTree(files, 'schemas', ['.json']);
   await addTree(files, 'assets/core-v1', ['.json', '.md', '.png', '.svg']);
   await addTree(files, 'release/licenses', ['.txt']);
-  for (const name of ['catalog/modern-core.json', 'examples/modern-menu.catalog.json', 'examples/modern-menu-headings.catalog.json', 'examples/modern-menu-headings-v2.catalog.json', 'examples/modern-image-slots.catalog.json', 'examples/modern-centered-cards.catalog.json', 'examples/modern-all-components.catalog.json', 'examples/modern-action-headings.catalog.json', 'examples/modern-tab-headings.catalog.json', 'examples/modern-message-copy.catalog.json', 'examples/modern-compact-message.catalog.json', 'docs/sdk-rc6.md', 'examples/audio-settings.panel.json',
+  for (const name of ['catalog/modern-core.json', 'examples/modern-menu.catalog.json', 'examples/modern-menu-headings.catalog.json', 'examples/modern-menu-headings-v2.catalog.json', 'examples/modern-image-slots.catalog.json', 'examples/modern-centered-cards.catalog.json', 'examples/modern-all-components.catalog.json', 'examples/modern-action-headings.catalog.json', 'examples/modern-tab-headings.catalog.json', 'examples/modern-message-copy.catalog.json', 'examples/modern-compact-message.catalog.json', 'examples/modern-readable-game.catalog.json', 'examples/modern-readable-game-headings.catalog.json', 'examples/modern-readable-game-layout.catalog.json', 'examples/modern-readable-game-heading-panels.catalog.json', 'examples/modern-readable-game-section-panels.catalog.json', 'examples/modern-readable-game-grouped-layout.catalog.json', 'examples/modern-readable-game-data-layout.catalog.json', 'examples/modern-readable-game-data-panels.catalog.json', 'examples/modern-readable-game-item-groups.catalog.json', 'examples/modern-readable-game-card-layout.catalog.json', 'docs/card-composition-2026-10-15.md', 'docs/achievement-draft-content-2026-10-15.md', 'docs/card-target-real-results-2026-10-15.md', 'docs/card-content-real-results-2026-10-15.md', 'docs/item-groups-2026-10-15.md', 'docs/sdk-rc7.md', 'docs/grouped-readable-fixes-2026-10-15.md', 'docs/grouped-readable-ten-real-results-2026-10-15.md', 'docs/readable-data-layout-2026-10-15.md', 'docs/data-item-panels-2026-10-15.md', 'docs/sdk-rc6.md', 'examples/audio-settings.panel.json',
     'examples/layout-v1/settings.panel.json', 'examples/controls-planning/proposal.json', 'examples/asset-planning/proposal.json',
-    'docs/sdk-rc5.md', 'docs/action-heading-policy-2026-10-14.md', 'docs/short-draft-fit-results-2026-10-13.md', 'docs/all-components.md', 'docs/centered-title-default.md', 'docs/input-adaptability-results-2026-10-13.md', 'docs/input-adaptability-recheck-results-2026-10-13.md', 'docs/input-label-boundary.md', 'docs/input-label-boundary-real-results-2026-10-13.md', 'docs/input-capability-real-results-2026-10-13.md', 'docs/input-adaptability-closeout-2026-10-13.md', 'docs/sdk-release.md', 'docs/sdk-rc4.md', 'docs/section-headings.md', 'docs/section-geometry.md', 'docs/image-slots.md', 'docs/card-alignment.md', 'release/contract.json']) files.set(name, await sourceFile(name));
+    'docs/core-assets.md', 'docs/asset-usage.md', 'docs/asset-import.md', 'docs/image-slots-real-results-2026-10-12.md', 'docs/input-adaptability-plan-2026-10-13.md', 'docs/section-panels-ten-real-results-2026-10-15.md', 'docs/sdk-rc5.md', 'docs/action-heading-policy-2026-10-14.md', 'docs/short-draft-fit-results-2026-10-13.md', 'docs/all-components.md', 'docs/centered-title-default.md', 'docs/input-adaptability-results-2026-10-13.md', 'docs/input-adaptability-recheck-results-2026-10-13.md', 'docs/input-label-boundary.md', 'docs/input-label-boundary-real-results-2026-10-13.md', 'docs/input-capability-real-results-2026-10-13.md', 'docs/input-adaptability-closeout-2026-10-13.md', 'docs/sdk-release.md', 'docs/sdk-rc4.md', 'docs/section-headings.md', 'docs/section-geometry.md', 'docs/image-slots.md', 'docs/card-alignment.md', 'release/contract.json']) files.set(name, await sourceFile(name));
   for (const name of UNITY_SOURCE_PATHS) files.set('adapters/unity/' + name, await sourceFile('adapters/unity/' + name));
   const sourceFiles = [...files.keys()];
   let commit, dirty;
@@ -206,7 +210,7 @@ export async function packagePanelRelease({ componentPackage, output }) {
   files.set('dist-browser/index.js', browser.code.get('index.js'));
   files.set('THIRD_PARTY_NOTICES.txt', utf8(browser.notices));
   files.set('LICENSE', new Uint8Array(await readFile(new URL('../../../LICENSE', import.meta.url))));
-  files.set('README.md', files.get('docs/sdk-release.md'));
+  files.set('README.md', utf8(portableSdkReadme(new TextDecoder().decode(files.get('docs/sdk-release.md')))));
   files.set('package.json', json({ name: contract.name, version: contract.version, type: 'module', private: true, license: 'MIT',
     engines: { node: contract.runtime.node }, exports: { '.': './src/index.mjs', './sdk': './src/sdk.mjs', './planning/v1': './src/planning-api-v1.mjs', './planning/codex/v1': './src/planning-codex-v1.mjs', './browser/standalone': './dist-browser/index.js' } }));
   const manifest = { releaseManifestVersion: '0.1', package: { name: contract.name, version: contract.version, tag: contract.tag },

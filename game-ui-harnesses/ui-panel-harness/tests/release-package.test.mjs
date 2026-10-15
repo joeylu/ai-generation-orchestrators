@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { gzipSync } from 'node:zlib';
-import { mkdtemp, writeFile, access } from 'node:fs/promises';
+import { mkdtemp, writeFile, access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { harnessRoot } from '../src/io.mjs';
-import { readPinnedTar, packagePanelRelease, verifyBrowserRuntimePortability } from '../scripts/package-release.mjs';
+import { readPinnedTar, packagePanelRelease, verifyBrowserRuntimePortability, portableSdkReadme } from '../scripts/package-release.mjs';
 import { verifyPanelSdk } from '../src/sdk.mjs';
 
 function tar(name, content = 'fixture', type = '0') {
@@ -22,6 +22,14 @@ test('browser release rejects absolute bundler module labels on Windows and POSI
   for (const label of ['C:/workspace/dependency.js', 'D:\\workspace\\dependency.js', '/tmp/build/dependency.js', '\\\\host\\share\\dependency.js'])
     assert.throws(() => verifyBrowserRuntimePortability('const value=1;\n//#region ' + label + '\n'), /RELEASE_BROWSER_HOST_PATH/);
   assert.doesNotThrow(() => verifyBrowserRuntimePortability('//#region src/runtime.mjs\nexport const url="https://example.invalid";'));
+});
+
+test('the archive-root SDK README resolves its actual document links without moving web URLs or anchors', async () => {
+  const text=portableSdkReadme(await readFile(new URL('../docs/sdk-release.md',import.meta.url),'utf8'));
+  const links=[...text.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)].map(match=>match[1]);
+  assert(links.length>=5);
+  for(const link of links)await access(new URL('../'+link.split('#')[0],import.meta.url));
+  assert.equal(portableSdkReadme('[web](https://example.invalid/guide.md) [here](#api)'),'[web](https://example.invalid/guide.md) [here](#api)');
 });
 
 test('dependency archive reader preserves bytes and rejects unsafe paths and links', () => {

@@ -97,7 +97,7 @@ const explicit=[
 ].map(([title,request,rows,rules],i)=>make('明确约束',title,request,rows,60+i,{evaluation:{kind:'OPEN_DRAFT_REVIEW',explicit:{textValues:{},textValuesByIndex:{},...rules}}}));
 export const COMMON_GAME_PANEL_SUITE=[...COMMON_GAME_PANEL_CASES,...variants,...explicit];
 export function commonGamePanelFixture(context,item,createReference){
-  const intent=createReference(context,item),theme=context.catalog.themes.find(theme=>theme.id==='modern-mint-light'&&theme.headingStyle==='concise-v4');
+  const intent=createReference(context,item),theme=context.catalog.themes.find(theme=>theme.id==='modern-mint-light'&&['concise-v4','concise-v5','concise-v6'].includes(theme.headingStyle));
   intent.panel.themeKey=theme?`${theme.id}@${theme.version}`:'modern-mint-light@0.22.0';
   intent.panel.body.children[0].title=intent.panel.title;return intent;
 }

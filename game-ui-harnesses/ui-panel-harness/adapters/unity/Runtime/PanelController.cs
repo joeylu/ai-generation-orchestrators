@@ -12,7 +12,7 @@ namespace GameUi.PanelHarness
     [DisallowMultipleComponent]
     public sealed class PanelController : MonoBehaviour
     {
-        public const string ADAPTER_VERSION = "0.1.7";
+        public const string ADAPTER_VERSION = "0.1.8";
         private const double MAX_TICKS = 1000000;
         private const double DOUBLE_EPSILON = 2.2204460492503131E-16;
         private readonly HashSet<string> EDITED_INPUTS = new HashSet<string>(StringComparer.Ordinal);

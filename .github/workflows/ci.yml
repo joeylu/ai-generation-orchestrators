@@ -52,6 +52,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - name: Verify UI Panel offline regressions
+        run: node --test --test-concurrency=4 ../ui-panel-harness/tests/*.test.mjs
       - run: node scripts/build-layer-viewer.mjs
       - run: npm test
       - run: npm run self-test

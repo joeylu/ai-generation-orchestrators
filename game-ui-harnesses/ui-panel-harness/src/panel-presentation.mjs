@@ -1,3 +1,4 @@
+import {sectionHasPanel,SECTION_PANEL_PADDING} from './section-panels.mjs';
 import { extendedRowHeight } from './component-capabilities.mjs';
 import { hasTextWrap,wrapStaticText } from './text-wrap.mjs';
 import { buttonFontSize } from './button-font.mjs';
@@ -11,6 +12,8 @@ import { sectionHeadingVisible } from './section-headings.mjs';
 import { resolveRecipe } from './catalog.mjs';
 import {isMessageText} from './message-text.mjs';
 import {compactMessageSection,measureCompactMessage} from './compact-message.mjs';
+import {readableThemeForSpec,isReadableGameLayoutTheme} from './readable-game.mjs';
+import {measureReadableGameRows} from './readable-game-layout.mjs';
 
 /** Opt-in modern-v3 geometry. Typed controls determine presentation; actions remain unchanged. */
 export const presentationTextWidth = (value, size) => Math.ceil([...value].reduce((sum, char) => sum + (/^[\x00-\x7f]$/.test(char) ? size * 0.8 : size * 1.1), 0));
@@ -24,7 +27,8 @@ export function sectionPurpose(section) {
 }
 
 export function createPresentationPolicy(spec, tokens, presentationStyle, surfaceStyle, headingStyle, catalog) {
-  const sectionMinimum = ['concise-v2','visible-v2','concise-v3','visible-v3','concise-v4','visible-v4'].includes(headingStyle)
+  const readable=readableThemeForSpec(spec,catalog),explicitActionRows=new Set(spec.actionLayouts?.flatMap(action=>spec.sections.find(section=>section.id===action.sectionId).rows.map(row=>row.id))??[]);
+  const sectionMinimum = ['concise-v2','visible-v2','concise-v3','visible-v3','concise-v4','visible-v4','concise-v5','visible-v5','concise-v6','visible-v6'].includes(headingStyle)
     ? resolveRecipe(catalog, {id:'settings.section',version:'0.1.0'}, 'section').minHeight : 0;
   const polishedMenu = surfaceStyle === 'minimal-v2' && isStandaloneMenu(spec);
   if (surfaceStyle === 'minimal-v2') surfaceStyle = 'minimal-v1';
@@ -34,7 +38,7 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
   const overrides = new Map((spec.buttonStyles ?? []).map(value => [value.rowId, value.style]));
   const reject = (code, message) => { const error = new Error(message); error.code = code; throw error; };
   const geometry = (row, width, height, shape = 'default') => {
-    const local = overrides.get(row.id), w = local?.width ?? width, h = local?.height ?? height, circle = (local?.shape ?? shape) === 'circle';
+    const local = overrides.get(row.id),circle = (local?.shape ?? shape) === 'circle',w = local?.width ?? width, h = local?.height ?? (readable&&!circle&&!explicitActionRows.has(row.id)?Math.max(64,height):height);
     if (circle && w !== h) reject('BUTTON_STYLE_CIRCLE', 'Circle button width and height must match');
     if (presentationTextWidth(row.buttonLabel, buttonFontSize(spec, row.id, tokens.fontSize)) + 16 > w) reject('ACTION_LAYOUT_LABEL', 'Button labels do not fit the requested button width');
     return { width: w, height: h, circle };
@@ -60,7 +64,7 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
         const textBlock = copy && hasTextWrap(spec,row.id) ? wrapStaticText(row.text,width-24,tokens.fontSize) : null;
         const button = row.kind==='button'&&row.label==='' ? geometry(row,width-24,44) : null;
         if(button&&button.width>width-24)reject('ACTION_LAYOUT_OVERFLOW','Button size exceeds its available section width');
-        const extended=extendedRowHeight(spec,row,textHeight);
+        const extended=extendedRowHeight(spec,row,textHeight,readable);
         const height = extended ?? (image ? row.height : copy ? Math.max(l.rowHeight,24+textHeight+8+(textBlock?.height??textHeight)) : row.kind === 'input' ? Math.max(l.rowHeight,2*textHeight+(spec.panelSpecVersion==='0.16'?80:60)) : Math.max(l.rowHeight,56,button?.height??0));
         const place = {y,height,stacked:row.kind==='input',...(textBlock?{textBlock}:{}),...(image?{allowPartialScroll:true}:{}),
           ...(copy?{copy:true,labelY:12,labelWidth:width-24,copyTextY:12+textHeight+8,controlX:12,controlWidth:width-24}:{}),
@@ -106,7 +110,7 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
           const place=focused.rows[i];
           place.y+=extra;
           if(row.kind==='input') {
-            const errorWidth=Math.max(...[row.validation.requiredMessage,row.validation.minLengthMessage].map(message=>presentationTextWidth(message,14)));
+            const errorWidth=Math.max(...[row.validation.requiredMessage,row.validation.minLengthMessage].map(message=>presentationTextWidth(message,readable?tokens.fontSize:14)));
             const inline=presentationTextWidth(row.label,tokens.fontSize)+(icons.has(row.id)?40:0)+errorWidth+16<=width;
             const height=Math.max(l.rowHeight,inline?textHeight+60:textHeight*2+76);
             extra+=height-place.height;
@@ -164,7 +168,13 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
   // The shared flow/intent/compiler measurement owns the recipe floor. Preserve
   // row positions (including y=0); the minimum adds no title node or title band.
   return (section, width) => {
-    const measured = measure(section, width);
-    return sectionMinimum ? {...measured, height:Math.max(sectionMinimum, measured.height)} : measured;
+    const theme=catalog?.themes.find(theme=>theme.id===spec.theme.id&&theme.version===spec.theme.version);
+    const panel=sectionHasPanel(section,theme),padding=panel?SECTION_PANEL_PADDING:0,innerWidth=width-padding*2;
+    if(innerWidth<=0)reject('LAYOUT_GEOMETRY','Section panel padding must leave positive content width');
+    const base = measure(section, innerWidth);
+    const measured = isReadableGameLayoutTheme(catalog?.themes.find(theme=>theme.id===spec.theme.id&&theme.version===spec.theme.version))
+      ? measureReadableGameRows(spec,tokens,section,innerWidth,base,geometry,presentationTextWidth,theme,catalog) : base;
+    const result=sectionMinimum ? {...measured,height:Math.max(sectionMinimum,measured.height)} : measured;
+    return panel?{...result,height:result.height+padding*2,groupPanel:{padding,contentWidth:innerWidth,contentHeight:result.height}}:result;
   };
 }

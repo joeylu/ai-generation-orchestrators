@@ -4,6 +4,7 @@ import {compilePanel} from './compiler.mjs';
 import {measureFlowLayout,measureTabbedLayout} from './flow-layout.mjs';
 import {createPresentationPolicy} from './panel-presentation.mjs';
 import {panelThemeTokens} from './menu-presentation.mjs';
+import {isReadableGameTheme} from './readable-game.mjs';
 
 const dimensions=['width','maxHeight','canvasWidth','canvasHeight'];
 const fail=code=>{const error=new Error(code);error.code=code;throw error;};
@@ -25,7 +26,7 @@ export function fitDraftPanelLayout(input,catalogInput,core,{mutableDimensions=[
   for(let width=original.layout.width;width<=4096;width+=8){
     if(width!==original.layout.width&&!mutable.has('width'))break;
     const spec=structuredClone(original);spec.layout.width=width;
-    if(mutable.has('canvasWidth'))spec.canvas.width=Math.min(4096,Math.max(original.canvas.width,width+64));
+    if(mutable.has('canvasWidth'))spec.canvas.width=Math.min(4096,Math.max(original.canvas.width,width+(isReadableGameTheme(theme)?32:64)));
     if(width>spec.canvas.width)break;
     const presentation=createPresentationPolicy(spec,panelThemeTokens(spec,theme),theme.presentationStyle,theme.surfaceStyle,theme.headingStyle,catalog);
     const probe=structuredClone(spec);probe.canvas.height=4096;probe.layout.maxHeight=4096;

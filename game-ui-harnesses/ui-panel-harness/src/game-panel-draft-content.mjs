@@ -1,0 +1,6 @@
+/** Generation advice only; never repairs stored data or classifies business rows. */
+export function gamePanelDraftContentGuidance(catalog,{editing=false}={}){
+ if(catalog.id!=='modern-readable-game-card-layout')return '';
+ if(editing)return 'Draft content during editing: preserve authored names, conditions, progress, state and deliberately simple lists unless this edit requests content changes. Do not populate an existing panel merely because the new-generation defaults are richer.\n';
+ return 'Achievement draft completeness: for a broad achievement-panel request, provide a small useful set of identifiable achievements with an attainment condition and progress or completion state, not only generic placeholder names. A multi-row achievement uses one semantic section for its name, condition, progress and state. A List or composite Text is acceptable only when each entry carries the same useful information and remains legible. Mark proposed achievement names, illustrative conditions and preview progress/state visibly as sample or placeholder data; actual unprovided conditions and live state remain unknown. Keep entries read-only unless the request includes actions; do not infer a reward-claim service. Explicit name-only, list-only, omitted-detail or other user constraints override this draft default.\n';
+}

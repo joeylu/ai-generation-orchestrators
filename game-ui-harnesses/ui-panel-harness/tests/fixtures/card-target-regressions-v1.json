@@ -1,0 +1,1467 @@
+{
+  "kind": "PUBLIC_ORIGINAL_045_TASK_SPEC_NO_TRANSPORT",
+  "catalog": {
+    "catalogVersion": "0.1",
+    "id": "modern-readable-game-card-layout",
+    "recipes": [
+      {
+        "description": "自有程序化设置面板，包含标题及纵向内容区域。Procedural settings panel with a title and vertical content.",
+        "id": "settings.panel",
+        "kind": "panel",
+        "minHeight": 160,
+        "minWidth": 320,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "设置面板",
+          "设置页",
+          "settings panel",
+          "settings",
+          "panel"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化设置分组，包含分组标题和设置行。Procedural titled section for related settings rows.",
+        "id": "settings.section",
+        "kind": "section",
+        "minHeight": 80,
+        "minWidth": 280,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "设置分组",
+          "分组",
+          "section",
+          "group"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化数值设置行，组合标签、滑条和数值文字，适用于音量等有界数值。Procedural labeled slider with a value readout.",
+        "id": "settings.slider",
+        "kind": "slider-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "dragging",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "音量",
+          "声音大小",
+          "响度",
+          "滑条",
+          "百分比",
+          "volume",
+          "loudness",
+          "slider",
+          "range"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化布尔设置行，组合标签与开关；开关含义由面板方案显式声明。Procedural labeled switch for an explicit boolean setting.",
+        "id": "settings.switch",
+        "kind": "switch-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "checked",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "声音开关",
+          "开关",
+          "启用声音",
+          "静音",
+          "布尔",
+          "mute",
+          "toggle",
+          "switch",
+          "sound enabled"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化枚举设置行，组合标签与下拉菜单，适用于明确的画质档位等有限选项。Procedural labeled select for explicit enumerated settings.",
+        "id": "settings.select",
+        "kind": "select-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "画质",
+          "画质档位",
+          "下拉",
+          "选项",
+          "选择",
+          "quality",
+          "dropdown",
+          "select"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "自有程序化只读信息行，组合标签与单行文字，不绑定可变状态，不发出事件。Procedural read-only labeled text for character and summary information.",
+        "id": "settings.text",
+        "kind": "text-row",
+        "minHeight": 40,
+        "minWidth": 240,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "角色信息",
+          "信息",
+          "文本",
+          "只读",
+          "character",
+          "text",
+          "information"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "只读确定进度加载条，由宿主更新连续数值，支持百分比或实际数值显示。Read-only determinate host-owned loading/progress bar.",
+        "id": "settings.progress",
+        "kind": "progress-row",
+        "minHeight": 40,
+        "minWidth": 280,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "加载条",
+          "加载",
+          "进度条",
+          "进度",
+          "loading",
+          "progress",
+          "下载",
+          "资源加载"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Horizontal tabs with persistent page state and independent scroll content.",
+        "id": "navigation.tabs",
+        "kind": "tabs",
+        "minHeight": 104,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "页签",
+          "分页",
+          "标签页",
+          "选项卡",
+          "tabs",
+          "tab",
+          "分类",
+          "声音",
+          "画面"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "单行文本输入及必填和最短长度校验，支持角色命名、兑换码与搜索。Single-line text/password entry with bounded validation.",
+        "id": "forms.input",
+        "kind": "input-row",
+        "minHeight": 72,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "输入框",
+          "文本输入",
+          "角色命名",
+          "名字",
+          "昵称",
+          "兑换码",
+          "搜索",
+          "input",
+          "text entry",
+          "form",
+          "name"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "buttonRole": "primary",
+        "description": "Explicit primary visual role. Appearance only; independent of label, action and events.",
+        "id": "settings.button.primary",
+        "kind": "button-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "primary"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "buttonRole": "secondary",
+        "description": "Explicit secondary visual role. Appearance only; independent of label, action and events.",
+        "id": "settings.button.secondary",
+        "kind": "button-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "secondary"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "buttonRole": "danger",
+        "description": "Explicit danger visual role. Appearance only; independent of label, action and events.",
+        "id": "settings.button.danger",
+        "kind": "button-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "恢复默认",
+          "重置",
+          "按钮",
+          "操作",
+          "reset",
+          "button",
+          "action",
+          "danger"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Static content image or labeled placeholder. No state or event.",
+        "id": "content.image",
+        "kind": "image-row",
+        "minHeight": 16,
+        "minWidth": 16,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "图片",
+          "图像",
+          "肖像",
+          "头像",
+          "立绘",
+          "图片槽",
+          "角色卡",
+          "portrait",
+          "image",
+          "illustration"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Checkbox with explicit state and events.",
+        "id": "content.checkbox",
+        "kind": "checkbox-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "复选框",
+          "checkbox"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Radio group with explicit state and events.",
+        "id": "content.radio",
+        "kind": "radio-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "单选按钮组",
+          "radio"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Selectable list with explicit state and events.",
+        "id": "content.list",
+        "kind": "list-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "动态列表",
+          "列表组件",
+          "list"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Modal dialog with explicit state and events.",
+        "id": "content.dialog",
+        "kind": "dialog-row",
+        "minHeight": 56,
+        "minWidth": 280,
+        "states": [
+          "idle",
+          "hover",
+          "disabled"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "模态弹窗",
+          "dialog"
+        ],
+        "version": "0.1.0"
+      },
+      {
+        "description": "Compact standalone message prose with hidden semantic row label; short prose and the action group are centered, long or multi-paragraph prose stays left-aligned.",
+        "id": "message.text",
+        "kind": "text-row",
+        "labelDisplay": "hidden",
+        "messageLayout": "compact-centered-v1",
+        "minHeight": 24,
+        "minWidth": 240,
+        "states": [
+          "idle"
+        ],
+        "supports": [
+          "pixi"
+        ],
+        "tags": [
+          "正文",
+          "确认",
+          "消息",
+          "段落",
+          "无标签",
+          "message",
+          "confirmation",
+          "body",
+          "prose"
+        ],
+        "version": "0.2.0"
+      }
+    ],
+    "themes": [
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "concise-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-mint-light",
+        "menuTokens": {
+          "accent": "#157C64",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#157C64",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 32
+        },
+        "version": "0.33.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "concise-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-mint-dark",
+        "menuTokens": {
+          "accent": "#157C64",
+          "background": "#101216",
+          "border": "#454A54",
+          "control": "#343840",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#C3C7D0",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#24272D",
+          "text": "#F5F6F8",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#90E6CF",
+          "background": "#101719",
+          "border": "#35494A",
+          "control": "#121C1F",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#A5B9B4",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#1A2427",
+          "text": "#EDF5F3",
+          "titleSize": 32
+        },
+        "version": "0.33.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "concise-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-blue-light",
+        "menuTokens": {
+          "accent": "#0066CC",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#315FC7",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 32
+        },
+        "version": "0.33.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "concise-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-blue-dark",
+        "menuTokens": {
+          "accent": "#2466C9",
+          "background": "#101216",
+          "border": "#454A54",
+          "control": "#343840",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#C3C7D0",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#24272D",
+          "text": "#F5F6F8",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#A0BFFF",
+          "background": "#101719",
+          "border": "#35494A",
+          "control": "#121C1F",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#A5B9B4",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#1A2427",
+          "text": "#EDF5F3",
+          "titleSize": 32
+        },
+        "version": "0.33.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "concise-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-violet-light",
+        "menuTokens": {
+          "accent": "#6846B7",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#7051B5",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 32
+        },
+        "version": "0.33.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "concise-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-violet-dark",
+        "menuTokens": {
+          "accent": "#6846B7",
+          "background": "#101216",
+          "border": "#454A54",
+          "control": "#343840",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#C3C7D0",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#24272D",
+          "text": "#F5F6F8",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#C9B5FF",
+          "background": "#101719",
+          "border": "#35494A",
+          "control": "#121C1F",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#A5B9B4",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#1A2427",
+          "text": "#EDF5F3",
+          "titleSize": 32
+        },
+        "version": "0.33.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "concise-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-orange-light",
+        "menuTokens": {
+          "accent": "#A95600",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#A85218",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 32
+        },
+        "version": "0.33.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "concise-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-orange-dark",
+        "menuTokens": {
+          "accent": "#A95600",
+          "background": "#101216",
+          "border": "#454A54",
+          "control": "#343840",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#C3C7D0",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#24272D",
+          "text": "#F5F6F8",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#FFBD86",
+          "background": "#101719",
+          "border": "#35494A",
+          "control": "#121C1F",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#A5B9B4",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#1A2427",
+          "text": "#EDF5F3",
+          "titleSize": 32
+        },
+        "version": "0.33.0",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "visible-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-mint-light",
+        "menuTokens": {
+          "accent": "#157C64",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#157C64",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 32
+        },
+        "version": "0.33.1",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "visible-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-mint-dark",
+        "menuTokens": {
+          "accent": "#157C64",
+          "background": "#101216",
+          "border": "#454A54",
+          "control": "#343840",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#C3C7D0",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#24272D",
+          "text": "#F5F6F8",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#90E6CF",
+          "background": "#101719",
+          "border": "#35494A",
+          "control": "#121C1F",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#A5B9B4",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#1A2427",
+          "text": "#EDF5F3",
+          "titleSize": 32
+        },
+        "version": "0.33.1",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "visible-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-blue-light",
+        "menuTokens": {
+          "accent": "#0066CC",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#315FC7",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 32
+        },
+        "version": "0.33.1",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "visible-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-blue-dark",
+        "menuTokens": {
+          "accent": "#2466C9",
+          "background": "#101216",
+          "border": "#454A54",
+          "control": "#343840",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#C3C7D0",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#24272D",
+          "text": "#F5F6F8",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#A0BFFF",
+          "background": "#101719",
+          "border": "#35494A",
+          "control": "#121C1F",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#A5B9B4",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#1A2427",
+          "text": "#EDF5F3",
+          "titleSize": 32
+        },
+        "version": "0.33.1",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "visible-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-violet-light",
+        "menuTokens": {
+          "accent": "#6846B7",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#7051B5",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 32
+        },
+        "version": "0.33.1",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "visible-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-violet-dark",
+        "menuTokens": {
+          "accent": "#6846B7",
+          "background": "#101216",
+          "border": "#454A54",
+          "control": "#343840",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#C3C7D0",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#24272D",
+          "text": "#F5F6F8",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#C9B5FF",
+          "background": "#101719",
+          "border": "#35494A",
+          "control": "#121C1F",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#A5B9B4",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#1A2427",
+          "text": "#EDF5F3",
+          "titleSize": 32
+        },
+        "version": "0.33.1",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "visible-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-orange-light",
+        "menuTokens": {
+          "accent": "#A95600",
+          "background": "#E9EBEF",
+          "border": "#D4D7DE",
+          "control": "#F0F1F4",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5E626C",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#FDFDFE",
+          "text": "#23262C",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#A85218",
+          "background": "#EDF2F0",
+          "border": "#C4D3CD",
+          "control": "#F3F7F5",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#5B7069",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#FFFFFF",
+          "text": "#20332E",
+          "titleSize": 32
+        },
+        "version": "0.33.1",
+        "visualStyle": "modern-v3"
+      },
+      {
+        "cardAlignment": "centered-v1",
+        "controlStyle": "semantic-v1",
+        "draftSizing": "game-readable-v5",
+        "headingStyle": "visible-v6",
+        "headingSurface": "panel-v1",
+        "id": "modern-orange-dark",
+        "menuTokens": {
+          "accent": "#A95600",
+          "background": "#101216",
+          "border": "#454A54",
+          "control": "#343840",
+          "fontFamily": "Segoe UI, Microsoft YaHei UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#C3C7D0",
+          "radius": 20,
+          "spacing": 16,
+          "surface": "#24272D",
+          "text": "#F5F6F8",
+          "titleSize": 32
+        },
+        "navigationStyle": "tabs-v1",
+        "presentationStyle": "focused-v1",
+        "sectionSurface": "panel-v2",
+        "surfaceStyle": "minimal-v2",
+        "tokens": {
+          "accent": "#FFBD86",
+          "background": "#101719",
+          "border": "#35494A",
+          "control": "#121C1F",
+          "fontFamily": "Microsoft YaHei UI, Segoe UI, sans-serif",
+          "fontSize": 24,
+          "headingSize": 24,
+          "muted": "#A5B9B4",
+          "radius": 16,
+          "spacing": 16,
+          "surface": "#1A2427",
+          "text": "#EDF5F3",
+          "titleSize": 32
+        },
+        "version": "0.33.1",
+        "visualStyle": "modern-v3"
+      }
+    ],
+    "version": "0.1.0"
+  },
+  "record": {
+    "id": "G14",
+    "spec": {
+      "actionLayouts": [],
+      "appearance": null,
+      "assets": null,
+      "buttonFonts": [],
+      "buttonStyles": [],
+      "canvas": {
+        "height": 1612,
+        "width": 452
+      },
+      "frame": null,
+      "id": "G14",
+      "layout": {
+        "body": {
+          "align": "start",
+          "children": [
+            {
+              "kind": "section",
+              "sectionId": "section0",
+              "width": "fill"
+            },
+            {
+              "kind": "section",
+              "sectionId": "section1",
+              "width": "fill"
+            },
+            {
+              "kind": "section",
+              "sectionId": "section2",
+              "width": "fill"
+            }
+          ],
+          "gap": 20,
+          "id": "flow0",
+          "kind": "column",
+          "width": "fill"
+        },
+        "gap": 16,
+        "labelWidth": 112,
+        "maxHeight": 1548,
+        "overflow": "scroll",
+        "padding": 24,
+        "rowHeight": 64,
+        "sectionGap": 20,
+        "sectionTitleHeight": 48,
+        "titleHeight": 64,
+        "width": 420
+      },
+      "panelSpecVersion": "0.16",
+      "provenance": {
+        "assumptions": [
+          "Preview actions notify the host; no actual game business is executed.",
+          "Geometry follows deterministic intent layout policy 0.1.",
+          "Determinate progress is host-owned and read-only. Unspecified presentation defaults are max 100, initial 0, percent display with 0 fraction digits; explicit request values take precedence."
+        ],
+        "description": "Agent-interpreted explicit business facts; deterministic intent adapter supplies typed bindings and measured layout.",
+        "kind": "agent-authored"
+      },
+      "sections": [
+        {
+          "id": "section0",
+          "rows": [
+            {
+              "id": "row0",
+              "kind": "text",
+              "label": "任务",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "每日登录（样例）"
+            },
+            {
+              "id": "row1",
+              "kind": "text",
+              "label": "样例目标",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "完成 1 次登录"
+            },
+            {
+              "bind": "row2",
+              "format": {
+                "fractionDigits": 0,
+                "mode": "value"
+              },
+              "id": "row2",
+              "kind": "progress",
+              "label": "样例进度",
+              "recipe": {
+                "id": "settings.progress",
+                "version": "0.1.0"
+              }
+            },
+            {
+              "id": "row3",
+              "kind": "text",
+              "label": "状态",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "进行中（样例状态）"
+            },
+            {
+              "action": {
+                "kind": "emit"
+              },
+              "buttonLabel": "查看",
+              "enabled": true,
+              "event": "panel.row4",
+              "id": "row4",
+              "kind": "button",
+              "label": "",
+              "recipe": {
+                "id": "settings.button.secondary",
+                "version": "0.1.0"
+              }
+            }
+          ],
+          "title": "每日登录（样例）"
+        },
+        {
+          "id": "section1",
+          "rows": [
+            {
+              "id": "row5",
+              "kind": "text",
+              "label": "任务",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "完成对局（样例）"
+            },
+            {
+              "id": "row6",
+              "kind": "text",
+              "label": "样例目标",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "完成 3 场对局"
+            },
+            {
+              "bind": "row7",
+              "format": {
+                "fractionDigits": 0,
+                "mode": "value"
+              },
+              "id": "row7",
+              "kind": "progress",
+              "label": "样例进度",
+              "recipe": {
+                "id": "settings.progress",
+                "version": "0.1.0"
+              }
+            },
+            {
+              "id": "row8",
+              "kind": "text",
+              "label": "状态",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "进行中（样例状态）"
+            },
+            {
+              "action": {
+                "kind": "emit"
+              },
+              "buttonLabel": "查看",
+              "enabled": true,
+              "event": "panel.row9",
+              "id": "row9",
+              "kind": "button",
+              "label": "",
+              "recipe": {
+                "id": "settings.button.secondary",
+                "version": "0.1.0"
+              }
+            }
+          ],
+          "title": "完成对局（样例）"
+        },
+        {
+          "id": "section2",
+          "rows": [
+            {
+              "id": "row10",
+              "kind": "text",
+              "label": "任务",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "收集星尘（样例）"
+            },
+            {
+              "id": "row11",
+              "kind": "text",
+              "label": "样例目标",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "收集 5 枚星尘"
+            },
+            {
+              "bind": "row12",
+              "format": {
+                "fractionDigits": 0,
+                "mode": "value"
+              },
+              "id": "row12",
+              "kind": "progress",
+              "label": "样例进度",
+              "recipe": {
+                "id": "settings.progress",
+                "version": "0.1.0"
+              }
+            },
+            {
+              "id": "row13",
+              "kind": "text",
+              "label": "状态",
+              "recipe": {
+                "id": "settings.text",
+                "version": "0.1.0"
+              },
+              "text": "进行中（样例状态）"
+            },
+            {
+              "action": {
+                "kind": "emit"
+              },
+              "buttonLabel": "查看",
+              "enabled": true,
+              "event": "panel.row14",
+              "id": "row14",
+              "kind": "button",
+              "label": "",
+              "recipe": {
+                "id": "settings.button.secondary",
+                "version": "0.1.0"
+              }
+            }
+          ],
+          "title": "收集星尘（样例）"
+        }
+      ],
+      "state": [
+        {
+          "id": "row2",
+          "initial": 0,
+          "max": 1,
+          "type": "progress"
+        },
+        {
+          "id": "row7",
+          "initial": 1,
+          "max": 3,
+          "type": "progress"
+        },
+        {
+          "id": "row12",
+          "initial": 2,
+          "max": 5,
+          "type": "progress"
+        }
+      ],
+      "tabs": null,
+      "textLayouts": [
+        {
+          "rowId": "row1",
+          "wrap": "word"
+        },
+        {
+          "rowId": "row6",
+          "wrap": "word"
+        },
+        {
+          "rowId": "row11",
+          "wrap": "word"
+        }
+      ],
+      "theme": {
+        "id": "modern-mint-light",
+        "version": "0.33.0"
+      },
+      "title": "任务列表",
+      "titleBar": null
+    },
+    "state": {
+      "row12": 2,
+      "row2": 0,
+      "row7": 1
+    },
+    "sourceSha256": "8da0adddbfd8daf0543778b8a8f4d9ecca7aed889a0bf943adf97d7dbe4e47ec"
+  }
+}

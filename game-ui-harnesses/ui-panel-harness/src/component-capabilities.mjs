@@ -46,9 +46,9 @@ export function missingExplicitComponents(request, spec) {
   return explicitComponentRequirements(request).filter(kind => !actual.has(kind));
 }
 
-export function extendedRowHeight(spec, row, textHeight) {
+export function extendedRowHeight(spec, row, textHeight,readable=false) {
   const field = spec.state.find(field => field.id === row.bind);
-  if (row.kind === 'radio') return Math.max(spec.layout.rowHeight, textHeight + 16 + field.options.length * 36 + 12);
+  if (row.kind === 'radio') return Math.max(spec.layout.rowHeight, textHeight + 16 + field.options.length * (readable?64:36) + 12);
   if (row.kind === 'list') return textHeight + 16 + row.visibleItems * row.itemHeight + 12;
   return null;
 }

@@ -25,7 +25,7 @@ for(const item of COMPACT_MESSAGE_SUITE)test(`${item.id}: daily default sends th
  try{
   const {context}=await model.prepare(item.request),prompt=await buildCodexPlanningPrompt(context);
   assert(usesGamePanelDraftPolicy(context));assert.equal(context.request.text,item.request.text);
-  assert.equal(prompt,buildCommonGamePanelPrompt(context));assert.equal(context.catalog.id,'modern-compact-message');
+  assert.equal(prompt,buildCommonGamePanelPrompt(context));assert.equal(context.catalog.id,'modern-readable-game-card-layout');
   const reply=compactMessageFixture(context,item,referenceIntent);let calls=0,sent='';
   const runProcess=()=>{
    calls++;const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();
@@ -38,7 +38,7 @@ for(const item of COMPACT_MESSAGE_SUITE)test(`${item.id}: daily default sends th
   const result=await planWithCodex(context,{executable,outputRoot:join(scratch,item.id),runProcess});
   assert.equal(calls,1);assert.equal(sent,prompt);assert.equal(result.receipt.automaticRetries,0);
   const ready=await model.acceptProposal(result.proposal);assert.equal(ready.phase,'ready');
-  assert.equal(ready.panel.compilerVersion,item.stability.purpose==='exit-confirmation'?'0.36.0':'0.34.0');
+  assert.equal(ready.panel.compilerVersion,'0.45.0');
  }finally{model.dispose();}
 });
 for(const [name,sha]of [['modern-all-components','54270493c0323f33b8aa7e1cf0108c0f0708cb027d59a0d890204f4e2cb0333c'],['modern-message-copy','e9546bd77e93a20811ddf5eb20c4ac69931a78b06826666ecebd06bcc57426e6']])test(`${name}: explicitly selected older catalog keeps its exact planning prompt`,async()=>{

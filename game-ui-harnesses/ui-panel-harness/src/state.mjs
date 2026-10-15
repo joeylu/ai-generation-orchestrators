@@ -1,3 +1,4 @@
+import {hasDataItemPanels,isDataItem} from './data-item-panels.mjs';
 import { hasTextWrap,wrapStaticText,wrappedLinePresentation } from './text-wrap.mjs';
 import { validatePanelSpec, validatePanelState } from './spec.mjs';
 import { controlId, choiceId, initialPanelState } from './compiler.mjs';
@@ -7,6 +8,8 @@ import { formErrorId, inputError, formErrors, buttonEnabled } from './forms.mjs'
 import {sectionPurpose} from './panel-presentation.mjs';
 import {measureGroupedSection} from './grouped-presentation.mjs';
 import {isMessageText} from './message-text.mjs';
+import {hasWrappedGameChoices} from './readable-game.mjs';
+import {readableChoiceLayout} from './readable-choices.mjs';
 
 const userSources = new Set(['mouse', 'touch', 'pen', 'keyboard']);
 const rowsOf = spec => [...spec.sections.flatMap(section => section.rows), ...navigationRows(spec)];
@@ -100,16 +103,17 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
       const section=spec.sections.find(section=>section.rows.some(item=>item.id===row.id));
       const focusedCopy = ['focused-v1','minimal-v1','grouped-v2'].includes(presentationStyle) && ['form','dialog'].includes(sectionPurpose(section));
       const groupedCopy=presentationStyle==='grouped-v2'&&sectionPurpose(section)==='settings'&&section.rows.every(item=>['slider','switch','select','text','progress'].includes(item.kind));
+      const dataItem=hasDataItemPanels(catalog?.themes.find(theme=>theme.id===spec.theme.id&&theme.version===spec.theme.version))&&isDataItem(row,catalog);
       const messageCopy=isMessageText(row,catalog);
       if (hasTextWrap(spec,row.id)) {
-        const container=nodes.get(groupedCopy?`${spec.id}.section.${section.id}`:`${spec.id}.row.${row.id}`),fontSize=node.props.style.fontSize;
+        const container=nodes.get(dataItem?`${spec.id}.row.${row.id}.data-content`:groupedCopy?`${spec.id}.section.${section.id}`:`${spec.id}.row.${row.id}`),fontSize=node.props.style.fontSize;
         if(container?.type!=='Container')throw new Error('PANEL_RUNTIME_MISMATCH');
-        const inset=messageCopy?0:groupedCopy?20:focusedCopy ? spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 12 : 0 : 12;
-        const width=container.layout.width-inset*2,expected=wrapStaticText(row.text,width,fontSize);
+        const inset=dataItem?(spec.assets?.rowIcons.some(icon=>icon.rowId===row.id)?40:0):messageCopy?0:groupedCopy?20:focusedCopy ? spec.assets?.rowIcons.some(icon=>icon.rowId===row.id) ? 12 : 0 : 12;
+        const width=container.layout.width-inset*(dataItem?1:2),expected=wrapStaticText(row.text,width,fontSize);
         const heading=value=>value.trim().replace(/(?:界面|面板)$/,'');
         const showTitle=Boolean(spec.tabs)||heading(spec.title)!==heading(section.title);
         const placement=groupedCopy?measureGroupedSection(spec,{fontSize},section,container.layout.width,'settings',showTitle,undefined,2).rows[section.rows.indexOf(row)]:null;
-        const top=messageCopy?0:placement?placement.y+placement.copyTextY:focusedCopy ? row.label ? Math.ceil(fontSize*1.3)+8 : 0 : 12+Math.ceil(fontSize*1.3)+8;
+        const top=dataItem?Math.ceil(fontSize*1.3)+12:messageCopy?0:placement?placement.y+placement.copyTextY:focusedCopy ? row.label ? Math.ceil(fontSize*1.3)+8 : 0 : 12+Math.ceil(fontSize*1.3)+8;
         if(expected.lines.some((line,i)=>{
           const child=nodes.get(i===0?node.id:node.id+'.line'+i),display=wrappedLinePresentation(line,fontSize);
           return child?.type!=='Text'||child.props.text!==display.text||child.layout.width!==width-display.indent
@@ -141,9 +145,13 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
       hydrated[row.bind] = semanticChoice(spec, row, field, node.props.activeId, 'PANEL_RUNTIME_MISMATCH');
     } else if (['select','radio','list'].includes(row.kind)) {
       const options=row.kind==='list'?node.props.items:node.props.options;
+      const theme=catalog?.themes.find(theme=>theme.id===spec.theme.id&&theme.version===spec.theme.version);
+      const labels=hasWrappedGameChoices(theme)
+        ?readableChoiceLayout(row,field,node.layout.width+(row.kind==='select'?0:24),node.props.style.fontSize).labels
+        :field.options.map(option=>option.label);
       if (!Array.isArray(options) || options.length !== field.options.length
         || options.some((option, index) => option?.id !== choiceId(spec.id, row.id, field.options[index].id)
-          || option.label !== field.options[index].label)) throw new Error('PANEL_RUNTIME_MISMATCH');
+          || option.label !== labels[index])) throw new Error('PANEL_RUNTIME_MISMATCH');
       hydrated[row.bind] = semanticChoice(spec, row, field, node.props.selectedId, 'PANEL_RUNTIME_MISMATCH');
     } else hydrated[row.bind] = node.props[row.kind==='dialog'?'open':['slider', 'input'].includes(row.kind) ? 'value' : 'checked'];
   }
