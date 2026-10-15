@@ -1,0 +1,50 @@
+import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';
+import {join,resolve,relative,isAbsolute,sep} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {randomUUID} from 'node:crypto';
+import {parseArgs} from 'node:util';
+import {build} from 'esbuild';
+import {verifySkinPackage,json,hash,bindingsOf} from '../src/skins/package.mjs';
+import {readContracts} from '../src/contracts/validate.mjs';
+import {defaults} from '../src/contracts/build.mjs';
+import {safePath} from '../src/skins/contract.mjs';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const {values:v}=parseArgs({options:{package:{type:'string'},out:{type:'string'}}});
+if(!v.package||!v.out)throw Error('Use --package <skin-pack> --out <work-directory>');
+const out=resolve(v.out),r=relative(join(root,'work'),out);
+if(isAbsolute(r)||r==='..'||r.startsWith('..'+sep))throw Error('Use work/');
+const packDir=resolve(v.package),{pack,resources,manifestSha256,textReadability}=await verifySkinPackage(packDir),inputs=await readContracts(defaults),bindings=bindingsOf(inputs);
+if(pack.sourceKind!=='imported'||Object.keys(bindings).some(k=>pack.bindings[k]!==bindings[k]))throw Error('Skin bindings differ');
+const dir=join(out,randomUUID());await mkdir(dir,{recursive:true});
+const files=[],put=async(file,bytes)=>{if(!safePath(file)||files.some(f=>f.file.toLowerCase()===file.toLowerCase()))throw Error('Unsafe or duplicate output');await mkdir(join(dir,file,'..'),{recursive:true});await writeFile(join(dir,file),bytes,{flag:'wx'});files.push({file,sha256:hash(Buffer.from(bytes))});};
+const skinPack={manifest:(await readFile(join(packDir,'skin-pack.json'))).toString('base64'),manifestSha256,bindings,resources:Object.fromEntries([...resources].filter(([f])=>!f.startsWith('sources/')).map(([f,b])=>[f,b.toString('base64')]))};
+const data={registry:inputs.registry,usage:inputs.usage,template:inputs.template,profile:pack.theme,skinPack};
+await put('kit.json',json(data));
+await put('text-readability.json',json({...textReadability,manifestSha256}));
+// Preserve the verified source package as separate files as well as the browser packet.
+await put('skin/skin-pack.json',await readFile(join(packDir,'skin-pack.json')));
+for(const[file,bytes]of resources)await put('skin/'+file,bytes);
+const sdk=await build({entryPoints:[join(root,'src/runtime/consumer.mjs')],bundle:true,format:'esm',platform:'browser',target:'es2022',write:false,metafile:true});
+await put('runtime.mjs',sdk.outputFiles[0].contents);
+const gallery=await build({entryPoints:[join(root,'tests/runtime/browser-entry.mjs')],bundle:true,format:'esm',platform:'browser',write:false,plugins:[{name:'consume-shipped-runtime',setup(b){
+  b.onResolve({filter:/^(pixi\.js|@pixi\/layout)$|\/runtime\/(runtime|basic|png-skin|skin)\.mjs$/},()=>({path:'./runtime.mjs',external:true}));
+  b.onResolve({filter:/^@fontsource\//},()=>({path:'font',namespace:'empty'}));b.onLoad({filter:/.*/,namespace:'empty'},()=>({contents:''}));
+}}]});
+await put('gallery.mjs',gallery.outputFiles[0].contents);
+const cases=JSON.parse(await readFile(join(root,'fixtures/component-cases.json')));cases.cases.find(c=>c.type==='Dialog').size.height=180;
+await put('examples.json',json({cases,matrix:JSON.parse(await readFile(join(root,'fixtures/component-matrix.json')))}));
+await put('index.html','<!doctype html><meta charset="utf-8"><title>独立组件消费包</title><style>body{margin:0;background:#16261f;color:white;font:16px system-ui}nav{padding:12px}button{margin-right:10px;padding:8px}</style><nav><button id="wide">横版</button><button id="tall">竖版</button>独立消费候选 · 16 类组件</nav><script type="module">import "./gallery.mjs";const data=await(await fetch("./kit.json")).json();Object.assign(data,await(await fetch("./examples.json")).json());await initializeComponents(data);window.consumerData=data;const draw=(w,h)=>{harness.app.renderer.resize(w,h);harness.gallery();};document.getElementById("wide").onclick=()=>draw(1280,720);document.getElementById("tall").onclick=()=>draw(720,1280);draw(1280,720);</script>');
+await put('example.mjs','import {Application,createComponentKit} from "./runtime.mjs";\nconst app=new Application();await app.init({width:1280,height:720,layout:{autoUpdate:true,throttle:0}});document.body.append(app.canvas);\nconst data=await(await fetch("./kit.json")).json();const kit=await createComponentKit({app,data,onEvent:console.log});\nconst button=kit.runtime.create({id:"hello",recipeRef:"button@1.0.0",props:{label:"开始",enabled:true,variant:"primary"},size:{width:240,height:56}});kit.runtime.mount(button);kit.runtime.flush();\n// On teardown: kit.dispose(); app.destroy();\n');
+const packages=new Set(Object.keys(sdk.metafile.inputs).filter(p=>p.includes('node_modules/')).map(p=>{const t=p.split('node_modules/').pop().split('/');return t[0].startsWith('@')?t.slice(0,2).join('/'):t[0];})),dependencies=[];
+for(const name of [...packages].sort()){
+  const folder=join(root,'node_modules',name),meta=JSON.parse(await readFile(join(folder,'package.json')));dependencies.push({name,version:meta.version,license:meta.license});
+  for(const f of await readdir(folder))if(/^(license|copying|notice)(\.|$)/i.test(f))await put('licenses/'+name.replace('@','').replace('/','_')+'/'+f,await readFile(join(folder,f)));
+}
+await put('dependencies.json',json(dependencies));
+await put('layout-guide.md',await readFile(join(root,'docs/layout-contract.md')));
+await put('LICENSE',await readFile(join(root,'../../LICENSE')));
+await put('licenses/noto-sans-sc/LICENSE',await readFile(join(root,'node_modules/@fontsource/noto-sans-sc/LICENSE')));
+await put('README.md','# 独立组件消费候选\n\n通过本机静态服务打开 index.html。所有运行资源随包提供，无需仓库、node_modules、模型服务或 CDN。example.mjs 展示最小宿主接入；宿主使用 runtime.mjs 导出的 Pixi 类型，避免混用另一份 Pixi。kit.json 为生成数据，不作为新维护源；修改原项目 JSON 后重新构建。skin/ 保留分离 PNG、字体及原始校验清单。\n\n这是未发布的验收候选，不是不可变标签发布或最终美术接受。包含组件布局运行时（见 layout-guide.md），不包含面板需求规划器。gallery.mjs/examples.json 仅为验收示例；组件实现全部来自 runtime.mjs。dependencies.json 与 licenses/ 记录打包依赖。\n');
+await put('source.json',json({inputs:await Promise.all(Object.keys(sdk.metafile.inputs).filter(p=>!p.includes('node_modules/')).sort().map(async f=>({file:relative(root,resolve(f)).replaceAll('\\','/'),sha256:hash(await readFile(resolve(f)))}))),lockSha256:hash(await readFile(join(root,'package-lock.json')))}));
+await writeFile(join(dir,'manifest.json'),json({kind:'ui_component_consumer_candidate',version:'0.1',manifestSha256,components:16,productionReady:false,visualAcceptance:'unreviewed',files}),{flag:'wx'});
+console.log(dir);

@@ -1,0 +1,16 @@
+{
+  "kind":"ui_partial_skin_acceptance","version":"0.1",
+  "widths":[180,300,420],
+  "profileOverrides":{"markSize":40,"trackHeight":20,"thumbSize":40,"palette":{"text":"#FFF0BE"},"geometry":{"scrollbarWidth":10,"minThumbLength":24}},
+  "roles":{
+    "skin.bar.track":{"crossAxis":"height","profileToken":"trackHeight","slice":"capsule-x"},
+    "skin.bar.fill":{"crossAxis":"height","profileToken":"trackHeight","slice":"capsule-x"},
+    "skin.scrollbar.track":{"crossAxis":"width","profileToken":"geometry.scrollbarWidth","slice":"capsule-y"},
+    "skin.scrollbar.thumb":{"crossAxis":"width","profileToken":"geometry.scrollbarWidth","slice":"capsule-y"},
+    "skin.slider.thumb.normal":{"crossAxis":"height","profileToken":"thumbSize","slice":"uniform"},
+    "skin.slider.thumb.pressed":{"crossAxis":"height","profileToken":"thumbSize","slice":"uniform"},
+    "skin.switch.track.off":{"crossAxis":"height","profileToken":"markSize","slice":"uniform"},
+    "skin.switch.track.on":{"crossAxis":"height","profileToken":"markSize","slice":"uniform"},
+    "skin.switch.thumb":{"crossAxis":"height","profileToken":"markSize","profileOffset":-4,"slice":"uniform"}
+  }
+}

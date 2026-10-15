@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "padding": 32,
+  "gap": 16,
+  "titleHeight": 40,
+  "labelHeight": 28,
+  "controlHeight": 64,
+  "fieldHeight": 44,
+  "buttonHeight": 48,
+  "buttonWidth": 240,
+  "orientations": {
+    "landscape": {
+      "width": 820,
+      "height": 620,
+      "rowHeight": 64,
+      "rowDirection": "row",
+      "labelWidth": 200,
+      "rowGap": 24
+    },
+    "portrait": {
+      "width": 620,
+      "height": 760,
+      "rowHeight": 100,
+      "rowDirection": "column",
+      "rowGap": 8
+    }
+  },
+  "presentation": {
+    "version": "1.0",
+    "titleAlign": "center",
+    "sectionHeading": "auto-single",
+    "height": "grow",
+    "canvasMargin": 24
+  }
+}

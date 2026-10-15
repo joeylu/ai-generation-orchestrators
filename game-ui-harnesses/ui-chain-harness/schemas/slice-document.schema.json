@@ -1,0 +1,44 @@
+{
+  "$id": "ui-slice-document-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "source", "density", "bordersPx", "multiplier", "target", "exportResolution"],
+  "properties": {
+    "resizePolicy": { "const": "texture-balanced-v1" },
+    "kind": { "const": "ui_slice_document" },
+    "version": { "const": "1.0" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "width", "height"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "width": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 4096 }
+      }
+    },
+    "density": { "type": "integer", "minimum": 1, "maximum": 4 },
+    "bordersPx": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "top", "right", "bottom"],
+      "properties": {
+        "left": { "type": "integer", "minimum": 0 },
+        "top": { "type": "integer", "minimum": 0 },
+        "right": { "type": "integer", "minimum": 0 },
+        "bottom": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "multiplier": { "type": "number", "minimum": 0.125, "maximum": 16 },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 24, "maximum": 4096 },
+        "height": { "type": "integer", "minimum": 24, "maximum": 4096 }
+      }
+    },
+    "exportResolution": { "enum": [1, 2, 4] }
+  }
+}

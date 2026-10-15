@@ -1,0 +1,36 @@
+{
+  "kind": "ui_programmatic_skin_fixture",
+  "version": "0.1",
+  "id": "neutral-fixture",
+  "purpose": "Synthetic engineering fixture only; not accepted artwork or a production skin pack.",
+  "fontFamily": "Noto Sans SC",
+  "fontSize": 16,
+  "palette": {
+    "base": "#253A52",
+    "active": "#187F9C",
+    "mark": "#E2F6FF",
+    "stroke": "#78AAC4",
+    "text": "#EEF7FF"
+  },
+  "slice": 8,
+  "padding": 12,
+  "gap": 8,
+  "markSize": 24,
+  "trackHeight": 12,
+  "thumbSize": 24,
+  "itemHeight": 32,
+  "disabledAlpha": 0.45,
+  "hoverTint": "#BFEFFF",
+  "geometry": {
+    "labelGap": 8,
+    "titleGap": 8,
+    "lineHeight": 24,
+    "scrollbarWidth": 12,
+    "scrollbarGap": 8,
+    "minThumbLength": 20,
+    "tabGap": 4,
+    "indicatorWidth": 14,
+    "indicatorHeight": 10,
+    "minContent": 24
+  }
+}

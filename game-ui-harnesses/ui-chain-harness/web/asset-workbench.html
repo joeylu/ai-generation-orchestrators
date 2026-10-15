@@ -1,0 +1,19 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>UI 资产定位与切线核对</title>
+<style>body{margin:0;background:#111b29;color:#e6eef8;font:14px system-ui}header{padding:16px;border-bottom:1px solid #40506a}h1{font-size:20px;margin:0 0 12px}button,select,input{background:#25354a;color:white;border:1px solid #60718b;padding:6px;border-radius:4px}button{cursor:pointer;margin:3px}label{display:inline-block;margin:4px 8px 4px 0}input[type=number]{width:65px}.grid{display:grid;grid-template-columns:minmax(360px,1fr) minmax(430px,1fr);gap:18px;padding:18px}.box{background:#1b293b;padding:14px;border-radius:8px}canvas.raster{background:repeating-conic-gradient(#394253 0% 25%,#252e40 0% 50%) 50%/20px 20px;max-width:100%;height:auto}#source{touch-action:none;cursor:crosshair}#packed{max-height:250px;width:auto}#render{overflow:auto}fieldset{border:1px solid #40506a;margin:10px 0}p,small{line-height:1.6}#status{white-space:pre-wrap;color:#b9ddff}#suggestion{white-space:pre-wrap}#file{font-size:12px;word-break:break-all}input[type=file]{max-width:220px}@media(max-width:850px){.grid{grid-template-columns:1fr}}</style>
+<header><h1>资产定位与切线核对</h1>
+<label>皮肤 <select id="skin"></select></label><label>图集 <select id="sheet"></select></label><label>部件 <select id="part"></select></label>
+<button id="export">导出 assembly.json</button><button id="undo">撤销</button><button id="redo">重做</button>
+<label>导入配置 <input type="file" id="import" accept=".json"></label>
+<p id="status">加载中…</p><small>修改仅保存在当前页面草稿。切换皮肤各自保留草稿，刷新前请导出；原图、已验收包不会被覆盖。</small></header>
+<main class="grid"><section class="box"><h2>1. 原图与定位框</h2><p>点击框选部件；拖动选中框移动，拖动右下角调整大小。坐标均为原图像素。</p><div id="file"></div><canvas id="source" class="raster"></canvas>
+<fieldset id="crop"><legend>裁切框</legend><label>X <input id="x" type="number"></label><label>Y <input id="y" type="number"></label><label>宽 <input id="w" type="number"></label><label>高 <input id="h" type="number"></label></fieldset>
+<label>替换当前源图 <input id="replace" type="file" accept="image/png"></label><button id="download-source">下载当前源图</button>
+<p>替换会更新所有引用同一源图的部件。新图片若无法容纳已有裁切框会拒绝；请先调整配置或使用兼容尺寸。导出后将图片放到配置显示的相对路径。</p>
+</section><section class="box"><h2>2. 交付部件与九宫格</h2><canvas id="packed" class="raster"></canvas><p>切线显示在组包后的部件上，数值为整数逻辑单位；采用建议时向上取整，并检查最小尺寸。红线为切片，绿色区域为内容留白。</p>
+<label>密度 <input id="density" type="number" step="0.1" min="0.1"></label>
+<fieldset id="slices"><legend>切片：左 / 上 / 右 / 下</legend></fieldset><fieldset id="insets"><legend>内容边距：左 / 上 / 右 / 下</legend></fieldset>
+<label>最小宽 <input id="minW" type="number"></label><label>最小高 <input id="minH" type="number"></label>
+<fieldset><legend>垂直部件端帽</legend><label><input id="vertical" type="checkbox">只伸缩中段</label><label>上端帽 <input id="capTop" type="number"></label><label>下端帽 <input id="capBottom" type="number"></label><small>端帽单位为裁切原图像素，仅适用于垂直部件。</small></fieldset>
+<button id="apply">应用参数</button><button id="suggest">分析切线建议</button><button id="apply-suggestion" disabled>采用建议</button><div id="suggestion"></div>
+<h2>3. 实际尺寸预览</h2><label>宽 <input id="targetW" type="number" value="280"></label><label>高 <input id="targetH" type="number" value="100"></label><button id="render-button">刷新预览</button><div id="render"></div><small>使用现有 Panel Slicer 几何与 Pixi 渲染。导出配置后仍需统一后处理和16类组件验收；建议不代表视觉接受。</small>
+</section></main><script type="module" src="workbench.mjs"></script></html>

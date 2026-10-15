@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "defaultDensity": 4,
+  "densityOverrides": {"surface.panel": 6},
+  "verticalLogicalWidth": 10,
+  "contentInsets": {
+    "surface.panel": {"left":14,"right":14,"top":14,"bottom":14},
+    "field.normal": {"left":8,"right":8,"top":8,"bottom":8},
+    "field.focused": {"left":8,"right":8,"top":8,"bottom":8}
+  },
+  "roundedEndHypotheses": ["surface.bar", "bar.track", "bar.fill", "scrollbar.track", "scrollbar.thumb"],
+  "automaticAcceptance": false
+}

@@ -1,0 +1,38 @@
+{
+  "kind": "ui_skin_metadata_profile",
+  "version": "1.0",
+  "id": "studio-skin",
+  "revision": 1,
+  "theme": {
+    "fontFamily": "Noto Sans SC",
+    "fontSize": 16,
+    "palette": {
+      "base": "#F6E6CB",
+      "active": "#F47E67",
+      "mark": "#765038",
+      "stroke": "#A87A50",
+      "text": "#593723"
+    },
+    "padding": 14,
+    "gap": 8,
+    "markSize": 24,
+    "trackHeight": 12,
+    "thumbSize": 24,
+    "itemHeight": 32,
+    "disabledAlpha": 0.45,
+    "hoverTint": "#FFF3DF",
+    "geometry": {
+      "labelGap": 8,
+      "titleGap": 8,
+      "lineHeight": 24,
+      "scrollbarWidth": 10,
+      "scrollbarGap": 8,
+      "minThumbLength": 24,
+      "tabGap": 4,
+      "indicatorWidth": 14,
+      "indicatorHeight": 10,
+      "minContent": 24
+    }
+  },
+  "overrides": {}
+}

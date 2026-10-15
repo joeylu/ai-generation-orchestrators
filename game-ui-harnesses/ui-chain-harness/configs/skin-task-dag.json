@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "entry": "received-assets",
+  "nodes": [
+    {"id":"source-s01","kind":"source","sheetId":"S01","dependsOn":[]},
+    {"id":"source-s02","kind":"source","sheetId":"S02","dependsOn":[]},
+    {"id":"source-s03","kind":"source","sheetId":"S03","dependsOn":[]},
+    {"id":"source-s04","kind":"source","sheetId":"S04","dependsOn":[]},
+    {"id":"locate","kind":"locate","dependsOn":["source-s01","source-s02","source-s03","source-s04"]},
+    {"id":"metadata","kind":"metadata","dependsOn":["locate"]},
+    {"id":"content-insets","kind":"content-insets","dependsOn":["metadata"]},
+    {"id":"postprocess","kind":"postprocess","dependsOn":["content-insets"]}
+  ],
+  "externalStages": ["reference-and-style", "frozen-generation-batch", "human-compute-confirmation", "four-generation-submissions-and-receipts"],
+  "automaticProviderCalls": false
+}

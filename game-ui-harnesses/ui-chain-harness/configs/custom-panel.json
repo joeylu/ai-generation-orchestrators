@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "geometry": {"switchHeight":44,"sliderHeight":64,"selectHeight":46,"progressHeight":36},
+  "recipes": {
+    "settings.switch@0.1.0":{"kind":"switch","recipe":"switch"},
+    "settings.slider@0.1.0":{"kind":"slider","recipe":"slider"},
+    "settings.select@0.1.0":{"kind":"select","recipe":"select"},
+    "settings.progress@0.1.0":{"kind":"progress","recipe":"progress-bar"}
+  },
+  "preset": {
+    "custom":true,"surface":"panel","minFields":0,"maxFields":12,"minActions":0,"maxActions":3,
+    "kinds":["text","input","checkbox","switch","slider","select","progress","button"],
+    "dismissOnEmit":false,"landscape":{"width":760,"height":620},"portrait":{"width":620,"height":960}
+  }
+}

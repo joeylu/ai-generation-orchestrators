@@ -1,0 +1,26 @@
+{
+  "$id": "ui-panel-background-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "asset", "defaultMultiplier"],
+  "properties": {
+    "kind": { "const": "ui_panel_background" },
+    "version": { "const": "1.0" },
+    "asset": { "$ref": "#/definitions/asset" },
+    "defaultMultiplier": { "$ref": "ui-slice-document-v1#/properties/multiplier" }
+  },
+  "definitions": {
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "density", "bordersPx", "pngBase64"],
+      "properties": {
+        "resizePolicy": { "$ref": "ui-slice-document-v1#/properties/resizePolicy" },
+        "source": { "$ref": "ui-slice-document-v1#/properties/source" },
+        "density": { "$ref": "ui-slice-document-v1#/properties/density" },
+        "bordersPx": { "$ref": "ui-slice-document-v1#/properties/bordersPx" },
+        "pngBase64": { "type": "string", "minLength": 44, "maxLength": 11184812 }
+      }
+    }
+  }
+}

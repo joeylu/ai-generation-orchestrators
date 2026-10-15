@@ -1,0 +1,95 @@
+{
+  "kind": "ui_skin_template_documentation_render",
+  "source": "../../configs/skin-template-set.draft.json",
+  "rendererSource": "../../scripts/render-templates.mjs",
+  "sourceSha256": "de8a4790cb31523c9e1da23dbd105353b5d8c4cbb197889bfe26410f3e42bf9a",
+  "rendererSha256": "daa8c4cc7f7cdee2109df859d9d49e5a7ac6f9abc3e2ab4eff5a13d5de88230c",
+  "renderer": "pixi.js@8.20.1",
+  "browser": "154.0.8037.98",
+  "channel": "chrome",
+  "backend": "headless-webgl-swiftshader",
+  "scope": "documentation template rendering only; no model generation or component runtime acceptance",
+  "networkRequests": "blocked",
+  "files": [
+    {
+      "sheet": "S01",
+      "role": "clean",
+      "file": "s01-surfaces.clean.png",
+      "width": 1024,
+      "height": 1024,
+      "partCount": 4,
+      "textNodes": 0,
+      "sha256": "5715360b1145c33ecdde644fe405454040d9ca2648cfa397e9fa34a8100433ec"
+    },
+    {
+      "sheet": "S01",
+      "role": "review",
+      "file": "s01-surfaces.review.png",
+      "width": 1024,
+      "height": 1024,
+      "partCount": 4,
+      "textNodes": 10,
+      "sha256": "0611a5b61a740fcfb8a3a802150f03bfba21027bfcb45655bb79278d04428364"
+    },
+    {
+      "sheet": "S02",
+      "role": "clean",
+      "file": "s02-wide-controls.clean.png",
+      "width": 1024,
+      "height": 1024,
+      "partCount": 10,
+      "textNodes": 0,
+      "sha256": "c7d1ca817155455072643682c8bc2b0b83645c8ffbce88643a77d2ba42999405"
+    },
+    {
+      "sheet": "S02",
+      "role": "review",
+      "file": "s02-wide-controls.review.png",
+      "width": 1024,
+      "height": 1024,
+      "partCount": 10,
+      "textNodes": 22,
+      "sha256": "7bffc6f6104f607675ef0a078fa97a5385ad8ceee83c33fee2c798f12ffd2815"
+    },
+    {
+      "sheet": "S03",
+      "role": "clean",
+      "file": "s03-tracks-thumbs.clean.png",
+      "width": 1024,
+      "height": 1024,
+      "partCount": 9,
+      "textNodes": 0,
+      "sha256": "139695267b44d717f94fb82f92321fb3e2c0c910e3d1b9b06608aba0cab36392"
+    },
+    {
+      "sheet": "S03",
+      "role": "review",
+      "file": "s03-tracks-thumbs.review.png",
+      "width": 1024,
+      "height": 1024,
+      "partCount": 9,
+      "textNodes": 20,
+      "sha256": "a5b9aee3a95aa7aa795c368cd816422e98983b70a93227f8b7ab952df77adfe2"
+    },
+    {
+      "sheet": "S04",
+      "role": "clean",
+      "file": "s04-small-parts.clean.png",
+      "width": 1024,
+      "height": 1024,
+      "partCount": 7,
+      "textNodes": 0,
+      "sha256": "638b5c805c84aabf295388327b7e1591fe1bab95132c52bf2ac19da5f549f091"
+    },
+    {
+      "sheet": "S04",
+      "role": "review",
+      "file": "s04-small-parts.review.png",
+      "width": 1024,
+      "height": 1024,
+      "partCount": 7,
+      "textNodes": 19,
+      "sha256": "b62701eaa5d7acda8ca5b0793c5f3b9bf8e0e3f4e32f4b4286e32d42fb360b45"
+    }
+  ]
+}

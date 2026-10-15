@@ -1,0 +1,271 @@
+{
+  "$schema": "../schemas/skin-usage.schema.json",
+  "kind": "ui_skin_usage_draft",
+  "version": "0.1",
+  "revision": 1,
+  "skinId": "generic-ui-draft",
+  "sourceKind": "template-candidates",
+  "templateRef": {
+    "version": "0.2",
+    "revision": 2
+  },
+  "layoutTokens": {
+    "controlGap": 8
+  },
+  "textStyles": {
+    "body": null
+  },
+  "stateStyles": {
+    "hover": null,
+    "disabled": null,
+    "focus": null
+  },
+  "controlGeometry": {
+    "switchTravel": null,
+    "sliderTravel": null,
+    "barFill": null,
+    "scrollbarTravel": null
+  },
+  "bindings": [
+    {
+      "role": "skin.surface.panel",
+      "assetId": "surface.panel",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.surface.content",
+      "assetId": "surface.content",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.surface.popup",
+      "assetId": "surface.popup",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.surface.bar",
+      "assetId": "surface.bar",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.button.primary.normal",
+      "assetId": "button.primary.normal",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.button.primary.pressed",
+      "assetId": "button.primary.pressed",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.button.secondary.normal",
+      "assetId": "button.secondary.normal",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.button.secondary.pressed",
+      "assetId": "button.secondary.pressed",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.field.normal",
+      "assetId": "field.normal",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.field.focused",
+      "assetId": "field.focused",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.item.normal",
+      "assetId": "item.normal",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.item.selected",
+      "assetId": "item.selected",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.tab.normal",
+      "assetId": "tab.normal",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.tab.selected",
+      "assetId": "tab.selected",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.bar.track",
+      "assetId": "bar.track",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.bar.fill",
+      "assetId": "bar.fill",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.scrollbar.track",
+      "assetId": "scrollbar.track",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.scrollbar.thumb",
+      "assetId": "scrollbar.thumb",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.slider.thumb.normal",
+      "assetId": "slider.thumb.normal",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.slider.thumb.pressed",
+      "assetId": "slider.thumb.pressed",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.switch.track.off",
+      "assetId": "switch.track.off",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.switch.track.on",
+      "assetId": "switch.track.on",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.switch.thumb",
+      "assetId": "switch.thumb",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.button.compact.normal",
+      "assetId": "button.compact.normal",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.button.compact.pressed",
+      "assetId": "button.compact.pressed",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.checkbox.box",
+      "assetId": "checkbox.box",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.checkbox.mark",
+      "assetId": "checkbox.mark",
+      "policy": "undecided",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.radio.ring",
+      "assetId": "radio.ring",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.radio.dot",
+      "assetId": "radio.dot",
+      "policy": "undecided",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.select.chevron",
+      "assetId": "select.chevron",
+      "policy": "undecided",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    }
+  ]
+}

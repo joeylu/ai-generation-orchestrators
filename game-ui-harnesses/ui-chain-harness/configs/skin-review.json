@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "port": 4194,
+  "skins": [
+    {"id":"woodland-parchment","label":"林野羊皮纸","assembly":"work/skins/woodland-parchment/assembly.json"},
+    {"id":"orbital-hangar","label":"轨道机库","assembly":"work/skins/orbital-hangar/assembly.json"}
+  ]
+}

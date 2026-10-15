@@ -1,0 +1,19 @@
+node_modules/
+# Reproducible build outputs and local acceptance previews are not source.
+/generated/
+/previews/
+previews/skin-templates/.staging/
+previews/skin-templates/.build.lock
+previews/skin-templates/.current-*.json
+generated/component-contracts/.staging/
+generated/component-contracts/.build.lock
+generated/component-contracts/.current-*.json
+previews/components/.staging/
+previews/components/.build.lock
+previews/components/.current-*.json
+generated/skin-packs/.staging/
+generated/skin-packs/.build.lock
+generated/skin-packs/*.current.tmp
+previews/skin-packs/.staging/
+previews/skin-packs/.build.lock
+previews/skin-packs/*.tmp

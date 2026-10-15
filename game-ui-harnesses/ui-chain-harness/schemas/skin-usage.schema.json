@@ -1,0 +1,329 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "version",
+    "revision",
+    "skinId",
+    "sourceKind",
+    "templateRef",
+    "layoutTokens",
+    "textStyles",
+    "stateStyles",
+    "controlGeometry",
+    "bindings"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "ui_skin_usage_draft"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "skinId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+    },
+    "sourceKind": {
+      "const": "template-candidates"
+    },
+    "templateRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": "0.2"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "version",
+        "revision"
+      ]
+    },
+    "layoutTokens": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+      },
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "textStyles": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+      },
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "fontRef": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+          },
+          "fontSize": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "fill": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          }
+        },
+        "required": [
+          "fontRef",
+          "fontSize",
+          "fill"
+        ]
+      }
+    },
+    "stateStyles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hover": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "tint": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "required": [
+            "tint"
+          ]
+        },
+        "disabled": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "alpha": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "alpha"
+          ]
+        },
+        "focus": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "color",
+            "width"
+          ]
+        }
+      },
+      "required": [
+        "hover",
+        "disabled",
+        "focus"
+      ]
+    },
+    "controlGeometry": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+      },
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "coordinateSpace": {
+            "const": "asset-body"
+          },
+          "assetId": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+          },
+          "axis": {
+            "enum": [
+              "x",
+              "y"
+            ]
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0
+          },
+          "crossOffset": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "coordinateSpace",
+          "assetId",
+          "axis",
+          "start",
+          "end",
+          "crossOffset"
+        ]
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+          },
+          "assetId": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+          },
+          "policy": {
+            "enum": [
+              "raster",
+              "undecided"
+            ]
+          },
+          "nineSlice": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "left": {
+                "type": "number",
+                "minimum": 0
+              },
+              "right": {
+                "type": "number",
+                "minimum": 0
+              },
+              "top": {
+                "type": "number",
+                "minimum": 0
+              },
+              "bottom": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "left",
+              "right",
+              "top",
+              "bottom"
+            ]
+          },
+          "contentInsets": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "left": {
+                "type": "number",
+                "minimum": 0
+              },
+              "right": {
+                "type": "number",
+                "minimum": 0
+              },
+              "top": {
+                "type": "number",
+                "minimum": 0
+              },
+              "bottom": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "left",
+              "right",
+              "top",
+              "bottom"
+            ]
+          },
+          "minSize": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "width": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "height": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ]
+          }
+        },
+        "required": [
+          "role",
+          "assetId",
+          "policy",
+          "nineSlice",
+          "contentInsets",
+          "minSize"
+        ]
+      }
+    }
+  }
+}

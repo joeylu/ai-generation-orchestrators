@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UI Chain · Panel 自适应验收</title></head>
+<body>
+  <header><a class="brand" href="/">UI CHAIN <span>/ Panel 自适应验收</span></a><nav aria-label="工具"><a href="slice.html" target="_blank" rel="noopener">九宫格素材</a><button id="open">导入背景包</button></nav></header>
+  <input id="file" type="file" accept="application/json,.json" hidden>
+  <main>
+    <section class="controls card"><h1>改变父容器，检查背景</h1><p class="hint">深色区域是父容器，四周留 16 单位。内部面板自动填满剩余空间，图片边角保持设定大小。</p>
+      <form id="sizes"><div class="fields"><label>父容器宽度<input id="width" type="number" min="320" max="2048" step="1" value="720" required></label><label>父容器高度<input id="height" type="number" min="320" max="2048" step="1" value="420" required></label></div><button class="primary" type="submit">应用父容器尺寸</button></form>
+      <div class="presets" aria-label="父容器尺寸预设"><button data-size="480,360">紧凑</button><button data-size="960,360">宽面板</button><button data-size="420,680">高面板</button></div>
+      <hr><h2>当前素材</h2><p id="source-name"></p><p id="source-info" class="hint"></p><p id="border-size" class="hint"></p>
+      <hr><h2>导出当前背景</h2><label>PNG 输出分辨率<select id="resolution"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label><button id="export">导出自适应背景 PNG</button><p class="hint">成品不含父容器、文字或按钮。继续自适应请保留背景包。</p>
+    </section>
+    <section class="workspace card"><div class="measurements"><strong id="parent-size"></strong><span id="panel-size"></span></div><div id="preview" class="checker"><div id="canvas-frame"></div></div><p class="hint">画面过宽时仅缩小查看比例，逻辑尺寸和导出尺寸保持一致。这里的尺寸操作属于验收预览，不会修改背景包。</p></section>
+  </main><footer id="status" role="status" aria-atomic="true">正在准备本地运行时…</footer>
+</body></html>

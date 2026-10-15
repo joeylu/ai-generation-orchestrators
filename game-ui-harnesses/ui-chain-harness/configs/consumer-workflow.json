@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "output": "work/consumer-pack",
+  "selection": "work/consumer-workflow/current.json",
+  "evidence": "work/consumer-evidence",
+  "port": 4189
+}

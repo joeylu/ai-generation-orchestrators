@@ -1,0 +1,39 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {sheetProgress,projectProgress,panelProgress,elapsedText} from '../src/studio/progress.mjs';
+test('diagnosis explains a terminal connection failure without changing status or stale-running indicators',()=>{
+ const n={status:'indeterminate',outcomeRecorded:true,submittedAt:'2026-10-14T11:49:16Z',diagnostic:{label:'生图连接失败',detail:'请检查连接后仅补本张',finishedAt:'2026-10-14T11:49:42Z'}};
+ assert.equal(sheetProgress(n).label,'生图连接失败');assert.equal(sheetProgress(n).finishedAt,n.diagnostic.finishedAt);assert.equal(n.status,'indeterminate');
+ assert.equal(sheetProgress({...n,outcomeRecorded:false},{operation:'running'}).label,'生成中');
+ assert.equal(sheetProgress({...n,status:'received'}).label,'已收到');
+});
+test('sheet progress distinguishes submitted waits from terminal unknown outcomes and retained failures',()=>{
+ assert.equal(sheetProgress({status:'indeterminate',outcomeRecorded:false},{operation:'running'}).state,'active');
+ assert.equal(sheetProgress({status:'indeterminate',outcomeRecorded:true},{operation:'running'}).state,'blocked');
+ assert.equal(sheetProgress({status:'indeterminate'},{}).state,'blocked');
+ assert.equal(sheetProgress({status:'failed'},{operation:'running'}).state,'blocked');
+ assert.equal(sheetProgress({status:'authorized-awaiting-external-submission'},{operation:'running'}).label,'等待提交');
+ assert.equal(sheetProgress({status:'received',inspection:'rejected'}).state,'done');
+ assert.match(sheetProgress({status:'received',inspection:'rejected'}).detail,/偏差/);
+});
+test('local progress counts only completed groups and distinguishes recovery, pause and publication',()=>{
+ const nodes=[...['source-s01','source-s02','source-s03','source-s04'].map(id=>({id,kind:'source',status:'passed'})),{id:'locate',kind:'locate',status:'passed'},{id:'metadata',kind:'metadata',status:'incomplete'},{id:'content-insets',status:'waiting'},{id:'postprocess',status:'waiting'}];
+ const p={batchReady:true,busy:true,phase:'processing',state:{nodes:Array.from({length:4},()=>({status:'received'}))},task:{nodes}};
+ const current=projectProgress(p);assert.equal(current.passed,2);assert.equal(current.total,5);assert.equal(current.stages[2].state,'active');assert.equal(current.flow[3].state,'waiting');
+ assert.equal(projectProgress({...p,busy:false,recovering:true}).stages[2].state,'recovering');
+ assert.equal(projectProgress({...p,busy:false,phase:'processing-failed'}).stages[2].state,'blocked');
+ assert.equal(projectProgress({...p,busy:false,skin:{version:'fixture'}}).passed,5);
+ assert.equal(projectProgress({...p,task:{nodes:[...nodes,{id:'extension',kind:'future-stage',status:'waiting'}]}}).total,6);
+});
+test('pending or failed projects never show completed delivery and panel stages reflect real boundaries',()=>{
+ assert.equal(projectProgress({state:{fresh:true,nodes:[]}}).received,0);
+ assert.equal(projectProgress({state:{fresh:false,nodes:[{status:'failed'}]}}).current,'图集需要处理');
+ assert.deepEqual(panelProgress({status:'running',stage:'rendering'}).map(s=>s.state),['done','active','waiting']);
+ assert.deepEqual(panelProgress({status:'interrupted-no-retry',stage:'rendering'}).map(s=>s.state),['done','blocked','waiting']);
+ assert.deepEqual(panelProgress({status:'ready'}).map(s=>s.state),['done','done','done']);
+});
+test('elapsed time uses actual timestamps and freezes at a recorded end',()=>{
+ const start='2026-10-14T01:00:00Z';assert.equal(elapsedText(start,'2026-10-14T01:01:05Z'), '1 分 5 秒');
+ assert.equal(elapsedText(start,undefined,Date.parse(start)+3500),'3 秒');
+ assert.equal(elapsedText(null), '');assert.equal(elapsedText('bad'), '');assert.equal(elapsedText(start,'2026-10-13T01:00:00Z'),'');
+});

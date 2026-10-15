@@ -1,0 +1,41 @@
+{
+  "kind": "ui_component_fixture_matrix",
+  "version": "0.1",
+  "longLabel": "这是一段需要保留字号并自动省略的中文标签 ABC 123",
+  "variants": [
+    {
+      "id": "narrow",
+      "label": "窄版 · 初始值",
+      "width": 180,
+      "heightDelta": 0,
+      "mode": "initial"
+    },
+    {
+      "id": "normal",
+      "label": "标准 · 禁用（适用）",
+      "width": 276,
+      "heightDelta": 0,
+      "mode": "disabled"
+    },
+    {
+      "id": "wide",
+      "label": "宽版 · 更新值（适用）",
+      "width": 420,
+      "heightDelta": 40,
+      "mode": "value"
+    }
+  ],
+  "values": {
+    "Switch": { "checked": true },
+    "CheckBox": { "checked": true },
+    "RadioGroup": { "selectedId": "b" },
+    "Input": { "value": "状态恢复" },
+    "Select": { "selectedId": "b" },
+    "Slider": { "value": 100 },
+    "ProgressBar": { "value": 100 },
+    "ScrollView": { "initialOffsetY": 60 },
+    "List": { "selectedId": "b" },
+    "Dialog": { "open": true },
+    "Tabs": { "activeId": "b" }
+  }
+}

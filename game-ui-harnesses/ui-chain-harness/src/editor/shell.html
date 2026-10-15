@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>UI Chain · 画布编辑</title>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span class="brand-icon">▦</span>
+        <div><strong>UI CHAIN</strong><small>面板画布工作台</small></div>
+      </div>
+      <div class="document-title">
+        <strong id="document-title">游戏设置</strong
+        ><span id="revision">准备中</span>
+      </div>
+      <span class="badge">本地 · 工程皮肤</span
+      ><button id="slice-editor">九宫格素材</button><button id="open">打开 JSON</button><button id="save">保存 JSON</button
+      ><button id="export" class="primary">导出面板包</button
+      ><input id="file" type="file" accept=".json,application/json" hidden />
+    </header>
+    <div class="toolbar">
+      <label
+        >预设
+        <select id="preset"></select></label
+      ><span class="divider"></span
+      ><button id="undo" title="Ctrl+Z">撤销</button
+      ><button id="redo" title="Ctrl+Shift+Z">重做</button
+      ><span class="divider"></span><button id="fit">适配画布</button
+      ><label
+        >缩放
+        <select id="zoom">
+          <option value="fit">适配</option>
+          <option value="0.25">25%</option>
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1">100%</option>
+          <option value="1.5">150%</option>
+        </select></label
+      ><label class="check"
+        ><input id="snap" type="checkbox" checked /> 8px 吸附</label
+      >
+      <div class="spacer"></div>
+      <div class="mode-switch">
+        <button id="edit" class="active">编辑</button
+        ><button id="play">▶ 试玩</button>
+      </div>
+    </div>
+    <main>
+      <aside class="left">
+        <section class="library-section">
+          <div class="section-title">
+            组件库 <span id="component-count"></span>
+          </div>
+          <p class="hint">点选组件，添加到选中的容器。</p>
+          <div id="library"></div>
+        </section>
+        <section class="tree-section">
+          <div class="section-title">层级 <span id="node-count"></span></div>
+          <div id="tree"></div>
+        </section>
+      </aside>
+      <section class="workspace">
+        <div class="canvas-caption">
+          <span id="canvas-label"></span
+          ><span id="mode-label">编辑模式 · 组件不会触发业务事件</span>
+        </div>
+        <div id="viewport" tabindex="0" aria-label="面板编辑画布">
+          <div id="world">
+            <div id="canvas-host"></div>
+            <div id="interaction">
+              <div id="selection">
+                <span id="selection-label"></span
+                ><button id="resize-handle" aria-label="拖动调整尺寸"></button>
+              </div>
+            </div>
+          </div>
+          <div id="empty-state" hidden>载入失败，请查看下方提示</div>
+        </div>
+        <div class="canvas-help">
+          单击选择 · 自由区域拖动定位 · 流式区域拖动排序 · 右下角调整尺寸 · 空格
+          / 中键平移 · Ctrl + 滚轮缩放
+        </div>
+        <div id="status" role="status">正在准备画布…</div>
+      </section>
+      <aside class="right">
+        <div class="section-title">属性 <span id="selected-type"></span></div>
+        <div id="properties"></div>
+        <div id="node-actions">
+          <button id="duplicate">复制</button
+          ><button id="delete" class="danger">删除</button
+          ><button id="up">上移一层</button><button id="down">下移一层</button>
+        </div>
+        <details>
+          <summary>试玩事件</summary>
+          <pre id="events">切换到试玩后，交互事件显示在这里。</pre>
+        </details>
+      </aside>
+    </main>
+    <footer>
+      <span>JSON 驱动 · PixiUI / PixiJS Layout</span
+      ><span id="footer-info">创作文档、试玩状态与视图缩放分别管理</span>
+    </footer>
+  </body>
+</html>

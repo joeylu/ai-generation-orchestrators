@@ -1,0 +1,5 @@
+{
+  "kind": "ui_skin_generation_execution_policy",
+  "version": "1.0",
+  "maxConcurrentSheets": 2
+}

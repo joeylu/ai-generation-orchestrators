@@ -1,0 +1,7 @@
+{
+  "version": "0.1",
+  "presets": {
+    "landscape": { "label": "横版 16:9", "width": 1280, "height": 720 },
+    "portrait": { "label": "竖版 9:16", "width": 720, "height": 1280 }
+  }
+}

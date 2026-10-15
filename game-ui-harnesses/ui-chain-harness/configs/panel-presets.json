@@ -1,0 +1,479 @@
+{
+  "version": "0.1",
+  "presets": [
+    {
+      "id": "settings-landscape",
+      "label": "设置面板 · 横版",
+      "canvas": "landscape",
+      "title": "游戏设置",
+      "rootId": "artboard",
+      "nodes": [
+        {
+          "id": "artboard",
+          "name": "画板",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 1280,
+            "height": 720
+          },
+          "slots": {
+            "children": ["settings"]
+          },
+          "layout": {
+            "childrenMode": "free",
+            "padding": 0
+          }
+        },
+        {
+          "id": "settings",
+          "name": "设置面板",
+          "recipeRef": "panel@1.0.0",
+          "props": {
+            "title": "游戏设置"
+          },
+          "size": {
+            "width": 600,
+            "height": 624
+          },
+          "slots": {
+            "content": ["settings-body"]
+          },
+          "position": {
+            "x": 340,
+            "y": 48
+          }
+        },
+        {
+          "id": "settings-body",
+          "name": "设置内容 · 预设纵向",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 576,
+            "height": 568
+          },
+          "slots": {
+            "children": [
+              "intro",
+              "music",
+              "volume",
+              "player",
+              "quality",
+              "actions",
+              "free-notes"
+            ]
+          },
+          "layout": {
+            "childrenMode": "flow",
+            "direction": "column",
+            "gap": 10,
+            "padding": 0
+          }
+        },
+        {
+          "id": "intro",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "调整音效、画质与玩家信息。\n当前展示通用 UI 工程皮肤。",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 552,
+            "height": 52
+          },
+          "slots": {}
+        },
+        {
+          "id": "music",
+          "name": "Switch",
+          "recipeRef": "switch@1.0.0",
+          "props": {
+            "label": "背景音乐",
+            "checked": true
+          },
+          "size": {
+            "width": 552,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "volume",
+          "name": "Slider",
+          "recipeRef": "slider@1.0.0",
+          "props": {
+            "value": 60,
+            "showValue": true
+          },
+          "size": {
+            "width": 552,
+            "height": 64
+          },
+          "slots": {}
+        },
+        {
+          "id": "player",
+          "name": "Input",
+          "recipeRef": "input@1.0.0",
+          "props": {
+            "placeholder": "玩家昵称",
+            "value": "旅行者"
+          },
+          "size": {
+            "width": 552,
+            "height": 44
+          },
+          "slots": {}
+        },
+        {
+          "id": "quality",
+          "name": "Select",
+          "recipeRef": "select@1.0.0",
+          "props": {
+            "options": [
+              {
+                "id": "a",
+                "label": "品质：高",
+                "enabled": true
+              },
+              {
+                "id": "b",
+                "label": "品质：低",
+                "enabled": true
+              }
+            ],
+            "placeholder": "请选择",
+            "selectedId": "a"
+          },
+          "size": {
+            "width": 552,
+            "height": 44
+          },
+          "slots": {}
+        },
+        {
+          "id": "actions",
+          "name": "底部操作 · 横向",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 552,
+            "height": 44
+          },
+          "slots": {
+            "children": ["cancel", "confirm"]
+          },
+          "layout": {
+            "childrenMode": "flow",
+            "direction": "row",
+            "gap": 12
+          }
+        },
+        {
+          "id": "cancel",
+          "name": "Button",
+          "recipeRef": "button@1.0.0",
+          "props": {
+            "label": "取消",
+            "variant": "secondary"
+          },
+          "size": {
+            "width": 264,
+            "height": 44
+          },
+          "slots": {}
+        },
+        {
+          "id": "confirm",
+          "name": "Button",
+          "recipeRef": "button@1.0.0",
+          "props": {
+            "label": "保存设置",
+            "variant": "primary"
+          },
+          "size": {
+            "width": 264,
+            "height": 44
+          },
+          "slots": {}
+        },
+        {
+          "id": "free-notes",
+          "name": "说明区域 · 可自由摆放",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 552,
+            "height": 104
+          },
+          "slots": {
+            "children": ["note"]
+          },
+          "layout": {
+            "childrenMode": "free",
+            "padding": 0
+          }
+        },
+        {
+          "id": "note",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "自由区域：拖动此文字，或拖右下角调整尺寸。",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 336,
+            "height": 52
+          },
+          "slots": {},
+          "position": {
+            "x": 16,
+            "y": 16
+          }
+        }
+      ]
+    },
+    {
+      "id": "settings-portrait",
+      "label": "设置面板 · 竖版",
+      "canvas": "portrait",
+      "title": "游戏设置",
+      "rootId": "artboard",
+      "nodes": [
+        {
+          "id": "artboard",
+          "name": "画板",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 720,
+            "height": 1280
+          },
+          "slots": {
+            "children": ["settings"]
+          },
+          "layout": {
+            "childrenMode": "free",
+            "padding": 0
+          }
+        },
+        {
+          "id": "settings",
+          "name": "设置面板",
+          "recipeRef": "panel@1.0.0",
+          "props": {
+            "title": "游戏设置"
+          },
+          "size": {
+            "width": 600,
+            "height": 920
+          },
+          "slots": {
+            "content": ["settings-body"]
+          },
+          "position": {
+            "x": 60,
+            "y": 100
+          }
+        },
+        {
+          "id": "settings-body",
+          "name": "设置内容 · 预设纵向",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 576,
+            "height": 864
+          },
+          "slots": {
+            "children": [
+              "intro",
+              "music",
+              "volume",
+              "player",
+              "quality",
+              "actions",
+              "free-notes"
+            ]
+          },
+          "layout": {
+            "childrenMode": "flow",
+            "direction": "column",
+            "gap": 10,
+            "padding": 0
+          }
+        },
+        {
+          "id": "intro",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "调整音效、画质与玩家信息。\n当前展示通用 UI 工程皮肤。",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 552,
+            "height": 52
+          },
+          "slots": {}
+        },
+        {
+          "id": "music",
+          "name": "Switch",
+          "recipeRef": "switch@1.0.0",
+          "props": {
+            "label": "背景音乐",
+            "checked": true
+          },
+          "size": {
+            "width": 552,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "volume",
+          "name": "Slider",
+          "recipeRef": "slider@1.0.0",
+          "props": {
+            "value": 60,
+            "showValue": true
+          },
+          "size": {
+            "width": 552,
+            "height": 64
+          },
+          "slots": {}
+        },
+        {
+          "id": "player",
+          "name": "Input",
+          "recipeRef": "input@1.0.0",
+          "props": {
+            "placeholder": "玩家昵称",
+            "value": "旅行者"
+          },
+          "size": {
+            "width": 552,
+            "height": 44
+          },
+          "slots": {}
+        },
+        {
+          "id": "quality",
+          "name": "Select",
+          "recipeRef": "select@1.0.0",
+          "props": {
+            "options": [
+              {
+                "id": "a",
+                "label": "品质：高",
+                "enabled": true
+              },
+              {
+                "id": "b",
+                "label": "品质：低",
+                "enabled": true
+              }
+            ],
+            "placeholder": "请选择",
+            "selectedId": "a"
+          },
+          "size": {
+            "width": 552,
+            "height": 44
+          },
+          "slots": {}
+        },
+        {
+          "id": "actions",
+          "name": "底部操作 · 横向",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 552,
+            "height": 44
+          },
+          "slots": {
+            "children": ["cancel", "confirm"]
+          },
+          "layout": {
+            "childrenMode": "flow",
+            "direction": "row",
+            "gap": 12
+          }
+        },
+        {
+          "id": "cancel",
+          "name": "Button",
+          "recipeRef": "button@1.0.0",
+          "props": {
+            "label": "取消",
+            "variant": "secondary"
+          },
+          "size": {
+            "width": 264,
+            "height": 44
+          },
+          "slots": {}
+        },
+        {
+          "id": "confirm",
+          "name": "Button",
+          "recipeRef": "button@1.0.0",
+          "props": {
+            "label": "保存设置",
+            "variant": "primary"
+          },
+          "size": {
+            "width": 264,
+            "height": 44
+          },
+          "slots": {}
+        },
+        {
+          "id": "free-notes",
+          "name": "说明区域 · 可自由摆放",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 552,
+            "height": 320
+          },
+          "slots": {
+            "children": ["note"]
+          },
+          "layout": {
+            "childrenMode": "free",
+            "padding": 0
+          }
+        },
+        {
+          "id": "note",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "自由区域：拖动此文字，或拖右下角调整尺寸。",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 336,
+            "height": 52
+          },
+          "slots": {},
+          "position": {
+            "x": 16,
+            "y": 16
+          }
+        }
+      ]
+    }
+  ]
+}

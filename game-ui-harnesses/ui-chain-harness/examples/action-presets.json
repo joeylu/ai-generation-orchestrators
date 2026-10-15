@@ -1,0 +1,22 @@
+[
+  {
+    "id": "leave-confirmation", "presetId": "confirmation", "title": "离开关卡", "sectionTitle": "确认离开",
+    "request": "确认弹窗标题为离开关卡，分组标题确认离开。正文为：离开后将返回地图，当前进度不会保存。按钮依次为继续游戏、确认离开，均可操作并发出本地事件。",
+    "rows": [
+      {"kind":"text","label":"","recipeKey":"settings.text@0.1.0","text":"离开后将返回地图，当前进度不会保存。","wrap":"word"},
+      {"kind":"button","label":"继续游戏","recipeKey":"settings.button.secondary@0.1.0","enabled":true,"action":"emit","resetRows":[],"submitRows":[]},
+      {"kind":"button","label":"确认离开","recipeKey":"settings.button.primary@0.1.0","enabled":true,"action":"emit","resetRows":[],"submitRows":[]}
+    ]
+  },
+  {
+    "id": "profile-form", "presetId": "form", "title": "玩家资料", "sectionTitle": "基本信息",
+    "request": "表单标题玩家资料，分组标题基本信息。说明文字：填写昵称，选择是否显示在线状态。昵称输入框默认空、占位请输入昵称、普通文本、可编辑且可操作、必填、最少2最多12个UTF-16单元。显示在线状态复选框默认开启且可操作。按钮重置恢复昵称和复选框初值，保存校验并提交昵称和复选框的本地值。",
+    "rows": [
+      {"kind":"text","label":"","recipeKey":"settings.text@0.1.0","text":"填写昵称，选择是否显示在线状态。","wrap":"word"},
+      {"kind":"input","label":"昵称","recipeKey":"forms.input@0.1.0","enabled":true,"initial":"","placeholder":"请输入昵称","inputType":"text","readOnly":false,"maxLength":12,"required":true,"minLength":2},
+      {"kind":"checkbox","label":"显示在线状态","recipeKey":"content.checkbox@0.1.0","enabled":true,"initial":true},
+      {"kind":"button","label":"重置","recipeKey":"settings.button.secondary@0.1.0","enabled":true,"action":"reset-initial","resetRows":[1,2],"submitRows":[]},
+      {"kind":"button","label":"保存","recipeKey":"settings.button.primary@0.1.0","enabled":true,"action":"submit","resetRows":[],"submitRows":[1,2]}
+    ]
+  }
+]

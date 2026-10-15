@@ -1,0 +1,2 @@
+/* Compatibility import; Panel Slicer owns the stylesheet. */
+@import "../../tools/panel-slicer/web/style.css";

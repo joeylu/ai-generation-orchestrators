@@ -1,0 +1,601 @@
+{
+  "version": "0.1",
+  "blocks": [
+    {
+      "type": "Button",
+      "label": "Button",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Button",
+          "recipeRef": "button@1.0.0",
+          "props": {
+            "label": "确认按钮"
+          },
+          "size": {
+            "width": 276,
+            "height": 40
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Switch",
+      "label": "Switch",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Switch",
+          "recipeRef": "switch@1.0.0",
+          "props": {
+            "label": "开启音乐"
+          },
+          "size": {
+            "width": 276,
+            "height": 40
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "CheckBox",
+      "label": "CheckBox",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "CheckBox",
+          "recipeRef": "check-box@1.0.0",
+          "props": {
+            "label": "接受设置"
+          },
+          "size": {
+            "width": 276,
+            "height": 40
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "RadioGroup",
+      "label": "RadioGroup",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "RadioGroup",
+          "recipeRef": "radio-group@1.0.0",
+          "props": {
+            "options": [
+              {
+                "id": "a",
+                "label": "选项甲",
+                "enabled": true
+              },
+              {
+                "id": "b",
+                "label": "选项乙",
+                "enabled": true
+              }
+            ],
+            "selectedId": "a"
+          },
+          "size": {
+            "width": 276,
+            "height": 80
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Input",
+      "label": "Input",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Input",
+          "recipeRef": "input@1.0.0",
+          "props": {
+            "placeholder": "输入中文…"
+          },
+          "size": {
+            "width": 276,
+            "height": 40
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Select",
+      "label": "Select",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Select",
+          "recipeRef": "select@1.0.0",
+          "props": {
+            "options": [
+              {
+                "id": "a",
+                "label": "品质：高",
+                "enabled": true
+              },
+              {
+                "id": "b",
+                "label": "品质：低",
+                "enabled": true
+              }
+            ],
+            "placeholder": "请选择"
+          },
+          "size": {
+            "width": 276,
+            "height": 40
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Slider",
+      "label": "Slider",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Slider",
+          "recipeRef": "slider@1.0.0",
+          "props": {
+            "value": 40,
+            "showValue": true
+          },
+          "size": {
+            "width": 276,
+            "height": 64
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "ProgressBar",
+      "label": "ProgressBar",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "ProgressBar",
+          "recipeRef": "progress-bar@1.0.0",
+          "props": {
+            "value": 65,
+            "showValue": true
+          },
+          "size": {
+            "width": 276,
+            "height": 56
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "ScrollView",
+      "label": "ScrollView",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "ScrollView",
+          "recipeRef": "scroll-view@1.0.0",
+          "props": {},
+          "size": {
+            "width": 276,
+            "height": 112
+          },
+          "slots": {
+            "content": [
+              "block-body"
+            ]
+          }
+        },
+        {
+          "id": "block-body",
+          "name": "Container",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 256,
+            "height": 360
+          },
+          "slots": {
+            "children": [
+              "block-row0",
+              "block-row1",
+              "block-row2",
+              "block-row3",
+              "block-row4",
+              "block-row5",
+              "block-row6"
+            ]
+          },
+          "layout": {
+            "childrenMode": "flow",
+            "direction": "column",
+            "gap": 8,
+            "padding": 0
+          }
+        },
+        {
+          "id": "block-row0",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "滚动条目 1",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "block-row1",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "滚动条目 2",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "block-row2",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "滚动条目 3",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "block-row3",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "滚动条目 4",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "block-row4",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "滚动条目 5",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "block-row5",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "滚动条目 6",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "block-row6",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "滚动条目 7",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 40
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "List",
+      "label": "List",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "List",
+          "recipeRef": "list@1.0.0",
+          "props": {
+            "items": [
+              {
+                "id": "a",
+                "label": "第一项",
+                "enabled": true
+              },
+              {
+                "id": "b",
+                "label": "第二项",
+                "enabled": true
+              }
+            ],
+            "itemRecipeRef": "button@1.0.0"
+          },
+          "size": {
+            "width": 276,
+            "height": 80
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Dialog",
+      "label": "Dialog",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Dialog",
+          "recipeRef": "dialog@1.0.0",
+          "props": {
+            "title": "确认窗口",
+            "open": true,
+            "modal": false,
+            "actions": [
+              {
+                "id": "ok",
+                "label": "确认",
+                "variant": "primary",
+                "closeOnActivate": true
+              }
+            ]
+          },
+          "size": {
+            "width": 276,
+            "height": 126
+          },
+          "slots": {
+            "content": [
+              "block-body"
+            ]
+          }
+        },
+        {
+          "id": "block-body",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "在这里添加内容",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 28
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Tabs",
+      "label": "Tabs",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Tabs",
+          "recipeRef": "tabs@1.0.0",
+          "props": {
+            "tabs": [
+              {
+                "id": "a",
+                "label": "第一页",
+                "enabled": true,
+                "contentNodeId": "block-page0"
+              },
+              {
+                "id": "b",
+                "label": "第二页",
+                "enabled": true,
+                "contentNodeId": "block-page1"
+              }
+            ],
+            "activeId": "a"
+          },
+          "size": {
+            "width": 276,
+            "height": 144
+          },
+          "slots": {
+            "pages": [
+              "block-page0",
+              "block-page1"
+            ]
+          }
+        },
+        {
+          "id": "block-page0",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "第 1 页内容",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 228,
+            "height": 40
+          },
+          "slots": {}
+        },
+        {
+          "id": "block-page1",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "第 2 页内容",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 228,
+            "height": 40
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Image",
+      "label": "Image",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Image",
+          "recipeRef": "image@1.0.0",
+          "props": {
+            "sourceRef": "surface.panel"
+          },
+          "size": {
+            "width": 276,
+            "height": 96
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "label": "Text",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "中文与 PixiJS\n固定字体，无自动缩字",
+            "textStyleRef": "body"
+          },
+          "size": {
+            "width": 276,
+            "height": 90
+          },
+          "slots": {}
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "label": "Container",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Container",
+          "recipeRef": "container@1.0.0",
+          "props": {},
+          "size": {
+            "width": 276,
+            "height": 110
+          },
+          "slots": {
+            "children": []
+          },
+          "layout": {
+            "childrenMode": "flow",
+            "direction": "column",
+            "gap": 8,
+            "padding": 0
+          }
+        }
+      ]
+    },
+    {
+      "type": "Panel",
+      "label": "Panel",
+      "rootId": "block",
+      "nodes": [
+        {
+          "id": "block",
+          "name": "Panel",
+          "recipeRef": "panel@1.0.0",
+          "props": {
+            "title": "面板标题"
+          },
+          "size": {
+            "width": 276,
+            "height": 126
+          },
+          "slots": {
+            "content": [
+              "block-body"
+            ]
+          }
+        },
+        {
+          "id": "block-body",
+          "name": "Text",
+          "recipeRef": "text@1.0.0",
+          "props": {
+            "text": "在这里添加内容",
+            "textStyleRef": "body",
+            "overflow": "ellipsis"
+          },
+          "size": {
+            "width": 252,
+            "height": 28
+          },
+          "slots": {}
+        }
+      ]
+    }
+  ]
+}

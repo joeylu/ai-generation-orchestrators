@@ -1,0 +1,21 @@
+{
+  "kind": "ui_skin_normalization_policy",
+  "version": "0.1",
+  "revision": 1,
+  "detection": {
+    "seedAlpha": 128,
+    "minimumCorePixels": 32,
+    "maxDiscardedAlphaMassFraction": 0.005,
+    "minExtentRatio": 0.4,
+    "maxExtentRatio": 2.5,
+    "maxCanvasAspectRatioDrift": 1.02
+  },
+  "resampling": {
+    "method": "premultiplied-area-srgb",
+    "uniform": "contain-centered",
+    "capsules": "preserve-endcaps",
+    "maxUniformAspectRatioDrift": 1.15,
+    "maxUpscale": 2
+  },
+  "scope": "review-candidates-only"
+}

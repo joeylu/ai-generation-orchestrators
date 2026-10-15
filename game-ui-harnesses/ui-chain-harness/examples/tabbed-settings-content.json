@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "id": "tabbed-settings",
+  "title": "游戏设置",
+  "closeLabel": "关闭",
+  "fields": [
+    {
+      "id": "music",
+      "label": "背景音乐",
+      "type": "switch",
+      "value": true
+    },
+    {
+      "id": "effects",
+      "label": "游戏音效",
+      "type": "switch",
+      "value": true
+    },
+    {
+      "id": "musicVolume",
+      "label": "音乐音量",
+      "type": "slider",
+      "value": 65,
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "id": "effectsVolume",
+      "label": "音效音量",
+      "type": "slider",
+      "value": 80,
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "id": "ambient",
+      "label": "环境声音",
+      "type": "switch",
+      "value": true
+    },
+    {
+      "id": "voice",
+      "label": "角色语音",
+      "type": "switch",
+      "value": true
+    },
+    {
+      "id": "language",
+      "label": "显示语言",
+      "type": "select",
+      "value": "zh",
+      "options": [
+        {
+          "id": "zh",
+          "label": "简体中文",
+          "enabled": true
+        },
+        {
+          "id": "en",
+          "label": "English",
+          "enabled": true
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "sound",
+      "title": "声音",
+      "fieldIds": [
+        "music",
+        "effects",
+        "musicVolume",
+        "effectsVolume",
+        "ambient",
+        "voice"
+      ]
+    },
+    {
+      "id": "language",
+      "title": "语言",
+      "fieldIds": [
+        "language"
+      ]
+    }
+  ],
+  "overflow": "scroll",
+  "tabsEnabled": true,
+  "tabs": [
+    {
+      "id": "tab0",
+      "label": "声音",
+      "initial": true,
+      "groupIds": [
+        "sound"
+      ]
+    },
+    {
+      "id": "tab1",
+      "label": "语言",
+      "initial": false,
+      "groupIds": [
+        "language"
+      ]
+    }
+  ]
+}
