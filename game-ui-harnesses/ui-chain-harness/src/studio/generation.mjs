@@ -82,15 +82,15 @@ export function localGeneration(root,snapshot){
    const source=await readContracts(defaults),input=args(plan),result=await inspectGenerationBatch({...input,templateSha256:hash(source.bytes.template),sheets:source.template.sheets});
    if(freshness)for(const node of result.summary.nodes)await verifyGenerationPlan({directory:join(input.skinDirectory,'plans',node.planSha256),planSha256:node.planSha256});
    const previews=new Map();
-   for(const s of result.sources){const url='atlas-previews/'+s.sha256+'.png';snapshot?.files.set(url,s.raw);previews.set(s.sheetId,'/'+url);}
-   const nodes=await Promise.all(result.summary.nodes.map(async n=>({sheetId:n.sheetId,status:n.status,recovered:n.recovered===true,inspection:n.inspection,issues:n.issues,preview:previews.get(n.sheetId),submittedAt:n.submittedAt,finishedAt:n.finishedAt,receivedAt:n.receivedAt,outcomeRecorded:n.outcomeRecorded,
+   for(const s of [...result.sources,...(result.materialSources??[])]){const url='atlas-previews/'+s.sha256+'.png';snapshot?.files.set(url,s.raw);previews.set(s.sheetId,'/'+url);}
+   const nodes=await Promise.all(result.summary.nodes.map(async n=>({sheetId:n.sheetId,planSha256:n.planSha256,rawSha256:n.rawSha256,status:n.status,recovered:n.recovered===true,receptionPending:n.receptionPending===true,inspection:n.inspection,issues:n.issues,preview:previews.get(n.sheetId),submittedAt:n.submittedAt,finishedAt:n.finishedAt,receivedAt:n.receivedAt,outcomeRecorded:n.outcomeRecorded,
     diagnostic:n.outcomeRecorded&&['indeterminate','failed'].includes(n.status)?await diagnoseHistory(result,n):undefined})));
    return {fresh:result.summary.nodes.every(n=>n.status==='awaiting-authorization'),nodes,automaticRetry:false};
   },preflight:()=>adapter.preflight(),execute:plan=>executeBatch({...args(plan),confirmedBatchSha256:plan.batchSha256,maxConcurrentSheets:generationExecutionPolicy.maxConcurrentSheets},adapter),
   recover:(plan,sheetId)=>recoverCodexSheet({...args(plan),sheetId,relayRoot:join(root,'work/skin-codex-relay'),home:process.env.CODEX_HOME??join(homedir(),'.codex')}),
   prepareOne:async(plan,sheetId)=>{
    const source=await readContracts(defaults),intake=await inspectGenerationBatch({...args(plan),templateSha256:hash(source.bytes.template),sheets:source.template.sheets}),node=intake.summary.nodes.find(n=>n.sheetId===sheetId);
-   if(node&&await findRecoverableCodexImage({intake,node,...relayContext}))throw Error('GENERATION_RECOVERABLE_IMAGE');
+   if(node?.receptionPending||node&&await findRecoverableCodexImage({intake,node,...relayContext}))throw Error('GENERATION_RECOVERABLE_IMAGE');
    return prepareSupplement({...args(plan),sheetId});
   },
   executeOne:(plan,sheetId,confirmed)=>executeSupplement({...args(plan),sheetId,confirmed},adapter)

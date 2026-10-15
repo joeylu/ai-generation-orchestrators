@@ -12,7 +12,7 @@ export function studioLibrary(root,generation,pipeline,snapshot){
    const ref=await readSafe(root,dir+'/reference.png'),reference='/references/'+hash(ref)+'.png';snapshot.files.set(reference.slice(1),ref);
    let flow;
    try{flow=await pipeline.action('status',{id:plan.generationId});}catch{flow={phase:'invalid',message:'处理记录或产物未通过校验；原文件已保留。',panels:[]};}
-   projects.push({...plan,...flow,id,reference,description:project.description,style:project.style??null,automaticProcessing:project.automaticProcessing===true});
+   projects.push({...plan,...flow,id,reference,description:project.description,style:project.style??null,automaticProcessing:project.automaticProcessing===true,materialGeneration:project.materialGeneration===true});
   }
   return {projects,truncated:history.truncated};
  })().finally(()=>pending=null);

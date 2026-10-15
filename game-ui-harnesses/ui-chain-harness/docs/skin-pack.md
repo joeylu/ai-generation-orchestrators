@@ -1,6 +1,6 @@
 # PNG 皮肤包：导入、验证与维护
 
-本批实现离线 PNG 资产包与消费接口。它接收已经存在的透明素材板，不调用模型、不去背、不猜测主体位置。程序夹具通过不等于真实风格已生成或人工接受。当前阶段与下一批顺序只维护在 [执行文档](execution-plan.md)。
+本文说明离线 PNG 资产包与消费接口。它接收已经存在的透明素材板，不调用模型、不去背、不猜测主体位置。当前 [Studio](local-studio.md) 已连接参考图、批次生成、定位、任务后处理和预览；这些上游能力与严格导入边界分开。程序夹具通过不等于真实风格已生成或人工接受。历史阶段与试验记录见 [执行文档](execution-plan.md)。
 
 ## 输入与输出
 
@@ -26,7 +26,9 @@
 - `skin-pack.json`：身份、来源、角色映射、尺寸、切片/安全区/最小尺寸、文件字节数与 SHA-256。
 - 包外的 `inputs.json`、`report.json`：冻结输入及技术检查证据，由程序产生。
 
-每次成功导入写入一个新 build；完全验证后才更新 current。失败保留 `.staging`，不替换上一版。不要手工编辑 manifest、report 或 current。技术通过仍固定为 `visualAcceptance: unreviewed` / `productionReady: false`；真实风格接受流程尚未实现。
+每次成功导入写入一个新 build；完全验证后才更新 current。失败保留 `.staging`，不替换上一版。不要手工编辑 manifest、report 或 current。技术通过仍固定为 `visualAcceptance: unreviewed` / `productionReady: false`。Studio 有真实 PNG 预览与组件检查入口，但尚未实现将外观正式记录为 accepted 的完整接受流程或生产发布命令；不要把“可预览”“已入库”解释为美术已接受。
+
+启用可选 S05 时，基础四图和 30 部件合同不变。确定性材质扩展会额外保存 `materialAssets`、`surfaceStyles`、原图摘要及裁切来源，派生新的皮肤版本；它复用本节的包验证与 PNG 消费接口，不额外创造组件类型。详见[任务接入](skin-task-dag.md)。
 
 ## 命令
 
@@ -82,7 +84,7 @@ node scripts/skin-attempt.mjs receive --plan work/skins/example/plans/<sha256> -
 
 记录目录包含 reservation.json、receive.claim、raw.png、inspection.json 和 receipt.json。检查使用冻结模板的逻辑坐标及 outputScale，统计尺寸、alpha、主体区域非空、主体外像素；连通区域仅作诊断，不能证明资产语义或自动更改裁切。原图保留全透明像素的原始 RGB，不在接收阶段修复。几何通过也仍需美术、身份及拉伸检查。
 
-重复预留/接收会拒绝；没有 receipt 的预留属于未完成或结果不明，禁止删除记录后重投。此人工桥接不等于完整 provider adapter、恢复协议或生产交付。首次真实试验结果单独维护在执行文档 12.4。
+此单板桥接命令的重复预留/接收会拒绝；没有 receipt 的预留属于未完成或结果不明，禁止删除记录后重投。当前整批执行另有适配器、显式原图恢复与单张补图入口；它们不改变这里的单次预留规则，见 [Studio 恢复边界](local-recovery.md)。首次单板试验结果保留在执行文档 12.4。
 
 ## 当前严格支持范围
 
@@ -94,7 +96,7 @@ node scripts/skin-attempt.mjs receive --plan work/skins/example/plans/<sha256> -
 - 单文件最多 32 MiB，导入元数据最多 2 MiB，总输入最多 96 MiB，总包资源最多 128 MiB；当前 Schema 最多 64 板、256 部件、256 字体子集。
 - 首版只提供 body 正文字体族；多字号由已有 TextStyle 覆盖规则处理。完整语言覆盖、真实 IME/触摸、字体生产授权与跨主题接受仍需分别验收。
 - 非对称九宫格已支持。按钮及列表/页签按钮、输入框、Panel 使用内容边距；Dialog 仍使用统一 padding，若小于皮肤安全区会拒绝。Select 弹出底板暂只支持零内容边距，非零会明确报能力不足；更复杂皮肤应在真实绑定阶段补适配。
-- PanelDocument/画布目前仍绑定工程夹具；本批提供 PNG 组件消费 API，没有给画布增加换肤入口，也没有完成独立生产面板导出。
+- Studio 组件画布已消费项目真实 PNG 皮肤，面板生成会冻结所选皮肤及合同版本，并提供本地预览和文件下载。这些入口不代表完整皮肤的美术接受或生产发布已完成。
 
 ## 运行时接口与生命周期
 

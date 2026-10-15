@@ -1,0 +1,30 @@
+{
+  "kind": "ui_inventory_panel_config",
+  "version": "1.1",
+  "presetId": "inventory",
+  "columns": 5,
+  "rows": 4,
+  "gap": 10,
+  "appearance": "slots",
+  "samplePlacement": "preserve-default-or-sequential",
+  "cellTarget": 80,
+  "canvasMargin": 24,
+  "contentGap": 12,
+  "minPadding": 16,
+  "headingHeight": 36,
+  "defaultTitle": "仓库（示例）",
+  "orientations": {
+    "landscape": {"maxWidth": 960, "maxHeight": 560, "details": "right"},
+    "portrait": {"maxWidth": 640, "maxHeight": 850, "details": "below"}
+  },
+  "items": [
+    {"id":"sample-potion","label":"药水","enabled":true,"slotIndex":0,"quantity":12,"description":"玻璃瓶中盛放着红色药剂，是旅途中的常备补给。","icon":"potion"},
+    {"id":"sample-wood","label":"木材","enabled":true,"slotIndex":1,"quantity":99,"description":"纹理清晰的硬木，可作为工坊制作的基础材料。","icon":"material"},
+    {"id":"sample-ore","label":"矿石","enabled":true,"slotIndex":2,"quantity":36,"description":"采自深色岩层，表面泛着细微的金属光泽。","icon":"material"},
+    {"id":"sample-sword","label":"长剑","enabled":true,"slotIndex":3,"quantity":1,"description":"保养良好的单手剑，剑身轻巧，刃口锋利。","icon":"sword"},
+    {"id":"sample-shield","label":"盾牌","enabled":true,"slotIndex":4,"quantity":1,"description":"包有金属护边的圆盾，留下了长途跋涉的痕迹。","icon":"shield"},
+    {"id":"sample-gem","label":"宝石","enabled":true,"slotIndex":5,"quantity":8,"description":"晶莹的切面折射着光线，适合收藏在安全的地方。","icon":"gem"},
+    {"id":"sample-scroll","label":"卷轴","enabled":true,"slotIndex":6,"quantity":3,"description":"用细绳束起的旧卷轴，纸上留有淡淡的墨香。","icon":"scroll"},
+    {"id":"sample-food","label":"食物","enabled":true,"slotIndex":7,"quantity":24,"description":"便于随身携带的干粮，为下一段旅程做好准备。","icon":"food"}
+  ]
+}

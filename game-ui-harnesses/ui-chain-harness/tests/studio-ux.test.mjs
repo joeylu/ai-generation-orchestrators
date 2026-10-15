@@ -14,7 +14,7 @@ test('automatic processing coalesces notifications and restores the same binding
  const root=await mkdtemp(join(tmpdir(),'studio-auto-'));
  try{
   const dir=join(root,'work/project');await mkdir(dir,{recursive:true});await writeFile(join(dir,'project.json'),JSON.stringify({automaticProcessing:true}));
-  let received=3,calls=0;const generation={resolve:()=>({directory:'work/project/batches/a',batchSha256:'a'}),action:async()=>({nodes:Array.from({length:4},(_,i)=>({status:i<received?'received':'failed'}))})};
+  let received=3,calls=0;const generation={resolve:()=>({directory:'work/project/batches/a',batchSha256:'a'}),action:async()=>({nodes:['S01','S02','S03','S04'].map((sheetId,i)=>({sheetId,status:i<received?'received':'failed'}))})};
   const pipeline={processAutomatically:async id=>{assert.equal(id,'id');calls++;return {status:'started'};}};
   const auto=automaticProcessing(root,generation,pipeline);await auto('id');assert.equal(calls,0);
   received=4;await Promise.allSettled([auto('id'),auto('id'),auto('id')]);assert.equal(calls,1);

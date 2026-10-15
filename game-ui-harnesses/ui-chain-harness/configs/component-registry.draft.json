@@ -2,7 +2,7 @@
   "$schema": "../schemas/component-registry.schema.json",
   "kind": "ui_component_registry_draft",
   "version": "0.1",
-  "revision": 4,
+  "revision": 7,
   "commonProps": {
     "visible": {
       "type": "boolean",
@@ -252,6 +252,15 @@
               "compact"
             ],
             "default": "primary"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -364,6 +373,15 @@
           "checked": {
             "type": "boolean",
             "default": false
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -441,6 +459,15 @@
           "checked": {
             "type": "boolean",
             "default": false
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -551,6 +578,15 @@
           "gapToken": {
             "type": "string",
             "default": "controlGap"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -653,6 +689,15 @@
             ],
             "minimum": 0,
             "default": null
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -769,6 +814,15 @@
             "type": "integer",
             "minimum": 1,
             "default": 5
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -878,6 +932,15 @@
           "showValue": {
             "type": "boolean",
             "default": false
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -985,6 +1048,15 @@
           "showValue": {
             "type": "boolean",
             "default": false
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -1178,6 +1250,37 @@
                 "enabled": {
                   "type": "boolean",
                   "default": true
+                },
+                "slotIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 99
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 999999
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                "icon": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "gem",
+                    "potion",
+                    "coin",
+                    "material",
+                    "scroll",
+                    "sword",
+                    "shield",
+                    "food",
+                    null
+                  ]
                 }
               },
               "required": [
@@ -1210,6 +1313,65 @@
           "gapToken": {
             "type": "string",
             "default": "controlGap"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "inventory": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "columns": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "gap": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32
+              },
+              "details": {
+                "type": "string",
+                "enum": [
+                  "right",
+                  "below"
+                ]
+              },
+              "appearance": {
+                "type": "string",
+                "enum": [
+                  "slots"
+                ]
+              },
+              "cellSize": {
+                "type": "integer",
+                "minimum": 48,
+                "maximum": 256
+              },
+              "initialSlot": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 99
+              }
+            },
+            "required": [
+              "columns",
+              "rows",
+              "gap",
+              "details"
+            ]
           }
         },
         "required": [
@@ -1359,6 +1521,15 @@
               ]
             },
             "default": []
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -1480,6 +1651,15 @@
             ],
             "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
             "default": null
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []
@@ -1676,6 +1856,15 @@
               "right"
             ],
             "default": "left"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": [
@@ -1804,7 +1993,10 @@
             "default": 1
           },
           "backgroundRef": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^background-[1-9][0-9]*$",
             "default": null
           },
@@ -1839,6 +2031,15 @@
               "bottom"
             ],
             "default": null
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
           }
         },
         "required": []

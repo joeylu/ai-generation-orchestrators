@@ -2,6 +2,7 @@ import {scrollPadding} from '../runtime/scroll-geometry.mjs';
 import {tabsContentBox} from '../runtime/tabs-geometry.mjs';
 import {presentation,presetHeight} from './preset-presentation.mjs';
 import { validateDocument } from './document.mjs';
+import {headingPresentation} from './headings.mjs';
 
 // Preset compilation only: content, geometry and selected skin stay independent.
 export function settingsDocument(content, layout, canvas, ctx) {
@@ -21,7 +22,9 @@ export function settingsDocument(content, layout, canvas, ctx) {
   const add = (id, type, props, width, height, slots = {}, extra = {}) => {
     nodes.push({ id, name: id, recipeRef: `${type}@1.0.0`, props, size: { width, height }, slots, ...extra }); return id;
   };
-  const title = add('heading','text',{text:content.title,textStyleRef:'body',align:policy.titleAlign,overflow:'ellipsis'},bodyWidth,layout.titleHeight);
+  const heading=(id,text,width,height,key)=>{const style=headingPresentation(ctx,key,width,height),node=add(id,'text',{text,textStyleRef:'body',align:key==='title'?policy.titleAlign:'left',overflow:'error'},width,style.height);if(style.surfaceStyle)nodes.find(n=>n.id===node).surfaceStyle=style.surfaceStyle;return node;};
+  const title = heading('heading',content.title,bodyWidth,layout.titleHeight,'title');
+  const titleHeight=nodes.find(n=>n.id===title).size.height;
   const groups=content.groups;
   if(groups!==undefined){
     const ordered=Array.isArray(groups)?groups.flatMap(g=>g.fieldIds??[]):[];
@@ -49,12 +52,12 @@ export function settingsDocument(content, layout, canvas, ctx) {
   if(groups){
     for(const [index,group] of groups.entries()){
       const start=sectionRows.length;
-      if(tabs||groups.length>1||policy.sectionHeading==='show')sectionRows.push(add('section-heading-'+index,'text',{text:group.title,textStyleRef:'body',overflow:'ellipsis'},rowWidth,layout.labelHeight));
+      if(tabs||groups.length>1||policy.sectionHeading==='show')sectionRows.push(heading('section-heading-'+index,group.title,rowWidth,layout.labelHeight,'section'));
       sectionRows.push(...group.fieldIds.map(id=>id+'-row'));
       groupRows.set(group.id,sectionRows.slice(start));
     }
   }else{
-    if(content.sectionTitle&&policy.sectionHeading==='show')sectionRows.push(add('section-heading','text',{text:content.sectionTitle,textStyleRef:'body',overflow:'ellipsis'},bodyWidth,layout.labelHeight));
+    if(content.sectionTitle&&policy.sectionHeading==='show')sectionRows.push(heading('section-heading',content.sectionTitle,bodyWidth,layout.labelHeight,'section'));
     sectionRows.push(...rows);
   }
   const close=add('close','button',{label:content.closeLabel},Math.min(layout.buttonWidth,bodyWidth),layout.buttonHeight);
@@ -62,8 +65,8 @@ export function settingsDocument(content, layout, canvas, ctx) {
   const sequences=tabs?tabs.map(t=>t.groupIds.flatMap(id=>groupRows.get(id))):[sectionRows];
   const natural=ids=>ids.reduce((sum,id)=>sum+nodes.find(n=>n.id===id).size.height,0)+Math.max(0,ids.length-1)*layout.gap;
   const headerHeight=tabBox?tabBox.headerHeight+tabPad.top+tabPad.bottom:0;
-  const height=presetHeight({policy:scrolling?{...policy,height:'fixed'}:policy,width:o.width,height:o.height,board,padding:layout.padding,children:scrolling?[]:[layout.titleHeight,Math.max(...sequences.map(natural))+headerHeight,layout.buttonHeight],gap:layout.gap});
-  const middleHeight=height-layout.padding*2-layout.titleHeight-layout.buttonHeight-layout.gap*2;
+  const height=presetHeight({policy:scrolling?{...policy,height:'fixed'}:policy,width:o.width,height:o.height,board,padding:layout.padding,children:scrolling?[]:[titleHeight,Math.max(...sequences.map(natural))+headerHeight,layout.buttonHeight],gap:layout.gap});
+  const middleHeight=height-layout.padding*2-titleHeight-layout.buttonHeight-layout.gap*2;
   const pageHeight=middleHeight-headerHeight;
   let middle=sectionRows;
   if(scrolling||tabs){

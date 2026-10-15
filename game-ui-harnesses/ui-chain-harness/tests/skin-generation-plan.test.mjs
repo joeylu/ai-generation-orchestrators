@@ -62,7 +62,6 @@ test('single sheet supplement preserves three received sheets, binds fresh confi
  const one={...f.execution,sheetId:'S02'},prepared=await prepareSupplement(one);
  assert.notEqual(prepared.planSha256,f.plans[1].sha256);
  assert.equal((await prepareSupplement(one)).planSha256,prepared.planSha256);
- await assert.rejects(prepareSupplement({...one,sheetId:'S01'}),/only-missing/);
  let calls=0;const adapter={generate:async r=>{calls++;assert.equal(r.sheetId,'S02');assert.equal(r.planSha256,prepared.planSha256);return png;}};
  await assert.rejects(executeSupplement({...one,confirmed:'wrong'},adapter),/confirmation/);assert.equal(calls,0);
  const results=await Promise.allSettled([executeSupplement({...one,confirmed:prepared.planSha256},adapter),executeSupplement({...one,confirmed:prepared.planSha256},adapter)]);

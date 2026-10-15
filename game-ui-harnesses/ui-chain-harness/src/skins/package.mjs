@@ -8,6 +8,8 @@ import { readContracts } from '../contracts/validate.mjs';
 import { assertSchema, assertMetadata, validatePack, safePath, fail } from './contract.mjs';
 import { decodePng, encodePng, cropPng } from './png.mjs';
 import {deriveTextReadability} from './text-readability.mjs';
+import {materialFiles} from './surface-styles.mjs';
+import {importMaterials,verifyMaterials} from './materials.mjs';
 export const hash = b => createHash('sha256').update(b).digest('hex');
 export const json = v => JSON.stringify(v, null, 2) + '\n';
 export async function skinToolIdentity() {
@@ -17,7 +19,7 @@ export async function skinToolIdentity() {
   return {sha256:hash(Buffer.from(json(entries))),files:entries};
 }
 export function bindingsOf(inputs) { return Object.fromEntries(['template','registry','usage'].map(k => [k+'Sha256', hash(inputs.bytes[k])])); }
-async function noLinks(path) {
+export async function noLinks(path) {
   path = resolve(path);
   const base = parse(path).root;
   let current = base;
@@ -112,6 +114,7 @@ export async function buildSkinPackage({ input, output, contracts = defaults }) 
       pack.fonts.push({...f,...await emit(packDir,`fonts/font-${i}.woff2`,bytes)});
     }
     for (const [i,f] of spec.licenses.entries()) pack.licenses.push(await emit(packDir,`licenses/font-${i}.txt`,await source(f.file)));
+    await importMaterials(pack,spec,base,(file,bytes)=>emit(packDir,file,bytes));
     const readability=deriveTextReadability(pack,textImages);pack.theme.textColors=readability.inks;
     validatePack(pack,bindingsOf(inputs));
     const manifest = Buffer.from(json(pack)); await emit(packDir,'skin-pack.json',manifest);
@@ -134,7 +137,8 @@ export async function buildSkinPackage({ input, output, contracts = defaults }) 
 export async function verifySkinPackage(directory, expected = {}) {
   const bytes = await readSafe(directory,'skin-pack.json',2*1024*1024), pack = validatePack(JSON.parse(bytes),expected), resources = new Map();
   let total=0;
-  for (const f of [...pack.sources,...pack.assets,...pack.fonts,...pack.licenses]) {
+  for (const f of [...pack.sources,...pack.assets,...pack.fonts,...pack.licenses,...materialFiles(pack)]) {
+    if(resources.has(f.file))continue;
     const b = await readSafe(directory,f.file); total+=b.length;
     if (total>128*1024*1024 || b.length!==f.bytes || hash(b)!==f.sha256) fail('skin.digest','Resource size/digest mismatch or package limit exceeded.');
     resources.set(f.file,b);
@@ -154,6 +158,7 @@ export async function verifySkinPackage(directory, expected = {}) {
     textImages.set(a.assetId,image);
   }
   for (const f of pack.fonts) if (resources.get(f.file).toString('ascii',0,4)!=='wOF2') fail('skin.font','Invalid WOFF2 signature.');
+  await verifyMaterials(pack,resources);
   const allowed=new Set(['skin-pack.json',...resources.keys()]);
   const visit=async (relative='')=>{for(const item of await readdir(join(directory,relative),{withFileTypes:true})){const path=relative+item.name;if(item.isDirectory()) await visit(path+'/'); else if(!item.isFile() || !allowed.has(path)) fail('skin.extra','Unexpected file in skin package.');}};
   await visit();

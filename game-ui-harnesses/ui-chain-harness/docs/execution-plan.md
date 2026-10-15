@@ -1,6 +1,6 @@
 # UI 皮肤 → 组件 → 面板：执行与讨论文档
 
-- 文档版本：0.136
+- 文档版本：0.138
 - 最后更新：2026-10-15（Asia/Shanghai）
 - 当前阶段：Studio 项目式 UX 已落地：带图预设/自定义创建、四图收齐自动本地处理、组件项目库、全局暗色网格检视画布、独立面板生成台与作品库；已有项目保留。当前验收见 12.91；面板预设已对齐 ui-reference 五类八状态，见 12.92；自定义面板支持八类混合控件与滚动，见 12.95。本地中断恢复与暂时错误有限续跑见 12.96，不承诺任意新项目全程零干预。网页内确认与各阶段真实进度见 12.97；同一批次最多两张图集并行生成见 12.98。画布/文字编辑、任意16类AI组合和远程部署仍后置。
 - 当前授权范围：本轮真实全流程授权已执行：四板各一次 Codex CLI 图像调用；面板两份不同计划各一次（首次明确返回比例澄清，补明既定预设能力后第二份成功）。没有失败/不明结果自动重投，不扩展为后续无限额度授权。
@@ -2513,3 +2513,259 @@ Select 使用裁切高度与透明度缓动、箭头旋转及行按钮反馈，�
 ### 12.122 本地版本快照（2026-10-15）
 
 用户要求先提交当前 Harness 目录。提交范围限定 ui-chain-harness 的源码、配置、测试、文档和必要静态资源；生成的 generated/、previews/ 与原有 work/、node_modules/ 留在本机并由忽略规则排除。此次为当前工作版本存档，不创建发布标签、不推送远端，也不包含相邻 Harness 尚未提交的修改。动效验证沿用 12.121 的已完成结果，未重新调用模型。
+
+
+### 12.123 Slider / ProgressBar 百分比与进度文字居中（2026-10-15）
+
+按用户截图要求，将通用 Slider 和 ProgressBar 的 showValue 显示统一为归一化百分比（整数四舍五入，按 min/max 计算）；实际 value、步长、输入和提交事件不变。Slider 标签继续跟随滑块并在两端约束到可见区域；ProgressBar 标签保留在条下方，在更新值和 resize 后重新按整个进度条宽度横向居中。共用 percentLabel 维护格式，后续新构建组件和面板自动继承。历史冻结面板不原地改写。
+
+验证：64 项真实 Pixi 控件检查及三风格逐帧动效测试通过。补充非零/小数范围、100% 和 0%、拖动取消恢复、宽度变化和文字长度变化后的居中断言。现有四个组件项目通过确定性升级工具重建并检查，不重生素材，不手改交付清单。
+接入结果：四套现有组件包各 64 项检查通过并已选用；原纹理摘要及动效选择保持不变。国风幻想当前画布已加载新版，实际核对 ProgressBar 下方 65% 横向居中，浏览器无错误/警告；证据 percentage-progress-live.png。本轮模型调用 0。
+
+
+### 12.124 移除组件键盘导航与额外焦点框（2026-10-15）
+
+用户确认无需键盘操作组件。删除通用运行时的 Tab 遍历、方向键/首尾跳转、回车/空格激活、Esc 关闭及 keyboard 适配模块；删除鼠标点选建立键盘焦点和绘制金色矩形的逻辑。皮肤原始描边、鼠标/触摸点击、拖动、滚轮和三套动效保留。Input 仍允许中文和常规文字编辑，保留文本编辑入口；它不再附加通用焦点框动画。对照页 Input 改为示例文字/恢复演示，避免继续宣称存在焦点边框。此范围为 Pixi 控件运行时，浏览器与 Studio 原生表单行为不屏蔽。历史冻结面板不原地重写，新构建继承该规则。
+
+验证：64 项真实 Pixi 控件检查及三风格动效逐帧回归通过。原键盘功能检查替换为按 Tab/方向键/End/Enter/Space/Esc 不改变控件状态、不产生事件及不创建焦点框；额外验证中文输入仍有效，复合列表以真实鼠标点选验证。四套现有组件包由确定性工具升级，未调用模型。
+接入结果：四套已有皮肤新版包各 64 项检查通过，80 项对照页检查通过；确认无运行任务后重启 Studio。国风幻想实际画布已切换新版，Dialog 近景只剩原皮肤描边，没有外层焦点矩形，浏览器错误/警告为 0；截图 dialog-pointer-only.png。无模型调用。
+
+### 12.125 Panel 布局语义桥接与 Studio 接入（2026-10-15）
+
+按用户接手要求，先核对根 AGENTS、五份 Chain 文档、最新上游公开规划 Schema、Chain 转换/运行时及 4210 现场。工作区存在上游和其他 Harness 未提交工作，本轮未修改它们；保留 12.123 百分比标签、ProgressBar 居中、12.124 指针操作与原生输入改动，也不改写历史面板包。最新“上游支持 / Chain 接手支持 / 缺口 / 维护位置”集中在 panel-upgrade-matrix.md；接手基线与实施后表分开，历史记录保留。
+
+实现：仍由上游 planning/v1 和可选 planning/codex/v1 负责上下文、Schema、冻结与运输，不新建规划引擎、不移植旧 PanelSpec materializer。action-intent 对 custom 分流到 custom-layout.mjs，保留原生 column/row/grid/section 树、标题、深度优先全局 row ID 与动作分组，复用原字段/状态/本地 submit/reset 行为和 PixiUI/Layout。row 等分；grid 固定两列，不足明确拒绝，最后一行保持列位。Button-only actionLayout 支持横纵排列、对齐、gap 与明确宽高，拒绝 circle。普通末尾按钮默认等分；旧单组滚动面板保留固定 footer，复杂结构动作留在其所属分组中滚动。
+
+尺寸由程序推导：custom-panel.json 的 preset.layout 集中维护 groupGap/groupPadding/maxDepth/gridColumns/minColumnWidth，行间距复用 geometry.gap；转换生成 fill/content，继续调用共享 Yoga 求解。接受面板 layout.width/maxHeight，画布仍由用户选定的 16:9 或 9:16 冻结。默认高度沿用预设起点，内容可增高，显式 maxHeight 是硬上限。已验证包的 panel/scroll insets 和组件几何由 skin-geometry 提供；原 PNG assertComponent 提取为 png-geometry，在编译与浏览器运行时复用九宫格、最小尺寸、内容安全区校验。保守文字预算覆盖宽 ASCII，真实浏览器再检查 Button/Select 完整文案。缺证据、超限、宽度不足或不支持语义都失败，不缩小字体、截文或换结构。审查发现的连续按钮测宽、显式48高被静默扩高、全局树计数及固定footer最小宽度问题已修，并有相应夹具。
+
+协议边界：intent 0.12 没有宽度比例、逐节点 padding/min/max/fill/content 字段，不能在 Chain 私加。它们的 AI 表达需先版本化上游协议，本轮仅通过冻结消费配置派生等分、填充和留白。自定义 Tabs、auto overflow、显式 canvas 尺寸、圆形按钮、图片/图标及其他未映射控件继续明确拒绝；设置已有 Tabs 范围保留。Chain 本地 submit 可收集五类状态、上游 materializer 仅 Input 的既有消费端差异明确记录，不夹带行为变更。不同于上游自适应 grid，本轮固定双列的消费策略写入提示和文档。生产依赖不可变发布锁定仍未完成。
+
+Studio：生成前比例选择原已接通，本轮修正自定义追加指令允许面板 width/maxHeight，同时继续禁止模型选择或追问画布比例；固定预设保持原指令。自定义描述和示例需求更新为多组/横纵/嵌套，失败卡片显示可操作原因与折叠检查标识，原始进程输出不公开。config、prompt 与方向仍进入原摘要，旧待执行计划变化后必须重备；同一调用不自动重试，失败不会显示为交付成功。维护文档同步更新 planning-integration、layout-contract、custom-panel 和 local-studio。
+
+| 验证 | 结果与证据 |
+| --- | --- |
+| 全套 Node 离线回归 | 336/336；work/studio/layout-alignment-node-tests-final.log。Windows 沙箱禁止临时文件原子替换，按原实现沙箱外执行同一夹具，无削弱校验 |
+| 自定义/动作针对性复核 | 新增 custom-layout 8 项及 custom/action 共17项通过；含结构、显式尺寸、未支持字段、皮肤几何、宽字形、固定 footer；最后夹具 producer 也保留未知字段交由 Schema 拒绝 |
+| 既有 16 类组件与动效 | 64 项组件真实 Pixi 检查、三风格逐帧动效测试通过；指针操作与中文原生输入保留 |
+| 新结构真实国风皮肤 | nested/grid/wideASCII 三例，横竖各27项，共6样本54项通过；无外网、模型调用0，console/page error/warning为0。报告 work/panels/studio-layout-checks/5881b76c-4032-4f73-b0e3-7f004d344253 与 e3034be0-dc31-4fac-9a16-80faf475f5a2 |
+| Studio 与经典自定义 | Studio UX127项、经典自定义横竖16项通过。旧测试的focus/End改为鼠标Slider，开关点击真实track且先滚入视口，竖版viewport覆盖完整画布；没有恢复键盘导航 |
+
+新布局预览仍标记 offline-fixtures，不是新模型输出：work/panels/studio-layout-v2/80ea0095-bf1a-49e7-b463-70460aa6c1a5（仅横版）及 db92edb4-a0cb-499b-abd7-24f0ad7ce72d（仅竖版）。截图在本聊天仓库外可视化目录的 layout-v2-landscape / layout-v2-portrait；已目视核对左右嵌套、固定双列及完整宽字形。Browser plugin not available，使用现有 Playwright+Edge 离线检查，并以 CUA 核对实际 Studio；未新增依赖。
+
+接入：重启前再次读取4210，四项目 busy/generationRunning/recovering 均 false，运行面板0；核对进程命令后只停止原Studio并隐藏窗口重启。新服务已加载多组/嵌套说明，启动日志无错误，四项目仍 components-ready/空闲。既有任务状态、皮肤版本和已冻结面板不变。本轮实际模型调用0，不提交/推送或发布仓库版本。真实模型对复杂自然语言的理解尚未作为本轮验收；若需验证，应先重新准备绑定最新能力的不可变计划，再按原单次授权流程执行。
+
+实际 CUA 核对：复用本轮唯一 Studio 标签，选择“自定义面板”、横版16:9和国风幻想，新能力说明、示例提示与绑定版本均正确，空需求仍禁止生成；页面标题/路由正确，错误及警告0。截图 studio-layout-live.png 保存在仓库外可视化目录，保留该标签供用户继续使用，未点击生成或提交模型。
+
+### 12.126 移除临时动效对照入口（2026-10-15）
+
+按用户要求，从组件画布的动效工具栏移除“三套动效对照”链接。日常仍通过全部组件动效选择原样/轻快/精致/稳重，并可重播入场和导出配置；动效运行时、项目选择、16类组件、皮肤和已有面板均不变。对照页与现有离线检查只保留给开发回归，不再作为日常入口。local-studio 与 component-motion-audit 同步说明，历史实施记录保留。
+
+现有 Studio 离线浏览器检查127项通过，覆盖动效选择、重播、配置导出、刷新持久化与窄屏；真实模型调用0。截图保存在仓库外本聊天可视化目录 motion-entry-removed/studio-component-motion-desktop.png，已目视确认工具栏仅保留正常动效操作。测试沿用Playwright+Edge，未通过先前受限的浏览器自动化路径读取用户页面。
+
+现场当前使用4310：Windows已将4210所在4160–4259范围列为保留端口，未修改系统网络设置。重启前再读四项目，busy/generationRunning/recovering均false、运行面板0，核对命令后仅停止原Studio并在4310持续会话重启。启动成功，刷新当前组件画布即可加载已移除入口的新界面；不重生素材、不改写生成记录。
+
+### 12.127 生成后面板与内部控件尺寸编辑（2026-10-15）
+
+按用户明确选择“面板和内部控件都能调整”实施。入口为面板作品库 → 打开面板 → 调整尺寸；左侧层级或预览选择节点，右侧输入宽高并应用。保留原画布比例、层级、皮肤、控件行为与动效选择，支持撤销、重做、恢复生成尺寸、试玩、保存本地尺寸副本和下载创作 JSON。当前为数值宽高编辑，不宣称拖拽、自由移动、文字编辑或改写原始交付包。维护合同集中在 panel-size-editor.md，local-studio 与 layout-contract 同步。
+
+核心 size-edit.mjs 复用文档 Schema、Yoga 布局与真实 PNG 几何校验；面板居中并更新内部槽位，旧的精确全宽固定节点跟随原父级，内部 fill/content 可显式切为固定尺寸，移除妨碍指定尺寸的 grow/shrink。画布、锁定节点和由 grid 直接分配的子项明确禁用，后者需调整所属布局分组。最小尺寸、九宫格、文字、安全区、槽位和画布边界必须通过；浏览器额外核对 Button/Select 完整文案。候选场景完整编译通过才替换当前场景，失败不破坏文档、场景或撤销历史。设置页 Tabs/ScrollView 和动作面板均复用原 PixiUI/Layout；试玩状态只保存在内存，原生输入保留。
+
+冻结来源由 panel-edit-source.mjs 从已验证预览的固定生产器尾部解析 JSON，校验预览、皮肤 manifest、绑定及资源摘要，绝不执行或解释任意脚本；仅接受动作/设置生产器，旧格式缺少可验证数据时明确拒绝。传给浏览器的来源只包含公开必要字段，设置旧包标记 frozen-preview，不伪造模型来源。四个历史真实包已核对，原始预览和 ZIP 未修改。
+
+panel-edit.mjs 统一来源和修订入口；本地 HTTP 只接受精确回环 Host、同源 JSON 请求和有限体积，不开放文件路径或通用保存。panel-revisions.mjs 在 work/studio/panel-revisions 中独立存储摘要绑定的作者文档；不可变修订链、原子临时写入/同步/重命名、排他保存锁、预期修订及来源摘要防止并发覆盖，不跟随链接或目录联接。损坏或中断记录不被当成成功副本，真实 IO 错误不被当作空历史。源文案、属性、结构、资源或行为变更不能混入尺寸副本。原始计划、回执、清单及已生成包不改写。
+
+前端保存成功后可重新打开继续调整；下载 JSON 只含当前作者尺寸与固定行为，不含试玩状态。未保存离页使用 Studio 统一网页确认，取消保留编辑，确认后只出现一次离页流程。版本切换先准备候选再释放旧场景，失败恢复原选择，忙碌时禁止重复操作；保存遇到新版本返回冲突并保留本页调整。最终审查复现了首次载入尚未完成时缩放浏览器访问空 session 的竞态，已增加就绪检查及延迟载入回归。
+
+验证：全套 Node 离线回归 362/362 通过，日志 work/studio/panel-size-node-tests-final.log；其中新增尺寸核心10项、来源5项、存储8项、HTTP3项。存储覆盖同步/关闭/重命名失败、并发、来源变化、断链与路径；既有Studio静态夹具新增编辑页资源，不削弱校验。Studio UX127项通过，模型调用0。真实冻结动作包与设置包使用独立临时回环服务、临时副本存储与 Playwright+Edge 检查，覆盖宽高、撤销、非法尺寸原子回退、输入/开关/提交/重置、保存重开/下载、409冲突、变体失败、未保存离页、原文件摘要、桌面及390窄屏；报告和截图在仓库外本聊天可视化目录。新增竞态的最终检查结果与实际服务接入见下条记录。
+
+最终浏览器验收：动作44项、设置41项共85项通过，均含延迟首个load请求期间连续改变视口的检查；错误/警告0，模型调用0。截图已目视核对，证据目录 panel-size-final、panel-size-settings-final，报告 panel-size-check.json。并行启动两套软件渲染浏览器时，动作包曾在后段恢复页面加载超过既定30秒；未更改前端或放宽断言/超时，独立顺序重跑通过。建议两套验收顺序执行，保留该次超时的事实，不将其报告为渲染安全错误。
+
+本地接入：旧4310完整library接口一度超过90秒，静态页和轻量plans接口仍响应；不据此猜测任务已停止。另取plans确认四项目均idle、16张已接收，直接校验四项目/四任务共16个处理锁及回收锁均free；四份flow均components-ready，六条面板记录为四条ready、两条needs-input、运行0，进程无生成子任务。再次核对plans与精确命令后只停止原Studio，在持续终端会话重启4310。新版index、studio脚本、尺寸HTML/JS、来源接口均200；完整library随后返回200，四项目busy/generationRunning/recovering均false，状态和产物保持。四个实际生成面板的来源及全部六个方向版本逐一只读load成功，皮肤摘要完整，均仍为原始尺寸、未写入真实副本。测试与接入均未提交模型、未手改冻结数据、未提交/推送版本。未绕过先前受限的浏览器自动化路径；真实页面仅做HTTP资源/API核验，视觉依据独立离线真实皮肤浏览器证据。
+
+### 12.128 面板卡片底部操作区（2026-10-15）
+
+按用户截图反馈，将面板卡片“打开面板”和“选择动效”移到卡片底部的独立 footer；原来两条内联链接直接跟随耗时/正文，内容长度不同时位置错开、按钮可能贴在一起。共享 pipeline-ui.card 现在生成 panel-job-card，正文弹性占据余量，footer 始终为最后一个兄弟节点；两按钮等宽、间距10px、高44px。同一行卡片底边对齐，正文/历史/提示仍自然显示。只改呈现结构与局部CSS，生成台复用相同操作区，打开路由、动效选择、删除/恢复及生成行为保持。local-studio 同步说明。
+
+验证采用仓库外一次性 Playwright+Edge 脚本和独立回环夹具，不新增低影响样式的永久测试。六张不同标题、需求、历史说明及提示长度的内存卡片，在1440/1024/986/390宽度共147项检查通过：footer结构、底距、同行对齐、10px间距、44px按钮、无交叠/溢出，生成台单列及打开/动效入口均正常；错误/警告0、模型调用0，无真实项目写入或pipeline/generation写请求。截图已目视核对，脚本、report.json及四种宽度截图在仓库外本聊天可视化目录 panel-card-footer；Browser plugin not available，未绕过先前用户页面自动化访问限制。源码语法和定向git diff --check通过。
+
+接入：再次核对plans四项目idle、flow运行面板0、16个处理/回收锁free，匹配精确进程命令后重启4310。新服务的pipeline-ui.mjs与studio.css均200并包含footer改动；plans四项目仍readable/idle。刷新当前作品库即可加载，不重生素材、不改写已生成面板或动效选择。
+
+### 12.129 生成面板的直接画布编辑（2026-10-15）
+
+按用户画布拖拽参考图，将12.127的数值编辑扩展为可视选中框、拖边/角改尺寸、自由区域拖位置、X/Y输入、网格、缩放与适配画布。保留既有入口路由和ID，界面改称“画布编辑/保存编辑副本”。没有引入另一套绘图引擎：实时候选仍用原PixiUI/Layout和真实皮肤编译，不用容器缩放伪造尺寸；原生输入和试玩动效保留。当前只处理已有节点，不增加/删除/复制组件、不改文字或任意树结构。
+
+位置边界明确：自由Container直接子项（包括外层面板）可拖动；自动排版中的位置由原布局控制，不将拖动偷偷解释为排序或布局替换。右侧提供显式“将此/所在分组切为自由布局”，按共享Yoga结果固定该分组与直接子项当前实际尺寸/坐标，移除free不支持的弹性/单项对齐，网格只作确定性字段转换，保留层级与子项自身布局。隐藏、锁定或缺乏几何的转换拒绝；内容槽仍由所属控件管理。自动流只提供右/下/右下三柄，避免无法兑现左/上锚点；自由项提供八柄，可将移动与改大小作为一次矩形候选处理。
+
+核心rectangleEditDocument统一尺寸与位置原子候选，positionEditDocument/freeLayoutDocument复用同一validateSizeEdit保存白名单；文案、行为、绑定、资源、同序节点/树及无关布局仍不可变，实际尺寸、PNG九宫格、安全区、槽位及画布检查继续执行。原sizeEditDocument兼容，默认居中只对仍居中的外层生效，已移动面板保留位置。PanelDocument0.3原生free已足够，不扩上游规划协议；修订/下载既有ui_panel_size_*标识作为兼容ID保留，完整文档摘要覆盖新增position/layout，无需迁移历史副本或改写冻结包。
+
+手势维护在panel-canvas-gestures.mjs：逆绘制序和祖先可见/边界命中，Alt点击轮选重叠层，pointerId及指针捕获覆盖鼠标/触摸。移动中只准备独立Pixi场景，作者文档/历史不变；松开一次commit，失败保留原文档/场景/history。最新目标非法时整次取消，不夹最小尺寸；Esc、pointercancel/lostcapture、失焦、视口变化与退出均清理候选。右侧数值与实际预览同步，忙碌时禁用编辑。相机缩放复用canvasResolution预算，与作者尺寸无关。数值入口仍可作为精确输入方式；local-studio、panel-size-editor与layout-contract同步。
+
+已完成验证：核心尺寸/位置/转换17项通过，全套Node369/369通过，日志在仓库外本聊天可视化目录panel-canvas-editor/node-tests.log；包含组合左移增宽、旧布局与嵌套fill/content/grid冻结、锁定/隐藏/无关布局拒绝、失败渲染原子回退及undo/redo恢复flow/free。独立真实Edge另核对拖动期临时场景、pointercancel后原scene/visible/history恢复与stage子项数回原值，无pageerror；最终动作/设置/用户当前竖版包的浏览器验收与本地接入结果在后续记录。
+
+浏览器初轮动作71项的几何/保存检查通过后，追加elementFromPoint实际命中断言，复现Input 576×46在scale约0.6008时e柄中心实际命中se柄；单纯横向拖动的最终几何相同，原检查不足以证明边柄可用。修正为根据屏幕矩形限制每个命中区，视觉标记居中且不接收指针，小选框精简相邻中点柄、放大恢复；验收必须检查每个可见柄命中本身，不用直接派发事件绕过遮挡。非法拖动回退时也同步恢复属性数值，避免临时值与原场景不一致。
+
+最终真实皮肤离线浏览器验收顺序执行：动作104项、设置101项、用户当前panel-6609cca3竖版100项，共305项通过，错误/警告0、模型调用0。覆盖每个可见手柄实际命中、放大后e柄恢复、鼠标与原生CDP触摸、独立实时Pixi候选、松开单次撤销、非法最新目标原子回退、pointercancel/Esc/lostcapture/blur/resize五类取消、显式转换前后全局矩形保持、外层/内部移动、缩放滚动、保存/重开/下载保留free与position、试玩状态/原始包隔离。用户竖版包只有一个满宽Button，先按正常属性UI将其已自由化的紧贴分组增宽16，再移动8，明确体现需留出移动空间；没有伪造Input或放开越界。临时服务/副本库已关闭清理，源包和真实Studio未被测试写入；截图、脚本输出report在仓库外panel-canvas-editor的actions/settings/portrait，已目视核对真实竖版选框和桌面/窄屏。
+
+接入：重启前再次核对四项目idle/components-ready、运行面板0、16个处理及回收锁free；精确核对旧进程命令后仅重启4310的Studio持续会话。新HTML、入口和拖动bundle均200并含画布编辑内容；library四项目busy/generationRunning/recovering均false，用户当前panel-6609cca3竖版的source和只读load均200，六节点及皮肤摘要通过。没有在真实项目保存测试副本，不重生素材、不改写交付清单、不提交或推送仓库版本。用户刷新现有路由即可使用新界面。
+
+### 12.130 扩大画布工作区与独立视图相机（2026-10-15）
+
+针对竖版整张画布适配后面板本体过小、外层Studio导航与重复标题占用空间的问题，画布编辑路由改为满窗口工作区：隐藏Studio全局侧栏和顶栏，仅保留紧凑的作品标题及返回入口，iframe占据剩余高度；内部工具与状态栏压缩，图层/属性可分别收起，专注画布可临时收起两栏并恢复原状态。窄屏默认收起两栏，以互斥抽屉打开；这些操作保留同一iframe、Pixi实例与未保存编辑。
+
+默认按已加载副本的外层面板实际矩形聚焦；“聚焦选中”与“整张画布”分别查看目标和固定比例画布，避免通过放大作者尺寸解决查看问题。panel-camera.mjs集中维护视口像素平移、逻辑矩形适配、鼠标锚点缩放及视口变更：按钮居中缩放，滚轮以指针为锚点，倍率10%～250%；手动相机在侧栏/窗口变化时保留逻辑中心，适配/聚焦模式按对应矩形重新取景。渲染清晰度沿用canvasResolution预算，相机与图层显隐不写入PanelDocument、修订、撤销、dirty、试玩值或下载JSON。
+
+panel-camera-navigation.mjs在作者手势前挂载捕获监听，空格+左键、中键或显式“平移”工具拖动视图；指针捕获、Esc/cancel/lostcapture/blur及退出负责清理和取消恢复。平移与作者拖动互斥，拖动起止保留尚未应用的属性输入；原生输入的空格不被接管。编辑模式滚轮缩放，试玩普通滚轮保留控件滚动，Ctrl/Meta+滚轮仍可调整视图。作者拖动继续按实际canvas矩形反算逻辑坐标，尺寸、安全区与保存验证保持原职责。
+
+新增4项纯相机回归覆盖非零矩形、锚点不漂移、手动平移/改视口中心保持和非法输入；全套Node373/373通过。真实皮肤离线Edge最终动作138项、设置135项、用户当前竖版136项，共409项通过，错误/警告0、模型调用0。覆盖相机操作的文档/修订/历史/dirty/试玩状态隔离，指针锚点与三种平移、平移后直接拖动尺寸/位置、独立侧栏与专注恢复、窄屏互斥抽屉、试玩滚轮、iframe尺寸及同实例保持、保存/重新打开/下载、原生输入和既有行为。证据在仓库外本聊天目录panel-camera-workspace，三个包各有报告和截图，临时副本库/服务/浏览器已清理。
+
+检查实际复现窄屏图层抽屉遮挡工具栏，修正为按工具栏实际高度确定抽屉起点，按钮保持真实可点击，不使用强制点击绕过遮挡。检查脚本的Pixi实例引用改为不返回对象，避免序列化整个app；初始/版本请求等待加30秒上限，ready失败输出有界状态和请求诊断。竖版一次与其他工作并行时在reload后30秒就绪超时、无运行错误；关闭其他验收后单独完整复验通过，保持原30秒限制，没有放宽等待或产品约束。手动平移后的标签位置计入相机偏移，同尺寸窗口变化也更新DPR清晰度预算。
+
+实测1440×1000窗口中父iframe为1440×955、起点(0,45)，默认竖版面板520×300在视口显示约956×552，较整张画布适配放大2.83倍。通过正常属性UI设置与用户截图相同的235×166合法尺寸后，聚焦250%显示587.5×415；已目视核对小面板的文字、按钮和手柄，实际导出仍为235×166。
+
+本地接入前核对四项目idle/components-ready及16个处理/回收锁free，精确匹配旧Studio命令后仅重启4310持续会话，不刷新用户页面。最终新HTML/bundle/CSS均200，四项目idle且busy/generationRunning/recovering均false；当前真实竖版source及只读load均200、六节点通过。全程未在真实项目保存测试副本，不覆盖用户编辑或原始包、不调用模型；当前页面先保存未保存的编辑，再刷新即可使用。
+
+### 12.131 画布撤销与重做快捷键（2026-10-15）
+
+按用户要求接入Ctrl+Z撤销上一步，Ctrl+Shift+Z/Ctrl+Y重做，兼容Meta+Z/Meta+Shift+Z。只在画布编辑iframe监听，不重建Pixi组件键盘导航，也不接管父Studio页面。按钮与快捷键复用historyAction入口、现有session及change事务；无可用历史、试玩、忙碌、作者拖动或相机平移时不改变历史。识别后的重复按键消费但不连续执行，Alt、IME（isComposing/keyCode229）及已处理事件放行。原生input/textarea/select和可编辑文字优先使用自身撤销，未应用的属性数字不会触发面板回退。pagehide卸载监听，按钮增加title和aria-keyshortcuts提示，使用文档同步。
+
+针对性Node布局/尺寸事务25项通过。仓库外panel-history-shortcuts/verify.mjs使用独立4343真实皮肤夹具完成30项快捷键浏览器检查：Ctrl/Meta撤销及重做的尺寸和历史状态、无历史、数字框/真实Input文字/textarea/select/contenteditable原生优先、repeat/IME/Alt、试玩、作者拖动、相机平移、保存busy及完成后恢复均通过，错误0、模型调用0；逐项核对来源包磁盘字节未变，临时副本库/服务/浏览器已清理。报告与截图在同目录，不重跑无关全套或写入真实副本。
+
+接入前再次确认四项目idle/components-ready、16锁free，精确匹配命令后仅重启4310本地Studio，不刷新用户当前页面；新HTML和bundle均200，分别含快捷键提示与处理代码。刷新前先保存未保存的编辑。
+
+### 12.132 普通预览读取已保存的编辑副本（2026-10-15）
+
+用户澄清“应用修改没反应”是返回预览后仍显示旧结果。现场源码确认尺寸事务本身能应用，而普通previewPanel始终打开冻结preview.html，编辑副本没有接入该入口。本次将按钮改称“应用到画布”并明确草稿范围；普通面板预览默认读取已保存布局，保留明确的“原始生成”对照入口，返回按钮改称“返回面板预览”。工作流为应用到画布→保存编辑副本→返回预览；未保存草稿仍不跨页面、不会自动保存，也不改写原始生成包。
+
+新增panel-copy.html/mjs/css只读预览器，沿用已校验source与现有store.load，不新增写接口或修订格式。源variants始终是冻结白名单基准，另取load.document渲染，不将已保存文档覆盖原始来源。复用compilePanel、PixiUI/Layout、真实皮肤、各版本固定行为、原生输入及本地试玩；无作者session/手势/撤销/保存通道，不调用模型。app/scene沿用actionPreview桥供父页动效挂载，避免双挂；首次编译前按目标画布建立overlay逻辑屏幕，整画布CSS适配与canvasResolution只改显示。版本请求有epoch/abort隔离，失败保留旧场景、选择和试玩状态。
+
+父页与编辑/副本iframe同步确切variantKey及方向，浏览器标签sessionStorage仅记住有界版本选择，刷新后不串同方向的form/confirmation等版本；不传草稿文档或试玩值。消息核对origin、具体iframe、作品与本次导航token，避免旧导航消息污染状态。原始生成对照通过校验来源的版本顺序调用既有actionPreview/settingsPreview公开render接口，选择同一预设与方向；不改冻结HTML。无副本明确提示原始布局；仅明确不支持的历史格式自动转原始并提示，其他读取错误可见，不伪装成副本成功。原始交付下载明确标注，编辑JSON仍从编辑器导出。
+
+静态快照新资源、原始摘要、修订/来源/HTTP白名单、布局事务及动效相关Node45项通过。新增资源纳入catalog冻结allowlist，Node快照夹具补齐新HTML/CSS；原有UX中的冻结预览动效检查改为显式选择原始生成，保留其原测试职责。针对性真实皮肤浏览器验收与本地接入结果在后续记录。
+
+浏览器复现并修正了真实导航问题：同一iframe仅改变URL hash不会重新运行module，跨作品或重复打开副本会留在上一文档。copy与编辑模块在任何await之前监听参数hash变化并显式reload，pagehide卸载监听；继续保持静态服务精确allowlist，不为缓存参数放宽HTTP路径。副本与原始模式切换仍按真实来源文档加载，不经hash伪造新状态。永久studio-panel-size-check补充返回普通预览后与已保存文档几何一致、无作者控件两项。
+
+资源警告由调用栈定位为app.destroy第一参数true触发Pixi全局GlobalResourceRegistry.release，TexturePool清理时全局shader仍绑定纹理；单换skin/app销毁顺序不足以解决。改用公开renderer销毁参数removeView:true、releaseGlobalResources:false，先停止ticker并释放场景/renderer，再释放自有skin；全局缓存按卸载文档生命周期回收，不改依赖包或屏蔽日志。
+
+最终独立Edge连续综合验收47项通过，另针对销毁的31项短轮通过；无意外运行错误/警告、模型调用0。覆盖真实用户竖版无副本与未保存隔离、保存235×166及位置/free后返回生效、重复打开重读、跨作品hash导航、原始同预设/方向对照、刷新保留确切版本、actions原生Input/开关与父页动效、失败版本保留旧场景/试玩值、settings及390px边界、不认识版本明确错误、历史不支持格式明确展示原始。故意不支持格式的source409仅计入expectedConsoleErrors一条，不掩盖普通错误。来源包逐文件磁盘摘要不变，网络只有两次明确编辑保存，预览不提交保存；所有临时服务/副本库/浏览器已清理。报告、截图与失败诊断在仓库外panel-copy-preview，已目视核对实际竖版副本。
+
+本地接入前再次确认四项目idle/components-ready、16处理及回收锁free，精确匹配旧进程后仅重启4310持续Studio。最终六项新静态资源均200，四项目busy/generationRunning/recovering均false且operation均idle；用户当前竖版source与只读load均200、六节点、现有保存修订可读。未在真实项目保存测试副本，不覆盖原始包或用户草稿，不触发模型。用户先保存当前未保存的编辑再刷新，即可按新入口查看已保存布局。
+
+### 12.133 生成后显示文字输入与副本预览（2026-10-15）
+
+按用户要求在画布编辑右侧增加“文字内容”，选中现有文字或带文案的控件后可直接输入；Text使用多行textarea，其他显示字段使用单行input。“应用文字”独立于矩形输入，成功只产生一次候选提交并可撤销/重做；字段签名只在版本、节点或已应用文案变化时重建，平移、尺寸应用、忙碌或失败检查不清空未应用文字。失败在字段旁显示完整错误，保留输入、有效场景、文档与历史。原生输入框中的Ctrl/Meta+Z仍优先撤销文字，不回退面板。
+
+`src/panel/text-edit.mjs`集中维护可见字符串白名单与字段元数据，`size-edit.mjs`提供textEditDocument/textEditFields统一入口，沿用候选校验及服务端保存gate。允许Text.text、Panel/Dialog.title、Button/Switch/CheckBox.label、Input/Select.placeholder，以及原有options/tabs/items/actions中的label；不修改ID、集合数量/顺序、内容关联、初值、selectedId、Input.value、校验、动作、字体或皮肤。显式子行List的数据label不参与绘制，因此禁止该无效入口，改子Button/Text；锁定节点及祖先无编辑字段。仅对真正变更值设Text32768、其余4096 UTF-16字符资源上限，兼容旧冻结值；输入作为纯文本，不执行HTML。
+
+同尺寸换字也执行保守文字容量与完整布局/九宫格/安全区检查；只检查该次更换的字段，避免未修改旧文案被新增规则误伤，缩小空间仍检查全部文案。浏览器`panel-text-labels.mjs`在候选flush后用实际Text.style及CanvasTextMetrics补充真实字体检查，覆盖Text换行/裁切、两态Switch、Button、CheckBox、RadioGroup、Panel/Dialog标题、操作按钮、Tabs/List条目和隐藏Input placeholder；Select逐项核对弹出行及关闭态双箭头留白，不通过切换试玩值测量。只读副本预览同样检查相对冻结源的新文字，任何失败保持上次有效结果。
+
+保存与重开复用完整PanelDocument修订，无新接口或格式升级，仍保留源预览、原文档、皮肤摘要与冻结behavior。保存后普通预览显示新文案；原始生成对照与交付包继续保留旧字。新Node文案/真实字体路径回归及原布局、HTTP、来源、修订、静态快照与动效相关检查55/55通过，覆盖纯函数、集合身份、锁、过长字、事务回滚、连续文字→尺寸→文字保存、behavior篡改拒绝和旧记录兼容。local-studio、panel-size-editor及layout-contract同步。
+
+浏览器定位到两项夹具问题并分别处理：Select在普通预览页的目标位于父视口下方，测试须实际滚到目标再取坐标点击，不能把未点到控件误判为ID回归；390px切换须等响应式抽屉收起再明确展开属性，检查实际输入框、应用按钮和完整错误都在视口。旧Tabs包在未改字时两个方向均已触发edit.slot-bounds，settings-scroll-0页面宽高各超过当前双安全区56px；保留失败诊断，由当前公共settingsDocument与同一已验证皮肤重新生成独立离线夹具，通过base自检后用于文字验证，没有改原预览、manifest或安全gate。
+
+最终离线Edge文案验收47项通过，错误/警告0、模型调用0。覆盖真实用户竖版标题/按钮、单步undo/redo、原生文字撤销、HTML样式字符串纯文字显示、容量与长度失败保draft/scene/history、390px实际属性输入及完整错误；actions输入提示、试玩原生打字、初值与behavior隔离；settings下拉标签及选中ID、当前producer的同皮肤Tabs标签/activeId/内容归属；保存→普通副本与原始生成对照。仅四次明确保存写入临时store，普通预览不写；真实原包逐文件摘要不变，临时副本、4343服务与浏览器均清理。RadioGroup无现成已验证浏览器包，本轮以核心policy与真实字体路径单测覆盖，不声称有真实皮肤浏览器证据。永久studio-panel-size-check的原生Input定位器排除新增文案input，脚本语法检查通过，不重跑无关409项。报告、桌面/390截图及旧Tabs诊断在仓库外本聊天目录panel-text-edit。
+
+接入前现场新增第五项目，四个旧项目components-ready，新项目已是不可重试processing-failed终态、生成operation为finished且四张结果均已记录。核对源码确认finished不是运行态、该失败不会自动重试，再次只读确认五项目busy/generationRunning/recovering均false、20个处理及回收锁free后，仅停止精确匹配4310启动命令的进程并启动持续Studio会话。最终六项静态资源均200且包含文案UI/真实字体gate，五计划operation均idle、五项目无运行状态；用户当前竖版source/load均200、六节点及已有保存修订可读。保留新项目失败记录和全部原始包，不刷新用户页面、不写真实测试修订、不触发模型；先保存当前未保存调整，再刷新现有Studio即可使用。
+
+### 12.134 缩小父面板时的内容溢出核验（2026-10-15）
+
+用户确认频繁提示“未应用此次拖动：body:流式区域内容放不下”发生于缩小面板整体或内容分组。只读提取当前panel-6609cca3竖版来源与已保存副本，在内存调用同一rectangleEditDocument精确复现：surface245×171、body181×107，标题32+间距12+按钮48=内容最低92，外层上下各32留白使面板最低高156，当前仅15高度余量。surface156/body92通过，surface155/body91触发截图同一panel.overflow。先显式把按钮48→32可保持行为并使actions同步32，再surface140/body76通过，139/75拒绝。
+
+本例为现有子项尺寸与父容器容量冲突；缩小父背景保留控件独立尺寸，不等比缩字体、不自动压控件、不增滚动区。非法最新候选整次回滚与既有合同一致，无需放宽gate或改手势。当前错误提示只显示底层body名称和一般建议，缺少具体下限，属于可改进的反馈边界。本轮只作现场诊断与说明，未改产品、真实修订、源码运行服务或冻结包，不刷新用户页面、不调用模型；只读记录与纯函数探测在仓库外panel-resize-overflow。
+
+### 12.135 节点字号与文字颜色（2026-10-15）
+
+按用户连续要求合并实现字号和颜色。右侧“文字与样式”增加字号输入、颜色选择器和HEX输入，以及独立默认勾选；直接输入自动启用该项覆盖，勾选默认删除覆盖字段。文案、字号、颜色复用textEditDocument与同次候选提交、一次撤销/重做，失败保留所有草稿、场景和历史，保存后普通副本预览与JSON导出同步。原生属性输入的文字撤销继续优先，试玩状态不写回。静态表单novalidate将边界错误交给共享gate完整呈现，不因浏览器原生min/max阻止应用而没有局部反馈。
+
+component-registry草案revision4→5，为13类文字组件增加无default的可选props.fontSize（12–96整数）/textColor（#RRGGBB），不改已有recipe身份或默认属性。runtime/text-style.mjs集中维护支持类型、节点可绘制文字边界、校验、默认继承和幂等textProfile：行高按皮肤原比例变化，内部选项行保留原有留白，组件最小尺寸、PNG安全区、槽位及adapter共用度量。text-skin.mjs派生单节点文字皮肤，保持原纹理/字体所有权；字号和颜色只影响本控件文字，子控件独立。显式子行List及不显示数值的Slider/ProgressBar不开放无效样式入口；锁定、字体资源/对齐/行为等其他属性仍不可编辑。
+
+runtime文字颜色owner以节点和Select弹出层建立覆盖边界，显式作者色优先，子节点恢复自己的自动策略，原有角色字色和所有态默认路径保留。覆盖证据标记node-override与compositingReview，不借用原皮肤passed对比度结论。Input原生输入使用相同字号、字体和颜色；Switch/Check/Radio的大字只调整文字与标记的排布，不缩放素材；百分比标签保留真实数值及0/100端点，字号变化也检查实际文字容量。panel-text-labels在字串或字号变化时检查完整字体和当前实际fontSize，涵盖未改文案和数值文字；颜色单独变化不将旧字串误判为新增字体约束。
+
+旧包通过panel-edit-source只读提取后调用纯upgradeTextStyleRegistry，克隆其registry并只增加这两项optional schema，遇已有不兼容定义明确拒绝，不用整份新registry覆盖旧语义。冻结preview、pack.bindings、registry身份、原始文档/behavior及其摘要保持不变；无default确保旧修订重开不会改hash。保存格式仍为ui_panel_size_revision/copy 1.0，保存与恢复默认的Node回归核对来源摘要、父版本链、behavior和modelCalls:0。
+
+核心/布局相关Node80项通过，另针对来源、字体、修订、HTTP、静态快照和动效38项通过（不合并宣称去重总数），contracts validate为valid-draft；组件层真实Edge覆盖13类文字控件、各态/选项/nativeInput/百分比/resize及子节点隔离，既有16类组件回归通过。未运行无必要的contracts build或重生/切图，不更新真实组件包或上游。维护文档panel-size-editor、local-studio、layout-contract和text-readability同步。
+
+真实皮肤Studio离线验收主路径50项与Tabs定向14项共64项通过，warning/error0、modelCalls0、无外网，原始包逐文件字节摘要不变，临时4343服务/store/浏览器均关闭清理。覆盖原子字样+字号+颜色、12/96边界、11/97/小数/空值与非法HEX保草稿、默认删除、undo/redo、390属性抽屉、保存/重开/下载/只读copy与原始隔离、Input实际20px及rgb(34,102,170)、Check/Switch/Select各态及独立子文字不继承。常规生成夹具无RadioGroup，组件层13类Edge另覆盖该类型，不把两种证据混为同一Studio路径。最终联合report保留分轮原始引用，证据在仓库外panel-text-style，截图已目视。
+
+首轮Input CSS采样在Enter后读取临时原生输入已正常销毁，修正测试采样时机至Enter前；未改产品。Tabs从16增到18时，line24→27/item32→35令满铺页面槽从480减到477，旧ScrollView480应拒绝，定向验收先证明失败保场景/history，再通过正常UI将两页滚动视口改476，应用18字号与颜色后检查切页/选中ID/内容归属/保存copy。保持容量gate，不自动挤压内容或改真实包，文档说明了字体增加预留空间的操作边界。
+
+本地接入前只读核对五项目均components-ready、五计划idle、busy/generationRunning/recovering均false及20个处理/回收锁free。首次PowerShell停止命令技术异常，旧服务仍在，第二个实例被端口占用正确拒绝、未执行自动处理；随后再次精确验证唯一Studio命令，使用Windows原生命令停止该进程并启动4310持续服务。最终六项静态资源200，旧竖版source显示12–96与HEX派生合同，现有source/load200、六节点与已有修订均保留，五项目/计划仍空闲。只读冒烟证据在panel-text-style/live-smoke.json；未刷新用户页面、不在真实项目保存测试样式、不改原始包或触发模型。先保存现有未保存编辑，再刷新现有Studio可使用字号和颜色。
+
+### 12.136 固定10×10仓库预设（2026-10-15）
+
+用户确认本轮范围为100格、名称/图标、数量与选中详情。审计最新上游planning/v1 context0.11/intent0.12：原生grid至多二列，List至多64个text-row选项，item/data更新仍为商品/任务只读分组；上游I02也明确物品网格/重复数据/拖换/角标缺口。没有把普通按钮grid冒充仓库，也没有覆盖上游其他未提交工作。固定仓库由Chain程序配置与运行时直接组合；未来自定义AI仓库、多格占用或拖换需要上游先定义版本化数据/交互语义。
+
+新增inventory-panel.json、inventory-preset编译器与inventory-preview生产者，Studio“仓库面板→10×10物品仓库”直接组装选定横/竖单版；可选输入只用于40字单行标题，不调用模型。inventory-plan冻结配置原字节、标题、方向、皮肤及三份原合同摘要，开始前复核。其他模型路径保留原授权/澄清规则，旧needs-input自定义仓库任务不改、不自动重投。本地预设不伪造模型计划、attempt或回执。
+
+List新增可选inventory展示，既有16类数量与默认List语义保持。单List承载100槽和内置详情，总计5个作者节点；8件程序示例物品以唯一ID/slotIndex/quantity/description/icon维护，空位运行时补齐。只支持单格占用与单选；未知/多格/拖换字段、重复槽、超量及不兼容itemRecipe明确拒绝。图标为程序矢量示例，不冒充皮肤物品图集。复用现有PixiUI/Layout、skin.item.normal/selected与原行为/动效，叠加主题配色语义格位框（无键盘焦点行为）。
+
+inventory-geometry统一离线/运行时/PNG最小尺寸、九宫格、安全区、数量字体及详情空间，density/scale仅计算一次；固定10列不足宽度拒绝，高度不足允许内部垂直滚动。完整名称和说明在可滚动详情区显示，格内只放图标和数量。显式派生旧registry的optional inventory与文字样式字段，无default，不改原contract字节、recipe身份或包绑定。标题从已核验Panel PNG按公共可读性算法选择新节点显式文字色，inventory-colors.json单独记录证据，保留旧包与原可读性报告。
+
+画布编辑延用尺寸、文案/字号/颜色、事务、undo/redo、保存与普通copy预览；名称检查改用详情真实字体与滚动宽度，字号变化同时核对每个数量、详情说明与其他文字。List试玩selectionChange现在同其他值状态一样保存于独立试玩state，可跨重新编译的画布编辑保留；原始selectedId、物品数据、behavior与导出仍不携带试玩变更。数量/图标/槽位本轮由配置JSON维护，未添加可视化数据编辑器。缺skinGeometry的编辑入口先返回既定edit.skin-geometry错误，完整Surface证据仍按原gate校验，未覆盖并行Surface样式工作。
+
+新增库存协议/几何7项、预设5项、计划4项、编辑2项，以及真实字体增量回归通过；相关合同/尺寸/来源/修订/HTTP/静态资源定向测试通过（多轮有重叠，不将各轮数量相加）。contracts validate保持valid-draft，16类16配方，生产验收状态不造假。首次真实Edge轮次功能/保存/copy等172项通过，但发现空ScrollBox过早addItem造成日志，以及个别行皮肤格形和旧像素包标题对比不足；均保留首轮证据并修复，正在使用全新进程与包完成最终复验。证据位于仓库外本聊天inventory-panel目录；当前没有模型/媒体调用或真实项目测试保存。
+
+12.136最终验收与本地接入：离线Edge/Playwright主轮187项通过，竖版空间分配优化后另作四皮肤与代表保存路径定向100项通过；两轮有重叠，不相加。最后一处优化让竖版10行网格不占空白视口，把剩余高度留给详情，示例说明完整可见；高度不足仍内部滚动。该几何变更新增回归及库存/编辑15项通过，之前联合Node定向135项全部通过。首次缩高240后滚动测试过早读取scrollY并取bounds，窄复现证实需等内容位置与两帧渲染同步；正式测试等待精确底部偏移及稳定渲染后实际点第100格成功，未改产品命中或放宽断言。
+
+最终浏览器error/warning0、外网与模型请求0。覆盖四皮肤横竖100槽/8占用/92空、名称与矢量示例图标/数量/说明、空槽与末格指针、皮肤边界/主题格框、缩高滚动、跨编辑保留试玩选择、文案+18字号+颜色同次事务、undo/redo、保存copy/原始隔离及390px界面；真实pipeline prepare/start/publish独立夹具证明未创建model run/attempt/receipt/授权产物。当前国风包在其他工作中升级为带materialAssets的8218…，本轮按原字节固定其版本。source verifier受控接入现有materialFiles合同，按file去重共享原图，仍严格资源白名单/bytes/sha256/128MiB，新增共享来源及篡改回归通过，没有改动其Surface功能。全部真实来源包逐文件摘要不变。
+
+完整报告为仓库外inventory-panel/pre-portrait-adjustment-187.json及portrait-layout-check.json；保留首轮ScrollBox/时序诊断、最终桌面与390截图、独立producer/pipeline配置证据。临时浏览器/4345服务/store已关闭；因4343/4344本地bind EACCES而改用4345，未改系统配置。测试只用本代理全新UUID目录，不在真实项目保存或生成测试面板。
+
+本地更新曾因某项目短暂持锁被前置检查阻止，没有停止服务；随后重新确认六项目components-ready、六计划idle、24处理/回收锁free，全部busy/generationRunning/recovering=false。ready、needs-input及prepared均为已核实非运行态，待确认计划原样保留。精确匹配唯一4310启动命令后仅重启其进程，持续预览服务已启动。live-smoke确认index/pipeline-ui/panel-size/panel-copy与最新源码或新bundle逐字节hash一致，仓库入口可读；旧用户竖版source/load仍200、六节点及已有修订不变，六项目仍空闲。未强制刷新用户页面；刷新现有4310标签即可使用新预设，当前草稿请先保存。上游其他工作与未提交改动保留。
+
+### 12.137 仓库默认20格、可配置行列与紧凑槽位（2026-10-15）
+
+本节记录1.1实施与最终验收；本地接入于2026-10-16完成，不沿用12.136的数量宣称新版通过。
+
+用户反馈固定10×10过多、布局观感不佳，默认改为5列×4行、20格，Studio入口改称“仓库面板→物品仓库”。列数与行数各为1–10整数、总容量至多100；当前模板包含8件物品，总格数少于8明确拒绝，不删减样例。标题仍只接受可选40字单行文字，配置行列不扩展模型协议、不触发模型或图片生成。
+
+inventory-panel.json升级为配置1.1，集中声明gap10、目标格子80、横竖外框尺寸上限和samplePlacement。默认格位为0/1/3/6/8/11/16/19；选择其他新形状时，明确按样例数组顺序放入0–7，完整保留ID、图标、名称、数量与说明。此规则只用于新模板创建，既有作者文档、修订和试玩选择不会重排。物品说明改为简短游戏描述，样例和图标来源标识集中放在预览及导出元数据。
+
+新List显式inventory.appearance:slots，用独立槽位、数量角标和紧凑详情卡呈现；横版详情在右、竖版在下。共享inventoryMinimum/inventoryLayout及真实字体详情排布继续决定合法尺寸，编译器按自然格子、标题、详情与皮肤安全内边距收紧外框，不撑满画布。默认16字号度量下自然尺寸约横742×430、竖472×670，实际结果仍由皮肤、行列与内容约束计算；宽度不足不改列，高度不足仍在内部滚动。外层选定皮肤、PNG标题墨色来源和inventory-colors证据链保留。
+
+inventoryPresetChoice增加defaultColumns/defaultRows/minimumCapacity，Studio显示行列及实时容量。新inventory-plan 1.1明确冻结行列、标题、唯一方向、配置原字节、皮肤及三份原合同摘要；start复核后通过inventory-preview的--columns/--rows/--config组装。编译API使用可选第四参{columns,rows}，producer仍输出单方向action-panel-preview/offline-fixtures及文件摘要，不创建模型run、attempt、回执或计算授权。另将configSha256传入producer的--config-sha256，对实际同次读取的字节先核验再解析，合法配置被替换也拒绝，消除计划核验与CLI读取之间的来源绑定缺口。
+
+producer新增可选expectedConfigSha256和CLI --config-sha256，以同一次读取的原始bytes先比摘要再解析配置，避免冻结校验与启动子进程之间被替换；不匹配明确INVENTORY_CONFIG_CHANGED，读皮肤与写输出均未开始。无期望摘要的直接CLI保持兼容。新增合法变体配置/CLI摘要不符、匹配摘要、无摘要与无效JSON先验拒绝回归，inventory-preset单文件9/9通过；浏览器结果另行补充。
+
+兼容分支保留旧配置1.0的固定width/height、10×10和原物品格位；传相同10×10参数与省略参数等价，不能用新行列悄悄改造旧计划。旧计划1.0从冻结配置读取原行列，原文档没有appearance时保留item.normal/selected皮肤呈现。旧preview、manifest、原合同/包绑定、保存副本和用户草稿不改写；registry只对精确可识别的旧库存声明作派生，其他不兼容定义仍拒绝。生成后尺寸、名称、字号颜色编辑和保存copy继续使用既有事务与服务端白名单，试玩状态保持独立。
+
+维护文档inventory-panel、local-studio、planning-integration、panel-upgrade-matrix及layout-contract同步当前范围；12.136保留固定10×10历史。并行Surface样式功能及其文档段落不改动。
+
+联合Node定向回归146/146通过，覆盖库存合同、可变行列、自然尺寸、皮肤/文字与编辑保存链。摘要收口后的预设/计划/pipeline增量20/20通过，与前轮有重叠不相加。另将内容自适应转固定的旧测试改用Chain本地settings-body明确构造content模式，避免并行上游group-0已变自由布局使测试失去原目标；产品尺寸行为未为测试修改。
+
+Edge离线浏览器最终81项独立检查通过（前段62、增量25，重复6项），error/warning/外部请求/模型调用/原生dialog均0。四套真实皮肤双比例默认20格均验证布局、数量底色墨色对比及图标/空位/详情；主代理目视国风、幻想、像素横版及国风/烘焙竖版截图。新slots不拉伸旧窄item素材，数量及详情按实际不透明主题底色选默认墨色，作者显式颜色保持最高优先。
+
+独立夹具实际经过Studio UI选择6×4、plan1.1冻结、带config-sha256的CLI和ready发布：24格、8物品、16空位，末格详情正确。改名/18字号/颜色同次事务、撤销重做、跨事务试玩选择、保存copy与原始隔离、JSON下载及390px布局均通过。旧1.0生产结果与冻结100格作者文档完全相同，原皮肤包逐文件hash未变。没有真实项目测试保存或新模型/媒体/GPU调用。
+
+最终报告为本聊天仓库外inventory-panel-v2/inventory-v2-check.json，含81项去重、60份白名单JSON证据和清理事实；保留首轮端口EACCES及组件选择定位器诊断，二者属测试环境/脚本，未改变系统配置或产品。临时loopback服务实际使用5103及1349，专属UUID夹具、浏览器和编辑存储已关闭/清理，不再额外重复已通过检查。
+
+本地接入前新鲜核对六计划idle、六项目components-ready、24处理/回收锁free，busy/generationRunning/recovering均false；准确匹配唯一4310启动命令后仅重启该进程，待确认prepared计划原样保留。live-smoke确认index/pipeline-ui/css与panel-size/panel-copy新bundle逐字节hash一致，入口默认5×4且最小容量8；既有六节点用户竖版source/load正常、原修订ID保持，六项目仍空闲。本地Studio持续运行；用户刷新现有生成台，用新预设创建即可，原作品和草稿不自动改写。
+
+收尾只读复核发现上游并行未提交工作已新增inventory-row及context0.12/intent0.13/PanelSpec0.17，纠正当前维护文档先前沿用I02的“上游缺少库存”断言。实际公共API核对证明Chain固定modern-all-components目录仍为context0.11/intent0.12；新目录会明确触发panel.planner-version，转换白名单也不会丢弃库存字段。后续应复用上游新合同适配Chain，当前确定性预设不冒称该AI语义已接通，未修改上游工作区。
+
+### 12.138 仓库示例连续排列，空位留后（2026-10-16）
+
+用户反馈新仓库中间穿插空格，源于12.137默认配置为展示稀疏占位而使用0/1/3/6/8/11/16/19，并非布局计算或文字占位故障。当前inventory-panel.json的8件样例改为0–7，按所选列数从左到右、逐行连续排列；默认5×4表现为首行5件、第二行3件，其余空位留在后面。只调整默认数据与现有用例期望，不改运行时格位含义，不自动整理已生成文档或冻结计划；真实用户JSON的稀疏物品仍逐slotIndex绘制。
+
+维护文档inventory-panel与panel-upgrade-matrix同步。预设/计划15项定向回归通过，容量不足的旧测试改用确实小于8件物品的容量，原1.0/摘要冻结等校验保持。新建Studio计划每次读取当前配置原字节并绑定摘要给CLI，故无需重启即可生效；已prepared计划仍使用原冻结配置。已有artifact无原地重制/改格位接口，当前页面仍显示原交付，新默认通过新建仓库使用，不改其原文件、修订、试玩状态或草稿。
+
+两方向实际CLI及最小Edge浏览器检查10/10通过：默认20格中仅0–7有物品，第8格为食物，第9格为空；真实指针点击详情一致、试玩不改props、console/error/外部请求均0。固定国风包摘要未变，横版截图已目视连续无跳空。证据在本聊天仓库外inventory-sequential/sequential-check.json及两方向截图；临时14617服务、浏览器与唯一UUID目录均清理，未写真实Studio项目、未调用模型或媒体生成。
+
+### 12.139 仓库接入上游AI方案链（2026-10-16）
+
+用户明确要求仓库与其他模板一样走AI输出方案。Studio新建inventory改为model-inventory builder，复用action-model prepare/run和一次摘要确认，需求恢复4000字符；默认5×4、行列各1–10，不再要求8件样例。物品内容由模型响应决定，不回填旧样例；行列和唯一比例固定进计划，澄清继续同任务并保留皮肤、方向、格位及历史。只有已prepared的deterministic-inventory老任务继续旧程序CLI，不给新任务提供静默程序fallback。
+
+inventory-intent/inventory-planning集中消费上游inventory-row、context0.12/intent0.13；planning-compatibility精确增加该pair，其他预设继续原modern-all-components目录。专用catalog从当前上游原数据派生，保留inventory-row与text-row companion以满足上游0.12 controls envelope，消费层仍明确拒绝额外Text行；首次仅inventory目录导致assetRetrieval缺失，在任何dispatch前被公共verify拒绝，已修复目录组合而非手改context或上游。
+
+programGrid由真实皮肤/方向/行列及9999数量宽度计算后冻结；模型所有grid字段须完全相同。新增optional cellSize与initialSlot保持实际方格及空初始槽，未知布局、资产和业务字段明确拒绝。null图标映射为格内名称，详情保留完整名称；当前无图集输入和上游description，不编造图标或说明。三种标题独立保留，同文去重；prompt要求未单独指定时复用panel标题。模型enabled、items、quantity、slot与selectedSlot保真，不通过样例builder重排。
+
+nullable icon及新增inventory属性只对精确已知旧schema作派生，原合同、包绑定、旧无字段文档保持。新名称使用实际不透明主题底板并交给共享textColorOwner选择墨色，作者显式颜色最高优先；皮肤/数量/字体最小尺寸同源执行，字号过大拒绝而不缩字。空槽之后的试玩state仍沿用selectedId边界，不冒称新增完整游戏状态或拖换业务。
+
+action-model统一materializeActionRun生产转换文件，CLI与离线测试共用。conversion前读取实际plan/receipt/raw/intent并核对授权计划、响应SHA、context、单次调用/no retry、JSON一致性；loadActionRun继续复核转换文件及重编译结果。action-preview按冻结consumer config加载模型结果，保留所选比例；其他预设目录、规则和素材不改。错误文案移除固定10列与错误的“未调用模型”断言，AI转换失败保存原始证据且不自动重试。
+
+22份相关Node文件173/173通过。真实公共prepare→runCodexPlanning离线transport→真实response/receipt→materialize→loadActionRun横竖集成通过，未授权、变更plan/consumer、重复派发和原始响应篡改均拒绝。新3项集成已包含173，其他代理子集不重复相加。
+
+Edge浏览器27项独立断言通过（22主链+5像素墨色增量），error/warning/外部请求均0。覆盖单方向prepare、0.13冻结、取消确认调用0、接受确认一次准确摘要、非默认物品名称/数量保真、选中详情、文字样式编辑、保存副本/原始隔离；像素包名称/数量/详情实际对比度至少4.5。真实模型调用0，测试只注入离线transport；receipt和转换文件由真实程序生成，不手造成功记录。
+
+证据位于本聊天仓库外inventory-ai/final-report.json与node-tests.txt，含两方向及像素截图、prepared bundle、真实producer文件和保存修订。首次临时server缺styles/presets的404及静态快照跨另一项material UI修改的null DOM均保留诊断；重新冻结完整当前快照后全过，未为测试修改材质功能。所有自有UUID目录、临时浏览器/server、编辑存储和精确2份全局测试plan已核摘要清理。没有测试写入真实Studio项目、没有模型/媒体/GPU调用，未改上游未提交工作。
+
+本地接入前核对六计划idle、六项目components-ready、24处理/回收锁free及busy/generationRunning/recovering全false；已结束且带finishedAt的failed-no-retry作为终态保留，不当运行任务。沿用现场当前登录预检启动器更新4310，预检PASS且modelCalls0，没有更改登录设置或其他进程。live-smoke证明index/pipeline-ui/css/editor/copy与新源码/bundle逐字节hash一致，仓库入口builder=model-inventory、默认5×4、最小容量1；旧用户六节点source/load与原修订ID保持，六项目仍空闲。用户刷新生成台后，新建仓库会像其他预设一样确认一次AI调用；本轮未实际提交模型，新流程不自动重制既有程序作品。

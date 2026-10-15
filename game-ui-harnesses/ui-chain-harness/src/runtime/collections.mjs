@@ -1,5 +1,6 @@
 import {scrollPadding} from './scroll-geometry.mjs';
 import {tabsContentBox} from './tabs-geometry.mjs';
+import {inventoryListAdapter} from './inventory-adapter.mjs';
 import { Container, Graphics, Rectangle } from "pixi.js";
 import { List, Switcher, Button } from "@pixi/ui";
 import {
@@ -25,10 +26,6 @@ export const collectionAdapters = {
       overlay: runtime.overlay,
       allowed: () => handle.allowed(),
     });
-    // Native FancyButton stops pointer propagation; keep keyboard ownership on
-    // the Select even when its popup is reparented to the overlay.
-    for(const button of [view.openButton,view.closeButton,...view.rows])
-      listen(button.onDown,()=>{if(handle.allowed())runtime.focus(handle,false);});
     listen(view.onSelect, (index) => {
       if (p.options[index]?.enabled)
         emit("selectionChange", { selectedId: p.options[index].id });
@@ -42,6 +39,7 @@ export const collectionAdapters = {
     };
   },
   "pixi.list"(c) {
+    if(c.p.inventory)return inventoryListAdapter(c);
     const { skin, p, w, h, listen, emit, runtime, children } = c;
     const content = children("items");
     const recipe = runtime.registry.recipes.find(
@@ -428,7 +426,6 @@ export const collectionAdapters = {
     });
     view.onVisualClose=returnToRoot;
     view.onVisualProgress=alpha=>{const modal=runtime.overlay.modals.find(m=>m.owner===handle);if(modal)modal.layer.children[0].alpha=alpha;};
-    for(const button of buttons)listen(button.onDown,()=>{if(handle.allowed()&&view.isOpen)runtime.focus(handle,false);});
     return {
       view,
       buttons,

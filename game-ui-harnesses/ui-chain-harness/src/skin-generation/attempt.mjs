@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { hash, json, readSafe } from '../skins/package.mjs';
 import { decodePng } from '../skins/png.mjs';
 import { verifyGenerationPlan } from './plan.mjs';
+import {assessMaterialAtlas} from './material-template.mjs';
 
 const fail = message => { throw Object.assign(Error(message), { code: 'skin.attempt' }); };
 async function noLinks(path) {
@@ -50,6 +51,7 @@ export async function reserveAttempt({ planDirectory, planSha256, output, confir
 }
 
 export function assessPilot(bytes, plan) {
+  if(plan.purpose==='material-atlas')return assessMaterialAtlas(bytes,plan);
   let image;
   try { image = decodePng(bytes); }
   catch (e) { return { status: 'rejected', issues: [{ code: 'png.unsupported', message: e.code === 'skin.png' ? e.message : 'PNG decode failed.' }], visualAcceptance: 'unreviewed', productionReady: false }; }
@@ -124,4 +126,31 @@ export async function receiveAttempt({ planDirectory, planSha256, directory, raw
     automaticRetry: false, visualAcceptance: 'unreviewed', productionReady: false };
   await writeFile(join(directory, 'receipt.json'), json(receipt), { flag: 'wx' });
   return { state: receipt.state, ...inspection, rawSha256: hash(bytes) };
+}
+
+/** Explicit local completion of a recorded returned result. No source bytes,
+ * receipt or inspection are replaced, and this path never reserves/submits. */
+export async function recoverReturnedAttempt({planDirectory,planSha256,directory}){
+  const optional=async file=>{try{return await readSafe(directory,file);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
+  if(await optional('receipt.json'))fail('Reception already has a receipt.');
+  const reservationBytes=await readSafe(directory,'reservation.json'),reservation=JSON.parse(reservationBytes),resultBytes=await readSafe(directory,'external-result.json'),result=JSON.parse(resultBytes);
+  if(reservation.kind!=='ui_skin_external_attempt_reservation'||reservation.version!=='0.1'||reservation.planSha256!==planSha256||reservation.authorization?.consumed!==true||reservation.authorization?.maxSubmissions!==1||reservation.automaticRetry!==false||result.status!=='returned'||result.automaticRetry!==false||!/^[a-f0-9]{64}$/.test(result.rawSha256??''))fail('Returned reception binding differs.');
+  if(reservation.batchBinding){
+    const submissionBytes=await readSafe(directory,'submission.json'),submission=JSON.parse(submissionBytes);
+    if(result.kind!=='ui_skin_external_result'||result.version!=='1.0'||result.submissionSha256!==hash(submissionBytes)||submission.kind!=='ui_skin_external_submission'||submission.version!=='1.0'||submission.batchSha256!==reservation.batchBinding.batchSha256||submission.planSha256!==planSha256||submission.reservationSha256!==hash(reservationBytes)||submission.automaticRetry!==false)fail('Returned submission binding differs.');
+  }else if(result.kind!=='ui_skin_supplement_outcome'||result.planSha256!==planSha256||result.reservationSha256!==hash(reservationBytes))fail('Returned supplement binding differs.');
+  const plan=await frozenPlan(planDirectory,planSha256),geometry=JSON.parse(await readSafe(planDirectory,'geometry.json'));
+  const adapter=await optional('adapter-output.png'),raw=await optional('raw.png'),bytes=raw??adapter;
+  if(!bytes||[raw,adapter].some(b=>b&&hash(b)!==result.rawSha256))fail('Returned raw source is missing or changed; no files were replaced.');
+  const inspection=assessPilot(bytes,{...plan,outputScale:geometry.coordinates.outputScale}),reportBytes=Buffer.from(json({kind:'ui_skin_pilot_inspection',version:'0.1',planSha256,rawSha256:hash(bytes),...inspection}));
+  const artifacts=[['receive.claim',Buffer.from(json({rawSha256:hash(bytes),bytes:bytes.length}))],['raw.png',bytes],['inspection.json',reportBytes]];
+  const existing=new Map();
+  // Validate every partial file before creating anything. A collision is evidence,
+  // never an invitation to overwrite it or pick a different source image.
+  for(const [file,expected]of artifacts){const prior=await optional(file);if(prior&&!prior.equals(expected))fail('Partial reception changed: '+file);existing.set(file,prior);}
+  for(const [file,data]of artifacts)if(!existing.get(file))await writeFile(join(directory,file),data,{flag:'wx'});
+  const receipt={kind:'ui_skin_external_attempt_receipt',version:'0.1',planSha256,reservationSha256:hash(reservationBytes),state:'received',receivedAt:new Date().toISOString(),
+    raw:{file:'raw.png',sha256:hash(bytes),bytes:bytes.length},inspection:{file:'inspection.json',sha256:hash(reportBytes),status:inspection.status},automaticRetry:false,visualAcceptance:'unreviewed',productionReady:false};
+  await writeFile(join(directory,'receipt.json'),json(receipt),{flag:'wx'});
+  return {state:'received',...inspection,rawSha256:hash(bytes),recoveredReception:true,providerCalls:0,automaticRetry:false};
 }

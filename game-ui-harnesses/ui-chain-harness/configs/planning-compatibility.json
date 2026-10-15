@@ -3,6 +3,7 @@
   "protocols": [
     { "context": "0.1", "intent": "0.3" },
     { "context": "0.4", "intent": "0.3" },
-    { "context": "0.11", "intent": "0.12" }
+    { "context": "0.11", "intent": "0.12" },
+    { "context": "0.12", "intent": "0.13" }
   ]
 }

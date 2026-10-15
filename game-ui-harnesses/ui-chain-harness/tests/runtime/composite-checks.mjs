@@ -27,7 +27,7 @@ export async function runCompositeChecks(h, onResult = () => {}) {
   await check(
     "G.composite-list",
     "List",
-    "显式条目支持 Panel 复合内容；稳定选择、键盘、销毁和共享资源",
+    "显式条目支持 Panel 复合内容；稳定选择、鼠标、销毁和共享资源",
     async () => {
       await page.evaluate(() => {
         harness.clear();
@@ -58,7 +58,8 @@ export async function runCompositeChecks(h, onResult = () => {}) {
         harness.runtime.focus(current);
         harness.events.length = 0;
       });
-      await page.keyboard.press("End");
+      const point=await page.evaluate(()=>{const row=current.adapter.rows[1];const b=(row.view??row).getBounds();return {x:b.x+8,y:b.y+8};});
+      await page.mouse.click(point.x,point.y);
       assert.equal(
         await page.evaluate(() => current.readState().selectedId),
         "b",
@@ -69,58 +70,22 @@ export async function runCompositeChecks(h, onResult = () => {}) {
     },
   );
   await check(
-    "G.keyboard-composites",
+    "G.pointer-only",
     "all",
-    "单选/页签/下拉键盘跳过禁用项；滑条端点；Input Tab 释放 DOM",
+    "组件不响应导航快捷键、不创建焦点框；Input 保留文字编辑",
     async () => {
-      for (const type of ["RadioGroup", "Tabs", "Select"]) {
-        await page.evaluate((type) => {
-          harness.clear();
-          const sample = harness.cases.find((c) => c.type === type),
-            key = type === "Tabs" ? "tabs" : "options";
-          const items = structuredClone(sample.props[key]);
-          items[1].enabled = false;
-          items.push({ ...items[0], id: "c", label: "第三项", enabled: true });
-          window.current = harness.make(type, {
-            props: {
-              [key]: items,
-              ...(type === "Tabs" ? {} : { selectedId: "a" }),
-            },
-            size: { height: 144 },
-          });
-          harness.runtime.focus(current);
-          harness.events.length = 0;
-        }, type);
-        await page.keyboard.press("ArrowRight");
-        if (type === "Select") await page.keyboard.press("Enter");
-        assert.equal(
-          await page.evaluate(
-            () =>
-              current.readState().selectedId ?? current.readState().activeId,
-          ),
-          "c",
-        );
-        assert.equal(await page.evaluate(() => harness.events.length), 1);
+      for (const type of ['Button','Switch','CheckBox','RadioGroup','Select','Slider','List','Dialog','Tabs']) {
+        const before=await page.evaluate(type=>{harness.clear();window.current=harness.make(type);harness.runtime.focus(current);harness.events.length=0;return current.readState();},type);
+        for(const key of ['Tab','ArrowRight','End','Enter','Space','Escape']) await page.keyboard.press(key);
+        assert.deepEqual(await page.evaluate(()=>current.readState()),before,type);
+        assert.equal(await page.evaluate(()=>harness.events.length),0,type);
+        assert.equal(await page.evaluate(()=>!!current.focusRing),false,type);
       }
-      await page.evaluate(() => {
-        harness.clear();
-        window.current = harness.make("Slider", {
-          props: { min: 0.1, max: 1, step: 0.3, value: 0.1 },
-        });
-        harness.runtime.focus(current);
-        harness.events.length = 0;
-      });
-      await page.keyboard.press("End");
-      assert.equal(await page.evaluate(() => current.readState().value), 1);
-      await page.evaluate(() => {
-        harness.clear();
-        window.current = harness.make("Input");
-        window.next = harness.make("Button");
-        harness.runtime.focus(current);
-      });
-      assert.equal(await page.locator("input").count(), 1);
-      await page.keyboard.press("Tab");
-      assert.equal(await page.locator("input").count(), 0);
+      await page.evaluate(()=>{harness.clear();window.current=harness.make('Input');harness.runtime.focus(current);});
+      await page.keyboard.insertText('保留中文输入');
+      assert.equal(await page.evaluate(()=>current.readState().value),'保留中文输入');
+      assert.equal(await page.evaluate(()=>!!current.focusRing),false);
+      await page.evaluate(()=>harness.runtime.focus(null));
     },
   );
   await check(

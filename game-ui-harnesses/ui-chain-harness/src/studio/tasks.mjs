@@ -23,10 +23,26 @@ export async function inspectStudioTasks(root,entries,identity=taskToolIdentity)
   }catch{return {...base,status:'invalid',nodes:[],attempts:[],recovery:'blocked',message:'任务记录或引用产物校验失败，请检查本地原始记录。'};}
  }));
 }
-export function studioServer(snapshot,port,readTasks,recover,prepare,generation,history,pipeline,library){
+export function studioServer(snapshot,port,readTasks,recover,prepare,generation,history,pipeline,library,panelEdit){
  const server=consumerServer(snapshot,port,{allowFrames:true}),serve=server.listeners('request')[0];server.removeAllListeners('request');
  let pending;
  server.on('request',async(req,res)=>{
+  if(req.url?.startsWith('/panel-edit/')){
+   const reply=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
+   if(!panelEdit||req.headers.host!==`127.0.0.1:${port}`)return reply(404,{message:'未找到尺寸编辑入口。'});
+   try{
+    const url=new URL(req.url,`http://127.0.0.1:${port}`);
+    if(url.pathname==='/panel-edit/source'&&req.method==='GET'&&[...url.searchParams.keys()].length===1&&url.searchParams.has('artifact'))return reply(200,await panelEdit('source',{artifactId:url.searchParams.get('artifact')}));
+    const action=url.pathname.slice('/panel-edit/'.length);
+    if(!['load','save'].includes(action)||url.search||req.method!=='POST'||req.headers.origin!==`http://127.0.0.1:${port}`||req.headers['content-type']!=='application/json')return reply(403,{message:'请求来源或格式不符合要求。'});
+    const chunks=[];let length=0;for await(const chunk of req){length+=chunk.length;if(length>6*1024*1024)return reply(413,{message:'尺寸文档过大。'});chunks.push(chunk);}
+    return reply(200,await panelEdit(action,JSON.parse(Buffer.concat(chunks).toString('utf8'))));
+   }catch(error){
+    const code=typeof(error.code??error.message)==='string'&&/^[A-Za-z0-9_.-]{1,100}$/.test(error.code??error.message)?error.code??error.message:'PANEL_EDIT_FAILED';
+    const message=/STALE|CONFLICT|BUSY/.test(code)?'尺寸副本已在其他页面变更，请重新打开后再保存。':/UNSUPPORTED_PREVIEW/.test(code)?'该历史面板格式暂不支持尺寸编辑，原始预览仍可使用。':'尺寸文档未通过来源、布局或皮肤安全检查，原始面板未改动。';
+    return reply(409,{message,code});
+   }
+  }
   if(req.url==='/library.json'){
    if(!library||req.headers.host!==`127.0.0.1:${port}`||!['GET','HEAD'].includes(req.method)){res.writeHead(404);res.end();return;}
    try{const value=await library();res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(req.method==='HEAD'?undefined:JSON.stringify(value));}catch{res.writeHead(503);res.end();}return;
@@ -36,7 +52,11 @@ export function studioServer(snapshot,port,readTasks,recover,prepare,generation,
    const action=req.url.slice('/pipeline/'.length);
    if(!pipeline||!['status','process','panel-prepare','panel-start','panel-delete','panel-restore','panel-motion','component-motion'].includes(action)||req.method!=='POST'||req.headers.host!==`127.0.0.1:${port}`||req.headers.origin!==`http://127.0.0.1:${port}`||req.headers['content-type']!=='application/json')return reply(403,{message:'请求来源或格式不符合要求'});
    try{const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>20000)return reply(413,{message:'请求过大'});chunks.push(chunk);}return reply(200,await pipeline.action(action,JSON.parse(Buffer.concat(chunks).toString('utf8'))));}
-   catch(e){return reply(409,{message:['panel-motion','component-motion'].includes(action)?'动效未能保存，请刷新面板后再试。':'操作未完成，请刷新项目状态。已提交的模型不会自动重试。',code:/^[A-Z0-9_-]+$/.test(e.message)?e.message:'PIPELINE_FAILED'});}
+   catch(e){
+    const inventoryMessages={PANEL_INVENTORY_GRID:'仓库列数和行数须为 1–32 的整数，总格数最多 144；固定格画布的宽高不能超过 4000。',PANEL_INVENTORY_TITLE:'旧仓库预设输入仅用于标题，最多 40 个单行字符；请新建 AI 仓库面板填写完整需求。',PANEL_INVENTORY_PLAN_CHANGED:'仓库预设计划或组件版本已变化，请重新创建面板。'};
+    if(Object.hasOwn(inventoryMessages,e.code))return reply(409,{message:inventoryMessages[e.code],code:e.code});
+    return reply(409,{message:['panel-motion','component-motion'].includes(action)?'动效未能保存，请刷新面板后再试。':'操作未完成，请刷新项目状态。已提交的模型不会自动重试。',code:/^[A-Z0-9_-]+$/.test(e.message)?e.message:'PIPELINE_FAILED'});
+   }
   }
   if(req.url==='/plans.json'){
    if(!history||req.headers.host!==`127.0.0.1:${port}`||!['GET','HEAD'].includes(req.method)){res.writeHead(404);res.end();return;}

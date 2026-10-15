@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "weakComponentMaxAlpha": 4,
+  "attachedFringeMaxAlpha": 8,
   "attachmentGapLogicalPixels": 4,
   "automaticAcceptance": false,
   "primaryOwnership": {

@@ -2,6 +2,7 @@ import {join} from 'node:path';
 import {hash,readSafe} from '../skins/package.mjs';
 import {verifyRecoveredResult} from './recovered-result.mjs';
 import {applySupplements} from './supplement-intake.mjs';
+import {validateMaterialTemplate,materialGeometry} from './material-template.mjs';
 
 const fail=message=>{throw Error('batch-intake.'+message);};
 /** Archival verification, not compute authorization or planning-tool freshness. */
@@ -16,12 +17,13 @@ export async function inspectGenerationBatch({skinDirectory,batchSha256,template
   const batchBytes=await read('batches/'+batchSha256+'/batch.json');
   if(hash(batchBytes)!==batchSha256)fail('batch-changed');
   const batch=JSON.parse(batchBytes);
-  if(batch.kind!=='ui_skin_generation_batch'||batch.version!=='0.1'||batch.computeAuthorized!==false||!Array.isArray(batch.plans)||batch.plans.length!==sheets.length||new Set(batch.plans.map(p=>p.sheetId)).size!==sheets.length)fail('invalid-batch');
+  const withMaterials=Array.isArray(batch.plans)&&batch.plans.some(p=>p.sheetId==='S05'),expectedCount=sheets.length+(withMaterials?1:0);
+  if(batch.kind!=='ui_skin_generation_batch'||batch.version!=='0.1'||batch.computeAuthorized!==false||!Array.isArray(batch.plans)||batch.plans.length!==expectedCount||new Set(batch.plans.map(p=>p.sheetId)).size!==expectedCount)fail('invalid-batch');
   const authorizationBytes=await read('batches/'+batchSha256+'/authorization.json',true);
   if(authorizationBytes){const a=JSON.parse(authorizationBytes);if(a.kind!=='ui_skin_batch_authorization'||a.version!=='1.0'||a.batchSha256!==batchSha256||a.consumed!==true||a.maxSubmissionsPerPlan!==1||a.automaticRetry!==false||JSON.stringify(a.plans)!==JSON.stringify(batch.plans.map(({sheetId,sha256})=>({sheetId,sha256}))))fail('authorization-binding');}
   const nodes=[],sources=[];let total=0;
   for(const entry of batch.plans){
-    const expected=sheets.find(s=>s.id===entry.sheetId);
+    const material=entry.sheetId==='S05',expected=material?{parts:Array(3)}:sheets.find(s=>s.id===entry.sheetId);
     if(!expected||!/^[a-f0-9]{64}$/.test(entry.sha256)||entry.assets!==expected.parts.length)fail('sheet-coverage');
     const prefix='plans/'+entry.sha256+'/',planBytes=await read(prefix+'plan.json');
     if(hash(planBytes)!==entry.sha256)fail('plan-changed');
@@ -34,9 +36,13 @@ export async function inspectGenerationBatch({skinDirectory,batchSha256,template
       if(b.length!==f.bytes||hash(b)!==f.sha256)fail('resource-changed');
       evidence.push({file:prefix+f.file,bytes:b,sha256:hash(b)});
     }
+    if(material){
+      const frozen=await read(prefix+'inputs/material-template.json'),spec=validateMaterialTemplate(JSON.parse(frozen)),geometry=JSON.parse(await read(prefix+'geometry.json'));
+      if(plan.purpose!=='material-atlas'||plan.bindings.materialTemplateSha256!==hash(frozen)||!plan.resources.some(f=>f.file==='inputs/material-template.json'&&f.sha256===hash(frozen))||JSON.stringify(plan.parts)!==JSON.stringify(spec.parts.map(({assetId,bodyRect,slotRect,stretch})=>({assetId,bodyRect,stretch,slotRect})))||JSON.stringify(geometry.coordinates)!==JSON.stringify(spec.coordinates)||JSON.stringify(geometry.sheets)!==JSON.stringify(materialGeometry(spec,hash(frozen)).sheets)||plan.request?.width!==spec.coordinates.width*spec.coordinates.outputScale||plan.request?.height!==spec.coordinates.height*spec.coordinates.outputScale)fail('material-template-binding');
+    }else if(plan.purpose!==undefined)fail('plan-purpose');
     total+=entry.assets;
     const a='attempts/'+entry.sha256+'/',reservationBytes=await read(a+'reservation.json',true),receiptBytes=await read(a+'receipt.json',true);
-    const node={sheetId:entry.sheetId,planSha256:entry.sha256,status:'awaiting-authorization',automaticRetry:false};
+    const node={sheetId:entry.sheetId,planSha256:entry.sha256,status:'awaiting-authorization',automaticRetry:false,...(material?{purpose:'material-atlas'}:{})};
     if(!reservationBytes){
       if(receiptBytes||await read(a+'receive.claim',true)||await read(a+'raw.png',true))fail('missing-reservation');
       if(authorizationBytes)node.status='authorization-incomplete';
@@ -58,6 +64,7 @@ export async function inspectGenerationBatch({skinDirectory,batchSha256,template
           const result=JSON.parse(resultBytes);
           if(result.kind!=='ui_skin_external_result'||result.version!=='1.0'||result.submissionSha256!==hash(submissionBytes)||result.automaticRetry!==false||!['returned','failed','indeterminate'].includes(result.status))fail('outcome-binding');
           node.status=result.status==='failed'?'failed':'indeterminate';
+          if(result.status==='returned'&&!receiptBytes)node.receptionPending=true;
           node.finishedAt=result.createdAt;
           if(receiptBytes) {
             const rawSha256=JSON.parse(receiptBytes).raw?.sha256;
@@ -83,8 +90,13 @@ export async function inspectGenerationBatch({skinDirectory,batchSha256,template
   }
   if(total!==batch.assetCount)fail('asset-count');
   await applySupplements({read,batchSha256,nodes,sources});
-  const complete=sources.length===sheets.length;
+  const materialSources=sources.filter(s=>s.sheetId==='S05'),coreSources=sources.filter(s=>s.sheetId!=='S05');
+  for(const material of materialSources){
+    const node=nodes.find(n=>n.sheetId===material.sheetId),template=await read('plans/'+node.planSha256+'/inputs/material-template.json');
+    Object.assign(material,{planSha256:node.planSha256,template:{bytes:template,sha256:hash(template)}});
+  }
+  const complete=sources.length===expectedCount&&nodes.every(n=>n.status==='received');
   return {summary:{kind:'ui_skin_batch_intake',version:'1.0',batchSha256,referenceSha256:batch.referenceSha256,styleSha256:batch.styleSha256,
     status:complete?'received-awaiting-localization':nodes.some(n=>['reserved-outcome-unknown','indeterminate','authorization-incomplete'].includes(n.status))?'indeterminate':nodes.some(n=>n.status==='failed')?'failed':authorizationBytes?'authorized-awaiting-external-submission':'awaiting-authorization',nodes,
-    originalChecksPassed:complete&&nodes.every(n=>n.inspection!=='rejected'),automaticProviderCalls:false,automaticRetry:false,productionReady:false},sources,evidence};
+    originalChecksPassed:complete&&nodes.every(n=>n.inspection!=='rejected'),automaticProviderCalls:false,automaticRetry:false,productionReady:false},sources:coreSources,materialSources,evidence};
 }

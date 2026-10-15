@@ -68,6 +68,8 @@
           "type": "integer",
           "minimum": 0
         },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "const": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] },
         "pattern": {
           "type": "string"
         },

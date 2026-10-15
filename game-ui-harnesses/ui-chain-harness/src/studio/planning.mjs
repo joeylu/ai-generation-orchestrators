@@ -40,7 +40,7 @@ export function studioPlanner(root){
    await writeFile(join(directory,'style.json'),json(style),{flag:'wx'});
    if(preset)await writeFile(join(directory,'preset.json'),json(preset),{flag:'wx'});
    await writeFile(join(directory,'reference-provenance.json'),json({originalSha256:project.reference.sha256,pngSha256:hash(png),conversion:project.reference.mime==='image/jpeg'?'browser-decoded-png':'unchanged'}),{flag:'wx'});
-   const result=await exec(process.execPath,[join(root,'scripts/skin-batch.mjs'),'prepare','--reference',join(directory,'reference.png'),'--style',join(directory,'style.json'),'--out',directory],{cwd:root,windowsHide:true,maxBuffer:2*1024*1024,timeout:120000});
+   const result=await exec(process.execPath,[join(root,'scripts/skin-batch.mjs'),'prepare','--reference',join(directory,'reference.png'),'--style',join(directory,'style.json'),'--out',directory,...(project.materialGeneration?['--materials']:[])],{cwd:root,windowsHide:true,maxBuffer:2*1024*1024,timeout:120000});
    const prepared=JSON.parse(result.stdout),batch=JSON.parse(await readSafe(prepared.directory,'batch.json'));
    return {status:prepared.status,batchSha256:prepared.batchSha256,directory:relative(root,prepared.directory).replaceAll('\\','/'),sheets:batch.plans,assets:batch.assetCount,computeAuthorized:false,styleMode:'reference-only-no-analysis',generation:'not-invoked'};
   }finally{busy=false;}

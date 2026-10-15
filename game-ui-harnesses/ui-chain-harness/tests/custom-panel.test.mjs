@@ -38,7 +38,7 @@ test('custom allows text-only and button-only requests without injecting control
   assert.equal(r.content.fields.length+r.content.actions.length,1);
  }
 });
-test('custom rejects empty panels, unsupported grouping, invalid options and ambiguous targets',async()=>{
+test('custom rejects empty panels, invalid options and ambiguous targets',async()=>{
  for(const mutate of [i=>i.panel.body.children[0].rows=[],i=>i.panel.body.children.push(structuredClone(i.panel.body.children[0])),i=>i.panel.body.children[0].rows[5].options[1].initial=true,i=>i.panel.body.children[0].rows[8].submitRows=[6],i=>i.panel.body.children[0].rows[4].suffix='分']){
   const i=structuredClone(fixture.intent);mutate(i);await assert.rejects(()=>convert(i));
  }

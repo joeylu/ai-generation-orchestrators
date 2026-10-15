@@ -3,6 +3,7 @@ import {writeFile} from 'node:fs/promises';
 import {join,dirname} from 'node:path';
 import {readSafe} from '../skins/package.mjs';
 import {localRecoveryPolicy} from './local-recovery.mjs';
+import {receivedComponentBatch} from './component-batch.mjs';
 export function automaticProcessing(root,generation,pipeline,{policy=localRecoveryPolicy,schedule=setTimeout,cancel=clearTimeout}={}){
  const active=new Set(),timers=new Map(),busyChecks=new Map();let closed=false;
  const later=(id,ms)=>{
@@ -19,7 +20,7 @@ export function automaticProcessing(root,generation,pipeline,{policy=localRecove
   let project;try{project=JSON.parse(await readSafe(dir,'project.json'));}catch{return;}
   if(project.automaticProcessing!==true)return;
   const state=await generation.action('status',{id});
-  if(state.nodes.length!==4||state.nodes.some(n=>n.status!=='received'))return;
+  if(!receivedComponentBatch(state))return;
   const claim=join(dir,'auto-process.json');
   try{await writeFile(claim,JSON.stringify({version:'1.0',batchSha256:plan.batchSha256,claimedAt:new Date().toISOString()}),{flag:'wx'});}catch(e){if(e.code!=='EEXIST')throw e;}
   // This file binds the original automatic handoff, not a permanent "already tried" flag.

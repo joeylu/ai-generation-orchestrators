@@ -81,10 +81,8 @@ export async function runComponentChecks(h, onResult = () => {}) {
         harness.runtime.focus(current);
       });
       await page.keyboard.press("Enter");
-      assert.equal(
-        (await events()).filter((e) => e.event === "activate").length,
-        1,
-      );
+      assert.equal((await events()).length, 0);
+      assert.equal(await page.evaluate(()=>!!current.focusRing),false);
       await make("Button", { props: { enabled: false } });
       await click();
       assert.equal((await events()).length, 0);
@@ -247,6 +245,7 @@ export async function runComponentChecks(h, onResult = () => {}) {
       await make("Slider", {
         props: { min: -0.1, max: 1, step: 0.2, value: 0.3 },
       });
+      assert.equal(await page.evaluate(()=>current.adapter.view.value1Text.text),'36%');
       const p = await page.evaluate(() => {
         const v = current.adapter.view;
         return {
@@ -261,6 +260,7 @@ export async function runComponentChecks(h, onResult = () => {}) {
       await page.mouse.up();
       assert.equal(await page.evaluate(()=>current.adapter.view._slider1.children[0].texture===harness.skin.texture('skin.slider.thumb.normal')),true);
       assert.equal((await state()).value, 1);
+      assert.equal(await page.evaluate(()=>current.adapter.view.value1Text.text),'100%');
       assert.equal(
         (await events()).filter((e) => e.event === "valueCommit").length,
         1,
@@ -282,6 +282,7 @@ export async function runComponentChecks(h, onResult = () => {}) {
         0,
       );
       assert.equal((await state()).value, 0.3);
+      assert.equal(await page.evaluate(()=>current.adapter.view.value1Text.text),'36%');
     },
   );
   await check(
@@ -290,6 +291,7 @@ export async function runComponentChecks(h, onResult = () => {}) {
     "非零范围映射与静默更新，非法值拒绝",
     async () => {
       await make("ProgressBar", { props: { min: 10, max: 30, value: 20 } });
+      assert.equal(await page.evaluate(()=>current.adapter.view.children[1].text),'50%');
       assert.equal(await page.evaluate(() => current.adapter.bar.progress), 50);
       await page.evaluate(() => current.setState({ value: 30 }));
       assert.equal(
@@ -297,6 +299,11 @@ export async function runComponentChecks(h, onResult = () => {}) {
         100,
       );
       assert.equal((await events()).length, 0);
+      assert.equal(await page.evaluate(()=>current.adapter.view.children[1].text),'100%');
+      assert.ok(await page.evaluate(()=>{current.resize(340,56);const label=current.adapter.view.children[1];return Math.abs(label.x+label.width/2-170)<.01;}));
+      await page.evaluate(()=>current.setState({value:10}));
+      assert.equal(await page.evaluate(()=>current.adapter.view.children[1].text),'0%');
+      assert.ok(await page.evaluate(()=>{const label=current.adapter.view.children[1];return Math.abs(label.x+label.width/2-170)<.01;}));
       assert.equal(
         await page.evaluate(() => {
           try {

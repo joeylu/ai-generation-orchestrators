@@ -1,12 +1,13 @@
 import {fitAsset,fitSlicedAsset} from './assemble.mjs';
-import {suggestSlices} from '../../tools/panel-slicer/src/suggestion.mjs';
 import {assertMetadata} from './contract.mjs';
+import {suggestMaterialSlices} from './contour-slices.mjs';
 const sides=['left','top','right','bottom'];
 const positive=n=>Number.isFinite(n)&&n>0;
 const missingSlices=(kind,id)=>{const code='metadata.'+kind+'-override-required: '+id;return Object.assign(Error(code),{code});};
 export function deriveMetadata(template,images,policy,overrides={}) {
   const defs=template.sheets.flatMap(s=>s.parts),ids=new Set(defs.map(p=>p.assetId));
   if(policy.version!=='1.0'||!positive(policy.defaultDensity)||!positive(policy.verticalLogicalWidth)||policy.automaticAcceptance!==false||!Array.isArray(policy.roundedEndHypotheses))throw Error('metadata.invalid-policy');
+  if(policy.filledContourFallback!==undefined&&typeof policy.filledContourFallback!=='boolean')throw Error('metadata.invalid-policy');
   for(const map of [policy.densityOverrides,policy.contentInsets,overrides])for(const id of Object.keys(map??{}))if(!ids.has(id))throw Error('metadata.unknown-asset');
   for(const id of policy.roundedEndHypotheses)if(!ids.has(id))throw Error('metadata.unknown-asset');
   const parts={},evidence=[];
@@ -29,18 +30,20 @@ export function deriveMetadata(template,images,policy,overrides={}) {
       if(o.caps)throw Error('metadata.caps-only-rails');
       fitted=fitAsset(source,w*scale,h*scale,[Math.max(...members.map(m=>m.width)),Math.max(...members.map(m=>m.height))]);
     }
-    const suggestion=part.stretch==='uniform'?{status:'not-applicable'}:suggestSlices(fitted.image,scale*density,{axis:['horizontal','vertical'].includes(part.stretch)?part.stretch:'both'});
+    const axis=['horizontal','vertical'].includes(part.stretch)?part.stretch:'both';
+    const filledContourFallback=!o.nineSlice&&(part.stretch==='nine-slice'||part.stretch==='horizontal'&&!fit)&&policy.filledContourFallback===true;
+    const suggestion=part.stretch==='uniform'?{status:'not-applicable'}:suggestMaterialSlices(fitted.image,scale*density,{axis,filledContourFallback});
     let cuts={left:0,top:0,right:0,bottom:0},basis='uniform-no-cuts';
     if(o.nineSlice){cuts={...o.nineSlice};basis='skin-override';}
     else if(part.stretch==='nine-slice'){
       if(suggestion.status!=='supported')throw missingSlices('slices',id);
-      cuts=Object.fromEntries(Object.entries(suggestion.nineSlice).map(([k,v])=>[k,Math.ceil(v)]));basis='panel-slicer-delivered-pixels';
+      cuts=Object.fromEntries(Object.entries(suggestion.nineSlice).map(([k,v])=>[k,Math.ceil(v)]));basis=suggestion.method==='filled-contour-v1'?'filled-contour-delivered-pixels':'panel-slicer-delivered-pixels';
     }else if(part.stretch==='horizontal'){
       if(fit){
         cuts.left=Math.ceil(fitted.operation.targetCaps[0]/(scale*density));cuts.right=Math.ceil(fitted.operation.targetCaps[1]/(scale*density));basis=capBasis;
       }else{
         if(suggestion.status!=='supported')throw missingSlices('ends',id);
-        cuts.left=Math.ceil(suggestion.nineSlice.left);cuts.right=Math.ceil(suggestion.nineSlice.right);basis='panel-slicer-horizontal-ends';
+        cuts.left=Math.ceil(suggestion.nineSlice.left);cuts.right=Math.ceil(suggestion.nineSlice.right);basis=suggestion.method==='filled-contour-v1'?'filled-contour-horizontal-ends':'panel-slicer-horizontal-ends';
       }
     }else if(part.stretch==='vertical'){
       cuts.top=Math.ceil(fitted.operation.targetCaps[0]/(scale*density));cuts.bottom=Math.ceil(fitted.operation.targetCaps[1]/(scale*density));basis=capBasis;

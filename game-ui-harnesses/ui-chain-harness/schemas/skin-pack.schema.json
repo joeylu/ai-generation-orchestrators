@@ -70,6 +70,8 @@
         }
       }
     },
+    "surfaceStyles": { "type": "object" },
+    "materialAssets": { "type": "array", "maxItems": 32, "items": { "type": "object" } },
     "theme": {
       "$ref": "runtime-theme"
     },

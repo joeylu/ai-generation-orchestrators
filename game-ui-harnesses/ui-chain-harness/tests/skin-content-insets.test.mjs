@@ -20,3 +20,9 @@ test('rejects invalid density and unsafe policy',()=>{
   assert.throws(()=>suggestContentInsets({...args,resolution:0}));
   assert.throws(()=>suggestContentInsets({...args,policy:{...policy,horizontalClearance:-1}}));
 });
+test('contour fallback supplies conservative clearance at delivered density and local shade retains measured edges',()=>{
+ const r=suggestContentInsets({...args,suggestion:{status:'supported',method:'filled-contour-v1',bordersPx:{left:95,right:97}}});
+ assert.deepEqual(r.proposed,{left:36,right:37,top:5,bottom:7});assert.equal(r.basis,'filled-contour-v1');assert.equal(r.visualAcceptance,'unreviewed');
+ const shade=suggestContentInsets({...args,suggestion:{...args.suggestion,method:'framed-texture-local-shade-v1'}});
+ assert.deepEqual(shade.proposed,suggestContentInsets(args).proposed);
+});

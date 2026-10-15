@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile,mkdir,mkdtemp,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {actionConsumer,prepareActionPlan,verifyActionPlan,loadActionRun} from '../src/panel/action-model.mjs';
+import {actionConsumer,prepareActionPlan,verifyActionPlan,loadActionRun,materializeActionRun,actionPlanningFiles} from '../src/panel/action-model.mjs';
 import {actionFixture} from '../src/panel/action-fixtures.mjs';
 import {actionPresetFromIntent} from '../src/panel/action-intent.mjs';
 import {editorData} from '../src/panel/data.mjs';
@@ -45,3 +45,24 @@ test('preview accepts verified fixture evidence but rejects changed raw response
 });
 
 test('orientation is frozen in the model plan and compiles only selected document',async()=>{const example=examples[1],input={request:{requestVersion:'0.1',id:example.id,target:'pixi',text:example.request},catalog,instructions};const consumers=['landscape','portrait'].map(o=>actionConsumer(config,'form',pack,manifestSha256,aliases,o));const plans=await Promise.all(consumers.map(consumer=>prepareActionPlan({...input,consumer})));assert.notEqual(plans[0].plan.sha256,plans[1].plan.sha256);for(let i=0;i<2;i++){await verifyActionPlan(plans[i],consumers[i],instructions);assert.ok(plans[i].plan.instructions.includes('Authoritative canvas selection: '+consumers[i].orientation));const fixture=await actionFixture(example,catalog,config),result=await actionPresetFromIntent(fixture.session,fixture.intent,config,'form',{...ctx,orientation:consumers[i].orientation});assert.deepEqual(Object.keys(result.documents),[consumers[i].orientation]);}await assert.rejects(()=>verifyActionPlan(plans[0],consumers[1],instructions),{code:'CONSUMER_CHANGED_REPLAN'});});
+
+test('inventory planning selects its own prompt and catalog without replacing other preset inputs',()=>{
+  const normal=actionPlanningFiles('form');assert.equal(normal.instructions,'prompts/action-planner.md');
+  for(const preset of ['confirmation','sdk-shop','unknown'])assert.deepEqual(actionPlanningFiles(preset),normal);
+  assert.equal(actionPlanningFiles('custom').catalog,normal.catalog);assert.equal(actionPlanningFiles('custom').instructions,'prompts/custom-panel-planner.md');
+  assert.notEqual(actionPlanningFiles('inventory').catalog,normal.catalog);assert.equal(actionPlanningFiles('inventory').instructions,'prompts/inventory-planner.md');
+  assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.0'}}).instructions,'prompts/inventory-planner-v1.md');
+  assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.1'}}).instructions,'prompts/inventory-planner.md');
+  for(const version of [undefined,'future','1.2'])assert.throws(()=>actionPlanningFiles('inventory',{inventoryPlanning:{version}}),{code:'CONSUMER_CHANGED_REPLAN'});
+});
+
+test('the conversion producer cannot publish a passed result without actual transport evidence',async()=>{
+  const parent=new URL('../work/tests/',import.meta.url);await mkdir(parent,{recursive:true});
+  const directory=await mkdtemp(join(fileURLToPath(parent),'action-no-receipt-')),example=examples[1],consumer=actionConsumer(config,'form',pack,manifestSha256,aliases,'landscape');
+  const {plan}=await prepareActionPlan({request:{requestVersion:'0.1',id:example.id,target:'pixi',text:example.request},catalog,instructions,consumer});
+  const {intent}=await actionFixture(example,catalog,config);
+  await writeFile(join(directory,'plan.json'),json(plan),{flag:'wx'});
+  await assert.rejects(materializeActionRun({directory,intent,receipt:{status:'RESPONSE_RECEIVED'}},{plan,consumer,config,ctx}),{code:'ENOENT'});
+  assert.equal(JSON.parse(await readFile(join(directory,'conversion.json'))).status,'REJECTED');
+  await assert.rejects(readFile(join(directory,'preset.json')),{code:'ENOENT'});
+});

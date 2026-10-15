@@ -3,14 +3,14 @@ import {unit,phase,pop} from './motion-design.mjs';
 // hit regions and overlay lifetime; motion-design owns the authored recipes.
 export const componentMotionCoverage={
  Button:['press','release','hover'],Switch:['thumb-travel'],CheckBox:['mark-reveal'],RadioGroup:['mark-crossfade'],
- Input:['focus-border'],Select:['dropdown-reveal','dropdown-close','chevron','row-press'],Slider:['value-ease','direct-drag','thumb-press'],
+ Input:['native-text-editing'],Select:['dropdown-reveal','dropdown-close','chevron','row-press'],Slider:['value-ease','direct-drag','thumb-press'],
  ProgressBar:['fill-ease'],ScrollView:['scroll-ease','direct-drag'],List:['row-feedback','row-stagger'],
  Dialog:['open','close','modal-shield','action-press'],Tabs:['page-reveal','tab-press'],
  Image:['enter'],Text:['enter'],Container:['enter','child-stagger'],Panel:['enter','child-stagger'],
 };
 export function bindComponentMotion({h,animator,key,profile,active}){
  const a=h.adapter,v=a.view,type=h.recipe.type,channels=new Map(),cleanups=[],restores=[];
- let previous=h.readState(),size=JSON.stringify(h.size),pressed=false,focus=false,dead=false,settling=false;
+ let previous=h.readState(),size=JSON.stringify(h.size),pressed=false,dead=false,settling=false;
  const bounded=()=>profile()?.easing==='spring'?'ease-out':profile()?.easing;
  function finish(name){const c=channels.get(name);animator.cancel(key+'-'+name);channels.delete(name);if(c&&!h.disposed){c.apply(c.to);c.done?.();}}
  function run(name,from,to,ms,apply,done,easing=bounded(),delay=0){
@@ -117,11 +117,10 @@ export function bindComponentMotion({h,animator,key,profile,active}){
   if(type==='List'&&next.selectedId!==previous.selectedId){const i=h.props.items.findIndex(item=>item.id===next.selectedId),b=a.rows[i]?.view??a.rows[i];if(b){finish('stagger'+i);run('row'+i,{t:0},{t:1},p.changeMs,({t})=>{if(b.destroyed)return;const kind=p.recipe?.kind;b.alpha=rowAlphas[i]*(.55+.45*unit(t));b.pivot.x=rowPivots[i].x-(kind==='slide'?p.recipe.rowOffset*(1-t):0);b.pivot.y=rowPivots[i].y-(kind==='pop'?p.recipe.rowOffset*(1-t):0);},undefined,p.easing);}}
  }
  function stagger(nodes){const p=profile();nodes.slice(0,24).forEach((node,i)=>{const alpha=node.alpha,py=node.pivot.y,px=node.pivot.x;run('stagger'+i,{t:0},{t:1},p.enterMs,({t})=>{if(node.destroyed)return;const kind=p.recipe?.kind;node.alpha=alpha*unit(t);node.pivot.y=py-(kind==='pop'?p.recipe.rowOffset*(1-t):0);node.pivot.x=px-(kind==='slide'?p.recipe.rowOffset*(1-t):0);},undefined,p.recipe?.kind==='pop'?'spring':bounded(),Math.min(i*p.staggerMs,350));});}
- function reset(){settling=true;try{for(const name of [...channels.keys()])finish(name);driver?.finish();if(!h.disposed){for(const restore of restores)restore();if(h.focusRing)h.focusRing.alpha=1;previous=h.readState();size=JSON.stringify(h.size);}pressed=false;}finally{settling=false;}}
+ function reset(){settling=true;try{for(const name of [...channels.keys()])finish(name);driver?.finish();if(!h.disposed){for(const restore of restores)restore();previous=h.readState();size=JSON.stringify(h.size);}pressed=false;}finally{settling=false;}}
  return {
   enter(){if(!active())return;const p=profile();if(type==='Dialog'&&v.isOpen&&driver){v.applyReveal(0,p);driver.play(true);}if(type==='List')stagger(a.rows.map(b=>b.view??b));if(['Panel','Container'].includes(type))stagger(a.motionChildren?.map(c=>c.root)??a.layoutChildren?.map(c=>c.root)??[]);},
   sync(){if(dead||h.disposed)return;if(!active()||!h.allowed(true)||JSON.stringify(h.size)!==size){reset();return;}const next=h.readState();change(next);previous=next;
-   const nextFocus=!!h.focusRing?.visible;if(type==='Input'&&nextFocus!==focus){if(nextFocus)run('focus',{t:0},{t:1},profile().focusMs,({t})=>{if(h.focusRing){const start=profile().recipe?.focusStart??.25;h.focusRing.alpha=start+(1-start)*unit(t);}},undefined,profile().recipe?.valueEasing);else finish('focus');}focus=nextFocus;
   },reset,
   inspect:()=>({channels:[...channels.keys()],reveal:v.motionProgress??null,presentedValue:presented??null}),
   dispose(){if(dead)return;reset();for(const cleanup of cleanups)cleanup();dead=true;},

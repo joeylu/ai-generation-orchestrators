@@ -44,7 +44,7 @@ test('saving panel motion is durable, source-bound and never rewrites the origin
  const root=await mkdtemp(join(tmpdir(),'studio-motion-')),dir='work/studio/projects/fixture';
  try{
   await mkdir(join(root,dir),{recursive:true});await mkdir(join(root,'work/panel'),{recursive:true});await mkdir(join(root,'src/studio'),{recursive:true});
-  for(const name of ['index.html','studio.mjs','project.mjs','project-ui.mjs','tasks-ui.mjs','generation-ui.mjs','history-ui.mjs','pipeline-ui.mjs','panel-completion.mjs','confirm-ui.mjs','progress.mjs','progress-ui.mjs','studio.css','component-canvas.html','component-canvas.mjs','canvas-contrast.mjs','canvas-resolution.mjs'])await writeFile(join(root,'src/studio',name),'fixture');
+  for(const name of ['index.html','studio.mjs','project.mjs','project-ui.mjs','tasks-ui.mjs','generation-ui.mjs','history-ui.mjs','pipeline-ui.mjs','panel-completion.mjs','confirm-ui.mjs','progress.mjs','progress-ui.mjs','studio.css','component-canvas.html','component-canvas.mjs','canvas-contrast.mjs','canvas-resolution.mjs','panel-size.html','panel-size.css','panel-copy.html','panel-copy.css'])await writeFile(join(root,'src/studio',name),'fixture');
   const bytes=Buffer.from('immutable preview'),report={kind:'action-panel-preview',files:[{file:'preview.html',sha256:hash(bytes)}]};
   await writeFile(join(root,'work/panel/preview.html'),bytes);await writeFile(join(root,'work/panel/report.json'),JSON.stringify(report));
   const job={id:'panel',status:'ready',sha256:'digest',artifact:{id:'panel',name:'Fixture',type:'panel',directory:'work/panel'}},flow={version:'1.0',panels:[job]};

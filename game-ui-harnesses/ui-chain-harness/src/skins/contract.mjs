@@ -4,6 +4,7 @@ import inputSchema from '../../schemas/skin-import.schema.json' with { type: 'js
 import themeSchema from '../../schemas/runtime-theme.schema.json' with { type: 'json' };
 import { skinUsage } from './usage.mjs';
 import {textRoles} from './text-readability.mjs';
+import {validateMaterialAsset,validateSurfaceStyles,materialFiles,surfaceStyleInfo} from './surface-styles.mjs';
 const ajv = new Ajv({ allErrors: true, strict: true });
 ajv.addSchema(themeSchema, 'runtime-theme');
 const packCheck = ajv.compile(packSchema), inputCheck = ajv.compile(inputSchema);
@@ -51,6 +52,23 @@ export function validatePack(pack, expected = {}) {
   for (const b of pack.roles) {
     if (roles.has(b.role) || !ids.has(b.assetId)) fail('skin.role', 'Duplicate role or missing asset.'); roles.add(b.role);
   }
+  const materialIds=new Set(),materialPaths=new Map();
+  for(const a of pack.materialAssets??[]){
+    validateMaterialAsset(a);
+    if(ids.has(a.assetId)||materialIds.has(a.assetId)||!a.file.startsWith('materials/')||!a.source.file.startsWith('material-sources/'))fail('skin.material','Duplicate material or invalid resource directory.');
+    materialIds.add(a.assetId);
+  }
+  for(const f of materialFiles(pack)){
+    const key=f.file?.toLowerCase();
+    if(!safePath(f.file)||files.has(key))fail('skin.path','Unsafe or conflicting material file.');
+    // Multiple crops can share one exact source image; crop belongs to the
+    // material record, not the source file's identity.
+    const identity=JSON.stringify({file:f.file,sha256:f.sha256,bytes:f.bytes,width:f.width,height:f.height});
+    if(materialPaths.has(key)&&materialPaths.get(key)!==identity)fail('skin.path','Conflicting material source.');
+    materialPaths.set(key,identity);
+  }
+  validateSurfaceStyles(pack.surfaceStyles,[...ids,...materialIds],[...roles]);
+  for(const key of Object.keys(pack.surfaceStyles??{}))surfaceStyleInfo(pack,key);
   if (!pack.fonts.some(f => f.family === pack.theme.fontFamily && f.weight === 400 && f.style === 'normal')) fail('skin.font', 'The body font must be explicitly bundled.');
   if (!pack.licenses.length) fail('skin.font', 'Font license resource is required.');
   if (pack.fonts.some(f=>f.family!==pack.theme.fontFamily)) fail('skin.font','Version 0.1 supports one explicit body family, with multiple unicode subsets.');

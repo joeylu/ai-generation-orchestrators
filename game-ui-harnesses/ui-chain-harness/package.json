@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Offline template maintenance tools; the three-stage UI Harness runtime is not implemented.",
+  "description": "Local reference-to-component and AI-panel Studio with offline validation, optional material atlases, and isolated editing revisions.",
   "engines": {
     "node": ">=22.18.0"
   },
   "scripts": {
+    "panel-sdk:install": "node scripts/panel-sdk.mjs install --download",
+    "panel-sdk:check": "node scripts/panel-sdk.mjs verify",
     "templates:validate": "node scripts/templates.mjs validate",
     "templates:build": "node scripts/templates.mjs build",
     "templates:status": "node scripts/templates.mjs status",

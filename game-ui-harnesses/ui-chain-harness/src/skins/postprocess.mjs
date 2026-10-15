@@ -4,7 +4,7 @@ import {readSafe,hash} from './package.mjs';
 import {decodePng,cropPng} from './png.mjs';
 import {fitAsset,fitSlicedAsset,supportsSliceFit} from './assemble.mjs';
 import {assertMetadata} from './contract.mjs';
-import {suggestSlices} from '../../tools/panel-slicer/src/suggestion.mjs';
+import {suggestMaterialSlices} from './contour-slices.mjs';
 import {assertVisibleAsset,sliceRisks} from './quality.mjs';
 import {suggestContentInsets} from './content-insets.mjs';
 
@@ -14,6 +14,8 @@ export async function inspectAssembly(configPath,inputs){
   const bytes=await readFile(configPath),config=JSON.parse(bytes),template=inputs.template;
   const insetPolicyBytes=await readFile(new URL('../../configs/skin-content-insets-policy.json',import.meta.url));
   const insetPolicy=JSON.parse(insetPolicyBytes);
+  const metadataPolicyBytes=await readFile(new URL('../../configs/skin-metadata-policy.json',import.meta.url)),metadataPolicy=JSON.parse(metadataPolicyBytes);
+  if(metadataPolicy.filledContourFallback!==undefined&&typeof metadataPolicy.filledContourFallback!=='boolean')throw Error('metadata.invalid-policy');
   if(config.templateSha256!==hash(inputs.bytes.template))throw Error('Template digest differs');
   const parts=template.sheets.flatMap(s=>s.parts),ids=parts.map(p=>p.assetId);
   if(!config.parts||Object.keys(config.parts).length!==ids.length||ids.some(id=>!config.parts[id]))throw Error('Require exact full asset coverage');
@@ -38,7 +40,8 @@ export async function inspectAssembly(configPath,inputs){
       const width=part.bodyRect[2]*scale,height=part.bodyRect[3]*scale;
       const fitted=p.fit?fitSlicedAsset(source,width,height,p.fit):fitAsset(source,width,height,[Math.max(...members.map(i=>i.width)),Math.max(...members.map(i=>i.height))]);
       assertVisibleAsset(fitted.image,id,'fitted');
-      const suggestion=part.stretch==='uniform'?{status:'not-applicable'}:suggestSlices(fitted.image,scale*p.metadata.density);
+      const axis=['horizontal','vertical'].includes(part.stretch)?part.stretch:'both',filledContourFallback=metadataPolicy.filledContourFallback===true&&(part.stretch==='nine-slice'||part.stretch==='horizontal'&&!p.fit);
+      const suggestion=part.stretch==='uniform'?{status:'not-applicable'}:suggestMaterialSlices(fitted.image,scale*p.metadata.density,{axis,filledContourFallback});
       const risks=sliceRisks({source,fit:p.fit,suggestion,metadata:p.metadata,stretch:part.stretch,resolution:scale*p.metadata.density});
       const warnings=[];
       if(suggestion.status==='unsupported')warnings.push('自动切线不支持该纹理；保留现有配置，需视觉核对。');
@@ -51,5 +54,5 @@ export async function inspectAssembly(configPath,inputs){
     }
     sheets.push({sheetId:sheet.id,parts:results});
   }
-  return{kind:'ui_skin_postprocess_inspection',version:'1.0',inputSha256:hash(bytes),templateSha256:config.templateSha256,contentInsetPolicySha256:hash(insetPolicyBytes),assets:ids.length,sourceFiles:files.size,status:'configuration-checked',visualAcceptance:'unreviewed',automaticCutApplication:false,sheets};
+  return{kind:'ui_skin_postprocess_inspection',version:'1.0',inputSha256:hash(bytes),templateSha256:config.templateSha256,contentInsetPolicySha256:hash(insetPolicyBytes),metadataPolicySha256:hash(metadataPolicyBytes),assets:ids.length,sourceFiles:files.size,status:'configuration-checked',visualAcceptance:'unreviewed',automaticCutApplication:false,sheets};
 }

@@ -115,6 +115,7 @@ export async function checkEditor(candidate, channel = "chrome") {
           ),
           "验收修改：中文 ABC",
         );
+        assert.equal(await page.evaluate(()=>{const props=editor.session.document.nodes.find(n=>n.id==='note').props;return Object.hasOwn(props,'fontSize')||Object.hasOwn(props,'textColor');}),false,'untouched optional text styles remain omitted');
         await page.locator("#undo").click();
         await page.waitForFunction(
           () =>
@@ -129,6 +130,15 @@ export async function checkEditor(candidate, channel = "chrome") {
         );
       },
     );
+    await check('E02.optional-text-style','可选字号颜色可设置与清空，不影响严格属性校验',async()=>{
+      await select('note');
+      let before=await revision();await page.locator('[data-field="props.fontSize"]').fill('18');await page.locator('[data-field="props.textColor"]').fill('#123456');await page.locator('#apply').click();await waitCommit(before);
+      assert.deepEqual(await page.evaluate(()=>{const p=editor.session.document.nodes.find(n=>n.id==='note').props;return {fontSize:p.fontSize,textColor:p.textColor};}),{fontSize:18,textColor:'#123456'});
+      before=await revision();await page.locator('[data-field="props.fontSize"]').fill('');await page.locator('[data-field="props.textColor"]').fill('');await page.locator('#apply').click();await waitCommit(before);
+      assert.equal(await page.evaluate(()=>{const p=editor.session.document.nodes.find(n=>n.id==='note').props;return Object.hasOwn(p,'fontSize')||Object.hasOwn(p,'textColor');}),false);
+      const document=await page.evaluate(()=>editor.session.exportDocument());before=await revision();await page.locator('[data-field="props.textColor"]').fill('red');await page.locator('#apply').click();await page.waitForFunction(()=>document.getElementById('status').classList.contains('error'));
+      assert.equal(await revision(),before);assert.equal(await page.evaluate(()=>editor.session.exportDocument()),document);
+    });
     await check(
       "E03.free-drag",
       "自由区域实际指针拖动、缩放与单次撤销事务",

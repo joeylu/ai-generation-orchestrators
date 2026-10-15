@@ -1,6 +1,6 @@
 # 组件合同维护说明
 
-本工具检查和派生**设计合同**，不创建 PixiUI 组件、不处理真实皮肤 PNG，也不验证 PanelDocument 树。独立的 [组件候选运行时](component-runtime.md) 已实现全部 16 类的首轮夹具交互验证；合同工具不导入其结果，不把断言子集误算成完整验收。三段 Harness 尚不可端到端调用。
+本工具检查和派生**设计合同**，不创建 PixiUI 组件、不处理真实皮肤 PNG，也不验证 PanelDocument 树。独立的[组件运行时](component-runtime.md)和 Studio 已接入真实皮肤、AI 面板及编辑副本；当前全链路范围见[验收指南](acceptance.md)。合同工具不导入这些步骤的接受结论，也不把静态设计合同通过当作运行时验收。
 
 ## 三个维护源
 
@@ -24,7 +24,7 @@ npm run contracts:status
 
 validate/status 只读，不启动浏览器或模型。build 生成文本/JSON，不生成美术或接受记录。参数支持 `--registry`、`--usage`、`--template`、`--out`；默认路径来自工具自身目录，不依赖 shell 的当前目录。
 
-`npm run contracts:validate -- --require-ready` 会返回 not-ready 和非零退出码。当前源严格标记 template-candidates；即便把所有 null 填满，也缺真实资源闭包与运行时验收，不能因此变成可交付包。普通 validate 返回 valid-draft，附带可定位的 blockers。真正的生产包合同留待相应阶段实现，不能拿这个开关替代生产验证器。
+`npm run contracts:validate -- --require-ready` 会返回 not-ready 和非零退出码。当前设计源严格标记 template-candidates；即便把所有 null 填满，也不能因此授予实际资源闭包与运行时验收。普通 validate 返回 valid-draft，附带可定位的 blockers。真实皮肤另由 SkinPack 的资源、摘要、切片与字体验证器检查，不能拿此开关替代。
 
 ## 配方与属性
 
@@ -46,9 +46,9 @@ required 表示单实例需要的视觉层；when 使用已声明枚举的 equal
 
 模板版本/修订在 templateRef 显式确认；源内容 SHA-256 在构建时自动绑定。模板尺寸通过引用读取，不在 usage 重写。九宫格切片、内容边距、最小尺寸采用具名方向和逻辑像素；边距不得耗尽主体或最小盒子。null 是待确定值，不是 0，也不是自动估算成功。
 
-controlGeometry 当前只声明基于 asset-body 的轴向行程：assetId、axis、start/end、crossOffset。完整 fillBox、滑块最小长度、标题/标签位置等适配所需细节仍记录在 metadataRequirements。程序皮肤的工程尺寸集中在 fixtures/neutral.skin.json，经 fixture-profile.schema.json 校验，由 runtime/geometry.mjs 推导组件最小尺寸；这套测试配置不覆盖正式源中的 null。N07 尚须收敛真实资产的完整消费 Schema，不能把测试几何声称为完整生产布局元数据。
+controlGeometry 在设计源中声明基于 asset-body 的轴向行程：assetId、axis、start/end、crossOffset；metadataRequirements 保留设计层的元数据需求。程序皮肤尺寸集中在 fixtures/neutral.skin.json，由 runtime/geometry.mjs 推导组件最小尺寸。这些测试数值不覆盖设计源中的 null；真实资产通过 skin-pack.schema.json 和具体资产的 density、nineSlice、contentInsets、minSize 提供消费几何。
 
-三个结构标记的正式生产方式保留 undecided；测试夹具可以画出它们，但这不构成生产生成器或正式 procedural 接受记录。textStyles 仅是样式声明，fontRef 不意味着生产字体文件已就绪。夹具单独锁定 Noto Sans SC 测试字体；真实 PNG 的像素比例、trim、摘要、字体资源及接受记录将由独立生产合同处理。
+三个结构标记在设计源中的生产方式保留 undecided；测试夹具可以画出它们，但这不构成生成器或 procedural 接受记录。textStyles 是样式声明，fontRef 本身不保证字体文件已就绪。夹具锁定 Noto Sans SC 测试字体；真实 PNG 皮肤的像素比例、摘要、字体和接受标记由独立 SkinPack 合同处理。
 
 ## 派生产物与证据
 
@@ -58,7 +58,7 @@ controlGeometry 当前只声明基于 asset-body 的轴向行程：assetId、axi
 | --- | --- |
 | registry.source.json / usage.source.json / template.source.json | 原字节冻结源；不是新的维护入口 |
 | catalog.md / catalog.json | 类型、配方、默认值、角色、待定项；无可调用能力声明 |
-| props-schema.json | 属性 Schema 定义集合；未来编辑器/AI 消费的候选投影，尚未接线 |
+| props-schema.json | 设计属性 Schema 的派生集合；当前运行时直接读取已核验的 registry，不能以此文件代替运行时能力证明 |
 | acceptance-plan.md / acceptance-plan.json | G01–G07、T01–T16 规格和逐配方分配；not-run 表示此投影未绑定完整用例证据，夹具子集执行结果在独立报告 |
 | dependency-evidence.json | 本地已安装精确版本、lock integrity、声明探针文件及摘要；不是浏览器集成测试 |
 | build-record.json | 三份源、工具和依赖证据、输出文件摘要 |

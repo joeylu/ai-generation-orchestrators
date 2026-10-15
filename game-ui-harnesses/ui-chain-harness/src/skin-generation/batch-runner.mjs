@@ -58,7 +58,7 @@ export async function runAuthorizedBatch(args,adapter){
   if(fatal)throw fatal;
   const result=await inspect(args);
   const {automaticProviderCalls,...summary}=result.summary;
-  return {...summary,execution:'caller-supplied-adapter',adapterCallsThisRun:calls,maxConcurrentSheets,postprocessReady:result.sources.length===result.summary.nodes.length};
+  return {...summary,execution:'caller-supplied-adapter',adapterCallsThisRun:calls,maxConcurrentSheets,postprocessReady:result.summary.nodes.every(n=>n.status==='received')&&result.sources.length+(result.materialSources?.length??0)===result.summary.nodes.length};
 }
 /** One fresh human confirmation, then all sheets, without per-sheet confirmation. */
 export async function executeBatch(args,adapter){

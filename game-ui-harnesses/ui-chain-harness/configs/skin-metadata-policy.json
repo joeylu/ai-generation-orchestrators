@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "defaultDensity": 4,
+  "filledContourFallback": true,
   "densityOverrides": {"surface.panel": 6},
   "verticalLogicalWidth": 10,
   "contentInsets": {

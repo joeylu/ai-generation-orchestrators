@@ -1,6 +1,7 @@
 import {motionSelection} from '../panel/motion-profile.mjs';
+import {panelFailure} from './panel-failure.mjs';
 import {panelOrientations} from '../panel/orientation.mjs';
-import {readFile,writeFile,rename,mkdir,readdir} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';
 import {join,dirname,relative,isAbsolute,sep,resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
@@ -16,15 +17,20 @@ import {referencePreset,referencePresetList,referenceRequest} from '../panel/ref
 import {acquireLocalLock,localLockState} from '../skins/local-lock.mjs';
 import {automaticRecoveryDecision,localFailure,localRecoveryPolicy} from './local-recovery.mjs';
 import {upgradedConsumer} from './component-upgrade.mjs';
+import {snapshotPanelContracts} from '../panel/skin-contracts.mjs';
+import {inventoryModelChoice,inventoryModelRequest,inventoryModelGrid} from '../panel/inventory-model-request.mjs';
+import {verifyInventoryPlan} from './inventory-plan.mjs';
+import {receivedComponentBatch,receivedSourcesRevision} from './component-batch.mjs';
+import {writeStudioJson} from './atomic-write.mjs';
 const exec=promisify(execFile);
-export function pipelineController(root,generation,snapshot,{inspectTasks=inspectStudioTasks,policy=localRecoveryPolicy,verifyPanelSkin=verifySkinPackage,resolveComponentSkin}={}){
+export function pipelineController(root,generation,snapshot,{inspectTasks=inspectStudioTasks,policy=localRecoveryPolicy,verifyPanelSkin=verifySkinPackage,resolveComponentSkin,freezeContracts=snapshotPanelContracts}={}){
  const running=new Set(),archives=new Map(),processed=new Set(),recoveryPending=new Set();
  const rel=path=>relative(root,resolve(root,path)).replaceAll('\\','/');
  const local=path=>{const absolute=resolve(root,path),r=relative(join(root,'work'),absolute);if(isAbsolute(r)||r==='..'||r.startsWith('..'+sep))throw Error('PIPELINE_PATH');return absolute;};
  const directory=id=>dirname(dirname(local(generation.resolve(id).directory)));
  const read=async(dir,file)=>JSON.parse(await readSafe(dir,file));
  async function load(dir){try{return await read(dir,'flow.json');}catch(e){if(e.code==='ENOENT')return {version:'1.0',panels:[]};throw e;}}
- async function save(dir,flow){const temp=join(dir,'.flow-'+randomUUID()+'.json');await writeFile(temp,json(flow),{flag:'wx'});await rename(temp,join(dir,'flow.json'));}
+ async function save(dir,flow){await writeStudioJson(join(dir,'flow.json'),flow);}
  async function command(script,args,{text=false}={}){
   try{const result=await exec(process.execPath,[join(root,'scripts',script),...args],{cwd:root,windowsHide:true,maxBuffer:8*1024*1024,timeout:900000});return text?result.stdout.trim():JSON.parse(result.stdout);}
   catch(e){let parsed;for(const output of [e.stdout,e.stderr]){try{parsed=JSON.parse(output);break;}catch{}}if(parsed?.status==='NEEDS_INPUT')return parsed;throw Object.assign(Error(parsed?.code||'PIPELINE_COMMAND_FAILED'),{code:e.killed?'LOCAL_COMMAND_TIMEOUT':e.code,detail:parsed});}
@@ -49,13 +55,13 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
   const selected=await upgradedConsumer(root,local(run.consumerDirectory),flow.componentRuntime);
   const consumer=selected.directory,packDirectory=join(consumer,'skin');
   const {pack,manifestSha256}=await verifySkinPackage(packDirectory);
-  return {consumer,packDirectory,pack,manifestSha256,consumerSha256:selected.consumerSha256};
+  return {consumer,packDirectory,pack,manifestSha256,consumerSha256:selected.consumerSha256,contractInputs:state.request.inputs};
  }
  async function view(id){
   const dir=directory(id),flow=await load(dir),project=await read(dir,'project.json');
   const batch=await generation.action('status',{id});
   const lock=await localLockState(dir,'.processing.lock');
-  const result={name:project.name,busy:running.has(dir)||lock.status==='busy',recovering:recoveryPending.has(id),batchReady:batch.nodes.length===4&&batch.nodes.every(n=>n.status==='received'),generationRunning:batch.operation==='running',phase:flow.phase??'not-started',message:flow.message??'',errorCode:flow.errorCode??null,localRecovery:flow.localRecovery??null,panels:flow.panels??[],task:null,skin:null};
+  const result={name:project.name,busy:running.has(dir)||lock.status==='busy',recovering:recoveryPending.has(id),batchReady:receivedComponentBatch(batch),generationRunning:batch.operation==='running',phase:flow.phase??'not-started',message:flow.message??'',errorCode:flow.errorCode??null,localRecovery:flow.localRecovery??null,panels:flow.panels??[],task:null,skin:null};
   result.processingStartedAt=flow.processingStartedAt;result.processingFinishedAt=flow.processingFinishedAt;
   if(lock.status==='unknown'){const failure=localFailure({code:'LOCAL_LOCK_UNKNOWN'});result.message=failure.message;result.errorCode=failure.code;result.phase='processing-failed';}
   if(flow.taskDirectory){const [task]=await inspectStudioTasks(root,[{id:'task',name:project.name,directory:flow.taskDirectory}]);result.task=task;
@@ -79,8 +85,13 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
   try{
    release=await acquireLocalLock(dir,'.processing.lock');
    const plan=generation.resolve(id),state=await generation.action('status',{id});
-   if(state.nodes.length!==4||state.nodes.some(n=>n.status!=='received'))throw Error('PIPELINE_BATCH_NOT_RECEIVED');
+   if(!receivedComponentBatch(state))throw Error('PIPELINE_BATCH_NOT_RECEIVED');
    flow=await load(dir);
+   const sourceRevision=receivedSourcesRevision(state);let previousRevision=flow.processingSourcesRevision??null;
+   if(sourceRevision&&flow.taskDirectory&&!previousRevision){
+    try{previousRevision=receivedSourcesRevision(await read(local(flow.taskDirectory),'input/batch-intake.json'));}catch(e){if(e.code!=='ENOENT')throw e;}
+   }
+   const sourcesChanged=Boolean(sourceRevision&&flow.taskDirectory&&sourceRevision!==previousRevision),newSourceRound=sourcesChanged&&flow.localRecovery?.sourceRevision!==sourceRevision;
    let reuse=false;
    if(flow.taskDirectory){
     const taskLock=await localLockState(local(flow.taskDirectory));
@@ -90,17 +101,17 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
     if(task.status==='invalid')throw Error('LOCAL_INVALID_TASK');
     // Completed packages are immutable; a later tool version never rebuilds them.
     if(task.status==='awaiting-visual-review')return {status:'complete'};
-    reuse=task.toolsMatch===true;
-    if(automatic&&!reuse)throw Error('LOCAL_TOOLS_CHANGED');
+    reuse=task.toolsMatch===true&&!sourcesChanged;
+    if(automatic&&task.toolsMatch!==true&&!sourcesChanged)throw Error('LOCAL_TOOLS_CHANGED');
     // A crash between a failed node receipt and the flow summary must not turn
     // a quality rejection into a fresh automatic attempt.
-    if(automatic&&flow.phase==='processing'){
+    if(automatic&&flow.phase==='processing'&&!sourcesChanged){
      const failed=(task.attempts??[]).find(a=>a.status==='failed'&&task.nodes?.some(n=>n.id===a.node&&n.status!=='passed')&&!localFailure(a.failure).retryable);
      if(failed)throw Object.assign(Error('LOCAL_PREVIOUS_FAILURE'),{detail:failed.failure});
     }
    }
    if(automatic){
-    const decision=automaticRecoveryDecision(flow,plan.batchSha256,policy);
+    const decision=automaticRecoveryDecision(newSourceRound?{...flow,phase:'received-new-sources',localRecovery:{batchSha256:plan.batchSha256,automaticStarts:0}}:flow,plan.batchSha256,policy);
     if(decision==='batch-changed')throw Error('LOCAL_BATCH_CHANGED');
     if(decision==='limit'){
      flow.phase='processing-failed';flow.errorCode='LOCAL_RECOVERY_LIMIT';flow.message='本地自动恢复已达到上限，原始结果已保留；请查看任务记录后手动继续。';
@@ -108,7 +119,7 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
     }
     if(decision!=='continue')return {status:decision};
    }
-   flow.localRecovery={batchSha256:plan.batchSha256,automaticStarts:automatic?(flow.localRecovery?.automaticStarts??0)+1:0,mode:automatic?'automatic':'manual',failure:null};
+   flow.localRecovery={batchSha256:plan.batchSha256,...(sourceRevision?{sourceRevision}:{}),automaticStarts:automatic?(newSourceRound?0:flow.localRecovery?.automaticStarts??0)+1:0,mode:automatic?'automatic':'manual',failure:null};
    flow.phase='processing';flow.processingStartedAt=new Date().toISOString();delete flow.processingFinishedAt;flow.message=automatic&&flow.taskDirectory?'正在从已通过的步骤恢复本地处理':'正在定位、拆分并检查组件';delete flow.errorCode;await save(dir,flow);
    launched=true;
    Promise.resolve().then(async()=>{
@@ -128,7 +139,7 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
      }
      const profilePath=join(dir,'profile-'+randomUUID()+'.json');await writeFile(profilePath,json(profile),{flag:'wx'});
      const task=await command('skin-task.mjs',['create','--batch',plan.directory,'--sha256',plan.batchSha256,'--profile',rel(profilePath),...(allowCandidate?['--allow-rejected-localization']:[])]);
-     flow.taskDirectory=task.directory;await save(dir,flow);
+     flow.taskDirectory=task.directory;if(sourceRevision)flow.processingSourcesRevision=sourceRevision;await save(dir,flow);
     }
     await command('skin-task.mjs',['resume','--directory',flow.taskDirectory]);flow.phase='components-ready';flow.processingFinishedAt=new Date().toISOString();flow.message='16 类组件已完成程序检查，等待外观验收';await save(dir,flow);
    }).catch(async e=>{
@@ -151,21 +162,29 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
  }
  async function preparePanel(data){
   const dir=directory(data.id);if(running.has(dir))throw Error('PIPELINE_BUSY');
-  const reference=referencePresetList().some(p=>p.id===data.kind);
-  if(!reference&&!['settings','confirmation','form','custom'].includes(data.kind)||typeof data.text!=='string'||(!reference&&!data.text.trim())||data.text.length>4000)throw Error('PANEL_REQUEST_INVALID');
+  const reference=referencePresetList().some(p=>p.id===data.kind),inventory=data.kind==='inventory';
+  if(!reference&&!inventory&&!['settings','confirmation','form','custom'].includes(data.kind)||typeof data.text!=='string'||(!reference&&!inventory&&!data.text.trim())||data.text.length>4000)throw Error('PANEL_REQUEST_INVALID');
   running.add(dir);
   try{
    const flow=await load(dir),parent=data.panelId?flow.panels.find(p=>p.id===data.panelId):null;
    if(data.panelId&&(!parent||parent.deletedAt||parent.status!=='needs-input'||parent.sha256!==data.parentSha256||!data.text.trim()||parent.kind!==data.kind))throw Error('PANEL_CLARIFICATION_STALE');
    const parentBundle=parent?JSON.parse(await readSafe(root,rel(local(parent.plan)))):null;
    if(parent&&(parentBundle.plan?.sha256!==parent.sha256||typeof parentBundle.plan?.session?.context?.request?.text!=='string'||!parentBundle.consumer?.skinSha256))throw Error('PANEL_PARENT_PLAN_INVALID');
-   const skin=parent?.skinDirectory?{packDirectory:local(parent.skinDirectory),...await verifyPanelSkin(local(parent.skinDirectory))}:await skinFromFlow(flow),project=await read(dir,'project.json'),id=randomUUID();
+   const skin=parent?.skinDirectory?{packDirectory:local(parent.skinDirectory),...await verifyPanelSkin(local(parent.skinDirectory))}:await (resolveComponentSkin??skinFromFlow)(flow),project=await read(dir,'project.json'),id=randomUUID();
    if(parent&&(parent.skinVersion??parentBundle.consumer.skinSha256)!==skin.manifestSha256)throw Error('PANEL_SKIN_CHANGED');
    const orientation=parent?.orientation??data.orientation;
    if(!orientation)throw Error('PANEL_ORIENTATION_REQUIRED');panelOrientations(orientation);
+   const grid=inventory?inventoryModelGrid(parent?.grid?.columns??data.columns,parent?.grid?.rows??data.rows):null;
+   if(parent&&inventory&&((data.columns!==undefined&&data.columns!==grid.columns)||(data.rows!==undefined&&data.rows!==grid.rows)))throw Error('PANEL_CLARIFICATION_STALE');
    const inputs=join(dir,'panels',id);await mkdir(inputs,{recursive:true});
+   let inputFiles=skin.contractInputs??[];
+   if(!inputFiles.length&&flow.taskDirectory&&!parent?.contractsDirectory){
+    const state=await taskStatus(local(flow.taskDirectory),async files=>{for(const f of files)if(hash(await readSafe(root,f.file))!==f.sha256)throw Error('PIPELINE_ARTIFACT_CHANGED');});
+    inputFiles=state.request.inputs;
+   }
+   const contractsDirectory=await freezeContracts({root,pack:skin.pack,inputFiles,directory:join(inputs,'contracts'),sourceDirectory:parent?.contractsDirectory?local(parent.contractsDirectory):undefined});
    const aliases={version:'1.0',skins:{[skin.pack.id]:[project.name,'当前选定皮肤','当前皮肤']}};
-   const request=reference?referenceRequest(data.kind,data.text):{text:data.text};
+   const request=reference?referenceRequest(data.kind,data.text):inventory?inventoryModelRequest(data.text,grid):{text:data.text};
    if(parent){
     const previous=parentBundle.plan.session.context.request;
     request.text=previous.text+'\n\n模型待澄清问题：\n'+(parent.questions??[]).map(q=>q.question??String(q)).join('\n')+'\n\n用户本轮补充回答（针对上述问题修订原需求，以本轮明确回答为准）：\n'+data.text.trim();
@@ -173,8 +192,9 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
    if(reference)await writeFile(join(inputs,'reference-preset.json'),json(referencePreset(data.kind)),{flag:'wx'});
    await writeFile(join(inputs,'aliases.json'),json(aliases),{flag:'wx'});await writeFile(join(inputs,'request.json'),json({requestVersion:'0.1',id:'studio-'+id,target:'pixi',text:request.text}),{flag:'wx'});
    const settings=['settings','sdk-settings'].includes(data.kind),script=settings?'settings-model.mjs':'action-model.mjs';
-   const prepared=await command(script,['prepare','--package',skin.packDirectory,'--request',join(inputs,'request.json'),'--aliases',join(inputs,'aliases.json'),...(data.kind==='settings'?[]:['--preset',data.kind]),'--orientation',orientation]);
-   const panel={id:parent?.id??id,kind:data.kind,...(request.source?{referencePreset:request.source,presetName:referencePreset(data.kind).name}:data.kind==='custom'?{presetName:'自定义面板'}:{}),text:parent?parent.text+'\n补充：'+data.text.trim():data.text||'使用预设默认内容',status:'prepared',sha256:prepared.sha256,plan:rel(prepared.plan),inputs:rel(inputs),skinVersion:skin.manifestSha256,skinDirectory:rel(skin.packDirectory),orientation,canvasSelection:true};
+   const prepared=await command(script,['prepare','--package',skin.packDirectory,'--request',join(inputs,'request.json'),'--aliases',join(inputs,'aliases.json'),...(data.kind==='settings'?[]:['--preset',data.kind]),'--orientation',orientation,...(grid?['--columns',String(grid.columns),'--rows',String(grid.rows)]:[]),...(contractsDirectory?['--contracts',contractsDirectory]:[])]);
+   const panel={id:parent?.id??id,kind:data.kind,...(inventory?{presetName:inventoryModelChoice.name,builder:'model-inventory'}:request.source?{referencePreset:request.source,presetName:referencePreset(data.kind).name}:data.kind==='custom'?{presetName:'自定义面板'}:{}),text:parent?parent.text+'\n补充：'+data.text.trim():data.text||'使用预设默认内容',status:'prepared',sha256:prepared.sha256,plan:rel(prepared.plan),inputs:rel(inputs),skinVersion:skin.manifestSha256,skinDirectory:rel(skin.packDirectory),...(contractsDirectory?{contractsDirectory:rel(contractsDirectory)}:{}),orientation,canvasSelection:true};
+   if(inventory)panel.grid=grid;
    if(parent){const {history=[],...previous}=parent;panel.revision=(parent.revision??1)+1;panel.history=[...history,previous];flow.panels[flow.panels.indexOf(parent)]=panel;}else flow.panels.push(panel);
    await save(dir,flow);return panel;
   }finally{running.delete(dir);}
@@ -185,22 +205,32 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
    const flow=await load(dir),panel=flow.panels.find(p=>p.id===data.panelId);if(!panel||panel.deletedAt||panel.status!=='prepared'||panel.sha256!==data.confirmed)throw Error('PANEL_CONFIRMATION_REQUIRED');
    const skin=panel.skinDirectory?{packDirectory:local(panel.skinDirectory),...await verifyPanelSkin(local(panel.skinDirectory))}:await skinFromFlow(flow);
    if(panel.skinVersion&&skin.manifestSha256!==panel.skinVersion)throw Error('PANEL_SKIN_CHANGED');
+   const inventory=panel.kind==='inventory'&&panel.builder==='deterministic-inventory';
+   if(panel.kind==='inventory'&&!['deterministic-inventory','model-inventory'].includes(panel.builder))throw Error('PANEL_INVENTORY_PLAN_CHANGED');
+   const inventoryPlan=inventory?await verifyInventoryPlan({planFile:local(panel.plan),directory:local(panel.inputs),contractsDirectory:local(panel.contractsDirectory),skinSha256:skin.manifestSha256,orientation:panel.orientation,sha256:panel.sha256}):null;
    panel.status='running';panel.stage='planning';panel.startedAt=new Date().toISOString();await save(dir,flow);
    Promise.resolve().then(async()=>{
     const settings=['settings','sdk-settings'].includes(panel.kind),alias=join(local(panel.inputs),'aliases.json'),script=settings?'settings-model.mjs':'action-model.mjs';
-    const output=await command(script,['run','--package',skin.packDirectory,'--plan',local(panel.plan),'--authorize',panel.sha256,'--aliases',alias]);
-    panel.runDirectory=rel(output.directory);
-    if(output.status==='NEEDS_INPUT'){panel.status='needs-input';panel.finishedAt=new Date().toISOString();panel.questions=output.questions;await save(dir,flow);return;}
-    if(output.status!=='COMPILED')throw Error('PANEL_NOT_COMPILED');
-    panel.stage='rendering';await save(dir,flow);
-    const args=['--package',skin.packDirectory,'--out',join(local(panel.inputs),'previews'),...(panel.canvasSelection?['--orientation',panel.orientation]:[])];
-    if(settings)args.push('--content',join(output.directory,'content.json'),'--layout',join(output.directory,'layout.json'));
-    else args.push('--run',output.directory,'--aliases',alias);
-    const preview=await command(settings?'settings-preview.mjs':'action-preview.mjs',args,{text:true});
+    const contractArgs=panel.contractsDirectory?['--contracts',local(panel.contractsDirectory)]:[];
+    let preview;
+    if(inventory){
+     panel.stage='rendering';await save(dir,flow);
+     preview=await command('inventory-preview.mjs',['--package',skin.packDirectory,'--out',join(local(panel.inputs),'previews'),'--orientation',inventoryPlan.orientation,'--title',inventoryPlan.title,'--columns',String(inventoryPlan.columns),'--rows',String(inventoryPlan.rows),'--config',inventoryPlan.configFile,'--config-sha256',inventoryPlan.configSha256,...contractArgs],{text:true});
+    }else{
+     const output=await command(script,['run','--package',skin.packDirectory,'--plan',local(panel.plan),'--authorize',panel.sha256,'--aliases',alias,...contractArgs]);
+     panel.runDirectory=rel(output.directory);
+     if(output.status==='NEEDS_INPUT'){panel.status='needs-input';panel.finishedAt=new Date().toISOString();panel.questions=output.questions;await save(dir,flow);return;}
+     if(output.status!=='COMPILED')throw Error('PANEL_NOT_COMPILED');
+     panel.stage='rendering';await save(dir,flow);
+     const args=['--package',skin.packDirectory,'--out',join(local(panel.inputs),'previews'),...(panel.canvasSelection?['--orientation',panel.orientation]:[]),...contractArgs];
+     if(settings)args.push('--content',join(output.directory,'content.json'),'--layout',join(output.directory,'layout.json'));
+     else args.push('--run',output.directory,'--aliases',alias);
+     preview=await command(settings?'settings-preview.mjs':'action-preview.mjs',args,{text:true});
+    }
     panel.stage='publishing';await save(dir,flow);
     panel.artifact={id:'panel-'+panel.id,name:(await read(dir,'project.json')).name+' · '+(panel.presetName??{settings:'设置',confirmation:'确认弹窗',form:'简单表单'}[panel.kind]),type:'panel',directory:rel(preview)};
     await publish(panel.artifact);panel.status='ready';panel.stage='ready';panel.finishedAt=new Date().toISOString();await save(dir,flow);
-   }).catch(async e=>{panel.status='failed-no-retry';panel.finishedAt=new Date().toISOString();panel.message='本次面板调用或转换未完成，未自动重试；请查看本地运行证据。';panel.code=e.message;await save(dir,flow);}).finally(()=>running.delete(dir));
+   }).catch(async e=>{panel.status='failed-no-retry';panel.finishedAt=new Date().toISOString();Object.assign(panel,panelFailure(e));await save(dir,flow);}).finally(()=>running.delete(dir));
    return {status:'started'};
   }catch(e){running.delete(dir);throw e;}
  }

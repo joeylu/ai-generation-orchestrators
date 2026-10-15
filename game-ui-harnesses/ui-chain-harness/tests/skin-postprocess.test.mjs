@@ -24,3 +24,22 @@ test('postprocess diagnoses delivered padding without editing cuts; changed sour
     await assert.rejects(inspectAssembly(path,inputs),/full asset coverage/);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
+test('inspection reuses the gradient fallback for field clearance and fingerprints its policy without rewriting cuts',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'skin-field-contour-'));
+  try{
+    const width=320,height=96,pixels=Buffer.alloc(width*height*4);
+    for(let y=8;y<88;y++)for(let x=8;x<312;x++){
+      const frame=x<13||x>=307||y<13||y>=83,shade=Math.round(200*(88-y)/80);
+      pixels.set(frame?[160,12,18,255]:[235,30+shade,35+shade,255],(y*width+x)*4);
+    }
+    const png=encodePng({width,height,pixels});await writeFile(join(dir,'field.png'),png);
+    const template={coordinates:{outputScale:1},sheets:[{id:'S02',parts:[{assetId:'field.focused',bodyRect:[0,0,width,height],stretch:'nine-slice'}]}]},bytes=Buffer.from(JSON.stringify(template));
+    const config={templateSha256:hash(bytes),parts:{'field.focused':{file:'field.png',sha256:hash(png),metadata:{density:4,nineSlice:{left:7,top:7,right:7,bottom:7},contentInsets:{left:8,top:8,right:8,bottom:8},minSize:{width:17,height:17}}}}};
+    const path=join(dir,'assembly.json'),original=JSON.stringify(config);await writeFile(path,original);
+    const result=await inspectAssembly(path,{template,bytes:{template:bytes}}),part=result.sheets[0].parts[0];
+    assert.equal(part.suggestion.method,'filled-contour-v1');assert.ok(part.suggestion.strictRejection);
+    assert.equal(part.contentInsetSuggestion.status,'suggested');assert.equal(part.contentInsetSuggestion.basis,'filled-contour-v1');
+    assert.match(result.metadataPolicySha256,/^[a-f0-9]{64}$/);assert.equal(result.visualAcceptance,'unreviewed');
+    assert.equal(await readFile(path,'utf8'),original);assert.deepEqual(await readFile(join(dir,'field.png')),png);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});

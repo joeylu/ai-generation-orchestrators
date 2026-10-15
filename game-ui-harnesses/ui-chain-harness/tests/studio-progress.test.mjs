@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {sheetProgress,projectProgress,panelProgress,elapsedText} from '../src/studio/progress.mjs';
+import {sheetProgress,projectProgress,panelProgress,elapsedText,batchPresentation,needsSheetSupplement} from '../src/studio/progress.mjs';
+
+test('rejected received images permit an explicit supplement while passing images do not',()=>{
+ for(const status of ['failed','indeterminate','supplement-awaiting-confirmation'])assert.equal(needsSheetSupplement({status}),true);
+ assert.equal(needsSheetSupplement({status:'received',inspection:'rejected'}),true);
+ assert.equal(needsSheetSupplement({status:'received',inspection:'pixel-gates-passed-awaiting-visual-review'}),false);
+ assert.equal(needsSheetSupplement({status:'submitted'}),false);
+});
 test('diagnosis explains a terminal connection failure without changing status or stale-running indicators',()=>{
  const n={status:'indeterminate',outcomeRecorded:true,submittedAt:'2026-10-14T11:49:16Z',diagnostic:{label:'生图连接失败',detail:'请检查连接后仅补本张',finishedAt:'2026-10-14T11:49:42Z'}};
  assert.equal(sheetProgress(n).label,'生图连接失败');assert.equal(sheetProgress(n).finishedAt,n.diagnostic.finishedAt);assert.equal(n.status,'indeterminate');
@@ -36,4 +43,18 @@ test('elapsed time uses actual timestamps and freezes at a recorded end',()=>{
  const start='2026-10-14T01:00:00Z';assert.equal(elapsedText(start,'2026-10-14T01:01:05Z'), '1 分 5 秒');
  assert.equal(elapsedText(start,undefined,Date.parse(start)+3500),'3 秒');
  assert.equal(elapsedText(null), '');assert.equal(elapsedText('bad'), '');assert.equal(elapsedText(start,'2026-10-13T01:00:00Z'),'');
+});
+
+test('material batch progress waits for S05 and labels 30 components separately from 3 materials',()=>{
+ const sheets=['S01','S02','S03','S04','S05'].map(sheetId=>({sheetId}));
+ const nodes=sheets.map((n,i)=>({...n,status:i===4?'indeterminate':'received'}));
+ const plan={sheets,state:{fresh:false,nodes}};
+ const progress=projectProgress(plan),batch=batchPresentation(plan);
+ assert.equal(progress.received,4);assert.equal(progress.sheetTotal,5);assert.equal(progress.flow[1].state,'blocked');
+ assert.match(batch.sheetDescription,/4 张组件图集 \+ 1 张材质图集/);assert.match(batch.assetDescription,/30 个基础部件 \+ 3 个材质/);
+ assert.equal(progress.stages.at(-1).label,'材质绑定与组件检查');
+ const ready=projectProgress({...plan,state:{nodes:nodes.map(n=>({...n,status:'received'}))}});
+ assert.equal(ready.flow[1].state,'done');assert.equal(ready.current,'等待本地处理');
+ assert.equal(batchPresentation({}).sheetTotal,4);assert.equal(batchPresentation({materialGeneration:true}).sheetTotal,4);
+ assert.deepEqual(batch.sheetIds,['S01','S02','S03','S04','S05']);
 });

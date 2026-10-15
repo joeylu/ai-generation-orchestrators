@@ -8,6 +8,7 @@ import { validateBackgroundAsset, backgroundGeometry, maxBackgroundBytes } from 
 import { measureSlices } from "../slicing/geometry.mjs";
 import { documentLayout } from './layout.mjs';
 import { hasLayoutRules } from '../runtime/layout.mjs';
+import {surfaceTextBox,surfaceStyleInfo} from '../skins/surface-styles.mjs';
 const check = new Ajv({ allErrors: true, strict: true }).addSchema(sliceSchema).addSchema(backgroundSchema).compile(schema);
 export function fail(code, message, path = "") {
   const e = new Error(path ? `${path}: ${message}` : message);
@@ -35,7 +36,7 @@ export function validateDocument(input, ctx) {
   )
     fail("panel.binding", "当前工程资源版本不匹配，拒绝静默换肤。");
   if (doc.panelBackgrounds && !["0.2","0.3"].includes(doc.version)) fail("panel.version", "自定义背景需要 PanelDocument 0.2 或以上。");
-  if(doc.version!=='0.3'&&doc.nodes.some(hasLayoutRules))fail('panel.version','增强布局需要 PanelDocument 0.3。');
+  if(doc.version!=='0.3'&&doc.nodes.some(n=>hasLayoutRules(n)||n.surfaceStyle))fail('panel.version','增强布局和表面配方需要 PanelDocument 0.3。');
   const bytes = Object.values(doc.panelBackgrounds ?? {}).reduce((sum, asset) => sum + validateBackgroundAsset(asset), 0);
   if (bytes > maxBackgroundBytes) fail("background.size", "画布背景原图总计最多 8 MiB。");
   const sources = new Map(Object.values(doc.panelBackgrounds ?? {}).map(a => [a.source.sha256, a.source]));
@@ -80,9 +81,9 @@ export function validateDocument(input, ctx) {
         fail("panel.slot", "内容槽数量不合法。", n.id + "/" + s.name);
     }
     const result = validateProps(ctx.registry, n.recipeRef, n.props, {
-      resourceIds: ctx.template.sheets.flatMap((s) =>
+      resourceIds: [...(ctx.skinGeometry?.materialAssets??[]).map(a=>a.assetId),...ctx.template.sheets.flatMap((s) =>
         s.parts.map((p) => p.assetId),
-      ),
+      )],
       textStyleIds: ["body"],
       nodeIds: Object.values(n.slots).flat(),
       layoutTokens: ctx.usage.layoutTokens,
@@ -94,6 +95,10 @@ export function validateDocument(input, ctx) {
         n.id,
       );
     n.props = result.props;
+    if(n.surfaceStyle){
+      if(!(recipe.type==='Text'&&['title','section'].includes(n.surfaceStyle)||recipe.type==='Panel'&&n.surfaceStyle==='panel'))fail('panel.surface-style','Surface style does not match node type.',n.id);
+      surfaceTextBox(ctx.skinGeometry,n.surfaceStyle,n.size.width,n.size.height);
+    }
     if (n.props.backgroundRef) {
       const asset = doc.panelBackgrounds?.[n.props.backgroundRef];
       if (!asset) fail("background.reference", "Panel 引用的背景素材不存在。", n.id);
@@ -137,6 +142,8 @@ export function validateDocument(input, ctx) {
       children = Object.values(n.slots)
         .flat()
         .map((id) => nodes.get(id));
+    const surface=n.surfaceStyle??(r.type==='Panel'&&!n.props.backgroundRef&&ctx.skinGeometry?.surfaceStyles?.panel?'panel':null);
+    if(surface){const size=resolved.get(n.id)??n.size;surfaceTextBox(ctx.skinGeometry,surface,size.width,size.height);}
     if (r.type === "List") {
       const items = n.slots.items ?? [];
       if (
@@ -242,7 +249,12 @@ export function resourceClosure(doc, ctx) {
       collect(child, validateProps(ctx.registry, child, {}).props ?? {}, seen);
     if (p.sourceRef) assets.add(p.sourceRef);
   };
-  doc.nodes.forEach((n) => collect(n.recipeRef, n.props));
+  doc.nodes.forEach((n) => {
+    collect(n.recipeRef,n.props);
+    const recipe=ctx.registry.recipes.find(r=>recipeRef(r)===n.recipeRef);
+    const key=n.surfaceStyle??(recipe.type==='Panel'&&!n.props.backgroundRef&&ctx.skinGeometry?.surfaceStyles?.panel?'panel':null);
+    if(key){const info=surfaceStyleInfo(ctx.skinGeometry,key);if(!info)fail('panel.surface-style','Missing surface geometry.');roles.add(info.style.baseRole);for(const layer of info.style.layers)assets.add(layer.assetId);}
+  });
   // Role mappings are version-bound along with template geometry and fixture.
   for (const role of roles) {
     const binding = ctx.usage.bindings.find((r) => r.role === role);

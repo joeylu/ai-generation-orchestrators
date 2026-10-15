@@ -16,6 +16,12 @@ npm run skins:locate -- --input work/skins/orbital-hangar/localization-input.jso
 
 候选的身份仅来自槽位约定：模型把错误部件画进正确槽位时，本方法不能识别。报告一直标记 `semanticIdentity: not-verified`、`assemblyReady: false`，不会自动生成可执行assembly或接入后处理。分离装饰和多块结构也可能合理，目前保守地要求复核。
 
+## 当前近邻淡边与 S05 消费
+
+当前策略的 `weakComponentMaxAlpha` 为 4，另以可选 `attachedFringeMaxAlpha: 8` 处理略强的分离淡边。淡边必须具有唯一主要槽位，同槽只有一个更明显主体，且在 4 个逻辑像素距离内只邻近该主体，才能作为 `attachedFringeComponentIds` 附加；不递归串联，不按面积删除，不改变任何 RGB 或 alpha。缺少该可选策略的旧调用保持原行为。归属、实际距离、阈值及像素核算写入报告，仍为定位候选，不是自动美术接受。下方 0.68 等段落保留其当时参数和试验结论。
+
+S05 在材质 postprocess 中独立消费这些候选：仅在唯一归属、无未解决冲突、全部提案不重叠时，为横向标题和分组保留跨 `bodyRect` 的完整轮廓；面板平铺仍取模板内部固定样本，避免低 alpha 拖尾形成透明接缝。候选不足时不盲选外扩范围，原图与告警保留。此规则不将 S05 加入四张组件图的定位节点，详细来源、透明 RGB 派生和重放约束见[分层材质](skin-surfaces.md)。
+
 ## 两套原图验证
 
 - 机库：`work/skin-localization/df33ae1e-423f-4bb5-9b69-643c2413188e`。

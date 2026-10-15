@@ -1,10 +1,11 @@
-// Only workspace dependency on Panel planning. A released consumer should use
-// the pinned package subpath ai-ui-panel-harness/planning/v1 instead.
-import * as provider from '../../../ui-panel-harness/src/planning-api-v1.mjs';
+// Consume the public API from the verified immutable SDK installation.
+import {loadPanelSdkApi} from './sdk.mjs';
 import compatibility from '../../configs/planning-compatibility.json' with {type:'json'};
 const fail = message => { throw Object.assign(new Error(message),{code:'panel.planner-version'}); };
-export function planningClient(api = provider) {
-  if(api.PLANNING_API_VERSION !== compatibility.apiVersion || typeof api.preparePlanning!=='function' || typeof api.verifyPlanning!=='function')fail('Unsupported Panel planning API.');
+export function planningClient(api) {
+  const validate=api=>{if(api.PLANNING_API_VERSION !== compatibility.apiVersion || typeof api.preparePlanning!=='function' || typeof api.verifyPlanning!=='function')fail('Unsupported Panel planning API.');return api;};
+  if(api!==undefined)validate(api);
+  const provider=async()=>validate(api??await loadPanelSdkApi('planning/v1'));
   function accept(session) {
     const intentVersions = session.responseSchema?.properties?.panelIntentVersion?.enum;
     if(session.apiVersion!==compatibility.apiVersion || !Array.isArray(intentVersions) || intentVersions.length!==1
@@ -13,13 +14,13 @@ export function planningClient(api = provider) {
     return session;
   }
   return {
-    async prepare(input){return accept(await api.preparePlanning(input));},
-    async verify(input){return accept(await api.verifyPlanning(input));},
+    async prepare(input){return accept(await (await provider()).preparePlanning(input));},
+    async verify(input){return accept(await (await provider()).verifyPlanning(input));},
   };
 }
 
 export async function codexPlanningClient() {
-  const api=await import('../../../ui-panel-harness/src/planning-codex-v1.mjs');
+  const api=await loadPanelSdkApi('planning/codex/v1');
   if(api.CODEX_PLANNING_API_VERSION!=='1.0')fail('Unsupported optional Codex planning API.');
   return api;
 }

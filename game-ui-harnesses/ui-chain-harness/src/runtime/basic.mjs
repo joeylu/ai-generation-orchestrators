@@ -7,9 +7,13 @@ import {
   reflowLabel,
   OwnedInput,
   ContractSlider,
+  percentLabel,
 } from "./controls.mjs";
 import { fitText, reject } from "./skin.mjs";
 import { SlicedBackground } from "./sliced-background.mjs";
+import { selectionMarkGeometry } from "./selection-geometry.mjs";
+import {createSurfaceView} from './surface-view.mjs';
+import {surfaceTextBox} from '../skins/surface-styles.mjs';
 
 const styleBox = (width, height, extra = {}) => ({
   width,
@@ -51,8 +55,10 @@ export const basicAdapters = {
       thumb.position.set(on ? m + 2 : 2, 2);
       text.position.set(
         m * 2 + skin.profile.geometry.labelGap,
-        (m - text.height) / 2,
+        ((skin.fontSizeOverride?Math.max(m,skin.profile.geometry.lineHeight):m) - text.height) / 2,
       );
+      const markOffset=(skin.fontSizeOverride?Math.max(m,skin.profile.geometry.lineHeight)-m:0)/2;
+      track.y=markOffset;thumb.y+=markOffset;
       v.addChild(track, thumb, text);
       views.push(v);
     }
@@ -64,13 +70,15 @@ export const basicAdapters = {
     return {
       view,
       resize(width, height) {
-        for (const v of views)
+        for (const v of views){
           reflowLabel(
             v.children[2],
             p.label,
             width - m * 2 - skin.profile.geometry.labelGap,
             height,
           );
+          if(skin.fontSizeOverride)v.children[2].y=(Math.max(m,skin.profile.geometry.lineHeight)-v.children[2].height)/2;
+        }
         view.innerView.hitArea = new Rectangle(0, 0, width, height);
       },
       activate: () => view.switch(),
@@ -150,6 +158,7 @@ export const basicAdapters = {
       secure: p.inputType === "password",
       maxLength: p.maxLength ?? undefined,
       inputAttributes: attributes,
+      nativeTypography:{fontSize:p.fontSize,textColor:p.textColor,fontFamily:skin.profile.fontFamily},
       padding: pad,
       addMask: true,
     });
@@ -189,7 +198,7 @@ export const basicAdapters = {
       value: p.value,
       showValue: p.showValue,
       valueTextStyle: skin.textStyle(),
-      valueTextOffset: { y: 22 },
+      valueTextOffset: { y: p.fontSize===undefined?22:Math.max(22,skin.profile.geometry.labelGap+skin.profile.geometry.lineHeight/2+skin.profile.thumbSize/2) },
     });
     const normalTexture = skin.texture("skin.slider.thumb.normal"),
       pressedTexture = skin.texture("skin.slider.thumb.pressed");
@@ -225,25 +234,34 @@ export const basicAdapters = {
     let value = p.value;
     bar.setSize(w, skin.profile.trackHeight);
     view.addChild(bar);
-    const label = p.showValue ? skin.label(String(value), w) : null;
+    const label = p.showValue ? skin.label(percentLabel(value, p.min, p.max), w) : null;
+    let labelWidth = w;
+    const positionLabel = () => {
+      if (!label) return;
+      reflowLabel(label, percentLabel(value, p.min, p.max), labelWidth);
+      label.x = (labelWidth - label.width) / 2;
+    };
     if (label) {
       label.y = skin.profile.trackHeight + skin.profile.geometry.labelGap;
       view.addChild(label);
+      positionLabel();
     }
     return {
       view,
       bar,
-      resize: (w) => bar.setSize(w, skin.profile.trackHeight),
+      resize: (w) => { bar.setSize(w, skin.profile.trackHeight); labelWidth = w; positionLabel(); },
       state: () => ({ value }),
       setState: (s) => {
         value = s.value;
         bar.progress = (100 * (value - p.min)) / (p.max - p.min);
-        if (label) label.text = String(value);
+        positionLabel();
       },
     };
   },
   "pixi.text"(c) {
     const { skin, p, w, h } = c;
+    const surface=c.surfaceStyle?createSurfaceView(skin,c.surfaceStyle,w,h):null;
+    const initialBox=surface?surfaceTextBox(skin.surfaceGeometry,c.surfaceStyle,w,h):{x:0,y:0,width:w,height:h};
     if (p.textStyleRef !== "body")
       reject("text.style", "Fixture only declares body text style.");
     const view = layoutBox(w, h, { overflow: "hidden" }),
@@ -252,25 +270,31 @@ export const basicAdapters = {
         style: skin.textStyle({
           align: p.align,
           wordWrap: p.wrap === "word",
-          wordWrapWidth: w,
+          wordWrapWidth: initialBox.width,
           breakWords: true,
         }),
       });
-    view.addChild(fitText(text, w, h, p.overflow));
+    if(surface)view.addChild(surface.view);
+    view.addChild(fitText(text, initialBox.width, initialBox.height, p.overflow));
+    if(surface)text.surfaceTextColor=surface.style.textColor??skin.profile.textColors?.[surface.style.baseRole]??skin.profile.palette.text;
+    if(surface)text.style.fill=p.textColor??text.surfaceTextColor;
     const resize = (w, h) => {
       view.layout = { width: w, height: h };
+      surface?.resize(w,h);
+      const box=surface?surfaceTextBox(skin.surfaceGeometry,c.surfaceStyle,w,h):{x:0,y:0,width:w,height:h};
       text.text = p.text;
-      text.style.wordWrapWidth = w;
-      fitText(text, w, h, p.overflow);
+      text.style.wordWrapWidth = box.width;
+      fitText(text, box.width, box.height, p.overflow);
       text.x =
         p.align === "right"
-          ? w - text.width
+          ? box.width - text.width
           : p.align === "center"
-            ? (w - text.width) / 2
+            ? (box.width - text.width) / 2
             : 0;
+      text.x+=box.x;text.y=box.y+(surface?(box.height-text.height)/2:0);
     };
     resize(w, h);
-    return { view, text, resize, state: () => ({}), setState() {} };
+    return { view, text, surface, resize, state: () => ({}), setState() {} };
   },
   "pixi.image"(c) {
     const { skin, p, w, h } = c,
@@ -365,6 +389,9 @@ export const basicAdapters = {
         { overflow: "hidden" },
       );
     view.addChild(bg, title, body);
+    const surfaceKey=c.surfaceStyle??(!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
+    const surface=surfaceKey?createSurfaceView(skin,surfaceKey,w,h,{base:false}):null;
+    if(surface)view.addChildAt(surface.view,1);
     title.position.set(pad.left, pad.top);
     body.position.set(
       pad.left,
@@ -381,6 +408,7 @@ export const basicAdapters = {
       resize: (w, h) => {
         skin.assertView?.("skin.surface.panel",w,h);
         bg.resize(w, h);
+        surface?.resize(w,h);
         reflowLabel(
           title,
           p.title,
@@ -411,8 +439,9 @@ export function makeCheck(skin, label, width, checked, radio = false) {
   const off = skin.view("skin." + base, m, m),
     on = new Container(),
     bg = skin.view("skin." + base, m, m),
-    fg = skin.view("skin." + mark, m - 8, m - 8);
-  fg.position.set(4, 4);
+    geometry = selectionMarkGeometry(m,skin.visualBounds?.("skin."+base),skin.visualBounds?.("skin."+mark),radio),
+    fg = skin.view("skin." + mark, geometry.width, geometry.height);
+  fg.position.set(geometry.x, geometry.y);
   on.addChild(bg, fg);
   const measured = skin.label(label, Math.max(1, width - m - 12)),
     value = measured.text;
@@ -442,6 +471,11 @@ function resizeCheck(box, skin, label, width) {
       skin.profile.geometry.lineHeight,
     );
     box.alignText();
+    if(skin.fontSizeOverride){
+      const rowHeight=Math.max(skin.profile.markSize,skin.profile.geometry.lineHeight);
+      box.innerView.y=(rowHeight-skin.profile.markSize)/2;
+      box.labelText.y=(rowHeight-box.labelText.height)/2;
+    }
   }
 }
 function checkAdapter(c) {

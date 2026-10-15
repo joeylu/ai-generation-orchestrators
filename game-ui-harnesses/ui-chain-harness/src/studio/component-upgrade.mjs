@@ -1,6 +1,8 @@
 import {join} from 'node:path';
 import {readSafe,hash,verifySkinPackage} from '../skins/package.mjs';
 import {inspectConsumer} from '../runtime/consumer-tools.mjs';
+import {verifyMaterialExtension} from '../skins/materials.mjs';
+export {frozenContractPaths as frozenUpgradeContracts} from '../contracts/frozen.mjs';
 
 const workFile=p=>typeof p==='string'&&/^work\/(?:[A-Za-z0-9_-]+\/)+[A-Za-z0-9_.-]+$/.test(p);
 const workDirectory=p=>typeof p==='string'&&/^work\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(p);
@@ -14,10 +16,15 @@ export async function upgradedConsumer(root,originalDirectory,selection,{verifyS
   const record=JSON.parse(bytes);
   if(record.kind!=='ui_component_runtime_upgrade'||record.version!=='1.0'||!workDirectory(record.directory)||!workFile(record.checkFile)||!digest(record.checkSha256)||!digest(record.consumerSha256)||record.modelCalls!==0)throw Error('COMPONENT_UPGRADE_RECORD');
   const original=await inspectConsumer(originalDirectory);
-  if(original.manifestSha256!==record.sourceConsumerSha256||original.manifest.manifestSha256!==record.skinSha256)throw Error('COMPONENT_UPGRADE_SOURCE');
+  if(original.manifestSha256!==record.sourceConsumerSha256||original.manifest.manifestSha256!==(record.originalSkinSha256??record.skinSha256))throw Error('COMPONENT_UPGRADE_SOURCE');
   const directory=join(root,record.directory),consumer=await inspectConsumer(directory,record.consumerSha256);
   const skin=await verifySkin(join(directory,'skin'));
   if(skin.manifestSha256!==record.skinSha256||consumer.manifest.manifestSha256!==record.skinSha256)throw Error('COMPONENT_UPGRADE_SKIN');
+  if(record.originalSkinSha256!==undefined){
+    if(!record.materialExtension||!workFile(record.materialExtension.file)||!digest(record.materialExtension.sha256))throw Error('COMPONENT_UPGRADE_MATERIALS');
+    const bytes=await readSafe(root,record.materialExtension.file);if(hash(bytes)!==record.materialExtension.sha256)throw Error('COMPONENT_UPGRADE_MATERIALS');
+    verifyMaterialExtension(await verifySkin(join(originalDirectory,'skin')),skin,JSON.parse(bytes));
+  }
   const checks=await readSafe(root,record.checkFile),report=JSON.parse(checks);
   if(hash(checks)!==record.checkSha256||report.kind!=='ui_consumer_relocation_check'||report.status!=='passed'||report.manifestSha256!==consumer.manifestSha256||report.sourceSkinSha256!==record.skinSha256||report.components!==16||report.publicFactory!=='passed'||!Array.isArray(report.results)||!report.results.length||report.results.some(r=>r.status!=='passed')||!Array.isArray(report.errors)||report.errors.length)throw Error('COMPONENT_UPGRADE_CHECK');
   return {directory,consumerSha256:consumer.manifestSha256};

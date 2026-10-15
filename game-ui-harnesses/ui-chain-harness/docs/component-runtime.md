@@ -1,6 +1,6 @@
 # 组件候选运行时与离线验收
 
-全部 16 类已有可执行适配，输入是明确标记 fixture 的程序皮肤。当前版本验证组件实例化、交互、销毁和三档尺寸/适用状态恢复；不是正式 ComponentKit、生产 SkinPack 或画布编辑器。实施状态只维护在 [执行文档](execution-plan.md)，本文说明已存在的接口与维护方法。
+本文主要记录早期 fixture 组件验收入口：全部 16 类已有可执行适配，覆盖实例化、交互、销毁和三档尺寸/适用状态恢复。当前同一运行时也已接入核验过的真实 PNG 皮肤、字体、材质及 Studio 面板编辑；当前全链路入口和验收边界见[验收指南](acceptance.md)，早期阶段记录保留在[执行文档](execution-plan.md)。
 
 ## 查看与重建
 
@@ -38,12 +38,12 @@ npm test
 | fixtures/neutral.skin.json | 工程测试的配色、固定字体、间距与几何参数；由 fixture-profile.schema.json 校验，不覆盖正式源中的 null | npm test；components:check |
 | fixtures/component-cases.json | 每类一个示例的文字、数据与尺寸；独立测试输入，不是生产默认值副本 | components:check |
 | fixtures/component-matrix.json | 三档尺寸、长文本与适用更新值；测试与方形对照图共同消费 | components:check |
-| src/runtime/ | 新交互、资源生命周期、几何计算与适配能力；正式皮肤消费合同仍待收敛 | npm test；test:components；components:check |
+| src/runtime/ | 交互、资源生命周期、几何计算，以及程序皮肤和核验 PNG 皮肤的适配 | npm test；test:components；components:check |
 | tests/runtime/checks.mjs、matrix-checks.mjs | 独立操作及预期断言；增加能力时补测试 | test:components；components:check |
 
 已有类型的新配方可共用类型夹具，运行器遍历注册配方进行挂载，并另外验证新增 Button 配方能消费自己的默认变体。新增真正的组件类型须增加适配器、类型样例和独立行为断言。不能只改 JSON 声称获得新交互。
 
-这三份 fixtures JSON 分别维护测试皮肤、基础场景与展示矩阵。尺寸扩展或测试文案变更不需要同步改测试和出图程序中的两份名单；新的行为断言仍需代码实现。正式风格、字体资源、生产资产几何、面板预设及项目版本仍按执行文档的独立入口规划，不能把所有配置塞进模板 JSON。
+这三份 fixtures JSON 分别维护测试皮肤、基础场景与展示矩阵。尺寸扩展或测试文案变更不需要同步改测试和出图程序中的两份名单；新的行为断言仍需代码实现。真实风格、字体资源、资产几何、面板预设和项目版本分别由对应皮肤、规划和 Studio 合同维护，不能把所有配置塞进模板 JSON。
 
 ## 代码与 API
 
@@ -56,7 +56,7 @@ npm test
 | src/runtime/basic.mjs | 基础控件、Image/Text、Layout Container 和 Panel |
 | src/runtime/collections.mjs | List、ScrollView、Tabs、Select、Dialog 的组合与稳定 ID 映射 |
 | src/runtime/runtime.mjs | 配方分派、句柄与内容槽、属性校验、状态/事件隔离、生命周期 |
-| src/runtime/keyboard.mjs | 使用相同 PixiUI 实例/信号的键盘导航与复合控件行为 |
+| src/runtime/runtime.mjs | 鼠标/触摸交互与 Input 文字编辑；不提供组件键盘导航或额外焦点框 |
 | src/contracts/props.mjs | Node 与浏览器共用的纯属性校验、默认值与语义规则 |
 | tests/runtime/ | 内存浏览器页面、测试输入装配和独立交互断言；不是应用前端 |
 | scripts/components.mjs | 验收、来源绑定、历史构建和状态查询 |
@@ -75,11 +75,11 @@ runtime.setMode('edit') 会挂起原生输入、浮层交互和拖动，阻断�
 
 ## 组合与剩余边界
 
-- 当前 62 项是断言子集，不能折算成 G01–G07 / T01–T16 全部通过。已经逐类覆盖 180/276/420 宽度及缩回窄版、长内容和适用状态恢复，另补复合条目、键盘、嵌套滚动和空内容；跨主题与设备矩阵仍待补齐。
+- 早期 62 项是当时的断言子集，不能折算成 G01–G07 / T01–T16 全部通过，也不是当前测试总数。三档宽度、长内容、状态恢复等覆盖以本次生成报告为准；跨主题与设备矩阵仍须单独验收。
 - List 支持原有 Button 数据条目，也支持 items 槽中的显式复合子树。条目数量与 itemRecipeRef 必须逐一匹配；single 模式由整行拥有选择操作，none 模式允许内部组件独立交互。工程资源引用由 PanelDocument 递归收集，生产资产闭包另验。
-- 只支持测试用 body 文字样式与固定测试字体。完整字体资源清单、真实 PNG/trim/切片和人工美术接受尚未接入。
-- 原生 Input 已测桌面文本写入、模拟 composition 与 Tab 释放；RadioGroup/Select/Tabs/List、Slider/Dialog 已接键盘行为，并检查跳过禁用项。真实中文输入法、移动键盘和触摸仍待真机验证。
-- 夹具几何与最小尺寸已经集中管理；真实皮肤的切片/安全区仍未完成。句柄 resize 的已知失败前置检查不等于通用回滚；画布事务通过构建完整候选树后替换旧树实现失败保留。
-- PanelDocument 编译、自由区域权限、撤销重做、JSON 保存/重开和画布操作已经接入独立的 [本地编辑器](canvas-editor.md)。首次 AI 面板生成、生产资源打包和独立消费仍未实现。
+- 早期 fixture 使用 body 文字样式与固定测试字体；当前真实 PNG 皮肤包含显式字体、部件切片和材质资源清单。程序核验不授予人工美术接受。
+- 原生 Input 保留桌面文本写入和模拟 composition；按用户要求已移除组件键盘导航与金色焦点框，测试覆盖快捷键不改变状态/不发事件。真实中文输入法、移动键盘和触摸仍待真机验证。
+- 夹具几何与最小尺寸集中管理；真实皮肤的切片和安全区由核验后的皮肤元数据提供。句柄 resize 的已知失败前置检查不等于通用回滚；画布事务通过构建完整候选树后替换旧树实现失败保留。
+- PanelDocument 编译、自由区域权限、撤销重做、JSON 保存/重开和画布操作已接入[本地编辑器](canvas-editor.md)。Studio 也已接入 AI 面板生成、皮肤消费包与保存副本；完整流程和实际接受要求见[验收指南](acceptance.md)。
 
 本轮通过范围、浏览器版本、来源摘要和余项由 report.json 记录。正式生产配置的待定值和三个结构标记的生产方式保持待定，不由这套程序皮肤替用户做最终决定。

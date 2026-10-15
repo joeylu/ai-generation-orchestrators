@@ -18,7 +18,6 @@ function mountMotionEditor({host,frame,post,notice,scope}){
   const download=document.createElement('button');download.id=prefix+'-export';download.textContent='导出动效配置';download.disabled=true;
   const status=document.createElement('p');status.className='muted';status.setAttribute('role','status');status.textContent='正在连接'+name+'预览…';
   const row=document.createElement('div');row.className='button-row';row.append(label,replay,download);host.append(row,status);
-  if(components){const compare=document.createElement('a');compare.className='button';compare.textContent='三套动效对照';compare.href='/motion-compare.html#artifact='+encodeURIComponent(artifactId)+'&project='+encodeURIComponent(owner.id);row.append(compare);}
   function message(){const choice=motionChoices.find(c=>c.id===saved.style),info=controller?.inspect();status.textContent=(info?.reducedMotion?'系统已启用减少动态效果，播放已停用。':'当前：'+choice.name+' · '+choice.description+'。切换即预览，无需重新生成。')+(components?' 统一应用于本套 16 类组件；已有面板的动效保持独立。':'')+(info?.legacyInternal?.length?' 此作品使用旧运行时，'+[...new Set(info.legacyInternal)].join('、')+' 内部开关动效需升级运行时后使用。':'')+' 动效配置独立导出，原始交付包保持不变。';}
   select.onchange=async()=>{
    const style=select.value;select.disabled=true;replay.disabled=true;download.disabled=true;

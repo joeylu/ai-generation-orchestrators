@@ -18,8 +18,38 @@ test('production policy retains detached alpha-4 fringe without classifying it a
  assert.equal(p.anchorComponentIds.length,1);assert.equal(p.attachedWeakComponentIds.length,1);
  assert.ok(!p.issues.includes('multiple-substantial-pieces'));assert.deepEqual(p.proposedCrop,[3,6,9,12]);assert.deepEqual(im.pixels,before);
  assert.equal(r.accounting.sourceAlphaSum,r.accounting.coveredAlphaSum+r.accounting.outsideAlphaSum);assert.equal(r.assemblyReady,false);
- fill(im,4,6,7,1,5);const stronger=associateSheet(im,locateSheet(im,sheet,coords),config);
+ fill(im,4,6,7,1,config.attachedFringeMaxAlpha+1);const stronger=associateSheet(im,locateSheet(im,sheet,coords),config);
  assert.ok(stronger.parts[0].issues.includes('multiple-substantial-pieces'));
+});
+test('bounded detached alpha-8 halo attaches to its unique nearby body and retains every source pixel',()=>{
+ const config=JSON.parse(readFileSync(new URL('../configs/skin-localization-policy.json',import.meta.url)));
+ const im=fill(fill(blank(),3,8,9,10),4,6,7,1,8),before=Buffer.from(im.pixels),r=associateSheet(im,locateSheet(im,sheet,coords),config),p=r.parts[0];
+ assert.equal(config.weakComponentMaxAlpha,4);assert.equal(p.anchorComponentIds.length,1);assert.equal(p.attachedWeakComponentIds.length,0);assert.equal(p.attachedFringeComponentIds.length,1);
+ assert.ok(!p.issues.includes('multiple-substantial-pieces'));assert.deepEqual(p.proposedCrop,[3,6,9,12]);
+ assert.equal(r.fringeAssignments[0].maxAlpha,8);assert.equal(r.fringeAssignments[0].gapPixels,1);assert.equal(r.fringeAssignments[0].alphaSum,56);
+ assert.equal(r.accounting.sourceAlphaSum,r.accounting.coveredAlphaSum);assert.equal(r.accounting.sourceNonzeroPixels,r.accounting.coveredNonzeroPixels);
+ assert.deepEqual(im.pixels,before);assert.equal(r.pixelsModified,false);assert.equal(r.assemblyReady,false);
+ const legacy={...config};delete legacy.attachedFringeMaxAlpha;
+ assert.ok(associateSheet(im,locateSheet(im,sheet,coords),legacy).parts[0].issues.includes('multiple-substantial-pieces'));
+});
+test('fringe attachment cannot resolve two bodies, far satellites, shared ownership or chains',()=>{
+ const config={...primaryPolicy,weakComponentMaxAlpha:4,attachedFringeMaxAlpha:8,attachmentGapLogicalPixels:4};
+ const apply=im=>associateSheet(im,locateSheet(im,sheet,coords),config);
+ const two=apply(fill(fill(fill(blank(),3,8,4,4),10,8,3,4),3,6,3,1,8));
+ assert.equal(two.fringeAssignments.length,0);assert.ok(two.parts[0].issues.includes('multiple-substantial-pieces'));
+ const far=apply(fill(fill(blank(),3,5,4,4),3,25,4,1,8));
+ assert.equal(far.fringeAssignments.length,0);assert.ok(far.parts[0].issues.includes('multiple-substantial-pieces'));
+ const shared=apply(fill(fill(fill(blank(),3,5,4,4),23,5,4,4),12,7,8,1,8));
+ assert.equal(shared.fringeAssignments.length,0);assert.ok(shared.parts.every(p=>p.conflictComponentIds.length>0));
+ const chain=apply(fill(fill(fill(blank(),3,5,3,3),9,5,1,1,8),13,5,1,1,8));
+ assert.equal(chain.fringeAssignments.length,1);assert.ok(chain.parts[0].issues.includes('multiple-substantial-pieces'));
+});
+test('fringe reach scales with source resolution and rejects unbounded policy values',()=>{
+ const config={...primaryPolicy,weakComponentMaxAlpha:4,attachedFringeMaxAlpha:8,attachmentGapLogicalPixels:2},im=fill(fill(blank(),3,8,9,10),4,6,7,1,8),large={width:64,height:64,pixels:Buffer.alloc(64*64*4)};
+ for(let y=0;y<32;y++)for(let x=0;x<32;x++)fill(large,x*2,y*2,2,2,im.pixels[(y*32+x)*4+3]);
+ const small=associateSheet(im,locateSheet(im,sheet,coords),config),scaled=associateSheet(large,locateSheet(large,sheet,coords),config);
+ assert.deepEqual(scaled.parts[0].proposedCrop,small.parts[0].proposedCrop.map(n=>n*2));assert.equal(scaled.fringeAssignments[0].gapPixels,small.fringeAssignments[0].gapPixels*2);
+ for(const attachedFringeMaxAlpha of [3,33,8.5,null])assert.throws(()=>associateSheet(im,locateSheet(im,sheet,coords),{...config,attachedFringeMaxAlpha}),/fringe-policy/);
 });
 test('actual pixel ownership keeps full overflowing piece and warns affected slot',()=>{
   const im=fill(blank(),3,5,17,3),r=runPrimary(im);

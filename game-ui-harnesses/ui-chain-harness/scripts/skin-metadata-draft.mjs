@@ -11,6 +11,7 @@ import {inspectAssembly} from '../src/skins/postprocess.mjs';
 import {deriveMetadata} from '../src/skins/metadata-draft.mjs';
 import {locateSheet} from '../src/skins/locate.mjs';
 import {associateSheet} from '../src/skins/associate.mjs';
+import {assertSeparatedCrops} from '../src/skins/proposal-crops.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {values:v}=parseArgs({options:{report:{type:'string'},input:{type:'string'},profile:{type:'string'}}});
 const local=p=>{if(!p)throw Error('Required --report --input --profile');const q=resolve(root,p),r=relative(join(root,'work'),q);if(isAbsolute(r)||r==='..'||r.startsWith('..'+sep))throw Error('trial.work-path');return q;};
@@ -23,8 +24,8 @@ try{
   if(base.kind!=='ui_skin_metadata_profile'||base.version!=='1.0'||!base.theme||!base.id||!Number.isInteger(base.revision)||base.revision<1)throw Error('metadata.profile');
   const metadataPolicyBytes=await readFile(join(root,'configs/skin-metadata-policy.json')),metadataPolicy=JSON.parse(metadataPolicyBytes);
   const sources=[],parts={},evidence=[],images=new Map();
-  // Foreign-slot warnings may be retained for an explicitly marked trial;
-  // ownership conflicts and overlapping crops always remain hard failures.
+  // Retain compatibility with old explicit trial profiles. Foreign-slot warnings
+  // are now non-blocking when ownership and actual crop separation are verified.
   const allowedIssues=base.allowedProposalIssues??[];
   if(!Array.isArray(allowedIssues)||allowedIssues.some(i=>i!=='foreign-component-in-slot'))throw Error('metadata.invalid-proposal-exception');
   if(r.sheets.length!==contracts.template.sheets.length||input.sheets.length!==r.sheets.length)throw Error('trial.sheet-coverage');
@@ -34,12 +35,11 @@ try{
     const raw=await readSafe(dirname(ip),binding.file);if(hash(raw)!==binding.sha256)throw Error('trial.source-changed');
     const image=decodePng(raw),location=locateSheet(image,sheet,contracts.template.coordinates),fresh=associateSheet(image,location,policy);
     if(JSON.stringify(fresh)!==JSON.stringify(s.association))throw Error('trial.proposal-replay-mismatch');
+    assertSeparatedCrops(fresh.parts);
     const file='sources/'+sheet.id+'.png';sources.push({file,raw});
     for(const def of sheet.parts){
       const p=fresh.parts.find(p=>p.assetId===def.assetId);
-      if(!p?.proposedCrop||p.conflictComponentIds.length||p.issues.some(i=>!['substantial-crosses-slot','proposal-crosses-slot',...allowedIssues].includes(i)))throw Error('trial.unresolved-or-overlap');
-      const [x,y,w,h]=p.proposedCrop;
-      for(const other of fresh.parts){if(other===p||!other.proposedCrop)continue;const [a,b,c,d]=other.proposedCrop;if(x<a+c&&a<x+w&&y<b+d&&b<y+h)throw Error('metadata.overlap');}
+      if(!p)throw Error('trial.sheet-coverage');
       images.set(def.assetId,cropPng(image,p.proposedCrop));
       parts[def.assetId]={file,sha256:binding.sha256,crop:p.proposedCrop};
       evidence.push({assetId:def.assetId,proposalIssues:p.issues});

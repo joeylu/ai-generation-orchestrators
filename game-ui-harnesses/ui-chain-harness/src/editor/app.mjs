@@ -10,6 +10,7 @@ import { createSession } from "../panel/session.mjs";
 import { indexDocument } from "../panel/document.mjs";
 import { presetDocument } from "../panel/presets.mjs";
 import { recipeRef, propsSchema } from "../contracts/props.mjs";
+import {readPropertyInput} from './property-values.mjs';
 const $ = (id) => document.getElementById(id),
   data = window.UI_CHAIN_DATA;
 let session,
@@ -288,7 +289,7 @@ function renderProperties() {
   section.className = "form-section";
   section.textContent = "组件属性";
   form.append(section);
-  const properties = propsSchema(data.registry, r).properties;
+  const schema=propsSchema(data.registry,r),properties=schema.properties;
   for (const [key, s] of Object.entries(properties)) {
     const value = n.props[key],
       types = Array.isArray(s.type) ? s.type : [s.type];
@@ -311,6 +312,8 @@ function renderProperties() {
     );
     if (key === "backgroundRef") f.input.read = () => f.input.value || null;
     if (["object", "array"].some((t) => types.includes(t))) f.input.rows = 4;
+    const read=f.input.read;
+    f.input.read=()=>readPropertyInput(s,{required:schema.required?.includes(key)??false,raw:f.input.value,read});
   }
   const button = document.createElement("button");
   button.type = "submit";

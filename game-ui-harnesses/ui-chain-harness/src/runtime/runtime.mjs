@@ -1,6 +1,6 @@
 import "@pixi/layout";
 import { getYoga } from "@pixi/layout";
-import { Rectangle, Graphics, Text } from "pixi.js";
+import { Rectangle, Text } from "pixi.js";
 import { validateProps, recipeRef } from "../contracts/props.mjs";
 import { basicAdapters, layoutBox } from "./basic.mjs";
 import { collectionAdapters } from "./collections.mjs";
@@ -8,9 +8,10 @@ import { OverlayOwner } from "./controls.mjs";
 import { reject, fitText } from "./skin.mjs";
 import { assertSize, minimumSize } from "./geometry.mjs";
 import { solveLayout, layoutTreeHasRules } from "./layout.mjs";
-import { attachKeyboard } from "./keyboard.mjs";
 import { measureSlices } from "../slicing/geometry.mjs";
 import { textColorOwner } from './text-colors.mjs';
+import { scopedTextSkin } from './text-skin.mjs';
+import {surfaceTextBox} from '../skins/surface-styles.mjs';
 
 export const adapters = Object.freeze({
   ...basicAdapters,
@@ -30,51 +31,15 @@ export function createRuntime({
     layoutCache = new Map(),
     pendingResizes = new Set(),
     overlay = new OverlayOwner(app);
-  const textColors=textColorOwner(app,skin,()=>[...handles.values()].map(h=>h.root).concat(overlay.root));
-  let mode = "play",
-    destroyed = false,
-    focused = null;
-  const keydown = (e) => {
-    const nativeInput = e.target instanceof HTMLInputElement;
-    if (nativeInput && e.key !== "Tab") return;
-    if (
-      e.target instanceof HTMLTextAreaElement ||
-      e.target instanceof HTMLSelectElement ||
-      e.target?.isContentEditable
-    )
-      return;
-    if (
-      nativeInput &&
-      ![...handles.values()].some((h) => h.adapter.view.input === e.target)
-    )
-      return;
-    if (e.key === "Tab") {
-      const candidates = [...handles.values()].filter(
-        (h) => h.allowed() && (h.adapter.activate || h.adapter.key),
-      );
-      if (candidates.length) {
-        e.preventDefault();
-        const i = candidates.indexOf(focused);
-        if (nativeInput) focused?.suspend();
-        runtime.focus(
-          candidates[
-            (i + (e.shiftKey ? -1 : 1) + candidates.length) % candidates.length
-          ],
-        );
-      }
-    } else if (focused?.allowed() && focused.adapter.key?.(e.key)) {
-      e.preventDefault();
-      runtime.flush();
-    } else if (
-      ["Enter", " "].includes(e.key) &&
-      focused?.allowed() &&
-      focused.adapter.activate
-    ) {
-      e.preventDefault();
-      if (!e.repeat) focused.adapter.activate();
-    }
-  };
-  document.addEventListener("keydown", keydown);
+  const textColors=textColorOwner(app,skin,()=>[...handles.values()].map(h=>h.root).concat(overlay.root),()=>new Map(
+    [...handles.values()].flatMap(h=>{
+      const color=h.props.textColor??null,view=h.adapter.view;
+      // Select popups and Dialog views can move into the overlay. They keep
+      // their node boundary; nested authored handles establish their own one.
+      return [[h.root,color],[view,color],...(h.recipe.type==='Select'?[[view.view,color]]:[])];
+    }),
+  ),()=>new Map([...handles.values()].flatMap(handle=>[...(handle.adapter.textBackings??[])])));
+  let mode = "play", destroyed = false;
   const runtime = {
     app,
     registry,
@@ -84,7 +49,7 @@ export function createRuntime({
     handles,
     textColors,
     create(
-      { id, recipeRef: ref, props = {}, size, sizing = {}, layout = {}, position },
+      { id, recipeRef: ref, props = {}, size, sizing = {}, layout = {}, position, surfaceStyle },
       slots = {},
     ) {
       if (
@@ -140,11 +105,15 @@ export function createRuntime({
         skin.texture(binding.role);
       }
       const p = result.props;
+      if(surfaceStyle&&!(recipe.type==='Text'&&['title','section'].includes(surfaceStyle)||recipe.type==='Panel'&&surfaceStyle==='panel'))reject('skin.surface-style','Surface style does not match component type.');
+      const nodeSkin=scopedTextSkin(skin,p);
+      const activeSurfaceStyle=surfaceStyle??(recipe.type==='Panel'&&!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
       const panelBackground = recipe.type === "Panel"
         ? p.backgroundRef ? panelBackgrounds.get(p.backgroundRef) : skin.backgroundSpec("skin.surface.panel")
         : null;
       if (recipe.type === "Panel" && !panelBackground) reject("background.reference", "Panel background is missing or has not been verified.");
       const preflight = (width, height) => {
+        if(activeSurfaceStyle)surfaceTextBox(skin.surfaceGeometry,activeSurfaceStyle,width,height);
         assertSize(recipe.type, p, skin.profile, width, height);
         skin.assertComponent?.(recipe.type,p,width,height);
         if (recipe.type === "Panel") {
@@ -152,16 +121,17 @@ export function createRuntime({
           measureSlices({ sourceWidth: texture.orig.width, sourceHeight: texture.orig.height, borders, width, height, multiplier: p.pixelsPerUnitMultiplier, resizePolicy });
         }
         if (recipe.type === "Text") {
+          const box=surfaceStyle?surfaceTextBox(skin.surfaceGeometry,surfaceStyle,width,height):{width,height};
           const probe = new Text({
             text: p.text,
-            style: skin.textStyle({
+            style: nodeSkin.textStyle({
               wordWrap: p.wrap === "word",
-              wordWrapWidth: width,
+              wordWrapWidth: box.width,
               breakWords: true,
             }),
           });
           try {
-            fitText(probe, width, height, p.overflow);
+            fitText(probe, box.width, box.height, p.overflow);
           } finally {
             probe.destroy();
           }
@@ -210,7 +180,6 @@ export function createRuntime({
           mute++;
           try {
             adapter?.suspend?.();
-            if (this.focusRing) this.focusRing.visible = false;
             for (const child of list) child.suspend();
           } finally {
             mute--;
@@ -234,13 +203,18 @@ export function createRuntime({
             ...(Object.keys(this.sizing).length ? {sizing:structuredClone(this.sizing)} : {}),
             layout: structuredClone(layout),
             ...(position ? { position: { ...position } } : {}),
+            ...(surfaceStyle?{surfaceStyle}:{}),
           };
         },
         setState(patch) {
+          // initialSlot belongs to authored startup data. Programmatic play
+          // selection is validated independently and never rewrites that input.
+          const stateProps={...p,...adapter.state(),...patch};
+          if(stateProps.inventory){stateProps.inventory={...stateProps.inventory};delete stateProps.inventory.initialSlot;}
           const next = validateProps(
             registry,
             ref,
-            { ...p, ...adapter.state(), ...patch },
+            stateProps,
             {
               resourceIds: [...skin.textures.keys()],
               textStyleIds: ["body"],
@@ -283,12 +257,6 @@ export function createRuntime({
             this.size = { width, height };
             root.layout = { width, height };
             root.hitArea = new Rectangle(0, 0, width, height);
-            if (this.focusRing) {
-              this.focusRing
-                .clear()
-                .rect(1, 1, width - 2, height - 2)
-                .stroke({ color: skin.profile.palette.mark, width: 2 });
-            }
           } finally {
             mute--;
           }
@@ -340,8 +308,9 @@ export function createRuntime({
         adapter = adapters[recipe.adapterId]({
           runtime,
           handle,
-          skin,
+          skin:nodeSkin,
           panelBackground,
+          surfaceStyle,
           p,
           w: size.width,
           h: size.height,
@@ -356,15 +325,8 @@ export function createRuntime({
           p.enabled === false || mode === "edit" ? "none" : "passive";
         root.alpha = p.enabled === false ? skin.profile.disabledAlpha : 1;
         handle.adapter = adapter;
-        attachKeyboard(adapter, { recipe, p, emit, skin });
         for (const child of list) child.parent = handle;
         handles.set(id, handle);
-        root.on("pointerdown", (event) => {
-          if (handle.allowed() && (adapter.activate || adapter.key)) {
-            runtime.focus(handle, false);
-            event.stopPropagation();
-          }
-        });
         return handle;
       } catch (e) {
         connections.forEach((c) => c.disconnect());
@@ -412,20 +374,14 @@ export function createRuntime({
       }
       for(const h of changed)pendingResizes.add(h);
     },
+    // Compatibility entry point for text editing only; no component navigation
+    // owner or decorative focus rectangle is created.
     focus(handle, enter = true) {
-      if (focused?.focusRing && !focused.focusRing.destroyed)
-        focused.focusRing.visible = false;
-      focused = handle;
-      if (!handle?.allowed()) return;
-      if (!handle.focusRing) {
-        handle.focusRing = new Graphics()
-          .rect(1, 1, handle.size.width - 2, handle.size.height - 2)
-          .stroke({ color: skin.profile.palette.mark, width: 2 });
-        handle.focusRing.eventMode = "none";
-        handle.root.addChild(handle.focusRing);
+      if (!handle) {
+        for (const h of handles.values()) if (h.recipe.type === 'Input') h.adapter.view.stopEditing();
+        return;
       }
-      handle.focusRing.visible = true;
-      if (enter) handle.adapter.focus?.();
+      if (enter && handle.recipe.type === 'Input' && handle.allowed()) handle.adapter.view.startEditing();
     },
     setMode(value) {
       if (!["play", "edit"].includes(value))
@@ -455,7 +411,6 @@ export function createRuntime({
       if (destroyed) return;
       destroyed = true;
       textColors?.dispose();
-      document.removeEventListener("keydown", keydown);
       for (const h of [...handles.values()]) if (!h.parent) h.dispose();
       overlay.dispose();
     },

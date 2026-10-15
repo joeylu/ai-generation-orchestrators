@@ -59,6 +59,9 @@ export function applyOperation(document, operation) {
       node[k] = ["props", "size", "layout"].includes(k)
         ? { ...node[k], ...v }
         : structuredClone(v);
+    // A cleared optional property is omitted rather than converted into null
+    // or an empty string. Required fields remain subject to document validation.
+    if(op.patch.props)for(const [key,value]of Object.entries(op.patch.props))if(value===undefined)delete node.props[key];
     if(op.patch.layout?.direction && op.patch.layout.direction!=='grid')for(const k of ['columns','cellWidth','cellHeight'])delete node.layout[k];
     if(op.patch.layout?.direction==='grid'&&!Object.hasOwn(op.patch.layout,'cellWidth'))delete node.layout.cellWidth;
   } else if (op.type === "add") {

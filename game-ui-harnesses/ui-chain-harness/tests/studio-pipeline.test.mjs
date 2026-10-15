@@ -34,7 +34,7 @@ test('received batches actually launch the fixed deterministic CLI and persist i
 const action=process.argv[2];
 if(action==='resume'){const f=JSON.parse(await readFile('work/studio/projects/fixture/flow.json'));if(f.taskDirectory!=='work/skin-tasks/fixture')throw Error('DIRECTORY_NOT_SAVED');}
 await appendFile('work/commands.txt',action+'\\n');console.log(JSON.stringify({directory:'work/skin-tasks/fixture'}));`);
-  const pipeline=pipelineController(root,{resolve:()=>({directory:dir+'/batches/digest',batchSha256:'digest'}),action:async()=>({nodes:Array.from({length:4},()=>({status:'received'}))})},{files:new Map(),items:[]});
+  const pipeline=pipelineController(root,{resolve:()=>({directory:dir+'/batches/digest',batchSha256:'digest'}),action:async()=>({nodes:['S01','S02','S03','S04'].map(sheetId=>({sheetId,status:'received'}))})},{files:new Map(),items:[]});
   assert.equal((await pipeline.action('process',{id:'x'})).status,'started');
   let flow;
   for(let i=0;i<100;i++){await new Promise(r=>setTimeout(r,30));flow=JSON.parse(await readFile(join(root,dir,'flow.json')));if(flow.phase!=='processing')break;}
@@ -55,7 +55,7 @@ test('clarification revises the same legacy panel, pins its skin and retains imm
   await writeFile(join(root,'scripts/settings-model.mjs'),`import {readFile,writeFile} from 'node:fs/promises';import {createHash} from 'node:crypto';
 if(process.argv[2]!=='prepare')throw Error('NO_COMPUTE');const args=process.argv.slice(3);if(args.includes('--preset'))throw Error('LEGACY_PRESET_CHANGED');if(args[args.indexOf('--orientation')+1]!=='portrait')throw Error('ORIENTATION_NOT_BOUND');
 const request=await readFile(args[args.indexOf('--request')+1]);await writeFile('work/prepared-request.json',request);console.log(JSON.stringify({sha256:createHash('sha256').update(request).digest('hex'),plan:'work/new-plan.json'}));`);
-  const options={verifyPanelSkin:async path=>{assert.equal(path,join(root,'work/frozen-skin'));return {pack:{id:'fixture'},manifestSha256:skinVersion};}};
+  const options={freezeContracts:async()=>null,verifyPanelSkin:async path=>{assert.equal(path,join(root,'work/frozen-skin'));return {pack:{id:'fixture'},manifestSha256:skinVersion};}};
   const pipeline=pipelineController(root,{resolve:()=>({directory:dir+'/batches/digest'})},{files:new Map(),items:[]},options);
   const data={id:'project',panelId:'original',parentSha256:'old-plan',kind:'settings',text:'接受程序布局，标题改为偏好设置'};
   for(const change of [{panelId:'missing'},{parentSha256:'stale'},{kind:'custom'},{text:' '}])await assert.rejects(pipeline.action('panel-prepare',{...data,...change}));

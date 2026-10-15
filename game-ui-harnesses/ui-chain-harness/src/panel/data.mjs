@@ -4,8 +4,8 @@ import { readContracts } from "../contracts/validate.mjs";
 import { defaults } from "../contracts/build.mjs";
 export { presetDocument } from "./presets.mjs";
 const root = new URL("../../", import.meta.url);
-export async function editorData() {
-  const c = await readContracts(defaults);
+export async function editorData(contracts) {
+  const c = contracts ?? await readContracts(defaults);
   const read = async (f) =>
     JSON.parse(await readFile(new URL(f, root), "utf8"));
   const data = {

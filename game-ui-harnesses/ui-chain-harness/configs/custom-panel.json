@@ -10,6 +10,7 @@
   "preset": {
     "custom":true,"surface":"panel","minFields":0,"maxFields":12,"minActions":0,"maxActions":3,
     "kinds":["text","input","checkbox","switch","slider","select","progress","button"],
-    "dismissOnEmit":false,"landscape":{"width":760,"height":620},"portrait":{"width":620,"height":960}
+    "dismissOnEmit":false,"landscape":{"width":760,"height":620},"portrait":{"width":620,"height":960},
+    "layout":{"version":"2.0","groupGap":20,"groupPadding":12,"maxDepth":8,"gridColumns":2,"minColumnWidth":160,"maxColumns":3,"minCardWidth":240,"groupSurfaces":true,"dataSurfaces":true}
   }
 }

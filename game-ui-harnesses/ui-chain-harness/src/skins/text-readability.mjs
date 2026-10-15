@@ -32,5 +32,6 @@ export function deriveTextReadability(pack,images,{preserve=true}={}){
   const requested=preserve?pack.theme.textColors?.[role]:null,fill=requested??(score(policy.light)>=score(policy.dark)?policy.light:policy.dark),minimum=score(fill);
   inks[role]=fill;checks.push({role,assetId,sourceSha256:asset.sha256,fill,samples:sample.colors.length,transparentSamples:sample.transparent,minimumContrast:minimum,status:sample.colors.length>=policy.minimumOpaqueSamples&&sample.transparent===0&&minimum>=policy.minimumContrast?'passed':'needs-review'});
  }
- return {inks,report:{kind:'ui_text_readability',version:'1.0',policy,scope:'sampled-content-regions',status:checks.every(c=>c.status==='passed')?'passed':'needs-review',checks,visualAcceptance:'unreviewed',productionReady:false}};
+ const composited=Object.entries(pack.surfaceStyles??{}).filter(([,s])=>s.layers.length).map(([key])=>key);
+ return {inks,report:{kind:'ui_text_readability',version:'1.0',policy,scope:'sampled-content-regions',status:!composited.length&&checks.every(c=>c.status==='passed')?'passed':'needs-review',checks,...(composited.length?{surfaceCompositing:{status:'needs-review',styles:composited,reason:'Base-surface samples do not measure the layered material composite.'}}:{}),visualAcceptance:'unreviewed',productionReady:false}};
 }

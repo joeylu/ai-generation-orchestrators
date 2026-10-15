@@ -1,3 +1,11 @@
+// Reading the library verifies and publishes completed artifacts into the catalog.
+// Fetch the catalog afterwards so navigation never sees a ready job without it.
+export async function readStudioState(get){
+ const library=await get('/library.json');
+ const catalog=await get('/catalog.json');
+ return {library,catalog};
+}
+
 // Per-tab navigation intent; never persisted in a generation plan or sent to a model.
 export function panelCompletion(storage){
  const key='ui-studio-panel-completion';let pending;

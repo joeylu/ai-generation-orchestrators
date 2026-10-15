@@ -82,25 +82,27 @@ test('three styles: all 16 controls, internal transitions, interrupted overlays,
    const mark=check.adapter.view.views[1].children[1],markPose={scale:mark.scale.x,y:mark.pivot.y};motionFlush();
    const list=motionNodes.List;list.setState({selectedId:'a'});motionFlush();list.setState({selectedId:'b'});motionStep(p.changeMs*.2);
    const row=list.adapter.rows[1].view??list.adapter.rows[1],rowPose={x:row.pivot.x,y:row.pivot.y};motionFlush();
-   const input=motionNodes.Input;harness.runtime.focus(null);motionStep();harness.runtime.focus(input,false);motionStep(p.focusMs*.2);const focusAlpha=input.focusRing.alpha;harness.runtime.focus(null);motionFlush();
+   const input=motionNodes.Input;harness.runtime.focus(null);motionStep();harness.runtime.focus(input,false);motionStep(p.focusMs*.2);const focusAlpha=!!input.focusRing;harness.runtime.focus(null);motionFlush();
    const bar=motionNodes.ProgressBar;bar.setState({value:0});motionFlush();bar.setState({value:100});motionStep(p.changeMs*.2);const fill=bar.adapter.bar.progress;motionFlush();
    const slider=motionNodes.Slider;slider.adapter.view.onThumbPressed(true);motionStep(p.pressMs);const thumbAlpha=slider.adapter.view.slider1.children[0].alpha;
    slider.setState({value:37});motionStep();const direct=slider.adapter.view.progress;slider.adapter.view.onThumbPressed(false);motionFlush();
-   const stable={rowX:row.pivot.x,rowY:row.pivot.y,markY:mark.pivot.y,focus:input.focusRing.alpha,thumb:slider.adapter.view.slider1.children[0].alpha};
+   const stable={rowX:row.pivot.x,rowY:row.pivot.y,markY:mark.pivot.y,focus:!!input.focusRing,thumb:slider.adapter.view.slider1.children[0].alpha};
    return {staticRoots,markPose,rowPose,focusAlpha,fill,thumbAlpha,direct,stable};
   }));
-  for(const d of details){assert.ok(d.staticRoots.every(r=>r.scale===1));assert.equal(d.direct,37);assert.deepEqual(d.stable,{rowX:0,rowY:0,markY:0,focus:1,thumb:1});assert.ok(d.fill>0&&d.fill<100);}
+  for(const d of details){assert.ok(d.staticRoots.every(r=>r.scale===1));assert.equal(d.direct,37);assert.deepEqual(d.stable,{rowX:0,rowY:0,markY:0,focus:false,thumb:1});assert.ok(d.fill>0&&d.fill<100);}
   assert.ok(details[0].staticRoots.every(r=>r.y!==0));assert.ok(details[1].staticRoots.every(r=>r.y===0));assert.ok(details[2].staticRoots.every(r=>r.y!==0));
   assert.ok(details[0].rowPose.y!==0&&details[0].rowPose.x===0);assert.deepEqual(details[1].rowPose,{x:0,y:0});assert.ok(details[2].rowPose.x!==0&&details[2].rowPose.y===0);
   assert.equal(details[1].markPose.y,0);assert.ok(details[2].markPose.y<0);assert.notEqual(details[0].markPose.scale,details[1].markPose.scale);
   assert.ok(details[0].fill>details[2].fill&&details[2].fill>details[1].fill,'bounded values use distinct ease-out, linear and ease-in-out curves');
   assert.ok(details[0].thumbAlpha<details[1].thumbAlpha&&details[1].thumbAlpha<details[2].thumbAlpha);
-  assert.ok(details[0].focusAlpha>details[1].focusAlpha&&details[2].focusAlpha>details[0].focusAlpha);
+  assert.ok(details.every(d=>d.focusAlpha===false));
   const selectPoint=await page.evaluate(()=>{motionController.set(motionAPI.motionSelection('premium'));motionFlush();harness.app.render();const b=motionNodes.Select.adapter.view.openButton.getBounds();return{x:b.x+b.width/2,y:b.y+b.height/2};});
   await page.mouse.click(selectPoint.x,selectPoint.y);
   assert.equal(await page.evaluate(()=>{motionStep(60);return motionNodes.Select.adapter.view.expanded&&motionNodes.Select.adapter.view.motionProgress>0&&motionNodes.Select.adapter.view.motionProgress<1;}),true);
   await page.keyboard.press('Escape');
-  assert.deepEqual(await page.evaluate(()=>{const v=motionNodes.Select.adapter.view,mid={expanded:v.expanded,visible:v.view.visible,focus:!!motionNodes.Select.focusRing?.visible};motionFlush();return {...mid,end:v.view.visible};}),{expanded:false,visible:true,focus:true,end:false});
+  assert.equal(await page.evaluate(()=>motionNodes.Select.adapter.view.expanded),true);
+  await page.mouse.click(selectPoint.x,selectPoint.y);
+  assert.deepEqual(await page.evaluate(()=>{const v=motionNodes.Select.adapter.view,mid={expanded:v.expanded,visible:v.view.visible,focus:!!motionNodes.Select.focusRing?.visible};motionFlush();return {...mid,end:v.view.visible};}),{expanded:false,visible:true,focus:false,end:false});
   assert.deepEqual(await page.evaluate(()=>Object.values(motionNodes).map(h=>h.snapshot())),before);
   const safety=await page.evaluate(()=>{
    const v=motionNodes.Select.adapter.view;v.open();motionStep(40);v.close();motionController.set(motionAPI.motionSelection('original'));const original=!v.view.visible&&motionController.inspect().running===0;

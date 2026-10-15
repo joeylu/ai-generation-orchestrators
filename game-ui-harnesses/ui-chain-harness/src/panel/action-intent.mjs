@@ -3,6 +3,8 @@ import {presentation,presetHeight} from './preset-presentation.mjs';
 import {validateSettingsResponse} from './settings-intent.mjs';
 import {validateDocument} from './document.mjs';
 import {scrollPadding} from '../runtime/scroll-geometry.mjs';
+import {customIntentLayout,customPanelDocument} from './custom-layout.mjs';
+import {headingPresentation} from './headings.mjs';
 const fail=(code)=>{throw Object.assign(new Error(code),{code:'panel.action-'+code});};
 
 export async function actionPresetFromIntent(sessionInput,intentInput,config,presetId,ctx) {
@@ -12,15 +14,16 @@ export async function actionPresetFromIntent(sessionInput,intentInput,config,pre
   if(!intent.panel||intent.unresolved.length)fail('unresolved');
   const p=intent.panel;
   if(p.themeKey!==config.themeKey||p.panelSurface!==null)fail('theme');
-  if(['width','canvasWidth','canvasHeight','maxHeight'].some(k=>p.layout[k]!==null)||!(preset.custom?['error','scroll']:['error']).includes(p.layout.overflow))fail('layout');
-  if(p.body.kind!=='column'||p.body.children.length!==1||p.body.children[0].kind!=='section')fail('grouping');
-  const section=p.body.children[0];
-  if(section.actionLayout!==null)fail('action-layout');
+  const custom=preset.custom?customIntentLayout(p,preset):null;
+  if(!custom&&(['width','canvasWidth','canvasHeight','maxHeight'].some(k=>p.layout[k]!==null)||p.layout.overflow!=='error'))fail('layout');
+  if(!custom&&(p.body.kind!=='column'||p.body.children.length!==1||p.body.children[0].kind!=='section'))fail('grouping');
+  const section=custom?{title:custom.sections[0].title,rows:custom.sections.flatMap(s=>s.rows)}:p.body.children[0];
+  if(!custom&&section.actionLayout!==null)fail('action-layout');
   const fields=[],actions=[];
   for(const [index,r] of section.rows.entries()) {
     const mapping=config.recipes[r.recipeKey],id='row'+index;
     if(!mapping||mapping.kind!==r.kind||!preset.kinds.includes(r.kind)||r.icon!==null||r.sourceRef!=='request')fail('unsupported');
-    if(r.kind!=='button'&&actions.length)fail('action-order');
+    if(!custom&&r.kind!=='button'&&actions.length)fail('action-order');
     if(r.kind==='button') {
       if(r.action==='emit'&&(r.resetRows.length||r.submitRows.length))fail('targets');
       if(r.action==='submit'&&(r.resetRows.length||!r.submitRows.length))fail('targets');
@@ -52,24 +55,25 @@ export async function actionPresetFromIntent(sessionInput,intentInput,config,pre
   if(preset.custom&&!fields.length&&!actions.length)fail('empty');
   const targetTypes=preset.custom?['input','check-box','switch','slider','select']:['input','check-box'];
   for(const a of actions)if(new Set(a.targets).size!==a.targets.length||a.targets.some(id=>!fields.some(f=>f.id===id&&targetTypes.includes(f.type))))fail('targets');
-  const content={version:'1.0',id:p.id,title:p.title,sectionTitle:section.title,presetId,fields,actions,...(preset.custom?{overflow:p.layout.overflow}:{})};
+  const content={version:'1.0',id:p.id,title:p.title,sectionTitle:section.title,presetId,fields,actions,...(custom?{overflow:p.layout.overflow,layout:structuredClone(p.layout),layoutBody:custom.body}:{})};
   const documents=Object.fromEntries(panelOrientations(ctx.orientation).map(canvas=>[canvas,actionPresetDocument(content,config,canvas,ctx)]));
   const behavior={version:'1.0',fields:structuredClone(fields),actions:structuredClone(actions),dismissOnEmit:preset.dismissOnEmit};
   return {content,documents,behavior,provenance:{sessionSha256:session.sha256,contextSha256:session.context.sha256,intentVersion:intent.panelIntentVersion}};
 }
 
 export function actionPresetDocument(content,config,canvas,ctx) {
+  if(content.layoutBody)return customPanelDocument(content,config,canvas,ctx);
   const preset=config.presets[content.presetId],o=preset[canvas],board=ctx.canvases.presets[canvas],g=config.geometry;
   const padding=preset.surface==='dialog'?ctx.profile.padding:g.padding,bodyWidth=o.width-2*padding,nodes=[],policy=presentation(config.presentation),scrolling=preset.custom&&content.overflow==='scroll';
   if(scrolling&&ctx.binding.sourceKind==='imported'&&!ctx.scrollInsets)fail('scroll-insets');
   const pad=scrolling?scrollPadding(ctx.profile,ctx.scrollInsets??{left:0,right:0,top:0,bottom:0}):null;
   const w=scrolling?bodyWidth-pad.left-pad.right-ctx.profile.geometry.scrollbarWidth-ctx.profile.geometry.scrollbarGap:bodyWidth;
   const add=(id,type,props,width,height,slots={},extra={})=>{nodes.push({id,name:id,recipeRef:type+'@1.0.0',props,size:{width,height},slots,...extra});return id;};
-  const text=(id,value,height,wrap='word')=>add(id,'text',{text:value,textStyleRef:'body',wrap,overflow:'error'},w,height);
-  const children=[text('heading',content.title,g.headingHeight)];
+  const text=(id,value,height,wrap='word',surfaceStyle)=>{const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,height):{height};return add(id,'text',{text:value,textStyleRef:'body',wrap,overflow:'error'},w,style.height,{},style.surfaceStyle?{surfaceStyle:style.surfaceStyle}:{});};
+  const children=[text('heading',content.title,g.headingHeight,'word','title')];
   nodes[0].size.width=bodyWidth;
   nodes[0].props.align=policy.titleAlign;
-  if(policy.sectionHeading==='show')children.push(text('section-heading',content.sectionTitle,g.labelHeight));
+  if(policy.sectionHeading==='show')children.push(text('section-heading',content.sectionTitle,g.labelHeight,'word','section'));
   for(const f of content.fields) {
     if(f.type==='check-box'||f.type==='switch')children.push(add(f.id,f.type,{label:f.label,checked:f.type==='switch'?f.value:f.checked,enabled:f.enabled},w,f.type==='switch'?g.switchHeight:g.checkboxHeight));
     else {
@@ -88,7 +92,7 @@ export function actionPresetDocument(content,config,canvas,ctx) {
   }
   if(scrolling){
     const fields=children.splice(1),natural=fields.reduce((sum,id)=>sum+nodes.find(n=>n.id===id).size.height,0)+Math.max(0,fields.length-1)*g.gap;
-    const available=o.height-padding*2-g.headingHeight-g.gap-(content.actions.length?g.buttonHeight+g.gap:0);
+    const available=o.height-padding*2-nodes[0].size.height-g.gap-(content.actions.length?g.buttonHeight+g.gap:0);
     if(w<ctx.profile.geometry.minContent||available-pad.top-pad.bottom<ctx.profile.geometry.minContent)fail('scroll-capacity');
     const inner=add('scroll-content','container',{},w,Math.max(24,natural),{children:fields},{layout:{childrenMode:'flow',direction:'column',gap:g.gap,padding:0}});
     children.push(add('custom-scroll','scroll-view',{axis:'vertical',scrollbar:'auto'},bodyWidth,available,{content:[inner]}));

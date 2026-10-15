@@ -17,7 +17,7 @@ async function fixture(fn){
   const flow={version:'1.0',panels:[],phase:'processing',taskDirectory:'work/skin-tasks/fixture',localRecovery:{batchSha256:'digest',automaticStarts:1}};
   await writeFile(join(dir,'flow.json'),JSON.stringify(flow));
   await writeFile(join(dir,'auto-process.json'),JSON.stringify({version:'1.0',batchSha256:'digest'}));
-  const generation={resolve:()=>({directory:'work/project/batches/digest',batchSha256:'digest'}),action:async action=>{assert.equal(action,'status','automatic recovery must never submit generation');return {nodes:Array.from({length:4},()=>({status:'received'}))};}};
+  const generation={resolve:()=>({directory:'work/project/batches/digest',batchSha256:'digest'}),action:async action=>{assert.equal(action,'status','automatic recovery must never submit generation');return {nodes:['S01','S02','S03','S04'].map(sheetId=>({sheetId,status:'received'}))};}};
   const makePipeline=(inspectTasks=async()=>[{status:'incomplete',toolsMatch:true}])=>pipelineController(root,generation,{files:new Map(),items:[]},{inspectTasks,policy});
   const readFlow=async()=>JSON.parse(await readFile(join(dir,'flow.json')));
   const wait=async predicate=>{for(let i=0;i<300;i++){const f=await readFlow();if(predicate(f)&&(await localLockState(dir,'.processing.lock')).status==='free')return f;await new Promise(r=>setTimeout(r,20));}throw Error('flow timeout');};
@@ -71,6 +71,14 @@ test('specific slicing failure reaches the web flow without raw logs or automati
  assert.equal(localFailure({code:'metadata.slices-override-required: C:/private.png'}).message.includes('C:/private'),false);
  assert.equal(localFailure({code:'metadata.slices-override-required: item.selected',cause:{code:'task.artifact-changed'}}).code,'LOCAL_EVIDENCE_CHANGED');
 }));
+test('crop conflicts identify the affected asset without exposing arbitrary paths',()=>{
+ for(const reason of ['overlap','proposal-unresolved']){
+  const failure=localFailure({code:'metadata.'+reason+': surface.popup'});
+  assert.equal(failure.code,'LOCAL_QUALITY_CHECK');assert.equal(failure.retryable,false);
+  assert.match(failure.message,/surface.popup/);assert.match(failure.message,/无需重新生成/);
+  assert.equal(localFailure({code:'metadata.'+reason+': C:/private.png'}).message.includes('C:/private'),false);
+ }
+});
 test('changed tools and invalid evidence stop; completed old packages remain untouched',async()=>fixture(async f=>{
  for(const [task,code] of [[{status:'incomplete',toolsMatch:false},'LOCAL_TOOLS_CHANGED'],[{status:'invalid'},'LOCAL_EVIDENCE_CHANGED']]){
   const pipeline=f.makePipeline(async()=>[task]);assert.equal((await pipeline.processAutomatically('id')).status,'stopped');assert.equal((await f.readFlow()).errorCode,code);

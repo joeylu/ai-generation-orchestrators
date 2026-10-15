@@ -9,6 +9,11 @@ import {
 } from "@pixi/ui";
 import { fitText } from "./skin.mjs";
 
+// Display the normalized range while preserving the control's actual value.
+export function percentLabel(value, min, max) {
+  return `${Math.round(100 * Math.max(0, Math.min(1, (value - min) / (max - min))))}%`;
+}
+
 export function reflowLabel(text, value, width, height = 10000) {
   text.scale.set(1);
   text.text = String(value).replace(/\s+/g, " ");
@@ -121,7 +126,18 @@ export class OwnedInput extends Input {
   }
   createInputField() {
     super.createInputField();
-    if (this.input) this.input.readOnly = !!this.readOnly;
+    if (this.input) {
+      this.input.readOnly = !!this.readOnly;
+      const typography=this.options.nativeTypography;
+      if(typography?.fontSize!==undefined){
+        this.input.style.fontSize=typography.fontSize+'px';
+        this.input.style.fontFamily=typography.fontFamily;
+      }
+      if(typography?.textColor!==undefined){
+        this.input.style.color=typography.textColor;
+        this.input.style.caretColor=typography.textColor;
+      }
+    }
   }
 }
 
@@ -158,10 +174,10 @@ export class ContractSlider extends Slider {
   updateSlider() {
     super.updateSlider();
     if (!this.value1Text || !this._slider1 || !this.bg) return;
-    // Value labels must not protrude at min/max or round fractional values.
+    // Percentage labels must not protrude at either endpoint.
     const inset = this._slider1.width / 2,
       label = this.value1Text;
-    reflowLabel(label, String(this.value), this.bg.width + inset * 2);
+    reflowLabel(label, percentLabel(this.value, this.min, this.max), this.bg.width + inset * 2);
     label.x = Math.max(
       -inset + label.width / 2,
       Math.min(this.bg.width + inset - label.width / 2, label.x),

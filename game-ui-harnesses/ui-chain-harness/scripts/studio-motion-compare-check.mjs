@@ -32,7 +32,7 @@ try{
    switch(type){
     case 'Switch':case 'CheckBox':return s.checked===true;
     case 'RadioGroup':return s.selectedId===h.props.options[1].id;
-    case 'Input':return !!h.focusRing?.visible;
+    case 'Input':return s.value==='示例文字'&&!h.focusRing;
     case 'Select':return h.adapter.view.expanded;
     case 'Slider':return s.value===h.props.min+(h.props.max-h.props.min)*.8;
     case 'ProgressBar':return s.value===h.props.min+(h.props.max-h.props.min)*.9;

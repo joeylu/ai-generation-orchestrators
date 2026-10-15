@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>调整面板尺寸 · UI Studio</title>
+<link rel="stylesheet" href="/panel-size.css">
+<header>
+ <div class="editor-intro"><h1>画布编辑</h1><p>选中并拖动边角编辑，滚轮缩放，空格或中键平移。</p></div>
+ <label>版本<select id="variant" disabled></select></label>
+ <div class="tools"><button id="undo" title="撤销：Ctrl+Z / ⌘Z" aria-keyshortcuts="Control+Z Meta+Z" disabled>撤销</button><button id="redo" title="重做：Ctrl+Shift+Z / Ctrl+Y / ⌘⇧Z" aria-keyshortcuts="Control+Shift+Z Control+Y Meta+Shift+Z" disabled>重做</button><button id="reset" disabled>恢复生成布局</button><button id="mode" disabled>试玩</button><button id="download" disabled>下载 JSON</button><button id="save" class="primary" disabled>保存编辑副本</button></div>
+</header>
+<p id="message" role="status" aria-live="polite">正在读取已验证的面板…</p>
+<main id="editor-layout">
+ <aside id="tree-panel" class="tree-panel"><h2>选择面板或控件</h2><p class="muted tree-hint">画布点选；Alt + 点击可选择后方层级。</p><div id="tree" role="group" aria-label="面板组件"></div></aside>
+ <section class="preview">
+  <div class="preview-tools">
+   <div class="view-controls"><button id="toggle-tree" aria-controls="tree-panel" aria-expanded="true">图层</button><button id="toggle-properties" aria-controls="properties-panel" aria-expanded="true">属性</button><button id="focus-mode" aria-pressed="false">专注画布</button><span id="canvas-info"></span></div>
+   <div class="zoom-controls"><button id="pan-tool" aria-pressed="false" title="平移画布，也可按住空格或中键拖动">平移</button><button id="focus-selection">聚焦选中</button><button id="fit">整张画布</button><button id="zoom-out" aria-label="缩小画布">−</button><span id="zoom-label">100%</span><button id="zoom-in" aria-label="放大画布">+</button></div>
+  </div>
+  <div id="viewport" tabindex="-1" aria-label="面板编辑画布" data-mode="edit">
+   <div id="world"><div id="selection" hidden>
+    <button id="selection-move" type="button" tabindex="-1" title="拖动移动所选节点"></button>
+    <button type="button" tabindex="-1" data-resize="nw" aria-label="拖动左上角调整大小"></button><button type="button" tabindex="-1" data-resize="n" aria-label="拖动上边调整高度"></button><button type="button" tabindex="-1" data-resize="ne" aria-label="拖动右上角调整大小"></button><button type="button" tabindex="-1" data-resize="e" aria-label="拖动右边调整宽度"></button><button type="button" tabindex="-1" data-resize="se" aria-label="拖动右下角调整大小"></button><button type="button" tabindex="-1" data-resize="s" aria-label="拖动下边调整高度"></button><button type="button" tabindex="-1" data-resize="sw" aria-label="拖动左下角调整大小"></button><button type="button" tabindex="-1" data-resize="w" aria-label="拖动左边调整宽度"></button>
+   </div></div>
+   <p class="camera-hint">滚轮缩放 · 空格 / 中键平移</p>
+  </div>
+ </section>
+ <aside id="properties-panel" class="properties"><h2 id="node-title">请选择组件</h2><p id="node-type" class="muted"></p>
+  <form id="text-form" novalidate hidden><h3>文字与样式</h3><div id="text-fields"></div><div id="font-style-controls" hidden><label>字号<input id="font-size" type="number" min="12" max="96" step="1" disabled></label><label class="style-default"><input id="font-default" type="checkbox" checked disabled>使用皮肤默认字号</label><label for="text-color-hex">文字颜色</label><div class="color-fields"><input id="text-color" type="color" aria-label="选择文字颜色" disabled><input id="text-color-hex" type="text" aria-label="文字颜色 HEX" placeholder="皮肤自动" autocomplete="off" spellcheck="false" disabled></div><label class="style-default"><input id="color-default" type="checkbox" checked disabled>使用皮肤自动配色</label><p class="muted">字号范围 12–96。颜色可选取或输入 #RRGGBB；样式作用于当前控件的文字。</p></div><button id="apply-text" class="primary" disabled>应用文字</button><p id="text-feedback" role="status" aria-live="polite"></p><p class="muted text-scope">文字或字号放不下时，请先扩大控件。保存编辑副本后，面板预览会同步更新。</p></form>
+  <form id="size-form"><div class="position-fields"><label>位置 X<input id="x" type="number" step="any" disabled></label><label>位置 Y<input id="y" type="number" step="any" disabled></label></div><p id="position-hint" class="muted"></p><label>宽度<input id="width" type="number" min="24" max="16384" step="any" disabled></label><label>高度<input id="height" type="number" min="24" max="16384" step="any" disabled></label><p id="size-hint" class="muted"></p><button id="apply" class="primary" disabled>应用到画布</button><p id="apply-scope" class="muted">应用仅更新当前草稿。保存编辑副本后，返回面板预览即可查看。</p></form>
+  <div class="layout-tools"><button id="free-layout" disabled>切换为自由布局</button><p id="layout-hint" class="muted"></p></div>
+  <p class="muted">画布比例固定。布局、文字或皮肤安全检查未通过时，保留上一次有效结果。拖动中按 Esc 可取消。</p><p id="saved-state" class="muted"></p>
+ </aside>
+</main>
+<script type="module" src="/panel-size.mjs"></script>
+</html>

@@ -5,7 +5,7 @@ import {defaults} from '../contracts/build.mjs';
 import {readContracts} from '../contracts/validate.mjs';
 import {inspectGenerationBatch} from './batch-intake.mjs';
 import {requestFor} from './batch-runner.mjs';
-import {receiveAttempt} from './attempt.mjs';
+import {receiveAttempt,recoverReturnedAttempt} from './attempt.mjs';
 import {recoveryCandidates,verifySupplementRecovery} from './supplement-recovery.mjs';
 import {loadRelayRequest} from '../../../ui-reference-harness/web/adapters/codex-relay-contract.mjs';
 import {findRelayLog,readRelayWindow,relayOutputs,verifyRelayAudit} from '../../../ui-reference-harness/web/adapters/codex-relay-session.mjs';
@@ -53,6 +53,11 @@ export async function recoverCodexSheet({skinDirectory,batchSha256,sheetId,relay
   const c=await readContracts(contracts),inspectArgs={skinDirectory,batchSha256,templateSha256:hash(c.bytes.template),sheets:c.template.sheets},intake=await inspectGenerationBatch(inspectArgs);
   const node=intake.summary.nodes.find(n=>n.sheetId===sheetId);
   if(!node||node.status!=='indeterminate'||!node.outcomeRecorded)throw Error('recovery.indeterminate-sheet-required');
+  const recorded=intake.evidence.find(e=>e.file===`attempts/${node.planSha256}/external-result.json`);
+  if(recorded&&JSON.parse(recorded.bytes).status==='returned'){
+    const received=await recoverReturnedAttempt({planDirectory:join(skinDirectory,'plans',node.planSha256),planSha256:node.planSha256,directory:join(skinDirectory,'attempts',node.planSha256)});
+    return {sheetId,recovered:true,providerCalls:0,automaticRetry:false,...received};
+  }
   const candidate=await findRecoverableCodexImage({intake,node,relayRoot,home});
   if(!candidate)throw Error('recovery.no-verified-image');
   // A new replacement or receipt created during verification invalidates this operation.

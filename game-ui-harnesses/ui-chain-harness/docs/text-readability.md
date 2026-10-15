@@ -23,6 +23,8 @@
 - 透明宿主、自定义背景、混色纹理、遮挡、hover tint 或 disabled alpha 仍需合成结果复核。运行时 evidence 的 `compositingReview` 标记透明度或染色情况，不把普通状态的检查结果等同于这些状态已通过。
 - 没有引入 Codex session 或人工视觉查看的强制生产依赖，也不声称已经实现任意画面的视觉质量保证。
 
+Studio 的本地画布编辑副本另支持作者为单个节点指定 `fontSize` 与 `textColor`，不修改上述冻结主题、PNG、报告或清单。字号沿用同源尺寸及真实字体检查；显式颜色忠实应用于当前控件自己的所有文字与状态，优先于皮肤自动字色，子控件保留自己的策略。运行时将这类证据标记为 `colorSource: node-override` 和 `compositingReview: true`，不把原皮肤采样的 `passed` 归给自选颜色。勾选恢复默认删除节点覆盖，重新使用原角色颜色。这属于用户编辑及视觉验收，未重新生成皮肤的对比度报告。
+
 ## 产物与旧包
 
 `skin-pack.json` 保存正式字色。导入报告、组件消费包、设置/action 面板预览均带 `text-readability.json` 或对应报告字段。Studio 新包画布显示待复核状态数量，并提供报告入口；独立导出和面板使用同一个运行时。

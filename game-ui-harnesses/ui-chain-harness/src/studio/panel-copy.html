@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>已保存面板预览 · UI Studio</title>
+<link rel="stylesheet" href="/panel-copy.css">
+<header>
+ <div class="identity"><h1>面板预览</h1><p id="revision-info">正在读取已保存结果…</p></div>
+ <label>版本<select id="variant" disabled aria-label="面板预览版本"></select></label>
+ <div class="tools"><button id="reopen" disabled>重新打开</button><button id="fit" disabled>整张画布</button></div>
+ <span id="canvas-info"></span>
+</header>
+<p id="message" role="status" aria-live="polite">正在读取已验证的面板…</p>
+<main id="viewport" aria-label="面板试玩预览"><div id="world" hidden></div></main>
+<script type="module" src="/panel-copy.mjs"></script>
+</html>

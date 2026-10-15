@@ -1,8 +1,8 @@
 # 本地画布编辑器：使用与维护
 
-当前提供基于程序皮肤的桌面编辑验收版本。全部 16 类组件复用同一套 PixiUI/PixiJS/Layout 适配；编辑器工具栏和属性表单使用 DOM。三段 Harness 的真实皮肤生产与首次 AI 面板生成尚未接入。阶段和验收状态继续只维护在 [执行文档](execution-plan.md)。
+本文记录独立 fixture 编辑器的使用与维护，主要对应下方 `npm run editor` 入口。全部 16 类组件复用同一套 PixiUI/PixiJS/Layout 适配；工具栏和属性表单使用 DOM。当前 Studio 已另接真实皮肤生产、AI 面板生成与保存编辑副本，使用方法见[本地 Studio](local-studio.md)及[面板画布编辑](panel-size-editor.md)，全链路人工验收见[验收指南](acceptance.md)。
 
-按用户最新决定，画布进一步打磨与人工验收暂缓，现有功能与反馈保留。以下是当前候选的操作说明，不代表要求现在继续验收；下一批建议顺序见执行文档 10.3。
+早期阶段的暂缓决定及检查次数仅保留在[执行记录](execution-plan.md)，不代表当前 Studio 的实现状态或本次接受结论。下文的 fixture 入口、JSON 保存方式与 Studio 副本存储是各自独立的用途。
 
 ## 启动
 
@@ -51,7 +51,7 @@ npm run editor
 
 ## 文档、事务与导出
 
-[PanelDocument Schema](../schemas/panel-document.schema.json) 支持 0.1 和 0.2：画布预设、稳定 ID、配方引用、props、size、layout、position、锁定状态和命名 slots；0.2 增加可选 panelBackgrounds，保存可移植的 Panel 背景原图和切线。节点最多 256 个、嵌套最多 16 层；单一所有权、无环、无孤立节点。导入文件上限 12 MiB，背景资源限制见九宫格维护。结构必须匹配当前工程的模板/组件/皮肤/字体依赖摘要；错版明确拒绝，迁移工具未实现。
+[PanelDocument Schema](../schemas/panel-document.schema.json) 支持 0.1、0.2 和 0.3：画布预设、稳定 ID、配方引用、props、size、layout、position、锁定状态和命名 slots；0.2 增加可移植 panelBackgrounds，0.3 增加增强布局、sizing 与 surfaceStyle。节点最多 256 个、嵌套最多 16 层；单一所有权、无环、无孤立节点。此 fixture 编辑器的导入上限为 12 MiB，背景资源限制见九宫格维护。结构必须匹配对应工程绑定；错版明确拒绝，通用迁移工具未实现。
 
 `src/panel/document.mjs` 负责结构与引用校验；`prepare.mjs` 获取通过摘要校验的背景资源；`compiler.mjs` 后序创建完整内容树，复用 `src/runtime/`，并检查实际布局边界。`session.mjs` 在候选文档和候选渲染都通过之后提交；旧视图最后销毁，再释放它持有的资源。拖动释放只提交一次，撤销历史最多 100 步；过期 revision 与并发编辑拒绝。
 
@@ -61,4 +61,4 @@ List 可使用旧的 Button 数据行，或通过 items 槽显式提供任意已
 
 编辑相机使用独立的 DOM 视图变换，逻辑坐标转换集中在编辑器；没有增加 pixi-viewport 依赖。@pixi/layout 继续负责面板流式与绝对布局，PixiUI 负责控件交互。此方案满足当前桌面平移/缩放需要；需要触摸双指或更复杂相机时再接 viewport，避免与控件滚动争抢输入。
 
-真实 IME、移动键盘/触摸、跨主题美术接受、生产字体/皮肤交付和 AI 初稿仍分别属于后续验收，不能由本地软件浏览器通过推断完成。
+真实 IME、移动键盘/触摸和跨主题美术接受仍需相应设备与人工检查。Studio 的真实字体/皮肤交付及 AI 初稿已接通，但不能由 fixture 编辑器的软件浏览器通过推断其实际生成质量；按[验收指南](acceptance.md)分别记录。

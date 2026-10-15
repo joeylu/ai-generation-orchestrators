@@ -1,0 +1,34 @@
+{
+  "kind": "ui_panel_sdk_lock",
+  "version": "1.0",
+  "name": "ai-ui-panel-harness",
+  "packageVersion": "0.1.0-rc.8",
+  "tag": "ui-panel-harness-v0.1.0-rc.8",
+  "repository": "https://github.com/joeylu/ai-generation-orchestrators",
+  "commit": "514bc98c9bcf699e094e7d9b4bfb0ab9474c79ff",
+  "archive": {
+    "file": "ai-ui-panel-harness-0.1.0-rc.8.zip",
+    "url": "https://github.com/joeylu/ai-generation-orchestrators/releases/download/ui-panel-harness-v0.1.0-rc.8/ai-ui-panel-harness-0.1.0-rc.8.zip",
+    "bytes": 5004044,
+    "sha256": "94163e227a3f924f84fe41adbea9470e151bcafc4069a7d1a1051f7a77fb49b6"
+  },
+  "receipt": {
+    "file": "release-receipt.json",
+    "url": "https://github.com/joeylu/ai-generation-orchestrators/releases/download/ui-panel-harness-v0.1.0-rc.8/release-receipt.json",
+    "bytes": 1533,
+    "sha256": "f6588a8f9ed00c2d8cdd1806f6cbf85140814a3b9e2f8910253846ef15011b60"
+  },
+  "checksums": {
+    "file": "SHA256SUMS",
+    "url": "https://github.com/joeylu/ai-generation-orchestrators/releases/download/ui-panel-harness-v0.1.0-rc.8/SHA256SUMS",
+    "bytes": 1185,
+    "sha256": "bf780a555e27600796d61a222e55cfe17f2cce4d8c0f7d1ab157a99450ca6010"
+  },
+  "manifest": {
+    "file": "release-manifest.json",
+    "bytes": 47309,
+    "sha256": "6b3df8eb7c993d19d78c8a03cb8068b41b4f29e260575c26604b0ebbc25c41f4",
+    "files": 332
+  },
+  "packageFiles": 334
+}

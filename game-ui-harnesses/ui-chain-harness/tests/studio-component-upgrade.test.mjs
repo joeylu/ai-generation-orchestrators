@@ -4,7 +4,17 @@ import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {hash,json} from '../src/skins/package.mjs';
-import {upgradedConsumer} from '../src/studio/component-upgrade.mjs';
+import {upgradedConsumer,frozenUpgradeContracts} from '../src/studio/component-upgrade.mjs';
+
+test('runtime upgrades select complete frozen contracts by exact original skin digests',()=>{
+ const keys=['registry','usage','template'],bindings=Object.fromEntries(keys.map((k,i)=>[k+'Sha256',String(i+1).repeat(64)]));
+ const inputs=keys.map(k=>({file:'work/task/input/generation/plans/frozen/inputs/'+k+'.json',sha256:bindings[k+'Sha256']}));
+ const selected=frozenUpgradeContracts(inputs,bindings);
+ for(const key of keys)assert.equal(selected[key],inputs.find(f=>f.file.endsWith('/'+key+'.json')).file);
+ assert.throws(()=>frozenUpgradeContracts(inputs.slice(1),bindings),/CONTRACTS/);
+ assert.throws(()=>frozenUpgradeContracts(inputs.map(f=>({...f,sha256:'0'.repeat(64)})),bindings),/CONTRACTS/);
+ assert.throws(()=>frozenUpgradeContracts(inputs.map(f=>({...f,file:'work/../private/inputs/registry.json'})),bindings),/CONTRACTS/);
+});
 
 test('runtime selection requires unchanged source, same skin and a check bound to the new consumer',async()=>{
  const root=await mkdtemp(join(tmpdir(),'studio-upgrade-')),skinSha256='a'.repeat(64);

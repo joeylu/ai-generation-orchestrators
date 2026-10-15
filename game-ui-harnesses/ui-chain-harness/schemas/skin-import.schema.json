@@ -35,6 +35,8 @@
         "imported"
       ]
     },
+    "surfaceStyles": { "type": "object" },
+    "materials": { "type": "array", "maxItems": 32, "items": { "type": "object" } },
     "theme": {
       "$ref": "runtime-theme"
     },

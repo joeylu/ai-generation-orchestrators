@@ -38,6 +38,11 @@ await mkdir(join(dir,'fonts'));
 for(const m of css.matchAll(/@font-face\s*\{([^}]+)\}/g)){const f=m[1].match(/url\(\.\/files\/([^)]*\.woff2)\)/)?.[1],range=m[1].match(/unicode-range:\s*([^;]+);/)?.[1];if(!f||!range)throw Error('Font metadata changed');const b=await readSafe(fontRoot,'files/'+f);await writeFile(join(dir,'fonts',f),b,{flag:'wx'});fonts.push({family:config.theme.fontFamily,weight:400,style:'normal',unicodeRange:range.replaceAll(' ',''),file:'fonts/'+f});}
 await writeFile(join(dir,'font-license.txt'),await readSafe(fontRoot,'LICENSE'),{flag:'wx'});
 const spec={kind:'ui_skin_import',version:'0.1',id:config.id,revision:config.revision,sourceKind:'imported',theme:config.theme,sheets:template.sheets.map(s=>({sheetId:s.id,file:s.id+'.png'})),parts:Object.fromEntries(ids.map(id=>[id,config.parts[id].metadata])),fonts,licenses:[{file:'font-license.txt'}]};
+if(config.surfaceStyles)spec.surfaceStyles=structuredClone(config.surfaceStyles);
+if(config.materials){
+  const copied=new Map();spec.materials=[];
+  for(const material of config.materials){const raw=await readSafe(base,material.file);if(hash(raw)!==material.sha256)throw Error('Material source digest changed.');const file='material-inputs/'+material.sha256+'.png';if(!copied.has(file)){await mkdir(join(dir,'material-inputs'),{recursive:true});await writeFile(join(dir,file),raw,{flag:'wx'});copied.set(file,true);}spec.materials.push({...material,file});}
+}
 await writeFile(join(dir,'skin-import.json'),json(spec),{flag:'wx'});
 await writeFile(join(dir,'assembly-report.json'),json({kind:'ui_skin_assembly',inputSha256:hash(bytes),templateSha256:config.templateSha256,operations,edgeRepair:false,visualAcceptance:'unreviewed'}),{flag:'wx'});
 if(hash(await readSafe(base,configPath.slice(base.length+1)))!==hash(bytes))throw Error('Assembly config changed');

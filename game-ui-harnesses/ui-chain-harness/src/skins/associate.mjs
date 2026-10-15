@@ -11,6 +11,8 @@ function union(rects){
 // disconnected decoration is retained regardless of its size. No area cutoff.
 export function associateSheet(image,location,policy){
   if(policy.version!=='1.0'||policy.automaticAcceptance!==false||!Number.isInteger(policy.weakComponentMaxAlpha)||policy.weakComponentMaxAlpha<0||policy.weakComponentMaxAlpha>254||!Number.isFinite(policy.attachmentGapLogicalPixels)||policy.attachmentGapLogicalPixels<0||policy.attachmentGapLogicalPixels>32)throw Error('locate.policy');
+  const fringeMaxAlpha=policy.attachedFringeMaxAlpha??policy.weakComponentMaxAlpha;
+  if(policy.attachedFringeMaxAlpha!==undefined&&(!Number.isInteger(policy.attachedFringeMaxAlpha)||fringeMaxAlpha<policy.weakComponentMaxAlpha||fringeMaxAlpha>32))throw Error('locate.fringe-policy');
   if(location.status==='unsupported')return{status:'unsupported',parts:[],assemblyReady:false};
   const rule=policy.primaryOwnership;
   if(rule&&(![rule.minimumPixelFraction,rule.minimumAlphaFraction].every(n=>Number.isFinite(n)&&n>0.5&&n<=1)||!Number.isFinite(rule.maximumOtherSlotFraction)||rule.maximumOtherSlotFraction<0||rule.maximumOtherSlotFraction>=0.5))throw Error('locate.ownership-policy');
@@ -24,9 +26,22 @@ export function associateSheet(image,location,policy){
     const candidates=distribution.filter(s=>s.pixelFraction>=rule.minimumPixelFraction&&s.alphaFraction>=rule.minimumAlphaFraction&&distribution.filter(t=>t!==s).every(t=>t.pixelFraction<=rule.maximumOtherSlotFraction&&t.alphaFraction<=rule.maximumOtherSlotFraction));
     return{componentId:c.id,primary:candidates.length===1?candidates[0].assetId:null,touched:distribution.map(s=>s.assetId),method:'actual-component-pixels',distribution,outsidePixels:c.pixels-c.slotDistribution.reduce((n,s)=>n+s.nonzeroPixels,0),outsideAlphaSum:c.alphaSum-c.slotDistribution.reduce((n,s)=>n+s.alphaSum,0)};
   });
+  // A faint detached fringe can belong to a body without becoming a second body.
+  // This is a direct, uniquely owned attachment, never an opacity deletion or a
+  // chain of fragments that could bridge two controls. Legacy policies opt out.
+  const fringeAssignments=[],fringeIds=new Set(),primary=new Map(ownership.map(o=>[o.componentId,o.primary]));
+  const bodies=strong.filter(c=>c.maxAlpha>fringeMaxAlpha),maximumGapPixels=policy.attachmentGapLogicalPixels*location.scale;
+  for(const c of strong.filter(c=>c.maxAlpha<=fringeMaxAlpha)){
+    const owner=primary.get(c.id);if(!owner)continue;
+    const sameSlot=bodies.filter(b=>primary.get(b.id)===owner);
+    if(sameSlot.length!==1)continue;
+    const nearby=bodies.filter(b=>gap(b.rect,c.rect)<=maximumGapPixels);
+    if(nearby.length!==1||nearby[0].id!==sameSlot[0].id)continue;
+    fringeIds.add(c.id);fringeAssignments.push({componentId:c.id,anchorComponentId:sameSlot[0].id,assetId:owner,maxAlpha:c.maxAlpha,alphaSum:c.alphaSum,gapPixels:gap(sameSlot[0].rect,c.rect),maximumGapPixels,method:'bounded-low-alpha-neighbor'});
+  }
   const parts=location.parts.map(p=>{
     const assigned=ownership.filter(o=>o.primary===p.assetId).map(o=>o.componentId);
-    const anchors=strong.filter(c=>assigned.includes(c.id));
+    const anchors=strong.filter(c=>assigned.includes(c.id)&&!fringeIds.has(c.id));
     const conflicts=strong.filter(c=>ownership.some(o=>o.componentId===c.id&&!o.primary&&o.touched.includes(p.assetId)));
     const foreign=ownership.filter(o=>o.primary&&o.primary!==p.assetId&&o.touched.includes(p.assetId)).map(o=>o.componentId);
     const issues=[];
@@ -35,7 +50,7 @@ export function associateSheet(image,location,policy){
     if(conflicts.length)issues.push('shared-substantial-component');
     if(anchors.some(c=>!inside(p.slot,c.rect)))issues.push('substantial-crosses-slot');
     if(foreign.length)issues.push('foreign-component-in-slot');
-    return{assetId:p.assetId,slot:p.slot,anchorComponentIds:anchors.map(c=>c.id),anchorRect:union(anchors.map(c=>c.rect)),attachedWeakComponentIds:[],conflictComponentIds:conflicts.map(c=>c.id),foreignComponentIds:foreign,issues};
+    return{assetId:p.assetId,slot:p.slot,anchorComponentIds:anchors.map(c=>c.id),anchorRect:union(anchors.map(c=>c.rect)),attachedWeakComponentIds:[],attachedFringeComponentIds:fringeAssignments.filter(f=>f.assetId===p.assetId).map(f=>f.componentId),conflictComponentIds:conflicts.map(c=>c.id),foreignComponentIds:foreign,issues};
   });
   const unresolvedWeak=[];
   for(const c of weak){
@@ -45,7 +60,7 @@ export function associateSheet(image,location,policy){
     else unresolvedWeak.push({componentId:c.id,reason:matches.length?'multiple-anchor-groups':'no-nearby-anchor'});
   }
   for(const p of parts){
-    p.proposedCrop=p.anchorRect&&!p.conflictComponentIds.length?union([...p.anchorComponentIds,...p.attachedWeakComponentIds].map(id=>location.components[id].rect)):null;
+    p.proposedCrop=p.anchorRect&&!p.conflictComponentIds.length?union([...p.anchorComponentIds,...p.attachedWeakComponentIds,...p.attachedFringeComponentIds].map(id=>location.components[id].rect)):null;
     if(p.proposedCrop&&!inside(p.slot,p.proposedCrop))p.issues.push('proposal-crosses-slot');
     p.status=p.proposedCrop?'proposal-needs-review':'unresolved';
     delete p.anchorRect;
@@ -65,5 +80,5 @@ export function associateSheet(image,location,policy){
     else{accounting.outsideNonzeroPixels++;accounting.outsideAlphaSum+=alpha;}
     for(const p of parts)if(hit(p.slot)&&!hit(p.proposedCrop)){p.outsideProposalWithinSlot.nonzeroPixels++;p.outsideProposalWithinSlot.alphaSum+=alpha;}
   }
-  return{status:'needs-review',parts,ownership,unresolvedWeak,unassignedSubstantialComponentIds:ownership.filter(o=>!o.primary).map(o=>o.componentId),accounting,assemblyReady:false,semanticIdentity:'not-verified',pixelsModified:false};
+  return{status:'needs-review',parts,ownership,fringeAssignments,unresolvedWeak,unassignedSubstantialComponentIds:ownership.filter(o=>!o.primary).map(o=>o.componentId),accounting,assemblyReady:false,semanticIdentity:'not-verified',pixelsModified:false};
 }

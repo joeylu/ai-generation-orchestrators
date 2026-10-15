@@ -18,7 +18,8 @@ export async function initializeActions(data){
     const size=data.ctx.canvases.presets[canvas];app.renderer.resize(size.width,size.height);
     const preset=data.presets[index];
     scene=compilePanel(preset.documents[canvas],data.ctx,{app,skin,onEvent:e=>{
-      if(states[index][e.nodeId])states[index][e.nodeId]=scene.runtime.handles.get(e.nodeId).readState();
+      const value=scene.runtime.handles.get(e.nodeId)?.readState();
+      if(value&&Object.keys(value).length)states[index][e.nodeId]=value;
       if(e.event==='activate'&&preset.behavior.actions.some(a=>a.id===e.nodeId)){
         lastResult=applyPresetAction(preset.behavior,e.nodeId,states[index]);states[index]=lastResult.state;
         for(const[id,value]of Object.entries(states[index]))scene.runtime.handles.get(id).setState(value);

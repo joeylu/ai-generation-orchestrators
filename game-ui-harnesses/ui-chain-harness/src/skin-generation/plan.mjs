@@ -9,6 +9,7 @@ import { defaultOutput, templateStatus } from '../templates/build.mjs';
 import { deriveModelProjection } from '../templates/catalog.mjs';
 import { hash, json, readSafe, bindingsOf } from '../skins/package.mjs';
 import { decodePng } from '../skins/png.mjs';
+import {readMaterialTemplate,materialGeometry,materialTemplateImages,compileMaterialPrompt,validateMaterialTemplate} from './material-template.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const styleSchema = await readFile(join(root, 'schemas/skin-style.schema.json'));
@@ -32,11 +33,12 @@ async function inputBytes(path, limit) {
   if (!info.isFile() || info.size < 1 || info.size > limit) fail('Expected a bounded regular input file.');
   return readFile(path);
 }
-async function toolIdentity() {
+async function toolIdentity(material = false) {
   const names = ['src/skin-generation/plan.mjs', 'schemas/skin-style.schema.json', 'src/templates/catalog.mjs',
     'src/templates/build.mjs', 'src/templates/contract.mjs', 'src/contracts/validate.mjs', 'src/contracts/props.mjs',
     'src/skins/package.mjs', 'src/skins/contract.mjs', 'src/skins/png.mjs', 'package-lock.json',
     'schemas/skin-template-set.schema.json', 'schemas/component-registry.schema.json', 'schemas/skin-usage.schema.json'];
+  if(material)names.push('src/skin-generation/material-template.mjs','configs/material-template.json');
   const files = [];
   for (const file of names.sort()) files.push(record(file, await readFile(join(root, file))));
   return { sha256: hash(json(files)), files };
@@ -51,7 +53,7 @@ function compilePrompt(style, geometry) {
     'Do not render text, labels, IDs, numbers, guides, grids, functional icons, scenes or ornamental extra objects. Do not rotate, rearrange, merge, crop, resize or omit parts.',
     'Tracks must be empty tracks. Thumbs must be separate isolated thumbs. A track must never contain a knob, slider thumb or filled progress segment. The full-length bar.fill is a separate asset.',
     'Keep same-family states aligned with the same silhouette. Depict pressed states with shading inside the original bounds, not by shifting or resizing the geometry.',
-    'For horizontal/vertical stretch parts, keep endcaps distinct and central material simple and continuous along the stretch axis; no motifs or long lighting gradients that would distort when stretched.',
+    'For horizontal/vertical stretch parts, keep endcaps distinct and central material simple and continuous along the stretch axis; no large motifs or long lighting gradients in the stretchable center. For surface.bar, paint a finished title-strip material with subtle paper, silk, stone or other reference-specific surface detail. Place richer ornamental accents inside its fixed endcaps, preserving the geometry and a readable central text area. Decorative material detail inside an assigned part is allowed; extra objects outside parts remain forbidden.',
     `Output: one ${geometry.coordinates.width * geometry.coordinates.outputScale} x ${geometry.coordinates.height * geometry.coordinates.outputScale} PNG with real continuous alpha.`,
     'STYLE DATA (observedRules describe the reference; extensionRules and partRules are proposed adaptations for the new parts):',
     json(style),
@@ -83,20 +85,21 @@ function review(plan, style) {
 
 /** Read-only planning w.r.t. providers. Copies inputs unchanged into a private, immutable bundle. */
 export async function prepareGenerationPlan({ reference, style: stylePath, output, sheetId = 'S03', contracts = defaults, templateOutput = defaultOutput }) {
-  const source = await readContracts(contracts), bindings = bindingsOf(source), tool = await toolIdentity();
-  const status = await templateStatus({ config: contracts.template, output: templateOutput });
-  if (status.status !== 'current') fail('Rebuild/repair the template PNGs before preparing a plan.');
-  const selected = source.template.sheets.find(s => s.id === sheetId);
+  const material=sheetId==='S05',materialTemplate=material?await readMaterialTemplate():null;
+  const source = await readContracts(contracts), bindings = {...bindingsOf(source),...(material?{materialTemplateSha256:materialTemplate.sha256}:{})}, tool = await toolIdentity(material);
+  const status = material?null:await templateStatus({ config: contracts.template, output: templateOutput });
+  if (!material&&status.status !== 'current') fail('Rebuild/repair the template PNGs before preparing a plan.');
+  const selected = material?materialTemplate.sheet:source.template.sheets.find(s => s.id === sheetId);
   if (!selected) fail('Unknown sheet ID.');
   const styleBytes = await inputBytes(stylePath, 256 * 1024), style = JSON.parse(styleBytes);
   if (!validateStyle(style)) fail('Invalid style draft. Check skin-style.schema.json.');
-  const assetIds = source.template.sheets.flatMap(s => s.parts.map(p => p.assetId));
+  const assetIds = [...source.template.sheets.flatMap(s => s.parts.map(p => p.assetId)),...(material?selected.parts.map(p=>p.assetId):[])];
   for (const rule of style.partRules) if (!assetIds.some(id => matches(rule, id))) fail('A style rule matches no active template asset.');
   const referenceBytes = await inputBytes(reference, 32 * 1024 * 1024), referenceImage = decodePng(referenceBytes);
-  const buildDir = join(templateOutput, 'builds', status.buildId);
-  const clean = await readSafe(buildDir, selected.filePrefix + '.clean.png');
-  const numbered = await readSafe(buildDir, selected.filePrefix + '.review.png');
-  const model = deriveModelProjection(source.template, bindings.templateSha256);
+  const buildDir = material?null:join(templateOutput, 'builds', status.buildId),materialImages=material?materialTemplateImages(materialTemplate.spec):null;
+  const clean = material?materialImages.clean:await readSafe(buildDir, selected.filePrefix + '.clean.png');
+  const numbered = material?materialImages.review:await readSafe(buildDir, selected.filePrefix + '.review.png');
+  const model = material?materialGeometry(materialTemplate.spec,materialTemplate.sha256):deriveModelProjection(source.template, bindings.templateSha256);
   const geometry = { ...model, scope: 'Single-sheet geometry; exact placement is a validation requirement, not a model capability guarantee.', sheets: model.sheets.filter(s => s.id === sheetId) };
   const width = model.coordinates.width * model.coordinates.outputScale, height = model.coordinates.height * model.coordinates.outputScale;
   const decoded = decodePng(clean);
@@ -105,14 +108,16 @@ export async function prepareGenerationPlan({ reference, style: stylePath, outpu
     ['reference.png', referenceBytes], ['template.clean.png', clean], ['template.review.png', numbered],
     ['inputs/style.json', styleBytes], ['inputs/template.json', source.bytes.template],
     ['inputs/registry.json', source.bytes.registry], ['inputs/usage.json', source.bytes.usage],
-    ['geometry.json', Buffer.from(json(geometry))], ['prompt.txt', Buffer.from(compilePrompt(style, geometry))],
+    ['geometry.json', Buffer.from(json(geometry))], ['prompt.txt', Buffer.from(material?compileMaterialPrompt(style,geometry):compilePrompt(style, geometry))],
   ]);
+  if(material)resources.set('inputs/material-template.json',materialTemplate.bytes);
   const plan = {
     kind: 'ui_skin_generation_plan', version: '0.1', status: 'awaiting-style-and-compute-confirmation', computeAuthorized: false,
+    ...(material?{purpose:'material-atlas'}:{}),
     style: { id: style.id, revision: style.revision, status: style.status }, bindings, tool,
     reference: { file: 'reference.png', width: referenceImage.width, height: referenceImage.height, role: 'style-only' },
     sheetId, assetCount: selected.parts.length,
-    parts: selected.parts.map(({ assetId, bodyRect, stretch }) => ({ assetId, bodyRect, stretch })),
+    parts: selected.parts.map(({ assetId, bodyRect, slotRect, stretch }) => ({ assetId, bodyRect, stretch,...(material?{slotRect}:{}) })),
     request: { images: 1, width, height, format: 'png', transparentBackground: true,
       inputImages: [{ file: 'reference.png', role: 'style-only' }, { file: 'template.clean.png', role: 'exact-geometry' }],
       promptFile: 'prompt.txt', geometryFile: 'geometry.json' },
@@ -134,8 +139,9 @@ export async function prepareGenerationPlan({ reference, style: stylePath, outpu
   }
   // Do not publish a mixture of edited source files or a replaced template build.
   if (hash(await inputBytes(reference, 32 * 1024 * 1024)) !== hash(referenceBytes) || hash(await inputBytes(stylePath, 256 * 1024)) !== hash(styleBytes)) fail('Reference/style changed during planning.');
-  const after = await templateStatus({ config: contracts.template, output: templateOutput });
-  if (after.status !== 'current' || after.buildId !== status.buildId) fail('Template build changed during planning.');
+  if(material){if((await readMaterialTemplate()).sha256!==materialTemplate.sha256)fail('Material template changed during planning.');}
+  else{const after = await templateStatus({ config: contracts.template, output: templateOutput });
+    if (after.status !== 'current' || after.buildId !== status.buildId) fail('Template build changed during planning.');}
   await verifyGenerationPlan({ directory: staging, planSha256, contracts });
   try { await rename(staging, directory); }
   catch (e) {
@@ -152,11 +158,18 @@ export async function verifyGenerationPlan({ directory, planSha256, contracts = 
   if (hash(bytes) !== planSha256) fail('Plan digest mismatch.');
   const plan = JSON.parse(bytes);
   if (plan.kind !== 'ui_skin_generation_plan' || plan.version !== '0.1' || plan.computeAuthorized !== false) fail('Invalid planning record.');
+  const material=plan.sheetId==='S05';
+  if(material?plan.purpose!=='material-atlas':plan.purpose!==undefined)fail('Invalid plan purpose.');
   for (const f of plan.resources) {
     const b = await readSafe(directory, f.file);
     if (b.length !== f.bytes || hash(b) !== f.sha256) fail('A frozen plan resource changed.');
   }
   const bindings = bindingsOf(await readContracts(contracts));
-  if (Object.keys(bindings).some(k => bindings[k] !== plan.bindings[k]) || (await toolIdentity()).sha256 !== plan.tool.sha256) fail('Contracts or planning tools changed; create a new plan.');
+  if(material){
+    const frozen=await readSafe(directory,'inputs/material-template.json'),spec=validateMaterialTemplate(JSON.parse(frozen)),active=await readMaterialTemplate();
+    const geometry=JSON.parse(await readSafe(directory,'geometry.json'));
+    if(hash(frozen)!==plan.bindings.materialTemplateSha256||hash(frozen)!==active.sha256||JSON.stringify(plan.parts)!==JSON.stringify(spec.parts.map(({assetId,bodyRect,slotRect,stretch})=>({assetId,bodyRect,stretch,slotRect})))||JSON.stringify(geometry.coordinates)!==JSON.stringify(spec.coordinates)||JSON.stringify(geometry.sheets)!==JSON.stringify(materialGeometry(spec,hash(frozen)).sheets)||plan.assetCount!==spec.parts.length||plan.request.width!==spec.coordinates.width*spec.coordinates.outputScale||plan.request.height!==spec.coordinates.height*spec.coordinates.outputScale)fail('Material template binding changed; create a new plan.');
+  }
+  if (Object.keys(bindings).some(k => bindings[k] !== plan.bindings[k]) || (await toolIdentity(material)).sha256 !== plan.tool.sha256) fail('Contracts or planning tools changed; create a new plan.');
   return { status: 'verified-awaiting-confirmation', planSha256, sheetId: plan.sheetId, assets: plan.assetCount, computeAuthorized: false };
 }

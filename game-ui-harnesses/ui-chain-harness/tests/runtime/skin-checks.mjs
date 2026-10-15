@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { hash } from '../../src/skins/package.mjs';
-import { decodePng } from '../../src/skins/png.mjs';
+import { decodePng,encodePng } from '../../src/skins/png.mjs';
 export async function runSkinChecks(h, packet) {
   const expectedCount=JSON.parse(Buffer.from(packet.manifest,'base64')).assets.length;
   const results=[];
@@ -54,6 +54,37 @@ export async function runSkinChecks(h, packet) {
       const actual=await h.page.evaluate(async({b64,points})=>{const bitmap=await createImageBitmap(new Blob([Uint8Array.from(atob(b64),c=>c.charCodeAt(0))],{type:'image/png'}));try{const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0);return points.map(([x,y])=>[...ctx.getImageData(x,y,1,1).data]);}finally{bitmap.close();}},{b64,points});
       points.forEach(([x,y],i)=>assert.deepEqual(actual[i],[...image.pixels.subarray((y*image.width+x)*4,(y*image.width+x)*4+4)],asset.assetId));
     }
+  });
+  await check('S09.selection-visible-centers',async()=>{
+    const asymmetric=structuredClone(packet),pack=JSON.parse(Buffer.from(packet.manifest,'base64'));
+    for(const id of ['radio.ring','radio.dot']){
+      const asset=pack.assets.find(a=>a.assetId===id),width=asset.width,height=asset.height,pixels=Buffer.alloc(width*height*4);
+      const cx=width*(id==='radio.ring'?.645:.47),cy=height*(id==='radio.ring'?.655:.47),radius=Math.min(width,height)*(id==='radio.ring'?.3:.4);
+      for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+        const d=Math.hypot(x+.5-cx,y+.5-cy);
+        if(d<radius&&(id==='radio.dot'||d>radius*.8))pixels.set([220,45,55,255],(y*width+x)*4);
+      }
+      pixels.set([255,0,0,1],0);
+      const bytes=encodePng({width,height,pixels});asset.sha256=hash(bytes);asset.bytes=bytes.length;asymmetric.resources[asset.file]=bytes.toString('base64');
+    }
+    const manifest=Buffer.from(JSON.stringify(pack));asymmetric.manifest=manifest.toString('base64');asymmetric.manifestSha256=hash(manifest);
+    const proof=await h.page.evaluate(async packet=>{
+      const skin=await harness.loadPack(packet),runtime=harness.runtimeForSkin(skin);
+      try{
+        const sample=harness.cases.find(c=>c.type==='RadioGroup'),radio=runtime.create({id:'aligned-radio',recipeRef:sample.recipeRef,props:sample.props,size:sample.size});runtime.mount(radio);runtime.flush();
+        const base=skin.visualBounds('skin.radio.ring'),mark=skin.visualBounds('skin.radio.dot'),deltas=[];
+        for(const selectedId of ['a','b','a']){
+          radio.setState({selectedId});runtime.flush();
+          for(const box of radio.adapter.items){
+            const [bg,fg]=box.views[1].children;
+            deltas.push({x:bg.x+(base.x+base.width/2)*bg.width-fg.x-(mark.x+mark.width/2)*fg.width,y:bg.y+(base.y+base.height/2)*bg.height-fg.y-(mark.y+mark.height/2)*fg.height,ratio:Math.max(mark.width*fg.width/(base.width*bg.width),mark.height*fg.height/(base.height*bg.height))});
+          }
+          if(radio.readState().selectedId!==selectedId)throw Error('Radio selection did not update');
+        }
+        return deltas;
+      }finally{runtime.dispose();skin.dispose();}
+    },asymmetric);
+    assert.ok(proof.length>=6);for(const p of proof){assert.ok(Math.abs(p.x)<.01&&Math.abs(p.y)<.01,JSON.stringify(p));assert.ok(p.ratio<=2/3+1e-6);}
   });
   return results;
 }

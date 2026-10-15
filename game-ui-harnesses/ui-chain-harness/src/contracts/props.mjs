@@ -1,4 +1,5 @@
 import Ajv from "ajv";
+import {assertInventoryProps} from '../runtime/inventory-policy.mjs';
 const defaultsAjv = new Ajv({
   allErrors: true,
   strict: true,
@@ -132,6 +133,7 @@ export function semanticProps(registry, recipe, props, context = {}) {
     else if (!Object.hasOwn(context.layoutTokens, props.gapToken))
       error("gapToken", "reference.token", "间距 token 不存在。");
   }
+  if(recipe.type==='List')try{assertInventoryProps(props,{childIds:context.nodeIds??[],itemRecipeType:registry.recipes.find(candidate=>recipeRef(candidate)===props.itemRecipeRef)?.type});}catch(e){error('inventory',e.code,e.message);}
   return { issues, unresolved };
 }
 

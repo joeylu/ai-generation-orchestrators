@@ -7,6 +7,8 @@ import { createRuntime } from "../../src/runtime/runtime.mjs";
 import { layoutBox } from "../../src/runtime/basic.mjs";
 import { matrix, longProps } from "./matrix-fixtures.mjs";
 import { attachPilotTextures } from './pilot-skin.mjs';
+import { compilePanel } from '../../src/panel/compiler.mjs';
+import { OwnedScrollBox } from '../../src/runtime/controls.mjs';
 
 window.initializeComponents = async function (
   data,
@@ -49,6 +51,8 @@ window.initializeComponents = async function (
     skin,
     loadPack,
     runtimeForSkin: candidate => createRuntime({app,registry:data.registry,usage:data.usage,skin:candidate}),
+    compilePanel: (document,ctx) => compilePanel(document,ctx,{app,skin,onEvent:event=>events.push(event)}),
+    liveScrollBoxes: () => OwnedScrollBox.live.size,
     events,
     get runtime() {
       return runtime;

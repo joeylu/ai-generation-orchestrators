@@ -1,4 +1,6 @@
 import Ajv from "ajv";
+import {textProfile} from './text-style.mjs';
+import {inventoryMinimum} from './inventory-geometry.mjs';
 import schema from "../../schemas/fixture-profile.schema.json" with { type: "json" };
 import themeSchema from "../../schemas/runtime-theme.schema.json" with { type: "json" };
 const validate = new Ajv({ allErrors: true, strict: true }).addSchema(themeSchema, 'runtime-theme').compile(schema);
@@ -11,6 +13,8 @@ export function validateFixtureProfile(profile) {
   }
 }
 export function minimumSize(type, p, s) {
+  s=textProfile(s,p);
+  if(type==='List'&&p.inventory)return inventoryMinimum(s,p);
   const g = s.geometry,
     content = g.minContent,
     label = s.padding * 2 + content;
@@ -30,13 +34,14 @@ export function minimumSize(type, p, s) {
   }
   if (type === "RadioGroup") {
     const n = p.options.length,
-      item = s.markSize + g.labelGap + content;
+      item = s.markSize + g.labelGap + content,
+      rowHeight = Math.max(s.markSize, g.lineHeight);
     width =
       p.direction === "row" ? n * item + Math.max(0, n - 1) * s.gap : item;
     height =
       p.direction === "row"
-        ? s.markSize
-        : n * s.markSize + Math.max(0, n - 1) * s.gap;
+        ? rowHeight
+        : n * rowHeight + Math.max(0, n - 1) * s.gap;
   }
   if (type === "Select") {
     width = label + g.indicatorWidth + g.labelGap;

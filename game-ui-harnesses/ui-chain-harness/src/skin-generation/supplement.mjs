@@ -13,18 +13,20 @@ export async function prepareSupplement(args){
  const intake=await inspect(args),node=intake.summary.nodes.find(n=>n.sheetId===args.sheetId);
  if(!node)throw Error('supplement.unknown-sheet');
  if(node.status==='supplement-awaiting-confirmation')return {sheetId:node.sheetId,planSha256:node.planSha256};
- if(!['indeterminate','failed'].includes(node.status))throw Error('supplement.only-missing-terminal-sheet');
+ const rejected=node.status==='received'&&node.inspection==='rejected';
+ if(!rejected&&!['indeterminate','failed'].includes(node.status))throw Error('supplement.only-missing-or-rejected-terminal-sheet');
  const parent=node.planSha256,oldDir=join(args.skinDirectory,'plans',parent);
  await verifyGenerationPlan({directory:oldDir,planSha256:parent,contracts:args.contracts??defaults});
  const priorBytes=await readSafe(args.skinDirectory,`attempts/${parent}/external-result.json`),prior=JSON.parse(priorBytes);
- if(!['indeterminate','failed'].includes(prior.status))throw Error('supplement.terminal-outcome-required');
+ if(!['indeterminate','failed',...(rejected?['returned']:[])].includes(prior.status))throw Error('supplement.terminal-outcome-required');
+ const parentReceiptSha256=rejected?hash(await readSafe(args.skinDirectory,`attempts/${parent}/receipt.json`)):undefined;
  const original=JSON.parse(await readSafe(oldDir,'plan.json'));
- const plan={...original,supplement:{batchSha256:args.batchSha256,parentPlanSha256:parent,parentResultSha256:hash(priorBytes),nonce:randomUUID()}},bytes=Buffer.from(json(plan)),sha=hash(bytes),dir=join(args.skinDirectory,'plans',sha);
+ const plan={...original,supplement:{batchSha256:args.batchSha256,parentPlanSha256:parent,parentResultSha256:hash(priorBytes),...(rejected?{parentReceiptSha256}:{}),nonce:randomUUID()}},bytes=Buffer.from(json(plan)),sha=hash(bytes),dir=join(args.skinDirectory,'plans',sha);
  await mkdir(dir);
  for(const f of plan.resources){const b=await readSafe(oldDir,f.file);if(hash(b)!==f.sha256)throw Error('supplement.changed-input');await mkdir(dirname(join(dir,f.file)),{recursive:true});await writeFile(join(dir,f.file),b,{flag:'wx'});}
  await writeFile(join(dir,'plan.json'),bytes,{flag:'wx'});
  await verifyGenerationPlan({directory:dir,planSha256:sha,contracts:args.contracts??defaults});
- await writeFile(join(args.skinDirectory,'attempts',parent,'replacement.json'),json({kind:'ui_skin_supplement_link',batchSha256:args.batchSha256,parentPlanSha256:parent,parentResultSha256:hash(priorBytes),planSha256:sha}),{flag:'wx'});
+ await writeFile(join(args.skinDirectory,'attempts',parent,'replacement.json'),json({kind:'ui_skin_supplement_link',batchSha256:args.batchSha256,parentPlanSha256:parent,parentResultSha256:hash(priorBytes),...(rejected?{parentReceiptSha256}:{}),planSha256:sha}),{flag:'wx'});
  return {sheetId:node.sheetId,planSha256:sha};
 }
 export async function executeSupplement(args,adapter){
