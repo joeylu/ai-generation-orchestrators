@@ -114,7 +114,7 @@ Build from existing local dependencies without installing or downloading:
 
 ```sh
 node scripts/package-release.mjs --component-package <pinned-component.tgz> --output output/sdk-release
-node scripts/check-release.mjs --package output/sdk-release/ai-ui-panel-harness-0.1.0-rc.7.zip --output output/sdk-installed-check
+node scripts/check-release.mjs --package output/sdk-release/ai-ui-panel-harness-0.1.0-rc.8.zip --output output/sdk-installed-check
 node scripts/check-release-browser.mjs --acceptance output/sdk-installed-check --output output/sdk-browser-check
 node scripts/check-all-components-browser.mjs --review output/sdk-installed-check/all-components --output output/sdk-components-browser-check
 node scripts/check-installed-compact-message-browser.mjs --acceptance output/sdk-installed-check --output output/sdk-compact-check
