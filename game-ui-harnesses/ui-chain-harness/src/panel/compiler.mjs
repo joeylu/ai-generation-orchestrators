@@ -5,6 +5,7 @@ import {
   indexDocument,
   fail,
 } from "./document.mjs";
+import {surfaceSlotBox} from '../runtime/surface-slots.mjs';
 export function compilePanel(input, ctx, { app, skin, panelBackgrounds, onEvent = () => {} }) {
   const doc = validateDocument(input, ctx),
     closure = resourceClosure(doc, ctx),
@@ -41,6 +42,11 @@ export function compilePanel(input, ctx, { app, skin, panelBackgrounds, onEvent 
       )
         continue;
       const origin = owner.root.toLocal(handle.root.toGlobal({ x: 0, y: 0 }));
+      const slot=owner.surfaceLayer?surfaceSlotBox(owner.surfaceSlotOptions(owner.size)):null;
+      if(slot){
+        if(origin.x<slot.x-.5||origin.x+handle.size.width>slot.x+slot.width+.5||(!slot.allowVerticalOverflow&&(origin.y<slot.y-.5||origin.y+handle.size.height>slot.y+slot.height+.5)))fail('panel.bounds','组件超出表面的安全内容区。',n.id);
+        continue;
+      }
       if (
         origin.x < -0.5 ||
         origin.y < -0.5 ||

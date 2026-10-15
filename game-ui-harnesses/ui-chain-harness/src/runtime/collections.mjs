@@ -14,6 +14,8 @@ import {
 } from "./controls.mjs";
 import { layoutBox } from "./basic.mjs";
 import { reject } from "./skin.mjs";
+import {createLayerSurface} from './layer-surface.mjs';
+import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
 
 export const collectionAdapters = {
   "pixi.select"(c) {
@@ -63,13 +65,17 @@ export const collectionAdapters = {
         "list.item-recipe",
         "Non-Button item recipes require explicit items content slots.",
       );
+    const layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h):null,pad=layer?.info.insets??{left:0,right:0,top:0,bottom:0};
     const view = layoutBox(w, h, { overflow: "hidden" }),
       list = new List({
         type: "vertical",
         elementsMargin: runtime.usage.layoutTokens[p.gapToken],
       }),
       rows = [];
-    view.addChild(list);
+    if(layer)view.addChild(layer.view);
+    view.addChild(list);list.position.set(pad.left,pad.top);
+    const listMask=layer?new Graphics():null;
+    if(listMask){listMask.eventMode='none';view.addChild(listMask);list.mask=listMask;listMask.rect(pad.left,pad.top,w-pad.left-pad.right,h-pad.top-pad.bottom).fill(0xffffff);}
     let selected = p.selectedId;
     const refresh = () =>
       rows.forEach((b, i) => {
@@ -97,7 +103,7 @@ export const collectionAdapters = {
         b = makeButton(
           skin,
           item.label,
-          w,
+          w-pad.left-pad.right,
           skin.profile.itemHeight,
           recipe.propsSchema.properties.variant.default,
           ["skin.item.normal", "skin.item.selected"],
@@ -125,11 +131,14 @@ export const collectionAdapters = {
     return {
       view,
       rows,
+      layer,
       resize: (w, h) => {
         view.layout = { width: w, height: h };
+        layer?.resize(w,h);
+        if(listMask)listMask.clear().rect(pad.left,pad.top,w-pad.left-pad.right,h-pad.top-pad.bottom).fill(0xffffff);
         rows.forEach((b, i) => {
           if (!content.length)
-            resizeButton(b, skin, w, skin.profile.itemHeight);
+            resizeButton(b, skin, w-pad.left-pad.right, skin.profile.itemHeight);
           else
             b.view.hitArea = new Rectangle(
               0,
@@ -161,7 +170,8 @@ export const collectionAdapters = {
         [],
         p.tabs.findIndex((t) => t.id === p.activeId),
       );
-    const insets=skin.roles.has('skin.surface.content')?skin.insets('skin.surface.content'):null;
+    const layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h):null;
+    const insets=layer?.info.insets??(skin.roles.has('skin.surface.content')?skin.insets('skin.surface.content'):null);
     const initial=tabsContentBox(skin.profile,insets,w,h);
     const rows = [],
       tabWidth =
@@ -198,15 +208,15 @@ export const collectionAdapters = {
         emit("selectionChange", { activeId: active });
       });
     });
-    const outerBackground=insets?skin.view('skin.surface.content',w,h):null;
-    const background=insets?skin.view('skin.surface.content',initial.surface.width,initial.surface.height):null;
+    const outerBackground=layer?.view??(insets?skin.view('skin.surface.content',w,h):null);
+    const background=!layer&&insets?skin.view('skin.surface.content',initial.surface.width,initial.surface.height):null;
     const contentMask=new Graphics();contentMask.eventMode='none';
     if(outerBackground)view.addChild(outerBackground);
     if(background)view.addChild(background);
     view.addChild(header,switcher,contentMask);switcher.mask=contentMask;
     const placeContent=(width,height)=>{
       const box=tabsContentBox(skin.profile,insets,width,height);
-      if(outerBackground){outerBackground.width=width;outerBackground.height=height;}
+      if(layer)layer.resize(width,height);else if(outerBackground){outerBackground.width=width;outerBackground.height=height;}
       if(background){background.position.set(box.surface.x,box.surface.y);background.width=box.surface.width;background.height=box.surface.height;}
       header.position.set(box.outerPad.left,box.outerPad.top);
       switcher.position.set(box.x,box.y);
@@ -221,6 +231,7 @@ export const collectionAdapters = {
       switcher,
       background,
       outerBackground,
+      layer,
       contentMask,
       resize(width, height) {
         view.layout = { width, height };
@@ -243,10 +254,11 @@ export const collectionAdapters = {
     };
   },
   "pixi.scroll-view"(c) {
-    const pad = scrollPadding(c.skin.profile,c.skin.insets('skin.surface.content'));
+    const layer=c.surfaceLayer?createLayerSurface(c.skin,c.surfaceLayer,c.w,c.h):null;
+    const pad = scrollPadding(c.skin.profile,layer?.info.insets??c.skin.insets('skin.surface.content'));
     const { skin, p, w, h, listen, emit, children, handle } = c,
       view = new Container(),
-      background = skin.view('skin.surface.content', w, h),
+      background = layer?.view??skin.view('skin.surface.content', w, h),
       box = new OwnedScrollBox({
         type: "vertical",
         width:
@@ -329,6 +341,7 @@ export const collectionAdapters = {
     return {
       view,
       background,
+      layer,
       box,
       bar,
       afterLayout() {
@@ -341,8 +354,7 @@ export const collectionAdapters = {
         sync();
       },
       resize(w, h) {
-        background.width = w;
-        background.height = h;
+        if(layer)layer.resize(w,h);else {background.width = w;background.height = h;}
         box.setSize(
           w - pad.left - pad.right -
             skin.profile.geometry.scrollbarWidth -
@@ -377,11 +389,12 @@ export const collectionAdapters = {
       );
     const view = new SkinnedDialog({
       skin,
+      surfaceLayer:c.surfaceLayer,
       inputAllowed: () => handle.allowed() && view.isOpen,
       background: skin.texture("skin.surface.panel"),
       width: w,
       height: h,
-      padding: skin.profile.padding,
+      padding: c.surfaceLayer?Math.max(skin.profile.padding,...Object.values(surfaceLayerInfo(skin.surfaceGeometry??skin,c.surfaceLayer).insets)):skin.profile.padding,
       title: p.title ? skin.label(p.title, w - 24) : undefined,
       titleSource: p.title,
       content: children("content")[0].root,

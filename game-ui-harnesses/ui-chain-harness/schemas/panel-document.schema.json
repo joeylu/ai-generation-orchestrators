@@ -105,6 +105,8 @@
         },
         "props": { "type": "object" },
         "surfaceStyle": { "enum": ["title", "section", "panel"] },
+        "surfaceLayer": { "enum": ["frame", "content", "inset"] },
+        "surfaceTextInsets": { "type":"object", "additionalProperties":false, "required":["left","right","top","bottom"], "properties": { "left":{"type":"number","minimum":0,"maximum":512}, "right":{"type":"number","minimum":0,"maximum":512}, "top":{"type":"number","minimum":0,"maximum":512}, "bottom":{"type":"number","minimum":0,"maximum":512} } },
         "size": { "$ref": "#/definitions/size" },
         "position": { "$ref": "#/definitions/position" },
         "layout": { "$ref": "#/definitions/layout" },

@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {materialSkinFixture} from '../../fixtures/material-skin.mjs';
+import {buildSkinPackage,json} from '../../src/skins/package.mjs';
+import {command} from '../../src/acceptance/batch.mjs';
+import {checkPreview} from '../../src/acceptance/browser.mjs';
+const root=fileURLToPath(new URL('../../',import.meta.url));
+test('generic acceptance renders a deterministic mixed-control fixture and preserves authored export on desktop/mobile',async()=>{
+ const parent=join(root,'work/tests');await mkdir(parent,{recursive:true});const directory=await mkdtemp(join(parent,'acceptance-browser-')),fixture=await materialSkinFixture(join(directory,'input'));
+ await writeFile(fixture.input,json({...fixture.spec,sourceKind:'imported',materials:fixture.config.materials,surfaceStyles:fixture.config.surfaceStyles}));const built=await buildSkinPackage({input:fixture.input,output:join(directory,'imported')});
+ const preview=await command(root,'action-preview.mjs',['--package',join(built.directory,'pack'),'--out',join(directory,'previews'),'--examples',join(root,'examples/custom-panel.json'),'--orientation','portrait']);assert.equal(preview.exitCode,0,preview.stderr);
+ const evidenceDirectory=await mkdtemp(join(tmpdir(),'ui-chain-acceptance-browser-')),result=await checkPreview({directory:preview.stdout.trim(),evidenceDirectory,orientation:'portrait'});
+ assert.equal(result.status,'passed',JSON.stringify(result));assert.equal(result.samples.length,2);assert(result.interactions.some(i=>i.kind==='slider-pointer'&&i.passed));assert(result.interactions.some(i=>i.kind==='select'&&i.passed));assert(result.interactions.some(i=>i.kind==='submit'&&i.passed));
+ assert(result.samples[0].labels.some(l=>l.label.startsWith('material:')&&l.masked));
+ const inventory=await command(root,'inventory-preview.mjs',['--package',join(built.directory,'pack'),'--out',join(directory,'inventories'),'--orientation','portrait']);assert.equal(inventory.exitCode,0,inventory.stderr);const inventoryCheck=await checkPreview({directory:inventory.stdout.trim(),evidenceDirectory:join(evidenceDirectory,'inventory'),orientation:'portrait'});assert.equal(inventoryCheck.status,'passed',JSON.stringify(inventoryCheck));assert(inventoryCheck.interactions.some(i=>i.kind==='inventory-slot-details'&&i.passed));
+});

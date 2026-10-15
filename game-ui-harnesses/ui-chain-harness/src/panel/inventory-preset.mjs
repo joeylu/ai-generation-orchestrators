@@ -5,6 +5,8 @@ import {upgradeInventoryRegistry,inventoryScrollMode,assertInventoryGridLimits} 
 import {inventoryLayout,inventoryMinimum} from '../runtime/inventory-geometry.mjs';
 import {pngGeometry} from '../runtime/png-geometry.mjs';
 import {upgradeTextStyleRegistry,isTextColor} from '../runtime/text-style.mjs';
+import {headingPresentation} from './headings.mjs';
+import {surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 
 export const inventoryPanelConfig=structuredClone(defaultConfig);
 export const inventoryPresetChoice=Object.freeze({id:'inventory',name:'仓库面板',group:'inventory',groupName:'仓库面板',variant:'物品仓库',builder:'deterministic-inventory',defaultColumns:defaultConfig.columns,defaultRows:defaultConfig.rows,minimumCapacity:defaultConfig.items.length,description:'默认 5 列 4 行，可调整行列。选择物品查看图标、名称、数量和详情；含 8 件示例物品，图标为示意图，不含拖拽、交换或堆叠。'});
@@ -61,14 +63,15 @@ export function inventoryPresetDocument(ctx,input=defaultConfig,title,grid={}){
 // no sample items: caller data never passes through template placement rules.
 export function inventoryLayoutConfig(input=defaultConfig){
   const source=validateInventoryConfig(input);
-  return {...Object.fromEntries(['gap','canvasMargin','contentGap','minPadding','headingHeight','orientations','appearance','cellTarget'].filter(key=>Object.hasOwn(source,key)).map(key=>[key,structuredClone(source[key])])),version:'1.2',scrollMode:inventoryScrollMode};
+  return {...Object.fromEntries(['gap','canvasMargin','contentGap','minPadding','headingHeight','orientations','appearance','cellTarget'].filter(key=>Object.hasOwn(source,key)).map(key=>[key,structuredClone(source[key])])),version:'1.3',scrollMode:inventoryScrollMode,surfaceLayer:'content'};
 }
 export function validateInventoryLayoutConfig(input){
-  const fixed=input?.version==='1.2';
-  if(!exact(input,['version','gap','canvasMargin','contentGap','minPadding','headingHeight','orientations','appearance','cellTarget',...(fixed?['scrollMode']:[])])||!['1.1','1.2'].includes(input.version)||fixed&&input.scrollMode!==inventoryScrollMode)fail('inventory.layout-config','模型仓库需要明确的紧凑布局与滚动版本配置。');
+  const fixed=['1.2','1.3'].includes(input?.version),layered=input?.version==='1.3';
+  if(!exact(input,['version','gap','canvasMargin','contentGap','minPadding','headingHeight','orientations','appearance','cellTarget',...(fixed?['scrollMode']:[]),...(layered?['surfaceLayer']:[])])||!['1.1','1.2','1.3'].includes(input.version)||fixed&&input.scrollMode!==inventoryScrollMode||layered&&input.surfaceLayer!=='content')fail('inventory.layout-config','模型仓库需要明确的紧凑布局、滚动与底板版本配置。');
   // Reuse the existing layout policy validation; these examples are only a
   // schema witness and are never returned as document content.
-  validateInventoryConfig({...input,kind:'ui_inventory_panel_config',presetId:'inventory',columns:1,rows:1,defaultTitle:'仓库',samplePlacement:'preserve-default-or-sequential',items:[{id:'validation',label:'验证',enabled:true,slotIndex:0,quantity:1,description:'验证',icon:'gem'}]});
+  const {surfaceLayer,...witness}=input;
+  validateInventoryConfig({...witness,version:layered?'1.2':input.version,kind:'ui_inventory_panel_config',presetId:'inventory',columns:1,rows:1,defaultTitle:'仓库',samplePlacement:'preserve-default-or-sequential',items:[{id:'validation',label:'验证',enabled:true,slotIndex:0,quantity:1,description:'验证',icon:'gem'}]});
   return structuredClone(input);
 }
 export function inventoryContentDocument(ctx,{title,sectionTitle=title,label=sectionTitle,props},layout){
@@ -81,19 +84,21 @@ function buildInventoryDocument(ctx,config,title,props,extraHeadings=[]){
   if(!orientation||panelOrientations(orientation).length!==1)fail('inventory.orientation','请先选择仓库面板的 16:9 或 9:16 画布。');
   ctx=inventoryPresetContext(ctx);
   if(ctx.inventoryHeadingColor!==undefined&&!isTextColor(ctx.inventoryHeadingColor))fail('inventory.color','仓库标题颜色证据无效。');
-  const board=ctx.canvases.presets[orientation],surface=config.orientations[orientation],compact=['1.1','1.2'].includes(config.version),chosen=props.inventory,fixed=chosen.scrollMode===inventoryScrollMode;
+  const board=ctx.canvases.presets[orientation],surface=config.orientations[orientation],compact=['1.1','1.2','1.3'].includes(config.version),chosen=props.inventory,fixed=chosen.scrollMode===inventoryScrollMode,layered=config.surfaceLayer==='content'&&ctx.surfaceLayersEnabled!==false,geometryOptions=layered?{surfaceLayer:'content'}:undefined;
   if(!compact&&(surface.width>board.width-2*config.canvasMargin||surface.height>board.height-2*config.canvasMargin))fail('inventory.canvas','仓库面板超过所选画布的安全边界。');
   if(ctx.binding.sourceKind==='imported'&&!ctx.skinGeometry)fail('inventory.skin-geometry','仓库缺少经过核验的皮肤安全区证据。');
   const skin=ctx.binding.sourceKind==='imported'?pngGeometry(ctx.skinGeometry,ctx.profile):null;
+  const layoutGeometry=layered?surfaceGeometryForContext(ctx):ctx.skinGeometry;
   const safe=skin?.insets('skin.surface.panel')??{left:ctx.profile.padding,right:ctx.profile.padding,top:ctx.profile.padding,bottom:ctx.profile.padding};
   const padding=Object.fromEntries(Object.entries(safe).map(([key,value])=>[key,Math.max(value,config.minPadding)]));
   const padWidth=padding.left+padding.right,padHeight=padding.top+padding.bottom;
-  const headingFor=(width,value=title)=>Math.max(config.headingHeight,ctx.profile.geometry.lineHeight*Math.max(1,Math.ceil([...value].length*ctx.profile.fontSize*1.1/Math.max(1,width-ctx.profile.fontSize))));
-  const headingsFor=width=>[title,...extraHeadings].reduce((sum,value)=>sum+headingFor(width,value),0)+extraHeadings.length*config.contentGap;
+  const headingStyle=(width,index)=>layered?headingPresentation(ctx,index?'section':'title',width,config.headingHeight,{layered}):{height:config.headingHeight,insets:{left:0,right:0,top:0,bottom:0}};
+  const headingFor=(width,value=title,index=0)=>{const style=headingStyle(width,index),p=style.insets;return Math.max(style.height,ctx.profile.geometry.lineHeight*Math.max(1,Math.ceil([...value].length*ctx.profile.fontSize*1.1/Math.max(1,width-p.left-p.right-ctx.profile.fontSize)))+p.top+p.bottom);};
+  const headingsFor=width=>[title,...extraHeadings].reduce((sum,value,index)=>sum+headingFor(width,value,index),0)+extraHeadings.length*config.contentGap;
   let surfaceWidth=surface.width,surfaceHeight=surface.height,width,height,headingHeight,bodyHeight;
   if(compact){
     const maxWidth=Math.min(surface.maxWidth,board.width-2*config.canvasMargin)-padWidth,maxHeight=Math.min(surface.maxHeight,board.height-2*config.canvasMargin)-padHeight;
-    const minimum=inventoryMinimum(ctx.profile,props,ctx.skinGeometry),probe=inventoryLayout(ctx.profile,props,maxWidth,maxHeight-headingsFor(maxWidth)-config.contentGap,ctx.skinGeometry);
+    const minimum=inventoryMinimum(ctx.profile,props,layoutGeometry,geometryOptions),probe=inventoryLayout(ctx.profile,props,maxWidth,maxHeight-headingsFor(maxWidth)-config.contentGap,layoutGeometry,geometryOptions);
     const gap=config.gap,gridMinWidth=fixed?probe.cell.minimum:probe.cell.minimum*chosen.columns+gap*(chosen.columns-1),extraWidth=surface.details==='right'?minimum.width-gridMinWidth:0;
     const target=Math.max(probe.cell.minimum,props.inventory.cellSize??config.cellTarget);
     width=Math.min(maxWidth,Math.max(minimum.width,chosen.columns*target+gap*(chosen.columns-1)+extraWidth));
@@ -107,15 +112,15 @@ function buildInventoryDocument(ctx,config,title,props,extraHeadings=[]){
   if(fixed)assertInventoryGridLimits({columns:chosen.columns,rows:chosen.rows,cellWidth:chosen.cellSize??config.cellTarget,cellHeight:chosen.cellSize??config.cellTarget,spacingX:chosen.gap,spacingY:chosen.gap,padding:0});
   // The same geometry module owns renderer placement, skin minima and scroll
   // policy. The preset never shrinks artwork or changes the selected canvas.
-  inventoryLayout(ctx.profile,props,width,height,ctx.skinGeometry??undefined);
-  skin?.assertComponent('List',props,width,height);skin?.assertComponent('Panel',{title:'',contentPadding:padding},surfaceWidth,surfaceHeight);
+  inventoryLayout(ctx.profile,props,width,height,layoutGeometry??undefined,geometryOptions);
+  skin?.assertComponent('List',props,width,height,geometryOptions);skin?.assertComponent('Panel',{title:'',contentPadding:padding},surfaceWidth,surfaceHeight,layered?{surfaceLayer:'frame'}:undefined);
   const node=(id,type,p,w,h,slots={},extra={})=>({id,name:id,recipeRef:type+'@1.0.0',props:p,size:{width:w,height:h},slots,...extra});
-  const headings=[title,...extraHeadings].map((value,index)=>node(index?'inventory-heading-'+index:'inventory-heading','text',{text:value,textStyleRef:'body',align:'center',wrap:'word',overflow:'error',...(ctx.inventoryHeadingColor?{textColor:ctx.inventoryHeadingColor}:{})},width,headingFor(width,value)));
+  const headings=[title,...extraHeadings].map((value,index)=>{const style=headingStyle(width,index);return node(index?'inventory-heading-'+index:'inventory-heading','text',{text:value,textStyleRef:'body',align:layered?'left':'center',wrap:'word',overflow:'error',...(ctx.inventoryHeadingColor&&!style.surfaceStyle?{textColor:ctx.inventoryHeadingColor}:{})},width,headingFor(width,value,index),{},style.surfaceStyle?{surfaceStyle:style.surfaceStyle,...(style.surfaceTextInsets?{surfaceTextInsets:style.surfaceTextInsets}:{})}:{});});
   return validateDocument({kind:'ui_panel_document',version:'0.3',id:'inventory-'+orientation,revision:0,title,canvas:orientation,bindings:structuredClone(ctx.binding),rootId:'artboard',nodes:[
     ...headings,
-    node('inventory-grid','list',props,width,height),
+    node('inventory-grid','list',props,width,height,{},layered?{surfaceLayer:'content'}:{}),
     node('inventory-body','container',{},width,bodyHeight,{children:[...headings.map(heading=>heading.id),'inventory-grid']},{layout:{childrenMode:'flow',direction:'column',gap:config.contentGap,padding:0}}),
-    node('inventory-surface','panel',{title:'',contentPadding:padding},surfaceWidth,surfaceHeight,{content:['inventory-body']},{position:{x:(board.width-surfaceWidth)/2,y:(board.height-surfaceHeight)/2}}),
+    node('inventory-surface','panel',{title:'',contentPadding:padding},surfaceWidth,surfaceHeight,{content:['inventory-body']},{position:{x:(board.width-surfaceWidth)/2,y:(board.height-surfaceHeight)/2},...(layered?{surfaceLayer:'frame'}:{})}),
     node('artboard','container',{},board.width,board.height,{children:['inventory-surface']},{layout:{childrenMode:'free',padding:0}}),
   ]},ctx);
 }

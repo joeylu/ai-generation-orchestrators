@@ -11,7 +11,10 @@ import { solveLayout, layoutTreeHasRules } from "./layout.mjs";
 import { measureSlices } from "../slicing/geometry.mjs";
 import { textColorOwner } from './text-colors.mjs';
 import { scopedTextSkin } from './text-skin.mjs';
-import {surfaceTextBox} from '../skins/surface-styles.mjs';
+import {surfaceLayerInfo,surfaceLayerTypes} from '../skins/surface-styles.mjs';
+import {assertSurfaceSlotChildren,effectiveSurfaceSizes} from './surface-slots.mjs';
+import {runtimeSurfaceTextBox} from './surface-text-box.mjs';
+import {logicalTextScopeRoots,applyRuntimeInk} from './derived-text-ink.mjs';
 
 export const adapters = Object.freeze({
   ...basicAdapters,
@@ -38,7 +41,7 @@ export function createRuntime({
       // their node boundary; nested authored handles establish their own one.
       return [[h.root,color],[view,color],...(h.recipe.type==='Select'?[[view.view,color]]:[])];
     }),
-  ),()=>new Map([...handles.values()].flatMap(handle=>[...(handle.adapter.textBackings??[])])));
+  ),()=>new Map([...handles.values()].flatMap(handle=>[...(handle.adapter.textBackings??[])])),()=>logicalTextScopeRoots(handles.values()));
   let mode = "play", destroyed = false;
   const runtime = {
     app,
@@ -49,7 +52,7 @@ export function createRuntime({
     handles,
     textColors,
     create(
-      { id, recipeRef: ref, props = {}, size, sizing = {}, layout = {}, position, surfaceStyle },
+      { id, recipeRef: ref, props = {}, size, sizing = {}, layout = {}, position, surfaceStyle, surfaceLayer, surfaceTextInsets },
       slots = {},
     ) {
       if (
@@ -106,22 +109,31 @@ export function createRuntime({
       }
       const p = result.props;
       if(surfaceStyle&&!(recipe.type==='Text'&&['title','section'].includes(surfaceStyle)||recipe.type==='Panel'&&surfaceStyle==='panel'))reject('skin.surface-style','Surface style does not match component type.');
+      if(surfaceLayer&&(!surfaceLayerTypes.includes(recipe.type)||surfaceStyle||p.backgroundRef))reject('skin.surface-style','Surface layer conflicts with this component or its authored background.');
+      if(surfaceLayer&&recipe.type==='Panel'&&p.pixelsPerUnitMultiplier!==1)reject('skin.surface-style','显式表面层仅支持默认切片倍率 1。');
+      if(surfaceTextInsets&&!(recipe.type==='Text'&&['title','section'].includes(surfaceStyle)))reject('skin.surface-style','Text surface insets require a semantic heading.');
+      if(surfaceTextInsets)surfaceTextInsets=structuredClone(surfaceTextInsets);
+      const layerInfo=surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,surfaceLayer):null;
+      const slotOptions=effectiveSize=>({type:recipe.type,props:p,size:effectiveSize,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer});
+      const dynamicSlot=h=>Object.entries(h.sizing??{}).some(([key,value])=>key.endsWith('Mode')&&value!=='fixed')||(h.slotChildren??[]).some(dynamicSlot);
+      if(surfaceLayer&&!dynamicSlot({sizing,slotChildren:list}))assertSurfaceSlotChildren(slotOptions(size),list.map(child=>({id:child.id,size:child.size})));
       const nodeSkin=scopedTextSkin(skin,p);
-      const activeSurfaceStyle=surfaceStyle??(recipe.type==='Panel'&&!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
+      const activeSurfaceStyle=surfaceStyle??(!surfaceLayer&&recipe.type==='Panel'&&!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
       const panelBackground = recipe.type === "Panel"
-        ? p.backgroundRef ? panelBackgrounds.get(p.backgroundRef) : skin.backgroundSpec("skin.surface.panel")
+        ? p.backgroundRef ? panelBackgrounds.get(p.backgroundRef) : skin.backgroundSpec(layerInfo?.baseRole??"skin.surface.panel")
         : null;
       if (recipe.type === "Panel" && !panelBackground) reject("background.reference", "Panel background is missing or has not been verified.");
       const preflight = (width, height) => {
-        if(activeSurfaceStyle)surfaceTextBox(skin.surfaceGeometry,activeSurfaceStyle,width,height);
+        if(activeSurfaceStyle)runtimeSurfaceTextBox(skin,activeSurfaceStyle,width,height,surfaceTextInsets);
+        if(layerInfo&&(width<layerInfo.minWidth||height<layerInfo.minHeight))reject('skin.surface-style','Surface layer is smaller than its skin minimum.');
         assertSize(recipe.type, p, skin.profile, width, height);
-        skin.assertComponent?.(recipe.type,p,width,height);
+        skin.assertComponent?.(recipe.type,p,width,height,{surfaceLayer});
         if (recipe.type === "Panel") {
           const { texture, borders, resizePolicy } = panelBackground;
           measureSlices({ sourceWidth: texture.orig.width, sourceHeight: texture.orig.height, borders, width, height, multiplier: p.pixelsPerUnitMultiplier, resizePolicy });
         }
         if (recipe.type === "Text") {
-          const box=surfaceStyle?surfaceTextBox(skin.surfaceGeometry,surfaceStyle,width,height):{width,height};
+          const box=surfaceStyle?runtimeSurfaceTextBox(skin,surfaceStyle,width,height,surfaceTextInsets):{width,height};
           const probe = new Text({
             text: p.text,
             style: nodeSkin.textStyle({
@@ -131,6 +143,7 @@ export function createRuntime({
             }),
           });
           try {
+            if(surfaceTextInsets&&box.style){const style=box.style,ink=nodeSkin.runtimeRoleInk?.(style.baseRole,{enhanced:true,authorColor:p.textColor,styleColor:style.textColor,replacement:style.baseMode==='replace'});if(ink)applyRuntimeInk(probe,ink);}
             fitText(probe, box.width, box.height, p.overflow);
           } finally {
             probe.destroy();
@@ -154,6 +167,10 @@ export function createRuntime({
         sizing: structuredClone(sizing),
         layout: structuredClone(layout),
         preflight,
+        surfaceLayer,
+        slotChildren:list,
+        surfaceSlotOptions:slotOptions,
+        enhancedTextScope:Boolean(surfaceLayer||surfaceTextInsets),
         position,
         parent: null,
         disposed: false,
@@ -204,6 +221,8 @@ export function createRuntime({
             layout: structuredClone(layout),
             ...(position ? { position: { ...position } } : {}),
             ...(surfaceStyle?{surfaceStyle}:{}),
+            ...(surfaceLayer?{surfaceLayer}:{}),
+            ...(surfaceTextInsets?{surfaceTextInsets:structuredClone(surfaceTextInsets)}:{}),
           };
         },
         setState(patch) {
@@ -311,6 +330,8 @@ export function createRuntime({
           skin:nodeSkin,
           panelBackground,
           surfaceStyle,
+          surfaceLayer,
+          surfaceTextInsets,
           p,
           w: size.width,
           h: size.height,
@@ -364,6 +385,8 @@ export function createRuntime({
         }
       }
       // Preflight every effective size before changing any control.
+      const effective=effectiveSurfaceSizes(handles,plans);
+      for(const h of handles.values())if(h.surfaceLayer)assertSurfaceSlotChildren(h.surfaceSlotOptions(effective.get(h.id)),h.slotChildren.map(child=>({id:child.id,size:effective.get(child.id)})));
       for(const plan of plans)for(const [id,r]of plan){const h=handles.get(id);if(h.size.width!==r.width||h.size.height!==r.height)h.preflight(r.width,r.height);}
       const changed=new Set();
       for(const plan of plans)for(const [id,r]of plan){

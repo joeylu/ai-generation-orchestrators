@@ -6,6 +6,9 @@ import {inventoryLayout,inventoryDetailLayout} from './inventory-geometry.mjs';
 import {assertInventoryProps,inventoryIcons,inventoryScrollMode} from './inventory-policy.mjs';
 import {inventoryExampleIcon} from './inventory-icons.mjs';
 import {bestInk,rgb} from '../skins/text-readability.mjs';
+import {createLayerSurface} from './layer-surface.mjs';
+import {inventoryScrollbarChrome,clampInventoryScroll} from './inventory-scrollbars.mjs';
+import {createInventoryScrollbars} from './inventory-scrollbars-view.mjs';
 
 // Shift + an ordinary vertical wheel is an explicit horizontal gesture. Trackpad
 // deltaX/deltaY and pointer dragging otherwise retain independent native axes.
@@ -24,7 +27,7 @@ function initializeInventoryList(c,own){
   const itemRecipeType=c.runtime.registry.recipes.find(recipe=>recipe.recipeId+'@'+recipe.recipeVersion===p.itemRecipeRef)?.type;
   assertInventoryProps(p,{childIds:children('items').map(child=>child.id),itemRecipeType});
   if(itemRecipeType!=='Button')reject('inventory.recipe','仓库格子须使用 Button 条目配方。');
-  const modern=p.inventory.appearance==='slots',both=p.inventory.scrollMode===inventoryScrollMode,capacity=p.inventory.columns*p.inventory.rows,
+  const modern=p.inventory.appearance==='slots',skinned=Boolean(c.surfaceLayer),options={surfaceLayer:c.surfaceLayer},both=p.inventory.scrollMode===inventoryScrollMode,capacity=p.inventory.columns*p.inventory.rows,
     view=own(new Container()),gridContent=own(new Container()),detailContent=own(new Container()),detailBackground=own(new Graphics()),
     gridBox=own(new (both?InventoryGridScrollBox:OwnedScrollBox)({type:both?'bidirectional':'vertical',width:1,height:1,globalScroll:false,disableEasing:true,padding:0})),
     detailsBox=own(new OwnedScrollBox({type:'vertical',width:1,height:1,globalScroll:false,disableEasing:true,padding:0})),
@@ -33,10 +36,13 @@ function initializeInventoryList(c,own){
   view.addChild(gridBox,detailBackground,detailsBox);
   const text=(value,wrap=false)=>own(new Text({text:value,style:skin.textStyle({wordWrap:wrap,breakWords:wrap,wordWrapWidth:1})}));
   const detailTitle=text(modern?'物品详情':'物品详情 · 示例'),detailName=text('',true),detailQuantity=text(''),detailSlot=text(''),detailDescription=text('',true),detailIcon=modern?own(new Container()):null,detailIcons=new Map();
-  for(const label of [detailTitle,detailName,detailQuantity,detailSlot,detailDescription])textBackings.set(label,skin.profile.palette.base);
+  if(!skinned)for(const label of [detailTitle,detailName,detailQuantity,detailSlot,detailDescription])textBackings.set(label,skin.profile.palette.base);
   detailContent.addChild(detailTitle,detailName,detailQuantity,detailSlot,detailDescription);
   if(detailIcon){for(const kind of inventoryIcons){const icon=own(inventoryExampleIcon(kind,56));icon.visible=false;detailIcons.set(kind,icon);detailIcon.addChild(icon);}detailIcon.eventMode='none';detailContent.addChild(detailIcon);}
-  let geometry=inventoryLayout(skin.profile,p,w,h,skin),selected=p.selectedId,selectedSlot=p.inventory.initialSlot??p.items.find(item=>item.id===selected)?.slotIndex??null;
+  let geometry=inventoryLayout(skin.profile,p,w,h,skin,options),selected=p.selectedId,selectedSlot=p.inventory.initialSlot??p.items.find(item=>item.id===selected)?.slotIndex??null;
+  const gridSurface=skinned?createLayerSurface(skin,c.surfaceLayer,geometry.grid.surface.width,geometry.grid.surface.height):null,detailSurface=skinned?createLayerSurface(skin,'content',geometry.details.width,geometry.details.height):null;
+  if(gridSurface){own(gridSurface.view);own(detailSurface.view);view.addChildAt(gridSurface.view,0);view.addChildAt(detailSurface.view,view.getChildIndex(detailsBox));detailBackground.visible=false;}
+  const scrollbars=skinned?createInventoryScrollbars({skin,view,box:gridBox,listen,allowed:()=>handle.allowed(),own}):null;
 
   function detail(){
     const item=selectedSlot===null?null:items.get(selectedSlot),inner=geometry.details.contentWidth,line=geometry.lineHeight;
@@ -61,8 +67,8 @@ function initializeInventoryList(c,own){
   const refresh=()=>{
     for(const cell of cells){
       const selected=cell.slotIndex===selectedSlot;
-      if(!modern)selectButtonSkin(cell.button,skin,selected);
-      if(modern)for(const [state,background]of Object.entries(cell.backgrounds)){
+      if(!modern||skinned)selectButtonSkin(cell.button,skin,selected);
+      if(cell.backgrounds)for(const [state,background]of Object.entries(cell.backgrounds)){
         background.scale.set(1);background.clear().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:selected||state==='hover'||state==='pressed'?skin.profile.palette.active:skin.profile.palette.base,alpha:state==='disabled'?.08:state==='pressed'?.28:selected?.18:state==='hover'?.15:cell.item?.13:.045});
       }
       const inset=selected&&modern?1:.5;
@@ -73,8 +79,8 @@ function initializeInventoryList(c,own){
     detail();
   };
   for(let slotIndex=0;slotIndex<capacity;slotIndex++){
-    const item=items.get(slotIndex)??null,backgrounds=modern?Object.fromEntries(['default','hover','pressed','disabled'].map(state=>[state,own(new Graphics().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:skin.profile.palette.base,alpha:.05}))])):null,
-      button=own(modern?new FancyButton({defaultView:backgrounds.default,hoverView:backgrounds.hover,pressedView:backgrounds.pressed,disabledView:backgrounds.disabled,contentFittingMode:'none',padding:0}):makeButton(skin,'',geometry.cell.width,geometry.cell.height,'primary',['skin.item.normal','skin.item.selected'])),frame=own(new Graphics()),selectionMark=own(new Graphics()),
+    const item=items.get(slotIndex)??null,backgrounds=modern&&!skinned?Object.fromEntries(['default','hover','pressed','disabled'].map(state=>[state,own(new Graphics().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:skin.profile.palette.base,alpha:.05}))])):null,
+      button=own(backgrounds?new FancyButton({defaultView:backgrounds.default,hoverView:backgrounds.hover,pressedView:backgrounds.pressed,disabledView:backgrounds.disabled,contentFittingMode:'none',padding:0}):makeButton(skin,'',geometry.cell.width,geometry.cell.height,'primary',['skin.item.normal','skin.item.selected'])),frame=own(new Graphics()),selectionMark=own(new Graphics()),
       icon=item?.icon?own(inventoryExampleIcon(item.icon,geometry.cell.iconSize)):null,name=item&&item.icon===null?text(item.label,true):null,nameBackground=name?own(new Graphics()):null,quantity=item?text(String(item.quantity)):null,quantityBackground=item?own(new Graphics()):null;
     button.enabled=item?.enabled!==false;
     frame.eventMode=selectionMark.eventMode='none';button.addChild(frame,selectionMark);
@@ -100,14 +106,17 @@ function initializeInventoryList(c,own){
   gridBox.addItem(gridContent);detailsBox.addItem(detailContent);
 
   function place(width,height){
-    geometry=inventoryLayout(skin.profile,p,width,height,skin);
+    geometry=inventoryLayout(skin.profile,p,width,height,skin,options);
     const {cell,grid,details,quantityBox}=geometry;
-    gridBox.setSize(grid.width,grid.height);gridBox.position.set(grid.x,grid.y);
+    const chrome=scrollbars?inventoryScrollbarChrome(geometry,{details:p.inventory.details,barWidth:skin.profile.geometry.scrollbarWidth,gap:skin.profile.geometry.scrollbarGap,minThumbLength:skin.profile.geometry.minThumbLength}):null;
+    const viewport=chrome?.viewport??grid;
+    gridBox.setSize(viewport.width,viewport.height);gridBox.position.set(grid.x,grid.y);
+    if(gridSurface){gridSurface.resize(grid.surface.width,grid.surface.height);gridSurface.view.position.set(grid.surface.x,grid.surface.y);detailSurface.resize(details.width,details.height);detailSurface.view.position.set(details.x,details.y);}
     detailsBox.setSize(details.contentWidth,details.height-details.padding*2);detailsBox.position.set(details.x+details.padding,details.y+details.padding);
     detailBackground.clear().roundRect(details.x,details.y,details.width,details.height,modern?12:8).fill({color:skin.profile.palette.base,alpha:1}).stroke({color:skin.profile.palette.stroke,width:1,alpha:modern?.22:.8});detailBackground.eventMode='none';
     for(const entry of cells){
       const {button,icon,name,nameBackground,quantity,quantityBackground}=entry;
-      if(!modern)resizeButton(button,skin,cell.width,cell.height,'');
+      if(!modern||skinned)resizeButton(button,skin,cell.width,cell.height,'');
       else button.hitArea=new Rectangle(0,0,cell.width,cell.height);
       button.position.set((entry.slotIndex%grid.columns)*(cell.width+grid.gap),Math.floor(entry.slotIndex/grid.columns)*(cell.height+grid.gap));
       if(icon)icon.position.set(cell.insets.left+(cell.contentWidth-cell.iconSize)/2,cell.insets.top+(cell.contentHeight-cell.iconSize)/2);
@@ -125,15 +134,19 @@ function initializeInventoryList(c,own){
       }
     }
     gridContent.hitArea=new Rectangle(0,0,grid.contentWidth,grid.contentHeight);
-    gridBox.resize(true);if(both)gridBox.scrollX=Math.max(Math.min(0,grid.width-grid.contentWidth),Math.min(0,gridBox.scrollX));gridBox.scrollY=Math.max(Math.min(0,grid.height-grid.contentHeight),Math.min(0,gridBox.scrollY));gridBox.update();
+    gridBox.resize(true);
+    if(chrome){const clamped=clampInventoryScroll({x:gridBox.scrollX,y:gridBox.scrollY},chrome);gridBox.scrollX=clamped.x;gridBox.scrollY=clamped.y;}
+    else{if(both)gridBox.scrollX=Math.max(Math.min(0,grid.width-grid.contentWidth),Math.min(0,gridBox.scrollX));gridBox.scrollY=Math.max(Math.min(0,grid.height-grid.contentHeight),Math.min(0,gridBox.scrollY));}
+    gridBox.update();scrollbars?.setGeometry(chrome);
     view.hitArea=new Rectangle(0,0,width,height);refresh();
   }
   place(w,h);
   return {
-    view,cells,rows,gridBox,detailsBox,detailTitle,detailName,detailDescription,detailQuantity,detailSlot,detailIcon,textBackings,
+    view,cells,rows,gridBox,detailsBox,gridSurface,detailSurface,scrollbars,detailTitle,detailName,detailDescription,detailQuantity,detailSlot,detailIcon,textBackings,
     get geometry(){return geometry;},get selectedSlot(){return selectedSlot;},
     resize:place,
-    afterLayout(){gridBox.resize(true);detailsBox.resize(true);},
+    afterLayout(){gridBox.resize(true);detailsBox.resize(true);scrollbars?.sync();},
+    suspend(){scrollbars?.suspend();},
     state:()=>({selectedId:selected}),
     setState(state){
       if(state.selectedId!==null&&!p.items.some(item=>item.id===state.selectedId))reject('inventory.selection','选中物品不存在。');

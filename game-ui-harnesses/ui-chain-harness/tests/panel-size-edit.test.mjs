@@ -16,7 +16,7 @@ const examples=await read('../examples/custom-layout.json');
 const fixture=()=>presetDocument(ctx.presets.presets[0],ctx);
 const find=(doc,id)=>doc.nodes.find(n=>n.id===id);
 const actual=(doc,id,c=ctx)=>sizeEditTargets(doc,c).find(n=>n.id===id);
-async function rich(example=examples[0],context=ctx){const f=await actionFixture(example,catalog,config);return (await actionPresetFromIntent(f.session,f.intent,config,'custom',{...context,orientation:'landscape'})).documents.landscape;}
+async function rich(example=examples[0],context=ctx,fixtureConfig=config){const f=await actionFixture(example,catalog,fixtureConfig);return (await actionPresetFromIntent(f.session,f.intent,fixtureConfig,'custom',{...context,orientation:'landscape'})).documents.landscape;}
 
 function geometryContext(mutate=()=>{}){
   const roles=ctx.usage.bindings.map(({role,assetId})=>({role,assetId}));
@@ -36,12 +36,24 @@ test('outer panel resizes its content width and remains centered without changin
 
 test('internal controls and fill dimensions become explicit fixed dimensions with actual solver equality',async()=>{
   const doc=await rich(),row=find(doc,'row4'),original=actual(doc,'row4');
-  const next=sizeEditDocument(doc,{nodeId:'row4',width:original.width+20,height:row.size.height+12},ctx);
-  assert.equal(actual(next,'row4').width,original.width+20);assert.equal(actual(next,'row4').height,row.size.height+12);
+  const before=structuredClone(doc);
+  assert.throws(()=>sizeEditDocument(doc,{nodeId:'row4',width:original.width+20,height:row.size.height+12},ctx),{code:'panel.overflow'});
+  assert.deepEqual(doc,before);
+  // Modern semantic surfaces reserve their border inside a measured group.
+  // Freeze a legal smaller width rather than growing past that parent's box.
+  const next=sizeEditDocument(doc,{nodeId:'row4',width:original.width-20,height:row.size.height},ctx);
+  assert.equal(actual(next,'row4').width,original.width-20);assert.equal(actual(next,'row4').height,row.size.height);
   assert.equal(find(next,'row4').sizing.widthMode??'fixed','fixed');assert.deepEqual(find(next,'row4').props,row.props);
   const flowId='row0',width=actual(doc,flowId).width;
   const fixed=sizeEditDocument(doc,{nodeId:flowId,width:width-10},ctx);
   assert.equal(find(fixed,flowId).sizing.widthMode,'fixed');assert(Math.abs(actual(fixed,flowId).width-(width-10))<.1);
+});
+
+test('frozen layout 2.0 preserves the prior positive width and height editing budget',async()=>{
+  const legacy=structuredClone(config);legacy.presets.custom.layout.version='2.0';
+  const doc=await rich(examples[0],ctx,legacy),row=find(doc,'row4'),original=actual(doc,'row4'),before=structuredClone(doc);
+  const next=sizeEditDocument(doc,{nodeId:'row4',width:original.width+20,height:row.size.height+12},ctx);
+  assert.equal(actual(next,'row4').width,original.width+20);assert.equal(actual(next,'row4').height,row.size.height+12);assert.equal(find(next,'row4').sizing.widthMode??'fixed','fixed');assert.deepEqual(doc,before);
 });
 
 test('content containers may explicitly become fixed while remaining subject to descendant overflow',()=>{
@@ -165,7 +177,8 @@ test('PNG geometry enforces nine-slice, declared skin minimum and content insets
   assert.equal(actual(doc,'row4',c).width,original.width);
   assert.throws(()=>sizeEditDocument(doc,{nodeId:'surface',width:700},{...c,skinGeometry:undefined}),{code:'edit.skin-geometry'});
   const unsafe=structuredClone(doc);find(unsafe,'body').size.width=find(unsafe,'surface').size.width;
-  assert.throws(()=>validateSizeEdit(doc,unsafe,c),{code:'edit.slot-bounds'});
+  // Explicit layers now fail at the shared document gate, before edit-only checks.
+  assert.throws(()=>validateSizeEdit(doc,unsafe,c),{code:'panel.slot-bounds'});
 });
 
 test('failed resize and failed renderer preparation retain the prior session and undo history',async()=>{

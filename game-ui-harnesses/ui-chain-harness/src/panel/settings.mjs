@@ -3,6 +3,7 @@ import {tabsContentBox} from '../runtime/tabs-geometry.mjs';
 import {presentation,presetHeight} from './preset-presentation.mjs';
 import { validateDocument } from './document.mjs';
 import {headingPresentation} from './headings.mjs';
+import {presetSurfaceDocument} from './preset-surfaces.mjs';
 
 // Preset compilation only: content, geometry and selected skin stay independent.
 export function settingsDocument(content, layout, canvas, ctx) {
@@ -22,7 +23,7 @@ export function settingsDocument(content, layout, canvas, ctx) {
   const add = (id, type, props, width, height, slots = {}, extra = {}) => {
     nodes.push({ id, name: id, recipeRef: `${type}@1.0.0`, props, size: { width, height }, slots, ...extra }); return id;
   };
-  const heading=(id,text,width,height,key)=>{const style=headingPresentation(ctx,key,width,height),node=add(id,'text',{text,textStyleRef:'body',align:key==='title'?policy.titleAlign:'left',overflow:'error'},width,style.height);if(style.surfaceStyle)nodes.find(n=>n.id===node).surfaceStyle=style.surfaceStyle;return node;};
+  const heading=(id,text,width,height,key)=>{const style=headingPresentation(ctx,key,width,height,{layered:policy.version==='2.0'&&ctx.surfaceLayersEnabled!==false}),node=add(id,'text',{text,textStyleRef:'body',align:key==='title'?policy.titleAlign:'left',overflow:'error'},width,style.height);if(style.surfaceStyle){const target=nodes.find(n=>n.id===node);target.surfaceStyle=style.surfaceStyle;if(style.surfaceTextInsets)target.surfaceTextInsets=style.surfaceTextInsets;}return node;};
   const title = heading('heading',content.title,bodyWidth,layout.titleHeight,'title');
   const titleHeight=nodes.find(n=>n.id===title).size.height;
   const groups=content.groups;
@@ -33,6 +34,12 @@ export function settingsDocument(content, layout, canvas, ctx) {
   const tabs=content.tabs;
   if(tabs!==undefined){
     if(!Array.isArray(tabs)||tabs.length<2||tabs.length>8||!groups||tabs.filter(t=>t.initial===true).length!==1||tabs.some(t=>typeof t.id!=='string'||!t.id.match(/^[A-Za-z][A-Za-z0-9_.-]*$/)||typeof t.label!=='string'||!t.label.trim()||typeof t.initial!=='boolean'||!Array.isArray(t.groupIds)||!t.groupIds.length)||new Set(tabs.map(t=>t.id)).size!==tabs.length||JSON.stringify(tabs.flatMap(t=>t.groupIds))!==JSON.stringify(groups.map(g=>g.id))||typeof content.tabsEnabled!=='boolean')throw Object.assign(Error('Invalid settings tabs'),{code:'panel.settings-tabs'});
+  }
+  if(layout.presentation?.version==='2.0'&&ctx.surfaceLayersEnabled!==false&&!tabs){
+    const fields=content.fields.map(f=>({...f})),close={id:'close',label:content.closeLabel,enabled:true,variant:'primary',action:'emit',targets:[]};
+    const config={geometry:{padding:layout.padding,gap:layout.gap,headingHeight:layout.titleHeight,labelHeight:layout.labelHeight,textHeight:layout.labelHeight,inputHeight:layout.fieldHeight,switchHeight:layout.fieldHeight,selectHeight:layout.fieldHeight,sliderHeight:layout.controlHeight,buttonHeight:layout.buttonHeight},presentation:layout.presentation,presets:{settings:{surface:'panel',...Object.fromEntries(Object.entries(layout.orientations).map(([key,value])=>[key,{width:value.width,height:value.height}]))}}};
+    const body=groups?{kind:'column',children:groups.map((group,index)=>({kind:'section',id:'group-'+index,title:group.title,rowIds:[...group.fieldIds,...(index===groups.length-1?['close']:[])],actionLayout:null}))}:undefined;
+    return presetSurfaceDocument({...content,presetId:'settings',sectionTitle:content.sectionTitle||content.title,fields,actions:[close]},config,canvas,ctx,body);
   }
   const rows = content.fields.map(f => {
     const col = o.rowDirection === 'column', labelWidth = col ? rowWidth : o.labelWidth;
@@ -79,7 +86,7 @@ export function settingsDocument(content, layout, canvas, ctx) {
     middle=tabs?[add('settings-tabs','tabs',{enabled:content.tabsEnabled,tabs:tabs.map((t,i)=>({id:t.id,label:t.label,contentNodeId:pages[i],enabled:true})),activeId:tabs.find(t=>t.initial).id},bodyWidth,middleHeight,{pages})]:pages;
   }
   const body=add('body','container',{},bodyWidth,height-layout.padding*2,{children:[title,...middle,footer]},{layout:{childrenMode:'flow',direction:'column',gap:layout.gap,padding:0}});
-  const panel=add('settings','panel',{title:'',contentPadding:{left:layout.padding,right:layout.padding,top:layout.padding,bottom:layout.padding}},o.width,height,{content:[body]}, {position:{x:(board.width-o.width)/2,y:(board.height-height)/2}});
+  const panel=add('settings','panel',{title:'',contentPadding:{left:layout.padding,right:layout.padding,top:layout.padding,bottom:layout.padding}},o.width,height,{content:[body]}, {position:{x:(board.width-o.width)/2,y:(board.height-height)/2},...(layout.presentation?.version==='2.0'&&ctx.surfaceLayersEnabled!==false?{surfaceLayer:'frame'}:{})});
   add('artboard','container',{},board.width,board.height,{children:[panel]},{layout:{childrenMode:'free',padding:0}});
   return validateDocument({kind:'ui_panel_document',version:'0.3',id:content.id+'-'+canvas,revision:0,title:content.title,canvas,bindings:structuredClone(ctx.binding),rootId:'artboard',nodes},ctx);
 }

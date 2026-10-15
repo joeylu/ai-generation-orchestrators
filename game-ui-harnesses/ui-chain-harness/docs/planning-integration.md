@@ -20,7 +20,7 @@ Panel 负责候选检索、规划上下文与响应 Schema、可选模型运输�
 
 设置转换支持多个同级分组、开关/滑块/下拉框、支持范围内的页签和滚动；ui-reference 入口保持五类八状态的预设控件形状，补充需求修改显示内容和初始值。预设来源由 `src/panel/reference-presets.mjs` 读取并冻结摘要，不在 Studio 复制另一份默认内容。
 
-自定义可转换 text/input/checkbox/switch/slider/select/progress/button、受支持的 column/row/grid/section 树及本地动作。消费者 layout 2.0 提供分组和数据项 Panel、按宽度并排或上下排列的标签值、横屏 1–3 列和竖屏单列的自适应 grid；显式 row 保留。上游没有的逐节点 padding、min/max、fill/content 由消费者配置决定，不伪造为 AI 已输出的字段。旧冻结 layout 1.0 保持原行为。完整限制见[自定义面板](custom-panel.md)。
+自定义可转换 text/input/checkbox/switch/slider/select/progress/button、受支持的 column/row/grid/section 树及本地动作。消费者 layout 3.0 提供有意义分组的 content 底板、独立数据的 inset 轻底板和 frame 外壳，避免反复套框；标签值按宽度并排或上下排列，grid 横屏 1–3 列、竖屏单列，显式 row 保留。上游没有的逐节点 padding、min/max、fill/content 由消费者配置决定，不伪造为 AI 已输出的字段。旧冻结 layout 1.0/2.0 保持原行为，旧提示词按冻结版本选择。完整限制见[自定义面板](custom-panel.md)。
 
 AI 仓库通过 `action-model.mjs` 的独立分支选择 `modern-readable-game-grid-layout` 目录，使用 `configs/inventory-planning.json` 约束 `inventory.grid@0.1.0`。AI 输出标题、名称、数量、格位和初始选择；程序冻结行列、格子几何、画布比例、真实皮肤和安全区。无图集时 `item.icon` 为 null，以名称展示。多格占用、拖换、堆叠、业务动作和未绑定图标不在当前转换范围内。旧 `deterministic-inventory` 结果保持原标识，不标成 AI。详见[仓库面板](inventory-panel.md)。
 

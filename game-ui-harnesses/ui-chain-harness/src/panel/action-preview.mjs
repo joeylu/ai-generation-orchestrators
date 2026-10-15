@@ -3,9 +3,11 @@ import {Application} from 'pixi.js';
 import {loadPngSkin} from '../runtime/png-skin.mjs';
 import {compilePanel} from './compiler.mjs';
 import {applyPresetAction,initialFieldState} from './action-behavior.mjs';
+import {mountPreviewTheme} from './preview-theme.mjs';
 export async function initializeActions(data){
+  const palette=mountPreviewTheme(data.ctx.profile);
   const app=new Application();
-  await app.init({width:1280,height:720,background:'#233a30',antialias:true,preference:'webgl',preserveDrawingBuffer:true,layout:{autoUpdate:true,throttle:0},eventFeatures:{globalMove:true}});
+  await app.init({width:1280,height:720,background:palette.canvas,antialias:true,preference:'webgl',preserveDrawingBuffer:true,layout:{autoUpdate:true,throttle:0},eventFeatures:{globalMove:true}});
   document.getElementById('stage').append(app.canvas);
   const bytes=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
   const skin=await loadPngSkin({manifestBytes:bytes(data.pack.manifest),manifestSha256:data.pack.manifestSha256,expectedBindings:data.pack.bindings,read:f=>bytes(data.pack.resources[f])});

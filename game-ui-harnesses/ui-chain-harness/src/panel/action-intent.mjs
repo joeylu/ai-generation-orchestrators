@@ -5,6 +5,8 @@ import {validateDocument} from './document.mjs';
 import {scrollPadding} from '../runtime/scroll-geometry.mjs';
 import {customIntentLayout,customPanelDocument} from './custom-layout.mjs';
 import {headingPresentation} from './headings.mjs';
+import {presetSurfaceDocument} from './preset-surfaces.mjs';
+import {validateFormActions} from './form-actions.mjs';
 const fail=(code)=>{throw Object.assign(new Error(code),{code:'panel.action-'+code});};
 
 export async function actionPresetFromIntent(sessionInput,intentInput,config,presetId,ctx) {
@@ -55,6 +57,7 @@ export async function actionPresetFromIntent(sessionInput,intentInput,config,pre
   if(preset.custom&&!fields.length&&!actions.length)fail('empty');
   const targetTypes=preset.custom?['input','check-box','switch','slider','select']:['input','check-box'];
   for(const a of actions)if(new Set(a.targets).size!==a.targets.length||a.targets.some(id=>!fields.some(f=>f.id===id&&targetTypes.includes(f.type))))fail('targets');
+  if(custom)validateFormActions({policy:preset.formActions,request:session.context.request.text,fields,actions,layoutBody:custom.body});
   const content={version:'1.0',id:p.id,title:p.title,sectionTitle:section.title,presetId,fields,actions,...(custom?{overflow:p.layout.overflow,layout:structuredClone(p.layout),layoutBody:custom.body}:{})};
   const documents=Object.fromEntries(panelOrientations(ctx.orientation).map(canvas=>[canvas,actionPresetDocument(content,config,canvas,ctx)]));
   const behavior={version:'1.0',fields:structuredClone(fields),actions:structuredClone(actions),dismissOnEmit:preset.dismissOnEmit};
@@ -63,13 +66,14 @@ export async function actionPresetFromIntent(sessionInput,intentInput,config,pre
 
 export function actionPresetDocument(content,config,canvas,ctx) {
   if(content.layoutBody)return customPanelDocument(content,config,canvas,ctx);
+  if(config.presentation?.version==='2.0'&&ctx.surfaceLayersEnabled!==false&&config.presets[content.presetId].surface==='panel')return presetSurfaceDocument(content,config,canvas,ctx);
   const preset=config.presets[content.presetId],o=preset[canvas],board=ctx.canvases.presets[canvas],g=config.geometry;
   const padding=preset.surface==='dialog'?ctx.profile.padding:g.padding,bodyWidth=o.width-2*padding,nodes=[],policy=presentation(config.presentation),scrolling=preset.custom&&content.overflow==='scroll';
   if(scrolling&&ctx.binding.sourceKind==='imported'&&!ctx.scrollInsets)fail('scroll-insets');
   const pad=scrolling?scrollPadding(ctx.profile,ctx.scrollInsets??{left:0,right:0,top:0,bottom:0}):null;
   const w=scrolling?bodyWidth-pad.left-pad.right-ctx.profile.geometry.scrollbarWidth-ctx.profile.geometry.scrollbarGap:bodyWidth;
   const add=(id,type,props,width,height,slots={},extra={})=>{nodes.push({id,name:id,recipeRef:type+'@1.0.0',props,size:{width,height},slots,...extra});return id;};
-  const text=(id,value,height,wrap='word',surfaceStyle)=>{const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,height):{height};return add(id,'text',{text:value,textStyleRef:'body',wrap,overflow:'error'},w,style.height,{},style.surfaceStyle?{surfaceStyle:style.surfaceStyle}:{});};
+  const text=(id,value,height,wrap='word',surfaceStyle)=>{const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,height,{layered:policy.version==='2.0'&&ctx.surfaceLayersEnabled!==false}):{height};return add(id,'text',{text:value,textStyleRef:'body',wrap,overflow:'error'},w,style.height,{},style.surfaceStyle?{surfaceStyle:style.surfaceStyle,...(style.surfaceTextInsets?{surfaceTextInsets:style.surfaceTextInsets}:{})}:{});};
   const children=[text('heading',content.title,g.headingHeight,'word','title')];
   nodes[0].size.width=bodyWidth;
   nodes[0].props.align=policy.titleAlign;
@@ -104,7 +108,7 @@ export function actionPresetDocument(content,config,canvas,ctx) {
   add('body','container',{},bodyWidth,height-2*padding,{children},{layout:{childrenMode:'flow',direction:'column',gap:g.gap,padding:0}});
   const props=preset.surface==='dialog'?{title:'',open:true,modal:true,closeOnBackdrop:false,actions:[]}
     :{title:'',contentPadding:{left:padding,right:padding,top:padding,bottom:padding}};
-  add('surface',preset.surface,props,o.width,height,{content:['body']},{position:{x:(board.width-o.width)/2,y:(board.height-height)/2}});
+  add('surface',preset.surface,props,o.width,height,{content:['body']},{position:{x:(board.width-o.width)/2,y:(board.height-height)/2},...(policy.version==='2.0'&&ctx.surfaceLayersEnabled!==false?{surfaceLayer:'frame'}:{})});
   add('artboard','container',{},board.width,board.height,{children:['surface']},{layout:{childrenMode:'free',padding:0}});
   return validateDocument({kind:'ui_panel_document',version:'0.3',id:content.id+'-'+canvas,revision:0,title:content.title,canvas,bindings:structuredClone(ctx.binding),rootId:'artboard',nodes},ctx);
 }

@@ -1,12 +1,13 @@
 import {assertInventoryProps,inventoryScrollMode,assertInventoryGridLimits} from './inventory-policy.mjs';
 import {textProfile} from './text-style.mjs';
 import {skinUsage} from '../skins/usage.mjs';
+import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
 
 const fail=message=>{throw Object.assign(new Error(message),{code:'inventory.geometry'});};
 const sides=['left','right','top','bottom'];
 // Accept the verified JSON evidence used by offline compilation, or its loaded
 // skin. Both expose the same logical insets and declared/slice minimums.
-export function inventorySkinMetrics(profile,source){
+export function inventorySkinMetrics(profile,source,{surfaceLayer}={}){
   const pads=[],minimums=[];
   for(const role of ['skin.item.normal','skin.item.selected']){
     const assetId=source?.roles instanceof Map?source.roles.get(role):source?.roles?.find(binding=>binding.role===role)?.assetId;
@@ -15,46 +16,47 @@ export function inventorySkinMetrics(profile,source){
     const usage=meta?.nineSlice?skinUsage(meta,meta.width,meta.height,source?.scale??1):null;
     const pad=source?.insets?source.insets(role):usage?.contentInsets??{left:profile.padding,right:profile.padding,top:0,bottom:0};
     if(sides.some(key=>!Number.isFinite(pad[key])||pad[key]<0))fail('格子皮肤安全区无效。');
-    pads.push(pad);
     const border=usage?.borders??(meta?.slice?{left:meta.slice,right:meta.slice,top:meta.slice,bottom:meta.slice}:{left:0,right:0,top:0,bottom:0});
+    pads.push(surfaceLayer?Object.fromEntries(sides.map(key=>[key,Math.max(pad[key],border[key]+4)])):pad);
     minimums.push({width:Math.max(meta?.minSize?.width??1,border.left+border.right+1),height:Math.max(meta?.minSize?.height??1,border.top+border.bottom+1)});
   }
   return {insets:Object.fromEntries(sides.map(key=>[key,Math.max(...pads.map(pad=>pad[key]))])),minSize:{width:Math.max(...minimums.map(value=>value.width)),height:Math.max(...minimums.map(value=>value.height))}};
 }
 
-function measurements(profile,props,skin){
+function measurements(profile,props,skin,{surfaceLayer}={}){
   assertInventoryProps(props);
   if(!props.inventory)fail('缺少显式仓库展示。');
-  const s=textProfile(profile,props),safe=inventorySkinMetrics(s,skin),pad=safe.insets,lineHeight=s.geometry.lineHeight,
+  const s=textProfile(profile,props),safe=inventorySkinMetrics(s,skin,{surfaceLayer}),pad=safe.insets,lineHeight=s.geometry.lineHeight,
+    surface=surfaceLayer?surfaceLayerInfo(skin?.surfaceGeometry??skin,surfaceLayer):null,gridPad=surface?.insets??{left:0,right:0,top:0,bottom:0},gridPadX=gridPad.left+gridPad.right,gridPadY=gridPad.top+gridPad.bottom,
     modern=props.inventory.appearance==='slots',both=props.inventory.scrollMode===inventoryScrollMode,columns=props.inventory.columns,rows=props.inventory.rows,
     iconSize=modern?Math.max(36,Math.min(44,Math.ceil(s.fontSize*2.5))):Math.max(20,Math.ceil(s.fontSize*1.5)),digits=Math.max(1,...props.items.map(item=>String(item.quantity).length)),quantityWidth=Math.ceil(digits*s.fontSize*.72)+4,
     content=Math.max(iconSize,lineHeight,quantityWidth),nameHeight=props.items.some(item=>item.icon===null)?lineHeight*2+4:0,requiredSide=Math.ceil(Math.max(safe.minSize.width,safe.minSize.height,pad.left+pad.right+content,pad.top+pad.bottom+Math.max(content,nameHeight))),side=props.inventory.cellSize??Math.max(both?48:0,requiredSide),
-    gridMinimum=side*columns+props.inventory.gap*(columns-1),detailPadding=Math.max(modern?16:12,s.padding),detailGap=Math.max(modern?20:8,s.geometry.labelGap),
+    gridMinimum=side*columns+props.inventory.gap*(columns-1)+gridPadX,detailPadding=Math.max(modern?16:12,s.padding,...(surfaceLayer?Object.values(surfaceLayerInfo(skin?.surfaceGeometry??skin,'content')?.insets??{}):[])),detailGap=Math.max(modern?20:8,s.geometry.labelGap),
     detailWidth=Math.ceil(Math.max(modern?250:168,s.fontSize*(modern?10:9)+detailPadding*2)),detailHeight=Math.ceil(Math.max(modern?220:0,detailPadding*2+lineHeight*5+16)),
-    viewportMinimum=both?side:gridMinimum,
-    minimum=props.inventory.details==='right'?{width:viewportMinimum+detailGap+detailWidth,height:Math.max(side,detailHeight)}:{width:Math.max(viewportMinimum,detailWidth),height:side+detailGap+detailHeight};
+    viewportMinimum=both?side+gridPadX:gridMinimum,
+    minimum=props.inventory.details==='right'?{width:viewportMinimum+detailGap+detailWidth,height:Math.max(side+gridPadY,detailHeight)}:{width:Math.max(viewportMinimum,detailWidth),height:side+gridPadY+detailGap+detailHeight};
   if(side<requiredSide)fail(`固定方格 ${side} 小于皮肤、字号与数量所需的 ${requiredSide}；请增大方格或恢复皮肤字号。`);
   if(both)assertInventoryGridLimits({columns,rows,cellWidth:side,cellHeight:side,spacingX:props.inventory.gap,spacingY:props.inventory.gap,padding:0});
-  return {s,pad,side,iconSize,quantityWidth,lineHeight,gridMinimum,detailPadding,detailGap,detailWidth,detailHeight,minimum,modern,both,columns,rows};
+  return {s,pad,side,iconSize,quantityWidth,lineHeight,gridMinimum,detailPadding,detailGap,detailWidth,detailHeight,minimum,modern,both,columns,rows,gridPad,gridPadX,gridPadY,surfaceLayer};
 }
 
-export function inventoryMinimum(profile,props,skin){return measurements(profile,props,skin).minimum;}
+export function inventoryMinimum(profile,props,skin,options){return measurements(profile,props,skin,options).minimum;}
 
-export function inventoryLayout(profile,props,width,height,skin){
-  const m=measurements(profile,props,skin),{minimum,pad}=m,below=props.inventory.details==='below',gap=props.inventory.gap;
+export function inventoryLayout(profile,props,width,height,skin,options){
+  const m=measurements(profile,props,skin,options),{minimum,pad}=m,below=props.inventory.details==='below',gap=props.inventory.gap;
   const {columns,rows,modern,both}=m;
   if(!Number.isFinite(width)||!Number.isFinite(height)||width<minimum.width-.01||height<minimum.height-.01)fail(`仓库至少需要 ${minimum.width}×${minimum.height} 逻辑像素；${columns} 列格子不能缩小皮肤或文字安全区。`);
-  const gridWidth=below?width:width-m.detailGap-m.detailWidth,
-    availableHeight=below?height-m.detailGap-m.detailHeight:height,
+  const gridWidth=(below?width:width-m.detailGap-m.detailWidth)-m.gridPadX,
+    availableHeight=(below?height-m.detailGap-m.detailHeight:height)-m.gridPadY,
     side=both?m.side:props.inventory.cellSize??Math.floor(Math.max(m.side,Math.min(modern?Math.max(88,m.side):Infinity,(gridWidth-gap*(columns-1))/columns,(availableHeight-gap*(rows-1))/rows))),
     naturalWidth=side*columns+gap*(columns-1),naturalHeight=side*rows+gap*(rows-1),gridHeight=modern||below?Math.min(availableHeight,naturalHeight):availableHeight,
     viewportWidth=both?Math.min(gridWidth,naturalWidth):naturalWidth,
-    groupWidth=below?viewportWidth:viewportWidth+m.detailGap+m.detailWidth,groupX=Math.floor((width-groupWidth)/2);
+    groupWidth=below?viewportWidth+m.gridPadX:viewportWidth+m.gridPadX+m.detailGap+m.detailWidth,groupX=Math.floor((width-groupWidth)/2);
   if(!both&&naturalWidth>gridWidth+.01)fail(`${columns} 列格子超出仓库可用宽度。`);
   const scrollableX=naturalWidth>viewportWidth+.01,scrollableY=naturalHeight>gridHeight+.01;
-  const grid={x:groupX,y:0,width:viewportWidth,height:gridHeight,contentWidth:naturalWidth,contentHeight:naturalHeight,columns,rows,gap,scrollable:scrollableX||scrollableY,...(both?{scrollableX,scrollableY}:{})};
+  const grid={x:groupX+m.gridPad.left,y:m.gridPad.top,width:viewportWidth,height:gridHeight,contentWidth:naturalWidth,contentHeight:naturalHeight,columns,rows,gap,scrollable:scrollableX||scrollableY,...(both?{scrollableX,scrollableY}:{}),...(m.surfaceLayer?{surface:{x:groupX,y:0,width:viewportWidth+m.gridPadX,height:gridHeight+m.gridPadY}}:{})};
   const detailWidth=below?(modern?Math.min(width,Math.max(m.detailWidth,viewportWidth)):width):m.detailWidth,
-    details=below?{x:Math.floor((width-detailWidth)/2),y:gridHeight+m.detailGap,width:detailWidth,height:modern?m.detailHeight:height-gridHeight-m.detailGap}:{x:groupX+viewportWidth+m.detailGap,y:0,width:detailWidth,height:modern?Math.min(height,m.detailHeight):height};
+    details=below?{x:Math.floor((width-detailWidth)/2),y:gridHeight+m.gridPadY+m.detailGap,width:detailWidth,height:modern?m.detailHeight:height-gridHeight-m.gridPadY-m.detailGap}:{x:groupX+viewportWidth+m.gridPadX+m.detailGap,y:0,width:detailWidth,height:modern?Math.min(height,m.detailHeight):height};
   details.padding=m.detailPadding;details.contentWidth=details.width-m.detailPadding*2;details.scrollable=true;
   details.icon=modern?{x:0,y:m.lineHeight+12,size:Math.max(56,Math.min(72,Math.ceil(m.s.fontSize*3.5)))}:null;
   const nameX=modern?details.icon.size+12:0;

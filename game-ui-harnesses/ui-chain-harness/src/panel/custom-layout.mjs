@@ -6,6 +6,8 @@ import {scrollPadding} from '../runtime/scroll-geometry.mjs';
 import {pngGeometry} from '../runtime/png-geometry.mjs';
 import {recipeRef} from '../contracts/props.mjs';
 import {headingPresentation} from './headings.mjs';
+import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
+import {surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 import {customLayoutPolicy,adaptivePresentation,isDataField,hasContentSurface,contentInsets,adaptiveColumns,dataArrangement} from './custom-presentation.mjs';
 export {customLayoutPolicy} from './custom-presentation.mjs';
 
@@ -44,12 +46,17 @@ export function customPanelDocument(content,config,canvas,ctx){
   const skin=imported?pngGeometry(ctx.skinGeometry,profile):null;
   const padding=Object.fromEntries(['left','right','top','bottom'].map(side=>[side,Math.max(g.padding,ctx.panelInsets?.[side]??0)]));
   if(Object.values(padding).some(n=>!Number.isFinite(n)||n<0))fail('skin-geometry');
-  const pad=scrolling?scrollPadding(profile,ctx.scrollInsets??{left:0,right:0,top:0,bottom:0}):{left:0,right:0,top:0,bottom:0};
+  const layerGeometry=l.version==='3.0'&&ctx.surfaceLayersEnabled!==false?surfaceGeometryForContext(ctx):null;
+  const scrollLayer=layerGeometry?surfaceLayerInfo(layerGeometry,'content'):null;
+  const pad=scrolling?scrollPadding(profile,scrollLayer?.insets??ctx.scrollInsets??{left:0,right:0,top:0,bottom:0}):{left:0,right:0,top:0,bottom:0};
   const scrollExtra=scrolling?pad.left+pad.right+profile.geometry.scrollbarWidth+profile.geometry.scrollbarGap:0;
   const fields=new Map([...content.fields,...content.actions.map(a=>({...a,type:'button'}))].map(f=>[f.id,f]));
-  const modern=adaptivePresentation(l),panelPad=contentInsets(l,ctx),zero={left:0,right:0,top:0,bottom:0};
-  const sectionPad=node=>modern&&l.groupSurfaces&&hasContentSurface(node.rowIds.map(id=>fields.get(id)))?panelPad:{left:l.groupPadding,right:l.groupPadding,top:l.groupPadding,bottom:l.groupPadding};
-  const dataPad=f=>modern&&l.dataSurfaces&&isDataField(f)?panelPad:zero;
+  const modern=adaptivePresentation(l),layered=l.version==='3.0'&&ctx.surfaceLayersEnabled!==false,panelPad=contentInsets(l,ctx,layered?'content':undefined),insetPad=layered?contentInsets(l,ctx,'inset'):panelPad,zero={left:0,right:0,top:0,bottom:0};
+  const dataRows=new Set(),allData=node=>node.rowIds.filter(id=>fields.get(id)?.type!=='button').every(id=>isDataField(fields.get(id)));
+  const markData=node=>{if(node.kind==='section'){if(!layered||allData(node))for(const id of node.rowIds)if(isDataField(fields.get(id)))dataRows.add(id);}else node.children.forEach(markData);};markData(content.layoutBody);
+  const sectionSurface=node=>modern&&l.groupSurfaces&&hasContentSurface(node.rowIds.map(id=>fields.get(id)),layered)&&!(layered&&allData(node));
+  const sectionPad=node=>sectionSurface(node)?panelPad:layered?zero:{left:l.groupPadding,right:l.groupPadding,top:l.groupPadding,bottom:l.groupPadding};
+  const dataPad=f=>modern&&l.dataSurfaces&&dataRows.has(f.id)?insetPad:zero;
   const layoutBody=structuredClone(content.layoutBody),footerRows=[];
   // Preserve the original single-section scrolling contract: trailing buttons
   // stay fixed. In rich structures buttons retain the section and order authored.
@@ -130,17 +137,18 @@ export function customPanelDocument(content,config,canvas,ctx){
     const height=padding*2+(direction==='row'?Math.max(24,...children.map(natural)):children.reduce((s,id)=>s+natural(id),0)+Math.max(0,children.length-1)*gap);
     return add(id,'container',{},w,Math.max(24,height),{children},{sizing:{widthMode:'fill',heightMode:'content'},layout:{childrenMode:'flow',direction,gap,padding,...layout},...extra});
   };
-  const panel=(id,child,w,p)=>{
+  const panel=(id,child,w,p,layer=layered?'content':undefined)=>{
     // Panel content slots have a measured width; only Container flow owns fill.
     byId.get(child).sizing={heightMode:'content'};
-    return add(id,'panel',{title:'',contentPadding:{...p}},w,Math.max(natural(child)+p.top+p.bottom,roleMinimum('skin.surface.panel','height'),p.top+p.bottom+profile.geometry.minContent),{content:[child]},{sizing:{widthMode:'fill'}});
+    const minimum=layer&&layerGeometry?surfaceLayerInfo(layerGeometry,layer)?.minHeight:roleMinimum('skin.surface.panel','height');
+    return add(id,'panel',{title:'',contentPadding:{...p}},w,Math.max(natural(child)+p.top+p.bottom,minimum??0,p.top+p.bottom+profile.geometry.minContent),{content:[child]},{sizing:{widthMode:'fill'},...(layer?{surfaceLayer:layer}:{})});
   };
   const text=(id,value,w,minHeight=g.labelHeight,wrap='word',extra={},surfaceStyle)=>{
     if(w<24)fail('layout-width');
-    const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,minHeight):{height:minHeight,insets:{left:0,right:0,top:0,bottom:0}},p=style.insets,inner=w-p.left-p.right;
+    const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,minHeight,{layered}):{height:minHeight,insets:{left:0,right:0,top:0,bottom:0}},p=style.insets,inner=w-p.left-p.right;
     if(wrap==='none'&&widthOf(value)>inner)fail('text-capacity',`${id}: single-line text does not fit without truncation.`);
     const lines=String(value).split(/\r\n|\r|\n/).reduce((n,line)=>n+Math.max(1,Math.ceil(widthOf(line)/Math.max(1,inner-profile.fontSize))),0);
-    return add(id,'text',{text:value,textStyleRef:'body',wrap,overflow:'error',...extra},w,Math.max(style.height,lineHeight*(wrap==='word'?lines:1)+p.top+p.bottom),{}, {sizing:{widthMode:'fill'},...(style.surfaceStyle?{surfaceStyle:style.surfaceStyle}:{})});
+    return add(id,'text',{text:value,textStyleRef:'body',wrap,overflow:'error',...extra},w,Math.max(style.height,lineHeight*(wrap==='word'?lines:1)+p.top+p.bottom),{}, {sizing:{widthMode:'fill'},...(style.surfaceStyle?{surfaceStyle:style.surfaceStyle}:{}),...(style.surfaceTextInsets?{surfaceTextInsets:style.surfaceTextInsets}:{})});
   };
   const button=(f,w,h=g.buttonHeight,sizing={widthMode:'fill'},explicitHeight=false)=>{
     const p=['normal','pressed'].map(s=>insetFor(`skin.button.${f.variant}.${s}`));
@@ -152,17 +160,17 @@ export function customPanelDocument(content,config,canvas,ctx){
     if(w<fieldMin(f)-.01)fail('layout-width',`${f.id}: control label or skin does not fit.`);
     if(f.type==='button')return button(f,w);
     if(modern&&isDataField(f)){
-      const p=dataPad(f),inner=w-p.left-p.right,inline=f.wrap==='none'&&!data.stacked;
+      const p=dataPad(f),inner=w-p.left-p.right,inline=f.wrap==='none'&&!data.stacked,inset=l.dataSurfaces&&dataRows.has(f.id);
       const label=text(f.id+'-label',f.label,inline?data.labelWidth:inner,g.labelHeight,inline?'none':'word');
-      const value=text(f.id,f.text,inline?inner-data.labelWidth-g.gap:inner,f.wrap==='none'?g.labelHeight:g.textHeight,f.wrap);
+      const value=text(f.id,f.text,inline?inner-data.labelWidth-g.gap:inner,layered||f.wrap==='none'?g.labelHeight:g.textHeight,f.wrap);
       if(inline){byId.get(label).sizing={};byId.get(value).sizing={};}
-      const block=stack(f.id+(l.dataSurfaces?'-data-content':'-block'),[label,value],inner,{direction:inline?'row':'column'});
-      return l.dataSurfaces?panel(f.id+'-block',block,w,p):block;
+      const block=stack(f.id+(inset?'-data-content':'-block'),[label,value],inner,{direction:inline?'row':'column'});
+      return inset?panel(f.id+'-block',block,w,p,layered?'inset':undefined):block;
     }
     const ids=[];
     if(f.type==='switch'||f.type==='check-box')return add(f.id,f.type,{label:f.label,checked:f.type==='switch'?f.value:f.checked,enabled:f.enabled},w,f.type==='switch'?g.switchHeight:g.checkboxHeight,{}, {sizing:{widthMode:'fill'}});
     if(f.label&&!(f.type==='text'&&f.label===f.text))ids.push(text(f.id+'-label',f.label,w));
-    if(f.type==='text')ids.push(text(f.id,f.text,w,g.textHeight,f.wrap));
+    if(f.type==='text')ids.push(text(f.id,f.text,w,layered?g.labelHeight:g.textHeight,f.wrap));
     else if(f.type==='slider')ids.push(add(f.id,'slider',{min:f.min,max:f.max,value:f.value,step:f.step,showValue:true,enabled:f.enabled},w,g.sliderHeight,{}, {sizing:{widthMode:'fill'}}));
     else if(f.type==='progress-bar'){
       ids.push(add(f.id,'progress-bar',{min:0,max:f.max,value:f.value,showValue:false},w,g.progressHeight,{}, {sizing:{widthMode:'fill'}}));
@@ -176,7 +184,7 @@ export function customPanelDocument(content,config,canvas,ctx){
   };
   const compile=(node,w)=>{
     if(node.kind==='section'){
-      const p=sectionPad(node),inner=w-p.left-p.right,rows=node.rowIds.map(id=>fields.get(id)),ids=[],surface=modern&&l.groupSurfaces&&hasContentSurface(rows),data=dataArrangement(rows,inner,l.dataSurfaces?panelPad:zero,g.gap,widthOf);
+      const p=sectionPad(node),inner=w-p.left-p.right,rows=node.rowIds.map(id=>fields.get(id)),ids=[],surface=sectionSurface(node),data=dataArrangement(rows,inner,l.dataSurfaces&&rows.some(f=>dataRows.has(f.id))?insetPad:zero,g.gap,widthOf);
       if(showHeadings)ids.push(text(node.id+'-heading',node.title,inner,g.labelHeight,'word',{},'section'));
       if(node.actionLayout){
         const a=node.actionLayout,buttons=rows.map(f=>button(f,a.buttonWidth,a.buttonHeight,{},true));
@@ -192,7 +200,7 @@ export function customPanelDocument(content,config,canvas,ctx){
         }
       }
       if(surface){const child=stack(node.id+'-content',ids,inner);return panel(node.id,child,w,p);}
-      return stack(node.id,ids,w,{padding:l.groupPadding});
+      return stack(node.id,ids,w,{padding:layered?0:l.groupPadding});
     }
     const id='layout-'+flowId++,column=node.kind==='column',columns=node.kind==='grid'?adaptiveColumns(l,canvas,node.children.length,w,Math.max(...node.children.map(treeMin))):node.children.length;
     const childWidth=column?w:(w-l.groupGap*(columns-1))/columns;
@@ -209,8 +217,8 @@ export function customPanelDocument(content,config,canvas,ctx){
   const contentId=compile(layoutBody,contentWidth);
   const footer=footerRows.length?stack('actions',footerRows.map(f=>button(f,(bodyWidth-g.gap*(footerRows.length-1))/footerRows.length)),bodyWidth,{direction:'row'}):null;
   const cap=Math.min(content.layout.maxHeight??board.height-policy.canvasMargin*2,board.height-policy.canvasMargin*2);
-  const required=Math.max(roleMinimum('skin.surface.panel','height'),padding.top+padding.bottom+natural(heading)+g.gap+natural(contentId)+(footer?natural(footer)+g.gap:0));
-  const height=scrolling?Math.min(o.height,cap):Math.max(Math.min(o.height,cap),Math.ceil(required));
+  const required=Math.max(roleMinimum('skin.surface.panel','height'),padding.top+padding.bottom+natural(heading)+g.gap+natural(contentId)+(layered&&scrolling?pad.top+pad.bottom:0)+(footer?natural(footer)+g.gap:0));
+  const height=layered?(scrolling?Math.min(Math.ceil(required),cap):Math.ceil(required)):(scrolling?Math.min(o.height,cap):Math.max(Math.min(o.height,cap),Math.ceil(required)));
   if(height>cap||height<Math.max(24,roleMinimum('skin.surface.panel','height')))fail('canvas-capacity','Content exceeds maxHeight or the selected canvas. Use explicit scrolling or simplify the structure.');
   let middle=contentId;
   if(scrolling){
@@ -218,15 +226,15 @@ export function customPanelDocument(content,config,canvas,ctx){
     if(viewport-pad.top-pad.bottom<Math.max(24,profile.geometry.minThumbLength))fail('scroll-capacity');
     // Slot roots have fixed width; only flow children may use fill.
     byId.get(contentId).sizing={heightMode:'content'};
-    middle=add('custom-scroll','scroll-view',{axis:'vertical',scrollbar:'auto'},bodyWidth,viewport,{content:[contentId]},{sizing:{widthMode:'fill'}});
+    middle=add('custom-scroll','scroll-view',{axis:'vertical',scrollbar:'auto'},bodyWidth,viewport,{content:[contentId]},{sizing:{widthMode:'fill'},...(layered?{surfaceLayer:'content'}:{})});
   }
   stack('body',[heading,middle,...(footer?[footer]:[])],bodyWidth,{}, {size:{width:bodyWidth,height:height-padding.top-padding.bottom},sizing:{}});
-  add('surface','panel',{title:'',contentPadding:padding},width,height,{content:['body']},{position:{x:(board.width-width)/2,y:(board.height-height)/2}});
+  add('surface','panel',{title:'',contentPadding:padding},width,height,{content:['body']},{position:{x:(board.width-width)/2,y:(board.height-height)/2},...(layered?{surfaceLayer:'frame'}:{})});
   add('artboard','container',{},board.width,board.height,{children:['surface']},{layout:{childrenMode:'free',padding:0}});
   const doc=validateDocument({kind:'ui_panel_document',version:'0.3',id:content.id+'-'+canvas,revision:0,title:content.title,canvas,bindings:structuredClone(ctx.binding),rootId:'artboard',nodes},ctx);
   if(skin){
     const indexed=indexDocument(doc),recipes=new Map(doc.nodes.map(n=>[n.id,ctx.registry.recipes.find(r=>recipeRef(r)===n.recipeRef)])),resolved=documentLayout(indexed.nodes,recipes,indexed.parents,profile);
-    for(const node of doc.nodes){const size=resolved.get(node.id)??node.size;try{skin.assertComponent(recipes.get(node.id).type,node.props,size.width,size.height);}catch(e){e.message=node.id+': '+e.message;throw e;}}
+    for(const node of doc.nodes){const size=resolved.get(node.id)??node.size;try{skin.assertComponent(recipes.get(node.id).type,node.props,size.width,size.height,node.surfaceLayer?{surfaceLayer:node.surfaceLayer}:undefined);}catch(e){e.message=node.id+': '+e.message;throw e;}}
   }
   return doc;
 }

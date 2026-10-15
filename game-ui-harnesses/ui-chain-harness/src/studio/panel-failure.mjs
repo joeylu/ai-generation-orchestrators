@@ -4,6 +4,7 @@ export function panelFailure(error){
  const code=typeof value==='string'&&/^[A-Za-z0-9_.-]{1,100}$/.test(value)?value:'PANEL_OPERATION_FAILED';
  let reason='本次面板调用或转换未完成，请查看本地运行证据。';
  if(code==='inventory.geometry')reason='当前空间无法容纳所选行列的物品格、皮肤安全区和文字。请增加对应空间或调整行列后重新准备计划。';
+ else if(code==='panel.action-form-scope')reason='模型声明的表单动作或字段范围与需求不符，已停止转换。请明确提交或重置哪些字段后重新准备计划。';
  else if(/^panel\.inventory-/.test(code))reason='AI仓库方案的格位、内容、几何或资产超出当前接入范围。请按仓库能力说明调整需求；原方案未被替换。';
  else if(/^inventory\./.test(code)||/^INVENTORY_/.test(code))reason='仓库配置、物品数据或皮肤合同未通过检查；原布局未被替换。';
  else if(/action-(skin-geometry|scroll-insets)/.test(code))reason='选定组件包缺少布局所需的安全几何证据，请先检查组件版本。';

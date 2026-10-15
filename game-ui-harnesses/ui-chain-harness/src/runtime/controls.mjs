@@ -8,6 +8,7 @@ import {
   Dialog,
 } from "@pixi/ui";
 import { fitText } from "./skin.mjs";
+import {createLayerSurface} from './layer-surface.mjs';
 
 // Display the normalized range while preserving the control's actual value.
 export function percentLabel(value, min, max) {
@@ -498,8 +499,9 @@ export class SkinnedDialog extends Dialog {
   initInnerView() {
     const { skin, width, height } = this.options;
     this.innerView = new Container();
+    this.layerSurface=this.options.surfaceLayer?createLayerSurface(skin,this.options.surfaceLayer,width,height):null;
     this.innerView.addChild(
-      skin.view("skin.surface.panel", width, height),
+      this.layerSurface?.view??skin.view("skin.surface.panel", width, height),
       this.contentView,
     );
     this.innerView.position.set(-width / 2, -height / 2);
@@ -537,8 +539,7 @@ export class SkinnedDialog extends Dialog {
     this.options.width = width;
     this.options.height = height;
     const bg = this.innerView.children[0];
-    bg.width = width;
-    bg.height = height;
+    if(this.layerSurface)this.layerSurface.resize(width,height);else {bg.width = width;bg.height = height;}
     this.innerView.hitArea = new Rectangle(0, 0, width, height);
     this.innerView.position.set(-width / 2, -height / 2);
     this.position.x += (width - oldWidth) / 2;

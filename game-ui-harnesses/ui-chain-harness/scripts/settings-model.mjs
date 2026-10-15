@@ -11,6 +11,7 @@ import {editorData} from '../src/panel/data.mjs';
 import {verifySkinPackage,json,hash} from '../src/skins/package.mjs';
 import {panelSkinContracts} from '../src/panel/skin-contracts.mjs';
 import {referenceSettingsPolicy} from '../src/panel/reference-presets.mjs';
+import {surfaceCompileContext} from '../src/panel/surface-presentation.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const read=async path=>JSON.parse(await readFile(path,'utf8'));
@@ -20,9 +21,10 @@ try {
   const api=await codexPlanningClient();
   const {pack,manifestSha256}=await verifySkinPackage(resolve(values.package));
   const contracts=await panelSkinContracts(pack,values.contracts);
-  let policy=await read(join(root,'configs/settings-planning-policy.json'));const layout=await read(join(root,'configs/settings-layout.json'));
+  let policy=await read(join(root,'configs/settings-planning-policy.json')),layout=await read(join(root,'configs/settings-layout.json'));
   const saved=positionals[0]==='run'&&values.plan?await read(values.plan):null;
   const preset=values.preset??saved?.consumer.policy.reference?.id;if(preset&&preset!=='sdk-settings')throw Error('REFERENCE_PRESET_UNKNOWN');if(preset)policy=referenceSettingsPolicy(policy);
+  if(saved){policy=structuredClone(saved.consumer.policy);layout=structuredClone(saved.consumer.layout);}
   const aliases=await read(values.aliases?resolve(values.aliases):join(root,'configs/planning-skin-aliases.json'));
   if(aliases.version!=='1.0'||!Array.isArray(aliases.skins[pack.id])||!aliases.skins[pack.id].every(s=>typeof s==='string'&&s.trim()))throw Error('SKIN_ALIASES_REQUIRED');
   const orientation=values.orientation??saved?.consumer.orientation;panelOrientations(orientation);
@@ -51,13 +53,13 @@ try {
       process.exitCode=2;
     } else {
       const data=await editorData(contracts),ctx={...data,orientation,profile:pack.theme,...settingsSkinGeometry(pack),binding:{sourceKind:'imported',sha256:manifestSha256}};
-      const converted=await settingsFromIntent(bundle.plan.session,result.intent,policy,layout,ctx);
+      const surfaceVersion=layout.presentation?.version==='2.0'?2:1,converted=await settingsFromIntent(bundle.plan.session,result.intent,policy,layout,surfaceCompileContext(ctx,surfaceVersion));
       const files=[];
       for(const[name,value]of Object.entries({'session.json':bundle.plan.session,'policy.json':policy,'layout.json':layout,'content.json':converted.content,
         ...Object.fromEntries(Object.entries(converted.documents).map(([name,doc])=>[name+'.panel.json',doc]))})){
         const bytes=Buffer.from(json(value));await writeFile(join(result.directory,name),bytes,{flag:'wx'});files.push({file:name,sha256:hash(bytes)});
       }
-      await writeFile(join(result.directory,'conversion.json'),json({status:'COMPILED',surfaceRecipesVersion:1,...converted.provenance,files,productionReady:false,visualAcceptance:'unreviewed'}),{flag:'wx'});
+      await writeFile(join(result.directory,'conversion.json'),json({status:'COMPILED',surfaceRecipesVersion:surfaceVersion,...converted.provenance,files,productionReady:false,visualAcceptance:'unreviewed'}),{flag:'wx'});
       console.log(JSON.stringify({status:'COMPILED',directory:result.directory,receipt:result.receipt}));
     }
     }catch(error){

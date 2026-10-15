@@ -6,13 +6,15 @@ import {inventoryPanelConfig,inventoryPresetContext,inventoryLayoutConfig,valida
 import {inventoryLayout} from '../runtime/inventory-geometry.mjs';
 import {assertInventoryGridLimits,inventoryScrollMode} from '../runtime/inventory-policy.mjs';
 import {validateSettingsResponse} from './settings-intent.mjs';
+import {surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 
 const upstreamCatalog=await readPanelSdkJson('examples/modern-readable-game-grid-layout.catalog.json');
 // Exact legacy capability snapshot: existing immutable plans are verified with
 // their original geometry policy rather than upgraded during conversion.
 const legacyCapabilities=structuredClone(capabilities);
 legacyCapabilities.version='1.0';legacyCapabilities.columns.maximum=10;legacyCapabilities.rows.maximum=10;
-for(const key of ['maximumCells','maximumGridDimension','scrollMode'])delete legacyCapabilities[key];
+for(const key of ['maximumCells','maximumGridDimension','scrollMode','surfaceLayer'])delete legacyCapabilities[key];
+const fixedCapabilities=structuredClone(capabilities);fixedCapabilities.version='1.1';delete fixedCapabilities.surfaceLayer;
 
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code:'panel.inventory-'+code});};
 const exact=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
@@ -54,8 +56,8 @@ function programGrid(ctx,layout,chosen){
   const compile=props=>{try{return inventoryContentDocument(ctx,{title:'仓库',props},layout);}catch(error){if(fixed&&error.code==='inventory.grid-size')fail('grid',error.message);throw error;}};
   const probe={...chosen,spacingX:layout.gap},props=propsFor(probe,details,[{slot:0,name:'仓库',quantity:9999,icon:null}],null,true,layout.scrollMode);
   const document=compile(props),list=document.nodes.find(node=>node.id==='inventory-grid');
-  const cell=inventoryLayout(ctx.profile,list.props,list.size.width,list.size.height,ctx.skinGeometry).cell;
-  const size=Math.max(48,fixed?Math.max(layout.cellTarget,cell.minimum):cell.width),grid={rows:chosen.rows,columns:chosen.columns,cellWidth:size,cellHeight:size,spacingX:layout.gap,spacingY:layout.gap,padding:0,startCorner:'upper-left',startAxis:'horizontal'};
+  const cell=inventoryLayout(ctx.profile,list.props,list.size.width,list.size.height,layout.surfaceLayer?surfaceGeometryForContext(ctx):ctx.skinGeometry,layout.surfaceLayer?{surfaceLayer:layout.surfaceLayer}:undefined).cell;
+  const required=Math.max(48,fixed?Math.max(layout.cellTarget,cell.minimum):cell.width),size=layout.surfaceLayer?Math.ceil(required/8)*8:required,grid={rows:chosen.rows,columns:chosen.columns,cellWidth:size,cellHeight:size,spacingX:layout.gap,spacingY:layout.gap,padding:0,startCorner:'upper-left',startAxis:'horizontal'};
   if(fixed)try{assertInventoryGridLimits(grid);}catch{fail('grid','当前皮肤所需的固定格子超出 144 格或 4000 像素网格预算，请减少行列。');}
   compile(propsFor(grid,details,[{slot:0,name:'仓库',quantity:9999,icon:null}],null,true,layout.scrollMode));
   return grid;
@@ -69,15 +71,15 @@ export function inventoryActionConfig(baseConfig,ctx){
     ...structuredClone(baseConfig),intentVersion:capabilities.intentVersion,themeKey:theme.id+'@'+theme.version,
     recipes:{[capabilities.recipeKey]:{kind:'inventory',recipe:'list'}},
     presets:{inventory:{surface:'panel',maxFields:1,maxActions:0,kinds:['inventory'],dismissOnEmit:false}},
-    inventoryPlanning:{kind:'ui_chain_inventory_planning',version:'1.1',orientation:ctx.orientation,catalog,layout,programGrid:programGrid(ctx,layout,chosen),capabilities:structuredClone(capabilities)},
+    inventoryPlanning:{kind:'ui_chain_inventory_planning',version:'1.2',orientation:ctx.orientation,catalog,layout,programGrid:programGrid(ctx,layout,chosen),capabilities:structuredClone(capabilities)},
   };
 }
 
 /** Recheck frozen plan data without replacing it with mutable current defaults. */
 export function validateInventoryActionConfig(config,ctx){
   const policy=config?.inventoryPlanning,grid=policy?.programGrid;
-  const fixed=policy?.version==='1.1',expectedCapabilities=fixed?capabilities:legacyCapabilities;
-  if(config?.version!=='1.0'||config.intentVersion!=='0.13'||!exact(policy,['kind','version','orientation','catalog','layout','programGrid','capabilities'])||policy.kind!=='ui_chain_inventory_planning'||!['1.0','1.1'].includes(policy.version)||!['landscape','portrait'].includes(policy.orientation)||!same(policy.capabilities,expectedCapabilities)||policy.layout?.version!==(fixed?'1.2':'1.1'))fail('config','库存规划配置不受当前转换器支持。');
+  const fixed=['1.1','1.2'].includes(policy?.version),layered=policy?.version==='1.2',expectedCapabilities=layered?capabilities:fixed?fixedCapabilities:legacyCapabilities;
+  if(config?.version!=='1.0'||config.intentVersion!=='0.13'||!exact(policy,['kind','version','orientation','catalog','layout','programGrid','capabilities'])||policy.kind!=='ui_chain_inventory_planning'||!['1.0','1.1','1.2'].includes(policy.version)||!['landscape','portrait'].includes(policy.orientation)||!same(policy.capabilities,expectedCapabilities)||policy.layout?.version!==(layered?'1.3':fixed?'1.2':'1.1'))fail('config','库存规划配置不受当前转换器支持。');
   if(!same(config.presets,{inventory:{surface:'panel',maxFields:1,maxActions:0,kinds:['inventory'],dismissOnEmit:false}})||!same(config.recipes,{[capabilities.recipeKey]:{kind:'inventory',recipe:'list'}}))fail('config','库存配方与控件能力必须显式匹配。');
   validateInventoryLayoutConfig(policy.layout);
   const catalog=policy.catalog,theme=catalog?.themes?.[0];
@@ -112,7 +114,7 @@ export async function inventoryPresetFromIntent(sessionInput,intentInput,config,
     occupied.add(item.slot);
   }
   if(row.selectedSlot!==null&&(!Number.isInteger(row.selectedSlot)||row.selectedSlot<0||row.selectedSlot>=row.grid.rows*row.grid.columns))fail('selection','初始选择格位必须位于仓库内或为 null。');
-  const details=policy.layout.orientations[ctx.orientation].details,props=propsFor(row.grid,details,row.items,row.selectedSlot,row.enabled,policy.layout.scrollMode),document=inventoryContentDocument(ctx,{title:panel.title,sectionTitle:section.title,label:row.label,props},policy.layout),derived=inventoryPresetContext(ctx),list=document.nodes.find(node=>node.id==='inventory-grid'),actual=inventoryLayout(ctx.profile,list.props,list.size.width,list.size.height,ctx.skinGeometry);
+  const details=policy.layout.orientations[ctx.orientation].details,props=propsFor(row.grid,details,row.items,row.selectedSlot,row.enabled,policy.layout.scrollMode),document=inventoryContentDocument(ctx,{title:panel.title,sectionTitle:section.title,label:row.label,props},policy.layout),derived=inventoryPresetContext(ctx),list=document.nodes.find(node=>node.id==='inventory-grid'),actual=inventoryLayout(ctx.profile,list.props,list.size.width,list.size.height,list.surfaceLayer?surfaceGeometryForContext(ctx):ctx.skinGeometry,list.surfaceLayer?{surfaceLayer:list.surfaceLayer}:undefined);
   if(actual.cell.width!==row.grid.cellWidth||actual.cell.height!==row.grid.cellHeight)fail('geometry','渲染几何与规划格子尺寸不一致。');
   // Selection stays local List state. No invented game actions or descriptions.
   return {

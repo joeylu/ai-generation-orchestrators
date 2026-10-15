@@ -11,6 +11,8 @@ import {resourceClosure} from '../src/panel/document.mjs';
 import {validateSizeEdit,sizeEditTargets} from '../src/panel/size-edit.mjs';
 const read=async p=>JSON.parse(await readFile(new URL(p,import.meta.url)));
 const config=customActionConfig(await read('../configs/action-presets.json')),catalog=await read('../../ui-panel-harness/examples/modern-all-components.catalog.json'),ctx=await editorData();
+// Preserve the original v2 rendering as an explicit frozen policy regression.
+config.presets.custom.layout.version='2.0';
 const data=(label,text)=>({kind:'text',recipeKey:'settings.text@0.1.0',label,text,wrap:'none'});
 const button={kind:'button',recipeKey:'settings.button.primary@0.1.0',label:'查看任务',enabled:true,action:'emit',resetRows:[],submitRows:[]};
 const example={id:'adaptive-cards',presetId:'custom',title:'任务列表',request:'任务列表，三个任务卡片展示名称与状态，各有查看按钮，按画布安排列数。',overflow:'scroll',body:{kind:'grid',children:Array.from({length:3},(_,i)=>({kind:'section',title:'任务'+(i+1),rows:[data('任务名称','森林巡逻'),data('状态','进行中'),button]}))}};

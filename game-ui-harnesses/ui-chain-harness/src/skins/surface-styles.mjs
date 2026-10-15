@@ -47,10 +47,39 @@ export function surfaceStyleInfo(geometry,key){
  if(sides.some(k=>pad[k]<asset.contentInsets[k]||(!replace&&clip[k]<asset.nineSlice[k])))fail('Surface insets intrude into the skin border.');
  return {style,asset,insets:{...pad},clipInsets:{...clip},minWidth:Math.max(asset.minSize.width,pad.left+pad.right+1,clip.left+clip.right+1),minHeight:Math.max(asset.minSize.height,pad.top+pad.bottom+1,clip.top+clip.bottom+1)};
 }
-export function surfaceTextBox(geometry,key,width,height){
+export function surfaceTextBox(geometry,key,width,height,overrideInsets){
  const info=surfaceStyleInfo(geometry,key);
  if(!info)fail('Surface geometry is missing.');
- const p=info.insets;
+ const p=overrideInsets??info.insets;
+ if(overrideInsets&&(!insets(overrideInsets)||sides.some(k=>overrideInsets[k]<info.insets[k])))fail('Text insets intrude into the frozen surface safe area.');
  if(width<info.minWidth||height<info.minHeight)fail('Surface is smaller than its skin minimum.');
- return {x:p.left,y:p.top,width:width-p.left-p.right,height:height-p.top-p.bottom,...info};
+ if(width<=p.left+p.right||height<=p.top+p.bottom)fail('Surface text safe area is empty.');
+ return {x:p.left,y:p.top,width:width-p.left-p.right,height:height-p.top-p.bottom,...info,insets:{...p}};
+}
+
+export const surfaceLayers=Object.freeze(['frame','content','inset']);
+export const surfaceLayerTypes=Object.freeze(['Panel','Dialog','ScrollView','Tabs','List']);
+// Explicit document presentation, independent of the immutable skin recipe.
+// The inset samples the complete safe central region, never an inferred color.
+export function surfaceLayerInfo(geometry,layer){
+ if(!surfaceLayers.includes(layer))fail('Unknown surface layer.');
+ if(!geometry)return null;
+ const materialStyle=layer==='frame'&&geometry.surfaceStyles?.panel?'panel':null,style=materialStyle?geometry.surfaceStyles.panel:null;
+ const baseRole=layer==='frame'?style?.baseRole??'skin.surface.panel':'skin.surface.content';
+ const assetId=geometry.roles instanceof Map?geometry.roles.get(baseRole):geometry.roles?.find(r=>r.role===baseRole)?.assetId;
+ const asset=geometry.metadata instanceof Map?geometry.metadata.get(assetId):geometry.assets?.find(a=>a.assetId===assetId);
+ if(!asset)fail('Surface layer base role is unavailable.');
+ const nativePad=geometry.insets?geometry.insets(baseRole):asset.contentInsets;
+ const border=asset.nineSlice??Object.fromEntries(sides.map(k=>[k,asset.slice??0]));
+ if(!nativePad||sides.some(k=>!Number.isFinite(nativePad[k])||nativePad[k]<0||!Number.isFinite(border[k])||border[k]<0))fail('Surface layer geometry is invalid.');
+ // Older packs may have declared zero content insets around a visible frame.
+ // Explicit new layers reserve that frame and breathing room without changing
+ // the source metadata or the meaning of an unmarked historic document.
+ const pad=style?.insets??Object.fromEntries(sides.map(k=>[k,layer==='content'?Math.max(nativePad[k],border[k]+8):layer==='inset'?Math.max(nativePad[k],8):nativePad[k]]));
+ const resolution=(geometry.scale??geometry.surfaceGeometry?.scale??1)*(asset.density??1),width=asset.width/resolution,height=asset.height/resolution;
+ const cut=Object.fromEntries(sides.map(k=>[k,Math.max(nativePad[k],border[k])]));
+ const sample={x:cut.left,y:cut.top,width:width-cut.left-cut.right,height:height-cut.top-cut.bottom,sourceWidth:width,sourceHeight:height};
+ if(layer==='inset'&&(sample.width<2||sample.height<2))fail('Inset material needs a safe central region of at least 2 × 2 pixels.');
+ const clip=style?.clipInsets??border;
+ return {layer,baseRole,asset,insets:{...pad},minWidth:Math.max(asset.minSize?.width??1,pad.left+pad.right+1,clip.left+clip.right+1),minHeight:Math.max(asset.minSize?.height??1,pad.top+pad.bottom+1,clip.top+clip.bottom+1),materialStyle,...(layer==='inset'?{sample}:{})};
 }

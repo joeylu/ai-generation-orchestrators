@@ -23,7 +23,7 @@ test('the dedicated public planning session enables inventory 0.13 and verifies 
   const catalog=inventoryPlanningCatalog(config);assert.deepEqual(catalog.recipes.map(recipe=>recipe.kind),['inventory-row','text-row']);
   assert.deepEqual(config.inventoryPlanning.capabilities.icons,[null]);assert.equal(config.inventoryPlanning.capabilities.descriptions,'not-in-upstream-intent');
   assert.equal(config.inventoryPlanning.programGrid.rows,4);assert.equal(config.inventoryPlanning.programGrid.columns,5);
-  assert.equal(config.inventoryPlanning.version,'1.1');assert.equal(config.inventoryPlanning.layout.version,'1.2');assert.equal(config.inventoryPlanning.layout.scrollMode,inventoryScrollMode);
+  assert.equal(config.inventoryPlanning.version,'1.2');assert.equal(config.inventoryPlanning.layout.version,'1.3');assert.equal(config.inventoryPlanning.layout.scrollMode,inventoryScrollMode);
   catalog.recipes[0].description='changed';assert.notEqual(config.inventoryPlanning.catalog.recipes[0].description,'changed');
 });
 
@@ -82,9 +82,9 @@ test('new plans reject frozen geometry over 4000 before conversion',async()=>{
 
 test('legacy frozen planning 1.0 retains its capabilities and vertical fit geometry',async()=>{
   const {ctx,config}=await fixture(),legacy=structuredClone(config),policy=legacy.inventoryPlanning;
-  policy.version='1.0';policy.layout.version='1.1';delete policy.layout.scrollMode;
+  policy.version='1.0';policy.layout.version='1.1';delete policy.layout.scrollMode;delete policy.layout.surfaceLayer;
   policy.capabilities.version='1.0';policy.capabilities.columns.maximum=10;policy.capabilities.rows.maximum=10;
-  for(const key of ['maximumCells','maximumGridDimension','scrollMode'])delete policy.capabilities[key];
+  for(const key of ['maximumCells','maximumGridDimension','scrollMode','surfaceLayer'])delete policy.capabilities[key];
   assert.deepEqual(validateInventoryActionConfig(legacy,ctx),legacy);
   const session=await planningClient().prepare({request,catalog:inventoryPlanningCatalog(legacy)}),intent=inventoryIntentFixture(session,legacy),preset=await inventoryPresetFromIntent(session,intent,legacy,'inventory',ctx),list=preset.documents.landscape.nodes.find(node=>node.id==='inventory-grid');
   assert.equal(Object.hasOwn(list.props.inventory,'scrollMode'),false);assert.equal(list.props.inventory.cellSize,policy.programGrid.cellWidth);

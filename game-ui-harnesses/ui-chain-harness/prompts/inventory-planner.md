@@ -25,6 +25,9 @@ and verified skin safety areas. Internal inventory scrolling is program-owned.
 New plans use fixed-size cells with independent horizontal and vertical scrolling;
 the program enforces axes 1..32, at most 144 cells, and grid dimensions at most
 4000 logical pixels before a model call. This does not change the frozen grid.
+The new consumer presentation uses the selected skin's title/section materials,
+content surface for the inventory, and the existing item art for slots. Do not
+invent additional images, icons, backgrounds or presentation fields in the intent.
 Do not shrink fonts, clip copy, remove items or substitute another layout to fit.
 
 Items are sparse occupied slots: each item has exactly slot, name, quantity and

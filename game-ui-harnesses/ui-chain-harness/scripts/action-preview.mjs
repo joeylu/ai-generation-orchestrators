@@ -29,7 +29,7 @@ if(values.run){
   const aliases=JSON.parse(await readFile(values.aliases?resolve(values.aliases):join(root,"configs/planning-skin-aliases.json")));
   for(const directory of values.run){
     const runDirectory=resolve(directory),saved=JSON.parse(await readFile(join(runDirectory,'content.json')));
-    let runConfig=saved.presetId?.startsWith('sdk-')?referenceActionConfig(config,saved.presetId):saved.presetId==='custom'?customActionConfig(config):config;
+    let runConfig=JSON.parse(await readFile(join(runDirectory,'config.json')));
     if(saved.presetId==='inventory'){
       const {validateInventoryActionConfig}=await import('../src/panel/inventory-intent.mjs');
       const consumer=actionPlanConsumer(JSON.parse(await readFile(join(runDirectory,'plan.json'))));

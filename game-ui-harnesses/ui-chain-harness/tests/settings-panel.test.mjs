@@ -6,6 +6,8 @@ import {settingsDocument} from '../src/panel/settings.mjs';
 import {resourceClosure,validateDocument} from '../src/panel/document.mjs';
 const ctx=await editorData();ctx.binding={sourceKind:'imported',sha256:'a'.repeat(64)};
 const content=JSON.parse(await readFile(new URL('../configs/settings-content.json',import.meta.url))),layout=JSON.parse(await readFile(new URL('../configs/settings-layout.json',import.meta.url)));
+// Historical layout and tab/scroll viewport regressions keep their frozen v1.
+layout.presentation.version='1.0';
 
 test('tabs without scrolling size pages independently and reject lost groups or ambiguous selection',()=>{
   const fields=content.fields.slice(0,2),grouped={...content,fields,groups:fields.map((f,i)=>({id:'g'+i,title:'分组'+i,fieldIds:[f.id]})),tabsEnabled:true,tabs:fields.map((f,i)=>({id:'t'+i,label:'页'+i,initial:i===0,groupIds:['g'+i]}))};

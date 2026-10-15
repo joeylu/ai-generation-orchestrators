@@ -1,0 +1,860 @@
+{
+  "version": "1.0",
+  "presetSkin": "pixel",
+  "presets": [
+    "sdk-ready",
+    "sdk-settings",
+    "sdk-pause-online",
+    "sdk-pause-local",
+    "sdk-result-complete",
+    "sdk-result-failed",
+    "sdk-loading",
+    "sdk-loading-failed",
+    "inventory"
+  ],
+  "custom": [
+    {
+      "id": "C01",
+      "skin": "pixel",
+      "orientation": "portrait",
+      "text": "公告面板，正文“欢迎来到云海小镇，愿你今天有所收获。”",
+      "expected": {
+        "literals": [
+          "欢迎来到云海小镇，愿你今天有所收获。"
+        ]
+      }
+    },
+    {
+      "id": "C02",
+      "skin": "pixel",
+      "orientation": "landscape",
+      "text": "游戏说明，分“移动”“交互”两组，正文分别“拖动摇杆移动。”“靠近目标后点击交互。”",
+      "expected": {
+        "sectionTitles": ["移动", "交互"],
+        "literals": [
+          "移动",
+          "交互",
+          "拖动摇杆移动。",
+          "靠近目标后点击交互。"
+        ]
+      }
+    },
+    {
+      "id": "C03",
+      "skin": "pixel",
+      "orientation": "portrait",
+      "text": "角色资料，显示姓名“阿青”、职业“旅人”、等级“12”。",
+      "expected": {
+        "textPairs": [
+          {
+            "label": "姓名",
+            "value": "阿青"
+          },
+          {
+            "label": "职业",
+            "value": "旅人"
+          },
+          {
+            "label": "等级",
+            "value": "12"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C04",
+      "skin": "pixel",
+      "orientation": "landscape",
+      "text": "六张数据卡，显示生命120、攻击35、防御18、速度24、金币360、声望8，按空间排列，允许滚动。",
+      "expected": {
+        "fieldCount": 6,
+        "textPairs": [
+          {
+            "label": "生命",
+            "value": 120
+          },
+          {
+            "label": "攻击",
+            "value": 35
+          },
+          {
+            "label": "防御",
+            "value": 18
+          },
+          {
+            "label": "速度",
+            "value": 24
+          },
+          {
+            "label": "金币",
+            "value": 360
+          },
+          {
+            "label": "声望",
+            "value": 8
+          }
+        ],
+        "layoutKinds": [
+          "grid"
+        ]
+      }
+    },
+    {
+      "id": "C05",
+      "skin": "pixel",
+      "orientation": "landscape",
+      "text": "左右两组，左边昵称输入默认“阿青”，右边音乐开关默认开启。",
+      "expected": {
+        "fields": [
+          {
+            "type": "input",
+            "label": "昵称",
+            "value": "阿青"
+          },
+          {
+            "type": "switch",
+            "label": "音乐",
+            "value": true
+          }
+        ],
+        "layoutKinds": [
+          "row"
+        ]
+      }
+    },
+    {
+      "id": "C06",
+      "skin": "pixel",
+      "orientation": "landscape",
+      "text": "固定三列，分别显示战斗次数12、胜利次数8、失败次数4。",
+      "expected": {
+        "textPairs": [
+          {
+            "label": "战斗次数",
+            "value": 12
+          },
+          {
+            "label": "胜利次数",
+            "value": 8
+          },
+          {
+            "label": "失败次数",
+            "value": 4
+          }
+        ],
+        "layoutKinds": [
+          "row"
+        ],
+        "rowChildren": 3
+      }
+    },
+    {
+      "id": "C07",
+      "skin": "pixel",
+      "orientation": "landscape",
+      "text": "上方左右显示角色姓名“阿青”和状态“探索中”，下方整行显示说明“继续前往森林”。",
+      "expected": {
+        "literals": [
+          "阿青",
+          "探索中",
+          "继续前往森林"
+        ],
+        "layoutKinds": [
+          "column",
+          "row"
+        ]
+      }
+    },
+    {
+      "id": "C08",
+      "skin": "pixel",
+      "orientation": "portrait",
+      "text": "偏好面板，任务提示、伤害数字、环境音三个勾选项，默认开、开、关。",
+      "expected": {
+        "fields": [
+          {
+            "type": "check-box",
+            "label": "任务提示",
+            "checked": true
+          },
+          {
+            "type": "check-box",
+            "label": "伤害数字",
+            "checked": true
+          },
+          {
+            "type": "check-box",
+            "label": "环境音",
+            "checked": false
+          }
+        ],
+        "fieldCount": 3
+      }
+    },
+    {
+      "id": "C09",
+      "skin": "pixel",
+      "orientation": "landscape",
+      "text": "音量面板，音乐和音效滑块均0到100、步长1，默认70和40。",
+      "expected": {
+        "fields": [
+          {
+            "type": "slider",
+            "label": "音乐",
+            "min": 0,
+            "max": 100,
+            "step": 1,
+            "value": 70
+          },
+          {
+            "type": "slider",
+            "label": "音效",
+            "min": 0,
+            "max": 100,
+            "step": 1,
+            "value": 40
+          }
+        ],
+        "fieldCount": 2
+      }
+    },
+    {
+      "id": "C10",
+      "skin": "pixel",
+      "orientation": "portrait",
+      "text": "显示面板，画质下拉低中高默认高，语言下拉中文英文默认中文。",
+      "expected": {
+        "fields": [
+          {
+            "type": "select",
+            "label": "画质",
+            "options": [
+              "低",
+              "中",
+              "高"
+            ],
+            "selectedLabel": "高"
+          },
+          {
+            "type": "select",
+            "label": "语言",
+            "options": [
+              "中文",
+              "英文"
+            ],
+            "selectedLabel": "中文"
+          }
+        ],
+        "fieldCount": 2
+      }
+    },
+    {
+      "id": "C11",
+      "skin": "woodland",
+      "orientation": "portrait",
+      "text": "昵称编辑，文本输入默认“阿青”，必填，长度2到8，底部提交和重置。",
+      "expected": {
+        "fields": [
+          {
+            "type": "input",
+            "label": "昵称",
+            "value": "阿青",
+            "required": true,
+            "minLength": 2,
+            "maxLength": 8
+          }
+        ],
+        "actions": [
+          {
+            "label": "提交",
+            "action": "submit",
+            "targets": [
+              "昵称"
+            ]
+          },
+          {
+            "label": "重置",
+            "action": "reset-initial",
+            "targets": [
+              "昵称"
+            ]
+          }
+        ],
+        "fieldCount": 1,
+        "actionCount": 2
+      }
+    },
+    {
+      "id": "C12",
+      "skin": "woodland",
+      "orientation": "landscape",
+      "text": "留言表单，称呼默认“旅人”、留言默认“你好”，两个文本输入最多12和40字，底部提交。",
+      "expected": {
+        "fields": [
+          {
+            "type": "input",
+            "label": "称呼",
+            "value": "旅人",
+            "maxLength": 12
+          },
+          {
+            "type": "input",
+            "label": "留言",
+            "value": "你好",
+            "maxLength": 40
+          }
+        ],
+        "actions": [
+          {
+            "label": "提交",
+            "action": "submit",
+            "targets": [
+              "称呼",
+              "留言"
+            ]
+          }
+        ],
+        "fieldCount": 2,
+        "actionCount": 1
+      }
+    },
+    {
+      "id": "C13",
+      "skin": "woodland",
+      "orientation": "portrait",
+      "text": "邀请码只读输入“AB12”，下方公开资料开关默认开启。",
+      "expected": {
+        "fields": [
+          {
+            "type": "input",
+            "label": "邀请码",
+            "value": "AB12",
+            "readOnly": true
+          },
+          {
+            "type": "switch",
+            "label": "公开资料",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "C14",
+      "skin": "woodland",
+      "orientation": "landscape",
+      "text": "锁定状态，昵称输入“阿青”禁用，音乐开关关闭且禁用，确认按钮禁用。",
+      "expected": {
+        "fields": [
+          {
+            "type": "input",
+            "label": "昵称",
+            "value": "阿青",
+            "enabled": false
+          },
+          {
+            "type": "switch",
+            "label": "音乐",
+            "value": false,
+            "enabled": false
+          }
+        ],
+        "actions": [
+          {
+            "label": "确认",
+            "enabled": false
+          }
+        ],
+        "actionCount": 1
+      }
+    },
+    {
+      "id": "C15",
+      "skin": "woodland",
+      "orientation": "landscape",
+      "text": "操作面板，继续、说明、返回三个按钮横排，仅发出本地事件。",
+      "expected": {
+        "actions": [
+          {
+            "label": "继续",
+            "action": "emit"
+          },
+          {
+            "label": "说明",
+            "action": "emit"
+          },
+          {
+            "label": "返回",
+            "action": "emit"
+          }
+        ],
+        "fieldCount": 0,
+        "actionCount": 3,
+        "actionLayouts": [
+          {
+            "direction": "row"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C16",
+      "skin": "woodland",
+      "orientation": "portrait",
+      "text": "操作面板，继续、说明、返回三个按钮竖排，仅发出本地事件。",
+      "expected": {
+        "actions": [
+          {
+            "label": "继续",
+            "action": "emit"
+          },
+          {
+            "label": "说明",
+            "action": "emit"
+          },
+          {
+            "label": "返回",
+            "action": "emit"
+          }
+        ],
+        "fieldCount": 0,
+        "actionCount": 3,
+        "actionLayouts": [
+          {
+            "direction": "column"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C17",
+      "skin": "woodland",
+      "orientation": "landscape",
+      "text": "两张物品信息卡，分别显示“药水／12瓶”“木材／30份”，每卡一个查看按钮，仅本地事件。",
+      "expected": {
+        "literals": [
+          "药水",
+          "12瓶",
+          "木材",
+          "30份"
+        ],
+        "actionCount": 2,
+        "groupActions": true
+      }
+    },
+    {
+      "id": "C18",
+      "skin": "woodland",
+      "orientation": "portrait",
+      "text": "可滚动帮助：探索组显示“拖动摇杆移动。点击目标查看。”，对话组显示“靠近角色。点击对话继续。”，背包组显示“点击物品查看。点击空格取消选择。”",
+      "expected": {
+        "sectionTitles": ["探索", "对话", "背包"],
+        "literals": [
+          "拖动摇杆移动。点击目标查看。",
+          "靠近角色。点击对话继续。",
+          "点击物品查看。点击空格取消选择。"
+        ],
+        "overflow": "scroll"
+      }
+    },
+    {
+      "id": "C19",
+      "skin": "woodland",
+      "orientation": "portrait",
+      "text": "标题“远行者的旅途偏好与声音设置”，音乐开关默认开，提示文字“保存前请确认你的选择”。",
+      "expected": {
+        "title": "远行者的旅途偏好与声音设置",
+        "fields": [
+          {
+            "type": "switch",
+            "label": "音乐",
+            "value": true
+          }
+        ],
+        "literals": [
+          "保存前请确认你的选择"
+        ]
+      }
+    },
+    {
+      "id": "C20",
+      "skin": "woodland",
+      "orientation": "landscape",
+      "text": "文本面板，原样显示“<旅人> & 云海：测试（100%）”，下方“知道了”按钮，仅本地事件。",
+      "expected": {
+        "literals": [
+          "<旅人> & 云海：测试（100%）"
+        ],
+        "actions": [
+          {
+            "label": "知道了",
+            "action": "emit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C21",
+      "skin": "bakery",
+      "orientation": "portrait",
+      "text": "三个进度条，生命80/100、体力30/60、经验50/100，显示百分比。",
+      "expected": {
+        "fields": [
+          {
+            "type": "progress-bar",
+            "label": "生命",
+            "value": 80,
+            "max": 100,
+            "display": "percent"
+          },
+          {
+            "type": "progress-bar",
+            "label": "体力",
+            "value": 30,
+            "max": 60,
+            "display": "percent"
+          },
+          {
+            "type": "progress-bar",
+            "label": "经验",
+            "value": 50,
+            "max": 100,
+            "display": "percent"
+          }
+        ],
+        "progressPairs": [
+          {"label": "生命", "value": 80, "max": 100, "display": "percent"},
+          {"label": "体力", "value": 30, "max": 60, "display": "percent"},
+          {"label": "经验", "value": 50, "max": 100, "display": "percent"}
+        ],
+        "fieldCount": 3
+      }
+    },
+    {
+      "id": "C22",
+      "skin": "bakery",
+      "orientation": "landscape",
+      "text": "三个任务卡，森林巡逻60%、古塔探索30%、采集药草80%，每卡显示任务名和进度，各有查看按钮，仅本地事件，可滚动。",
+      "expected": {
+        "literals": [
+          "森林巡逻",
+          "古塔探索",
+          "采集药草"
+        ],
+        "progressValues": [
+          60,
+          30,
+          80
+        ],
+        "progressPairs": [
+          {"label": "森林巡逻", "percent": 60},
+          {"label": "古塔探索", "percent": 30},
+          {"label": "采集药草", "percent": 80}
+        ],
+        "actionCount": 3,
+        "groupActions": true
+      }
+    },
+    {
+      "id": "C23",
+      "skin": "bakery",
+      "orientation": "portrait",
+      "text": "资料表单，昵称“阿青”，语言中文英文默认中文，公开资料勾选默认关，底部提交和重置。",
+      "expected": {
+        "fields": [
+          {
+            "type": "input",
+            "label": "昵称",
+            "value": "阿青"
+          },
+          {
+            "type": "select",
+            "label": "语言",
+            "options": [
+              "中文",
+              "英文"
+            ],
+            "selectedLabel": "中文"
+          },
+          {
+            "type": "check-box",
+            "label": "公开资料",
+            "checked": false
+          }
+        ],
+        "actions": [
+          {
+            "label": "提交",
+            "action": "submit",
+            "targets": [
+              "昵称",
+              "语言",
+              "公开资料"
+            ]
+          },
+          {
+            "label": "重置",
+            "action": "reset-initial",
+            "targets": [
+              "昵称",
+              "语言",
+              "公开资料"
+            ]
+          }
+        ],
+        "fieldCount": 3
+      }
+    },
+    {
+      "id": "C24",
+      "skin": "bakery",
+      "orientation": "landscape",
+      "text": "左右分组，左边昵称输入默认“阿青”和公开开关开启，右边音量0到100步长1默认60，底部提交全部及重置全部。",
+      "expected": {
+        "fields": [
+          {
+            "type": "input",
+            "label": "昵称",
+            "value": "阿青"
+          },
+          {
+            "type": "switch",
+            "label": "公开",
+            "value": true
+          },
+          {
+            "type": "slider",
+            "label": "音量",
+            "min": 0,
+            "max": 100,
+            "step": 1,
+            "value": 60
+          }
+        ],
+        "actions": [
+          {
+            "label": "提交全部",
+            "action": "submit",
+            "targets": [
+              "昵称",
+              "公开",
+              "音量"
+            ]
+          },
+          {
+            "label": "重置全部",
+            "action": "reset-initial",
+            "targets": [
+              "昵称",
+              "公开",
+              "音量"
+            ]
+          }
+        ],
+        "layoutKinds": [
+          "row"
+        ]
+      }
+    },
+    {
+      "id": "C25",
+      "skin": "bakery",
+      "orientation": "portrait",
+      "text": "确认面板，正文“是否保留本次本地设置？”，确认和返回两个按钮，只发本地事件。",
+      "expected": {
+        "literals": [
+          "是否保留本次本地设置？"
+        ],
+        "actions": [
+          {
+            "label": "确认",
+            "action": "emit"
+          },
+          {
+            "label": "返回",
+            "action": "emit"
+          }
+        ],
+        "actionCount": 2
+      }
+    },
+    {
+      "id": "C26",
+      "skin": "bakery",
+      "orientation": "landscape",
+      "text": "三张说明卡：森林“树影覆盖小径。前方传来鸟鸣。”，古塔“石阶通向高处。窗外洒入微光。”，海港“帆船停靠岸边。海风带来潮声。”，按空间排列并允许滚动。",
+      "expected": {
+        "sectionTitles": ["森林", "古塔", "海港"],
+        "literals": [
+          "森林",
+          "树影覆盖小径。前方传来鸟鸣。",
+          "古塔",
+          "石阶通向高处。窗外洒入微光。",
+          "海港",
+          "帆船停靠岸边。海风带来潮声。"
+        ],
+        "layoutKinds": [
+          "grid"
+        ]
+      }
+    },
+    {
+      "id": "C27",
+      "skin": "bakery",
+      "orientation": "landscape",
+      "text": "底部两个按钮“确认”“返回”，横排居中，按钮180×56、间距16，只发本地事件；上方显示“请选择下一步”。",
+      "expected": {
+        "literals": [
+          "请选择下一步"
+        ],
+        "actions": [
+          {
+            "label": "确认",
+            "action": "emit"
+          },
+          {
+            "label": "返回",
+            "action": "emit"
+          }
+        ],
+        "actionLayouts": [
+          {
+            "direction": "row",
+            "gap": 16,
+            "buttonWidth": 180,
+            "buttonHeight": 56,
+            "align": "center"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C28",
+      "skin": "bakery",
+      "orientation": "landscape",
+      "text": "宽900、最大高度600的面板，四组帮助：移动“拖动摇杆移动。”、交互“点击目标查看。”、对话“点击对话继续。”、背包“点击物品查看。”，可纵向滚动，底部关闭按钮只发本地事件。",
+      "expected": {
+        "sectionTitles": ["移动", "交互", "对话", "背包"],
+        "literals": [
+          "拖动摇杆移动。",
+          "点击目标查看。",
+          "点击对话继续。",
+          "点击物品查看。"
+        ],
+        "overflow": "scroll",
+        "width": 900,
+        "maxHeight": 600,
+        "actions": [
+          {
+            "label": "关闭",
+            "action": "emit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C29",
+      "skin": "bakery",
+      "orientation": "portrait",
+      "text": "宽540、最大高度760的偏好面板，六个开关音乐、音效、震动、字幕、提示、自动拾取，默认开开关开开关，可滚动。开关只维护本地值，不执行游戏业务。",
+      "expected": {
+        "fields": [
+          {
+            "type": "switch",
+            "label": "音乐",
+            "value": true
+          },
+          {
+            "type": "switch",
+            "label": "音效",
+            "value": true
+          },
+          {
+            "type": "switch",
+            "label": "震动",
+            "value": false
+          },
+          {
+            "type": "switch",
+            "label": "字幕",
+            "value": true
+          },
+          {
+            "type": "switch",
+            "label": "提示",
+            "value": true
+          },
+          {
+            "type": "switch",
+            "label": "自动拾取",
+            "value": false
+          }
+        ],
+        "fieldCount": 6,
+        "overflow": "scroll",
+        "width": 540,
+        "maxHeight": 760
+      }
+    },
+    {
+      "id": "C30",
+      "skin": "bakery",
+      "orientation": "portrait",
+      "text": "可滚动数据面板，十二项只读数值：等级12、生命120、体力60、攻击35、防御18、速度24、金币360、声望8、经验50、胜利8、失败4、探索6。",
+      "expected": {
+        "textPairs": [
+          {
+            "label": "等级",
+            "value": 12
+          },
+          {
+            "label": "生命",
+            "value": 120
+          },
+          {
+            "label": "体力",
+            "value": 60
+          },
+          {
+            "label": "攻击",
+            "value": 35
+          },
+          {
+            "label": "防御",
+            "value": 18
+          },
+          {
+            "label": "速度",
+            "value": 24
+          },
+          {
+            "label": "金币",
+            "value": 360
+          },
+          {
+            "label": "声望",
+            "value": 8
+          },
+          {
+            "label": "经验",
+            "value": 50
+          },
+          {
+            "label": "胜利",
+            "value": 8
+          },
+          {
+            "label": "失败",
+            "value": 4
+          },
+          {
+            "label": "探索",
+            "value": 6
+          }
+        ],
+        "fieldCount": 12,
+        "overflow": "scroll"
+      }
+    }
+  ]
+}

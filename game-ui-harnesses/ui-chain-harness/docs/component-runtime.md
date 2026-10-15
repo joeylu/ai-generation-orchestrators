@@ -69,6 +69,12 @@ resize 先检查类型的最小尺寸与 Text 的溢出规则，再更新几何�
 
 Panel 支持可选 pixelsPerUnitMultiplier，默认 1、范围 0.125–16。皮肤通过 backgroundSpec 提供纹理及逻辑切线；也可通过 backgroundRef 引用 createRuntime 的可选 panelBackgrounds Map，未知引用在创建前拒绝。背景倍率不改变原图取样边界、文字大小或内容 padding。既有皮肤 minSize 与倍率后的边框下限都需满足。父布局计算好尺寸后调用组件 resize。可移植资源的解码与引用释放由 src/panel/background-pool.mjs 管理，见 [九宫格维护](slicing.md)；Image 与其他控件未作统一抽象改造。
 
+PanelDocument 0.3 的显式 `surfaceLayer`（`frame`、`content`、`inset`）Panel 仅支持 `pixelsPerUnitMultiplier=1`，省略倍率也按默认 1 验证；非默认组合在文档导入和运行时创建时明确拒绝，不会静默改值或忽略倍率。无 `surfaceLayer` 的既有 Panel 保留上述全部倍率行为。三层表面及实际视觉验收见[验收指南](acceptance.md)。
+
+显式表面内容槽在导入、保存副本及运行时尺寸变更中共享实际基底的安全区检查；Panel/Tabs 检查两轴，Dialog/ScrollView/List 保留各自的纵向滚动或裁切语义。布局先统一求出父子有效尺寸再检查，已知越界失败保留原尺寸和所有权。inset 保留原中心纹理，另画位于自身边界内的 1px、0.14 透明度轻轮廓。
+
+显式分层仓库仅在实际有滚动范围时显示皮肤包的 track/thumb。轨道优先使用格区与详情底板之间的现有空隙；不足时在原格区内部保留轨道位置，再联合计算两轴溢出。固定格、自然内容尺寸、文档与皮肤摘要不变；无 `surfaceLayer` 的旧仓库保持原样。滚动条角色随运行时资源闭包导出，拖动与试玩选择不进入创作快照。
+
 runtime.setMode('edit') 会挂起原生输入、浮层交互和拖动，阻断控件事件；setMode('play') 恢复输入资格。隐藏、禁用、切页、模态遮挡和销毁都参与资格判定。Dialog 的逻辑打开状态与模态占用分离：禁用或切换到 edit 时保留窗口外观，释放模态占用；隐藏时整个窗口隐藏，恢复资格后按原打开状态重新挂接。共享纹理由 skin 所有，销毁组件不会销毁其他组件正在使用的纹理；最后释放 runtime 后再释放 skin 和 Application。
 
 文字使用 pixi.js Text，遵循用户指定的场景文字技能；pixijs-scene-text 是技能名，不额外安装同名包。行为基于 @pixi/ui；Image/Text/Container/Panel 使用 PixiJS 与 @pixi/layout 的基础对象组合。不是给每一种类型套一个不存在的 PixiUI 类。

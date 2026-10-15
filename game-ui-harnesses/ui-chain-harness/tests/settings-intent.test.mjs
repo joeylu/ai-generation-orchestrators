@@ -7,6 +7,8 @@ import {editorData} from '../src/panel/data.mjs';
 const read=async p=>JSON.parse(await readFile(new URL(p,import.meta.url)));
 const catalog=await read('../../ui-panel-harness/examples/modern-mint-layout.catalog.json');
 const policy={...await read('../configs/settings-planning-policy.json'),intentVersion:'0.3',themeKey:'modern-mint-light@0.1.0'},layout=await read('../configs/settings-layout.json');
+// These protocol regressions intentionally retain the historical row compiler.
+layout.presentation.version='1.0';
 const ctx=await editorData();ctx.binding={sourceKind:'imported',sha256:'a'.repeat(64)};
 const text='设置。音乐开关默认关闭且禁用；音量范围负10到10，步长0.5，默认负2.5；语言下拉框选项中文、English，默认English。';
 const session=await planningClient().prepare({request:{requestVersion:'0.1',id:'intent-settings',text,target:'pixi'},catalog});

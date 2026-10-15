@@ -9,14 +9,24 @@ import {validateSettingsResponse} from './settings-intent.mjs';
 import {deriveTextReadability} from '../skins/text-readability.mjs';
 import {decodePng} from '../skins/png.mjs';
 import {inventoryPresetContext} from './inventory-preset.mjs';
+import {compilationSurfaceVersion,surfaceCompileContext} from './surface-presentation.mjs';
+import {validateFormActionPolicy} from './form-actions.mjs';
 const fail=code=>{throw Object.assign(new Error(code),{code});};
 const instructionsFor=(instructions,consumer)=>orientationInstructions(instructions,consumer.orientation,{allowPanelDimensions:consumer.presetId==='custom'});
 export function actionPlanningFiles(presetId,frozenConfig){
   let instructions=presetId==='inventory'?'prompts/inventory-planner.md':presetId==='custom'?'prompts/custom-panel-planner.md':'prompts/action-planner.md';
   if(presetId==='inventory'&&frozenConfig!==undefined){
     const version=frozenConfig.inventoryPlanning?.version;
-    if(!['1.0','1.1'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
+    if(!['1.0','1.1','1.2'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
     if(version==='1.0')instructions='prompts/inventory-planner-v1.md';
+    if(version==='1.1')instructions='prompts/inventory-planner-v2.md';
+  }
+  if(presetId==='custom'&&frozenConfig!==undefined){
+    const preset=frozenConfig.presets?.custom,version=preset?.layout?.version;
+    if(!['1.0','2.0','3.0'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
+    validateFormActionPolicy(preset.formActions);
+    if(version!=='3.0')instructions='prompts/custom-panel-planner-v2.md';
+    else if(!preset.formActions)instructions='prompts/custom-panel-planner-v3.md';
   }
   return {instructions,catalog:presetId==='inventory'?'examples/modern-readable-game-grid-layout.catalog.json':'examples/modern-all-components.catalog.json'};
 }
@@ -96,13 +106,13 @@ export async function materializeActionRun(result,{plan,consumer,config=consumer
       await writeFile(join(result.directory,'conversion.json'),json({status:'NEEDS_INPUT',questions:intent.unresolved,automaticRetries:0}),{flag:'wx'});
       return {status:'NEEDS_INPUT',directory:result.directory,questions:intent.unresolved,receipt:response.receipt};
     }
-    const converted=await compileIntent(plan.session,intent,config,consumer.presetId,{...ctx,orientation:consumer.orientation});
+    const surfaceVersion=compilationSurfaceVersion(config,consumer.presetId,ctx),converted=await compileIntent(plan.session,intent,config,consumer.presetId,surfaceCompileContext({...ctx,orientation:consumer.orientation},surfaceVersion));
     const files=[];
     for(const[name,value]of Object.entries({'session.json':plan.session,'config.json':config,'preset.json':converted,'content.json':converted.content,'behavior.json':converted.behavior,
       ...Object.fromEntries(Object.entries(converted.documents).map(([name,document])=>[name+'.panel.json',document]))})){
       const bytes=Buffer.from(json(value));await writeFile(join(result.directory,name),bytes,{flag:'wx'});files.push({file:name,sha256:hash(bytes)});
     }
-    await writeFile(join(result.directory,'conversion.json'),json({status:'COMPILED',surfaceRecipesVersion:1,...converted.provenance,files,productionReady:false,visualAcceptance:'unreviewed'}),{flag:'wx'});
+    await writeFile(join(result.directory,'conversion.json'),json({status:'COMPILED',...(surfaceVersion?{surfaceRecipesVersion:surfaceVersion}:{}),...converted.provenance,files,productionReady:false,visualAcceptance:'unreviewed'}),{flag:'wx'});
     return {status:'COMPILED',directory:result.directory,receipt:response.receipt};
   }catch(error){
     await writeFile(join(result.directory,'conversion.json'),json({status:'REJECTED',code:typeof error.code==='string'?error.code:'CONVERSION_FAILED',automaticRetries:0}),{flag:'wx'});
@@ -117,7 +127,7 @@ export async function loadActionRun(directory,{config,pack,manifestSha256,aliase
   const {intent,receipt}=await actionResponse(directory,plan);
   if(report.status!=='COMPILED')fail('ACTION_RUN_NOT_COMPILED');
   for(const entry of report.files)if(hash(await readSafe(directory,entry.file))!==entry.sha256)fail('ACTION_ARTIFACT_CHANGED');
-  const preset=await compileIntent(plan.session,intent,config,consumer.presetId,{...ctx,orientation:consumer.orientation,surfaceStylesEnabled:report.surfaceRecipesVersion===1});
+  const preset=await compileIntent(plan.session,intent,config,consumer.presetId,surfaceCompileContext({...ctx,orientation:consumer.orientation},report.surfaceRecipesVersion??0));
   if(!isDeepStrictEqual(preset,await read('preset.json')))fail('ACTION_ARTIFACT_CHANGED');
   return {preset,evidence:{planSha256:plan.sha256,responseSha256:receipt.responseSha256,source:'model-response'}};
 }

@@ -6,8 +6,9 @@ import {scrollPadding} from '../runtime/scroll-geometry.mjs';
 import {tabsContentBox} from '../runtime/tabs-geometry.mjs';
 import {applyTextChanges,nonTextProps,textEditFields} from './text-edit.mjs';
 import {textProfile,supportsTextStyle} from '../runtime/text-style.mjs';
-import {surfaceTextBox} from '../skins/surface-styles.mjs';
+import {surfaceTextBox,surfaceLayerInfo} from '../skins/surface-styles.mjs';
 import {inventoryLayout} from '../runtime/inventory-geometry.mjs';
+import {surfaceSlotBox,surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 export {textEditFields,textStyleEditState} from './text-edit.mjs';
 
 const axes=['width','height'], near=(a,b)=>Math.abs(a-b)<.1;
@@ -34,16 +35,18 @@ function skinFor(ctx){
 const tabsInsets=(ctx,skin)=>skin?(skin.roles.has('skin.surface.content')?skin.insets('skin.surface.content'):null):ctx.scrollInsets??{left:ctx.profile.padding,right:ctx.profile.padding,top:0,bottom:0};
 
 function slotBox(node,size,type,ctx,skin){
-  const p=node.props,s=textProfile(ctx.profile,p),g=s.geometry;
+  if(node.surfaceLayer)return surfaceSlotBox({type,props:node.props,size,profile:ctx.profile,geometry:surfaceGeometryForContext(ctx),surfaceLayer:node.surfaceLayer});
+  const p=node.props,s=textProfile(ctx.profile,p),g=s.geometry,layer=node.surfaceLayer?surfaceLayerInfo(ctx.skinGeometry,node.surfaceLayer):null;
   if(type==='Panel'||type==='Dialog'){
-    const pad=type==='Panel'?(p.contentPadding??skin?.insets('skin.surface.panel')??{left:s.padding,right:s.padding,top:s.padding,bottom:s.padding}):{left:s.padding,right:s.padding,top:s.padding,bottom:s.padding};
+    const dp=layer?Math.max(s.padding,...Object.values(layer.insets)):s.padding;
+    const pad=type==='Panel'?(p.contentPadding??layer?.insets??skin?.insets('skin.surface.panel')??{left:s.padding,right:s.padding,top:s.padding,bottom:s.padding}):{left:dp,right:dp,top:dp,bottom:dp};
     return {width:size.width-pad.left-pad.right,height:size.height-pad.top-pad.bottom-(p.title?g.lineHeight+g.titleGap:0)-(type==='Dialog'&&p.actions.length?s.itemHeight+g.labelGap:0)};
   }
   if(type==='ScrollView'){
-    const pad=scrollPadding(s,skin?.insets('skin.surface.content')??ctx.scrollInsets??{left:0,right:0,top:0,bottom:0});
+    const pad=scrollPadding(s,layer?.insets??skin?.insets('skin.surface.content')??ctx.scrollInsets??{left:0,right:0,top:0,bottom:0});
     return {width:size.width-pad.left-pad.right-g.scrollbarWidth-g.scrollbarGap,height:size.height-pad.top-pad.bottom};
   }
-  if(type==='Tabs')return tabsContentBox(s,tabsInsets(ctx,skin),size.width,size.height);
+  if(type==='Tabs')return tabsContentBox(s,layer?.insets??tabsInsets(ctx,skin),size.width,size.height);
   return size;
 }
 
@@ -96,7 +99,7 @@ function assertTextCapacity(node,type,size,ctx,skin,changedFields=null){
       fail('edit.text-capacity','调整后的尺寸无法容纳现有文字。请扩大控件或其面板。',node.id);
   };
   const pad=role=>skin?.insets(role)??{left:s.padding,right:s.padding,top:0,bottom:0};
-  if(type==='Text'&&changed('text')){const box=node.surfaceStyle?surfaceTextBox(ctx.skinGeometry,node.surfaceStyle,size.width,size.height):size;check(p.text,box.width,box.height,p.wrap==='word');}
+  if(type==='Text'&&changed('text')){const box=node.surfaceStyle?surfaceTextBox(ctx.skinGeometry,node.surfaceStyle,size.width,size.height,node.surfaceTextInsets):size;check(p.text,box.width,box.height,p.wrap==='word');}
   if(type==='Button'&&changed('label'))for(const state of ['normal','pressed']){const a=pad(`skin.button.${p.variant}.${state}`);check(p.label,size.width-a.left-a.right,size.height-a.top-a.bottom);}
   if((type==='Switch'||type==='CheckBox')&&changed('label'))check(p.label,size.width-(type==='Switch'?s.markSize*2:s.markSize)-g.labelGap,size.height);
   if(type==='Input'||type==='Select'){
@@ -118,13 +121,13 @@ function assertTextCapacity(node,type,size,ctx,skin,changedFields=null){
   }
   if((type==='Slider'||type==='ProgressBar')&&p.showValue)check('100%',size.width,g.lineHeight);
   if(type==='Tabs'){
-    const box=tabsContentBox(s,tabsInsets(ctx,skin),size.width,size.height);
+    const box=tabsContentBox(s,(node.surfaceLayer?surfaceLayerInfo(ctx.skinGeometry,node.surfaceLayer)?.insets:null)??tabsInsets(ctx,skin),size.width,size.height);
     const w=(box.surface.width-Math.max(0,p.tabs.length-1)*g.tabGap)/Math.max(1,p.tabs.length);
     for(const [index,tab]of p.tabs.entries())if(changed(`tabs.${index}.label`))for(const state of ['normal','selected']){const a=pad(`skin.tab.${state}`);check(tab.label,w-a.left-a.right,s.itemHeight-a.top-a.bottom);}
   }
   if(type==='List'&&!(node.slots.items??[]).length){
     if(p.inventory){
-      const box=inventoryLayout(ctx.profile,p,size.width,size.height,ctx.skinGeometry).detailName;
+      const box=inventoryLayout(ctx.profile,p,size.width,size.height,ctx.skinGeometry,{surfaceLayer:node.surfaceLayer}).detailName;
       // Inventory names wrap in a vertically scrollable detail region. They
       // are not labels squeezed into the item cell or the old List row height.
       for(const [index,item]of p.items.entries())if(changed(`items.${index}.label`))check(item.label,box.width,1e9,true);
@@ -137,7 +140,7 @@ function assertGeometry(doc,ctx,base){
   const skin=skinFor(ctx),info=geometry(doc,ctx),old=base?geometry(base,ctx):null;
   for(const n of doc.nodes){
     const type=info.type(n),size=info.size(n),before=old?.nodes.get(n.id),previous=before?old.size(before):null;
-    try{skin?.assertComponent(type,n.props,size.width,size.height);}catch(e){e.message=n.id+': '+e.message;throw e;}
+    try{skin?.assertComponent(type,n.props,size.width,size.height,{surfaceLayer:n.surfaceLayer});}catch(e){e.message=n.id+': '+e.message;throw e;}
     if(previous){
       const shrunk=size.width<previous.width-.1||size.height<previous.height-.1,fontChanged=n.props.fontSize!==before.props.fontSize;
       const original=new Map(textEditFields({...before,locked:false},ctx).map(field=>[field.id,field.value]));

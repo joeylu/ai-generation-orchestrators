@@ -26,8 +26,8 @@
     }
   },
   "presentation": {
-    "version": "1.0",
-    "titleAlign": "center",
+    "version": "2.0",
+    "titleAlign": "left",
     "sectionHeading": "auto-single",
     "height": "grow",
     "canvasMargin": 24

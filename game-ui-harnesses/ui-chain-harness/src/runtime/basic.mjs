@@ -13,7 +13,10 @@ import { fitText, reject } from "./skin.mjs";
 import { SlicedBackground } from "./sliced-background.mjs";
 import { selectionMarkGeometry } from "./selection-geometry.mjs";
 import {createSurfaceView} from './surface-view.mjs';
-import {surfaceTextBox} from '../skins/surface-styles.mjs';
+import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
+import {createLayerSurface} from './layer-surface.mjs';
+import {runtimeSurfaceTextBox} from './surface-text-box.mjs';
+import {applyRuntimeInk} from './derived-text-ink.mjs';
 
 const styleBox = (width, height, extra = {}) => ({
   width,
@@ -261,7 +264,7 @@ export const basicAdapters = {
   "pixi.text"(c) {
     const { skin, p, w, h } = c;
     const surface=c.surfaceStyle?createSurfaceView(skin,c.surfaceStyle,w,h):null;
-    const initialBox=surface?surfaceTextBox(skin.surfaceGeometry,c.surfaceStyle,w,h):{x:0,y:0,width:w,height:h};
+    const initialBox=surface?runtimeSurfaceTextBox(skin,c.surfaceStyle,w,h,c.surfaceTextInsets):{x:0,y:0,width:w,height:h};
     if (p.textStyleRef !== "body")
       reject("text.style", "Fixture only declares body text style.");
     const view = layoutBox(w, h, { overflow: "hidden" }),
@@ -275,13 +278,16 @@ export const basicAdapters = {
         }),
       });
     if(surface)view.addChild(surface.view);
+    if(surface){
+      text.surfaceInk={role:surface.style.baseRole,styleColor:surface.style.textColor,replacement:surface.style.baseMode==='replace'};
+      const ink=skin.runtimeRoleInk?.(text.surfaceInk.role,{enhanced:Boolean(c.surfaceTextInsets),authorColor:p.textColor,...text.surfaceInk})??{fill:p.textColor??surface.style.textColor??skin.profile.textColors?.[surface.style.baseRole]??skin.profile.palette.text};
+      text.surfaceTextColor=ink.fill;applyRuntimeInk(text,ink);
+    }
     view.addChild(fitText(text, initialBox.width, initialBox.height, p.overflow));
-    if(surface)text.surfaceTextColor=surface.style.textColor??skin.profile.textColors?.[surface.style.baseRole]??skin.profile.palette.text;
-    if(surface)text.style.fill=p.textColor??text.surfaceTextColor;
     const resize = (w, h) => {
       view.layout = { width: w, height: h };
       surface?.resize(w,h);
-      const box=surface?surfaceTextBox(skin.surfaceGeometry,c.surfaceStyle,w,h):{x:0,y:0,width:w,height:h};
+      const box=surface?runtimeSurfaceTextBox(skin,c.surfaceStyle,w,h,c.surfaceTextInsets):{x:0,y:0,width:w,height:h};
       text.text = p.text;
       text.style.wordWrapWidth = box.width;
       fitText(text, box.width, box.height, p.overflow);
@@ -369,14 +375,14 @@ export const basicAdapters = {
     };
   },
   "pixi.panel"(c) {
-    const { skin, p, w, h, children } = c,
+    const { skin, p, w, h, children } = c,layerInfo=c.surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,c.surfaceLayer):null,
       pad =
         p.contentPadding ??
-        skin.insets("skin.surface.panel");
-    if (Object.entries(pad).some(([key,n]) => n < skin.insets("skin.surface.panel")[key]))
+        layerInfo?.insets??skin.insets("skin.surface.panel");
+    if (Object.entries(pad).some(([key,n]) => n < (layerInfo?.insets??skin.insets("skin.surface.panel"))[key]))
       reject("panel.padding", "Padding intrudes into skin content area.");
-    const view = new Container(),
-      bg = new SlicedBackground({ ...c.panelBackground, width: w, height: h, multiplier: p.pixelsPerUnitMultiplier }),
+    const view = new Container(),layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h):null,
+      bg = layer?.view??new SlicedBackground({ ...c.panelBackground, width: w, height: h, multiplier: p.pixelsPerUnitMultiplier }),
       title = skin.label(p.title, w - pad.left - pad.right),
       body = layoutBox(
         w - pad.left - pad.right,
@@ -389,7 +395,7 @@ export const basicAdapters = {
         { overflow: "hidden" },
       );
     view.addChild(bg, title, body);
-    const surfaceKey=c.surfaceStyle??(!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
+    const surfaceKey=c.surfaceStyle??(!c.surfaceLayer&&!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
     const surface=surfaceKey?createSurfaceView(skin,surfaceKey,w,h,{base:false}):null;
     if(surface)view.addChildAt(surface.view,1);
     title.position.set(pad.left, pad.top);
@@ -404,10 +410,11 @@ export const basicAdapters = {
     return {
       view,
       bg,
+      layer,
       motionChildren: children('content'),
       resize: (w, h) => {
-        skin.assertView?.("skin.surface.panel",w,h);
-        bg.resize(w, h);
+        skin.assertView?.(layerInfo?.baseRole??"skin.surface.panel",w,h);
+        if(layer)layer.resize(w,h);else bg.resize(w, h);
         surface?.resize(w,h);
         reflowLabel(
           title,

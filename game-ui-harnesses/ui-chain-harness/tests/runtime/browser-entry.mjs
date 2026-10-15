@@ -9,6 +9,7 @@ import { matrix, longProps } from "./matrix-fixtures.mjs";
 import { attachPilotTextures } from './pilot-skin.mjs';
 import { compilePanel } from '../../src/panel/compiler.mjs';
 import { OwnedScrollBox } from '../../src/runtime/controls.mjs';
+import {surfaceSlotBox} from '../../src/runtime/surface-slots.mjs';
 
 window.initializeComponents = async function (
   data,
@@ -76,13 +77,14 @@ window.initializeComponents = async function (
         id = overrides.id ?? "sample-" + sequence++;
       const props = { ...structuredClone(sample.props), ...overrides.props },
         size = { ...sample.size, ...overrides.size };
+      const surfaceSlot=overrides.surfaceLayer?surfaceSlotBox({type,props,size,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer:overrides.surfaceLayer}):null;
       const slots = {};
       const label = (suffix, text, height = 30) =>
         runtime.create({
           id: id + "-" + suffix,
           recipeRef: "text@1.0.0",
           props: { text, textStyleRef: "body", overflow: "ellipsis" },
-          size: { width: Math.min(220, size.width - 24), height },
+          size: { width: Math.min(220, surfaceSlot?.width??size.width - 24), height },
         });
       if (["Panel", "Dialog"].includes(type))
         slots.content = [label("content", "面板内容")];
@@ -93,7 +95,7 @@ window.initializeComponents = async function (
               id: id + "-content",
               recipeRef: "container@1.0.0",
               props: {},
-              size: { width: size.width - 24, height: 400 },
+              size: { width: surfaceSlot?.width??size.width - 24, height: 400 },
               layout: { gap: 8 },
             },
             {
@@ -126,6 +128,7 @@ window.initializeComponents = async function (
           sizing: overrides.sizing,
           layout: overrides.layout ?? {},
           position: overrides.position,
+          surfaceLayer:overrides.surfaceLayer,
         },
         slots,
       );
