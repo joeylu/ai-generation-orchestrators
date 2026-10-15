@@ -19,6 +19,20 @@ const fail = code => { throw new Error(code); };
 export function portableSdkReadme(document) {
   return document.replace(/\]\((?![A-Za-z][A-Za-z0-9+.-]*:|#|\/)([^)]+\.md(?:#[^)]*)?)\)/g, '](docs/$1)');
 }
+/** Keep bundled links local and pin omitted source documentation to this commit. */
+export function portableDocumentation(files, { repository, commit, hasSourceFile }) {
+  for (const [name, bytes] of files) {
+    if (!name.endsWith('.md')) continue;
+    const text = new TextDecoder().decode(bytes).replace(/\]\(([^)]+)\)/g, (match, ref) => {
+      if (/^(?:[A-Za-z][A-Za-z0-9+.-]*:|#|\/)/.test(ref)) return match;
+      const [path, ...fragment] = ref.split('#'), target = posix.normalize(posix.join(posix.dirname(name), path));
+      if (files.has(target)) return match;
+      if (!safePath(target) || !target.startsWith('docs/') || !target.endsWith('.md') || !hasSourceFile(target)) fail('RELEASE_DOCUMENTATION_LINK');
+      return '](' + repository + '/blob/' + commit + '/game-ui-harnesses/ui-panel-harness/' + target + (fragment.length ? '#' + fragment.join('#') : '') + ')';
+    });
+    files.set(name, utf8(text));
+  }
+}
 const safePath = value => typeof value === 'string' && /^[A-Za-z0-9_.@/-]+$/.test(value)
   && value.split('/').every(part => part && part !== '.' && part !== '..');
 
@@ -211,6 +225,13 @@ export async function packagePanelRelease({ componentPackage, output }) {
   files.set('THIRD_PARTY_NOTICES.txt', utf8(browser.notices));
   files.set('LICENSE', new Uint8Array(await readFile(new URL('../../../LICENSE', import.meta.url))));
   files.set('README.md', utf8(portableSdkReadme(new TextDecoder().decode(files.get('docs/sdk-release.md')))));
+  portableDocumentation(files, { repository: contract.repository, commit, hasSourceFile: name => {
+    try {
+      execFileSync('git', ['-c', `safe.directory=${resolve(harnessRoot, '../..').replaceAll('\\', '/')}`, 'cat-file', '-e', commit + ':game-ui-harnesses/ui-panel-harness/' + name],
+        { cwd: harnessRoot, stdio: 'ignore' });
+      return true;
+    } catch { return false; }
+  } });
   files.set('package.json', json({ name: contract.name, version: contract.version, type: 'module', private: true, license: 'MIT',
     engines: { node: contract.runtime.node }, exports: { '.': './src/index.mjs', './sdk': './src/sdk.mjs', './planning/v1': './src/planning-api-v1.mjs', './planning/codex/v1': './src/planning-codex-v1.mjs', './browser/standalone': './dist-browser/index.js' } }));
   const manifest = { releaseManifestVersion: '0.1', package: { name: contract.name, version: contract.version, tag: contract.tag },

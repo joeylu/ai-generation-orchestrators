@@ -4,7 +4,7 @@ import { gzipSync } from 'node:zlib';
 import { mkdtemp, writeFile, access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { harnessRoot } from '../src/io.mjs';
-import { readPinnedTar, packagePanelRelease, verifyBrowserRuntimePortability, portableSdkReadme } from '../scripts/package-release.mjs';
+import { readPinnedTar, packagePanelRelease, verifyBrowserRuntimePortability, portableSdkReadme, portableDocumentation } from '../scripts/package-release.mjs';
 import { verifyPanelSdk } from '../src/sdk.mjs';
 
 function tar(name, content = 'fixture', type = '0') {
@@ -30,6 +30,13 @@ test('the archive-root SDK README resolves its actual document links without mov
   assert(links.length>=5);
   for(const link of links)await access(new URL('../'+link.split('#')[0],import.meta.url));
   assert.equal(portableSdkReadme('[web](https://example.invalid/guide.md) [here](#api)'),'[web](https://example.invalid/guide.md) [here](#api)');
+});
+
+test('omitted documentation resolves to its verified source commit while bundled links stay local', () => {
+  const files=new Map([['docs/guide.md',Buffer.from('[local](api.md#state) [history](history.md#scope) [web](https://example.invalid/x)')],['docs/api.md',Buffer.from('# API')]]);
+  portableDocumentation(files,{repository:'https://github.com/example/repo',commit:'a'.repeat(40),hasSourceFile:name=>name==='docs/history.md'});
+  assert.equal(new TextDecoder().decode(files.get('docs/guide.md')),'[local](api.md#state) [history](https://github.com/example/repo/blob/'+ 'a'.repeat(40)+'/game-ui-harnesses/ui-panel-harness/docs/history.md#scope) [web](https://example.invalid/x)');
+  assert.throws(()=>portableDocumentation(new Map([['docs/guide.md',Buffer.from('[missing](missing.md)')]]),{repository:'https://github.com/example/repo',commit:'a'.repeat(40),hasSourceFile:()=>false}),/RELEASE_DOCUMENTATION_LINK/);
 });
 
 test('dependency archive reader preserves bytes and rejects unsafe paths and links', () => {
