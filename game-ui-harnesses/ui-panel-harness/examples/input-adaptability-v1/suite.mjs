@@ -43,14 +43,14 @@ export const INPUT_ADAPTABILITY_CASES = [
 ];
 
 export function referenceIntent(context,item) {
-  if(item.clarification)return {panelIntentVersion:'0.12',contextSha256:context.sha256,panel:null,unresolved:[{id:'q0',question:item.clarification.question}]};
+  if(item.clarification)return {panelIntentVersion:context.planningContextVersion==='0.12'?'0.13':'0.12',contextSha256:context.sha256,panel:null,unresolved:[{id:'q0',question:item.clarification.question}]};
   if(item.reference.full)return fullIntent(context);
   const {rows,title,twoTabs}=item.reference;
   const body=twoTabs?{kind:'tabs',enabled:true,sourceRef:'request',pages:[
     {label:'选择',initial:true,sourceRef:'request',body:{kind:'column',children:[section('选择',rows.slice(0,3))]}},
     {label:'说明',initial:false,sourceRef:'request',body:{kind:'column',children:[section('说明',rows.slice(3))]}},
   ]}:{kind:'column',children:[section('内容',rows)]};
-  return {panelIntentVersion:'0.12',contextSha256:context.sha256,unresolved:[],panel:{id:context.request.id,title,themeKey:'modern-mint-light@0.21.0',panelSurface:null,layout:{width:640,canvasWidth:720,canvasHeight:800,maxHeight:680,overflow:'auto',...item.reference.layout},body}};
+  return {panelIntentVersion:context.planningContextVersion==='0.12'?'0.13':'0.12',contextSha256:context.sha256,unresolved:[],panel:{id:context.request.id,title,themeKey:'modern-mint-light@0.21.0',panelSurface:null,layout:{width:640,canvasWidth:720,canvasHeight:800,maxHeight:680,overflow:'auto',...item.reference.layout},body}};
 }
 
 export function duplicateIntent(context) {

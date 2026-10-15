@@ -125,6 +125,9 @@
           },
           {
             "$ref": "#/$defs/setDialogProperties"
+          },
+          {
+            "$ref": "#/$defs/setInventory"
           }
         ]
       }
@@ -1174,6 +1177,172 @@
           "type": "integer",
           "minimum": 160,
           "maximum": 2048
+        }
+      }
+    },
+    "setInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "rowId",
+        "grid",
+        "items",
+        "selectedSlot",
+        "assetLibrary"
+      ],
+      "properties": {
+        "op": {
+          "const": "set-inventory"
+        },
+        "rowId": {
+          "type": "string"
+        },
+        "grid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rows",
+            "columns",
+            "cellWidth",
+            "cellHeight",
+            "spacingX",
+            "spacingY",
+            "padding",
+            "startCorner",
+            "startAxis"
+          ],
+          "properties": {
+            "rows": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32
+            },
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32
+            },
+            "cellWidth": {
+              "type": "integer",
+              "minimum": 48,
+              "maximum": 256
+            },
+            "cellHeight": {
+              "type": "integer",
+              "minimum": 48,
+              "maximum": 256
+            },
+            "spacingX": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            "spacingY": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            "padding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            "startCorner": {
+              "type": "string",
+              "enum": [
+                "upper-left",
+                "upper-right",
+                "lower-left",
+                "lower-right"
+              ]
+            },
+            "startAxis": {
+              "type": "string",
+              "enum": [
+                "horizontal",
+                "vertical"
+              ]
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 144,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "slot",
+              "name",
+              "quantity",
+              "icon"
+            ],
+            "properties": {
+              "slot": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 143
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9999
+              },
+              "icon": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/exactAssetKey"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "selectedSlot": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 143
+            }
+          ]
+        },
+        "assetLibrary": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "sha256"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "urn:ai-game-assets:panel-spec:0.2#/$defs/assetSlug"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
         }
       }
     }

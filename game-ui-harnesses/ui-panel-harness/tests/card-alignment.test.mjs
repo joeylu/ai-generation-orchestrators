@@ -42,7 +42,7 @@ for(const mode of ['light','dark'])test(`${mode}: image card headings/hints opt 
   assert.deepEqual(await panel.validatePanelBundle(JSON.parse(JSON.stringify(after)),core),after);
   assert.deepEqual(await panel.validatePanelBundle(before,core),before);
   const native=await panel.createUnityDocument(after,core),ids=new Set(centeredCardTextIds(after.spec,t));
-  assert.equal(native.adapterVersion,'0.1.8');assert.equal(native.controls.length,3);
+  assert.equal(native.adapterVersion,'0.1.9');assert.equal(native.controls.length,3);
   for(const node of native.nodes)if(ids.has(node.id))assert.equal(node.textAlignment,'MiddleCenter');
   assert.equal(native.nodes.filter(n=>ids.has(n.id)).length,6);
   const legacy=await panel.createUnityDocument(before,core);assert(legacy.nodes.filter(n=>ids.has(n.id)).every(n=>n.textAlignment===undefined));

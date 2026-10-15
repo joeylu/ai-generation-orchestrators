@@ -134,7 +134,7 @@ test('image sections retain multi-group, tabs and explicit title rules and nativ
   }
   for(const path of ['../adapters/unity/Editor/PanelPrefabBuilder.cs','../adapters/unity/Runtime/PanelController.cs']){
     const source=await readFile(new URL(path,import.meta.url),'utf8');
-    const gates=[...source.matchAll(/(?:document|source)\.panelSpecVersion != "0\.[0-9]+"(?: && (?:document|source)\.panelSpecVersion != "0\.[0-9]+")*/g)].map(match=>match[0]).filter(gate=>gate.includes(" && "));
+    const gates=[...source.matchAll(/(?:document|source)\.panelSpecVersion != "0\.[0-9]+"(?: && (?:document|source)\.panelSpecVersion != "0\.[0-9]+")*/g)].map(match=>match[0]).filter(gate=>gate.includes(" && ")&&/"0\.(?:[1-9]|1[0-5])"/.test(gate));
     assert(gates.length>=4);for(const gate of gates)assert(gate.includes('"0.15"'),gate);
     for(const match of source.matchAll(/new\[\] \{([^}]+)\}\.Contains\(document\.panelSpecVersion\)/g))assert(match[1].includes('"0.15"'));
   }

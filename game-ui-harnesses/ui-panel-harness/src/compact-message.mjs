@@ -46,7 +46,7 @@ export function measureCompactMessage(spec,tokens,section,width,geometry,showTit
 
 /** Center only short, unindented prose. Longer paragraphs remain readable at the left edge. */
 export function centeredMessageTextIds(bundle){
-  if(!['0.36.0','0.37.0','0.38.0','0.39.0','0.40.0','0.41.0','0.42.0','0.43.0','0.44.0','0.45.0'].includes(bundle.compilerVersion))return [];
+  if(!['0.36.0','0.37.0','0.38.0','0.39.0','0.40.0','0.41.0','0.42.0','0.43.0','0.44.0','0.45.0','0.46.0'].includes(bundle.compilerVersion))return [];
   const flatten=node=>[node,...(node.children??[]).flatMap(flatten)],nodes=flatten(bundle.componentBundle.document.root),ids=[];
   for(const section of bundle.spec.sections){
     if(!compactMessageSection(bundle.spec,section,bundle.catalog))continue;

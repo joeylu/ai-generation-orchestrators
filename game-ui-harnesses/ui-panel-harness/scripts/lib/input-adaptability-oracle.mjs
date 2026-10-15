@@ -13,7 +13,7 @@ export function businessFacts(spec) {
     if(field){result.initial=field.options?field.options.find(option=>option.id===field.initial)?.label:field.initial;
       for(const key of ['min','max','step','maxLength'])if(Object.hasOwn(field,key))result[key]=field[key];
       if(field.options)result.options=field.options.map(option=>option.label);}
-    for(const key of ['text','inputType','readOnly','placeholder','itemHeight','visibleItems','title','closeLabel','modal','dialogWidth','dialogHeight','source','height','width','fit'])if(Object.hasOwn(row,key))result[key]=row[key];
+    for(const key of ['text','inputType','readOnly','placeholder','itemHeight','visibleItems','title','closeLabel','modal','dialogWidth','dialogHeight','source','height','width','fit','grid','items'])if(Object.hasOwn(row,key))result[key]=row[key];
     if(row.validation)result.validation={required:row.validation.required,minLength:row.validation.minLength};
     if(row.action)result.action={kind:row.action.kind,...(row.action.fields?{fields:row.action.fields.map(owner)}:{})};
     if(row.kind==='slider')result.format={prefix:row.format.prefix,suffix:row.format.suffix};
@@ -25,6 +25,14 @@ export function businessFacts(spec) {
 }
 
 export function checkAdaptabilityResult(item,result,{expectedSpec,before,after}={}) {
+  if(item.evaluation?.kind==='INVENTORY_GRID'){
+    assert.equal(result.report.status,'READY_TO_COMPILE','ADAPT_INVENTORY_OUTCOME');assert(after,'ADAPT_INVENTORY_DELIVERY');
+    const rows=after.spec.sections.flatMap(section=>section.rows).filter(row=>row.kind==='inventory');assert.equal(rows.length,1,'ADAPT_INVENTORY_MISSING');const row=rows[0];
+    assert.equal(row.grid.rows,item.evaluation.rows,'ADAPT_INVENTORY_ROWS');assert.equal(row.grid.columns,item.evaluation.columns,'ADAPT_INVENTORY_COLUMNS');
+    assert.deepEqual(row.items,[],'ADAPT_INVENTORY_INVENTED_ITEMS');assert.equal(after.state[row.bind],'none','ADAPT_INVENTORY_UNREQUESTED_SELECTION');
+    const flat=node=>[node,...(node.children??[]).flatMap(flat)],buttons=flat(after.componentBundle.document.root).filter(node=>node.type==='Button'&&node.id.startsWith(after.spec.id+'.row.'+row.id+'.control.slot.'));
+    assert.equal(buttons.length,row.grid.rows*row.grid.columns,'ADAPT_INVENTORY_CELL_COUNT');return;
+  }
   if(item.evaluation?.kind==='OPEN_DRAFT_REVIEW')return checkOpenDraft(item,result);
   if(item.clarification){
     assert.equal(result.report.status,'NEEDS_INPUT','ADAPT_OUTCOME');

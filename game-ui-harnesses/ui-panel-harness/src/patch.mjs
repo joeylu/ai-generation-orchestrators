@@ -1,3 +1,4 @@
+import {inventoryOptions,checkInventory} from './inventory-grid.mjs';
 import { canonicalJson, digestJson } from './canonical.mjs';
 import { snapshotJson, validatePanelSpec } from './spec.mjs';
 import { navigationRows } from './tabs.mjs';
@@ -21,6 +22,7 @@ export class PanelPatchError extends Error {
 const ID = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const INVALID_TEXT = /[\p{Cc}\p{Cs}]/u;
 const OP_KEYS = {
+  'set-inventory':['op','rowId','grid','items','selectedSlot','assetLibrary'],
   'set-choice-options':['op','rowId','options','initial'],
   'set-list-properties':['op','rowId','itemHeight','visibleItems'],
   'set-dialog-properties':['op','rowId','title','text','closeLabel','modal','dialogWidth','dialogHeight'],
@@ -150,7 +152,7 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
   if (patch.baseSpecSha256 !== baseSpecSha256) fail('base-digest', '$.baseSpecSha256', 'patch does not target this exact PanelSpec');
   const candidate = snapshotJson(original);
   const bindImageLibrary = (source, library, path) => {
-    if (!['0.15','0.16'].includes(candidate.panelSpecVersion)) fail('image-version',path,'Image edits require PanelSpec 0.15');
+    if (!['0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('image-version',path,'Image edits require PanelSpec 0.15');
     if (source === null) {if(library!==null)fail('image-library',path,'Placeholder requires assetLibrary:null');return;}
     if (library === null) {if(!candidate.assets)fail('image-library',path,'Image source requires an exact library');return;}
     object(library,['id','sha256'],path+'.assetLibrary');
@@ -170,15 +172,25 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
   patch.operations.forEach((operation, index) => {
     const path = `$.operations[${index}]`;
     switch (operation.op) {
+      case 'set-inventory': {
+        if(candidate.panelSpecVersion!=='0.17')fail('component-version',path,'Requires PanelSpec 0.17');
+        const {row}=findRow(candidate,operation.rowId,path+'.rowId');if(row.kind!=='inventory')fail('row-kind',path,'Inventory row required');
+        for(const key of ['grid','items']){touch('row:'+row.id,key,path);row[key]=operation[key];}
+        const field=candidate.state.find(field=>field.id===row.bind);touch('state:'+row.bind,'options',path);touch('state:'+row.bind,'initial',path);
+        checkInventory(row,null,fail,path);field.options=inventoryOptions(row);field.initial=operation.selectedSlot===null?'none':'slot'+operation.selectedSlot;
+        if(operation.selectedSlot!==null&&(!Number.isInteger(operation.selectedSlot)||operation.selectedSlot<0||operation.selectedSlot>=row.grid.rows*row.grid.columns))fail('inventory-selection',path,'Selected slot out of range');
+        if(operation.assetLibrary!==null){if(candidate.assets&&canonicalJson(candidate.assets.library)!==canonicalJson(operation.assetLibrary))fail('asset-library',path,'Preserve pinned library');candidate.assets??={library:operation.assetLibrary,panelSurface:null,rowIcons:[]};}
+        break;
+      }
       case 'set-choice-options': {
-        if(candidate.panelSpecVersion!=='0.16')fail('component-version',path,'Requires PanelSpec 0.16');
+        if(!['0.16','0.17'].includes(candidate.panelSpecVersion))fail('component-version',path,'Requires PanelSpec 0.16');
         const {row}=findRow(candidate,operation.rowId,path+'.rowId');
         if(!['select','radio','list'].includes(row.kind))fail('row-kind',path,'Choice row required');
         touch('state:'+row.bind,'options',path);touch('state:'+row.bind,'initial',path);
         const field=candidate.state.find(field=>field.id===row.bind);field.options=operation.options;field.initial=operation.initial;break;
       }
       case 'set-list-properties': case 'set-dialog-properties': {
-        if(candidate.panelSpecVersion!=='0.16')fail('component-version',path,'Requires PanelSpec 0.16');
+        if(!['0.16','0.17'].includes(candidate.panelSpecVersion))fail('component-version',path,'Requires PanelSpec 0.16');
         const {row}=findRow(candidate,operation.rowId,path+'.rowId'),kind=operation.op==='set-list-properties'?'list':'dialog';
         if(row.kind!==kind)fail('row-kind',path,'Matching component required');
         for(const key of OP_KEYS[operation.op].filter(key=>!['op','rowId'].includes(key))){touch('row:'+row.id,key,path);row[key]=operation[key];}break;
@@ -192,7 +204,7 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
         break;
       }
       case 'set-layout-details': {
-        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) fail('layout-details-version',path,'Modern form spec required');
+        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('layout-details-version',path,'Modern form spec required');
         checkLayoutDetails(operation.details,fail,path+'.details');
         for (const [key,value] of Object.entries(operation.details)) if(value!==null) {
           touch('layout-details',key,path+'.details.'+key);
@@ -202,11 +214,11 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
       }
       case 'set-panel-frame':
       case 'set-panel-ratio': {
-        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) fail('panel-frame-version',path,'modern form spec required');
+        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13','0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('panel-frame-version',path,'modern form spec required');
         const frame=operation.op==='set-panel-ratio'?ratioPanelFrame(candidate,operation.ratio,operation.width,fail,path):operation.frame;
         checkPanelFrame(frame,fail,path+'.frame');touch('panel','layout',path);touch('panel','frame',path);touch('panel','canvas',path);
         if(frame===null&&!candidate.frame)break;
-        Object.assign(candidate,{panelSpecVersion:['0.15','0.16'].includes(candidate.panelSpecVersion)?candidate.panelSpecVersion:'0.14',appearance:candidate.appearance??null,actionLayouts:candidate.actionLayouts??[],buttonStyles:candidate.buttonStyles??[],buttonFonts:candidate.buttonFonts??[],titleBar:candidate.titleBar??null,textLayouts:candidate.textLayouts??[]});
+        Object.assign(candidate,{panelSpecVersion:['0.15','0.16','0.17'].includes(candidate.panelSpecVersion)?candidate.panelSpecVersion:'0.14',appearance:candidate.appearance??null,actionLayouts:candidate.actionLayouts??[],buttonStyles:candidate.buttonStyles??[],buttonFonts:candidate.buttonFonts??[],titleBar:candidate.titleBar??null,textLayouts:candidate.textLayouts??[]});
         applyPanelFrame(candidate,frame);break;
       }
       case 'set-row-order': {
@@ -226,7 +238,7 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
         touch('row:' + row.id, 'text', path); row.text = operation.text; break;
       }
       case 'set-text-wrap': {
-        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) fail('text-wrap-version',path,'modern form spec required');
+        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('text-wrap-version',path,'modern form spec required');
         const {row}=findRow(candidate,operation.rowId,path+'.rowId');
         if(row.kind!=='text'||![null,'word'].includes(operation.wrap)) fail('text-wrap-target',path,'existing Text row and wrap:word/null required');
         // Adding static body text and opting into wrapping is one atomic edit.
@@ -234,49 +246,49 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
         const added = patch.operations.slice(0,index).some(op=>op.op==='add-row'&&op.row.id===row.id&&op.row.kind==='text');
         touch(added?'text-layout:'+row.id:'row:'+row.id,'text-wrap',path);
         if(operation.wrap===null&&!candidate.textLayouts?.some(v=>v.rowId===row.id)) break;
-        if(!['0.14','0.15','0.16'].includes(candidate.panelSpecVersion))candidate.panelSpecVersion='0.13';candidate.appearance??=null;candidate.actionLayouts??=[];candidate.buttonStyles??=[];candidate.buttonFonts??=[];candidate.titleBar??=null;candidate.textLayouts??=[];
+        if(!['0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion))candidate.panelSpecVersion='0.13';candidate.appearance??=null;candidate.actionLayouts??=[];candidate.buttonStyles??=[];candidate.buttonFonts??=[];candidate.titleBar??=null;candidate.textLayouts??=[];
         candidate.textLayouts=candidate.textLayouts.filter(v=>v.rowId!==row.id);
         if(operation.wrap!==null)candidate.textLayouts.push({rowId:row.id,wrap:operation.wrap});
         candidate.textLayouts.sort((a,b)=>a.rowId<b.rowId?-1:a.rowId>b.rowId?1:0);break;
       }
       case 'set-title-bar': {
-        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) fail('title-bar-version',path,'modern form spec required');
+        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('title-bar-version',path,'modern form spec required');
         checkTitleBar(operation.style,fail,path+'.style'); touch('panel','title-bar',path);
         if (operation.style === null && !candidate.titleBar) break;
-        if (!['0.13','0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.12'; candidate.appearance ??= null; candidate.actionLayouts ??= []; candidate.buttonStyles ??= []; candidate.buttonFonts ??= []; candidate.titleBar = operation.style; break;
+        if (!['0.13','0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.12'; candidate.appearance ??= null; candidate.actionLayouts ??= []; candidate.buttonStyles ??= []; candidate.buttonFonts ??= []; candidate.titleBar = operation.style; break;
       }
       case 'set-button-font-size': {
-        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) fail('button-font-version', path, 'modern form spec required');
+        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('button-font-version', path, 'modern form spec required');
         const { row } = findRow(candidate, operation.rowId, path + '.rowId');
         if (row.kind !== 'button') fail('row-kind', path, 'existing button required');
         touch('row:' + row.id, 'button-font-size', path);
         checkButtonFontSize(operation.fontSize, fail, path + '.fontSize');
         if (operation.fontSize === null && !candidate.buttonFonts?.some(entry => entry.rowId === row.id)) break;
-        if (!['0.12','0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.11'; candidate.appearance ??= null; candidate.actionLayouts ??= []; candidate.buttonStyles ??= []; candidate.buttonFonts ??= [];
+        if (!['0.12','0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.11'; candidate.appearance ??= null; candidate.actionLayouts ??= []; candidate.buttonStyles ??= []; candidate.buttonFonts ??= [];
         candidate.buttonFonts = candidate.buttonFonts.filter(entry => entry.rowId !== row.id);
         if (operation.fontSize !== null) candidate.buttonFonts.push({ rowId: row.id, fontSize: operation.fontSize });
         candidate.buttonFonts.sort((a,b) => a.rowId < b.rowId ? -1 : a.rowId > b.rowId ? 1 : 0); break;
       }
       case 'set-button-style': {
-        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) fail('button-style-version', path, 'modern form spec required');
+        if (!['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('button-style-version', path, 'modern form spec required');
         const { row } = findRow(candidate, operation.rowId, path + '.rowId');
         if (row.kind !== 'button') fail('row-kind', path, 'existing button required');
         touch('row:' + row.id, 'button-style', path);
         if (operation.style !== null) checkButtonStyle(operation.style, fail, path + '.style');
         const empty = operation.style === null || BUTTON_STYLE_KEYS.every(key => operation.style[key] === null);
         if (empty && !candidate.buttonStyles?.some(s => s.rowId === row.id)) break;
-        if (!['0.11','0.12','0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.10'; candidate.appearance ??= null; candidate.actionLayouts ??= []; candidate.buttonStyles ??= [];
+        if (!['0.11','0.12','0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.10'; candidate.appearance ??= null; candidate.actionLayouts ??= []; candidate.buttonStyles ??= [];
         candidate.buttonStyles = candidate.buttonStyles.filter(s => s.rowId !== row.id);
         if (!empty) candidate.buttonStyles.push({rowId:row.id,style:operation.style});
         candidate.buttonStyles.sort((a,b)=>a.rowId<b.rowId?-1:a.rowId>b.rowId?1:0); break;
       }
       case 'set-action-layout': {
-        if (!['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) fail('action-layout-version', path, 'button layouts require Spec 0.7 or newer');
+        if (!['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('action-layout-version', path, 'button layouts require Spec 0.7 or newer');
         identifier(operation.sectionId, `${path}.sectionId`);
         if (!candidate.sections.some(s => s.id === operation.sectionId)) fail('action-layout-target', path, 'section does not exist');
         touch(`section:${operation.sectionId}`, 'action-layout', path);
         if (operation.layout === null && !candidate.actionLayouts?.some(a => a.sectionId === operation.sectionId)) break;
-        candidate.appearance ??= null; candidate.actionLayouts ??= []; if (!['0.10','0.11','0.12','0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.9';
+        candidate.appearance ??= null; candidate.actionLayouts ??= []; if (!['0.10','0.11','0.12','0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.9';
         candidate.actionLayouts = candidate.actionLayouts.filter(a => a.sectionId !== operation.sectionId);
         if (operation.layout !== null) {
           object(operation.layout, ['direction', 'align', 'gap', 'buttonWidth', 'buttonHeight', 'shape'], `${path}.layout`);
@@ -286,16 +298,16 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
         break;
       }
       case 'set-appearance': {
-        if (!['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) fail('appearance-version', path, 'appearance requires Spec 0.7 or 0.8');
+        if (!['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) fail('appearance-version', path, 'appearance requires Spec 0.7 or 0.8');
         checkAppearance(operation.appearance, fail, `${path}.appearance`);
         touch('panel', 'appearance', path);
-        if (!['0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.8';
+        if (!['0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion)) candidate.panelSpecVersion = '0.8';
         candidate.appearance = operation.appearance;
         break;
       }
       case 'set-input-properties': {
         const { row } = findRow(candidate, operation.rowId, `${path}.rowId`);
-        if (!['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16'].includes(candidate.panelSpecVersion) || row.kind !== 'input') fail('row-kind', path, 'existing input in Spec 0.7/0.8 required');
+        if (!['0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14','0.15','0.16','0.17'].includes(candidate.panelSpecVersion) || row.kind !== 'input') fail('row-kind', path, 'existing input in Spec 0.7/0.8 required');
         for (const key of ['placeholder', 'inputType', 'readOnly', 'validation']) { touch(`row:${row.id}`, key, path); row[key] = operation[key]; }
         touch(`state:${row.bind}`, 'maxLength', path);
         candidate.state.find(field => field.id === row.bind).maxLength = operation.maxLength;
@@ -377,8 +389,8 @@ export async function applyPanelPatch(inputSpec, inputPatch) {
     }
   });
 
-  if (['0.15','0.16'].includes(candidate.panelSpecVersion) && candidate.assets && candidate.assets.panelSurface===null
-    && !candidate.assets.rowIcons.length && !candidate.sections.some(section=>section.rows.some(row=>row.kind==='image'&&row.source!==null))) candidate.assets=null;
+  if (['0.15','0.16','0.17'].includes(candidate.panelSpecVersion) && candidate.assets && candidate.assets.panelSurface===null
+    && !candidate.assets.rowIcons.length && !candidate.sections.some(section=>section.rows.some(row=>(row.kind==='image'&&row.source!==null||row.kind==='inventory'&&row.items.some(item=>item.icon!==null))))) candidate.assets=null;
   const spec = validatePanelSpec(candidate);
   const before = rowContents(original);
   const after = rowContents(spec);

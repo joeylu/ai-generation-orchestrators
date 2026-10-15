@@ -1,6 +1,6 @@
 /** Versioned presentation; does not rewrite names, actions, or selection state. */
 export function centeredCardTextIds(spec, theme) {
-  if (!['0.15','0.16'].includes(spec.panelSpecVersion) || theme?.cardAlignment !== 'centered-v1') return [];
+  if (!['0.15','0.16','0.17'].includes(spec.panelSpecVersion) || theme?.cardAlignment !== 'centered-v1') return [];
   return spec.sections.flatMap(section => {
     const images = section.rows.filter(row => row.kind === 'image');
     const buttons = section.rows.filter(row => row.kind === 'button');

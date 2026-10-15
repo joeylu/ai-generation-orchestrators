@@ -43,7 +43,7 @@ export function headingThemeTarget(spec, sourceCatalog, targetCatalog, mode) {
   const visual = ({ version, headingStyle, ...theme }) => {
     // Image cards are a 0.15 presentation feature. Older Specs cannot contain
     // those rows; their explicit heading adoption retains its original geometry.
-    if (!['0.15','0.16'].includes(spec.panelSpecVersion)) delete theme.cardAlignment;
+    if (!['0.15','0.16','0.17'].includes(spec.panelSpecVersion)) delete theme.cardAlignment;
     return canonicalJson(theme);
   };
   const current = resolveTheme(sourceCatalog, spec.theme);

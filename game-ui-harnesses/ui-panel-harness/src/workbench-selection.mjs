@@ -1,7 +1,7 @@
 import { controlId } from './compiler.mjs';
 
 export function selectionLabel(row) {
-  const kinds = { checkbox:'复选框',radio:'单选按钮组',list:'列表',dialog:'弹窗',image:'图片', button: '按钮', input: '输入框', text: '说明', slider: '滑条', switch: '开关', select: '下拉框', progress: '进度条' };
+  const kinds = { inventory:'库存网格',checkbox:'复选框',radio:'单选按钮组',list:'列表',dialog:'弹窗',image:'图片', button: '按钮', input: '输入框', text: '说明', slider: '滑条', switch: '开关', select: '下拉框', progress: '进度条' };
   return `${row.label || row.buttonLabel || row.text || row.id} · ${kinds[row.kind] ?? row.kind}`;
 }
 

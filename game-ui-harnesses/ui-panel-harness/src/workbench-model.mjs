@@ -117,7 +117,7 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         guardEdit();
         const request = validatePanelRequest(requestInput), panel = clone(state.panel);
         if (!panel) fail('WORKBENCH_PANEL_REQUIRED');
-          const context = await createPanelEditContext(panel.spec, panel.catalog, request, selectionInput, {panelFrame:true,layoutDetails:true,requestChecks:'properties-v4',assetRetrieval:['0.15','0.16'].includes(panel.spec.panelSpecVersion)&&pool&&(!panel.spec.assets||canonicalJson(panel.spec.assets.library)===canonicalJson({id:pool.index.id,sha256:pool.index.sha256}))?workbenchRetrieval(request.text,pool,{images:true}):null});
+          const context = await createPanelEditContext(panel.spec, panel.catalog, request, selectionInput, {panelFrame:true,layoutDetails:true,requestChecks:'properties-v4',assetRetrieval:['0.15','0.16','0.17'].includes(panel.spec.panelSpecVersion)&&pool&&(!panel.spec.assets||canonicalJson(panel.spec.assets.library)===canonicalJson({id:pool.index.id,sha256:pool.index.sha256}))?workbenchRetrieval(request.text,pool,{images:true}):null});
         if (!isCurrent(ticket)) return stale();
         edit = { context, proposal: null, report: null };
         return getEditSnapshot();
@@ -221,7 +221,7 @@ export async function createWorkbenchModel(seedInput, core, presentPanel) {
         // A heading-only action must not adopt a newer image-card presentation.
         // The saved 0.15 catalog already carries its concise/visible theme pair.
         const currentTheme = base.panel.catalog.themes.find(theme => theme.id === base.panel.spec.theme.id && theme.version === base.panel.spec.theme.version);
-        const headingCatalog = ['0.15','0.16'].includes(base.panel.spec.panelSpecVersion)
+        const headingCatalog = ['0.15','0.16','0.17'].includes(base.panel.spec.panelSpecVersion)
           && !currentTheme.cardAlignment && catalog.themes.some(theme => theme.cardAlignment === 'centered-v1')
           ? base.panel.catalog : catalog;
         const theme = headingThemeTarget(base.panel.spec, base.panel.catalog, headingCatalog, mode);

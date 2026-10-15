@@ -1,3 +1,4 @@
+import {measureUniformGrid} from './uniform-grid.mjs';
 import {sectionHasPanel,SECTION_PANEL_PADDING} from './section-panels.mjs';
 import { extendedRowHeight } from './component-capabilities.mjs';
 import { hasTextWrap,wrapStaticText } from './text-wrap.mjs';
@@ -56,16 +57,17 @@ export function createPresentationPolicy(spec, tokens, presentationStyle, surfac
       if(compactMessageSection(spec,section,catalog))return measureCompactMessage(spec,tokens,section,width,geometry,showTitle,catalog);
       return measureFocusedSection(spec,tokens,section,width,'dialog',geometry,showTitle,messages);
     }
-    if (section.rows.some(row => ['image','radio','list','dialog','checkbox'].includes(row.kind))) {
+    if (section.rows.some(row => ['inventory','image','radio','list','dialog','checkbox'].includes(row.kind))) {
       // Static image content owns its full row. No extra label band or icon badge.
       let y = titleHeight;
       const rows = section.rows.map((row, index) => {
+        if(row.kind==='inventory'){const grid=measureUniformGrid(row.grid);if(grid.width>width)reject('INVENTORY_GRID_FIT','Inventory cells require their declared width');const place={y,height:grid.height,labelVisible:false,allowPartialScroll:true};y+=grid.height+(index<section.rows.length-1?l.gap:0);return place;}
         const image = row.kind === 'image', copy = row.kind === 'text';
         const textBlock = copy && hasTextWrap(spec,row.id) ? wrapStaticText(row.text,width-24,tokens.fontSize) : null;
         const button = row.kind==='button'&&row.label==='' ? geometry(row,width-24,44) : null;
         if(button&&button.width>width-24)reject('ACTION_LAYOUT_OVERFLOW','Button size exceeds its available section width');
         const extended=extendedRowHeight(spec,row,textHeight,readable);
-        const height = extended ?? (image ? row.height : copy ? Math.max(l.rowHeight,24+textHeight+8+(textBlock?.height??textHeight)) : row.kind === 'input' ? Math.max(l.rowHeight,2*textHeight+(spec.panelSpecVersion==='0.16'?80:60)) : Math.max(l.rowHeight,56,button?.height??0));
+        const height = extended ?? (image ? row.height : copy ? Math.max(l.rowHeight,24+textHeight+8+(textBlock?.height??textHeight)) : row.kind === 'input' ? Math.max(l.rowHeight,2*textHeight+(['0.16','0.17'].includes(spec.panelSpecVersion)?80:60)) : Math.max(l.rowHeight,56,button?.height??0));
         const place = {y,height,stacked:row.kind==='input',...(textBlock?{textBlock}:{}),...(image?{allowPartialScroll:true}:{}),
           ...(copy?{copy:true,labelY:12,labelWidth:width-24,copyTextY:12+textHeight+8,controlX:12,controlWidth:width-24}:{}),
           ...(extended?{labelY:0,labelX:12,labelWidth:width-24,controlX:12,controlWidth:width-24,allowPartialScroll:true}:{}),

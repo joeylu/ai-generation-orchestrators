@@ -25,7 +25,7 @@ for(const item of COMPACT_MESSAGE_SUITE)test(`${item.id}: daily default sends th
  try{
   const {context}=await model.prepare(item.request),prompt=await buildCodexPlanningPrompt(context);
   assert(usesGamePanelDraftPolicy(context));assert.equal(context.request.text,item.request.text);
-  assert.equal(prompt,buildCommonGamePanelPrompt(context));assert.equal(context.catalog.id,'modern-readable-game-card-layout');
+  assert.equal(prompt,buildCommonGamePanelPrompt(context));assert.equal(context.catalog.id,'modern-readable-game-grid-layout');
   const reply=compactMessageFixture(context,item,referenceIntent);let calls=0,sent='';
   const runProcess=()=>{
    calls++;const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();

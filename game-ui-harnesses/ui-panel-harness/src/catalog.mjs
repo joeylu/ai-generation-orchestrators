@@ -1,5 +1,5 @@
 /** A local, data-only catalog. No downloads, model calls, or implicit version selection. */
-const KINDS = new Set(['panel', 'section', 'slider-row', 'switch-row', 'select-row', 'button-row', 'text-row', 'progress-row', 'input-row', 'image-row', 'checkbox-row', 'radio-row', 'list-row', 'dialog-row', 'tabs']);
+const KINDS = new Set(['panel', 'section', 'slider-row', 'switch-row', 'select-row', 'button-row', 'text-row', 'progress-row', 'input-row', 'image-row', 'checkbox-row', 'radio-row', 'list-row', 'dialog-row', 'inventory-row', 'tabs']);
 const STATES = new Set(['idle', 'hover', 'pressed', 'disabled', 'dragging', 'checked']);
 const ID = /^[a-z][a-z0-9._-]{0,95}$/;
 const VERSION = /^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$/;

@@ -111,7 +111,7 @@ for(const [cohort,suite]of [['card-target-default-v1',CARD_TARGET_DEFAULT_SUITE]
     assert.equal(plan.focusedAcceptance.required,true);assert.equal(plan.stabilityEvaluation.sameNaturalLanguageRequests,6);
     for(const path of ['examples/panel-stability-fix-v1/suite.mjs','scripts/lib/stability-fix-acceptance.mjs'])assert(plan.sourceFiles.some(item=>item.path===path));
   }
-  if(['card-target-default-v1','card-content-closeout-v1','section-panels-ten-v1'].includes(cohort))for(const item of suite){const bundle=await readJson(join(output,item.id,'panel.bundle.json'));assert.equal(bundle.compilerVersion,'0.45.0');assert.equal(bundle.catalog.id,'modern-readable-game-card-layout');}
+  if(['card-target-default-v1','card-content-closeout-v1','section-panels-ten-v1'].includes(cohort))for(const item of suite){const bundle=await readJson(join(output,item.id,'panel.bundle.json'));assert.equal(bundle.compilerVersion,'0.45.0');assert.equal(bundle.catalog.id,'modern-readable-game-grid-layout');}
   for(const {id,prompt} of sent){
     const item=suite.find(item=>item.id===id),design=await readJson(join(prepared,id+'.design.json'));
     assert.equal(prompt,design.prompt);assert.deepEqual(await readJson(join(output,id,'design-evidence.json')),adaptabilityDesignEvidence(item,design));

@@ -17,6 +17,7 @@ export function selectedEditOperations(spec, selection, operations) {
     ...(row.kind === 'input' ? ['set-input-properties'] : []),
     ...(row.kind === 'image' ? ['set-image-properties'] : []),
     ...(['select','radio','list'].includes(row.kind)?['set-choice-options']:[]),
+    ...(row.kind==='inventory'?['set-inventory']:[]),
     ...(row.kind==='list'?['set-list-properties']:[]),
     ...(row.kind==='dialog'?['set-dialog-properties']:[]),
   ]);

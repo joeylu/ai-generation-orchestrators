@@ -1,3 +1,4 @@
+import {inventoryCellId,inventoryMarkerId,inventorySlotId} from './inventory-grid.mjs';
 import {hasDataItemPanels,isDataItem} from './data-item-panels.mjs';
 import { hasTextWrap,wrapStaticText,wrappedLinePresentation } from './text-wrap.mjs';
 import { validatePanelSpec, validatePanelState } from './spec.mjs';
@@ -27,6 +28,13 @@ export function projectPanelEvent(specInput, stateInput, input) {
   if (!input || !['change', 'activate'].includes(input.type)) return { state, event: null };
   const modal=rowsOf(spec).filter(row=>row.kind==='dialog'&&row.modal&&state[row.bind]).at(-1);
   if(modal&&userSources.has(input.source)&&!input.id?.startsWith(controlId(spec.id,modal.id)+'.'))return {state,event:null};
+  const inventory=rowsOf(spec).find(row=>row.kind==='inventory'&&Array.from({length:row.grid.rows*row.grid.columns},(_,slot)=>inventoryCellId(controlId(spec.id,row.id),slot)).includes(input.id));
+  if(inventory){
+    if(input.type!=='activate'||!userSources.has(input.source)||!inventory.enabled)return {state,event:null};
+    if(spec.tabs){const section=spec.sections.find(section=>section.rows.includes(inventory));const page=spec.tabs.pages.find(page=>page.sections.includes(section.id));if(page.id!==state[spec.tabs.bind])return {state,event:null};}
+    const slot=Number(input.id.slice(input.id.lastIndexOf('.')+1)),value=inventorySlotId(slot),next=validatePanelState(spec,{...state,[inventory.bind]:value});
+    return {state:next,event:state[inventory.bind]===value?null:{name:inventory.event,rowId:inventory.id,fieldId:inventory.bind,value,slot,empty:!inventory.items.some(item=>item.slot===slot),source:input.source}};
+  }
   const dialog=rowsOf(spec).find(row=>row.kind==='dialog'&&[controlId(spec.id,row.id)+'.open',controlId(spec.id,row.id)+'.close'].includes(input.id));
   if(dialog&&input.type==='activate'&&userSources.has(input.source)){
     if(input.id.endsWith('.open')&&!dialog.enabled)return {state,event:null};
@@ -92,6 +100,14 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
   const hydrated = {};
   for (const row of rows) {
     const node = nodes.get(controlId(spec.id, row.id)), field = fieldMap.get(row.bind);
+    if(row.kind==='inventory'){
+      if(!suppliedState||node?.type!=='Container')throw Error('PANEL_INVENTORY_RUNTIME_MISMATCH');
+      for(let slot=0;slot<row.grid.rows*row.grid.columns;slot++){
+        const button=nodes.get(inventoryCellId(node.id,slot)),marker=nodes.get(inventoryMarkerId(node.id,slot));
+        if(button?.type!=='Button'||button.props.enabled!==row.enabled||marker?.type!=='ProgressBar'||marker.props.max!==1||marker.props.value!==(suppliedState[row.bind]===inventorySlotId(slot)?1:0))throw Error('PANEL_INVENTORY_RUNTIME_MISMATCH');
+      }
+      hydrated[row.bind]=suppliedState[row.bind];continue;
+    }
     if (row.kind === 'image') {
       if (!node || node.type !== (row.source === null ? 'Container' : 'Image')
         || row.source !== null && node.props.fit !== row.fit
@@ -182,6 +198,10 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
     updating = true;
     try {
       for (const row of boundRows) if (state[row.bind] !== next[row.bind]) {
+        if(row.kind==='inventory'){
+          for(const [value,selected]of [[state[row.bind],false],[next[row.bind],true]])if(value!=='none')runtime.setValue(inventoryMarkerId(controlId(spec.id,row.id),Number(value.slice(4))),selected?1:0);
+          guard();continue;
+        }
         const value = row.kind === 'progress' ? progressDisplayValue(row, fieldMap.get(row.bind), next[row.bind])
           : ['select', 'radio', 'list', 'tabs'].includes(row.kind) ? choiceId(spec.id, row.id, next[row.bind]) : next[row.bind];
         runtime.setValue(controlId(spec.id, row.id), value);
@@ -204,7 +224,11 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
     const projected = projectPanelEvent(spec, state, input);
     if(minimalPresentation&&input?.type==='change'&&projected.event?.fieldId
       &&inputRows.some(row=>row.bind===projected.event.fieldId))editedInputs.add(projected.event.fieldId);
-    if (projected.event?.action === 'reset-initial') applyState(projected.state);
+    if(projected.event?.rowId&&rows.some(row=>row.kind==='inventory'&&row.id===projected.event.rowId)){
+      if(interactionLocked)return;
+      applyState(projected.state);
+    }
+    else if (projected.event?.action === 'reset-initial') applyState(projected.state);
     else { state = projected.state; updateFormViews(); }
     if (projected.event) onEvent(projected.event);
   });
@@ -217,7 +241,7 @@ export function attachPanelSession(specInput, runtime, onEvent, stateInput, pres
     getState() { guard(); return structuredClone(state); },
     setState: applyState,
     getFormErrors() { guard(); return formErrors(spec, state); },
-    setInteractionLocked(value) { guard(); interactionLocked = Boolean(value); updateFormViews(); },
+    setInteractionLocked(value) { guard(); const changed=interactionLocked!==Boolean(value);interactionLocked = Boolean(value);if(changed)for(const row of rows.filter(row=>row.kind==='inventory'))for(let slot=0;slot<row.grid.rows*row.grid.columns;slot++)runtime.setEnabled(inventoryCellId(controlId(spec.id,row.id),slot),row.enabled&&!interactionLocked);updateFormViews(); },
     setProgress(fieldId, value) {
       guard();
       if (fieldMap.get(fieldId)?.type !== 'progress') throw new Error('PANEL_PROGRESS_FIELD');

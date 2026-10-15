@@ -12,7 +12,7 @@ namespace GameUi.PanelHarness
     [DisallowMultipleComponent]
     public sealed class PanelController : MonoBehaviour
     {
-        public const string ADAPTER_VERSION = "0.1.8";
+        public const string ADAPTER_VERSION = "0.1.9";
         private const double MAX_TICKS = 1000000;
         private const double DOUBLE_EPSILON = 2.2204460492503131E-16;
         private readonly HashSet<string> EDITED_INPUTS = new HashSet<string>(StringComparer.Ordinal);
@@ -146,7 +146,7 @@ namespace GameUi.PanelHarness
         private static bool Validate(PanelDocument source, PanelControlView[] controlViews, out string error)
         {
             error = "PANEL_RUNTIME_DOCUMENT";
-            if (source.formatVersion != "0.1" || (source.adapterVersion != "0.1.0" && source.adapterVersion != "0.1.1" && source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != "0.1.6" && source.adapterVersion != ADAPTER_VERSION) || string.IsNullOrEmpty(source.panelId)
+            if (source.formatVersion != "0.1" || (source.adapterVersion != "0.1.0" && source.adapterVersion != "0.1.1" && source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != "0.1.6" && source.adapterVersion != "0.1.8" && source.adapterVersion != ADAPTER_VERSION) || string.IsNullOrEmpty(source.panelId)
                 || source.fields == null || source.controls == null || source.fields.Length > 128 || source.controls.Length > 128
                 || controlViews.Length != source.controls.Length) return false;
             Dictionary<string, PanelField> fields = new Dictionary<string, PanelField>(StringComparer.Ordinal);
@@ -162,12 +162,12 @@ namespace GameUi.PanelHarness
                 }
                 else if (field.type == "progress")
                 {
-                    if ((source.panelSpecVersion != "0.5" && source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14" && source.panelSpecVersion != "0.15" && source.panelSpecVersion != "0.16") || (source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != "0.1.6" && source.adapterVersion != ADAPTER_VERSION) || field.min != 0 || field.step != 0
+                    if ((source.panelSpecVersion != "0.5" && source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14" && source.panelSpecVersion != "0.15" && source.panelSpecVersion != "0.16" && source.panelSpecVersion != "0.17") || (source.adapterVersion != "0.1.2" && source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != "0.1.6" && source.adapterVersion != "0.1.8" && source.adapterVersion != ADAPTER_VERSION) || field.min != 0 || field.step != 0
                         || !ProgressValid(field, field.initialNumber) || !ProgressValid(field, field.numberValue)) return false;
                 }
                 else if (field.type == "enum")
                 {
-                    if (field.options == null || field.options.Length < 1 || field.options.Length > (source.panelSpecVersion == "0.16" ? 64 : 8)) return false;
+                    if (field.options == null || field.options.Length < 1 || field.options.Length > (source.panelSpecVersion == "0.17" ? 145 : source.panelSpecVersion == "0.16" ? 64 : 8)) return false;
                     HashSet<string> choices = new HashSet<string>(StringComparer.Ordinal);
                     foreach (PanelOption option in field.options)
                         if (option == null || string.IsNullOrEmpty(option.id) || string.IsNullOrEmpty(option.label) || !choices.Add(option.id)) return false;
@@ -175,7 +175,7 @@ namespace GameUi.PanelHarness
                 }
                 else if (field.type == "string")
                 {
-                    if ((source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14" && source.panelSpecVersion != "0.15" && source.panelSpecVersion != "0.16") || (source.adapterVersion != "0.1.4" && source.adapterVersion != "0.1.6" && source.adapterVersion != ADAPTER_VERSION)
+                    if ((source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14" && source.panelSpecVersion != "0.15" && source.panelSpecVersion != "0.16" && source.panelSpecVersion != "0.17") || (source.adapterVersion != "0.1.4" && source.adapterVersion != "0.1.6" && source.adapterVersion != "0.1.8" && source.adapterVersion != ADAPTER_VERSION)
                         || !StringValid(field.initialString, field.maxLength) || !StringValid(field.stringValue, field.maxLength)) return false;
                 }
                 else if (field.type != "boolean") return false;
@@ -205,7 +205,7 @@ namespace GameUi.PanelHarness
                     if (control.action != "reset-initial" && resets.Count != 0) return false;
                     if (control.action == "submit")
                     {
-                        if ((source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14" && source.panelSpecVersion != "0.15" && source.panelSpecVersion != "0.16") || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) return false;
+                        if ((source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14" && source.panelSpecVersion != "0.15" && source.panelSpecVersion != "0.16" && source.panelSpecVersion != "0.17") || control.submitFields == null || control.submitFields.Length < 1 || control.submitFields.Length > 128) return false;
                         HashSet<string> submitted = new HashSet<string>(StringComparer.Ordinal);
                         foreach (string id in control.submitFields)
                             if (id == null || !fields.ContainsKey(id) || fields[id].type != "string" || !submitted.Add(id)
@@ -229,16 +229,23 @@ namespace GameUi.PanelHarness
                     }
                     else if (control.kind == "switch" || control.kind == "checkbox") { if (field.type != "boolean" || view.toggle == null) return false; }
                     else if (control.kind == "select") { if (field.type != "enum" || field.options.Length > 8 || view.dropdown == null) return false; }
+                    else if (control.kind == "inventory")
+                    {
+                        if (source.panelSpecVersion != "0.17" || field.type != "enum" || field.options.Length < 2 || field.options.Length > 145 || field.options[0].id != "none"
+                            || view.choiceButtons == null || view.choiceIndicators == null || view.choiceButtons.Length != field.options.Length || view.choiceIndicators.Length != field.options.Length
+                            || view.choiceButtons[0] != null || view.choiceIndicators[0] != null) return false;
+                        for (int i = 1; i < field.options.Length; i++) if (field.options[i].id != "slot" + (i - 1) || view.choiceButtons[i] == null || view.choiceIndicators[i] == null) return false;
+                    }
                     else if (control.kind == "radio" || control.kind == "list")
                     {
-                        if (source.panelSpecVersion != "0.16" || field.type != "enum" || view.choiceButtons == null || view.choiceIndicators == null
+                        if ((source.panelSpecVersion != "0.16" && source.panelSpecVersion != "0.17") || field.type != "enum" || view.choiceButtons == null || view.choiceIndicators == null
                             || view.choiceButtons.Length != field.options.Length || view.choiceIndicators.Length != field.options.Length
-                            || control.kind == "radio" && field.options.Length > 8) return false;
+                            || control.kind == "list" && field.options.Length > 64 || control.kind == "radio" && field.options.Length > 8) return false;
                         for (int i = 0; i < field.options.Length; i++) if (view.choiceButtons[i] == null || view.choiceIndicators[i] == null) return false;
                     }
                     else if (control.kind == "dialog")
                     {
-                        if (source.panelSpecVersion != "0.16" || field.type != "boolean" || view.dialog == null || view.dialogOpenButton == null || view.dialogCloseButton == null
+                        if ((source.panelSpecVersion != "0.16" && source.panelSpecVersion != "0.17") || field.type != "boolean" || view.dialog == null || view.dialogOpenButton == null || view.dialogCloseButton == null
                             || view.dialogModal && view.dialogBlocker == null) return false;
                     }
                     else if (control.kind == "input")
@@ -250,7 +257,7 @@ namespace GameUi.PanelHarness
                     }
                     else if (control.kind == "tabs")
                     {
-                        if ((source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14" && source.panelSpecVersion != "0.15" && source.panelSpecVersion != "0.16") || (source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != "0.1.6" && source.adapterVersion != ADAPTER_VERSION) || field.type != "enum" || field.options.Length < 2
+                        if ((source.panelSpecVersion != "0.6" && source.panelSpecVersion != "0.7" && source.panelSpecVersion != "0.8" && source.panelSpecVersion != "0.9" && source.panelSpecVersion != "0.10" && source.panelSpecVersion != "0.11" && source.panelSpecVersion != "0.12" && source.panelSpecVersion != "0.13" && source.panelSpecVersion != "0.14" && source.panelSpecVersion != "0.15" && source.panelSpecVersion != "0.16" && source.panelSpecVersion != "0.17") || (source.adapterVersion != "0.1.3" && source.adapterVersion != "0.1.4" && source.adapterVersion != "0.1.6" && source.adapterVersion != "0.1.8" && source.adapterVersion != ADAPTER_VERSION) || field.type != "enum" || field.options.Length < 2
                             || control.action != "" || control.resetFields == null || control.resetFields.Length != 0
                             || view.tabButtons == null || view.tabPages == null || control.contentIds == null || view.tabButtons.Length != field.options.Length
                             || view.tabPages.Length != field.options.Length || control.contentIds.Length != field.options.Length) return false;
@@ -334,9 +341,9 @@ namespace GameUi.PanelHarness
                     view.button.onClick.AddListener(listener);
                     DETACH.Add(() => { if (ownedView.button != null) ownedView.button.onClick.RemoveListener(listener); });
                 }
-                else if (view.definition.kind == "radio" || view.definition.kind == "list")
+                else if (view.definition.kind == "radio" || view.definition.kind == "list" || view.definition.kind == "inventory")
                 {
-                    for (int i = 0; i < view.choiceButtons.Length; i++)
+                    for (int i = view.definition.kind == "inventory" ? 1 : 0; i < view.choiceButtons.Length; i++)
                     {
                         int choice = i; Button button = view.choiceButtons[i];
                         UnityAction listener = () => ChoiceChanged(ownedView, choice);
@@ -426,9 +433,9 @@ namespace GameUi.PanelHarness
                         view.dropdown.SetValueWithoutNotify(Array.FindIndex(field.options, option => option.id == field.stringValue));
                         view.dropdown.RefreshShownValue();
                     }
-                    else if (control.kind == "radio" || control.kind == "list")
+                    else if (control.kind == "radio" || control.kind == "list" || control.kind == "inventory")
                     {
-                        for (int i = 0; i < field.options.Length; i++) { view.choiceButtons[i].interactable = control.enabled; view.choiceIndicators[i].SetActive(field.options[i].id == field.stringValue); }
+                        for (int i = control.kind == "inventory" ? 1 : 0; i < field.options.Length; i++) { view.choiceButtons[i].interactable = control.enabled; view.choiceIndicators[i].SetActive(field.options[i].id == field.stringValue); }
                     }
                     else if (control.kind == "dialog")
                     {
@@ -493,7 +500,7 @@ namespace GameUi.PanelHarness
 
         private static Component ComponentFor(PanelControlView view)
         {
-            if (view.choiceButtons != null && view.choiceButtons.Length > 0) return view.choiceButtons[0];
+            if (view.choiceButtons != null && view.choiceButtons.Length > 0) return Array.Find(view.choiceButtons, button => button != null);
             if (view.dialogOpenButton != null) return view.dialogOpenButton;
             if (view.input != null) return view.input;
             if (view.slider != null) return view.slider;
@@ -541,7 +548,7 @@ namespace GameUi.PanelHarness
             string value = field.options[index].id;
             bool changed = field.stringValue != value;
             field.stringValue = value;
-            if (view.definition.kind == "tabs" || view.definition.kind == "radio" || view.definition.kind == "list") ApplyViews();
+            if (view.definition.kind == "tabs" || view.definition.kind == "radio" || view.definition.kind == "list" || view.definition.kind == "inventory") ApplyViews();
             if (changed) Raise(view.definition, field);
         }
 

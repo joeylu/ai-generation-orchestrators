@@ -18,6 +18,7 @@ import {imageRequest,imageIntent,conciseRoleSpec} from '../examples/image-slots-
 import {imageAssetPool} from '../examples/image-slots-v1/assets.mjs';
 import {checkInstalledComponents} from './lib/all-components-release-check.mjs';
 import {checkInstalledCompactMessages} from './lib/compact-message-release-check.mjs';
+import {checkInstalledInventory} from './lib/inventory-release-check.mjs';
 
 function fixtureProcess(reply, calls) {
   return (command, args, options) => {
@@ -50,8 +51,8 @@ for (const [name, bytes] of files) {
 }
 const sdk = await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).loadPanelSdk();
 assert.equal(sdk.seed.pool.index.records.length, 12); assert.equal(sdk.seed.pool.resources.length, 12);
-const cardLayout=sdk.seed.catalog.id==='modern-readable-game-card-layout',itemGroups=cardLayout||sdk.seed.catalog.id==='modern-readable-game-item-groups',dataPanels=itemGroups||sdk.seed.catalog.id==='modern-readable-game-data-panels',readableData=dataPanels||sdk.seed.catalog.id==='modern-readable-game-data-layout',groupedReadable=readableData||sdk.seed.catalog.id==='modern-readable-game-grouped-layout',sectionPanels=groupedReadable||sdk.seed.catalog.id==='modern-readable-game-section-panels',headingPanels=sectionPanels||sdk.seed.catalog.id==='modern-readable-game-heading-panels',readableLayout=headingPanels||sdk.seed.catalog.id==='modern-readable-game-layout',contentHeadings=readableLayout||sdk.seed.catalog.id==='modern-readable-game-headings',readable=contentHeadings||sdk.seed.catalog.id==='modern-readable-game',compact=readable||sdk.seed.catalog.id==='modern-compact-message',full=compact||sdk.seed.catalog.id==='modern-all-components',centered=full||sdk.seed.catalog.id==='modern-centered-cards',images=centered||sdk.seed.catalog.id==='modern-image-slots';
-assert.equal(sdk.seed.catalog.id, cardLayout?'modern-readable-game-card-layout':itemGroups?'modern-readable-game-item-groups':dataPanels?'modern-readable-game-data-panels':readableData?'modern-readable-game-data-layout':groupedReadable?'modern-readable-game-grouped-layout':sectionPanels?'modern-readable-game-section-panels':headingPanels?'modern-readable-game-heading-panels':readableLayout?'modern-readable-game-layout':contentHeadings?'modern-readable-game-headings':readable?'modern-readable-game':compact?'modern-compact-message':full?'modern-all-components':centered?'modern-centered-cards':images?'modern-image-slots':'modern-menu-headings');
+const gridLayout=sdk.seed.catalog.id==='modern-readable-game-grid-layout',cardLayout=gridLayout||sdk.seed.catalog.id==='modern-readable-game-card-layout',itemGroups=cardLayout||sdk.seed.catalog.id==='modern-readable-game-item-groups',dataPanels=itemGroups||sdk.seed.catalog.id==='modern-readable-game-data-panels',readableData=dataPanels||sdk.seed.catalog.id==='modern-readable-game-data-layout',groupedReadable=readableData||sdk.seed.catalog.id==='modern-readable-game-grouped-layout',sectionPanels=groupedReadable||sdk.seed.catalog.id==='modern-readable-game-section-panels',headingPanels=sectionPanels||sdk.seed.catalog.id==='modern-readable-game-heading-panels',readableLayout=headingPanels||sdk.seed.catalog.id==='modern-readable-game-layout',contentHeadings=readableLayout||sdk.seed.catalog.id==='modern-readable-game-headings',readable=contentHeadings||sdk.seed.catalog.id==='modern-readable-game',compact=readable||sdk.seed.catalog.id==='modern-compact-message',full=compact||sdk.seed.catalog.id==='modern-all-components',centered=full||sdk.seed.catalog.id==='modern-centered-cards',images=centered||sdk.seed.catalog.id==='modern-image-slots';
+assert.equal(sdk.seed.catalog.id, gridLayout?'modern-readable-game-grid-layout':cardLayout?'modern-readable-game-card-layout':itemGroups?'modern-readable-game-item-groups':dataPanels?'modern-readable-game-data-panels':readableData?'modern-readable-game-data-layout':groupedReadable?'modern-readable-game-grouped-layout':sectionPanels?'modern-readable-game-section-panels':headingPanels?'modern-readable-game-heading-panels':readableLayout?'modern-readable-game-layout':contentHeadings?'modern-readable-game-headings':readable?'modern-readable-game':compact?'modern-compact-message':full?'modern-all-components':centered?'modern-centered-cards':images?'modern-image-slots':'modern-menu-headings');
 assert.equal(sdk.seed.catalog.version, images?'0.1.0':'0.20.0');
 assert.equal(files.has('package/src/component-adapter.mjs'), false);
 assert(![...files.keys()].some(name => /(?:node_modules|\.ts$|workbench-server|\.tmp\/|output\/)/.test(name)));
@@ -62,7 +63,7 @@ const options = reply => ({ executable, outputRoot: join(temporary, 'writable-ru
 const model = await sdk.createWorkbenchModel(sdk.seed, sdk.core);
 const prepared = await model.prepare(menuRequest);
 // These are authored fixtures. Their transport version follows the tested SDK.
-const nativeFixture=(context,fixture)=>({...fixture,panelIntentVersion:context.planningContextVersion==='0.11'?'0.12':context.planningContextVersion==='0.10'?'0.11':fixture.panelIntentVersion});
+const nativeFixture=(context,fixture)=>({...fixture,panelIntentVersion:context.planningContextVersion==='0.12'?'0.13':context.planningContextVersion==='0.11'?'0.12':context.planningContextVersion==='0.10'?'0.11':fixture.panelIntentVersion});
 const planned = await sdk.planner.planWithCodex(prepared.context, options(nativeFixture(prepared.context,menuIntent(prepared.context))));
 assert.equal(planned.receipt.invocationCount, 1); assert.equal(planned.receipt.automaticRetries, 0);
 let current = await model.acceptProposal(planned.proposal);
@@ -173,6 +174,7 @@ if(images){
 await (await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk();
 if(full)checks.push(...await checkInstalledComponents(sdk,output,options));
 if(compact)checks.push(...await checkInstalledCompactMessages(sdk,output));
+if(gridLayout)checks.push(...await checkInstalledInventory(sdk,output,options));
 await writeFile(join(temporary, 'package/prompts/panel-intent.md'), 'tampered');
 assert.throws(() => sdk.planner.planWithCodex(prepared.context, { outputRoot: 'relative' }), /SDK_OUTPUT_ROOT_REQUIRED/);
 await assert.rejects((await import(pathToFileURL(join(temporary, 'package/src/sdk.mjs')).href)).verifyPanelSdk(), /SDK_FILE_INTEGRITY/);

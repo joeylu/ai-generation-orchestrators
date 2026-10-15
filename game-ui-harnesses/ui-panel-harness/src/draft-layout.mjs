@@ -18,7 +18,7 @@ export function fitDraftPanelLayout(input,catalogInput,core,{mutableDimensions=[
   const original=validatePanelSpec(input),catalog=validateCatalog(catalogInput);
   if(!['draft-content-fit-v1','draft-content-fit-v2'].includes(policy))fail('DRAFT_LAYOUT_POLICY');
   if(!Array.isArray(mutableDimensions)||new Set(mutableDimensions).size!==mutableDimensions.length||mutableDimensions.some(key=>!dimensions.includes(key)))fail('DRAFT_DIMENSION_POLICY');
-  if(original.panelSpecVersion!=='0.16'||(original.tabs&&policy==='draft-content-fit-v1')||original.frame
+  if(!['0.16','0.17'].includes(original.panelSpecVersion)||(original.tabs&&policy==='draft-content-fit-v1')||original.frame
     ||(original.assets&&(policy==='draft-content-fit-v1'||original.assets.panelSurface!==null||original.assets.rowIcons.length)))fail('DRAFT_LAYOUT_SCOPE');
   const mutable=new Set(mutableDimensions),theme=resolveTheme(catalog,original.theme);
   if(theme.visualStyle!=='modern-v3')fail('DRAFT_LAYOUT_SCOPE');

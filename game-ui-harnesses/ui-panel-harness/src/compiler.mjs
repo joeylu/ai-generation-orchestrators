@@ -1,3 +1,4 @@
+import {hasInventory,compileInventory} from './inventory-grid.mjs';
 import {hasSectionPanels} from './section-panels.mjs';
 import {hasHeadingPanels,HEADING_PANEL_PADDING} from './heading-panels.mjs';
 import {isReadableGameTheme,readableRadioHeight} from './readable-game.mjs';
@@ -71,9 +72,11 @@ export const GROUPED_READABLE_COMPILER_VERSION = '0.42.0';
 export const READABLE_DATA_COMPILER_VERSION = '0.43.0';
 export const DATA_ITEM_PANELS_COMPILER_VERSION = '0.44.0';
 export const ITEM_GROUPS_COMPILER_VERSION = '0.45.0';
+export const INVENTORY_GRID_COMPILER_VERSION = '0.46.0';
 
 /** New themes opt in explicitly; old bundles continue to replay their exact compiler. */
 export function defaultPanelCompilerVersion(spec, catalog) {
+  if(hasInventory(spec))return INVENTORY_GRID_COMPILER_VERSION;
   const theme = resolveTheme(catalog, spec.theme), profile = theme.visualStyle;
   if(isReadableGameTheme(theme)){if(!fullComponents(spec))throw new PanelCompileError('VISUAL_STYLE_VERSION','$.theme','Readable games require PanelSpec 0.16');return ['concise-v6','visible-v6'].includes(theme.headingStyle)?ITEM_GROUPS_COMPILER_VERSION:theme.draftSizing==='game-readable-v5'?DATA_ITEM_PANELS_COMPILER_VERSION:theme.draftSizing==='game-readable-v4'?READABLE_DATA_COMPILER_VERSION:theme.draftSizing==='game-readable-v3'?GROUPED_READABLE_COMPILER_VERSION:hasSectionPanels(theme)?SECTION_PANELS_COMPILER_VERSION:hasHeadingPanels(theme)?HEADING_PANELS_COMPILER_VERSION:theme.draftSizing==='game-readable-v2'?READABLE_LAYOUT_PANEL_COMPILER_VERSION:['concise-v5','visible-v5','concise-v6','visible-v6'].includes(theme.headingStyle)?CONTENT_HEADING_PANEL_COMPILER_VERSION:READABLE_GAME_PANEL_COMPILER_VERSION;}
   if(spec.sections.some(section=>section.rows.some(row=>isMessageText(row,catalog)))){
@@ -89,7 +92,7 @@ export function defaultPanelCompilerVersion(spec, catalog) {
     return ACTION_HEADING_PANEL_COMPILER_VERSION;
   }
   if(fullComponents(spec)){if(profile!=='modern-v3')throw new PanelCompileError('VISUAL_STYLE_VERSION','$.theme','Full components require modern-v3');return CENTERED_TITLE_PANEL_COMPILER_VERSION;}
-  if (['0.15','0.16'].includes(spec.panelSpecVersion)) {
+  if (['0.15','0.16','0.17'].includes(spec.panelSpecVersion)) {
     if (profile !== 'modern-v3') throw new PanelCompileError('VISUAL_STYLE_VERSION', '$.theme', 'Image slots require modern-v3');
     return theme.cardAlignment === 'centered-v1' ? CENTERED_CARDS_PANEL_COMPILER_VERSION : IMAGE_PANEL_COMPILER_VERSION;
   }
@@ -173,7 +176,7 @@ export function initialPanelState(spec) {
 /** Pure lowering. Renderer-free; core functions are supplied by the host adapter. */
 export function compilePanel(input, catalogInput, core, stateInput, assetClosureInput, compilerVersionInput) {
   const spec = validatePanelSpec(input), catalog = validateCatalog(catalogInput);
-  const images = ['0.15','0.16'].includes(spec.panelSpecVersion), sized = images || spec.panelSpecVersion === '0.14', wrapping = sized || spec.panelSpecVersion === '0.13', titled = wrapping || spec.panelSpecVersion === '0.12', typography = titled || spec.panelSpecVersion === '0.11', individual = typography || spec.panelSpecVersion === '0.10', arranged = individual || spec.panelSpecVersion === '0.9', styled = arranged || spec.panelSpecVersion === '0.8', appearance = styled ? spec.appearance : null;
+  const images = ['0.15','0.16','0.17'].includes(spec.panelSpecVersion), sized = images || spec.panelSpecVersion === '0.14', wrapping = sized || spec.panelSpecVersion === '0.13', titled = wrapping || spec.panelSpecVersion === '0.12', typography = titled || spec.panelSpecVersion === '0.11', individual = typography || spec.panelSpecVersion === '0.10', arranged = individual || spec.panelSpecVersion === '0.9', styled = arranged || spec.panelSpecVersion === '0.8', appearance = styled ? spec.appearance : null;
   const formsVersion = styled || spec.panelSpecVersion === '0.7';
   const tabsVersion = formsVersion || spec.panelSpecVersion === '0.6';
   const progressVersion = tabsVersion || spec.panelSpecVersion === '0.5';
@@ -245,7 +248,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       fail('LAYOUT_GEOMETRY', '$.layout', 'Every generated rectangle must have a positive finite size');
     }
     layouts[id] = rect;
-    if (minimal && ['Input','Slider','Switch','ProgressBar'].includes(componentType)
+    if (minimal && ['Input','Slider','Switch','ProgressBar'].includes(componentType) && !(componentType==='ProgressBar'&&id.endsWith('.selected')&&hasInventory(spec))
       && (componentType === 'Input' || appearance?.controlColor == null)) {
       const skin = minimalControlSkin(({Input:'input',Slider:'slider',Switch:'switch',ProgressBar:'progress'})[componentType],rect,t,props.style.cornerRadius,crafted?2:1,grouped,theme.sliderStyle);
       props = {...props,appearance:skin.appearance};
@@ -304,6 +307,7 @@ export function compilePanel(input, catalogInput, core, stateInput, assetClosure
       const placement = presentation?.rows[index], rowHeight = placement?.height ?? l.rowHeight;
       select(row.recipe, `${row.kind}-row`, row.kind==='image' ? row.width==='fill' ? contentWidth-24 : row.width : contentWidth, rowHeight);
       const textHeight = Math.ceil(t.fontSize * 1.3);
+      if(row.kind==='inventory'){sectionChildren.push(compileInventory({row,id,rect:{x:0,y:placement.y,width:contentWidth,height:rowHeight},state,t,node,text,style,image,assets,fail}));bindings.push({nodeId:id,fieldId:row.bind,type:'enum',event:row.event});continue;}
       if (row.kind === 'image') {
         const width = row.width === 'fill' ? contentWidth - 24 : row.width;
         if (width < 16 || width > contentWidth - 24 || rowHeight !== row.height) fail('IMAGE_GEOMETRY', '$.layout', 'Image must fit its measured content slot');

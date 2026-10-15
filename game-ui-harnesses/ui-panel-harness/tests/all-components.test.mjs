@@ -45,7 +45,7 @@ test('default catalog makes all sixteen native types in both render/export docum
    const list=nodesOf(bundle.componentBundle.document).find(node=>node.type==='List');
    const luminance=hex=>{const rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;};
    for(const background of ['#FFFFFF','#E3F1EC']){const a=luminance(list.props.style.textColor),b=luminance(background);assert((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,'List choice contrast '+mode);}
-   assert.equal(native.adapterVersion,'0.1.8');assert.equal(native.controls.length,11);
+   assert.equal(native.adapterVersion,'0.1.9');assert.equal(native.controls.length,11);
    const dialog=native.controls.find(control=>control.kind==='dialog');
    assert.equal(native.nodes.filter(node=>node.dialogTargetId===dialog.nodeId).length,2);
    assert.deepEqual(await panel.validatePanelBundle(JSON.parse(JSON.stringify(bundle)),core),bundle);

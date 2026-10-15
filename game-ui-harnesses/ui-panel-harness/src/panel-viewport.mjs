@@ -1,8 +1,8 @@
 /** Fit the owned view only when its effective scale changes. */
-export function createPanelViewportFit(canvas, container, surface, runtime) {
+export function createPanelViewportFit(canvas, container, surface, runtime, minimumScale = 0.1) {
   let previousFit, previousZoom = 1;
   return () => {
-    const fit = Math.min(1, Math.max(0.1, container.clientWidth / canvas.width));
+    const fit = Math.min(1, Math.max(minimumScale, container.clientWidth / canvas.width));
     if (fit === previousFit) return false;
     const zoom = Math.max(0.5, fit);
     // setZoom also cancels gestures and reallocates the drawing buffer. A
@@ -19,10 +19,11 @@ export function createPanelViewportFit(canvas, container, surface, runtime) {
 
 /** Observe layout without writing back during ResizeObserver delivery. */
 export function observePanelViewport(canvas, container, surface, runtime, {
+  minimumScale = 0.1,
   Observer = globalThis.ResizeObserver,
   clock = { request: callback => requestAnimationFrame(callback), cancel: id => cancelAnimationFrame(id) },
 } = {}) {
-  const fit = createPanelViewportFit(canvas, container, surface, runtime);
+  const fit = createPanelViewportFit(canvas, container, surface, runtime, minimumScale);
   let disposed = false, frame;
   const observer = new Observer(() => {
     if (disposed || frame !== undefined) return;

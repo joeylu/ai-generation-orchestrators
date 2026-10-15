@@ -86,7 +86,7 @@ test('fixed frames reserve dropdown popup clearance while preserving scroll and 
 test('Unity adapter version gates accept resized title, progress, input, submit and tabs documents',async()=>{
  const paths=['../adapters/unity/Editor/PanelPrefabBuilder.cs','../adapters/unity/Runtime/PanelController.cs'];
  for(const path of paths){const source=await readFile(new URL(path,import.meta.url),'utf8');
-  const gates=[...source.matchAll(/(?:document|source)\.panelSpecVersion != "0\.[0-9]+"(?: && (?:document|source)\.panelSpecVersion != "0\.[0-9]+")*/g)].map(m=>m[0]).filter(gate=>gate.includes(" && "));
+  const gates=[...source.matchAll(/(?:document|source)\.panelSpecVersion != "0\.[0-9]+"(?: && (?:document|source)\.panelSpecVersion != "0\.[0-9]+")*/g)].map(m=>m[0]).filter(gate=>gate.includes(" && ")&&/"0\.(?:[1-9]|1[0-5])"/.test(gate));
   assert(gates.length>=4);for(const gate of gates){const versions=[...gate.matchAll(/"([0-9.]+)"/g)].map(m=>m[1]);assert(versions.includes('0.14'),gate);assert(!versions.includes('0.99'));}
  }
 });

@@ -1,3 +1,5 @@
+import {checkInventory} from './inventory-grid.mjs';
+import {MAX_GRID_CELLS} from './uniform-grid.mjs';
 import { CONTENT_KINDS, fullComponents } from './component-capabilities.mjs';
 import { checkPanelFrame } from './panel-frame.mjs';
 import { checkTextLayouts,checkWrappedText,hasTextWrap } from './text-wrap.mjs';
@@ -214,7 +216,7 @@ function layoutBody(value, sectionIds) {
 /** Return an isolated, validated JSON value; throw PanelSpecError on failure. */
 export function validatePanelSpec(input) {
   const spec = snapshotJson(input);
-  const images = ['0.15','0.16'].includes(spec?.panelSpecVersion), sized = images || spec?.panelSpecVersion === '0.14', wrapping = sized || spec?.panelSpecVersion === '0.13', titled = wrapping || spec?.panelSpecVersion === '0.12', typography = titled || spec?.panelSpecVersion === '0.11', individual = typography || spec?.panelSpecVersion === '0.10', arranged = individual || spec?.panelSpecVersion === '0.9', styled = arranged || spec?.panelSpecVersion === '0.8';
+  const images = ['0.15','0.16','0.17'].includes(spec?.panelSpecVersion), sized = images || spec?.panelSpecVersion === '0.14', wrapping = sized || spec?.panelSpecVersion === '0.13', titled = wrapping || spec?.panelSpecVersion === '0.12', typography = titled || spec?.panelSpecVersion === '0.11', individual = typography || spec?.panelSpecVersion === '0.10', arranged = individual || spec?.panelSpecVersion === '0.9', styled = arranged || spec?.panelSpecVersion === '0.8';
   const forms = styled || spec?.panelSpecVersion === '0.7';
   const tabbed = forms || spec?.panelSpecVersion === '0.6';
   const progress = tabbed || spec?.panelSpecVersion === '0.5';
@@ -222,7 +224,7 @@ export function validatePanelSpec(input) {
   const controls = spec?.panelSpecVersion === '0.3' || containers;
   const hasAssetsField = spec?.panelSpecVersion === '0.2' || controls;
   object(spec, ['panelSpecVersion', 'id', 'title', 'theme', 'canvas', 'layout', 'state', 'sections', 'provenance', ...(hasAssetsField ? ['assets'] : []), ...(tabbed ? ['tabs'] : []), ...(styled ? ['appearance'] : []), ...(arranged ? ['actionLayouts'] : []), ...(individual ? ['buttonStyles'] : []), ...(typography ? ['buttonFonts'] : []), ...(titled ? ['titleBar'] : []), ...(wrapping ? ['textLayouts'] : []), ...(sized ? ['frame'] : [])], '$');
-  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14', '0.15','0.16'].includes(spec.panelSpecVersion)) fail('version', '$.panelSpecVersion', 'only PanelSpec 0.1 through 0.16 are supported');
+  if (!['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10', '0.11', '0.12', '0.13', '0.14', '0.15','0.16','0.17'].includes(spec.panelSpecVersion)) fail('version', '$.panelSpecVersion', 'only PanelSpec 0.1 through 0.17 are supported');
   if (styled) checkAppearance(spec.appearance, fail);
   identifier(spec.id, '$.id');
   text(spec.title, '$.title');
@@ -261,7 +263,7 @@ export function validatePanelSpec(input) {
       if (definition.max <= 0) fail('range', `${path}.max`, 'progress maximum must be positive');
     }
     if (definition.type === 'enum') {
-      array(definition.options, `${path}.options`, 1, fullComponents(spec) && spec.sections.some(section=>section.rows.some(row=>row.kind==='list'&&row.bind===definition.id)) ? 64 : 8);
+      array(definition.options, `${path}.options`, 1, spec.panelSpecVersion==='0.17' && spec.sections.some(section=>section.rows.some(row=>row.kind==='inventory'&&row.bind===definition.id)) ? 145 : fullComponents(spec) && spec.sections.some(section=>section.rows.some(row=>row.kind==='list'&&row.bind===definition.id)) ? 64 : 8);
       const optionIds = new Set();
       definition.options.forEach((option, optionIndex) => {
         const optionPath = `${path}.options[${optionIndex}]`;
@@ -288,12 +290,12 @@ export function validatePanelSpec(input) {
     array(section.rows, `${sectionPath}.rows`, 1, 128);
     section.rows.forEach((row, rowIndex) => {
       const path = `${sectionPath}.rows[${rowIndex}]`;
-      const kinds = fullComponents(spec) ? CONTENT_KINDS : images ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input', 'image'] : forms ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'] : progress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : containers ? ['slider', 'switch', 'select', 'button', 'text'] : controls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'];
+      const kinds = spec.panelSpecVersion==='0.17' ? [...CONTENT_KINDS,'inventory'] : fullComponents(spec) ? CONTENT_KINDS : images ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input', 'image'] : forms ? ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input'] : progress ? ['slider', 'switch', 'select', 'button', 'text', 'progress'] : containers ? ['slider', 'switch', 'select', 'button', 'text'] : controls ? ['slider', 'switch', 'select', 'button'] : ['slider', 'switch'];
       if (!row || !kinds.includes(row.kind)) {
         fail('row-kind', `${path}.kind`, `must be ${kinds.join(', ')}`);
       }
       object(row, row.kind === 'image' ? ['id', 'kind', 'recipe', 'label', 'source', 'width', 'height', 'fit'] : row.kind === 'progress' ? ['id', 'kind', 'recipe', 'label', 'bind', 'format'] : row.kind === 'text' ? ['id', 'kind', 'recipe', 'label', 'text']
-        : ['id', 'kind', 'recipe', 'label', 'enabled', 'event', ...(row.kind === 'button' ? ['buttonLabel', 'action'] : ['bind']), ...(row.kind === 'slider' ? ['format'] : row.kind === 'input' ? ['placeholder', 'inputType', 'readOnly', 'validation'] : row.kind === 'list' ? ['itemHeight','visibleItems'] : row.kind === 'dialog' ? ['title','text','closeLabel','modal','dialogWidth','dialogHeight'] : [])], path);
+        : ['id', 'kind', 'recipe', 'label', 'enabled', 'event', ...(row.kind === 'button' ? ['buttonLabel', 'action'] : ['bind']), ...(row.kind === 'slider' ? ['format'] : row.kind === 'input' ? ['placeholder', 'inputType', 'readOnly', 'validation'] : row.kind === 'inventory' ? ['grid','items'] : row.kind === 'list' ? ['itemHeight','visibleItems'] : row.kind === 'dialog' ? ['title','text','closeLabel','modal','dialogWidth','dialogHeight'] : [])], path);
       identifier(row.id, `${path}.id`);
       unique(row.id, rowIds, `${path}.id`);
       if (rowIds.size > 128) fail('structure-limit', '$.sections', 'at most 128 rows are supported');
@@ -339,9 +341,10 @@ export function validatePanelSpec(input) {
         identifier(row.bind, `${path}.bind`);
         const definition = states.get(row.bind);
         if (!definition) fail('binding', `${path}.bind`, 'state field does not exist');
-        const expected = { slider: 'number', switch: 'boolean', checkbox: 'boolean', dialog: 'boolean', select: 'enum', radio: 'enum', list: 'enum', progress: 'progress', input: 'string' }[row.kind];
+        const expected = { slider: 'number', switch: 'boolean', checkbox: 'boolean', dialog: 'boolean', select: 'enum', radio: 'enum', list: 'enum', inventory:'enum', progress: 'progress', input: 'string' }[row.kind];
         if (definition.type !== expected) fail('binding-type', `${path}.bind`, 'state type does not match the row kind');
         unique(row.bind, bindings, `${path}.bind`);
+        if(row.kind==='inventory'){checkInventory(row,definition,fail,path);for(const item of row.items)if(item.icon!==null)exactAssetKey(item.icon,path+'.items.icon');}
       }
       if (row.kind !== 'progress') {
         identifier(row.event, `${path}.event`, true);
@@ -404,7 +407,9 @@ export function validatePanelSpec(input) {
     if (covered.size !== sectionIds.size || field.options.length !== tabs.pages.length) fail('tabs-coverage', path, 'every section must belong to exactly one declared page');
   }
   for (const id of states.keys()) if (!bindings.has(id)) fail('unused-state', '$.state', `state field ${id} is not bound to a row`);
-  const selectedImages = spec.sections.flatMap(section => section.rows).filter(row => row.kind === 'image' && row.source !== null);
+  const inventoryRows=spec.sections.flatMap(section=>section.rows).filter(row=>row.kind==='inventory');
+  if(inventoryRows.reduce((sum,row)=>sum+row.grid.rows*row.grid.columns,0)>MAX_GRID_CELLS)fail('inventory-capacity','$.sections','At most 144 inventory cells per panel');
+  const selectedImages = spec.sections.flatMap(section => section.rows).filter(row => row.kind === 'image' && row.source !== null || row.kind==='inventory'&&row.items.some(item=>item.icon!==null));
   if (selectedImages.length && !spec.assets) fail('asset-selection', '$.assets', 'Image sources require a pinned asset library');
   if (hasAssetsField && !(controls && spec.assets === null)) panelAssets(spec.assets, rowIds, selectedImages.length > 0);
   if (images && spec.assets?.rowIcons.some(icon=>spec.sections.some(section=>section.rows.some(row=>row.id===icon.rowId&&row.kind==='image')))) fail('asset-binding','$.assets.rowIcons','Image rows use source, not row icons');

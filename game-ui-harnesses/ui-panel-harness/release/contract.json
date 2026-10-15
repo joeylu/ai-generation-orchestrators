@@ -1,10 +1,10 @@
 {
   "releaseContractVersion": "0.1",
   "name": "ai-ui-panel-harness",
-  "version": "0.1.0-rc.7",
-  "tag": "ui-panel-harness-v0.1.0-rc.7",
+  "version": "0.1.0-rc.8",
+  "tag": "ui-panel-harness-v0.1.0-rc.8",
   "repository": "https://github.com/joeylu/ai-generation-orchestrators",
-  "baselineCommit": "09d4299e7f7d9fc1d120de1a3ffb9ee924d2663b",
+  "baselineCommit": "768cf5d09ac3fc693586815b459364dc30913a50",
   "component": {
     "name": "ai-ui-component-harness",
     "version": "0.2.0-rc.3",
@@ -16,7 +16,7 @@
     "node": ">=22.18.0",
     "pixi": "8.20.1",
     "panelDelivery": "0.1.0",
-    "ugui": "0.1.8",
+    "ugui": "0.1.9",
     "font": "environment-family"
   },
   "licenseSources": [

@@ -11,7 +11,8 @@ export async function createPanelIntegrationContract(input,core){
   controls:rows.map(row=>({rowId:row.id,kind:row.kind,label:row.label,...(typeof row.enabled==='boolean'?{enabled:row.enabled}:{}),
    ...(typeof row.buttonLabel==='string'?{buttonLabel:row.buttonLabel}:{}),
    ...(row.event?{event:row.event}:{}),...(row.bind?{fieldId:row.bind}:{}),...(row.action?{action:row.action}:{}),
-   ...(row.kind==='input'?{input:{readOnly:row.readOnly,inputType:row.inputType,validation:row.validation}}:{})})),
+   ...(row.kind==='input'?{input:{readOnly:row.readOnly,inputType:row.inputType,validation:row.validation}}:{}),
+   ...(row.kind==='inventory'?{inventory:{grid:structuredClone(row.grid),items:structuredClone(row.items),selection:'none or slot<zero-based-index>',emptySlotsSelectable:true}}:{})})),
   navigation:spec.tabs??null,gameBinding:{version:'0.1',status:'NOT_CONNECTED',routes:'game-binding.template.json'},
   ownership:{views:'caller',businessPort:'game',destroyOrder:['binding','view','port-if-owned']},
   runtimes:{pixi:'0.1.0',unity:UNITY_ADAPTER_VERSION},nativeVerification:'NOT_RUN'};

@@ -1,15 +1,20 @@
-# Portable Panel SDK rc.7
+# Portable Panel SDK rc.8
+
+This release adds fixed-cell inventory grids, native intent 0.13,
+PanelSpec/Bundle 0.17 and Compiler 0.46, using the existing component foundation.
+The new daily catalog also retains the rc.7 rules for other panels. See the
+[inventory contract](inventory-grid.md) and [rc.8 release policy](sdk-rc8.md).
 
 The distribution contains the Panel Node API, local workbench model, optional
 single-invocation Codex adapter, pinned Component dependency closure, 12 owned
 core icons, planning prompts and schemas, offline Pixi browser runtime, and Unity
 UGUI import-kit source. Loading it does not start a service or call a model.
 
-The contract is `release/contract.json`, version `0.1.0-rc.7`, tag
-`ui-panel-harness-v0.1.0-rc.7`. Obtain the immutable tagged archive and verify its
+The contract is `release/contract.json`, version `0.1.0-rc.8`, tag
+`ui-panel-harness-v0.1.0-rc.8`. Obtain the immutable tagged archive and verify its
 bytes and SHA-256 against `SHA256SUMS` and `release-receipt.json`. A dirty local
 working-tree package is not a published release. Earlier tags and assets retain
-their original bytes. See [the rc.7 policy](sdk-rc7.md).
+their original bytes. See [the preceding rc.7 policy](sdk-rc7.md).
 
 Extract the complete archive. No package installation, sibling checkout, Vite,
 TypeScript loader, browser or network access is needed to load the Node SDK.
@@ -32,10 +37,18 @@ Importing the module does not mount a panel automatically.
 
 ## Current defaults
 
-The catalog is `modern-readable-game-card-layout`, with sixteen themes at
-0.33.0/0.33.1 and the complete verified builtin asset pool. PanelSpec/Bundle 0.16,
-native intent 0.12 and Compiler 0.45 retain [all sixteen components](all-components.md).
+The catalog is `modern-readable-game-grid-layout`, with sixteen themes at
+0.33.0/0.33.1 and the complete verified builtin asset pool. Planning context 0.12
+uses native intent 0.13. Inventory panels use PanelSpec/Bundle 0.17 and Compiler
+0.46; other generated panels retain 0.16/0.45 and
+[all sixteen components](all-components.md).
 The installed planner and Studio use the same production short-input prompt.
+
+- A fixed inventory grid preserves its declared rows, columns and every empty
+  cell. The default is 5 rows by 6 columns, 72-pixel cells and 8-pixel spacing.
+  Each cell has a Panel; sparse items and selection are separate. Capacity is
+  at most 144 cells per panel. Small containers scroll horizontally while
+  retaining authored cell sizes. See [inventory grids](inventory-grid.md).
 
 - Body and button fonts inherit 24 logical pixels; main titles inherit 32.
   Ordinary single-column panels start around 420 wide, button menus around 360.
@@ -66,8 +79,8 @@ Saved catalogs, compiler versions, state, assets and bindings replay unchanged.
 Opening a package does not migrate it. Static images use fixed PNGs or labeled
 neutral placeholders; no image generation is added. See [image rows](image-slots.md).
 
-Unity UGUI source is version 0.1.8. Use its matching runtime source files and the
-candidate ES/IIFE digests. `delivery` exposes `createPanelDelivery`,
+Unity UGUI source is version 0.1.9. Use its matching runtime source files and the
+published ES/IIFE digests. `delivery` exposes `createPanelDelivery`,
 `createUnityKitFiles`, `createStoredZip`, verified runtime bytes and the six UGUI
 source files. Export is deterministic and needs no Unity, model or browser process.
 A per-panel manifest verifies bytes; it does not certify native Unity execution,
@@ -90,6 +103,10 @@ first viewport were verified by actual scrolling; their original initial-view
 records remain separate. See [the five-case batch](card-content-real-results-2026-10-15.md)
 and [the target-default follow-up](card-target-real-results-2026-10-15.md).
 These samples do not certify arbitrary inputs or repeated-request reliability.
+The inventory follow-up made four additional authorized calls with zero retries:
+10×10, 8×6 and unspecified-capacity requests delivered 100, 48 and 30 empty cells;
+20×20 returned a capacity clarification. Original browser interaction and exact
+SDK reopening passed. See [the four inventory cases](inventory-grid-real-results-2026-10-16.md).
 Native Unity and consumer game services remain separately unverified. Fonts are
 environment-provided; the SDK does not embed font files.
 

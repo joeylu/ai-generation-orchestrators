@@ -350,7 +350,7 @@ function updateButtons() {
   const ready = Boolean(model && !disposed), context = ready && snapshot?.context && !draftDirty;
   const panel = ready && snapshot?.panel && renderedSha === snapshot.panel.sha256;
   const budget = model?.getEditBudget(), editLimitReached = budget?.remaining === 0;
-  const selectionSupported = panel && ['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16'].includes(snapshot.panel.spec.panelSpecVersion)
+  const selectionSupported = panel && ['0.7','0.8','0.9','0.10','0.11','0.12','0.13', '0.14','0.15','0.16','0.17'].includes(snapshot.panel.spec.panelSpecVersion)
     && snapshot.panel.catalog.themes.some(theme => theme.id === snapshot.panel.spec.theme.id && theme.version === snapshot.panel.spec.theme.version && theme.visualStyle === 'modern-v3');
   if (!selectionSupported) { selecting = false; selectedRowId = null; }
   const selectedRow = panel ? snapshot.panel.spec.sections.flatMap(section => section.rows).find(row => row.id === selectedRowId) : null;

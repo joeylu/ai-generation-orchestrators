@@ -22,3 +22,4 @@ export { createMemoryGamePort } from './game-port.mjs';
 export { createUnityGameBinding } from './unity-game-binding.mjs';
 export { createPanelDelivery, createPanelIntegrationContract } from './panel-delivery.mjs';
 export { fitDraftPanelLayout } from './draft-layout.mjs';
+export { DEFAULT_GRID, MAX_GRID_CELLS, measureUniformGrid } from './uniform-grid.mjs';

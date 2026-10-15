@@ -6,14 +6,16 @@ import {attachInputEditor} from './input-editor.mjs';
 import {attachPanelVisuals} from './panel-visuals.mjs';
 import {compilePanel} from './compiler.mjs';
 import {observePanelViewport} from './panel-viewport.mjs';
+import {hasInventory} from './inventory-grid.mjs';
 export const pixiPanelCore = componentCore;
 
 function imageFor(resource,signal){return new Promise((resolve,reject)=>{const image=new Image(),cleanup=()=>{image.onload=null;image.onerror=null;signal.removeEventListener('abort',abort);},abort=()=>{cleanup();image.src='';reject(new Error('PANEL_HOST_OPEN_CANCELLED'));};image.onload=()=>{cleanup();resolve(image);};image.onerror=()=>{cleanup();reject(new Error('PANEL_HOST_IMAGE'));};signal.addEventListener('abort',abort,{once:true});if(signal.aborted){abort();return;}image.src=`data:${resource.mime};base64,${resource.base64}`;});}
 export async function mountPixiPanelInstance({bundle,state,options,signal,onEvent,onFatal}){
   const container=options.container;if(!(container instanceof HTMLElement)||container.childElementCount)throw new Error('PANEL_HOST_CONTAINER');
-  const surface=document.createElement('div');surface.className='panel-instance-surface';surface.style.transformOrigin='top left';container.append(surface);const previousHeight=container.style.height;
+  const surface=document.createElement('div');surface.className='panel-instance-surface';surface.style.transformOrigin='top left';container.append(surface);const previousHeight=container.style.height,previousOverflow=container.style.overflowX;
+  const inventory=hasInventory(bundle.spec);if(inventory)container.style.overflowX='auto';
   let runtime,session,layout,detachViewport=()=>{},detachInput=()=>{},detachVisuals=()=>{},disposed=false;
-  const destroy=()=>{if(disposed)return;disposed=true;const errors=[];for(const action of [()=>detachViewport(),()=>detachVisuals(),()=>detachInput(),()=>layout?.destroy(),()=>session?.destroy(),()=>runtime?.destroy(),()=>surface.remove(),()=>{container.style.height=previousHeight;}])try{action();}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'PANEL_PIXI_CLEANUP_FAILED');};
+  const destroy=()=>{if(disposed)return;disposed=true;const errors=[];for(const action of [()=>detachViewport(),()=>detachVisuals(),()=>detachInput(),()=>layout?.destroy(),()=>session?.destroy(),()=>runtime?.destroy(),()=>surface.remove(),()=>{container.style.height=previousHeight;container.style.overflowX=previousOverflow;}])try{action();}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'PANEL_PIXI_CLEANUP_FAILED');};
   const aborted=()=>destroy();signal.addEventListener('abort',aborted,{once:true});
   try{
     signal.throwIfAborted();runtime=await createTreePreview(surface,onFatal);if(disposed||signal.aborted){runtime.destroy();throw new Error('PANEL_HOST_OPEN_CANCELLED');}
@@ -23,8 +25,8 @@ export async function mountPixiPanelInstance({bundle,state,options,signal,onEven
     const compiled=compilePanel(bundle.spec,bundle.catalog,pixiPanelCore,state,bundle.assetClosure,bundle.compilerVersion);
     await runtime.load(compiled.document,signal,(path,loadSignal)=>{const resource=resources.get(path);if(!resource||resource.mime!=='image/png')throw new Error('PANEL_HOST_RESOURCE');return imageFor(resource,loadSignal);});signal.throwIfAborted();
     detachVisuals=attachPanelVisuals(bundle,runtime);
-    layout=attachLayoutSession(bundle.spec,runtime);session=attachPanelSession(bundle.spec,runtime,onEvent,state,['0.24.0','0.25.0'].includes(bundle.compilerVersion)?'grouped-v2':['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0','0.37.0','0.38.0','0.39.0','0.40.0','0.41.0','0.42.0','0.43.0','0.44.0','0.45.0'].includes(bundle.compilerVersion)?'minimal-v1':['0.16.0','0.17.0', '0.18.0'].includes(bundle.compilerVersion)?'focused-v1':undefined,bundle.catalog);detachInput=attachInputEditor(surface,bundle.spec,runtime,session);
-    detachViewport=observePanelViewport(bundle.spec.canvas,container,surface,runtime);
+    layout=attachLayoutSession(bundle.spec,runtime);session=attachPanelSession(bundle.spec,runtime,onEvent,state,['0.24.0','0.25.0'].includes(bundle.compilerVersion)?'grouped-v2':['0.19.0','0.20.0','0.21.0','0.22.0','0.23.0','0.24.0','0.25.0','0.26.0','0.27.0','0.28.0','0.29.0','0.30.0','0.31.0','0.32.0','0.33.0','0.34.0','0.35.0','0.36.0','0.37.0','0.38.0','0.39.0','0.40.0','0.41.0','0.42.0','0.43.0','0.44.0','0.45.0','0.46.0'].includes(bundle.compilerVersion)?'minimal-v1':['0.16.0','0.17.0', '0.18.0'].includes(bundle.compilerVersion)?'focused-v1':undefined,bundle.catalog);detachInput=attachInputEditor(surface,bundle.spec,runtime,session);
+    detachViewport=observePanelViewport(bundle.spec.canvas,container,surface,runtime,inventory?{minimumScale:1}:undefined);
     return Object.freeze({getState:()=>session.getState(),setState:value=>session.setState(value),inspect:()=>runtime.inspect(),destroy(){signal.removeEventListener('abort',aborted);destroy();}});
   }catch(error){signal.removeEventListener('abort',aborted);destroy();throw error;}
 }

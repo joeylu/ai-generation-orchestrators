@@ -33,7 +33,7 @@ for(const theme of catalog.themes)test(`${theme.id}: navigation contrast, non-co
   assert.deepEqual(rgba(idle,0,0),color(palette.idle));assert.deepEqual(rgba(active,0,0),color(palette.active));assert.deepEqual(rgba(active,0,47),color(palette.indicator));
   assert.deepEqual(await validatePanelBundle(bundle,core),bundle);
   const native=await createUnityDocument(bundle,core),header=native.nodes.find(n=>n.type==='Tabs');
-  assert.equal(native.adapterVersion,'0.1.8');assert.equal(header.tabActiveColor,palette.active);assert.equal(header.tabActiveTextColor,palette.activeText);assert.equal(header.tabIndicatorColor,palette.indicator);
+  assert.equal(native.adapterVersion,'0.1.9');assert.equal(header.tabActiveColor,palette.active);assert.equal(header.tabActiveTextColor,palette.activeText);assert.equal(header.tabIndicatorColor,palette.indicator);
   assert.equal(native.assets.length,0);assert.equal(native.controls.find(c=>c.kind==='tabs').contentIds.length,3);
 });
 

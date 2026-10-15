@@ -2,7 +2,7 @@
 export const FULL_COMPONENT_KINDS = ['checkbox', 'radio', 'list', 'dialog'];
 export const CONTENT_KINDS = ['slider', 'switch', 'select', 'button', 'text', 'progress', 'input', 'image', ...FULL_COMPONENT_KINDS];
 export const CHOICE_KINDS = ['select', 'radio', 'list'];
-export const fullComponents = spec => spec?.panelSpecVersion === '0.16';
+export const fullComponents = spec => ['0.16','0.17'].includes(spec?.panelSpecVersion);
 export const choiceLimit = kind => kind === 'list' ? 64 : 8;
 
 // This guard covers explicit component names, not general natural-language understanding.
