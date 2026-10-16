@@ -20,6 +20,8 @@ npm run skins:locate -- --input work/skins/orbital-hangar/localization-input.jso
 
 当前策略的 `weakComponentMaxAlpha` 为 4，另以可选 `attachedFringeMaxAlpha: 8` 处理略强的分离淡边。淡边必须具有唯一主要槽位，同槽只有一个更明显主体，且在 4 个逻辑像素距离内只邻近该主体，才能作为 `attachedFringeComponentIds` 附加；不递归串联，不按面积删除，不改变任何 RGB 或 alpha。缺少该可选策略的旧调用保持原行为。归属、实际距离、阈值及像素核算写入报告，仍为定位候选，不是自动美术接受。下方 0.68 等段落保留其当时参数和试验结论。
 
+生产组件策略明确启用 `boundedWeakAttachments: true`：弱附件的完整矩形须在原主体向四边扩张固定距离后的范围内，不能因一角靠近就把长噪点尾巴整体并入裁切。超出者仍留在原图，写入 `unresolvedWeak` 和框外像素核算；明显独立装饰、多主体及实际重叠仍阻断。未声明或设为false的冻结策略保持旧行为。S05 提取报告版本1.0–1.2明确保留旧附件策略，避免新组件定位规则改变其历史轮廓与回放字节。
+
 S05 在材质 postprocess 中独立消费这些候选：仅在唯一归属、无未解决冲突、全部提案不重叠时，为横向标题和分组保留跨 `bodyRect` 的完整轮廓；面板平铺仍取模板内部固定样本，避免低 alpha 拖尾形成透明接缝。候选不足时不盲选外扩范围，原图与告警保留。此规则不将 S05 加入四张组件图的定位节点，详细来源、透明 RGB 派生和重放约束见[分层材质](skin-surfaces.md)。
 
 ## 两套原图验证

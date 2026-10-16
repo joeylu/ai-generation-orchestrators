@@ -8,5 +8,6 @@
     "minimumPixelFraction": 0.6,
     "minimumAlphaFraction": 0.6,
     "maximumOtherSlotFraction": 0.2
-  }
+  },
+  "boundedWeakAttachments": true
 }

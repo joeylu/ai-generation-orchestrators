@@ -11,6 +11,7 @@ function union(rects){
 // disconnected decoration is retained regardless of its size. No area cutoff.
 export function associateSheet(image,location,policy){
   if(policy.version!=='1.0'||policy.automaticAcceptance!==false||!Number.isInteger(policy.weakComponentMaxAlpha)||policy.weakComponentMaxAlpha<0||policy.weakComponentMaxAlpha>254||!Number.isFinite(policy.attachmentGapLogicalPixels)||policy.attachmentGapLogicalPixels<0||policy.attachmentGapLogicalPixels>32)throw Error('locate.policy');
+  if(policy.boundedWeakAttachments!==undefined&&typeof policy.boundedWeakAttachments!=='boolean')throw Error('locate.weak-attachment-policy');
   const fringeMaxAlpha=policy.attachedFringeMaxAlpha??policy.weakComponentMaxAlpha;
   if(policy.attachedFringeMaxAlpha!==undefined&&(!Number.isInteger(policy.attachedFringeMaxAlpha)||fringeMaxAlpha<policy.weakComponentMaxAlpha||fringeMaxAlpha>32))throw Error('locate.fringe-policy');
   if(location.status==='unsupported')return{status:'unsupported',parts:[],assemblyReady:false};
@@ -56,8 +57,15 @@ export function associateSheet(image,location,policy){
   for(const c of weak){
     // Fixed distance from anchors, not iterative chains that can bridge slots.
     const matches=parts.filter(p=>p.anchorComponentIds.some(id=>gap(location.components[id].rect,c.rect)<=policy.attachmentGapLogicalPixels*location.scale));
-    if(matches.length===1)matches[0].attachedWeakComponentIds.push(c.id);
-    else unresolvedWeak.push({componentId:c.id,reason:matches.length?'multiple-anchor-groups':'no-nearby-anchor'});
+    // A near corner cannot license an arbitrarily long alpha-noise tail.
+    // New policy bounds the entire fragment against the original anchor;
+    // ambiguous ownership stays unresolved and pixels remain in the source.
+    const withinReach=matches.length===1&&matches[0].anchorComponentIds.some(id=>{
+      const a=location.components[id].rect,r=maximumGapPixels;
+      return inside([a[0]-r,a[1]-r,a[2]+2*r,a[3]+2*r],c.rect);
+    });
+    if(matches.length===1&&(!policy.boundedWeakAttachments||withinReach))matches[0].attachedWeakComponentIds.push(c.id);
+    else unresolvedWeak.push({componentId:c.id,reason:matches.length===1?'outside-anchor-reach':matches.length?'multiple-anchor-groups':'no-nearby-anchor'});
   }
   for(const p of parts){
     p.proposedCrop=p.anchorRect&&!p.conflictComponentIds.length?union([...p.anchorComponentIds,...p.attachedWeakComponentIds,...p.attachedFringeComponentIds].map(id=>location.components[id].rect)):null;
