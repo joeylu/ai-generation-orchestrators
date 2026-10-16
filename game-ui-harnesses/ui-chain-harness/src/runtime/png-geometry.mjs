@@ -20,7 +20,7 @@ export function pngGeometry(evidence,profile){
   };
 }
 
-export function assertPngComponent(skin,type,p,w,h,{surfaceLayer,surfaceScale}={}){
+export function assertPngComponent(skin,type,p,w,h,{surfaceLayer,surfaceScale,explicitRows=false}={}){
   const s=textProfile(skin.profile,p),g=s.geometry,check=(role,width,height)=>skin.assertView(role,width,height);
   const layer=surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,surfaceLayer,surfaceScale):null;
   if(layer){if(w<layer.minWidth||h<layer.minHeight)fail('skin.surface-style','Surface layer is smaller than its skin minimum.');check(layer.baseRole,w/layer.scale,h/layer.scale);}
@@ -44,7 +44,12 @@ export function assertPngComponent(skin,type,p,w,h,{surfaceLayer,surfaceScale}={
     if(w<pad.left+pad.right+g.minContent||h<pad.top+pad.bottom+(p.title?g.lineHeight+g.titleGap:0)+g.minContent)fail('skin.content','Panel/Dialog content exceeds skin safe area.');
     if(type==='Dialog')for(const action of p.actions)button(`skin.button.${action.variant}`,(w-2*dialogPadding-Math.max(0,p.actions.length-1)*g.labelGap)/Math.max(1,p.actions.length),s.itemHeight);
   }
-  if(type==='List')for(const state of ['normal','selected'])check(`skin.item.${state}`,w,s.itemHeight);
+  if(type==='List'&&!explicitRows){
+    // Ordinary rows occupy the surface body; the outer plate's width is not
+    // available to their item textures. Inventory returned above owns cells.
+    const rowWidth=w-(layer?layer.insets.left+layer.insets.right:0);
+    for(const state of ['normal','selected'])check(`skin.item.${state}`,rowWidth,s.itemHeight);
+  }
   if(type==='Tabs'){
     const box=tabsContentBox(s,layer?.insets??(skin.roles.has('skin.surface.content')?skin.insets('skin.surface.content'):null),w,h);
     if(skin.roles.has('skin.surface.content')){check(layer?.baseRole??'skin.surface.content',w,h);if(!layer)check('skin.surface.content',box.surface.width,box.surface.height);}

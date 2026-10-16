@@ -4,6 +4,18 @@
 
 这些是已实现的本地能力。模型生成的美术质量、需求理解和最终布局仍须逐次验收；离线夹具通过不代表真实生成已通过。当前操作与验收以[本地 Studio](docs/local-studio.md)和[验收指南](docs/acceptance.md)为准，[执行记录](docs/execution-plan.md)保留各阶段当时的结果。
 
+## 组件发布与宿主接入
+
+`ui-chain-components-v0.1.0-rc.1` 的公开接入范围止于 **16 类组件包输出**：参考图 → S01–S04 / 可选 S05 → 确认后生成 → 定位、拆分、切线、安全区 → 材质绑定 → 消费包及程序检查。它不要求 Panel SDK，也不启动后续面板生成。
+
+先读[组件全链路入口](docs/component-pipeline.md)，再交给[Docker 接入方](docs/docker-integration.md)和[Web 接入方](docs/web-integration.md)。[部署交接口令](docs/deployment-handoff.md)要求部署方输出实测的 OpenAPI 合同后，Web 才按该合同接手。当前核心提供 CLI / JavaScript 接口，生产 HTTP 服务由外部宿主实现。
+
+```sh
+node scripts/component-entry.mjs contract
+```
+
+此命令仅输出[机器可读组件合同](release/component-contract.json)，不调用模型。源码发行物及摘要由 `scripts/package-components-release.mjs` 从指定提交构建。参考图美术质量和最终外观仍按项目验收，源码发布不改变候选的 `productionReady: false`。
+
 ## 从这里开始
 
 在本 Harness 目录安装锁定依赖，准备模板和合同，再启动本地服务：

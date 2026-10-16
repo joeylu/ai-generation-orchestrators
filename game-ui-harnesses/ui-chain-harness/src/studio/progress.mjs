@@ -34,7 +34,7 @@ export function needsSheetSupplement(node={}){
 export function projectProgress(project){
  const batch=batchPresentation(project);
  const sheets=project.state?.nodes??[],received=sheets.filter(n=>n.status==='received').length,nodes=project.task?.nodes??[];
- const complete=Boolean(project.skin),blocked=!complete&&!project.busy&&!project.recovering&&(project.phase==='processing-failed'||project.phase==='invalid'||project.task?.status==='invalid');
+ const complete=Boolean(project.skin)&&!project.componentReplacement,blocked=!complete&&!project.busy&&!project.recovering&&(project.phase==='processing-failed'||project.phase==='invalid'||project.task?.status==='invalid');
  const stages=localGroups.map(group=>{const members=nodes.filter(n=>kind(n)===group.id);return {...group,...(batch.hasMaterials&&group.id==='postprocess'?{label:'材质绑定与组件检查',hint:'提取标题和面板材质、自动绑定并验证 16 类组件'}:{}),state:complete||members.length&&members.every(n=>n.status==='passed')?'done':'waiting'};});
  // Preserve visibility of future DAG extensions instead of claiming all steps passed.
  for(const n of nodes.filter(n=>!localGroups.some(g=>g.id===kind(n))))stages.push({id:n.id,label:'其他处理步骤',hint:'保留扩展步骤的实际状态',state:n.status==='passed'?'done':'waiting'});

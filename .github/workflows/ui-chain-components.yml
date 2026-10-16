@@ -1,0 +1,60 @@
+name: UI Chain Components
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  component-pipeline:
+    name: Components / Node 24 / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+        working-directory: game-ui-harnesses/ui-chain-harness
+    env:
+      UI_CHAIN_TEST_BROWSER: chromium
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: game-ui-harnesses/ui-chain-harness/package-lock.json
+      - run: npm ci --ignore-scripts --include=dev --no-audit --no-fund
+      - name: Explicitly install Chromium and host dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Build current templates and component contracts
+        run: |
+          npm run templates:build -- --browser chromium
+          npm run contracts:build
+      - name: Verify standalone component pipeline without model calls
+        run: node scripts/component-pipeline-check.mjs --browser chromium
+      - name: Install locked Panel SDK for legacy development regressions only
+        run: |
+          npm run panel-sdk:install
+          npm run panel-sdk:check
+      - name: Run offline unit regressions
+        run: npm test
+      - name: Run component runtime browser regressions
+        run: node --test tests/runtime/*.test.mjs
+      - name: Verify source release packaging and checksums
+        if: runner.os == 'Linux'
+        run: |
+          node scripts/package-components-release.mjs build --commit "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: component-pipeline-${{ matrix.os }}
+          path: |
+            game-ui-harnesses/ui-chain-harness/work/component-pipeline-check/
+            game-ui-harnesses/ui-chain-harness/work/releases/
+          if-no-files-found: ignore

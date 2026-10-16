@@ -9,6 +9,8 @@ import {
 } from "@pixi/ui";
 import { fitText } from "./skin.mjs";
 import {createLayerSurface} from './layer-surface.mjs';
+import {selectPopupBox} from './select-geometry.mjs';
+import {selectLabelWidth} from './option-geometry.mjs';
 
 // Display the normalized range while preserving the control's actual value.
 export function percentLabel(value, min, max) {
@@ -362,11 +364,7 @@ export class SkinnedSelect extends Select {
         width,
         height,
         label,
-        width -
-          this.skin.insets("skin.field.normal").left - this.skin.insets("skin.field.normal").right -
-          2 *
-            (this.skin.profile.geometry.indicatorWidth +
-              this.skin.profile.geometry.labelGap),
+        selectLabelWidth(width,this.skin.insets('skin.field.normal'),this.skin.profile.geometry.indicatorWidth,this.skin.profile.geometry.labelGap),
       );
     }
   }
@@ -374,9 +372,8 @@ export class SkinnedSelect extends Select {
     this.box = { width, height };
     this.motionDriver?.finish();
     this.setSelection(this.model.options[this.value]?.id ?? null);
-    const menuHeight =
-      Math.min(this.model.options.length, this.model.maxVisibleItems) *
-      this.skin.profile.itemHeight;
+    const {menuHeight}=selectPopupBox({width,height,itemHeight:this.skin.profile.itemHeight,itemCount:this.model.options.length,maxVisibleItems:this.model.maxVisibleItems,canvasWidth:this.overlay.width,canvasHeight:this.overlay.height});
+    this.menuHeight=menuHeight;this.skin.assertView?.('skin.surface.popup',width,height+menuHeight);
     this.openView.width = width;
     this.openView.height = height + menuHeight;
     this.scrollBox.setSize(width, menuHeight);
@@ -409,7 +406,7 @@ export class SkinnedSelect extends Select {
   applyReveal(value) {
     this.motionProgress = Math.max(0,Math.min(1,value));
     if (!this.revealMask) return;
-    const g=this.skin.profile.geometry, menu=Math.min(this.model.options.length,this.model.maxVisibleItems)*this.skin.profile.itemHeight;
+    const g=this.skin.profile.geometry, menu=this.menuHeight??Math.min(this.model.options.length,this.model.maxVisibleItems)*this.skin.profile.itemHeight;
     this.revealMask.clear().rect(0,0,this.box.width,this.box.height+menu*this.motionProgress).fill(0xffffff);
     this.scrollBox.alpha=this.motionProgress;
     this.indicator.pivot.set(g.indicatorWidth/2,g.indicatorHeight/2);
@@ -442,15 +439,9 @@ export class SkinnedSelect extends Select {
     this.expanded ? this.close() : this.open();
   }
   place() {
-    const pos = this.toGlobal({ x: 0, y: 0 }),
-      h =
-        this.box.height +
-        Math.min(this.model.options.length, this.model.maxVisibleItems) *
-          this.skin.profile.itemHeight;
-    this.view.position.set(
-      Math.max(0, Math.min(this.overlay.width - this.box.width, pos.x)),
-      Math.max(0, Math.min(this.overlay.height - h, pos.y)),
-    );
+    const pos=this.toGlobal({x:0,y:0}),box=selectPopupBox({...this.box,itemHeight:this.skin.profile.itemHeight,itemCount:this.model.options.length,maxVisibleItems:this.model.maxVisibleItems,canvasWidth:this.overlay.width,canvasHeight:this.overlay.height,...pos});
+    if(this.menuHeight!==box.menuHeight){this.skin.assertView?.('skin.surface.popup',box.width,box.height);this.menuHeight=box.menuHeight;this.openView.height=box.height;this.scrollBox.setSize(box.width,box.menuHeight);this.scrollBox.resize(true);this.applyReveal(this.motionProgress);}
+    this.view.position.set(box.x,box.y);
   }
   containsGlobal(point) {
     return (

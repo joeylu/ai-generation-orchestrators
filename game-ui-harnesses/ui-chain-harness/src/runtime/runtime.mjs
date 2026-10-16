@@ -119,9 +119,9 @@ export function createRuntime({
       if(surfaceFontSize!==undefined&&!(surfaceBand==='reference-v1'&&recipe.type==='Text'&&['title','section'].includes(surfaceStyle)&&Number.isInteger(surfaceFontSize)&&surfaceFontSize>=8&&surfaceFontSize<=96))reject('skin.surface-style','Reference heading font size requires a semantic band and must be an integer from 8 to 96.');
       if(surfaceTextInsets)surfaceTextInsets=structuredClone(surfaceTextInsets);
       const layerInfo=surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,surfaceLayer,surfaceScale):null;
-      const slotOptions=effectiveSize=>({type:recipe.type,props:p,size:effectiveSize,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer,surfaceScale});
+      const slotOptions=effectiveSize=>({nodeId:id,type:recipe.type,props:p,size:effectiveSize,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer,surfaceScale});
       const dynamicSlot=h=>Object.entries(h.sizing??{}).some(([key,value])=>key.endsWith('Mode')&&value!=='fixed')||(h.slotChildren??[]).some(dynamicSlot);
-      if(surfaceLayer&&!dynamicSlot({sizing,slotChildren:list}))assertSurfaceSlotChildren(slotOptions(size),list.map(child=>({id:child.id,size:child.size})));
+      if(surfaceLayer&&!dynamicSlot({sizing,slotChildren:list}))assertSurfaceSlotChildren(slotOptions(size),list.map(child=>({id:child.id,size:child.size,visible:child.props.visible})));
       const nodeSkin=scopedSurfaceTextSkin(skin,p,surfaceFontSize);
       const activeSurfaceStyle=surfaceStyle??(!surfaceLayer&&recipe.type==='Panel'&&!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
       const panelBackground = recipe.type === "Panel"
@@ -132,7 +132,7 @@ export function createRuntime({
         if(activeSurfaceStyle)runtimeSurfaceTextBox(skin,activeSurfaceStyle,width,height,surfaceTextInsets,surfaceBand);
         if(layerInfo&&(width<layerInfo.minWidth||height<layerInfo.minHeight))reject('skin.surface-style','Surface layer is smaller than its skin minimum.');
         assertSize(recipe.type, p, skin.profile, width, height);
-        skin.assertComponent?.(recipe.type,p,width,height,{surfaceLayer,surfaceScale});
+        skin.assertComponent?.(recipe.type,p,width,height,{surfaceLayer,surfaceScale,explicitRows:recipe.type==='List'&&(slots.items??[]).length>0});
         if (recipe.type === "Panel") {
           const { texture, borders, resizePolicy } = panelBackground;
           measureSlices({ sourceWidth: texture.orig.width, sourceHeight: texture.orig.height, borders, width, height, multiplier: p.pixelsPerUnitMultiplier, resizePolicy });
@@ -402,7 +402,7 @@ export function createRuntime({
       }
       // Preflight every effective size before changing any control.
       const effective=effectiveSurfaceSizes(handles,plans);
-      for(const h of handles.values())if(h.surfaceLayer)assertSurfaceSlotChildren(h.surfaceSlotOptions(effective.get(h.id)),h.slotChildren.map(child=>({id:child.id,size:effective.get(child.id)})));
+      for(const h of handles.values())if(h.surfaceLayer)assertSurfaceSlotChildren(h.surfaceSlotOptions(effective.get(h.id)),h.slotChildren.map(child=>({id:child.id,size:effective.get(child.id),visible:child.props.visible})));
       for(const plan of plans)for(const [id,r]of plan){const h=handles.get(id);if(h.size.width!==r.width||h.size.height!==r.height)h.preflight(r.width,r.height);}
       const changed=new Set();
       for(const plan of plans)for(const [id,r]of plan){

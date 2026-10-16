@@ -2,17 +2,22 @@ import {readFile,writeFile,mkdir,mkdtemp} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
+import {parseArgs} from 'node:util';
 import {chromium} from 'playwright';
+import {consumerBrowserChannel,launchConsumerBrowser} from '../src/skins/browser-selection.mjs';
 import {hash,json,readSafe,verifySkinPackage} from '../src/skins/package.mjs';
 import {runComponentChecks} from '../tests/runtime/checks.mjs';
 import {checkTextColors} from '../tests/runtime/text-color-checks.mjs';
-const source=resolve(process.argv[2]),manifestBytes=await readSafe(source,'manifest.json'),manifest=JSON.parse(manifestBytes);
+const {positionals,values}=parseArgs({allowPositionals:true,options:{browser:{type:'string'}}});
+if(positionals.length!==1)throw Error('Use: node scripts/consumer-check.mjs <consumer-directory> [--browser chromium|chrome|msedge]');
+const browserChannel=consumerBrowserChannel(values.browser);
+const source=resolve(positionals[0]),manifestBytes=await readSafe(source,'manifest.json'),manifest=JSON.parse(manifestBytes);
 assert.equal(manifest.kind,'ui_component_consumer_candidate');
 const relocated=await mkdtemp(join(tmpdir(),'ui-consumer-'));
 const allowed=new Set(manifest.files.map(f=>f.file));assert.equal(allowed.size,manifest.files.length);
 for(const f of manifest.files){const bytes=await readSafe(source,f.file);assert.equal(hash(bytes),f.sha256);await mkdir(join(relocated,f.file,'..'),{recursive:true});await writeFile(join(relocated,f.file),bytes,{flag:'wx'});}
 assert.equal((await verifySkinPackage(join(relocated,'skin'))).manifestSha256,manifest.manifestSha256);
-const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const browser=await launchConsumerBrowser(chromium,browserChannel);
 const errors=[],blocked=[];
 try{
   const page=await browser.newPage({viewport:{width:1280,height:900},serviceWorkers:'block'});page.on('pageerror',e=>errors.push(e.message));

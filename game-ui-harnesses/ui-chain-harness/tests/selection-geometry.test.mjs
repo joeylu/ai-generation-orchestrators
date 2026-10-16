@@ -26,3 +26,22 @@ test('genuinely translucent artwork uses its nonzero alpha, and empty masks have
   assert.deepEqual(visibleSelectionBounds(im),{x:.1,y:.3,width:.5,height:.4});
   assert.deepEqual(visibleSelectionBounds(image(20,20)),{x:0,y:0,width:1,height:1});
 });
+test('an off-center checkbox tick stays visibly inside its logical body without moving the artwork center',()=>{
+  for(const[x,y]of [[0,0],[.75,0],[0,.75],[.75,.75]]){
+    const base={x,y,width:.25,height:.25},mark={x:0,y:0,width:1,height:1},before={base:structuredClone(base),mark:structuredClone(mark)},g=selectionMarkGeometry(24,base,mark);
+    assert.equal(g.width,6);assert.equal(g.height,6);
+    assert.ok(g.x>=0&&g.y>=0&&g.x+g.width<=24&&g.y+g.height<=24);
+    assert.equal(g.x+g.width/2,(base.x+base.width/2)*24);assert.equal(g.y+g.height/2,(base.y+base.height/2)*24);
+    assert.deepEqual({base,mark},before);
+  }
+});
+test('transparent tick margins are not mistaken for escaped visible pixels',()=>{
+  const base={x:.1,y:.1,width:.2,height:.2},mark={x:.75,y:.75,width:.1,height:.1},g=selectionMarkGeometry(24,base,mark);
+  assert.equal(g.width,16);assert.equal(g.height,16);assert.ok(g.x<0&&g.y<0);
+  assert.ok(g.x+mark.x*g.width>=0&&g.y+mark.y*g.height>=0);
+  assert.ok(g.x+(mark.x+mark.width)*g.width<=24&&g.y+(mark.y+mark.height)*g.height<=24);
+});
+test('selection geometry refuses non-finite or invalid source bounds',()=>{
+  for(const size of [NaN,Infinity,8,-1])assert.throws(()=>selectionMarkGeometry(size),{code:'selection.geometry'});
+  for(const value of [{x:0,y:0,width:0,height:1},{x:-1,y:0,width:1,height:1},{x:0,y:0,width:Infinity,height:1}])assert.throws(()=>selectionMarkGeometry(24,value),{code:'selection.geometry'});
+});

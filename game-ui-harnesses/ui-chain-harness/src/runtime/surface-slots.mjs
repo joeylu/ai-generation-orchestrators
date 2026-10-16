@@ -49,11 +49,23 @@ export function assertSurfaceSlotChildren(options,children){
  const box=surfaceSlotBox(options);if(!box)return null;
  if(options.type==='List'&&options.props.inventory&&children.length)fail('仓库展示不接受显式内容子行。');
  for(const child of children){
+  if(child.visible===false)continue;
   const size=child.size;
   if(!size||![size.width,size.height].every(n=>Number.isFinite(n)&&n>=0)||size.width>box.width+.1||!box.allowVerticalOverflow&&size.height>box.height+.1)
-   fail('内容超过显式表面层的安全内容区；请扩大表面或调整内部内容。',child.id);
+   throw slotBoundsError(options,child,box,'内容超过显式表面层的安全内容区；请扩大表面或调整内部内容。');
  }
  return box;
+}
+
+// Evidence from the rejected candidate, never inferred from the last valid view.
+// The lower bound is for this child's current extent, not a full layout solver.
+export function slotBoundsError(options,child,box,message,code='panel.slot-bounds'){
+ const error=Object.assign(Error(child.id+': '+message),{code,path:child.id,nodeId:child.id});
+ if(typeof options.nodeId==='string')error.ownerId=options.nodeId;
+ if([options.size?.width,options.size?.height,child.size?.width,child.size?.height,box?.x,box?.y,box?.width,box?.height].every(Number.isFinite)){
+  error.contentBounds={ownerId:options.nodeId??null,nodeId:child.id,owner:{...options.size},available:{x:box.x,y:box.y,width:box.width,height:box.height},required:{width:child.size.width,height:child.size.height},overflow:{width:Math.max(0,child.size.width-box.width),height:box.allowVerticalOverflow?0:Math.max(0,child.size.height-box.height)},minimumOwner:{width:child.size.width+options.size.width-box.width,...(!box.allowVerticalOverflow?{height:child.size.height+options.size.height-box.height}:{})},allowVerticalOverflow:box.allowVerticalOverflow};
+ }
+ return error;
 }
 
 // Compute before mutating any actual handles, so simultaneous parent/child fill

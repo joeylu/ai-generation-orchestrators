@@ -1,0 +1,80 @@
+# 参考图到 16 类组件：当前链路
+
+本入口面向 `ui-chain-components-v0.1.0-rc.1`，范围到完整组件消费包及其技术检查为止。已有核心是 Node.js CLI、JavaScript API、文件合同和浏览器组件运行时；容器 HTTP 服务由部署方实现。面板需求规划、面板生成及画布编辑不属于本次接入。
+
+对接入口：`node scripts/component-entry.mjs contract` 输出组件发行合同；JavaScript 集成使用 `src/components-api.mjs`。宿主接入见 [Docker 接入](docker-integration.md)、[Web 接入](web-integration.md)和[交接口令](deployment-handoff.md)。本地人工操作仍可使用 [Studio](local-studio.md)的组件项目入口。
+
+## 输入与完成条件
+
+当前推荐新项目明确启用材质：S01–S04 四张组件图集，加 S05 材质图集。模板修订 3 共 32 个基础部件和 3 个材质，组成 **16 类组件**，不是 35 类组件，也不增加第 17 类纹理控件。S04 包含 `slot.normal` / `slot.selected` 两态正方形格子；S05 提取标题、分组标题和面板底纹，并按合同绑定表面。
+
+底层批次 CLI 的 `materials` 默认是 `false`，宿主必须显式传 `true` 或 `--materials` 才生成五张。关闭 S05 时是四张、32 个基础部件；旧修订 2 是 30 个基础部件。界面和 API 的张数、资产数均读取冻结批次，不用常量替代历史项目数据。
+
+| 输入 | 合同及要求 |
+| --- | --- |
+| 参考图 | 核心计划入口接收可解析 PNG，非空且 ≤32 MiB；保留源字节和 SHA-256。宿主若允许 JPEG，先确定性转换为 PNG，同时保留原图及转换关系；不要将 JPEG 直接传给 PNG 入口 |
+| 风格草稿 | 符合 `schemas/skin-style.schema.json`；参考观察与适配规则分别记录，不伪装成人工接受 |
+| 组件几何与配方 | 当前发布的 `configs/skin-template-set.draft.json`、`component-registry.draft.json`、`skin-usage.draft.json`；由计划冻结摘要 |
+| 元数据 profile | `ui_skin_metadata_profile` 1.0；主题、字体、密度和切线推导基准。拷贝受维护的 profile 到 `work/` 后使用 |
+| 生成适配器 | 部署方注入 `generate(frozenRequest) → Uint8Array`；每张最多提交一次，显式关闭供应商 SDK 自动重试 |
+| 计算确认 | 用户核对本批图数、用途与摘要后的一次明确确认；确认值必须等于该批 `batchSha256` |
+
+技术完成必须同时满足：全部所需图集有可信接收记录、来源和回执摘要一致、全部确定性节点通过、最终消费包完整、16 类组件独立加载检查通过。完成状态为 `awaiting-visual-review`，`productionReady: false`、`visualAcceptance: unreviewed`。这些字段与成功生成、原图检查及人工外观验收分别表达，不能相互推断。
+
+## 每个节点的输入与输出
+
+| 节点 | 输入 | 输出 / 状态 | 是否调用模型 |
+| --- | --- | --- | --- |
+| 模板与合同构建 | 发布内配置、锁定依赖、浏览器 | 模板清图/核对图、合同构建及 `current.json`；用于计划新鲜度校验 | 否 |
+| 批次准备 | 参考 PNG、风格 JSON、材质选项 | `plans/<planSha256>/` 冻结资源；`batches/<batchSha256>/batch.json` 与 `review.md`；`verified-awaiting-batch-confirmation` | 否 |
+| 确认与授权 | 用户明确确认的同一批摘要 | 整批授权和各图单次预留；`authorized-awaiting-external-submission` | 否 |
+| 外部生成 | 冻结 prompt、两张输入图、尺寸、图号、请求摘要 | 每图调用前独占登记；返回 PNG 或 `failed` / `indeterminate` 的真实观察记录 | 是，每图最多一次 |
+| 接收与批次核验 | 原 PNG、提交/返回/接收证据、补图链 | 原始字节、检查、接收回执；`received` 与原图检查结论分别保留 | 否 |
+| `source-s01`–`source-s04` | 四张完整源图与冻结摘要 | 四个文件完整性节点通过；S05 另行冻结，不混入四图定位 | 否 |
+| `locate` | 四图与模板几何 | 部件定位、归属和提案报告；歧义不能静默选错部件 | 否 |
+| `metadata` | 定位报告、冻结 profile | assembly 候选、切线/端帽/尺寸参数及警告 | 否 |
+| `content-insets` | assembly 候选 | 文字、命中与内容安全区配置及派生证据 | 否 |
+| `postprocess` | 安全区配置、可选冻结 S05 | 基础 SkinPack；S05 提取、透明 RGB 规范化派生与材质绑定；最终完整组件消费包；技术证据 | 否 |
+| 独立消费检查 | 最终消费包 | `checks.json`、`wide.png`、`tall.png`；16 类组件及公共工厂检查；全部 DAG 完成后待视觉验收 | 否 |
+
+节点产物由程序生成，任务记录只是索引和证据，不是可以任意编辑的成功标记。任务目录引用 `work/` 下的其他产物；只复制 `work/skin-tasks/<id>` 不构成完整迁移包。
+
+## 可执行入口
+
+下列命令均在 `game-ui-harnesses/ui-chain-harness/` 执行。尖括号表示程序返回的值或调用者准备的文件，不要照抄成路径。
+
+```sh
+npm ci --include=dev --ignore-scripts --no-audit --no-fund
+npm run templates:build -- --browser chromium
+npm run contracts:build
+node scripts/component-entry.mjs contract
+node scripts/skin-batch.mjs prepare --reference work/input/reference.png --style work/input/style.json --out work/skins/<id> --materials
+node scripts/skin-batch.mjs verify --batch work/skins/<id>/batches/<batchSha256> --sha256 <batchSha256>
+```
+
+这些命令不提交模型。`templates:build` 要求相应浏览器已安装；安装浏览器属于部署准备，不发生在用户生成请求中。组件链路不需要安装面板规划 SDK。
+
+生产宿主从 `src/components-api.mjs` 导入 `executeBatchPipeline(args, adapter)`。`args` 包含 Harness `work/` 下绝对路径 `skinDirectory`、不可变 `batchSha256`、本次确认的同一 `confirmedBatchSha256`、`work/` 下的 `profile`、默认 false 的 `allowRejectedLocalization`，以及只允许 1 或 2 的 `maxConcurrentSheets`。路径由宿主从授权的项目 ID 解析，不能直接使用客户端任意路径。适配器须支持选用的并发。
+
+`adapter.generate` 接收冻结的 `prompt`、`images`（`style-reference` 与 `geometry-template` 的字节及摘要）、`width` / `height`、`output`、`sheetId`、`planSha256`、`requestSha256`。返回非空且 ≤32 MiB 的 PNG 字节；错误、无效类型或不明结果不得再次提交。`task: null` 表示没有满足后处理条件，不能把它当成完整组件包。
+
+完整接收后也可只运行确定性 DAG：
+
+```sh
+npm run skins:task -- batch-status --batch work/skins/<id>/batches/<batchSha256> --sha256 <batchSha256>
+npm run skins:task -- create --batch work/skins/<id>/batches/<batchSha256> --sha256 <batchSha256> --profile work/input/metadata-profile.json
+npm run skins:task -- resume --directory work/skin-tasks/<taskId>
+npm run skins:task -- status --directory work/skin-tasks/<taskId>
+```
+
+原图检查 rejected 默认阻止进入 DAG。只有明确采用已有候选策略才使用 `--allow-rejected-localization`：原失败保持，`originalChecksPassed: false` 保持，全部下游检查仍执行。全不透明材质、缺槽、来源不符等错误不能通过这个选项绕过。
+
+最终 `postprocess` 节点输出中的 `consumerDirectory` 指向完整消费包，`directory` 指向保留检查证据的后处理目录。下游读取程序返回值，不扫描“最新文件夹”猜交付。独立复验已有包：`node scripts/consumer-check.mjs <consumerDirectory> --browser chromium`。完整离线管线复验：`node scripts/component-pipeline-check.mjs`，只使用替身/夹具，不提交模型。
+
+## 交付、恢复与人工验收
+
+交付应包括最终消费目录整体、SkinPack、`manifest.json`、技术报告与横竖预览。消费目录中有 `runtime.mjs`、`kit.json`、分离的 `skin/` PNG/字体/原始清单、来源摘要、依赖与许可证。不能只交 `runtime.mjs` 或几张截图；包内已有哈希须完整核验。
+
+`runAuthorizedBatch` 仅允许推进已经授权且尚未 `begin` 的图；已接收、失败或结果不明的图都不会重投。断连后先核验并恢复可信晚到图片；需要新图时使用 `prepareSupplement` / `executeSupplement`，只补缺失或 rejected 图，绑定新单图摘要和新确认，保留原记录。后处理失败使用原 `taskDirectory` 执行 `skins:task resume`，不重新执行整批生成。输入、工具、配置或已有产物摘要变化时创建新冻结任务；不能改回执来继续。进程和锁的恢复遵循[本地恢复规则](local-recovery.md)，容器重启本身不获得新的计算权。
+
+16 类为 Button、Switch、CheckBox、RadioGroup、Input、Select、Slider、ProgressBar、ScrollView、List、Dialog、Tabs、Image、Text、Container、Panel。组件基础、布局和材质配置仍包含 draft 限制；不可把技术通过标为已完成生产美术验收。人工核对参考风格、alpha、四角和拉伸、文字对比、普通/选中槽位、所有交互状态后再由宿主记录其独立验收决定。

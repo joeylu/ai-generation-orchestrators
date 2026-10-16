@@ -1,0 +1,77 @@
+{
+  "kind": "ui_component_pipeline_contract",
+  "version": "1.0",
+  "releaseVersion": "0.1.0-rc.1",
+  "releaseTag": "ui-chain-components-v0.1.0-rc.1",
+  "scope": "reference-to-16-components",
+  "implemented": true,
+  "providerNeutral": true,
+  "productionReady": false,
+  "visualAcceptance": "per-project-human-review-required",
+  "nodeEntry": "src/components-api.mjs",
+  "contractCommand": "node scripts/component-entry.mjs contract",
+  "offlineCheckCommand": "node scripts/component-pipeline-check.mjs",
+  "runtime": {
+    "node": ">=22.18.0",
+    "ciNodeMajor": 24,
+    "dependencyInstall": "npm ci --ignore-scripts --include=dev --no-audit --no-fund",
+    "requiresDevDependencies": true,
+    "pythonRequired": false,
+    "panelSdkRequired": false,
+    "browser": {
+      "engine": "chromium",
+      "playwrightVersion": "1.63.0",
+      "environment": "UI_CHAIN_TEST_BROWSER",
+      "choices": ["chromium", "chrome", "msedge"],
+      "default": "chromium",
+      "installation": "explicit-host-setup-only",
+      "linuxSetup": "npx playwright install --with-deps chromium"
+    },
+    "writableDirectories": ["work", "previews/skin-templates", "generated/component-contracts"]
+  },
+  "templates": {
+    "componentTemplateRevision": 3,
+    "baseSheets": ["S01", "S02", "S03", "S04"],
+    "baseAssets": 32,
+    "materialSheet": "S05",
+    "materialAssets": 3,
+    "assetsWithMaterials": 35,
+    "recommendedMaterials": true,
+    "prepareSkinBatchMaterialsDefault": false,
+    "squareSlots": ["slot.normal", "slot.selected"]
+  },
+  "components": ["Button", "Switch", "CheckBox", "RadioGroup", "Input", "Select", "Slider", "ProgressBar", "ScrollView", "List", "Dialog", "Tabs", "Image", "Text", "Container", "Panel"],
+  "apiExports": ["componentPipelineContract", "prepareSkinBatch", "verifySkinBatch", "executeBatch", "runAuthorizedBatch", "executeBatchPipeline", "postprocessBatch", "inspectGenerationBatch", "prepareSupplement", "executeSupplement", "verifySkinPackage", "inspectConsumer"],
+  "compute": {
+    "humanConfirmation": "fresh-single-use-confirmation-bound-to-immutable-batch-sha256",
+    "adapter": "generate(frozenRequest) -> Promise<Uint8Array>",
+    "outputFormat": "png",
+    "maxOutputBytes": 33554432,
+    "maxConcurrentSheets": [1, 2],
+    "automaticRetry": false,
+    "indeterminate": "terminal-no-resubmit",
+    "supplement": "new-plan-new-human-confirmation-for-one-sheet",
+    "deterministicRecovery": "reuse-verified-originals-without-provider-call"
+  },
+  "delivery": {
+    "manifest": "manifest.json",
+    "manifestKind": "ui_component_consumer_candidate",
+    "manifestVersion": "0.1",
+    "components": 16,
+    "requiredFiles": ["manifest.json", "kit.json", "runtime.mjs", "skin/skin-pack.json", "source.json", "dependencies.json", "text-readability.json"],
+    "resources": "all-files-listed-in-manifest-with-original-relative-paths",
+    "checks": "checks.json plus wide.png and tall.png from deterministic consumer validation",
+    "technicalCompleteStatus": "awaiting-visual-review",
+    "productionReady": false,
+    "visualAcceptance": "unreviewed"
+  },
+  "http": {
+    "implemented": false,
+    "owner": "external-docker-integration",
+    "localStudioIsProductionApi": false,
+    "requiredHandoff": ["openapi.json", "openapi.sha256", "request-response-examples", "error-and-state-mapping", "deployment-smoke-results", "web-handoff.md"],
+    "openapiVersion": "3.1",
+    "requirements": ["durable-project-and-job-identities", "one-human-confirmation-per-plan-digest", "persistent-at-most-once-provider-submission", "redacted-errors", "complete-checksummed-component-download", "separate-technical-and-visual-status"]
+  },
+  "outOfScope": ["panel-planning", "panel-generation", "panel-editor", "docker-service-implementation", "deployment-credentials"]
+}

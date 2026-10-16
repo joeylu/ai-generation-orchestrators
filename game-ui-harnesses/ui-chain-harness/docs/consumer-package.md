@@ -1,6 +1,6 @@
 # 独立组件消费包（候选）
 
-目的：复用已验证的真实皮肤和全部 16 类组件，让浏览器消费不依赖本仓库源码、work 目录、node_modules 或 CDN。当前只完成离线候选交付，尚无不可变标签发布或生产项目接入验收。
+目的：复用已验证的皮肤和全部 16 类组件，让浏览器消费不依赖本仓库源码、work 目录、node_modules 或 CDN。组件源码发行入口见[组件全链路](component-pipeline.md)；每个新生成消费包仍是独立的待美术验收候选，源码标签发布不代表该项目已被生产接入方接受。
 
 ## 维护与构建
 
@@ -25,6 +25,8 @@ preview 使用启动时已验证的包快照，运行中替换目录不会热加
 node scripts/consumer-pack.mjs --package <验证过的皮肤包> --out work/consumer-pack
 node scripts/consumer-check.mjs <上一步输出目录>
 ```
+
+最终检查默认选择 Playwright Chromium。宿主也可设置 `UI_CHAIN_TEST_BROWSER=chromium`，或使用 `--browser chrome|msedge|chromium` 显式覆盖。浏览器及 Linux 系统依赖必须在宿主安装阶段准备；检查命令不下载浏览器、不重试模型。Docker 构建必须保留 esbuild 和字体所在的开发依赖。
 
 构建使用已安装的锁定依赖，不下载依赖，不调用模型。输出到新目录，文件摘要写入 manifest.json；失败目录不得作为成功交付。
 

@@ -62,15 +62,19 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
   const batch=await generation.action('status',{id});
   const lock=await localLockState(dir,'.processing.lock');
   const result={name:project.name,busy:active||lock.status==='busy',recovering:recoveryPending.has(id),batchReady:receivedComponentBatch(batch),generationRunning:batch.operation==='running',phase:flow.phase??'not-started',message:flow.message??'',errorCode:flow.errorCode??null,localRecovery:flow.localRecovery??null,panels:flow.panels??[],task:null,skin:null};
+  result.componentReplacement=flow.componentReplacementPending===true||Boolean(flow.pendingComponentBuild);
   result.processingStartedAt=flow.processingStartedAt;result.processingFinishedAt=flow.processingFinishedAt;
   if(lock.status==='unknown'){const failure=localFailure({code:'LOCAL_LOCK_UNKNOWN'});result.message=failure.message;result.errorCode=failure.code;result.phase='processing-failed';}
-  if(flow.taskDirectory){const [task]=await inspectStudioTasks(root,[{id:'task',name:project.name,directory:flow.taskDirectory}]);result.task=task;
+  if(flow.taskDirectory){const [task]=await inspectTasks(root,[{id:'task',name:project.name,directory:flow.taskDirectory}]);result.task=task;
    if(task.status==='awaiting-visual-review'){
     const skin=await skinFromFlow(flow),artifact=await publish({id:'skin-'+dirname(generation.resolve(id).directory).split(/[\\/]/).at(-2).slice(0,8)+'-'+hash(skin.manifestSha256+(skin.consumerSha256??'')).slice(0,8),name:project.name+' · 组件',type:'components',directory:rel(skin.consumer)});
     const prefix='/artifacts/'+artifact.id+'/skin/';
     result.skin={...(flow.componentMotion?.skinSha256===skin.manifestSha256?{motion:flow.componentMotion}:{}),artifactId:artifact.id,url:artifact.url,version:skin.manifestSha256,downloads:artifact.downloads,thumbnails:skin.pack.assets.filter(a=>['surface.panel','button.primary.normal','field.normal','switch.track.on'].includes(a.assetId)).slice(0,4).map(a=>({url:prefix+a.file,name:a.assetId}))};
    }
   }
+  // A replacement is checked separately while the last completed package stays usable.
+  if(result.componentReplacement)result.task=null;
+  if(flow.pendingComponentBuild?.taskDirectory){const [pending]=await inspectTasks(root,[{id:'task',name:project.name,directory:flow.pendingComponentBuild.taskDirectory}]);result.task=pending;}
   result.panels=await Promise.all(result.panels.map(async p=>{
    if(p.deletedAt)return p;
    if(p.artifact){try{const entry=await publish(p.artifact);return {...p,url:entry.url,downloads:entry.downloads};}catch{return {...p,status:'invalid',message:'面板产物校验失败'};}}
@@ -93,21 +97,35 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
     try{previousRevision=receivedSourcesRevision(await read(local(flow.taskDirectory),'input/batch-intake.json'));}catch(e){if(e.code!=='ENOENT')throw e;}
    }
    const sourcesChanged=Boolean(sourceRevision&&flow.taskDirectory&&sourceRevision!==previousRevision),newSourceRound=sourcesChanged&&flow.localRecovery?.sourceRevision!==sourceRevision;
-   let reuse=false;
+   let reuse=false,replacement=false,pendingComplete=false,processingTaskDirectory=flow.taskDirectory;
    if(flow.taskDirectory){
     const taskLock=await localLockState(local(flow.taskDirectory));
     if(taskLock.status==='busy')return {status:'busy'};
     if(taskLock.status==='unknown')throw Error('LOCAL_LOCK_UNKNOWN');
     const [task]=await inspectTasks(root,[{id:'task',name:'task',directory:flow.taskDirectory}]);
     if(task.status==='invalid')throw Error('LOCAL_INVALID_TASK');
-    // Completed packages are immutable; a later tool version never rebuilds them.
-    if(task.status==='awaiting-visual-review')return {status:'complete'};
-    reuse=task.toolsMatch===true&&!sourcesChanged;
-    if(automatic&&task.toolsMatch!==true&&!sourcesChanged)throw Error('LOCAL_TOOLS_CHANGED');
+    // A later tool version alone never rebuilds a completed package. Explicitly
+    // confirmed replacement bytes do create a separate candidate, not a mutation.
+    if(task.status==='awaiting-visual-review'){
+     if(!sourcesChanged)return {status:'complete'};
+     replacement=true;processingTaskDirectory=null;
+    }
+    let processingTask=task,processingSourcesChanged=sourcesChanged;
+    if(replacement&&flow.pendingComponentBuild?.sourceRevision===sourceRevision){
+     processingTaskDirectory=flow.pendingComponentBuild.taskDirectory;
+     const pendingLock=await localLockState(local(processingTaskDirectory));
+     if(pendingLock.status==='busy')return {status:'busy'};
+     if(pendingLock.status==='unknown')throw Error('LOCAL_LOCK_UNKNOWN');
+     [processingTask]=await inspectTasks(root,[{id:'task',name:'task',directory:processingTaskDirectory}]);
+     if(processingTask.status==='invalid')throw Error('LOCAL_INVALID_TASK');
+     processingSourcesChanged=false;pendingComplete=processingTask.status==='awaiting-visual-review';
+    }
+    reuse=Boolean(processingTaskDirectory)&&(pendingComplete||processingTask.toolsMatch===true&&!processingSourcesChanged);
+    if(automatic&&processingTaskDirectory&&processingTask.toolsMatch!==true&&!processingSourcesChanged&&!pendingComplete)throw Error('LOCAL_TOOLS_CHANGED');
     // A crash between a failed node receipt and the flow summary must not turn
     // a quality rejection into a fresh automatic attempt.
-    if(automatic&&flow.phase==='processing'&&!sourcesChanged){
-     const failed=(task.attempts??[]).find(a=>a.status==='failed'&&task.nodes?.some(n=>n.id===a.node&&n.status!=='passed')&&!localFailure(a.failure).retryable);
+    if(automatic&&flow.phase==='processing'&&!processingSourcesChanged){
+     const failed=(processingTask.attempts??[]).find(a=>a.status==='failed'&&processingTask.nodes?.some(n=>n.id===a.node&&n.status!=='passed')&&!localFailure(a.failure).retryable);
      if(failed)throw Object.assign(Error('LOCAL_PREVIOUS_FAILURE'),{detail:failed.failure});
     }
    }
@@ -121,6 +139,7 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
     if(decision!=='continue')return {status:decision};
    }
    flow.localRecovery={batchSha256:plan.batchSha256,...(sourceRevision?{sourceRevision}:{}),automaticStarts:automatic?(newSourceRound?0:flow.localRecovery?.automaticStarts??0)+1:0,mode:automatic?'automatic':'manual',failure:null};
+   if(replacement)flow.componentReplacementPending=true;
    flow.phase='processing';flow.processingStartedAt=new Date().toISOString();delete flow.processingFinishedAt;flow.message=automatic&&flow.taskDirectory?'正在从已通过的步骤恢复本地处理':'正在定位、拆分并检查组件';delete flow.errorCode;await save(dir,flow);
    launched=true;
    Promise.resolve().then(async()=>{
@@ -140,9 +159,22 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
      }
      const profilePath=join(dir,'profile-'+randomUUID()+'.json');await writeFile(profilePath,json(profile),{flag:'wx'});
      const task=await command('skin-task.mjs',['create','--batch',plan.directory,'--sha256',plan.batchSha256,'--profile',rel(profilePath),...(allowCandidate?['--allow-rejected-localization']:[])]);
-     flow.taskDirectory=task.directory;if(sourceRevision)flow.processingSourcesRevision=sourceRevision;await save(dir,flow);
+     processingTaskDirectory=task.directory;
+     if(replacement){
+      if(flow.pendingComponentBuild)flow.componentBuildHistory=[...(flow.componentBuildHistory??[]),flow.pendingComponentBuild];
+      flow.pendingComponentBuild={taskDirectory:task.directory,sourceRevision};
+     }else{flow.taskDirectory=task.directory;if(sourceRevision)flow.processingSourcesRevision=sourceRevision;}
+     await save(dir,flow);
     }
-    await command('skin-task.mjs',['resume','--directory',flow.taskDirectory]);flow.phase='components-ready';flow.processingFinishedAt=new Date().toISOString();flow.message='16 类组件已完成程序检查，等待外观验收';await save(dir,flow);
+    const completed=pendingComplete?{status:'awaiting-visual-review'}:await command('skin-task.mjs',['resume','--directory',processingTaskDirectory]);
+    const finished={...flow,phase:'components-ready',processingFinishedAt:new Date().toISOString(),message:'16 类组件已完成程序检查，等待外观验收'};
+    if(replacement){
+     if(completed.status!=='awaiting-visual-review')throw Error('LOCAL_QUALITY_CHECK');
+     finished.componentHistory=[...(flow.componentHistory??[]),{taskDirectory:flow.taskDirectory,...(previousRevision?{processingSourcesRevision:previousRevision}:{}),...(flow.componentRuntime?{componentRuntime:flow.componentRuntime}:{}),...(flow.componentMotion?{componentMotion:flow.componentMotion}:{})}];
+     finished.taskDirectory=processingTaskDirectory;finished.processingSourcesRevision=sourceRevision;
+     delete finished.componentRuntime;delete finished.componentMotion;delete finished.pendingComponentBuild;delete finished.componentReplacementPending;
+    }
+    await save(dir,finished);flow=finished;
    }).catch(async e=>{
     if(e.detail?.code==='LOCAL_LOCK_BUSY'){
      if(automatic)flow.localRecovery.automaticStarts--;flow.phase='processing';flow.message='已有本地处理仍在运行，等待完成。';

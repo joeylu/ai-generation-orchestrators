@@ -15,10 +15,19 @@ export function visibleSelectionBounds({width,height,pixels}){
 }
 const full={x:0,y:0,width:1,height:1};
 export function selectionMarkGeometry(size,base=full,mark=full,radio=false){
+  const valid=b=>b&&['x','y','width','height'].every(key=>Number.isFinite(b[key]))&&b.x>=0&&b.y>=0&&b.width>0&&b.height>0&&b.x+b.width<=1+1e-9&&b.y+b.height<=1+1e-9;
+  if(!Number.isFinite(size)||size<=8||!valid(base)||!valid(mark))throw Object.assign(Error('Invalid selection mark geometry.'),{code:'selection.geometry'});
   const nominal=size-8;
   // Keep a radio dot inside the ring's visible diameter, even when the ring
   // has much more transparent padding than its separately generated dot.
   const scale=radio?Math.min(1,base.width*size*2/3/(mark.width*nominal),base.height*size*2/3/(mark.height*nominal)):1;
-  const extent=nominal*scale;
+  let extent=nominal*scale;
+  if(!radio){
+    // Preserve the old alignment/nominal size whenever its visible pixels fit.
+    // Transparent texture margins may extend outside; only an actually escaping
+    // tick is reduced, uniformly, around the base artwork's visible center.
+    const cx=(base.x+base.width/2)*size,cy=(base.y+base.height/2)*size;
+    extent=Math.min(extent,2*Math.min(cx,size-cx)/mark.width,2*Math.min(cy,size-cy)/mark.height);
+  }
   return {width:extent,height:extent,x:(base.x+base.width/2)*size-(mark.x+mark.width/2)*extent,y:(base.y+base.height/2)*size-(mark.y+mark.height/2)*extent};
 }

@@ -46,7 +46,7 @@ test('isolated raster fixture builds and serves four/five plans without real Stu
  assert.equal(loaded.status,200);assert.equal((await loaded.json()).document.kind,'ui_panel_document');
  for(const materials of [false,true]){
   const response=await fetch(base+'/projects/plan',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({project:{name:'Offline',description:'synthetic only',materialGeneration:materials}})});
-  assert.equal(response.status,200);const plan=await response.json();assert.equal(plan.sheets.length,materials?5:4);assert.equal(plan.assets,materials?33:30);
+  assert.equal(response.status,200);const plan=await response.json();assert.equal(plan.sheets.length,materials?5:4);assert.equal(plan.assets,materials?35:32);assert.equal(plan.assets,plan.sheets.reduce((sum,sheet)=>sum+sheet.assets,0));
   const {projects}=await(await fetch(base+'/library.json')).json();assert.equal(projects[0].state.nodes.length,materials?5:4);
  }
  assert.deepEqual(await(await fetch(base+'/fixture-counts.json')).json(),{fullCalls:0,panelCalls:0,localCalls:0});

@@ -39,6 +39,13 @@ test('pending or failed projects never show completed delivery and panel stages 
  assert.deepEqual(panelProgress({status:'interrupted-no-retry',stage:'rendering'}).map(s=>s.state),['done','blocked','waiting']);
  assert.deepEqual(panelProgress({status:'ready'}).map(s=>s.state),['done','done','done']);
 });
+
+test('a retained old skin does not hide the progress or quality failure of its separately checked replacement',()=>{
+ const project={skin:{version:'previous-checked-skin'},componentReplacement:true,batchReady:true,busy:true,phase:'processing',state:{nodes:['S01','S02','S03','S04','S05'].map(sheetId=>({sheetId,status:'received'}))},task:{nodes:[...['source-s01','source-s02','source-s03','source-s04'].map(id=>({id,status:'passed'})),{id:'locate',status:'passed'},{id:'metadata',status:'incomplete'}]}};
+ const working=projectProgress(project);assert.equal(working.complete,false);assert.equal(working.stages.find(s=>s.id==='metadata').state,'active');assert.equal(working.flow.at(-1).state,'waiting');
+ const failed=projectProgress({...project,busy:false,phase:'processing-failed'});assert.equal(failed.blocked,true);assert.equal(failed.current,'本地处理已暂停');assert.equal(failed.stages.find(s=>s.id==='metadata').state,'blocked');
+ assert.equal(projectProgress({...project,componentReplacement:false}).complete,true);
+});
 test('elapsed time uses actual timestamps and freezes at a recorded end',()=>{
  const start='2026-10-14T01:00:00Z';assert.equal(elapsedText(start,'2026-10-14T01:01:05Z'), '1 分 5 秒');
  assert.equal(elapsedText(start,undefined,Date.parse(start)+3500),'3 秒');

@@ -18,6 +18,7 @@ import {createLayerSurface} from './layer-surface.mjs';
 import {runtimeSurfaceTextBox,runtimeSurfaceTextPlacement} from './surface-text-box.mjs';
 import {applyRuntimeInk} from './derived-text-ink.mjs';
 import {applyReferenceCjkWrap} from './cjk-text-flow.mjs';
+import {radioItemWidth} from './option-geometry.mjs';
 
 const styleBox = (width, height, extra = {}) => ({
   width,
@@ -106,7 +107,7 @@ export const basicAdapters = {
       makeCheck(
         skin,
         option.label,
-        p.direction === "row" ? w / Math.max(1, p.options.length) : w,
+        radioItemWidth(w,p.options.length,skin.profile.gap,p.direction),
         false,
         true,
       ),
@@ -128,11 +129,7 @@ export const basicAdapters = {
       view,
       items,
       resize(width) {
-        const itemWidth =
-          p.direction === "row"
-            ? (width - Math.max(0, items.length - 1) * skin.profile.gap) /
-              Math.max(1, items.length)
-            : width;
+        const itemWidth = radioItemWidth(width,items.length,skin.profile.gap,p.direction);
         items.forEach((item, i) =>
           resizeCheck(item, skin, p.options[i].label, itemWidth),
         );
@@ -427,6 +424,8 @@ export const basicAdapters = {
       view,
       bg,
       layer,
+      title,
+      body,
       motionChildren: children('content'),
       resize: (w, h) => {
         skin.assertView?.(layerInfo?.baseRole??"skin.surface.panel",w,h);

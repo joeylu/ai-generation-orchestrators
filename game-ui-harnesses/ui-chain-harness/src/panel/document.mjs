@@ -11,6 +11,8 @@ import { hasLayoutRules } from '../runtime/layout.mjs';
 import {surfaceTextBox,surfaceStyleInfo,surfaceLayerInfo,surfaceLayerTypes} from '../skins/surface-styles.mjs';
 import {assertSurfaceSlotChildren,surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 import {inventorySlotRoles} from '../runtime/inventory-policy.mjs';
+import {selectPopupBox} from '../runtime/select-geometry.mjs';
+import {textProfile} from '../runtime/text-style.mjs';
 const check = new Ajv({ allErrors: true, strict: true }).addSchema(sliceSchema).addSchema(backgroundSchema).compile(schema);
 export function fail(code, message, path = "") {
   const e = new Error(path ? `${path}: ${message}` : message);
@@ -158,7 +160,8 @@ export function validateDocument(input, ctx) {
         .flat()
         .map((id) => nodes.get(id));
     if(n.surfaceLayer){const info=surfaceLayerInfo(ctx.skinGeometry,n.surfaceLayer,n.surfaceScale),size=resolved.get(n.id)??n.size;if(info&&(size.width<info.minWidth||size.height<info.minHeight))fail('panel.surface-layer','Resolved surface layer is smaller than its skin minimum.',n.id);}
-    if(n.surfaceLayer)assertSurfaceSlotChildren({type:r.type,props:n.props,size:resolved.get(n.id)??n.size,profile:ctx.profile,geometry:surfaceGeometry,surfaceLayer:n.surfaceLayer,surfaceScale:n.surfaceScale},children.map(child=>({id:child.id,size:resolved.get(child.id)??child.size})));
+    if(n.surfaceLayer)assertSurfaceSlotChildren({nodeId:n.id,type:r.type,props:n.props,size:resolved.get(n.id)??n.size,profile:ctx.profile,geometry:surfaceGeometry,surfaceLayer:n.surfaceLayer,surfaceScale:n.surfaceScale},children.map(child=>({id:child.id,size:resolved.get(child.id)??child.size,visible:child.props.visible})));
+    if(r.type==='Select'){try{selectPopupBox({...resolved.get(n.id)??n.size,itemHeight:textProfile(ctx.profile,n.props).itemHeight,itemCount:n.props.options.length,maxVisibleItems:n.props.maxVisibleItems,canvasWidth:canvas.width,canvasHeight:canvas.height});}catch(error){error.nodeId=n.id;throw error;}}
     const surface=n.surfaceStyle??(!n.surfaceLayer&&r.type==='Panel'&&!n.props.backgroundRef&&ctx.skinGeometry?.surfaceStyles?.panel?'panel':null);
     if(surface){const size=resolved.get(n.id)??n.size;surfaceTextBox(ctx.skinGeometry,surface,size.width,size.height,n.surfaceTextInsets);}
     if (r.type === "List") {
