@@ -4,7 +4,10 @@ import {hash,readSafe,verifySkinPackage} from '../skins/package.mjs';
 import {taskStatus} from '../skins/task-dag.mjs';
 import {inspectGenerationBatch} from '../skin-generation/batch-intake.mjs';
 import {readMaterialAtlasInput} from '../skins/material-atlas-input.mjs';
-import {verifyMaterialAtlas} from '../skins/material-atlas.mjs';
+import {verifyMaterialAtlas,extractMaterialAtlas} from '../skins/material-atlas.mjs';
+import {verifyMaterialExtension} from '../skins/materials.mjs';
+import {upgradedConsumer} from '../studio/component-upgrade.mjs';
+import {inspectConsumer} from '../runtime/consumer-tools.mjs';
 
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const digest=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
@@ -42,6 +45,39 @@ export function validateStyleFidelityBindings({verified,reference,intake,materia
  return bindings;
 }
 
+
+/** Strict metadata-only upgrade of results already bound to a verified S05. */
+export function validateStyleFidelityInkUpgrade({original,verified,extension,previousExtraction,currentExtraction}){
+ if(currentExtraction.report?.version!=='1.2'||!isDeepStrictEqual(previousExtraction.spec.materials,currentExtraction.spec.materials)||!isDeepStrictEqual(original.pack.materialAssets,verified.pack.materialAssets))fail('ACCEPTANCE_STYLE_INK_UPGRADE_INVALID');
+ verifyMaterialExtension(original,verified,extension);
+ const expected=structuredClone(original.pack.surfaceStyles);
+ for(const key of ['title','section'])expected[key].textColor=currentExtraction.spec.surfaceStyles[key].textColor;
+ expected.panel.layers[0].mode=currentExtraction.spec.surfaceStyles.panel.layers[0].mode;
+ if(!isDeepStrictEqual(verified.pack.surfaceStyles,expected)||!isDeepStrictEqual(expected,currentExtraction.spec.surfaceStyles))fail('ACCEPTANCE_STYLE_INK_UPGRADE_INVALID');
+ return {kind:'ui_style_material_ink_upgrade',version:'1.0',extractionVersion:'1.2',sourceSkinSha256:original.manifestSha256,skinSha256:verified.manifestSha256,allowedChanges:['title.textColor','section.textColor','panel.layers[0].mode'],sourceSamplingStatus:currentExtraction.report.textReadability.sourceSamplingStatus,visualAcceptance:'unreviewed',modelCalls:0};
+}
+
+/** Official runtime/check chain plus exact derived inks; no arbitrary recipes. */
+export async function verifyStyleFidelityRuntimeUpgrade({root,selection,originalDirectory,original,verified,previousExtraction,currentExtraction,record}){
+ if(!selection||typeof selection!=='object'||Array.isArray(selection)||Object.keys(selection).length!==2||!Object.hasOwn(selection,'file')||!Object.hasOwn(selection,'sha256')||typeof selection.file!=='string'||!/^work\/(?:[A-Za-z0-9_-]+\/)+[A-Za-z0-9_.-]+$/.test(selection.file)||!digest(selection.sha256))fail('ACCEPTANCE_STYLE_INK_UPGRADE_REFERENCE');
+ const upgradeBytes=await record(selection.file,undefined,selection.sha256),upgrade=JSON.parse(upgradeBytes);
+ if(upgrade.originalSkinSha256!==original.manifestSha256||upgrade.skinSha256!==verified.manifestSha256||!upgrade.materialExtension)fail('ACCEPTANCE_STYLE_INK_UPGRADE_INVALID');
+ const selected=await upgradedConsumer(root,workPath(root,originalDirectory),selection);
+ const upgraded=await verifySkinPackage(join(selected.directory,'skin'));
+ if(upgraded.manifestSha256!==verified.manifestSha256)fail('ACCEPTANCE_STYLE_INK_UPGRADE_INVALID');
+ const extensionBytes=await record(upgrade.materialExtension.file,undefined,upgrade.materialExtension.sha256),extension=JSON.parse(extensionBytes);
+ const proof=validateStyleFidelityInkUpgrade({original,verified,extension,previousExtraction,currentExtraction});
+ await record(upgrade.checkFile,undefined,upgrade.checkSha256);
+ const consumer=await inspectConsumer(selected.directory,upgrade.consumerSha256);
+ await record(join(selected.directory,'manifest.json'),undefined,consumer.manifestSha256);
+ for(const [file,bytes]of consumer.files)await record(join(selected.directory,file),bytes);
+ await record(join(selected.directory,'skin','skin-pack.json'),undefined,verified.manifestSha256);
+ for(const [file,bytes]of verified.resources)await record(join(selected.directory,'skin',file),bytes);
+ // Recheck exact record binding after gathering every derived fingerprint.
+ await record(selection.file,undefined,selection.sha256);
+ return {...proof,selection:{...selection},consumerSha256:consumer.manifestSha256,extensionSha256:upgrade.materialExtension.sha256};
+}
+
 /** Eligibility only: this verifies retained producer evidence and never invokes a model. */
 export async function verifyStyleFidelitySkin({root,selected,verified,contracts,references,styleId}){
  const mapping=selected.styleReference,reference=references.find(s=>s.id===mapping?.id);
@@ -60,14 +96,21 @@ export async function verifyStyleFidelitySkin({root,selected,verified,contracts,
   const material=await readMaterialAtlasInput(workPath(root,state.request.materialAtlas)),post=state.receipts.get('postprocess'),runDirectory=post?.outputs?.directory;
   if(!runDirectory)fail('ACCEPTANCE_STYLE_PROVENANCE_INVALID');
   const run=JSON.parse(await record(join(workPath(root,runDirectory),'run.json'))),assemble=run.stages?.find(s=>s.stage==='assemble'&&s.status==='passed'),bound=run.stages?.find(s=>s.stage==='material-extract-and-bind'&&s.status==='passed');
-  if(!assemble?.result?.directory||!bound?.extractionDirectory||bound.manifestSha256!==verified.manifestSha256||bound.inputSha256!==material.inputSha256||bound.rawSha256!==material.input.raw.sha256||bound.templateSha256!==material.template.sha256||bound.planSha256!==material.input.planSha256)fail('ACCEPTANCE_STYLE_PROVENANCE_INVALID');
+  if(!assemble?.result?.directory||!bound?.extractionDirectory||bound.inputSha256!==material.inputSha256||bound.rawSha256!==material.input.raw.sha256||bound.templateSha256!==material.template.sha256||bound.planSha256!==material.input.planSha256)fail('ACCEPTANCE_STYLE_PROVENANCE_INVALID');
+  const original=selected.componentRuntime!==undefined?await verifySkinPackage(workPath(root,join(run.consumerDirectory,'skin'))):verified;
+  if(bound.manifestSha256!==original.manifestSha256)fail('ACCEPTANCE_STYLE_PROVENANCE_INVALID');
   const base=await verifySkinPackage(workPath(root,join(assemble.result.directory,'pack')));
   if(base.manifestSha256!==assemble.result.manifestSha256)fail('ACCEPTANCE_STYLE_PROVENANCE_INVALID');
   const extraction=await verifyMaterialAtlas({directory:workPath(root,bound.extractionDirectory),template:material.template,sourceSkinSha256:base.manifestSha256,rawSha256:material.input.raw.sha256,pack:base.pack});
-  const bindings=validateStyleFidelityBindings({verified,reference,intake,material,extraction});
+  let bindings=validateStyleFidelityBindings({verified:original,reference,intake,material,extraction}),materialUpgrade;
+  if(selected.componentRuntime!==undefined){
+   const currentExtraction=extractMaterialAtlas({raw:material.raw,template:material.template,sourceSkinSha256:base.manifestSha256,rawSha256:material.input.raw.sha256,pack:base.pack,extractionVersion:'1.2'});
+   materialUpgrade=await verifyStyleFidelityRuntimeUpgrade({root,selection:selected.componentRuntime,originalDirectory:run.consumerDirectory,original,verified,previousExtraction:extraction,currentExtraction,record});
+   bindings=validateStyleFidelityBindings({verified,reference,intake,material,extraction:currentExtraction});
+  }
   // The whole completed DAG inventory includes localization, source recovery,
   // material extraction and the final consumer package. Retain its fingerprints.
-  return {kind:'ui_panel_style_fidelity_evidence',version:'1.0',reference:{id:reference.id,sha256:reference.sha256},skinSha256:verified.manifestSha256,taskRequestSha256:state.requestSha256,batchSha256:intake.summary.batchSha256,styleSha256:intake.summary.styleSha256,originalChecksPassed:intake.summary.originalChecksPassed,sheets:intake.summary.nodes.map(n=>({sheetId:n.sheetId,planSha256:n.planSha256,rawSha256:n.rawSha256,inspection:n.inspection})),material:{planSha256:material.input.planSha256,rawSha256:material.input.raw.sha256,templateSha256:material.template.sha256,sourceSkinSha256:base.manifestSha256,...(extraction.report.derivedSource?{derivedSourceSha256:extraction.report.derivedSource.sha256}:{})},bindings,files:[...evidence].sort(([a],[b])=>a.localeCompare(b)).map(([file,sha256])=>({file,sha256})),modelCalls:0,visualAcceptance:'unreviewed',productionReady:false};
+  return {kind:'ui_panel_style_fidelity_evidence',version:'1.0',reference:{id:reference.id,sha256:reference.sha256},skinSha256:verified.manifestSha256,taskRequestSha256:state.requestSha256,batchSha256:intake.summary.batchSha256,styleSha256:intake.summary.styleSha256,originalChecksPassed:intake.summary.originalChecksPassed,sheets:intake.summary.nodes.map(n=>({sheetId:n.sheetId,planSha256:n.planSha256,rawSha256:n.rawSha256,inspection:n.inspection})),material:{planSha256:material.input.planSha256,rawSha256:material.input.raw.sha256,templateSha256:material.template.sha256,sourceSkinSha256:base.manifestSha256,...(extraction.report.derivedSource?{derivedSourceSha256:extraction.report.derivedSource.sha256}:{})},bindings,...(materialUpgrade?{materialUpgrade}:{}),files:[...evidence].sort(([a],[b])=>a.localeCompare(b)).map(([file,sha256])=>({file,sha256})),modelCalls:0,visualAcceptance:'unreviewed',productionReady:false};
  }catch(e){if(e.code?.startsWith('ACCEPTANCE_'))throw e;fail('ACCEPTANCE_STYLE_PROVENANCE_INVALID');}
 }
 
