@@ -26,7 +26,7 @@ function input({centerAlpha=255,mixed=false}={}){
  const raw=encodePng(image),pack={roles:[{role:'skin.surface.bar',assetId:'bar'},{role:'skin.surface.panel',assetId:'panel'}],
   assets:['bar','panel'].map(assetId=>({assetId,contentInsets:{left:12,right:12,top:4,bottom:4},nineSlice:{left:3,right:4,top:2,bottom:3},minSize:{width:25,height:9}})),
   theme:{textColors:{'skin.surface.bar':'#111827','skin.surface.panel':'#123456'}}};
- return {raw,rawSha256:hash(raw),template,sourceSkinSha256:'a'.repeat(64),pack};
+ return {raw,rawSha256:hash(raw),template,sourceSkinSha256:'a'.repeat(64),pack,extractionVersion:'1.1'};
 }
 test('new S05 defaults choose each actual replacement material ink while panel overlay keeps its original role ink',()=>{
  const data=input(),before=json(data.pack),result=extractMaterialAtlas(data),styles=result.spec.surfaceStyles;

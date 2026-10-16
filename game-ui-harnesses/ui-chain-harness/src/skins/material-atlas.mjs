@@ -42,6 +42,20 @@ function seamDifference(image){
  for(let x=0;x<width;x++)vertical+=difference(x*4,((height-1)*width+x)*4);
  return {horizontal:Math.round(horizontal/height*100)/100,vertical:Math.round(vertical/width*100)/100};
 }
+// Version 1.2 keeps a complete illustration as one cover layer when its edges
+// cannot safely repeat. This changes presentation only, never the retained crop.
+function panelPresentation(image,detail){
+ const edgePixels=new Set(),{width,height,pixels}=image;
+ for(let x=0;x<width;x++){edgePixels.add(x);edgePixels.add((height-1)*width+x);}
+ for(let y=0;y<height;y++){edgePixels.add(y*width);edgePixels.add(y*width+width-1);}
+ const transparentEdgePixels=[...edgePixels].filter(at=>pixels[at*4+3]<240).length;
+ const edgeMismatch=Math.max(...Object.values(detail.edgeDifference))>24;
+ return {method:'retained-panel-edge-v1',mode:edgeMismatch||transparentEdgePixels?'cover':'tile',
+  edgeDifference:structuredClone(detail.edgeDifference),edgePixels:edgePixels.size,transparentEdgePixels,
+  policy:{maximumEdgeDifference:24,minimumEdgeAlpha:240},
+  reason:edgeMismatch?'opposite-edges-differ':transparentEdgePixels?'transparent-edge':'repeat-compatible-edges',
+  sourceCrop:[...detail.crop],visualAcceptance:'unreviewed'};
+}
 // A report version owns its historical policy values. Do not read the current
 // role-ink configuration here: future config changes must not invalidate a
 // retained 1.1 extraction. Introduce a new version for different policy values.
@@ -66,7 +80,7 @@ function materialTextInk(image,{assetId,sourceSha256,sourceCrop,requestedColor,f
   candidateMinimumContrast:{light:score(policy.light),dark:score(policy.dark)},
   status:colors.length>=policy.minimumOpaqueSamples&&transparent===0&&minimumContrast>=policy.minimumContrast?'passed':'needs-review'}};
 }
-function boundStyles(pack,{extractionVersion='1.0',materialImages=new Map(),rawSha256,parts=[]}={}){
+function boundStyles(pack,{extractionVersion='1.0',materialImages=new Map(),rawSha256,parts=[],presentation}={}){
  if(!pack||!Array.isArray(pack.roles)||!Array.isArray(pack.assets))fail('A verified base skin is required for material bindings.');
  const styles=structuredClone(pack.surfaceStyles??{}),inkChecks=[];
  for(const [i,key]of ['title','section','panel'].entries()){
@@ -76,7 +90,7 @@ function boundStyles(pack,{extractionVersion='1.0',materialImages=new Map(),rawS
   if(Object.values(insets).some(n=>!Number.isFinite(n)||n<0||n>512))fail('Material base skin safe insets are invalid.');
   // A frozen explicit surface recipe remains authoritative. Only a newly
   // generated replacement's inherited base-role default is resampled.
-  const ink=extractionVersion==='1.1'&&key!=='panel'?materialTextInk(materialImages.get(ids[i]),{
+  const ink=extractionVersion!=='1.0'&&key!=='panel'?materialTextInk(materialImages.get(ids[i]),{
    assetId:ids[i],sourceSha256:rawSha256,sourceCrop:parts.find(p=>p.assetId===ids[i]).crop,
    requestedColor:old?.textColor,fallback:pack.theme?.textColors?.[baseRole]??pack.theme?.palette?.text??materialInkPolicyV11.dark}):null;
   if(ink)inkChecks.push({style:key,...ink.evidence});
@@ -84,7 +98,7 @@ function boundStyles(pack,{extractionVersion='1.0',materialImages=new Map(),rawS
    clipInsets:key==='panel'?Object.fromEntries(sides.map(side=>[side,Math.max(asset.nineSlice[side],old?.clipInsets?.[side]??0)])):{left:0,right:0,top:0,bottom:0},
    ...(old?.radius===undefined?{}:{radius:old.radius}),
    ...(ink?{textColor:ink.fill}:old?.textColor??pack.theme?.textColors?.[baseRole]?{textColor:old?.textColor??pack.theme.textColors[baseRole]}:{}),
-   layers:[key==='panel'?{assetId:ids[i],mode:'tile',scale:1,alpha:.14,blendMode:'multiply'}:{assetId:ids[i],mode:'cover',anchorX:.5,anchorY:.5,alpha:1,blendMode:'normal'}]};
+   layers:[key==='panel'?{assetId:ids[i],mode:presentation?.mode??'tile',scale:1,alpha:.14,blendMode:'multiply'}:{assetId:ids[i],mode:'cover',anchorX:.5,anchorY:.5,alpha:1,blendMode:'normal'}]};
   styles[key]=style;
  }
  const assets=[...pack.assets,...(pack.materialAssets??[])].map(a=>a.assetId);
@@ -105,8 +119,8 @@ function normalizedSource(raw,image,file){
 }
 
 /** Template-owned headings keep their full separated contours; tiles sample the frozen interior. */
-export function extractMaterialAtlas({raw,template,sourceSkinSha256,rawSha256,pack,sourceFile='source.png',extractionVersion='1.1'}){
- if(!['1.0','1.1'].includes(extractionVersion))fail('Unsupported material extraction version.');
+export function extractMaterialAtlas({raw,template,sourceSkinSha256,rawSha256,pack,sourceFile='source.png',extractionVersion='1.2'}){
+ if(!['1.0','1.1','1.2'].includes(extractionVersion))fail('Unsupported material extraction version.');
  if(!Buffer.isBuffer(raw)||!raw.length||raw.length>32*1024*1024||!digest(rawSha256)||hash(raw)!==rawSha256)fail('Material source digest differs from the frozen S05 input.');
  if(!digest(sourceSkinSha256)||(pack?.manifestSha256!==undefined&&pack.manifestSha256!==sourceSkinSha256))fail('Material input is not bound to this base skin.');
  const base=pack?.pack??pack,{spec:geometry,sha256:templateSha256}=frozenTemplate(template),file=sourceName(sourceFile),image=decodePng(raw);
@@ -134,12 +148,14 @@ export function extractMaterialAtlas({raw,template,sourceSkinSha256,rawSha256,pa
  let outsideBodyPixels=0;for(let i=0;i<occupied.length;i++)if(!occupied[i]&&image.pixels[i*4+3])outsideBodyPixels++;
  const localizedHeadings=parts.some(part=>part.cropEvidence);
  if(outsideBodyPixels)warnings.push({code:'material.outside-bodies',pixels:outsideBodyPixels,action:localizedHeadings?'Source retained unchanged; uniquely owned heading contours and the frozen tile interior are bound.':'Source retained unchanged; only frozen body rectangles are bound.'});
- const {styles:surfaceStyles,inkChecks}=boundStyles(base,{extractionVersion,materialImages,rawSha256,parts});
+ const presentation=extractionVersion==='1.2'?panelPresentation(materialImages.get(ids[2]),parts.find(p=>p.assetId===ids[2])):undefined;
+ const {styles:surfaceStyles,inkChecks}=boundStyles(base,{extractionVersion,materialImages,rawSha256,parts,presentation});
  const spec={kind:'ui_skin_material_input',version:'1.0',sourceSkinSha256,materials,surfaceStyles};
  const report={kind:'ui_material_atlas_extraction',version:extractionVersion,sheetId:'S05',sourceSkinSha256,templateSha256,
   source:{file,sha256:rawSha256,bytes:raw.length,width:image.width,height:image.height},coordinates:structuredClone(geometry.coordinates),scale,
   semanticIdentity:localizedHeadings?'template-slot-ownership':'fixed-template-slot',extraction:'byte-exact-crop',parts,outsideBodyPixels,warnings,
   inputSha256:hash(Buffer.from(json(spec))),modelCalls:0,technicalValidation:'passed',visualAcceptance:'unreviewed',productionReady:false,
+  ...(presentation?{panelPresentation:presentation}:{}),
   textReadability:extractionVersion==='1.0'?{status:'needs-review',reason:'Base skin text insets and ink are preserved; material composites require visual acceptance.',insets:Object.fromEntries(Object.entries(surfaceStyles).map(([key,style])=>[key,style.insets]))}:
    {status:'needs-review',sourceSamplingStatus:inkChecks.every(c=>c.status==='passed')?'passed':'needs-review',
     reason:'Only retained material centers were sampled; final layered composites require visual acceptance.',
@@ -153,7 +169,7 @@ export function extractMaterialAtlas({raw,template,sourceSkinSha256,rawSha256,pa
 export async function verifyMaterialAtlas({directory,template,sourceSkinSha256,rawSha256,pack}){
  const reportBytes=await readSafe(directory,'report.json',2*1024*1024),report=JSON.parse(reportBytes),file=sourceName(report.source?.file);
  const raw=await readSafe(directory,file),specBytes=await readSafe(directory,'materials.json',2*1024*1024);
- if(report.kind!=='ui_material_atlas_extraction'||!['1.0','1.1'].includes(report.version))fail('Unsupported material extraction report.');
+ if(report.kind!=='ui_material_atlas_extraction'||!['1.0','1.1','1.2'].includes(report.version))fail('Unsupported material extraction report.');
  const replay=extractMaterialAtlas({raw,template,sourceSkinSha256,rawSha256,pack,sourceFile:file,extractionVersion:report.version});
  if(!specBytes.equals(Buffer.from(json(replay.spec)))||!reportBytes.equals(Buffer.from(json(replay.report))))fail('Material extraction replay differs from its manifest or report.');
  if(replay.report.derivedSource){
