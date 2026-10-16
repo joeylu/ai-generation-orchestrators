@@ -18,7 +18,7 @@ const allowed=new Set(manifest.files.map(f=>f.file));assert.equal(allowed.size,m
 for(const f of manifest.files){const bytes=await readSafe(source,f.file);assert.equal(hash(bytes),f.sha256);await mkdir(join(relocated,f.file,'..'),{recursive:true});await writeFile(join(relocated,f.file),bytes,{flag:'wx'});}
 assert.equal((await verifySkinPackage(join(relocated,'skin'))).manifestSha256,manifest.manifestSha256);
 const browser=await launchConsumerBrowser(chromium,browserChannel);
-const errors=[],blocked=[];
+const errors=[],blocked=[],failedChecks=[];
 try{
   const page=await browser.newPage({viewport:{width:1280,height:900},serviceWorkers:'block'});page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*',async r=>{const u=new URL(r.request().url()),file=u.pathname==='/'?'index.html':u.pathname.slice(1);
@@ -29,8 +29,10 @@ try{
   await page.goto('http://127.0.0.1/');await page.waitForFunction(()=>window.consumerData);
   // Existing pointer fixtures use canvas coordinates; remove example chrome during checks.
   await page.addStyleTag({content:'nav{display:none}canvas{display:block}'});
-  const data=await page.evaluate(()=>consumerData),results=await runComponentChecks({page,data,errors},r=>{if(r.status!=='passed')console.log(r.id+': '+r.message);});
-  assert(results.every(r=>r.status==='passed'),'component checks failed');
+  const data=await page.evaluate(()=>consumerData),results=await runComponentChecks({page,data,errors},r=>{
+    if(r.status!=='passed'&&failedChecks.length<64)failedChecks.push({id:String(r.id??'').slice(0,120),componentType:String(r.componentType??'').slice(0,80),message:String(r.message??'').slice(0,500)});
+  });
+  assert(results.every(r=>r.status==='passed'),'component checks failed: '+JSON.stringify({failedChecks}));
   assert.equal(await page.evaluate(()=>new Set(harness.cases.map(c=>c.type)).size),16);
   const textColors=await checkTextColors(page);
   await writeFile(join(relocated,'text-colors.json'),json(textColors),{flag:'wx'});
@@ -47,4 +49,4 @@ try{
   const report={kind:'ui_consumer_relocation_check',manifestSha256:hash(manifestBytes),sourceSkinSha256:manifest.manifestSha256,relocatedOutsideRepository:true,network:'only copied package files',components:16,checks:results.length,results,textColors,publicFactory:'passed',errors,status:'passed',productionReady:false};
   await writeFile(join(relocated,'checks.json'),json(report),{flag:'wx'});
   console.log(json({directory:relocated,checks:results.length,publicFactory:'passed',status:'passed'}));
-}catch(error){console.error(json({errors,blocked,message:error.message}));throw error;}finally{await browser.close();}
+}catch(error){console.error(json({errors,blocked,failedChecks,message:error.message}));throw error;}finally{await browser.close();}
