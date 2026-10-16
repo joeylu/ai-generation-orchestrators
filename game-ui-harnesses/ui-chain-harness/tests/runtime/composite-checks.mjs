@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {hoverScrollBox,deliverCanvasWheel} from './wheel.mjs';
 export async function runCompositeChecks(h, onResult = () => {}) {
   const { page } = h,
     results = [];
@@ -121,11 +122,8 @@ export async function runCompositeChecks(h, onResult = () => {}) {
         current.root.position.set(40, 40);
         harness.runtime.mount(current);
       });
-      await page.mouse.move(100, 100);
-      await page.mouse.wheel(0, 80);
-      // Playwright dispatches wheel without waiting for the browser to consume it.
-      // Wait for the actual inner state, preserving the outer ownership assertion.
-      await page.waitForFunction(()=>inner.readState().initialOffsetY>0,null,{timeout:5000});
+      await hoverScrollBox(page,'inner.adapter.box');
+      await deliverCanvasWheel(page,0,80,'inner.adapter.box',{scrollCondition:'inner.readState().initialOffsetY > 0',scrollTimeout:5000});
       const values = await page.evaluate(() => [
         inner.readState().initialOffsetY,
         current.readState().initialOffsetY,
@@ -133,24 +131,8 @@ export async function runCompositeChecks(h, onResult = () => {}) {
       assert.ok(values[0] > 0);
       assert.equal(values[1], 0);
       await page.evaluate(() => harness.runtime.setMode("edit"));
-      await page.evaluate(()=>{
-        const canvas=harness.app.canvas,receipt={received:false,rendered:false};
-        const listener=()=>{
-          receipt.received=true;
-          requestAnimationFrame(()=>{harness.runtime.flush();receipt.rendered=true;});
-        };
-        window.nestedEditWheelObserver={canvas,listener,receipt};
-        canvas.addEventListener('wheel',listener,{once:true,capture:true});
-      });
-      try{
-        await page.mouse.wheel(0,80);
-        // An unchanged offset alone would pass before delivery. Observe delivery
-        // on this canvas and the following actual render before comparing state.
-        await page.waitForFunction(()=>nestedEditWheelObserver.receipt.received&&nestedEditWheelObserver.receipt.rendered,null,{timeout:5000});
-        assert.deepEqual(await page.evaluate(()=>[inner.readState().initialOffsetY,current.readState().initialOffsetY]),values);
-      }finally{
-        await page.evaluate(()=>{const observer=window.nestedEditWheelObserver;if(observer)observer.canvas.removeEventListener('wheel',observer.listener,true);delete window.nestedEditWheelObserver;});
-      }
+      await deliverCanvasWheel(page,0,80,'inner.adapter.box');
+      assert.deepEqual(await page.evaluate(()=>[inner.readState().initialOffsetY,current.readState().initialOffsetY]),values);
     },
   );
   await check(

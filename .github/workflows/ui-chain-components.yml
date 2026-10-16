@@ -47,7 +47,9 @@ jobs:
       - name: Run offline unit regressions
         run: npm test
       - name: Run component runtime browser regressions
-        run: node --test tests/runtime/*.test.mjs
+        # Each file owns a software-rendered browser. Keep the full suite while
+        # avoiding CPU/GPU contention that delays real pointer input on Windows.
+        run: node --test --test-concurrency=1 tests/runtime/*.test.mjs
       - name: Verify source release packaging and checksums
         if: runner.os == 'Linux'
         run: |

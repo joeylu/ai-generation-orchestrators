@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { runMatrixChecks } from "./matrix-checks.mjs";
 import { runCompositeChecks } from "./composite-checks.mjs";
+import {hoverScrollBox,deliverCanvasWheel} from './wheel.mjs';
 
 export async function runComponentChecks(h, onResult = () => {}) {
   const { page } = h,
@@ -323,9 +324,8 @@ export async function runComponentChecks(h, onResult = () => {}) {
     "真实轮滚、条块同值、裁切和隐藏后的输入隔离",
     async () => {
       await make("ScrollView");
-      await page.mouse.move(120, 80);
-      await page.mouse.wheel(0, 100);
-      await page.waitForFunction(() => current.readState().initialOffsetY > 0);
+      await hoverScrollBox(page,'current.adapter.box');
+      await deliverCanvasWheel(page,0,100,'current.adapter.box',{scrollCondition:'current.readState().initialOffsetY > 0',scrollTimeout:30000});
       const s = await page.evaluate(() => ({
         offset: current.readState().initialOffsetY,
         bar: current.adapter.bar.value,
@@ -366,11 +366,15 @@ export async function runComponentChecks(h, onResult = () => {}) {
         return b.y + b.height;
       });
       assert.ok(Math.abs(thumbBottom - track.bottom) < 0.1);
-      await page.evaluate(() => {
+      await hoverScrollBox(page,'current.adapter.box');
+      const hiddenOffset=await page.evaluate(() => {
+        const offset=current.readState().initialOffsetY;
         current.setVisible(false);
         harness.events.length = 0;
+        return offset;
       });
-      await page.mouse.wheel(0, 100);
+      await deliverCanvasWheel(page,0,-100,'current.adapter.box');
+      assert.equal((await state()).initialOffsetY,hiddenOffset);
       assert.equal((await events()).length, 0);
     },
   );
