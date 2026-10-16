@@ -17,7 +17,7 @@ export function actionPlanningFiles(presetId,frozenConfig){
   let instructions=presetId==='inventory'?'prompts/inventory-planner.md':presetId==='custom'?'prompts/custom-panel-planner.md':'prompts/action-planner.md';
   if(presetId==='inventory'&&frozenConfig!==undefined){
     const version=frozenConfig.inventoryPlanning?.version;
-    if(!['1.0','1.1','1.2','1.3','1.4'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
+    if(!['1.0','1.1','1.2','1.3','1.4','1.5'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
     if(version==='1.0')instructions='prompts/inventory-planner-v1.md';
     if(version==='1.1')instructions='prompts/inventory-planner-v2.md';
   }

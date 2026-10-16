@@ -9,9 +9,12 @@ const localGroups=[
 const kind=n=>n.kind??(n.id.startsWith('source-')?'source':n.id);
 export function batchPresentation(plan={}){
  const hasMaterials=(plan.sheets??[]).some(s=>(s.sheetId??s.id??s)==='S05')||(plan.state?.nodes??[]).some(n=>n.sheetId==='S05');
+ const componentSheets=(plan.sheets??[]).filter(s=>(s.sheetId??s.id??s)!=='S05'),materialSheet=(plan.sheets??[]).find(s=>(s.sheetId??s.id??s)==='S05');
+ const materialCount=Number.isSafeInteger(materialSheet?.assets)&&materialSheet.assets>0?materialSheet.assets:3;
+ const componentCount=componentSheets.length===4&&componentSheets.every(s=>Number.isSafeInteger(s.assets)&&s.assets>0)?componentSheets.reduce((sum,s)=>sum+s.assets,0):Number.isSafeInteger(plan.assets)&&plan.assets>(hasMaterials?materialCount:0)?plan.assets-(hasMaterials?materialCount:0):30;
  return {hasMaterials,sheetTotal:hasMaterials?5:4,sheetIds:['S01','S02','S03','S04',...(hasMaterials?['S05']:[])],
   sheetLabel:hasMaterials?'五张图集':'四张图集',sheetDescription:hasMaterials?'4 张组件图集 + 1 张材质图集':'4 张透明组件图集',
-  assetDescription:hasMaterials?'30 个基础部件 + 3 个材质，组装为 16 类组件':'30 个通用部件，组装为 16 类组件'};
+  assetDescription:hasMaterials?`${componentCount} 个基础部件 + ${materialCount} 个材质，组装为 16 类组件`:`${componentCount} 个通用部件，组装为 16 类组件`};
 }
 export function sheetProgress(node={},state={}){
  const s=node.status,running=state.operation==='running';

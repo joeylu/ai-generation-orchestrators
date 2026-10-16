@@ -8,11 +8,13 @@ Studio“仓库面板 → 物品仓库”现在与其他预设使用同一条AI�
 
 复用上游inventory-row、context0.12 / intent0.13合同。直接消费原生意图，继续使用Chain的PixiUI/Layout与所选皮肤，不复制规划引擎、不修改上游未提交工作。其他预设继续使用原目录与既有协议。
 
-程序按所选方向、行列及真实皮肤计算并冻结物理 grid，模型须原样输出。目前接通方格、相等横纵间距、零 grid padding、左上起点、逐行排列。新计划以 planning/capabilities 1.4 及 layout 1.5 冻结 `cellSize`、`surfaceLayer:inset`、`frameScale:3`、`slotFit:"visible-square-v1"`、`viewportFit:"whole-slots-v1"` 与 `scrollMode:"fixed-cells-both-v1"`，转换标记仍为 `surfaceRecipesVersion:3`。
+程序按所选方向、行列及真实皮肤计算并冻结物理 grid，模型须原样输出。目前接通方格、相等横纵间距、零 grid padding、左上起点、逐行排列。新计划以planning/capabilities 1.5及layout 1.6冻结`cellSize`、`surfaceLayer:inset`、`frameScale:3`、`slotFit:"visible-square-v1"`、`viewportFit:"whole-slots-v1"`、`slotAssets:"dedicated-square-v1"`与`scrollMode:"fixed-cells-both-v1"`，转换标记仍为`surfaceRecipesVersion:3`。
 
 新布局只有一个放大角部的主框：主框节点使用 `surfaceLayer:frame`、`surfaceScale:3`，对应四边安全区同步放大；库存格区与详情使用从真实 PNG 安全中心取得的弱 inset 底板，不重复主框金角。主标题使用 `surfaceBand:reference-v1` 与节点级 `surfaceFontSize`，保留端部纹饰比例、延展中间区域；不修改皮肤密度、源图或 S05 平铺尺度。常见 16 像素正文皮肤的主标题为 28，盒高至少 64；用户明确编辑的 `props.fontSize` 优先。
 
 当前主标题明确 `titleAlign:center`，左右装饰安全区对称后将文字居中。`slotFit` 仅为库存派生显示：正常/选中图使用同一非零 alpha 并集，去除完全透明的外边并同步扣减九宫格边距，保留全部可见和柔边像素，原 PNG、摘要及通用 List 角色不变。无法安全裁边时保留原显示与诊断，不阻断用户任务，也不冒称可见本体已归一。`viewportFit` 在预留内部滚动条后显示完整行列，编译与运行时共用容量计算；不以缩小格子解决空间不足。
+
+`slotAssets`仅对新布局启用：新皮肤两态`skin.slot.normal/selected`俱全时使用S04专用正方形素材，等比显示整张边框，不再叠加旧的矩形边框与程序勾选标记；内容、数量与交互仍由运行时绘制。两态均缺失的旧包沿用横向item底图及上述适配，只有一态则明确拒绝。普通List和旧layout 1.5不切换素材。来源和模板位置见[正方形仓库格子](slot-assets.md)。
 
 单个 inventory 的 sectionTitle/label 默认作为结构包装保留在导出内容，不再重复为同级可见标题。用户明确要求“分组标题／分区标题／区域标题／小标题／格位标题”且没有相邻否定时，保留可见分组名；普通“显示仓库物品”不触发。消费者也可显式设置 `inventoryShowGroupHeading`，不新增模型字段、不改物品或计划。旧 layout 1.3 继续展示原有独立标题。
 
@@ -25,6 +27,7 @@ Studio“仓库面板 → 物品仓库”现在与其他预设使用同一条AI�
 | 1.2 / 1.3 | 固定格双向滚动、content 底板与原有可见标题；不放大主框 |
 | 1.3 / 1.4 | 单主框、弱 inset 与原参考图标题层级；保留原透明外边与部分行列视口 |
 | 1.4 / 1.5 | 主标题居中、库存可见本体适配与完整行列视口；原始素材不变 |
+| 1.5 / 1.6 | 显式优先S04专用正方形两态素材，缺失两态的旧包继续适配item底图 |
 
 旧文档、原始转换标记和消费者快照共同决定重放；不会仅因当前默认版本变化而升级旧任务、原交付或编辑副本。
 

@@ -2,7 +2,7 @@
   "$schema": "../schemas/skin-template-set.schema.json",
   "kind": "ui_skin_template_set_draft",
   "version": "0.2",
-  "revision": 2,
+  "revision": 3,
   "status": "discussion-draft",
   "purpose": "Independent part layout references; not a generated skin pack or a PanelBundle.",
   "coordinates": {
@@ -83,6 +83,13 @@
       "assetIds": [
         "item.normal",
         "item.selected"
+      ]
+    },
+    {
+      "id": "slot",
+      "assetIds": [
+        "slot.normal",
+        "slot.selected"
       ]
     },
     {
@@ -1129,6 +1136,68 @@
           "strokeWidth": 0,
           "stretch": "uniform",
           "productionPolicy": "raster-or-procedural-undecided",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D08",
+          "assetId": "slot.normal",
+          "label": "正方形物品槽 / 常态",
+          "consumers": [
+            "List"
+          ],
+          "state": "normal",
+          "slotRect": [
+            688,
+            360,
+            304,
+            304
+          ],
+          "bodyRect": [
+            760,
+            432,
+            160,
+            160
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D09",
+          "assetId": "slot.selected",
+          "label": "正方形物品槽 / 选中",
+          "consumers": [
+            "List"
+          ],
+          "state": "selected",
+          "slotRect": [
+            688,
+            688,
+            304,
+            304
+          ],
+          "bodyRect": [
+            760,
+            760,
+            160,
+            160
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
           "contentInsets": null,
           "sliceInsets": null
         }

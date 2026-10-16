@@ -1,4 +1,4 @@
-import {assertInventoryProps,inventoryScrollMode,assertInventoryGridLimits} from './inventory-policy.mjs';
+import {assertInventoryProps,inventoryScrollMode,assertInventoryGridLimits,inventorySlotRoles} from './inventory-policy.mjs';
 import {textProfile} from './text-style.mjs';
 import {skinUsage} from '../skins/usage.mjs';
 import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
@@ -8,9 +8,9 @@ const fail=message=>{throw Object.assign(new Error(message),{code:'inventory.geo
 const sides=['left','right','top','bottom'];
 // Accept the verified JSON evidence used by offline compilation, or its loaded
 // skin. Both expose the same logical insets and declared/slice minimums.
-export function inventorySkinMetrics(profile,source,{surfaceLayer}={}){
+export function inventorySkinMetrics(profile,source,{surfaceLayer,inventory}={}){
   const pads=[],minimums=[];
-  for(const role of ['skin.item.normal','skin.item.selected']){
+  for(const role of inventorySlotRoles(source,inventory)){
     const assetId=source?.roles instanceof Map?source.roles.get(role):source?.roles?.find(binding=>binding.role===role)?.assetId;
     const meta=source?.metadata instanceof Map?source.metadata.get(assetId):source?.assets?.find(asset=>asset.assetId===assetId);
     if(source&&!meta)fail(`缺少经过核验的仓库格子皮肤 ${role}。`);
@@ -27,7 +27,7 @@ export function inventorySkinMetrics(profile,source,{surfaceLayer}={}){
 function measurements(profile,props,skin,{surfaceLayer,surfaceScale}={}){
   assertInventoryProps(props);
   if(!props.inventory)fail('缺少显式仓库展示。');
-  const s=textProfile(profile,props),safe=inventorySkinMetrics(s,skin,{surfaceLayer}),pad=safe.insets,lineHeight=s.geometry.lineHeight,
+  const s=textProfile(profile,props),safe=inventorySkinMetrics(s,skin,{surfaceLayer,inventory:props.inventory}),pad=safe.insets,lineHeight=s.geometry.lineHeight,
     surface=surfaceLayer?surfaceLayerInfo(skin?.surfaceGeometry??skin,surfaceLayer,surfaceScale):null,gridPad=surface?.insets??{left:0,right:0,top:0,bottom:0},gridPadX=gridPad.left+gridPad.right,gridPadY=gridPad.top+gridPad.bottom,
     modern=props.inventory.appearance==='slots',both=props.inventory.scrollMode===inventoryScrollMode,columns=props.inventory.columns,rows=props.inventory.rows,
     iconSize=modern?Math.max(36,Math.min(44,Math.ceil(s.fontSize*2.5))):Math.max(20,Math.ceil(s.fontSize*1.5)),digits=Math.max(1,...props.items.map(item=>String(item.quantity).length)),quantityWidth=Math.ceil(digits*s.fontSize*.72)+4,

@@ -11,9 +11,9 @@ npm run skins:postprocess -- inspect --config work/skins/orbital-hangar/assembly
 npm run skins:postprocess -- build --config work/skins/orbital-hangar/assembly.json
 ```
 
-- inspect：校验模板摘要、30件覆盖、源图摘要、裁切范围、切片最小尺寸与组装策略，输出四板核对报告。
+- inspect：校验模板摘要、冻结模板的全量部件覆盖（修订3为32件，修订2为30件）、源图摘要、裁切范围、切片最小尺寸与组装策略，输出四板核对报告。
 - build：先执行上述检查，再复用既有组装器、独立消费包构建器和浏览器检查器。任何步骤失败停止，不切换当前候选；不会重新生图。
-- 可选 `--material-input work/skin-tasks/<task-id>/input/materials/material-atlas.json`：读取任务冻结的 S05 原图与模板摘要，在基础 30 部件组包后提取三份材质并绑定标题、分组和面板表面，再构建和检查最终消费包。旧四图调用不需要此参数。
+- 可选 `--material-input work/skin-tasks/<task-id>/input/materials/material-atlas.json`：读取任务冻结的S05原图与模板摘要，在基础部件组包后提取三份材质并绑定标题、分组和面板表面，再构建和检查最终消费包。旧四图调用不需要此参数。
 - 每次输出到 work/skin-postprocess 下的独立目录，可通过 --out 指定其他 work 子目录。run.json 记录阶段及最终结果，inspection.json 记录各部件参数与建议，review.md 用于人工核对，evidence 保存浏览器报告与横竖截图。
 - checked-candidate 只表示技术检查通过，仍需视觉验收；inspect 不产生可交付组件包。原始生成报告保持原状。
 - 失败时 stderr 返回结构化 `status/code/message/stage/directory`；`run.json` 保留具体失败阶段，不将材质错误折叠为普通子进程失败。

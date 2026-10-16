@@ -2,6 +2,21 @@
 // is local play state. These sample icons never identify assets in a skin pack.
 export const inventoryIcons=Object.freeze(['gem','potion','coin','material','scroll','sword','shield','food']);
 export const inventoryScrollMode='fixed-cells-both-v1';
+export const inventorySlotAssets='dedicated-square-v1';
+const itemRoles=Object.freeze(['skin.item.normal','skin.item.selected']),squareRoles=Object.freeze(['skin.slot.normal','skin.slot.selected']);
+// Only explicitly authored new inventories opt in. A complete older package
+// keeps its original item artwork; a half-present square state pair is invalid.
+export function inventorySlotRoles(source,inventory){
+  if(inventory?.slotAssets!==inventorySlotAssets)return itemRoles;
+  const has=role=>source?.roles instanceof Map?source.roles.has(role):(source?.roles??[]).some(binding=>binding.role===role);
+  const count=squareRoles.filter(has).length;
+  if(count===1)throw Object.assign(new Error('正方形物品槽需要常态与选中态两张完整素材。'),{code:'inventory.slot-assets'});
+  if(count===2){
+    for(const role of squareRoles){const id=source.roles instanceof Map?source.roles.get(role):source.roles.find(binding=>binding.role===role).assetId,meta=source.metadata instanceof Map?source.metadata.get(id):source.assets?.find(asset=>asset.assetId===id);if(!meta||meta.stretch!=='uniform'||meta.width!==meta.height)throw Object.assign(new Error('物品槽专用素材须为等比缩放的正方形。'),{code:'inventory.slot-assets'});}
+    return squareRoles;
+  }
+  return itemRoles;
+}
 import {inventorySlotFit,inventoryViewportFit} from './inventory-slot-fit.mjs';
 export const inventoryGridLimits=Object.freeze({maxAxis:32,maxCells:144,maxDimension:4000,minCell:48,maxCell:256,maxSpacing:64});
 const legacyInventorySchema={type:'object',additionalProperties:false,properties:{columns:{type:'integer',enum:[10]},rows:{type:'integer',enum:[10]},gap:{type:'integer',minimum:0,maximum:32},details:{type:'string',enum:['right','below']}},required:['columns','rows','gap','details']};
@@ -10,7 +25,8 @@ const previousIconSchema={type:'string',enum:[...inventoryIcons]};
 const previousAiInventorySchema={...previousInventorySchema,properties:{...previousInventorySchema.properties,cellSize:{type:'integer',minimum:48,maximum:256},initialSlot:{type:'integer',minimum:0,maximum:99}}};
 const previousSlotSchema={type:'integer',minimum:0,maximum:99};
 const fixedInventorySchema={...previousAiInventorySchema,properties:{...previousAiInventorySchema.properties,columns:{type:'integer',minimum:1,maximum:32},rows:{type:'integer',minimum:1,maximum:32},gap:{type:'integer',minimum:0,maximum:64},initialSlot:{type:'integer',minimum:0,maximum:143},scrollMode:{type:'string',enum:[inventoryScrollMode]}}};
-export const inventoryPropsSchema=Object.freeze({...fixedInventorySchema,properties:{...fixedInventorySchema.properties,slotFit:{type:'string',enum:[inventorySlotFit]},viewportFit:{type:'string',enum:[inventoryViewportFit]}}});
+const fittedInventorySchema={...fixedInventorySchema,properties:{...fixedInventorySchema.properties,slotFit:{type:'string',enum:[inventorySlotFit]},viewportFit:{type:'string',enum:[inventoryViewportFit]}}};
+export const inventoryPropsSchema=Object.freeze({...fittedInventorySchema,properties:{...fittedInventorySchema.properties,slotAssets:{type:'string',enum:[inventorySlotAssets]}}});
 export const inventoryItemPropsSchema=Object.freeze({slotIndex:{type:'integer',minimum:0,maximum:143},quantity:{type:'integer',minimum:1,maximum:999999},description:{type:'string',maxLength:2048},icon:{type:['string','null'],enum:[...inventoryIcons,null]}});
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
 const extras=Object.keys(inventoryItemPropsSchema);
@@ -39,8 +55,9 @@ export function assertInventoryProps(props,{childIds=[],itemRecipeType}={}){
   }
   const value=props.inventory;
   const both=value?.scrollMode===inventoryScrollMode,maxAxis=both?32:10,maxGap=both?64:32;
-  if(!exact(value,['columns','rows','gap','details',...['appearance','cellSize','initialSlot','scrollMode','slotFit','viewportFit'].filter(key=>Object.hasOwn(value??{},key))])||![value.columns,value.rows].every(number=>Number.isInteger(number)&&number>=1&&number<=maxAxis)||!Number.isInteger(value.gap)||value.gap<0||value.gap>maxGap||!['right','below'].includes(value.details)||(value.appearance!==undefined&&value.appearance!=='slots')||(value.scrollMode!==undefined&&!both)||(value.cellSize!==undefined&&(!Number.isInteger(value.cellSize)||value.cellSize<48||value.cellSize>256)))fail('inventory.layout',both?'新版仓库行列须为 1–32，间距 0–64；固定方格须为 48–256，并使用右侧或底部详情。':'旧版仓库行列须为 1–10，间距 0–32；双向固定格需要显式的新版本标记。');
+  if(!exact(value,['columns','rows','gap','details',...['appearance','cellSize','initialSlot','scrollMode','slotFit','viewportFit','slotAssets'].filter(key=>Object.hasOwn(value??{},key))])||![value.columns,value.rows].every(number=>Number.isInteger(number)&&number>=1&&number<=maxAxis)||!Number.isInteger(value.gap)||value.gap<0||value.gap>maxGap||!['right','below'].includes(value.details)||(value.appearance!==undefined&&value.appearance!=='slots')||(value.scrollMode!==undefined&&!both)||(value.cellSize!==undefined&&(!Number.isInteger(value.cellSize)||value.cellSize<48||value.cellSize>256)))fail('inventory.layout',both?'新版仓库行列须为 1–32，间距 0–64；固定方格须为 48–256，并使用右侧或底部详情。':'旧版仓库行列须为 1–10，间距 0–32；双向固定格需要显式的新版本标记。');
   if(value.slotFit!==undefined&&value.slotFit!==inventorySlotFit||value.viewportFit!==undefined&&(value.viewportFit!==inventoryViewportFit||!both))fail('inventory.fit','库存材质适配与完整格位视口标记无效。');
+  if(value.slotAssets!==undefined&&(value.slotAssets!==inventorySlotAssets||!both||value.appearance!=='slots'||value.slotFit!==inventorySlotFit||value.viewportFit!==inventoryViewportFit))fail('inventory.slot-assets','正方形物品槽需要显式的新版本仓库适配配置。');
   if(both)assertInventoryGridLimits({...value,...(value.cellSize===undefined?{}:{cellWidth:value.cellSize,cellHeight:value.cellSize,spacingX:value.gap,spacingY:value.gap,padding:0})});
   const capacity=value.columns*value.rows;
   if(childIds.length)fail('inventory.children','仓库展示不接受显式 List 子行。');
@@ -75,7 +92,7 @@ export function upgradeInventoryRegistry(registry){
     if(!properties||!itemProperties||properties.items.items.additionalProperties!==false)fail('inventory.registry','List 缺少可扩展的严格条目合同。');
     // Only the exact first inventory declaration is a known migration. Keep
     // original source bytes/bindings and reject unrelated schema conflicts.
-    if([legacyInventorySchema,previousInventorySchema,previousAiInventorySchema,fixedInventorySchema].some(schema=>stable(properties.inventory)===stable(schema)))properties.inventory=structuredClone(inventoryPropsSchema);
+    if([legacyInventorySchema,previousInventorySchema,previousAiInventorySchema,fixedInventorySchema,fittedInventorySchema].some(schema=>stable(properties.inventory)===stable(schema)))properties.inventory=structuredClone(inventoryPropsSchema);
     else add(properties,'inventory',inventoryPropsSchema);
     for(const [key,schema]of Object.entries(inventoryItemPropsSchema)){
       if(key==='icon'&&stable(itemProperties.icon)===stable(previousIconSchema)||key==='slotIndex'&&stable(itemProperties.slotIndex)===stable(previousSlotSchema))itemProperties[key]=structuredClone(schema);

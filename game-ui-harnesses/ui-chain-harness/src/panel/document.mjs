@@ -10,6 +10,7 @@ import { documentLayout } from './layout.mjs';
 import { hasLayoutRules } from '../runtime/layout.mjs';
 import {surfaceTextBox,surfaceStyleInfo,surfaceLayerInfo,surfaceLayerTypes} from '../skins/surface-styles.mjs';
 import {assertSurfaceSlotChildren,surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
+import {inventorySlotRoles} from '../runtime/inventory-policy.mjs';
 const check = new Ajv({ allErrors: true, strict: true }).addSchema(sliceSchema).addSchema(backgroundSchema).compile(schema);
 export function fail(code, message, path = "") {
   const e = new Error(path ? `${path}: ${message}` : message);
@@ -268,6 +269,7 @@ export function resourceClosure(doc, ctx) {
   doc.nodes.forEach((n) => {
     collect(n.recipeRef,n.props);
     const recipe=ctx.registry.recipes.find(r=>recipeRef(r)===n.recipeRef);
+    if(recipe.type==='List'&&n.props.inventory)for(const role of inventorySlotRoles(ctx.skinGeometry??surfaceGeometryForContext(ctx),n.props.inventory))roles.add(role);
     const layer=n.surfaceLayer?surfaceLayerInfo(surfaceGeometryForContext(ctx),n.surfaceLayer,n.surfaceScale):null;
     if(layer)roles.add(layer.baseRole);
     if(n.surfaceLayer&&recipe.type==='List'&&n.props.inventory){roles.add('skin.scrollbar.track');roles.add('skin.scrollbar.thumb');}

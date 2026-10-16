@@ -3,7 +3,7 @@ import {FancyButton} from '@pixi/ui';
 import {makeButton,resizeButton,selectButtonSkin,OwnedScrollBox} from './controls.mjs';
 import {fitText,reject} from './skin.mjs';
 import {inventoryLayout,inventoryDetailLayout} from './inventory-geometry.mjs';
-import {assertInventoryProps,inventoryIcons,inventoryScrollMode} from './inventory-policy.mjs';
+import {assertInventoryProps,inventoryIcons,inventoryScrollMode,inventorySlotRoles} from './inventory-policy.mjs';
 import {inventoryExampleIcon} from './inventory-icons.mjs';
 import {bestInk,rgb} from '../skins/text-readability.mjs';
 import {createLayerSurface} from './layer-surface.mjs';
@@ -28,7 +28,8 @@ function initializeInventoryList(c,own){
   const itemRecipeType=c.runtime.registry.recipes.find(recipe=>recipe.recipeId+'@'+recipe.recipeVersion===p.itemRecipeRef)?.type;
   assertInventoryProps(p,{childIds:children('items').map(child=>child.id),itemRecipeType});
   if(itemRecipeType!=='Button')reject('inventory.recipe','仓库格子须使用 Button 条目配方。');
-  const slotSkin=p.inventory.slotFit===inventorySlotFit&&skin.inventorySlotView?Object.assign(Object.create(skin),{view(role,width,height){return skin.inventorySlotView(role,width,height);}}):skin;
+  const slotRoles=inventorySlotRoles(skin,p.inventory),dedicatedSlots=slotRoles[0]==='skin.slot.normal';
+  const slotSkin=!dedicatedSlots&&p.inventory.slotFit===inventorySlotFit&&skin.inventorySlotView?Object.assign(Object.create(skin),{view(role,width,height){return skin.inventorySlotView(role,width,height);}}):skin;
   const modern=p.inventory.appearance==='slots',skinned=Boolean(c.surfaceLayer),options={surfaceLayer:c.surfaceLayer,surfaceScale:c.surfaceScale},both=p.inventory.scrollMode===inventoryScrollMode,capacity=p.inventory.columns*p.inventory.rows,
     view=own(new Container()),gridContent=own(new Container()),detailContent=own(new Container()),detailBackground=own(new Graphics()),
     gridBox=own(new (both?InventoryGridScrollBox:OwnedScrollBox)({type:both?'bidirectional':'vertical',width:1,height:1,globalScroll:false,disableEasing:true,padding:0})),
@@ -72,20 +73,20 @@ function initializeInventoryList(c,own){
   const refresh=()=>{
     for(const cell of cells){
       const selected=cell.slotIndex===selectedSlot;
-      if(!modern||skinned)selectButtonSkin(cell.button,slotSkin,selected);
+      if(!modern||skinned||dedicatedSlots)selectButtonSkin(cell.button,slotSkin,selected);
       if(cell.backgrounds)for(const [state,background]of Object.entries(cell.backgrounds)){
         background.scale.set(1);background.clear().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:selected||state==='hover'||state==='pressed'?skin.profile.palette.active:skin.profile.palette.base,alpha:state==='disabled'?.08:state==='pressed'?.28:selected?.18:state==='hover'?.15:cell.item?.13:.045});
       }
       const inset=selected&&modern?1:.5;
-      cell.frame.clear().roundRect(inset,inset,geometry.cell.width-inset*2,geometry.cell.height-inset*2,modern?8:4).fill({color:skin.profile.palette.base,alpha:modern?0:.10}).stroke({color:selected?skin.profile.palette.active:skin.profile.palette.stroke,width:selected&&modern?2:1,alpha:selected?1:cell.item?.55:.22});
+      cell.frame.clear();if(!dedicatedSlots)cell.frame.roundRect(inset,inset,geometry.cell.width-inset*2,geometry.cell.height-inset*2,modern?8:4).fill({color:skin.profile.palette.base,alpha:modern?0:.10}).stroke({color:selected?skin.profile.palette.active:skin.profile.palette.stroke,width:selected&&modern?2:1,alpha:selected?1:cell.item?.55:.22});
       cell.selectionMark.clear();
-      if(selected&&modern){const x=geometry.cell.width-20;cell.selectionMark.roundRect(x,4,14,14,4).fill(skin.profile.palette.active).moveTo(x+3,11).lineTo(x+6,14).lineTo(x+11,8).stroke({color:bestInk(rgb(skin.profile.palette.active)),width:1.5});}
+      if(selected&&modern&&!dedicatedSlots){const x=geometry.cell.width-20;cell.selectionMark.roundRect(x,4,14,14,4).fill(skin.profile.palette.active).moveTo(x+3,11).lineTo(x+6,14).lineTo(x+11,8).stroke({color:bestInk(rgb(skin.profile.palette.active)),width:1.5});}
     }
     detail();
   };
   for(let slotIndex=0;slotIndex<capacity;slotIndex++){
-    const item=items.get(slotIndex)??null,backgrounds=modern&&!skinned?Object.fromEntries(['default','hover','pressed','disabled'].map(state=>[state,own(new Graphics().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:skin.profile.palette.base,alpha:.05}))])):null,
-      button=own(backgrounds?new FancyButton({defaultView:backgrounds.default,hoverView:backgrounds.hover,pressedView:backgrounds.pressed,disabledView:backgrounds.disabled,contentFittingMode:'none',padding:0}):makeButton(slotSkin,'',geometry.cell.width,geometry.cell.height,'primary',['skin.item.normal','skin.item.selected'])),frame=own(new Graphics()),selectionMark=own(new Graphics()),
+    const item=items.get(slotIndex)??null,backgrounds=modern&&!skinned&&!dedicatedSlots?Object.fromEntries(['default','hover','pressed','disabled'].map(state=>[state,own(new Graphics().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:skin.profile.palette.base,alpha:.05}))])):null,
+      button=own(backgrounds?new FancyButton({defaultView:backgrounds.default,hoverView:backgrounds.hover,pressedView:backgrounds.pressed,disabledView:backgrounds.disabled,contentFittingMode:'none',padding:0}):makeButton(slotSkin,'',geometry.cell.width,geometry.cell.height,'primary',slotRoles)),frame=own(new Graphics()),selectionMark=own(new Graphics()),
       icon=item?.icon?own(inventoryExampleIcon(item.icon,geometry.cell.iconSize)):null,name=item&&item.icon===null?text(item.label,true):null,nameBackground=name?own(new Graphics()):null,quantity=item?text(String(item.quantity)):null,quantityBackground=item?own(new Graphics()):null;
     button.enabled=item?.enabled!==false;
     frame.eventMode=selectionMark.eventMode='none';button.addChild(frame,selectionMark);
@@ -121,7 +122,7 @@ function initializeInventoryList(c,own){
     detailBackground.clear().roundRect(details.x,details.y,details.width,details.height,modern?12:8).fill({color:skin.profile.palette.base,alpha:1}).stroke({color:skin.profile.palette.stroke,width:1,alpha:modern?.22:.8});detailBackground.eventMode='none';
     for(const entry of cells){
       const {button,icon,name,nameBackground,quantity,quantityBackground}=entry;
-      if(!modern||skinned)resizeButton(button,slotSkin,cell.width,cell.height,'');
+      if(!modern||skinned||dedicatedSlots)resizeButton(button,slotSkin,cell.width,cell.height,'');
       else button.hitArea=new Rectangle(0,0,cell.width,cell.height);
       button.position.set((entry.slotIndex%grid.columns)*(cell.width+grid.gap),Math.floor(entry.slotIndex/grid.columns)*(cell.height+grid.gap));
       if(icon)icon.position.set(cell.insets.left+(cell.contentWidth-cell.iconSize)/2,cell.insets.top+(cell.contentHeight-cell.iconSize)/2);
@@ -147,7 +148,7 @@ function initializeInventoryList(c,own){
   }
   place(w,h);
   return {
-    view,cells,rows,gridBox,detailsBox,slotFit:p.inventory.slotFit===inventorySlotFit?(skin.runtimeInventorySlotFit??{status:'unavailable',reason:'non-png-skin'}):null,gridSurface,detailSurface,scrollbars,detailTitle,detailName,detailDescription,detailQuantity,detailSlot,detailIcon,textBackings,
+    view,cells,rows,gridBox,detailsBox,slotRoles:[...slotRoles],slotFit:dedicatedSlots?{status:'dedicated',roles:[...slotRoles]}:p.inventory.slotFit===inventorySlotFit?(skin.runtimeInventorySlotFit??{status:'unavailable',reason:'non-png-skin'}):null,gridSurface,detailSurface,scrollbars,detailTitle,detailName,detailDescription,detailQuantity,detailSlot,detailIcon,textBackings,
     get geometry(){return geometry;},get selectedSlot(){return selectedSlot;},
     resize:place,
     afterLayout(){gridBox.resize(true);detailsBox.resize(true);scrollbars?.sync();},

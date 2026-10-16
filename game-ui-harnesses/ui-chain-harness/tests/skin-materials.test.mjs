@@ -21,7 +21,7 @@ const result=await extendSkinMaterials({...fixture,output:join(fixture.directory
 const verified=await verifySkinPackage(result.packageDirectory),{pack,resources}=verified;
 
 test('material import preserves all base pixels, source identity and shared raw provenance',async()=>{
- assert.equal(pack.assets.length,30);assert.equal(pack.materialAssets.length,2);assert.equal(result.modelCalls,0);
+ assert.equal(pack.assets.length,32);assert.equal(pack.materialAssets.length,2);assert.equal(result.modelCalls,0);
  assert.deepEqual(await readFile(join(fixture.packageDirectory,'skin-pack.json')),oldManifest);
  const before=await verifySkinPackage(fixture.packageDirectory);
  for(const a of before.pack.assets)assert.deepEqual(resources.get(a.file),before.resources.get(a.file));

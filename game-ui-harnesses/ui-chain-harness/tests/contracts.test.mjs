@@ -36,6 +36,24 @@ const has = (result, code) =>
   );
 const props = (ref, input, context) =>
   validateProps(original.registry, ref + "@1.0.0", input, context);
+test('dedicated square slot roles are additive and frozen revision 2 contracts remain valid', () => {
+  const current = clone();
+  assert.equal(current.template.revision,3);
+  assert.equal(current.usage.revision,2);
+  assert.deepEqual(current.usage.templateRef,{version:'0.2',revision:3});
+  assert.deepEqual(current.usage.bindings.filter(b => b.role.startsWith('skin.slot.')).map(b => [b.role,b.assetId]),[
+    ['skin.slot.normal','slot.normal'],['skin.slot.selected','slot.selected'],
+  ]);
+  assert.deepEqual(validateContracts(current).issues,[]);
+  const legacy = structuredClone(current);
+  legacy.template.revision=2;
+  legacy.template.stateGroups=legacy.template.stateGroups.filter(g => g.id !== 'slot');
+  for(const sheet of legacy.template.sheets)sheet.parts=sheet.parts.filter(p => !p.assetId.startsWith('slot.'));
+  legacy.usage.revision=1;
+  legacy.usage.templateRef.revision=2;
+  legacy.usage.bindings=legacy.usage.bindings.filter(b => !b.role.startsWith('skin.slot.'));
+  assert.deepEqual(validateContracts(legacy).issues,[]);
+});
 test("全部 16 类独立声明，23 份用例规格；128 项计划不擅自引入运行时结果", () => {
   const b = clone(),
     result = validateContracts(b);

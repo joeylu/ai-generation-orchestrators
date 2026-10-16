@@ -56,7 +56,7 @@ test('all eight reference presets opt into frame/content/data presentation witho
 
 test('inventory presentation is frozen separately from fixed-cell scrolling and old prompts stay selectable',async()=>{
  const context={...ctx,orientation:'landscape'},config=inventoryActionConfig(base,context);
- for(const key of ['slotFit','viewportFit','titleAlign']){delete config.inventoryPlanning.layout[key];delete config.inventoryPlanning.capabilities[key];}
+ for(const key of ['slotFit','viewportFit','titleAlign','slotAssets']){delete config.inventoryPlanning.layout[key];delete config.inventoryPlanning.capabilities[key];}
  config.inventoryPlanning.version='1.2';config.inventoryPlanning.layout.version='1.3';config.inventoryPlanning.layout.surfaceLayer='content';delete config.inventoryPlanning.layout.frameScale;config.inventoryPlanning.capabilities.version='1.2';config.inventoryPlanning.capabilities.surfaceLayer='content';delete config.inventoryPlanning.capabilities.frameScale;
  const legacy=structuredClone(config),policy=legacy.inventoryPlanning;
  policy.version='1.1';policy.layout.version='1.2';delete policy.layout.surfaceLayer;policy.capabilities.version='1.1';delete policy.capabilities.surfaceLayer;

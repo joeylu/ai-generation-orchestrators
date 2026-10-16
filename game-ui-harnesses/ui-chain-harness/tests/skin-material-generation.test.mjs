@@ -42,12 +42,12 @@ async function batchFixture(t){
  const execution={skinDirectory:f.dir,batchSha256,contracts:f.args.contracts},intake={...execution,templateSha256:hash(await readFile(f.args.contracts.template)),sheets:template.sheets};
  return {...f,plans,batch,execution,intake};
 }
-test('optional S05 freezes its own three-slot contract and shared style without changing the 30-part core',async t=>{
+test('optional S05 freezes its own three-slot contract and shared style without changing the 32-part core',async t=>{
  const f=await fixture(t),before=await readFile(f.args.contracts.template),p=await prepareGenerationPlan({...f.args,sheetId:'S05'}),plan=JSON.parse(await readFile(join(p.directory,'plan.json'))),material=await readMaterialTemplate();
  assert.equal(plan.purpose,'material-atlas');assert.equal(plan.assetCount,3);assert.equal(plan.bindings.materialTemplateSha256,material.sha256);
  assert.deepEqual(plan.parts.map(p=>p.bodyRect),[[64,64,896,144],[64,272,896,96],[64,432,512,512]]);
  assert.deepEqual(await readFile(join(p.directory,'inputs/material-template.json')),material.bytes);
- assert.deepEqual(await readFile(f.args.contracts.template),before);assert.equal(JSON.parse(before).sheets.flatMap(s=>s.parts).length,30);
+ assert.deepEqual(await readFile(f.args.contracts.template),before);assert.equal(JSON.parse(before).sheets.flatMap(s=>s.parts).length,32);
  const prompt=await readFile(join(p.directory,'prompt.txt'),'utf8');assert.match(prompt,/Opaque material inside rectangles is allowed/);assert.doesNotMatch(prompt,/Tracks must be empty/);
  assert.equal((await verifyGenerationPlan({directory:p.directory,planSha256:p.planSha256,contracts:f.args.contracts})).status,'verified-awaiting-confirmation');
  await writeFile(join(p.directory,'inputs/material-template.json'),'{}');await assert.rejects(verifyGenerationPlan({directory:p.directory,planSha256:p.planSha256,contracts:f.args.contracts}),/resource changed/);

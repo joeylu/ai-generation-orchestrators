@@ -28,7 +28,7 @@
 
 每次成功导入写入一个新 build；完全验证后才更新 current。失败保留 `.staging`，不替换上一版。不要手工编辑 manifest、report 或 current。技术通过仍固定为 `visualAcceptance: unreviewed` / `productionReady: false`。Studio 有真实 PNG 预览与组件检查入口，但尚未实现将外观正式记录为 accepted 的完整接受流程或生产发布命令；不要把“可预览”“已入库”解释为美术已接受。
 
-启用可选 S05 时，基础四图和 30 部件合同不变。确定性材质扩展会额外保存 `materialAssets`、`surfaceStyles`、原图摘要及裁切来源，派生新的皮肤版本；它复用本节的包验证与 PNG 消费接口，不额外创造组件类型。详见[任务接入](skin-task-dag.md)。
+启用可选 S05 不改变基础四图中的部件；基础数量由冻结模板决定（修订3为32件，修订2为30件）。确定性材质扩展会额外保存 `materialAssets`、`surfaceStyles`、原图摘要及裁切来源，派生新的皮肤版本；它复用本节的包验证与 PNG 消费接口，不额外创造组件类型。详见[任务接入](skin-task-dag.md)与[正方形格子](slot-assets.md)。
 
 ## 命令
 

@@ -2,12 +2,12 @@
   "$schema": "../schemas/skin-usage.schema.json",
   "kind": "ui_skin_usage_draft",
   "version": "0.1",
-  "revision": 1,
+  "revision": 2,
   "skinId": "generic-ui-draft",
   "sourceKind": "template-candidates",
   "templateRef": {
     "version": "0.2",
-    "revision": 2
+    "revision": 3
   },
   "layoutTokens": {
     "controlGap": 8
@@ -118,6 +118,22 @@
     {
       "role": "skin.item.selected",
       "assetId": "item.selected",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.slot.normal",
+      "assetId": "slot.normal",
+      "policy": "raster",
+      "nineSlice": null,
+      "contentInsets": null,
+      "minSize": null
+    },
+    {
+      "role": "skin.slot.selected",
+      "assetId": "slot.selected",
       "policy": "raster",
       "nineSlice": null,
       "contentInsets": null,

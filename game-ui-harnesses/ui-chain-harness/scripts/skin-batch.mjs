@@ -37,7 +37,8 @@ export async function prepareSkinBatch({reference,style,output:out,materials=fal
   const batch={kind:'ui_skin_generation_batch',version:'0.1',computeAuthorized:false,style:first.style,referenceSha256:first.resources.find(f=>f.file==='reference.png').sha256,styleSha256:first.resources.find(f=>f.file==='inputs/style.json').sha256,assetCount:plans.reduce((n,p)=>n+p.assets,0),plans,policy:{callsPerPlan:1,automaticRetry:false,review:'whole-batch',productionReady:false}};
   const bytes=json(batch),digest=hash(Buffer.from(bytes)),dir=join(out,'batches',digest);await mkdir(dir,{recursive:true});await writeFile(join(dir,'batch.json'),bytes,{flag:'wx'});
   const result=await verifySkinBatch({directory:dir,batchSha256:digest,contracts});
-  const summary=materials?'四张组件图集 + 一张材质图集，30 个基础部件 + 3 个材质。':`四张独立正方形组件图集，共 ${batch.assetCount} 件。`;
+  const materialCount=plans.find(p=>p.sheetId==='S05')?.assets??0;
+  const summary=materials?`四张组件图集 + 一张材质图集，${batch.assetCount-materialCount} 个基础部件 + ${materialCount} 个材质。`:`四张独立正方形组件图集，共 ${batch.assetCount} 件。`;
   await writeFile(join(dir,'review.md'),`# ${first.style.id}：整套皮肤生成批次\n\n${summary}一次确认覆盖下列每份计划各一次调用，中间不逐张等待确认。不自动重试；原始输出与失败记录保留。\n\n批次摘要：\`${digest}\`\n\n| 图集 | 部件数 | 核对计划 |\n| --- | --- | --- |\n${plans.map(p=>`| ${p.sheetId}${p.sheetId==='S05'?' 材质':''} | ${p.assets} | [${p.sha256.slice(0,12)}](../../plans/${p.sha256}/review.md) |`).join('\n')}\n\n本批只准备计划，尚未调用模型。生成后统一检查、拆分${materials?'、绑定材质':''}和组包，未通过项不能冒充完整成功。\n`,{flag:'wx'});
   return {...result,directory:dir};
 }

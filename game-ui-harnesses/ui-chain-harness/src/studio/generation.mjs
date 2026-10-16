@@ -4,15 +4,39 @@ import {homedir} from 'node:os';
 import {recoverCodexSheet,findRecoverableCodexImage} from '../skin-generation/codex-recovery.mjs';
 import {recoveryCandidates} from '../skin-generation/supplement-recovery.mjs';
 import {prepareSupplement,executeSupplement} from '../skin-generation/supplement.mjs';
-import {readContracts} from '../contracts/validate.mjs';
+import {readContracts,validateContracts} from '../contracts/validate.mjs';
 import {defaults} from '../contracts/build.mjs';
-import {hash} from '../skins/package.mjs';
+import {hash,readSafe} from '../skins/package.mjs';
 import {inspectGenerationBatch} from '../skin-generation/batch-intake.mjs';
 import {verifyGenerationPlan} from '../skin-generation/plan.mjs';
 import {executeBatch,requestFor} from '../skin-generation/batch-runner.mjs';
 import {codexFailureReader} from '../skin-generation/codex-diagnostics.mjs';
 import {createSkinCodexAdapter} from '../skin-generation/codex-adapter.mjs';
 import {generationExecutionPolicy} from '../skin-generation/execution-policy.mjs';
+
+// Archival status uses the original contract bytes. Active contracts and tool
+// freshness still gate preflight/start; this helper cannot authorize compute.
+async function archivedGenerationContracts({skinDirectory,batchSha256}){
+ const fail=()=>{throw Error('GENERATION_ARCHIVE_CONTRACTS');};
+ if(!/^[a-f0-9]{64}$/.test(batchSha256??''))fail();
+ const batchBytes=await readSafe(skinDirectory,'batches/'+batchSha256+'/batch.json'),batch=JSON.parse(batchBytes);
+ if(hash(batchBytes)!==batchSha256||batch.kind!=='ui_skin_generation_batch'||batch.version!=='0.1'||batch.computeAuthorized!==false||!Array.isArray(batch.plans)||![4,5].includes(batch.plans.length))fail();
+ const keys=['registry','usage','template'],bytes={},source={};
+ for(const [index,entry]of batch.plans.entries()){
+  if(!/^[a-f0-9]{64}$/.test(entry.sha256??''))fail();
+  const directory=join(skinDirectory,'plans',entry.sha256),planBytes=await readSafe(directory,'plan.json',2*1024*1024),plan=JSON.parse(planBytes);
+  if(hash(planBytes)!==entry.sha256||plan.kind!=='ui_skin_generation_plan'||plan.version!=='0.1'||!Array.isArray(plan.resources))fail();
+  for(const key of keys){
+   const file='inputs/'+key+'.json',records=plan.resources.filter(resource=>resource.file===file);
+   if(records.length!==1)fail();
+   const resource=records[0];
+   if(index===0){bytes[key]=await readSafe(directory,file);source[key]=JSON.parse(bytes[key]);}
+   if(resource.sha256!==hash(bytes[key])||resource.bytes!==bytes[key].length||plan.bindings?.[key+'Sha256']!==resource.sha256)fail();
+  }
+ }
+ const checked=validateContracts(source);if(checked.issues.length)fail();
+ return {...source,bytes,...checked};
+}
 export function generationController({inspect,preflight,execute,recover,prepareOne,executeOne}){
  const entries=new Map(),identities=new Map(),listeners=new Set();let busy=false;
  const settled=async id=>{for(const fn of listeners)try{await fn(id);}catch{console.error('Automatic local processing needs attention; generation was not retried.');}};
@@ -79,7 +103,7 @@ export function localGeneration(root,snapshot){
  const args=plan=>({skinDirectory:dirname(dirname(join(root,plan.directory))),batchSha256:plan.batchSha256});
  return generationController({
   async inspect(plan,freshness){
-   const source=await readContracts(defaults),input=args(plan),result=await inspectGenerationBatch({...input,templateSha256:hash(source.bytes.template),sheets:source.template.sheets});
+   const input=args(plan),source=freshness?await readContracts(defaults):await archivedGenerationContracts(input),result=await inspectGenerationBatch({...input,templateSha256:hash(source.bytes.template),sheets:source.template.sheets});
    if(freshness)for(const node of result.summary.nodes)await verifyGenerationPlan({directory:join(input.skinDirectory,'plans',node.planSha256),planSha256:node.planSha256});
    const previews=new Map();
    for(const s of [...result.sources,...(result.materialSources??[])]){const url='atlas-previews/'+s.sha256+'.png';snapshot?.files.set(url,s.raw);previews.set(s.sheetId,'/'+url);}

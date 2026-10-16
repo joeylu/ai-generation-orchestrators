@@ -1,7 +1,7 @@
 import defaultConfig from '../../configs/inventory-panel.json' with {type:'json'};
 import {validateDocument} from './document.mjs';
 import {panelOrientations} from './orientation.mjs';
-import {upgradeInventoryRegistry,inventoryScrollMode,assertInventoryGridLimits} from '../runtime/inventory-policy.mjs';
+import {upgradeInventoryRegistry,inventoryScrollMode,assertInventoryGridLimits,inventorySlotAssets} from '../runtime/inventory-policy.mjs';
 import {inventoryLayout,inventoryMinimum} from '../runtime/inventory-geometry.mjs';
 import {pngGeometry} from '../runtime/png-geometry.mjs';
 import {upgradeTextStyleRegistry,isTextColor} from '../runtime/text-style.mjs';
@@ -65,14 +65,14 @@ export function inventoryPresetDocument(ctx,input=defaultConfig,title,grid={}){
 // no sample items: caller data never passes through template placement rules.
 export function inventoryLayoutConfig(input=defaultConfig,{reference=true}={}){
   const source=validateInventoryConfig(input);
-  return {...Object.fromEntries(['gap','canvasMargin','contentGap','minPadding','headingHeight','orientations','appearance','cellTarget'].filter(key=>Object.hasOwn(source,key)).map(key=>[key,structuredClone(source[key])])),version:reference?'1.5':'1.3',scrollMode:inventoryScrollMode,surfaceLayer:reference?'inset':'content',...(reference?{frameScale:3,slotFit:inventorySlotFit,viewportFit:inventoryViewportFit,titleAlign:'center'}:{})};
+  return {...Object.fromEntries(['gap','canvasMargin','contentGap','minPadding','headingHeight','orientations','appearance','cellTarget'].filter(key=>Object.hasOwn(source,key)).map(key=>[key,structuredClone(source[key])])),version:reference?'1.6':'1.3',scrollMode:inventoryScrollMode,surfaceLayer:reference?'inset':'content',...(reference?{frameScale:3,slotFit:inventorySlotFit,viewportFit:inventoryViewportFit,titleAlign:'center',slotAssets:inventorySlotAssets}:{})};
 }
 export function validateInventoryLayoutConfig(input){
-  const fitted=input?.version==='1.5',fixed=['1.2','1.3','1.4','1.5'].includes(input?.version),layered=['1.3','1.4','1.5'].includes(input?.version),reference=['1.4','1.5'].includes(input?.version);
-  if(!exact(input,['version','gap','canvasMargin','contentGap','minPadding','headingHeight','orientations','appearance','cellTarget',...(fixed?['scrollMode']:[]),...(layered?['surfaceLayer']:[]),...(reference?['frameScale']:[]),...(fitted?['slotFit','viewportFit','titleAlign']:[])])||!['1.1','1.2','1.3','1.4','1.5'].includes(input.version)||fixed&&input.scrollMode!==inventoryScrollMode||layered&&input.surfaceLayer!==(reference?'inset':'content')||reference&&input.frameScale!==3||fitted&&(input.slotFit!==inventorySlotFit||input.viewportFit!==inventoryViewportFit||input.titleAlign!=='center'))fail('inventory.layout-config','模型仓库需要明确的紧凑布局、滚动与底板版本配置。');
+  const dedicated=input?.version==='1.6',fitted=['1.5','1.6'].includes(input?.version),fixed=['1.2','1.3','1.4','1.5','1.6'].includes(input?.version),layered=['1.3','1.4','1.5','1.6'].includes(input?.version),reference=['1.4','1.5','1.6'].includes(input?.version);
+  if(!exact(input,['version','gap','canvasMargin','contentGap','minPadding','headingHeight','orientations','appearance','cellTarget',...(fixed?['scrollMode']:[]),...(layered?['surfaceLayer']:[]),...(reference?['frameScale']:[]),...(fitted?['slotFit','viewportFit','titleAlign']:[]),...(dedicated?['slotAssets']:[])])||!['1.1','1.2','1.3','1.4','1.5','1.6'].includes(input.version)||fixed&&input.scrollMode!==inventoryScrollMode||layered&&input.surfaceLayer!==(reference?'inset':'content')||reference&&input.frameScale!==3||fitted&&(input.slotFit!==inventorySlotFit||input.viewportFit!==inventoryViewportFit||input.titleAlign!=='center')||dedicated&&input.slotAssets!==inventorySlotAssets)fail('inventory.layout-config','模型仓库需要明确的紧凑布局、滚动与底板版本配置。');
   // Reuse the existing layout policy validation; these examples are only a
   // schema witness and are never returned as document content.
-  const {surfaceLayer,frameScale,slotFit,viewportFit,titleAlign,...witness}=input;
+  const {surfaceLayer,frameScale,slotFit,viewportFit,titleAlign,slotAssets,...witness}=input;
   validateInventoryConfig({...witness,version:layered?'1.2':input.version,kind:'ui_inventory_panel_config',presetId:'inventory',columns:1,rows:1,defaultTitle:'仓库',samplePlacement:'preserve-default-or-sequential',items:[{id:'validation',label:'验证',enabled:true,slotIndex:0,quantity:1,description:'验证',icon:'gem'}]});
   return structuredClone(input);
 }
@@ -81,7 +81,7 @@ export function inventoryContentDocument(ctx,{title,sectionTitle=title,label=sec
   for(const value of headings)if(inventoryTitle(value)!==value)fail('inventory.title','标题与分组标签不能包含首尾空白。');
   // One inventory has one semantic grid. Its upstream section/row wrappers stay
   // in exported content; only an explicit caller opts into visible group labels.
-  const reference=['1.4','1.5'].includes(config.version)&&ctx.surfaceCompositionEnabled!==false&&ctx.surfaceLayersEnabled!==false;
+  const reference=['1.4','1.5','1.6'].includes(config.version)&&ctx.surfaceCompositionEnabled!==false&&ctx.surfaceLayersEnabled!==false;
   return buildInventoryDocument(ctx,config,title,structuredClone(props),reference&&ctx.inventoryShowGroupHeading!==true?[]:[...new Set(headings)].slice(1));
 }
 function buildInventoryDocument(ctx,config,title,props,extraHeadings=[]){
@@ -89,8 +89,8 @@ function buildInventoryDocument(ctx,config,title,props,extraHeadings=[]){
   if(!orientation||panelOrientations(orientation).length!==1)fail('inventory.orientation','请先选择仓库面板的 16:9 或 9:16 画布。');
   ctx=inventoryPresetContext(ctx);
   if(ctx.inventoryHeadingColor!==undefined&&!isTextColor(ctx.inventoryHeadingColor))fail('inventory.color','仓库标题颜色证据无效。');
-  if(config.version==='1.5')props={...props,inventory:{...props.inventory,slotFit:config.slotFit,viewportFit:config.viewportFit}};
-  const board=ctx.canvases.presets[orientation],surface=config.orientations[orientation],compact=['1.1','1.2','1.3','1.4','1.5'].includes(config.version),chosen=props.inventory,fixed=chosen.scrollMode===inventoryScrollMode,reference=['1.4','1.5'].includes(config.version)&&ctx.surfaceCompositionEnabled!==false&&ctx.surfaceLayersEnabled!==false,layered=['content','inset'].includes(config.surfaceLayer)&&ctx.surfaceLayersEnabled!==false,layer=reference?'inset':'content',frameScale=reference?config.frameScale:1,geometryOptions=layered?{surfaceLayer:layer}:undefined;
+  if(['1.5','1.6'].includes(config.version))props={...props,inventory:{...props.inventory,slotFit:config.slotFit,viewportFit:config.viewportFit,...(config.version==='1.6'?{slotAssets:config.slotAssets}:{})}};
+  const board=ctx.canvases.presets[orientation],surface=config.orientations[orientation],compact=['1.1','1.2','1.3','1.4','1.5','1.6'].includes(config.version),chosen=props.inventory,fixed=chosen.scrollMode===inventoryScrollMode,reference=['1.4','1.5','1.6'].includes(config.version)&&ctx.surfaceCompositionEnabled!==false&&ctx.surfaceLayersEnabled!==false,layered=['content','inset'].includes(config.surfaceLayer)&&ctx.surfaceLayersEnabled!==false,layer=reference?'inset':'content',frameScale=reference?config.frameScale:1,geometryOptions=layered?{surfaceLayer:layer}:undefined;
   if(!compact&&(surface.width>board.width-2*config.canvasMargin||surface.height>board.height-2*config.canvasMargin))fail('inventory.canvas','仓库面板超过所选画布的安全边界。');
   if(ctx.binding.sourceKind==='imported'&&!ctx.skinGeometry)fail('inventory.skin-geometry','仓库缺少经过核验的皮肤安全区证据。');
   const skin=ctx.binding.sourceKind==='imported'?pngGeometry(ctx.skinGeometry,ctx.profile):null;
@@ -99,7 +99,7 @@ function buildInventoryDocument(ctx,config,title,props,extraHeadings=[]){
   const padding=Object.fromEntries(Object.entries(safe).map(([key,value])=>[key,Math.max(value,config.minPadding)]));
   const padWidth=padding.left+padding.right,padHeight=padding.top+padding.bottom;
   const headingStyle=(width,index)=>layered?headingPresentation(ctx,index?'section':'title',width,config.headingHeight,{layered,reference,centered:index===0&&config.titleAlign==='center'}):{height:config.headingHeight,insets:{left:0,right:0,top:0,bottom:0}};
-  const headingFor=(width,value=title,index=0)=>{const style=headingStyle(width,index),p=style.insets,fontSize=style.fontSize??ctx.profile.fontSize,lineHeight=style.fontSize?Math.max(ctx.profile.geometry.lineHeight,Math.ceil(fontSize*1.7*(style.lineHeightScale??1))):ctx.profile.geometry.lineHeight;return Math.max(style.height,lineHeight*Math.max(1,Math.ceil((config.version==='1.5'?[...value].reduce((units,c)=>units+(/[a-z]/.test(c)?.8:c===' '?.6:1.1),0):[...value].length*1.1)*fontSize*(style.textWidthScale??1)/Math.max(1,width-p.left-p.right-fontSize)))+p.top+p.bottom);};
+  const headingFor=(width,value=title,index=0)=>{const style=headingStyle(width,index),p=style.insets,fontSize=style.fontSize??ctx.profile.fontSize,lineHeight=style.fontSize?Math.max(ctx.profile.geometry.lineHeight,Math.ceil(fontSize*1.7*(style.lineHeightScale??1))):ctx.profile.geometry.lineHeight;return Math.max(style.height,lineHeight*Math.max(1,Math.ceil((['1.5','1.6'].includes(config.version)?[...value].reduce((units,c)=>units+(/[a-z]/.test(c)?.8:c===' '?.6:1.1),0):[...value].length*1.1)*fontSize*(style.textWidthScale??1)/Math.max(1,width-p.left-p.right-fontSize)))+p.top+p.bottom);};
   const headingsFor=width=>[title,...extraHeadings].reduce((sum,value,index)=>sum+headingFor(width,value,index),0)+extraHeadings.length*config.contentGap;
   let surfaceWidth=surface.width,surfaceHeight=surface.height,width,height,headingHeight,bodyHeight;
   if(compact){
@@ -111,7 +111,7 @@ function buildInventoryDocument(ctx,config,title,props,extraHeadings=[]){
     const side=fixed?target:Math.max(probe.cell.minimum,Math.min(target,Math.floor((width-extraWidth-gap*(chosen.columns-1))/chosen.columns))),naturalHeight=chosen.rows*side+gap*(chosen.rows-1);
     const extraHeight=surface.details==='below'?minimum.height-probe.cell.minimum:0;
     headingHeight=headingsFor(width);height=Math.min(maxHeight-headingHeight-config.contentGap,Math.max(minimum.height,naturalHeight+extraHeight));
-    if(config.version==='1.5')height=inventoryLayout(ctx.profile,props,width,height,layoutGeometry,geometryOptions).naturalHeight;
+    if(['1.5','1.6'].includes(config.version))height=inventoryLayout(ctx.profile,props,width,height,layoutGeometry,geometryOptions).naturalHeight;
     bodyHeight=headingHeight+config.contentGap+height;surfaceWidth=width+padWidth;surfaceHeight=bodyHeight+padHeight;
   }else{
     width=surfaceWidth-padWidth;bodyHeight=surfaceHeight-padHeight;headingHeight=headingFor(width);height=bodyHeight-headingHeight-config.contentGap;

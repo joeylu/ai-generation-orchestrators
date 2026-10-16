@@ -11,7 +11,8 @@ import {surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 const upstreamCatalog=await readPanelSdkJson('examples/modern-readable-game-grid-layout.catalog.json');
 // Exact legacy capability snapshot: existing immutable plans are verified with
 // their original geometry policy rather than upgraded during conversion.
-const referenceCapabilities=structuredClone(capabilities);referenceCapabilities.version='1.3';
+const fittedCapabilities=structuredClone(capabilities);fittedCapabilities.version='1.4';delete fittedCapabilities.slotAssets;
+const referenceCapabilities=structuredClone(fittedCapabilities);referenceCapabilities.version='1.3';
 for(const key of ['slotFit','viewportFit','titleAlign'])delete referenceCapabilities[key];
 const legacyCapabilities=structuredClone(referenceCapabilities);
 legacyCapabilities.version='1.0';legacyCapabilities.columns.maximum=10;legacyCapabilities.rows.maximum=10;
@@ -27,7 +28,7 @@ const gridKeys=['rows','columns','cellWidth','cellHeight','spacingX','spacingY',
 // Keep structural wrapper names quiet unless the request explicitly calls for
 // a visible heading. This changes presentation only, never model content.
 function groupHeadingContext(ctx,policy,request){
-  if(!['1.3','1.4'].includes(policy.version)||typeof ctx.inventoryShowGroupHeading==='boolean')return ctx;
+  if(!['1.3','1.4','1.5'].includes(policy.version)||typeof ctx.inventoryShowGroupHeading==='boolean')return ctx;
   const text=String(request??'');
   const explicit=[...text.matchAll(/分组标题|分区标题|区域标题|小标题|格位标题/g)].some(match=>{
     const before=text.slice(0,match.index).split(/[，。；！？,;!?\n]/).at(-1).replace(/\s/g,''),after=text.slice(match.index+match[0].length).replace(/^\s*[:：]?\s*/, '');
@@ -86,15 +87,15 @@ export function inventoryActionConfig(baseConfig,ctx){
     ...structuredClone(baseConfig),intentVersion:capabilities.intentVersion,themeKey:theme.id+'@'+theme.version,
     recipes:{[capabilities.recipeKey]:{kind:'inventory',recipe:'list'}},
     presets:{inventory:{surface:'panel',maxFields:1,maxActions:0,kinds:['inventory'],dismissOnEmit:false}},
-    inventoryPlanning:{kind:'ui_chain_inventory_planning',version:'1.4',orientation:ctx.orientation,catalog,layout,programGrid:programGrid(ctx,layout,chosen),capabilities:structuredClone(capabilities)},
+    inventoryPlanning:{kind:'ui_chain_inventory_planning',version:'1.5',orientation:ctx.orientation,catalog,layout,programGrid:programGrid(ctx,layout,chosen),capabilities:structuredClone(capabilities)},
   };
 }
 
 /** Recheck frozen plan data without replacing it with mutable current defaults. */
 export function validateInventoryActionConfig(config,ctx){
   const policy=config?.inventoryPlanning,grid=policy?.programGrid;
-  const fitted=policy?.version==='1.4',fixed=['1.1','1.2','1.3','1.4'].includes(policy?.version),layered=['1.2','1.3','1.4'].includes(policy?.version),reference=['1.3','1.4'].includes(policy?.version),expectedCapabilities=fitted?capabilities:reference?referenceCapabilities:layered?layeredCapabilities:fixed?fixedCapabilities:legacyCapabilities;
-  if(config?.version!=='1.0'||config.intentVersion!=='0.13'||!exact(policy,['kind','version','orientation','catalog','layout','programGrid','capabilities'])||policy.kind!=='ui_chain_inventory_planning'||!['1.0','1.1','1.2','1.3','1.4'].includes(policy.version)||!['landscape','portrait'].includes(policy.orientation)||!same(policy.capabilities,expectedCapabilities)||policy.layout?.version!==(fitted?'1.5':reference?'1.4':layered?'1.3':fixed?'1.2':'1.1'))fail('config','库存规划配置不受当前转换器支持。');
+  const dedicated=policy?.version==='1.5',fitted=['1.4','1.5'].includes(policy?.version),fixed=['1.1','1.2','1.3','1.4','1.5'].includes(policy?.version),layered=['1.2','1.3','1.4','1.5'].includes(policy?.version),reference=['1.3','1.4','1.5'].includes(policy?.version),expectedCapabilities=dedicated?capabilities:fitted?fittedCapabilities:reference?referenceCapabilities:layered?layeredCapabilities:fixed?fixedCapabilities:legacyCapabilities;
+  if(config?.version!=='1.0'||config.intentVersion!=='0.13'||!exact(policy,['kind','version','orientation','catalog','layout','programGrid','capabilities'])||policy.kind!=='ui_chain_inventory_planning'||!['1.0','1.1','1.2','1.3','1.4','1.5'].includes(policy.version)||!['landscape','portrait'].includes(policy.orientation)||!same(policy.capabilities,expectedCapabilities)||policy.layout?.version!==(dedicated?'1.6':fitted?'1.5':reference?'1.4':layered?'1.3':fixed?'1.2':'1.1'))fail('config','库存规划配置不受当前转换器支持。');
   if(!same(config.presets,{inventory:{surface:'panel',maxFields:1,maxActions:0,kinds:['inventory'],dismissOnEmit:false}})||!same(config.recipes,{[capabilities.recipeKey]:{kind:'inventory',recipe:'list'}}))fail('config','库存配方与控件能力必须显式匹配。');
   validateInventoryLayoutConfig(policy.layout);
   const catalog=policy.catalog,theme=catalog?.themes?.[0];

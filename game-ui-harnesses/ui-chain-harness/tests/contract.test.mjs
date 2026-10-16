@@ -39,10 +39,28 @@ for (const [title, change, path, code] of cases) test(title, () => {
 
 test('one JSON extension reaches catalog, tables, model projection and consumer index', () => {
   const spec = extended(), catalog = deriveCatalog(spec,'example-digest');
-  assert.equal(catalog.sheetCount,5); assert.equal(catalog.partCount,31);
+  assert.equal(catalog.sheetCount,5); assert.equal(catalog.partCount,33);
   assert.ok(catalog.consumerIndex.Panel.includes('surface.extra'));
   assert.ok(deriveOverview(catalog).includes('| E01 | surface.extra |'));
   assert.equal(deriveModelProjection(spec,'example-digest').sheets[4].parts[0].assetId,'surface.extra');
   assert.equal(catalog.unresolvedPolicyCount,3);
   assert.equal(catalog.assets[0].sliceInsets,null);
+});
+
+test('square inventory slots occupy the two remaining S04 cells as one aligned uniform state family', () => {
+  const spec = clone(), sheet = spec.sheets.find(s => s.id === 'S04');
+  const slots = sheet.parts.filter(p => p.assetId.startsWith('slot.'));
+  assert.equal(spec.revision,3);
+  assert.equal(spec.sheets.length,4);
+  assert.equal(spec.sheets.flatMap(s => s.parts).length,32);
+  assert.deepEqual(slots.map(p => [p.code,p.assetId,p.state,p.bodyRect,p.slotRect]),[
+    ['D08','slot.normal','normal',[760,432,160,160],[688,360,304,304]],
+    ['D09','slot.selected','selected',[760,760,160,160],[688,688,304,304]],
+  ]);
+  assert.ok(slots.every(p => p.stretch === 'uniform' && p.productionPolicy === 'raster-candidate'));
+  assert.deepEqual(spec.stateGroups.find(g => g.id === 'slot').assetIds,['slot.normal','slot.selected']);
+  assert.deepEqual(validateTemplate(spec),[]);
+  const changed = structuredClone(spec);
+  changed.sheets.find(s => s.id === 'S04').parts.find(p => p.assetId === 'slot.selected').bodyRect[2]--;
+  assert.ok(validateTemplate(changed).some(i => i.code === 'state.geometry'));
 });

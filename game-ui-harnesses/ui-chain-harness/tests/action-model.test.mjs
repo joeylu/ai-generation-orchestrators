@@ -58,7 +58,8 @@ test('inventory planning selects its own prompt and catalog without replacing ot
   assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.2'}}).instructions,'prompts/inventory-planner.md');
   assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.3'}}).instructions,'prompts/inventory-planner.md');
   assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.4'}}).instructions,'prompts/inventory-planner.md');
-  for(const version of [undefined,'future','1.5'])assert.throws(()=>actionPlanningFiles('inventory',{inventoryPlanning:{version}}),{code:'CONSUMER_CHANGED_REPLAN'});
+  assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.5'}}).instructions,'prompts/inventory-planner.md');
+  for(const version of [undefined,'future','1.6'])assert.throws(()=>actionPlanningFiles('inventory',{inventoryPlanning:{version}}),{code:'CONSUMER_CHANGED_REPLAN'});
 });
 
 test('the conversion producer cannot publish a passed result without actual transport evidence',async()=>{

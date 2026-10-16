@@ -7,7 +7,7 @@ import { buildTemplates, templateStatus } from '../../src/templates/build.mjs';
 import { extended, small, workspace } from '../helpers.mjs';
 
 for (const [title, makeSpec, count, parts, pixels] of [
-  ['new part and fifth sheet from JSON',extended,10,31,1024],
+  ['new part and fifth sheet from JSON',extended,10,33,1024],
   ['512 logical square at 2x output',small,2,2,1024],
 ]) test(title,{ timeout: 120000 },async () => {
   const spec = makeSpec(), w = await workspace(spec);

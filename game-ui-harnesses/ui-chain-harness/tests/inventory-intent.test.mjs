@@ -26,7 +26,7 @@ test('the dedicated public planning session enables inventory 0.13 and verifies 
   const catalog=inventoryPlanningCatalog(config);assert.deepEqual(catalog.recipes.map(recipe=>recipe.kind),['inventory-row','text-row']);
   assert.deepEqual(config.inventoryPlanning.capabilities.icons,[null]);assert.equal(config.inventoryPlanning.capabilities.descriptions,'not-in-upstream-intent');
   assert.equal(config.inventoryPlanning.programGrid.rows,4);assert.equal(config.inventoryPlanning.programGrid.columns,5);
-  assert.equal(config.inventoryPlanning.version,'1.4');assert.equal(config.inventoryPlanning.layout.version,'1.5');assert.equal(config.inventoryPlanning.layout.scrollMode,inventoryScrollMode);
+  assert.equal(config.inventoryPlanning.version,'1.5');assert.equal(config.inventoryPlanning.layout.version,'1.6');assert.equal(config.inventoryPlanning.layout.slotAssets,'dedicated-square-v1');assert.equal(config.inventoryPlanning.layout.scrollMode,inventoryScrollMode);
   assert.equal(config.inventoryPlanning.layout.surfaceLayer,'inset');assert.equal(config.inventoryPlanning.layout.frameScale,3);
   catalog.recipes[0].description='changed';assert.notEqual(config.inventoryPlanning.catalog.recipes[0].description,'changed');
 });
@@ -88,7 +88,7 @@ test('new plans reject frozen geometry over 4000 before conversion',async()=>{
 
 test('legacy frozen planning 1.0 retains its capabilities and vertical fit geometry',async()=>{
   const {ctx,config}=await fixture(),legacy=structuredClone(config),policy=legacy.inventoryPlanning;
-  policy.version='1.0';policy.layout.version='1.1';delete policy.layout.scrollMode;delete policy.layout.surfaceLayer;delete policy.layout.frameScale;for(const key of ['slotFit','viewportFit','titleAlign']){delete policy.layout[key];delete policy.capabilities[key];}
+  policy.version='1.0';policy.layout.version='1.1';delete policy.layout.scrollMode;delete policy.layout.surfaceLayer;delete policy.layout.frameScale;for(const key of ['slotFit','viewportFit','titleAlign','slotAssets']){delete policy.layout[key];delete policy.capabilities[key];}
   policy.capabilities.version='1.0';policy.capabilities.columns.maximum=10;policy.capabilities.rows.maximum=10;
   for(const key of ['maximumCells','maximumGridDimension','scrollMode','surfaceLayer','frameScale'])delete policy.capabilities[key];
   assert.deepEqual(validateInventoryActionConfig(legacy,ctx),legacy);
@@ -101,7 +101,7 @@ test('legacy frozen planning 1.0 retains its capabilities and vertical fit geome
 test('frozen planning 1.1 and 1.2 retain their exact surface capabilities and all independent visible headings',async()=>{
   for(const version of ['1.1','1.2']){
     const {ctx,config}=await fixture(),legacy=structuredClone(config),policy=legacy.inventoryPlanning;
-    policy.version=version;policy.layout.version=version==='1.2'?'1.3':'1.2';delete policy.layout.frameScale;for(const key of ['slotFit','viewportFit','titleAlign']){delete policy.layout[key];delete policy.capabilities[key];}
+    policy.version=version;policy.layout.version=version==='1.2'?'1.3':'1.2';delete policy.layout.frameScale;for(const key of ['slotFit','viewportFit','titleAlign','slotAssets']){delete policy.layout[key];delete policy.capabilities[key];}
     policy.capabilities.version=version;delete policy.capabilities.frameScale;
     if(version==='1.2'){policy.layout.surfaceLayer='content';policy.capabilities.surfaceLayer='content';}
     else{delete policy.layout.surfaceLayer;delete policy.capabilities.surfaceLayer;}
@@ -129,7 +129,7 @@ test('reference inventory reserves the scaled main corners and leaves grid/detai
 
 test('reference layout fields are frozen and cannot disguise a decorated content board or a different frame scale',()=>{
   const current=inventoryLayoutConfig(),legacy=inventoryLayoutConfig(undefined,{reference:false});
-  assert.deepEqual(validateInventoryLayoutConfig(current),current);assert.equal(current.version,'1.5');assert.equal(current.frameScale,3);
+  assert.deepEqual(validateInventoryLayoutConfig(current),current);assert.equal(current.version,'1.6');assert.equal(current.frameScale,3);
   assert.deepEqual(validateInventoryLayoutConfig(legacy),legacy);assert.equal(legacy.version,'1.3');assert.equal(legacy.surfaceLayer,'content');assert.equal(Object.hasOwn(legacy,'frameScale'),false);
   for(const mutate of [c=>c.surfaceLayer='content',c=>c.frameScale=1,c=>delete c.frameScale,c=>c.extra=true]){const changed=structuredClone(current);mutate(changed);assert.throws(()=>validateInventoryLayoutConfig(changed),{code:'inventory.layout-config'});}
   const changed=structuredClone(legacy);changed.frameScale=3;assert.throws(()=>validateInventoryLayoutConfig(changed),{code:'inventory.layout-config'});

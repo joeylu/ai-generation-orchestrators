@@ -1,6 +1,6 @@
 # 固定皮肤任务 DAG
 
-当前可执行入口包括已有四张组件原图与 metadata profile，以及完整生成批次的核验接入。批次可额外包含 S05 材质图；四张组件图和 30 部件合同不变。Studio 和整批执行器已连接生成与后处理，但本 DAG 只执行确定性步骤。参考输入、计算确认和四次或五次模型提交属于其上游外部阶段。source-s01 等节点表示文件完整性检查，不代表本任务调用模型成功。
+当前可执行入口包括已有四张组件原图与 metadata profile，以及完整生成批次的核验接入。批次可额外包含S05材质图；基础四图数量由冻结模板决定（修订3为32件，修订2为30件）。Studio和整批执行器已连接生成与后处理，但本DAG只执行确定性步骤。参考输入、计算确认和四次或五次模型提交属于其上游外部阶段。source-s01等节点表示文件完整性检查，不代表本任务调用模型成功。
 
 维护图：configs/skin-task-dag.json。维护参数：skin-metadata-policy.json、skin-content-insets-policy.json及各皮肤metadata-profile.json。节点由固定处理器执行，不允许配置任意shell或provider调用。当前按拓扑顺序串行调度；四个源节点依赖独立，汇合节点必须等待全部源节点完成。尚无并发调度器或可视化编排器。
 
@@ -38,7 +38,7 @@ npm run skins:task -- create --batch work/skins/<id>/batches/<digest> --sha256 <
 
 批次沿用已有目录约定：同一皮肤下的 batches/<digest>、plans/<plan-digest>、attempts/<plan-digest>。`--input` 与 `--batch` 互斥。四张组件图缺失、批次所含 S05 尚无完整回执或摘要不一致时，不能创建下游任务。摘要关联覆盖批次、全部计划、参考图、风格与冻结资源、预留记录、提交结果、接收声明、原图、检查报告、回执和补图链。生成证据原字节复制到任务 input/generation 中并纳入后续恢复验证；外部原目录之后变化不影响已冻结任务。
 
-含 S05 时，`input/materials/source.png`、`template.json` 和 `material-atlas.json` 共同冻结有效材质来源、最终计划摘要和模板摘要，全部进入任务输入 inventory。补图后取验证通过的最新来源，不将旧坏图混入有效源清单。材质提取不会改基础 30 部件，也不会手工补写 manifest。
+含 S05 时，`input/materials/source.png`、`template.json` 和 `material-atlas.json` 共同冻结有效材质来源、最终计划摘要和模板摘要，全部进入任务输入 inventory。补图后取验证通过的最新来源，不将旧坏图混入有效源清单。材质提取不会改基础部件，也不会手工补写 manifest。
 
 S05 提取若发现 alpha=0 的不可见 RGB 非零，postprocess 保留冻结 raw 和其原 SHA-256，另写规范化派生 PNG，只将这些不可见像素的 RGB 清零。可见 RGB、所有 alpha、尺寸和源采样均不变；材质绑定派生摘要，报告记录原始/派生源、变更像素数及可见 RGB/alpha 变更均为 0。恢复与验证从冻结 raw 重放派生字节、裁切和摘要，不用派生图替换原始生成证据。详见[材质合同](skin-surfaces.md)。
 

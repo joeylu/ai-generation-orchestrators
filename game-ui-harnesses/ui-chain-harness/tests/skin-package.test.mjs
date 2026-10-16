@@ -45,9 +45,10 @@ test('PNG crop retains fractional alpha and zeroes RGB only at alpha zero',()=>{
   const corrupt=encodePng(source);corrupt[40]^=1;assert.throws(()=>decodePng(corrupt),{code:'skin.png'});
   assert.throws(()=>decodePng(Buffer.from('not png')),{code:'skin.png'});
 });
-test('package roundtrip carries all 30 independent assets, sources, font/license and remains unreviewed',async()=>{
+test('package roundtrip carries all 32 independent assets, sources, font/license and remains unreviewed',async()=>{
   const s=await setup(),built=await s.build(),r=await verifySkinPackage(join(built.directory,'pack'));
-  assert.equal(r.pack.assets.length,30);assert.equal(r.pack.sources.length,4);assert.equal(r.pack.visualAcceptance,'unreviewed');assert.equal(r.pack.sourceKind,'fixture');
+  assert.equal(r.pack.assets.length,32);assert.equal(r.pack.sources.length,4);assert.equal(r.pack.visualAcceptance,'unreviewed');assert.equal(r.pack.sourceKind,'fixture');
+  for(const id of ['slot.normal','slot.selected'])assert.equal(r.pack.roles.find(role=>role.role==='skin.'+id).assetId,id);
   assert.equal((await skinPackageStatus(s.output)).status,'current');
   assert.ok(r.pack.assets.every(a=>r.resources.has(a.file)));assert.equal(r.pack.fonts.length,1);
   assert.equal(r.textReadability.status,'passed');assert.ok(Object.keys(r.pack.theme.textColors).length>0);

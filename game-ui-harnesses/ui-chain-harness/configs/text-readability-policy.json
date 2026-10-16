@@ -6,5 +6,5 @@
   "sampleGrid": 17,
   "minimumOpaqueSamples": 16,
   "minimumAlpha": 240,
-  "surfaceRolePattern": "^skin\\.(surface\\.|button\\.|field\\.|item\\.|tab\\.)"
+  "surfaceRolePattern": "^skin\\.(surface\\.|button\\.|field\\.|item\\.|slot\\.|tab\\.)"
 }

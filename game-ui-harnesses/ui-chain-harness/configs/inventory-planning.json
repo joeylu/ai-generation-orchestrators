@@ -1,6 +1,6 @@
 {
   "kind": "ui_chain_inventory_planning_capabilities",
-  "version": "1.4",
+  "version": "1.5",
   "intentVersion": "0.13",
   "recipeKey": "inventory.grid@0.1.0",
   "rowKinds": [
@@ -47,5 +47,6 @@
   ],
   "slotFit": "visible-square-v1",
   "viewportFit": "whole-slots-v1",
-  "titleAlign": "center"
+  "titleAlign": "center",
+  "slotAssets": "dedicated-square-v1"
 }

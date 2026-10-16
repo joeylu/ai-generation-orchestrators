@@ -133,7 +133,7 @@
       "minProperties": 1,
       "type": "object",
       "patternProperties": {
-        "^skin\\.(surface\\.|button\\.|field\\.|item\\.|tab\\.)[a-zA-Z0-9.-]+$": {
+        "^skin\\.(surface\\.|button\\.|field\\.|item\\.|slot\\.|tab\\.)[a-zA-Z0-9.-]+$": {
           "$ref": "#/definitions/color"
         }
       }

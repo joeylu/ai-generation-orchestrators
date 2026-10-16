@@ -26,3 +26,11 @@ test('sampling accounts for density and refuses empty safe regions',()=>{
  const result=sampleSurface(image((x)=>x<32?[255,255,255,255]:[15,25,35,255]),a,1);
  assert(result.colors.every(c=>c[0]===15));a.contentInsets.right=16;assert.equal(sampleSurface(image([0,0,0,255]),a,1).colors.length,0);
 });
+
+test('dedicated square slot states derive readable inks from their own source pixels',()=>{
+ const p={scale:1,theme:{},roles:[{role:'skin.slot.normal',assetId:'slot.normal'},{role:'skin.slot.selected',assetId:'slot.selected'}],assets:[asset('slot.normal'),asset('slot.selected')]};
+ const result=deriveTextReadability(p,new Map([['slot.normal',image([245,220,170,255])],['slot.selected',image([20,35,55,255])]]));
+ assert.equal(result.inks['skin.slot.normal'],policy.dark);assert.equal(result.inks['skin.slot.selected'],policy.light);
+ assert.equal(result.report.status,'passed');assert.equal(result.report.checks.length,2);
+ assert.deepEqual(result.report.checks.map(check=>check.assetId),['slot.normal','slot.selected']);
+});

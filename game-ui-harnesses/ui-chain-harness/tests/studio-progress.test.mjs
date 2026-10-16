@@ -58,3 +58,12 @@ test('material batch progress waits for S05 and labels 30 components separately 
  assert.equal(batchPresentation({}).sheetTotal,4);assert.equal(batchPresentation({materialGeneration:true}).sheetTotal,4);
  assert.deepEqual(batch.sheetIds,['S01','S02','S03','S04','S05']);
 });
+
+test('batch descriptions derive square-slot and material counts from frozen plans while legacy counts stay unchanged',()=>{
+ const sheets=[4,10,9,9,3].map((assets,index)=>({sheetId:'S0'+(index+1),assets}));
+ assert.match(batchPresentation({sheets,assets:35}).assetDescription,/32 个基础部件 \+ 3 个材质/);
+ assert.match(batchPresentation({sheets:sheets.slice(0,4),assets:32}).assetDescription,/32 个通用部件/);
+ assert.match(batchPresentation({assets:35,state:{nodes:[{sheetId:'S05'}]}}).assetDescription,/32 个基础部件 \+ 3 个材质/);
+ assert.match(batchPresentation({}).assetDescription,/30 个通用部件/);
+ assert.match(batchPresentation({sheets:[4,10,9,7,3].map((assets,index)=>({sheetId:'S0'+(index+1),assets}))}).assetDescription,/30 个基础部件 \+ 3 个材质/);
+});
