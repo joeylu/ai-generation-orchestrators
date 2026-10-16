@@ -56,5 +56,7 @@ jobs:
           name: component-pipeline-${{ matrix.os }}
           path: |
             game-ui-harnesses/ui-chain-harness/work/component-pipeline-check/
+            game-ui-harnesses/ui-chain-harness/work/skin-tasks/
+            game-ui-harnesses/ui-chain-harness/work/skin-postprocess/
             game-ui-harnesses/ui-chain-harness/work/releases/
           if-no-files-found: ignore

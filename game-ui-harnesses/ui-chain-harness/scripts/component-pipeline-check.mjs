@@ -5,6 +5,7 @@ import {join,resolve,relative,dirname,isAbsolute,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
+import {homedir} from 'node:os';
 import {parseArgs,promisify} from 'node:util';
 import {prepareSkinBatch} from './skin-batch.mjs';
 import {buildTemplates} from '../src/templates/build.mjs';
@@ -74,7 +75,31 @@ export async function checkComponentPipeline({output=join(root,'work/component-p
   assert.deepEqual(await inventory(skinDirectory),generationEvidence,'Repeated execution changed frozen generation evidence');
   const command=async(script,args)=>{
    try{return JSON.parse((await exec(process.execPath,[join(root,'scripts',script),...args],{cwd:root,env:{...process.env,UI_CHAIN_TEST_BROWSER:browser},windowsHide:true,maxBuffer:8*1024*1024,timeout:900000})).stdout);}
-   catch(error){let report;for(const text of [error.stdout,error.stderr])try{report=JSON.parse(text);break;}catch{}throw Object.assign(Error('COMPONENT_PIPELINE_COMMAND_FAILED'),{stage,detailCode:report?.code??error.code});}
+   catch(error){
+    let report;for(const text of [error.stdout,error.stderr])try{report=JSON.parse(text);break;}catch{}
+    // Only this zero-provider synthetic check records bounded child diagnostics.
+    // Keep host paths out of CI logs and artifacts, including JSON-escaped paths.
+    const substitutions=[[root,'<harness-root>/'],[process.execPath,'<node>'],[homedir(),'<home>']].flatMap(([path,label])=>[...new Set([path,path.replaceAll('\\','/'),path.replaceAll('\\','\\\\'),path.replaceAll('/','\\')])].filter(Boolean).map(value=>({value,label}))).sort((a,b)=>b.value.length-a.value.length);
+    const bounded=(value,limit=65536)=>{
+     let text=String(value??'');
+     for(const {value:from,label}of substitutions){const expression=from.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');text=text.replace(new RegExp(expression,'gi'),label);}
+     return text.length<=limit?text:text.slice(0,2048)+'\n<diagnostic truncated>\n'+text.slice(-(limit-2072));
+    };
+    const nested=[];let current=report;
+    for(let depth=0;current&&depth<5;depth++){
+     nested.push({code:current.code??null,stage:current.stage??current.failedStage??null,message:bounded(current.message,4096)});
+     const detail=current.detail??current.stderr??current.error;
+     if(typeof detail==='string'){try{current=JSON.parse(detail);}catch{nested.push({detail:bounded(detail,16384)});break;}}
+     else if(detail&&typeof detail==='object')current=detail;
+     else break;
+    }
+    const diagnosticFile='command-failure-'+randomUUID()+'.json',diagnostic={kind:'ui_component_pipeline_command_failure',version:'1.0',stage,script,arguments:args.map(arg=>bounded(arg,2048)),exitCode:error.code??null,killed:error.killed===true,stdout:bounded(error.stdout),stderr:bounded(error.stderr),parsedReport:report?bounded(JSON.stringify(report)):null,nested,realModelCalls:0,providerCalls:0};
+    let diagnosticSaved=false;
+    try{await writeFile(join(directory,diagnosticFile),json(diagnostic),{flag:'wx'});diagnosticSaved=true;}catch{}
+    const detailCode=report?.code??error.code;
+    console.error(json({code:'COMPONENT_PIPELINE_COMMAND_FAILED',stage,detailCode,diagnostic:diagnosticSaved?rel(join(directory,diagnosticFile)):null,nested,realModelCalls:0,providerCalls:0}));
+    throw Object.assign(Error('COMPONENT_PIPELINE_COMMAND_FAILED'),{stage,detailCode,diagnostic:diagnosticSaved?rel(join(directory,diagnosticFile)):null,nested});
+   }
   };
   stage='task-create';await progress(stage);
   const created=await command('skin-task.mjs',['create','--batch',batch.directory,'--sha256',batch.batchSha256,'--profile',profile]);
