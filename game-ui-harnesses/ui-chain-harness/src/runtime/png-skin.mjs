@@ -6,7 +6,7 @@ import {assertPngComponent} from './png-geometry.mjs';
 import {visibleSelectionBounds} from './selection-geometry.mjs';
 import {deriveTextReadability,textRoles} from '../skins/text-readability.mjs';
 import {prepareSurfaceTextRegions} from './surface-text-box.mjs';
-import {runtimeRoleInk as resolveRuntimeRoleInk} from './derived-text-ink.mjs';
+import {runtimeRoleInk as resolveRuntimeRoleInk,prepareRuntimeContentInk} from './derived-text-ink.mjs';
 import {prepareReferenceHeadingBands,referenceHeadingLayer} from './heading-band.mjs';
 import {inventorySlotCrop} from './inventory-slot-fit.mjs';
 
@@ -33,7 +33,7 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
       pixelAssets.add(layer.assetId);if(referenceHeadingLayer(layer,allAssets.get(layer.assetId)))bandAssets.add(layer.assetId);
     }
   }
-  let runtimeSurfaceTextRegions,runtimeTextReadability,runtimeHeadingBands;
+  let runtimeSurfaceTextRegions,runtimeTextReadability,runtimeHeadingBands,runtimeContentInk;
   let disposed=false, total=0;
   const bytesOf = async f => {
     const bytes=new Uint8Array(await read(f.file)); total+=bytes.byteLength;
@@ -88,6 +88,7 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
     // frozen profile, package metadata or sampled source acceptance report.
     runtimeSurfaceTextRegions=prepareSurfaceTextRegions(pack,pixelImages);
     runtimeTextReadability=deriveTextReadability(pack,pixelImages,{preserve:true});
+    runtimeContentInk=prepareRuntimeContentInk(pack,pixelImages);
     runtimeHeadingBands=prepareReferenceHeadingBands(pack,pixelImages);
     runtimeInventorySlotFit=inventorySlotCrop(slotAssets.filter(id=>pixelImages.has(id)).map(assetId=>({assetId,image:pixelImages.get(assetId),resolution:usages.get(assetId).resolution,borders:usages.get(assetId).borders})));
     if(runtimeInventorySlotFit.status==='normalized')for(const state of runtimeInventorySlotFit.states){
@@ -102,7 +103,7 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
     };
     return {
       sourceKind:pack.sourceKind, format:'png-pack', manifestSha256, visualAcceptance:pack.visualAcceptance,
-      profile,textures,metadata,roles,runtimeSurfaceTextRegions,runtimeTextReadability,runtimeHeadingBands,runtimeHeadingBandTextures,runtimeInventorySlotFit,
+      profile,textures,metadata,roles,runtimeSurfaceTextRegions,runtimeTextReadability,runtimeContentInk,runtimeHeadingBands,runtimeHeadingBandTextures,runtimeInventorySlotFit,
       inventorySlotView(role,width,height){
         this.assertView(role,width,height);
         const id=asset(role).assetId,texture=runtimeInventorySlotTextures.get(id),state=runtimeInventorySlotFit.states?.find(s=>s.assetId===id);

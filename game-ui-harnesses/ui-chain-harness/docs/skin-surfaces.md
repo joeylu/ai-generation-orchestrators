@@ -83,6 +83,8 @@ PanelDocument 0.3 的 Text 节点可声明 `surfaceStyle: title|section`，Panel
 
 旧皮肤缺少某个角色的 `textColors` 时，新层子树可从已核验像素按既有抽样策略选择运行时字色；原角色采样不足时，仅对派生字色加极细反色描边，纸面等已通过角色不加描边。节点明确字色、配方字色与已声明角色字色均优先；Select/Dialog 移入浮层后仍按逻辑归属决定作用范围。缓存不回写皮肤主题、配方、文档、原始素材或旧报告，原始 `needs-review` 保持原状态，描边合成效果仍需看实图。没有新增标记的历史面板保持原有行为。
 
+显式 `content` / `inset` 层另外缓存排除九宫格边框后的实际内板区域墨色。若该区域样本充足且不含低alpha采样，原角色声明色在内板对比不足、候选明显更好时，仅该背景上的自动文字采用候选；节点明确字色与配方字色仍优先，嵌套按钮和输入框继续使用自身背景。无标记的角色、透明或不足样本保持原行为，不推断透明底下的颜色。采样在加载时完成，缩放与每帧更新复用缓存；来源采样证据和最终合成复核状态分别记录，不改皮肤主题或素材。
+
 验证：`node --test tests/skin-material-generation.test.mjs tests/material-atlas.test.mjs tests/material-atlas-input.test.mjs tests/skin-batch-cli.test.mjs` 检查 S05 计划、来源与提取；`node --test tests/skin-materials.test.mjs tests/studio-component-upgrade.test.mjs` 检查已有包扩展；`node --test tests/runtime/surfaces.test.mjs tests/runtime/components.test.mjs` 检查消费。覆盖源图重放、旧包不变、扩展选择绑定、闭包、编辑、背景遮罩像素、平铺密度、装饰比例、字色覆盖、失败尺寸回退和销毁；均不调用模型。实际通过数量以本轮程序报告为准。
 
 `node --test tests/runtime-text-fallback.test.mjs tests/runtime/derived-text-ink.test.mjs` 覆盖透明留白的九宫格映射、40px 标题完整排字边界、旧无标记行为、明确字色优先级、派生描边恢复与浮层逻辑归属；后者为离线浏览器检查。

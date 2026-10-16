@@ -29,6 +29,7 @@ export function createLayerSurface(skin,layer,width,height,{scale=1}={}){
   background.surfaceBaseRole=info.baseRole;
   view.once('destroyed',()=>derived.destroy(false));
  }else background=skin.view(info.baseRole,width,height);
+ if((layer==='inset'||layer==='content')&&skin.runtimeContentInk?.role===info.baseRole)background.contentInk=skin.runtimeContentInk;
  background.eventMode='none';if(!scaledBase)view.addChild(background);
  const outline=layer==='inset'?new Graphics():null;
  if(outline){outline.eventMode='none';view.addChild(outline);}
@@ -36,7 +37,7 @@ export function createLayerSurface(skin,layer,width,height,{scale=1}={}){
   if(!Number.isFinite(w)||!Number.isFinite(h)||w<info.minWidth||h<info.minHeight)throw Object.assign(Error('Surface layer is smaller than its skin minimum.'),{code:'skin.surface-style'});
   if(scaledBase){skin.assertView?.(info.baseRole,w/scale,h/scale);background.width=w/scale;background.height=h/scale;material?.resize(w,h);}
   else if(material)material.resize(w,h);else {skin.assertView?.(info.baseRole,w,h);background.width=w;background.height=h;}
-  if(outline){const color=skin.runtimeRoleInk?.(info.baseRole,{enhanced:true})?.fill??skin.profile.textColors?.[info.baseRole]??skin.profile.palette.text;outline.clear().rect(.5,.5,w-1,h-1).stroke({color,width:1,alpha:.14});}
+  if(outline){const color=skin.runtimeRoleInk?.(info.baseRole,{enhanced:true,contentInk:background.contentInk})?.fill??skin.profile.textColors?.[info.baseRole]??skin.profile.palette.text;outline.clear().rect(.5,.5,w-1,h-1).stroke({color,width:1,alpha:.14});}
  };
  try{resize(width,height);}catch(e){view.destroy({children:true});throw e;}
  return {view,background,scaledBase,material,outline,info,resize,get derivedTexture(){return derived;}};
