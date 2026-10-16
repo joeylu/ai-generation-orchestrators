@@ -1,5 +1,7 @@
 # 组件合同维护说明
 
+`generated/component-contracts/` 是由下列命令重建的本地派生产物，不随公共仓库发布；文中用代码路径标出生成位置。当前组件发行入口见[组件流程](component-pipeline.md)，构建状态由程序查询。
+
 本工具检查和派生**设计合同**，不创建 PixiUI 组件、不处理真实皮肤 PNG，也不验证 PanelDocument 树。独立的[组件运行时](component-runtime.md)和 Studio 已接入真实皮肤、AI 面板及编辑副本；当前全链路范围见[验收指南](acceptance.md)。合同工具不导入这些步骤的接受结论，也不把静态设计合同通过当作运行时验收。
 
 ## 三个维护源
@@ -52,7 +54,7 @@ controlGeometry 在设计源中声明基于 asset-body 的轴向行程：assetId
 
 ## 派生产物与证据
 
-[当前入口](../generated/component-contracts/current.json) 指向不覆盖的 builds/UUID。status 返回 catalog 相对路径，打开其所在版本中的：
+当前入口（本地生成位置：`../generated/component-contracts/current.json`） 指向不覆盖的 builds/UUID。status 返回 catalog 相对路径，打开其所在版本中的：
 
 | 产物 | 用途 |
 | --- | --- |

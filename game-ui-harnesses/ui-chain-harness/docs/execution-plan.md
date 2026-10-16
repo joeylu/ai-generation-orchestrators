@@ -1,5 +1,7 @@
 # UI 皮肤 → 组件 → 面板：执行与讨论文档
 
+本文保留各轮历史事实；其中“当前”、端口、构建 UUID 和计数均指对应记录当时，不能作为新检出的启动条件。`work/`、`previews/`、`generated/` 下的历史本机产物未随公共仓库发布，以下仅保留代码路径，不提供不可用的下载链接。现行入口见[组件流程](component-pipeline.md)；公开可复现的检查操作见[组件复验](component-runtime.md#查看与重建)、[合同构建](contract-fields.md#命令)、[PNG 皮肤包](skin-pack.md)与[验收指南](acceptance.md)。这些入口用于重新产生自己的证据，不伪装为已取得历史私有产物。
+
 - 文档版本：0.138
 - 最后更新：2026-10-15（Asia/Shanghai）
 - 当前阶段：Studio 项目式 UX 已落地：带图预设/自定义创建、四图收齐自动本地处理、组件项目库、全局暗色网格检视画布、独立面板生成台与作品库；已有项目保留。当前验收见 12.91；面板预设已对齐 ui-reference 五类八状态，见 12.92；自定义面板支持八类混合控件与滚动，见 12.95。本地中断恢复与暂时错误有限续跑见 12.96，不承诺任意新项目全程零干预。网页内确认与各阶段真实进度见 12.97；同一批次最多两张图集并行生成见 12.98。画布/文字编辑、任意16类AI组合和远程部署仍后置。
@@ -284,7 +286,7 @@ UI 风格参考图 + 可选自然语言补充
 
 用户提供的线框示意表达“不同形状的部件在同一张方形板上排布”。按实际数量与尺寸分板，每张为 1:1；不机械复制示意图的相对大小。
 
-**部件明细、主体/槽位尺寸、板数和使用方清单均从 [模板 JSON](../configs/skin-template-set.draft.json) 派生。** 本文不再保留需要手工同步的逐项尺寸表。运行 `npm run templates:status` 获取当前版本及 overview 路径；[current.json](../previews/skin-templates/current.json) 是唯一当前入口。当前版本目录内的 overview.md 按板拆分表格，并链接两版标准 PNG。
+**部件明细、主体/槽位尺寸、板数和使用方清单均从 [模板 JSON](../configs/skin-template-set.draft.json) 派生。** 本文不再保留需要手工同步的逐项尺寸表。运行 `npm run templates:status` 获取当前版本及 overview 路径；current.json（本地生成位置：`../previews/skin-templates/current.json`） 是唯一当前入口。当前版本目录内的 overview.md 按板拆分表格，并链接两版标准 PNG。
 
 初始讨论样例为四张板、30 个候选部件，其中三个结构标记生产方式待定；该历史基线不作为工具的数量限制，后续实际数量以生成目录为准。样例使用 1024×1024 逻辑坐标，尚未冻结为模型输出规格。
 
@@ -366,7 +368,7 @@ skin-template-set.draft.json
 | [模板 JSON](../configs/skin-template-set.draft.json) | 唯一活动模板源；合同 0.2，内容 revision 单独管理，仍为 discussion-draft |
 | [Schema](../schemas/skin-template-set.schema.json) / [字段说明](template-fields.md) | 编辑器提示、约束、维护步骤与恢复方法 |
 | [统一 CLI](../scripts/templates.mjs) | validate / build / status；依赖由本目录 package.json 和 lockfile 锁定 |
-| [当前入口](../previews/skin-templates/current.json) | 指向一份不可覆盖的完整构建目录，包含 PNG、目录、投影、自动表格和程序构建记录 |
+| 当前入口（本地生成位置：`../previews/skin-templates/current.json`） | 指向一份不可覆盖的完整构建目录，包含 PNG、目录、投影、自动表格和程序构建记录 |
 | [旧源与旧预览](../archive/v0.7-template-source/README.md) | 历史追溯；不作为当前活动配置或产物入口 |
 
 主体形状使用 Graphics，核对文字使用 PixiJS Text，导出 RGBA PNG。这里尚未接入 @pixi/ui 或 @pixi/layout；交互组件仍按 D09 在第二段组装。字号/画布不再有另写的 1024 固定值，已验证另一种方形逻辑尺寸及整数输出倍率。
@@ -498,7 +500,7 @@ skin-template-set.draft.json
 
 本节的逐组件角色和使用元数据要求已迁入 [组件注册源](../configs/component-registry.draft.json) 的 skinRoles、geometryRefs、textStyles、metadataRequirements，以及 [皮肤使用源](../configs/skin-usage.draft.json) 的角色映射与元数据。本文不再维护相同的手工对照表。
 
-运行 contracts:build 自动派生完整目录；[当前合同入口](../generated/component-contracts/current.json) 指向同次构建的 catalog.md / catalog.json。目录包含全部 16 类的属性、候选资产、条件依赖与待定项。操作方法见 [合同维护说明](contract-fields.md)。
+运行 contracts:build 自动派生完整目录；当前合同入口（本地生成位置：`../generated/component-contracts/current.json`） 指向同次构建的 catalog.md / catalog.json。目录包含全部 16 类的属性、候选资产、条件依赖与待定项。操作方法见 [合同维护说明](contract-fields.md)。
 
 皮肤配置以逻辑角色映射稳定 assetId，不保存文件名或重复部件尺寸；尺寸从模板读入。当前配置严格标记 template-candidates，不能作为实际 PNG manifest、正式组件包或接受记录。切片、字体和控制几何保留 null，程序报告未满足条件。
 
@@ -586,7 +588,7 @@ G01–G07 规格已迁入注册源 acceptanceCases；每个配方必须引用全
 
 T01–T16 与组件类型显式绑定，注册校验拒绝拿别的类型用例顶替。当前 16 个配方 × 8 个公共/专属分配，共 128 个待执行项；数量由数据计算，不是新增变体的硬上限。
 
-可不适用的具体分项必须记录原因，不能跳过整个组件。组合场景仍保留设置页、输入确认弹窗、列表页签页、展示面板，用于发现组合冲突，不替代逐项验收。具体操作与通过条件只维护在注册源，当前入口见 [合同构建入口](../generated/component-contracts/current.json)。
+可不适用的具体分项必须记录原因，不能跳过整个组件。组合场景仍保留设置页、输入确认弹窗、列表页签页、展示面板，用于发现组合冲突，不替代逐项验收。具体操作与通过条件只维护在注册源，当前入口见 合同构建入口（本地生成位置：`../generated/component-contracts/current.json`）。
 
 #### 6.9.3 验收证据的最小记录
 
@@ -748,7 +750,7 @@ P0 的模板工具、P1 的组件桌面基线和 P2 的画布编辑候选已实�
 | N09 面板与画布编辑 | PanelDocument/预设、确定性编译、编辑事务、画布操作、保存/重开/导出 | 已实现桌面候选及 13 组自动检查；按 D19 暂缓后续画布打磨/验收，文档与编译基础继续复用 |
 | N10 九宫格背景专项 | 原图绑定配置、LTRB、实例倍率、Panel 背景、透明 PNG 和失败保护 | 已工程收口（D25）；覆盖工具、Panel 绑定/保存与原生父容器消费示例。40 组当前离线浏览器检查通过，见 12.8；维护入口见 [九宫格说明](slicing.md) |
 
-N06 已提供 contracts:validate/build/status，N07/N08 新增 components:check/status。模板、合同和组件报告分别保留来源摘要、历史版本与原子 current 入口；失败不覆盖上一版。组件维护入口见 [运行时说明](component-runtime.md)，实际报告以 [组件当前入口](../previews/components/current.json) 为准。合同目录不再宣称所有适配器“未实现”，而标记“不由此目录评估”；不能把设计计划和实际检查混为一份可编辑成功记录。
+N06 已提供 contracts:validate/build/status，N07/N08 新增 components:check/status。模板、合同和组件报告分别保留来源摘要、历史版本与原子 current 入口；失败不覆盖上一版。组件维护入口见 [运行时说明](component-runtime.md)，实际报告以 组件当前入口（本地生成位置：`../previews/components/current.json`） 为准。合同目录不再宣称所有适配器“未实现”，而标记“不由此目录评估”；不能把设计计划和实际检查混为一份可编辑成功记录。
 
 现有 [本地画布](http://127.0.0.1:4175) 和 [使用说明](canvas-editor.md) 保留供以后继续；其验收不再是下一批工作的前置条件。10.3 的皮肤合同与消费接口已按 D20 落实首版，接下来准备首套真实风格。移动/IME 真机、生产皮肤和跨主题接受分别记录；不把单节点 runtime.snapshot 当作完整 PanelDocument。
 
@@ -768,7 +770,7 @@ N06 已提供 contracts:validate/build/status，N07/N08 新增 components:check/
 
 资源完整性、版本、来源、失败保护与最小交付在各段同时实现，不留到第 5 项才补。第 5 项是扩大覆盖与发布前验收，发现的运行时阻断问题在当前相关阶段修复；编辑器专属易用性问题可按 D19 后置。
 
-优先级 1 已按 D20 落实首版，操作与维护见 [PNG 皮肤包说明](skin-pack.md)。D22 已选定首套参考图，单板准备见 10.4；S03 验证后再扩展到全部必需板。此前 [未绑定参考图的准备计划](../generated/skin-plans/generation-plan-ab2357e8-c04b-4ded-9fd7-7a8c74f9d4e0.json) 作为 missing-inputs 历史保留，不是本次计算对象。维护入口仍按 3.3 各负其责，图片、裁切表、目录和清单由程序派生；不新增通用配置平台。
+优先级 1 已按 D20 落实首版，操作与维护见 [PNG 皮肤包说明](skin-pack.md)。D22 已选定首套参考图，单板准备见 10.4；S03 验证后再扩展到全部必需板。此前 未绑定参考图的准备计划（历史本机路径：`../generated/skin-plans/generation-plan-ab2357e8-c04b-4ded-9fd7-7a8c74f9d4e0.json`） 作为 missing-inputs 历史保留，不是本次计算对象。维护入口仍按 3.3 各负其责，图片、裁切表、目录和清单由程序派生；不新增通用配置平台。
 
 本批新增的合同与能力边界：skin-import / skin-pack 0.1、共享 runtime-theme Schema；PNG 源板必须与模板尺寸一致，主体外非透明像素拒绝。先限定 8-bit 非交错 RGB/RGBA sRGB，不支持自动去背、纠偏、重采样、ICC 或索引色输入。独立部件保留连续 alpha、透明 RGB 归零，并回查原板裁切像素；技术检查不判断风格相似、语义串位或拉伸美观。示例元数据来自程序夹具，不覆盖正式 usage 中的 null。PNG 包尚未接入 PanelDocument 的生产导出或画布换肤入口。
 
@@ -776,9 +778,9 @@ N06 已提供 contracts:validate/build/status，N07/N08 新增 components:check/
 
 用户选择的参考是暖金色羊皮纸、棕橙木框、绿色开启态和奶油浅金旋钮的设置面板。图片只承担风格参考；文字继续运行时渲染，场景背景不进入通用皮肤。小部件先省略叶片白花；滑条、滚动条及按下态按参考材质延展，这些是设计建议，不能标记为原图已有或用户已接受。
 
-工作材料在被忽略的 `work/skins/woodland-parchment/`：日常只维护 [风格草案](../work/skins/woodland-parchment/style.json)，输入冻结与核对材料由 `skins:plan --reference ... --style ... --sheet S03` 生成。用户原图不进入公共 fixture、预览或发布包；风格 JSON 不保存本机源路径。Schema、命令和维护职责见 [PNG 包说明](skin-pack.md#绑定真实参考图的单板计划)。
+工作材料在被忽略的 `work/skins/woodland-parchment/`：日常只维护 风格草案（历史本机路径：`../work/skins/woodland-parchment/style.json`），输入冻结与核对材料由 `skins:plan --reference ... --style ... --sheet S03` 生成。用户原图不进入公共 fixture、预览或发布包；风格 JSON 不保存本机源路径。Schema、命令和维护职责见 [PNG 包说明](skin-pack.md#绑定真实参考图的单板计划)。
 
-本次 [核对页](../work/skins/woodland-parchment/plans/95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db/review.md) 绑定参考原字节、风格修订 1、模板/注册/角色映射、S03 无标注及编号 PNG、单板几何 JSON 和完整提示词。`plan.json` SHA-256 为 `95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db`。公开检出不包含此私有工作材料，链接仅在当前工作区可用。
+本次 核对页（历史本机路径：`../work/skins/woodland-parchment/plans/95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db/review.md`） 绑定参考原字节、风格修订 1、模板/注册/角色映射、S03 无标注及编号 PNG、单板几何 JSON 和完整提示词。`plan.json` SHA-256 为 `95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db`。公开检出不包含此私有工作材料，该路径仅记录当时的本机位置。
 
 试验范围是 **一张 1024×1024 透明 PNG，S03 的 9 个部件**。仅向模型提供风格参考图与无标注模板图，几何 JSON 嵌入提示词，编号图只供人工核对。轨道、填充、旋钮必须分离；无文字、功能图标或额外装饰。数量和坐标均从模板派生，本文不建立另一份坐标表。
 
@@ -792,7 +794,7 @@ N06 已提供 contracts:validate/build/status，N07/N08 新增 components:check/
 
 已新增离线定位、规范化、核对页与完整性入口，使用和字段职责见 [部件规范化说明](skin-normalization.md)。模板仍是 ID、槽位、尺寸、伸缩方向的唯一来源；处理阈值维护在单独策略 JSON。圆形/固定比例部件等比居中；胶囊长条保持两端比例并调整中段长度。非胶囊长条和九宫格面板暂不自动处理，缺件、同槽多件、粘连或显著碎片阻断输出。
 
-当前 [规范化总览](../work/skins/woodland-parchment/normalized/builds/e6d1762c-47b5-4374-846c-77711dbfe025/overview.md) / [前后逐件核对](../work/skins/woodland-parchment/normalized/builds/e6d1762c-47b5-4374-846c-77711dbfe025/review.html) 包含 9 个具名独立 PNG、1024×1024 无标注透明板和来源/操作记录。绑定原始图 SHA-256，不重写原图；保存 frozen plan、策略、原裁切和目标资产。此路径是忽略的本地工作材料，不随公开检出提供。
+当前 规范化总览（历史本机路径：`../work/skins/woodland-parchment/normalized/builds/e6d1762c-47b5-4374-846c-77711dbfe025/overview.md`） / 前后逐件核对（历史本机路径：`../work/skins/woodland-parchment/normalized/builds/e6d1762c-47b5-4374-846c-77711dbfe025/review.html`） 包含 9 个具名独立 PNG、1024×1024 无标注透明板和来源/操作记录。绑定原始图 SHA-256，不重写原图；保存 frozen plan、策略、原裁切和目标资产。此路径是忽略的本地工作材料，不随公开检出提供。
 
 定位使用强像素重心与原模板槽位，身份属于几何候选，不能自动判断开/关语义是否被模型互换。状态组沿用原模板；当前 slider.thumb 轮廓最大差 3 像素、switch.track 最大差 5 像素（alpha ≥ 128 的边缘诊断）。保留与主体相连的连续 alpha，因此局部原生彩边仍在；这些问题尚待修整和视觉验收。
 
@@ -804,11 +806,11 @@ N06 已提供 contracts:validate/build/status，N07/N08 新增 components:check/
 
 在用户 D26 授权下，新增可选 refinement 配置。滑块常态/按下态、开关 off/on 先对齐主体边界，再取组内共同最小 alpha，有限移除外沿差异；保留透明孔，不补画缺失像素。每轴变化与 alpha 损失均有上限，具体处理及基线由程序记录。两组现在逐像素 alpha 一致，可见边缘差为 0；美术效果仍待接受。
 
-本套皮肤的 [处理策略修订 2](../work/skins/woodland-parchment/normalization-policy.json) 指定红/紫红高饱和异常边缘色，只处理 2 像素边缘带，从 8 像素内可靠内部颜色取 RGB，alpha 不变；最大改动 3%，实际各件最多约 2.60%，总计 1,502 个像素。原始深棕/金色/绿色和内部同色不会因色相规则被整体替换。修整前候选、基线、原裁切和原生成都保留，详情见 [维护说明](skin-normalization.md)。
+本套皮肤的 处理策略修订 2（历史本机路径：`../work/skins/woodland-parchment/normalization-policy.json`） 指定红/紫红高饱和异常边缘色，只处理 2 像素边缘带，从 8 像素内可靠内部颜色取 RGB，alpha 不变；最大改动 3%，实际各件最多约 2.60%，总计 1,502 个像素。原始深棕/金色/绿色和内部同色不会因色相规则被整体替换。修整前候选、基线、原裁切和原生成都保留，详情见 [维护说明](skin-normalization.md)。
 
-当前 [修整候选总览](../work/skins/woodland-parchment/refined/builds/8c7f4830-fcee-486e-a92c-e33eee7e54c3/overview.md)，manifest 摘要 `5d5b98576cd1f2bb32b5e970c2f8d6e8d6cd8f0692cfd386fa5014ead0f35f45`。其 source 仍绑定原始注册修订 3；局部验收明确核对当前角色身份和模板一致后使用当前修订 4，分别保留 originalBindings/consumerBindings，没有篡改原生成计划。
+当前 修整候选总览（历史本机路径：`../work/skins/woodland-parchment/refined/builds/8c7f4830-fcee-486e-a92c-e33eee7e54c3/overview.md`），manifest 摘要 `5d5b98576cd1f2bb32b5e970c2f8d6e8d6cd8f0692cfd386fa5014ead0f35f45`。其 source 仍绑定原始注册修订 3；局部验收明确核对当前角色身份和模板一致后使用当前修订 4，分别保留 originalBindings/consumerBindings，没有篡改原生成计划。
 
-当前 [局部组件总览](../work/skins/woodland-parchment/component-pilot/builds/12cfd899-659d-47ac-8587-2dfcfd69dd8b/overview.md) / [交互预览](http://127.0.0.1:4176/) 使用同一套 PixiUI/Layout 组件运行时，以 9 个生成候选 PNG 组装 Switch、Slider、ProgressBar、ScrollView。Text/Container 和字体使用工程脚手架；实际皮肤纹理无 fixture 补图，缺少角色明确拒绝。S03 的四类只是阶段性试验，最终范围仍为全部 16 类。
+当前 局部组件总览（历史本机路径：`../work/skins/woodland-parchment/component-pilot/builds/12cfd899-659d-47ac-8587-2dfcfd69dd8b/overview.md`） / [交互预览](http://127.0.0.1:4176/) 使用同一套 PixiUI/Layout 组件运行时，以 9 个生成候选 PNG 组装 Switch、Slider、ProgressBar、ScrollView。Text/Container 和字体使用工程脚手架；实际皮肤纹理无 fixture 补图，缺少角色明确拒绝。S03 的四类只是阶段性试验，最终范围仍为全部 16 类。
 
 局部组件的逻辑几何、三档宽度和角色密度规则只维护在 [skin-pilot.json](../configs/skin-pilot.json)，资产 ID 从角色映射派生。按短轴尺寸推导纹理显示密度、换算端部切片，真实长条在 180/300/420 宽度下保留端部比例；这不是给所有生产组件增加倍率字段，也不把候选包冒充完整 png-pack。
 
@@ -908,7 +910,7 @@ v0.13 尺寸与状态验收：将测试皮肤的间距、行高、指示器、�
 
 本轮修正 Button/List 标签随容器缩放、Select/Radio/CheckBox 等长标签未重新测量、标题/内容/动作区越界、Slider 端点标签溢出、Text 溢出错误损坏活对象、edit 模式被重新启用绕过等问题。PNG 复核另发现 Input 用皮肤纹理作遮罩导致文字压暗，以及禁用 Dialog 丢失外观；现以白色遮罩保留文字亮度，Dialog 暂停交互时保留逻辑打开状态与外观并释放模态占用。隐藏仍隐藏整个窗口。相应断言已纳入上述报告。
 
-v0.13 当时组件证据版本为 fdffcef1-0ba4-4232-971c-8cecfa4f416e，见 [当轮对照图与报告](../previews/components/builds/fdffcef1-0ba4-4232-971c-8cecfa4f416e/overview.md)。四张方形图已逐张查看，修正后重点复核第 2/3 张；失败候选仍保留，未覆盖成成功记录。该轮未重跑未变更的模板 PNG 浏览器用例；模板状态检查不冒充新的像素回归。软件浏览器环境和无模型/无服务边界与 v0.12 相同。当时完整 P1、真实 IME/触摸、生产主题、递归交付包和画布编辑仍未完成。
+v0.13 当时组件证据版本为 fdffcef1-0ba4-4232-971c-8cecfa4f416e，见 当轮对照图与报告（历史本机路径：`../previews/components/builds/fdffcef1-0ba4-4232-971c-8cecfa4f416e/overview.md`）。四张方形图已逐张查看，修正后重点复核第 2/3 张；失败候选仍保留，未覆盖成成功记录。该轮未重跑未变更的模板 PNG 浏览器用例；模板状态检查不冒充新的像素回归。软件浏览器环境和无模型/无服务边界与 v0.12 相同。当时完整 P1、真实 IME/触摸、生产主题、递归交付包和画布编辑仍未完成。
 
 v0.14 组件补齐与画布编辑：按 D18 实现 PanelDocument 0.1、独立画布/组件示例/面板预设 JSON、严格树校验、递归资源引用清单、候选渲染后提交的事务与本地工作台。所有 16 类通过同一组件库添加，属性栏由注册 Schema 派生；List items 槽允许复合条目。编辑/试玩/相机状态分离。
 
@@ -920,7 +922,7 @@ v0.14 组件补齐与画布编辑：按 D18 实现 PanelDocument 0.1、独立画
 | 图片与本地入口 | editor 构建 PNG 与实际 loopback 页面 | 横竖界面截图已查看；本地入口已在浏览器打开并确认就绪，待用户接受 |
 | 维护和产物 | 独立 current/历史构建 | 模板与合同重建，组件和编辑器分别发布；旧失败候选保留。编辑器只有检查通过版本标为 offline-acceptance-passed |
 
-画布证据版本为 50fb8ec6-5b57-419c-bca5-12e19f2615de，见 [画布报告](../previews/editor/builds/50fb8ec6-5b57-419c-bca5-12e19f2615de/report.json)、[横版](../previews/editor/builds/50fb8ec6-5b57-419c-bca5-12e19f2615de/landscape.png)、[竖版](../previews/editor/builds/50fb8ec6-5b57-419c-bca5-12e19f2615de/portrait.png)。最新版本始终由 [编辑器 current](../previews/editor/current.json) 和 [组件 current](../previews/components/current.json) 查询。
+画布证据版本为 50fb8ec6-5b57-419c-bca5-12e19f2615de，见 画布报告（历史本机路径：`../previews/editor/builds/50fb8ec6-5b57-419c-bca5-12e19f2615de/report.json`）、横版（历史本机路径：`../previews/editor/builds/50fb8ec6-5b57-419c-bca5-12e19f2615de/landscape.png`）、竖版（历史本机路径：`../previews/editor/builds/50fb8ec6-5b57-419c-bca5-12e19f2615de/portrait.png`）。最新版本始终由 编辑器 current（本地生成位置：`../previews/editor/current.json`） 和 组件 current（本地生成位置：`../previews/components/current.json`） 查询。
 
 发现并修正静态 HTML 字符串替换破坏 bundle 的问题；实际服务与离线测试共用内容安全策略。初始 Windows 重命名失败候选保留，增加仅针对同一次本地重命名的有限重试。扩展键盘用例时三项 RadioGroup 高度不足被最小尺寸校验拒绝，改正测试盒子后通过，未放宽运行时约束。
 
@@ -936,7 +938,7 @@ v0.16 离线 PNG 皮肤包与消费接口：4 张程序板导入为 30 个独立
 | 共享编辑基础回归 | 13 组通过；没有增加画布编辑范围或替用户重载当前页面 |
 | 真实生成 | 未调用；准备计划仍缺参考图、风格规则及具体生成能力，未生成任何可使用的计算授权 |
 
-当前 PNG 证据版本为 3fcd4622-73b7-4996-93c0-d12c3168cae4，见 [总览与资产包](../previews/skin-packs/builds/3fcd4622-73b7-4996-93c0-d12c3168cae4/overview.md)。横竖 PNG 已查看；最新横版已复核，竖版与此前已复核版本的摘要一致。收尾时检测到共享工作区新增九宫格/背景编辑改动并将注册修订更新为 3，保留这些改动后重新执行 Node 82 项与 PNG 70 项，均通过；PNG、模板与合同 status 为 current。独立组件历史证据 07368939-da00-428c-b62d-41115c57baee、画布历史证据 aa4fe3a5-1673-410e-833b-334fe91f7a97 不作为后来背景编辑能力的接受记录。首次 PNG 运行暴露旧测试硬编码字体族与错误码先后问题；修正为验证实际独立字体加载并保留原 Panel 安全区错误语义，失败候选保留，不手改为成功。
+当前 PNG 证据版本为 3fcd4622-73b7-4996-93c0-d12c3168cae4，见 总览与资产包（历史本机路径：`../previews/skin-packs/builds/3fcd4622-73b7-4996-93c0-d12c3168cae4/overview.md`）。横竖 PNG 已查看；最新横版已复核，竖版与此前已复核版本的摘要一致。收尾时检测到共享工作区新增九宫格/背景编辑改动并将注册修订更新为 3，保留这些改动后重新执行 Node 82 项与 PNG 70 项，均通过；PNG、模板与合同 status 为 current。独立组件历史证据 07368939-da00-428c-b62d-41115c57baee、画布历史证据 aa4fe3a5-1673-410e-833b-334fe91f7a97 不作为后来背景编辑能力的接受记录。首次 PNG 运行暴露旧测试硬编码字体族与错误码先后问题；修正为验证实际独立字体加载并保留原 Panel 安全区错误语义，失败候选保留，不手改为成功。
 
 ### 12.1 首次画布人工反馈（按 D19 暂缓处理）
 
@@ -950,10 +952,10 @@ v0.16 离线 PNG 皮肤包与消费接口：4 张程序板导入为 30 个独立
 
 本批 `npm test` 87 项通过，含 5 项新增九宫格合同测试；组件 62 项、PNG 70 项回归通过。最终编辑器 26 组检查通过（14 组画布，12 组九宫格），其中包含 12 组密度/倍率/输出分辨率的独立像素对照、非对称边框、零/部分 alpha、实际 PNG 下载、编码期间变更不下载过期结果、尺寸失败前置及资源复用/释放。
 
-- 编辑器证据：[68a67ae8-73ac-4cc3-9605-35175ab13f39/report.json](../previews/editor/builds/68a67ae8-73ac-4cc3-9605-35175ab13f39/report.json)，[九宫格界面](../previews/editor/builds/68a67ae8-73ac-4cc3-9605-35175ab13f39/slicing.png)。界面截图已检查。
-- 组件证据：[42d6c283-0129-4f20-a890-a5538fbcd776](../previews/components/builds/42d6c283-0129-4f20-a890-a5538fbcd776/overview.md)。
-- PNG 证据：[1634c207-076e-48c0-8558-074821dbdfad](../previews/skin-packs/builds/1634c207-076e-48c0-8558-074821dbdfad/overview.md)。
-- 合同构建已刷新至 [453fef9f-5819-49ba-b6c9-955d8c5d0305](../generated/component-contracts/builds/453fef9f-5819-49ba-b6c9-955d8c5d0305/catalog.md)，仍为带未决美术/生产阻断的草案。
+- 编辑器证据：68a67ae8-73ac-4cc3-9605-35175ab13f39/report.json（历史本机路径：`../previews/editor/builds/68a67ae8-73ac-4cc3-9605-35175ab13f39/report.json`），九宫格界面（历史本机路径：`../previews/editor/builds/68a67ae8-73ac-4cc3-9605-35175ab13f39/slicing.png`）。界面截图已检查。
+- 组件证据：42d6c283-0129-4f20-a890-a5538fbcd776（历史本机路径：`../previews/components/builds/42d6c283-0129-4f20-a890-a5538fbcd776/overview.md`）。
+- PNG 证据：1634c207-076e-48c0-8558-074821dbdfad（历史本机路径：`../previews/skin-packs/builds/1634c207-076e-48c0-8558-074821dbdfad/overview.md`）。
+- 合同构建已刷新至 453fef9f-5819-49ba-b6c9-955d8c5d0305（历史本机路径：`../generated/component-contracts/builds/453fef9f-5819-49ba-b6c9-955d8c5d0305/catalog.md`），仍为带未决美术/生产阻断的草案。
 
 构建期间一次共享 Schema 变化使一致性检查拒绝发布；对应候选保留。后续依据最新来源重新完成各验证，未手工修改报告或 current。此专项没有新增通用父容器自动填充规则，也没有把单素材配置自动合入完整 skin-pack；其他控件倍率、生产皮肤的视觉接受及全局换肤继续独立推进。
 
@@ -965,7 +967,7 @@ v0.16 离线 PNG 皮肤包与消费接口：4 张程序板导入为 30 个独立
 
 ### 12.4 首次真实 S03 试验（v0.19）
 
-用户明确确认后，内置生图调用 **1 次**；完整提示词保持为 10.4 冻结的 `prompt.txt`，输入顺序为风格参考、无标注模板，transparent_background=true。原始字节复制到 [本次原图](../work/skins/woodland-parchment/attempts/95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db/raw.png)，没有改写 alpha 或缩放；原图摘要 `298041c578fc137d90c7d18bf4c03eb71d7e1c568a0a6aedfa5c573ca9f4b644`。检查与接收均由程序写入 [inspection.json](../work/skins/woodland-parchment/attempts/95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db/inspection.json)、[receipt.json](../work/skins/woodland-parchment/attempts/95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db/receipt.json)。这些是私有工作材料，公开检出不包含。
+用户明确确认后，内置生图调用 **1 次**；完整提示词保持为 10.4 冻结的 `prompt.txt`，输入顺序为风格参考、无标注模板，transparent_background=true。原始字节复制到 本次原图（历史本机路径：`../work/skins/woodland-parchment/attempts/95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db/raw.png`），没有改写 alpha 或缩放；原图摘要 `298041c578fc137d90c7d18bf4c03eb71d7e1c568a0a6aedfa5c573ca9f4b644`。检查与接收均由程序写入 inspection.json（历史本机路径：`../work/skins/woodland-parchment/attempts/95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db/inspection.json`）、receipt.json（历史本机路径：`../work/skins/woodland-parchment/attempts/95b881ec48c81318e5b2b215550f2853f67e19edc50c414e6ec4290aeb15a5db/receipt.json`）。这些是私有工作材料，公开检出不包含。
 
 | 项目 | 实际证据与判断 |
 | --- | --- |
@@ -986,9 +988,9 @@ v0.16 离线 PNG 皮肤包与消费接口：4 张程序板导入为 30 个独立
 
 本批 Node 共 100 项通过，含 3 项新增包/引用/版本/失败条件测试；既有组件 62 项回归通过。编辑器 33 组检查通过（14 组既有画布、7 组背景闭环、12 组单素材），新增实际包下载/重开、拖动期间像素几何、取消与撤销、JSON 实际下载重开、篡改/尺寸失败、PNG 透明/边框/无文字采样、共享源/独立倍率和纹理释放。PNG 皮肤消费 70 项通过。
 
-- 编辑器证据：[b645cfff-c340-4d9a-aae5-d939d7ae9590/report.json](../previews/editor/builds/b645cfff-c340-4d9a-aae5-d939d7ae9590/report.json)，[Panel 界面](../previews/editor/builds/b645cfff-c340-4d9a-aae5-d939d7ae9590/panel-background.png)，截图已检查。
-- PNG 证据：[cbdfc690-446f-4cd1-bea2-f90ee1f428b5](../previews/skin-packs/builds/cbdfc690-446f-4cd1-bea2-f90ee1f428b5/overview.md)。
-- 合同构建：[20f0ba26-0d25-431b-8279-1d106aa66680](../generated/component-contracts/builds/20f0ba26-0d25-431b-8279-1d106aa66680/catalog.md)，16 配方、91 既有生产阻断，未标为生产就绪。
+- 编辑器证据：b645cfff-c340-4d9a-aae5-d939d7ae9590/report.json（历史本机路径：`../previews/editor/builds/b645cfff-c340-4d9a-aae5-d939d7ae9590/report.json`），Panel 界面（历史本机路径：`../previews/editor/builds/b645cfff-c340-4d9a-aae5-d939d7ae9590/panel-background.png`），截图已检查。
+- PNG 证据：cbdfc690-446f-4cd1-bea2-f90ee1f428b5（历史本机路径：`../previews/skin-packs/builds/cbdfc690-446f-4cd1-bea2-f90ee1f428b5/overview.md`）。
+- 合同构建：20f0ba26-0d25-431b-8279-1d106aa66680（历史本机路径：`../generated/component-contracts/builds/20f0ba26-0d25-431b-8279-1d106aa66680/catalog.md`），16 配方、91 既有生产阻断，未标为生产就绪。
 
 首次新增 PNG 检查将双线性过滤的切线过渡像素当作纯色，失败候选保留；修正测试采样点到区域内部后重新完整通过，未改渲染算法或手工改报告。该专项仍不包含通用 flex 自动填充、全部控件倍率、全套生产皮肤替换或人工美术接受。
 
@@ -1011,13 +1013,13 @@ v0.16 离线 PNG 皮肤包与消费接口：4 张程序板导入为 30 个独立
 
 本批最终编辑器 40 组离线检查通过，包含既有 33 组和新增 7 组原生布局消费检查。新增检查覆盖只修改父布局的宽/高/缩回、实际 UI 输入和按钮交互、窄屏无横向溢出、背景包实际文件导入、PNG 下载的独立边框/alpha/无文字像素断言、失败保留、纹理复用/视图销毁和编码期间尺寸变化。未改共享运行时或注册表，未据此重复声明 Node/组件/皮肤批次结果。
 
-证据：[566e658b-16c4-4edb-8cdb-db2aed4caf86/report.json](../previews/editor/builds/566e658b-16c4-4edb-8cdb-db2aed4caf86/report.json)、[桌面](../previews/editor/builds/566e658b-16c4-4edb-8cdb-db2aed4caf86/slice-runtime.png)、[窄屏](../previews/editor/builds/566e658b-16c4-4edb-8cdb-db2aed4caf86/slice-runtime-mobile.png)。前一次相同界面已逐图检查，最终仅补导出分辨率变化的过期保护并重跑整批。界面与测试通过不代表用户自己的面板素材已获视觉接受，真实素材还需检查纹理拉伸、装饰和内容安全区。
+证据：566e658b-16c4-4edb-8cdb-db2aed4caf86/report.json（历史本机路径：`../previews/editor/builds/566e658b-16c4-4edb-8cdb-db2aed4caf86/report.json`）、桌面（历史本机路径：`../previews/editor/builds/566e658b-16c4-4edb-8cdb-db2aed4caf86/slice-runtime.png`）、窄屏（历史本机路径：`../previews/editor/builds/566e658b-16c4-4edb-8cdb-db2aed4caf86/slice-runtime-mobile.png`）。前一次相同界面已逐图检查，最终仅补导出分辨率变化的过期保护并重跑整批。界面与测试通过不代表用户自己的面板素材已获视觉接受，真实素材还需检查纹理拉伸、装饰和内容安全区。
 
 ### 12.8 Panel 九宫格专项收口（v0.23）
 
 用户明确要求收口，本专项转入维护阶段。交付范围固定为：原始 PNG 摘要绑定、LTRB 编辑、素材密度/边框倍率/导出分辨率分离；Panel 背景包导入、共享素材与实例参数、尺寸预览、撤销/保存/重开；透明背景 PNG 导出；原生 LayoutContainer 父尺寸变化的独立消费示例。所有入口复用同一 SlicedBackground 与几何/校验/加载/导出模块。
 
-收口核查时，共享运行时 basic/controls 更新使 12.7 的构建被正确标为过期。随后重跑现有检查，当前收口构建为 [9dad83d9-b1ad-4742-9f7d-1acda5b979f1](../previews/editor/builds/9dad83d9-b1ad-4742-9f7d-1acda5b979f1/report.json)：40/40 组通过，浏览器异常 0；组件独立回归的 62 项断言也通过。`editor:status` 继续核查来源及产物摘要；历史 12.7 证据保留。本批没有新增功能，也没有修改程序报告或构建记录。
+收口核查时，共享运行时 basic/controls 更新使 12.7 的构建被正确标为过期。随后重跑现有检查，当前收口构建为 9dad83d9-b1ad-4742-9f7d-1acda5b979f1（历史本机路径：`../previews/editor/builds/9dad83d9-b1ad-4742-9f7d-1acda5b979f1/report.json`）：40/40 组通过，浏览器异常 0；组件独立回归的 62 项断言也通过。`editor:status` 继续核查来源及产物摘要；历史 12.7 证据保留。本批没有新增功能，也没有修改程序报告或构建记录。
 
 维护说明见 [slicing.md](slicing.md)，消费代码见 [examples/sliced-panel/app.mjs](../examples/sliced-panel/app.mjs)。已知边界保留：中心始终填充；PanelDocument 按显式尺寸保存；其他固定比例控件保持现有实现；PNG 是某一尺寸的成品，继续自适应使用原图及配置。实际素材的纹理/装饰拉伸和内容安全区仍按素材验收，用户收口指示不自动改写美术接受或生产就绪状态。
 

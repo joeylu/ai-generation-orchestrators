@@ -38,6 +38,8 @@ jobs:
           npm run contracts:build
       - name: Verify standalone component pipeline without model calls
         run: node scripts/component-pipeline-check.mjs --browser chromium
+      - name: Verify four-sheet pipeline without materials or model calls
+        run: node scripts/component-pipeline-check.mjs --browser chromium --no-materials
       - name: Install locked Panel SDK for legacy development regressions only
         run: |
           npm run panel-sdk:install

@@ -38,7 +38,7 @@ export function loadRelayRequest(job, expected) {
       "num_last_images_to_include,prompt,transparent_background" ||
     typeof args.prompt !== "string" ||
     !args.prompt ||
-    args.transparent_background !== false ||
+    typeof args.transparent_background !== "boolean" ||
     !Array.isArray(request.images) ||
     request.images.length < 1 ||
     request.images.length > 5 ||

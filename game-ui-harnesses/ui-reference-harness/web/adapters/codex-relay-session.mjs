@@ -123,7 +123,7 @@ export function verifyRelayAudit(
     read.payloadSha256 !== payloadSha256 ||
     read.argumentsSha256 !== argumentsDigest(request.arguments) ||
     image.argumentsSha256 !== argumentsDigest(request.arguments) ||
-    image.transparentBackground !== false ||
+    image.transparentBackground !== request.arguments.transparent_background ||
     image.toolUseId !== post.toolUseId ||
     image.toolUseId === pre.toolUseId
   )
@@ -135,7 +135,7 @@ export function verifyRelayAudit(
     nestedImageGateVerified: true,
     postImageGateVerified: true,
     argumentsSha256: argumentsDigest(request.arguments),
-    transparentBackground: false,
+    transparentBackground: request.arguments.transparent_background,
   };
 }
 

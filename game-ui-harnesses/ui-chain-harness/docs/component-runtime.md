@@ -1,5 +1,7 @@
 # 组件候选运行时与离线验收
 
+`previews/` 中的报告和 current 指针是本地检查生成的产物，不随公共仓库发布；文中用代码路径标出生成位置。使用下列命令重建并由 status 读取实际版本，完整组件链路见[组件流程](component-pipeline.md)。
+
 本文主要记录早期 fixture 组件验收入口：全部 16 类已有可执行适配，覆盖实例化、交互、销毁和三档尺寸/适用状态恢复。当前同一运行时也已接入核验过的真实 PNG 皮肤、字体、材质及 Studio 面板编辑；当前全链路入口和验收边界见[验收指南](acceptance.md)，早期阶段记录保留在[执行文档](execution-plan.md)。
 
 ## 查看与重建
@@ -13,7 +15,7 @@ npm run components:status
 
 使用已安装的 Chrome、Edge（msedge）或 Playwright Chromium；不自动安装浏览器。验收页面通过内存 bundle 加载，阻断网络请求，软件 WebGL 渲染，不监听端口。字体来自 lockfile 锁定的 @fontsource/noto-sans-sc@5.3.1，内联加载后才创建文字；不依赖机器的系统中文字体。
 
-[current.json](../previews/components/current.json) 是唯一当前入口。status 返回 current/stale/corrupt/missing；current 只说明产物完整且与当前工程源一致，不代表完整 P1 通过。查看返回的 builds/UUID/overview.md，其中提供 16:9 与 9:16 PNG、四张 1440×1440 尺寸/状态对照 PNG 和逐项断言。
+current.json（本地生成位置：`../previews/components/current.json`） 是唯一当前入口。status 返回 current/stale/corrupt/missing；current 只说明产物完整且与当前工程源一致，不代表完整 P1 通过。查看返回的 builds/UUID/overview.md，其中提供 16:9 与 9:16 PNG、四张 1440×1440 尺寸/状态对照 PNG 和逐项断言。
 
 check 同时写出冻结输入 inputs.json、report.json 和包含来源/文件摘要的 build-record.json。PNG 为 PixiJS 实际渲染结果。皮肤的 1:1 独立部件模板仍在 previews/skin-templates；这里的横竖版和方形图均是已组装组件的工程验收图。每张方形图放 4 类 × 3 档尺寸/状态，图的数量按类型数量派生。
 

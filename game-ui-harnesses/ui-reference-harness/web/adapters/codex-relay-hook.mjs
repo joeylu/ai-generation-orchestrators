@@ -90,7 +90,7 @@ export function relayHook(job, expected, event) {
       claimRelayJson(job, "image-call.json", {
         ...identity,
         argumentsSha256: argumentsDigest(request.arguments),
-        transparentBackground: false,
+        transparentBackground: request.arguments.transparent_background,
       });
       return allow();
     }
