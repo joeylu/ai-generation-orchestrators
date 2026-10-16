@@ -128,3 +128,88 @@ test('structure depth and node count preserve upstream limits rather than emitti
   body={kind:'column',children:Array.from({length:32},()=>({kind:'column',children:[{kind:'column',children:[structuredClone(f.intent.panel.body.children[1])]}]}))};
   assert.throws(()=>customIntentLayout({...f.intent.panel,body},config.presets.custom),{code:'panel.action-layout-count'});
 });
+
+
+test('reference single CTA retains a comfortable width and centers in normal and fixed-footer sections',async()=>{
+  const current=customActionConfig(await read('../configs/action-presets.json'));
+  const example={...examples[0],body:{kind:'column',children:[{kind:'section',title:'留言',rows:[text('请确认你的留言。'),button('提交')]}]}};
+  for(const overflow of ['error','scroll'])for(const orientation of ['landscape','portrait']){
+    const f=await actionFixture({...example,overflow},catalog,current),r=await convert(f,{...geometryContext(),orientation},current),doc=r.documents[orientation];
+    const action=doc.nodes.find(n=>n.id==='row1'),row=doc.nodes.find(n=>n.slots.children?.includes('row1'));
+    assert(action.size.width<=action.size.height*5,'single short CTA should not become a long stretched stripe');
+    assert(action.size.width<row.size.width);assert.equal(row.layout.justify,'center');assert.equal(action.sizing.widthMode,undefined);
+    assert.equal(layout(doc).get('row1').width,action.size.width);
+  }
+});
+
+test('automatic CTA width grows for a long caption and explicit requested size remains authoritative',async()=>{
+  const current=customActionConfig(await read('../configs/action-presets.json'));
+  const copy='W'.repeat(24),base={...examples[0],body:{kind:'column',children:[{kind:'section',title:'操作',rows:[button(copy)]}]}};
+  const f=await actionFixture(base,catalog,current),r=await convert(f,{...geometryContext(),orientation:'landscape'},current),doc=r.documents.landscape;
+  const long=doc.nodes.find(n=>n.id==='row0');assert.equal(long.props.label,copy);assert(long.size.width>240,'long labels must retain their full safe width');
+  const explicit={...base,body:{kind:'column',children:[{kind:'section',title:'操作',actionLayout:{direction:'row',align:'center',gap:16,buttonWidth:360,buttonHeight:56,shape:'default'},rows:[button('确认')]}]}};
+  const fixed=await convert(await actionFixture(explicit,catalog,current),{...geometryContext(),orientation:'landscape'},current);
+  assert.deepEqual(fixed.documents.landscape.nodes.find(n=>n.id==='row0').size,{width:360,height:56});
+});
+
+test('older custom layouts preserve full-width single actions and reference multiple actions keep their widths',async()=>{
+  const e={...examples[0],body:{kind:'column',children:[{kind:'section',title:'操作',rows:[text('说明'),button('确认')]}]}};
+  const legacy=await convert(await fixture(e),{...ctx,orientation:'landscape'}),doc=legacy.documents.landscape;
+  const action=doc.nodes.find(n=>n.id==='row1'),row=doc.nodes.find(n=>n.slots.children?.includes('row1'));
+  assert.equal(action.size.width,row.size.width);assert.equal(action.sizing.widthMode,'fill');assert.equal(row.layout.justify,undefined);
+  const current=customActionConfig(await read('../configs/action-presets.json')),multiple={...e,body:{kind:'column',children:[{kind:'section',title:'操作',rows:[button('确认'),button('返回')]}]}};
+  const two=await convert(await actionFixture(multiple,catalog,current),{...geometryContext(),orientation:'landscape'},current),d=two.documents.landscape,actions=d.nodes.filter(n=>['row0','row1'].includes(n.id));
+  assert.equal(actions[0].size.width,actions[1].size.width);assert(actions.every(n=>n.sizing.widthMode==='fill'));
+});
+
+
+test('reference repeated progress rows group label and percentage above a compact bar with separate quiet surfaces',async()=>{
+  const current=customActionConfig(await read('../configs/action-presets.json'));
+  const rows=[['生命',80,100],['体力',30,60],['经验',50,100]].map(([label,initial,max])=>({kind:'progress',recipeKey:'settings.progress@0.1.0',label,initial,max,display:'percent',fractionDigits:0}));
+  const example={...examples[0],body:{kind:'column',children:[{kind:'section',title:'状态',rows}]}};
+  const compiled=await convert(await actionFixture(example,catalog,current),{...geometryContext(),orientation:'portrait'},current),doc=compiled.documents.portrait;
+  for(const [index,percent]of ['80%','50%','50%'].entries()){
+    const id='row'+index,bar=doc.nodes.find(n=>n.id===id),value=doc.nodes.find(n=>n.id===id+'-value'),summary=doc.nodes.find(n=>n.id===id+'-summary'),block=doc.nodes.find(n=>n.id===id+'-block');
+    assert.equal(value.props.text,percent);assert.equal(value.props.align,'right');assert.equal(summary.layout.direction,'row');
+    assert.deepEqual(summary.slots.children,[id+'-label',id+'-value']);assert.equal(block.surfaceLayer,'inset');
+    assert(bar.size.height<=current.geometry.progressHeight);assert(block.size.height<116,'compact statistics should not retain the loose vertical stack');
+  }
+  const frozen=structuredClone(current);frozen.presets.custom.layout.version='3.0';
+  const old=await convert(await actionFixture(example,catalog,frozen),{...geometryContext(),orientation:'portrait'},frozen);
+  assert(!old.documents.portrait.nodes.some(n=>n.id==='row0-summary'));assert.equal(old.documents.portrait.nodes.find(n=>n.id==='row0-block').recipeRef,'container@1.0.0');
+});
+
+// Append to tests/custom-layout.test.mjs; reuse its public geometryContext,
+// actionFixture/convert helpers and existing config/catalog/examples fixtures.
+test('reference progress inset padding participates in automatic width and explicit-width preflight',async()=>{
+  const current=customActionConfig(await read('../configs/action-presets.json'));
+  current.presets.custom.landscape.width=384;
+  const context=geometryContext(pack=>{
+    const asset=role=>pack.assets.find(a=>a.assetId===pack.roles.find(r=>r.role===role).assetId);
+    asset('skin.surface.content').contentInsets={left:120,right:120,top:8,bottom:8};
+    for(const role of ['skin.bar.track','skin.bar.fill'])asset(role).minSize.width=120;
+  });
+  const rows=['生命','体力'].map(label=>({kind:'progress',recipeKey:'settings.progress@0.1.0',label,initial:80,max:100,display:'percent',fractionDigits:0}));
+  const example={...examples[0],title:'状态',body:{kind:'column',children:[{kind:'section',title:'状态',rows}]}};
+  const f=await actionFixture(example,catalog,current),r=await convert(f,{...context,orientation:'landscape'},current),doc=r.documents.landscape;
+  const surface=doc.nodes.find(n=>n.id==='surface');
+  assert(surface.size.width>384,'automatic sizing must reserve quiet card padding instead of shrinking the progress bar below its skin minimum');
+  for(const id of ['row0','row1'])assert(doc.nodes.find(n=>n.id===id).size.width>=120);
+  const explicit=structuredClone(f);explicit.intent.panel.layout.width=384;
+  await assert.rejects(()=>convert(explicit,{...context,orientation:'landscape'},current),{code:'panel.action-layout-width'});
+});
+
+test('reference grid column selection uses complete progress-card padding and skin minimums',async()=>{
+  const current=customActionConfig(await read('../configs/action-presets.json'));
+  const context=geometryContext(pack=>{
+    const asset=role=>pack.assets.find(a=>a.assetId===pack.roles.find(r=>r.role===role).assetId);
+    asset('skin.surface.content').contentInsets={left:120,right:120,top:8,bottom:8};
+    for(const role of ['skin.bar.track','skin.bar.fill'])asset(role).minSize.width=120;
+  });
+  const progress=label=>({kind:'progress',recipeKey:'settings.progress@0.1.0',label,initial:80,max:100,display:'percent',fractionDigits:0});
+  const example={...examples[0],title:'状态',overflow:'scroll',body:{kind:'grid',children:['甲','乙','丙'].map(title=>({kind:'section',title,rows:[progress('生命'),progress('体力')]}))}};
+  const r=await convert(await actionFixture(example,catalog,current),{...context,orientation:'landscape'},current),doc=r.documents.landscape;
+  assert.equal(doc.nodes.find(n=>n.id==='layout-0').layout.columns,1,'safe padding must reduce grid columns before compiling individual cards');
+  assert.equal(doc.nodes.filter(n=>n.recipeRef==='progress-bar@1.0.0').length,6);
+  for(const bar of doc.nodes.filter(n=>n.recipeRef==='progress-bar@1.0.0'))assert(bar.size.width>=120);
+});

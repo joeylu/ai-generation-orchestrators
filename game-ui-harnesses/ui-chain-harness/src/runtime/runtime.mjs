@@ -149,7 +149,7 @@ export function createRuntime({
           });
           try {
             if(surfaceTextInsets&&box.style){const style=box.style,ink=nodeSkin.runtimeRoleInk?.(style.baseRole,{enhanced:true,authorColor:p.textColor,styleColor:style.textColor,replacement:style.baseMode==='replace'});if(ink)applyRuntimeInk(probe,ink);}
-            applyReferenceCjkWrap(probe,box.width,box.height,{enabled:referenceTextFlow===true&&!surfaceStyle&&p.wrap==='word'});
+            applyReferenceCjkWrap(probe,box.width,box.height,{enabled:referenceTextFlow===true&&!surfaceStyle&&p.wrap==='word',bodyEnabled:referenceTextFlow===true&&!surfaceStyle&&p.wrap==='word',titleEnabled:surfaceStyle==='title'&&surfaceBand==='reference-v1'&&p.align==='center'&&p.wrap==='word'});
             fitText(probe, box.width, box.height, p.overflow);
           } finally {
             probe.destroy();

@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {build} from 'esbuild';
 import {materialSkinFixture} from '../../fixtures/material-skin.mjs';
 import {verifySkinPackage} from '../../src/skins/package.mjs';
 import {editorData} from '../../src/panel/data.mjs';
 import {settingsSkinGeometry} from '../../src/panel/skin-geometry.mjs';
 import {startHarness} from './harness.mjs';
 
-test('only explicitly marked reference documents balance automatic CJK closes and resize from the full box',async()=>{
+test('only explicitly marked reference documents balance automatic short CJK tails and resize from the full box',async()=>{
  const fixture=await materialSkinFixture(await mkdtemp(join(tmpdir(),'ui-reference-cjk-'))),verified=await verifySkinPackage(fixture.packageDirectory),pack=verified.pack;
  const skinPack={manifest:(await readFile(join(fixture.packageDirectory,'skin-pack.json'))).toString('base64'),manifestSha256:verified.manifestSha256,bindings:pack.bindings,resources:Object.fromEntries([...verified.resources].map(([f,b])=>[f,b.toString('base64')]))};
  const ctx={...await editorData(),...settingsSkinGeometry(pack),profile:pack.theme,binding:{sourceKind:pack.sourceKind,sha256:verified.manifestSha256}},h=await startHarness({skinPack,profile:pack.theme});
@@ -22,6 +24,8 @@ test('only explicitly marked reference documents balance automatic CJK closes an
   n('copy','text@1.0.0',{width:216,height:56},{text:'树影覆盖小径。前方传来鸟鸣。',textStyleRef:'body',wrap:'word',overflow:'error'}),
  ]};
  try{
+  const closingProbe=await build({stdin:{contents:`import {CanvasTextMetrics} from 'pixi.js';import {selectCjkClosingWrap} from './src/runtime/cjk-text-flow.mjs';window.measureOldCjkClosing=(text,width,height)=>selectCjkClosingWrap({enabled:true,text:text.text,width,height,fontSize:text.style.fontSize,wordWrap:text.style.wordWrap,measure:wordWrapWidth=>{const style=text.style.clone();style.wordWrapWidth=wordWrapWidth;return CanvasTextMetrics.measureText(text.text,style);}});`,resolveDir:fileURLToPath(new URL('../../',import.meta.url)),loader:'js'},bundle:true,platform:'browser',format:'iife',write:false,logLevel:'silent'});
+  await h.page.addScriptTag({content:closingProbe.outputFiles[0].text});
   const states=[];
   for(const mode of ['reference','no-scale','no-band','legacy','authored-newline']){
    const input=structuredClone(doc);
@@ -31,13 +35,17 @@ test('only explicitly marked reference documents balance automatic CJK closes an
    states.push(await h.page.evaluate(({input,ctx,mode})=>{
     window.flowScene?.dispose();harness.clear();window.flowScene=harness.compilePanel(input,ctx);flowScene.runtime.flush();
     const handle=flowScene.runtime.handles.get('copy'),t=handle.adapter.text,before=handle.snapshot();
-    const result={mode,wrapWidth:t.style.wordWrapWidth,text:t.text,fontSize:t.style.fontSize,height:t.height,size:{...handle.size},document:JSON.parse(JSON.stringify(flowScene.document)),before};
+    const result={mode,wrapWidth:t.style.wordWrapWidth,text:t.text,fontSize:t.style.fontSize,height:t.height,size:{...handle.size},document:JSON.parse(JSON.stringify(flowScene.document)),before,bodyWrap:t.runtimeBodyWrap??null,oldClosing:mode==='reference'?window.measureOldCjkClosing(t,216,56):null};
     handle.resize(300,56);result.wide=t.style.wordWrapWidth;handle.resize(216,56);result.restored=t.style.wordWrapWidth;
     return result;
    },{input,ctx,mode}));
    const state=states.at(-1);
    assert.equal(state.text,input.nodes[4].props.text);assert.equal(state.fontSize,pack.theme.fontSize);assert(state.height<=56);assert.deepEqual(state.size,{width:216,height:56});assert.deepEqual(state.document.nodes.find(n=>n.id==='copy').props,state.before.props);assert.equal(state.wide,300);
-   assert.equal(state.wrapWidth,mode==='reference'?207:216);assert.equal(state.restored,state.wrapWidth);
+   if(mode==='reference'){
+    assert.equal(state.oldClosing.width,207);assert.equal(state.oldClosing.before.at(-1),'。');assert.equal(state.oldClosing.after.at(-1),'鸣。');
+    assert.equal(state.bodyWrap.policy,'cjk-body-short-tail-balance-v1');assert.equal(state.bodyWrap.originalWidth,216);assert.equal(state.bodyWrap.before.at(-1),'。');assert.equal(state.bodyWrap.after.length,2);assert.equal(state.bodyWrap.after.join(''),input.nodes[4].props.text);const counts=state.bodyWrap.after.map(s=>Array.from(s.trim()).length);assert(Math.min(...counts)>2);assert(Math.max(...counts)-Math.min(...counts)<=2);assert(state.wrapWidth<207);
+   }else{assert.equal(state.wrapWidth,216);assert.equal(state.bodyWrap,null);}
+   assert.equal(state.restored,state.wrapWidth);
   }
   const legacy=await h.page.evaluate(()=>{
    flowScene.dispose();harness.clear();

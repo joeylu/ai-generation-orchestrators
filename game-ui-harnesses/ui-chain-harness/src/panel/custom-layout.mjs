@@ -53,6 +53,14 @@ export function customPanelDocument(content,config,canvas,ctx){
   const scrollExtra=scrolling?pad.left+pad.right+profile.geometry.scrollbarWidth+profile.geometry.scrollbarGap:0;
   const fields=new Map([...content.fields,...content.actions.map(a=>({...a,type:'button'}))].map(f=>[f.id,f]));
   const modern=adaptivePresentation(l),panelPad=contentInsets(l,ctx,layered?quietLayer:undefined),insetPad=layered?contentInsets(l,ctx,'inset'):panelPad,zero={left:0,right:0,top:0,bottom:0};
+  const progressSurfaces=new Set();
+  const markProgress=node=>{
+    if(node.kind==='section'){
+      const rows=node.rowIds.filter(id=>fields.get(id)?.type==='progress-bar');
+      if(rows.length>1)for(const id of rows)progressSurfaces.add(id);
+    }else node.children.forEach(markProgress);
+  };
+  if(reference)markProgress(content.layoutBody);
   const dataRows=new Set(),allData=node=>node.rowIds.filter(id=>fields.get(id)?.type!=='button').every(id=>isDataField(fields.get(id)));
   const markData=node=>{if(node.kind==='section'){if(!layered||allData(node))for(const id of node.rowIds)if(isDataField(fields.get(id)))dataRows.add(id);}else node.children.forEach(markData);};markData(content.layoutBody);
   const oneSection=(node)=>node.kind==='section'?1:node.children.reduce((sum,n)=>sum+oneSection(n),0);
@@ -89,7 +97,7 @@ export function customPanelDocument(content,config,canvas,ctx){
     }else if(f.type==='text'&&f.wrap==='none')width=Math.max(width,widthOf(f.text),modern&&isDataField(f)?widthOf(f.label):0);
     else if(f.type==='slider')width=Math.max(width,profile.thumbSize+Math.max(profile.geometry.minContent,...['skin.bar.track','skin.bar.fill'].map(r=>roleMinimum(r,'width'))));
     else if(f.type==='progress-bar')width=Math.max(width,...['skin.bar.track','skin.bar.fill'].map(r=>roleMinimum(r,'width')));
-    const p=dataPad(f);return width+p.left+p.right;
+    const p=reference&&progressSurfaces.has(f.id)?insetPad:dataPad(f);return width+p.left+p.right;
   };
   const treeMin=node=>{
     if(node.kind==='section'){
@@ -160,6 +168,15 @@ export function customPanelDocument(content,config,canvas,ctx){
     if(h<required&&explicitHeight)fail('action-size','Requested button height cannot contain its safe area and caption.');
     return add(f.id,'button',{label:f.label,enabled:f.enabled,variant:f.variant},w,Math.max(h,required),{}, {sizing});
   };
+  // Reference composition gives an unrequested single CTA a comfortable width.
+  // Explicit actionLayout and historical policies retain their exact geometry.
+  const automaticActions=(id,buttons,w)=>{
+    const available=(w-g.gap*(buttons.length-1))/buttons.length;
+    if(buttons.some(f=>available<fieldMin(f)))fail('action-size','Buttons cannot share this section width without clipping.');
+    const compact=reference&&buttons.length===1;
+    const width=compact?Math.min(available,Math.max(fieldMin(buttons[0]),g.buttonHeight*5)):available;
+    return stack(id,buttons.map(f=>button(f,width,g.buttonHeight,compact?{}:{widthMode:'fill'})),w,{direction:'row',...(compact?{justify:'center'}:{})});
+  };
   const field=(f,w,data)=>{
     if(w<fieldMin(f)-.01)fail('layout-width',`${f.id}: control label or skin does not fit.`);
     if(f.type==='button')return button(f,w);
@@ -170,6 +187,22 @@ export function customPanelDocument(content,config,canvas,ctx){
       if(inline){byId.get(label).sizing={};byId.get(value).sizing={};}
       const block=stack(f.id+(inset?'-data-content':'-block'),[label,value],inner,{direction:inline?'row':'column'});
       return inset?panel(f.id+'-block',block,w,p,layered?'inset':undefined):block;
+    }
+    if(reference&&f.type==='progress-bar'){
+      const inset=progressSurfaces.has(f.id),p=inset?insetPad:zero,inner=w-p.left-p.right;
+      const copy=(f.display==='percent'?f.value/f.max*100:f.value).toFixed(f.fractionDigits)+(f.display==='percent'?'%':'');
+      const valueWidth=Math.max(40,widthOf(copy)),labelWidth=inner-valueWidth-g.gap,ids=[];
+      if(f.label&&labelWidth>=24){
+        const label=text(f.id+'-label',f.label,labelWidth,g.labelHeight),value=text(f.id+'-value',copy,valueWidth,g.labelHeight,'none',{align:'right'});
+        byId.get(label).sizing={};byId.get(value).sizing={};
+        ids.push(stack(f.id+'-summary',[label,value],inner,{direction:'row',align:'center'}));
+      }else{
+        if(f.label)ids.push(text(f.id+'-label',f.label,inner,g.labelHeight));
+        ids.push(text(f.id+'-value',copy,inner,g.labelHeight,'none',{align:'right'}));
+      }
+      ids.push(add(f.id,'progress-bar',{min:0,max:f.max,value:f.value,showValue:false},inner,Math.max(24,profile.trackHeight,roleMinimum('skin.bar.track','height'),roleMinimum('skin.bar.fill','height')),{}, {sizing:{widthMode:'fill'}}));
+      const block=stack(f.id+(inset?'-progress-content':'-block'),ids,inner,{gap:Math.min(g.gap,8)});
+      return inset?panel(f.id+'-block',block,w,p,'inset'):block;
     }
     const ids=[],labelWidth=Math.max(120,Math.min(200,widthOf(f.label)+8)),inline=reference&&['input','select','slider'].includes(f.type)&&f.label&&w>=500&&w>=labelWidth+g.gap+fieldMin(f),controlWidth=inline?w-labelWidth-g.gap:w;
     if(f.type==='switch'||f.type==='check-box')return add(f.id,f.type,{label:f.label,checked:f.type==='switch'?f.value:f.checked,enabled:f.enabled},w,f.type==='switch'?g.switchHeight:g.checkboxHeight,{}, {sizing:{widthMode:'fill'}});
@@ -198,9 +231,7 @@ export function customPanelDocument(content,config,canvas,ctx){
         for(let i=0;i<rows.length;){
           if(rows[i].type==='button'){
             let end=i+1;while(end<rows.length&&rows[end].type==='button')end++;
-            const buttons=rows.slice(i,end),bw=(inner-g.gap*(buttons.length-1))/buttons.length;
-            if(buttons.some(f=>bw<fieldMin(f)))fail('action-size','Buttons cannot share this section width without clipping.');
-            ids.push(stack(node.id+'-actions-'+i,buttons.map(f=>button(f,bw)),inner,{direction:'row'}));i=end;
+            ids.push(automaticActions(node.id+'-actions-'+i,rows.slice(i,end),inner));i=end;
           }else{ids.push(field(rows[i],inner,data));i++;}
         }
       }
@@ -220,7 +251,7 @@ export function customPanelDocument(content,config,canvas,ctx){
   };
   const heading=text('heading',content.title,bodyWidth,g.headingHeight,'word',{align:l.titleAlign??policy.titleAlign},'title');
   const contentId=compile(layoutBody,contentWidth);
-  const footer=footerRows.length?stack('actions',footerRows.map(f=>button(f,(bodyWidth-g.gap*(footerRows.length-1))/footerRows.length)),bodyWidth,{direction:'row'}):null;
+  const footer=footerRows.length?automaticActions('actions',footerRows,bodyWidth):null;
   const cap=Math.min(content.layout.maxHeight??board.height-policy.canvasMargin*2,board.height-policy.canvasMargin*2);
   const required=Math.max(roleMinimum('skin.surface.panel','height'),padding.top+padding.bottom+natural(heading)+g.gap+natural(contentId)+(layered&&scrolling?pad.top+pad.bottom:0)+(footer?natural(footer)+g.gap:0));
   const height=layered?(scrolling?Math.min(Math.ceil(required),cap):Math.ceil(required)):(scrolling?Math.min(o.height,cap):Math.max(Math.min(o.height,cap),Math.ceil(required)));

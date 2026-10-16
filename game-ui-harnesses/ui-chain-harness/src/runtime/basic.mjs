@@ -15,7 +15,7 @@ import { selectionMarkGeometry } from "./selection-geometry.mjs";
 import {createSurfaceView} from './surface-view.mjs';
 import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
 import {createLayerSurface} from './layer-surface.mjs';
-import {runtimeSurfaceTextBox} from './surface-text-box.mjs';
+import {runtimeSurfaceTextBox,runtimeSurfaceTextPlacement} from './surface-text-box.mjs';
 import {applyRuntimeInk} from './derived-text-ink.mjs';
 import {applyReferenceCjkWrap} from './cjk-text-flow.mjs';
 
@@ -273,6 +273,7 @@ export const basicAdapters = {
     const { skin, p, w, h } = c;
     const surface=c.surfaceStyle?createSurfaceView(skin,c.surfaceStyle,w,h,{band:c.surfaceBand}):null;
     const initialBox=surface?runtimeSurfaceTextBox(skin,c.surfaceStyle,w,h,c.surfaceTextInsets,c.surfaceBand):{x:0,y:0,width:w,height:h};
+    let textBox=initialBox;
     if (p.textStyleRef !== "body")
       reject("text.style", "Fixture only declares body text style.");
     const view = layoutBox(w, h, { overflow: "hidden" }),
@@ -292,15 +293,17 @@ export const basicAdapters = {
       text.surfaceTextColor=ink.fill;applyRuntimeInk(text,ink);
     }
     const referenceFlow=c.referenceTextFlow===true&&!surface&&p.wrap==='word';
-    applyReferenceCjkWrap(text,initialBox.width,initialBox.height,{enabled:referenceFlow});
+    const titleFlow=c.surfaceStyle==='title'&&c.surfaceBand==='reference-v1'&&p.align==='center'&&p.wrap==='word';
+    applyReferenceCjkWrap(text,initialBox.width,initialBox.height,{enabled:referenceFlow,titleEnabled:titleFlow,bodyEnabled:referenceFlow});
     view.addChild(fitText(text, initialBox.width, initialBox.height, p.overflow));
     const resize = (w, h) => {
       view.layout = { width: w, height: h };
       surface?.resize(w,h);
       const box=surface?runtimeSurfaceTextBox(skin,c.surfaceStyle,w,h,c.surfaceTextInsets,c.surfaceBand):{x:0,y:0,width:w,height:h};
+      textBox=box;
       text.text = p.text;
       text.style.wordWrapWidth = box.width;
-      applyReferenceCjkWrap(text,box.width,box.height,{enabled:referenceFlow});
+      applyReferenceCjkWrap(text,box.width,box.height,{enabled:referenceFlow,titleEnabled:titleFlow,bodyEnabled:referenceFlow});
       fitText(text, box.width, box.height, p.overflow);
       text.x =
         p.align === "right"
@@ -308,10 +311,12 @@ export const basicAdapters = {
           : p.align === "center"
             ? (box.width - text.width) / 2
             : 0;
-      text.x+=box.x;text.y=box.y+(surface?(box.height-text.height)/2:0);
+      text.x+=box.x;
+      const placement=surface?runtimeSurfaceTextPlacement(skin,c.surfaceStyle,box,text.height,{surfaceBand:c.surfaceBand,explicitInsets:Boolean(c.surfaceTextInsets)}):{y:box.y};
+      text.y=placement.y;text.runtimeTitlePlacement=placement.evidence;
     };
     resize(w, h);
-    return { view, text, surface, resize, state: () => ({}), setState() {} };
+    return { view, text, surface, get textBox(){return {x:textBox.x,y:textBox.y,width:textBox.width,height:textBox.height};}, resize, state: () => ({}), setState() {} };
   },
   "pixi.image"(c) {
     const { skin, p, w, h } = c,
