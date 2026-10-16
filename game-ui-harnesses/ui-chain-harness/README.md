@@ -33,6 +33,7 @@ node scripts/studio.mjs work/studio/project.json 4310
 
 - 运行时复用 PixiJS、PixiUI 和 Yoga/Layout；组件画布与面板编辑共用现有组件实现，作者文档、编辑状态和试玩状态分离。
 - 新材质按 S05 固定槽位提取并绑定标题、分组标题和面板底纹，不新增第 17 类交互组件。详见[分层材质](docs/skin-surfaces.md)。
+- 新预设、自定义与 AI 仓库采用参考图排版：一个放大角部的主框、较大的主标题、连续的普通正文和较弱的分组底板；保持 S05 源图与平铺尺度。展示版本随新计划冻结，旧任务与交付不自动改写。
 - 面板提供 ui-reference 五类八状态、独立 AI 仓库入口和受限自定义布局。仓库已接上游 context 0.12 / intent 0.13，其他入口仍使用自己的兼容协议；详见[规划接入](docs/planning-integration.md)、[仓库面板](docs/inventory-panel.md)和[自定义面板](docs/custom-panel.md)。
 - 面板画布支持尺寸、自由位置、显示文字和样式编辑；保存后预览读取独立修订，不覆盖原始生成包。详见[画布编辑](docs/panel-size-editor.md)。
 - Panel 规划默认使用已校验的官方 rc.8 锁定发布包，安装与开发模式见 [SDK 依赖](docs/panel-sdk.md)；缺失时明确停止，不回退到相邻源码。本地工具不提供部署、账号、数据库、队列或多人协作。

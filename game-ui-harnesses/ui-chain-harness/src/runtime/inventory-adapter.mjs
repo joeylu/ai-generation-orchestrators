@@ -27,7 +27,7 @@ function initializeInventoryList(c,own){
   const itemRecipeType=c.runtime.registry.recipes.find(recipe=>recipe.recipeId+'@'+recipe.recipeVersion===p.itemRecipeRef)?.type;
   assertInventoryProps(p,{childIds:children('items').map(child=>child.id),itemRecipeType});
   if(itemRecipeType!=='Button')reject('inventory.recipe','仓库格子须使用 Button 条目配方。');
-  const modern=p.inventory.appearance==='slots',skinned=Boolean(c.surfaceLayer),options={surfaceLayer:c.surfaceLayer},both=p.inventory.scrollMode===inventoryScrollMode,capacity=p.inventory.columns*p.inventory.rows,
+  const modern=p.inventory.appearance==='slots',skinned=Boolean(c.surfaceLayer),options={surfaceLayer:c.surfaceLayer,surfaceScale:c.surfaceScale},both=p.inventory.scrollMode===inventoryScrollMode,capacity=p.inventory.columns*p.inventory.rows,
     view=own(new Container()),gridContent=own(new Container()),detailContent=own(new Container()),detailBackground=own(new Graphics()),
     gridBox=own(new (both?InventoryGridScrollBox:OwnedScrollBox)({type:both?'bidirectional':'vertical',width:1,height:1,globalScroll:false,disableEasing:true,padding:0})),
     detailsBox=own(new OwnedScrollBox({type:'vertical',width:1,height:1,globalScroll:false,disableEasing:true,padding:0})),
@@ -40,7 +40,7 @@ function initializeInventoryList(c,own){
   detailContent.addChild(detailTitle,detailName,detailQuantity,detailSlot,detailDescription);
   if(detailIcon){for(const kind of inventoryIcons){const icon=own(inventoryExampleIcon(kind,56));icon.visible=false;detailIcons.set(kind,icon);detailIcon.addChild(icon);}detailIcon.eventMode='none';detailContent.addChild(detailIcon);}
   let geometry=inventoryLayout(skin.profile,p,w,h,skin,options),selected=p.selectedId,selectedSlot=p.inventory.initialSlot??p.items.find(item=>item.id===selected)?.slotIndex??null;
-  const gridSurface=skinned?createLayerSurface(skin,c.surfaceLayer,geometry.grid.surface.width,geometry.grid.surface.height):null,detailSurface=skinned?createLayerSurface(skin,'content',geometry.details.width,geometry.details.height):null;
+  const gridSurface=skinned?createLayerSurface(skin,c.surfaceLayer,geometry.grid.surface.width,geometry.grid.surface.height,{scale:c.surfaceScale}):null,detailSurface=skinned?createLayerSurface(skin,c.surfaceLayer==='inset'?'inset':'content',geometry.details.width,geometry.details.height):null;
   if(gridSurface){own(gridSurface.view);own(detailSurface.view);view.addChildAt(gridSurface.view,0);view.addChildAt(detailSurface.view,view.getChildIndex(detailsBox));detailBackground.visible=false;}
   const scrollbars=skinned?createInventoryScrollbars({skin,view,box:gridBox,listen,allowed:()=>handle.allowed(),own}):null;
 
@@ -52,7 +52,10 @@ function initializeInventoryList(c,own){
     detailDescription.text=item?.description??(selectedSlot===null?'选择格位查看物品详情。':'此槽位尚未放置物品。');
     for(const label of [detailTitle,detailName,detailQuantity,detailSlot,detailDescription]){
       const width=label===detailName?geometry.detailName.width:inner;
-      if(label===detailName||label===detailDescription)label.style.wordWrapWidth=width;
+      // Enhanced role ink can add a thin outline after the first render. Keep
+      // its drawn bounds inside the same safe slot on later selections, while
+      // retaining all wrapped text and the legacy unmarked layout unchanged.
+      if(label===detailName||label===detailDescription)label.style.wordWrapWidth=Math.max(1,width-(skinned?4:0));
       fitText(label,width,1e9,'error');
     }
     const labels={title:detailTitle,name:detailName,quantity:detailQuantity,slot:detailSlot,description:detailDescription},metrics={};

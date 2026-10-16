@@ -26,7 +26,7 @@
     }
   },
   "presentation": {
-    "version": "2.0",
+    "version": "3.0",
     "titleAlign": "left",
     "sectionHeading": "auto-single",
     "height": "grow",

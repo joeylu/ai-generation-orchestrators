@@ -18,6 +18,9 @@ import {settingsSkinGeometry} from '../src/panel/skin-geometry.mjs';
 import {surfaceLayerInfo} from '../src/skins/surface-styles.mjs';
 
 const read=async path=>JSON.parse(await readFile(new URL(path,import.meta.url))),base=await read('../configs/action-presets.json'),ctx=await editorData(),catalog=await readPanelSdkJson('examples/modern-all-components.catalog.json');
+base.presentation.version='2.0';
+const frozenSettingsLayout=await read('../configs/settings-layout.json');frozenSettingsLayout.presentation.version='2.0';
+const legacyCustom=()=>{const config=customActionConfig(base);config.presets.custom.layout.version='3.0';return config;};
 const text=(label,copy)=>({kind:'text',recipeKey:'settings.text@0.1.0',label,text:copy,wrap:'word'}),button={kind:'button',recipeKey:'settings.button.primary@0.1.0',label:'查看',enabled:true,action:'emit',resetRows:[],submitRows:[]};
 const example={id:'surface-layers',presetId:'custom',title:'资料与说明',request:'展示完整资料和说明，按钮只发本地事件。',overflow:'scroll',body:{kind:'column',children:[
  {kind:'section',title:'说明',rows:[text('欢迎来到云海','欢迎来到云海')]},
@@ -28,7 +31,7 @@ const example={id:'surface-layers',presetId:'custom',title:'资料与说明',req
 const convert=async(config,context=ctx)=>{const fixture=await actionFixture(example,catalog,config);return actionPresetFromIntent(fixture.session,fixture.intent,config,'custom',context);};
 
 test('custom v3 assigns one meaningful surface per information group and leaves layout transparent',async()=>{
- const config=customActionConfig(base),result=await convert(config),legacy=structuredClone(config);legacy.presets.custom.layout.version='2.0';
+ const config=legacyCustom(),result=await convert(config),legacy=structuredClone(config);legacy.presets.custom.layout.version='2.0';
  const old=await convert(legacy);assert.deepEqual(result.content,old.content);assert.deepEqual(result.behavior,old.behavior);
  for(const [orientation,doc]of Object.entries(result.documents)){
   const node=id=>doc.nodes.find(n=>n.id===id);assert.equal(node('surface').surfaceLayer,'frame');assert.equal(node('group-0').surfaceLayer,'content');
@@ -42,7 +45,7 @@ test('custom v3 assigns one meaningful surface per information group and leaves 
 test('all eight reference presets opt into frame/content/data presentation without changing their shape',async()=>{
  for(const {id}of referencePresetList()){
   const config=id==='sdk-settings'?base:referenceActionConfig(base,id),fixture=await actionFixture(referenceExample(id),catalog,config);
-  const result=id==='sdk-settings'?await settingsFromIntent(fixture.session,fixture.intent,referenceSettingsPolicy(await read('../configs/settings-planning-policy.json')),await read('../configs/settings-layout.json'),ctx):await actionPresetFromIntent(fixture.session,fixture.intent,config,id,ctx);
+  const result=id==='sdk-settings'?await settingsFromIntent(fixture.session,fixture.intent,referenceSettingsPolicy(await read('../configs/settings-planning-policy.json')),frozenSettingsLayout,ctx):await actionPresetFromIntent(fixture.session,fixture.intent,config,id,ctx);
   for(const doc of Object.values(result.documents)){
    assert.equal(doc.nodes.filter(n=>n.surfaceLayer==='frame').length,1,id);
    if(id.startsWith('sdk-result'))assert.equal(doc.nodes.filter(n=>n.surfaceLayer==='inset').length,3,id);
@@ -52,7 +55,9 @@ test('all eight reference presets opt into frame/content/data presentation witho
 });
 
 test('inventory presentation is frozen separately from fixed-cell scrolling and old prompts stay selectable',async()=>{
- const context={...ctx,orientation:'landscape'},config=inventoryActionConfig(base,context),legacy=structuredClone(config),policy=legacy.inventoryPlanning;
+ const context={...ctx,orientation:'landscape'},config=inventoryActionConfig(base,context);
+ config.inventoryPlanning.version='1.2';config.inventoryPlanning.layout.version='1.3';config.inventoryPlanning.layout.surfaceLayer='content';delete config.inventoryPlanning.layout.frameScale;config.inventoryPlanning.capabilities.version='1.2';config.inventoryPlanning.capabilities.surfaceLayer='content';delete config.inventoryPlanning.capabilities.frameScale;
+ const legacy=structuredClone(config),policy=legacy.inventoryPlanning;
  policy.version='1.1';policy.layout.version='1.2';delete policy.layout.surfaceLayer;policy.capabilities.version='1.1';delete policy.capabilities.surfaceLayer;
  assert.equal(actionPlanningFiles('inventory',legacy).instructions,'prompts/inventory-planner-v2.md');assert.equal(actionPlanningFiles('inventory',config).instructions,'prompts/inventory-planner.md');
  for(const [input,layered]of [[config,true],[legacy,false]]){
@@ -62,14 +67,14 @@ test('inventory presentation is frozen separately from fixed-cell scrolling and 
 });
 
 test('surface recipe markers and exact custom prompt versions preserve old replay contracts',()=>{
- const next=customActionConfig(base),old=structuredClone(next);old.presets.custom.layout.version='2.0';
+ const next=legacyCustom(),old=structuredClone(next);old.presets.custom.layout.version='2.0';
  assert.equal(compilationSurfaceVersion(next,'custom'),2);assert.equal(compilationSurfaceVersion(old,'custom'),1);assert.equal(compilationSurfaceVersion(next,'custom',{surfaceStylesEnabled:false}),0);
  assert.equal(actionPlanningFiles('custom',old).instructions,'prompts/custom-panel-planner-v2.md');assert.equal(actionPlanningFiles('custom',next).instructions,'prompts/custom-panel-planner.md');
- assert.deepEqual(surfaceCompileContext({},0),{surfaceStylesEnabled:false,surfaceLayersEnabled:false});assert.deepEqual(surfaceCompileContext({},1),{surfaceStylesEnabled:true,surfaceLayersEnabled:false});assert.throws(()=>surfaceCompileContext({},3));
+ assert.deepEqual(surfaceCompileContext({},0),{surfaceStylesEnabled:false,surfaceLayersEnabled:false,surfaceCompositionEnabled:false});assert.deepEqual(surfaceCompileContext({},1),{surfaceStylesEnabled:true,surfaceLayersEnabled:false,surfaceCompositionEnabled:false});assert.throws(()=>surfaceCompileContext({},4));
 });
 
 test('new short prose shrinks to content while old v2 retains its frozen height floor',async()=>{
- const config=customActionConfig(base),old=structuredClone(config);old.presets.custom.layout.version='2.0';
+ const config=legacyCustom(),old=structuredClone(config);old.presets.custom.layout.version='2.0';
  const e={...example,overflow:'error',body:{kind:'column',children:[{kind:'section',title:'说明',rows:[text('欢迎来到云海','欢迎来到云海')]}]}};
  const compile=async policy=>{const fixture=await actionFixture(e,catalog,policy);return actionPresetFromIntent(fixture.session,fixture.intent,policy,'custom',ctx);};
  const next=await compile(config),legacy=await compile(old);
@@ -87,7 +92,7 @@ test('compact scrolling includes the actual decorated content insets in width an
  const roles=ctx.usage.bindings.map(({role,assetId})=>({role,assetId})),assets=[...new Set(roles.map(r=>r.assetId))].map(assetId=>({assetId,width:512,height:512,stretch:'nine-slice',nineSlice:{left:0,right:0,top:0,bottom:0},contentInsets:{left:0,right:0,top:0,bottom:0},minSize:{width:1,height:1}}));
  Object.assign(assets.find(a=>a.assetId===roles.find(r=>r.role==='skin.surface.content').assetId),{nineSlice:{left:15,right:15,top:11,bottom:12},minSize:{width:31,height:24}});
  const context={...ctx,...settingsSkinGeometry({scale:1,roles,assets}),orientation:'landscape',binding:{sourceKind:'imported',sha256:'a'.repeat(64)}};
- const e={...example,body:{kind:'column',children:[{kind:'section',title:'说明',rows:[text('欢迎来到云海','欢迎来到云海')]}]}},config=customActionConfig(base),fixture=await actionFixture(e,catalog,config),result=await actionPresetFromIntent(fixture.session,fixture.intent,config,'custom',context),doc=result.documents.landscape,scroll=doc.nodes.find(n=>n.id==='custom-scroll'),content=doc.nodes.find(n=>n.id===scroll.slots.content[0]),safe=surfaceLayerInfo(context.skinGeometry,'content').insets;
+ const e={...example,body:{kind:'column',children:[{kind:'section',title:'说明',rows:[text('欢迎来到云海','欢迎来到云海')]}]}},config=legacyCustom(),fixture=await actionFixture(e,catalog,config),result=await actionPresetFromIntent(fixture.session,fixture.intent,config,'custom',context),doc=result.documents.landscape,scroll=doc.nodes.find(n=>n.id==='custom-scroll'),content=doc.nodes.find(n=>n.id===scroll.slots.content[0]),safe=surfaceLayerInfo(context.skinGeometry,'content').insets;
  const pad=Object.fromEntries(Object.entries(safe).map(([key,value])=>[key,Math.max(value,ctx.profile.padding)]));
  assert.ok(scroll.size.height-pad.top-pad.bottom>=content.size.height-.01);assert.ok(scroll.size.width-pad.left-pad.right-ctx.profile.geometry.scrollbarWidth-ctx.profile.geometry.scrollbarGap>=content.size.width-.01);
 });

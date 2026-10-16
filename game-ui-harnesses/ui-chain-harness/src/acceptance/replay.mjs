@@ -10,13 +10,14 @@ import {actionPresetFromIntent} from '../panel/action-intent.mjs';
 import {inventoryPresetFromIntent} from '../panel/inventory-intent.mjs';
 import {inventoryModelContext,actionPlanningFiles,verifyActionPlan} from '../panel/action-model.mjs';
 import {codexPlanningClient} from '../panel/planning-client.mjs';
-import {layeredConsumer,surfaceCompileContext} from '../panel/surface-presentation.mjs';
+import {layeredConsumer,referenceConsumer,surfaceCompileContext} from '../panel/surface-presentation.mjs';
 import {fail,verifyBatch,caseInputs,rawEvidence,sourceIdentity} from './evidence.mjs';
 import {originalRun} from './batch.mjs';
 export function surfaceVersion(consumer,report){
  const config=consumer.config;
+ if(report?.status==='COMPILED'){const version=report.surfaceRecipesVersion??0;if(![0,1,2,3].includes(version))fail('ACCEPTANCE_SURFACE_VERSION');return version;}
+ if(config&&referenceConsumer(config,consumer.presetId)||consumer.layout?.presentation?.version==='3.0')return 3;
  if(config&&layeredConsumer(config,consumer.presetId)||consumer.layout?.presentation?.version==='2.0')return 2;
- if(report?.status==='COMPILED'){const version=report.surfaceRecipesVersion??0;if(![0,1].includes(version))fail('ACCEPTANCE_SURFACE_VERSION');return version;}
  return 1;
 }
 export async function compileEvidence({root,entry,inputs,evidence,conversionReport}){

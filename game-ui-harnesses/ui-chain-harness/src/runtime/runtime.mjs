@@ -10,11 +10,12 @@ import { assertSize, minimumSize } from "./geometry.mjs";
 import { solveLayout, layoutTreeHasRules } from "./layout.mjs";
 import { measureSlices } from "../slicing/geometry.mjs";
 import { textColorOwner } from './text-colors.mjs';
-import { scopedTextSkin } from './text-skin.mjs';
+import { scopedSurfaceTextSkin } from './text-skin.mjs';
 import {surfaceLayerInfo,surfaceLayerTypes} from '../skins/surface-styles.mjs';
 import {assertSurfaceSlotChildren,effectiveSurfaceSizes} from './surface-slots.mjs';
 import {runtimeSurfaceTextBox} from './surface-text-box.mjs';
 import {logicalTextScopeRoots,applyRuntimeInk} from './derived-text-ink.mjs';
+import {applyReferenceCjkWrap} from './cjk-text-flow.mjs';
 
 export const adapters = Object.freeze({
   ...basicAdapters,
@@ -27,6 +28,7 @@ export function createRuntime({
   skin,
   panelBackgrounds = new Map(),
   onEvent = () => {},
+  referenceTextFlow = false,
 }) {
   if (skin.sourceKind !== "fixture" && !(skin.sourceKind === "imported" && skin.format === "png-pack"))
     reject("runtime.skin", "Expected a fixture or a verified PNG skin package.");
@@ -52,7 +54,7 @@ export function createRuntime({
     handles,
     textColors,
     create(
-      { id, recipeRef: ref, props = {}, size, sizing = {}, layout = {}, position, surfaceStyle, surfaceLayer, surfaceTextInsets },
+      { id, recipeRef: ref, props = {}, size, sizing = {}, layout = {}, position, surfaceStyle, surfaceLayer, surfaceScale, surfaceTextInsets, surfaceBand, surfaceFontSize },
       slots = {},
     ) {
       if (
@@ -110,30 +112,33 @@ export function createRuntime({
       const p = result.props;
       if(surfaceStyle&&!(recipe.type==='Text'&&['title','section'].includes(surfaceStyle)||recipe.type==='Panel'&&surfaceStyle==='panel'))reject('skin.surface-style','Surface style does not match component type.');
       if(surfaceLayer&&(!surfaceLayerTypes.includes(recipe.type)||surfaceStyle||p.backgroundRef))reject('skin.surface-style','Surface layer conflicts with this component or its authored background.');
+      if(surfaceScale!==undefined&&(surfaceLayer!=='frame'||!Number.isFinite(surfaceScale)||surfaceScale<1||surfaceScale>4))reject('skin.surface-style','Surface scale requires a frame and must be between 1 and 4.');
       if(surfaceLayer&&recipe.type==='Panel'&&p.pixelsPerUnitMultiplier!==1)reject('skin.surface-style','显式表面层仅支持默认切片倍率 1。');
       if(surfaceTextInsets&&!(recipe.type==='Text'&&['title','section'].includes(surfaceStyle)))reject('skin.surface-style','Text surface insets require a semantic heading.');
+      if(surfaceBand!==undefined&&!(surfaceBand==='reference-v1'&&recipe.type==='Text'&&['title','section'].includes(surfaceStyle)))reject('skin.surface-style','Reference heading bands require a semantic heading.');
+      if(surfaceFontSize!==undefined&&!(surfaceBand==='reference-v1'&&recipe.type==='Text'&&['title','section'].includes(surfaceStyle)&&Number.isInteger(surfaceFontSize)&&surfaceFontSize>=8&&surfaceFontSize<=96))reject('skin.surface-style','Reference heading font size requires a semantic band and must be an integer from 8 to 96.');
       if(surfaceTextInsets)surfaceTextInsets=structuredClone(surfaceTextInsets);
-      const layerInfo=surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,surfaceLayer):null;
-      const slotOptions=effectiveSize=>({type:recipe.type,props:p,size:effectiveSize,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer});
+      const layerInfo=surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,surfaceLayer,surfaceScale):null;
+      const slotOptions=effectiveSize=>({type:recipe.type,props:p,size:effectiveSize,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer,surfaceScale});
       const dynamicSlot=h=>Object.entries(h.sizing??{}).some(([key,value])=>key.endsWith('Mode')&&value!=='fixed')||(h.slotChildren??[]).some(dynamicSlot);
       if(surfaceLayer&&!dynamicSlot({sizing,slotChildren:list}))assertSurfaceSlotChildren(slotOptions(size),list.map(child=>({id:child.id,size:child.size})));
-      const nodeSkin=scopedTextSkin(skin,p);
+      const nodeSkin=scopedSurfaceTextSkin(skin,p,surfaceFontSize);
       const activeSurfaceStyle=surfaceStyle??(!surfaceLayer&&recipe.type==='Panel'&&!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
       const panelBackground = recipe.type === "Panel"
         ? p.backgroundRef ? panelBackgrounds.get(p.backgroundRef) : skin.backgroundSpec(layerInfo?.baseRole??"skin.surface.panel")
         : null;
       if (recipe.type === "Panel" && !panelBackground) reject("background.reference", "Panel background is missing or has not been verified.");
       const preflight = (width, height) => {
-        if(activeSurfaceStyle)runtimeSurfaceTextBox(skin,activeSurfaceStyle,width,height,surfaceTextInsets);
+        if(activeSurfaceStyle)runtimeSurfaceTextBox(skin,activeSurfaceStyle,width,height,surfaceTextInsets,surfaceBand);
         if(layerInfo&&(width<layerInfo.minWidth||height<layerInfo.minHeight))reject('skin.surface-style','Surface layer is smaller than its skin minimum.');
         assertSize(recipe.type, p, skin.profile, width, height);
-        skin.assertComponent?.(recipe.type,p,width,height,{surfaceLayer});
+        skin.assertComponent?.(recipe.type,p,width,height,{surfaceLayer,surfaceScale});
         if (recipe.type === "Panel") {
           const { texture, borders, resizePolicy } = panelBackground;
           measureSlices({ sourceWidth: texture.orig.width, sourceHeight: texture.orig.height, borders, width, height, multiplier: p.pixelsPerUnitMultiplier, resizePolicy });
         }
         if (recipe.type === "Text") {
-          const box=surfaceStyle?runtimeSurfaceTextBox(skin,surfaceStyle,width,height,surfaceTextInsets):{width,height};
+          const box=surfaceStyle?runtimeSurfaceTextBox(skin,surfaceStyle,width,height,surfaceTextInsets,surfaceBand):{width,height};
           const probe = new Text({
             text: p.text,
             style: nodeSkin.textStyle({
@@ -144,6 +149,7 @@ export function createRuntime({
           });
           try {
             if(surfaceTextInsets&&box.style){const style=box.style,ink=nodeSkin.runtimeRoleInk?.(style.baseRole,{enhanced:true,authorColor:p.textColor,styleColor:style.textColor,replacement:style.baseMode==='replace'});if(ink)applyRuntimeInk(probe,ink);}
+            applyReferenceCjkWrap(probe,box.width,box.height,{enabled:referenceTextFlow===true&&!surfaceStyle&&p.wrap==='word'});
             fitText(probe, box.width, box.height, p.overflow);
           } finally {
             probe.destroy();
@@ -168,6 +174,9 @@ export function createRuntime({
         layout: structuredClone(layout),
         preflight,
         surfaceLayer,
+        surfaceScale,
+        surfaceBand,
+        surfaceFontSize,
         slotChildren:list,
         surfaceSlotOptions:slotOptions,
         enhancedTextScope:Boolean(surfaceLayer||surfaceTextInsets),
@@ -222,7 +231,10 @@ export function createRuntime({
             ...(position ? { position: { ...position } } : {}),
             ...(surfaceStyle?{surfaceStyle}:{}),
             ...(surfaceLayer?{surfaceLayer}:{}),
+            ...(surfaceScale!==undefined?{surfaceScale}:{}),
             ...(surfaceTextInsets?{surfaceTextInsets:structuredClone(surfaceTextInsets)}:{}),
+            ...(surfaceBand?{surfaceBand}:{}),
+            ...(surfaceFontSize!==undefined?{surfaceFontSize}:{}),
           };
         },
         setState(patch) {
@@ -331,6 +343,10 @@ export function createRuntime({
           panelBackground,
           surfaceStyle,
           surfaceLayer,
+          surfaceScale,
+          surfaceBand,
+          surfaceFontSize,
+          referenceTextFlow:referenceTextFlow===true,
           surfaceTextInsets,
           p,
           w: size.width,

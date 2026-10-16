@@ -55,7 +55,7 @@
       "height": 960
     },
     "layout": {
-      "version": "3.0",
+      "version": "4.0",
       "groupGap": 20,
       "groupPadding": 12,
       "maxDepth": 8,

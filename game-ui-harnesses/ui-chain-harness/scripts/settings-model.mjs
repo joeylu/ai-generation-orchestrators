@@ -53,7 +53,7 @@ try {
       process.exitCode=2;
     } else {
       const data=await editorData(contracts),ctx={...data,orientation,profile:pack.theme,...settingsSkinGeometry(pack),binding:{sourceKind:'imported',sha256:manifestSha256}};
-      const surfaceVersion=layout.presentation?.version==='2.0'?2:1,converted=await settingsFromIntent(bundle.plan.session,result.intent,policy,layout,surfaceCompileContext(ctx,surfaceVersion));
+      const surfaceVersion=layout.presentation?.version==='3.0'?3:layout.presentation?.version==='2.0'?2:1,converted=await settingsFromIntent(bundle.plan.session,result.intent,policy,layout,surfaceCompileContext(ctx,surfaceVersion));
       const files=[];
       for(const[name,value]of Object.entries({'session.json':bundle.plan.session,'policy.json':policy,'layout.json':layout,'content.json':converted.content,
         ...Object.fromEntries(Object.entries(converted.documents).map(([name,doc])=>[name+'.panel.json',doc]))})){

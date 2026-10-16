@@ -51,3 +51,24 @@ export function textProfile(profile,props={}){
   Object.defineProperty(next,baseProfile,{value:profile});
   return next;
 }
+
+// A versioned heading supplies a presentation default. An explicit author font
+// remains the strongest setting, and unmarked nodes retain the old policy.
+export function surfaceTextMetrics(profile,props={},surfaceFontSize){
+  if(surfaceFontSize===undefined)return textMetrics(profile,props);
+  assertTextStyle(props);
+  if(!Number.isInteger(surfaceFontSize)||surfaceFontSize<8||surfaceFontSize>96)fail('skin.surface-style','Reference heading font size must be an integer from 8 to 96.');
+  if(props.fontSize!==undefined)return textMetrics(profile,props);
+  const base=textMetrics(profile),lineHeight=Math.ceil(base.lineHeight*surfaceFontSize/base.fontSize);
+  return {fontSize:surfaceFontSize,lineHeight,itemHeight:Math.max(base.itemHeight,lineHeight+Math.max(0,base.itemHeight-base.lineHeight))};
+}
+
+export function surfaceTextProfile(profile,props={},surfaceFontSize){
+  if(surfaceFontSize===undefined)return textProfile(profile,props);
+  const metrics=surfaceTextMetrics(profile,props,surfaceFontSize);
+  if(props.fontSize!==undefined)return textProfile(profile,props);
+  profile=baseOf(profile);
+  const next={...profile,fontSize:metrics.fontSize,itemHeight:metrics.itemHeight,geometry:{...profile.geometry,lineHeight:metrics.lineHeight},...(props.textColor!==undefined?{palette:{...profile.palette,text:props.textColor}}:{})};
+  Object.defineProperty(next,baseProfile,{value:profile});
+  return next;
+}

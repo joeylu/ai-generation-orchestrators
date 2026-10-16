@@ -37,7 +37,7 @@ export function validateDocument(input, ctx) {
   )
     fail("panel.binding", "当前工程资源版本不匹配，拒绝静默换肤。");
   if (doc.panelBackgrounds && !["0.2","0.3"].includes(doc.version)) fail("panel.version", "自定义背景需要 PanelDocument 0.2 或以上。");
-  if(doc.version!=='0.3'&&doc.nodes.some(n=>hasLayoutRules(n)||n.surfaceStyle||n.surfaceLayer||n.surfaceTextInsets))fail('panel.version','增强布局和表面配方需要 PanelDocument 0.3。');
+  if(doc.version!=='0.3'&&doc.nodes.some(n=>hasLayoutRules(n)||n.surfaceStyle||n.surfaceLayer||n.surfaceTextInsets||n.surfaceScale||n.surfaceBand||n.surfaceFontSize))fail('panel.version','增强布局和表面配方需要 PanelDocument 0.3。');
   const bytes = Object.values(doc.panelBackgrounds ?? {}).reduce((sum, asset) => sum + validateBackgroundAsset(asset), 0);
   if (bytes > maxBackgroundBytes) fail("background.size", "画布背景原图总计最多 8 MiB。");
   const sources = new Map(Object.values(doc.panelBackgrounds ?? {}).map(a => [a.source.sha256, a.source]));
@@ -97,10 +97,13 @@ export function validateDocument(input, ctx) {
       );
     n.props = result.props;
     if(n.surfaceTextInsets&&!(recipe.type==='Text'&&['title','section'].includes(n.surfaceStyle)))fail('panel.surface-style','Text surface insets require a semantic heading.',n.id);
+    if(n.surfaceScale!==undefined&&n.surfaceLayer!=='frame')fail('panel.surface-layer','Surface scale is reserved for an explicit main frame.',n.id);
+    if(n.surfaceBand&&!(recipe.type==='Text'&&['title','section'].includes(n.surfaceStyle)))fail('panel.surface-style','Reference bands require a semantic heading.',n.id);
+    if(n.surfaceFontSize!==undefined&&!(recipe.type==='Text'&&['title','section'].includes(n.surfaceStyle)&&n.surfaceBand==='reference-v1'))fail('panel.surface-style','Reference heading font size requires its versioned heading band.',n.id);
     if(n.surfaceLayer){
       if(!surfaceLayerTypes.includes(recipe.type)||n.surfaceStyle||n.props.backgroundRef)fail('panel.surface-layer','Surface layer conflicts with node type or authored background.',n.id);
       if(recipe.type==='Panel'&&n.props.pixelsPerUnitMultiplier!==1)fail('panel.surface-layer','显式表面层仅支持默认切片倍率 1。',n.id);
-      const info=surfaceLayerInfo(ctx.skinGeometry,n.surfaceLayer);
+      const info=surfaceLayerInfo(ctx.skinGeometry,n.surfaceLayer,n.surfaceScale);
       if(ctx.binding.sourceKind==='imported'&&!info)fail('panel.surface-layer','Verified surface geometry is required.',n.id);
       if(info&&(n.size.width<info.minWidth||n.size.height<info.minHeight))fail('panel.surface-layer','Surface layer is smaller than its skin minimum.',n.id);
       if(info&&recipe.type==='Panel'&&n.props.contentPadding&&Object.keys(info.insets).some(key=>n.props.contentPadding[key]<info.insets[key]))fail('panel.padding','Padding intrudes into the selected surface layer.',n.id);
@@ -153,8 +156,8 @@ export function validateDocument(input, ctx) {
       children = Object.values(n.slots)
         .flat()
         .map((id) => nodes.get(id));
-    if(n.surfaceLayer){const info=surfaceLayerInfo(ctx.skinGeometry,n.surfaceLayer),size=resolved.get(n.id)??n.size;if(info&&(size.width<info.minWidth||size.height<info.minHeight))fail('panel.surface-layer','Resolved surface layer is smaller than its skin minimum.',n.id);}
-    if(n.surfaceLayer)assertSurfaceSlotChildren({type:r.type,props:n.props,size:resolved.get(n.id)??n.size,profile:ctx.profile,geometry:surfaceGeometry,surfaceLayer:n.surfaceLayer},children.map(child=>({id:child.id,size:resolved.get(child.id)??child.size})));
+    if(n.surfaceLayer){const info=surfaceLayerInfo(ctx.skinGeometry,n.surfaceLayer,n.surfaceScale),size=resolved.get(n.id)??n.size;if(info&&(size.width<info.minWidth||size.height<info.minHeight))fail('panel.surface-layer','Resolved surface layer is smaller than its skin minimum.',n.id);}
+    if(n.surfaceLayer)assertSurfaceSlotChildren({type:r.type,props:n.props,size:resolved.get(n.id)??n.size,profile:ctx.profile,geometry:surfaceGeometry,surfaceLayer:n.surfaceLayer,surfaceScale:n.surfaceScale},children.map(child=>({id:child.id,size:resolved.get(child.id)??child.size})));
     const surface=n.surfaceStyle??(!n.surfaceLayer&&r.type==='Panel'&&!n.props.backgroundRef&&ctx.skinGeometry?.surfaceStyles?.panel?'panel':null);
     if(surface){const size=resolved.get(n.id)??n.size;surfaceTextBox(ctx.skinGeometry,surface,size.width,size.height,n.surfaceTextInsets);}
     if (r.type === "List") {
@@ -265,7 +268,7 @@ export function resourceClosure(doc, ctx) {
   doc.nodes.forEach((n) => {
     collect(n.recipeRef,n.props);
     const recipe=ctx.registry.recipes.find(r=>recipeRef(r)===n.recipeRef);
-    const layer=n.surfaceLayer?surfaceLayerInfo(surfaceGeometryForContext(ctx),n.surfaceLayer):null;
+    const layer=n.surfaceLayer?surfaceLayerInfo(surfaceGeometryForContext(ctx),n.surfaceLayer,n.surfaceScale):null;
     if(layer)roles.add(layer.baseRole);
     if(n.surfaceLayer&&recipe.type==='List'&&n.props.inventory){roles.add('skin.scrollbar.track');roles.add('skin.scrollbar.thumb');}
     const key=n.surfaceStyle??(n.surfaceLayer?layer?.materialStyle:recipe.type==='Panel'&&!n.props.backgroundRef&&ctx.skinGeometry?.surfaceStyles?.panel?'panel':null);

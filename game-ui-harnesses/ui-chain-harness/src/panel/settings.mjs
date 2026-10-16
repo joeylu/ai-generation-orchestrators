@@ -4,6 +4,8 @@ import {presentation,presetHeight} from './preset-presentation.mjs';
 import { validateDocument } from './document.mjs';
 import {headingPresentation} from './headings.mjs';
 import {presetSurfaceDocument} from './preset-surfaces.mjs';
+import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
+import {surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 
 // Preset compilation only: content, geometry and selected skin stay independent.
 export function settingsDocument(content, layout, canvas, ctx) {
@@ -11,19 +13,23 @@ export function settingsDocument(content, layout, canvas, ctx) {
     throw Error('Unsupported settings configuration.');
   const o = layout.orientations[canvas], board = ctx.canvases.presets[canvas];
   if (!o || !board) throw Error('Unknown orientation.');
-  const nodes = [], bodyWidth = o.width - layout.padding * 2, policy = presentation(layout.presentation);
+  const policy = presentation(layout.presentation),reference=policy.version==='3.0'&&ctx.surfaceLayersEnabled!==false&&ctx.surfaceCompositionEnabled!==false;
+  const geometry=reference?surfaceGeometryForContext(ctx):null,frame=geometry?surfaceLayerInfo(geometry,'frame',3):null,quiet=geometry?surfaceLayerInfo(geometry,'inset'):null;
+  const padding=reference?Math.max(layout.padding,...Object.values(frame?.insets??{})):layout.padding;
+  const nodes = [], bodyWidth = o.width - padding * 2;
   if(content.overflow!==undefined&&!['error','scroll'].includes(content.overflow))throw Error('Unsupported settings overflow');
   const scrolling=content.overflow==='scroll';
   if((scrolling||content.tabs)&&ctx.binding.sourceKind==='imported'&&!ctx.scrollInsets)throw Error('Verified scroll insets required');
-  const tabBox=content.tabs?tabsContentBox(ctx.profile,ctx.scrollInsets??{left:0,right:0,top:0,bottom:0},bodyWidth,o.height):null;
+  const middleInsets=quiet?.insets??ctx.scrollInsets??{left:0,right:0,top:0,bottom:0};
+  const tabBox=content.tabs?tabsContentBox(ctx.profile,middleInsets,bodyWidth,o.height):null;
   const tabPad=tabBox?.pad??{left:0,right:0,top:0,bottom:0};
   const pageWidth=bodyWidth-tabPad.left-tabPad.right;
-  const pad=scrolling?scrollPadding(ctx.profile,ctx.scrollInsets??{left:0,right:0,top:0,bottom:0}):null;
+  const pad=scrolling?scrollPadding(ctx.profile,middleInsets):null;
   const rowWidth=scrolling?pageWidth-pad.left-pad.right-ctx.profile.geometry.scrollbarWidth-ctx.profile.geometry.scrollbarGap:pageWidth;
   const add = (id, type, props, width, height, slots = {}, extra = {}) => {
     nodes.push({ id, name: id, recipeRef: `${type}@1.0.0`, props, size: { width, height }, slots, ...extra }); return id;
   };
-  const heading=(id,text,width,height,key)=>{const style=headingPresentation(ctx,key,width,height,{layered:policy.version==='2.0'&&ctx.surfaceLayersEnabled!==false}),node=add(id,'text',{text,textStyleRef:'body',align:key==='title'?policy.titleAlign:'left',overflow:'error'},width,style.height);if(style.surfaceStyle){const target=nodes.find(n=>n.id===node);target.surfaceStyle=style.surfaceStyle;if(style.surfaceTextInsets)target.surfaceTextInsets=style.surfaceTextInsets;}return node;};
+  const heading=(id,text,width,height,key)=>{const style=headingPresentation(ctx,key,width,height,{layered:(policy.version==='2.0'||reference)&&ctx.surfaceLayersEnabled!==false,reference}),node=add(id,'text',{text,textStyleRef:'body',align:key==='title'?policy.titleAlign:'left',overflow:'error'},width,style.height);if(style.surfaceStyle){const target=nodes.find(n=>n.id===node);target.surfaceStyle=style.surfaceStyle;if(style.surfaceTextInsets)target.surfaceTextInsets=style.surfaceTextInsets;if(style.surfaceBand){target.surfaceBand=style.surfaceBand;target.surfaceFontSize=style.fontSize;}}return node;};
   const title = heading('heading',content.title,bodyWidth,layout.titleHeight,'title');
   const titleHeight=nodes.find(n=>n.id===title).size.height;
   const groups=content.groups;
@@ -35,7 +41,7 @@ export function settingsDocument(content, layout, canvas, ctx) {
   if(tabs!==undefined){
     if(!Array.isArray(tabs)||tabs.length<2||tabs.length>8||!groups||tabs.filter(t=>t.initial===true).length!==1||tabs.some(t=>typeof t.id!=='string'||!t.id.match(/^[A-Za-z][A-Za-z0-9_.-]*$/)||typeof t.label!=='string'||!t.label.trim()||typeof t.initial!=='boolean'||!Array.isArray(t.groupIds)||!t.groupIds.length)||new Set(tabs.map(t=>t.id)).size!==tabs.length||JSON.stringify(tabs.flatMap(t=>t.groupIds))!==JSON.stringify(groups.map(g=>g.id))||typeof content.tabsEnabled!=='boolean')throw Object.assign(Error('Invalid settings tabs'),{code:'panel.settings-tabs'});
   }
-  if(layout.presentation?.version==='2.0'&&ctx.surfaceLayersEnabled!==false&&!tabs){
+  if(['2.0','3.0'].includes(layout.presentation?.version)&&ctx.surfaceLayersEnabled!==false&&!tabs){
     const fields=content.fields.map(f=>({...f})),close={id:'close',label:content.closeLabel,enabled:true,variant:'primary',action:'emit',targets:[]};
     const config={geometry:{padding:layout.padding,gap:layout.gap,headingHeight:layout.titleHeight,labelHeight:layout.labelHeight,textHeight:layout.labelHeight,inputHeight:layout.fieldHeight,switchHeight:layout.fieldHeight,selectHeight:layout.fieldHeight,sliderHeight:layout.controlHeight,buttonHeight:layout.buttonHeight},presentation:layout.presentation,presets:{settings:{surface:'panel',...Object.fromEntries(Object.entries(layout.orientations).map(([key,value])=>[key,{width:value.width,height:value.height}]))}}};
     const body=groups?{kind:'column',children:groups.map((group,index)=>({kind:'section',id:'group-'+index,title:group.title,rowIds:[...group.fieldIds,...(index===groups.length-1?['close']:[])],actionLayout:null}))}:undefined;
@@ -72,8 +78,8 @@ export function settingsDocument(content, layout, canvas, ctx) {
   const sequences=tabs?tabs.map(t=>t.groupIds.flatMap(id=>groupRows.get(id))):[sectionRows];
   const natural=ids=>ids.reduce((sum,id)=>sum+nodes.find(n=>n.id===id).size.height,0)+Math.max(0,ids.length-1)*layout.gap;
   const headerHeight=tabBox?tabBox.headerHeight+tabPad.top+tabPad.bottom:0;
-  const height=presetHeight({policy:scrolling?{...policy,height:'fixed'}:policy,width:o.width,height:o.height,board,padding:layout.padding,children:scrolling?[]:[titleHeight,Math.max(...sequences.map(natural))+headerHeight,layout.buttonHeight],gap:layout.gap});
-  const middleHeight=height-layout.padding*2-titleHeight-layout.buttonHeight-layout.gap*2;
+  const height=presetHeight({policy:scrolling?{...policy,height:'fixed'}:policy,width:o.width,height:o.height,board,padding,children:scrolling?[]:[titleHeight,Math.max(...sequences.map(natural))+headerHeight,layout.buttonHeight],gap:layout.gap});
+  const middleHeight=height-padding*2-titleHeight-layout.buttonHeight-layout.gap*2;
   const pageHeight=middleHeight-headerHeight;
   let middle=sectionRows;
   if(scrolling||tabs){
@@ -81,12 +87,12 @@ export function settingsDocument(content, layout, canvas, ctx) {
     const pages=sequences.map((ids,index)=>{
       const suffix=tabs?'-'+index:'';
       const contentId=add('scroll-content'+suffix,'container',{},rowWidth,scrolling?natural(ids):pageHeight,{children:ids},{...(scrolling?{sizing:{heightMode:'content'}}:{}),layout:{childrenMode:'flow',direction:'column',gap:layout.gap,padding:0}});
-      return scrolling?add('settings-scroll'+suffix,'scroll-view',{axis:'vertical',scrollbar:'auto'},pageWidth,pageHeight,{content:[contentId]}):contentId;
+      return scrolling?add('settings-scroll'+suffix,'scroll-view',{axis:'vertical',scrollbar:'auto'},pageWidth,pageHeight,{content:[contentId]},reference?{surfaceLayer:'inset'}:{}):contentId;
     });
-    middle=tabs?[add('settings-tabs','tabs',{enabled:content.tabsEnabled,tabs:tabs.map((t,i)=>({id:t.id,label:t.label,contentNodeId:pages[i],enabled:true})),activeId:tabs.find(t=>t.initial).id},bodyWidth,middleHeight,{pages})]:pages;
+    middle=tabs?[add('settings-tabs','tabs',{enabled:content.tabsEnabled,tabs:tabs.map((t,i)=>({id:t.id,label:t.label,contentNodeId:pages[i],enabled:true})),activeId:tabs.find(t=>t.initial).id},bodyWidth,middleHeight,{pages},reference?{surfaceLayer:'inset'}:{})]:pages;
   }
-  const body=add('body','container',{},bodyWidth,height-layout.padding*2,{children:[title,...middle,footer]},{layout:{childrenMode:'flow',direction:'column',gap:layout.gap,padding:0}});
-  const panel=add('settings','panel',{title:'',contentPadding:{left:layout.padding,right:layout.padding,top:layout.padding,bottom:layout.padding}},o.width,height,{content:[body]}, {position:{x:(board.width-o.width)/2,y:(board.height-height)/2},...(layout.presentation?.version==='2.0'&&ctx.surfaceLayersEnabled!==false?{surfaceLayer:'frame'}:{})});
+  const body=add('body','container',{},bodyWidth,height-padding*2,{children:[title,...middle,footer]},{layout:{childrenMode:'flow',direction:'column',gap:layout.gap,padding:0}});
+  const panel=add('settings','panel',{title:'',contentPadding:{left:padding,right:padding,top:padding,bottom:padding}},o.width,height,{content:[body]}, {position:{x:(board.width-o.width)/2,y:(board.height-height)/2},...((layout.presentation?.version==='2.0'||reference)&&ctx.surfaceLayersEnabled!==false?{surfaceLayer:'frame',...(reference?{surfaceScale:3}:{})}:{})});
   add('artboard','container',{},board.width,board.height,{children:[panel]},{layout:{childrenMode:'free',padding:0}});
   return validateDocument({kind:'ui_panel_document',version:'0.3',id:content.id+'-'+canvas,revision:0,title:content.title,canvas,bindings:structuredClone(ctx.binding),rootId:'artboard',nodes},ctx);
 }

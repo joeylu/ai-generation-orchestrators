@@ -37,6 +37,15 @@ test('unchanged frozen copy does not inspect old ellipses or add new font rules'
   f.run();assert.deepEqual(measured,[]);
 });
 
+test('resetting authored heading size validates the restored reference typography',t=>{
+ metrics(t);
+ const value='公告',before={text:value,fontSize:18},after={text:value};
+ const actual=text(value,{fontSize:28}),f=fixture('Text',before,after,{view:{},text:actual});
+ const node=f.scene.document.nodes[0],original=f.base.nodes[0];
+ for(const item of [node,original])Object.assign(item,{surfaceStyle:'title',surfaceBand:'reference-v1',surfaceFontSize:28});
+ assert.doesNotThrow(()=>f.run());actual.style.fontSize=16;fails(f);
+});
+
 test('inventory names use the real scrollable details font without changing item selection',t=>{
   const measured=metrics(t),items=[{id:'first',label:'First item'},{id:'second',label:'A long second item'}];
   const before={items:structuredClone(items),inventory:{columns:10,rows:10},selectedId:'first'};

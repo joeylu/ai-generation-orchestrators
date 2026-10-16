@@ -1,6 +1,6 @@
 {
   "kind": "ui_chain_inventory_planning_capabilities",
-  "version": "1.2",
+  "version": "1.3",
   "intentVersion": "0.13",
   "recipeKey": "inventory.grid@0.1.0",
   "rowKinds": ["inventory"],
@@ -11,7 +11,8 @@
   "maximumCells": 144,
   "maximumGridDimension": 4000,
   "scrollMode": "fixed-cells-both-v1",
-  "surfaceLayer": "content",
+  "surfaceLayer": "inset",
+  "frameScale": 3,
   "titleMaxCharacters": 40,
   "itemNameMaxUtf16": 64,
   "quantity": {"minimum": 1, "maximum": 9999},

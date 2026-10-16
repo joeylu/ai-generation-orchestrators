@@ -14,7 +14,7 @@ export async function checkPreview({directory,evidenceDirectory,orientation,chan
    const p=window.actionPreview??window.settingsPreview,r=p.scene.runtime,doc=p.scene.document,t=.7,problems=[],nodes=[],labels=[];
    r.flush();p.app.render();const inside=(b,c)=>b.x>=c.x-t&&b.y>=c.y-t&&b.x+b.width<=c.x+c.width+t&&b.y+b.height<=c.y+c.height+t;
    const visible=h=>{for(let view=h.root;view;view=view.parent)if(!view.visible||!view.renderable||view.alpha<=0)return false;return true;};
-   const walk=view=>{if(view.label?.startsWith('surface')||view.label?.startsWith('material:'))labels.push({label:view.label,masked:!!view.parent?.mask,eventMode:view.eventMode});for(const child of view.children??[])walk(child);};walk(p.scene.root.root);
+   const visited=new Set(),walk=view=>{if(!view||visited.has(view))return;visited.add(view);if(view.label?.startsWith('surface')||view.label?.startsWith('material:'))labels.push({label:view.label,masked:!!view.parent?.mask,eventMode:view.eventMode});for(const child of view.children??[])walk(child);};walk(p.scene.root.root);walk(r.overlay.root);
    for(const node of doc.nodes){const h=r.handles.get(node.id);try{h.preflight(h.size.width,h.size.height);}catch(e){problems.push({id:h.id,code:e.code??'component-size'});}
     const parent=h.parent,origin=h.root.toGlobal({x:0,y:0}),frame={x:origin.x,y:origin.y,...h.size},active=visible(h);let scrolled=false;for(let a=parent;a;a=a.parent)if(['ScrollView','List'].includes(a.recipe.type))scrolled=true;
     if(active&&!scrolled&&!inside(frame,{x:0,y:0,width:p.app.screen.width,height:p.app.screen.height}))problems.push({id:h.id,code:'canvas-boundary',frame});

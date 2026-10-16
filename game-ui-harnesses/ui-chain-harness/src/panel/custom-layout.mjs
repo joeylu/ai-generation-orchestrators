@@ -44,17 +44,20 @@ export function customPanelDocument(content,config,canvas,ctx){
   if(scrolling&&imported&&!ctx.scrollInsets)fail('scroll-insets');
   if(imported&&(!ctx.skinGeometry||!ctx.panelInsets))fail('skin-geometry','Verified PNG component geometry and panel safe insets are required.');
   const skin=imported?pngGeometry(ctx.skinGeometry,profile):null;
-  const padding=Object.fromEntries(['left','right','top','bottom'].map(side=>[side,Math.max(g.padding,ctx.panelInsets?.[side]??0)]));
+  const layered=['3.0','4.0'].includes(l.version)&&ctx.surfaceLayersEnabled!==false,reference=l.version==='4.0'&&layered&&ctx.surfaceCompositionEnabled!==false;
+  const layerGeometry=layered?surfaceGeometryForContext(ctx):null,frameScale=reference?3:1,frame=layerGeometry?surfaceLayerInfo(layerGeometry,'frame',frameScale):null;
+  const padding=Object.fromEntries(['left','right','top','bottom'].map(side=>[side,Math.max(g.padding,frame?.insets[side]??ctx.panelInsets?.[side]??0)]));
   if(Object.values(padding).some(n=>!Number.isFinite(n)||n<0))fail('skin-geometry');
-  const layerGeometry=l.version==='3.0'&&ctx.surfaceLayersEnabled!==false?surfaceGeometryForContext(ctx):null;
-  const scrollLayer=layerGeometry?surfaceLayerInfo(layerGeometry,'content'):null;
+  const quietLayer=reference?'inset':'content',scrollLayer=layerGeometry?surfaceLayerInfo(layerGeometry,quietLayer):null;
   const pad=scrolling?scrollPadding(profile,scrollLayer?.insets??ctx.scrollInsets??{left:0,right:0,top:0,bottom:0}):{left:0,right:0,top:0,bottom:0};
   const scrollExtra=scrolling?pad.left+pad.right+profile.geometry.scrollbarWidth+profile.geometry.scrollbarGap:0;
   const fields=new Map([...content.fields,...content.actions.map(a=>({...a,type:'button'}))].map(f=>[f.id,f]));
-  const modern=adaptivePresentation(l),layered=l.version==='3.0'&&ctx.surfaceLayersEnabled!==false,panelPad=contentInsets(l,ctx,layered?'content':undefined),insetPad=layered?contentInsets(l,ctx,'inset'):panelPad,zero={left:0,right:0,top:0,bottom:0};
+  const modern=adaptivePresentation(l),panelPad=contentInsets(l,ctx,layered?quietLayer:undefined),insetPad=layered?contentInsets(l,ctx,'inset'):panelPad,zero={left:0,right:0,top:0,bottom:0};
   const dataRows=new Set(),allData=node=>node.rowIds.filter(id=>fields.get(id)?.type!=='button').every(id=>isDataField(fields.get(id)));
   const markData=node=>{if(node.kind==='section'){if(!layered||allData(node))for(const id of node.rowIds)if(isDataField(fields.get(id)))dataRows.add(id);}else node.children.forEach(markData);};markData(content.layoutBody);
-  const sectionSurface=node=>modern&&l.groupSurfaces&&hasContentSurface(node.rowIds.map(id=>fields.get(id)),layered)&&!(layered&&allData(node));
+  const oneSection=(node)=>node.kind==='section'?1:node.children.reduce((sum,n)=>sum+oneSection(n),0);
+  const singleSection=oneSection(content.layoutBody)===1;
+  const sectionSurface=node=>modern&&l.groupSurfaces&&!(reference&&singleSection)&&hasContentSurface(node.rowIds.map(id=>fields.get(id)),layered)&&!(layered&&allData(node));
   const sectionPad=node=>sectionSurface(node)?panelPad:layered?zero:{left:l.groupPadding,right:l.groupPadding,top:l.groupPadding,bottom:l.groupPadding};
   const dataPad=f=>modern&&l.dataSurfaces&&dataRows.has(f.id)?insetPad:zero;
   const layoutBody=structuredClone(content.layoutBody),footerRows=[];
@@ -137,7 +140,7 @@ export function customPanelDocument(content,config,canvas,ctx){
     const height=padding*2+(direction==='row'?Math.max(24,...children.map(natural)):children.reduce((s,id)=>s+natural(id),0)+Math.max(0,children.length-1)*gap);
     return add(id,'container',{},w,Math.max(24,height),{children},{sizing:{widthMode:'fill',heightMode:'content'},layout:{childrenMode:'flow',direction,gap,padding,...layout},...extra});
   };
-  const panel=(id,child,w,p,layer=layered?'content':undefined)=>{
+  const panel=(id,child,w,p,layer=layered?quietLayer:undefined)=>{
     // Panel content slots have a measured width; only Container flow owns fill.
     byId.get(child).sizing={heightMode:'content'};
     const minimum=layer&&layerGeometry?surfaceLayerInfo(layerGeometry,layer)?.minHeight:roleMinimum('skin.surface.panel','height');
@@ -145,10 +148,11 @@ export function customPanelDocument(content,config,canvas,ctx){
   };
   const text=(id,value,w,minHeight=g.labelHeight,wrap='word',extra={},surfaceStyle)=>{
     if(w<24)fail('layout-width');
-    const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,minHeight,{layered}):{height:minHeight,insets:{left:0,right:0,top:0,bottom:0}},p=style.insets,inner=w-p.left-p.right;
-    if(wrap==='none'&&widthOf(value)>inner)fail('text-capacity',`${id}: single-line text does not fit without truncation.`);
-    const lines=String(value).split(/\r\n|\r|\n/).reduce((n,line)=>n+Math.max(1,Math.ceil(widthOf(line)/Math.max(1,inner-profile.fontSize))),0);
-    return add(id,'text',{text:value,textStyleRef:'body',wrap,overflow:'error',...extra},w,Math.max(style.height,lineHeight*(wrap==='word'?lines:1)+p.top+p.bottom),{}, {sizing:{widthMode:'fill'},...(style.surfaceStyle?{surfaceStyle:style.surfaceStyle}:{}),...(style.surfaceTextInsets?{surfaceTextInsets:style.surfaceTextInsets}:{})});
+    const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,minHeight,{layered,reference}):{height:minHeight,insets:{left:0,right:0,top:0,bottom:0}},p=style.insets,inner=w-p.left-p.right,fontSize=style.fontSize??profile.fontSize;
+    const measure=value=>Math.ceil([...String(value)].reduce((sum,c)=>sum+fontSize*(c===' '?.6:1.1)*(style.textWidthScale??1),0)),line=Math.max(profile.geometry.lineHeight,Math.ceil(fontSize*1.7*(style.lineHeightScale??1)));
+    if(wrap==='none'&&measure(value)>inner)fail('text-capacity',`${id}: single-line text does not fit without truncation.`);
+    const lines=String(value).split(/\r\n|\r|\n/).reduce((n,line)=>n+Math.max(1,Math.ceil(measure(line)/Math.max(1,inner-fontSize))),0);
+    return add(id,'text',{text:value,textStyleRef:'body',wrap,overflow:'error',...extra},w,Math.max(style.height,line*(wrap==='word'?lines:1)+p.top+p.bottom),{}, {sizing:{widthMode:'fill'},...(style.surfaceStyle?{surfaceStyle:style.surfaceStyle}:{}),...(style.surfaceBand?{surfaceBand:style.surfaceBand}:{}),...(style.fontSize?{surfaceFontSize:style.fontSize}:{}),...(style.surfaceTextInsets?{surfaceTextInsets:style.surfaceTextInsets}:{})});
   };
   const button=(f,w,h=g.buttonHeight,sizing={widthMode:'fill'},explicitHeight=false)=>{
     const p=['normal','pressed'].map(s=>insetFor(`skin.button.${f.variant}.${s}`));
@@ -167,25 +171,26 @@ export function customPanelDocument(content,config,canvas,ctx){
       const block=stack(f.id+(inset?'-data-content':'-block'),[label,value],inner,{direction:inline?'row':'column'});
       return inset?panel(f.id+'-block',block,w,p,layered?'inset':undefined):block;
     }
-    const ids=[];
+    const ids=[],labelWidth=Math.max(120,Math.min(200,widthOf(f.label)+8)),inline=reference&&['input','select','slider'].includes(f.type)&&f.label&&w>=500&&w>=labelWidth+g.gap+fieldMin(f),controlWidth=inline?w-labelWidth-g.gap:w;
     if(f.type==='switch'||f.type==='check-box')return add(f.id,f.type,{label:f.label,checked:f.type==='switch'?f.value:f.checked,enabled:f.enabled},w,f.type==='switch'?g.switchHeight:g.checkboxHeight,{}, {sizing:{widthMode:'fill'}});
-    if(f.label&&!(f.type==='text'&&f.label===f.text))ids.push(text(f.id+'-label',f.label,w));
+    if(f.label&&!(f.type==='text'&&f.label===f.text))ids.push(text(f.id+'-label',f.label,inline?labelWidth:w));
     if(f.type==='text')ids.push(text(f.id,f.text,w,layered?g.labelHeight:g.textHeight,f.wrap));
-    else if(f.type==='slider')ids.push(add(f.id,'slider',{min:f.min,max:f.max,value:f.value,step:f.step,showValue:true,enabled:f.enabled},w,g.sliderHeight,{}, {sizing:{widthMode:'fill'}}));
+    else if(f.type==='slider')ids.push(add(f.id,'slider',{min:f.min,max:f.max,value:f.value,step:f.step,showValue:true,enabled:f.enabled},controlWidth,g.sliderHeight,{}, {sizing:{widthMode:'fill'}}));
     else if(f.type==='progress-bar'){
       ids.push(add(f.id,'progress-bar',{min:0,max:f.max,value:f.value,showValue:false},w,g.progressHeight,{}, {sizing:{widthMode:'fill'}}));
       ids.push(text(f.id+'-value',(f.display==='percent'?f.value/f.max*100:f.value).toFixed(f.fractionDigits)+(f.display==='percent'?'%':''),w));
     }else{
       const inset=insetFor('skin.field.normal'),h=Math.max(f.type==='select'?g.selectHeight:g.inputHeight,inset.top+inset.bottom+lineHeight,roleMinimum('skin.field.normal','height'));
       const props=f.type==='select'?{options:f.options,selectedId:f.value,placeholder:f.label,maxVisibleItems:3,enabled:f.enabled}:{value:f.value,placeholder:f.placeholder,inputType:f.inputType,readOnly:f.readOnly,maxLength:f.maxLength,enabled:f.enabled};
-      ids.push(add(f.id,f.type,props,w,h,{}, {sizing:{widthMode:'fill'}}));
+      ids.push(add(f.id,f.type,props,controlWidth,h,{}, {sizing:{widthMode:'fill'}}));
     }
-    return stack(f.id+'-block',ids,w);
+    if(inline)for(const id of ids)byId.get(id).sizing={};
+    return stack(f.id+'-block',ids,w,inline?{direction:'row',align:'center'}:{});
   };
   const compile=(node,w)=>{
     if(node.kind==='section'){
       const p=sectionPad(node),inner=w-p.left-p.right,rows=node.rowIds.map(id=>fields.get(id)),ids=[],surface=sectionSurface(node),data=dataArrangement(rows,inner,l.dataSurfaces&&rows.some(f=>dataRows.has(f.id))?insetPad:zero,g.gap,widthOf);
-      if(showHeadings)ids.push(text(node.id+'-heading',node.title,inner,g.labelHeight,'word',{},'section'));
+      if(showHeadings&&(!reference||!content.sectionHeadingIds||content.sectionHeadingIds.includes(node.id)))ids.push(text(node.id+'-heading',node.title,inner,g.labelHeight,'word',{},'section'));
       if(node.actionLayout){
         const a=node.actionLayout,buttons=rows.map(f=>button(f,a.buttonWidth,a.buttonHeight,{},true));
         ids.push(stack(node.id+'-actions',buttons,inner,{direction:a.direction,gap:a.gap,align:a.direction==='column'?{start:'flex-start',center:'center',end:'flex-end'}[a.align]:'flex-start',justify:a.direction==='row'?{start:'flex-start',center:'center',end:'flex-end'}[a.align]:'flex-start'}));
@@ -226,15 +231,15 @@ export function customPanelDocument(content,config,canvas,ctx){
     if(viewport-pad.top-pad.bottom<Math.max(24,profile.geometry.minThumbLength))fail('scroll-capacity');
     // Slot roots have fixed width; only flow children may use fill.
     byId.get(contentId).sizing={heightMode:'content'};
-    middle=add('custom-scroll','scroll-view',{axis:'vertical',scrollbar:'auto'},bodyWidth,viewport,{content:[contentId]},{sizing:{widthMode:'fill'},...(layered?{surfaceLayer:'content'}:{})});
+    middle=add('custom-scroll','scroll-view',{axis:'vertical',scrollbar:'auto'},bodyWidth,viewport,{content:[contentId]},{sizing:{widthMode:'fill'},...(layered?{surfaceLayer:quietLayer}:{})});
   }
   stack('body',[heading,middle,...(footer?[footer]:[])],bodyWidth,{}, {size:{width:bodyWidth,height:height-padding.top-padding.bottom},sizing:{}});
-  add('surface','panel',{title:'',contentPadding:padding},width,height,{content:['body']},{position:{x:(board.width-width)/2,y:(board.height-height)/2},...(layered?{surfaceLayer:'frame'}:{})});
+  add('surface','panel',{title:'',contentPadding:padding},width,height,{content:['body']},{position:{x:(board.width-width)/2,y:(board.height-height)/2},...(layered?{surfaceLayer:'frame',...(reference?{surfaceScale:frameScale}:{})}:{})});
   add('artboard','container',{},board.width,board.height,{children:['surface']},{layout:{childrenMode:'free',padding:0}});
   const doc=validateDocument({kind:'ui_panel_document',version:'0.3',id:content.id+'-'+canvas,revision:0,title:content.title,canvas,bindings:structuredClone(ctx.binding),rootId:'artboard',nodes},ctx);
   if(skin){
     const indexed=indexDocument(doc),recipes=new Map(doc.nodes.map(n=>[n.id,ctx.registry.recipes.find(r=>recipeRef(r)===n.recipeRef)])),resolved=documentLayout(indexed.nodes,recipes,indexed.parents,profile);
-    for(const node of doc.nodes){const size=resolved.get(node.id)??node.size;try{skin.assertComponent(recipes.get(node.id).type,node.props,size.width,size.height,node.surfaceLayer?{surfaceLayer:node.surfaceLayer}:undefined);}catch(e){e.message=node.id+': '+e.message;throw e;}}
+    for(const node of doc.nodes){const size=resolved.get(node.id)??node.size;try{skin.assertComponent(recipes.get(node.id).type,node.props,size.width,size.height,node.surfaceLayer?{surfaceLayer:node.surfaceLayer,surfaceScale:node.surfaceScale}:undefined);}catch(e){e.message=node.id+': '+e.message;throw e;}}
   }
   return doc;
 }

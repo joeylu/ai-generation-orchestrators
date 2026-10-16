@@ -17,6 +17,7 @@ import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
 import {createLayerSurface} from './layer-surface.mjs';
 import {runtimeSurfaceTextBox} from './surface-text-box.mjs';
 import {applyRuntimeInk} from './derived-text-ink.mjs';
+import {applyReferenceCjkWrap} from './cjk-text-flow.mjs';
 
 const styleBox = (width, height, extra = {}) => ({
   width,
@@ -49,15 +50,18 @@ export const basicAdapters = {
   "pixi.switch"(c) {
     const { skin, p, w, h, emit, listen } = c,
       m = skin.profile.markSize,
+      reference = c.referenceTextFlow === true,
       views = [];
     for (const on of [false, true]) {
       const v = new Container(),
         track = skin.view(`skin.switch.track.${on ? "on" : "off"}`, m * 2, m),
         thumb = skin.view("skin.switch.thumb", m - 4, m - 4),
         text = skin.label(p.label, w - m * 2 - skin.profile.geometry.labelGap);
-      thumb.position.set(on ? m + 2 : 2, 2);
+      const markX = reference ? w - m * 2 : 0;
+      track.x = markX;
+      thumb.position.set(markX + (on ? m + 2 : 2), 2);
       text.position.set(
-        m * 2 + skin.profile.geometry.labelGap,
+        reference ? 0 : m * 2 + skin.profile.geometry.labelGap,
         ((skin.fontSizeOverride?Math.max(m,skin.profile.geometry.lineHeight):m) - text.height) / 2,
       );
       const markOffset=(skin.fontSizeOverride?Math.max(m,skin.profile.geometry.lineHeight)-m:0)/2;
@@ -73,7 +77,7 @@ export const basicAdapters = {
     return {
       view,
       resize(width, height) {
-        for (const v of views){
+        for (const [index, v] of views.entries()){
           reflowLabel(
             v.children[2],
             p.label,
@@ -81,6 +85,10 @@ export const basicAdapters = {
             height,
           );
           if(skin.fontSizeOverride)v.children[2].y=(Math.max(m,skin.profile.geometry.lineHeight)-v.children[2].height)/2;
+          if(reference){
+            v.children[0].x = width - m * 2;
+            v.children[1].x = width - m * 2 + (index ? m + 2 : 2);
+          }
         }
         view.innerView.hitArea = new Rectangle(0, 0, width, height);
       },
@@ -263,8 +271,8 @@ export const basicAdapters = {
   },
   "pixi.text"(c) {
     const { skin, p, w, h } = c;
-    const surface=c.surfaceStyle?createSurfaceView(skin,c.surfaceStyle,w,h):null;
-    const initialBox=surface?runtimeSurfaceTextBox(skin,c.surfaceStyle,w,h,c.surfaceTextInsets):{x:0,y:0,width:w,height:h};
+    const surface=c.surfaceStyle?createSurfaceView(skin,c.surfaceStyle,w,h,{band:c.surfaceBand}):null;
+    const initialBox=surface?runtimeSurfaceTextBox(skin,c.surfaceStyle,w,h,c.surfaceTextInsets,c.surfaceBand):{x:0,y:0,width:w,height:h};
     if (p.textStyleRef !== "body")
       reject("text.style", "Fixture only declares body text style.");
     const view = layoutBox(w, h, { overflow: "hidden" }),
@@ -283,13 +291,16 @@ export const basicAdapters = {
       const ink=skin.runtimeRoleInk?.(text.surfaceInk.role,{enhanced:Boolean(c.surfaceTextInsets),authorColor:p.textColor,...text.surfaceInk})??{fill:p.textColor??surface.style.textColor??skin.profile.textColors?.[surface.style.baseRole]??skin.profile.palette.text};
       text.surfaceTextColor=ink.fill;applyRuntimeInk(text,ink);
     }
+    const referenceFlow=c.referenceTextFlow===true&&!surface&&p.wrap==='word';
+    applyReferenceCjkWrap(text,initialBox.width,initialBox.height,{enabled:referenceFlow});
     view.addChild(fitText(text, initialBox.width, initialBox.height, p.overflow));
     const resize = (w, h) => {
       view.layout = { width: w, height: h };
       surface?.resize(w,h);
-      const box=surface?runtimeSurfaceTextBox(skin,c.surfaceStyle,w,h,c.surfaceTextInsets):{x:0,y:0,width:w,height:h};
+      const box=surface?runtimeSurfaceTextBox(skin,c.surfaceStyle,w,h,c.surfaceTextInsets,c.surfaceBand):{x:0,y:0,width:w,height:h};
       text.text = p.text;
       text.style.wordWrapWidth = box.width;
+      applyReferenceCjkWrap(text,box.width,box.height,{enabled:referenceFlow});
       fitText(text, box.width, box.height, p.overflow);
       text.x =
         p.align === "right"
@@ -375,13 +386,13 @@ export const basicAdapters = {
     };
   },
   "pixi.panel"(c) {
-    const { skin, p, w, h, children } = c,layerInfo=c.surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,c.surfaceLayer):null,
+    const { skin, p, w, h, children } = c,layerInfo=c.surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,c.surfaceLayer,c.surfaceScale):null,
       pad =
         p.contentPadding ??
         layerInfo?.insets??skin.insets("skin.surface.panel");
     if (Object.entries(pad).some(([key,n]) => n < (layerInfo?.insets??skin.insets("skin.surface.panel"))[key]))
       reject("panel.padding", "Padding intrudes into skin content area.");
-    const view = new Container(),layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h):null,
+    const view = new Container(),layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h,{scale:c.surfaceScale}):null,
       bg = layer?.view??new SlicedBackground({ ...c.panelBackground, width: w, height: h, multiplier: p.pixelsPerUnitMultiplier }),
       title = skin.label(p.title, w - pad.left - pad.right),
       body = layoutBox(

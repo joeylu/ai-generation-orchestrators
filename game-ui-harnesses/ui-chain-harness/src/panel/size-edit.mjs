@@ -5,7 +5,7 @@ import {pngGeometry} from '../runtime/png-geometry.mjs';
 import {scrollPadding} from '../runtime/scroll-geometry.mjs';
 import {tabsContentBox} from '../runtime/tabs-geometry.mjs';
 import {applyTextChanges,nonTextProps,textEditFields} from './text-edit.mjs';
-import {textProfile,supportsTextStyle} from '../runtime/text-style.mjs';
+import {textProfile,surfaceTextProfile,supportsTextStyle} from '../runtime/text-style.mjs';
 import {surfaceTextBox,surfaceLayerInfo} from '../skins/surface-styles.mjs';
 import {inventoryLayout} from '../runtime/inventory-geometry.mjs';
 import {surfaceSlotBox,surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
@@ -35,7 +35,7 @@ function skinFor(ctx){
 const tabsInsets=(ctx,skin)=>skin?(skin.roles.has('skin.surface.content')?skin.insets('skin.surface.content'):null):ctx.scrollInsets??{left:ctx.profile.padding,right:ctx.profile.padding,top:0,bottom:0};
 
 function slotBox(node,size,type,ctx,skin){
-  if(node.surfaceLayer)return surfaceSlotBox({type,props:node.props,size,profile:ctx.profile,geometry:surfaceGeometryForContext(ctx),surfaceLayer:node.surfaceLayer});
+  if(node.surfaceLayer)return surfaceSlotBox({type,props:node.props,size,profile:ctx.profile,geometry:surfaceGeometryForContext(ctx),surfaceLayer:node.surfaceLayer,surfaceScale:node.surfaceScale});
   const p=node.props,s=textProfile(ctx.profile,p),g=s.geometry,layer=node.surfaceLayer?surfaceLayerInfo(ctx.skinGeometry,node.surfaceLayer):null;
   if(type==='Panel'||type==='Dialog'){
     const dp=layer?Math.max(s.padding,...Object.values(layer.insets)):s.padding;
@@ -89,7 +89,7 @@ export function sizeEditTargets(input,ctx){
 }
 
 function assertTextCapacity(node,type,size,ctx,skin,changedFields=null){
-  const p=node.props,s=textProfile(ctx.profile,p),g=s.geometry,line=Math.max(g.lineHeight,Math.ceil(s.fontSize*1.2));
+  const p=node.props,s=surfaceTextProfile(ctx.profile,p,node.surfaceFontSize),g=s.geometry,line=Math.max(g.lineHeight,Math.ceil(s.fontSize*1.2));
   const changed=id=>!changedFields||changedFields.has(id);
   const width=text=>[...String(text??'')].reduce((sum,c)=>sum+s.fontSize*(c===' '?.6:1.1),0);
   const check=(text,w,h,wrap=false)=>{
@@ -121,13 +121,13 @@ function assertTextCapacity(node,type,size,ctx,skin,changedFields=null){
   }
   if((type==='Slider'||type==='ProgressBar')&&p.showValue)check('100%',size.width,g.lineHeight);
   if(type==='Tabs'){
-    const box=tabsContentBox(s,(node.surfaceLayer?surfaceLayerInfo(ctx.skinGeometry,node.surfaceLayer)?.insets:null)??tabsInsets(ctx,skin),size.width,size.height);
+    const box=tabsContentBox(s,(node.surfaceLayer?surfaceLayerInfo(ctx.skinGeometry,node.surfaceLayer,node.surfaceScale)?.insets:null)??tabsInsets(ctx,skin),size.width,size.height);
     const w=(box.surface.width-Math.max(0,p.tabs.length-1)*g.tabGap)/Math.max(1,p.tabs.length);
     for(const [index,tab]of p.tabs.entries())if(changed(`tabs.${index}.label`))for(const state of ['normal','selected']){const a=pad(`skin.tab.${state}`);check(tab.label,w-a.left-a.right,s.itemHeight-a.top-a.bottom);}
   }
   if(type==='List'&&!(node.slots.items??[]).length){
     if(p.inventory){
-      const box=inventoryLayout(ctx.profile,p,size.width,size.height,ctx.skinGeometry,{surfaceLayer:node.surfaceLayer}).detailName;
+      const box=inventoryLayout(ctx.profile,p,size.width,size.height,ctx.skinGeometry,{surfaceLayer:node.surfaceLayer,surfaceScale:node.surfaceScale}).detailName;
       // Inventory names wrap in a vertically scrollable detail region. They
       // are not labels squeezed into the item cell or the old List row height.
       for(const [index,item]of p.items.entries())if(changed(`items.${index}.label`))check(item.label,box.width,1e9,true);
@@ -140,7 +140,7 @@ function assertGeometry(doc,ctx,base){
   const skin=skinFor(ctx),info=geometry(doc,ctx),old=base?geometry(base,ctx):null;
   for(const n of doc.nodes){
     const type=info.type(n),size=info.size(n),before=old?.nodes.get(n.id),previous=before?old.size(before):null;
-    try{skin?.assertComponent(type,n.props,size.width,size.height,{surfaceLayer:n.surfaceLayer});}catch(e){e.message=n.id+': '+e.message;throw e;}
+    try{skin?.assertComponent(type,n.props,size.width,size.height,{surfaceLayer:n.surfaceLayer,surfaceScale:n.surfaceScale});}catch(e){e.message=n.id+': '+e.message;throw e;}
     if(previous){
       const shrunk=size.width<previous.width-.1||size.height<previous.height-.1,fontChanged=n.props.fontSize!==before.props.fontSize;
       const original=new Map(textEditFields({...before,locked:false},ctx).map(field=>[field.id,field.value]));

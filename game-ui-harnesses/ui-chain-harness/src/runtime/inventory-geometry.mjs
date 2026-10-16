@@ -23,11 +23,11 @@ export function inventorySkinMetrics(profile,source,{surfaceLayer}={}){
   return {insets:Object.fromEntries(sides.map(key=>[key,Math.max(...pads.map(pad=>pad[key]))])),minSize:{width:Math.max(...minimums.map(value=>value.width)),height:Math.max(...minimums.map(value=>value.height))}};
 }
 
-function measurements(profile,props,skin,{surfaceLayer}={}){
+function measurements(profile,props,skin,{surfaceLayer,surfaceScale}={}){
   assertInventoryProps(props);
   if(!props.inventory)fail('缺少显式仓库展示。');
   const s=textProfile(profile,props),safe=inventorySkinMetrics(s,skin,{surfaceLayer}),pad=safe.insets,lineHeight=s.geometry.lineHeight,
-    surface=surfaceLayer?surfaceLayerInfo(skin?.surfaceGeometry??skin,surfaceLayer):null,gridPad=surface?.insets??{left:0,right:0,top:0,bottom:0},gridPadX=gridPad.left+gridPad.right,gridPadY=gridPad.top+gridPad.bottom,
+    surface=surfaceLayer?surfaceLayerInfo(skin?.surfaceGeometry??skin,surfaceLayer,surfaceScale):null,gridPad=surface?.insets??{left:0,right:0,top:0,bottom:0},gridPadX=gridPad.left+gridPad.right,gridPadY=gridPad.top+gridPad.bottom,
     modern=props.inventory.appearance==='slots',both=props.inventory.scrollMode===inventoryScrollMode,columns=props.inventory.columns,rows=props.inventory.rows,
     iconSize=modern?Math.max(36,Math.min(44,Math.ceil(s.fontSize*2.5))):Math.max(20,Math.ceil(s.fontSize*1.5)),digits=Math.max(1,...props.items.map(item=>String(item.quantity).length)),quantityWidth=Math.ceil(digits*s.fontSize*.72)+4,
     content=Math.max(iconSize,lineHeight,quantityWidth),nameHeight=props.items.some(item=>item.icon===null)?lineHeight*2+4:0,requiredSide=Math.ceil(Math.max(safe.minSize.width,safe.minSize.height,pad.left+pad.right+content,pad.top+pad.bottom+Math.max(content,nameHeight))),side=props.inventory.cellSize??Math.max(both?48:0,requiredSide),

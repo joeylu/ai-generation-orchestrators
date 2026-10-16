@@ -19,6 +19,7 @@ export function compilePanel(input, ctx, { app, skin, panelBackgrounds, onEvent 
     registry: ctx.registry,
     usage: ctx.usage,
     onEvent,
+    referenceTextFlow:doc.nodes.some(n=>n.surfaceLayer==='frame'&&n.surfaceScale!==undefined)&&doc.nodes.some(n=>n.surfaceBand==='reference-v1'),
   });
   runtime.setMode("edit");
   try {

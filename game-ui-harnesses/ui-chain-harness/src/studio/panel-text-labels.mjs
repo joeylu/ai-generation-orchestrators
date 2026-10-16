@@ -1,6 +1,6 @@
 import {CanvasTextMetrics} from 'pixi.js';
 import {textEditFields} from '../panel/text-edit.mjs';
-import {textProfile} from '../runtime/text-style.mjs';
+import {surfaceTextProfile} from '../runtime/text-style.mjs';
 import {percentLabel} from '../runtime/controls.mjs';
 
 const literal=value=>String(value).replace(/\s+/g,' ');
@@ -47,7 +47,7 @@ export function assertEditedTextLabels(scene,baseDocument,ctx){
     const before=new Map(textEditFields({...original,locked:false},ctx).map(field=>[field.id,field.value])),fontChanged=node.props.fontSize!==original.props.fontSize;
     const changed=textEditFields({...node,locked:false},ctx).filter(field=>fontChanged||field.value!==before.get(field.id));
     const handle=scene.runtime.handles.get(node.id),adapter=handle?.adapter,view=adapter?.view,type=handle?.recipe.type,p=node.props,size=handle?.size;
-    const profile=textProfile(skin.profile,p),g=profile.geometry;
+    const profile=surfaceTextProfile(skin.profile,p,node.surfaceFontSize),g=profile.geometry;
     if(fontChanged&&['Slider','ProgressBar'].includes(type)&&p.showValue)changed.push({id:'value',label:'数值文字',value:percentLabel(handle.readState().value,p.min,p.max)});
     if(!changed.length)continue;
     expectedFontSize=fontChanged?profile.fontSize:undefined;

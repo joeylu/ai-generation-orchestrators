@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
+import {mkdir,mkdtemp,readFile,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -17,4 +17,10 @@ test('generic acceptance renders a deterministic mixed-control fixture and prese
  assert.equal(result.status,'passed',JSON.stringify(result));assert.equal(result.samples.length,2);assert(result.interactions.some(i=>i.kind==='slider-pointer'&&i.passed));assert(result.interactions.some(i=>i.kind==='select'&&i.passed));assert(result.interactions.some(i=>i.kind==='submit'&&i.passed));
  assert(result.samples[0].labels.some(l=>l.label.startsWith('material:')&&l.masked));
  const inventory=await command(root,'inventory-preview.mjs',['--package',join(built.directory,'pack'),'--out',join(directory,'inventories'),'--orientation','portrait']);assert.equal(inventory.exitCode,0,inventory.stderr);const inventoryCheck=await checkPreview({directory:inventory.stdout.trim(),evidenceDirectory:join(evidenceDirectory,'inventory'),orientation:'portrait'});assert.equal(inventoryCheck.status,'passed',JSON.stringify(inventoryCheck));assert(inventoryCheck.interactions.some(i=>i.kind==='inventory-slot-details'&&i.passed));
+ const examples=JSON.parse(await readFile(join(root,'examples/action-presets.json'),'utf8')),confirmation=join(directory,'confirmation.json');await writeFile(confirmation,json(examples.filter(e=>e.presetId==='confirmation')));
+ const dialog=await command(root,'action-preview.mjs',['--package',join(built.directory,'pack'),'--out',join(directory,'dialogs'),'--examples',confirmation,'--orientation','portrait']);assert.equal(dialog.exitCode,0,dialog.stderr);
+ const dialogCheck=await checkPreview({directory:dialog.stdout.trim(),evidenceDirectory:join(evidenceDirectory,'dialog'),orientation:'portrait'});assert.equal(dialogCheck.status,'passed',JSON.stringify(dialogCheck));
+ // Dialog views are reparented into the overlay; count the frame once there.
+ for(const sample of dialogCheck.samples)assert.equal(sample.labels.filter(l=>l.label==='surface-layer:frame').length,1);
+ assert(dialogCheck.interactions.some(i=>i.kind==='button-local-event'&&i.passed));
 });

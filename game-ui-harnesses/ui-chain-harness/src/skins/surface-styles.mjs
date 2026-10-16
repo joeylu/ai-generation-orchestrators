@@ -61,8 +61,9 @@ export const surfaceLayers=Object.freeze(['frame','content','inset']);
 export const surfaceLayerTypes=Object.freeze(['Panel','Dialog','ScrollView','Tabs','List']);
 // Explicit document presentation, independent of the immutable skin recipe.
 // The inset samples the complete safe central region, never an inferred color.
-export function surfaceLayerInfo(geometry,layer){
+export function surfaceLayerInfo(geometry,layer,scale=1){
  if(!surfaceLayers.includes(layer))fail('Unknown surface layer.');
+ if(!number(scale,1,4)||layer!=='frame'&&scale!==1)fail('Surface scale requires a frame and must be between 1 and 4.');
  if(!geometry)return null;
  const materialStyle=layer==='frame'&&geometry.surfaceStyles?.panel?'panel':null,style=materialStyle?geometry.surfaceStyles.panel:null;
  const baseRole=layer==='frame'?style?.baseRole??'skin.surface.panel':'skin.surface.content';
@@ -75,11 +76,12 @@ export function surfaceLayerInfo(geometry,layer){
  // Older packs may have declared zero content insets around a visible frame.
  // Explicit new layers reserve that frame and breathing room without changing
  // the source metadata or the meaning of an unmarked historic document.
- const pad=style?.insets??Object.fromEntries(sides.map(k=>[k,layer==='content'?Math.max(nativePad[k],border[k]+8):layer==='inset'?Math.max(nativePad[k],8):nativePad[k]]));
+ const basePad=style?.insets??Object.fromEntries(sides.map(k=>[k,layer==='content'?Math.max(nativePad[k],border[k]+8):layer==='inset'?Math.max(nativePad[k],8):nativePad[k]]));
+ const pad=Object.fromEntries(sides.map(k=>[k,basePad[k]*scale]));
  const resolution=(geometry.scale??geometry.surfaceGeometry?.scale??1)*(asset.density??1),width=asset.width/resolution,height=asset.height/resolution;
  const cut=Object.fromEntries(sides.map(k=>[k,Math.max(nativePad[k],border[k])]));
  const sample={x:cut.left,y:cut.top,width:width-cut.left-cut.right,height:height-cut.top-cut.bottom,sourceWidth:width,sourceHeight:height};
  if(layer==='inset'&&(sample.width<2||sample.height<2))fail('Inset material needs a safe central region of at least 2 × 2 pixels.');
- const clip=style?.clipInsets??border;
- return {layer,baseRole,asset,insets:{...pad},minWidth:Math.max(asset.minSize?.width??1,pad.left+pad.right+1,clip.left+clip.right+1),minHeight:Math.max(asset.minSize?.height??1,pad.top+pad.bottom+1,clip.top+clip.bottom+1),materialStyle,...(layer==='inset'?{sample}:{})};
+ const baseClip=style?.clipInsets??border,clip=Object.fromEntries(sides.map(k=>[k,baseClip[k]*scale]));
+ return {layer,scale,baseRole,asset,insets:{...pad},clipInsets:clip,minWidth:Math.max(asset.minSize?.width??1,basePad.left+basePad.right+1,baseClip.left+baseClip.right+1)*scale,minHeight:Math.max(asset.minSize?.height??1,basePad.top+basePad.bottom+1,baseClip.top+baseClip.bottom+1)*scale,materialStyle,...(layer==='inset'?{sample}:{})};
 }

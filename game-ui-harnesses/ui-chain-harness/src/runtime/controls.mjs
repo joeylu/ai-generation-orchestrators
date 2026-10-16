@@ -499,7 +499,7 @@ export class SkinnedDialog extends Dialog {
   initInnerView() {
     const { skin, width, height } = this.options;
     this.innerView = new Container();
-    this.layerSurface=this.options.surfaceLayer?createLayerSurface(skin,this.options.surfaceLayer,width,height):null;
+    this.layerSurface=this.options.surfaceLayer?createLayerSurface(skin,this.options.surfaceLayer,width,height,{scale:this.options.surfaceScale}):null;
     this.innerView.addChild(
       this.layerSurface?.view??skin.view("skin.surface.panel", width, height),
       this.contentView,

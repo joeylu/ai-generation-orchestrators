@@ -2,7 +2,7 @@
 const fail=code=>{throw Object.assign(new Error(code),{code});};
 export function presentation(config){
   if(config===undefined)return {titleAlign:'left',sectionHeading:'show',height:'fixed',canvasMargin:0};
-  if(!['1.0','2.0'].includes(config.version)||Object.keys(config).some(k=>!['version','titleAlign','sectionHeading','height','canvasMargin'].includes(k))||!['left','center','right'].includes(config.titleAlign)||!['show','auto-single'].includes(config.sectionHeading)||!['fixed','grow'].includes(config.height)||!Number.isInteger(config.canvasMargin)||config.canvasMargin<0)fail('panel.presentation');
+  if(!['1.0','2.0','3.0'].includes(config.version)||Object.keys(config).some(k=>!['version','titleAlign','sectionHeading','height','canvasMargin'].includes(k))||!['left','center','right'].includes(config.titleAlign)||!['show','auto-single'].includes(config.sectionHeading)||!['fixed','grow'].includes(config.height)||!Number.isInteger(config.canvasMargin)||config.canvasMargin<0)fail('panel.presentation');
   return config;
 }
 export function presetHeight({policy,width,height,board,padding,children,gap}){

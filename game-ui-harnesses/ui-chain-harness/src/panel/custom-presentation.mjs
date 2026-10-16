@@ -5,13 +5,13 @@ const fail=()=>{throw Object.assign(Error('Invalid custom layout policy.'),{code
 const keys=(v,allowed)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>allowed.includes(k));
 const base=['version','groupGap','groupPadding','maxDepth','gridColumns','minColumnWidth'];
 export function customLayoutPolicy(preset){
- const l=preset.layout;if(!l)fail();const modern=['2.0','3.0'].includes(l.version);
- if(!['1.0','2.0','3.0'].includes(l.version)||!keys(l,modern?[...base,'maxColumns','minCardWidth','groupSurfaces','dataSurfaces']:base)||
+ const l=preset.layout;if(!l)fail();const modern=['2.0','3.0','4.0'].includes(l.version);
+ if(!['1.0','2.0','3.0','4.0'].includes(l.version)||!keys(l,modern?[...base,'maxColumns','minCardWidth','groupSurfaces','dataSurfaces']:base)||
   !base.slice(1).every(k=>Number.isInteger(l[k]))||l.groupGap<0||l.groupGap>128||l.groupPadding<0||l.groupPadding>128||l.maxDepth<1||l.maxDepth>8||l.gridColumns!==2||l.minColumnWidth<24||l.minColumnWidth>512||
   modern&&(!Number.isInteger(l.maxColumns)||l.maxColumns<1||l.maxColumns>3||!Number.isInteger(l.minCardWidth)||l.minCardWidth<l.minColumnWidth||l.minCardWidth>1024||typeof l.groupSurfaces!=='boolean'||typeof l.dataSurfaces!=='boolean'))fail();
  return l;
 }
-export const adaptivePresentation=l=>['2.0','3.0'].includes(l.version);
+export const adaptivePresentation=l=>['2.0','3.0','4.0'].includes(l.version);
 export const isDataField=f=>f.type==='text'&&Boolean(f.label)&&f.label!==f.text;
 export const hasContentSurface=(rows,layered=false)=>rows.some(f=>f.type!=='button'&&(layered||f.type!=='text'||isDataField(f)));
 export function contentInsets(l,ctx,layer){

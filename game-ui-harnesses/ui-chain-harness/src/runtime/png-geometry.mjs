@@ -19,11 +19,11 @@ export function pngGeometry(evidence,profile){
   };
 }
 
-export function assertPngComponent(skin,type,p,w,h,{surfaceLayer}={}){
+export function assertPngComponent(skin,type,p,w,h,{surfaceLayer,surfaceScale}={}){
   const s=textProfile(skin.profile,p),g=s.geometry,check=(role,width,height)=>skin.assertView(role,width,height);
-  const layer=surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,surfaceLayer):null;
-  if(layer)check(layer.baseRole,w,h);
-  if(type==='List'&&p.inventory){const box=inventoryLayout(skin.profile,p,w,h,skin,{surfaceLayer});for(const role of ['skin.item.normal','skin.item.selected'])check(role,box.cell.width,box.cell.height);return;}
+  const layer=surfaceLayer?surfaceLayerInfo(skin.surfaceGeometry??skin,surfaceLayer,surfaceScale):null;
+  if(layer){if(w<layer.minWidth||h<layer.minHeight)fail('skin.surface-style','Surface layer is smaller than its skin minimum.');check(layer.baseRole,w/layer.scale,h/layer.scale);}
+  if(type==='List'&&p.inventory){const box=inventoryLayout(skin.profile,p,w,h,skin,{surfaceLayer,surfaceScale});for(const role of ['skin.item.normal','skin.item.selected'])check(role,box.cell.width,box.cell.height);return;}
   const button=(base,width,height)=>{for(const state of ['normal','pressed'])check(`${base}.${state}`,width,height);};
   if(type==='Button')button(`skin.button.${p.variant}`,w,h);
   if(type==='Input'||type==='Select'){

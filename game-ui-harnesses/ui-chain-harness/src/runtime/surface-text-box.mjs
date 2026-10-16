@@ -1,4 +1,5 @@
 import {surfaceTextBox} from '../skins/surface-styles.mjs';
+import {completeReferenceHeadingRegion,referenceHeadingLayout,referenceHeadingVersion,referenceHeadingLayer} from './heading-band.mjs';
 
 const fail=message=>{throw Object.assign(Error(message),{code:'skin.surface-text-visible'});};
 const finite=value=>Number.isFinite(value)&&value>=0;
@@ -56,8 +57,19 @@ export function prepareSurfaceTextRegions(pack,images){
  }
  return result;
 }
-export function runtimeSurfaceTextBox(skin,key,width,height,overrideInsets){
+export function runtimeSurfaceTextBox(skin,key,width,height,overrideInsets,surfaceBand){
  const base=surfaceTextBox(skin.surfaceGeometry,key,width,height,overrideInsets);
+ if(surfaceBand!==undefined){
+  if(surfaceBand!==referenceHeadingVersion||!['title','section'].includes(key))fail('Unsupported heading band.');
+  const boxWidth=width-base.clipInsets.left-base.clipInsets.right,boxHeight=height-base.clipInsets.top-base.clipInsets.bottom;
+  for(const layer of base.style.layers)if(layer.mode!=='tile'){
+   const texture=skin.textures.get(layer.assetId);
+   if(texture&&!referenceHeadingLayer(layer,texture.frame))continue;
+   const region=skin.runtimeHeadingBands?.get(layer.assetId)??(texture?completeReferenceHeadingRegion(texture.frame.width,texture.frame.height):null);
+   if(!region)fail('Heading band texture is unavailable.');
+   referenceHeadingLayout(region,boxWidth,boxHeight);
+  }
+ }
  // An absent explicit marker keeps historical rendering byte-for-byte logical
 // geometry. Existing material compositions retain their own frozen safe area.
  if(!overrideInsets||!skin.runtimeSurfaceTextRegions||base.style.baseMode==='replace'||base.style.layers.length)return base;

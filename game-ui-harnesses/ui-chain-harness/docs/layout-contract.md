@@ -90,10 +90,27 @@ flow→free 必须显式使用分组转换：用共享求解器当前矩形冻�
 
 节点可选 `props.fontSize`（12–96 整数）和 `props.textColor`（`#RRGGBB`），支持具有自身文字的13类型；Container/ScrollView/Image、显式子行List及不显示数值的Slider/ProgressBar不提供无效编辑入口。未设置沿用皮肤，恢复默认删除字段。`runtime/text-style.mjs`集中派生字号、行高与内部行高度，文档最小尺寸、PNG安全区、Panel/Dialog标题与Tabs页内容槽、适配器和真实字体检查均使用同一度量；字号改变重新校验全部自身文字和保留空间。每节点独立文字皮肤不向子节点继承，不缩放九宫格或整体。颜色覆盖不改几何，运行时保护选项、切换状态及原生输入的显式色，仍保留皮肤自动配色默认路径。
 
+## 参考图表面排版
+
+PanelDocument 0.3 另有消费端展示字段；这些是确定性编译策略，不是模型私加的布局属性：
+
+| 字段 | 规则 |
+| --- | --- |
+| `surfaceLayer` | frame 主框、content 原装饰内容板、inset 安全中心弱底板；仅支持的 Panel/Dialog/ScrollView/Tabs/List 可声明 |
+| `surfaceScale` | 仅显式 frame 可用，默认 1；新预设 3.0、自定义 4.0、仓库 layout 1.4 固定为 3，并同步保留放大后的四边安全区 |
+| `surfaceStyle` | Text 的 title/section，或已有 Panel 材质配方；不能与同节点 surfaceLayer 冲突 |
+| `surfaceTextInsets` | 语义标题的显式安全留白，不能侵入冻结皮肤原安全区 |
+| `surfaceBand` | `reference-v1` 仅用于 title/section Text，保留适用标题层的完整左右端纹饰、延展中间区域；tile 与显式定位装饰保留原合同 |
+| `surfaceFontSize` | 节点级 8–96 整数字号，仅允许 reference-v1 标题；不改变旧组件 props 合同，用户显式 props.fontSize 优先 |
+
+主框缩放不改皮肤密度或原 PNG，不放大 S05 平铺颗粒。新策略只保留一个装饰主框：单组普通公告、说明和表单的正文连续，真正的多分组、任务卡和独立数据使用弱 inset，纯排版容器透明。标题字号与内容安全区在预检、渲染和尺寸编辑中共用约束；失败回退仍为原子操作，不靠缩字或裁文案解决。
+
+对应新转换写 `surfaceRecipesVersion:3`；旧标记 0/1/2（及更早缺失标记）与冻结配置保持各自行为，不向旧文档添加新字段，不重写原始交付或编辑副本。实际美术验收与离线布局检查分别判断。
+
 新设置面板的控件行使用填充宽度，滚动内容使用内容高度；动作面板的按钮组均分剩余宽度。既有冻结作品和组件消费包不自动重写。重新打包的组件运行时包含本能力，本说明随消费包交付；旧消费包需走已有的离线运行时升级流程。仍不包含 Unity RectTransform 的完整锚点系统、Text 字体实际测量高度、自动断点和任意 16 类 AI 布局规划。
 
 ## 自定义规划桥接（2026-10-15）
 
-`src/panel/custom-layout.mjs` 将上游 intent 0.12 的 column/row/grid/section 树转换到本合同，按配置生成 fill/content、padding/gap，继续调用同一 Yoga 求解器。row 等宽；grid 固定两列且不足拒绝。模型可给面板 width/maxHeight，不能改 Studio 画布，也不能在原生意图私加 sizing、比例或 padding 字段。
+`src/panel/custom-layout.mjs` 将上游 intent 0.12 的 column/row/grid/section 树转换到本合同，按配置生成 fill/content、padding/gap，继续调用同一 Yoga 求解器。row 等宽；旧 layout 1.0 的 grid 固定两列，2.0/3.0/当前 4.0 根据所选方向、内容下限及冻结卡片策略选择列数。模型可给面板 width/maxHeight，不能改 Studio 画布，也不能在原生意图私加 sizing、比例或 padding 字段。
 
 `configs/custom-panel.json` 的 `preset.layout` 集中维护 groupGap、groupPadding、maxDepth、gridColumns、minColumnWidth；基础行间距沿用 geometry.gap。导入 PNG 皮肤的 panelInsets、scrollInsets、组件几何来自已验证包，转换后按实际求解尺寸执行运行时同源安全校验。缺少证据、九宫格尺寸不足、内容安全区冲突、超出画布或显式上限均失败。文字空间采用保守估计与运行时溢出检查，真实字体和真实皮肤仍需浏览器验收。具体能力、滚动按钮边界与拒绝项见 [自定义面板](custom-panel.md)。

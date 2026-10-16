@@ -58,10 +58,10 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
   return {consumer,packDirectory,pack,manifestSha256,consumerSha256:selected.consumerSha256,contractInputs:state.request.inputs};
  }
  async function view(id){
-  const dir=directory(id),flow=await load(dir),project=await read(dir,'project.json');
+  const dir=directory(id),ownerBeforeLoad=running.has(dir),flow=await load(dir),active=ownerBeforeLoad||running.has(dir),project=await read(dir,'project.json');
   const batch=await generation.action('status',{id});
   const lock=await localLockState(dir,'.processing.lock');
-  const result={name:project.name,busy:running.has(dir)||lock.status==='busy',recovering:recoveryPending.has(id),batchReady:receivedComponentBatch(batch),generationRunning:batch.operation==='running',phase:flow.phase??'not-started',message:flow.message??'',errorCode:flow.errorCode??null,localRecovery:flow.localRecovery??null,panels:flow.panels??[],task:null,skin:null};
+  const result={name:project.name,busy:active||lock.status==='busy',recovering:recoveryPending.has(id),batchReady:receivedComponentBatch(batch),generationRunning:batch.operation==='running',phase:flow.phase??'not-started',message:flow.message??'',errorCode:flow.errorCode??null,localRecovery:flow.localRecovery??null,panels:flow.panels??[],task:null,skin:null};
   result.processingStartedAt=flow.processingStartedAt;result.processingFinishedAt=flow.processingFinishedAt;
   if(lock.status==='unknown'){const failure=localFailure({code:'LOCAL_LOCK_UNKNOWN'});result.message=failure.message;result.errorCode=failure.code;result.phase='processing-failed';}
   if(flow.taskDirectory){const [task]=await inspectStudioTasks(root,[{id:'task',name:project.name,directory:flow.taskDirectory}]);result.task=task;
@@ -74,8 +74,9 @@ export function pipelineController(root,generation,snapshot,{inspectTasks=inspec
   result.panels=await Promise.all(result.panels.map(async p=>{
    if(p.deletedAt)return p;
    if(p.artifact){try{const entry=await publish(p.artifact);return {...p,url:entry.url,downloads:entry.downloads};}catch{return {...p,status:'invalid',message:'面板产物校验失败'};}}
-   // A claim without a finished record after restart is never automatically resubmitted.
-   return {...p,status:p.status==='running'&&!running.has(dir)?'interrupted-no-retry':p.status};
+   // Use the same owner snapshot as busy: normal completion during enrichment
+   // is still running in this response and ready on the next read, not orphaned.
+   return {...p,status:p.status==='running'&&!active?'interrupted-no-retry':p.status};
   }));
   return result;
  }

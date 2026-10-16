@@ -36,7 +36,7 @@ test('preview accepts verified fixture evidence but rejects changed raw response
   const raw=json(intent),write=(name,value)=>writeFile(join(dir,name),typeof value==='string'?value:json(value));
   await write('plan.json',bundle.plan);await write('intent.json',intent);await write('response.txt',raw);await write('preset.json',preset);
   await write('receipt.json',{status:'RESPONSE_RECEIVED',planSha256:bundle.plan.sha256,contextSha256:bundle.plan.session.context.sha256,responseSha256:hash(Buffer.from(raw)),invocationCount:1,automaticRetries:0});
-  await write('conversion.json',{status:'COMPILED',surfaceRecipesVersion:2,files:[{file:'preset.json',sha256:hash(Buffer.from(json(preset)))}]});
+  await write('conversion.json',{status:'COMPILED',surfaceRecipesVersion:3,files:[{file:'preset.json',sha256:hash(Buffer.from(json(preset)))}]});
   const options={config,pack,manifestSha256,aliases,instructions,ctx};
   assert.deepEqual((await loadActionRun(dir,options)).preset,preset);
   await write('response.txt',raw+' ');await assert.rejects(()=>loadActionRun(dir,options),{code:'ACTION_RECEIPT_INVALID'});
@@ -56,7 +56,8 @@ test('inventory planning selects its own prompt and catalog without replacing ot
   assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.0'}}).instructions,'prompts/inventory-planner-v1.md');
   assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.1'}}).instructions,'prompts/inventory-planner-v2.md');
   assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.2'}}).instructions,'prompts/inventory-planner.md');
-  for(const version of [undefined,'future','1.3'])assert.throws(()=>actionPlanningFiles('inventory',{inventoryPlanning:{version}}),{code:'CONSUMER_CHANGED_REPLAN'});
+  assert.equal(actionPlanningFiles('inventory',{inventoryPlanning:{version:'1.3'}}).instructions,'prompts/inventory-planner.md');
+  for(const version of [undefined,'future','1.4'])assert.throws(()=>actionPlanningFiles('inventory',{inventoryPlanning:{version}}),{code:'CONSUMER_CHANGED_REPLAN'});
 });
 
 test('the conversion producer cannot publish a passed result without actual transport evidence',async()=>{

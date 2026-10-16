@@ -1,4 +1,5 @@
 import {panelOrientations} from '../src/panel/orientation.mjs';
+import {surfaceCompileContext} from '../src/panel/surface-presentation.mjs';
 import {settingsSkinGeometry} from '../src/panel/skin-geometry.mjs';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,join,relative,isAbsolute,sep,dirname} from 'node:path';
@@ -19,7 +20,7 @@ if(pack.sourceKind!=='imported')throw Error('Select a real imported skin.');
 const contracts=await panelSkinContracts(pack,values.contracts),expected=bindingsOf(contracts);
 const data=await editorData(contracts),ctx={registry:data.registry,usage:data.usage,template:data.template,canvases:data.canvases,profile:pack.theme,...settingsSkinGeometry(pack),binding:{sourceKind:'imported',sha256:manifestSha256}};
 const content=JSON.parse(await readFile(values.content?resolve(values.content):join(root,'configs/settings-content.json'))),layout=JSON.parse(await readFile(values.layout?resolve(values.layout):join(root,'configs/settings-layout.json')));
-if(values.content){try{const conversion=JSON.parse(await readFile(join(dirname(resolve(values.content)),'conversion.json'),'utf8'));if(![undefined,1,2].includes(conversion.surfaceRecipesVersion))throw Error('SURFACE_RECIPES_VERSION');ctx.surfaceStylesEnabled=[1,2].includes(conversion.surfaceRecipesVersion);ctx.surfaceLayersEnabled=conversion.surfaceRecipesVersion===2;}catch(e){if(e.code!=='ENOENT')throw e;}}
+if(values.content){try{const conversion=JSON.parse(await readFile(join(dirname(resolve(values.content)),'conversion.json'),'utf8'));Object.assign(ctx,surfaceCompileContext(ctx,conversion.surfaceRecipesVersion??0));}catch(e){if(e.code!=='ENOENT')throw e;}}
 const documents=Object.fromEntries(panelOrientations(values.orientation).map(c=>[c,settingsDocument(content,layout,c,ctx)]));
 const packet={manifest:(await readFile(join(resolve(values.package),'skin-pack.json'))).toString('base64'),manifestSha256,bindings:expected,resources:Object.fromEntries([...resources].filter(([f])=>!f.startsWith('sources/')).map(([f,b])=>[f,b.toString('base64')]))};
 const bundle=await build({entryPoints:[join(root,'src/panel/settings-preview.mjs')],bundle:true,write:false,format:'esm'});

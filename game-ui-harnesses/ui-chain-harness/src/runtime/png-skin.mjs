@@ -7,6 +7,7 @@ import {visibleSelectionBounds} from './selection-geometry.mjs';
 import {deriveTextReadability,textRoles} from '../skins/text-readability.mjs';
 import {prepareSurfaceTextRegions} from './surface-text-box.mjs';
 import {runtimeRoleInk as resolveRuntimeRoleInk} from './derived-text-ink.mjs';
+import {prepareReferenceHeadingBands,referenceHeadingLayer} from './heading-band.mjs';
 
 // read(file) supplies local package bytes. No implicit URL resolution, network,
 // global Assets cache alias, or fallback texture is introduced by this loader.
@@ -20,11 +21,15 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
   const profile={...pack.theme,fontFamily:family};
   const usages=new Map(pack.assets.map(a=>[a.assetId,skinUsage(a,a.width,a.height,pack.scale)]));
   const pixelImages=new Map(),pixelAssets=new Set(textRoles(pack).map(r=>r.assetId));
+  const runtimeHeadingBandTextures=new Map(),bandAssets=new Set(),allAssets=new Map([...pack.assets,...(pack.materialAssets??[])].map(a=>[a.assetId,a]));
   for(const key of ['title','section']){
     const style=pack.surfaceStyles?.[key],id=pack.roles.find(r=>r.role===(style?.baseRole??'skin.surface.bar'))?.assetId;
     if(id)pixelAssets.add(id);
+    for(const layer of style?.layers??[])if(layer.mode!=='tile'){
+      pixelAssets.add(layer.assetId);if(referenceHeadingLayer(layer,allAssets.get(layer.assetId)))bandAssets.add(layer.assetId);
+    }
   }
-  let runtimeSurfaceTextRegions,runtimeTextReadability;
+  let runtimeSurfaceTextRegions,runtimeTextReadability,runtimeHeadingBands;
   let disposed=false, total=0;
   const bytesOf = async f => {
     const bytes=new Uint8Array(await read(f.file)); total+=bytes.byteLength;
@@ -35,8 +40,10 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
     if(disposed)return; disposed=true;
     for(const texture of textures.values())texture.destroy(true);
     textures.clear();
+    for(const texture of runtimeHeadingBandTextures.values())texture.destroy(true);
+    runtimeHeadingBandTextures.clear();
     visualBounds.clear();
-    pixelImages.clear();runtimeSurfaceTextRegions?.clear();
+    pixelImages.clear();runtimeSurfaceTextRegions?.clear();runtimeHeadingBands?.clear();
     for(const bitmap of bitmaps)bitmap.close();
     for(const face of faces)document.fonts.delete(face);
   };
@@ -56,6 +63,15 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
         canvas.width=canvas.height=0;
       }
       textures.set(a.assetId,new Texture({source:new ImageSource({resource:bitmap,resolution:usages.get(a.assetId)?.resolution??1,alphaMode:'premultiplied-alpha',scaleMode:'linear',autoGenerateMipmaps:a.stretch!=='vertical'})}));
+      if(bandAssets.has(a.assetId)){
+        // A strongly compressed middle must not select a coarse two-axis mip
+        // level that erases the title's horizontal borders. This separately
+        // owned bitmap/source is exclusive to the new explicit band marker;
+        // historical Sprite/cover sampling keeps its original source intact.
+        const bandBitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}),{premultiplyAlpha:'premultiply',colorSpaceConversion:'none'});
+        bitmaps.push(bandBitmap);
+        runtimeHeadingBandTextures.set(a.assetId,new Texture({source:new ImageSource({resource:bandBitmap,resolution:usages.get(a.assetId)?.resolution??1,alphaMode:'premultiplied-alpha',scaleMode:'linear',autoGenerateMipmaps:false})}));
+      }
     }
     for(const f of pack.fonts){
       const face=new FontFace(family,await bytesOf(f),{weight:String(f.weight),style:f.style,unicodeRange:f.unicodeRange});
@@ -66,6 +82,7 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
     // frozen profile, package metadata or sampled source acceptance report.
     runtimeSurfaceTextRegions=prepareSurfaceTextRegions(pack,pixelImages);
     runtimeTextReadability=deriveTextReadability(pack,pixelImages,{preserve:true});
+    runtimeHeadingBands=prepareReferenceHeadingBands(pack,pixelImages);
     pixelImages.clear();
     const asset=role=>{
       const id=roles.get(role);
@@ -74,7 +91,7 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
     };
     return {
       sourceKind:pack.sourceKind, format:'png-pack', manifestSha256, visualAcceptance:pack.visualAcceptance,
-      profile,textures,metadata,roles,runtimeSurfaceTextRegions,runtimeTextReadability,
+      profile,textures,metadata,roles,runtimeSurfaceTextRegions,runtimeTextReadability,runtimeHeadingBands,runtimeHeadingBandTextures,
       runtimeRoleInk(role,options){return resolveRuntimeRoleInk(this,role,options);},
       surfaceGeometry:{scale:pack.scale,roles:pack.roles,assets:pack.assets,surfaceStyles:pack.surfaceStyles,materialAssets:pack.materialAssets},
       texture(role){return textures.get(asset(role).assetId);},

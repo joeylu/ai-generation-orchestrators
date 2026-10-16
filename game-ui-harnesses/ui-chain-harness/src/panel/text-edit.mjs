@@ -1,6 +1,6 @@
 // Display-copy policy only. Document/layout validation stays in size-edit.mjs,
 // so the browser and save gate share this allowlist without an import cycle.
-import {supportsNodeTextStyle,assertTextStyle,textMetrics,isTextColor} from '../runtime/text-style.mjs';
+import {supportsNodeTextStyle,assertTextStyle,surfaceTextMetrics,isTextColor} from '../runtime/text-style.mjs';
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
 const scalarFields={Text:['text','文字内容',true],Panel:['title','面板标题',false],Dialog:['title','弹窗标题',false],Button:['label','按钮文案',false],Switch:['label','开关文案',false],CheckBox:['label','勾选框文案',false],Input:['placeholder','输入提示',false],Select:['placeholder','选择提示',false]};
 const collectionFields={Select:['options','选项'],RadioGroup:['options','选项'],Tabs:['tabs','页签'],List:['items','条目'],Dialog:['actions','操作按钮']};
@@ -38,7 +38,7 @@ export function textEditFields(documentOrNode,nodeIdOrContext,context){
 
 export function textStyleEditState(documentOrNode,nodeIdOrContext,context,options={}){
   const value=target(documentOrNode,nodeIdOrContext,context),type=typeOf(value.node,value.ctx),supported=supportsNodeTextStyle(type,value.node),props=value.node.props;
-  const metrics=textMetrics(value.ctx.profile,props),fallback=options.defaultTextColor;
+  const metrics=surfaceTextMetrics(value.ctx.profile,props,value.node.surfaceFontSize),fallback=options.defaultTextColor;
   return {supported,editable:supported&&!value.locked,fontSize:metrics.fontSize,fontSizeOverride:props.fontSize??null,textColor:props.textColor??(isTextColor(fallback)?fallback:value.ctx.profile.palette.text),textColorOverride:props.textColor??null,isAutomaticColor:props.textColor===undefined};
 }
 

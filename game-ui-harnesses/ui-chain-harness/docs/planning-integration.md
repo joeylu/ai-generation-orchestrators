@@ -20,9 +20,23 @@ Panel 负责候选检索、规划上下文与响应 Schema、可选模型运输�
 
 设置转换支持多个同级分组、开关/滑块/下拉框、支持范围内的页签和滚动；ui-reference 入口保持五类八状态的预设控件形状，补充需求修改显示内容和初始值。预设来源由 `src/panel/reference-presets.mjs` 读取并冻结摘要，不在 Studio 复制另一份默认内容。
 
-自定义可转换 text/input/checkbox/switch/slider/select/progress/button、受支持的 column/row/grid/section 树及本地动作。消费者 layout 3.0 提供有意义分组的 content 底板、独立数据的 inset 轻底板和 frame 外壳，避免反复套框；标签值按宽度并排或上下排列，grid 横屏 1–3 列、竖屏单列，显式 row 保留。上游没有的逐节点 padding、min/max、fill/content 由消费者配置决定，不伪造为 AI 已输出的字段。旧冻结 layout 1.0/2.0 保持原行为，旧提示词按冻结版本选择。完整限制见[自定义面板](custom-panel.md)。
+自定义可转换 text/input/checkbox/switch/slider/select/progress/button、受支持的 column/row/grid/section 树及本地动作。当前消费者 layout 4.0 使用一个放大角部的 frame、连续的单组普通正文，以及有实际多分组／卡片时的弱 inset；主标题与组标题遵循参考图的大小层级。标签值按宽度并排或上下排列，grid 横屏 1–3 列、竖屏单列，显式 row 保留。上游没有的逐节点 padding、min/max、fill/content 由消费者配置决定，不伪造为 AI 已输出的字段。旧冻结 layout 1.0/2.0/3.0 保持原行为，旧提示词按冻结版本选择。完整限制见[自定义面板](custom-panel.md)。
 
 AI 仓库通过 `action-model.mjs` 的独立分支选择 `modern-readable-game-grid-layout` 目录，使用 `configs/inventory-planning.json` 约束 `inventory.grid@0.1.0`。AI 输出标题、名称、数量、格位和初始选择；程序冻结行列、格子几何、画布比例、真实皮肤和安全区。无图集时 `item.icon` 为 null，以名称展示。多格占用、拖换、堆叠、业务动作和未绑定图标不在当前转换范围内。旧 `deterministic-inventory` 结果保持原标识，不标成 AI。详见[仓库面板](inventory-panel.md)。
+
+## 消费端展示版本
+
+展示版本与上游 context / intent 独立，不通过修改原始模型响应升级布局：
+
+| 当前新计划入口 | 冻结版本 | 转换标记 |
+| --- | --- | --- |
+| 预设与设置（含已支持的 Tabs、原生确认 Dialog） | `presentation.version:3.0` | `surfaceRecipesVersion:3` |
+| 自定义 | `preset.layout.version:4.0` | `surfaceRecipesVersion:3` |
+| AI 仓库 | planning/capabilities 1.3、layout 1.4 | `surfaceRecipesVersion:3` |
+
+新主框的 `surfaceScale:3` 只影响该 frame 的角部和安全区，其他控件及 S05 源图、平铺尺度不改。`surfaceBand:reference-v1` 保留标题端部纹饰、延展中间区域；节点级 `surfaceFontSize` 提供主标题／分组标题的语义字号，不向旧皮肤组件 props 注入新字段，用户显式字号编辑优先。单组普通公告或表单不再独立套内容底板，真实分组和数据使用弱 inset。细节见[分层材质](skin-surfaces.md)。
+
+历史标记 0（含更早缺失标记）、1、2 分别保留无表面配方、标题配方与上一版分层展示；旧配置和转换标记优先于当前默认值。原始请求、提示、计划、响应、回执、原交付及独立编辑副本不重写；复核或确定性重放也不自动提交新模型任务。展示规则已实现不代表任意真实模型结果或六种风格均已完成视觉验收。
 
 16 类组件可在组件画布试玩，不代表任意 16 类组合都能通过 AI 语义转换。新协议或新字段要增加语义适配及拒绝用例，不能只扩大兼容版本列表。
 

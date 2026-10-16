@@ -77,7 +77,7 @@ window.initializeComponents = async function (
         id = overrides.id ?? "sample-" + sequence++;
       const props = { ...structuredClone(sample.props), ...overrides.props },
         size = { ...sample.size, ...overrides.size };
-      const surfaceSlot=overrides.surfaceLayer?surfaceSlotBox({type,props,size,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer:overrides.surfaceLayer}):null;
+      const surfaceSlot=overrides.surfaceLayer?surfaceSlotBox({type,props,size,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer:overrides.surfaceLayer,surfaceScale:overrides.surfaceScale}):null;
       const slots = {};
       const label = (suffix, text, height = 30) =>
         runtime.create({
@@ -129,6 +129,7 @@ window.initializeComponents = async function (
           layout: overrides.layout ?? {},
           position: overrides.position,
           surfaceLayer:overrides.surfaceLayer,
+          surfaceScale:overrides.surfaceScale,
         },
         slots,
       );

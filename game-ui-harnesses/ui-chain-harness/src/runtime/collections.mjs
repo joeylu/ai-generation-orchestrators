@@ -65,7 +65,7 @@ export const collectionAdapters = {
         "list.item-recipe",
         "Non-Button item recipes require explicit items content slots.",
       );
-    const layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h):null,pad=layer?.info.insets??{left:0,right:0,top:0,bottom:0};
+    const layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h,{scale:c.surfaceScale}):null,pad=layer?.info.insets??{left:0,right:0,top:0,bottom:0};
     const view = layoutBox(w, h, { overflow: "hidden" }),
       list = new List({
         type: "vertical",
@@ -170,7 +170,7 @@ export const collectionAdapters = {
         [],
         p.tabs.findIndex((t) => t.id === p.activeId),
       );
-    const layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h):null;
+    const layer=c.surfaceLayer?createLayerSurface(skin,c.surfaceLayer,w,h,{scale:c.surfaceScale}):null;
     const insets=layer?.info.insets??(skin.roles.has('skin.surface.content')?skin.insets('skin.surface.content'):null);
     const initial=tabsContentBox(skin.profile,insets,w,h);
     const rows = [],
@@ -254,7 +254,7 @@ export const collectionAdapters = {
     };
   },
   "pixi.scroll-view"(c) {
-    const layer=c.surfaceLayer?createLayerSurface(c.skin,c.surfaceLayer,c.w,c.h):null;
+    const layer=c.surfaceLayer?createLayerSurface(c.skin,c.surfaceLayer,c.w,c.h,{scale:c.surfaceScale}):null;
     const pad = scrollPadding(c.skin.profile,layer?.info.insets??c.skin.insets('skin.surface.content'));
     const { skin, p, w, h, listen, emit, children, handle } = c,
       view = new Container(),
@@ -390,11 +390,12 @@ export const collectionAdapters = {
     const view = new SkinnedDialog({
       skin,
       surfaceLayer:c.surfaceLayer,
+      surfaceScale:c.surfaceScale,
       inputAllowed: () => handle.allowed() && view.isOpen,
       background: skin.texture("skin.surface.panel"),
       width: w,
       height: h,
-      padding: c.surfaceLayer?Math.max(skin.profile.padding,...Object.values(surfaceLayerInfo(skin.surfaceGeometry??skin,c.surfaceLayer).insets)):skin.profile.padding,
+      padding: c.surfaceLayer?Math.max(skin.profile.padding,...Object.values(surfaceLayerInfo(skin.surfaceGeometry??skin,c.surfaceLayer,c.surfaceScale).insets)):skin.profile.padding,
       title: p.title ? skin.label(p.title, w - 24) : undefined,
       titleSource: p.title,
       content: children("content")[0].root,

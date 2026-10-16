@@ -20,10 +20,10 @@ export function surfaceGeometryForContext(ctx){
 
 // Explicit layers opt in; legacy node geometry remains unchanged.
 // Child size means its fully resolved slot-local extent, not its authored size.
-export function surfaceSlotBox({type,props={},size,profile,geometry,surfaceLayer}){
+export function surfaceSlotBox({type,props={},size,profile,geometry,surfaceLayer,surfaceScale}){
  if(!surfaceLayer)return null;
  if(!geometry)fail('显式表面层缺少内容安全区证据。');
- const layer=surfaceLayerInfo(geometry,surfaceLayer),s=textProfile(profile,props),g=s.geometry;
+ const layer=surfaceLayerInfo(geometry,surfaceLayer,surfaceScale),s=textProfile(profile,props),g=s.geometry;
  let pad=layer.insets,width,height,x,y,allowVerticalOverflow=false;
  if(type==='Panel'){
   pad=props.contentPadding??pad;

@@ -58,7 +58,7 @@ for(const orientation of ['landscape','portrait'])test('inventory AI '+orientati
   assert.deepEqual(bundle.plan.session.responseSchema.properties.panelIntentVersion.enum,['0.13']);
   assert.equal(bundle.consumer.config.inventoryPlanning.programGrid.columns,5);
   assert.equal(bundle.consumer.config.inventoryPlanning.programGrid.rows,4);
-  assert.equal(bundle.consumer.config.inventoryPlanning.version,'1.2');assert.equal(bundle.consumer.config.inventoryPlanning.layout.scrollMode,'fixed-cells-both-v1');
+  assert.equal(bundle.consumer.config.inventoryPlanning.version,'1.3');assert.equal(bundle.consumer.config.inventoryPlanning.layout.version,'1.4');assert.equal(bundle.consumer.config.inventoryPlanning.layout.surfaceLayer,'inset');assert.equal(bundle.consumer.config.inventoryPlanning.layout.frameScale,3);assert.equal(bundle.consumer.config.inventoryPlanning.layout.scrollMode,'fixed-cells-both-v1');
   const result=await api.runCodexPlanning(bundle.plan,options);
   assert.equal(transport.calls,1);assert.equal(result.receipt.invocationCount,1);assert.equal(result.receipt.automaticRetries,0);
   assert.equal((await materializeActionRun(result,{...bundle,ctx})).status,'COMPILED');
@@ -84,9 +84,9 @@ test('inventory AI requires the exact authorization and frozen consumer before a
 
 test('frozen inventory 1.0 selects the exact legacy prompt and replays without changing scroll behavior',async()=>fixture('landscape',async({ctx,config,api,options})=>{
   const legacy=structuredClone(config),policy=legacy.inventoryPlanning;
-  policy.version='1.0';policy.layout.version='1.1';delete policy.layout.scrollMode;delete policy.layout.surfaceLayer;
+  policy.version='1.0';policy.layout.version='1.1';delete policy.layout.scrollMode;delete policy.layout.surfaceLayer;delete policy.layout.frameScale;
   policy.capabilities.version='1.0';policy.capabilities.columns.maximum=10;policy.capabilities.rows.maximum=10;
-  for(const key of ['maximumCells','maximumGridDimension','scrollMode','surfaceLayer'])delete policy.capabilities[key];
+  for(const key of ['maximumCells','maximumGridDimension','scrollMode','surfaceLayer','frameScale'])delete policy.capabilities[key];
   assert.equal(actionPlanningFiles('inventory',legacy).instructions,'prompts/inventory-planner-v1.md');assert.equal(actionPlanningFiles('inventory',config).instructions,'prompts/inventory-planner.md');
   const unknown=structuredClone(config);unknown.inventoryPlanning.version='future';assert.throws(()=>actionPlanningFiles('inventory',unknown));
   const legacyInstructions=await readFile(new URL('../prompts/inventory-planner-v1.md',import.meta.url),'utf8'),consumer=actionConsumer(legacy,'inventory',pack,manifestSha256,aliases,'landscape'),catalog=inventoryPlanningCatalog(legacy),request={requestVersion:'0.1',id:'legacy-inventory-offline',target:'pixi',text:'空仓库'};

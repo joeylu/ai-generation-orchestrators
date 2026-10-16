@@ -17,15 +17,15 @@ export function actionPlanningFiles(presetId,frozenConfig){
   let instructions=presetId==='inventory'?'prompts/inventory-planner.md':presetId==='custom'?'prompts/custom-panel-planner.md':'prompts/action-planner.md';
   if(presetId==='inventory'&&frozenConfig!==undefined){
     const version=frozenConfig.inventoryPlanning?.version;
-    if(!['1.0','1.1','1.2'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
+    if(!['1.0','1.1','1.2','1.3'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
     if(version==='1.0')instructions='prompts/inventory-planner-v1.md';
     if(version==='1.1')instructions='prompts/inventory-planner-v2.md';
   }
   if(presetId==='custom'&&frozenConfig!==undefined){
     const preset=frozenConfig.presets?.custom,version=preset?.layout?.version;
-    if(!['1.0','2.0','3.0'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
+    if(!['1.0','2.0','3.0','4.0'].includes(version))fail('CONSUMER_CHANGED_REPLAN');
     validateFormActionPolicy(preset.formActions);
-    if(version!=='3.0')instructions='prompts/custom-panel-planner-v2.md';
+    if(!['3.0','4.0'].includes(version))instructions='prompts/custom-panel-planner-v2.md';
     else if(!preset.formActions)instructions='prompts/custom-panel-planner-v3.md';
   }
   return {instructions,catalog:presetId==='inventory'?'examples/modern-readable-game-grid-layout.catalog.json':'examples/modern-all-components.catalog.json'};
