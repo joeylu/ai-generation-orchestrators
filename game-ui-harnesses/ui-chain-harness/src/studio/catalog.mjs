@@ -43,7 +43,7 @@ export async function studioSnapshot(root,project){
   files.set('index.html',await readSafe(join(root,'src/studio'),'index.html'));
   files.set('studio.mjs',await readSafe(join(root,'src/studio'),'studio.mjs'));
   for(const name of ['project.mjs','project-ui.mjs','tasks-ui.mjs','generation-ui.mjs','history-ui.mjs','pipeline-ui.mjs','panel-completion.mjs','confirm-ui.mjs','progress.mjs','progress-ui.mjs','studio.css','component-canvas.html','component-canvas.mjs','canvas-contrast.mjs','canvas-resolution.mjs'])files.set(name,await readSafe(join(root,'src/studio'),name));
-  files.set('runtime/inventory-policy.mjs',await readFile(new URL('../runtime/inventory-policy.mjs',import.meta.url)));
+  for(const name of ['inventory-policy','inventory-slot-fit'])files.set('runtime/'+name+'.mjs',await readFile(new URL('../runtime/'+name+'.mjs',import.meta.url)));
   await studioMotionAssets(files);
   sizeEditorBundle??=build({entryPoints:[fileURLToPath(new URL('./panel-size.mjs',import.meta.url))],bundle:true,format:'esm',platform:'browser',write:false,target:'es2022'}).then(result=>result.outputFiles[0].contents);
   files.set('panel-size.mjs',Buffer.from(await sizeEditorBundle));

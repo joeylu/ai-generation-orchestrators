@@ -18,6 +18,12 @@ test('Studio validates snapshot and binds checks to exact preview',async()=>{
   const cleared=await studioSnapshot(root,{version:'0.1',name:'Empty Studio',artifacts:[]});
   assert.deepEqual(cleared.items,[]);assert.deepEqual(JSON.parse(cleared.files.get('catalog.json')).items,[]);
   assert(cleared.files.has('index.html'));assert(cleared.files.has('studio.mjs'));
+  // Modules served without bundling must include their relative dependency
+  // closure, otherwise the entire pipeline UI fails to load in the browser.
+  const pending=['runtime/inventory-policy.mjs'],visited=new Set();
+  while(pending.length){const file=pending.pop();if(visited.has(file))continue;visited.add(file);assert(cleared.files.has(file),'Missing browser module '+file);
+   for(const match of cleared.files.get(file).toString('utf8').matchAll(/(?:from\s*|import\s*)['"](\.\.?\/[^'"]+\.mjs)['"]/g))pending.push(new URL(match[1],'http://snapshot.local/'+file).pathname.slice(1));
+  }
   await writeFile(join(dir,'checks.json'),JSON.stringify({previewSha256:'bad',status:'passed',checks:[]}));
   await assert.rejects(()=>studioSnapshot(root,project),/STUDIO_CHECK_CHANGED/);
   await rm(join(dir,'checks.json'));

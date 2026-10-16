@@ -29,7 +29,7 @@ export function settingsDocument(content, layout, canvas, ctx) {
   const add = (id, type, props, width, height, slots = {}, extra = {}) => {
     nodes.push({ id, name: id, recipeRef: `${type}@1.0.0`, props, size: { width, height }, slots, ...extra }); return id;
   };
-  const heading=(id,text,width,height,key)=>{const style=headingPresentation(ctx,key,width,height,{layered:(policy.version==='2.0'||reference)&&ctx.surfaceLayersEnabled!==false,reference}),node=add(id,'text',{text,textStyleRef:'body',align:key==='title'?policy.titleAlign:'left',overflow:'error'},width,style.height);if(style.surfaceStyle){const target=nodes.find(n=>n.id===node);target.surfaceStyle=style.surfaceStyle;if(style.surfaceTextInsets)target.surfaceTextInsets=style.surfaceTextInsets;if(style.surfaceBand){target.surfaceBand=style.surfaceBand;target.surfaceFontSize=style.fontSize;}}return node;};
+  const heading=(id,text,width,height,key)=>{const style=headingPresentation(ctx,key,width,height,{layered:(policy.version==='2.0'||reference)&&ctx.surfaceLayersEnabled!==false,reference,centered:key==='title'&&policy.titleAlign==='center'}),node=add(id,'text',{text,textStyleRef:'body',align:key==='title'?policy.titleAlign:'left',overflow:'error'},width,style.height);if(style.surfaceStyle){const target=nodes.find(n=>n.id===node);target.surfaceStyle=style.surfaceStyle;if(style.surfaceTextInsets)target.surfaceTextInsets=style.surfaceTextInsets;if(style.surfaceBand){target.surfaceBand=style.surfaceBand;target.surfaceFontSize=style.fontSize;}}return node;};
   const title = heading('heading',content.title,bodyWidth,layout.titleHeight,'title');
   const titleHeight=nodes.find(n=>n.id===title).size.height;
   const groups=content.groups;

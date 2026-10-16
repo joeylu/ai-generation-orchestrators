@@ -1,4 +1,4 @@
-import { Texture, ImageSource, Sprite, NineSliceSprite, Text } from 'pixi.js';
+import { Texture, ImageSource, Sprite, NineSliceSprite, Text, Rectangle } from 'pixi.js';
 import { validatePack, fail } from '../skins/contract.mjs';
 import { fitText } from './skin.mjs';
 import { skinUsage } from '../skins/usage.mjs';
@@ -8,6 +8,7 @@ import {deriveTextReadability,textRoles} from '../skins/text-readability.mjs';
 import {prepareSurfaceTextRegions} from './surface-text-box.mjs';
 import {runtimeRoleInk as resolveRuntimeRoleInk} from './derived-text-ink.mjs';
 import {prepareReferenceHeadingBands,referenceHeadingLayer} from './heading-band.mjs';
+import {inventorySlotCrop} from './inventory-slot-fit.mjs';
 
 // read(file) supplies local package bytes. No implicit URL resolution, network,
 // global Assets cache alias, or fallback texture is introduced by this loader.
@@ -21,6 +22,9 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
   const profile={...pack.theme,fontFamily:family};
   const usages=new Map(pack.assets.map(a=>[a.assetId,skinUsage(a,a.width,a.height,pack.scale)]));
   const pixelImages=new Map(),pixelAssets=new Set(textRoles(pack).map(r=>r.assetId));
+  const slotAssets=['skin.item.normal','skin.item.selected'].map(role=>roles.get(role));
+  for(const id of slotAssets)if(id)pixelAssets.add(id);
+  const runtimeInventorySlotTextures=new Map();let runtimeInventorySlotFit;
   const runtimeHeadingBandTextures=new Map(),bandAssets=new Set(),allAssets=new Map([...pack.assets,...(pack.materialAssets??[])].map(a=>[a.assetId,a]));
   for(const key of ['title','section']){
     const style=pack.surfaceStyles?.[key],id=pack.roles.find(r=>r.role===(style?.baseRole??'skin.surface.bar'))?.assetId;
@@ -38,6 +42,8 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
   };
   const dispose=()=>{
     if(disposed)return; disposed=true;
+    for(const texture of runtimeInventorySlotTextures.values())texture.destroy(false);
+    runtimeInventorySlotTextures.clear();
     for(const texture of textures.values())texture.destroy(true);
     textures.clear();
     for(const texture of runtimeHeadingBandTextures.values())texture.destroy(true);
@@ -83,6 +89,11 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
     runtimeSurfaceTextRegions=prepareSurfaceTextRegions(pack,pixelImages);
     runtimeTextReadability=deriveTextReadability(pack,pixelImages,{preserve:true});
     runtimeHeadingBands=prepareReferenceHeadingBands(pack,pixelImages);
+    runtimeInventorySlotFit=inventorySlotCrop(slotAssets.filter(id=>pixelImages.has(id)).map(assetId=>({assetId,image:pixelImages.get(assetId),resolution:usages.get(assetId).resolution,borders:usages.get(assetId).borders})));
+    if(runtimeInventorySlotFit.status==='normalized')for(const state of runtimeInventorySlotFit.states){
+      const source=textures.get(state.assetId),crop=runtimeInventorySlotFit.crop,r=runtimeInventorySlotFit.resolution;
+      runtimeInventorySlotTextures.set(state.assetId,new Texture({source:source.source,frame:new Rectangle(crop.x/r,crop.y/r,crop.width/r,crop.height/r)}));
+    }
     pixelImages.clear();
     const asset=role=>{
       const id=roles.get(role);
@@ -91,7 +102,14 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
     };
     return {
       sourceKind:pack.sourceKind, format:'png-pack', manifestSha256, visualAcceptance:pack.visualAcceptance,
-      profile,textures,metadata,roles,runtimeSurfaceTextRegions,runtimeTextReadability,runtimeHeadingBands,runtimeHeadingBandTextures,
+      profile,textures,metadata,roles,runtimeSurfaceTextRegions,runtimeTextReadability,runtimeHeadingBands,runtimeHeadingBandTextures,runtimeInventorySlotFit,
+      inventorySlotView(role,width,height){
+        this.assertView(role,width,height);
+        const id=asset(role).assetId,texture=runtimeInventorySlotTextures.get(id),state=runtimeInventorySlotFit.states?.find(s=>s.assetId===id);
+        if(!texture||!state)return this.view(role,width,height);
+        const b=state.borders,view=new NineSliceSprite({texture,leftWidth:b.left,topHeight:b.top,rightWidth:b.right,bottomHeight:b.bottom});
+        view.width=width;view.height=height;view.eventMode='none';return view;
+      },
       runtimeRoleInk(role,options){return resolveRuntimeRoleInk(this,role,options);},
       surfaceGeometry:{scale:pack.scale,roles:pack.roles,assets:pack.assets,surfaceStyles:pack.surfaceStyles,materialAssets:pack.materialAssets},
       texture(role){return textures.get(asset(role).assetId);},

@@ -9,6 +9,7 @@ import {panelSdkIdentity} from '../panel/sdk.mjs';
 import {referencePresetList,referenceRequest,referenceExample} from '../panel/reference-presets.mjs';
 import {inventoryModelRequest} from '../panel/inventory-model-request.mjs';
 import {fail,contained,sourceIdentity,verifyBatch,caseInputs,rawEvidence} from './evidence.mjs';
+import {acceptanceMode,acceptanceAssessment,canonicalStyleReferences,verifyStyleFidelitySkin,verifyBatchStyleEvidence} from './style-fidelity.mjs';
 const exec=promisify(execFile),exists=async path=>{try{await access(path);return true;}catch(e){if(e.code==='ENOENT')return false;throw e;}};
 export async function command(root,script,args){
  try{const r=await exec(process.execPath,[join(root,'scripts',script),...args],{cwd:root,windowsHide:true,timeout:1020000,maxBuffer:8*1024*1024});return {exitCode:0,stdout:r.stdout,stderr:r.stderr};}
@@ -38,16 +39,22 @@ export function expandCases(spec){
  for(const item of spec.custom){if(!/^[A-Z][0-9]{2}$/.test(item.id)||!['landscape','portrait'].includes(item.orientation)||typeof item.text!=='string'||!item.expected)fail('ACCEPTANCE_CASES_INVALID');cases.push({...structuredClone(item),kind:'custom'});}
  if(new Set(cases.map(c=>c.id)).size!==cases.length)fail('ACCEPTANCE_CASES_INVALID');return cases;
 }
-export async function prepareAcceptance({root,spec,packageDirectory,contractsDirectory,skins,evidenceDirectory,referenceImages,outputRoot=join(root,'work/panel-acceptance'),runCommand=command,sdkIdentity=panelSdkIdentity,identity=sourceIdentity}){
+export async function prepareAcceptance({root,spec,packageDirectory,contractsDirectory,skins,evidenceDirectory,referenceImages,mode,styleId,outputRoot=join(root,'work/panel-acceptance'),runCommand=command,sdkIdentity=panelSdkIdentity,identity=sourceIdentity}){
  root=resolve(root);const out=contained(join(root,'work'),outputRoot),external=resolve(evidenceDirectory);try{contained(resolve(root,'../..'),external);fail('ACCEPTANCE_EVIDENCE_MUST_BE_EXTERNAL');}catch(e){if(e.code!=='ACCEPTANCE_PATH')throw e;}
+ const scope=acceptanceMode(mode??spec.acceptanceMode);if(styleId&&scope!=='style-fidelity')fail('ACCEPTANCE_MODE_INVALID');
  const sdk=await sdkIdentity();if(sdk.mode!=='locked')fail('ACCEPTANCE_LOCKED_SDK_REQUIRED');
- const skinCache=new Map(),skinFor=async key=>{if(skinCache.has(key))return skinCache.get(key);const selected=skins?skins[key]:{packageDirectory,contractsDirectory};if(!selected?.packageDirectory)fail('ACCEPTANCE_SKIN_REQUIRED');const packagePath=resolve(root,selected.packageDirectory),verified=await verifySkinPackage(packagePath),contracts=await panelSkinContracts(verified.pack,selected.contractsDirectory?resolve(root,selected.contractsDirectory):undefined);const value={verified,contracts,packagePath};skinCache.set(key,value);return value;};
- const source=await identity(root),cases=expandCases(spec),directory=join(out,randomUUID());await mkdir(directory,{recursive:true});
+ const references=scope==='style-fidelity'?await canonicalStyleReferences(root):null;if(styleId&&!references.some(s=>s.id===styleId))fail('ACCEPTANCE_STYLE_REFERENCE_REQUIRED');
+ const skinCache=new Map(),skinFor=async key=>{if(skinCache.has(key))return skinCache.get(key);if(scope==='style-fidelity'&&!/^[a-z][a-z0-9-]*$/.test(key))fail('ACCEPTANCE_SKIN_REQUIRED');const selected=skins?skins[key]:{packageDirectory,contractsDirectory};if(!selected?.packageDirectory)fail('ACCEPTANCE_SKIN_REQUIRED');const packagePath=resolve(root,selected.packageDirectory),verified=await verifySkinPackage(packagePath),contracts=await panelSkinContracts(verified.pack,selected.contractsDirectory?resolve(root,selected.contractsDirectory):undefined),proof=scope==='style-fidelity'?await verifyStyleFidelitySkin({root,selected,verified,contracts,references,styleId}):undefined;const value={verified,contracts,packagePath,proof};skinCache.set(key,value);return value;};
+ const source=await identity(root),cases=expandCases(spec).map(item=>styleId?{...item,skin:styleId}:item);
+ // Verify every used skin before preparing any panel plan or creating a batch.
+ for(const key of new Set(cases.map(c=>c.skin??'pixel')))await skinFor(key);
+ const directory=join(out,randomUUID());await mkdir(directory,{recursive:true});
  const entries=[],files=[];
  const save=async(file,value)=>{const bytes=Buffer.isBuffer(value)?value:Buffer.from(json(value));await writeFile(join(directory,file),bytes,{flag:'wx'});files.push({file,sha256:hash(bytes)});};
- const styleEntries=referenceImages??JSON.parse(await readSafe(root,'configs/studio-styles.json')).entries,styleReferences=[];
+ const styleEntries=references??referenceImages??JSON.parse(await readSafe(root,'configs/studio-styles.json')).entries,styleReferences=[],styleSkins=[];
  if(styleEntries.length)await mkdir(join(directory,'references'));
- for(const style of styleEntries){if(!/^[a-z][a-z0-9-]+$/.test(style.id))fail('ACCEPTANCE_STYLE_INVALID');const bytes=await readFile(contained(root,join(root,style.image)));if(hash(bytes)!==style.sha256)fail('ACCEPTANCE_STYLE_CHANGED');const file='references/'+style.id+'.png';await save(file,bytes);styleReferences.push({id:style.id,name:style.name,file,sha256:style.sha256,scope:'visual-reference-only-not-a-generated-skin'});}
+ for(const style of styleEntries){if(!/^[a-z][a-z0-9-]+$/.test(style.id))fail('ACCEPTANCE_STYLE_INVALID');const bytes=await readFile(contained(root,join(root,style.image)));if(hash(bytes)!==style.sha256)fail('ACCEPTANCE_STYLE_CHANGED');const file='references/'+style.id+'.png';await save(file,bytes);styleReferences.push({id:style.id,name:style.name,file,sha256:style.sha256,scope:scope==='style-fidelity'?'canonical-style-reference':'visual-reference-only-not-a-generated-skin'});}
+ if(scope==='style-fidelity'){await mkdir(join(directory,'skins'));for(const [skin,{proof}]of skinCache){const file='skins/'+skin+'.json';await save(file,proof);styleSkins.push({skin,file,skinSha256:proof.skinSha256,reference:proof.reference});}}
  for(const item of cases){
   const {verified,contracts,packagePath}=await skinFor(item.skin??'pixel');
   const name='cases/'+item.id,base=join(directory,name);await mkdir(join(base,'contracts'),{recursive:true});
@@ -64,12 +71,13 @@ export async function prepareAcceptance({root,spec,packageDirectory,contractsDir
  }
  await save('source.json',source);await save('cases.json',spec);
  if((await identity(root)).sha256!==source.sha256)fail('ACCEPTANCE_SOURCE_CHANGED');
- const body={kind:'ui_panel_acceptance_batch',version:'1.0',createdAt:new Date().toISOString(),sdk,sourceSha256:source.sha256,evidenceDirectory:external,styleReferences,cases:entries,files,automaticRetries:0},batch={...body,sha256:hash(Buffer.from(json(body)))};
- await writeFile(join(directory,'batch.json'),json(batch),{flag:'wx'});return {status:'PREPARED',directory,sha256:batch.sha256,cases:entries.length,modelCalls:0};
+ const body={kind:'ui_panel_acceptance_batch',version:'1.0',acceptanceMode:scope,...(styleId?{selectedStyle:styleId}:{}),createdAt:new Date().toISOString(),sdk,sourceSha256:source.sha256,evidenceDirectory:external,styleReferences,...(scope==='style-fidelity'?{styleSkins}:{}),cases:entries,files,automaticRetries:0},batch={...body,sha256:hash(Buffer.from(json(body)))};
+ await writeFile(join(directory,'batch.json'),json(batch),{flag:'wx'});return {status:'PREPARED',directory,sha256:batch.sha256,cases:entries.length,...acceptanceAssessment(batch),modelCalls:0};
 }
 export async function runAcceptance({root,directory,authorizationSha256,maxConcurrency=2,runCommand=command,sdkIdentity=panelSdkIdentity}){
  const batch=await verifyBatch(directory);if(authorizationSha256!==batch.sha256)fail('ACCEPTANCE_AUTHORIZATION_REQUIRED');if(![1,2,3].includes(maxConcurrency))fail('ACCEPTANCE_CONCURRENCY');if(!isDeepStrictEqual(await sdkIdentity(),batch.sdk))fail('ACCEPTANCE_SDK_CHANGED');
  if((await sourceIdentity(root)).sha256!==batch.sourceSha256)fail('ACCEPTANCE_SOURCE_CHANGED');
+ await verifyBatchStyleEvidence({root,directory,batch});
  const dispatches=join(directory,'dispatches'),results=[];await mkdir(dispatches,{recursive:true});
  const execute=async entry=>{
   const claim=join(dispatches,entry.id+'.json'),rawDirectory=join(root,'work/panels',entry.kind==='sdk-settings'?'model-runs':'action-model-runs','intent-'+entry.planSha256);

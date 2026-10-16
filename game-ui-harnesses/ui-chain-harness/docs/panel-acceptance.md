@@ -4,7 +4,7 @@
 
 默认清单为 9 种当前 Studio 预设各横竖两版，加 30 条 custom，共 48 个独立计划。`configs/panel-acceptance-cases.json` 中的文案、字段初值、目标和几何期望先于模型响应冻结，禁止根据输出回填期望来取得通过。
 
-默认分配为 18 条预设和 C01–C10 使用像素皮肤，C11–C20 使用木林皮肤，C21–C30 使用烘焙皮肤。六张样式参考图逐字节冻结，供视觉层次比较；它们不代表已存在六套生成皮肤。旧无材质皮肤用于兼容验收，不能冒称覆盖 S05 材质。
+默认清单的 `acceptanceMode` 为 `compatibility`。分配为 18 条预设和 C01–C10 使用像素皮肤，C11–C20 使用木林皮肤，C21–C30 使用烘焙皮肤。六张样式参考图逐字节冻结，供视觉比较；它们不代表已存在六套生成皮肤。木林和烘焙属于历史兼容样例，不能用 C11–C30 的技术通过证明当前六种预设风格还原，也不能冒称覆盖 S05 材质。旧批次没有 mode 字段时同样只解释为兼容验收，不重写其冻结文件或原检查报告。
 
 先在本地准备 skin mapping JSON，路径相对于 Harness 根目录：
 
@@ -22,6 +22,32 @@
 node scripts/panel-acceptance.mjs prepare --skins <mapping.json> --evidence <仓库外证据目录>
 node scripts/panel-acceptance.mjs run --batch <输出目录> --authorize <完整批次SHA256> --concurrency 2
 ```
+
+风格还原候选必须单独准备 `style-fidelity` 批次。每个实际使用的 skin 都要映射到当前六种样式之一，并提供来源任务；填写一个成功标志或仅有三张纹理文件不能替代来源证明：
+
+```json
+{
+  "pixel-cartoon": {
+    "packageDirectory": "work/.../skin",
+    "contractsDirectory": "work/.../contracts",
+    "styleReference": {
+      "id": "pixel-cartoon",
+      "sha256": "<configs/studio-styles.json 中该参考图的完整 SHA256>"
+    },
+    "skinTaskDirectory": "work/skin-tasks/<任务ID>"
+  }
+}
+```
+
+```text
+node scripts/panel-acceptance.mjs prepare --mode style-fidelity --style pixel-cartoon --skins <mapping.json> --cases <用例清单.json> --evidence <仓库外证据目录>
+```
+
+`--style` 将这次清单中的预设和 custom 统一使用指定的 canonical style，保留原需求和断言；省略 `--cases` 使用默认 48 项。支持 `concept-art`、`pixel-cartoon`、`anime-cel`、`western-cartoon`、`fantasy-handpainted`、`chinese-fantasy`。也可省略 `--style`，在清单里逐项指定不同映射键；每个实际使用的皮肤都必须满足相同要求。此处不支持 `--style all`，每次明确准备一种或一份有限清单。
+
+风格 preflight 在任何面板计划准备前一次性检查全部所用皮肤，且不调用模型：复验完整组件包、canonical 参考图 SHA、皮肤任务的输入和 DAG 收据、同一参考的 S01–S05 生成归档、冻结的 S05 模板与原图、确定性提取结果，以及最终 title/section/panel 三个材质绑定和裁切。来源摘要随批次冻结，run 在提交前再次检查来源文件。缺失第五图、映射不匹配、缺层、错绑或来源改变会拒绝该批；不会退回普通底板后仍宣称风格覆盖。这是验收口径，不影响普通四图旧项目的导入、使用或 `compatibility` 验收。
+
+若原始图像检查曾失败，经过已有确定性本地处理才产生候选，证据继续保留 `originalChecksPassed: false` 和原始 inspection；来源可追溯不等于原始检查或视觉通过。该预检只确认当前候选具有可验证的材质来源，不自动批准美术效果。
 
 只有收到用户对这一批真实调用的明确授权后才能执行 run。参数本身不创造人工授权。run 启动时要求当前源码和 SDK 身份完全等于冻结版本，每条以批次确认绑定自己的计划摘要；提交委托现有 action/settings CLI。每条独占 claim 与 SDK 计划目录均只允许一次提交。外层超时为 1020 秒，长于 SDK 的 900 秒上限。
 
@@ -46,11 +72,12 @@ check 从重放结果构建预览，独立检查冻结文案、类型、初值�
 
 画布和桌面截图取自作者初始状态；手机截图取自检查器执行本地交互后的试玩状态。手机中的开关、下拉选项或选中格位变化不代表作者默认值丢失。独立预览会按整张固定逻辑画布缩放，因此没有横向溢出不能当作手机可读性通过；截图的比例保持完整，不通过裁切掩盖留白或小字问题。
 
-report 汇总同一批各 case 最近一次确定性检查，同时保留检查历史目录。它不会把缺失调用、未检查条目或未经人工审阅的视觉候选称为完成美术验收；皮肤和面板仍保持 `visualAcceptance: unreviewed`、`productionReady: false`。几何与绑定断言不能替代截图的材质丰富度、视觉层次和审美复核。
+report 汇总同一批各 case 最近一次确定性检查，同时保留检查历史目录。`status: passed`、`passed` 数量和 `technicalAcceptance` 只统计技术检查。兼容批次始终附带 `styleFidelity.status: not-assessed`；即使旧报告曾只有 passed，新汇总也不会将其升级为风格通过。风格批次技术通过后仍为 `styleFidelity.status: awaiting-visual-review`。所有候选保持 `visualAcceptance: unreviewed`、`productionReady: false`。几何与绑定断言不能替代截图的材质丰富度、视觉层次和参考风格复核；没有人工视觉记录不能宣布完成风格验收。
 
 离线回归：
 
 ```text
 node --test tests/panel-acceptance.test.mjs
+node --test tests/acceptance-style-fidelity.test.mjs
 node --test tests/browser/panel-acceptance.test.mjs
 ```

@@ -56,6 +56,7 @@
     },
     "layout": {
       "version": "4.0",
+      "titleAlign": "center",
       "groupGap": 20,
       "groupPadding": 12,
       "maxDepth": 8,

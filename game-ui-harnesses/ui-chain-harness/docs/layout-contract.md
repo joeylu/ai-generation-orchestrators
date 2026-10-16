@@ -97,7 +97,7 @@ PanelDocument 0.3 另有消费端展示字段；这些是确定性编译策略�
 | 字段 | 规则 |
 | --- | --- |
 | `surfaceLayer` | frame 主框、content 原装饰内容板、inset 安全中心弱底板；仅支持的 Panel/Dialog/ScrollView/Tabs/List 可声明 |
-| `surfaceScale` | 仅显式 frame 可用，默认 1；新预设 3.0、自定义 4.0、仓库 layout 1.4 固定为 3，并同步保留放大后的四边安全区 |
+| `surfaceScale` | 仅显式 frame 可用，默认 1；新预设 3.0、自定义 4.0、仓库 layout 1.4/1.5 固定为 3，并同步保留放大后的四边安全区 |
 | `surfaceStyle` | Text 的 title/section，或已有 Panel 材质配方；不能与同节点 surfaceLayer 冲突 |
 | `surfaceTextInsets` | 语义标题的显式安全留白，不能侵入冻结皮肤原安全区 |
 | `surfaceBand` | `reference-v1` 仅用于 title/section Text，保留适用标题层的完整左右端纹饰、延展中间区域；tile 与显式定位装饰保留原合同 |

@@ -148,7 +148,7 @@ export function customPanelDocument(content,config,canvas,ctx){
   };
   const text=(id,value,w,minHeight=g.labelHeight,wrap='word',extra={},surfaceStyle)=>{
     if(w<24)fail('layout-width');
-    const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,minHeight,{layered,reference}):{height:minHeight,insets:{left:0,right:0,top:0,bottom:0}},p=style.insets,inner=w-p.left-p.right,fontSize=style.fontSize??profile.fontSize;
+    const style=surfaceStyle?headingPresentation(ctx,surfaceStyle,w,minHeight,{layered,reference,centered:surfaceStyle==='title'&&extra.align==='center'}):{height:minHeight,insets:{left:0,right:0,top:0,bottom:0}},p=style.insets,inner=w-p.left-p.right,fontSize=style.fontSize??profile.fontSize;
     const measure=value=>Math.ceil([...String(value)].reduce((sum,c)=>sum+fontSize*(c===' '?.6:1.1)*(style.textWidthScale??1),0)),line=Math.max(profile.geometry.lineHeight,Math.ceil(fontSize*1.7*(style.lineHeightScale??1)));
     if(wrap==='none'&&measure(value)>inner)fail('text-capacity',`${id}: single-line text does not fit without truncation.`);
     const lines=String(value).split(/\r\n|\r|\n/).reduce((n,line)=>n+Math.max(1,Math.ceil(measure(line)/Math.max(1,inner-fontSize))),0);
@@ -218,7 +218,7 @@ export function customPanelDocument(content,config,canvas,ctx){
     }
     return stack(id,children,w,{direction:column?'column':'row',gap:l.groupGap});
   };
-  const heading=text('heading',content.title,bodyWidth,g.headingHeight,'word',{align:policy.titleAlign},'title');
+  const heading=text('heading',content.title,bodyWidth,g.headingHeight,'word',{align:l.titleAlign??policy.titleAlign},'title');
   const contentId=compile(layoutBody,contentWidth);
   const footer=footerRows.length?stack('actions',footerRows.map(f=>button(f,(bodyWidth-g.gap*(footerRows.length-1))/footerRows.length)),bodyWidth,{direction:'row'}):null;
   const cap=Math.min(content.layout.maxHeight??board.height-policy.canvasMargin*2,board.height-policy.canvasMargin*2);

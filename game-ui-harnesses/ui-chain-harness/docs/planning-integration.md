@@ -32,7 +32,7 @@ AI 仓库通过 `action-model.mjs` 的独立分支选择 `modern-readable-game-g
 | --- | --- | --- |
 | 预设与设置（含已支持的 Tabs、原生确认 Dialog） | `presentation.version:3.0` | `surfaceRecipesVersion:3` |
 | 自定义 | `preset.layout.version:4.0` | `surfaceRecipesVersion:3` |
-| AI 仓库 | planning/capabilities 1.3、layout 1.4 | `surfaceRecipesVersion:3` |
+| AI 仓库 | planning/capabilities 1.4、layout 1.5；显式 slotFit/viewportFit 与标题居中 | `surfaceRecipesVersion:3` |
 
 新主框的 `surfaceScale:3` 只影响该 frame 的角部和安全区，其他控件及 S05 源图、平铺尺度不改。`surfaceBand:reference-v1` 保留标题端部纹饰、延展中间区域；节点级 `surfaceFontSize` 提供主标题／分组标题的语义字号，不向旧皮肤组件 props 注入新字段，用户显式字号编辑优先。单组普通公告或表单不再独立套内容底板，真实分组和数据使用弱 inset。细节见[分层材质](skin-surfaces.md)。
 

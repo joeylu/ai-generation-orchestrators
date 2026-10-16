@@ -3,6 +3,7 @@ import {join,resolve,relative,isAbsolute,sep} from 'node:path';
 import {isDeepStrictEqual} from 'node:util';
 import {hash,json,readSafe,verifySkinPackage} from '../skins/package.mjs';
 import {panelSkinContracts} from '../panel/skin-contracts.mjs';
+import {validateBatchStyleScope} from './style-fidelity.mjs';
 export const fail=code=>{throw Object.assign(Error(code),{code});};
 export function contained(root,value){const path=resolve(value),r=relative(resolve(root),path);if(isAbsolute(r)||r==='..'||r.startsWith('..'+sep))fail('ACCEPTANCE_PATH');return path;}
 export async function sourceIdentity(root){
@@ -18,6 +19,7 @@ export async function verifyBatch(directory){
  const bytes=await readSafe(directory,'batch.json'),batch=JSON.parse(bytes),{sha256,...body}=batch;
  if(batch.kind!=='ui_panel_acceptance_batch'||batch.version!=='1.0'||sha256!==hash(Buffer.from(json(body))))fail('ACCEPTANCE_BATCH_CHANGED');
  for(const entry of batch.files)if(hash(await readSafe(directory,entry.file))!==entry.sha256)fail('ACCEPTANCE_INPUT_CHANGED');
+ validateBatchStyleScope(batch);
  return batch;
 }
 export async function caseInputs(directory,entry){

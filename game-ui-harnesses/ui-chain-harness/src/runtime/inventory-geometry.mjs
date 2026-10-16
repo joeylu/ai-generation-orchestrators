@@ -2,6 +2,7 @@ import {assertInventoryProps,inventoryScrollMode,assertInventoryGridLimits} from
 import {textProfile} from './text-style.mjs';
 import {skinUsage} from '../skins/usage.mjs';
 import {surfaceLayerInfo} from '../skins/surface-styles.mjs';
+import {inventoryViewportFit,wholeSlotViewport} from './inventory-slot-fit.mjs';
 
 const fail=message=>{throw Object.assign(new Error(message),{code:'inventory.geometry'});};
 const sides=['left','right','top','bottom'];
@@ -35,6 +36,11 @@ function measurements(profile,props,skin,{surfaceLayer,surfaceScale}={}){
     detailWidth=Math.ceil(Math.max(modern?250:168,s.fontSize*(modern?10:9)+detailPadding*2)),detailHeight=Math.ceil(Math.max(modern?220:0,detailPadding*2+lineHeight*5+16)),
     viewportMinimum=both?side+gridPadX:gridMinimum,
     minimum=props.inventory.details==='right'?{width:viewportMinimum+detailGap+detailWidth,height:Math.max(side+gridPadY,detailHeight)}:{width:Math.max(viewportMinimum,detailWidth),height:side+gridPadY+detailGap+detailHeight};
+  if(props.inventory.viewportFit===inventoryViewportFit&&surfaceLayer){
+    const rail=s.geometry.scrollbarWidth+s.geometry.scrollbarGap,outsideY=props.inventory.details==='right'&&detailGap>=s.geometry.scrollbarWidth+8,outsideX=props.inventory.details==='below'&&detailGap>=s.geometry.scrollbarWidth+8,
+      internalWidth=rows>1&&!outsideY?rail:0,internalHeight=columns>1&&!outsideX?rail:0;
+    minimum.width+=internalWidth;minimum.height+=internalHeight;
+  }
   if(side<requiredSide)fail(`固定方格 ${side} 小于皮肤、字号与数量所需的 ${requiredSide}；请增大方格或恢复皮肤字号。`);
   if(both)assertInventoryGridLimits({columns,rows,cellWidth:side,cellHeight:side,spacingX:props.inventory.gap,spacingY:props.inventory.gap,padding:0});
   return {s,pad,side,iconSize,quantityWidth,lineHeight,gridMinimum,detailPadding,detailGap,detailWidth,detailHeight,minimum,modern,both,columns,rows,gridPad,gridPadX,gridPadY,surfaceLayer};
@@ -49,9 +55,16 @@ export function inventoryLayout(profile,props,width,height,skin,options){
   const gridWidth=(below?width:width-m.detailGap-m.detailWidth)-m.gridPadX,
     availableHeight=(below?height-m.detailGap-m.detailHeight:height)-m.gridPadY,
     side=both?m.side:props.inventory.cellSize??Math.floor(Math.max(m.side,Math.min(modern?Math.max(88,m.side):Infinity,(gridWidth-gap*(columns-1))/columns,(availableHeight-gap*(rows-1))/rows))),
-    naturalWidth=side*columns+gap*(columns-1),naturalHeight=side*rows+gap*(rows-1),gridHeight=modern||below?Math.min(availableHeight,naturalHeight):availableHeight,
-    viewportWidth=both?Math.min(gridWidth,naturalWidth):naturalWidth,
-    groupWidth=below?viewportWidth+m.gridPadX:viewportWidth+m.gridPadX+m.detailGap+m.detailWidth,groupX=Math.floor((width-groupWidth)/2);
+    naturalWidth=side*columns+gap*(columns-1),naturalHeight=side*rows+gap*(rows-1);
+  let gridHeight=modern||below?Math.min(availableHeight,naturalHeight):availableHeight,
+    viewportWidth=both?Math.min(gridWidth,naturalWidth):naturalWidth;
+  if(props.inventory.viewportFit===inventoryViewportFit){
+    const barWidth=m.s.geometry.scrollbarWidth,rail=m.surfaceLayer?barWidth+m.s.geometry.scrollbarGap:0,outsideY=!below&&m.detailGap>=barWidth+8,outsideX=below&&m.detailGap>=barWidth+8,
+      fitted=wholeSlotViewport({width:gridWidth,height:availableHeight,side,gap,columns,rows,rail,outsideX,outsideY});
+    if(!fitted)fail('仓库可用区域无法容纳一整格与滚动条，请增大面板。');
+    viewportWidth=fitted.width;gridHeight=fitted.height;
+  }
+  const groupWidth=below?viewportWidth+m.gridPadX:viewportWidth+m.gridPadX+m.detailGap+m.detailWidth,groupX=Math.floor((width-groupWidth)/2);
   if(!both&&naturalWidth>gridWidth+.01)fail(`${columns} 列格子超出仓库可用宽度。`);
   const scrollableX=naturalWidth>viewportWidth+.01,scrollableY=naturalHeight>gridHeight+.01;
   const grid={x:groupX+m.gridPad.left,y:m.gridPad.top,width:viewportWidth,height:gridHeight,contentWidth:naturalWidth,contentHeight:naturalHeight,columns,rows,gap,scrollable:scrollableX||scrollableY,...(both?{scrollableX,scrollableY}:{}),...(m.surfaceLayer?{surface:{x:groupX,y:0,width:viewportWidth+m.gridPadX,height:gridHeight+m.gridPadY}}:{})};
@@ -64,7 +77,7 @@ export function inventoryLayout(profile,props,width,height,skin,options){
   if(detailName.width<m.s.fontSize*2)fail('详情栏无法容纳图标和完整物品名称。');
   const cell={width:side,height:side,insets:pad,contentWidth:side-pad.left-pad.right,contentHeight:side-pad.top-pad.bottom,minimum:m.side,preferred:modern?Math.max(80,m.side):m.side,iconSize:m.iconSize};
   const quantityBox={x:side-pad.right-m.quantityWidth,y:side-pad.bottom-m.lineHeight,width:m.quantityWidth,height:m.lineHeight};
-  return {minimum,cell,grid,details,detailName,quantityBox,lineHeight:m.lineHeight,capacity:columns*rows,naturalHeight:below?details.y+details.height:Math.max(grid.height,details.height)};
+  return {minimum,cell,grid,details,detailName,quantityBox,lineHeight:m.lineHeight,capacity:columns*rows,naturalHeight:below?details.y+details.height:Math.max(grid.height+(props.inventory.viewportFit===inventoryViewportFit?m.gridPadY:0),details.height)};
 }
 
 // Actual font metrics determine line wrapping, while one pure function owns

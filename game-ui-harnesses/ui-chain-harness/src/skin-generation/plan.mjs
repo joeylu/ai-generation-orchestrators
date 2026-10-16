@@ -35,7 +35,7 @@ async function inputBytes(path, limit) {
 }
 async function toolIdentity(material = false) {
   const names = ['src/skin-generation/plan.mjs', 'schemas/skin-style.schema.json', 'src/templates/catalog.mjs',
-    'src/templates/build.mjs', 'src/templates/contract.mjs', 'src/contracts/validate.mjs', 'src/contracts/props.mjs',
+    'src/templates/build.mjs', 'src/templates/contract.mjs', 'src/contracts/validate.mjs', 'src/contracts/props.mjs', 'src/contracts/bounded-validators.mjs',
     'src/skins/package.mjs', 'src/skins/contract.mjs', 'src/skins/png.mjs', 'package-lock.json',
     'schemas/skin-template-set.schema.json', 'schemas/component-registry.schema.json', 'schemas/skin-usage.schema.json'];
   if(material)names.push('src/skin-generation/material-template.mjs','configs/material-template.json');

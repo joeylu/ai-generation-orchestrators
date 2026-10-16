@@ -1,6 +1,6 @@
-import Ajv from "ajv";
+import {boundedValidators} from './bounded-validators.mjs';
 import {assertInventoryProps} from '../runtime/inventory-policy.mjs';
-const defaultsAjv = new Ajv({
+const defaultsAjv = boundedValidators({
   allErrors: true,
   strict: true,
   strictRequired: true,

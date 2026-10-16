@@ -27,7 +27,7 @@ test('native 0.12 maps text, input, checkbox and button with their semantics in 
     const r=await convert(i);assert.deepEqual(await convert(i),r);
     for(const d of Object.values(r.documents)){
       assert.equal(d.nodes.some(n=>n.id==='section-heading'),false);
-      assert.equal(d.nodes.find(n=>n.id==='heading').props.align,'left');
+      assert.equal(d.nodes.find(n=>n.id==='heading').props.align,config.presentation.titleAlign);
       assert.equal(r.content.sectionTitle,examples[i].sectionTitle);
       assert.equal(d.nodes.find(n=>n.id==='row0').props.text,examples[i].rows[0].text);
       assert.equal(d.nodes.some(n=>n.id==='row0-label'),false,'body-only text has a native identifying label but is not rendered twice');

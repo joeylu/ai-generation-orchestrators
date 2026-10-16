@@ -1,5 +1,6 @@
 {
   "version": "1.0",
+  "acceptanceMode": "compatibility",
   "presetSkin": "pixel",
   "presets": [
     "sdk-ready",

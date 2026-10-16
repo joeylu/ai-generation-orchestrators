@@ -8,6 +8,7 @@ import {inventoryExampleIcon} from './inventory-icons.mjs';
 import {bestInk,rgb} from '../skins/text-readability.mjs';
 import {createLayerSurface} from './layer-surface.mjs';
 import {inventoryScrollbarChrome,clampInventoryScroll} from './inventory-scrollbars.mjs';
+import {inventorySlotFit} from './inventory-slot-fit.mjs';
 import {createInventoryScrollbars} from './inventory-scrollbars-view.mjs';
 
 // Shift + an ordinary vertical wheel is an explicit horizontal gesture. Trackpad
@@ -27,6 +28,7 @@ function initializeInventoryList(c,own){
   const itemRecipeType=c.runtime.registry.recipes.find(recipe=>recipe.recipeId+'@'+recipe.recipeVersion===p.itemRecipeRef)?.type;
   assertInventoryProps(p,{childIds:children('items').map(child=>child.id),itemRecipeType});
   if(itemRecipeType!=='Button')reject('inventory.recipe','仓库格子须使用 Button 条目配方。');
+  const slotSkin=p.inventory.slotFit===inventorySlotFit&&skin.inventorySlotView?Object.assign(Object.create(skin),{view(role,width,height){return skin.inventorySlotView(role,width,height);}}):skin;
   const modern=p.inventory.appearance==='slots',skinned=Boolean(c.surfaceLayer),options={surfaceLayer:c.surfaceLayer,surfaceScale:c.surfaceScale},both=p.inventory.scrollMode===inventoryScrollMode,capacity=p.inventory.columns*p.inventory.rows,
     view=own(new Container()),gridContent=own(new Container()),detailContent=own(new Container()),detailBackground=own(new Graphics()),
     gridBox=own(new (both?InventoryGridScrollBox:OwnedScrollBox)({type:both?'bidirectional':'vertical',width:1,height:1,globalScroll:false,disableEasing:true,padding:0})),
@@ -70,7 +72,7 @@ function initializeInventoryList(c,own){
   const refresh=()=>{
     for(const cell of cells){
       const selected=cell.slotIndex===selectedSlot;
-      if(!modern||skinned)selectButtonSkin(cell.button,skin,selected);
+      if(!modern||skinned)selectButtonSkin(cell.button,slotSkin,selected);
       if(cell.backgrounds)for(const [state,background]of Object.entries(cell.backgrounds)){
         background.scale.set(1);background.clear().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:selected||state==='hover'||state==='pressed'?skin.profile.palette.active:skin.profile.palette.base,alpha:state==='disabled'?.08:state==='pressed'?.28:selected?.18:state==='hover'?.15:cell.item?.13:.045});
       }
@@ -83,7 +85,7 @@ function initializeInventoryList(c,own){
   };
   for(let slotIndex=0;slotIndex<capacity;slotIndex++){
     const item=items.get(slotIndex)??null,backgrounds=modern&&!skinned?Object.fromEntries(['default','hover','pressed','disabled'].map(state=>[state,own(new Graphics().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:skin.profile.palette.base,alpha:.05}))])):null,
-      button=own(backgrounds?new FancyButton({defaultView:backgrounds.default,hoverView:backgrounds.hover,pressedView:backgrounds.pressed,disabledView:backgrounds.disabled,contentFittingMode:'none',padding:0}):makeButton(skin,'',geometry.cell.width,geometry.cell.height,'primary',['skin.item.normal','skin.item.selected'])),frame=own(new Graphics()),selectionMark=own(new Graphics()),
+      button=own(backgrounds?new FancyButton({defaultView:backgrounds.default,hoverView:backgrounds.hover,pressedView:backgrounds.pressed,disabledView:backgrounds.disabled,contentFittingMode:'none',padding:0}):makeButton(slotSkin,'',geometry.cell.width,geometry.cell.height,'primary',['skin.item.normal','skin.item.selected'])),frame=own(new Graphics()),selectionMark=own(new Graphics()),
       icon=item?.icon?own(inventoryExampleIcon(item.icon,geometry.cell.iconSize)):null,name=item&&item.icon===null?text(item.label,true):null,nameBackground=name?own(new Graphics()):null,quantity=item?text(String(item.quantity)):null,quantityBackground=item?own(new Graphics()):null;
     button.enabled=item?.enabled!==false;
     frame.eventMode=selectionMark.eventMode='none';button.addChild(frame,selectionMark);
@@ -119,7 +121,7 @@ function initializeInventoryList(c,own){
     detailBackground.clear().roundRect(details.x,details.y,details.width,details.height,modern?12:8).fill({color:skin.profile.palette.base,alpha:1}).stroke({color:skin.profile.palette.stroke,width:1,alpha:modern?.22:.8});detailBackground.eventMode='none';
     for(const entry of cells){
       const {button,icon,name,nameBackground,quantity,quantityBackground}=entry;
-      if(!modern||skinned)resizeButton(button,skin,cell.width,cell.height,'');
+      if(!modern||skinned)resizeButton(button,slotSkin,cell.width,cell.height,'');
       else button.hitArea=new Rectangle(0,0,cell.width,cell.height);
       button.position.set((entry.slotIndex%grid.columns)*(cell.width+grid.gap),Math.floor(entry.slotIndex/grid.columns)*(cell.height+grid.gap));
       if(icon)icon.position.set(cell.insets.left+(cell.contentWidth-cell.iconSize)/2,cell.insets.top+(cell.contentHeight-cell.iconSize)/2);
@@ -145,7 +147,7 @@ function initializeInventoryList(c,own){
   }
   place(w,h);
   return {
-    view,cells,rows,gridBox,detailsBox,gridSurface,detailSurface,scrollbars,detailTitle,detailName,detailDescription,detailQuantity,detailSlot,detailIcon,textBackings,
+    view,cells,rows,gridBox,detailsBox,slotFit:p.inventory.slotFit===inventorySlotFit?(skin.runtimeInventorySlotFit??{status:'unavailable',reason:'non-png-skin'}):null,gridSurface,detailSurface,scrollbars,detailTitle,detailName,detailDescription,detailQuantity,detailSlot,detailIcon,textBackings,
     get geometry(){return geometry;},get selectedSlot(){return selectedSlot;},
     resize:place,
     afterLayout(){gridBox.resize(true);detailsBox.resize(true);scrollbars?.sync();},

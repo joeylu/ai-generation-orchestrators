@@ -6,7 +6,8 @@ const keys=(v,allowed)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v
 const base=['version','groupGap','groupPadding','maxDepth','gridColumns','minColumnWidth'];
 export function customLayoutPolicy(preset){
  const l=preset.layout;if(!l)fail();const modern=['2.0','3.0','4.0'].includes(l.version);
- if(!['1.0','2.0','3.0','4.0'].includes(l.version)||!keys(l,modern?[...base,'maxColumns','minCardWidth','groupSurfaces','dataSurfaces']:base)||
+ if(!['1.0','2.0','3.0','4.0'].includes(l.version)||!keys(l,modern?[...base,'titleAlign','maxColumns','minCardWidth','groupSurfaces','dataSurfaces']:[...base,'titleAlign'])||
+  l.titleAlign!==undefined&&!['left','center','right'].includes(l.titleAlign)||
   !base.slice(1).every(k=>Number.isInteger(l[k]))||l.groupGap<0||l.groupGap>128||l.groupPadding<0||l.groupPadding>128||l.maxDepth<1||l.maxDepth>8||l.gridColumns!==2||l.minColumnWidth<24||l.minColumnWidth>512||
   modern&&(!Number.isInteger(l.maxColumns)||l.maxColumns<1||l.maxColumns>3||!Number.isInteger(l.minCardWidth)||l.minCardWidth<l.minColumnWidth||l.minCardWidth>1024||typeof l.groupSurfaces!=='boolean'||typeof l.dataSurfaces!=='boolean'))fail();
  return l;

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import Ajv from "ajv";
+import {boundedValidators} from './bounded-validators.mjs';
 import {
   root,
   validateTemplate,
@@ -7,7 +8,8 @@ import {
 } from "../templates/contract.mjs";
 
 const ajv = new Ajv({ allErrors: true, strict: true, strictRequired: true });
-const defaultsAjv = new Ajv({
+const dynamicAjv=boundedValidators({allErrors:true,strict:true,strictRequired:true});
+const defaultsAjv = boundedValidators({
   allErrors: true,
   strict: true,
   strictRequired: true,
@@ -123,10 +125,10 @@ export function validateContracts({ registry, usage, template }) {
           "不得覆盖公共属性。",
         );
     try {
-      ajv.compile(propsSchema(registry, recipe));
+      dynamicAjv.compile(propsSchema(registry, recipe));
       const visit = (schema, path) => {
         if (Object.hasOwn(schema, "default")) {
-          const check = ajv.compile(schema);
+          const check = dynamicAjv.compile(schema);
           if (!check(schema.default))
             error(
               path + "/default",
