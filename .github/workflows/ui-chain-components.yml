@@ -40,6 +40,10 @@ jobs:
         run: node scripts/component-pipeline-check.mjs --browser chromium
       - name: Verify four-sheet pipeline without materials or model calls
         run: node scripts/component-pipeline-check.mjs --browser chromium --no-materials
+      - name: Verify generated-reference to five-sheet component pipeline without model calls
+        run: node scripts/component-pipeline-check.mjs --browser chromium --generate-reference
+      - name: Verify generated-reference to four-sheet component pipeline without model calls
+        run: node scripts/component-pipeline-check.mjs --browser chromium --generate-reference --no-materials
       - name: Install locked Panel SDK for legacy development regressions only
         run: |
           npm run panel-sdk:install
@@ -60,6 +64,7 @@ jobs:
           name: component-pipeline-${{ matrix.os }}
           path: |
             game-ui-harnesses/ui-chain-harness/work/component-pipeline-check/
+            game-ui-harnesses/ui-chain-harness/work/reference-attempts/
             game-ui-harnesses/ui-chain-harness/work/skin-tasks/
             game-ui-harnesses/ui-chain-harness/work/skin-postprocess/
             game-ui-harnesses/ui-chain-harness/work/releases/

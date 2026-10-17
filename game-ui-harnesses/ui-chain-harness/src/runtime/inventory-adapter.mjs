@@ -87,16 +87,16 @@ function initializeInventoryList(c,own){
   for(let slotIndex=0;slotIndex<capacity;slotIndex++){
     const item=items.get(slotIndex)??null,backgrounds=modern&&!skinned&&!dedicatedSlots?Object.fromEntries(['default','hover','pressed','disabled'].map(state=>[state,own(new Graphics().roundRect(0,0,geometry.cell.width,geometry.cell.height,8).fill({color:skin.profile.palette.base,alpha:.05}))])):null,
       button=own(backgrounds?new FancyButton({defaultView:backgrounds.default,hoverView:backgrounds.hover,pressedView:backgrounds.pressed,disabledView:backgrounds.disabled,contentFittingMode:'none',padding:0}):makeButton(slotSkin,'',geometry.cell.width,geometry.cell.height,'primary',slotRoles)),frame=own(new Graphics()),selectionMark=own(new Graphics()),
-      icon=item?.icon?own(inventoryExampleIcon(item.icon,geometry.cell.iconSize)):null,name=item&&item.icon===null?text(item.label,true):null,nameBackground=name?own(new Graphics()):null,quantity=item?text(String(item.quantity)):null,quantityBackground=item?own(new Graphics()):null;
+      icon=item?.icon?own(inventoryExampleIcon(item.icon,geometry.cell.iconSize)):null,name=item&&item.icon===null?text(item.label,true):null,quantity=item?text(String(item.quantity)):null;
     button.enabled=item?.enabled!==false;
     frame.eventMode=selectionMark.eventMode='none';button.addChild(frame,selectionMark);
     if(icon)button.addChild(icon);
-    if(name)button.addChild(nameBackground,name);
-    if(quantity)button.addChild(quantityBackground,quantity);
+    if(name)button.addChild(name);
+    if(quantity)button.addChild(quantity);
     button.label='inventory-slot-'+slotIndex;
-    const cell={slotIndex,itemId:item?.id??null,item,button,view:button,frame,selectionMark,backgrounds,icon,name,nameBackground,quantity,quantityBackground};
-    if(name)textBackings.set(name,skin.profile.palette.base);
-    if(quantity)textBackings.set(quantity,skin.profile.palette.base);
+    const cell={slotIndex,itemId:item?.id??null,item,button,view:button,frame,selectionMark,backgrounds,icon,name,quantity};
+    // Slot text belongs directly on its normal/selected artwork. Let the shared
+    // ink owner resolve that real surface instead of inventing a solid backing.
     cells.push(cell);rows.push(button);gridContent.addChild(button);
     listen(button.onPress,()=>{
       if(!handle.allowed()||p.selection!=='single'||item?.enabled===false)return;
@@ -121,7 +121,7 @@ function initializeInventoryList(c,own){
     detailsBox.setSize(details.contentWidth,details.height-details.padding*2);detailsBox.position.set(details.x+details.padding,details.y+details.padding);
     detailBackground.clear().roundRect(details.x,details.y,details.width,details.height,modern?12:8).fill({color:skin.profile.palette.base,alpha:1}).stroke({color:skin.profile.palette.stroke,width:1,alpha:modern?.22:.8});detailBackground.eventMode='none';
     for(const entry of cells){
-      const {button,icon,name,nameBackground,quantity,quantityBackground}=entry;
+      const {button,icon,name,quantity}=entry;
       if(!modern||skinned||dedicatedSlots)resizeButton(button,slotSkin,cell.width,cell.height,'');
       else button.hitArea=new Rectangle(0,0,cell.width,cell.height);
       button.position.set((entry.slotIndex%grid.columns)*(cell.width+grid.gap),Math.floor(entry.slotIndex/grid.columns)*(cell.height+grid.gap));
@@ -131,12 +131,10 @@ function initializeInventoryList(c,own){
         const height=Math.max(geometry.lineHeight,cell.contentHeight-geometry.lineHeight-4);
         fitText(name,cell.contentWidth-4,height,'ellipsis');
         name.position.set(cell.insets.left+(cell.contentWidth-name.width)/2,cell.insets.top+(height-name.height)/2);
-        nameBackground.clear().roundRect(name.x-2,name.y,name.width+4,name.height,4).fill({color:skin.profile.palette.base,alpha:1});nameBackground.eventMode='none';
       }
       if(quantity){
         fitText(quantity,quantityBox.width-4,quantityBox.height,'error');
         quantity.position.set(cell.width-cell.insets.right-quantity.width-2,quantityBox.y+(quantityBox.height-quantity.height)/2);
-        quantityBackground.clear().roundRect(quantity.x-2,quantityBox.y,quantity.width+4,quantityBox.height,modern?6:3).fill({color:skin.profile.palette.base,alpha:1});quantityBackground.eventMode='none';
       }
     }
     gridContent.hitArea=new Rectangle(0,0,grid.contentWidth,grid.contentHeight);

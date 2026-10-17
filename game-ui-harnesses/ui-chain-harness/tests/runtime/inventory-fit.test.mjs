@@ -43,6 +43,14 @@ test('visible-square inventory preserves source pixels, aligns states, fits comp
    const initial=await h.page.evaluate(({doc,ctx})=>{window.fitScene?.dispose();harness.clear();const board=ctx.canvases.presets[doc.canvas];harness.app.renderer.resize(board.width,board.height);harness.app.canvas.style.width=board.width+'px';harness.app.canvas.style.height=board.height+'px';window.fitScene=harness.compilePanel(doc,ctx);fitScene.runtime.setMode('play');fitScene.runtime.flush();window.fitNode=fitScene.runtime.handles.get('inventory-grid');const a=fitNode.adapter;return {snapshot:fitNode.snapshot(),geometry:a.geometry,viewport:{width:a.gridBox.width,height:a.gridBox.height},diagnostic:a.slotFit,title:fitScene.runtime.handles.get('inventory-heading').snapshot()};},{doc,ctx});
    for(const side of ['width','height'])assert(Math.abs((initial.viewport[side]+10)/98-Math.round((initial.viewport[side]+10)/98))<1e-8);
    assert.equal(initial.title.props.align,'center');assert.equal(initial.diagnostic.status,'normalized');assert.equal(initial.snapshot.props.inventory.slotFit,'visible-square-v1');assert.equal(initial.snapshot.props.inventory.viewportFit,'whole-slots-v1');
+   const slotInks=await h.page.evaluate(()=>{fitScene.runtime.flush();return fitScene.runtime.textColors.evidence;});
+   // Derived square textures must keep text on the actual slot surface, rather
+   // than borrowing ink from the enclosing panel or an invented label backing.
+   for(const [text,role]of [['First','skin.item.selected'],['1','skin.item.selected'],['Last','skin.item.normal'],['9999','skin.item.normal']]){
+    const ink=slotInks.find(e=>e.text===text&&e.role===role);
+    assert(ink,`Missing slot ink ownership: ${text} / ${role}`);
+    assert.notEqual(ink.colorSource,'program-surface');
+   }
    const inspectCells=()=>h.page.evaluate(()=>{const a=fitNode.adapter,o=a.gridBox.toGlobal({x:0,y:0}),v={x:o.x,y:o.y,width:a.gridBox.width,height:a.gridBox.height};return a.cells.map(c=>{const b=c.view.getBounds();return {index:c.slotIndex,width:Math.max(0,Math.min(b.x+b.width,v.x+v.width)-Math.max(b.x,v.x)),height:Math.max(0,Math.min(b.y+b.height,v.y+v.height)-Math.max(b.y,v.y))};}).filter(c=>c.width>.1&&c.height>.1);});
    for(const c of await inspectCells()){assert(Math.abs(c.width-88)<.01);assert(Math.abs(c.height-88)<.01);}
    for(const mobile of [false,true]){

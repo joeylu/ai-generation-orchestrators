@@ -7,6 +7,7 @@ export {inspectGenerationBatch} from './skin-generation/batch-intake.mjs';
 export {prepareSupplement,executeSupplement} from './skin-generation/supplement.mjs';
 export {verifySkinPackage} from './skins/package.mjs';
 export {inspectConsumer} from './runtime/consumer-tools.mjs';
+export {prepareReferencePlan,verifyReferencePlan,executeReference,inspectReference,recoverReferenceReception,reviewReference,prepareComponentsFromReference,executeComponentsFromReference} from './reference-generation/index.mjs';
 
 export async function componentPipelineContract(){
  return JSON.parse(await readFile(new URL('../release/component-contract.json',import.meta.url),'utf8'));

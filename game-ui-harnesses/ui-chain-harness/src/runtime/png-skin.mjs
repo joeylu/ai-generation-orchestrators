@@ -109,6 +109,8 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
         const id=asset(role).assetId,texture=runtimeInventorySlotTextures.get(id),state=runtimeInventorySlotFit.states?.find(s=>s.assetId===id);
         if(!texture||!state)return this.view(role,width,height);
         const b=state.borders,view=new NineSliceSprite({texture,leftWidth:b.left,topHeight:b.top,rightWidth:b.right,bottomHeight:b.bottom});
+        // The cropped texture is derived, so retain its original role for ink.
+        view.surfaceBaseRole=role;
         view.width=width;view.height=height;view.eventMode='none';return view;
       },
       runtimeRoleInk(role,options){return resolveRuntimeRoleInk(this,role,options);},

@@ -1,9 +1,10 @@
 {
   "kind": "ui_component_pipeline_contract",
-  "version": "1.0",
-  "releaseVersion": "0.1.0-rc.1",
-  "releaseTag": "ui-chain-components-v0.1.0-rc.1",
-  "scope": "reference-to-16-components",
+  "version": "1.1",
+  "releaseVersion": "0.1.0-rc.2",
+  "releaseTag": "ui-chain-components-v0.1.0-rc.2",
+  "scope": "text-or-reference-to-16-components",
+  "entryModes": ["existing-image", "generate-reference"],
   "implemented": true,
   "providerNeutral": true,
   "productionReady": false,
@@ -11,6 +12,7 @@
   "nodeEntry": "src/components-api.mjs",
   "contractCommand": "node scripts/component-entry.mjs contract",
   "offlineCheckCommand": "node scripts/component-pipeline-check.mjs",
+  "referenceCommand": "node scripts/reference-generation.mjs",
   "runtime": {
     "node": ">=22.18.0",
     "ciNodeMajor": 24,
@@ -41,7 +43,48 @@
     "squareSlots": ["slot.normal", "slot.selected"]
   },
   "components": ["Button", "Switch", "CheckBox", "RadioGroup", "Input", "Select", "Slider", "ProgressBar", "ScrollView", "List", "Dialog", "Tabs", "Image", "Text", "Container", "Panel"],
-  "apiExports": ["componentPipelineContract", "prepareSkinBatch", "verifySkinBatch", "executeBatch", "runAuthorizedBatch", "executeBatchPipeline", "postprocessBatch", "inspectGenerationBatch", "prepareSupplement", "executeSupplement", "verifySkinPackage", "inspectConsumer"],
+  "apiExports": ["componentPipelineContract", "prepareSkinBatch", "verifySkinBatch", "executeBatch", "runAuthorizedBatch", "executeBatchPipeline", "postprocessBatch", "inspectGenerationBatch", "prepareSupplement", "executeSupplement", "verifySkinPackage", "inspectConsumer", "prepareReferencePlan", "verifyReferencePlan", "executeReference", "inspectReference", "recoverReferenceReception", "reviewReference", "prepareComponentsFromReference", "executeComponentsFromReference"],
+  "referenceGeneration": {
+    "implemented": true,
+    "input": "description with optional draft style and guide PNG",
+    "output": "opaque reference PNG, frozen draft style, technical reception and separate image review",
+    "limits": {
+      "descriptionCharacters": 4000,
+      "styleBytes": 262144,
+      "pngBytes": 33554432,
+      "dimensionRange": [256, 4096],
+      "defaultDimensions": [1024, 1024],
+      "resolutionPolicies": ["native", "exact"],
+      "nativeAspectRatioTolerance": 0.01,
+      "defaultTimeoutMs": 300000,
+      "timeoutRangeMs": [1, 900000],
+      "pngEncoding": "8-bit non-interlaced RGB or RGBA sRGB"
+    },
+    "states": ["awaiting-reference-confirmation", "reserved-no-resubmit", "indeterminate", "reception-incomplete", "rejected-technical", "pending-visual-review", "accepted", "rejected-visual"],
+    "operations": {
+      "prepareReferencePlan": {"required": ["description", "output"], "returns": ["directory", "planSha256", "requestSha256", "styleSha256"]},
+      "verifyReferencePlan": {"required": ["directory", "planSha256"], "providerCalls": 0},
+      "executeReference": {"required": ["directory", "planSha256", "confirmedReferencePlanSha256"], "adapterArgument": 2, "maximumCalls": 1},
+      "inspectReference": {"required": ["directory", "planSha256"], "providerCalls": 0},
+      "recoverReferenceReception": {"required": ["directory", "planSha256"], "providerCalls": 0, "requiresPersistedReturnedReceipt": true},
+      "reviewReference": {"required": ["directory", "planSha256", "imageSha256", "confirmedImageSha256", "decision"], "providerCalls": 0, "decisions": ["accept", "reject"]},
+      "prepareComponentsFromReference": {"required": ["directory", "planSha256", "reviewSha256", "output"], "providerCalls": 0, "materialsDefault": true, "sourceReferenceSha256": "SHA-256 of source-reference.json bytes, distinct from imageSha256"},
+      "executeComponentsFromReference": {"required": ["directory", "planSha256", "skinDirectory", "batchSha256", "confirmedBatchSha256", "sourceReferenceSha256"], "adapterArgument": 2}
+    },
+    "humanReviewRequired": true,
+    "computeConfirmation": "fresh-single-use-confirmation-bound-to-reference-plan-sha256",
+    "componentConfirmation": "separate-fresh-confirmation-bound-to-component-batch-sha256",
+    "referenceAcceptanceAuthorizesBatch": false,
+    "adapter": "generate(frozenRequest) -> Promise<Uint8Array>",
+    "automaticRetry": false,
+    "indeterminate": "terminal-no-resubmit",
+    "deterministicRecovery": "persisted-program-owned-provider-return-only-without-provider-call",
+    "defaultReferenceCalls": 1,
+    "defaultTotalCallsWithMaterials": 6,
+    "totalCallsWithoutMaterials": 5,
+    "existingImageModeSupported": true,
+    "localStudioTextEntryImplemented": false
+  },
   "compute": {
     "humanConfirmation": "fresh-single-use-confirmation-bound-to-immutable-batch-sha256",
     "adapter": "generate(frozenRequest) -> Promise<Uint8Array>",
@@ -71,7 +114,7 @@
     "localStudioIsProductionApi": false,
     "requiredHandoff": ["openapi.json", "openapi.sha256", "request-response-examples", "error-and-state-mapping", "deployment-smoke-results", "web-handoff.md"],
     "openapiVersion": "3.1",
-    "requirements": ["durable-project-and-job-identities", "one-human-confirmation-per-plan-digest", "persistent-at-most-once-provider-submission", "redacted-errors", "complete-checksummed-component-download", "separate-technical-and-visual-status"]
+    "requirements": ["durable-project-and-job-identities", "one-human-confirmation-per-plan-digest", "persistent-at-most-once-provider-submission", "redacted-errors", "complete-checksummed-component-download", "separate-technical-and-visual-status", "separate-reference-and-batch-confirmations", "exact-image-review-before-component-planning"]
   },
   "outOfScope": ["panel-planning", "panel-generation", "panel-editor", "docker-service-implementation", "deployment-credentials"]
 }

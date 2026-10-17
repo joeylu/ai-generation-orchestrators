@@ -6,7 +6,7 @@
 
 ## 组件发布与宿主接入
 
-`ui-chain-components-v0.1.0-rc.1` 的公开接入范围止于 **16 类组件包输出**：参考图 → S01–S04 / 可选 S05 → 确认后生成 → 定位、拆分、切线、安全区 → 材质绑定 → 消费包及程序检查。它不要求 Panel SDK，也不启动后续面板生成。
+`ui-chain-components-v0.1.0-rc.2` 的公开接入范围止于 **16 类组件包输出**，有两个起点：`existing-image` 使用已有 PNG；`generate-reference` 从文字/风格准备参考图计划，确认一次生成参考 PNG，经技术 QA 和人工接受后，再准备 S01–S04 / 可选 S05 批次、独立确认并生成，最后定位、拆分、切线、安全区、材质绑定和消费检查。默认后者共 1 张参考图 + 5 张图集，两个计算确认；不要求 Panel SDK，也不启动后续面板生成。
 
 先读[组件全链路入口](docs/component-pipeline.md)，再交给[Docker 接入方](docs/docker-integration.md)和[Web 接入方](docs/web-integration.md)。[部署交接口令](docs/deployment-handoff.md)要求部署方输出实测的 OpenAPI 合同后，Web 才按该合同接手。当前核心提供 CLI / JavaScript 接口，生产 HTTP 服务由外部宿主实现。
 
@@ -14,14 +14,14 @@
 node scripts/component-entry.mjs contract
 ```
 
-此命令仅输出[机器可读组件合同](release/component-contract.json)，不调用模型。源码发行物及摘要由 `scripts/package-components-release.mjs` 从指定提交构建。参考图美术质量和最终外观仍按项目验收，源码发布不改变候选的 `productionReady: false`。
+此命令仅输出[机器可读组件合同](release/component-contract.json)，不调用模型。新参考阶段的 CLI 是 `scripts/reference-generation.mjs`，JavaScript 接口统一从 `src/components-api.mjs` 导入；完整参数与两阶段确认见[组件流程](docs/component-pipeline.md)。源码发行物及摘要由 `scripts/package-components-release.mjs` 从指定提交构建。参考图接受与最终组件美术接受分别记录，源码发布不改变组件候选的 `productionReady: false`。
 
-## 从这里开始
+## 本地 Studio 起步（已有参考图）
 
 在本 Harness 目录安装锁定依赖，准备模板和合同，再启动本地服务：
 
 ```sh
-npm ci --ignore-scripts --no-audit --no-fund
+npm ci --include=dev --ignore-scripts --no-audit --no-fund
 npm run panel-sdk:install
 npm run panel-sdk:check
 npm run templates:build -- --browser chrome
@@ -29,7 +29,7 @@ npm run contracts:build
 node scripts/studio.mjs work/studio/project.json 4310
 ```
 
-打开 [UI Studio](http://127.0.0.1:4310/#library)。启动配置、已安装浏览器的选择与空库起步见[启动说明](docs/local-studio.md#启动)。服务仅监听本机；示例端口可按本机情况更改。启动不会替用户确认新的模型调用。重启前先核对没有正在运行的任务。
+打开 [UI Studio](http://127.0.0.1:4310/#library)。启动配置、已安装浏览器的选择与空库起步见[启动说明](docs/local-studio.md#启动)。本地 Studio 仍是带图预设/上传图片入口；rc.2 的文字生成参考图由新公共 CLI/API 提供，本网页没有新增文字起步 UI。上述 Panel SDK 安装用于本地 Studio 的后续面板能力，组件宿主不需要它。服务仅监听本机；启动不替用户确认生成，重启前先核对没有运行中的任务。
 
 日常流程：
 

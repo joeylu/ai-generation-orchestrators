@@ -11,7 +11,7 @@ const contractPath=chainPath+'/release/component-contract.json';
 const registryPath=chainPath+'/configs/component-registry.draft.json';
 const packagePath=chainPath+'/package.json';
 const lockPath=chainPath+'/package-lock.json';
-const defaultTag='ui-chain-components-v0.1.0-rc.1';
+const defaultTag='ui-chain-components-v0.1.0-rc.2';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const json=value=>JSON.stringify(value,null,2)+'\n';
 const fail=(message,code='components.release')=>{throw Object.assign(Error(message),{code});};
@@ -117,7 +117,7 @@ export async function verifyComponentsRelease(directory){
 
 export async function main(args=process.argv.slice(2)){
  const {positionals,values}=parseArgs({args,allowPositionals:true,options:{commit:{type:'string'},tag:{type:'string'},out:{type:'string'},directory:{type:'string'}}});
- const action=positionals[0]??'build';if(positionals.length>1||!['build','verify'].includes(action))fail('Use build [--commit HEAD] [--tag ui-chain-components-v0.1.0-rc.1] [--out work/releases] | verify --directory <release-directory>.');
+ const action=positionals[0]??'build';if(positionals.length>1||!['build','verify'].includes(action))fail('Use build [--commit HEAD] [--tag ui-chain-components-v0.1.0-rc.2] [--out work/releases] | verify --directory <release-directory>.');
  if(action==='verify'){if(!values.directory||values.commit||values.tag||values.out)fail('Verify requires only --directory.');return verifyComponentsRelease(values.directory);}
  if(values.directory)fail('Build does not accept --directory.');return packageComponentsRelease({commit:values.commit,tag:values.tag,outputRoot:values.out});
 }

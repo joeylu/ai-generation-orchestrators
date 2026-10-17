@@ -1,6 +1,14 @@
 # 组件链路发行审计
 
-本轮范围为参考图输入到 16 类组件消费包输出；面板规划、生成和编辑不属于本次发行验收。源码发行是候选工具版本，不替项目签署美术接受。
+`ui-chain-components-v0.1.0-rc.2` 范围为文字/风格或已有参考 PNG 到 16 类组件消费包输出；面板规划、生成和编辑不属于本次发行验收。源码发行是候选工具版本，不替项目签署参考图或最终组件美术接受。
+
+## rc.2 新增参考阶段
+
+rc.1 的已有参考 PNG 路径保留为 `existing-image`；新 `generate-reference` 通过公共 CLI/API 冻结描述、可选风格/指导图和尺寸，确认参考计划后最多生成一次不透明 PNG，技术 QA 通过后待用户接受实际图片。只有 accepted 且 image/review 摘要匹配才准备新图集批次；组件生成另需新 `batchSha256` 确认。默认 1 + 5 次生图、两次计算确认，关闭 S05 为 1 + 4 次。参考 accepted 不改变最终组件 `visualAcceptance: unreviewed`。
+
+新增 8 个公开 API：prepareReferencePlan、verifyReferencePlan、executeReference、inspectReference、recoverReferenceReception、reviewReference、prepareComponentsFromReference、executeComponentsFromReference。CLI 为 `scripts/reference-generation.mjs`；原 Studio 仍 image-only。本发行不将未提交的其他 Harness primary-reference 改动当作已串接能力，不新增 Docker HTTP 服务。
+
+新阶段的单次机会在调用前独占登记；预留/未知/超时不允许重投。接收中断只从可信已保存返回字节恢复，技术/视觉拒绝另建计划并新确认。桥接绑定参考计划、图片、风格、review 与批次；任何摘要变化均停止，不能用宽松图集候选策略接受被拒绝的参考图。
 
 ## 已修正的问题
 
@@ -20,9 +28,9 @@
 
 ## 发行门禁
 
-在固定提交的干净源码上安装锁定依赖，构建模板和合同；通过 `scripts/component-pipeline-check.mjs`，使用程序生成的几何 PNG 作为明确的离线替身，串联真实批次准备、摘要确认、独占提交、接收、DAG、材质绑定、组包和独立浏览器检查。它不调用模型，也不把替身图片说成真实美术结果。五图路径与 `--no-materials` 四图路径分别验证。
+在固定提交的干净源码上安装锁定依赖，构建模板和合同；`scripts/component-pipeline-check.mjs` 使用明确程序 PNG 替身验证批次、独占提交、接收、DAG、材质绑定、组包与独立浏览器检查，保留五图和 `--no-materials` 四图路径。新增文字→参考 PNG→技术 QA→显式 fixture 接受→独立图集确认→16 类路径；证明未确认参考、未人工接受、未确认批次时各对应调用为零。替身不是真实模型或美术接受，CI 不调用模型。
 
-重复执行已授权批次必须新增提交 0 次；确定性任务恢复不得修改原始图像、计划、回执或已经通过的阶段。发行打包测试还核对脏工作树隔离、相同提交归档摘要一致、归档路径与文件覆盖、合同和锁文件绑定，以及篡改阻断。
+参考和图集分别测试并发/重复确认、错误摘要、超时/unknown、已保存原图接收恢复、技术/视觉拒绝及来源/review篡改；重复执行新增提交必须为 0。确定性恢复不修改原图、计划、回执或已通过阶段。发行测试核对 20 个导出与合同、脏工作树隔离、相同提交归档摘要一致、路径/文件闭包、合同/锁文件绑定及篡改阻断。具体运行结果只以该 rc.2 固定提交的 CI 和程序报告为准，不沿用 rc.1 的通过记录。
 
 [专用 CI](../../../.github/workflows/ui-chain-components.yml)在 Linux 和 Windows 安装 Chromium，先在不安装 Panel SDK 的情况下检查组件完整链路，再安装锁定 SDK 运行历史开发回归。该 SDK 不是组件宿主的运行依赖。仓库原有 CI 同时作为发布检查；具体提交、运行结果和资产摘要由发布页与程序发行回执记录。
 
@@ -30,6 +38,6 @@
 
 Docker HTTP 服务由部署方实现。本发行提供核心接口和接入合同，不声称已部署容器服务。部署方须验证其真实供应商适配器、一次提交与断连/重启恢复、持久化文件系统、上传转换、访问与下载策略，并输出实测 OpenAPI 合同后交给 Web。
 
-参考 PNG 必须通过核心解析；宿主允许 JPEG、索引色 PNG 等格式时负责确定性归一化并保留原始与派生摘要。供应商适配器必须关闭自动重试并有界结束；不明提交不会因容器重启自动获得重发权。
+参考 PNG 必须通过核心解析；宿主允许其他输入格式时负责确定性归一化并保留原始与派生摘要。适配器读取每阶段冻结 output：参考不透明、组件透明，关闭自动重试并有界结束；不明提交不会因重启获得重发权。生成参考技术接受、用户参考接受与最终组件接受分别记录；容器部署仍须对两个 compute 门禁及恢复行为提供实测 OpenAPI 实例。
 
 最终技术完成为 `awaiting-visual-review`，生成消费包的 `productionReady: false` 与 `visualAcceptance: unreviewed` 保持原义。原图检查告警与 rejected 候选证据保留；字体、纹理、四角与拉伸、颜色和交互仍由项目逐次验收。源码标签及 CI 通过不等于任意未来模型输出都会通过。
