@@ -64,10 +64,15 @@ try{
  const sameGeometry=(a,b)=>JSON.stringify(a.nodes.map(n=>({id:n.id,size:n.size,sizing:n.sizing,position:n.position,layout:n.layout})))===JSON.stringify(b.nodes.map(n=>({id:n.id,size:n.size,sizing:n.sizing,position:n.position,layout:n.layout})));
  const choose=async id=>{if(!await page.locator('#tree').isVisible())await page.locator('#toggle-tree').click();await page.locator('#tree button[data-node="'+id+'"]').click();await page.waitForFunction(id=>panelSizeEditor.selected===id,id);if(await page.evaluate(()=>innerWidth<=700)&&await page.locator('#toggle-tree').getAttribute('aria-expanded')==='true')await page.locator('#toggle-tree').click();};
  const apply=async edit=>{
-  await choose(edit.nodeId);if(edit.width!==undefined)await page.locator('#width').fill(String(edit.width));if(edit.height!==undefined)await page.locator('#height').fill(String(edit.height));
-  const revision=await page.evaluate(()=>panelSizeEditor.session.revision);await page.locator('#apply').click();
-  await page.waitForFunction(revision=>panelSizeEditor.session.revision>revision||document.querySelector('#message').classList.contains('error'),revision);
-  check('valid resize transaction '+edit.nodeId+' accepted',!await page.locator('#message').evaluate(node=>node.classList.contains('error')));
+  await choose(edit.nodeId);const revision=await page.evaluate(()=>panelSizeEditor.session.revision);
+  if(edit.width!==undefined)await page.locator('#width').fill(String(edit.width));if(edit.height!==undefined)await page.locator('#height').fill(String(edit.height));
+  // Inputs preview a separate scene; moving between width and height stays in
+  // the same form and must not publish either intermediate value to history.
+  await page.waitForFunction(edit=>{const p=panelSizeEditor,size=p.renderScene.runtime.handles.get(edit.nodeId)?.size;return p.renderScene!==p.session.current&&['width','height'].every(axis=>edit[axis]===undefined||Math.abs(size[axis]-edit[axis])<.1);},edit);
+  check('live resize preview '+edit.nodeId+' leaves authoring history untouched',await page.evaluate(revision=>panelSizeEditor.session.revision===revision&&panelSizeEditor.pendingInputs.length>0,revision));
+  await page.locator(edit.height!==undefined?'#height':'#width').press('Enter');
+  await page.waitForFunction(revision=>panelSizeEditor.session.revision===revision+1&&panelSizeEditor.pendingInputs.length===0&&panelSizeEditor.renderScene===panelSizeEditor.session.current,revision);
+  check('valid resize transaction '+edit.nodeId+' accepted once with inputs settled',!await page.locator('#message').evaluate(node=>node.classList.contains('error')));
  };
  const clickControl=async id=>{
   const point=await page.evaluate(id=>{const p=panelSizeEditor,h=p.session.current.runtime.handles.get(id),b=h.adapter.view.getBounds(),canvas=p.app.canvas.getBoundingClientRect();return {x:canvas.left+(b.x+b.width/2)*canvas.width/p.app.screen.width,y:canvas.top+(b.y+b.height/2)*canvas.height/p.app.screen.height};},id);
@@ -126,11 +131,15 @@ try{
  const resized=await active();check('two changes are undoable and dirty',resized.dirty&&await page.locator('#undo').isEnabled());
  await page.locator('#undo').click();await page.waitForFunction(revision=>panelSizeEditor.session.revision>revision,resized.document.revision);check('undo restores previous layout',sameGeometry((await active()).document,panelCandidate));
  const undone=await active();await page.locator('#redo').click();await page.waitForFunction(revision=>panelSizeEditor.session.revision>revision,undone.document.revision);check('redo restores dimensions',sameGeometry((await active()).document,controlCandidate));
- const valid=await active(),sceneToken=await page.evaluate(()=>{window.sizeCheckScene=panelSizeEditor.session.current;return panelSizeEditor.session.revision;});
- await choose(control.id);await page.locator('#width').fill('24');await page.locator('#apply').click();await page.waitForFunction(()=>document.querySelector('#message').classList.contains('error'));
- check('unsafe resize retains authored dimensions',sameGeometry((await active()).document,valid.document));check('unsafe resize retains valid renderer and history',await page.evaluate(revision=>panelSizeEditor.session.current===window.sizeCheckScene&&panelSizeEditor.session.revision===revision,sceneToken));
+ const valid=await active(),sceneToken=await page.evaluate(()=>{window.sizeCheckScene=panelSizeEditor.session.current;return {revision:panelSizeEditor.session.revision,canUndo:panelSizeEditor.session.canUndo,canRedo:panelSizeEditor.session.canRedo};});
+ await choose(control.id);await page.locator('#width').fill('24');await page.locator('#width').press('Enter');await page.waitForFunction(()=>document.querySelector('#message').classList.contains('error')&&!document.querySelector('#width').disabled&&panelSizeEditor.pendingInputs.length>0);
+ check('unsafe resize retains authored dimensions',sameGeometry((await active()).document,valid.document));check('unsafe resize retains valid renderer and history',await page.evaluate(before=>{const p=panelSizeEditor;return p.session.current===window.sizeCheckScene&&p.renderScene===p.session.current&&p.session.revision===before.revision&&p.session.canUndo===before.canUndo&&p.session.canRedo===before.canRedo;},sceneToken));
  await page.screenshot({path:join(evidence,'panel-size-rejected.png'),fullPage:true});
- const beforePlay=JSON.stringify((await active()).document);await page.locator('#mode').click();check('play mode disables size mutation',(await active()).mode==='play'&&await page.locator('#apply').isDisabled());
+ // Invalid inputs remain visible and intentionally block play/save. Escape is
+ // the normal user action to cancel this round before testing play behavior.
+ await page.locator('#width').press('Escape');await page.waitForFunction(()=>panelSizeEditor.pendingInputs.length===0&&panelSizeEditor.renderScene===panelSizeEditor.session.current);
+ check('Escape cancels rejected input without changing authoring or history',sameGeometry((await active()).document,valid.document)&&await page.evaluate(before=>{const p=panelSizeEditor;return p.session.current===window.sizeCheckScene&&p.session.revision===before.revision&&p.session.canUndo===before.canUndo&&p.session.canRedo===before.canRedo;},sceneToken));
+ const beforePlay=JSON.stringify((await active()).document);await page.locator('#mode').click();await page.waitForFunction(()=>panelSizeEditor.mode==='play');check('play mode disables size mutation',await page.locator('#width').isDisabled()&&await page.locator('#height').isDisabled());
  const plainPlayScale=await page.evaluate(()=>panelSizeEditor.scale),playView=await page.locator('#viewport').boundingBox();await page.mouse.move(playView.x+playView.width/2,playView.y+playView.height/2);await page.mouse.wheel(0,100);await page.evaluate(()=>new Promise(requestAnimationFrame));check('ordinary play-mode wheel remains with controls rather than zooming',await page.evaluate(scale=>panelSizeEditor.scale===scale,plainPlayScale));
  const behavior=variant.behavior;
  if(behavior){
@@ -161,10 +170,10 @@ try{
   let release,requested;const requestStarted=new Promise(accept=>requested=accept),blocked=new Promise(accept=>release=accept);
   const intercept=async route=>{if(route.request().postDataJSON().variantKey===otherVariant.key){requested();await blocked;return route.fulfill({json:{revisionId:null,document:{kind:'invalid-variant-fixture'}}});}return route.continue();};
   await page.route(base+'/panel-edit/load',intercept);await page.locator('#variant').selectOption(otherVariant.key);await bounded(requestStarted,'Variant candidate request');
-  check('variant loading disables concurrent editor actions',await page.locator('#variant').isDisabled()&&await page.locator('#apply').isDisabled());
+  check('variant loading disables concurrent editor actions',await page.locator('#variant').isDisabled()&&await page.locator('#width').isDisabled()&&await page.locator('#height').isDisabled()&&await page.locator('#mode').isDisabled());
   release();await page.waitForFunction(()=>document.querySelector('#message').classList.contains('error'));
   check('failed variant candidate preserves scene, selection and authoring',await page.evaluate(before=>panelSizeEditor.session.current===window.sizeCheckScene&&panelSizeEditor.selected===before.selected&&panelSizeEditor.variant.key===before.variant&&JSON.stringify(panelSizeEditor.session.document)===JSON.stringify(before.document),before));
-  check('failed variant restores selector and enabled editor',await page.locator('#variant').inputValue()===variant.key&&await page.locator('#apply').isEnabled());
+  check('failed variant restores selector and enabled editor',await page.locator('#variant').inputValue()===variant.key&&await page.locator('#width').isEnabled()&&await page.locator('#height').isEnabled());
   await page.unroute(base+'/panel-edit/load',intercept);
   await page.reload();await ready(page);if(await page.locator('#variant').inputValue()!==variant.key){await page.locator('#variant').selectOption(variant.key);await page.waitForFunction(key=>panelSizeEditor.variant.key===key,variant.key);}
  }
@@ -269,7 +278,8 @@ try{
  await frame.evaluate(()=>{window.cameraCheckApp=panelSizeEditor.app;});await parent.setViewportSize({width:390,height:844});check('expanded Studio editor remains bounded on mobile',await parent.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await parent.setViewportSize({width:1440,height:1000});check('expanding and resizing Studio preserves the mounted iframe runtime',await frame.evaluate(()=>window.cameraCheckApp===panelSizeEditor.app));for(const id of ['toggle-tree','toggle-properties'])if(await frame.locator('#'+id).getAttribute('aria-expanded')==='false')await frame.locator('#'+id).click();
  const frameState=await frame.evaluate(()=>({document:panelSizeEditor.session.document,selected:panelSizeEditor.selected}));
  const frameTarget=sizeEditTargets(frameState.document,source.ctx).find(t=>t.id===frameState.selected),nextFrame=sizeEditDocument(frameState.document,{nodeId:frameState.selected,width:frameTarget.width+20},source.ctx);
- await frame.locator('#width').fill(String(nextFrame.nodes.find(n=>n.id===frameState.selected).size.width));await frame.locator('#apply').click();await frame.waitForFunction(()=>panelSizeEditor.dirty);
+ const frameRevision=await frame.evaluate(()=>panelSizeEditor.session.revision);
+ await frame.locator('#width').fill(String(nextFrame.nodes.find(n=>n.id===frameState.selected).size.width));await frame.locator('#width').press('Enter');await frame.waitForFunction(revision=>panelSizeEditor.session.revision===revision+1&&panelSizeEditor.pendingInputs.length===0&&panelSizeEditor.renderScene===panelSizeEditor.session.current&&panelSizeEditor.dirty,frameRevision);
  await parent.locator('#panel-size-back').click();await parent.locator('#confirm-dialog').waitFor({state:'visible'});
  check('dirty iframe departure uses in-page confirmation',await parent.locator('#confirm-title').textContent()==='离开尺寸编辑？');
  await parent.locator('#confirm-cancel').click();await parent.locator('#confirm-dialog').waitFor({state:'detached'});

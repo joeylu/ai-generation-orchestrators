@@ -50,7 +50,7 @@ export const basicAdapters = {
   },
   "pixi.switch"(c) {
     const { skin, p, w, h, emit, listen } = c,
-      m = skin.profile.markSize,
+      m = c.controlFit?Math.min(w/2,h):skin.profile.markSize,
       reference = c.referenceTextFlow === true,
       views = [];
     for (const on of [false, true]) {
@@ -66,7 +66,7 @@ export const basicAdapters = {
         ((skin.fontSizeOverride?Math.max(m,skin.profile.geometry.lineHeight):m) - text.height) / 2,
       );
       const markOffset=(skin.fontSizeOverride?Math.max(m,skin.profile.geometry.lineHeight)-m:0)/2;
-      track.y=markOffset;thumb.y+=markOffset;
+      track.y=c.controlFit?(h-m)/2:markOffset;thumb.y+=track.y;
       v.addChild(track, thumb, text);
       views.push(v);
     }
@@ -79,6 +79,7 @@ export const basicAdapters = {
       view,
       resize(width, height) {
         for (const [index, v] of views.entries()){
+          if(c.controlFit){const mark=Math.min(width/2,height),[track,thumb]=v.children;track.width=mark*2;track.height=mark;thumb.width=thumb.height=mark-4;track.position.set((width-mark*2)/2,(height-mark)/2);thumb.position.set(track.x+(index?mark+2:2),track.y+2);continue;}
           reflowLabel(
             v.children[2],
             p.label,
@@ -240,7 +241,7 @@ export const basicAdapters = {
         progress: (100 * (p.value - p.min)) / (p.max - p.min),
       });
     let value = p.value;
-    bar.setSize(w, skin.profile.trackHeight);
+    bar.setSize(w, c.controlFit?c.h:skin.profile.trackHeight);
     view.addChild(bar);
     const label = p.showValue ? skin.label(percentLabel(value, p.min, p.max), w) : null;
     let labelWidth = w;
@@ -257,7 +258,7 @@ export const basicAdapters = {
     return {
       view,
       bar,
-      resize: (w) => { bar.setSize(w, skin.profile.trackHeight); labelWidth = w; positionLabel(); },
+      resize: (w, h) => { bar.setSize(w, c.controlFit?h:skin.profile.trackHeight); labelWidth = w; positionLabel(); },
       state: () => ({ value }),
       setState: (s) => {
         value = s.value;

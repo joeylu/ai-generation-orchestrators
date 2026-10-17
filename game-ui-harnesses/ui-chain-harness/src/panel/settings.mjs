@@ -1,3 +1,4 @@
+import {referenceLayoutDocument} from './reference-layout.mjs';
 import {scrollPadding} from '../runtime/scroll-geometry.mjs';
 import {tabsContentBox} from '../runtime/tabs-geometry.mjs';
 import {presentation,presetHeight} from './preset-presentation.mjs';
@@ -9,6 +10,7 @@ import {surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 
 // Preset compilation only: content, geometry and selected skin stay independent.
 export function settingsDocument(content, layout, canvas, ctx) {
+  if(layout.referenceLayout)return referenceLayoutDocument(content,layout,canvas,ctx);
   if (content.version !== '1.0' || layout.version !== '1.0' || !Array.isArray(content.fields) || !content.fields.length)
     throw Error('Unsupported settings configuration.');
   const o = layout.orientations[canvas], board = ctx.canvases.presets[canvas];

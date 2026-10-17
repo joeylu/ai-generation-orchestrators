@@ -1,3 +1,4 @@
+import {freezeReferenceLayout} from '../src/panel/reference-layout-source.mjs';
 import {panelOrientations,orientationInstructions} from '../src/panel/orientation.mjs';
 import {settingsSkinGeometry} from '../src/panel/skin-geometry.mjs';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -23,7 +24,7 @@ try {
   const contracts=await panelSkinContracts(pack,values.contracts);
   let policy=await read(join(root,'configs/settings-planning-policy.json')),layout=await read(join(root,'configs/settings-layout.json'));
   const saved=positionals[0]==='run'&&values.plan?await read(values.plan):null;
-  const preset=values.preset??saved?.consumer.policy.reference?.id;if(preset&&preset!=='sdk-settings')throw Error('REFERENCE_PRESET_UNKNOWN');if(preset)policy=referenceSettingsPolicy(policy);
+  const preset=values.preset??saved?.consumer.policy.reference?.id;if(preset&&preset!=='sdk-settings')throw Error('REFERENCE_PRESET_UNKNOWN');if(preset){policy=referenceSettingsPolicy(policy);if(!saved)layout=await freezeReferenceLayout(layout,preset);}
   if(saved){policy=structuredClone(saved.consumer.policy);layout=structuredClone(saved.consumer.layout);}
   const aliases=await read(values.aliases?resolve(values.aliases):join(root,'configs/planning-skin-aliases.json'));
   if(aliases.version!=='1.0'||!Array.isArray(aliases.skins[pack.id])||!aliases.skins[pack.id].every(s=>typeof s==='string'&&s.trim()))throw Error('SKIN_ALIASES_REQUIRED');

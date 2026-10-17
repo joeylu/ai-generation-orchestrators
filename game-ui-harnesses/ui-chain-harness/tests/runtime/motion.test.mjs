@@ -8,7 +8,7 @@ const root=fileURLToPath(new URL('../../',import.meta.url));
 test('three styles: all 16 controls, internal transitions, interrupted overlays, direct manipulation and teardown',async()=>{
  const env=await startHarness({width:1440,height:1120});const {page}=env;
  try{
-  const bundle=await build({stdin:{contents:"import {attachComponentMotion} from './src/panel/motion-runtime.mjs';import {motionSelection} from './src/panel/motion-profile.mjs';window.motionAPI={attachComponentMotion,motionSelection};",resolveDir:root},bundle:true,write:false,format:'esm',platform:'browser',logLevel:'silent'});
+  const bundle=await build({stdin:{contents:"import {attachComponentMotion} from './src/panel/motion-runtime.mjs';import {motionSelection} from './src/panel/motion-profile.mjs';import {upgradeInventoryRegistry} from './src/runtime/inventory-policy.mjs';window.motionAPI={attachComponentMotion,motionSelection,upgradeInventoryRegistry};",resolveDir:root},bundle:true,write:false,format:'esm',platform:'browser',logLevel:'silent'});
   await page.addScriptTag({type:'module',content:bundle.outputFiles[0].text});await page.waitForFunction(()=>window.motionAPI);
   await page.evaluate(()=>{
    harness.clear();harness.app.ticker.stop();let now=0,sequence=0;const frames=new Map();
@@ -84,17 +84,17 @@ test('three styles: all 16 controls, internal transitions, interrupted overlays,
    const row=list.adapter.rows[1].view??list.adapter.rows[1],rowPose={x:row.pivot.x,y:row.pivot.y};motionFlush();
    const input=motionNodes.Input;harness.runtime.focus(null);motionStep();harness.runtime.focus(input,false);motionStep(p.focusMs*.2);const focusAlpha=!!input.focusRing;harness.runtime.focus(null);motionFlush();
    const bar=motionNodes.ProgressBar;bar.setState({value:0});motionFlush();bar.setState({value:100});motionStep(p.changeMs*.2);const fill=bar.adapter.bar.progress;motionFlush();
-   const slider=motionNodes.Slider;slider.adapter.view.onThumbPressed(true);motionStep(p.pressMs);const thumbAlpha=slider.adapter.view.slider1.children[0].alpha;
+   const slider=motionNodes.Slider;slider.adapter.view.onThumbPressed(true);motionStep(p.pressMs);const thumbAlpha=slider.adapter.view.slider1.children[0].alpha,thumbLift=slider.adapter.view.slider1.children[0].pivot.y*slider.adapter.view.slider1.children[0].scale.y;
    slider.setState({value:37});motionStep();const direct=slider.adapter.view.progress;slider.adapter.view.onThumbPressed(false);motionFlush();
    const stable={rowX:row.pivot.x,rowY:row.pivot.y,markY:mark.pivot.y,focus:!!input.focusRing,thumb:slider.adapter.view.slider1.children[0].alpha};
-   return {staticRoots,markPose,rowPose,focusAlpha,fill,thumbAlpha,direct,stable};
+   return {staticRoots,markPose,rowPose,focusAlpha,fill,thumbAlpha,thumbLift,direct,stable};
   }));
   for(const d of details){assert.ok(d.staticRoots.every(r=>r.scale===1));assert.equal(d.direct,37);assert.deepEqual(d.stable,{rowX:0,rowY:0,markY:0,focus:false,thumb:1});assert.ok(d.fill>0&&d.fill<100);}
   assert.ok(details[0].staticRoots.every(r=>r.y!==0));assert.ok(details[1].staticRoots.every(r=>r.y===0));assert.ok(details[2].staticRoots.every(r=>r.y!==0));
   assert.ok(details[0].rowPose.y!==0&&details[0].rowPose.x===0);assert.deepEqual(details[1].rowPose,{x:0,y:0});assert.ok(details[2].rowPose.x!==0&&details[2].rowPose.y===0);
   assert.equal(details[1].markPose.y,0);assert.ok(details[2].markPose.y<0);assert.notEqual(details[0].markPose.scale,details[1].markPose.scale);
   assert.ok(details[0].fill>details[2].fill&&details[2].fill>details[1].fill,'bounded values use distinct ease-out, linear and ease-in-out curves');
-  assert.ok(details[0].thumbAlpha<details[1].thumbAlpha&&details[1].thumbAlpha<details[2].thumbAlpha);
+  assert.ok(details.every(d=>d.thumbAlpha===1));assert.deepEqual(details.map(d=>d.thumbLift),[3,2,1]);
   assert.ok(details.every(d=>d.focusAlpha===false));
   const selectPoint=await page.evaluate(()=>{motionController.set(motionAPI.motionSelection('premium'));motionFlush();harness.app.render();const b=motionNodes.Select.adapter.view.openButton.getBounds();return{x:b.x+b.width/2,y:b.y+b.height/2};});
   await page.mouse.click(selectPoint.x,selectPoint.y);
@@ -104,12 +104,40 @@ test('three styles: all 16 controls, internal transitions, interrupted overlays,
   await page.mouse.click(selectPoint.x,selectPoint.y);
   assert.deepEqual(await page.evaluate(()=>{const v=motionNodes.Select.adapter.view,mid={expanded:v.expanded,visible:v.view.visible,focus:!!motionNodes.Select.focusRing?.visible};motionFlush();return {...mid,end:v.view.visible};}),{expanded:false,visible:true,focus:false,end:false});
   assert.deepEqual(await page.evaluate(()=>Object.values(motionNodes).map(h=>h.snapshot())),before);
+  // Right-aligned switches must stay relative to their track, including after layout changes.
+  const alignedSwitch=await page.evaluate(()=>{
+   motionController.dispose();const sw=motionNodes.Switch,views=sw.adapter.view.views,initial=sw.readState().checked;
+   const shift=x=>views.forEach(v=>{const delta=x-v.children[0].x;v.children[0].x=x;v.children[1].x+=delta;});
+   shift(300);motionController=motionAPI.attachComponentMotion(motionWin,motionAPI.motionSelection('playful'));motionFlush();
+   const poses=()=>views.map(v=>v.children[1].x-v.children[0].x);
+   const original=poses();sw.setState({checked:!initial});motionStep(80);const mid=poses();motionFlush();const settled=poses();
+   shift(420);sw.setState({checked:initial});motionStep(80);const resized=poses();motionFlush();
+   motionController.set(motionAPI.motionSelection('original'));const reset=poses();shift(0);
+   return {original,mid,settled,resized,reset};
+  });
+  assert.deepEqual(alignedSwitch.original,[2,26]);assert.deepEqual(alignedSwitch.settled,[2,26]);assert.deepEqual(alignedSwitch.reset,[2,26]);
+  for(const values of [alignedSwitch.mid,alignedSwitch.resized])assert.ok(values.every(x=>x>2&&x<26));
+  const interruptedButton=await page.evaluate(()=>{
+   motionController.set(motionAPI.motionSelection('playful'));motionFlush();const b=motionNodes.Button;
+   b.adapter.view.onDown.emit();motionStep(65);const pressed=b.root.scale.x;
+   b.setEnabled(false);motionStep();const disabled={scale:b.root.scale.x,x:b.root.pivot.x,y:b.root.pivot.y};
+   b.setEnabled(true);const size={...b.size};b.adapter.view.onDown.emit();motionStep(65);b.resize(size.width+40,size.height);motionStep();
+   const resized={scale:b.root.scale.x,x:b.root.pivot.x,y:b.root.pivot.y};b.resize(size.width,size.height);motionFlush();return {pressed,disabled,resized};
+  });
+  assert.ok(interruptedButton.pressed<1);assert.deepEqual(interruptedButton.disabled,{scale:1,x:0,y:0});assert.deepEqual(interruptedButton.resized,{scale:1,x:0,y:0});
   const safety=await page.evaluate(()=>{
    const v=motionNodes.Select.adapter.view;v.open();motionStep(40);v.close();motionController.set(motionAPI.motionSelection('original'));const original=!v.view.visible&&motionController.inspect().running===0;
    motionController.set(motionAPI.motionSelection('playful'));motionFlush();v.open();motionStep(30);motionMedia.matches=true;motionStep();const reduced=v.motionProgress===1&&motionController.inspect().running===0;v.close();const immediate=!v.view.visible;motionMedia.matches=false;
    v.open();motionStep(30);motionNodes.Select.resize(350,50);motionStep();const resized=v.motionProgress===1;v.close();motionStep(30);motionController.dispose();const disposed=!v.view.visible&&v.motionDriver===null;
    return{original,reduced,immediate,resized,disposed};
   });assert.deepEqual(safety,{original:true,reduced:true,immediate:true,resized:true,disposed:true});
+  const sparseInventory=await page.evaluate(()=>{
+   harness.clear();harness.runtime.registry.recipes=motionAPI.upgradeInventoryRegistry(harness.runtime.registry).recipes;const n=harness.make('List',{size:{width:600,height:400},props:{items:[{id:'last',label:'Last',enabled:true,slotIndex:5,quantity:1,description:'Last slot',icon:null}],selectedId:null,inventory:{columns:3,rows:2,gap:8,details:'below',appearance:'slots',cellSize:64,initialSlot:0,scrollMode:'fixed-cells-both-v1'}}});
+   motionWin.studioCanvas.items=[{n}];motionWin.studioCanvas.h.runtime=harness.runtime;motionController=motionAPI.attachComponentMotion(motionWin,motionAPI.motionSelection('playful'));motionFlush();
+   n.setState({selectedId:'last'});motionStep(40);const alphas=n.adapter.cells.map(c=>c.view.alpha);motionFlush();const selected=n.readState().selectedId;
+   motionController.dispose();return {alphas,selected};
+  });
+  assert.equal(sparseInventory.selected,'last');assert.equal(sparseInventory.alphas[0],1);assert.ok(sparseInventory.alphas[5]<1);
   // A modal retains its blocker during exit; reopen cancels removal without duplicate events.
   const modal=await page.evaluate(()=>{
    harness.clear();const d=harness.make('Dialog',{props:{modal:true},size:{height:180}});window.motionModal=d;motionWin.studioCanvas.items=[{n:d}];motionWin.studioCanvas.h.runtime=harness.runtime;window.motionController=motionAPI.attachComponentMotion(motionWin,motionAPI.motionSelection('premium'));motionFlush();harness.events.length=0;

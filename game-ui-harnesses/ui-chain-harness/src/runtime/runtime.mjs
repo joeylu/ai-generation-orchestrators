@@ -54,7 +54,7 @@ export function createRuntime({
     handles,
     textColors,
     create(
-      { id, recipeRef: ref, props = {}, size, sizing = {}, layout = {}, position, surfaceStyle, surfaceLayer, surfaceScale, surfaceTextInsets, surfaceBand, surfaceFontSize },
+      { id, recipeRef: ref, props = {}, size, sizing = {}, layout = {}, position, surfaceStyle, surfaceLayer, surfaceScale, surfaceTextInsets, surfaceBand, surfaceFontSize, controlFit },
       slots = {},
     ) {
       if (
@@ -122,6 +122,7 @@ export function createRuntime({
       const slotOptions=effectiveSize=>({nodeId:id,type:recipe.type,props:p,size:effectiveSize,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer,surfaceScale});
       const dynamicSlot=h=>Object.entries(h.sizing??{}).some(([key,value])=>key.endsWith('Mode')&&value!=='fixed')||(h.slotChildren??[]).some(dynamicSlot);
       if(surfaceLayer&&!dynamicSlot({sizing,slotChildren:list}))assertSurfaceSlotChildren(slotOptions(size),list.map(child=>({id:child.id,size:child.size,visible:child.props.visible})));
+      if(controlFit!==undefined&&!(controlFit==='template-box-v1'&&((recipe.type==='Switch'&&p.label==='')||(recipe.type==='ProgressBar'&&p.showValue===false))))reject('node.control-fit','Template fit requires an unlabelled Switch or caption-free ProgressBar.');
       const nodeSkin=scopedSurfaceTextSkin(skin,p,surfaceFontSize);
       const activeSurfaceStyle=surfaceStyle??(!surfaceLayer&&recipe.type==='Panel'&&!p.backgroundRef&&skin.surfaceGeometry?.surfaceStyles?.panel?'panel':null);
       const panelBackground = recipe.type === "Panel"
@@ -177,6 +178,7 @@ export function createRuntime({
         surfaceScale,
         surfaceBand,
         surfaceFontSize,
+        controlFit,
         slotChildren:list,
         surfaceSlotOptions:slotOptions,
         enhancedTextScope:Boolean(surfaceLayer||surfaceTextInsets),
@@ -235,6 +237,7 @@ export function createRuntime({
             ...(surfaceTextInsets?{surfaceTextInsets:structuredClone(surfaceTextInsets)}:{}),
             ...(surfaceBand?{surfaceBand}:{}),
             ...(surfaceFontSize!==undefined?{surfaceFontSize}:{}),
+            ...(controlFit!==undefined?{controlFit}:{}),
           };
         },
         setState(patch) {
@@ -346,6 +349,7 @@ export function createRuntime({
           surfaceScale,
           surfaceBand,
           surfaceFontSize,
+          controlFit,
           referenceTextFlow:referenceTextFlow===true,
           surfaceTextInsets,
           p,

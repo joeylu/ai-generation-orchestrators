@@ -25,7 +25,7 @@ export function minimumSize(type, p, s) {
     height = g.lineHeight;
   }
   if (type === "Switch") {
-    width = s.markSize * 2 + g.labelGap + content;
+    width = s.markSize * 2 + (p.label === '' ? 0 : g.labelGap + content);
     height = Math.max(g.lineHeight, s.markSize);
   }
   if (type === "CheckBox") {

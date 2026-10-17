@@ -7,7 +7,7 @@ import backgroundSchema from "../../schemas/panel-background.schema.json" with {
 import { validateBackgroundAsset, backgroundGeometry, maxBackgroundBytes } from "../slicing/package.mjs";
 import { measureSlices } from "../slicing/geometry.mjs";
 import { documentLayout } from './layout.mjs';
-import { hasLayoutRules } from '../runtime/layout.mjs';
+import { hasLayoutRules,layoutBoundsError } from '../runtime/layout.mjs';
 import {surfaceTextBox,surfaceStyleInfo,surfaceLayerInfo,surfaceLayerTypes} from '../skins/surface-styles.mjs';
 import {assertSurfaceSlotChildren,surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
 import {inventorySlotRoles} from '../runtime/inventory-policy.mjs';
@@ -40,7 +40,7 @@ export function validateDocument(input, ctx) {
   )
     fail("panel.binding", "当前工程资源版本不匹配，拒绝静默换肤。");
   if (doc.panelBackgrounds && !["0.2","0.3"].includes(doc.version)) fail("panel.version", "自定义背景需要 PanelDocument 0.2 或以上。");
-  if(doc.version!=='0.3'&&doc.nodes.some(n=>hasLayoutRules(n)||n.surfaceStyle||n.surfaceLayer||n.surfaceTextInsets||n.surfaceScale||n.surfaceBand||n.surfaceFontSize))fail('panel.version','增强布局和表面配方需要 PanelDocument 0.3。');
+  if(doc.version!=='0.3'&&doc.nodes.some(n=>hasLayoutRules(n)||n.surfaceStyle||n.surfaceLayer||n.surfaceTextInsets||n.surfaceScale||n.surfaceBand||n.surfaceFontSize||n.controlFit))fail('panel.version','增强布局和表面配方需要 PanelDocument 0.3。');
   const bytes = Object.values(doc.panelBackgrounds ?? {}).reduce((sum, asset) => sum + validateBackgroundAsset(asset), 0);
   if (bytes > maxBackgroundBytes) fail("background.size", "画布背景原图总计最多 8 MiB。");
   const sources = new Map(Object.values(doc.panelBackgrounds ?? {}).map(a => [a.source.sha256, a.source]));
@@ -99,6 +99,7 @@ export function validateDocument(input, ctx) {
         n.id,
       );
     n.props = result.props;
+    if(n.controlFit!==undefined&&!((recipe.type==='Switch'&&n.props.label==='')||(recipe.type==='ProgressBar'&&n.props.showValue===false)))fail('panel.control-fit','Template fit requires an unlabelled Switch or caption-free ProgressBar.',n.id);
     if(n.surfaceTextInsets&&!(recipe.type==='Text'&&['title','section'].includes(n.surfaceStyle)))fail('panel.surface-style','Text surface insets require a semantic heading.',n.id);
     if(n.surfaceScale!==undefined&&n.surfaceLayer!=='frame')fail('panel.surface-layer','Surface scale is reserved for an explicit main frame.',n.id);
     if(n.surfaceBand&&!(recipe.type==='Text'&&['title','section'].includes(n.surfaceStyle)))fail('panel.surface-style','Reference bands require a semantic heading.',n.id);
@@ -196,18 +197,18 @@ export function validateDocument(input, ctx) {
         if (layout.childrenMode === "free") {
           if (!child.position)
             fail("panel.position", "自由区域子节点需要位置。", child.id);
-          if (
+          if (child.props.visible!==false&&(
             child.position.x + child.size.width > n.size.width - pad ||
             child.position.y + child.size.height > n.size.height - pad ||
             child.position.x < pad ||
             child.position.y < pad
-          )
-            fail("panel.bounds", "自由区域子节点越界。", child.id);
+          ))
+            throw layoutBoundsError({nodeId:child.id,ownerId:n.id,source:'free-child',available:{x:pad,y:pad,width,height},occupied:{...child.position,...child.size},code:'panel.bounds',message:'自由区域子节点越界。'});
         } else {
           if (child.position)
             fail("panel.position", "流式区域不接受手动坐标。", child.id);
-          if (child.size.width > width || child.size.height > height)
-            fail("panel.bounds", "子节点尺寸超过容器。", child.id);
+          if (child.props.visible!==false&&(child.size.width > width || child.size.height > height))
+            throw layoutBoundsError({nodeId:child.id,ownerId:n.id,source:'fixed-child',available:{x:pad,y:pad,width,height},occupied:{x:pad,y:pad,...child.size},code:'panel.bounds',message:'子节点尺寸超过容器。'});
         }
       }
       const visible = children.filter((c) => c.props.visible),
@@ -218,16 +219,12 @@ export function validateDocument(input, ctx) {
         visible.length
       ) {
         const axis = layout.direction === "row" ? "width" : "height";
+        const total=visible.reduce((a,c)=>a+c.size[axis],0)+gap*(visible.length-1);
         if (
-          visible.reduce((a, c) => a + c.size[axis], 0) +
-            gap * (visible.length - 1) >
+          total >
           (axis === "width" ? width : height) + 0.01
         )
-          fail(
-            "panel.overflow",
-            "流式区域内容放不下，请增大容器或使用滚动区域。",
-            n.id,
-          );
+          throw layoutBoundsError({nodeId:n.id,ownerId:n.id,source:'fixed-flow',available:{x:pad,y:pad,width,height},occupied:{x:pad,y:pad,width:axis==='width'?total:Math.max(...visible.map(c=>c.size.width)),height:axis==='height'?total:Math.max(...visible.map(c=>c.size.height))},message:'流式区域内容放不下，请增大容器或使用滚动区域。'});
       }
     } else
       for (const child of children)

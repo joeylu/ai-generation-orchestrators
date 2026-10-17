@@ -372,14 +372,21 @@ export class SkinnedSelect extends Select {
     this.box = { width, height };
     this.motionDriver?.finish();
     this.setSelection(this.model.options[this.value]?.id ?? null);
-    const {menuHeight}=selectPopupBox({width,height,itemHeight:this.skin.profile.itemHeight,itemCount:this.model.options.length,maxVisibleItems:this.model.maxVisibleItems,canvasWidth:this.overlay.width,canvasHeight:this.overlay.height});
-    this.menuHeight=menuHeight;this.skin.assertView?.('skin.surface.popup',width,height+menuHeight);
-    this.openView.width = width;
-    this.openView.height = height + menuHeight;
-    this.scrollBox.setSize(width, menuHeight);
+    const {menuHeight,bottomPadding}=selectPopupBox({width,height,itemHeight:this.skin.profile.itemHeight,itemCount:this.model.options.length,maxVisibleItems:this.model.maxVisibleItems,canvasWidth:this.overlay.width,canvasHeight:this.overlay.height,bottomPadding:8});
+    this.menuHeight=menuHeight;this.menuBottomPadding=bottomPadding;this.skin.assertView?.('skin.surface.popup',width,height+menuHeight+bottomPadding);
+    const backdrop=this.skin.selectBackdrop?.(width)??{x:0,width};
+    this.skin.assertView?.('skin.surface.popup',backdrop.width,height+menuHeight+bottomPadding);
+    this.openView.width = backdrop.width;
+    this.openView.x = backdrop.x;
+    this.openView.height = height + menuHeight + bottomPadding;
+    const rowMinimum=Math.max(0,...['skin.item.normal','skin.item.selected'].map(role=>this.skin.metadata?.get(this.skin.roles?.get(role))?.minSize?.width??0));
+    const menuPadding=Math.min(8,Math.max(0,(width-rowMinimum)/2));
+    this.menuWidth=width-2*menuPadding;
+    this.scrollBox.x=menuPadding;
+    this.scrollBox.setSize(this.menuWidth, menuHeight);
     this.scrollBox.y = height;
     for (const row of this.rows) {
-      resizeButton(row, this.skin, width, this.skin.profile.itemHeight);
+      resizeButton(row, this.skin, this.menuWidth, this.skin.profile.itemHeight);
     }
     this.scrollBox.resize(true);
     const g = this.skin.profile.geometry;
@@ -407,7 +414,7 @@ export class SkinnedSelect extends Select {
     this.motionProgress = Math.max(0,Math.min(1,value));
     if (!this.revealMask) return;
     const g=this.skin.profile.geometry, menu=this.menuHeight??Math.min(this.model.options.length,this.model.maxVisibleItems)*this.skin.profile.itemHeight;
-    this.revealMask.clear().rect(0,0,this.box.width,this.box.height+menu*this.motionProgress).fill(0xffffff);
+    this.revealMask.clear().rect(0,0,this.box.width,this.box.height+(menu+(this.menuBottomPadding??0))*this.motionProgress).fill(0xffffff);
     this.scrollBox.alpha=this.motionProgress;
     this.indicator.pivot.set(g.indicatorWidth/2,g.indicatorHeight/2);
     this.indicator.position.set(this.box.width-g.indicatorWidth/2-Math.max(g.labelGap,this.skin.insets('skin.field.normal').right),this.box.height/2);
@@ -439,8 +446,8 @@ export class SkinnedSelect extends Select {
     this.expanded ? this.close() : this.open();
   }
   place() {
-    const pos=this.toGlobal({x:0,y:0}),box=selectPopupBox({...this.box,itemHeight:this.skin.profile.itemHeight,itemCount:this.model.options.length,maxVisibleItems:this.model.maxVisibleItems,canvasWidth:this.overlay.width,canvasHeight:this.overlay.height,...pos});
-    if(this.menuHeight!==box.menuHeight){this.skin.assertView?.('skin.surface.popup',box.width,box.height);this.menuHeight=box.menuHeight;this.openView.height=box.height;this.scrollBox.setSize(box.width,box.menuHeight);this.scrollBox.resize(true);this.applyReveal(this.motionProgress);}
+    const pos=this.toGlobal({x:0,y:0}),box=selectPopupBox({...this.box,itemHeight:this.skin.profile.itemHeight,itemCount:this.model.options.length,maxVisibleItems:this.model.maxVisibleItems,canvasWidth:this.overlay.width,canvasHeight:this.overlay.height,bottomPadding:8,...pos});
+    if(this.menuHeight!==box.menuHeight||this.menuBottomPadding!==box.bottomPadding){this.skin.assertView?.('skin.surface.popup',box.width,box.height);this.menuHeight=box.menuHeight;this.menuBottomPadding=box.bottomPadding;this.openView.height=box.height;this.scrollBox.setSize(this.menuWidth??box.width,box.menuHeight);this.scrollBox.resize(true);this.applyReveal(this.motionProgress);}
     this.view.position.set(box.x,box.y);
   }
   containsGlobal(point) {
@@ -590,8 +597,8 @@ export class OverlayOwner {
     this.outside = (e) => {
       const rect = app.canvas.getBoundingClientRect(),
         point = {
-          x: ((e.clientX - rect.left) * this.width) / rect.width,
-          y: ((e.clientY - rect.top) * this.height) / rect.height,
+          x: ((e.clientX - rect.left) * app.screen.width) / rect.width,
+          y: ((e.clientY - rect.top) * app.screen.height) / rect.height,
         };
       for (const select of [...this.selects])
         if (!select.containsGlobal(point)) select.close();

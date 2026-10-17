@@ -2,6 +2,8 @@ import {CanvasTextMetrics} from 'pixi.js';
 import {textEditFields} from '../panel/text-edit.mjs';
 import {surfaceTextProfile} from '../runtime/text-style.mjs';
 import {percentLabel} from '../runtime/controls.mjs';
+import {componentContentBox} from '../runtime/content-bounds.mjs';
+import {radioItemWidth,selectLabelWidth} from '../runtime/option-geometry.mjs';
 
 const literal=value=>String(value).replace(/\s+/g,' ');
 const buttonText=button=>button?.labelView??button?._views?.textView;
@@ -64,7 +66,7 @@ export function assertEditedTextLabels(scene,baseDocument,ctx){
     }
     for(const field of changed){
       const index=Number(field.id.split('.')[1]);
-      if(type==='Text')measure(node,field,adapter.text,field.value,size.width,size.height,{raw:true});
+      if(type==='Text'){const box=adapter.textBox??size;measure(node,field,adapter.text,field.value,box.width,box.height,{raw:true});}
       else if(type==='Button')button(node,field,view,field.value);
       else if(type==='Switch'){
         const states=view?.views;
@@ -72,11 +74,11 @@ export function assertEditedTextLabels(scene,baseDocument,ctx){
         for(const state of states)measure(node,field,state.children?.[2],field.value,size.width-profile.markSize*2-g.labelGap,size.height);
       }else if(type==='CheckBox')measure(node,field,view?.labelText,field.value,size.width-profile.markSize-g.labelGap,g.lineHeight);
       else if(type==='RadioGroup'){
-        const width=p.direction==='row'?(size.width-Math.max(0,p.options.length-1)*profile.gap)/Math.max(1,p.options.length):size.width;
+        const width=radioItemWidth(size.width,p.options.length,profile.gap,p.direction);
         measure(node,field,adapter.items?.[index]?.labelText,field.value,width-profile.markSize-g.labelGap,g.lineHeight);
       }else if(type==='Panel'){
-        const pad=p.contentPadding??skin.insets('skin.surface.panel');
-        measure(node,field,view?.children?.[1],field.value,size.width-pad.left-pad.right,g.lineHeight);
+        const box=componentContentBox({type,props:p,size,profile:skin.profile,geometry:skin.surfaceGeometry??skin,surfaceLayer:node.surfaceLayer,surfaceScale:node.surfaceScale});
+        measure(node,field,adapter.title??view?.children?.[1],field.value,box.width,g.lineHeight);
       }else if(type==='Dialog'){
         if(field.id==='title')measure(node,field,view?.titleText,field.value,size.width-2*view.dialogPadding,g.lineHeight);
         else button(node,field,adapter.buttons?.[index],field.value);
@@ -95,7 +97,7 @@ export function assertEditedTextLabels(scene,baseDocument,ctx){
         const pad=skin.insets('skin.field.normal'),selected=p.options.find(option=>option.id===handle.readState().selectedId);
         const displayed=selected?.label??p.placeholder;
         if(field.id!=='placeholder')button(node,field,view?.rows?.[index],field.value);
-        const width=size.width-pad.left-pad.right-2*(g.indicatorWidth+g.labelGap),height=size.height-pad.top-pad.bottom;
+        const width=selectLabelWidth(size.width,pad,g.indicatorWidth,g.labelGap),height=size.height-pad.top-pad.bottom;
         for(const closed of [view?.openButton,view?.closeButton])
           measure(node,field,buttonText(closed),field.value,width,height,{drawn:literal(displayed)===literal(field.value)});
       }else error(node,field,'该控件暂不支持显示文案核验。');

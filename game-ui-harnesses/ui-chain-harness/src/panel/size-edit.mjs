@@ -2,13 +2,15 @@ import {validateDocument,indexDocument,fail} from './document.mjs';
 import {documentLayout} from './layout.mjs';
 import {recipeRef} from '../contracts/props.mjs';
 import {pngGeometry} from '../runtime/png-geometry.mjs';
-import {scrollPadding} from '../runtime/scroll-geometry.mjs';
 import {tabsContentBox} from '../runtime/tabs-geometry.mjs';
 import {applyTextChanges,nonTextProps,textEditFields} from './text-edit.mjs';
 import {textProfile,surfaceTextProfile,supportsTextStyle} from '../runtime/text-style.mjs';
 import {surfaceTextBox,surfaceLayerInfo} from '../skins/surface-styles.mjs';
 import {inventoryLayout} from '../runtime/inventory-geometry.mjs';
-import {surfaceSlotBox,surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
+import {slotBoundsError,surfaceGeometryForContext} from '../runtime/surface-slots.mjs';
+import {componentContentBox} from '../runtime/content-bounds.mjs';
+import {selectPopupBox} from '../runtime/select-geometry.mjs';
+import {radioItemWidth,selectLabelWidth} from '../runtime/option-geometry.mjs';
 export {textEditFields,textStyleEditState} from './text-edit.mjs';
 
 const axes=['width','height'], near=(a,b)=>Math.abs(a-b)<.1;
@@ -35,19 +37,7 @@ function skinFor(ctx){
 const tabsInsets=(ctx,skin)=>skin?(skin.roles.has('skin.surface.content')?skin.insets('skin.surface.content'):null):ctx.scrollInsets??{left:ctx.profile.padding,right:ctx.profile.padding,top:0,bottom:0};
 
 function slotBox(node,size,type,ctx,skin){
-  if(node.surfaceLayer)return surfaceSlotBox({type,props:node.props,size,profile:ctx.profile,geometry:surfaceGeometryForContext(ctx),surfaceLayer:node.surfaceLayer,surfaceScale:node.surfaceScale});
-  const p=node.props,s=textProfile(ctx.profile,p),g=s.geometry,layer=node.surfaceLayer?surfaceLayerInfo(ctx.skinGeometry,node.surfaceLayer):null;
-  if(type==='Panel'||type==='Dialog'){
-    const dp=layer?Math.max(s.padding,...Object.values(layer.insets)):s.padding;
-    const pad=type==='Panel'?(p.contentPadding??layer?.insets??skin?.insets('skin.surface.panel')??{left:s.padding,right:s.padding,top:s.padding,bottom:s.padding}):{left:dp,right:dp,top:dp,bottom:dp};
-    return {width:size.width-pad.left-pad.right,height:size.height-pad.top-pad.bottom-(p.title?g.lineHeight+g.titleGap:0)-(type==='Dialog'&&p.actions.length?s.itemHeight+g.labelGap:0)};
-  }
-  if(type==='ScrollView'){
-    const pad=scrollPadding(s,layer?.insets??skin?.insets('skin.surface.content')??ctx.scrollInsets??{left:0,right:0,top:0,bottom:0});
-    return {width:size.width-pad.left-pad.right-g.scrollbarWidth-g.scrollbarGap,height:size.height-pad.top-pad.bottom};
-  }
-  if(type==='Tabs')return tabsContentBox(s,layer?.insets??tabsInsets(ctx,skin),size.width,size.height);
-  return size;
+  return componentContentBox({nodeId:node.id,type,props:node.props,size,profile:ctx.profile,geometry:skin??surfaceGeometryForContext(ctx),layout:node.layout,surfaceLayer:node.surfaceLayer,surfaceScale:node.surfaceScale})??size;
 }
 
 function locked(node,info){
@@ -77,14 +67,15 @@ function freeLayout(layout={}){
 // Fixed grid cells intentionally expose the shared parent, rather than accepting
 // a child dimension which the runtime would ignore.
 export function sizeEditTargets(input,ctx){
-  const doc=validateDocument(input,ctx),info=geometry(doc,ctx);
+  const doc=validateDocument(input,ctx),info=geometry(doc,ctx),bodyGeometry=surfaceGeometryForContext(ctx);
   return doc.nodes.map(n=>{
     const owner=info.parents.get(n.id)?.node,isGrid=owner&&info.type(owner)==='Container'&&owner.layout?.direction==='grid';
     const reason=n.id===doc.rootId?'画布比例与尺寸已固定。':locked(n,info)?'节点或父级已锁定。':isGrid?'此节点由统一网格单元格控制，请调整上级容器。':undefined;
     const size=info.size(n),position=info.resolved.get(n.id)??n.position??{x:0,y:0};
     const positionReason=n.id===doc.rootId?'画布不能移动。':locked(n,info)?'节点或父级已锁定。':n.props.visible===false?'隐藏节点不能在画布移动。':!owner||info.type(owner)!=='Container'?'内容槽的位置由所属控件管理。':owner.layout?.childrenMode!=='free'?'自动排版中的位置由分组控制；先显式将上级分组切换为自由布局。':undefined;
     const freeReason=freeLayoutReason(n,doc,info);
-    return {id:n.id,name:n.name,type:info.type(n),width:size.width,height:size.height,x:position.x??0,y:position.y??0,editableWidth:!reason,editableHeight:!reason,...(reason?{reason}:{}),editablePosition:!positionReason,...(positionReason?{positionReason}:{}),canFreeLayout:!freeReason,...(freeReason?{freeLayoutReason:freeReason}:{}),...(owner?{parentId:owner.id}:{})};
+    const body=componentContentBox({type:info.type(n),props:n.props,size,profile:ctx.profile,geometry:bodyGeometry,layout:n.layout,surfaceLayer:n.surfaceLayer,surfaceScale:n.surfaceScale});
+    return {id:n.id,name:n.name,type:info.type(n),width:size.width,height:size.height,x:position.x??0,y:position.y??0,...(body?{body}:{}),editableWidth:!reason,editableHeight:!reason,...(reason?{reason}:{}),editablePosition:!positionReason,...(positionReason?{positionReason}:{}),canFreeLayout:!freeReason,...(freeReason?{freeLayoutReason:freeReason}:{}),...(owner?{parentId:owner.id}:{})};
   });
 }
 
@@ -99,31 +90,32 @@ function assertTextCapacity(node,type,size,ctx,skin,changedFields=null){
       fail('edit.text-capacity','调整后的尺寸无法容纳现有文字。请扩大控件或其面板。',node.id);
   };
   const pad=role=>skin?.insets(role)??{left:s.padding,right:s.padding,top:0,bottom:0};
+  const caption=(text,roles,w,h)=>{const pads=roles.map(pad),safe=Object.fromEntries(['left','right','top','bottom'].map(key=>[key,Math.max(...pads.map(value=>value[key]))]));check(text,w-safe.left-safe.right,h-safe.top-safe.bottom);};
   if(type==='Text'&&changed('text')){const box=node.surfaceStyle?surfaceTextBox(ctx.skinGeometry,node.surfaceStyle,size.width,size.height,node.surfaceTextInsets):size;check(p.text,box.width,box.height,p.wrap==='word');}
-  if(type==='Button'&&changed('label'))for(const state of ['normal','pressed']){const a=pad(`skin.button.${p.variant}.${state}`);check(p.label,size.width-a.left-a.right,size.height-a.top-a.bottom);}
+  if(type==='Button'&&changed('label'))caption(p.label,['normal','pressed'].map(state=>`skin.button.${p.variant}.${state}`),size.width,size.height);
   if((type==='Switch'||type==='CheckBox')&&changed('label'))check(p.label,size.width-(type==='Switch'?s.markSize*2:s.markSize)-g.labelGap,size.height);
   if(type==='Input'||type==='Select'){
-    const a=pad('skin.field.normal'),w=size.width-a.left-a.right-(type==='Select'?g.indicatorWidth+g.labelGap:0);
+    const a=pad('skin.field.normal'),w=type==='Select'?selectLabelWidth(size.width,a,g.indicatorWidth,g.labelGap):size.width-a.left-a.right;
     // Native text entry can scroll horizontally; its placeholder and visible
     // options still need a readable content area. Do not rewrite user values.
     if(changed('placeholder'))check(p.placeholder,w,size.height-a.top-a.bottom);
     if(type==='Select')for(const [index,option]of p.options.entries())if(changed(`options.${index}.label`)){
       check(option.label,w,size.height-a.top-a.bottom);
-      for(const state of ['normal','selected']){const b=pad(`skin.item.${state}`);check(option.label,size.width-b.left-b.right,s.itemHeight-b.top-b.bottom);}
+      caption(option.label,['skin.item.normal','skin.item.selected'],size.width,s.itemHeight);
     }
   }
   if(type==='Panel'||type==='Dialog'){
     const box=slotBox(node,size,type,ctx,skin);if(changed('title'))check(p.title,box.width,g.lineHeight);
     if(type==='Dialog')for(const [index,action]of p.actions.entries())if(changed(`actions.${index}.label`)){
-      const w=(size.width-s.padding*2-Math.max(0,p.actions.length-1)*g.labelGap)/Math.max(1,p.actions.length);
-      for(const state of ['normal','pressed']){const a=pad(`skin.button.${action.variant}.${state}`);check(action.label,w-a.left-a.right,s.itemHeight-a.top-a.bottom);}
+      const w=(box.width-Math.max(0,p.actions.length-1)*g.labelGap)/Math.max(1,p.actions.length);
+      caption(action.label,['normal','pressed'].map(state=>`skin.button.${action.variant}.${state}`),w,s.itemHeight);
     }
   }
   if((type==='Slider'||type==='ProgressBar')&&p.showValue)check('100%',size.width,g.lineHeight);
   if(type==='Tabs'){
     const box=tabsContentBox(s,(node.surfaceLayer?surfaceLayerInfo(ctx.skinGeometry,node.surfaceLayer,node.surfaceScale)?.insets:null)??tabsInsets(ctx,skin),size.width,size.height);
     const w=(box.surface.width-Math.max(0,p.tabs.length-1)*g.tabGap)/Math.max(1,p.tabs.length);
-    for(const [index,tab]of p.tabs.entries())if(changed(`tabs.${index}.label`))for(const state of ['normal','selected']){const a=pad(`skin.tab.${state}`);check(tab.label,w-a.left-a.right,s.itemHeight-a.top-a.bottom);}
+    for(const [index,tab]of p.tabs.entries())if(changed(`tabs.${index}.label`))caption(tab.label,['skin.tab.normal','skin.tab.selected'],w,s.itemHeight);
   }
   if(type==='List'&&!(node.slots.items??[]).length){
     if(p.inventory){
@@ -131,16 +123,17 @@ function assertTextCapacity(node,type,size,ctx,skin,changedFields=null){
       // Inventory names wrap in a vertically scrollable detail region. They
       // are not labels squeezed into the item cell or the old List row height.
       for(const [index,item]of p.items.entries())if(changed(`items.${index}.label`))check(item.label,box.width,1e9,true);
-    }else for(const [index,item]of p.items.entries())if(changed(`items.${index}.label`))for(const state of ['normal','selected']){const a=pad(`skin.item.${state}`);check(item.label,size.width-a.left-a.right,s.itemHeight-a.top-a.bottom);}
+    }else for(const [index,item]of p.items.entries())if(changed(`items.${index}.label`))caption(item.label,['skin.item.normal','skin.item.selected'],slotBox(node,size,type,ctx,skin).width,s.itemHeight);
   }
-  if(type==='RadioGroup')for(const [index,option]of p.options.entries())if(changed(`options.${index}.label`))check(option.label,(p.direction==='row'?size.width/Math.max(1,p.options.length):size.width)-s.markSize-g.labelGap,p.direction==='row'?size.height:Math.max(s.markSize,g.lineHeight));
+  if(type==='RadioGroup')for(const [index,option]of p.options.entries())if(changed(`options.${index}.label`))check(option.label,radioItemWidth(size.width,p.options.length,s.gap,p.direction)-s.markSize-g.labelGap,p.direction==='row'?size.height:Math.max(s.markSize,g.lineHeight));
 }
 
 function assertGeometry(doc,ctx,base){
   const skin=skinFor(ctx),info=geometry(doc,ctx),old=base?geometry(base,ctx):null;
   for(const n of doc.nodes){
     const type=info.type(n),size=info.size(n),before=old?.nodes.get(n.id),previous=before?old.size(before):null;
-    try{skin?.assertComponent(type,n.props,size.width,size.height,{surfaceLayer:n.surfaceLayer,surfaceScale:n.surfaceScale});}catch(e){e.message=n.id+': '+e.message;throw e;}
+    try{skin?.assertComponent(type,n.props,size.width,size.height,{surfaceLayer:n.surfaceLayer,surfaceScale:n.surfaceScale,explicitRows:type==='List'&&(n.slots.items??[]).length>0});}catch(e){e.message=n.id+': '+e.message;throw e;}
+    if(type==='Select'){const board=ctx.canvases.presets[doc.canvas];try{selectPopupBox({...size,itemHeight:textProfile(ctx.profile,n.props).itemHeight,itemCount:n.props.options.length,maxVisibleItems:n.props.maxVisibleItems,canvasWidth:board.width,canvasHeight:board.height});}catch(error){error.nodeId=n.id;throw error;}}
     if(previous){
       const shrunk=size.width<previous.width-.1||size.height<previous.height-.1,fontChanged=n.props.fontSize!==before.props.fontSize;
       const original=new Map(textEditFields({...before,locked:false},ctx).map(field=>[field.id,field.value]));
@@ -150,7 +143,8 @@ function assertGeometry(doc,ctx,base){
     if(['Panel','Dialog','ScrollView','Tabs','List'].includes(type)){
       const box=slotBox(n,size,type,ctx,skin),ids=Object.values(n.slots).flat();
       for(const id of ids){const child=info.nodes.get(id),r=info.size(child);
-        if(r.width>box.width+.1||(!['ScrollView','Dialog','List'].includes(type)&&r.height>box.height+.1))fail('edit.slot-bounds','内容超过控件的安全内容区，请先缩小内部内容或扩大面板。',id);
+        if(child.props.visible===false)continue;
+        if(r.width>box.width+.1||(!box.allowVerticalOverflow&&r.height>box.height+.1))throw slotBoundsError({nodeId:n.id,size},{id,size:r},box,'内容超过控件的安全内容区，请先缩小内部内容或扩大面板。','edit.slot-bounds');
       }
     }
   }
@@ -207,19 +201,17 @@ export function validateSizeEdit(baseInput,candidateInput,ctx){
   return candidate;
 }
 
-// A resize is a pure candidate transaction. The caller publishes it only after
-// preparing the complete Pixi renderer; failed layout or skin checks leave the
-// original document and history untouched.
-export function rectangleEditDocument(input,edit,ctx){
-  if(ctx.binding?.sourceKind==='imported'&&!ctx.skinGeometry)skinFor(ctx);
-  const base=validateDocument(input,ctx),doc=structuredClone(base),before=geometry(base,ctx),skin=skinFor(ctx),index=indexDocument(doc),node=index.nodes.get(edit.nodeId);
+// Candidate construction stays private: callers may combine copy and geometry,
+// but every public edit still validates the complete resulting document.
+function rectangleCandidate(base,edit,ctx,doc=structuredClone(base)){
+  const before=geometry(base,ctx),skin=skinFor(ctx),index=indexDocument(doc),node=index.nodes.get(edit.nodeId);
   if(!node)fail('edit.node','节点不存在。');
   const target=sizeEditTargets(base,ctx).find(n=>n.id===edit.nodeId);
   const changed=axes.filter(axis=>edit[axis]!==undefined&&!near(edit[axis],before.size(before.nodes.get(node.id))[axis]));
   const moving=edit.x!==undefined||edit.y!==undefined;
   if(changed.length&&(!target.editableWidth||!target.editableHeight))fail('edit.size-unavailable',target.reason,node.id);
   if(moving&&!target.editablePosition)fail('edit.position-unavailable',target.positionReason,node.id);
-  if(!changed.length&&!moving)return base;
+  if(!changed.length&&!moving)return {document:doc,changed,moving};
   for(const axis of changed){
     const value=edit[axis];if(!Number.isFinite(value)||value<24||value>16384)fail('edit.size','尺寸须为 24–16384 之间的逻辑像素。',node.id);
     node.size[axis]=value;
@@ -260,7 +252,7 @@ export function rectangleEditDocument(input,edit,ctx){
         reflow(child,size);
       }
     }else if(['Panel','Dialog','ScrollView','Tabs'].includes(type)){
-      const a=slotBox(n,previous,type,ctx,skin),b=slotBox(n,nextSize,type,ctx,skin);
+      const a=slotBox(before.nodes.get(n.id),previous,type,ctx,skin),b=slotBox(n,nextSize,type,ctx,skin);
       for(const id of Object.values(n.slots).flat()){
         const child=index.nodes.get(id),size={...oldSize(child)};
         for(const axis of axes){
@@ -294,9 +286,41 @@ export function rectangleEditDocument(input,edit,ctx){
     node.position=position;
   }
   if(doc.nodes.some(n=>Object.keys(n.sizing??{}).length))doc.version='0.3';
-  const candidate=validateSizeEdit(base,doc,ctx),actual=geometry(candidate,ctx).size(indexDocument(candidate).nodes.get(node.id));
-  for(const axis of changed)if(!near(actual[axis],edit[axis]))fail('edit.size-managed','该轴仍受父级布局或最小/最大约束控制，无法应用请求尺寸。',node.id);
+  return {document:doc,changed,moving};
+}
+
+function finishRectangleCandidate(base,edit,built,ctx){
+  const candidate=validateSizeEdit(base,built.document,ctx),actual=geometry(candidate,ctx).size(indexDocument(candidate).nodes.get(edit.nodeId));
+  for(const axis of built.changed)if(!near(actual[axis],edit[axis]))fail('edit.size-managed','该轴仍受父级布局或最小/最大约束控制，无法应用请求尺寸。',edit.nodeId);
   return candidate;
+}
+
+// A resize is a pure candidate transaction. The caller publishes it only after
+// preparing the complete Pixi renderer; failed layout or skin checks leave the
+// original document and history untouched.
+export function rectangleEditDocument(input,edit,ctx){
+  if(ctx.binding?.sourceKind==='imported'&&!ctx.skinGeometry)skinFor(ctx);
+  const base=validateDocument(input,ctx),built=rectangleCandidate(base,edit,ctx);
+  if(!built.changed.length&&!built.moving)return base;
+  return finishRectangleCandidate(base,edit,built,ctx);
+}
+
+// One authored transaction across the editor's geometry and typography groups.
+// Intermediate copy/rectangle combinations need not fit: only the complete
+// candidate is checked. The same geometry propagation and final save gate own
+// its bounds, skin, text, structure, behavior and actual requested dimensions.
+export function combinedEditDocument(input,{nodeId,rect={},changes}={},ctx){
+  if(ctx.binding?.sourceKind==='imported'&&!ctx.skinGeometry)skinFor(ctx);
+  const base=validateDocument(input,ctx),info=indexDocument(base),node=info.nodes.get(nodeId);
+  if(!node)fail('edit.node','节点不存在。');
+  if(!rect||typeof rect!=='object'||Array.isArray(rect)||![Object.prototype,null].includes(Object.getPrototypeOf(rect))||Object.keys(rect).some(key=>!['x','y','width','height','keepPosition'].includes(key)))fail('edit.rectangle','矩形修改只能包含位置、宽高及位置保留规则。',nodeId);
+  const doc=structuredClone(base);
+  if(changes!==undefined){
+    if(locked(node,info))fail('edit.locked','节点或父级已锁定。',nodeId);
+    doc.nodes[doc.nodes.findIndex(value=>value.id===nodeId)]=applyTextChanges(node,changes,ctx);
+  }
+  const edit={...rect,nodeId},built=rectangleCandidate(base,edit,ctx,doc);
+  return finishRectangleCandidate(base,edit,built,ctx);
 }
 
 export function sizeEditDocument(input,edit,ctx){return rectangleEditDocument(input,edit,ctx);}

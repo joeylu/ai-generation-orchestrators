@@ -40,7 +40,7 @@ function attachMotion(win,preview,selection){
  function bind(){
   detach();scene=preview.scene;
   for(const h of scene.runtime.handles.values()){
-   const v=h.root,r={h,key:'motion-'+records.length,sx:v.scale.x,sy:v.scale.y,px:v.pivot.x,py:v.pivot.y,baseAlpha:v.alpha,scale:1,alpha:null,state:JSON.stringify(h.readState()),focus:!!h.focusRing?.visible,listeners:[]};records.push(r);
+   const v=h.root,r={h,key:'motion-'+records.length,sx:v.scale.x,sy:v.scale.y,px:v.pivot.x,py:v.pivot.y,baseAlpha:v.alpha,scale:1,alpha:null,size:JSON.stringify(h.size),state:JSON.stringify(h.readState()),focus:!!h.focusRing?.visible,listeners:[]};records.push(r);
    const on=(event,fn)=>{v.on(event,fn);r.listeners.push(()=>v.off(event,fn));};
    r.internal=bindComponentMotion({h,animator,key:r.key+'-control',profile:()=>selection.profile,active:()=>active()&&h.allowed(true)});
    if(h.recipe.type==='Button'){
@@ -56,7 +56,7 @@ function attachMotion(win,preview,selection){
  }
  function tick(){
   if(dead)return;if(preview.scene!==scene){bind();return;}
-  for(const r of records){const h=r.h;if(h.disposed){r.internal?.dispose();cancel(r);continue;}r.internal?.sync();if((!(scene.roots??[scene.root]).includes(h)&&!h.allowed())||!h.root.visible||h.readState().open===false||!active()){cancel(r);continue;}
+  for(const r of records){const h=r.h;if(h.disposed){r.internal?.dispose();cancel(r);continue;}r.internal?.sync();const size=JSON.stringify(h.size);if(size!==r.size){cancel(r);r.size=size;}if(!h.allowed(true)||(!(scene.roots??[scene.root]).includes(h)&&!h.allowed())||!h.root.visible||h.readState().open===false||!active()){cancel(r);continue;}
    const state=JSON.stringify(h.readState()),focus=!!h.focusRing?.visible;
    r.state=state;r.focus=focus;
   }

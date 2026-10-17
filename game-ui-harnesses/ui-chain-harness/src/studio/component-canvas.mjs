@@ -32,7 +32,7 @@ try{
   }
  });h.runtime.flush();for(const {n}of items)n.adapter.afterLayout?.();h.runtime.flush();
  const materials=comparison?{items:[],height:1120}:materialCanvas({h,Graphics,Text,Sprite,locate,host:$('#component-list')});
- const canvasHeight=materials.height;canvas.style.height=canvasHeight+'px';h.app.renderer.resize(1440,canvasHeight);
+ const canvasHeight=materials.height;canvas.style.height=canvasHeight+'px';h.app.renderer.resize(1440,canvasHeight);h.runtime.overlay.width=h.app.screen.width;h.runtime.overlay.height=h.app.screen.height;
  if(materials.items.length){const button=document.createElement('button');button.type='button';button.id='show-materials';button.textContent='通用纹理';button.onclick=()=>locate({assetId:'materials',name:'通用纹理',bindings:['preview'],x:20,y:1120,w:1400,h:canvasHeight-1120});$('#hand').after(button);}
  const contrast=h.runtime.textColors??canvasContrast({stage:h.app.stage,skin:h.skin,Text});contrast.refresh();
  const readability=h.runtime.textColors?await fetch(base+'text-readability.json').then(r=>{if(!r.ok)throw Error('缺少文字可读性报告');return r.json();}):null;

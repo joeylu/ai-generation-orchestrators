@@ -1,3 +1,4 @@
+import {freezeReferenceLayout} from '../src/panel/reference-layout-source.mjs';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -26,7 +27,7 @@ try {
   const bundle=positionals[0]==='run'?await read(values.plan):null;
   const presetId=values.preset??bundle?.consumer.presetId;
   if((values.columns!==undefined||values.rows!==undefined)&&(presetId!=='inventory'||positionals[0]!=='prepare'))throw Error('ARGUMENTS');
-  if(!bundle&&presetId?.startsWith('sdk-'))config=referenceActionConfig(config,presetId);
+  if(!bundle&&presetId?.startsWith('sdk-'))config=await freezeReferenceLayout(referenceActionConfig(config,presetId),presetId);
   if(!bundle&&presetId==='custom')config=customActionConfig(config);
   if(bundle){config=structuredClone(bundle.consumer.config);if(!config?.presets?.[presetId])throw Error('CONSUMER_CHANGED_REPLAN');}
   let ctx;

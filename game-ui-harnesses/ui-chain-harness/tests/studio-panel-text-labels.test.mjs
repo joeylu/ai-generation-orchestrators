@@ -91,6 +91,14 @@ test('Text preserves multiline wrapping and rejects clipped height or ellipses',
   const clip=fixture('Text',{text:'old'},{text:'too wide text'},{view:{},text:text('too wide text')},{width:48,height:30});
   fails(clip);
 });
+test('decorated Text checks the actual adapter safe box instead of its larger outer rectangle',t=>{
+ metrics(t);const f=fixture('Text',{text:'old'},{text:'long label'},{view:{},text:text('long label'),textBox:{x:30,y:10,width:40,height:20}},{width:120,height:50});fails(f);
+ f.scene.runtime.handles.get('control').adapter.textBox.width=60;assert.doesNotThrow(()=>f.run());
+});
+test('Panel title is the explicit adapter text, even when a material surface occupies the prior child index',t=>{
+ metrics(t);const title=text('new'),f=fixture('Panel',{title:'old'},{title:'new'},{view:{children:[{},{}]},title},{width:100});assert.doesNotThrow(()=>f.run());
+ f.scene.runtime.handles.get('control').adapter.title.text='n…';fails(f);
+});
 
 test('Select measures changed unselected options in both closed states without selecting them',t=>{
   const measured=metrics(t),props={placeholder:'pick',selectedId:'a',options:[{id:'a',label:'a'},{id:'b',label:'long label'}]};

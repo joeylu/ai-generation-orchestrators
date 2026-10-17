@@ -25,7 +25,7 @@ const exec=promisify(execFile),release=await acquireLocalLock(dir,'.processing.l
 const command=async(name,args)=>(await exec(process.execPath,[join(root,'scripts',name),...args],{cwd:root,windowsHide:true,maxBuffer:8*1024*1024,timeout:900000})).stdout.trim();
 try{
   const originalFlow=await readSafe(dir,'flow.json'),flow=JSON.parse(originalFlow);
-  if(flow.phase!=='components-ready'||flow.panels?.some(p=>p.status==='running'))throw Error('UPGRADE_PROJECT_NOT_IDLE');
+  if(!['components-ready','processing-failed'].includes(flow.phase)||flow.panels?.some(p=>p.status==='running'))throw Error('UPGRADE_PROJECT_NOT_IDLE');
   const task=await taskStatus(workDirectory(flow.taskDirectory),async files=>{for(const f of files)if(hash(await readSafe(root,f.file))!==f.sha256)throw Error('UPGRADE_SOURCE_CHANGED');});
   if(task.status!=='awaiting-visual-review')throw Error('UPGRADE_TASK_NOT_READY');
   const output=task.nodes.find(n=>n.id==='postprocess').outputs;
@@ -49,6 +49,7 @@ try{
   const selection={file:rel(recordFile),sha256:hash(recordBytes)};
   await upgradedConsumer(root,originalDirectory,selection);
   if(hash(await readFile(join(dir,'flow.json')))!==hash(originalFlow))throw Error('UPGRADE_FLOW_CHANGED');
+  flow.phase='components-ready';flow.message='16 类组件已完成程序检查，等待外观验收';delete flow.errorCode;if(flow.localRecovery)flow.localRecovery.failure=null;
   flow.componentRuntime=selection;const temp=join(dir,'.flow-'+randomUUID()+'.json');await writeFile(temp,json(flow),{flag:'wx'});await rename(temp,join(dir,'flow.json'));
   console.log(json({status:'checked-candidate',directory:rel(revision),consumer:rel(target),checks:check.checks,skinSha256:record.skinSha256,consumerSha256:consumer.manifestSha256,modelCalls:0}));
 }finally{await release();}

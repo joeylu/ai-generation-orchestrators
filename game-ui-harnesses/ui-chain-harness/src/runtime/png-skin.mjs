@@ -1,3 +1,4 @@
+import {selectBackdropBox} from './select-geometry.mjs';
 import { Texture, ImageSource, Sprite, NineSliceSprite, Text, Rectangle } from 'pixi.js';
 import { validatePack, fail } from '../skins/contract.mjs';
 import { fitText } from './skin.mjs';
@@ -59,7 +60,7 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
       const bitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}),{premultiplyAlpha:'premultiply',colorSpaceConversion:'none'});
       bitmaps.push(bitmap);
       if(bitmap.width!==a.width || bitmap.height!==a.height)fail('skin.dimensions','Decoded PNG dimensions mismatch.');
-      const selection=['radio.ring','radio.dot','checkbox.box','checkbox.mark'].includes(a.assetId);
+      const selection=['radio.ring','radio.dot','checkbox.box','checkbox.mark','field.normal','surface.popup'].includes(a.assetId);
       if(selection||pixelAssets.has(a.assetId)){
         const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
         const context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(bitmap,0,0);
@@ -115,6 +116,10 @@ export async function loadPngSkin({ manifestBytes, manifestSha256, expectedBindi
       },
       runtimeRoleInk(role,options){return resolveRuntimeRoleInk(this,role,options);},
       surfaceGeometry:{scale:pack.scale,roles:pack.roles,assets:pack.assets,surfaceStyles:pack.surfaceStyles,materialAssets:pack.materialAssets},
+      selectBackdrop(width){
+        const metrics=role=>{const a=asset(role),u=usages.get(a.assetId);return {sourceWidth:a.width/u.resolution,left:u.borders.left,right:u.borders.right,bounds:visualBounds.get(a.assetId)??{x:0,width:1}};};
+        return selectBackdropBox(width,metrics('skin.field.normal'),metrics('skin.surface.popup'),asset('skin.surface.popup').minSize.width);
+      },
       texture(role){return textures.get(asset(role).assetId);},
       visualBounds(role){return {...(visualBounds.get(asset(role).assetId)??{x:0,y:0,width:1,height:1})};},
       tuple(role){return [...usages.get(asset(role).assetId).tuple];},

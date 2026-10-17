@@ -1,3 +1,4 @@
+import {referenceLayoutDocument} from './reference-layout.mjs';
 import {panelOrientations} from './orientation.mjs';
 import {presentation,presetHeight} from './preset-presentation.mjs';
 import {validateSettingsResponse} from './settings-intent.mjs';
@@ -68,6 +69,7 @@ export async function actionPresetFromIntent(sessionInput,intentInput,config,pre
 }
 
 export function actionPresetDocument(content,config,canvas,ctx) {
+  if(config.referenceLayout)return referenceLayoutDocument(content,config,canvas,ctx);
   if(content.layoutBody)return customPanelDocument(content,config,canvas,ctx);
   if(['2.0','3.0'].includes(config.presentation?.version)&&ctx.surfaceLayersEnabled!==false&&config.presets[content.presetId].surface==='panel')return presetSurfaceDocument(content,config,canvas,ctx);
   const preset=config.presets[content.presetId],o=preset[canvas],board=ctx.canvases.presets[canvas],g=config.geometry,policy=presentation(config.presentation);

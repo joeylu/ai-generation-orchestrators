@@ -8,6 +8,21 @@ export const hasLayoutRules = n => Object.keys(n.sizing ?? {}).length > 0 ||
 const error = (n, message, code='panel.layout') => { throw Object.assign(new Error(`${n.id}: ${message}`), {code}); };
 const axisName = axis => axis === 'width' ? 'Width' : 'Height';
 
+// Rejected-candidate evidence only. Neither these rectangles nor their excess
+// predict a complete minimum: reflow and other children may need more space.
+// Yoga/free-child retain computed/authored positions. Fixed-flow/fixed-child
+// use padding-anchored size-check envelopes, not measured child positions.
+export function layoutBoundsError({nodeId,ownerId,available,occupied,source,message,code='panel.overflow'}) {
+  const failure=Object.assign(new Error(`${nodeId}: ${message}`),{code,nodeId,ownerId});
+  const valid=rect=>rect&&['x','y','width','height'].every(key=>Number.isFinite(rect[key]))&&rect.width>=0&&rect.height>=0;
+  if(valid(available)&&valid(occupied))failure.layoutBounds={nodeId,ownerId,source,available:{...available},occupied:{...occupied},overflow:{
+    left:Math.max(0,available.x-occupied.x),top:Math.max(0,available.y-occupied.y),
+    right:Math.max(0,occupied.x+occupied.width-available.x-available.width),
+    bottom:Math.max(0,occupied.y+occupied.height-available.y-available.height),
+  }};
+  return failure;
+}
+
 export function checkLayoutRules(n, parent) {
   const s = n.sizing ?? {}, l = n.layout ?? {};
   if(!sizingSchema(s)||!layoutSchema(l))error(n,'无效布局字段或尺寸约束。');
@@ -110,7 +125,7 @@ export function solveLayout(Yoga, tree) {
       result.set(n.id,{width:r.width,height:r.height,x:r.left,y:r.top});
       if(parent){const p=entries.find(e=>e.n===parent).y.getComputedLayout(),pad=parent.layout?.padding ?? 0;
         if(r.left<pad-.05||r.top<pad-.05||r.left+r.width>p.width-pad+.05||r.top+r.height>p.height-pad+.05)
-          error(n,'排版超出容器，无法在最小尺寸约束内放下内容。请扩大容器或使用滚动区域。','panel.overflow');}
+          throw layoutBoundsError({nodeId:n.id,ownerId:parent.id,source:'yoga',available:{x:pad,y:pad,width:p.width-pad*2,height:p.height-pad*2},occupied:{x:r.left,y:r.top,width:r.width,height:r.height},message:'排版超出容器，无法在最小尺寸约束内放下内容。请扩大容器或使用滚动区域。'});}
     }
     return result;
   } finally { for(const y of allocated.reverse())y.free();config.free(); }

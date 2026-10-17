@@ -28,11 +28,13 @@ export function bindComponentMotion({h,animator,key,profile,active}){
   if(!b)return;const node=b.view??b,sx=node.scale.x,sy=node.scale.y,px=node.pivot.x,py=node.pivot.y;
   const apply=({s,y=0})=>{if(node.destroyed)return;const width=b.defaultView?.width??node.hitArea?.width??h.size.width,height=b.defaultView?.height??node.hitArea?.height??h.size.height;node.scale.set(sx*s,sy*s);node.pivot.set(px+width/2*(1-1/s),py+height/2*(1-1/s)-y/s);};
   restores.push(()=>apply({s:1}));const name='button'+index;
-  const move=(s,ms,easing,y=0)=>run(name,{s:1,y:0},{s,y},ms,apply,undefined,easing);
+  // List rows are wide: keep feedback subtle so the whole row does not jump.
+  const strength=type==='List'?.2:1,scale=value=>1+(value-1)*strength;
+  const move=(s,ms,easing,y=0)=>run(name,{s:1,y:0},{s:scale(s),y:y*strength},ms,apply,undefined,easing);
   signal(b,'onHover',()=>{if(h.allowed())move(profile()?.hoverScale??1,profile()?.hoverMs??1,bounded());});
   signal(b,'onOut',()=>move(1,profile()?.hoverMs??1,bounded()));
   signal(b,'onDown',()=>{if(h.allowed())move(profile()?.pressScale??1,profile()?.pressMs??1,'ease-out',profile()?.recipe?.buttonOffset??0);});
-  signal(b,'onUp',()=>{const p=profile();if(!p)return;run(name,{s:1,y:0},{s:p.releasePeak,y:0},p.releasePeakMs,apply,()=>{if(p.releaseSettleMs)run(name,{s:p.releasePeak,y:0},{s:1,y:0},p.releaseSettleMs,apply,undefined,'ease-out');},'ease-out');});
+  signal(b,'onUp',()=>{const p=profile();if(!p)return;const peak=scale(p.releasePeak);run(name,{s:1,y:0},{s:peak,y:0},p.releasePeakMs,apply,()=>{if(p.releaseSettleMs)run(name,{s:peak,y:0},{s:1,y:0},p.releaseSettleMs,apply,undefined,'ease-out');},'ease-out');});
  }
  if(type==='Select')v.rows?.forEach(button);
  if(type==='Dialog')a.buttons?.forEach(button);
@@ -41,9 +43,9 @@ export function bindComponentMotion({h,animator,key,profile,active}){
  const rowPivots=type==='List'?a.rows.map(b=>({x:(b.view??b).pivot.x,y:(b.view??b).pivot.y})):[];
  if(type==='List')restores.push(()=>a.rows.forEach((b,i)=>{const node=b.view??b;if(!node.destroyed){node.alpha=rowAlphas[i];node.pivot.set(rowPivots[i].x,rowPivots[i].y);}}));
  if(type==='Slider'){
-  const old=v.onThumbPressed,thumb=v.slider1?.children[0],alpha=thumb?.alpha??1;
-  const handler=down=>{old?.(down);pressed=down;if(thumb)run('thumb',{a:thumb.alpha},{a:down?alpha*(profile()?.recipe?.thumbAlpha??.72):alpha},profile()?.pressMs??1,({a})=>{if(!thumb.destroyed)thumb.alpha=a;});};
-  v.onThumbPressed=handler;cleanups.push(()=>{if(v.onThumbPressed===handler)v.onThumbPressed=old;});restores.push(()=>{if(thumb&&!thumb.destroyed)thumb.alpha=alpha;});
+  const old=v.onThumbPressed,thumb=v.slider1?.children[0],alpha=thumb?.alpha??1,py=thumb?.pivot.y??0;
+  const handler=down=>{old?.(down);pressed=down;if(thumb)run('thumb',{lift:(thumb.pivot.y-py)*thumb.scale.y},{lift:down?(profile()?.recipe?.thumbLift??2):0},down?(profile()?.pressMs??1):(profile()?.releasePeakMs??120),({lift})=>{if(!thumb.destroyed){thumb.alpha=alpha;thumb.pivot.y=py+lift/Math.max(.001,Math.abs(thumb.scale.y));}});};
+  v.onThumbPressed=handler;cleanups.push(()=>{if(v.onThumbPressed===handler)v.onThumbPressed=old;});restores.push(()=>{if(thumb&&!thumb.destroyed){thumb.alpha=alpha;thumb.pivot.y=py;}});
  }
  let driver;
  const selectRows=type==='Select'?(v.rows??[]).map(row=>({node:row,alpha:row.alpha,py:row.pivot.y})):[];
@@ -90,8 +92,9 @@ export function bindComponentMotion({h,animator,key,profile,active}){
  if(type==='Slider'||type==='ProgressBar')restores.push(()=>presentValue(h.readState().value));
  if(type==='ScrollView')restores.push(()=>{a.box.list.pivot.y=0;a.bar.updateSlider();scroll=h.readState().initialOffsetY;});
  // The switch geometry is owned by its fixed mark token, independent of label width.
- const switchTravel=type==='Switch'?v.views[1].children[1].x-2:0;
- const restoreSwitch=()=>v.views.forEach((item,i)=>item.children[1].x=2+i*switchTravel);
+ const switchOffsets=type==='Switch'?v.views.map(item=>item.children[1].x-item.children[0].x):[];
+ const switchTravel=()=>v.views[0].children[0].width-v.views[0].children[1].width-switchOffsets[0]*2;
+ const restoreSwitch=()=>v.views.forEach((item,i)=>item.children[1].x=item.children[0].x+switchOffsets[0]+(i?switchTravel():0));
  if(type==='Switch')restores.push(restoreSwitch);
  const contentBase=type==='Tabs'?{alpha:a.switcher.alpha,px:a.switcher.pivot.x,py:a.switcher.pivot.y}:null;
  const tabViews=type==='Tabs'?(a.switcher.views??[]).map(node=>({node,alpha:node.alpha,mode:node.eventMode})):[];
@@ -99,7 +102,7 @@ export function bindComponentMotion({h,animator,key,profile,active}){
  if(tabViews.length)restores.push(settlePages);
  if(contentBase)restores.push(()=>{a.switcher.alpha=contentBase.alpha;a.switcher.pivot.set(contentBase.px,contentBase.py);});
  function change(next){const p=profile();if(!p)return;
-  if(type==='Switch'&&next.checked!==previous.checked)run('switch',{t:previous.checked?1:0},{t:next.checked?1:0},p.changeMs,({t})=>v.views.forEach(item=>item.children[1].x=2+switchTravel*Math.max(0,Math.min(1,t))),restoreSwitch,p.recipe?.valueEasing);
+  if(type==='Switch'&&next.checked!==previous.checked)run('switch',{t:previous.checked?1:0},{t:next.checked?1:0},p.changeMs,({t})=>v.views.forEach(item=>item.children[1].x=item.children[0].x+switchOffsets[0]+switchTravel()*Math.max(0,Math.min(1,t))),restoreSwitch,p.recipe?.valueEasing);
   if(type==='CheckBox'&&next.checked!==previous.checked)marks(v,next.checked,0);
   if(type==='RadioGroup'&&next.selectedId!==previous.selectedId)checkItems.forEach((box,i)=>{if([next.selectedId,previous.selectedId].includes(h.props.options[i].id))marks(box,box.checked,i);});
   if(['Slider','ProgressBar'].includes(type)&&next.value!==previous.value){if(pressed||v.dragging){finish('value');presentValue(next.value);}else run('value',{value:presented},{value:next.value},p.changeMs,({value})=>presentValue(value),undefined,p.recipe?.valueEasing);}
@@ -114,7 +117,7 @@ export function bindComponentMotion({h,animator,key,profile,active}){
     a.switcher.pivot.x=contentBase.px-(kind==='slide'?direction*p.recipe.tabOffset*(1-t):0);a.switcher.pivot.y=contentBase.py-(kind==='pop'?p.recipe.tabOffset*(1-t):0);
    },settlePages,kind==='pop'?'spring':bounded());
   }
-  if(type==='List'&&next.selectedId!==previous.selectedId){const i=h.props.items.findIndex(item=>item.id===next.selectedId),b=a.rows[i]?.view??a.rows[i];if(b){finish('stagger'+i);run('row'+i,{t:0},{t:1},p.changeMs,({t})=>{if(b.destroyed)return;const kind=p.recipe?.kind;b.alpha=rowAlphas[i]*(.55+.45*unit(t));b.pivot.x=rowPivots[i].x-(kind==='slide'?p.recipe.rowOffset*(1-t):0);b.pivot.y=rowPivots[i].y-(kind==='pop'?p.recipe.rowOffset*(1-t):0);},undefined,p.easing);}}
+  if(type==='List'&&next.selectedId!==previous.selectedId){const i=a.cells?a.cells.findIndex(cell=>cell.itemId===next.selectedId&&next.selectedId!==null):h.props.items.findIndex(item=>item.id===next.selectedId),b=a.rows[i]?.view??a.rows[i];if(b){finish('stagger'+i);run('row'+i,{t:0},{t:1},p.changeMs,({t})=>{if(b.destroyed)return;const kind=p.recipe?.kind;b.alpha=rowAlphas[i]*(.9+.1*unit(t));b.pivot.x=rowPivots[i].x-(kind==='slide'?.2*p.recipe.rowOffset*(1-t):0);b.pivot.y=rowPivots[i].y-(kind==='pop'?.2*p.recipe.rowOffset*(1-t):0);},undefined,p.easing);}}
  }
  function stagger(nodes){const p=profile();nodes.slice(0,24).forEach((node,i)=>{const alpha=node.alpha,py=node.pivot.y,px=node.pivot.x;run('stagger'+i,{t:0},{t:1},p.enterMs,({t})=>{if(node.destroyed)return;const kind=p.recipe?.kind;node.alpha=alpha*unit(t);node.pivot.y=py-(kind==='pop'?p.recipe.rowOffset*(1-t):0);node.pivot.x=px-(kind==='slide'?p.recipe.rowOffset*(1-t):0);},undefined,p.recipe?.kind==='pop'?'spring':bounded(),Math.min(i*p.staggerMs,350));});}
  function reset(){settling=true;try{for(const name of [...channels.keys()])finish(name);driver?.finish();if(!h.disposed){for(const restore of restores)restore();previous=h.readState();size=JSON.stringify(h.size);}pressed=false;}finally{settling=false;}}
