@@ -1,15 +1,30 @@
 import {writeFile} from 'node:fs/promises';
-import {join,relative} from 'node:path';
+import {join,relative,resolve,isAbsolute,sep} from 'node:path';
+import Ajv from 'ajv';
+import themeSchema from '../../schemas/runtime-theme.schema.json' with {type:'json'};
 import {fileURLToPath} from 'node:url';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {readContracts} from '../contracts/validate.mjs';
 import {defaults} from '../contracts/build.mjs';
-import {hash,json} from '../skins/package.mjs';
+import {hash,json,readSafe} from '../skins/package.mjs';
 import {inspectGenerationBatch} from './batch-intake.mjs';
 import {authorizeBatch,beginSubmission,finishSubmission} from './batch-execution.mjs';
 
 const root=fileURLToPath(new URL('../../',import.meta.url)),exec=promisify(execFile);
+const checkTheme=new Ajv({allErrors:true,strict:true}).compile(themeSchema);
+// Reject invalid local postprocessing inputs before consuming batch authorization.
+// Pixel-dependent slice checks still belong to the deterministic processing stage.
+async function preflightProfile(profile){
+  try{
+    if(typeof profile!=='string'||!profile)throw Error();
+    const work=join(root,'work'),file=relative(work,resolve(root,profile));
+    if(!file||isAbsolute(file)||file==='..'||file.startsWith('..'+sep))throw Error();
+    const value=JSON.parse(await readSafe(work,file.replaceAll('\\','/')));
+    if(value?.kind!=='ui_skin_metadata_profile'||value.version!=='1.0'||typeof value.id!=='string'||!value.id||!Number.isInteger(value.revision)||value.revision<1||!checkTheme(value.theme))throw Error();
+    if(value.allowedProposalIssues!==undefined&&(!Array.isArray(value.allowedProposalIssues)||value.allowedProposalIssues.some(i=>i!=='foreign-component-in-slot')))throw Error();
+  }catch{throw Error('batch-runner.invalid-profile-before-generation');}
+}
 function concurrencyFor(args){const value=args.maxConcurrentSheets===undefined?1:args.maxConcurrentSheets;if(![1,2].includes(value))throw Error('batch-runner.invalid-concurrency');return value;}
 async function inspect(args){const c=await readContracts(args.contracts??defaults);return inspectGenerationBatch({...args,templateSha256:hash(c.bytes.template),sheets:c.template.sheets});}
 export function requestFor(intake,node){
@@ -80,6 +95,7 @@ export async function postprocessBatch({skinDirectory,batchSha256,profile,allowR
   catch{throw Object.assign(Error('batch-runner.postprocess-failed-resume-task'),{taskDirectory:task.directory});}
 }
 export async function executeBatchPipeline(args,adapter){
+  if(args.profile!==undefined)await preflightProfile(args.profile);
   const generation=await executeBatch(args,adapter);
   if(!generation.postprocessReady||!args.profile)return {generation,task:null};
   // Raw quality failures require the same explicit candidate policy as manual intake.

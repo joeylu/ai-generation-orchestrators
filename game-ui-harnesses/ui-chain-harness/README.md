@@ -6,7 +6,7 @@
 
 ## 组件发布与宿主接入
 
-`ui-chain-components-v0.1.0-rc.2` 的公开接入范围止于 **16 类组件包输出**，有两个起点：`existing-image` 使用已有 PNG；`generate-reference` 从文字/风格准备参考图计划，确认一次生成参考 PNG，经技术 QA 和人工接受后，再准备 S01–S04 / 可选 S05 批次、独立确认并生成，最后定位、拆分、切线、安全区、材质绑定和消费检查。默认后者共 1 张参考图 + 5 张图集，两个计算确认；不要求 Panel SDK，也不启动后续面板生成。
+`ui-chain-components-v0.1.0-rc.3` 的公开接入范围止于 **16 类组件包输出**，有两个起点：`existing-image` 使用已有 PNG；`generate-reference` 从文字/风格准备参考图计划，确认一次生成参考 PNG，经技术 QA 和人工接受后，再准备 S01–S04 / 可选 S05 批次、独立确认并生成，最后定位、拆分、切线、安全区、材质绑定和消费检查。默认后者共 1 张参考图 + 5 张图集，两个计算确认；不要求 Panel SDK，也不启动后续面板生成。
 
 先读[组件全链路入口](docs/component-pipeline.md)，再交给[Docker 接入方](docs/docker-integration.md)和[Web 接入方](docs/web-integration.md)。[部署交接口令](docs/deployment-handoff.md)要求部署方输出实测的 OpenAPI 合同后，Web 才按该合同接手。当前核心提供 CLI / JavaScript 接口，生产 HTTP 服务由外部宿主实现。
 

@@ -21,6 +21,8 @@ const result = await executeBatchPipeline({
 
 `adapter`必须由调用方提供真实实现；上例不是内置生图服务。没有profile则只生成/接收，不进入组件后处理。allowRejectedLocalization沿用已有候选策略，默认false，不是跳过检查。
 
+当前工作树在调用 `executeBatchPipeline` 时先检查已提供的 profile 是否位于 `work/`、可安全读取且为有效 JSON，并校验基本身份、主题格式和允许的定位例外。错误返回 `batch-runner.invalid-profile-before-generation`，不消费批次授权、不提交图片生成；省略 profile 保留只生成/接收模式。此加固晚于 rc.2。实际像素决定的切线、密度和安全区仍须通过后续确定性检查。
+
 每次generate接收：
 
 - prompt：冻结提示词，已含风格与几何JSON。

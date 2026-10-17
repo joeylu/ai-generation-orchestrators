@@ -292,7 +292,7 @@ test('adapter exceptions and invalid returns become unknown, do not leak errors,
   const f=await batchFixture(t),png=await readFile(f.args.reference),seen=[];
   const adapter={generate:async r=>{seen.push(r.sheetId);if(r.sheetId==='S01')throw Error('private-token-secret-endpoint');if(r.sheetId==='S02')return 'not bytes';return png;}};
   const args={...f.execution,confirmedBatchSha256:f.execution.batchSha256,maxConcurrentSheets:2};
-  const r=await executeBatchPipeline({...args,profile:'must-not-be-read.json'},adapter);
+  const r=await executeBatchPipeline(args,adapter);
   assert.equal(r.generation.adapterCallsThisRun,4);assert.equal(r.generation.postprocessReady,false);assert.equal(r.task,null);
   assert.equal(r.generation.nodes[0].status,'indeterminate');assert.equal(r.generation.nodes[1].status,'indeterminate');assert.equal(r.generation.nodes[2].status,'received');
   assert.equal(JSON.stringify(r).includes('private-token'),false);
@@ -301,6 +301,23 @@ test('adapter exceptions and invalid returns become unknown, do not leak errors,
 });
 
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
+
+test('invalid postprocessing profiles fail before batch authorization or provider calls',async t=>{
+  const f=await batchFixture(t),args={...f.execution,confirmedBatchSha256:f.execution.batchSha256};let calls=0;
+  const directory=await mkdtemp(resolve('work/profile-preflight-'));
+  t.after(()=>rm(directory,{recursive:true,force:true}));
+  const file=join(directory,'profile.json'),valid=JSON.parse(await readFile('configs/studio-metadata-profile.json'));
+  const adapter={generate:async()=>{calls++;throw Error('must not submit');}};
+  for(const profile of [null,'',join(directory,'missing.json'),f.args.reference])await assert.rejects(executeBatchPipeline({...args,profile},adapter),/invalid-profile-before-generation/);
+  for(const bytes of ['{',json({...valid,version:'unknown'}),json({...valid,theme:{}}),json({...valid,allowedProposalIssues:['ignore-all']})]){
+    await writeFile(file,bytes);await assert.rejects(executeBatchPipeline({...args,profile:file},adapter),/invalid-profile-before-generation/);
+  }
+  assert.equal(calls,0);
+  assert((await inspectGenerationBatch(f.intake)).summary.nodes.every(n=>n.status==='awaiting-authorization'));
+  await writeFile(file,json(valid));
+  const result=await executeBatchPipeline({...args,profile:file},adapter);
+  assert.equal(calls,4);assert.equal(result.task,null); // valid profile, failed synthetic provider; no postprocess
+});
 
 test('two-slot batch refills the released slot, preserves out-of-order image bindings and never replays received sheets',{timeout:15000},async t=>{
   const f=await batchFixture(t),ids=f.plans.map(p=>p.sheetId),started=new Map(ids.map(id=>[id,deferred()])),release=new Map(ids.map(id=>[id,deferred()]));

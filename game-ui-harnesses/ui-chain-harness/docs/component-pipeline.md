@@ -1,6 +1,6 @@
 # 文字/风格或已有参考图到 16 类组件
 
-本入口面向 `ui-chain-components-v0.1.0-rc.2`，范围到完整组件消费包及其技术检查为止。已有核心是 Node.js CLI、JavaScript API、文件合同和浏览器组件运行时；容器 HTTP 服务由部署方实现。面板需求规划、面板生成及画布编辑不属于本次接入。
+本入口面向 `ui-chain-components-v0.1.0-rc.3`，范围到完整组件消费包及其技术检查为止。已有核心是 Node.js CLI、JavaScript API、文件合同和浏览器组件运行时；容器 HTTP 服务由部署方实现。面板需求规划、面板生成及画布编辑不属于本次接入。
 
 对接入口：`node scripts/component-entry.mjs contract` 输出组件发行合同；JavaScript 集成使用 `src/components-api.mjs`。宿主接入见 [Docker 接入](docker-integration.md)、[Web 接入](web-integration.md)和[交接口令](deployment-handoff.md)。[本地 Studio](local-studio.md)仍只提供带图预设/上传入口；文字起步使用本页新公共 CLI/API。
 
@@ -8,7 +8,7 @@
 
 | 模式 | 起点与顺序 | 新计算范围 |
 | --- | --- | --- |
-| `existing-image` | 已有 PNG + 风格草稿 → 冻结图集批次 → 确认批次 → 组件 | 默认 5 张图集，一次批次确认；关闭 S05 为 4 张 |
+| `existing-image` | 已有 PNG + 风格草稿 → 冻结图集批次 → 确认批次 → 组件 | Studio 新项目默认 5 张；底层 `prepareSkinBatch` 默认 4 张，需显式开启 S05 才为 5 张；一次批次确认 |
 | `generate-reference` | 文字/风格 + 可选 PNG 指导图 → 冻结参考计划 → 确认参考计划 → 生成不透明参考 PNG → 技术 QA → 人工接受该图片 → 冻结图集批次 → 独立确认批次 → 组件 | 默认 1 + 5 张，共 6 次生图、两次计算确认；关闭 S05 为 1 + 4 张 |
 
 第一份确认绑定 `planSha256`（执行参数 `confirmedReferencePlanSha256`），只允许参考图一次调用。参考人工接受绑定相同的 `imageSha256` / `confirmedImageSha256` 并返回 `reviewSha256`，不授予组件计算权。第二份确认绑定新的 `batchSha256` / `confirmedBatchSha256`。查看、准备、接受和恢复均不调用模型；接受参考图不会自动提交图集，最终组件外观还要另行验收。
@@ -30,6 +30,8 @@
 | 计算确认 | 参考图计划、组件批次各自新鲜且单次的摘要确认；参考人工接受是独立决定，不能用总括“全部同意”代替未来未知批次摘要 |
 
 技术完成必须同时满足：全部所需图集有可信接收记录、来源和回执摘要一致、全部确定性节点通过、最终消费包完整、16 类组件独立加载检查通过。完成状态为 `awaiting-visual-review`，`productionReady: false`、`visualAcceptance: unreviewed`。这些字段与成功生成、原图检查及人工外观验收分别表达，不能相互推断。
+
+当前工作树的完整批次入口在消费计算确认前检查已提供的 profile 路径、JSON、基本身份和主题格式；无效配置以 `batch-runner.invalid-profile-before-generation` 拒绝且不调用模型。这项加固晚于 rc.2，不能假定已发布 rc.2 包具备此检查。依赖实际像素的切线与安全区检查仍在后处理中执行。
 
 ## 每个节点的输入与输出
 

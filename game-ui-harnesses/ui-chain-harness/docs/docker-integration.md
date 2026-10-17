@@ -6,7 +6,7 @@
 
 ## 固定版本与运行环境
 
-部署方从 `ui-chain-components-v0.1.0-rc.2` 的不可变发布资产安装，源码归档 SHA-256 参数为 `<该标签发布资产SHA256SUMS中源码归档的SHA256>`，从独立 `SHA256SUMS` 取得并核对下载字节。源码内不回填自身归档摘要，避免自引用。不从工作分支或历史 `work/` 复制核心；记录标签、资产摘要、commit、宿主版本与镜像 digest，升级先回归。
+部署方从 `ui-chain-components-v0.1.0-rc.3` 的不可变发布资产安装，源码归档 SHA-256 参数为 `<该标签发布资产SHA256SUMS中源码归档的SHA256>`，从独立 `SHA256SUMS` 取得并核对下载字节。源码内不回填自身归档摘要，避免自引用。不从工作分支或历史 `work/` 复制核心；记录标签、资产摘要、commit、宿主版本与镜像 digest，升级先回归。
 
 Node.js 须满足发布 `package.json` 的版本要求（当前 `>=22.18.0`）；使用 `npm ci --include=dev --ignore-scripts --no-audit --no-fund` 和锁文件。组件构建运行仍需 esbuild 和字体，不省略 devDependencies。完整后处理会启动 Playwright 浏览器，镜像必须包含与发布锁定版本兼容的浏览器及系统库。使用 Playwright 官方镜像时，其版本应与项目 Playwright 依赖匹配，不能把任意 `latest` 镜像当作兼容保证。参见 [Playwright Docker 文档](https://playwright.dev/docs/docker)。
 

@@ -5,7 +5,7 @@
 ## 给 Docker 部署方
 
 ```text
-请接手 ai-generation-orchestrators 的 ui-chain-components-v0.1.0-rc.2 组件链路 Docker 宿主实现。先读取发布内 game-ui-harnesses/ui-chain-harness/docs/component-pipeline.md、docker-integration.md、web-integration.md，以及 component-entry contract 输出的发行合同。只用该不可变标签，源码归档 SHA-256=<该标签发布资产SHA256SUMS中源码归档的SHA256>，从独立SHA256SUMS取得并核对下载字节，记录commit/镜像digest；不要复制旧work/凭证或另维护核心，也不要回填源码归档自身SHA造成自引用。
+请接手 ai-generation-orchestrators 的 ui-chain-components-v0.1.0-rc.3 组件链路 Docker 宿主实现。先读取发布内 game-ui-harnesses/ui-chain-harness/docs/component-pipeline.md、docker-integration.md、web-integration.md，以及 component-entry contract 输出的发行合同。只用该不可变标签，源码归档 SHA-256=<该标签发布资产SHA256SUMS中源码归档的SHA256>，从独立SHA256SUMS取得并核对下载字节，记录commit/镜像digest；不要复制旧work/凭证或另维护核心，也不要回填源码归档自身SHA造成自引用。
 
 范围有 existing-image / generate-reference 两模式。已有 PNG 沿用原批次；生成模式从 description/可选style/guide准备参考计划，确认planSha256后生成一次不透明PNG，技术QA后用户按imageSha256接受并获得reviewSha256，再冻结S01–S05批次，独立确认新batchSha256后生成透明图集，最后定位/切线/安全区/材质绑定/组包/独立16类检查。默认1参考+5图集=6次生图、两次计算确认；关闭S05为1+4次。参考人工接受不授予图集计算权，也不等于最终组件美术接受。当前修订3是32基础部件+3材质，不增加第17类纹理控件。结束在组件包，不安装Panel SDK、不调用后续面板生成。
 
@@ -21,7 +21,7 @@
 ## 给 Web 接手方（Docker 交付 API 合同后使用）
 
 ```text
-请接手 ui-chain-components-v0.1.0-rc.2 的Web组件工作台，源码归档SHA-256=<该标签发布资产SHA256SUMS中源码归档的SHA256>，从独立SHA256SUMS取得。读取component-pipeline.md/web-integration.md和Docker实装OpenAPI3.1及摘要、examples、状态/错误/工件合同、容器验收报告，核对核心/镜像digest。缺合同的操作保持mock，不把proposed或旧Studio路由当现成API，不写死私人URL/端口/凭证。
+请接手 ui-chain-components-v0.1.0-rc.3 的Web组件工作台，源码归档SHA-256=<该标签发布资产SHA256SUMS中源码归档的SHA256>，从独立SHA256SUMS取得。读取component-pipeline.md/web-integration.md和Docker实装OpenAPI3.1及摘要、examples、状态/错误/工件合同、容器验收报告，核对核心/镜像digest。缺合同的操作保持mock，不把proposed或旧Studio路由当现成API，不写死私人URL/端口/凭证。
 
 范围为existing-image已有PNG与generate-reference文字/风格两入口。新模式展示冻结参考计划，用户确认一次参考compute；返回PNG先展示技术QA，再由用户接受实际imageSha256取得reviewSha256；随后展示新的图集batchSha256，第二次确认才调用。默认1+5张共6次，关闭S05为1+4；不得将参考成功/人工接受自动等同图集授权。已有PNG跳过参考生成。后续各图进度、零模型接收恢复、新单图确认、确定性resume、16类试玩与完整下载保留。32基础部件+3材质数字从批次取，不增加第17类控件，不加后续面板需求/生成/编辑。
 
