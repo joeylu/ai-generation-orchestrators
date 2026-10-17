@@ -20,6 +20,19 @@ function rgbPng(){
  const rows=Buffer.alloc(256*(256*3+1));for(let y=0;y<256;y++)for(let x=0;x<256;x++){const at=y*769+1+x*3;rows[at]=x;rows[at+1]=90;rows[at+2]=y;}
  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('tEXt',Buffer.from('Comment\0Synthetic metadata')),chunk('IDAT',deflateSync(rows)),chunk('IEND',Buffer.alloc(0))]);
 }
+function compressedRgbSubPng(){
+ const width=4096,height=4096,stride=width*3,scan=Buffer.alloc((stride+1)*height);let state=123456789;
+ for(let y=0;y<height;y++){
+  scan[y*(stride+1)]=1;
+  for(let x=0;x<width;x++)for(let channel=0;channel<3;channel++){
+   state^=state<<13;state^=state>>>17;state^=state<<5;
+   scan[y*(stride+1)+1+x*3+channel]=(state>>>0)&7;
+  }
+ }
+ const chunk=(name,bytes)=>{const out=Buffer.alloc(bytes.length+12),type=Buffer.from(name);out.writeUInt32BE(bytes.length);type.copy(out,4);bytes.copy(out,8);out.writeUInt32BE(crc32(Buffer.concat([type,bytes])),bytes.length+8);return out;};
+ const header=Buffer.alloc(13);header.writeUInt32BE(width);header.writeUInt32BE(height,4);header[8]=8;header[9]=2;
+ return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('sRGB',Buffer.from([0])),chunk('IDAT',deflateSync(scan)),chunk('IEND',Buffer.alloc(0))]);
+}
 async function fixture(t){
  await mkdir(work,{recursive:true});const directory=await mkdtemp(join(work,'reference-generation-test-')),plans=[];
  t.after(async()=>{for(const p of plans){const attempt=join(work,'reference-attempts',p.planSha256);assert.match(p.planSha256,/^[a-f0-9]{64}$/);assert.equal(relative(join(work,'reference-attempts'),attempt),p.planSha256);await rm(attempt,{recursive:true,force:true});}const tail=relative(work,directory);assert(tail.startsWith('reference-generation-test-')&&!tail.includes(sep));await rm(directory,{recursive:true,force:true});});
@@ -43,6 +56,17 @@ test('adapter receives the exact request SHA, frozen request shape and copied gu
  const f=await fixture(t),guide=join(f.directory,'guide.png'),original=png();await writeFile(guide,original);const p=await f.prepare({guide});let calls=0;
  const raw=rgbPng(),result=await execute(p,async request=>{calls++;assert.equal(request.requestSha256,p.requestSha256);assert.equal(request.planSha256,p.planSha256);assert.equal(request.purpose,'primary-style-reference');assert.equal(request.output.transparentBackground,false);assert.equal(request.resolution,'native');assert(Object.isFrozen(request));assert(Object.isFrozen(request.output));assert(Object.isFrozen(request.images));assert(Object.isFrozen(request.images[0]));assert.equal(hash(request.images[0].bytes),hash(original));request.images[0].bytes.fill(0);assert.throws(()=>{request.output.transparentBackground=true;},TypeError);return raw;});
  assert.equal(calls,1);assert.equal(result.adapterCallsThisRun,1);assert.equal(result.status,'pending-visual-review');assert.equal(result.technicalStatus,'passed');assert.equal(hash(await readFile(result.rawFile)),hash(raw));assert.notEqual(result.rawSha256,result.imageSha256);assert(decodePng(await readFile(result.referenceFile)).pixels.equals(decodePng(raw).pixels));assert((await readFile(guide)).equals(original));assert((await readFile(join(p.directory,'inputs/guide.png'))).equals(original));await api.verifyReferencePlan(p);
+ assert.equal(JSON.parse(await readFile(join(result.attemptDirectory,'technical.json'))).normalization,'lossless-rgba-srgb-v1');
+});
+
+test('a supported 4K RGB/Sub PNG below 32 MiB stays readable when canonical RGBA encoding exceeds the byte bound',async t=>{
+ const f=await fixture(t),p=await f.prepare({width:4096,height:4096,resolution:'exact'}),raw=compressedRgbSubPng(),maximum=32*1024*1024;
+ assert(raw.length<=maximum);assert(encodePng(decodePng(raw)).length>maximum,'Fixture must reproduce RGBA byte expansion.');
+ let calls=0;const result=await execute(p,async()=>{calls++;return raw;});
+ assert.equal(result.status,'pending-visual-review');assert.equal(result.technicalStatus,'passed');assert.equal(calls,1);
+ assert.equal(result.rawSha256,hash(raw));assert.equal(result.imageSha256,hash(raw));assert((await readFile(result.referenceFile)).equals(raw));
+ const qa=JSON.parse(await readFile(join(result.attemptDirectory,'technical.json')));assert.equal(qa.normalization,'verified-original-png-v1');assert.equal(qa.pixelsUnchanged,true);assert.equal(qa.imageBytes,raw.length);
+ await assert.rejects(execute(p,async()=>{calls++;return raw;}),/already-claimed-no-resubmit/);assert.equal(calls,1);
 });
 
 test('wrong confirmation, invalid adapter and invalid timeout cannot claim or submit a plan',async t=>{

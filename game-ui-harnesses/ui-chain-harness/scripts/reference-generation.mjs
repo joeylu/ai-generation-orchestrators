@@ -41,10 +41,11 @@ try{
   else if(command==='execute'){
    const confirmedReferencePlanSha256=requireValue(v,'confirm-reference');
    if(confirmedReferencePlanSha256!==base.planSha256)fail('reference-cli.confirmation-mismatch');
+   const timeoutMs=number(v,'timeout-ms');
    await verifyReferencePlan(base);
    const adapter=await loadAdapter(requireValue(v,'adapter'));
    providerInvocationStarted=true;
-   result=await executeReference({...base,confirmedReferencePlanSha256,...(v['timeout-ms']?{timeoutMs:number(v,'timeout-ms')}: {})},adapter);
+   result=await executeReference({...base,confirmedReferencePlanSha256,...(timeoutMs===undefined?{}:{timeoutMs})},adapter);
   }else{
    const batchSha256=requireValue(v,'batch-sha256'),confirmedBatchSha256=requireValue(v,'confirm-batch');
    if(batchSha256!==confirmedBatchSha256||confirmedBatchSha256===base.planSha256)fail('reference-cli.confirmation-mismatch');
@@ -57,7 +58,7 @@ try{
  }
 }catch(error){
  // Adapter errors can contain credentials and private endpoints. Emit codes only.
- const code=/^[a-z][a-z0-9.-]{0,100}$/.test(error.code??'')?error.code:'reference-cli.failed';
+ const code=/^(?:reference|reference-cli)\.[a-z0-9.-]{1,100}$/.test(error.code??'')?error.code:'reference-cli.failed';
  console.error(JSON.stringify({status:'failed',code,modelMayHaveBeenSubmitted:providerInvocationStarted,...(!providerInvocationStarted?{modelCalls:0}:{})}));
  process.exitCode=1;
 }

@@ -25,11 +25,21 @@ function normalize(raw,plan){
  requireThat(width>=256&&height>=256&&width<=4096&&height<=4096,'technical-dimensions');
  requireThat(r.resolution==='exact'?width===r.width&&height===r.height:Math.abs((width/height)/(r.width/r.height)-1)<=.01,'technical-resolution');
  let first,changed=false;for(let i=0;i<pixels.length;i+=4){requireThat(pixels[i+3]===255,'technical-not-opaque');const color=pixels.readUInt32BE(i);if(first===undefined)first=color;else if(color!==first)changed=true;}
- requireThat(changed,'technical-blank');const normalized=encodePng(image),check=decodePng(normalized);
- requireThat(check.width===width&&check.height===height&&check.pixels.equals(pixels),'technical-pixels-changed');
- return {image,normalized};
+ requireThat(changed,'technical-blank');
+ let normalized,normalization;
+ try{
+  const rgba=encodePng(image);
+  // A well-compressed supported RGB source can expand beyond the core's byte
+  // bound when encoded as unfiltered RGBA. Preserve that already-verified PNG
+  // instead of creating an output that the same core cannot read.
+  normalization=rgba.length>maximumBytes?'verified-original-png-v1':'lossless-rgba-srgb-v1';
+  normalized=rgba.length>maximumBytes?Buffer.from(raw):rgba;
+  const check=decodePng(normalized);
+  requireThat(check.width===width&&check.height===height&&check.pixels.equals(pixels),'technical-normalization');
+ }catch{fail('technical-normalization');}
+ return {image,normalized,normalization};
 }
-function qaRecord(v,c,r,n){return seal({kind:qaKind,version:'1.0',planSha256:v.planSha256,requestSha256:v.plan.requestSha256,styleSha256:v.plan.styleSha256,claimSha256:c.claim.value.sha256,returnedSha256:r.result.value.sha256,rawSha256:hash(r.raw),imageSha256:hash(n.normalized),imageBytes:n.normalized.length,width:n.image.width,height:n.image.height,resolution:v.plan.request.resolution,normalization:'lossless-rgba-srgb-v1',pixelsUnchanged:true,opaque:true,varied:true,status:'passed',visualAcceptance:'unreviewed'});}
+function qaRecord(v,c,r,n){return seal({kind:qaKind,version:'1.0',planSha256:v.planSha256,requestSha256:v.plan.requestSha256,styleSha256:v.plan.styleSha256,claimSha256:c.claim.value.sha256,returnedSha256:r.result.value.sha256,rawSha256:hash(r.raw),imageSha256:hash(n.normalized),imageBytes:n.normalized.length,width:n.image.width,height:n.image.height,resolution:v.plan.request.resolution,normalization:n.normalization,pixelsUnchanged:true,opaque:true,varied:true,status:'passed',visualAcceptance:'unreviewed'});}
 async function verifiedResult(v,c){
  const r=await returned(v,c),n=normalize(r.raw,v.plan),qa=await record(c.directory,'technical.json',qaKind),reference=await readSafe(c.directory,'reference.png');
  requireThat(JSON.stringify(qa.value)===JSON.stringify(qaRecord(v,c,r,n))&&reference.equals(n.normalized),'technical-evidence-changed');

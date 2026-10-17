@@ -81,7 +81,7 @@ node scripts/reference-generation.mjs batch-execute --directory <referenceDirect
 
 必须先给用户展示对应计划和 PNG，再传确认参数；上述示例不是批量自动批准。prepare 可加 `--style`、`--guide`、`--width` / `--height` / `--resolution native|exact`；execute 可加 `--timeout-ms`，默认 300000（5 分钟）、允许 1–900000（最多 15 分钟）。本地接收中断时 `recover` 使用 status 相同的目录/计划参数，只处理已保存返回字节，零调用。
 
-参考 QA 支持 8-bit RGB/RGBA、非交错 sRGB PNG，宽高均 256–4096，完全不透明且非单色；`exact` 要求尺寸匹配，`native` 允许原生尺寸且宽高比误差不超过 1%。规范化保留 RGBA 像素，原始 raw 保留。特殊编码、透明、单色或比例不符不会静默修图或重投。超时只表示本地等待结束，不证明远端调用已取消。
+参考 QA 支持 8-bit RGB/RGBA、非交错 sRGB PNG，宽高均 256–4096，完全不透明且非单色；`exact` 要求尺寸匹配，`native` 允许原生尺寸且宽高比误差不超过 1%。通常输出无损 RGBA/sRGB PNG，QA 的 `normalization` 为 `lossless-rgba-srgb-v1`；若该编码超过 32 MiB，则保留已通过核心解码及全部 QA 的原 PNG，记录 `verified-original-png-v1`，并核验解码像素完全一致。两条路径均不重采样、不改变像素，原始 raw 保留。特殊编码、透明、单色或比例不符不会静默修图或重投。超时只表示本地等待结束，不证明远端调用已取消。
 
 | 新公共 API | 参数与结果 |
 | --- | --- |

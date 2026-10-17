@@ -29,6 +29,9 @@ test('reference CLI freezes and verifies a text plan; mismatched confirmation ne
  await mkdir(output,{recursive:true});
  await writeFile(adapter,`import {writeFileSync} from 'node:fs';writeFileSync(${JSON.stringify(sentinel)},'unexpected');export const generate=()=>{throw Error('unexpected');};`);
  await rejected(['execute','--directory',plan.directory,'--plan-sha256',plan.planSha256,'--confirm-reference','0'.repeat(64),'--adapter',adapter],'reference-cli.confirmation-mismatch');
+ await rejected(['execute','--directory',plan.directory,'--plan-sha256',plan.planSha256,'--confirm-reference',plan.planSha256,'--adapter',adapter,'--timeout-ms','0'],'reference-cli.invalid-timeout-ms');
  await assert.rejects(lstat(sentinel),{code:'ENOENT'});
+ const failedImport=join(output,'failed-import.mjs');await writeFile(failedImport,"throw Object.assign(Error('private URL and credential'),{code:'private-secret-token'});");
+ await rejected(['execute','--directory',plan.directory,'--plan-sha256',plan.planSha256,'--confirm-reference',plan.planSha256,'--adapter',failedImport],'reference-cli.failed');
  assert.deepEqual(await readFile(join(plan.directory,'plan.json')),bytes);
 });
