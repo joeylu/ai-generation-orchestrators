@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "port": 4198,
+  "skins": [
+    {
+      "id": "bakery",
+      "label": "烘焙候选",
+      "input": "work/skins/sunrise-bakery/localization-input.json",
+      "profile": "work/skins/sunrise-bakery/metadata-profile.json"
+    },
+    {
+      "id": "orbital",
+      "label": "机库候选",
+      "input": "work/skins/orbital-hangar/localization-input.json",
+      "profile": "work/skins/orbital-hangar/metadata-profile.json"
+    },
+    {
+      "id": "woodland",
+      "label": "森林候选",
+      "input": "work/skins/woodland-parchment/localization-input.json",
+      "profile": "work/skins/woodland-parchment/metadata-profile.json"
+    }
+  ]
+}

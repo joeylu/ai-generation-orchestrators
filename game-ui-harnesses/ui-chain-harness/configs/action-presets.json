@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "intentVersion": "0.12",
+  "themeKey": "modern-mint-light@0.21.0",
+  "recipes": {
+    "settings.text@0.1.0": {
+      "kind": "text",
+      "recipe": "text"
+    },
+    "forms.input@0.1.0": {
+      "kind": "input",
+      "recipe": "input"
+    },
+    "content.checkbox@0.1.0": {
+      "kind": "checkbox",
+      "recipe": "check-box"
+    },
+    "settings.button.primary@0.1.0": {
+      "kind": "button",
+      "recipe": "button",
+      "variant": "primary"
+    },
+    "settings.button.secondary@0.1.0": {
+      "kind": "button",
+      "recipe": "button",
+      "variant": "secondary"
+    }
+  },
+  "geometry": {
+    "padding": 32,
+    "gap": 12,
+    "headingHeight": 32,
+    "labelHeight": 26,
+    "inputHeight": 46,
+    "checkboxHeight": 44,
+    "textHeight": 70,
+    "buttonHeight": 48
+  },
+  "presets": {
+    "confirmation": {
+      "surface": "dialog",
+      "maxFields": 1,
+      "maxActions": 2,
+      "kinds": [
+        "text",
+        "button"
+      ],
+      "dismissOnEmit": true,
+      "landscape": {
+        "width": 620,
+        "height": 320
+      },
+      "portrait": {
+        "width": 600,
+        "height": 360
+      }
+    },
+    "form": {
+      "surface": "panel",
+      "maxFields": 4,
+      "maxActions": 2,
+      "kinds": [
+        "text",
+        "input",
+        "checkbox",
+        "button"
+      ],
+      "dismissOnEmit": false,
+      "landscape": {
+        "width": 700,
+        "height": 580
+      },
+      "portrait": {
+        "width": 620,
+        "height": 650
+      }
+    }
+  },
+  "presentation": {
+    "version": "3.0",
+    "titleAlign": "center",
+    "sectionHeading": "auto-single",
+    "height": "grow",
+    "canvasMargin": 24
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "scope": "inspectAssembly synthetic configuration and pixel fixtures; not production prevalence",
+  "cases": [
+    {"id":"valid-panel","fixture":"panel","fault":"none","defective":false,"meaning":"完整装饰底板，切线在装饰外"},
+    {"id":"valid-rail","fixture":"rail","fault":"none","defective":false,"meaning":"端帽尺寸和源图端部一致"},
+    {"id":"missing-part","fixture":"panel","fault":"missing","defective":true,"meaning":"配置缺少模板要求的部件"},
+    {"id":"source-mismatch","fixture":"panel","fault":"hash","defective":true,"meaning":"原图摘要与配置不一致"},
+    {"id":"crop-outside","fixture":"panel","fault":"outside","defective":true,"meaning":"裁切超出源图"},
+    {"id":"slice-overflow","fixture":"panel","fault":"slice-overflow","defective":true,"meaning":"切线超过纹理宽度"},
+    {"id":"caps-overflow","fixture":"rail","fault":"caps-overflow","defective":true,"meaning":"端帽总高度超出源图"},
+    {"id":"rail-letterbox","fixture":"rail","fault":"contain","defective":true,"meaning":"细长目标用等比装框导致主体宽度不足"},
+    {"id":"crop-empty","fixture":"panel","fault":"empty","defective":true,"meaning":"合法坐标裁到了透明空白"},
+    {"id":"crop-wrong-neighbor","fixture":"panel","fault":"neighbor","defective":true,"meaning":"合法坐标裁到相邻的不同颜色部件，摘要仍正确"},
+    {"id":"cuts-through-decoration","fixture":"panel","fault":"decoration","defective":true,"meaning":"合法的浅切线穿过12像素角部装饰"},
+    {"id":"caps-too-shallow","fixture":"rail","fault":"shallow","defective":true,"meaning":"合法的1像素端帽把实际8像素端部送入拉伸段"}
+  ]
+}

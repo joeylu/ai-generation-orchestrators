@@ -1,0 +1,18 @@
+[
+  {
+    "id":"custom-player","presetId":"custom","title":"玩家资料","sectionTitle":"玩家资料",
+    "request":"离线验收夹具：玩家资料，文字提示、昵称输入、同意勾选、公开资料开关、音量滑块、语言下拉、完成进度，重置和保存按钮。",
+    "overflow":"scroll",
+    "rows":[
+      {"kind":"text","recipeKey":"settings.text@0.1.0","label":"完善个人资料","text":"完善个人资料","wrap":"word"},
+      {"kind":"input","recipeKey":"forms.input@0.1.0","label":"昵称","enabled":true,"initial":"玩家","placeholder":"输入昵称","inputType":"text","readOnly":false,"maxLength":12,"minLength":1,"required":true},
+      {"kind":"checkbox","recipeKey":"content.checkbox@0.1.0","label":"同意展示资料","enabled":true,"initial":true},
+      {"kind":"switch","recipeKey":"settings.switch@0.1.0","label":"公开资料","enabled":true,"initial":true},
+      {"kind":"slider","recipeKey":"settings.slider@0.1.0","label":"音量","enabled":true,"min":0,"max":100,"step":5,"initial":50,"prefix":"","suffix":""},
+      {"kind":"select","recipeKey":"settings.select@0.1.0","label":"语言","enabled":true,"options":[{"label":"简体中文","initial":true},{"label":"English","initial":false}]},
+      {"kind":"progress","recipeKey":"settings.progress@0.1.0","label":"资料完成度","max":100,"initial":60,"display":"percent","fractionDigits":0},
+      {"kind":"button","recipeKey":"settings.button.secondary@0.1.0","label":"重置","enabled":true,"action":"reset-initial","resetRows":[1,2,3,4,5],"submitRows":[]},
+      {"kind":"button","recipeKey":"settings.button.primary@0.1.0","label":"保存","enabled":true,"action":"submit","resetRows":[],"submitRows":[1,2,3,4,5]}
+    ]
+  }
+]

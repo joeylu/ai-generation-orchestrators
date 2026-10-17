@@ -1,0 +1,1207 @@
+{
+  "$schema": "../schemas/skin-template-set.schema.json",
+  "kind": "ui_skin_template_set_draft",
+  "version": "0.2",
+  "revision": 3,
+  "status": "discussion-draft",
+  "purpose": "Independent part layout references; not a generated skin pack or a PanelBundle.",
+  "coordinates": {
+    "unit": "logical-pixel",
+    "origin": "top-left",
+    "width": 1024,
+    "height": 1024,
+    "outputScale": 1
+  },
+  "constraints": {
+    "minimumOuterMargin": 32,
+    "minimumSlotGap": 24,
+    "minimumBodyPadding": 24,
+    "cleanContainsText": false,
+    "functionalIcons": false
+  },
+  "palette": {
+    "base": "#D7DDE4",
+    "active": "#AAB6C5",
+    "mark": "#566273",
+    "stroke": "#617084",
+    "reviewBackground": "#F5F7FA",
+    "reviewSlot": "#D8DFE8",
+    "reviewText": "#26374B",
+    "reviewMuted": "#64748B",
+    "reviewPending": "#A66112"
+  },
+  "reviewFont": {
+    "family": [
+      "Microsoft YaHei",
+      "Arial",
+      "sans-serif"
+    ],
+    "size": 14
+  },
+  "consumerTypes": [
+    "Button",
+    "Switch",
+    "CheckBox",
+    "RadioGroup",
+    "Input",
+    "Select",
+    "Slider",
+    "ProgressBar",
+    "ScrollView",
+    "List",
+    "Dialog",
+    "Tabs",
+    "Image",
+    "Text",
+    "Container",
+    "Panel"
+  ],
+  "stateGroups": [
+    {
+      "id": "button.primary",
+      "assetIds": [
+        "button.primary.normal",
+        "button.primary.pressed"
+      ]
+    },
+    {
+      "id": "button.secondary",
+      "assetIds": [
+        "button.secondary.normal",
+        "button.secondary.pressed"
+      ]
+    },
+    {
+      "id": "field",
+      "assetIds": [
+        "field.normal",
+        "field.focused"
+      ]
+    },
+    {
+      "id": "item",
+      "assetIds": [
+        "item.normal",
+        "item.selected"
+      ]
+    },
+    {
+      "id": "slot",
+      "assetIds": [
+        "slot.normal",
+        "slot.selected"
+      ]
+    },
+    {
+      "id": "tab",
+      "assetIds": [
+        "tab.normal",
+        "tab.selected"
+      ]
+    },
+    {
+      "id": "slider.thumb",
+      "assetIds": [
+        "slider.thumb.normal",
+        "slider.thumb.pressed"
+      ]
+    },
+    {
+      "id": "switch.track",
+      "assetIds": [
+        "switch.track.off",
+        "switch.track.on"
+      ]
+    },
+    {
+      "id": "button.compact",
+      "assetIds": [
+        "button.compact.normal",
+        "button.compact.pressed"
+      ]
+    }
+  ],
+  "sheets": [
+    {
+      "id": "S01",
+      "filePrefix": "s01-surfaces",
+      "title": "大底板",
+      "parts": [
+        {
+          "code": "A01",
+          "assetId": "surface.panel",
+          "label": "主面板底板",
+          "consumers": [
+            "Panel",
+            "Dialog"
+          ],
+          "state": "base",
+          "slotRect": [
+            32,
+            32,
+            960,
+            512
+          ],
+          "bodyRect": [
+            64,
+            64,
+            896,
+            448
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 32
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "A02",
+          "assetId": "surface.content",
+          "label": "内容区底板",
+          "consumers": [
+            "Panel",
+            "ScrollView",
+            "List",
+            "Tabs"
+          ],
+          "state": "base",
+          "slotRect": [
+            32,
+            568,
+            464,
+            256
+          ],
+          "bodyRect": [
+            56,
+            600,
+            416,
+            192
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 24
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "A03",
+          "assetId": "surface.popup",
+          "label": "浮层底板",
+          "consumers": [
+            "Select"
+          ],
+          "state": "base",
+          "slotRect": [
+            528,
+            568,
+            464,
+            256
+          ],
+          "bodyRect": [
+            552,
+            600,
+            416,
+            192
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 24
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "A04",
+          "assetId": "surface.bar",
+          "label": "工具栏与标题条",
+          "consumers": [
+            "Panel",
+            "Dialog",
+            "Container"
+          ],
+          "state": "base",
+          "slotRect": [
+            32,
+            848,
+            960,
+            144
+          ],
+          "bodyRect": [
+            64,
+            880,
+            896,
+            80
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "horizontal",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "filePrefix": "s02-wide-controls",
+      "title": "横向控件",
+      "parts": [
+        {
+          "code": "B01",
+          "assetId": "button.primary.normal",
+          "label": "主按钮 / 常态",
+          "consumers": [
+            "Button",
+            "Dialog"
+          ],
+          "state": "normal",
+          "slotRect": [
+            32,
+            32,
+            464,
+            172
+          ],
+          "bodyRect": [
+            72,
+            70,
+            384,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B02",
+          "assetId": "button.primary.pressed",
+          "label": "主按钮 / 按下",
+          "consumers": [
+            "Button",
+            "Dialog"
+          ],
+          "state": "pressed",
+          "slotRect": [
+            528,
+            32,
+            464,
+            172
+          ],
+          "bodyRect": [
+            568,
+            70,
+            384,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B03",
+          "assetId": "button.secondary.normal",
+          "label": "次按钮 / 常态",
+          "consumers": [
+            "Button",
+            "Dialog"
+          ],
+          "state": "normal",
+          "slotRect": [
+            32,
+            228,
+            464,
+            172
+          ],
+          "bodyRect": [
+            72,
+            266,
+            384,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B04",
+          "assetId": "button.secondary.pressed",
+          "label": "次按钮 / 按下",
+          "consumers": [
+            "Button",
+            "Dialog"
+          ],
+          "state": "pressed",
+          "slotRect": [
+            528,
+            228,
+            464,
+            172
+          ],
+          "bodyRect": [
+            568,
+            266,
+            384,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B05",
+          "assetId": "field.normal",
+          "label": "输入底板 / 常态",
+          "consumers": [
+            "Input",
+            "Select"
+          ],
+          "state": "normal",
+          "slotRect": [
+            32,
+            424,
+            464,
+            172
+          ],
+          "bodyRect": [
+            72,
+            462,
+            384,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B06",
+          "assetId": "field.focused",
+          "label": "输入底板 / 聚焦",
+          "consumers": [
+            "Input",
+            "Select"
+          ],
+          "state": "focused",
+          "slotRect": [
+            528,
+            424,
+            464,
+            172
+          ],
+          "bodyRect": [
+            568,
+            462,
+            384,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B07",
+          "assetId": "item.normal",
+          "label": "列表项 / 常态",
+          "consumers": [
+            "List",
+            "Select"
+          ],
+          "state": "normal",
+          "slotRect": [
+            32,
+            620,
+            464,
+            172
+          ],
+          "bodyRect": [
+            72,
+            658,
+            384,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B08",
+          "assetId": "item.selected",
+          "label": "列表项 / 选中",
+          "consumers": [
+            "List",
+            "Select"
+          ],
+          "state": "selected",
+          "slotRect": [
+            528,
+            620,
+            464,
+            172
+          ],
+          "bodyRect": [
+            568,
+            658,
+            384,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "nine-slice",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B09",
+          "assetId": "tab.normal",
+          "label": "页签 / 常态",
+          "consumers": [
+            "Tabs"
+          ],
+          "state": "normal",
+          "slotRect": [
+            32,
+            816,
+            464,
+            172
+          ],
+          "bodyRect": [
+            104,
+            854,
+            320,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 14
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "horizontal",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "B10",
+          "assetId": "tab.selected",
+          "label": "页签 / 选中",
+          "consumers": [
+            "Tabs"
+          ],
+          "state": "selected",
+          "slotRect": [
+            528,
+            816,
+            464,
+            172
+          ],
+          "bodyRect": [
+            600,
+            854,
+            320,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 14
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "horizontal",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "filePrefix": "s03-tracks-thumbs",
+      "title": "轨道与滑块",
+      "parts": [
+        {
+          "code": "C01",
+          "assetId": "bar.track",
+          "label": "横向轨道",
+          "consumers": [
+            "Slider",
+            "ProgressBar"
+          ],
+          "state": "base",
+          "slotRect": [
+            32,
+            32,
+            960,
+            112
+          ],
+          "bodyRect": [
+            128,
+            64,
+            768,
+            48
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 24
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "horizontal",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "C02",
+          "assetId": "bar.fill",
+          "label": "满长度填充",
+          "consumers": [
+            "Slider",
+            "ProgressBar"
+          ],
+          "state": "base",
+          "slotRect": [
+            32,
+            168,
+            960,
+            112
+          ],
+          "bodyRect": [
+            128,
+            200,
+            768,
+            48
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 24
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "horizontal",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "C03",
+          "assetId": "scrollbar.track",
+          "label": "滚动条轨道",
+          "consumers": [
+            "ScrollView"
+          ],
+          "state": "base",
+          "slotRect": [
+            32,
+            304,
+            192,
+            688
+          ],
+          "bodyRect": [
+            104,
+            392,
+            48,
+            512
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 24
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "vertical",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "C04",
+          "assetId": "scrollbar.thumb",
+          "label": "滚动条滑块",
+          "consumers": [
+            "ScrollView"
+          ],
+          "state": "base",
+          "slotRect": [
+            248,
+            304,
+            192,
+            272
+          ],
+          "bodyRect": [
+            328,
+            360,
+            32,
+            160
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "vertical",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "C05",
+          "assetId": "slider.thumb.normal",
+          "label": "滑条滑块 / 常态",
+          "consumers": [
+            "Slider"
+          ],
+          "state": "normal",
+          "slotRect": [
+            248,
+            600,
+            192,
+            184
+          ],
+          "bodyRect": [
+            296,
+            644,
+            96,
+            96
+          ],
+          "primitive": {
+            "type": "circle"
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "C06",
+          "assetId": "slider.thumb.pressed",
+          "label": "滑条滑块 / 按下",
+          "consumers": [
+            "Slider"
+          ],
+          "state": "pressed",
+          "slotRect": [
+            248,
+            808,
+            192,
+            184
+          ],
+          "bodyRect": [
+            296,
+            852,
+            96,
+            96
+          ],
+          "primitive": {
+            "type": "circle"
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "C07",
+          "assetId": "switch.track.off",
+          "label": "开关轨道 / 关闭",
+          "consumers": [
+            "Switch"
+          ],
+          "state": "off",
+          "slotRect": [
+            464,
+            304,
+            528,
+            192
+          ],
+          "bodyRect": [
+            632,
+            352,
+            192,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 48
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "C08",
+          "assetId": "switch.track.on",
+          "label": "开关轨道 / 开启",
+          "consumers": [
+            "Switch"
+          ],
+          "state": "on",
+          "slotRect": [
+            464,
+            520,
+            528,
+            192
+          ],
+          "bodyRect": [
+            632,
+            568,
+            192,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 48
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "C09",
+          "assetId": "switch.thumb",
+          "label": "开关滑块",
+          "consumers": [
+            "Switch"
+          ],
+          "state": "base",
+          "slotRect": [
+            464,
+            736,
+            528,
+            256
+          ],
+          "bodyRect": [
+            688,
+            824,
+            80,
+            80
+          ],
+          "primitive": {
+            "type": "circle"
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "filePrefix": "s04-small-parts",
+      "title": "小型控件部件",
+      "parts": [
+        {
+          "code": "D01",
+          "assetId": "button.compact.normal",
+          "label": "紧凑按钮 / 常态",
+          "consumers": [
+            "Button"
+          ],
+          "state": "normal",
+          "slotRect": [
+            32,
+            32,
+            304,
+            304
+          ],
+          "bodyRect": [
+            104,
+            104,
+            160,
+            160
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 24
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D02",
+          "assetId": "button.compact.pressed",
+          "label": "紧凑按钮 / 按下",
+          "consumers": [
+            "Button"
+          ],
+          "state": "pressed",
+          "slotRect": [
+            360,
+            32,
+            304,
+            304
+          ],
+          "bodyRect": [
+            432,
+            104,
+            160,
+            160
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 24
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D03",
+          "assetId": "checkbox.box",
+          "label": "复选框底板",
+          "consumers": [
+            "CheckBox"
+          ],
+          "state": "base",
+          "slotRect": [
+            32,
+            360,
+            304,
+            304
+          ],
+          "bodyRect": [
+            136,
+            464,
+            96,
+            96
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 14
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D04",
+          "assetId": "checkbox.mark",
+          "label": "勾选标记",
+          "consumers": [
+            "CheckBox"
+          ],
+          "state": "base",
+          "slotRect": [
+            360,
+            360,
+            304,
+            304
+          ],
+          "bodyRect": [
+            480,
+            480,
+            64,
+            64
+          ],
+          "primitive": {
+            "type": "polygon",
+            "points": [
+              [
+                0,
+                32
+              ],
+              [
+                12,
+                20
+              ],
+              [
+                25,
+                35
+              ],
+              [
+                52,
+                0
+              ],
+              [
+                64,
+                10
+              ],
+              [
+                27,
+                64
+              ]
+            ]
+          },
+          "paint": "mark",
+          "strokeWidth": 0,
+          "stretch": "uniform",
+          "productionPolicy": "raster-or-procedural-undecided",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D05",
+          "assetId": "radio.ring",
+          "label": "单选外框",
+          "consumers": [
+            "RadioGroup"
+          ],
+          "state": "base",
+          "slotRect": [
+            32,
+            688,
+            304,
+            304
+          ],
+          "bodyRect": [
+            136,
+            792,
+            96,
+            96
+          ],
+          "primitive": {
+            "type": "ring"
+          },
+          "paint": "mark",
+          "strokeWidth": 6,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D06",
+          "assetId": "radio.dot",
+          "label": "单选圆点",
+          "consumers": [
+            "RadioGroup"
+          ],
+          "state": "base",
+          "slotRect": [
+            360,
+            688,
+            304,
+            304
+          ],
+          "bodyRect": [
+            488,
+            816,
+            48,
+            48
+          ],
+          "primitive": {
+            "type": "circle"
+          },
+          "paint": "mark",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-or-procedural-undecided",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D07",
+          "assetId": "select.chevron",
+          "label": "下拉指示",
+          "consumers": [
+            "Select"
+          ],
+          "state": "base",
+          "slotRect": [
+            688,
+            32,
+            304,
+            304
+          ],
+          "bodyRect": [
+            808,
+            164,
+            64,
+            40
+          ],
+          "primitive": {
+            "type": "polygon",
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                32,
+                25
+              ],
+              [
+                64,
+                0
+              ],
+              [
+                64,
+                15
+              ],
+              [
+                32,
+                40
+              ],
+              [
+                0,
+                15
+              ]
+            ]
+          },
+          "paint": "mark",
+          "strokeWidth": 0,
+          "stretch": "uniform",
+          "productionPolicy": "raster-or-procedural-undecided",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D08",
+          "assetId": "slot.normal",
+          "label": "正方形物品槽 / 常态",
+          "consumers": [
+            "List"
+          ],
+          "state": "normal",
+          "slotRect": [
+            688,
+            360,
+            304,
+            304
+          ],
+          "bodyRect": [
+            760,
+            432,
+            160,
+            160
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "base",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        },
+        {
+          "code": "D09",
+          "assetId": "slot.selected",
+          "label": "正方形物品槽 / 选中",
+          "consumers": [
+            "List"
+          ],
+          "state": "selected",
+          "slotRect": [
+            688,
+            688,
+            304,
+            304
+          ],
+          "bodyRect": [
+            760,
+            760,
+            160,
+            160
+          ],
+          "primitive": {
+            "type": "roundRect",
+            "radius": 16
+          },
+          "paint": "active",
+          "strokeWidth": 2,
+          "stretch": "uniform",
+          "productionPolicy": "raster-candidate",
+          "contentInsets": null,
+          "sliceInsets": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+import {parseArgs} from 'node:util';
+import {resolve,relative,isAbsolute,sep,join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {mkdir} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import {extendSkinMaterials} from '../src/skins/materials.mjs';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const {values:v}=parseArgs({options:{package:{type:'string'},config:{type:'string'},out:{type:'string'}}});
+if(!v.package||!v.config)throw Error('Use --package <verified-skin> --config <material-input.json> [--out work/skin-materials]');
+const out=resolve(v.out??join(root,'work/skin-materials')),r=relative(join(root,'work'),out);
+if(isAbsolute(r)||r==='..'||r.startsWith('..'+sep))throw Error('Output must be below work/.');
+await mkdir(out,{recursive:true});
+console.log(JSON.stringify(await extendSkinMaterials({packageDirectory:resolve(v.package),configPath:resolve(v.config),output:join(out,randomUUID())})));

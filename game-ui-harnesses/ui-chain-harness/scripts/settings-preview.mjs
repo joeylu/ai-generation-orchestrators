@@ -1,0 +1,33 @@
+import {panelOrientations} from '../src/panel/orientation.mjs';
+import {surfaceCompileContext} from '../src/panel/surface-presentation.mjs';
+import {settingsSkinGeometry} from '../src/panel/skin-geometry.mjs';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {resolve,join,relative,isAbsolute,sep,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {randomUUID} from 'node:crypto';
+import {parseArgs} from 'node:util';
+import {build} from 'esbuild';
+import {editorData} from '../src/panel/data.mjs';
+import {settingsDocument} from '../src/panel/settings.mjs';
+import {verifySkinPackage,hash,json,bindingsOf} from '../src/skins/package.mjs';
+import {panelSkinContracts} from '../src/panel/skin-contracts.mjs';
+const {values}=parseArgs({options:{package:{type:'string'},out:{type:'string'},content:{type:'string'},layout:{type:'string'},orientation:{type:'string'},contracts:{type:'string'}}});
+if(!values.package||!values.out)throw Error('Use --package <pack> --out <work-directory>');
+const root=fileURLToPath(new URL('../',import.meta.url)),out=resolve(values.out),r=relative(join(root,'work'),out);
+if(isAbsolute(r)||r==='..'||r.startsWith('..'+sep))throw Error('Output must be in work/');
+const verified=await verifySkinPackage(resolve(values.package)),{pack,resources,manifestSha256}=verified;
+if(pack.sourceKind!=='imported')throw Error('Select a real imported skin.');
+const contracts=await panelSkinContracts(pack,values.contracts),expected=bindingsOf(contracts);
+const data=await editorData(contracts),ctx={registry:data.registry,usage:data.usage,template:data.template,canvases:data.canvases,profile:pack.theme,...settingsSkinGeometry(pack),binding:{sourceKind:'imported',sha256:manifestSha256}};
+const content=JSON.parse(await readFile(values.content?resolve(values.content):join(root,'configs/settings-content.json'))),layout=JSON.parse(await readFile(values.layout?resolve(values.layout):join(root,'configs/settings-layout.json')));
+if(values.content){try{const conversion=JSON.parse(await readFile(join(dirname(resolve(values.content)),'conversion.json'),'utf8'));Object.assign(ctx,surfaceCompileContext(ctx,conversion.surfaceRecipesVersion??0));}catch(e){if(e.code!=='ENOENT')throw e;}}
+const documents=Object.fromEntries(panelOrientations(values.orientation).map(c=>[c,settingsDocument(content,layout,c,ctx)]));
+const packet={manifest:(await readFile(join(resolve(values.package),'skin-pack.json'))).toString('base64'),manifestSha256,bindings:expected,resources:Object.fromEntries([...resources].filter(([f])=>!f.startsWith('sources/')).map(([f,b])=>[f,b.toString('base64')]))};
+const bundle=await build({entryPoints:[join(root,'src/panel/settings-preview.mjs')],bundle:true,write:false,format:'esm'});
+const sourceContracts={version:'1.0',files:['registry','usage','template'].map(name=>{const bytes=contracts.bytes[name];return {name,bytes:bytes.length,sha256:hash(bytes),base64:bytes.toString('base64')};})};
+const payload=JSON.stringify({ctx,content,documents,pack:packet,sourceContracts}).replaceAll('<','\\u003c');
+const html=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>林野 · 游戏设置</title><style>body{margin:0;background:#16261f;color:#f2e4c6;font:15px system-ui}nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px}button{background:#ead4a5;border:0;border-radius:6px;color:#48270d;padding:9px 14px;cursor:pointer}p{margin:0;padding:0 14px 12px;color:#c1cdbf}#stage{display:flex;justify-content:center}canvas{display:block;max-width:100%;height:auto;max-height:none}</style><nav><button id="wide">横版 16:9</button><button id="tall">竖版 9:16</button><button id="reopen">重新打开</button><button id="export">导出面板 JSON</button><span id="status"></span></nav><p>设置仅在本次预览中生效；语言选项用于验证选择状态。导出的是预设面板，不包含临时操作记录。</p><div id="stage"></div><script type="module">${bundle.outputFiles[0].text.replaceAll('</script','<\\/script')}\nawait initializeSettings(${payload});</script></html>`;
+const dir=join(out,randomUUID());await mkdir(dir,{recursive:true});
+const files=[];for(const[file,bytes]of [['text-readability.json',json({...verified.textReadability,manifestSha256})],['preview.html',html],...Object.entries(documents).map(([name,doc])=>[name+'.panel.json',json(doc)]),['content.json',json(content)],['layout.json',json(layout)]]){await writeFile(join(dir,file),bytes,{flag:'wx'});files.push({file,sha256:hash(Buffer.from(bytes))});}
+await writeFile(join(dir,'report.json'),json({kind:'settings-panel-preview',manifestSha256,files,visualAcceptance:'unreviewed',productionReady:false}),{flag:'wx'});
+console.log(dir);

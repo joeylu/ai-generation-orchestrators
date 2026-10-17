@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "assetPrefixes": ["field."],
+  "horizontalClearance": 12,
+  "minimumHorizontalInset": 16,
+  "automaticAcceptance": false
+}

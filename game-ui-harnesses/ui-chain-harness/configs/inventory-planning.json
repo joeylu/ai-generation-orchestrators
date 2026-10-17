@@ -1,0 +1,52 @@
+{
+  "kind": "ui_chain_inventory_planning_capabilities",
+  "version": "1.5",
+  "intentVersion": "0.13",
+  "recipeKey": "inventory.grid@0.1.0",
+  "rowKinds": [
+    "inventory"
+  ],
+  "sections": 1,
+  "rowsPerSection": 1,
+  "columns": {
+    "minimum": 1,
+    "maximum": 32
+  },
+  "rows": {
+    "minimum": 1,
+    "maximum": 32
+  },
+  "maximumCells": 144,
+  "maximumGridDimension": 4000,
+  "scrollMode": "fixed-cells-both-v1",
+  "surfaceLayer": "inset",
+  "frameScale": 3,
+  "titleMaxCharacters": 40,
+  "itemNameMaxUtf16": 64,
+  "quantity": {
+    "minimum": 1,
+    "maximum": 9999
+  },
+  "icons": [
+    null
+  ],
+  "missingIconPresentation": "bounded-name-in-cell-full-name-in-details",
+  "descriptions": "not-in-upstream-intent",
+  "selection": "one-slot-or-none-including-empty-slots",
+  "geometry": "exact-programGrid-square-equal-gap-zero-padding-upper-left-horizontal",
+  "panelLayout": "program-owned-null-dimensions-overflow-error",
+  "unsupported": [
+    "additional-controls",
+    "multiple-inventories",
+    "pinned-item-artwork",
+    "drag",
+    "swap",
+    "stack",
+    "multi-cell-occupancy",
+    "business-actions"
+  ],
+  "slotFit": "visible-square-v1",
+  "viewportFit": "whole-slots-v1",
+  "titleAlign": "center",
+  "slotAssets": "dedicated-square-v1"
+}

@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "id": "game-settings",
+  "title": "游戏设置",
+  "closeLabel": "关闭",
+  "fields": [
+    { "id": "music", "label": "背景音乐", "type": "switch", "value": true },
+    { "id": "effects", "label": "游戏音效", "type": "switch", "value": true },
+    { "id": "musicVolume", "label": "音乐音量", "type": "slider", "value": 65, "min": 0, "max": 100, "step": 1 },
+    { "id": "effectsVolume", "label": "音效音量", "type": "slider", "value": 80, "min": 0, "max": 100, "step": 1 },
+    { "id": "language", "label": "显示语言", "type": "select", "value": "zh", "options": [
+      { "id": "zh", "label": "简体中文", "enabled": true },
+      { "id": "en", "label": "English", "enabled": true }
+    ] }
+  ]
+}

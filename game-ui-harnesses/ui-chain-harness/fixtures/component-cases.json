@@ -1,0 +1,257 @@
+{
+  "kind": "ui_component_fixture_cases",
+  "version": "0.1",
+  "cases": [
+    {
+      "caseId": "T01",
+      "type": "Button",
+      "recipeRef": "button@1.0.0",
+      "props": {
+        "label": "确认按钮"
+      },
+      "size": {
+        "width": 276,
+        "height": 40
+      }
+    },
+    {
+      "caseId": "T02",
+      "type": "Switch",
+      "recipeRef": "switch@1.0.0",
+      "props": {
+        "label": "开启音乐"
+      },
+      "size": {
+        "width": 276,
+        "height": 40
+      }
+    },
+    {
+      "caseId": "T03",
+      "type": "CheckBox",
+      "recipeRef": "check-box@1.0.0",
+      "props": {
+        "label": "接受设置"
+      },
+      "size": {
+        "width": 276,
+        "height": 40
+      }
+    },
+    {
+      "caseId": "T04",
+      "type": "RadioGroup",
+      "recipeRef": "radio-group@1.0.0",
+      "props": {
+        "options": [
+          {
+            "id": "a",
+            "label": "选项甲",
+            "enabled": true
+          },
+          {
+            "id": "b",
+            "label": "选项乙",
+            "enabled": true
+          }
+        ],
+        "selectedId": "a"
+      },
+      "size": {
+        "width": 276,
+        "height": 80
+      }
+    },
+    {
+      "caseId": "T05",
+      "type": "Input",
+      "recipeRef": "input@1.0.0",
+      "props": {
+        "placeholder": "输入中文…"
+      },
+      "size": {
+        "width": 276,
+        "height": 40
+      }
+    },
+    {
+      "caseId": "T06",
+      "type": "Select",
+      "recipeRef": "select@1.0.0",
+      "props": {
+        "options": [
+          {
+            "id": "a",
+            "label": "品质：高",
+            "enabled": true
+          },
+          {
+            "id": "b",
+            "label": "品质：低",
+            "enabled": true
+          }
+        ],
+        "placeholder": "请选择"
+      },
+      "size": {
+        "width": 276,
+        "height": 40
+      }
+    },
+    {
+      "caseId": "T07",
+      "type": "Slider",
+      "recipeRef": "slider@1.0.0",
+      "props": {
+        "value": 40,
+        "showValue": true
+      },
+      "size": {
+        "width": 276,
+        "height": 64
+      }
+    },
+    {
+      "caseId": "T08",
+      "type": "ProgressBar",
+      "recipeRef": "progress-bar@1.0.0",
+      "props": {
+        "value": 65,
+        "showValue": true
+      },
+      "size": {
+        "width": 276,
+        "height": 56
+      }
+    },
+    {
+      "caseId": "T09",
+      "type": "ScrollView",
+      "recipeRef": "scroll-view@1.0.0",
+      "props": {},
+      "size": {
+        "width": 276,
+        "height": 112
+      }
+    },
+    {
+      "caseId": "T10",
+      "type": "List",
+      "recipeRef": "list@1.0.0",
+      "props": {
+        "items": [
+          {
+            "id": "a",
+            "label": "第一项",
+            "enabled": true
+          },
+          {
+            "id": "b",
+            "label": "第二项",
+            "enabled": true
+          }
+        ],
+        "itemRecipeRef": "button@1.0.0"
+      },
+      "size": {
+        "width": 276,
+        "height": 80
+      }
+    },
+    {
+      "caseId": "T11",
+      "type": "Dialog",
+      "recipeRef": "dialog@1.0.0",
+      "props": {
+        "title": "确认窗口",
+        "open": true,
+        "modal": false,
+        "actions": [
+          {
+            "id": "ok",
+            "label": "确认",
+            "variant": "primary",
+            "closeOnActivate": true
+          }
+        ]
+      },
+      "size": {
+        "width": 276,
+        "height": 126
+      }
+    },
+    {
+      "caseId": "T12",
+      "type": "Tabs",
+      "recipeRef": "tabs@1.0.0",
+      "props": {
+        "tabs": [
+          {
+            "id": "a",
+            "label": "第一页",
+            "enabled": true,
+            "contentNodeId": "page-a"
+          },
+          {
+            "id": "b",
+            "label": "第二页",
+            "enabled": true,
+            "contentNodeId": "page-b"
+          }
+        ],
+        "activeId": "a"
+      },
+      "size": {
+        "width": 276,
+          "height": 144
+      }
+    },
+    {
+      "caseId": "T13",
+      "type": "Image",
+      "recipeRef": "image@1.0.0",
+      "props": {
+        "sourceRef": "surface.panel"
+      },
+      "size": {
+        "width": 276,
+        "height": 96
+      }
+    },
+    {
+      "caseId": "T14",
+      "type": "Text",
+      "recipeRef": "text@1.0.0",
+      "props": {
+        "text": "中文与 PixiJS\n固定字体，无自动缩字",
+        "textStyleRef": "body"
+      },
+      "size": {
+        "width": 276,
+        "height": 90
+      }
+    },
+    {
+      "caseId": "T15",
+      "type": "Container",
+      "recipeRef": "container@1.0.0",
+      "props": {},
+      "size": {
+        "width": 276,
+        "height": 110
+      }
+    },
+    {
+      "caseId": "T16",
+      "type": "Panel",
+      "recipeRef": "panel@1.0.0",
+      "props": {
+        "title": "面板标题"
+      },
+      "size": {
+        "width": 276,
+        "height": 126
+      }
+    }
+  ]
+}

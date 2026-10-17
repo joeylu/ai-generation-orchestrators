@@ -1,0 +1,16 @@
+@import '../../src/slice-editor/style.css';
+header nav { display:flex; align-items:center; gap:16px; flex-wrap:wrap }
+nav a { color:#b5dfd7; text-underline-offset:4px }
+main { grid-template-columns:300px minmax(0,1fr) }
+hr { border:0; border-top:1px solid #344550; margin:24px 0 }
+.controls h1 { line-height:1.6 }
+.controls h2 { margin-bottom:12px }
+.presets { flex-wrap:wrap }
+.measurements { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px }
+.measurements span { color:#aebdc9 }
+#source-name { line-height:1.7 }
+#preview { display:flex; justify-content:center; align-items:flex-start; padding:16px; overflow:hidden; min-height:440px; border:1px solid #40515e; border-radius:6px }
+#canvas-frame { flex:none; line-height:0 }
+#canvas-frame canvas { display:block }
+button { min-height:44px }
+@media(max-width:900px) { main { display:flex; flex-direction:column } .controls { display:block } .controls form { max-width:450px } #preview { min-height:260px } }

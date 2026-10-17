@@ -109,6 +109,25 @@ alpha correctness, checksum correctness, or path safety.
   queues, or changes to other Harness runtimes. Deterministic programmatic UI
   fixtures and separate component/canvas motion configurations are permitted;
   tests must not call image/video generation or private model services.
+- User-approved exception for `game-ui-harnesses/ui-chain-harness/`: complete
+  the component foundation and provide a local canvas editor for user acceptance.
+  Static frontend builds, loopback-only static preview, offline browser tests,
+  and user-controlled local JSON import/export are permitted. Reuse this
+  Harness's PixiUI/Layout runtime and keep authoring, play and editor state
+  separate. This does not permit deployment, authentication, databases, queues,
+  private services, or image/video/model generation.
+- User-approved component integration scope for that same Harness: publish
+  provider-neutral component entry points, immutable source releases, and
+  Docker/Web integration documentation through the 16-component delivery stage.
+  External deployment owners implement and verify their HTTP service and export
+  its API contract for Web consumers. This does not add a deployed service,
+  credentials, or panel-generation requirements to the component release.
+- User-approved reference generation extension for that component entry: an
+  explicit host-provided image adapter may generate the initial reference PNG
+  from a frozen text/style plan. Keep reference compute confirmation, technical
+  reception, exact-image human acceptance, and component batch confirmation
+  separate. Reference acceptance never authorizes component generation. Preserve
+  at-most-once submission and terminal unknown attempts; tests use doubles only.
 - User-approved exception for `game-ui-harnesses/ui-reference-harness/web/`:
   a loopback-only local reference-image workbench, static frontend builds and
   offline browser/API tests are permitted. Reuse the existing Harness core;

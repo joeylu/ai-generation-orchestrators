@@ -1,0 +1,24 @@
+[
+  {
+    "id":"adaptive-quest-cards","presetId":"custom","title":"任务列表",
+    "request":"离线示例：森林巡逻、古塔探索和采集药草三个任务卡片，展示目标、进度以及查看按钮。按画布安排列数，长内容可滚动。",
+    "overflow":"scroll",
+    "body":{"kind":"grid","children":[
+      {"kind":"section","title":"森林巡逻","rows":[
+        {"kind":"text","recipeKey":"settings.text@0.1.0","label":"任务目标","text":"巡查森林边界","wrap":"none"},
+        {"kind":"progress","recipeKey":"settings.progress@0.1.0","label":"巡逻进度","max":100,"initial":60,"display":"percent","fractionDigits":0},
+        {"kind":"button","recipeKey":"settings.button.primary@0.1.0","label":"查看任务","enabled":true,"action":"emit","resetRows":[],"submitRows":[]}
+      ]},
+      {"kind":"section","title":"古塔探索","rows":[
+        {"kind":"text","recipeKey":"settings.text@0.1.0","label":"任务目标","text":"寻找古塔线索","wrap":"none"},
+        {"kind":"progress","recipeKey":"settings.progress@0.1.0","label":"探索进度","max":100,"initial":30,"display":"percent","fractionDigits":0},
+        {"kind":"button","recipeKey":"settings.button.primary@0.1.0","label":"查看任务","enabled":true,"action":"emit","resetRows":[],"submitRows":[]}
+      ]},
+      {"kind":"section","title":"采集药草","rows":[
+        {"kind":"text","recipeKey":"settings.text@0.1.0","label":"任务目标","text":"采集十株灵草","wrap":"none"},
+        {"kind":"progress","recipeKey":"settings.progress@0.1.0","label":"采集进度","max":100,"initial":80,"display":"percent","fractionDigits":0},
+        {"kind":"button","recipeKey":"settings.button.primary@0.1.0","label":"查看任务","enabled":true,"action":"emit","resetRows":[],"submitRows":[]}
+      ]}
+    ]}
+  }
+]

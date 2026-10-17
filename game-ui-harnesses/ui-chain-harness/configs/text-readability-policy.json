@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "dark": "#111827",
+  "light": "#F5F7FF",
+  "minimumContrast": 4.5,
+  "sampleGrid": 17,
+  "minimumOpaqueSamples": 16,
+  "minimumAlpha": 240,
+  "surfaceRolePattern": "^skin\\.(surface\\.|button\\.|field\\.|item\\.|slot\\.|tab\\.)"
+}

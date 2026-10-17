@@ -1,0 +1,451 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "version",
+    "revision",
+    "commonProps",
+    "quantization",
+    "acceptanceCases",
+    "recipes"
+  ],
+  "definitions": {
+    "prop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "object",
+                "array",
+                "string",
+                "number",
+                "integer",
+                "boolean",
+                "null"
+              ]
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "object",
+                  "string",
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          ]
+        },
+        "enum": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {}
+        },
+        "default": {},
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "exclusiveMinimum": {
+          "type": "number"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "const": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] },
+        "pattern": {
+          "type": "string"
+        },
+        "items": {
+          "$ref": "#/definitions/prop"
+        },
+        "properties": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/prop"
+          }
+        },
+        "required": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": {
+          "const": false
+        }
+      }
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "ui_component_registry_draft"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "commonProps": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/prop"
+      }
+    },
+    "quantization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "const": "max-is-explicit-valid-endpoint"
+        },
+        "relativeTolerance": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.000001
+        }
+      },
+      "required": [
+        "endpoint",
+        "relativeTolerance"
+      ]
+    },
+    "acceptanceCases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "enum": [
+              "common",
+              "component"
+            ]
+          },
+          "procedure": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phase": {
+            "type": "string",
+            "minLength": 1
+          },
+          "componentType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "scope",
+          "procedure",
+          "expected",
+          "phase",
+          "componentType"
+        ]
+      }
+    },
+    "recipes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+          },
+          "recipeId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]*$"
+          },
+          "recipeVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "adapterId": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+          },
+          "library": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "package": {
+                "enum": [
+                  "pixi.js",
+                  "@pixi/ui",
+                  "@pixi/layout/components"
+                ]
+              },
+              "exportName": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+              }
+            },
+            "required": [
+              "package",
+              "exportName"
+            ]
+          },
+          "propsSchema": {
+            "$ref": "#/definitions/prop"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "selection",
+                    "selection-required",
+                    "no-selection",
+                    "unique-ids",
+                    "unique-content",
+                    "range",
+                    "quantized",
+                    "utf16-length",
+                    "recipe-ref",
+                    "resource-ref",
+                    "text-style-ref"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "fields"
+              ]
+            }
+          },
+          "states": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+            }
+          },
+          "events": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+            }
+          },
+          "skinRoles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "when": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "prop": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+                    },
+                    "equals": {
+                      "type": "string"
+                    },
+                    "notEquals": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "prop"
+                  ]
+                }
+              },
+              "required": [
+                "role",
+                "required"
+              ]
+            }
+          },
+          "textStyles": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+            }
+          },
+          "geometryRefs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+            }
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+                },
+                "min": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "max": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "name",
+                "min",
+                "max"
+              ]
+            }
+          },
+          "layoutCapabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "outer": {
+                "const": "pixi-layout"
+              },
+              "childrenOwner": {
+                "enum": [
+                  "pixi-ui-list",
+                  "pixi-ui-radio",
+                  "pixi-ui-scrollbox",
+                  "pixi-layout",
+                  "adapter"
+                ]
+              },
+              "childrenModes": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "flow",
+                    "free"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "outer",
+              "childrenOwner",
+              "childrenModes"
+            ]
+          },
+          "composedRecipes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9.-]*@[0-9]+\\.[0-9]+\\.[0-9]+$"
+            }
+          },
+          "acceptanceCaseIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+            },
+            "minItems": 1
+          },
+          "metadataRequirements": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "type",
+          "recipeId",
+          "recipeVersion",
+          "adapterId",
+          "library",
+          "propsSchema",
+          "rules",
+          "states",
+          "events",
+          "skinRoles",
+          "textStyles",
+          "geometryRefs",
+          "slots",
+          "layoutCapabilities",
+          "composedRecipes",
+          "acceptanceCaseIds",
+          "metadataRequirements"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,2100 @@
+{
+  "$schema": "../schemas/component-registry.schema.json",
+  "kind": "ui_component_registry_draft",
+  "version": "0.1",
+  "revision": 7,
+  "commonProps": {
+    "visible": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "quantization": {
+    "endpoint": "max-is-explicit-valid-endpoint",
+    "relativeTolerance": 1e-9
+  },
+  "acceptanceCases": [
+    {
+      "id": "G01",
+      "title": "文档合同",
+      "scope": "common",
+      "procedure": "未知字段/类型/版本、重复 ID、悬空资源/槽引用、非法数值均定位到字段并阻断；有效默认值从唯一声明解析",
+      "expected": "按操作中的具体断言取证；不适用分项须记录原因。",
+      "phase": "P1",
+      "componentType": null
+    },
+    {
+      "id": "G02",
+      "title": "皮肤与尺寸",
+      "scope": "common",
+      "procedure": "在最小、常规、加宽/加高盒子中核对部件、内容区域、命中范围；非法小尺寸明确报错；带文字的组件验证长中文、空串及混排",
+      "expected": "按操作中的具体断言取证；不适用分项须记录原因。",
+      "phase": "P1",
+      "componentType": null
+    },
+    {
+      "id": "G03",
+      "title": "交互隔离",
+      "scope": "common",
+      "procedure": "用户手势产生规定次数的事件；初始化/恢复/程序更新不冒充用户事件；禁用/隐藏/编辑模式不触发业务操作",
+      "expected": "按操作中的具体断言取证；不适用分项须记录原因。",
+      "phase": "P1 / P2",
+      "componentType": null
+    },
+    {
+      "id": "G04",
+      "title": "资源与销毁",
+      "scope": "common",
+      "procedure": "两个实例共享资源，销毁一个不破坏另一个；重复挂载/销毁后无重复订阅、残留输入 DOM、浮层或自有 ticker",
+      "expected": "按操作中的具体断言取证；不适用分项须记录原因。",
+      "phase": "P1",
+      "componentType": null
+    },
+    {
+      "id": "G05",
+      "title": "真实往返",
+      "scope": "common",
+      "procedure": "由创作文档创建 → 用户交互 → 保存创作文档 → 重开；创作值/稳定 ID/配置不受试玩污染；资源重新解析后输出一致",
+      "expected": "按操作中的具体断言取证；不适用分项须记录原因。",
+      "phase": "P2",
+      "componentType": null
+    },
+    {
+      "id": "G06",
+      "title": "画布事务",
+      "scope": "common",
+      "procedure": "每种支持的属性修改、槽位操作、尺寸/排序/合法自由定位都可撤销/重做；失败回滚；16:9 与 9:16 均无越界或不可操作控件",
+      "expected": "按操作中的具体断言取证；不适用分项须记录原因。",
+      "phase": "P2",
+      "componentType": null
+    },
+    {
+      "id": "G07",
+      "title": "换皮肤与交付",
+      "scope": "common",
+      "procedure": "缺角色/无切片/摘要不符拒绝；合法换肤保持值、行为与布局合同，资源闭包完整；真实美术接受另记",
+      "expected": "按操作中的具体断言取证；不适用分项须记录原因。",
+      "phase": "P4 / P5",
+      "componentType": null
+    },
+    {
+      "id": "T01",
+      "title": "Button",
+      "scope": "component",
+      "procedure": "三种变体；点击、移出释放、禁用、键盘激活；长文案与连续重开",
+      "expected": "每次有效激活一次 activate；取消/禁用零事件；三种变体的内容区与命中区正确；重开无重复回调",
+      "phase": "P1",
+      "componentType": "Button"
+    },
+    {
+      "id": "T02",
+      "title": "Switch",
+      "scope": "component",
+      "procedure": "false→true→false；标签点击；程序赋值；禁用；窄宽两档",
+      "expected": "布尔值、轨道和滑块同步；用户每次一次 valueChange，赋值/初始化不回调；滑块不出轨",
+      "phase": "P1",
+      "componentType": "Switch"
+    },
+    {
+      "id": "T03",
+      "title": "CheckBox",
+      "scope": "component",
+      "procedure": "框与标签点击、重复切换、禁用且已选；标记缺失",
+      "expected": "每次仅翻转一次；禁用仍保留选中标记但不可改值；缺必需标记策略阻断",
+      "phase": "P1",
+      "componentType": "CheckBox"
+    },
+    {
+      "id": "T04",
+      "title": "RadioGroup",
+      "scope": "component",
+      "procedure": "空集合、未选中、三选一、禁用选项、重排、删除已选项",
+      "expected": "始终最多一选；同标签不同 ID 不混淆；重排保持 ID；非法 selectedId 被拒绝",
+      "phase": "P1",
+      "componentType": "RadioGroup"
+    },
+    {
+      "id": "T05",
+      "title": "Input",
+      "scope": "component",
+      "procedure": "中文 IME、英文/emoji、粘贴/选择、密码、只读/禁用、长度边界、失焦与移动键盘",
+      "expected": "不截断组合输入；最终字符串和值一致；editEnd 不触发提交；销毁/隐藏后输入 DOM 不残留。真机输入证据单列",
+      "phase": "P1",
+      "componentType": "Input"
+    },
+    {
+      "id": "T06",
+      "title": "Select",
+      "scope": "component",
+      "procedure": "空集合、placeholder、重复标签、重排、长菜单、屏幕下沿展开、选项禁用与删除",
+      "expected": "回调稳定 ID；选择一次即关闭；菜单在可视区域且不被祖先裁掉；外部点击和销毁后无残留；无效引用阻断",
+      "phase": "P1",
+      "componentType": "Select"
+    },
+    {
+      "id": "T07",
+      "title": "Slider",
+      "scope": "component",
+      "procedure": "min/mid/max、整数及小数步长、非零/负 min、拖动/取消、禁用；max≤min/step≤0/越界值",
+      "expected": "值与滑块/填充一致；拖动实时更新，完成一次 commit，取消不 commit；非法配置拒绝，不溢出端点",
+      "phase": "P1",
+      "componentType": "Slider"
+    },
+    {
+      "id": "T08",
+      "title": "ProgressBar",
+      "scope": "component",
+      "procedure": "0/50/100%、非零 min、两种长度、非法范围与越界值",
+      "expected": "映射值正确；零/满进度及边框不变形；不产生用户改值事件；越界不伪装成正常进度",
+      "phase": "P1",
+      "componentType": "ProgressBar"
+    },
+    {
+      "id": "T09",
+      "title": "ScrollView",
+      "scope": "component",
+      "procedure": "空、刚好容纳、溢出；轮滚/触摸/条块拖动；内容缩短；嵌套控件；三种滚动条策略",
+      "expected": "内容与条块同一偏移；裁切外不可命中；收缩后偏移夹紧；不发生双重滚动；点击与拖动正确仲裁",
+      "phase": "P1",
+      "componentType": "ScrollView"
+    },
+    {
+      "id": "T10",
+      "title": "List",
+      "scope": "component",
+      "procedure": "空/单条/多条、无选择/单选、重排和删除、重复标签、替换已有 itemRecipe、组合滚动",
+      "expected": "选择按 ID；数据只实例化一份；条目间距和高度正确；列表不另管滚动；不存在 ID 报错",
+      "phase": "P1",
+      "componentType": "List"
+    },
+    {
+      "id": "T11",
+      "title": "Dialog",
+      "scope": "component",
+      "procedure": "初始关闭/打开、动作按钮重排、遮罩点击策略、重复关闭、非模态、多个模态、直接销毁",
+      "expected": "action 返回 actionId；closed 与 action 分开且不重复；只释放自己的模态占用；无点击穿透或遗留阻塞",
+      "phase": "P1",
+      "componentType": "Dialog"
+    },
+    {
+      "id": "T12",
+      "title": "Tabs",
+      "scope": "component",
+      "procedure": "空/单页/多页、切换、长标签、重排、禁用页、删除活动页、页内 Input/Slider",
+      "expected": "活动页 ID 正确；隐藏页不可交互/持焦；切回保持声明的运行值；重开恢复创作值；悬空内容引用阻断",
+      "phase": "P1",
+      "componentType": "Tabs"
+    },
+    {
+      "id": "T13",
+      "title": "Image",
+      "scope": "component",
+      "procedure": "宽/高图分别 contain/cover/fill、透明图、更换资源、资源缺失；两个实例共享纹理",
+      "expected": "缩放/裁切符合声明；透明区与资源摘要正确；缺件只可编辑占位，不能成功交付；销毁不伤其他实例",
+      "phase": "P1",
+      "componentType": "Image"
+    },
+    {
+      "id": "T14",
+      "title": "Text",
+      "scope": "component",
+      "procedure": "空、长中文、长英文单词、混排、显式换行、对齐、三种 overflow；缺字体与字体就绪后重排",
+      "expected": "文本与测量一致；省略不切坏字符，error 明确失败；不默认缩字掩盖溢出；字体缺失不静默换成不明样式",
+      "phase": "P1",
+      "componentType": "Text"
+    },
+    {
+      "id": "T15",
+      "title": "Container",
+      "scope": "component",
+      "procedure": "row/column/wrap、间距/边距、子节点重排、允许的 free 区域、隐藏与循环引用",
+      "expected": "只有一个排版所有者；flow 不接受冲突手写坐标；free 局部定位可往返；空白不阻断背景交互；循环被拒绝",
+      "phase": "P1",
+      "componentType": "Container"
+    },
+    {
+      "id": "T16",
+      "title": "Panel",
+      "scope": "component",
+      "procedure": "有/无标题、内容槽、最小尺寸、长标题、加宽加高、嵌套表单、换肤",
+      "expected": "九宫格边框与内容区稳定；布局不越界；不自带模态；缺必需底板/切片阻断；标题与内容保存后可重建",
+      "phase": "P1",
+      "componentType": "Panel"
+    }
+  ],
+  "recipes": [
+    {
+      "type": "Button",
+      "recipeId": "button",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.button",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "FancyButton"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "label": {
+            "type": "string",
+            "default": ""
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "secondary",
+              "compact"
+            ],
+            "default": "primary"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [],
+      "states": [
+        "normal",
+        "hover",
+        "pressed",
+        "disabled",
+        "focus"
+      ],
+      "events": [
+        "activate"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.button.primary.normal",
+          "required": true,
+          "when": {
+            "prop": "variant",
+            "equals": "primary"
+          }
+        },
+        {
+          "role": "skin.button.primary.pressed",
+          "required": true,
+          "when": {
+            "prop": "variant",
+            "equals": "primary"
+          }
+        },
+        {
+          "role": "skin.button.secondary.normal",
+          "required": true,
+          "when": {
+            "prop": "variant",
+            "equals": "secondary"
+          }
+        },
+        {
+          "role": "skin.button.secondary.pressed",
+          "required": true,
+          "when": {
+            "prop": "variant",
+            "equals": "secondary"
+          }
+        },
+        {
+          "role": "skin.button.compact.normal",
+          "required": true,
+          "when": {
+            "prop": "variant",
+            "equals": "compact"
+          }
+        },
+        {
+          "role": "skin.button.compact.pressed",
+          "required": true,
+          "when": {
+            "prop": "variant",
+            "equals": "compact"
+          }
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T01"
+      ],
+      "metadataRequirements": "状态共用尺寸/命中区、标签内容区、切片、最小尺寸与 hover/disabled/focus 派生"
+    },
+    {
+      "type": "Switch",
+      "recipeId": "switch",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.switch",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "Switcher"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "label": {
+            "type": "string",
+            "default": ""
+          },
+          "checked": {
+            "type": "boolean",
+            "default": false
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [],
+      "states": [
+        "off",
+        "on",
+        "disabled",
+        "focus"
+      ],
+      "events": [
+        "valueChange"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.switch.track.off",
+          "required": true
+        },
+        {
+          "role": "skin.switch.track.on",
+          "required": true
+        },
+        {
+          "role": "skin.switch.thumb",
+          "required": true
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [
+        "switchTravel"
+      ],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T02"
+      ],
+      "metadataRequirements": "滑块两端定位基准、轨道内容区、标签位置；不以透明图片外框推断位置"
+    },
+    {
+      "type": "CheckBox",
+      "recipeId": "check-box",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.check-box",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "CheckBox"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "label": {
+            "type": "string",
+            "default": ""
+          },
+          "checked": {
+            "type": "boolean",
+            "default": false
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [],
+      "states": [
+        "unchecked",
+        "checked",
+        "disabled",
+        "focus"
+      ],
+      "events": [
+        "valueChange"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.checkbox.box",
+          "required": true
+        },
+        {
+          "role": "skin.checkbox.mark",
+          "required": true
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T03"
+      ],
+      "metadataRequirements": "标记相对基准、命中区、标签间距；标记来源沿用 Q02 待定"
+    },
+    {
+      "type": "RadioGroup",
+      "recipeId": "radio-group",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.radio-group",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "RadioGroup"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "default": ""
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ]
+            },
+            "default": []
+          },
+          "selectedId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+            "default": null
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "row",
+              "column"
+            ],
+            "default": "column"
+          },
+          "gapToken": {
+            "type": "string",
+            "default": "controlGap"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [
+        {
+          "kind": "selection",
+          "fields": [
+            "options",
+            "selectedId"
+          ]
+        }
+      ],
+      "states": [
+        "empty",
+        "unselected",
+        "selected",
+        "disabled",
+        "focus"
+      ],
+      "events": [
+        "selectionChange"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.radio.ring",
+          "required": true
+        },
+        {
+          "role": "skin.radio.dot",
+          "required": true
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "pixi-ui-radio",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T04"
+      ],
+      "metadataRequirements": "圆点/外框同心、每项命中范围及标签位置；圆点来源沿用 Q02 待定"
+    },
+    {
+      "type": "Input",
+      "recipeId": "input",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.input",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "Input"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "value": {
+            "type": "string",
+            "default": ""
+          },
+          "placeholder": {
+            "type": "string",
+            "default": ""
+          },
+          "inputType": {
+            "type": "string",
+            "enum": [
+              "text",
+              "password",
+              "email",
+              "number"
+            ],
+            "default": "text"
+          },
+          "readOnly": {
+            "type": "boolean",
+            "default": false
+          },
+          "maxLength": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "default": null
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [
+        {
+          "kind": "utf16-length",
+          "fields": [
+            "value",
+            "maxLength"
+          ]
+        }
+      ],
+      "states": [
+        "normal",
+        "focused",
+        "readOnly",
+        "disabled"
+      ],
+      "events": [
+        "input",
+        "editEnd"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.field.normal",
+          "required": true
+        },
+        {
+          "role": "skin.field.focused",
+          "required": true
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T05"
+      ],
+      "metadataRequirements": "可输入文字矩形、内边距、光标/选择裁切、字体样式与最小可读尺寸"
+    },
+    {
+      "type": "Select",
+      "recipeId": "select",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.select",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "Select"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "default": ""
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ]
+            },
+            "default": []
+          },
+          "selectedId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+            "default": null
+          },
+          "placeholder": {
+            "type": "string",
+            "default": ""
+          },
+          "maxVisibleItems": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 5
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [
+        {
+          "kind": "selection",
+          "fields": [
+            "options",
+            "selectedId"
+          ]
+        }
+      ],
+      "states": [
+        "empty",
+        "normal",
+        "expanded",
+        "disabled",
+        "focus"
+      ],
+      "events": [
+        "selectionChange"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.field.normal",
+          "required": true
+        },
+        {
+          "role": "skin.field.focused",
+          "required": true
+        },
+        {
+          "role": "skin.surface.popup",
+          "required": true
+        },
+        {
+          "role": "skin.item.normal",
+          "required": true
+        },
+        {
+          "role": "skin.item.selected",
+          "required": true
+        },
+        {
+          "role": "skin.select.chevron",
+          "required": true
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T06"
+      ],
+      "metadataRequirements": "字段/菜单分别定义内容区、选项尺寸、指示位置、弹出定位/边界；指示来源沿用 Q02"
+    },
+    {
+      "type": "Slider",
+      "recipeId": "slider",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.slider",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "Slider"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "min": {
+            "type": "number",
+            "default": 0
+          },
+          "max": {
+            "type": "number",
+            "default": 100
+          },
+          "step": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "default": 1
+          },
+          "value": {
+            "type": "number",
+            "default": 0
+          },
+          "showValue": {
+            "type": "boolean",
+            "default": false
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [
+        {
+          "kind": "range",
+          "fields": [
+            "min",
+            "max",
+            "value"
+          ]
+        },
+        {
+          "kind": "quantized",
+          "fields": [
+            "min",
+            "max",
+            "value",
+            "step"
+          ]
+        }
+      ],
+      "states": [
+        "minimum",
+        "intermediate",
+        "maximum",
+        "dragging",
+        "disabled",
+        "focus"
+      ],
+      "events": [
+        "valueInput",
+        "valueCommit"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.bar.track",
+          "required": true
+        },
+        {
+          "role": "skin.bar.fill",
+          "required": true
+        },
+        {
+          "role": "skin.slider.thumb.normal",
+          "required": true
+        },
+        {
+          "role": "skin.slider.thumb.pressed",
+          "required": true
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [
+        "sliderTravel",
+        "barFill"
+      ],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T07"
+      ],
+      "metadataRequirements": "fillBox、端帽策略、滑块最小/最大中心、命中范围；数值标签使用文字样式"
+    },
+    {
+      "type": "ProgressBar",
+      "recipeId": "progress-bar",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.progress-bar",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "ProgressBar"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "min": {
+            "type": "number",
+            "default": 0
+          },
+          "max": {
+            "type": "number",
+            "default": 100
+          },
+          "value": {
+            "type": "number",
+            "default": 0
+          },
+          "showValue": {
+            "type": "boolean",
+            "default": false
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [
+        {
+          "kind": "range",
+          "fields": [
+            "min",
+            "max",
+            "value"
+          ]
+        }
+      ],
+      "states": [
+        "minimum",
+        "intermediate",
+        "maximum"
+      ],
+      "events": [],
+      "skinRoles": [
+        {
+          "role": "skin.bar.track",
+          "required": true
+        },
+        {
+          "role": "skin.bar.fill",
+          "required": true
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [
+        "barFill"
+      ],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T08"
+      ],
+      "metadataRequirements": "fillBox、端帽策略、有效伸缩长度；不得把整张填充连边框一起压缩"
+    },
+    {
+      "type": "ScrollView",
+      "recipeId": "scroll-view",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.scroll-view",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "ScrollBox"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "axis": {
+            "type": "string",
+            "enum": [
+              "vertical"
+            ],
+            "default": "vertical"
+          },
+          "initialOffsetY": {
+            "type": "number",
+            "default": 0,
+            "minimum": 0
+          },
+          "scrollbar": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "always",
+              "hidden"
+            ],
+            "default": "auto"
+          }
+        },
+        "required": []
+      },
+      "rules": [],
+      "states": [
+        "empty",
+        "fitted",
+        "overflow",
+        "dragging",
+        "disabled"
+      ],
+      "events": [
+        "scroll"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.surface.content",
+          "required": false
+        },
+        {
+          "role": "skin.scrollbar.track",
+          "required": true,
+          "when": {
+            "prop": "scrollbar",
+            "notEquals": "hidden"
+          }
+        },
+        {
+          "role": "skin.scrollbar.thumb",
+          "required": true,
+          "when": {
+            "prop": "scrollbar",
+            "notEquals": "hidden"
+          }
+        }
+      ],
+      "textStyles": [],
+      "geometryRefs": [
+        "scrollbarTravel"
+      ],
+      "slots": [
+        {
+          "name": "content",
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "pixi-ui-scrollbox",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T09"
+      ],
+      "metadataRequirements": "视口与条轨偏移、滑块最小长度和切片、条块与内容比例映射；hidden 配方可以不依赖条轨素材"
+    },
+    {
+      "type": "List",
+      "recipeId": "list",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.list",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "List"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "default": ""
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "slotIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 99
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 999999
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                "icon": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "gem",
+                    "potion",
+                    "coin",
+                    "material",
+                    "scroll",
+                    "sword",
+                    "shield",
+                    "food",
+                    null
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ]
+            },
+            "default": []
+          },
+          "itemRecipeRef": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]*@[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "selectedId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+            "default": null
+          },
+          "selection": {
+            "type": "string",
+            "enum": [
+              "none",
+              "single"
+            ],
+            "default": "single"
+          },
+          "gapToken": {
+            "type": "string",
+            "default": "controlGap"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "inventory": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "columns": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "gap": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32
+              },
+              "details": {
+                "type": "string",
+                "enum": [
+                  "right",
+                  "below"
+                ]
+              },
+              "appearance": {
+                "type": "string",
+                "enum": [
+                  "slots"
+                ]
+              },
+              "cellSize": {
+                "type": "integer",
+                "minimum": 48,
+                "maximum": 256
+              },
+              "initialSlot": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 99
+              }
+            },
+            "required": [
+              "columns",
+              "rows",
+              "gap",
+              "details"
+            ]
+          }
+        },
+        "required": [
+          "itemRecipeRef"
+        ]
+      },
+      "rules": [
+        {
+          "kind": "selection",
+          "fields": [
+            "items",
+            "selectedId"
+          ]
+        },
+        {
+          "kind": "no-selection",
+          "fields": [
+            "selection",
+            "selectedId"
+          ]
+        },
+        {
+          "kind": "recipe-ref",
+          "fields": [
+            "itemRecipeRef"
+          ]
+        }
+      ],
+      "states": [
+        "empty",
+        "unselected",
+        "selected",
+        "disabled",
+        "focus"
+      ],
+      "events": [
+        "selectionChange"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.item.normal",
+          "required": true
+        },
+        {
+          "role": "skin.item.selected",
+          "required": true
+        },
+        {
+          "role": "skin.surface.content",
+          "required": false
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [
+        {
+          "name": "items",
+          "min": 0,
+          "max": null
+        }
+      ],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "pixi-ui-list",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T10"
+      ],
+      "metadataRequirements": "条目内边距、最小高度、选择派生和 itemRecipe 内容区；滚动依赖通过组合递归收集"
+    },
+    {
+      "type": "Dialog",
+      "recipeId": "dialog",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.dialog",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "Dialog"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "title": {
+            "type": "string",
+            "default": ""
+          },
+          "open": {
+            "type": "boolean",
+            "default": false
+          },
+          "modal": {
+            "type": "boolean",
+            "default": true
+          },
+          "closeOnBackdrop": {
+            "type": "boolean",
+            "default": false
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "default": ""
+                },
+                "variant": {
+                  "type": "string",
+                  "enum": [
+                    "primary",
+                    "secondary",
+                    "compact"
+                  ],
+                  "default": "primary"
+                },
+                "closeOnActivate": {
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ]
+            },
+            "default": []
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [
+        {
+          "kind": "unique-ids",
+          "fields": [
+            "actions"
+          ]
+        }
+      ],
+      "states": [
+        "closed",
+        "open",
+        "modal",
+        "non-modal"
+      ],
+      "events": [
+        "action",
+        "closed"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.surface.panel",
+          "required": true
+        },
+        {
+          "role": "skin.surface.bar",
+          "required": false
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [
+        {
+          "name": "content",
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [
+        "button@1.0.0",
+        "text@1.0.0"
+      ],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T11"
+      ],
+      "metadataRequirements": "底板切片、标题/内容/操作区边距、遮罩参数；动画不改变稳定布局基准"
+    },
+    {
+      "type": "Tabs",
+      "recipeId": "tabs",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.tabs",
+      "library": {
+        "package": "@pixi/ui",
+        "exportName": "Switcher"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "tabs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "default": ""
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "contentNodeId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "contentNodeId"
+              ]
+            },
+            "default": []
+          },
+          "activeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+            "default": null
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [
+        {
+          "kind": "selection-required",
+          "fields": [
+            "tabs",
+            "activeId"
+          ]
+        },
+        {
+          "kind": "unique-content",
+          "fields": [
+            "tabs"
+          ]
+        }
+      ],
+      "states": [
+        "empty",
+        "unselected",
+        "selected",
+        "disabled",
+        "focus"
+      ],
+      "events": [
+        "selectionChange"
+      ],
+      "skinRoles": [
+        {
+          "role": "skin.tab.normal",
+          "required": true
+        },
+        {
+          "role": "skin.tab.selected",
+          "required": true
+        },
+        {
+          "role": "skin.surface.content",
+          "required": false
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [
+        {
+          "name": "pages",
+          "min": 0,
+          "max": null
+        }
+      ],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [
+        "button@1.0.0"
+      ],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T12"
+      ],
+      "metadataRequirements": "页签切片/最小尺寸、标签区、页签间距；标签/内容均按稳定页 ID 映射"
+    },
+    {
+      "type": "Image",
+      "recipeId": "image",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.image",
+      "library": {
+        "package": "pixi.js",
+        "exportName": "Sprite"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sourceRef": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+            "minLength": 1
+          },
+          "fit": {
+            "type": "string",
+            "enum": [
+              "contain",
+              "cover",
+              "fill"
+            ],
+            "default": "contain"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "center"
+            ],
+            "default": "center"
+          }
+        },
+        "required": [
+          "sourceRef"
+        ]
+      },
+      "rules": [
+        {
+          "kind": "resource-ref",
+          "fields": [
+            "sourceRef"
+          ]
+        }
+      ],
+      "states": [
+        "visible",
+        "hidden",
+        "resource-change"
+      ],
+      "events": [],
+      "skinRoles": [],
+      "textStyles": [],
+      "geometryRefs": [],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T13"
+      ],
+      "metadataRequirements": "资源固有尺寸、fit/裁切方式；不在通用皮肤包生成业务图片"
+    },
+    {
+      "type": "Text",
+      "recipeId": "text",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.text",
+      "library": {
+        "package": "pixi.js",
+        "exportName": "Text"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "default": ""
+          },
+          "textStyleRef": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+            "minLength": 1
+          },
+          "wrap": {
+            "type": "string",
+            "enum": [
+              "none",
+              "word"
+            ],
+            "default": "word"
+          },
+          "overflow": {
+            "type": "string",
+            "enum": [
+              "clip",
+              "ellipsis",
+              "error"
+            ],
+            "default": "error"
+          },
+          "align": {
+            "type": "string",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "default": "left"
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": [
+          "textStyleRef"
+        ]
+      },
+      "rules": [
+        {
+          "kind": "text-style-ref",
+          "fields": [
+            "textStyleRef"
+          ]
+        }
+      ],
+      "states": [
+        "visible",
+        "hidden",
+        "content-change"
+      ],
+      "events": [],
+      "skinRoles": [],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T14"
+      ],
+      "metadataRequirements": "字体、字重、字号/行高、回退与语言覆盖；测量与溢出策略"
+    },
+    {
+      "type": "Container",
+      "recipeId": "container",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.container",
+      "library": {
+        "package": "@pixi/layout/components",
+        "exportName": "LayoutContainer"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {},
+        "required": []
+      },
+      "rules": [],
+      "states": [
+        "visible",
+        "hidden",
+        "layout-change"
+      ],
+      "events": [],
+      "skinRoles": [],
+      "textStyles": [],
+      "geometryRefs": [],
+      "slots": [
+        {
+          "name": "children",
+          "min": 0,
+          "max": null
+        }
+      ],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "pixi-layout",
+        "childrenModes": [
+          "flow",
+          "free"
+        ]
+      },
+      "composedRecipes": [],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T15"
+      ],
+      "metadataRequirements": "布局规则与模式；不伪造占位 PNG 来满足统一资产数量"
+    },
+    {
+      "type": "Panel",
+      "recipeId": "panel",
+      "recipeVersion": "1.0.0",
+      "adapterId": "pixi.panel",
+      "library": {
+        "package": "@pixi/layout/components",
+        "exportName": "LayoutContainer"
+      },
+      "propsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "default": ""
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "default"
+            ],
+            "default": "default"
+          },
+          "pixelsPerUnitMultiplier": {
+            "type": "number",
+            "minimum": 0.125,
+            "maximum": 16,
+            "default": 1
+          },
+          "backgroundRef": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^background-[1-9][0-9]*$",
+            "default": null
+          },
+          "contentPadding": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "left": {
+                "type": "number",
+                "minimum": 0
+              },
+              "right": {
+                "type": "number",
+                "minimum": 0
+              },
+              "top": {
+                "type": "number",
+                "minimum": 0
+              },
+              "bottom": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "left",
+              "right",
+              "top",
+              "bottom"
+            ],
+            "default": null
+          },
+          "fontSize": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 96
+          },
+          "textColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "required": []
+      },
+      "rules": [],
+      "states": [
+        "visible",
+        "hidden",
+        "layout-change"
+      ],
+      "events": [],
+      "skinRoles": [
+        {
+          "role": "skin.surface.panel",
+          "required": true
+        },
+        {
+          "role": "skin.surface.content",
+          "required": false
+        },
+        {
+          "role": "skin.surface.bar",
+          "required": false
+        }
+      ],
+      "textStyles": [
+        "body"
+      ],
+      "geometryRefs": [],
+      "slots": [
+        {
+          "name": "content",
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "layoutCapabilities": {
+        "outer": "pixi-layout",
+        "childrenOwner": "adapter",
+        "childrenModes": []
+      },
+      "composedRecipes": [
+        "text@1.0.0"
+      ],
+      "acceptanceCaseIds": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "T16"
+      ],
+      "metadataRequirements": "底板切片、最小尺寸、安全内容区、标题区与可覆盖边距的限制"
+    }
+  ]
+}

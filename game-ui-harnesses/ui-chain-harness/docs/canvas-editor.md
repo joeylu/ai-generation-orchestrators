@@ -1,0 +1,64 @@
+# 本地画布编辑器：使用与维护
+
+本文记录独立 fixture 编辑器的使用与维护，主要对应下方 `npm run editor` 入口。全部 16 类组件复用同一套 PixiUI/PixiJS/Layout 适配；工具栏和属性表单使用 DOM。当前 Studio 已另接真实皮肤生产、AI 面板生成与保存编辑副本，使用方法见[本地 Studio](local-studio.md)及[面板画布编辑](panel-size-editor.md)，全链路人工验收见[验收指南](acceptance.md)。
+
+早期阶段的暂缓决定及检查次数仅保留在[执行记录](execution-plan.md)，不代表当前 Studio 的实现状态或本次接受结论。下文的 fixture 入口、JSON 保存方式与 Studio 副本存储是各自独立的用途。
+
+## 启动
+
+九宫格素材编辑已按后续专项授权接入顶部入口，新标签页打开同一版本的 `/slice.html`。工具导出的背景包可在所选 Panel 属性区导入，随画布 JSON 保存；Panel 拖动时实时更新背景，也可在属性区导出当前背景 PNG。详见 [九宫格维护](slicing.md)；整体画布继续打磨仍按既有优先级安排。
+
+九宫格页的“自适应验收”入口打开 `/slice-runtime.html`，提供复用同一背景的独立消费示例：只修改原生 LayoutContainer 父布局，内部背景跟随计算尺寸，保持按钮/文字大小，并导出当前背景 PNG。它与画布创作文档分开，不写回文档或增加文档百分比尺寸规则。
+
+在 ui-chain-harness 目录执行：
+
+```powershell
+npm run editor:check -- --browser chrome
+npm run editor
+```
+
+打开 [本地画布](http://127.0.0.1:4175)。第二条命令只提供当前静态文件；按 Ctrl+C 停止。端口冲突时用 `npm run editor -- --port 4176`。只监听 127.0.0.1，不提供文件写入 API，不连接模型或远程服务。字体与脚本内联，不依赖 CDN。
+
+`editor:status` 检查来源与文件摘要；current 不等于人工接受。`editor:build` 仅静态构建，标为 built-unverified；`editor:check` 通过离线浏览器检查后标为 offline-acceptance-passed。失败保留 .staging 候选，不覆盖当前版本。不要手动修改构建记录、current 或测试报告。异常退出后，确认无构建进程仍运行才可清理 .build.lock。
+
+## 建议验收顺序
+
+1. 在横版预设中选中说明文字，拖动位置，拖右下角改尺寸；试一次撤销和重做。
+2. 选中“设置内容 · 预设纵向”，拖动开关或输入框调整同级顺序。流式区域不产生手动坐标。
+3. 选择“画板”或某个 Container，再点组件库添加组件。16 类均可添加；复合组件附带自己的内容子树。复制、删除可撤销。
+4. 在属性栏修改文案、值、选项或布局后点“应用修改”。非法尺寸、越界和无效引用会保留原画面与原文档。
+5. 切到试玩，操作开关、滑条、输入框和下拉；切回编辑应恢复创作默认值。业务事件可在右侧展开查看。
+6. 保存 JSON，再通过“打开 JSON”重开；切换竖版预设检查同样流程。
+
+缩放选择 100% 可按逻辑像素检查；空格/中键平移、Ctrl+滚轮缩放仅改变编辑视图。8px 吸附可关闭。流式容器支持方向、间距、内边距与横轴对齐；自由区域允许局部定位和层级排序。切换两种区域类型是可撤销事务：转自由时保留当前可见位置，转流式时移除手动位置并验证是否放得下。
+
+首版为单选编辑，不包含任意跨父级拖放、旋转、多选、自然语言修改和自动保存到磁盘。刷新前用“保存 JSON”下载。预设切换可撤销；横竖预设是独立布局，不承诺直接交换宽高即可转换任意面板。
+
+## 唯一维护入口
+
+| 维护内容 | 源 | 影响 |
+| --- | --- | --- |
+| 部件模板 | [skin-template-set.draft.json](../configs/skin-template-set.draft.json) | 独立部件 PNG 与程序皮肤形状 |
+| 组件能力与可编辑属性 | [component-registry.draft.json](../configs/component-registry.draft.json) | 配方库、属性表单、属性校验、槽位约束和事件 |
+| 角色映射 | [skin-usage.draft.json](../configs/skin-usage.draft.json) | 皮肤消费与导出引用检查 |
+| 工程皮肤数值 | [neutral.skin.json](../fixtures/neutral.skin.json) | 测试配色、字体和几何；不覆盖正式元数据 |
+| 添加组件时的示例子树 | [editor-blocks.json](../configs/editor-blocks.json) | 同类型配方复用示例；真正新类型需新适配和示例 |
+| 横竖画布 | [canvas-presets.json](../configs/canvas-presets.json) | 当前工程默认 1280×720 / 720×1280；保留 16:9 / 9:16 校验 |
+| 预设面板内容 | [panel-presets.json](../configs/panel-presets.json) | 预设菜单及初始树；不改编辑器代码 |
+| 用户编辑结果 | 下载的 PanelDocument JSON | 唯一创作源；运行值与相机不写入 |
+
+改动后运行相应合同检查及 `editor:check`，重启静态服务以加载新的构建。生成的 index.html 和截图不是维护源。增加已有组件的配方不需要再在界面写一份组件名单；属性表单直接读取注册 Schema。集合/对象属性暂以 JSON 文本编辑并统一校验。
+
+## 文档、事务与导出
+
+[PanelDocument Schema](../schemas/panel-document.schema.json) 支持 0.1、0.2 和 0.3：画布预设、稳定 ID、配方引用、props、size、layout、position、锁定状态和命名 slots；0.2 增加可移植 panelBackgrounds，0.3 增加增强布局、sizing 与 surfaceStyle。节点最多 256 个、嵌套最多 16 层；单一所有权、无环、无孤立节点。此 fixture 编辑器的导入上限为 12 MiB，背景资源限制见九宫格维护。结构必须匹配对应工程绑定；错版明确拒绝，通用迁移工具未实现。
+
+`src/panel/document.mjs` 负责结构与引用校验；`prepare.mjs` 获取通过摘要校验的背景资源；`compiler.mjs` 后序创建完整内容树，复用 `src/runtime/`，并检查实际布局边界。`session.mjs` 在候选文档和候选渲染都通过之后提交；旧视图最后销毁，再释放它持有的资源。拖动释放只提交一次，撤销历史最多 100 步；过期 revision 与并发编辑拒绝。
+
+List 可使用旧的 Button 数据行，或通过 items 槽显式提供任意已支持配方的复合条目。每个数据项与同序子树一一对应。single 模式由整行拥有选择操作，none 模式将交互交给子控件，避免一个手势重复处理。此首版不在画布里自动同步任意集合子树的新增/排序；复杂集合可从完整 JSON 导入，槽位不一致时拒绝。
+
+保存 JSON 输出创作文档，含已导入的自定义背景原图。导出面板包增加递归配方、角色、资产、背景摘要与文字样式引用清单，并保留 sourceKind=fixture 和工程摘要。**除自定义背景外，它仍依赖本工程的程序皮肤、字体与锁定运行时，不是独立生产包。** 引用清单由程序计算，不作为另一份手工维护源。
+
+编辑相机使用独立的 DOM 视图变换，逻辑坐标转换集中在编辑器；没有增加 pixi-viewport 依赖。@pixi/layout 继续负责面板流式与绝对布局，PixiUI 负责控件交互。此方案满足当前桌面平移/缩放需要；需要触摸双指或更复杂相机时再接 viewport，避免与控件滚动争抢输入。
+
+真实 IME、移动键盘/触摸和跨主题美术接受仍需相应设备与人工检查。Studio 的真实字体/皮肤交付及 AI 初稿已接通，但不能由 fixture 编辑器的软件浏览器通过推断其实际生成质量；按[验收指南](acceptance.md)分别记录。

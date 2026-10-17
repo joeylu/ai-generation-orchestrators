@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ui-skin-style-draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "id", "revision", "status", "name", "referenceSummary", "palette", "observedRules", "extensionRules", "partRules"],
+  "properties": {
+    "kind": { "const": "ui_skin_style_draft" },
+    "version": { "const": "0.1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "status": { "const": "draft" },
+    "name": { "$ref": "#/definitions/text" },
+    "referenceSummary": { "$ref": "#/definitions/text" },
+    "palette": {
+      "type": "object", "additionalProperties": false,
+      "required": ["basis", "colors"],
+      "properties": {
+        "basis": { "enum": ["visual-estimate-not-colorimetric-sampling", "reference-only-no-analysis"] },
+        "colors": { "type": "object", "maxProperties": 32,
+          "propertyNames": { "pattern": "^[a-z][a-zA-Z0-9]{0,31}$" },
+          "additionalProperties": { "type": "string", "pattern": "^#[a-fA-F0-9]{6}$" } }
+      },
+      "allOf": [{"if":{"properties":{"basis":{"const":"visual-estimate-not-colorimetric-sampling"}}},"then":{"properties":{"colors":{"type":"object","minProperties":1}}},"else":{"properties":{"colors":{"type":"object","maxProperties":0}}}}]
+    },
+    "observedRules": { "$ref": "#/definitions/rules" },
+    "extensionRules": { "$ref": "#/definitions/rules" },
+    "partRules": {
+      "type": "array", "minItems": 1, "maxItems": 256,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["match", "appearance"],
+        "properties": {
+          "match": {
+            "type": "object", "additionalProperties": false,
+            "minProperties": 1, "maxProperties": 1,
+            "properties": {
+              "assetId": { "type": "string", "pattern": "^[a-z][a-z0-9.-]{0,127}$" },
+              "assetPrefix": { "type": "string", "pattern": "^[a-z][a-z0-9.-]{0,127}$" }
+            }
+          },
+          "appearance": { "$ref": "#/definitions/text" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "rules": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "$ref": "#/definitions/text" } }
+  }
+}

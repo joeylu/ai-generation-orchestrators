@@ -1,0 +1,155 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "id": "concept-art",
+      "name": "概念图风格",
+      "revision": "1.0.0",
+      "image": "assets/studio-styles/concept-art.png",
+      "sha256": "b0a5aed05fc86e5bc39b070dbc7e999c3f8d2da25d5a110838747e512a6a34cc",
+      "palette": {
+        "background": "#E8ECF1",
+        "primary": "#4476B4",
+        "secondary": "#8B9CAF",
+        "surface": "#FAFBFD",
+        "text": "#1D2C40"
+      },
+      "rules": [
+        "中等饱和度，清晰明度层级；项目 palette 固定实际颜色，不默认霓虹或电影调色。",
+        "柔和、中性、稳定的照明。",
+        "清晰轻描边或弱描边；避免强烈漫画墨线。",
+        "金属、木材、塑料等基础材质可辨，不过度写实。",
+        "适合游戏面板的清晰完整 2D 资产。",
+        "稳定、易识别的框体与控件轮廓，细节适中。",
+        "适量细节，无高频噪点、重笔触和胶片颗粒。",
+        "中性、干净、易读、不强调特定流派的 2D 游戏 UI。"
+      ],
+      "sourceStyleSha256": "2473ae3fc27938ea6937bf8cebaebdb1024e1d5bf84c7ad1ec8e5c495bcdcef4"
+    },
+    {
+      "id": "pixel-cartoon",
+      "name": "像素卡通",
+      "revision": "1.0.0",
+      "image": "assets/studio-styles/pixel-cartoon.png",
+      "sha256": "e6d081f9f3c3d40d8acc5965546fc53a6477ec2b8a2e149608369ab0092efcab",
+      "palette": {
+        "background": "#20263D",
+        "primary": "#F4C95D",
+        "secondary": "#79BDB1",
+        "surface": "#384563",
+        "text": "#F4F1DB"
+      },
+      "rules": [
+        "有限色板，避免连续渐变；每种基础材质最多三个明暗色阶。",
+        "固定三档明暗分组，不使用平滑光晕。",
+        "像素块边缘定义轮廓，不使用平滑矢量线。",
+        "通过色块和少量高光像素区分材质。",
+        "精致、易读的像素卡通 UI；像素网格是否一致须人工检查。",
+        "阶梯形轮廓和高度抽象细节，小尺寸仍易识别。",
+        "硬像素，无抗锯齿、摄影噪点或连续笔触。",
+        "清晰、有限色板、像素边缘明确的 2D 卡通游戏 UI。"
+      ],
+      "sourceStyleSha256": "f4e814a3f0ac8f5695171cbb71592a78c080c8efdf5a764be4f5d06131c37364"
+    },
+    {
+      "id": "anime-cel",
+      "name": "日系赛璐璐",
+      "revision": "1.0.0",
+      "image": "assets/studio-styles/anime-cel.png",
+      "sha256": "caaf95d58a0af466d8ba303782c00d56f9ba947ac44ed4de0d6716d6465cec94",
+      "palette": {
+        "background": "#E9EEF9",
+        "primary": "#657FDE",
+        "secondary": "#E9A9C4",
+        "surface": "#FFFFFF",
+        "text": "#23365A"
+      },
+      "rules": [
+        "中高饱和、清晰色块；渐变和局部高光克制。",
+        "稳定主光加一至两层硬边赛璐璐阴影。",
+        "细到中等粗细的清晰线，局部线宽变化，无厚重墨线。",
+        "简化色块与高光区分材质，无高频真实纹理。",
+        "商业日系游戏 UI 的清晰完成度。",
+        "清楚、有层次的框体和控件轮廓，不改变原型几何。",
+        "低纹理噪点，表面干净。",
+        "干净线稿和简洁赛璐璐阴影的日系 2D 游戏 UI。"
+      ],
+      "sourceStyleSha256": "9f60a0321340afa6ab368da1d9b06df68f07614c6109d81b6e5848bb6d118395"
+    },
+    {
+      "id": "western-cartoon",
+      "name": "欧美卡通",
+      "revision": "1.0.0",
+      "image": "assets/studio-styles/western-cartoon.png",
+      "sha256": "cc849b2d40e097682a4332fa50cd2024cee8ccf09f609c21237a953d222347a8",
+      "palette": {
+        "background": "#C4E4F1",
+        "primary": "#EF9951",
+        "secondary": "#5CA6A0",
+        "surface": "#FFF3D8",
+        "text": "#303B52"
+      },
+      "rules": [
+        "中高饱和、可读配色、明确明暗分组。",
+        "柔和卡通照明，简洁阴影块面。",
+        "中等偏粗、有弹性的轮廓线，项目内线宽关系固定。",
+        "简化材质，以形体和色块表现表面。",
+        "休闲冒险类 2D 游戏 UI 完成度。",
+        "几何形体清晰、控件饱满；夸张仅限边界内绘制，保留原型矩形。",
+        "少量纹理，保持干净。",
+        "亲和、轮廓清晰、形状饱满的欧美卡通游戏 UI。"
+      ],
+      "sourceStyleSha256": "c778922a5e32ec9924a31ab4ea6c1127b7f98b125fde636874feae344d6aef9d"
+    },
+    {
+      "id": "fantasy-handpainted",
+      "name": "幻想手绘",
+      "revision": "1.0.0",
+      "image": "assets/studio-styles/fantasy-handpainted.png",
+      "sha256": "2f2e01b9a0387df131dbeebc45f90858754f2077e372bf77dcb7e3c4a4f04c2e",
+      "palette": {
+        "background": "#242F3D",
+        "primary": "#B68842",
+        "secondary": "#668E87",
+        "surface": "#E3D7BB",
+        "text": "#302A26"
+      },
+      "rules": [
+        "中等饱和、冷暖关系丰富；主交互可有局部高饱和焦点。",
+        "柔和定向光，适度体积感与环境光。",
+        "弱描边或局部描边，以明暗和边缘控制表现框体。",
+        "木材、皮革、金属、布料以手绘方式区分，不过度写实。",
+        "高品质奇幻 RPG 面板插画完成度。",
+        "框体、控件边缘有适度奇幻层次，服从原型几何。",
+        "轻微笔触和材质纹理，无高频噪点。",
+        "结构清晰、有绘画感和材质层次的奇幻游戏 UI。"
+      ],
+      "sourceStyleSha256": "a59f05aaebe1ccb84a44981fbce4f407ec926ad4ca1486ad73d71923edccbabb"
+    },
+    {
+      "id": "chinese-fantasy",
+      "name": "国风幻想",
+      "revision": "1.0.0",
+      "image": "assets/studio-styles/chinese-fantasy.png",
+      "sha256": "b930f5edd0cb85c75543a556e7017d14cafc8098e5700b6168754d9cc540f9dc",
+      "palette": {
+        "background": "#E3E7DA",
+        "primary": "#437C75",
+        "secondary": "#B99355",
+        "surface": "#F5F0DD",
+        "text": "#273E3A"
+      },
+      "rules": [
+        "玉石、墨色、朱红、青绿、金色关系协调；具体项目颜色以 palette 为准。",
+        "柔和含蓄的氛围光，保持信息与控件可读性。",
+        "细致、克制、流畅的线条，局部弱化。",
+        "纸绢、玉石、木金以插画方式表现。",
+        "现代国风幻想游戏 UI 完成度。",
+        "框体层次清楚，以东方纹样节奏组织边界内装饰，不重排控件。",
+        "轻微纸感和笔触，不破坏边缘与同项目一致性。",
+        "克制线条、协调色彩和东方纹样的现代国风幻想游戏 UI。"
+      ],
+      "sourceStyleSha256": "f72571b16fe720e9fc5e476397413e80970bcedad27d0c00692c397218e560fa"
+    }
+  ]
+}

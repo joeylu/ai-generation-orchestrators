@@ -1,0 +1,235 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "version",
+    "id",
+    "revision",
+    "sourceKind",
+    "theme",
+    "sheets",
+    "parts",
+    "fonts",
+    "licenses"
+  ],
+  "properties": {
+    "kind": {
+      "const": "ui_skin_import"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "sourceKind": {
+      "enum": [
+        "fixture",
+        "imported"
+      ]
+    },
+    "surfaceStyles": { "type": "object" },
+    "materials": { "type": "array", "maxItems": 32, "items": { "type": "object" } },
+    "theme": {
+      "$ref": "runtime-theme"
+    },
+    "sheets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sheetId",
+          "file"
+        ],
+        "properties": {
+          "sheetId": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "parts": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 256,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nineSlice",
+          "contentInsets",
+          "minSize"
+        ],
+        "properties": {
+          "nineSlice": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "left",
+              "top",
+              "right",
+              "bottom"
+            ],
+            "properties": {
+              "left": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096
+              },
+              "top": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096
+              },
+              "right": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096
+              },
+              "bottom": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096
+              }
+            }
+          },
+          "contentInsets": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "left",
+              "top",
+              "right",
+              "bottom"
+            ],
+            "properties": {
+              "left": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096
+              },
+              "top": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096
+              },
+              "right": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096
+              },
+              "bottom": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096
+              }
+            }
+          },
+          "minSize": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "width",
+              "height"
+            ],
+            "properties": {
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4096
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4096
+              }
+            }
+          },
+          "density": {
+            "type": "number",
+            "minimum": 0.25,
+            "maximum": 64,
+            "description": "Texture pixels per template logical unit, additional to sheet outputScale; omitted means 1."
+          }
+        }
+      }
+    },
+    "fonts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "family",
+          "weight",
+          "style",
+          "unicodeRange",
+          "file"
+        ],
+        "properties": {
+          "family": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9 -]{0,63}$"
+          },
+          "weight": {
+            "const": 400
+          },
+          "style": {
+            "const": "normal"
+          },
+          "unicodeRange": {
+            "type": "string",
+            "pattern": "^U\\+[0-9A-Fa-f?-]+(?:,U\\+[0-9A-Fa-f?-]+)*$"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 256
+    },
+    "licenses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 8
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

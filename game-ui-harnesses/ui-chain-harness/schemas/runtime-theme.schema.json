@@ -1,0 +1,158 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fontFamily",
+    "fontSize",
+    "palette",
+    "padding",
+    "gap",
+    "markSize",
+    "trackHeight",
+    "thumbSize",
+    "itemHeight",
+    "disabledAlpha",
+    "hoverTint",
+    "geometry"
+  ],
+  "properties": {
+    "fontFamily": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9 -]{0,63}$"
+    },
+    "fontSize": {
+      "type": "number",
+      "minimum": 8,
+      "maximum": 72
+    },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base",
+        "active",
+        "mark",
+        "stroke",
+        "text"
+      ],
+      "properties": {
+        "base": {
+          "$ref": "#/definitions/color"
+        },
+        "active": {
+          "$ref": "#/definitions/color"
+        },
+        "mark": {
+          "$ref": "#/definitions/color"
+        },
+        "stroke": {
+          "$ref": "#/definitions/color"
+        },
+        "text": {
+          "$ref": "#/definitions/color"
+        }
+      }
+    },
+    "padding": {
+      "$ref": "#/definitions/positive"
+    },
+    "gap": {
+      "$ref": "#/definitions/nonnegative"
+    },
+    "markSize": {
+      "$ref": "#/definitions/positive"
+    },
+    "trackHeight": {
+      "$ref": "#/definitions/positive"
+    },
+    "thumbSize": {
+      "$ref": "#/definitions/positive"
+    },
+    "itemHeight": {
+      "$ref": "#/definitions/positive"
+    },
+    "disabledAlpha": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "hoverTint": {
+      "$ref": "#/definitions/color"
+    },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "labelGap",
+        "titleGap",
+        "lineHeight",
+        "scrollbarWidth",
+        "scrollbarGap",
+        "minThumbLength",
+        "tabGap",
+        "indicatorWidth",
+        "indicatorHeight",
+        "minContent"
+      ],
+      "properties": {
+        "labelGap": {
+          "$ref": "#/definitions/nonnegative"
+        },
+        "titleGap": {
+          "$ref": "#/definitions/nonnegative"
+        },
+        "lineHeight": {
+          "$ref": "#/definitions/positive"
+        },
+        "scrollbarWidth": {
+          "$ref": "#/definitions/positive"
+        },
+        "scrollbarGap": {
+          "$ref": "#/definitions/nonnegative"
+        },
+        "minThumbLength": {
+          "$ref": "#/definitions/positive"
+        },
+        "tabGap": {
+          "$ref": "#/definitions/nonnegative"
+        },
+        "indicatorWidth": {
+          "$ref": "#/definitions/positive"
+        },
+        "indicatorHeight": {
+          "$ref": "#/definitions/positive"
+        },
+        "minContent": {
+          "$ref": "#/definitions/positive"
+        }
+      }
+    },
+    "textColors": {
+      "additionalProperties": false,
+      "minProperties": 1,
+      "type": "object",
+      "patternProperties": {
+        "^skin\\.(surface\\.|button\\.|field\\.|item\\.|slot\\.|tab\\.)[a-zA-Z0-9.-]+$": {
+          "$ref": "#/definitions/color"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "positive": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 4096
+    },
+    "nonnegative": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 4096
+    }
+  }
+}

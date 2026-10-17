@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "intentVersion": "0.12",
+  "themeKey": "modern-mint-light@0.21.0",
+  "recipes": {
+    "switch": "settings.switch@0.1.0",
+    "slider": "settings.slider@0.1.0",
+    "select": "settings.select@0.1.0"
+  },
+  "closeLabel": "关闭"
+}

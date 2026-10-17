@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>双皮肤组件验收</title>
+<style>body{margin:0;background:#111b29;color:#e7eef8;font:15px system-ui}header{padding:16px 20px;border-bottom:1px solid #364253}h1{font-size:19px;margin:0 0 12px}label{display:inline-block;margin:4px 16px 4px 0}select{padding:6px;background:#243348;color:white;border:1px solid #62738b;border-radius:4px}#status{margin:12px 0 0;color:#bbcbe0}#stage{overflow:auto}canvas{display:block}small{display:block;margin-top:8px;color:#a9b8ca}</style>
+<header><h1>两套皮肤 · 16 类组件验收</h1>
+<label>皮肤 <select id="skin"></select></label>
+<label>画布 <select id="orientation"><option value="wide">横版 16:9</option><option value="tall">竖版 9:16</option></select></label>
+<label>查看 <select id="component"><option value="all">全部组件</option></select></label>
+<label>宽度 <select id="size"><option value="180">窄 · 180</option><option value="276" selected>标准 · 276</option><option value="420">宽 · 420</option></select></label>
+<label>状态 <select id="state"><option value="initial">初始</option><option value="value">更新值</option><option value="disabled">禁用（适用组件）</option></select></label>
+<p id="status">正在加载…</p><small>全部组件展示横竖总览；选择单个组件后可调整宽度和状态。切换会重置本次交互，不改动配置。</small></header>
+<main id="stage"></main><script type="module" src="review.mjs"></script></html>

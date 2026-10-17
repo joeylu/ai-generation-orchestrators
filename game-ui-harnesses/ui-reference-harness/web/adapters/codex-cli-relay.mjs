@@ -141,6 +141,7 @@ export function createCodexCliRelayAdapter({
   model = "gpt-6-luna",
   effort = "xhigh",
   timeoutMs = 12 * 60 * 1000,
+  transparentBackground = false,
   rpcFactory = (args, options) => new CodexRpc(executable, args, options),
   command = (args) =>
     exec(executable, args, {
@@ -150,6 +151,8 @@ export function createCodexCliRelayAdapter({
     }),
   runner = (options) => runRelayProcess(executable, options),
 } = {}) {
+  if (typeof transparentBackground !== "boolean")
+    throw new Error("CODEX_TRANSPARENCY_BOOLEAN_REQUIRED");
   const root = workspace && path.resolve(workspace),
     home = path.resolve(codexHome);
   const metadata = Object.freeze({ name: "Codex CLI relay", model, effort });
@@ -277,7 +280,7 @@ export function createCodexCliRelayAdapter({
         arguments: {
           prompt: input.prompt,
           num_last_images_to_include: images.length,
-          transparent_background: false,
+          transparent_background: transparentBackground,
         },
         images,
       };
@@ -297,7 +300,7 @@ export function createCodexCliRelayAdapter({
       const prompt =
         `Execute one already-authorized UI reference request ${input.requestSha256}, attempt ${attemptSha256}.\n` +
         "The current attached images are the frozen references in their supplied order. Previous session history is context only.\n" +
-        "Run this code VERBATIM in functions.exec exactly once. Forward structuredContent unchanged, including transparent_background=false.\n" +
+        `Run this code VERBATIM in functions.exec exactly once. Forward structuredContent unchanged, including transparent_background=${transparentBackground}.\n` +
         "If any required tool is missing, denied or fails, stop. No native image fallback, shell, web, API, other MCP, agents or retries.\n" +
         "If exec yields, only functions.wait on the same cell is permitted. Never submit a second image call.\n" +
         relayCode;

@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {fileURLToPath} from 'node:url';
+import * as api from '../src/components-api.mjs';
+const run=promisify(execFile),root=new URL('../',import.meta.url);
+test('component public entry matches current templates, registry and locked dependencies',async()=>{
+ const contract=await api.componentPipelineContract();
+ const read=async f=>JSON.parse(await readFile(new URL(f,root)));
+ const [registry,template,material,pack]=await Promise.all(['configs/component-registry.draft.json','configs/skin-template-set.draft.json','configs/material-template.json','package.json'].map(read));
+ assert.equal(contract.scope,'text-or-reference-to-16-components');
+ assert.deepEqual(contract.entryModes,['existing-image','generate-reference']);
+ assert.equal(contract.referenceGeneration.implemented,true);
+ assert.equal(contract.referenceGeneration.automaticRetry,false);
+ assert.equal(contract.referenceGeneration.humanReviewRequired,true);
+ assert.equal(contract.referenceGeneration.referenceAcceptanceAuthorizesBatch,false);
+ assert.deepEqual(contract.components,registry.recipes.map(r=>r.type));assert.equal(new Set(contract.components).size,16);
+ assert.equal(contract.templates.baseAssets,template.sheets.reduce((n,s)=>n+s.parts.length,0));
+ assert.equal(contract.templates.materialAssets,material.parts.length);
+ assert.equal(contract.runtime.browser.playwrightVersion,pack.dependencies.playwright);
+ assert.equal(contract.runtime.node,pack.engines.node);
+ assert.deepEqual(Object.keys(api).sort(),contract.apiExports.toSorted());
+ assert.equal(contract.http.implemented,false);assert.equal(contract.productionReady,false);
+ assert(contract.outOfScope.includes('panel-generation'));
+});
+test('machine-readable component contract command is read-only and needs no provider or Panel SDK',async()=>{
+ const command=fileURLToPath(new URL('scripts/component-entry.mjs',root));
+ const {stdout}=await run(process.execPath,[command,'contract']);
+ assert.deepEqual(JSON.parse(stdout),await api.componentPipelineContract());
+ await assert.rejects(run(process.execPath,[command,'start']),error=>error.code===1&&JSON.parse(error.stderr).modelCalls===0);
+});

@@ -1,0 +1,11 @@
+{
+  "kind": "ui_material_template",
+  "version": "1.0",
+  "sheetId": "S05",
+  "coordinates": { "width": 1024, "height": 1024, "outputScale": 1 },
+  "parts": [
+    { "assetId": "material.title-band", "slotRect": [48, 48, 928, 176], "bodyRect": [64, 64, 896, 144], "stretch": "horizontal", "purpose": "Primary heading surface; rich accents near the ends, readable central text area." },
+    { "assetId": "material.section-band", "slotRect": [48, 256, 928, 128], "bodyRect": [64, 272, 896, 96], "stretch": "horizontal", "purpose": "Secondary heading surface; quieter than the primary heading, readable central text area." },
+    { "assetId": "material.panel-fill", "slotRect": [48, 416, 544, 544], "bodyRect": [64, 432, 512, 512], "stretch": "tile", "purpose": "Continuous low-contrast panel material, with matching opposite edges for tiling; no frame or large focal object." }
+  ]
+}

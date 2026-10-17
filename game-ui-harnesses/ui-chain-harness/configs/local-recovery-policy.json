@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "maxAutomaticStarts": 3,
+  "retryDelayMs": 5000,
+  "busyDelayMs": 10000,
+  "maxBusyChecks": 90
+}

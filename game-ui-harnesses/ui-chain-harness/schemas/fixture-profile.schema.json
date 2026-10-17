@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "version",
+    "id",
+    "purpose",
+    "fontFamily",
+    "fontSize",
+    "palette",
+    "slice",
+    "padding",
+    "gap",
+    "markSize",
+    "trackHeight",
+    "thumbSize",
+    "itemHeight",
+    "disabledAlpha",
+    "hoverTint",
+    "geometry"
+  ],
+  "properties": {
+    "kind": {
+      "const": "ui_programmatic_skin_fixture"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fontFamily": {
+      "const": "Noto Sans SC"
+    },
+    "fontSize": {
+      "$ref": "runtime-theme#/properties/fontSize"
+    },
+    "palette": {
+      "$ref": "runtime-theme#/properties/palette"
+    },
+    "slice": {
+      "$ref": "runtime-theme#/definitions/positive"
+    },
+    "padding": {
+      "$ref": "runtime-theme#/properties/padding"
+    },
+    "gap": {
+      "$ref": "runtime-theme#/properties/gap"
+    },
+    "markSize": {
+      "$ref": "runtime-theme#/properties/markSize"
+    },
+    "trackHeight": {
+      "$ref": "runtime-theme#/properties/trackHeight"
+    },
+    "thumbSize": {
+      "$ref": "runtime-theme#/properties/thumbSize"
+    },
+    "itemHeight": {
+      "$ref": "runtime-theme#/properties/itemHeight"
+    },
+    "disabledAlpha": {
+      "$ref": "runtime-theme#/properties/disabledAlpha"
+    },
+    "hoverTint": {
+      "$ref": "runtime-theme#/properties/hoverTint"
+    },
+    "geometry": {
+      "$ref": "runtime-theme#/properties/geometry"
+    }
+  }
+}

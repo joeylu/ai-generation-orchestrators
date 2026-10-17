@@ -1,6 +1,15 @@
 # Game UI harnesses
 This category covers HUDs, menus, controls, icons, image layers and UI components.
 
+- [UI component generation chain](ui-chain-harness/docs/component-pipeline.md) —
+  implemented provider-neutral reference-to-16-components pipeline: frozen
+  S01–S04 plans plus optional S05 materials, single-use compute confirmation,
+  deterministic splitting, stretch metadata, material binding, and verified
+  portable PixiUI/Layout component packages. The component release includes
+  [Docker](ui-chain-harness/docs/docker-integration.md) and
+  [Web](ui-chain-harness/docs/web-integration.md) integration contracts;
+  deployment owners implement the external HTTP service. Panel generation is
+  outside this component release. Generated artwork remains a review candidate.
 - [UI references](ui-reference-harness/) — implemented local source preview:
   panel prototype intake, project style revisions, six default/custom UI packs and user style PNG,
   digest-bound generation exchange, native-resolution coordinate mapping,
