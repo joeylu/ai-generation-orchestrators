@@ -44,7 +44,9 @@ export async function deliverCanvasWheel(page,deltaX,deltaY,expression,{scrollCo
  let phase='delivery/render';
  try{
   await page.mouse.wheel(deltaX,deltaY);
-  await page.waitForFunction(()=>window.__uiChainWheelObserver?.receipt.received&&window.__uiChainWheelObserver.receipt.rendered,null,{timeout:5000});
+  // The receipt already waits for a real rendered frame. A second RAF poll
+  // can starve in software-rendered CI even after both flags become true.
+  await page.waitForFunction(()=>window.__uiChainWheelObserver?.receipt.received&&window.__uiChainWheelObserver.receipt.rendered,null,{polling:50,timeout:15000});
   const receipt=await page.evaluate(()=>({...window.__uiChainWheelObserver.receipt}));
   assert.equal(receipt.trusted,true,'Wheel must come from real browser input');assert.equal(receipt.deltaX,deltaX);assert.equal(receipt.deltaY,deltaY);
   if(scrollCondition){phase='scroll-result';await page.waitForFunction(condition=>Boolean(Function('return '+condition)()),scrollCondition,{timeout:scrollTimeout});}
