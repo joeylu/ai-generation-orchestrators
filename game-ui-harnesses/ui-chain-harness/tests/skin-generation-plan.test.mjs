@@ -11,7 +11,7 @@ import { prepareGenerationPlan, verifyGenerationPlan } from '../src/skin-generat
 import { reserveAttempt, receiveAttempt, assessPilot } from '../src/skin-generation/attempt.mjs';
 import {authorizeBatch,beginSubmission,finishSubmission} from '../src/skin-generation/batch-execution.mjs';
 import {inspectGenerationBatch} from '../src/skin-generation/batch-intake.mjs';
-import {executeBatch,runAuthorizedBatch,executeBatchPipeline} from '../src/skin-generation/batch-runner.mjs';
+import {executeBatch,runAuthorizedBatch,executeBatchPipeline,postprocessBatch} from '../src/skin-generation/batch-runner.mjs';
 import {prepareSupplement,executeSupplement} from '../src/skin-generation/supplement.mjs';
 import {generationExecutionPolicy,validateGenerationExecutionPolicy} from '../src/skin-generation/execution-policy.mjs';
 import {recoverCodexSheet,findRecoverableCodexImage} from '../src/skin-generation/codex-recovery.mjs';
@@ -317,6 +317,25 @@ test('invalid postprocessing profiles fail before batch authorization or provide
   await writeFile(file,json(valid));
   const result=await executeBatchPipeline({...args,profile:file},adapter);
   assert.equal(calls,4);assert.equal(result.task,null); // valid profile, failed synthetic provider; no postprocess
+});
+
+test('pipeline freezes profile bytes before submission and rejects a changed snapshot before postprocessing',async t=>{
+  const f=await batchFixture(t),directory=await mkdtemp(resolve('work/profile-freeze-'));
+  t.after(()=>rm(directory,{recursive:true,force:true}));
+  const profile=join(directory,'profile.json'),original=await readFile('configs/studio-metadata-profile.json');await writeFile(profile,original);
+  const args={...f.execution,confirmedBatchSha256:f.execution.batchSha256,profile};let calls=0;
+  const result=await executeBatchPipeline(args,{generate:async()=>{
+    calls++;await writeFile(profile,'changed while provider is running');args.profile='also-changed.json';throw Error('synthetic unknown response');
+  }});
+  assert.equal(calls,4);assert.equal(result.task,null);
+  const frozen=result.postprocessProfile;assert.equal(frozen.batchSha256,f.execution.batchSha256);assert.equal(frozen.sha256,hash(original));assert.notEqual(frozen.file,profile);
+  assert.equal(dirname(dirname(frozen.file)),resolve('work/pipeline-inputs'));
+  t.after(()=>rm(dirname(frozen.file),{recursive:true,force:true}));
+  assert((await readFile(frozen.file)).equals(original));
+  const binding=JSON.parse(await readFile(join(dirname(frozen.file),'binding.json')));assert.equal(binding.profileSha256,frozen.sha256);assert.equal(binding.batchSha256,f.execution.batchSha256);
+  const changed=JSON.parse(original);changed.theme.fontSize++;await writeFile(frozen.file,json(changed));
+  await assert.rejects(postprocessBatch({...f.execution,profile:frozen.file,profileSha256:frozen.sha256}),/frozen-profile-changed/);
+  assert.equal(calls,4);
 });
 
 test('two-slot batch refills the released slot, preserves out-of-order image bindings and never replays received sheets',{timeout:15000},async t=>{

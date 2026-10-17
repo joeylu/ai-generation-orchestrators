@@ -7,7 +7,7 @@ export function validateDag(graph){
   if(graph.version!=='1.0'||graph.automaticProviderCalls!==false||!Array.isArray(graph.nodes)||!graph.nodes.length)throw Error('dag.invalid');
   const seen=new Set();
   for(const n of graph.nodes){
-    if(!/^[a-z][a-z0-9-]*$/.test(n.id)||seen.has(n.id)||!['source','locate','metadata','content-insets','postprocess'].includes(n.kind)||!Array.isArray(n.dependsOn)||new Set(n.dependsOn).size!==n.dependsOn.length||n.dependsOn.some(d=>!seen.has(d)))throw Error('dag.invalid-order-or-dependency');
+    if(!/^[a-z][a-z0-9-]*$/.test(n.id)||seen.has(n.id)||!['source','locate','metadata','content-insets','assemble','materials','consumer','postprocess'].includes(n.kind)||!Array.isArray(n.dependsOn)||new Set(n.dependsOn).size!==n.dependsOn.length||n.dependsOn.some(d=>!seen.has(d)))throw Error('dag.invalid-order-or-dependency');
     seen.add(n.id);
   }
   return graph;

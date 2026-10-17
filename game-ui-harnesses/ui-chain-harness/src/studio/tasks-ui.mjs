@@ -1,6 +1,6 @@
 import {suspendPreview} from './project-ui.mjs';
 const labels={passed:'检查通过',ready:'等待执行',waiting:'等待前置步骤','failed-retryable':'失败，可确定性重试',incomplete:'上次执行未完成','awaiting-visual-review':'处理完成 · 待外观确认','ready-to-resume':'可继续处理',invalid:'记录校验失败','node-completed':'该步骤已有完成记录',failed:'执行失败'};
-const names={'source-s01':'图集 S01','source-s02':'图集 S02','source-s03':'图集 S03','source-s04':'图集 S04','source-s05':'材质图集 S05',locate:'部件定位',metadata:'皮肤参数','content-insets':'内容安全区',postprocess:'组包与组件检查'};
+const names={'source-s01':'图集 S01','source-s02':'图集 S02','source-s03':'图集 S03','source-s04':'图集 S04','source-s05':'材质图集 S05',locate:'部件定位',metadata:'皮肤参数','content-insets':'内容安全区',assemble:'基础组包','material-bind':'纹理提取与绑定','consumer-build':'消费包构建',postprocess:'组件最终检查'};
 const $=s=>document.querySelector(s);
 export async function refreshTasks(){
  const button=$('#refresh-tasks');button.disabled=true;$('#task-message').textContent='正在核对任务记录与产物…';

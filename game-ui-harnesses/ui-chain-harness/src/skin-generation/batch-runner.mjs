@@ -1,4 +1,5 @@
-import {writeFile} from 'node:fs/promises';
+import {writeFile,mkdir} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
 import {join,relative,resolve,isAbsolute,sep} from 'node:path';
 import Ajv from 'ajv';
 import themeSchema from '../../schemas/runtime-theme.schema.json' with {type:'json'};
@@ -7,7 +8,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {readContracts} from '../contracts/validate.mjs';
 import {defaults} from '../contracts/build.mjs';
-import {hash,json,readSafe} from '../skins/package.mjs';
+import {hash,json,readSafe,noLinks} from '../skins/package.mjs';
 import {inspectGenerationBatch} from './batch-intake.mjs';
 import {authorizeBatch,beginSubmission,finishSubmission} from './batch-execution.mjs';
 
@@ -20,10 +21,18 @@ async function preflightProfile(profile){
     if(typeof profile!=='string'||!profile)throw Error();
     const work=join(root,'work'),file=relative(work,resolve(root,profile));
     if(!file||isAbsolute(file)||file==='..'||file.startsWith('..'+sep))throw Error();
-    const value=JSON.parse(await readSafe(work,file.replaceAll('\\','/')));
+    const bytes=await readSafe(work,file.replaceAll('\\','/')),value=JSON.parse(bytes);
     if(value?.kind!=='ui_skin_metadata_profile'||value.version!=='1.0'||typeof value.id!=='string'||!value.id||!Number.isInteger(value.revision)||value.revision<1||!checkTheme(value.theme))throw Error();
     if(value.allowedProposalIssues!==undefined&&(!Array.isArray(value.allowedProposalIssues)||value.allowedProposalIssues.some(i=>i!=='foreign-component-in-slot')))throw Error();
+    return bytes;
   }catch{throw Error('batch-runner.invalid-profile-before-generation');}
+}
+async function freezeProfile(args){
+  const bytes=await preflightProfile(args.profile),sha256=hash(bytes);
+  const directory=join(root,'work/pipeline-inputs',randomUUID());await noLinks(directory);await mkdir(directory,{recursive:true});
+  const file=join(directory,'profile.json');await writeFile(file,bytes,{flag:'wx'});
+  await writeFile(join(directory,'binding.json'),json({kind:'ui_component_pipeline_profile',version:'1.0',batchSha256:args.batchSha256,profileSha256:sha256,profileFile:'profile.json'}),{flag:'wx'});
+  return {file,sha256,batchSha256:args.batchSha256};
 }
 function concurrencyFor(args){const value=args.maxConcurrentSheets===undefined?1:args.maxConcurrentSheets;if(![1,2].includes(value))throw Error('batch-runner.invalid-concurrency');return value;}
 async function inspect(args){const c=await readContracts(args.contracts??defaults);return inspectGenerationBatch({...args,templateSha256:hash(c.bytes.template),sheets:c.template.sheets});}
@@ -84,20 +93,26 @@ export async function executeBatch(args,adapter){
   return runAuthorizedBatch({...args,maxConcurrentSheets},adapter);
 }
 /** Deterministic handoff: no adapter or model call, safe to retry as a new candidate task. */
-export async function postprocessBatch({skinDirectory,batchSha256,profile,allowRejectedLocalization=false}){
+export async function postprocessBatch({skinDirectory,batchSha256,profile,profileSha256,allowRejectedLocalization=false}){
+  if(profileSha256!==undefined&&hash(await preflightProfile(profile))!==profileSha256)throw Error('batch-runner.frozen-profile-changed');
   const batch=relative(root,join(skinDirectory,'batches',batchSha256));
   const command=async args=>{
     try{return JSON.parse((await exec(process.execPath,[join(root,'scripts/skin-task.mjs'),...args],{cwd:root,windowsHide:true,maxBuffer:8*1024*1024,timeout:300000})).stdout);}
     catch{throw Error('batch-runner.postprocess-failed-see-task-evidence');}
   };
   const task=await command(['create','--batch',batch,'--sha256',batchSha256,'--profile',profile,...(allowRejectedLocalization?['--allow-rejected-localization']:[])]);
+  if(profileSha256!==undefined&&hash(await readSafe(resolve(root,task.directory),'input/profile.json'))!==profileSha256)throw Object.assign(Error('batch-runner.frozen-profile-changed'),{taskDirectory:task.directory});
   try{return await command(['resume','--directory',task.directory]);}
   catch{throw Object.assign(Error('batch-runner.postprocess-failed-resume-task'),{taskDirectory:task.directory});}
 }
 export async function executeBatchPipeline(args,adapter){
-  if(args.profile!==undefined)await preflightProfile(args.profile);
-  const generation=await executeBatch(args,adapter);
-  if(!generation.postprocessReady||!args.profile)return {generation,task:null};
-  // Raw quality failures require the same explicit candidate policy as manual intake.
-  const task=await postprocessBatch(args);return {generation,task};
+  // Copy the caller's options too: a long-running adapter must not change the
+  // selected batch, candidate policy or profile pointer before postprocessing.
+  const input={...args},postprocessProfile=input.profile===undefined?null:await freezeProfile(input);
+  const evidence=postprocessProfile?{postprocessProfile}:{};
+  try{
+    const generation=await executeBatch(input,adapter);
+    if(!generation.postprocessReady||!postprocessProfile)return {generation,task:null,...evidence};
+    const task=await postprocessBatch({...input,profile:postprocessProfile.file,profileSha256:postprocessProfile.sha256});return {generation,task,...evidence};
+  }catch(error){if(postprocessProfile)error.postprocessProfile=postprocessProfile;throw error;}
 }

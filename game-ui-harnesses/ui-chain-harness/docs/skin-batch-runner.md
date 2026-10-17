@@ -23,6 +23,8 @@ const result = await executeBatchPipeline({
 
 当前工作树在调用 `executeBatchPipeline` 时先检查已提供的 profile 是否位于 `work/`、可安全读取且为有效 JSON，并校验基本身份、主题格式和允许的定位例外。错误返回 `batch-runner.invalid-profile-before-generation`，不消费批次授权、不提交图片生成；省略 profile 保留只生成/接收模式。此加固晚于 rc.2。实际像素决定的切线、密度和安全区仍须通过后续确定性检查。
 
+rc.4 配置冻结：预检后的原始 profile 字节在调用生成前保存到独立 `work/pipeline-inputs/<id>/profile.json`，另存 `binding.json` 记录批次和字节摘要。生成期间修改原文件或调用参数不会切换本次后处理配置。返回值及生成后的错误对象提供 `postprocessProfile: {file,sha256,batchSha256}`，须与该任务一起保留；后处理启动前和任务复制后都核对摘要，变化立即停止。需要单独恢复后处理时，使用这个 file 和 sha256 调用 `postprocessBatch({skinDirectory,batchSha256,profile:file,profileSha256:sha256,...})`，不要再传已修改的原文件；已有 taskDirectory 优先恢复原任务。未提供 profile 的返回结构保持原样。独立快照只用于本地恢复，不增加模型调用或改变历史批次回执。
+
 每次generate接收：
 
 - prompt：冻结提示词，已含风格与几何JSON。

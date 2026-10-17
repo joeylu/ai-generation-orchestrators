@@ -1,6 +1,6 @@
 # 文字/风格或已有参考图到 16 类组件
 
-本入口面向 `ui-chain-components-v0.1.0-rc.3`，范围到完整组件消费包及其技术检查为止。已有核心是 Node.js CLI、JavaScript API、文件合同和浏览器组件运行时；容器 HTTP 服务由部署方实现。面板需求规划、面板生成及画布编辑不属于本次接入。
+本入口面向 `ui-chain-components-v0.1.0-rc.4`，范围到完整组件消费包及其技术检查为止。已有核心是 Node.js CLI、JavaScript API、文件合同和浏览器组件运行时；容器 HTTP 服务由部署方实现。面板需求规划、面板生成及画布编辑不属于本次接入。
 
 对接入口：`node scripts/component-entry.mjs contract` 输出组件发行合同；JavaScript 集成使用 `src/components-api.mjs`。宿主接入见 [Docker 接入](docker-integration.md)、[Web 接入](web-integration.md)和[交接口令](deployment-handoff.md)。[本地 Studio](local-studio.md)仍只提供带图预设/上传入口；文字起步使用本页新公共 CLI/API。
 
@@ -33,6 +33,8 @@
 
 当前工作树的完整批次入口在消费计算确认前检查已提供的 profile 路径、JSON、基本身份和主题格式；无效配置以 `batch-runner.invalid-profile-before-generation` 拒绝且不调用模型。这项加固晚于 rc.2，不能假定已发布 rc.2 包具备此检查。依赖实际像素的切线与安全区检查仍在后处理中执行。
 
+rc.4 会在生成前冻结 profile 字节，使用副本和摘要完成后处理；返回 `postprocessProfile` 供确定性恢复使用，详见[批次执行](skin-batch-runner.md)。参考图状态查询复用单次请求中已经核验的图片与接收证据，已审查图片不再重复规范化；每次新查询仍重新读取并校验源文件、QA 和 review，不使用跨请求缓存。这两项优化从 rc.4 起提供。
+
 ## 每个节点的输入与输出
 
 | 节点 | 输入 | 输出 / 状态 | 是否调用模型 |
@@ -49,7 +51,10 @@
 | `locate` | 四图与模板几何 | 部件定位、归属和提案报告；歧义不能静默选错部件 | 否 |
 | `metadata` | 定位报告、冻结 profile | assembly 候选、切线/端帽/尺寸参数及警告 | 否 |
 | `content-insets` | assembly 候选 | 文字、命中与内容安全区配置及派生证据 | 否 |
-| `postprocess` | 安全区配置、可选冻结 S05 | 基础 SkinPack；S05 提取、透明 RGB 规范化派生与材质绑定；最终完整组件消费包；技术证据 | 否 |
+| `assemble` | 安全区配置 | 基础 SkinPack、检查与核对记录 | 否 |
+| `material-bind` | 基础 SkinPack、可选冻结 S05 | 提取、透明 RGB 规范化派生与材质绑定；无 S05 时沿用基础包 | 否 |
+| `consumer-build` | 已绑定的 SkinPack | 完整组件消费包 | 否 |
+| `postprocess` | 完整消费包、组包检查记录 | 横竖预览和组件技术检查证据 | 否 |
 | 独立消费检查 | 最终消费包 | `checks.json`、`wide.png`、`tall.png`；16 类组件及公共工厂检查；全部 DAG 完成后待视觉验收 | 否 |
 
 节点产物由程序生成，任务记录只是索引和证据，不是可以任意编辑的成功标记。任务目录引用 `work/` 下的其他产物；只复制 `work/skin-tasks/<id>` 不构成完整迁移包。
@@ -124,3 +129,5 @@ npm run skins:task -- status --directory work/skin-tasks/<taskId>
 `runAuthorizedBatch` 仅推进已授权且尚未 `begin` 的图；已接收、失败或未知图都不重投。图集需要新图时使用 `prepareSupplement` / `executeSupplement`，绑定新单图摘要和新确认，保留原记录。后处理失败使用原 `taskDirectory` 执行 `skins:task resume`，不重新生成。输入、工具、配置或产物摘要变化须新任务；不能改回执，锁恢复遵循[本地恢复规则](local-recovery.md)。
 
 16 类为 Button、Switch、CheckBox、RadioGroup、Input、Select、Slider、ProgressBar、ScrollView、List、Dialog、Tabs、Image、Text、Container、Panel。组件基础、布局和材质配置仍包含 draft 限制；不可把技术通过标为已完成生产美术验收。人工核对参考风格、alpha、四角和拉伸、文字对比、普通/选中槽位、所有交互状态后再由宿主记录其独立验收决定。
+
+rc.4 将后处理拆为以上四个独立回执节点，后段失败可复用此前完成的节点；rc.3 仍使用单个后处理节点。旧任务保留冻结图，工具变化仍需创建新任务，不能改写历史回执迁移。

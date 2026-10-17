@@ -40,17 +40,22 @@ function normalize(raw,plan){
  return {image,normalized,normalization};
 }
 function qaRecord(v,c,r,n){return seal({kind:qaKind,version:'1.0',planSha256:v.planSha256,requestSha256:v.plan.requestSha256,styleSha256:v.plan.styleSha256,claimSha256:c.claim.value.sha256,returnedSha256:r.result.value.sha256,rawSha256:hash(r.raw),imageSha256:hash(n.normalized),imageBytes:n.normalized.length,width:n.image.width,height:n.image.height,resolution:v.plan.request.resolution,normalization:n.normalization,pixelsUnchanged:true,opaque:true,varied:true,status:'passed',visualAcceptance:'unreviewed'});}
-async function verifiedResult(v,c){
- const r=await returned(v,c),n=normalize(r.raw,v.plan),qa=await record(c.directory,'technical.json',qaKind),reference=await readSafe(c.directory,'reference.png');
+async function verifiedResult(v,c,r=undefined){
+ r??=await returned(v,c);
+ const n=normalize(r.raw,v.plan),qa=await record(c.directory,'technical.json',qaKind),reference=await readSafe(c.directory,'reference.png');
  requireThat(JSON.stringify(qa.value)===JSON.stringify(qaRecord(v,c,r,n))&&reference.equals(n.normalized),'technical-evidence-changed');
  return {r,n,qa,reference};
 }
-export async function acceptedReference(args){
- const v=await loadPlan(args),c=await claimed(v);requireThat(!await optional(c.directory,'terminal.json'),'terminal-no-resubmit');
- const result=await verifiedResult(v,c),review=await record(c.directory,'review.json',reviewKind);
+async function verifiedReview(v,c,result){
+ const review=await record(c.directory,'review.json',reviewKind);
  exact(review.value,['kind','version','planSha256','requestSha256','styleSha256','returnedSha256','rawSha256','imageSha256','technicalSha256','confirmedImageSha256','decision','note','sha256']);
  const rv=review.value;requireThat(rv.planSha256===v.planSha256&&rv.requestSha256===v.plan.requestSha256&&rv.styleSha256===v.plan.styleSha256&&rv.returnedSha256===result.r.result.value.sha256&&rv.rawSha256===hash(result.r.raw)&&rv.imageSha256===hash(result.reference)&&rv.confirmedImageSha256===rv.imageSha256&&rv.technicalSha256===result.qa.value.sha256&&['accept','reject'].includes(rv.decision)&&typeof rv.note==='string'&&rv.note.length<=2000,'review-binding');
- requireThat(rv.decision==='accept','human-acceptance-required');return {v,c,result,review};
+ return review;
+}
+export async function acceptedReference(args){
+ const v=await loadPlan(args),c=await claimed(v);requireThat(!await optional(c.directory,'terminal.json'),'terminal-no-resubmit');
+ const result=await verifiedResult(v,c),review=await verifiedReview(v,c,result);
+ requireThat(review.value.decision==='accept','human-acceptance-required');return {v,c,result,review};
 }
 async function finish(v,c){
  requireThat(!await optional(c.directory,'terminal.json'),'terminal-no-resubmit');const r=await returned(v,c);
@@ -65,12 +70,13 @@ export async function inspectReference(args){
  if(terminal){const t=await record(directory,'terminal.json',terminalKind);exact(t.value,['kind','version','planSha256','requestSha256','claimSha256','status','issue','automaticRetry','sha256']);requireThat(t.value.planSha256===v.planSha256&&t.value.requestSha256===v.plan.requestSha256&&t.value.claimSha256===c.claim.value.sha256&&['indeterminate','rejected-technical'].includes(t.value.status)&&t.value.automaticRetry===false,'terminal-binding');if(await optional(directory,'returned.json'))await returned(v,c);return {...base,status:t.value.status,technicalStatus:t.value.status==='rejected-technical'?'rejected':'not-run',issue:t.value.issue,...(await optional(directory,'raw.png')?{rawFile:join(directory,'raw.png'),rawSha256:hash(await readSafe(directory,'raw.png'))}:{})};}
  if(!await optional(directory,'returned.json'))return {...base,status:'reserved-no-resubmit',technicalStatus:'not-run'};
  const r=await returned(v,c);if(!await optional(directory,'technical.json'))return {...base,status:'reception-incomplete',technicalStatus:'incomplete',rawFile:join(directory,'raw.png'),rawSha256:hash(r.raw)};
- const result=await verifiedResult(v,c),complete={...base,status:'pending-visual-review',technicalStatus:'passed',rawFile:join(directory,'raw.png'),rawSha256:hash(result.r.raw),referenceFile:join(directory,'reference.png'),imageSha256:hash(result.reference),width:result.n.image.width,height:result.n.image.height};
+ const result=await verifiedResult(v,c,r),complete={...base,status:'pending-visual-review',technicalStatus:'passed',rawFile:join(directory,'raw.png'),rawSha256:hash(result.r.raw),referenceFile:join(directory,'reference.png'),imageSha256:hash(result.reference),width:result.n.image.width,height:result.n.image.height};
  if(await optional(directory,'review.json')){
-  const review=await record(directory,'review.json',reviewKind);
-  // Validate accepted and rejected review evidence with the same bindings.
-  try{const accepted=await acceptedReference(args);return {...complete,status:'accepted',reviewSha256:accepted.review.value.sha256,visualAcceptance:'accepted'};}
-  catch(error){if(error.code!=='reference.human-acceptance-required')throw error;return {...complete,status:'rejected-visual',reviewSha256:review.value.sha256,visualAcceptance:'rejected'};}
+  // Reuse this call's fully verified image, never a cross-request cache. Both
+  // accepted and rejected decisions still pass the identical review bindings.
+  requireThat(!await optional(directory,'terminal.json'),'terminal-no-resubmit');
+  const review=await verifiedReview(v,c,result),accepted=review.value.decision==='accept';
+  return {...complete,status:accepted?'accepted':'rejected-visual',reviewSha256:review.value.sha256,visualAcceptance:accepted?'accepted':'rejected'};
  }
  return complete;
 }

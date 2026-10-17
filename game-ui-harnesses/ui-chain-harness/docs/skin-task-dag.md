@@ -13,7 +13,7 @@
 
 create 冻结四张组件原图和 profile；从含 S05 的批次创建时，还冻结材质原图、其独立模板及绑定描述，不调用模型。resume 复用摘要校验通过的节点回执，只运行未完成的确定性节点。各节点的输入依赖摘要、输出文件摘要、开始/失败记录保留；回执通过完整文件硬链接独占发布，不能手工改写。失败和中断不伪装成成功。
 
-当前节点：四个 source → locate → metadata → content-insets → postprocess（复用现有组包、消费和组件检查工具）。S05 不增加第五个组件 source 节点，也不混入四张组件图的 locate 节点；postprocess 在基础包完成后提取材质、绑定表面，再构建和检查最终消费包。S05 横向标题/分组材质在独立槽位定位中取得唯一归属、无冲突且全部提案不重叠时，保留超出 `bodyRect` 的完整轮廓并记录裁切依据；panel-fill 仍取固定 body 内部样本。postprocess 整体仍为一个节点，内部失败后可能重做该确定性节点；细粒度 assemble/consumer/check 恢复可用既有 skins:workflow，但尚未与本 DAG 嵌套贯通。
+当前节点：四个 source → locate → metadata → content-insets → assemble → material-bind → consumer-build → postprocess（最终组件检查）。S05 不增加第五个组件 source 节点，也不混入四张组件图的 locate 节点；postprocess 在基础包完成后提取材质、绑定表面，再构建和检查最终消费包。S05 横向标题/分组材质在独立槽位定位中取得唯一归属、无冲突且全部提案不重叠时，保留超出 `bodyRect` 的完整轮廓并记录裁切依据；panel-fill 仍取固定 body 内部样本。四个后处理节点分别保存独立产物和摘要回执；后段失败时复用已完成节点，只重新运行失败及尚未完成的步骤。没有 S05 时，material-bind 保留基础包引用，不生成纹理。最终 postprocess 仍输出原有 run.json 和 evidence 路径。旧任务按冻结的旧图读取，不改写回执；工具指纹发生变化时仍需创建新任务。
 
 恢复限制：
 

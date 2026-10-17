@@ -59,6 +59,14 @@ test('adapter receives the exact request SHA, frozen request shape and copied gu
  assert.equal(JSON.parse(await readFile(join(result.attemptDirectory,'technical.json'))).normalization,'lossless-rgba-srgb-v1');
 });
 
+test('repeated accepted status queries still reject changed reference bytes on the next query',async t=>{
+ const f=await fixture(t),{p,r}=await accepted(f);
+ assert.equal((await api.inspectReference(p)).status,'accepted');assert.equal((await api.inspectReference(p)).status,'accepted');
+ const original=await readFile(r.referenceFile);await writeFile(r.referenceFile,png({blank:true}));
+ await assert.rejects(api.inspectReference(p),/technical-evidence-changed/);await writeFile(r.referenceFile,original);
+ assert.equal((await api.inspectReference(p)).status,'accepted');
+});
+
 test('a supported 4K RGB/Sub PNG below 32 MiB stays readable when canonical RGBA encoding exceeds the byte bound',async t=>{
  const f=await fixture(t),p=await f.prepare({width:4096,height:4096,resolution:'exact'}),raw=compressedRgbSubPng(),maximum=32*1024*1024;
  assert(raw.length<=maximum);assert(encodePng(decodePng(raw)).length>maximum,'Fixture must reproduce RGBA byte expansion.');

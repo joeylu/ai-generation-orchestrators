@@ -10,6 +10,7 @@ import {inventory} from '../src/skins/workflow.mjs';
 import {validateDag,taskStatus,resumeTask} from '../src/skins/task-dag.mjs';
 import {inspectGenerationBatch} from '../src/skin-generation/batch-intake.mjs';
 import {freezeMaterialAtlasInput} from '../src/skins/material-atlas-input.mjs';
+import {executePostprocessStage} from '../src/skins/postprocess-stages.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url)),run=promisify(execFile);
 const {positionals,values:v}=parseArgs({allowPositionals:true,options:{input:{type:'string'},profile:{type:'string'},directory:{type:'string'},until:{type:'string'},batch:{type:'string'},sha256:{type:'string'},'allow-rejected-localization':{type:'boolean'}}});
 const rel=p=>relative(root,p).replaceAll('\\','/');
@@ -58,8 +59,8 @@ try{
   if(action==='resume'){
     const request=JSON.parse(await readSafe(directory,'request.json'));
     const assertTools=async()=>{if(await identity()!==request.toolSha256)throw Error('task.tools-changed-create-new-task');};
-    const command=async(script,args)=>{
-      try{return JSON.parse((await run(process.execPath,[join(root,'scripts',script),...args],{cwd:root,windowsHide:true,maxBuffer:8*1024*1024,timeout:300000})).stdout);}
+    const command=async(script,args,raw=false)=>{
+      try{const stdout=(await run(process.execPath,[join(root,'scripts',script),...args],{cwd:root,windowsHide:true,maxBuffer:8*1024*1024,timeout:300000})).stdout;return raw?stdout.trim():JSON.parse(stdout);}
       catch(e){
         let report;for(const output of [e.stdout,e.stderr]){try{report=JSON.parse(output);break;}catch{}}
         const code=e.killed?'LOCAL_COMMAND_TIMEOUT':typeof report?.code==='string'?report.code:typeof e.code==='string'?e.code:report?.message??'task.command-failed';
@@ -73,6 +74,7 @@ try{
         const f={file:rel(path),sha256:s.sha256};await verify([f]);return{outputs:{sheetId:n.sheetId,source:f.file},files:[f]};
       }
       let r,dir;
+      if(['assemble','materials','consumer'].includes(n.kind)||n.kind==='postprocess'&&req.graph.nodes.some(n=>n.id==='consumer-build'&&n.kind==='consumer'))return executePostprocessStage({root,node:n,prior,request:req,command});
       if(n.kind==='locate'){r=await command('skin-locate.mjs',['--input',req.input]);dir=r.directory;}
       else if(n.kind==='metadata'){r=await command('skin-metadata-draft.mjs',['--report',prior.locate.directory+'/report.json','--input',req.input,'--profile',req.profile]);dir=r.directory;}
       else if(n.kind==='content-insets'){

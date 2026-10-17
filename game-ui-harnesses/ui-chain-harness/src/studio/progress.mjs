@@ -6,7 +6,7 @@ const localGroups=[
  {id:'content-insets',label:'内容安全区',hint:'检查文字与控件的内边距'},
  {id:'postprocess',label:'组包与组件检查',hint:'打包素材并验证 16 类组件的显示与交互'}
 ];
-const kind=n=>n.kind??(n.id.startsWith('source-')?'source':n.id);
+const kind=n=>['assemble','material-bind','consumer-build'].includes(n.id)?'postprocess':n.kind??(n.id.startsWith('source-')?'source':n.id);
 export function batchPresentation(plan={}){
  const hasMaterials=(plan.sheets??[]).some(s=>(s.sheetId??s.id??s)==='S05')||(plan.state?.nodes??[]).some(n=>n.sheetId==='S05');
  const componentSheets=(plan.sheets??[]).filter(s=>(s.sheetId??s.id??s)!=='S05'),materialSheet=(plan.sheets??[]).find(s=>(s.sheetId??s.id??s)==='S05');

@@ -9,7 +9,7 @@ test('Studio validates snapshot and binds checks to exact preview',async()=>{
  const root=await mkdtemp(join(tmpdir(),'studio-test-'));
  try{
   await mkdir(join(root,'work/panel'),{recursive:true});await mkdir(join(root,'src/studio'),{recursive:true});
-  for(const name of ['index.html','studio.mjs','project.mjs','project-ui.mjs','tasks-ui.mjs','generation-ui.mjs','history-ui.mjs','pipeline-ui.mjs','panel-completion.mjs','confirm-ui.mjs','progress.mjs','progress-ui.mjs','studio.css','component-canvas.html','component-canvas.mjs','canvas-contrast.mjs','canvas-resolution.mjs','panel-size.html','panel-size.css','panel-copy.html','panel-copy.css'])await writeFile(join(root,'src/studio',name),'fixture');
+  for(const name of ['index.html','studio.mjs','project.mjs','project-ui.mjs','tasks-ui.mjs','generation-ui.mjs','history-ui.mjs','pipeline-ui.mjs','panel-completion.mjs','confirm-ui.mjs','progress.mjs','progress-ui.mjs','studio.css','component-canvas.html','component-canvas.mjs','material-canvas.mjs','canvas-contrast.mjs','canvas-resolution.mjs','panel-size.html','panel-size.css','panel-copy.html','panel-copy.css'])await writeFile(join(root,'src/studio',name),'fixture');
   const preview=Buffer.from('<h1>Fixture</h1>'),dir=join(root,'work/panel');
   await writeFile(join(dir,'preview.html'),preview);
   await writeFile(join(dir,'report.json'),JSON.stringify({kind:'settings-panel-preview',files:[{file:'preview.html',sha256:hash(preview)}]}));

@@ -9,7 +9,7 @@ import {pipelineController} from '../src/studio/pipeline.mjs';
 import {hash} from '../src/skins/package.mjs';
 
 const project='work/studio/projects/fixture';
-const studioFiles=['index.html','studio.mjs','project.mjs','project-ui.mjs','tasks-ui.mjs','generation-ui.mjs','history-ui.mjs','pipeline-ui.mjs','panel-completion.mjs','confirm-ui.mjs','progress.mjs','progress-ui.mjs','studio.css','component-canvas.html','component-canvas.mjs','canvas-contrast.mjs','canvas-resolution.mjs','panel-size.html','panel-size.css','panel-copy.html','panel-copy.css'];
+const studioFiles=['index.html','studio.mjs','project.mjs','project-ui.mjs','tasks-ui.mjs','generation-ui.mjs','history-ui.mjs','pipeline-ui.mjs','panel-completion.mjs','confirm-ui.mjs','progress.mjs','progress-ui.mjs','studio.css','component-canvas.html','component-canvas.mjs','material-canvas.mjs','canvas-contrast.mjs','canvas-resolution.mjs','panel-size.html','panel-size.css','panel-copy.html','panel-copy.css'];
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 async function until(check){for(let i=0;i<200;i++){const value=await check();if(value)return value;await new Promise(r=>setTimeout(r,10));}throw Error('OFFLINE_STATUS_FIXTURE_TIMEOUT');}
 

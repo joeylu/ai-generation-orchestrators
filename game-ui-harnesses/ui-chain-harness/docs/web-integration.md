@@ -1,6 +1,6 @@
 # Web 接手入口：16 类组件
 
-`ui-chain-components-v0.1.0-rc.3` 支持 `existing-image` / `generate-reference`：已有 PNG，或文字/风格先生成参考 PNG、人工接受后再生成组件。核心提供 CLI/API 与浏览器组件工厂；生产 HTTP 由 Docker 宿主实现。旧 Studio 仍是图片入口，不是新增文字 UI 的证明；不要将其内部路由或[Docker 接入](docker-integration.md)中的 proposed 名称当作现成 API。
+`ui-chain-components-v0.1.0-rc.4` 支持 `existing-image` / `generate-reference`：已有 PNG，或文字/风格先生成参考 PNG、人工接受后再生成组件。核心提供 CLI/API 与浏览器组件工厂；生产 HTTP 由 Docker 宿主实现。旧 Studio 仍是图片入口，不是新增文字 UI 的证明；不要将其内部路由或[Docker 接入](docker-integration.md)中的 proposed 名称当作现成 API。
 
 第一步取得部署方交付的 **OpenAPI 3.1、请求/响应实例、状态/错误表、容器验收报告、核心及镜像摘要**。缺少实际合同就先停在接口 mock，不写死端口、私人服务 URL、凭证或历史验收路径。当前接入结束在 16 类组件输出，暂不实现面板生成、规划或编辑。
 
