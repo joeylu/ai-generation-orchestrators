@@ -1,0 +1,28 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"ai_scene_terrain_rigid_repeat_v1",
+  "type":"object",
+  "properties":{
+    "format":{"const":"ai_scene_terrain_rigid_repeat_v1"},
+    "profile":{"const":"rigid-source-row-repeat-v1"},
+    "sourceInput":{"$ref":"#/$defs/image"},
+    "options":{"type":"object","properties":{"fromRow":{"type":"integer","minimum":0,"maximum":2046},"toRow":{"type":"integer","minimum":2,"maximum":2048}},"required":["fromRow","toRow"],"additionalProperties":false},
+    "algorithm":{"const":"axis-aligned-full-width-half-open-row-copy-v1"},
+    "output":{"type":"object","properties":{"source":{"$ref":"#/$defs/source"},"pixelSize":{"$ref":"#/$defs/size"}},"required":["source","pixelSize"],"additionalProperties":false},
+    "bodyPeriod":{"type":"object","properties":{"width":{"$ref":"#/$defs/rational"},"height":{"$ref":"#/$defs/rational"}},"required":["width","height"],"additionalProperties":false},
+    "phaseOriginWorldY":{"$ref":"#/$defs/rational"},
+    "sourceDensity":{"type":"object","properties":{"normalizationHeight":{"type":"integer","minimum":2,"maximum":2048},"worldWidth":{"const":512},"worldHeight":{"const":256}},"required":["normalizationHeight","worldWidth","worldHeight"],"additionalProperties":false},
+    "limits":{"type":"object","properties":{"maximumSourceDimension":{"const":2048},"maximumOutputPixels":{"const":4194304},"maximumPngBytes":{"const":16777216},"minimumRows":{"const":2}},"required":["maximumSourceDimension","maximumOutputPixels","maximumPngBytes","minimumRows"],"additionalProperties":false},
+    "work":{"type":"object","properties":{"inputPixels":{"type":"integer","minimum":2,"maximum":4194304},"outputPixels":{"type":"integer","minimum":2,"maximum":4194304},"rowsCopied":{"type":"integer","minimum":2,"maximum":2048}},"required":["inputPixels","outputPixels","rowsCopied"],"additionalProperties":false},
+    "sourcePngChanged":{"const":false},"sourceAlphaChanged":{"const":false},"pixelsRecolored":{"const":false},"pixelsBlended":{"const":false},"sourceCoordinatesWarped":{"const":false},"sourcePixelSelectionOnly":{"const":true},"xPhaseShiftPixels":{"const":0},"generationCalls":{"const":0},"visualAcceptance":{"const":"not-assessed"},"sha256":{"$ref":"#/$defs/sha"}
+  },
+  "required":["format","profile","sourceInput","options","algorithm","output","bodyPeriod","phaseOriginWorldY","sourceDensity","limits","work","sourcePngChanged","sourceAlphaChanged","pixelsRecolored","pixelsBlended","sourceCoordinatesWarped","sourcePixelSelectionOnly","xPhaseShiftPixels","generationCalls","visualAcceptance","sha256"],
+  "additionalProperties":false,
+  "$defs":{
+    "sha":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "rational":{"type":"object","properties":{"numerator":{"type":"integer","minimum":0,"maximum":1048576},"denominator":{"type":"integer","minimum":1,"maximum":1048576}},"required":["numerator","denominator"],"additionalProperties":false},
+    "size":{"type":"object","properties":{"width":{"type":"integer","minimum":1,"maximum":2048},"height":{"type":"integer","minimum":2,"maximum":2048}},"required":["width","height"],"additionalProperties":false},
+    "source":{"type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":2000},"sha256":{"$ref":"#/$defs/sha"},"byteLength":{"type":"integer","minimum":1,"maximum":16777216}},"required":["path","sha256","byteLength"],"additionalProperties":false},
+    "image":{"type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":2000},"sha256":{"$ref":"#/$defs/sha"},"byteLength":{"type":"integer","minimum":1,"maximum":16777216},"pixelSize":{"$ref":"#/$defs/size"}},"required":["path","sha256","byteLength","pixelSize"],"additionalProperties":false}
+  }
+}

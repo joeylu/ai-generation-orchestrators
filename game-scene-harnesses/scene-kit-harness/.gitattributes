@@ -1,0 +1,2 @@
+# Fixture manifests bind exact bytes on every platform.
+tests/fixtures/** -text

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Scene Kit Studio · 横版场景编辑</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<a class="skip" href="#workspace">跳至地图画布</a>
+<header class="app-header">
+  <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 23V12h8v6h7V7h11v18H3Z" fill="currentColor"/></svg><div><strong>Scene Kit Studio</strong><span>横版场景 · 模块化编辑</span></div></div>
+  <div class="file-actions"><span id="save-state">未载入</span><button id="open">打开地图</button><button id="save" class="primary">保存地图</button><input id="file" type="file" accept=".json,application/json" hidden></div>
+</header>
+  <div class="workspace-bar"><div><strong id="map-name">正在校验资产包…</strong><span class="fixture" id="appearance-badge">合成素材 / 工程样例</span></div><div><label><input type="checkbox" id="game-frame">游戏视口</label> <button id="preview" aria-pressed="false">进入纯预览</button></div></div>
+<div class="studio-layout">
+  <aside class="library" aria-label="模块库">
+    <div class="section-heading"><h2>模块库</h2><span id="module-count">—</span></div>
+    <p class="muted">地形按邻接自动选块。选中环境块或组合后，点击画布放置。</p>
+    <div class="palette-tabs" role="group" aria-label="模块类别"><button id="tab-terrain" aria-pressed="true">地形</button><button id="tab-environment" aria-pressed="false">素材</button><button id="tab-presets" aria-pressed="false">组合</button></div>
+    <div id="palette"></div>
+    <div class="library-note"><strong>一个包，反复搭建</strong><p>先用默认地图开始，再用画刷延展地形、组合平台与环境层。</p><p id="library-art-note">当前图形用于验证规则；真实美术生成尚未接入。</p></div>
+  </aside>
+  <main id="workspace" tabindex="-1" aria-label="地图工作区">
+    <div class="toolbar">
+      <div class="tools" role="group" aria-label="地图工具"><button data-tool="select" aria-pressed="true" title="选择 V">选择 <kbd>V</kbd></button><button data-tool="paint" aria-pressed="false" title="画刷 B">画刷 <kbd>B</kbd></button><button data-tool="erase" aria-pressed="false" title="擦除 E">擦除 <kbd>E</kbd></button><button data-tool="curve" aria-pressed="false" title="曲线 C">曲线 <kbd>C</kbd></button><button data-tool="pan" aria-pressed="false" title="平移 H">平移 <kbd>H</kbd></button></div>
+      <div class="tools"><button id="undo" disabled title="Ctrl+Z">撤销</button><button id="redo" disabled title="Ctrl+Shift+Z">重做</button></div>
+    </div>
+    <div id="canvas-shell"><div id="canvas-host" aria-label="可编辑横版地图"></div><div class="canvas-caption"><span id="mode-label">编辑模式</span><span id="cursor-position">列 — / 行 —</span></div><div id="loading">正在准备已验证的场景…</div></div>
+    <div class="view-controls"><div><label><input type="checkbox" id="grid" checked>网格</label><label><input type="checkbox" id="collision">碰撞建议</label></div><div class="zoom-controls"><button id="zoom-out" aria-label="缩小">−</button><output id="zoom">100%</output><button id="zoom-in" aria-label="放大">＋</button><button id="home">默认镜头</button><button id="fit">全图</button></div></div>
+    <div class="navigator"><div><strong>地图导航</strong><span id="dimensions"></span></div><svg id="minimap" viewBox="0 0 640 90" role="img" aria-label="地图缩略图，点击移动镜头" tabindex="0"></svg></div>
+    <div class="statusbar"><span id="status" role="status" aria-live="polite">正在载入…</span><span id="counts"></span></div>
+    <p class="canvas-help">滚轮缩放 · 中键/右键拖动画布 · Esc 取消手势 · Ctrl+Z 撤销。镜头、选择与图层显隐不写入地图。</p>
+  </main>
+  <aside class="inspector" aria-label="场景属性">
+    <section><h2>地图范围</h2><dl><div><dt>视角</dt><dd>2D 纯横版</dd></div><div><dt>网格</dt><dd id="grid-size">—</dd></div><div><dt>尺寸</dt><dd id="bounds-size">—</dd></div></dl><button id="extend" class="full">向右扩建一屏</button></section>
+    <section><h2>地形外观</h2><label class="field">画布外观<select id="terrain-appearance" disabled><option value="fixture">工程夹具</option></select></label><p class="muted" id="appearance-note">当前仅配置合成素材。外观与地图布局分开管理。</p></section>
+    <section id="curve-panel"><h2>曲线地形</h2><p class="muted">拖动圆点改变地形，方点调整切线。端点拖近会吸附；支持连接矩形格子平台，操作可撤销。</p>
+      <label class="field">小样类型<select id="curve-template"><option value="hill">丘陵</option><option value="valley">谷地</option><option value="slope">缓坡</option></select></label>
+      <button id="add-curve" class="full">在右侧添加曲线小样</button>
+      <button id="add-mixed" class="full">添加混合地形小样</button>
+      <label class="field">曲线<select id="curve-selection"><option value="">未选择</option></select></label>
+      <label class="field">控制点<select id="curve-point"><option value="">未选择</option></select></label>
+      <div class="field-pair"><label class="field">点 X<input id="curve-x" type="number" step="1" disabled></label><label class="field">点 Y<input id="curve-y" type="number" step="1" disabled></label></div>
+      <div class="field-pair"><label class="field">切线斜率<input id="curve-slope" type="number" step="0.05" min="-2" max="2" disabled></label><label class="field">封底 Y<input id="curve-base" type="number" step="1" disabled></label></div>
+      <button id="apply-curve" class="full" disabled>应用曲线参数</button>
+      <button id="join-curves" class="full" disabled>合并附近端点</button>
+      <p id="curve-join-hint" class="muted">选择端点，或将端点拖近另一条曲线的接头。</p>
+      <button id="connect-grid" class="full" disabled>连接附近格子平台</button>
+      <button id="disconnect-grid" class="full" disabled>解除格子连接</button>
+      <p id="grid-connection-hint" class="muted">首轮支持同封底的矩形格子平台；连接后共享材质与轮廓。</p>
+      <div class="button-row"><button id="insert-curve-point" disabled>插入点</button><button id="delete-curve-point" disabled>删除点</button><button id="remove-curve" disabled>删除曲线</button></div>
+      <p id="curve-info" class="muted">添加小样将明确升级为 v2 地图，并向右扩建一屏。</p>
+    </section>
+    <section><h2>图层</h2><div id="layers"></div></section>
+    <section><h2>选中实例</h2><label class="field">实例列表<select id="selection"><option value="">未选择</option></select></label><div id="selection-info" class="muted">选择环境块或组合预设。</div><div class="field-pair"><label class="field">X <input id="object-x" type="number" step="1" disabled></label><label class="field">Y <input id="object-y" type="number" step="1" disabled></label></div><button id="move" class="full" disabled>应用位置</button><div class="button-row"><button id="duplicate" disabled>复制</button><button id="delete" disabled>删除</button><button id="expand" disabled>展开组合</button></div>
+      <details id="object-appearance" hidden>
+        <summary>颜色调整</summary>
+        <fieldset aria-label="颜色调整">
+          <label class="appearance-color">雾色 <input id="appearance-fog-color" type="color" value="#b6d8ed"></label>
+          <p>拖动预览，应用后保存到当前对象。</p>
+          <div class="button-row"><button type="button" data-apply>应用调色</button><button type="button" data-reset>恢复原色</button></div>
+        </fieldset>
+      </details>
+    </section>
+    <section><h2>精确放置</h2><p class="muted" id="placement-hint">按当前工具在指定格操作。</p><div class="field-pair"><label class="field">列 <input id="cell-x" type="number" step="1" value="10"></label><label class="field">行 <input id="cell-y" type="number" step="1" value="3"></label></div><button id="apply-cell" class="full">在此格应用工具</button></section>
+    <section class="evidence"><h2>当前文档</h2><span>视觉状态：未评审</span><code id="digest">—</code><button id="compiled" class="full">下载编译场景</button><button id="export-pack" class="full">下载场景资产包 ZIP</button></section>
+  </aside>
+</div>
+<script type="module" src="/app.js"></script>
+</body></html>

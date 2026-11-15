@@ -1,0 +1,14 @@
+{
+  "format": "ai_scene_image_capabilities_v1",
+  "capabilityId": "native.text.reference.r1",
+  "source": "host-declared",
+  "textToImage": true,
+  "imageToImage": false,
+  "exactSize": false,
+  "transparentBackground": false,
+  "maxInputImages": 0,
+  "maxWidth": 4096,
+  "maxHeight": 4096,
+  "maximumCallsPerRequest": 1,
+  "outputFormat": "png"
+}

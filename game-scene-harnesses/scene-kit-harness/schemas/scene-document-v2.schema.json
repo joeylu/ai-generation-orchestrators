@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_document_v2",
+  "type": "object",
+  "properties": {
+    "format": { "const": "ai_scene_document_v2" },
+    "mapId": { "$ref": "scene-document.schema.json#/properties/mapId" },
+    "kitRef": { "$ref": "scene-document.schema.json#/properties/kitRef" },
+    "rulesRef": { "$ref": "scene-document.schema.json#/properties/rulesRef" },
+    "bounds": { "$ref": "scene-document.schema.json#/properties/bounds" },
+    "seed": { "$ref": "scene-document.schema.json#/properties/seed" },
+    "layers": { "$ref": "scene-document.schema.json#/properties/layers" },
+    "terrainRuns": { "$ref": "scene-document.schema.json#/properties/terrainRuns" },
+    "instances": { "$ref": "scene-document.schema.json#/properties/instances" },
+    "assemblyInstances": { "$ref": "scene-document.schema.json#/properties/assemblyInstances" },
+    "defaultCamera": { "$ref": "scene-document.schema.json#/properties/defaultCamera" },
+    "inspectionCases": { "$ref": "scene-document.schema.json#/properties/inspectionCases" },
+    "curveTerrains": {
+      "type": "array", "minItems": 0, "maxItems": 16,
+      "items": {
+        "type": "object",
+        "properties": {
+          "curveId": { "$ref": "common.schema.json#/$defs/id" },
+          "familyId": { "$ref": "common.schema.json#/$defs/id" },
+          "profile": { "const": "sideview-height-curve-v1" },
+          "baseY": { "type": "integer", "minimum": -1000000, "maximum": 1000000 },
+          "points": {
+            "type": "array", "minItems": 2, "maxItems": 32,
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "integer", "minimum": -1000000, "maximum": 1000000 },
+                "y": { "type": "integer", "minimum": -1000000, "maximum": 1000000 },
+                "slope": { "type": "number", "minimum": -2, "maximum": 2 }
+              },
+              "required": ["x", "y", "slope"], "additionalProperties": false
+            }
+          }
+        },
+        "required": ["curveId", "familyId", "profile", "baseY", "points"], "additionalProperties": false
+      }
+    }
+  },
+  "required": ["format", "mapId", "kitRef", "rulesRef", "bounds", "seed", "layers", "terrainRuns", "instances", "assemblyInstances", "defaultCamera", "inspectionCases", "curveTerrains"],
+  "additionalProperties": false
+}

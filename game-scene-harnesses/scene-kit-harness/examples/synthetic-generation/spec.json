@@ -1,0 +1,11 @@
+{
+  "format": "ai_scene_spec_v1",
+  "specId": "synthetic.scene.r1",
+  "projection": "sideview",
+  "description": "Engineering fixture: horizontal terrain, gaps and floating platforms. No characters or independent props.",
+  "inputs": [],
+  "grid": { "width": 64, "height": 64 },
+  "pixelsPerUnit": { "numerator": 1, "denominator": 1 },
+  "viewport": { "width": 64, "height": 64 },
+  "mapSizeCells": { "width": 64, "height": 9 }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","title":"ai_scene_background_band_v2","type":"object",
+  "properties":{
+    "format":{"const":"ai_scene_background_band_v2"},"profile":{"const":"background-band-guided-v2"},"guidanceProfile":{"const":"three-edge-continuation-v1"},
+    "camera":{"$ref":"background-band.schema.json#/properties/camera"},
+    "parallax":{"$ref":"background-band.schema.json#/properties/parallax"},
+    "coverageFrameWorld":{"$ref":"background-band.schema.json#/properties/coverageFrameWorld"},
+    "edges":{"$ref":"background-band.schema.json#/properties/edges"},
+    "canvasAspect":{"$ref":"background-band.schema.json#/properties/canvasAspect"}
+  },
+  "required":["format","profile","guidanceProfile","camera","parallax","coverageFrameWorld","edges","canvasAspect"],"additionalProperties":false
+}

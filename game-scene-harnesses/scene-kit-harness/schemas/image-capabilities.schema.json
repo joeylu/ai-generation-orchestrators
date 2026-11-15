@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Host-declared image capabilities v1",
+  "type": "object",
+  "properties": {
+    "format": { "const": "ai_scene_image_capabilities_v1" },
+    "capabilityId": { "$ref": "common.schema.json#/$defs/id" },
+    "source": { "const": "host-declared" },
+    "textToImage": { "type": "boolean" },
+    "imageToImage": { "type": "boolean" },
+    "exactSize": { "type": "boolean" },
+    "transparentBackground": { "type": "boolean" },
+    "maxInputImages": { "type": "integer", "minimum": 0, "maximum": 16 },
+    "maxWidth": { "type": "integer", "minimum": 1, "maximum": 4096 },
+    "maxHeight": { "type": "integer", "minimum": 1, "maximum": 4096 },
+    "maximumCallsPerRequest": { "const": 1 },
+    "outputFormat": { "const": "png" }
+  },
+  "required": ["format", "capabilityId", "source", "textToImage", "imageToImage", "exactSize", "transparentBackground", "maxInputImages", "maxWidth", "maxHeight", "maximumCallsPerRequest", "outputFormat"],
+  "additionalProperties": false
+}

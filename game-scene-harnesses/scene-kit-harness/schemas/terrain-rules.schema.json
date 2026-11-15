@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_terrain_rules_v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "ai_scene_terrain_rules_v1"
+    },
+    "kitRef": {
+      "$ref": "common.schema.json#/$defs/kitRef"
+    },
+    "rulesId": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "revision": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "profile": {
+      "const": "sideview-solid-blob47-v1"
+    },
+    "familyId": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "variantAssetIds": {
+            "type": "array",
+            "items": {
+              "$ref": "common.schema.json#/$defs/id"
+            },
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "signature",
+          "variantAssetIds"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 47,
+      "maxItems": 47
+    }
+  },
+  "required": [
+    "format",
+    "kitRef",
+    "rulesId",
+    "revision",
+    "profile",
+    "familyId",
+    "entries"
+  ],
+  "additionalProperties": false
+}

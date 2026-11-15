@@ -1,0 +1,29 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"ai_scene_terrain_material_loop_v1",
+  "type":"object",
+  "properties":{
+    "format":{"const":"ai_scene_terrain_material_loop_v1"},
+    "profile":{"const":"source-pixel-closed-overlap-cycle-v1"},
+    "sourceInput":{"$ref":"#/$defs/image"},
+    "options":{"type":"object","properties":{"usableRows":{"type":"integer","minimum":64,"maximum":2048},"overlapRows":{"type":"integer","minimum":16,"maximum":256},"phaseCount":{"type":"integer","enum":[1,3]}},"required":["usableRows","overlapRows","phaseCount"],"additionalProperties":false},
+    "algorithm":{"type":"object","properties":{"cost":{"type":"string","maxLength":200},"closedEndpoints":{"const":true},"maxStep":{"const":2},"maximumStartCandidates":{"const":32},"sourcePixelSelectionOnly":{"const":true},"approximateOptimizer":{"const":true},"selection":{"const":"previous-tail-above-cut-current-head-below-cut"},"integerTranslationsOnly":{"const":true}},"required":["cost","closedEndpoints","maxStep","maximumStartCandidates","sourcePixelSelectionOnly","approximateOptimizer","selection","integerTranslationsOnly"],"additionalProperties":false},
+    "output":{"type":"object","properties":{"source":{"$ref":"#/$defs/source"},"pixelSize":{"$ref":"#/$defs/size"}},"required":["source","pixelSize"],"additionalProperties":false},
+    "bodyPeriod":{"type":"object","properties":{"width":{"$ref":"#/$defs/rational"},"height":{"$ref":"#/$defs/rational"}},"required":["width","height"],"additionalProperties":false},
+    "sourceDensity":{"type":"object","properties":{"normalizationHeight":{"type":"integer","minimum":64,"maximum":4096},"worldWidth":{"const":512},"worldHeight":{"const":256}},"required":["normalizationHeight","worldWidth","worldHeight"],"additionalProperties":false},
+    "phases":{"type":"array","minItems":1,"maxItems":3,"items":{"type":"object","properties":{"phase":{"type":"integer","minimum":0,"maximum":2},"xOffsetPixels":{"type":"integer","minimum":0,"maximum":2047},"previousXOffsetPixels":{"type":"integer","minimum":0,"maximum":2047},"cutRows":{"type":"array","minItems":32,"maxItems":2048,"items":{"type":"integer","minimum":0,"maximum":255}},"cutCosts":{"type":"object","properties":{"pathMean":{"type":"number","minimum":0},"actualVerticalNeighborRgb":{"$ref":"#/$defs/stats"},"cutRange":{"$ref":"#/$defs/stats"}},"required":["pathMean","actualVerticalNeighborRgb","cutRange"],"additionalProperties":false}},"required":["phase","xOffsetPixels","previousXOffsetPixels","cutRows","cutCosts"],"additionalProperties":false}},
+    "work":{"type":"object","properties":{"dpTransitions":{"type":"integer","minimum":0,"maximum":268435456},"outputPixels":{"type":"integer","minimum":1,"maximum":8388608}},"required":["dpTransitions","outputPixels"],"additionalProperties":false},
+    "limits":{"type":"object","properties":{"maximumSourceDimension":{"const":2048},"maximumOverlapRows":{"const":256},"maximumPhases":{"const":3},"maximumStartCandidates":{"const":32},"maximumStep":{"const":2},"overlapMargin":{"const":4},"maximumDpTransitions":{"const":268435456},"maximumOutputPixels":{"const":8388608},"maximumOutputHeight":{"const":4096},"maximumPngBytes":{"const":16777216}},"required":["maximumSourceDimension","maximumOverlapRows","maximumPhases","maximumStartCandidates","maximumStep","overlapMargin","maximumDpTransitions","maximumOutputPixels","maximumOutputHeight","maximumPngBytes"],"additionalProperties":false},
+    "provenanceSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "sourcePngChanged":{"const":false},"pixelsRecolored":{"const":false},"sourceCoordinatesWarped":{"const":false},"sourcePixelSelectionOnly":{"const":true},"generationCalls":{"const":0},"visualAcceptance":{"const":"not-assessed"},"sha256":{"$ref":"common.schema.json#/$defs/sha256"}
+  },
+  "required":["format","profile","sourceInput","options","algorithm","output","bodyPeriod","sourceDensity","phases","provenanceSha256","work","limits","sourcePngChanged","pixelsRecolored","sourceCoordinatesWarped","sourcePixelSelectionOnly","generationCalls","visualAcceptance","sha256"],
+  "additionalProperties":false,
+  "$defs":{
+    "stats":{"type":"object","properties":{"mean":{"type":"number","minimum":0},"minimum":{"type":"number","minimum":0},"maximum":{"type":"number","minimum":0}},"required":["mean","minimum","maximum"],"additionalProperties":false},
+    "source":{"type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":240},"sha256":{"$ref":"common.schema.json#/$defs/sha256"},"byteLength":{"type":"integer","minimum":1,"maximum":16777216}},"required":["path","sha256","byteLength"],"additionalProperties":false},
+    "size":{"type":"object","properties":{"width":{"type":"integer","minimum":1,"maximum":4096},"height":{"type":"integer","minimum":1,"maximum":4096}},"required":["width","height"],"additionalProperties":false},
+    "image":{"type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":240},"sha256":{"$ref":"common.schema.json#/$defs/sha256"},"byteLength":{"type":"integer","minimum":1,"maximum":16777216},"pixelSize":{"$ref":"#/$defs/size"}},"required":["path","sha256","byteLength","pixelSize"],"additionalProperties":false},
+    "rational":{"type":"object","properties":{"numerator":{"type":"integer","minimum":1,"maximum":9007199254740991},"denominator":{"type":"integer","minimum":1,"maximum":9007199254740991}},"required":["numerator","denominator"],"additionalProperties":false}
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"ai_scene_terrain_bottom_edges_compatible",
+  "type":"object",
+  "properties":{
+    "format":{"enum":["ai_scene_terrain_bottom_edges_v1","ai_scene_terrain_bottom_edges_v2"]},
+    "profile":{"enum":["native-horizontal-bottom-union-v1","native-horizontal-bottom-union-v2"]},
+    "nativeSizeProfile":{"const":"bounded-native-4m-v1"},
+    "renderEnvelopeProfile":{"const":"visible-alpha8-outward16-native-rgba-v1"},
+    "junctionProfile":{"enum":["native-bottom-endpoint-underlap-v1","native-bottom-adaptive-coverage-v2"]},
+    "bodySupportProfile":{"const":"author-solid-world-body-v1"},
+    "thinPlatformTopProfile":{"const":"isolated-flat-platform-top-v1"},
+    "sourceBinding":{"$ref":"terrain-bottom-edges-v2.schema.json#/properties/sourceBinding"},
+    "edge":{"$ref":"terrain-bottom-edges-v2.schema.json#/$defs/edge"},
+    "leftCorner":{"$ref":"terrain-bottom-edges-v2.schema.json#/$defs/corner"},
+    "rightCorner":{"$ref":"terrain-bottom-edges-v2.schema.json#/$defs/corner"}
+  },
+  "required":["format","profile","sourceBinding","edge","leftCorner","rightCorner"],
+  "additionalProperties":false
+}

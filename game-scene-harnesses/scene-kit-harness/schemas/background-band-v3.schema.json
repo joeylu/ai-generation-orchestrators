@@ -1,0 +1,18 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","title":"ai_scene_background_band_v3","type":"object",
+  "properties":{
+    "format":{"const":"ai_scene_background_band_v3"},"profile":{"const":"background-band-coverage-v3"},
+    "guidanceProfile":{"const":"normalized-three-cut-coverage-v1"},"boundaryProfile":{"const":"natural-top-finite-three-cuts-v1"},
+    "camera":{"$ref":"background-band.schema.json#/properties/camera"},
+    "parallax":{"$ref":"background-band.schema.json#/properties/parallax"},
+    "coverageFrameWorld":{"$ref":"background-band.schema.json#/properties/coverageFrameWorld"},
+    "edges":{"$ref":"background-band.schema.json#/properties/edges"},
+    "canvasAspect":{"$ref":"background-band.schema.json#/properties/canvasAspect"},
+    "coverageBudget":{"type":"object","properties":{
+      "profile":{"const":"normalized-relative-coverage-v1"},
+      "upperContourPercent":{"type":"object","properties":{"min":{"const":4},"max":{"const":12}},"required":["min","max"],"additionalProperties":false},
+      "majorFeatureWidthPercent":{"type":"object","properties":{"min":{"const":22},"max":{"const":32}},"required":["min","max"],"additionalProperties":false}
+    },"required":["profile","upperContourPercent","majorFeatureWidthPercent"],"additionalProperties":false}
+  },
+  "required":["format","profile","guidanceProfile","boundaryProfile","camera","parallax","coverageFrameWorld","edges","canvasAspect","coverageBudget"],"additionalProperties":false
+}

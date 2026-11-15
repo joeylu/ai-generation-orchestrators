@@ -1,0 +1,24 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "type":"object",
+  "properties":{
+    "format":{"enum":["ai_scene_terrain_step_surface_v1","ai_scene_terrain_step_surface_v2"]},
+    "profile":{"enum":["native-lip-bound-step-coverage-v1","native-lip-linear-step-end-v2"]},
+    "capSourceSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "capMappingSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "interfaceSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "surfaceSpanEnvelopeSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "stepCornerProfileSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "coveragePolicy":{"enum":["crop-within-legacy-opaque-cap-v1","cropped-cap-linear-wall-end-v2"]},
+    "endFade":{"type":"object","properties":{"profile":{"const":"linear-vertex-coverage-v1"},"overlapWorld":{"const":8},"overlapColumns":{"const":4},"opacityAtWall":{"const":1},"opacityAtEnd":{"const":0},"rowFade":{"const":"existing-native-row-bands"},"maximumVerticesPerMesh":{"const":400},"compiledFormat":{"const":"ai_scene_compiled_v8"}},"required":["profile","overlapWorld","overlapColumns","opacityAtWall","opacityAtEnd","rowFade","maximumVerticesPerMesh","compiledFormat"],"additionalProperties":false},
+    "supportPolicy":{"const":"retain-legacy-full-cap-probes-v1"},
+    "sourcePngChanged":{"const":false},
+    "sourceCoordinatesWarped":{"const":false},
+    "authorGeometryChanged":{"const":false},
+    "generationCalls":{"const":0},
+    "visualAcceptance":{"const":"not-assessed"},
+    "sha256":{"$ref":"common.schema.json#/$defs/sha256"}
+  },
+  "required":["format","profile","capSourceSha256","capMappingSha256","interfaceSha256","stepCornerProfileSha256","coveragePolicy","supportPolicy","sourcePngChanged","sourceCoordinatesWarped","authorGeometryChanged","generationCalls","visualAcceptance","sha256"],
+  "additionalProperties":false
+}

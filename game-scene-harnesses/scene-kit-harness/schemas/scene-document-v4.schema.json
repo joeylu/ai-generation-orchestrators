@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_document_v4",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "ai_scene_document_v4"
+    },
+    "mapId": {
+      "$ref": "scene-document-v3.schema.json#/properties/mapId"
+    },
+    "kitRef": {
+      "$ref": "scene-document-v3.schema.json#/properties/kitRef"
+    },
+    "rulesRef": {
+      "$ref": "scene-document-v3.schema.json#/properties/rulesRef"
+    },
+    "bounds": {
+      "$ref": "scene-document-v3.schema.json#/properties/bounds"
+    },
+    "seed": {
+      "$ref": "scene-document-v3.schema.json#/properties/seed"
+    },
+    "layers": {
+      "$ref": "scene-document-v3.schema.json#/properties/layers"
+    },
+    "terrainRuns": {
+      "$ref": "scene-document-v3.schema.json#/properties/terrainRuns"
+    },
+    "instances": {
+      "$ref": "scene-document-v3.schema.json#/properties/instances"
+    },
+    "assemblyInstances": {
+      "$ref": "scene-document-v3.schema.json#/properties/assemblyInstances"
+    },
+    "defaultCamera": {
+      "$ref": "scene-document-v3.schema.json#/properties/defaultCamera"
+    },
+    "inspectionCases": {
+      "$ref": "scene-document-v3.schema.json#/properties/inspectionCases"
+    },
+    "curveTerrains": {
+      "$ref": "scene-document-v3.schema.json#/properties/curveTerrains"
+    },
+    "terrainConnections": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "properties": {
+          "curveId": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "endpoint": {
+            "enum": [
+              "start",
+              "end"
+            ]
+          },
+          "cell": {
+            "$ref": "common.schema.json#/$defs/gridPoint"
+          }
+        },
+        "required": [
+          "curveId",
+          "endpoint",
+          "cell"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "instanceTransforms": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "scale": {
+            "type": "number",
+            "minimum": 0.125,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "instanceId",
+          "scale"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "mapId",
+    "kitRef",
+    "rulesRef",
+    "bounds",
+    "seed",
+    "layers",
+    "terrainRuns",
+    "instances",
+    "assemblyInstances",
+    "defaultCamera",
+    "inspectionCases",
+    "curveTerrains",
+    "terrainConnections",
+    "instanceTransforms"
+  ],
+  "additionalProperties": false
+}

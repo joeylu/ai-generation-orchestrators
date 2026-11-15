@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_module_catalog_v2",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "ai_scene_module_catalog_v2"
+    },
+    "kitRef": {
+      "$ref": "common.schema.json#/$defs/kitRef"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "assetId": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "placementRole": {
+            "enum": ["foreground", "environment", "middle", "far", "background"]
+          },
+          "kind": {
+            "enum": [
+              "terrain",
+              "environment",
+              "strip",
+              "background"
+            ]
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "$ref": "common.schema.json#/$defs/path"
+              },
+              "sha256": {
+                "$ref": "common.schema.json#/$defs/sha256"
+              },
+              "byteLength": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16777216
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "byteLength"
+            ],
+            "additionalProperties": false
+          },
+          "pixelSize": {
+            "$ref": "common.schema.json#/$defs/size"
+          },
+          "animation": {
+            "$ref": "common.schema.json#/$defs/environmentAnimation"
+          },
+          "footprint": {
+            "type": "object",
+            "properties": {
+              "columns": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1024
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1024
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "additionalProperties": false
+          },
+          "anchorPx": {
+            "$ref": "common.schema.json#/$defs/point"
+          },
+          "visualOffset": {
+            "$ref": "common.schema.json#/$defs/point"
+          },
+          "allowedTransforms": {
+            "type": "array",
+            "items": {
+              "const": "identity"
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "repeatAxis": {
+            "enum": [
+              "none",
+              "x"
+            ]
+          }
+        },
+        "required": [
+          "assetId",
+          "kind",
+          "source",
+          "pixelSize",
+          "footprint",
+          "anchorPx",
+          "visualOffset",
+          "allowedTransforms",
+          "repeatAxis"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "format",
+    "kitRef",
+    "modules"
+  ],
+  "additionalProperties": false
+}

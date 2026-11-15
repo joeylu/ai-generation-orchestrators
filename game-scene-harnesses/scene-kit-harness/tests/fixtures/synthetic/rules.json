@@ -1,0 +1,295 @@
+{
+  "format": "ai_scene_terrain_rules_v1",
+  "kitRef": {
+    "kitId": "synthetic-sideview",
+    "revision": "fixture-v1"
+  },
+  "rulesId": "terrain.primary",
+  "revision": "rules-v1",
+  "profile": "sideview-solid-blob47-v1",
+  "familyId": "terrain.primary",
+  "entries": [
+    {
+      "signature": 0,
+      "variantAssetIds": [
+        "terrain-000"
+      ]
+    },
+    {
+      "signature": 1,
+      "variantAssetIds": [
+        "terrain-001"
+      ]
+    },
+    {
+      "signature": 4,
+      "variantAssetIds": [
+        "terrain-004"
+      ]
+    },
+    {
+      "signature": 5,
+      "variantAssetIds": [
+        "terrain-005"
+      ]
+    },
+    {
+      "signature": 7,
+      "variantAssetIds": [
+        "terrain-007"
+      ]
+    },
+    {
+      "signature": 16,
+      "variantAssetIds": [
+        "terrain-016"
+      ]
+    },
+    {
+      "signature": 17,
+      "variantAssetIds": [
+        "terrain-017"
+      ]
+    },
+    {
+      "signature": 20,
+      "variantAssetIds": [
+        "terrain-020"
+      ]
+    },
+    {
+      "signature": 21,
+      "variantAssetIds": [
+        "terrain-021"
+      ]
+    },
+    {
+      "signature": 23,
+      "variantAssetIds": [
+        "terrain-023"
+      ]
+    },
+    {
+      "signature": 28,
+      "variantAssetIds": [
+        "terrain-028"
+      ]
+    },
+    {
+      "signature": 29,
+      "variantAssetIds": [
+        "terrain-029"
+      ]
+    },
+    {
+      "signature": 31,
+      "variantAssetIds": [
+        "terrain-031"
+      ]
+    },
+    {
+      "signature": 64,
+      "variantAssetIds": [
+        "terrain-064"
+      ]
+    },
+    {
+      "signature": 65,
+      "variantAssetIds": [
+        "terrain-065"
+      ]
+    },
+    {
+      "signature": 68,
+      "variantAssetIds": [
+        "terrain-068"
+      ]
+    },
+    {
+      "signature": 69,
+      "variantAssetIds": [
+        "terrain-069"
+      ]
+    },
+    {
+      "signature": 71,
+      "variantAssetIds": [
+        "terrain-071"
+      ]
+    },
+    {
+      "signature": 80,
+      "variantAssetIds": [
+        "terrain-080"
+      ]
+    },
+    {
+      "signature": 81,
+      "variantAssetIds": [
+        "terrain-081"
+      ]
+    },
+    {
+      "signature": 84,
+      "variantAssetIds": [
+        "terrain-084"
+      ]
+    },
+    {
+      "signature": 85,
+      "variantAssetIds": [
+        "terrain-085"
+      ]
+    },
+    {
+      "signature": 87,
+      "variantAssetIds": [
+        "terrain-087"
+      ]
+    },
+    {
+      "signature": 92,
+      "variantAssetIds": [
+        "terrain-092"
+      ]
+    },
+    {
+      "signature": 93,
+      "variantAssetIds": [
+        "terrain-093"
+      ]
+    },
+    {
+      "signature": 95,
+      "variantAssetIds": [
+        "terrain-095"
+      ]
+    },
+    {
+      "signature": 112,
+      "variantAssetIds": [
+        "terrain-112"
+      ]
+    },
+    {
+      "signature": 113,
+      "variantAssetIds": [
+        "terrain-113"
+      ]
+    },
+    {
+      "signature": 116,
+      "variantAssetIds": [
+        "terrain-116"
+      ]
+    },
+    {
+      "signature": 117,
+      "variantAssetIds": [
+        "terrain-117"
+      ]
+    },
+    {
+      "signature": 119,
+      "variantAssetIds": [
+        "terrain-119"
+      ]
+    },
+    {
+      "signature": 124,
+      "variantAssetIds": [
+        "terrain-124"
+      ]
+    },
+    {
+      "signature": 125,
+      "variantAssetIds": [
+        "terrain-125"
+      ]
+    },
+    {
+      "signature": 127,
+      "variantAssetIds": [
+        "terrain-127"
+      ]
+    },
+    {
+      "signature": 193,
+      "variantAssetIds": [
+        "terrain-193"
+      ]
+    },
+    {
+      "signature": 197,
+      "variantAssetIds": [
+        "terrain-197"
+      ]
+    },
+    {
+      "signature": 199,
+      "variantAssetIds": [
+        "terrain-199"
+      ]
+    },
+    {
+      "signature": 209,
+      "variantAssetIds": [
+        "terrain-209"
+      ]
+    },
+    {
+      "signature": 213,
+      "variantAssetIds": [
+        "terrain-213"
+      ]
+    },
+    {
+      "signature": 215,
+      "variantAssetIds": [
+        "terrain-215"
+      ]
+    },
+    {
+      "signature": 221,
+      "variantAssetIds": [
+        "terrain-221"
+      ]
+    },
+    {
+      "signature": 223,
+      "variantAssetIds": [
+        "terrain-223"
+      ]
+    },
+    {
+      "signature": 241,
+      "variantAssetIds": [
+        "terrain-241"
+      ]
+    },
+    {
+      "signature": 245,
+      "variantAssetIds": [
+        "terrain-245"
+      ]
+    },
+    {
+      "signature": 247,
+      "variantAssetIds": [
+        "terrain-247"
+      ]
+    },
+    {
+      "signature": 253,
+      "variantAssetIds": [
+        "terrain-253"
+      ]
+    },
+    {
+      "signature": 255,
+      "variantAssetIds": [
+        "terrain-255"
+      ]
+    }
+  ]
+}

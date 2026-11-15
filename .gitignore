@@ -3,5 +3,24 @@ Thumbs.db
 .env
 .env.*
 node_modules/
+build/
 dist/
+/game-ui-harnesses/ui-component-harness/dist-layers/
 coverage/
+.venv/
+.ai-frame-animation/
+.ai-image-background-removal/
+.tmp-validation/
+.tmp-dag-validation/
+.tmp-opencode-imagegen/
+.tmp/
+.superpowers/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+# User references, raw videos, decoded frames, and deliveries stay local.
+work/
+/game-scene-harnesses/scene-kit-harness/.local/
+# Preserved pre-migration local WIP; never include in the public release.
+artwork/sequence/references/

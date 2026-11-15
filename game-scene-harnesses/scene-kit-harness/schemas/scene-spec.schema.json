@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Scene generation specification v1",
+  "type": "object",
+  "properties": {
+    "format": { "const": "ai_scene_spec_v1" },
+    "specId": { "$ref": "common.schema.json#/$defs/id" },
+    "projection": { "const": "sideview" },
+    "description": { "$ref": "generation-common.schema.json#/$defs/text" },
+    "inputs": {
+      "type": "array", "maxItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": { "enum": ["scene-reference", "layout-sketch"] },
+          "artifact": { "$ref": "generation-common.schema.json#/$defs/image" }
+        },
+        "required": ["role", "artifact"], "additionalProperties": false
+      }
+    },
+    "grid": { "$ref": "common.schema.json#/$defs/size" },
+    "pixelsPerUnit": {
+      "type": "object",
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "denominator": { "type": "integer", "minimum": 1, "maximum": 16 }
+      },
+      "required": ["numerator", "denominator"], "additionalProperties": false
+    },
+    "viewport": { "$ref": "common.schema.json#/$defs/size" },
+    "mapSizeCells": { "$ref": "common.schema.json#/$defs/size" }
+  },
+  "required": ["format", "specId", "projection", "description", "inputs", "grid", "pixelsPerUnit", "viewport", "mapSizeCells"],
+  "additionalProperties": false
+}

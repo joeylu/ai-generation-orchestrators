@@ -1,0 +1,22 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"ai_scene_terrain_surface_span_envelope_v1","type":"object",
+  "properties":{
+    "format":{"const":"ai_scene_terrain_surface_span_envelope_v1"},
+    "profile":{"const":"native-lip-continuous-span-coverage-v1"},
+    "capSourceSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "capMappingSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "interfaceSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "options":{"type":"object","properties":{
+      "shortWidthWorld":{"type":"number","minimum":1,"maximum":4096},
+      "fullWidthWorld":{"type":"number","minimum":1,"maximum":4096},
+      "capEndRow":{"type":"integer","minimum":1,"maximum":4096},
+      "fadeRows":{"type":"integer","minimum":0,"maximum":4096}
+    },"required":["shortWidthWorld","fullWidthWorld","capEndRow","fadeRows"],"additionalProperties":false},
+    "coveragePolicy":{"const":"reduce-original-native-lip-only"},"sourcePngChanged":{"const":false},
+    "sourceCoordinatesWarped":{"const":false},"generationCalls":{"const":0},"visualAcceptance":{"const":"not-assessed"},
+    "sha256":{"$ref":"common.schema.json#/$defs/sha256"}
+  },
+  "required":["format","profile","capSourceSha256","capMappingSha256","interfaceSha256","options","coveragePolicy","sourcePngChanged","sourceCoordinatesWarped","generationCalls","visualAcceptance","sha256"],
+  "additionalProperties":false
+}

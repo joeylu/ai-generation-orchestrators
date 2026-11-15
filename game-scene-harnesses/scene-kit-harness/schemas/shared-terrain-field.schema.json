@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_shared_terrain_field_v1",
+  "type": "object",
+  "properties": {
+    "format": {"enum": ["ai_scene_shared_terrain_field_v1", "ai_scene_shared_terrain_field_v2"]},
+    "profile": {"enum": ["world-material-occupancy-boundary-v1", "world-material-grid-curve-boundary-v2"]},
+    "bodySourceSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "capSourceSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "outline": {
+      "type": "object",
+      "properties": {
+        "maximumInsetWorld": {"type": "number", "minimum": 0, "maximum": 16},
+        "sampleStepWorld": {"enum": [4, 8, 16]},
+        "wavelengthWorld": {"type": "number", "minimum": 32, "maximum": 512},
+        "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+      },
+      "required": ["maximumInsetWorld", "sampleStepWorld", "wavelengthWorld", "seed"], "additionalProperties": false
+    },
+    "surfaceInterface": {"$ref": "kit-v4.schema.json#/$defs/terrainEdges/properties/surfaceInterface"},
+    "curveSideRelief": {"const": "exposed-inset-v1"},
+    "candidateReview": {"const": "placement-required-v1"},
+    "lighting": {
+      "type": "object",
+      "properties": {
+        "bandWorld": {"type": "number", "minimum": 0.001, "maximum": 8},
+        "fadeBands": {"type": "integer", "minimum": 1, "maximum": 8},
+        "leftShade": {"type": "number", "minimum": 0.5, "maximum": 1},
+        "rightShade": {"type": "number", "minimum": 0.5, "maximum": 1},
+        "bottomShade": {"type": "number", "minimum": 0.5, "maximum": 1}
+      },
+      "required": ["bandWorld", "fadeBands", "leftShade", "rightShade", "bottomShade"], "additionalProperties": false
+    }
+  },
+  "required": ["format", "profile", "bodySourceSha256", "capSourceSha256", "outline", "surfaceInterface", "sha256"],
+  "additionalProperties": false
+}

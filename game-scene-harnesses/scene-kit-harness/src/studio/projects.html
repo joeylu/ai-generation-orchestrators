@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>项目 · Scene Kit Studio</title><link rel="stylesheet" href="/projects.css"></head>
+<body class="project-hub">
+<a class="hub-skip" href="#projects-main">跳至项目列表</a>
+<header class="hub-header"><a class="hub-brand" href="/" aria-label="Scene Kit Studio 项目首页"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 23V12h8v6h7V7h11v18H3Z" fill="currentColor"/></svg><strong>Scene Kit Studio</strong></a><span class="hub-local"><i></i>本机工作区</span></header>
+<main id="projects-main">
+  <div class="hub-heading"><div><p class="hub-eyebrow">SCENE WORKSPACE</p><h1>你的场景项目</h1><p class="hub-description">在这里整理素材与地图，选择一个项目继续创作。</p></div><div class="hub-actions"><button id="import-project">导入项目</button><button id="new-project" class="primary"><span aria-hidden="true">＋</span> 新建项目</button></div></div>
+  <div class="hub-list-heading"><div><h2>全部项目</h2><span id="project-total">—</span></div><label class="hub-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="project-search" type="search" placeholder="搜索项目" aria-label="搜索项目" maxlength="60"></label></div>
+  <div id="hub-message" class="hub-message" role="status" aria-live="polite"></div>
+  <section id="project-grid" class="hub-grid" aria-label="项目列表"><div class="hub-loading">正在读取本机项目…</div></section>
+  <div id="hub-no-results" hidden><h2>没有找到这个项目</h2><p>换个名称试试，或查看全部项目。</p><button id="clear-search">查看全部项目</button></div>
+  <footer class="hub-footer"><span>项目和地图自动保存在本机</span><button id="refresh-projects">重新加载</button></footer>
+</main>
+<input id="hub-project-file" type="file" accept=".zip,application/zip" hidden>
+<dialog id="hub-dialog" aria-labelledby="hub-dialog-title"><form id="hub-project-form"><div class="hub-dialog-heading"><h2 id="hub-dialog-title">新建项目</h2><button id="hub-dialog-close" type="button" aria-label="关闭">×</button></div><p id="hub-dialog-description"></p><label for="hub-project-name">项目名称</label><input id="hub-project-name" required maxlength="60" autocomplete="off"><p id="hub-dialog-message" class="hub-message" role="status" aria-live="polite"></p><div class="hub-dialog-actions"><button id="hub-dialog-cancel" type="button">取消</button><button id="hub-dialog-submit" class="primary" type="submit">创建项目</button></div></form></dialog>
+<script type="module" src="/projects.js"></script>
+</body></html>

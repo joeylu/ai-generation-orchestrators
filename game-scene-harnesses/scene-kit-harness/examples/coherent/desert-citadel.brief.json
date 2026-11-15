@@ -1,0 +1,285 @@
+{
+  "projectId": "desert.citadel.coherent.r1",
+  "description": "纯2D横版侧视的沙漠古城。清晨柔和暖光，浅金天空、赭色远山、远处沙岩古城与石桥、干燥峡谷、左右沙岩阶地、中央实心平台及清晰近景。整体观感与层次协调，不要求逐像素还原。无人物、独立道具、UI、文字、冰雪、森林或水景。",
+  "viewport": {
+    "width": 1024,
+    "height": 576
+  },
+  "maxAspectErrorPermille": 20,
+  "inputs": [],
+  "style": {
+    "mode": "preset",
+    "preset": "clean-handpaint",
+    "name": "",
+    "rules": [
+      "Warm ochre/sandstone palette, restrained texture, coherent soft dawn lighting. No snowy or forest biome."
+    ],
+    "anchorPath": null
+  },
+  "requirements": {
+    "format": "ai_scene_reference_requirements_v1",
+    "requirementsId": "desert.citadel.coherent.requirements",
+    "layers": [
+      {
+        "layerId": "sky",
+        "kind": "background",
+        "zIndex": 0,
+        "parallaxX": 0
+      },
+      {
+        "layerId": "hills",
+        "kind": "background",
+        "zIndex": 10,
+        "parallaxX": 0.15
+      },
+      {
+        "layerId": "city",
+        "kind": "environment",
+        "zIndex": 20,
+        "parallaxX": 0.35
+      },
+      {
+        "layerId": "middle",
+        "kind": "environment",
+        "zIndex": 30,
+        "parallaxX": 0.65
+      },
+      {
+        "layerId": "valley",
+        "kind": "environment",
+        "zIndex": 35,
+        "parallaxX": 0.8
+      },
+      {
+        "layerId": "ground",
+        "kind": "terrain",
+        "zIndex": 40,
+        "parallaxX": 1
+      },
+      {
+        "layerId": "platform",
+        "kind": "terrain",
+        "zIndex": 50,
+        "parallaxX": 1
+      },
+      {
+        "layerId": "foreground",
+        "kind": "foreground",
+        "zIndex": 60,
+        "parallaxX": 1.1
+      }
+    ],
+    "subjects": [
+      {
+        "subjectId": "sky",
+        "role": "sky",
+        "layerId": "sky",
+        "content": "浅金色清晨天空与少量柔和云层",
+        "count": {
+          "min": 1,
+          "max": 1
+        },
+        "placementHint": "wide"
+      },
+      {
+        "subjectId": "hills",
+        "role": "backdrop",
+        "layerId": "hills",
+        "content": "低对比暖赭色远处沙岩峡谷山体",
+        "count": {
+          "min": 1,
+          "max": 1
+        },
+        "placementHint": "wide"
+      },
+      {
+        "subjectId": "citadel",
+        "role": "landmark",
+        "layerId": "city",
+        "content": "远处沙岩古城与相连石桥，连同承托古城的自然岩基作为一组",
+        "count": {
+          "min": 1,
+          "max": 1
+        },
+        "placementHint": "right"
+      },
+      {
+        "subjectId": "desert-growth",
+        "role": "scenery",
+        "layerId": "middle",
+        "content": "两侧少量干旱灌木与低矮沙岩组，不出现森林或冰雪",
+        "count": {
+          "min": 2,
+          "max": 2
+        },
+        "placementHint": "frame-edges"
+      },
+      {
+        "subjectId": "dry-valley",
+        "role": "valley",
+        "layerId": "valley",
+        "content": "中央干燥峡谷与远处沙地，少量尘雾，无水面瀑布",
+        "count": {
+          "min": 1,
+          "max": 1
+        },
+        "placementHint": "center"
+      },
+      {
+        "subjectId": "main-ground",
+        "role": "ground",
+        "layerId": "ground",
+        "content": "左右连续实心沙岩阶地，表沿清晰，严格侧视，不露出后退顶面",
+        "count": {
+          "min": 2,
+          "max": 2
+        },
+        "placementHint": "frame-edges"
+      },
+      {
+        "subjectId": "floating-platform",
+        "role": "platform",
+        "layerId": "platform",
+        "content": "中央一座浅薄实心沙岩悬浮平台，水平细表沿和清晰正立面",
+        "count": {
+          "min": 1,
+          "max": 1
+        },
+        "placementHint": "center"
+      },
+      {
+        "subjectId": "framing-rocks",
+        "role": "foreground",
+        "layerId": "foreground",
+        "content": "左右清晰的近景沙岩与稀疏干枝，留出中央视线和主要可玩表沿",
+        "count": {
+          "min": 2,
+          "max": 2
+        },
+        "placementHint": "frame-edges"
+      }
+    ],
+    "compositionNotes": [
+      "先生成完整参考图；审阅后按实际粗包络与可见表沿布局，不预先锁定坐标。",
+      "环境素材在独立透明画布重绘，程序适配粗布局；主题、层次和可编辑性优先，不做枝条逐点材质验收。"
+    ],
+    "standards": [
+      {
+        "key": "projection",
+        "requirement": "主地形与平台严格正侧视，薄表沿，不露出大面积后退顶面。"
+      },
+      {
+        "key": "layer-separation",
+        "requirement": "天空、远山、古城、两侧中景、干谷、地形、平台和前景自然分层，可辨主体归属。"
+      },
+      {
+        "key": "frame-completeness",
+        "requirement": "完整构图覆盖底部，不出现未设计灰色空带或拼图面板。"
+      },
+      {
+        "key": "terrain-readability",
+        "requirement": "主地形及中央平台的可玩表沿清晰，实心支撑，不被前景遮满。"
+      },
+      {
+        "key": "foreground-readability",
+        "requirement": "左右前景轮廓清楚，无景深虚化，保持中间通道。"
+      },
+      {
+        "key": "style-consistency",
+        "requirement": "清爽手绘、低纹理噪声，暖沙色岩体、柔和晨光，明暗层次协调。"
+      },
+      {
+        "key": "decomposability",
+        "requirement": "各环境主体有明确身份，允许自然遮挡，便于单独重绘后按粗布局回拼。"
+      }
+    ]
+  },
+  "sourceScopes": [
+    {
+      "subjectId": "sky",
+      "content": "一张浅金色清晨天空与少量柔和云层背景。",
+      "exclusions": [],
+      "parentRole": "background"
+    },
+    {
+      "subjectId": "hills",
+      "content": "一组低对比暖赭色远处沙岩峡谷山体。",
+      "exclusions": [
+        "古城、石桥、近处岩块和地面"
+      ],
+      "parentRole": "far"
+    },
+    {
+      "subjectId": "citadel",
+      "content": "一组远处沙岩古城与相连石桥，包含自身承托岩基。",
+      "exclusions": [
+        "可玩主地形的崖壁",
+        "近景装饰"
+      ],
+      "parentRole": "far"
+    },
+    {
+      "subjectId": "desert-growth",
+      "content": "一组低矮沙岩小石块与少量干旱灌木，作为中景环境组。",
+      "exclusions": [
+        "高大支撑崖壁",
+        "连续可玩表沿"
+      ],
+      "parentRole": "middle"
+    },
+    {
+      "subjectId": "dry-valley",
+      "content": "一片干燥峡谷深处的沙地、远处岩层与少量尘雾。",
+      "exclusions": [
+        "水面、瀑布",
+        "可玩的近处地面"
+      ],
+      "parentRole": "far"
+    },
+    {
+      "subjectId": "main-ground",
+      "content": "暖赭色沙岩连续材质，细薄浅金砂土沿，下方为完整实心岩体。",
+      "terrainIntent": {
+        "profile": "reference-terrain-intent-v2",
+        "contour": "irregular-natural",
+        "notes": "设计为有轻微侵蚀起伏的沙岩阶地，保留宽阔可玩表沿和真实缺口；参考接受后复核，接缝和覆盖深度在实际素材校准时另行测量。不可见下缘按同一裸岩材质推断，不作为原图测量。",
+        "usage": "complete-brush",
+        "perimeter": {
+          "surfaceFamily": "natural",
+          "items": [
+            {"role":"left-wall","content":"裸露沙岩左侧断面，内侧延续连续岩体，外侧有轻微侵蚀。","exclusions":["整座阶地","植被和建筑"],"sourceAppearance":{"format":"ai_scene_source_appearance_v1","profile":"source-owned-appearance-v1","rules":["延续主材质暖赭色沙岩层理与参考光照，无草苔覆盖。"]}},
+            {"role":"right-wall","content":"裸露沙岩右侧断面，独立保持参考光照方向，不镜像左壁。","exclusions":["整座阶地","植被和建筑"],"sourceAppearance":{"format":"ai_scene_source_appearance_v1","profile":"source-owned-appearance-v1","rules":["延续主材质暖赭色沙岩层理与参考光照，无草苔覆盖。"]}},
+            {"role":"left-top-corner","content":"细薄砂土表沿转入左岩壁的完整上角，含衔接岩肩。","exclusions":["完整平台","草皮和建筑"],"sourceAppearance":{"format":"ai_scene_source_appearance_v1","profile":"source-owned-appearance-v1","rules":["浅金砂土表沿连接暖赭色岩肩，沿用参考的左侧明暗。"]}},
+            {"role":"right-top-corner","content":"细薄砂土表沿转入右岩壁的完整上角，含衔接岩肩。","exclusions":["完整平台","草皮和建筑"],"sourceAppearance":{"format":"ai_scene_source_appearance_v1","profile":"source-owned-appearance-v1","rules":["浅金砂土表沿连接暖赭色岩肩，沿用参考的右侧明暗，不镜像光照。"]}},
+            {"role":"bottom-edge","content":"裸岩悬空下缘与主体岩层的连续收口；未见区域为设计推断。","exclusions":["倒置砂土顶沿","完整平台","植被"],"sourceAppearance":{"format":"ai_scene_source_appearance_v1","profile":"source-owned-appearance-v1","rules":["延续暖赭色岩体，保持参考下缘的阴影层次。"]}},
+            {"role":"left-bottom-corner","content":"左岩壁与悬空下缘的完整下角；未见区域为设计推断。","exclusions":["砂土顶沿","完整平台","植被"],"sourceAppearance":{"format":"ai_scene_source_appearance_v1","profile":"source-owned-appearance-v1","rules":["延续左岩壁层理与下缘阴影，不加外来覆盖物。"]}},
+            {"role":"right-bottom-corner","content":"右岩壁与悬空下缘的完整下角；未见区域为设计推断。","exclusions":["砂土顶沿","完整平台","植被"],"sourceAppearance":{"format":"ai_scene_source_appearance_v1","profile":"source-owned-appearance-v1","rules":["延续右岩壁层理与下缘阴影，不镜像参考光照。"]}}
+          ]
+        }
+      },
+      "exclusions": [
+        "左右阶地轮廓",
+        "关卡缺口和悬浮台"
+      ],
+      "parentRole": "main"
+    },
+    {
+      "subjectId": "floating-platform",
+      "content": "一座浅薄实心沙岩悬浮平台，水平细表沿与严格侧视的正立面。",
+      "exclusions": [
+        "周围主地形和独立装饰"
+      ],
+      "parentRole": "main"
+    },
+    {
+      "subjectId": "framing-rocks",
+      "content": "一组低矮散置的近景沙岩块、稀疏干枝与少量矮植被，轮廓清晰。",
+      "exclusions": [
+        "连续高台",
+        "整片承托崖壁",
+        "主地形墙与可玩平台"
+      ],
+      "parentRole": "foreground"
+    }
+  ]
+}
