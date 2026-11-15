@@ -1,0 +1,11 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","title":"ai_scene_background_band_placement_v1","type":"object",
+  "properties":{
+    "instanceId":{"$ref":"common.schema.json#/$defs/id"},
+    "sourcePlanSha256":{"$ref":"#/$defs/sha"},"sourceRawSha256":{"$ref":"#/$defs/sha"},"backgroundBandSha256":{"$ref":"#/$defs/sha"},
+    "nativeFrame":{"type":"object","properties":{"x":{"const":0},"y":{"const":0},"width":{"type":"integer","minimum":1,"maximum":4096},"height":{"type":"integer","minimum":1,"maximum":4096}},"required":["x","y","width","height"],"additionalProperties":false},
+    "sourceToWorld":{"type":"object","properties":{"numerator":{"type":"integer","minimum":1,"maximum":4096},"denominator":{"type":"integer","minimum":1,"maximum":4096}},"required":["numerator","denominator"],"additionalProperties":false},
+    "positionWorld":{"type":"object","properties":{"x":{"type":"integer","minimum":-4096,"maximum":4096},"y":{"type":"integer","minimum":-4096,"maximum":4096}},"required":["x","y"],"additionalProperties":false}
+  },"required":["instanceId","sourcePlanSha256","sourceRawSha256","backgroundBandSha256","nativeFrame","sourceToWorld","positionWorld"],"additionalProperties":false,
+  "$defs":{"sha":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}

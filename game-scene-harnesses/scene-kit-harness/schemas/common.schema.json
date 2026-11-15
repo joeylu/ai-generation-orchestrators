@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "environmentAnimation": {
+      "type": "object",
+      "properties": {
+        "type": {"enum": ["idle", "interactive"]},
+        "initial": {"$ref": "#/$defs/id"},
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {"$ref": "#/$defs/id"},
+              "name": {"type": "string", "minLength": 1, "maxLength": 40},
+              "playback": {"enum": ["hold", "loop", "once"]},
+              "onInteract": {"$ref": "#/$defs/id"},
+              "onFinish": {"$ref": "#/$defs/id"},
+              "clip": {"$ref": "#/$defs/environmentAnimationClip"}
+            },
+            "required": ["id", "name", "playback"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["type", "initial", "states"],
+      "additionalProperties": false
+    },
+    "environmentAnimationClip": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "object",
+          "properties": {
+            "path": {"$ref": "#/$defs/path"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "byteLength": {"type": "integer", "minimum": 1, "maximum": 16777216}
+          },
+          "required": ["path", "sha256", "byteLength"],
+          "additionalProperties": false
+        },
+        "columns": {"type": "integer", "minimum": 1, "maximum": 8},
+        "rows": {"type": "integer", "minimum": 1, "maximum": 8},
+        "frameMs": {"type": "integer", "minimum": 40, "maximum": 2000},
+        "frameSize": {"$ref": "#/$defs/size"},
+        "anchorPx": {"$ref": "#/$defs/point"},
+        "baseLock": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": {"type": "integer", "minimum": -4095, "maximum": 4095},
+              "y": {"type": "integer", "minimum": -4095, "maximum": 4095}
+            },
+            "required": ["x", "y"],
+            "additionalProperties": false
+          }
+        },
+        "registration": {
+          "type": "object",
+          "properties": {
+            "scale": {"type": "number", "minimum": 0.015625, "maximum": 64},
+            "x": {"type": "number", "minimum": -262144, "maximum": 262144},
+            "y": {"type": "number", "minimum": -262144, "maximum": 262144}
+          },
+          "required": ["scale", "x", "y"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["source", "columns", "rows", "frameMs", "frameSize", "anchorPx"],
+      "additionalProperties": false
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?![\\s\\S])",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*(?![\\s\\S])",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}(?![\\s\\S])"
+    },
+    "kitRef": {
+      "type": "object",
+      "properties": {
+        "kitId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "revision": {
+          "$ref": "common.schema.json#/$defs/id"
+        }
+      },
+      "required": [
+        "kitId",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "fileRef": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "common.schema.json#/$defs/path"
+        },
+        "sha256": {
+          "$ref": "common.schema.json#/$defs/sha256"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "size": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "point": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": -10000000,
+          "maximum": 10000000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -10000000,
+          "maximum": 10000000
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "gridPoint": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "familyId": {
+          "$ref": "common.schema.json#/$defs/id"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "length",
+        "familyId"
+      ],
+      "additionalProperties": false
+    },
+    "localInstance": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "assetId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "x": {
+          "type": "number",
+          "minimum": -10000000,
+          "maximum": 10000000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -10000000,
+          "maximum": 10000000
+        }
+      },
+      "required": [
+        "instanceId",
+        "assetId",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "instance": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "assetId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "drawOrder": {
+          "$ref": "common.schema.json#/$defs/drawOrder"
+        },
+        "x": {
+          "type": "number",
+          "minimum": -10000000,
+          "maximum": 10000000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -10000000,
+          "maximum": 10000000
+        },
+        "layerId": {
+          "$ref": "common.schema.json#/$defs/id"
+        }
+      },
+      "required": [
+        "instanceId",
+        "assetId",
+        "x",
+        "y",
+        "layerId"
+      ],
+      "additionalProperties": false
+    },
+    "child": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "presetId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "column": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "row": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        }
+      },
+      "required": [
+        "instanceId",
+        "presetId",
+        "column",
+        "row"
+      ],
+      "additionalProperties": false
+    },
+    "assembly": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "presetId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "drawOrder": {
+          "$ref": "common.schema.json#/$defs/drawOrder"
+        },
+        "column": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "row": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "layerId": {
+          "$ref": "common.schema.json#/$defs/id"
+        }
+      },
+      "required": [
+        "instanceId",
+        "presetId",
+        "column",
+        "row",
+        "layerId"
+      ],
+      "additionalProperties": false
+    },
+    "drawOrder": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 104095
+    }
+  }
+}

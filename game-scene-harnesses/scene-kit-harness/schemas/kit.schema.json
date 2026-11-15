@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_kit_v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "ai_scene_kit_v1"
+    },
+    "kitId": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "revision": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "profile": {
+      "const": "sideview-solid-blob47-v1"
+    },
+    "purpose": {
+      "enum": [
+        "synthetic-fixture",
+        "art-candidate"
+      ]
+    },
+    "grid": {
+      "$ref": "common.schema.json#/$defs/size"
+    },
+    "pixelsPerUnit": {
+      "type": "object",
+      "properties": {
+        "numerator": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "object",
+      "properties": {
+        "catalog": {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        "rules": {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        "presets": {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        "maps": {
+          "type": "object",
+          "properties": {
+            "default": {
+              "$ref": "common.schema.json#/$defs/fileRef"
+            },
+            "inspection": {
+              "$ref": "common.schema.json#/$defs/fileRef"
+            }
+          },
+          "required": [
+            "default",
+            "inspection"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "catalog",
+        "rules",
+        "presets",
+        "maps"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "format",
+    "kitId",
+    "revision",
+    "profile",
+    "purpose",
+    "grid",
+    "pixelsPerUnit",
+    "files"
+  ],
+  "additionalProperties": false
+}

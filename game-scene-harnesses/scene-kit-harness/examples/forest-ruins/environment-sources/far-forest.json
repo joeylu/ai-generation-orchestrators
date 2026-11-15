@@ -1,0 +1,8 @@
+{
+  "planId": "forest.ruins.far-forest.source.r1",
+  "assetId": "far.forest",
+  "role": "distant-forest",
+  "sourcePolicy": { "mode": "native-environment", "orientation": "landscape", "minimumWidth": 1536, "minimumHeight": 512, "maximumWidth": 4096, "maximumHeight": 4096 },
+  "derivation": { "pixelSize": { "width": 1536, "height": 320 }, "fit": "full-width-alpha-bounds-pad-two-fit-width-bottom-no-upscale-v1", "repeatAxis": "x" },
+  "intent": "森林遗迹的独立远林透明层：浅青绿至浅苔绿成片树冠剪影，清爽手绘、低纹理噪声，轮廓宽低，亮度比中景更浅。含透明留边后的可见高度不超过画布宽度的五分之一；沿左右全宽延伸，端点树冠高度与颜色衔接。空中部分真实透明，不画天空、云、远山、建筑、近景树干、可玩地面或道具。保留原生 RGBA PNG；按冻结规则等比缩小与底部对齐，不自动修缝，技术接收和派生图审阅分开。"
+}

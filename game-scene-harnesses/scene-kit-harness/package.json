@@ -1,0 +1,66 @@
+{
+  "name": "ai-scene-kit-contracts",
+  "version": "0.90.0",
+  "private": true,
+  "type": "module",
+  "description": "Side-view scene source pipeline, optional local image adapter, deterministic kit assembly and Pixi Studio; final art acceptance remains separate.",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "exports": {
+    ".": "./src/index.mjs",
+    "./pixi": "./src/pixi/scene-view.mjs",
+    "./generation": "./src/generation/index.mjs",
+    "./reference": "./src/reference-led-pipeline.mjs",
+    "./reference-assets": "./src/reference-asset-pipeline.mjs",
+    "./reference-paint": "./src/reference-paint-pipeline.mjs",
+    "./reference-measurement": "./src/reference-measurement.mjs",
+    "./reference-controls": "./src/reference-controls.mjs",
+    "./reference-decomposition": "./src/reference-decomposition.mjs",
+    "./reference-segmentation": "./src/reference-segmentation.mjs",
+    "./reference-prompt-segmentation": "./src/reference-prompt-segmentation.mjs",
+    "./pipeline": "./src/pipeline.mjs",
+    "./standard-reference": "./src/standard-pipeline.mjs",
+    "./composition": "./src/composition-planner.mjs",
+    "./terrain-proof": "./src/terrain-proof/index.mjs",
+    "./coherent": "./src/coherent-pipeline.mjs",
+    "./source-alpha-review": "./src/source-alpha-review.mjs",
+    "./terrain-edges": "./src/terrain-edge-pipeline.mjs",
+    "./terrain-bottom-edges": "./src/terrain-bottom-edge-pipeline.mjs",
+    "./terrain-rigid-repeat": "./src/terrain-rigid-repeat.mjs",
+    "./coherent-studio": "./src/coherent-studio.mjs"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "validate": "node scripts/validate.mjs --root tests/fixtures/synthetic",
+    "fixtures:check": "node scripts/build-fixtures.mjs --check",
+    "scene": "node scripts/scene.mjs",
+    "workflow": "node scripts/workflow.mjs",
+    "pipeline": "node scripts/pipeline.mjs",
+    "generate": "node scripts/generate.mjs",
+    "workflow:demo": "node scripts/workflow-demo.mjs",
+    "reference:prepare": "node scripts/prepare-text-reference.mjs",
+    "reference": "node scripts/reference.mjs",
+    "reference:paint": "node scripts/paint-source.mjs",
+    "reference:led:prepare": "node scripts/prepare-reference-led.mjs",
+    "reference:standard": "node scripts/standard-reference.mjs",
+    "reference:standard:prepare": "node scripts/prepare-standard-reference.mjs",
+    "terrain:prepare": "node scripts/prepare-terrain-proof.mjs",
+    "environment:prepare": "node scripts/prepare-environment-source.mjs",
+    "terrain:demo": "node scripts/terrain-proof-demo.mjs",
+    "studio:build": "node scripts/studio.mjs build",
+    "studio": "node scripts/studio.mjs serve",
+    "test:browser": "node --test --test-concurrency=1 tests/browser/*.test.mjs",
+    "coherent": "node scripts/coherent.mjs",
+    "source:alpha-review": "node scripts/source-alpha-review.mjs",
+    "terrain:edges": "node scripts/terrain-edges.mjs"
+  },
+  "dependencies": {
+    "pixi.js": "8.20.1",
+    "pixi-viewport": "6.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "playwright": "1.63.0"
+  }
+}

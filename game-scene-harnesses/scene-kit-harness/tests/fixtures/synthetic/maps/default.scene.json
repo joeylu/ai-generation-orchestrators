@@ -1,0 +1,126 @@
+{
+  "format": "ai_scene_document_v1",
+  "mapId": "default.synthetic",
+  "kitRef": {
+    "kitId": "synthetic-sideview",
+    "revision": "fixture-v1"
+  },
+  "rulesRef": {
+    "rulesId": "terrain.primary",
+    "revision": "rules-v1"
+  },
+  "bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 64,
+    "height": 9
+  },
+  "seed": "fixture-v1",
+  "layers": [
+    {
+      "layerId": "background",
+      "kind": "background",
+      "zIndex": 0,
+      "parallax": {
+        "x": 0.2,
+        "y": 1
+      },
+      "visible": true
+    },
+    {
+      "layerId": "terrain",
+      "kind": "terrain",
+      "zIndex": 10,
+      "parallax": {
+        "x": 1,
+        "y": 1
+      },
+      "visible": true
+    },
+    {
+      "layerId": "environment",
+      "kind": "environment",
+      "zIndex": 20,
+      "parallax": {
+        "x": 1,
+        "y": 1
+      },
+      "visible": true
+    }
+  ],
+  "terrainRuns": [
+    {
+      "x": 0,
+      "y": 8,
+      "length": 28,
+      "familyId": "terrain.primary"
+    },
+    {
+      "x": 32,
+      "y": 8,
+      "length": 32,
+      "familyId": "terrain.primary"
+    },
+    {
+      "x": 0,
+      "y": 7,
+      "length": 14,
+      "familyId": "terrain.primary"
+    },
+    {
+      "x": 0,
+      "y": 6,
+      "length": 7,
+      "familyId": "terrain.primary"
+    },
+    {
+      "x": 17,
+      "y": 4,
+      "length": 4,
+      "familyId": "terrain.primary"
+    },
+    {
+      "x": 39,
+      "y": 5,
+      "length": 6,
+      "familyId": "terrain.primary"
+    }
+  ],
+  "instances": [
+    {
+      "instanceId": "marker.main",
+      "assetId": "environment-marker",
+      "layerId": "environment",
+      "x": 512,
+      "y": 384
+    },
+    {
+      "instanceId": "strip.main",
+      "assetId": "background-strip",
+      "layerId": "background",
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "assemblyInstances": [
+    {
+      "instanceId": "pair.main",
+      "presetId": "platform.pair",
+      "layerId": "environment",
+      "column": 50,
+      "row": 2
+    }
+  ],
+  "defaultCamera": {
+    "center": {
+      "x": 512,
+      "y": 288
+    },
+    "viewport": {
+      "width": 1024,
+      "height": 576
+    },
+    "scale": 1
+  },
+  "inspectionCases": []
+}

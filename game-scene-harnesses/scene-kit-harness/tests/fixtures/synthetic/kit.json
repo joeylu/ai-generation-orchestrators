@@ -1,0 +1,39 @@
+{
+  "format": "ai_scene_kit_v1",
+  "kitId": "synthetic-sideview",
+  "revision": "fixture-v1",
+  "profile": "sideview-solid-blob47-v1",
+  "purpose": "synthetic-fixture",
+  "grid": {
+    "width": 64,
+    "height": 64
+  },
+  "pixelsPerUnit": {
+    "numerator": 1,
+    "denominator": 1
+  },
+  "files": {
+    "catalog": {
+      "path": "catalog.json",
+      "sha256": "a9127a73e3590b4d6ce21e14bd0793ec9867c65dc506925f228b2a7e5e1f18c5"
+    },
+    "rules": {
+      "path": "rules.json",
+      "sha256": "a66be1d7ef5b215443db280e237bd0cc30e1bc1200b961779a1d38e41047f0df"
+    },
+    "presets": {
+      "path": "presets.json",
+      "sha256": "bd8b4d4c18282c21d51d0d284ea4950216ed8c8e7dc3411c79dc859e7a02c67d"
+    },
+    "maps": {
+      "default": {
+        "path": "maps/default.scene.json",
+        "sha256": "118982470c0a2f7ebd73b98c636a9015ff0020e32678144450b0584c6485beb0"
+      },
+      "inspection": {
+        "path": "maps/inspection.scene.json",
+        "sha256": "65de5baa19e9f8358b79083713f6ae02537ee604a9ac14a030de3673295612fd"
+      }
+    }
+  }
+}

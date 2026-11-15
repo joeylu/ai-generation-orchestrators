@@ -1,0 +1,8 @@
+{
+  "planId": "forest.ruins.far-mountains.source.r1",
+  "assetId": "far.mountains",
+  "role": "distant-mountains",
+  "sourcePolicy": { "mode": "native-environment", "orientation": "landscape", "minimumWidth": 1536, "minimumHeight": 512, "maximumWidth": 4096, "maximumHeight": 4096 },
+  "derivation": { "pixelSize": { "width": 1536, "height": 384 }, "fit": "full-width-alpha-bounds-pad-two-fit-width-bottom-no-upscale-v1", "repeatAxis": "x" },
+  "intent": "森林遗迹的独立远山透明层：浅青绿、低饱和与低对比，简化大色块，柔和左上日光，正侧视。山体沿整幅宽度连续延伸，轮廓宽而低，含透明留边后的可见高度不超过画布宽度的四分之一，左右端山势和颜色衔接。透明天空，不画云、树林、建筑、可玩地形或道具。保留完整原生 RGBA PNG；后续只按冻结规则等比缩小并封装为条带，不自动修缝，接缝失败保留证据另审。"
+}

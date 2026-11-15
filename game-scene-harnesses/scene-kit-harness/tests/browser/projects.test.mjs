@@ -1,0 +1,31 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync,mkdirSync} from 'node:fs';import {tmpdir} from 'node:os';import {join,dirname,resolve} from 'node:path';
+import {buildStudio,dependency,packageRoot} from '../../scripts/studio-build.mjs';import {startStudio} from '../../src/studio/host.mjs';
+import {loadSceneKit,readMap} from '../../src/kit.mjs';import {exportSceneArchive} from '../../src/persistence.mjs';
+test('project canvas: blank/import, independent maps, clone, download/open, responsive and refresh',{timeout:150000},async t=>{
+ const base=resolve(tmpdir()),temp=mkdtempSync(join(base,'scene-project-ui-'));let browser,host;
+ t.after(async()=>{await browser?.close();await host?.close();assert.equal(dirname(temp),base);rmSync(temp,{recursive:true,force:true});});
+ const fixture=join(packageRoot,'tests/fixtures/synthetic'),staticRoot=await buildStudio({output:join(temp,'static')});host=await startStudio({root:fixture,staticRoot,workspaceRoot:join(temp,'workspace'),projectName:'合成项目'});
+ const {chromium}=dependency('playwright').require('playwright');browser=await chromium.launch({headless:true,channel:process.env.SCENE_KIT_BROWSER_CHANNEL??'msedge',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--explicitly-allowed-ports='+new URL(host.url).port]});
+ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(['error','warning'].includes(m.type()))errors.push(m.text());});await page.route('**/*',r=>new URL(r.request().url()).origin===host.url?r.continue():(external.push(r.request().url()),r.abort()));
+ const ready=()=>page.waitForSelector('body[data-ready="true"]'),snap=()=>page.evaluate(async()=>(await fetch('/api/state')).json());
+ const changed=async callback=>{await Promise.all([page.waitForEvent('load'),callback()]);await ready();};
+ await page.goto(host.url+'/editor');await ready();const initial=await snap();assert.equal(await page.locator('#save-state').innerText(),'已保存到本机');
+ await page.locator('#project-switch').click();await page.getByRole('textbox',{name:'新项目名称'}).fill('空白主题');await changed(()=>page.getByRole('button',{name:'新建空白项目',exact:true}).click());
+ assert.equal((await snap()).scene,null);assert.equal(await page.locator('#project-empty').isVisible(),true);assert.equal(await page.locator('#palette button').count(),0);
+ const kit=loadSceneKit(fixture),buffer=exportSceneArchive(kit,readMap(kit));await changed(()=>page.locator('#project-assets-file').setInputFiles({name:'scene-kit-export.zip',mimeType:'application/zip',buffer}));
+ const imported=await snap();assert.equal(imported.scene.counts.terrainNodes,99);assert.notEqual(imported.workspace.activeProjectId,initial.workspace.activeProjectId);assert.equal(await page.locator('canvas').count(),1);
+ await page.locator('#map-switch').click();await page.getByRole('textbox',{name:'新地图名称'}).fill('地图二');await changed(()=>page.getByRole('button',{name:'新建空白地图',exact:true}).click());
+ assert.equal((await snap()).scene.counts.terrainNodes,0);
+ await page.locator('#tab-terrain').click();await page.getByRole('button',{name:'地形画刷',exact:true}).click();
+ const canvas=await page.locator('canvas').boundingBox(),before=await snap();await page.mouse.click(canvas.x+canvas.width*.4,canvas.y+canvas.height*.6);await page.waitForFunction(r=>+document.body.dataset.revision>r,before.revision);assert.equal((await snap()).scene.counts.terrainNodes,1);
+ await page.locator('#map-switch').click();await changed(()=>page.locator('.project-row').filter({hasText:'主场景'}).click());assert.equal((await snap()).scene.counts.terrainNodes,99);
+ await page.locator('#map-switch').click();await changed(()=>page.locator('.project-row').filter({hasText:'地图二'}).click());assert.equal((await snap()).history.undoDepth,1);await page.getByRole('button',{name:'撤销',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#undo').disabled);assert.equal((await snap()).scene.counts.terrainNodes,0);
+ await page.locator('#project-switch').click();await changed(()=>page.getByRole('button',{name:'复制当前项目',exact:true}).click());assert.match(await page.locator('#project-switch').innerText(),/副本/);
+ await page.locator('#project-switch').click();const download=page.waitForEvent('download');await page.getByRole('button',{name:'下载当前项目',exact:true}).click();const downloaded=await download;assert.equal(downloaded.suggestedFilename(),'scene-project.zip');
+ const downloadPath=await downloaded.path();await changed(()=>page.locator('#project-file').setInputFiles(downloadPath));assert.equal((await snap()).workspace.projects.length,4);assert.equal((await snap()).workspace.projects.at(-1).maps.length,2);
+ await page.reload();await ready();assert.equal((await snap()).scene.counts.terrainNodes,0);
+ await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.locator('#project-switch').isVisible(),true);await page.locator('#project-switch').click();assert.equal(await page.locator('#project-dialog').isVisible(),true);
+ if(process.env.SCENE_KIT_SCREENSHOTS){mkdirSync(process.env.SCENE_KIT_SCREENSHOTS,{recursive:true});await page.screenshot({path:join(process.env.SCENE_KIT_SCREENSHOTS,'projects-mobile.png')});await page.getByRole('button',{name:'关闭',exact:true}).click();await page.setViewportSize({width:1440,height:1000});await page.locator('#project-switch').click();await page.screenshot({path:join(process.env.SCENE_KIT_SCREENSHOTS,'projects-desktop.png')});}
+ assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+});

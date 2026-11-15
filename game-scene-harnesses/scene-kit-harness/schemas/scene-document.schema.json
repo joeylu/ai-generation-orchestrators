@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_document_v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "ai_scene_document_v1"
+    },
+    "mapId": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "kitRef": {
+      "$ref": "common.schema.json#/$defs/kitRef"
+    },
+    "rulesRef": {
+      "type": "object",
+      "properties": {
+        "rulesId": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "revision": {
+          "$ref": "common.schema.json#/$defs/id"
+        }
+      },
+      "required": [
+        "rulesId",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "bounds": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "seed": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "layerId": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "kind": {
+            "enum": [
+              "terrain",
+              "environment",
+              "background",
+              "foreground"
+            ]
+          },
+          "zIndex": {
+            "type": "integer",
+            "minimum": -10000,
+            "maximum": 10000
+          },
+          "parallax": {
+            "$ref": "common.schema.json#/$defs/point"
+          },
+          "visible": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "layerId",
+          "kind",
+          "zIndex",
+          "parallax",
+          "visible"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 32
+    },
+    "terrainRuns": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/run"
+      },
+      "minItems": 0,
+      "maxItems": 100000
+    },
+    "instances": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/instance"
+      },
+      "minItems": 0,
+      "maxItems": 100000
+    },
+    "assemblyInstances": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/assembly"
+      },
+      "minItems": 0,
+      "maxItems": 4096
+    },
+    "defaultCamera": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "$ref": "common.schema.json#/$defs/point"
+        },
+        "viewport": {
+          "$ref": "common.schema.json#/$defs/size"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "center",
+        "viewport",
+        "scale"
+      ],
+      "additionalProperties": false
+    },
+    "inspectionCases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "cell": {
+            "$ref": "common.schema.json#/$defs/gridPoint"
+          },
+          "expectedSignature": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "required": [
+          "caseId",
+          "cell",
+          "expectedSignature"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 256
+    }
+  },
+  "required": [
+    "format",
+    "mapId",
+    "kitRef",
+    "rulesRef",
+    "bounds",
+    "seed",
+    "layers",
+    "terrainRuns",
+    "instances",
+    "assemblyInstances",
+    "defaultCamera",
+    "inspectionCases"
+  ],
+  "additionalProperties": false
+}

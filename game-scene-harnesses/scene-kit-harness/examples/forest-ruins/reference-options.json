@@ -1,0 +1,12 @@
+{
+  "planId": "forest.ruins.reference.r1",
+  "parents": [],
+  "pixelPolicy": {
+    "mode": "native-reference",
+    "orientation": "landscape",
+    "minimumShortEdge": 256,
+    "maximumWidth": 4096,
+    "maximumHeight": 4096
+  },
+  "intent": "首张森林遗迹主视觉试样。以一屏内容的清楚构图展示远中近景与地形语言，不把四屏地图压成图集。1024×576 只是偏好的构图比例；保留工具返回的完整原生 PNG，不裁切、拉伸、缩放或抠图。64×64 网格、1:1 密度和四屏地图是后续编辑结构候选，不要求在参考图内呈现网格，也不代表正式模块像素规格已经验收。"
+}

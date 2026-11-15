@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reference-led scene specification without a pre-image layout",
+  "type": "object",
+  "properties": {
+    "format": { "const": "ai_scene_spec_v3" },
+    "specId": { "$ref": "common.schema.json#/$defs/id" },
+    "mode": { "const": "reference-led" },
+    "projection": { "const": "sideview" },
+    "description": { "$ref": "generation-common.schema.json#/$defs/text" },
+    "inputs": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": {
+      "role": { "const": "style-reference" }, "artifact": { "$ref": "generation-common.schema.json#/$defs/image" }
+    }, "required": ["role", "artifact"], "additionalProperties": false } },
+    "viewport": { "$ref": "common.schema.json#/$defs/size" },
+    "maxAspectErrorPermille": { "type": "integer", "minimum": 0, "maximum": 20 },
+    "requirements": { "$ref": "reference-requirements.schema.json" }
+  },
+  "required": ["format", "specId", "mode", "projection", "description", "inputs", "viewport", "maxAspectErrorPermille", "requirements"],
+  "additionalProperties": false
+}

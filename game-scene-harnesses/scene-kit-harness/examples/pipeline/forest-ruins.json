@@ -1,0 +1,12 @@
+{
+  "projectId": "forest.ruins.pipeline",
+  "description": "森林遗迹。纯横版侧视，清爽手绘，低纹理噪声。浅青绿远景、苔绿植被、暖灰石材与残墙拱券，柔和日光。地形顶部压平，包含连续地面、台阶、谷地和实心悬浮台。只包含场景环境，不包含角色、独立道具或 UI。",
+  "inputs": [],
+  "style": {
+    "mode": "preset",
+    "preset": "clean-handpaint",
+    "name": "",
+    "rules": ["地形顶部不表现俯视厚度；大色块、清晰轮廓、低纹理噪声。"],
+    "anchorPath": null
+  }
+}

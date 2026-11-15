@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_assembly_presets_v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "ai_scene_assembly_presets_v1"
+    },
+    "kitRef": {
+      "$ref": "common.schema.json#/$defs/kitRef"
+    },
+    "presets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "presetId": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "sizeCells": {
+            "$ref": "common.schema.json#/$defs/size"
+          },
+          "terrainRuns": {
+            "type": "array",
+            "items": {
+              "$ref": "common.schema.json#/$defs/run"
+            },
+            "minItems": 0,
+            "maxItems": 4096
+          },
+          "instances": {
+            "type": "array",
+            "items": {
+              "$ref": "common.schema.json#/$defs/localInstance"
+            },
+            "minItems": 0,
+            "maxItems": 4096
+          },
+          "assemblies": {
+            "type": "array",
+            "items": {
+              "$ref": "common.schema.json#/$defs/child"
+            },
+            "minItems": 0,
+            "maxItems": 256
+          }
+        },
+        "required": [
+          "presetId",
+          "sizeCells",
+          "terrainRuns",
+          "instances",
+          "assemblies"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 256
+    }
+  },
+  "required": [
+    "format",
+    "kitRef",
+    "presets"
+  ],
+  "additionalProperties": false
+}

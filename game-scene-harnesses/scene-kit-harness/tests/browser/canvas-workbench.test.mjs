@@ -1,0 +1,46 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import{mkdtempSync,rmSync,mkdirSync,readFileSync}from'node:fs';import{join,resolve,dirname,basename}from'node:path';import{tmpdir}from'node:os';
+import{buildStudio,dependency,packageRoot}from'../../scripts/studio-build.mjs';import{startStudio}from'../../src/studio/host.mjs';
+test('canvas workbench: native library drag, handles, mouse history, layers and export',{timeout:120000},async t=>{
+ const base=resolve(tmpdir()),temp=mkdtempSync(join(base,'scene-workbench-'));let browser,host;
+ t.after(async()=>{await browser?.close();await host?.close();assert.equal(dirname(temp),base);assert(basename(temp).startsWith('scene-workbench-'));rmSync(temp,{recursive:true,force:true});});
+ const staticRoot=await buildStudio({output:join(temp,'static')});host=await startStudio({root:join(packageRoot,'tests/fixtures/synthetic'),staticRoot});
+ const{chromium}=dependency('playwright').require('playwright');browser=await chromium.launch({headless:true,channel:process.env.SCENE_KIT_BROWSER_CHANNEL??'msedge',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--explicitly-allowed-ports='+new URL(host.url).port]});
+ const page=await browser.newPage({viewport:{width:1440,height:1000},acceptDownloads:true}),errors=[],external=[];
+ page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(['error','warning'].includes(m.type()))errors.push(m.text());});
+ await page.route('**/*',route=>new URL(route.request().url()).origin===host.url?route.continue():(external.push(route.request().url()),route.abort()));
+ await page.goto(host.url);try{await page.waitForSelector('body[data-ready="true"]',{timeout:15000});}catch(error){console.error(JSON.stringify({errors,loading:await page.locator('#loading').textContent()}));throw error;}
+ const snap=()=>page.evaluate(async()=>(await fetch('/api/state')).json()),rev=async n=>{try{await page.waitForFunction(n=>+document.body.dataset.revision>n,n,{timeout:8000});}catch(error){console.error(JSON.stringify({errors,status:await page.locator('#status').textContent(),gesture:await page.locator('#canvas-host').getAttribute('data-gesture')}));if(process.env.SCENE_KIT_SCREENSHOTS)await page.screenshot({path:join(process.env.SCENE_KIT_SCREENSHOTS,'workbench-failure.png')});throw error;}};
+ async function screen(x,y){const rect=await page.locator('canvas').boundingBox(),v=await page.locator('#minimap rect').last().evaluate(e=>({x:+e.getAttribute('x'),y:+e.getAttribute('y'),w:+e.getAttribute('width'),h:+e.getAttribute('height')}));return{x:rect.x+(x-v.x)/v.w*rect.width,y:rect.y+(y-v.y)/v.h*rect.height};}
+ const shots=process.env.SCENE_KIT_SCREENSHOTS;if(shots)mkdirSync(shots,{recursive:true});
+ assert.match(await page.title(),/Scene Kit Studio/);assert.equal(await page.locator('.inspector section').count(),1);
+ assert.doesNotMatch(await page.locator('.inspector').innerText(),/地图范围|精确放置|当前文档|地形外观|P 0/);
+ assert.equal(await page.locator('vite-error-overlay,nextjs-portal').count(),0);
+ const initial=await snap(),button=page.locator('#palette [data-asset-id="environment-marker"]'),b=await button.boundingBox(),target=await screen(700,260);
+ await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width/2+15,b.y+b.height/2,{steps:4});await page.mouse.move(target.x,target.y,{steps:16});await page.mouse.up();await rev(initial.revision);
+ const added=await snap(),item=added.document.instances.find(i=>i.instanceId.startsWith('user.'));assert(item);assert.equal(added.history.undoDepth,1);
+ await page.locator(`[data-instance-id="${item.instanceId}"]`).click();await page.locator('#selection-tools').waitFor({state:'visible'});
+ let node=added.scene.layers.flatMap(l=>l.nodes).find(n=>n.nodeId==='visual/'+item.instanceId),start=await screen(node.position.x+node.size.width,node.position.y+node.size.height),end=await screen(node.position.x+node.size.width*1.5,node.position.y+node.size.height*1.5);
+ await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:10});await page.mouse.up();await rev(added.revision);
+ const scaled=await snap();assert.equal(scaled.document.format,'ai_scene_document_v4');assert(Math.abs(scaled.document.instanceTransforms.find(i=>i.instanceId===item.instanceId).scale-1.5)<.03);assert.equal(scaled.history.undoDepth,2);
+ node=scaled.scene.layers.flatMap(l=>l.nodes).find(n=>n.nodeId==='visual/'+item.instanceId);start=await screen(node.position.x+node.size.width/2,node.position.y+node.size.height/2);end=await screen(node.position.x+node.size.width/2+32,node.position.y+node.size.height/2+24);
+ await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:8});await page.mouse.up();await rev(scaled.revision);
+ const moved=await snap();assert(Math.abs(moved.document.instances.find(i=>i.instanceId===item.instanceId).x-item.x-32)<=1);
+ node=moved.scene.layers.flatMap(l=>l.nodes).find(n=>n.nodeId==='visual/'+item.instanceId);start=await screen(node.position.x+node.size.width/2,node.position.y+node.size.height/2);
+ await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(start.x+18,start.y+12,{steps:4});await page.mouse.down({button:'right'});await page.mouse.up({button:'right'});await page.mouse.up();
+ assert.equal((await snap()).scene.source.authorSha256,moved.scene.source.authorSha256);assert.equal((await snap()).history.undoDepth,moved.history.undoDepth);
+ await page.getByRole('button',{name:'撤销',exact:true}).click();await rev(moved.revision);assert.equal((await snap()).scene.contentSha256,scaled.scene.contentSha256);
+ const undone=await snap();await page.getByRole('button',{name:'重做',exact:true}).click();await rev(undone.revision);
+ const beforeVisibility=await snap();await page.getByRole('checkbox',{name:'显示对象 '+item.instanceId,exact:true}).uncheck();assert.equal((await snap()).scene.source.authorSha256,beforeVisibility.scene.source.authorSha256);await page.getByRole('checkbox',{name:'显示对象 '+item.instanceId,exact:true}).check();
+ const environmentLock=page.getByRole('button',{name:'锁定分组 环境',exact:true});
+ await environmentLock.click();assert.equal((await snap()).scene.source.authorSha256,beforeVisibility.scene.source.authorSha256);await environmentLock.click();
+ assert.equal(await page.locator('#duplicate').isEnabled(),true);assert.equal(await page.locator('#delete').isEnabled(),true);
+ let beforeCopy=await snap();await page.locator('#duplicate').click();await rev(beforeCopy.revision);const copied=await snap();assert.equal(copied.document.instances.length,beforeCopy.document.instances.length+1);assert.equal(copied.document.instanceTransforms.length,2);
+ await page.locator('#delete').click();await rev(copied.revision);assert.equal((await snap()).document.instances.length,beforeCopy.document.instances.length);
+ const save=page.waitForEvent('download');await page.locator('#download-menu>summary').click();await page.locator('#save').click();await(await save).saveAs(join(temp,'map.json'));assert.deepEqual(JSON.parse(readFileSync(join(temp,'map.json'))),(await snap()).document);
+ const pack=page.waitForEvent('download');await page.locator('#download-menu>summary').click();await page.locator('#export-pack').click();await(await pack).saveAs(join(temp,'scene.zip'));assert(readFileSync(join(temp,'scene.zip')).length>100);
+ if(shots)await page.screenshot({path:join(shots,'workbench-desktop.png')});
+ await page.setViewportSize({width:760,height:900});await page.getByRole('button',{name:'模块库',exact:true}).click();assert(await page.locator('.library').isVisible());await page.getByRole('button',{name:'模块库',exact:true}).click();await page.getByRole('button',{name:'图层面板',exact:true}).click();assert(await page.locator('.inspector').isVisible());
+ if(shots)await page.screenshot({path:join(shots,'workbench-small.png')});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+});

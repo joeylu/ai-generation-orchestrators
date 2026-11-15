@@ -1,0 +1,38 @@
+export { validateDocument, SCHEMA_FILES } from './schema.mjs';
+export { validateBundle } from './validate.mjs';
+export { normalizeSignature, signatureAt, SIGNATURES, PROFILE } from './topology.mjs';
+export { loadSceneKit, readMap } from './kit.mjs';
+export { compileMap } from './compile.mjs';
+export {createTerrainRenderDiagnostic,createTerrainEdgeRoleDiagnostic,createTerrainBodyPhaseDiagnostic,TERRAIN_RENDER_DIAGNOSTIC_GROUPS,TERRAIN_RENDER_DIAGNOSTIC_EDGE_ROLES} from './terrain-render-diagnostic.mjs';
+export {buildTerrainSurfaceCycle,validateTerrainSurfaceCycle,reviewTerrainSurfaceCycle,TERRAIN_SURFACE_CYCLE_PROFILE} from './terrain-surface-cycle.mjs';
+export {TERRAIN_EDGE_PROFILE,validateTerrainEdges,terrainEdgeSources,compileTerrainEdges,compileGridTerrainEdges} from './terrain-edges.mjs';
+export {TERRAIN_BOTTOM_EDGE_PROFILE,TERRAIN_BOTTOM_EDGE_PROFILE_V2,TERRAIN_BOTTOM_NATIVE_SIZE_PROFILE,TERRAIN_BOTTOM_RENDER_ENVELOPE_PROFILE,
+  TERRAIN_BOTTOM_JUNCTION_PROFILE,TERRAIN_BOTTOM_ADAPTIVE_COVERAGE_PROFILE,TERRAIN_BOTTOM_BODY_SUPPORT_PROFILE,TERRAIN_BOTTOM_THIN_PLATFORM_TOP_PROFILE,
+  TERRAIN_BOTTOM_JUNCTION_PROFILES,TERRAIN_BOTTOM_EDGE_LIMITS,TERRAIN_BOTTOM_EDGE_LIMITS_V2,validateTerrainBottomEdges,terrainBottomEdgeSources,compileTerrainBottomEdges} from './terrain-bottom-edges.mjs';
+export {buildTerrainBottomEdgeDelivery,verifyTerrainBottomEdgeDelivery} from './terrain-bottom-edge-pipeline.mjs';
+export {GRID_TERRAIN_FIELD_PROFILE,compileGridTerrainFields} from './grid-terrain.mjs';
+export {GRID_BRUSH_PROFILE,upgradeTerrainBrushKit,verifyTerrainBrushKit} from './grid-terrain-upgrade.mjs';
+export {reviewTerrainBrushFootprint,requireTerrainBrushFootprint,reviewTerrainBrushKitFootprint,reviewTerrainSurfaceSpan,reviewTerrainSurfaceKitSpan} from './terrain-brush-footprint.mjs';
+export {TERRAIN_SURFACE_SPAN_PROFILE,buildTerrainSurfaceSpanProfile,validateTerrainSurfaceSpanProfile} from './terrain-surface-span-envelope.mjs';
+export {TERRAIN_STEP_SURFACE_PROFILE,TERRAIN_STEP_LINEAR_SURFACE_PROFILE,buildTerrainStepSurface,validateTerrainStepSurface} from './terrain-step-surface.mjs';
+export {createSharedTerrainFieldProfile,validateSharedTerrainFieldProfile,compileSharedTerrainFields,SHARED_TERRAIN_FIELD_PROFILE,SHARED_TERRAIN_UNION_PROFILE} from './shared-terrain-field.mjs';
+export {compileSharedTerrainUnion} from './shared-terrain-union.mjs';
+export {upgradeSharedTerrainFieldKit,verifySharedTerrainFieldKit} from './shared-terrain-upgrade.mjs';
+export {buildTerrainEdgeJunctions,validateTerrainEdgeJunctions} from './terrain-edge-junction.mjs';
+export {upgradeTerrainEdgeJunctionKit,verifyTerrainEdgeJunctionKit} from './terrain-edge-junction-upgrade.mjs';
+export {upgradeTerrainUnionMaterialKit,verifyTerrainUnionMaterialKit} from './terrain-union-material-upgrade.mjs';
+export {upgradeTerrainMaterialLoopKit,verifyTerrainMaterialLoopKit} from './terrain-material-loop-upgrade.mjs';
+export {upgradeTerrainStepCornerKit,verifyTerrainStepCornerKit} from './terrain-step-corner-upgrade.mjs';
+export {TERRAIN_MATERIAL_LOOP_PROFILE,buildTerrainMaterialLoop,validateTerrainMaterialLoop} from './terrain-material-loop.mjs';
+export {reviewTerrainMaterialLoop} from './terrain-material-loop-review.mjs';
+export { createCoherentComposition,createMeasuredCoherentComposition,createFeatureCoherentComposition,validateCoherentComposition } from './coherent-composition.mjs';
+export {createReferenceStructure,validateReferenceStructure,reviewReferenceFeatureLayout} from './reference-feature-layout.mjs';
+export {createBackgroundBandPlacement,validateBackgroundBandPlacement} from './background-band-placement.mjs';
+export {buildVerifiedBackgroundBandVariant,verifyVerifiedBackgroundBandVariant} from './verified-background-band-variant.mjs';
+export {reviewForegroundBottom} from './foreground-camera-review.mjs';
+export { CURVE_PROFILE, curveBezier, sampleCurve } from './curves.mjs';
+export {LAYERED_TERRAIN_PROFILE} from './terrain-overlap.mjs';
+export { CURVE_JOIN_POLICY, curveEndpoint, findCurveEndpointJoin, joinCurveTerrains } from './curve-join.mjs';
+export { MIXED_TERRAIN_PROFILE, gridConnectionTargets, findGridConnection } from './mixed-terrain.mjs';
+export { createEditor } from './editor.mjs';
+export { saveMap, loadMap, saveCompiledMap, exportScene, exportSceneArchive, openSceneExport } from './persistence.mjs';

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_document_v6",
+  "description": "Layered terrain solids; curves and grid terrain may share x ranges when their solid interiors are disjoint.",
+  "type": "object",
+  "properties": {
+    "format": {"const": "ai_scene_document_v6"},
+    "mapId": {"$ref": "scene-document-v5.schema.json#/properties/mapId"},
+    "kitRef": {"$ref": "scene-document-v5.schema.json#/properties/kitRef"},
+    "rulesRef": {"$ref": "scene-document-v5.schema.json#/properties/rulesRef"},
+    "bounds": {"$ref": "scene-document-v5.schema.json#/properties/bounds"},
+    "seed": {"$ref": "scene-document-v5.schema.json#/properties/seed"},
+    "layers": {"$ref": "scene-document-v5.schema.json#/properties/layers"},
+    "terrainRuns": {"$ref": "scene-document-v5.schema.json#/properties/terrainRuns"},
+    "instances": {"$ref": "scene-document-v5.schema.json#/properties/instances"},
+    "assemblyInstances": {"$ref": "scene-document-v5.schema.json#/properties/assemblyInstances"},
+    "defaultCamera": {"$ref": "scene-document-v5.schema.json#/properties/defaultCamera"},
+    "inspectionCases": {"$ref": "scene-document-v5.schema.json#/properties/inspectionCases"},
+    "curveTerrains": {"$ref": "scene-document-v5.schema.json#/properties/curveTerrains"},
+    "terrainConnections": {"$ref": "scene-document-v5.schema.json#/properties/terrainConnections"},
+    "instanceTransforms": {"$ref": "scene-document-v5.schema.json#/properties/instanceTransforms"},
+    "instanceAppearances": {
+      "type": "array", "maxItems": 512,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["instanceId", "appearance"],
+        "properties": {
+          "instanceId": {"$ref": "scene-document-v4.schema.json#/properties/instanceTransforms/items/properties/instanceId"},
+          "appearance": {
+            "type": "object", "additionalProperties": false,
+            "required": ["opacity", "brightness", "contrast", "saturation", "fog", "fogColor"],
+            "properties": {
+              "opacity": {"type": "integer", "minimum": 0, "maximum": 100},
+              "brightness": {"type": "integer", "minimum": -100, "maximum": 100},
+              "contrast": {"type": "integer", "minimum": -100, "maximum": 100},
+              "saturation": {"type": "integer", "minimum": -100, "maximum": 100},
+              "fog": {"type": "integer", "minimum": 0, "maximum": 100},
+              "fogColor": {"type": "integer", "minimum": 0, "maximum": 16777215}
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["format", "mapId", "kitRef", "rulesRef", "bounds", "seed", "layers", "terrainRuns", "instances", "assemblyInstances", "defaultCamera", "inspectionCases", "curveTerrains", "terrainConnections", "instanceTransforms"],
+  "additionalProperties": false
+}

@@ -1,0 +1,8 @@
+{
+  "format": "ai_scene_style_v1",
+  "styleId": "synthetic.style.r1",
+  "mode": "preset",
+  "name": "Synthetic engineering palette",
+  "rules": ["Use the synthetic blue terrain palette; no characters or props."],
+  "anchors": []
+}

@@ -1,0 +1,33 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"ai_scene_terrain_surface_cycle_v1",
+  "type":"object",
+  "properties":{
+    "format":{"const":"ai_scene_terrain_surface_cycle_v1"},
+    "profile":{"const":"source-pixel-horizontal-cap-cycle-v1"},
+    "sourceInput":{"type":"object","properties":{
+      "path":{"type":"string","minLength":1,"maxLength":240},
+      "sha256":{"$ref":"common.schema.json#/$defs/sha256"},
+      "byteLength":{"type":"integer","minimum":1,"maximum":16777216},
+      "pixelSize":{"$ref":"terrain-material-loop.schema.json#/$defs/size"},
+      "rgbaSha256":{"$ref":"common.schema.json#/$defs/sha256"}
+    },"required":["path","sha256","byteLength","pixelSize","rgbaSha256"],"additionalProperties":false},
+    "options":{"type":"object","properties":{
+      "fromColumn":{"type":"integer","minimum":0,"maximum":1984},
+      "usableColumns":{"type":"integer","minimum":64,"maximum":2048},
+      "overlapColumns":{"type":"integer","minimum":16,"maximum":256}
+    },"required":["fromColumn","usableColumns","overlapColumns"],"additionalProperties":false},
+    "closure":{"$ref":"terrain-material-loop.schema.json"},
+    "output":{"$ref":"terrain-material-loop.schema.json#/properties/output"},
+    "periodColumns":{"type":"integer","minimum":32,"maximum":2048},
+    "repeatCount":{"type":"integer","minimum":1,"maximum":32},
+    "provenanceSha256":{"$ref":"common.schema.json#/$defs/sha256"},
+    "sampling":{"const":"unchanged-native-rows-and-column-density-in-the-original-output-frame"},
+    "sourcePixelSelectionOnly":{"const":true},"sourcePngModified":{"const":false},
+    "pixelsRecolored":{"const":false},"nativeRowsMoved":{"const":false},"sourceCoordinatesWarped":{"const":false},
+    "generationCalls":{"const":0},"productionKit":{"const":false},"artAcceptance":{"const":"not-assessed"},
+    "sha256":{"$ref":"common.schema.json#/$defs/sha256"}
+  },
+  "required":["format","profile","sourceInput","options","closure","output","periodColumns","repeatCount","provenanceSha256","sampling","sourcePixelSelectionOnly","sourcePngModified","pixelsRecolored","nativeRowsMoved","sourceCoordinatesWarped","generationCalls","productionKit","artAcceptance","sha256"],
+  "additionalProperties":false
+}

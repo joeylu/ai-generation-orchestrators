@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Style-only uploads and a standard reference blueprint",
+  "type": "object",
+  "properties": {
+    "format": { "const": "ai_scene_spec_v2" },
+    "specId": { "$ref": "common.schema.json#/$defs/id" },
+    "projection": { "const": "sideview" },
+    "description": { "$ref": "generation-common.schema.json#/$defs/text" },
+    "inputs": { "type": "array", "maxItems": 2, "items": {
+      "type": "object", "properties": {
+        "role": { "const": "style-reference" },
+        "artifact": { "$ref": "generation-common.schema.json#/$defs/image" }
+      }, "required": ["role", "artifact"], "additionalProperties": false
+    } },
+    "grid": { "$ref": "common.schema.json#/$defs/size" },
+    "pixelsPerUnit": { "$ref": "scene-spec.schema.json#/properties/pixelsPerUnit" },
+    "viewport": { "$ref": "common.schema.json#/$defs/size" },
+    "mapSizeCells": { "$ref": "common.schema.json#/$defs/size" },
+    "referenceLayout": { "type": "object", "properties": {
+      "blueprintSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+      "guide": { "$ref": "generation-common.schema.json#/$defs/image" }
+    }, "required": ["blueprintSha256", "guide"], "additionalProperties": false }
+  },
+  "required": ["format", "specId", "projection", "description", "inputs", "grid", "pixelsPerUnit", "viewport", "mapSizeCells", "referenceLayout"],
+  "additionalProperties": false
+}

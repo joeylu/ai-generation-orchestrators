@@ -1,0 +1,57 @@
+import {canvasField,selectObject,dismissCanvasPanels,panCanvas,scenePixels} from './canvas-controls.mjs';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { prepareCandidate } from '../helpers/candidate.mjs';
+import { buildStudio, dependency } from '../../scripts/studio-build.mjs';
+import { loadSceneKit, readMap, exportScene, openSceneExport } from '../../src/index.mjs';
+import { unpackStored } from '../helpers/archive.mjs';
+import { startStudio } from '../../src/studio/host.mjs';
+import { inspectPng } from '../../src/png.mjs';
+
+test('portable candidate: exported kit renders its own grid and curve artwork without the original study configuration', { timeout: 180000 }, async t => {
+  const c = prepareCandidate(t); c.build(); const kit = loadSceneKit(join(c.out, 'kit')), document = readMap(kit), exported = join(c.parent, 'export');
+  exportScene(kit, document, exported);
+  const staticRoot = await buildStudio({ output: join(c.parent, 'static') }), host = await startStudio({ root: join(exported, 'kit'), staticRoot });
+  t.after(() => host.close()); const { chromium } = dependency('playwright').require('playwright');
+  const browser = await chromium.launch({ headless: true, ...(process.env.SCENE_KIT_BROWSER_CHANNEL ? { channel: process.env.SCENE_KIT_BROWSER_CHANNEL } : {}),
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--explicitly-allowed-ports='+new URL(host.url).port] }); t.after(() => browser.close());
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1050 }, deviceScaleFactor: 1 }), errors = [], warnings = [], external = [];
+  page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); if (m.type() === 'warning') warnings.push(m.text()); });
+  await page.route('**/*', r => new URL(r.request().url()).origin === host.url ? r.continue() : (external.push(r.request().url()), r.abort()));
+  await page.goto(host.url); await page.waitForSelector('body[data-ready="true"]', { timeout: 60000 });
+  const state = () => page.evaluate(async () => (await fetch('/api/state')).json());
+  const initial = await state(); assert.equal(initial.terrainPreview, undefined); assert.ok(initial.kitMaterial); assert.equal(initial.scene.format, 'ai_scene_compiled_v4');
+  assert.equal(initial.modules.length, 754); await page.getByRole('button',{name:'画刷',exact:true}).click(); assert.equal(await page.locator('#palette button').count(), 1);assert.equal(await page.getByRole('button',{name:'地形画刷',exact:true}).count(),1);
+  assert.match(await page.locator('#appearance-note').innerText(), /保存和导出可保留/);
+  assert.match(await (await canvasField(page,'terrain-appearance')).innerText(), /资产包地形/);
+  assert.equal(await page.locator('vite-error-overlay,nextjs-portal').count(), 0);
+  await page.getByRole('checkbox', { name: '网格', exact: true }).uncheck();
+  await panCanvas(page,'ArrowRight');
+  const bounds = await page.locator('#minimap rect').last().evaluate(e => ({ x: +e.getAttribute('x'), y: +e.getAttribute('y'), width: +e.getAttribute('width'), height: +e.getAttribute('height') }));
+  const pixels = inspectPng(await scenePixels(page), { includePixels: true });
+  const x = Math.floor((1024 - bounds.x) / bounds.width * pixels.width), y = Math.floor((360 - bounds.y) / bounds.height * pixels.height), p = (y * pixels.width + x) * 4;
+  assert.ok(x >= 0 && x < pixels.width && y >= 0 && y < pixels.height);
+  assert.notDeepEqual([...pixels.rgba.subarray(p, p + 3)], [139, 118, 94], 'Curve must use the packaged body, not the untextured fallback');
+  assert.equal(pixels.rgba[p + 3], 255);
+  await (await canvasField(page,'curve-y')).fill('280'); await page.getByRole('button', { name: '应用曲线参数', exact: true }).click();
+  await page.waitForFunction(() => +document.body.dataset.revision === 1);
+  const changed = await state(); assert.equal(changed.document.curveTerrains[0].points[1].y, 280);
+  assert.deepEqual(changed.scene.terrainMaterial, initial.scene.terrainMaterial);
+  await page.getByRole('button', { name: '撤销', exact: true }).click(); await page.waitForFunction(() => +document.body.dataset.revision === 2);
+  assert.equal((await state()).scene.contentSha256, initial.scene.contentSha256);
+  const download = page.waitForEvent('download'); await page.locator('#download-menu>summary').click();await page.locator('#export-pack').click();
+  const zip = readFileSync(await (await download).path()), unzipRoot = join(c.parent, 'downloaded'); unpackStored(zip, unzipRoot);
+  assert.deepEqual(openSceneExport(unzipRoot).compiled, initial.scene);
+  assert.equal((await state()).revision, 2);
+   await page.getByRole('button', { name: 'Play Mode', exact: true }).click();
+  const directory = process.env.SCENE_KIT_SCREENSHOTS;
+  if (directory) { mkdirSync(directory, { recursive: true }); await page.screenshot({ path: join(directory, 'candidate-portable-desktop.png'), fullPage: true }); }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(() => document.querySelector('canvas').width === Math.round(document.getElementById('canvas-host').clientWidth));
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  if (directory) await page.screenshot({ path: join(directory, 'candidate-portable-mobile.png'), fullPage: true });
+  assert.deepEqual(errors, []); assert.deepEqual(external, []);
+  assert.ok(warnings.every(m => /ReadPixels|GPU stall|deprecated|powerPreference/i.test(m)), warnings.join('\n'));
+});

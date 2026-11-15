@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_export_v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "ai_scene_export_v1"
+    },
+    "purpose": {
+      "const": "editable-map-export"
+    },
+    "kitEntry": {
+      "const": "kit/kit.json"
+    },
+    "document": {
+      "const": "scene.document.json"
+    },
+    "compiled": {
+      "const": "scene.compiled.json"
+    },
+    "sourceKitSha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "authorSha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "compiledSha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "files": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8192,
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "$ref": "common.schema.json#/$defs/path"
+          },
+          "sha256": {
+            "$ref": "common.schema.json#/$defs/sha256"
+          },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 67108864
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "byteLength"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "visualAcceptance": {
+      "const": "not-assessed"
+    },
+    "generationCalls": {
+      "const": 0
+    }
+  },
+  "required": [
+    "format",
+    "purpose",
+    "kitEntry",
+    "document",
+    "compiled",
+    "sourceKitSha256",
+    "authorSha256",
+    "compiledSha256",
+    "files",
+    "visualAcceptance",
+    "generationCalls"
+  ],
+  "additionalProperties": false
+}

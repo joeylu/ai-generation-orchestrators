@@ -1,0 +1,8 @@
+{
+  "planId": "forest.ruins.sky.source.r1",
+  "assetId": "sky.day",
+  "role": "sky-background",
+  "sourcePolicy": { "mode": "native-environment", "orientation": "landscape", "minimumWidth": 1024, "minimumHeight": 576, "maximumWidth": 4096, "maximumHeight": 4096 },
+  "derivation": { "pixelSize": { "width": 1024, "height": 576 }, "fit": "opaque-cover-center-no-upscale-v1", "repeatAxis": "none" },
+  "intent": "森林遗迹清爽手绘场景的独立白日天空。明亮浅蓝与少量柔和白云，留出大块清爽留白；只借用已接受参考图的画风和光照，不画山、树、遗迹、地面或道具。保留不透明原生 PNG，后续按冻结的中心覆盖裁取规则得到天空画层，另做人工作品审阅。"
+}

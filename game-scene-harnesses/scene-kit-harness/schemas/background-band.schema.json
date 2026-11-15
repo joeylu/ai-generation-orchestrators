@@ -1,0 +1,28 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"ai_scene_background_band_v1",
+  "type":"object",
+  "properties":{
+    "format":{"const":"ai_scene_background_band_v1"},"profile":{"const":"background-band-v1"},
+    "camera":{"type":"object","properties":{
+      "referenceCenterWorld":{"$ref":"#/$defs/point"},
+      "centerDomainWorld":{"type":"object","properties":{"minX":{"$ref":"#/$defs/coordinate"},"maxX":{"$ref":"#/$defs/coordinate"},"minY":{"$ref":"#/$defs/coordinate"},"maxY":{"$ref":"#/$defs/coordinate"}},"required":["minX","maxX","minY","maxY"],"additionalProperties":false},
+      "viewportWorld":{"$ref":"#/$defs/size"},
+      "modes":{"type":"array","minItems":1,"maxItems":2,"uniqueItems":true,"items":{"enum":["editor-unparallax","play-parallax"]}}
+    },"required":["referenceCenterWorld","centerDomainWorld","viewportWorld","modes"],"additionalProperties":false},
+    "parallax":{"type":"object","properties":{"x":{"type":"number","minimum":0,"maximum":2},"y":{"const":1}},"required":["x","y"],"additionalProperties":false},
+    "coverageFrameWorld":{"type":"object","properties":{"x":{"$ref":"#/$defs/coordinate"},"y":{"$ref":"#/$defs/coordinate"},"width":{"type":"integer","minimum":1,"maximum":32768},"height":{"type":"integer","minimum":1,"maximum":32768}},"required":["x","y","width","height"],"additionalProperties":false},
+    "edges":{"type":"object","properties":{
+      "top":{"type":"object","properties":{"purpose":{"const":"transparent-silhouette"}},"required":["purpose"],"additionalProperties":false},
+      "left":{"$ref":"#/$defs/overdraw"},"right":{"$ref":"#/$defs/overdraw"},"bottom":{"$ref":"#/$defs/overdraw"}
+    },"required":["top","left","right","bottom"],"additionalProperties":false},
+    "canvasAspect":{"type":"object","properties":{"numerator":{"type":"integer","minimum":1,"maximum":32768},"denominator":{"type":"integer","minimum":1,"maximum":32768}},"required":["numerator","denominator"],"additionalProperties":false}
+  },
+  "required":["format","profile","camera","parallax","coverageFrameWorld","edges","canvasAspect"],"additionalProperties":false,
+  "$defs":{
+    "coordinate":{"type":"number","minimum":-32768,"maximum":32768},
+    "point":{"type":"object","properties":{"x":{"$ref":"#/$defs/coordinate"},"y":{"$ref":"#/$defs/coordinate"}},"required":["x","y"],"additionalProperties":false},
+    "size":{"type":"object","properties":{"width":{"type":"integer","minimum":1,"maximum":16384},"height":{"type":"integer","minimum":1,"maximum":16384}},"required":["width","height"],"additionalProperties":false},
+    "overdraw":{"type":"object","properties":{"purpose":{"const":"camera-overdraw"}},"required":["purpose"],"additionalProperties":false}
+  }
+}

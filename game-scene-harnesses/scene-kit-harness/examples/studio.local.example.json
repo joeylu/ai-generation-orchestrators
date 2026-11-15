@@ -1,0 +1,17 @@
+{
+  "format": "ai_scene_studio_local_config_v1",
+  "releaseCommit": "0000000000000000000000000000000000000000",
+  "port": 4176,
+  "projectName": "Scene project",
+  "projectId": "00000000-0000-0000-0000-000000000000",
+  "kit": "samples/example/delivery/candidate/kit",
+  "map": "samples/example/delivery/export/scene.document.json",
+  "workspace": "projects/example/workspace",
+  "style": "projects/example/style.json",
+  "environmentExchange": "projects/example/environment",
+  "animationExchange": "projects/example/animation",
+  "privateWorkspace": "projects/example/private",
+  "codexExecutable": "tools/codex/codex.exe",
+  "codexSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "codeModeHostSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}

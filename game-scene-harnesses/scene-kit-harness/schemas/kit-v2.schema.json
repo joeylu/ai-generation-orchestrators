@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ai_scene_kit_v2",
+  "type": "object",
+  "properties": {
+    "format": { "const": "ai_scene_kit_v2" },
+    "kitId": { "$ref": "kit.schema.json#/properties/kitId" },
+    "revision": { "$ref": "kit.schema.json#/properties/revision" },
+    "profile": { "$ref": "kit.schema.json#/properties/profile" },
+    "purpose": { "const": "art-candidate" },
+    "grid": { "$ref": "kit.schema.json#/properties/grid" },
+    "pixelsPerUnit": { "$ref": "kit.schema.json#/properties/pixelsPerUnit" },
+    "files": { "$ref": "kit.schema.json#/properties/files" },
+    "terrainAppearance": {
+      "type": "object",
+      "properties": {
+        "format": { "const": "ai_scene_continuous_terrain_appearance_v1" },
+        "selection": { "const": "world-cell-4x4-phase-order-v1" },
+        "profileSha256": { "const": "0dd312b655e2581b455b90a77649eefbd080bc15e3b6fee85683058e047795e8" },
+        "sourceSha256": { "$ref": "common.schema.json#/$defs/sha256" },
+        "studySha256": { "$ref": "common.schema.json#/$defs/sha256" },
+        "body": { "$ref": "#/$defs/material" },
+        "cap": { "$ref": "#/$defs/material" },
+        "visualAcceptance": { "const": "not-assessed" }
+      },
+      "required": ["format", "selection", "profileSha256", "sourceSha256", "studySha256", "body", "cap", "visualAcceptance"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "material": {
+      "type": "object",
+      "properties": {
+        "source": { "$ref": "module-catalog.schema.json#/properties/modules/items/properties/source" },
+        "pixelSize": { "$ref": "common.schema.json#/$defs/size" }
+      },
+      "required": ["source", "pixelSize"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["format", "kitId", "revision", "profile", "purpose", "grid", "pixelsPerUnit", "files", "terrainAppearance"],
+  "additionalProperties": false
+}
